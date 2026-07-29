@@ -14,6 +14,7 @@ import '../widgets/hrm/hrm_settings_mobile_kit.dart';
 import '../widgets/loading_widget.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/notification_overlay.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 class AllowanceSettingsScreen extends StatefulWidget {
   const AllowanceSettingsScreen({super.key});
 
@@ -55,7 +56,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
       if (mounted) {
         appNotification.showError(
           title: 'Lỗi',
-          message: 'Không thể tải danh sách phụ cấp. Vui lòng thử lại.',
+          message: tr('Không thể tải danh sách phụ cấp. Vui lòng thử lại.'),
         );
       }
       setState(() {
@@ -155,31 +156,31 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
               )
             else ...[
                 IconButton(
-                  tooltip: 'Thêm phụ cấp',
+                  tooltip: tr('Thêm phụ cấp'),
                   icon: const Icon(Icons.add_circle_outline,
                       color: HrmPageChrome.primaryNavy),
                   onPressed: () => _showAllowanceDialog(),
                 ),
                 PopupMenuButton<String>(
-                  tooltip: 'Thêm thao tác',
+                  tooltip: tr('Thêm thao tác'),
                   icon: const Icon(Icons.more_vert, color: Color(0xFF71717A)),
                   onSelected: (value) {
                     if (value == 'export') {
                       appNotification.showInfo(
                           title: 'Xuất dữ liệu',
-                          message: 'Tính năng đang phát triển');
+                          message: tr('Tính năng đang phát triển'));
                     } else if (value == 'refresh') {
                       _loadAllowances();
                     }
                   },
-                  itemBuilder: (_) => const [
+                  itemBuilder: (_) => [
                     PopupMenuItem(
                       value: 'refresh',
                       child: ListTile(
                         dense: true,
                         contentPadding: EdgeInsets.zero,
                         leading: Icon(Icons.refresh, size: 20),
-                        title: Text('Làm mới'),
+                        title: Text(tr('Làm mới')),
                       ),
                     ),
                     PopupMenuItem(
@@ -189,7 +190,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                         contentPadding: EdgeInsets.zero,
                         leading: Icon(Icons.download,
                             size: 20, color: Color(0xFFEF4444)),
-                        title: Text('Xuất dữ liệu'),
+                        title: Text(tr('Xuất dữ liệu')),
                       ),
                     ),
                   ],
@@ -202,7 +203,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                   child: OutlinedButton.icon(
                     onPressed: () => _showAllowanceDialog(),
                     icon: const Icon(Icons.add, size: 16),
-                    label: const Text('Thêm PC'),
+                    label: Text(tr('Thêm PC')),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: HrmPageChrome.primaryNavy,
                       side: const BorderSide(color: HrmPageChrome.primaryNavy),
@@ -219,10 +220,10 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                     onPressed: () {
                       appNotification.showInfo(
                           title: 'Xuất dữ liệu',
-                          message: 'Tính năng đang phát triển');
+                          message: tr('Tính năng đang phát triển'));
                     },
                     icon: const Icon(Icons.download, size: 16),
-                    label: const Text('Xuất'),
+                    label: Text(tr('Xuất')),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: const Color(0xFFEF4444),
                       side: const BorderSide(color: Color(0xFFEF4444)),
@@ -324,7 +325,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                                           color: Color(0xFF18181B),
                                           fontSize: 14),
                                       decoration: InputDecoration(
-                                        hintText: 'Tìm theo tên phụ cấp...',
+                                        hintText: tr('Tìm theo tên phụ cấp...'),
                                         hintStyle: const TextStyle(
                                             color: Color(0xFFA1A1AA),
                                             fontSize: 14),
@@ -404,17 +405,17 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                                               color: Color(0xFFFBBF24)),
                                         ),
                                       ),
-                                      items: const [
+                                      items: [
                                         DropdownMenuItem(
                                             value: 'all',
-                                            child: Text('Tất cả loại')),
+                                            child: Text(tr('Tất cả loại'))),
                                         DropdownMenuItem(
                                             value: '0',
                                             child:
-                                                Text('Cố định (theo tháng)')),
+                                                Text(tr('Cố định (theo tháng)'))),
                                         DropdownMenuItem(
                                             value: '1',
-                                            child: Text('Theo ngày')),
+                                            child: Text(tr('Theo ngày'))),
                                       ],
                                       onChanged: (value) => setState(
                                           () => _selectedType = value ?? 'all'),
@@ -427,7 +428,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                                   onPressed: _clearFilters,
                                   icon: const Icon(Icons.filter_alt_off,
                                       size: 18),
-                                  label: const Text('Xóa lọc'),
+                                  label: Text(tr('Xóa lọc')),
                                   style: OutlinedButton.styleFrom(
                                     foregroundColor: const Color(0xFF71717A),
                                     side: const BorderSide(
@@ -449,7 +450,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                                     style: const TextStyle(
                                         color: Color(0xFF18181B), fontSize: 14),
                                     decoration: InputDecoration(
-                                      hintText: 'Tìm theo tên phụ cấp...',
+                                      hintText: tr('Tìm theo tên phụ cấp...'),
                                       hintStyle: const TextStyle(
                                           color: Color(0xFFA1A1AA),
                                           fontSize: 14),
@@ -526,17 +527,16 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                                                   color: Color(0xFFFBBF24)),
                                             ),
                                           ),
-                                          items: const [
+                                          items: [
                                             DropdownMenuItem(
                                                 value: 'all',
-                                                child: Text('Tất cả loại')),
+                                                child: Text(tr('Tất cả loại'))),
                                             DropdownMenuItem(
                                                 value: '0',
-                                                child: Text(
-                                                    'Cố định (theo tháng)')),
+                                                child: Text(tr('Cố định (theo tháng)'))),
                                             DropdownMenuItem(
                                                 value: '1',
-                                                child: Text('Theo ngày')),
+                                                child: Text(tr('Theo ngày'))),
                                           ],
                                           onChanged: (value) => setState(() =>
                                               _selectedType = value ?? 'all'),
@@ -548,7 +548,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                                       onPressed: _clearFilters,
                                       icon: const Icon(Icons.filter_alt_off,
                                           size: 18),
-                                      label: const Text('Xóa lọc'),
+                                      label: Text(tr('Xóa lọc')),
                                       style: OutlinedButton.styleFrom(
                                         foregroundColor:
                                             const Color(0xFF71717A),
@@ -654,7 +654,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
     return TextField(
       style: const TextStyle(color: Color(0xFF18181B), fontSize: 14),
       decoration: InputDecoration(
-        hintText: 'Tìm theo tên phụ cấp...',
+        hintText: tr('Tìm theo tên phụ cấp...'),
         hintStyle: const TextStyle(color: Color(0xFFA1A1AA), fontSize: 14),
         prefixIcon:
             const Icon(Icons.search, color: Color(0xFFA1A1AA), size: 20),
@@ -705,9 +705,9 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
       },
       menuItems: [
         if (_perm.canEdit('Allowance'))
-          const PopupMenuItem(value: 'edit', child: Text('Xem / Sửa')),
+          PopupMenuItem(value: 'edit', child: Text(tr('Xem / Sửa'))),
         if (_perm.canDelete('Allowance'))
-          const PopupMenuItem(value: 'delete', child: Text('Xóa')),
+          PopupMenuItem(value: 'delete', child: Text(tr('Xóa'))),
       ],
       onLongPress: _perm.canDelete('Allowance')
           ? () => _deleteAllowance(allowance)
@@ -790,11 +790,11 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
       child: Row(
         children: [
           const SizedBox(width: 48),
-          Expanded(flex: 4, child: Text('Phụ cấp', style: style)),
-          Expanded(flex: 2, child: Text('Loại', style: style)),
-          Expanded(flex: 2, child: Text('Giá trị', style: style)),
-          SizedBox(width: 88, child: Text('Trạng thái', style: style)),
-          SizedBox(width: 88, child: Text('Thao tác', style: style)),
+          Expanded(flex: 4, child: Text(tr('Phụ cấp'), style: style)),
+          Expanded(flex: 2, child: Text(tr('Loại'), style: style)),
+          Expanded(flex: 2, child: Text(tr('Giá trị'), style: style)),
+          SizedBox(width: 88, child: Text(tr('Trạng thái'), style: style)),
+          SizedBox(width: 88, child: Text(tr('Thao tác'), style: style)),
         ],
       ),
     );
@@ -842,7 +842,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      allowance['name']?.toString() ?? '',
+                      tr(allowance['name']?.toString() ?? ''),
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
@@ -855,7 +855,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      code.isNotEmpty ? '$code · $empLabel' : empLabel,
+                      tr(code.isNotEmpty ? '$code · $empLabel' : empLabel),
                       style: const TextStyle(
                           fontSize: 11, color: Color(0xFF71717A)),
                       maxLines: 1,
@@ -873,7 +873,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                     const SizedBox(width: 4),
                     Flexible(
                       child: Text(
-                        meta.label,
+                        tr(meta.label),
                         style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w500,
@@ -887,8 +887,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
               ),
               Expanded(
                 flex: 2,
-                child: Text(
-                  '${_currencyFormat.format(amount)}đ',
+                child: Text(tr('${_currencyFormat.format(amount)}đ'),
                   style: const TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
@@ -912,7 +911,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text(
-                      isActive ? 'Bật' : 'Tắt',
+                      tr(isActive ? 'Bật' : 'Tắt'),
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
@@ -931,7 +930,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                   children: [
                     if (_perm.canEdit('Allowance'))
                       IconButton(
-                        tooltip: 'Sửa',
+                        tooltip: tr('Sửa'),
                         onPressed: () =>
                             _showAllowanceDialog(allowance: allowance),
                         icon: const Icon(Icons.edit_outlined, size: 18),
@@ -942,7 +941,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                       ),
                     if (_perm.canDelete('Allowance'))
                       IconButton(
-                        tooltip: 'Xóa',
+                        tooltip: tr('Xóa'),
                         onPressed: () => _deleteAllowance(allowance),
                         icon: const Icon(Icons.delete_outline, size: 18),
                         color: const Color(0xFFEF4444),
@@ -1012,7 +1011,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                       children: [
                         Expanded(
                           child: Text(
-                            allowance['name'] ?? '',
+                            tr(allowance['name'] ?? ''),
                             style: const TextStyle(
                                 fontSize: 15,
                                 fontWeight: FontWeight.w600,
@@ -1032,7 +1031,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: Text(
-                            isActive ? 'Bật' : 'Tắt',
+                            tr(isActive ? 'Bật' : 'Tắt'),
                             style: TextStyle(
                                 color: isActive
                                     ? const Color(0xFF16A34A)
@@ -1049,7 +1048,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                         Icon(typeIcon, size: 12, color: typeColor),
                         const SizedBox(width: 4),
                         Text(
-                          typeLabel,
+                          tr(typeLabel),
                           style: TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.w500,
@@ -1060,8 +1059,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                             size: 12, color: Color(0xFF71717A)),
                         const SizedBox(width: 3),
                         Flexible(
-                          child: Text(
-                            '${_currencyFormat.format(amount)}đ',
+                          child: Text(tr('${_currencyFormat.format(amount)}đ'),
                             style: const TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w600,
@@ -1079,20 +1077,20 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                             size: 11, color: Colors.grey[500]),
                         const SizedBox(width: 3),
                         Text(
-                          empIds.isEmpty
+                          tr(empIds.isEmpty
                               ? 'Tất cả nhân viên'
-                              : '${empIds.length} nhân viên',
+                              : '${empIds.length} nhân viên'),
                           style:
                               TextStyle(fontSize: 11, color: Colors.grey[600]),
                         ),
                         if (allowance['code'] != null &&
                             allowance['code'].toString().isNotEmpty) ...[
                           const SizedBox(width: 8),
-                          Text('·', style: TextStyle(color: Colors.grey[400])),
+                          Text(tr('·'), style: TextStyle(color: Colors.grey[400])),
                           const SizedBox(width: 8),
                           Flexible(
                             child: Text(
-                              allowance['code'].toString(),
+                              tr(allowance['code'].toString()),
                               style: TextStyle(
                                   fontSize: 11,
                                   color: Colors.grey[600],
@@ -1116,7 +1114,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                                 onPressed: () => _showAllowanceDialog(
                                     allowance: allowance),
                                 icon: const Icon(Icons.edit_outlined, size: 14),
-                                label: const Text('Xem / Sửa',
+                                label: Text(tr('Xem / Sửa'),
                                     style: TextStyle(fontSize: 12)),
                                 style: OutlinedButton.styleFrom(
                                   foregroundColor: HrmPageChrome.primaryNavy,
@@ -1138,7 +1136,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                               onPressed: () => _deleteAllowance(allowance),
                               icon:
                                   const Icon(Icons.delete_outline, size: 14),
-                              label: const Text('Xoá',
+                              label: Text(tr('Xoá'),
                                   style: TextStyle(fontSize: 12)),
                               style: OutlinedButton.styleFrom(
                                 foregroundColor: const Color(0xFFEF4444),
@@ -1234,7 +1232,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                           children: [
                             Expanded(
                               child: Text(
-                                allowance['name'] ?? '',
+                                tr(allowance['name'] ?? ''),
                                 style: const TextStyle(
                                   color: Color(0xFF18181B),
                                   fontSize: 16,
@@ -1253,7 +1251,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                                 borderRadius: BorderRadius.circular(4),
                               ),
                               child: Text(
-                                isActive ? 'Đang bật' : 'Đã tắt',
+                                tr(isActive ? 'Đang bật' : 'Đã tắt'),
                                 style: TextStyle(
                                   color: isActive
                                       ? const Color(0xFF16A34A)
@@ -1276,8 +1274,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                                   .withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(4),
                             ),
-                            child: Text(
-                              'Mã: ${allowance['code']}',
+                            child: Text(tr('${tr('Mã: ')}${allowance['code']}'),
                               style: const TextStyle(
                                 color: HrmPageChrome.primaryNavy,
                                 fontSize: 10,
@@ -1304,7 +1301,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                   ),
                   const SizedBox(width: 4),
                   Text(
-                    typeLabel,
+                    tr(typeLabel),
                     style: const TextStyle(
                       color: Color(0xFF71717A),
                       fontSize: 12,
@@ -1314,7 +1311,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                   Icon(Icons.people, size: 13, color: Colors.grey[400]),
                   const SizedBox(width: 3),
                   Text(
-                    empIds.isEmpty ? 'Tất cả' : '${empIds.length} NV',
+                    tr(empIds.isEmpty ? 'Tất cả' : '${empIds.length} NV'),
                     style:
                         const TextStyle(color: Color(0xFF71717A), fontSize: 11),
                   ),
@@ -1325,8 +1322,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
             // Amount
             Expanded(
               child: Center(
-                child: Text(
-                  '${_currencyFormat.format(amount)} đ',
+                child: Text(tr('${_currencyFormat.format(amount)} đ'),
                   style: TextStyle(
                     color: isActive
                         ? HrmPageChrome.primaryNavy
@@ -1355,14 +1351,14 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                           _showAllowanceDialog(allowance: allowance),
                       icon: const Icon(Icons.edit_outlined, size: 20),
                       color: const Color(0xFF71717A),
-                      tooltip: 'Sửa',
+                      tooltip: tr('Sửa'),
                     ),
                   if (_perm.canDelete('Allowance'))
                     IconButton(
                       onPressed: () => _deleteAllowance(allowance),
                       icon: const Icon(Icons.delete_outline, size: 20),
                       color: const Color(0xFF71717A),
-                      tooltip: 'Xóa',
+                      tooltip: tr('Xóa'),
                     ),
                 ],
               ),
@@ -1376,16 +1372,16 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
   void _showAllowanceDialog({Map<String, dynamic>? allowance}) {
     final isEditing = allowance != null;
     final nameController =
-        TextEditingController(text: allowance?['name'] ?? '');
+        TextEditingController(text: tr(allowance?['name'] ?? ''));
     final codeController =
-        TextEditingController(text: allowance?['code'] ?? '');
+        TextEditingController(text: tr(allowance?['code'] ?? ''));
     final descriptionController =
-        TextEditingController(text: allowance?['description'] ?? '');
+        TextEditingController(text: tr(allowance?['description'] ?? ''));
     // Khởi tạo bằng chuỗi đã format hàng nghìn để khớp với
     // ThousandSeparatorFormatter; tránh double "50000.0" bị strip dấu chấm
     // thành "500000" khi user gõ phím đầu tiên.
     final amountController = TextEditingController(
-      text: formatNumber(_parseAmount(allowance?['amount'])),
+      text: tr(formatNumber(_parseAmount(allowance?['amount']))),
     );
     int type = _parseType(allowance?['type']);
     bool isActive = allowance?['isActive'] ?? true;
@@ -1410,7 +1406,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
             if (nameController.text.isEmpty || amountController.text.isEmpty) {
               appNotification.showWarning(
                   title: 'Thiếu thông tin',
-                  message: 'Vui lòng điền tên và giá trị phụ cấp');
+                  message: tr('Vui lòng điền tên và giá trị phụ cấp'));
               return;
             }
 
@@ -1468,7 +1464,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
               }
             } catch (e) {
               if (mounted) {
-                appNotification.showError(title: 'Lỗi', message: 'Lỗi: $e');
+                appNotification.showError(title: 'Lỗi', message: tr('Lỗi: $e'));
               }
             }
           }
@@ -1477,7 +1473,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                isActive ? 'Đang bật' : 'Đã tắt',
+                tr(isActive ? 'Đang bật' : 'Đã tắt'),
                 style: TextStyle(
                   color: isActive
                       ? HrmPageChrome.primaryNavy
@@ -1507,12 +1503,12 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Row(
+                        Row(
                           children: [
-                            Text('Tên phụ cấp',
+                            Text(tr('Tên phụ cấp'),
                                 style: TextStyle(
                                     color: Color(0xFF71717A), fontSize: 13)),
-                            Text(' *',
+                            Text(tr(' *'),
                                 style: TextStyle(color: Color(0xFFEF4444))),
                           ],
                         ),
@@ -1522,7 +1518,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                           style: const TextStyle(
                               color: Color(0xFF18181B), fontSize: 14),
                           decoration: InputDecoration(
-                            hintText: 'Vd: Phụ cấp ăn trưa',
+                            hintText: tr('Vd: Phụ cấp ăn trưa'),
                             hintStyle: const TextStyle(
                                 color: Color(0xFFA1A1AA), fontSize: 13),
                             contentPadding: const EdgeInsets.symmetric(
@@ -1552,7 +1548,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('Mã phụ cấp',
+                        Text(tr('Mã phụ cấp'),
                             style: TextStyle(
                                 color: Color(0xFF71717A), fontSize: 13)),
                         const SizedBox(height: 6),
@@ -1561,7 +1557,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                           style: const TextStyle(
                               color: Color(0xFF18181B), fontSize: 14),
                           decoration: InputDecoration(
-                            hintText: 'Vd: PC_AT',
+                            hintText: tr('Vd: PC_AT'),
                             hintStyle: const TextStyle(
                                 color: Color(0xFFA1A1AA), fontSize: 13),
                             contentPadding: const EdgeInsets.symmetric(
@@ -1598,12 +1594,12 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Row(
+                        Row(
                           children: [
-                            Text('Loại phụ cấp',
+                            Text(tr('Loại phụ cấp'),
                                 style: TextStyle(
                                     color: Color(0xFF71717A), fontSize: 13)),
-                            Text(' *',
+                            Text(tr(' *'),
                                 style: TextStyle(color: Color(0xFFEF4444))),
                           ],
                         ),
@@ -1635,12 +1631,12 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                               dropdownColor: Colors.white,
                               style: const TextStyle(
                                   color: Color(0xFF18181B), fontSize: 14),
-                              items: const [
+                              items: [
                                 DropdownMenuItem(
                                     value: 0,
-                                    child: Text('Cố định (theo tháng)')),
+                                    child: Text(tr('Cố định (theo tháng)'))),
                                 DropdownMenuItem(
-                                    value: 1, child: Text('Theo ngày công')),
+                                    value: 1, child: Text(tr('Theo ngày công'))),
                               ],
                               onChanged: (value) {
                                 if (value == null) return;
@@ -1657,12 +1653,12 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Row(
+                        Row(
                           children: [
-                            Text('Giá trị (VNĐ)',
+                            Text(tr('Giá trị (VNĐ)'),
                                 style: TextStyle(
                                     color: Color(0xFF71717A), fontSize: 13)),
-                            Text(' *',
+                            Text(tr(' *'),
                                 style: TextStyle(color: Color(0xFFEF4444))),
                           ],
                         ),
@@ -1674,7 +1670,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                           style: const TextStyle(
                               color: Color(0xFF18181B), fontSize: 14),
                           decoration: InputDecoration(
-                            hintText: 'Vd: 500000',
+                            hintText: tr('Vd: 500000'),
                             hintStyle: const TextStyle(
                                 color: Color(0xFFA1A1AA), fontSize: 13),
                             contentPadding: const EdgeInsets.symmetric(
@@ -1711,7 +1707,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('Ngày bắt đầu',
+                        Text(tr('Ngày bắt đầu'),
                             style: TextStyle(
                                 color: Color(0xFF71717A), fontSize: 13)),
                         const SizedBox(height: 6),
@@ -1741,10 +1737,10 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                                     size: 16, color: Color(0xFF71717A)),
                                 const SizedBox(width: 8),
                                 Text(
-                                  startDate != null
+                                  tr(startDate != null
                                       ? DateFormat('dd/MM/yyyy')
                                           .format(startDate!)
-                                      : 'Không giới hạn',
+                                      : 'Không giới hạn'),
                                   style: TextStyle(
                                     color: startDate != null
                                         ? const Color(0xFF18181B)
@@ -1772,7 +1768,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('Ngày kết thúc',
+                        Text(tr('Ngày kết thúc'),
                             style: TextStyle(
                                 color: Color(0xFF71717A), fontSize: 13)),
                         const SizedBox(height: 6),
@@ -1803,10 +1799,10 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                                     size: 16, color: Color(0xFF71717A)),
                                 const SizedBox(width: 8),
                                 Text(
-                                  endDate != null
+                                  tr(endDate != null
                                       ? DateFormat('dd/MM/yyyy')
                                           .format(endDate!)
-                                      : 'Không giới hạn',
+                                      : 'Không giới hạn'),
                                   style: TextStyle(
                                     color: endDate != null
                                         ? const Color(0xFF18181B)
@@ -1837,7 +1833,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('Mô tả',
+                  Text(tr('Mô tả'),
                       style: TextStyle(color: Color(0xFF71717A), fontSize: 13)),
                   const SizedBox(height: 6),
                   TextField(
@@ -1846,7 +1842,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                     style:
                         const TextStyle(color: Color(0xFF18181B), fontSize: 14),
                     decoration: InputDecoration(
-                      hintText: 'Ghi chú về phụ cấp này...',
+                      hintText: tr('Ghi chú về phụ cấp này...'),
                       hintStyle: const TextStyle(
                           color: Color(0xFFA1A1AA), fontSize: 13),
                       contentPadding: const EdgeInsets.symmetric(
@@ -1884,7 +1880,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                           setDialogState(() => isTaxable = value ?? true),
                       activeColor: HrmPageChrome.primaryNavy,
                     ),
-                    const Text('Tính thuế TNCN',
+                    Text(tr('Tính thuế TNCN'),
                         style:
                             TextStyle(color: Color(0xFF18181B), fontSize: 14)),
                     const Spacer(),
@@ -1898,7 +1894,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: Text(
-                        isTaxable ? 'Có thuế' : 'Miễn thuế',
+                        tr(isTaxable ? 'Có thuế' : 'Miễn thuế'),
                         style: TextStyle(
                           color: isTaxable
                               ? const Color(0xFFD97706)
@@ -1928,7 +1924,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                           () => isInsuranceApplicable = value ?? false),
                       activeColor: HrmPageChrome.primaryNavy,
                     ),
-                    const Text('Tính bảo hiểm',
+                    Text(tr('Tính bảo hiểm'),
                         style:
                             TextStyle(color: Color(0xFF18181B), fontSize: 14)),
                     const Spacer(),
@@ -1942,7 +1938,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: Text(
-                        isInsuranceApplicable ? 'Có BH' : 'Miễn BH',
+                        tr(isInsuranceApplicable ? 'Có BH' : 'Miễn BH'),
                         style: TextStyle(
                           color: isInsuranceApplicable
                               ? const Color(0xFFD97706)
@@ -1972,7 +1968,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                         const Icon(Icons.people,
                             size: 18, color: Color(0xFF71717A)),
                         const SizedBox(width: 8),
-                        const Text('Áp dụng cho',
+                        Text(tr('Áp dụng cho'),
                             style: TextStyle(
                                 color: Color(0xFF18181B),
                                 fontSize: 14,
@@ -1988,9 +1984,9 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: Text(
-                            selectedEmployeeIds.isEmpty
+                            tr(selectedEmployeeIds.isEmpty
                                 ? 'Tất cả nhân viên'
-                                : '${selectedEmployeeIds.length} nhân viên',
+                                : '${selectedEmployeeIds.length} nhân viên'),
                             style: TextStyle(
                               color: selectedEmployeeIds.isEmpty
                                   ? const Color(0xFF16A34A)
@@ -2004,9 +2000,9 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      selectedEmployeeIds.isEmpty
+                      tr(selectedEmployeeIds.isEmpty
                           ? 'Phụ cấp này sẽ áp dụng cho tất cả nhân viên trong công ty'
-                          : 'Đã chọn ${selectedEmployeeIds.length} nhân viên cụ thể',
+                          : 'Đã chọn ${selectedEmployeeIds.length} nhân viên cụ thể'),
                       style: const TextStyle(
                           color: Color(0xFF71717A), fontSize: 12),
                     ),
@@ -2023,7 +2019,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                         );
                       },
                       icon: const Icon(Icons.person_add, size: 16),
-                      label: const Text('Chọn nhân viên'),
+                      label: Text(tr('Chọn nhân viên')),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: HrmPageChrome.primaryNavy,
                         side: const BorderSide(color: HrmPageChrome.primaryNavy),
@@ -2041,7 +2037,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
             return Dialog.fullscreen(
               child: Scaffold(
                 appBar: AppBar(
-                  title: Text(isEditing ? 'Sửa phụ cấp' : 'Thêm phụ cấp'),
+                  title: Text(tr(isEditing ? 'Sửa phụ cấp' : 'Thêm phụ cấp')),
                   leading: IconButton(
                       icon: const Icon(Icons.close),
                       onPressed: () => Navigator.pop(context)),
@@ -2051,7 +2047,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                     TextButton.icon(
                       onPressed: onSave,
                       icon: const Icon(Icons.save, size: 18),
-                      label: Text(isEditing ? 'Cập nhật' : 'Lưu'),
+                      label: Text(tr(isEditing ? 'Cập nhật' : 'Lưu')),
                     ),
                   ],
                 ),
@@ -2088,7 +2084,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                         Icon(isEditing ? Icons.edit : Icons.add_circle,
                             color: HrmPageChrome.primaryNavy, size: 22),
                         const SizedBox(width: 10),
-                        Text(isEditing ? 'Sửa phụ cấp' : 'Thêm phụ cấp',
+                        Text(tr(isEditing ? 'Sửa phụ cấp' : 'Thêm phụ cấp'),
                             style: const TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.bold,
@@ -2130,13 +2126,13 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                             shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(8)),
                           ),
-                          child: const Text('Hủy'),
+                          child: Text(tr('Hủy')),
                         ),
                         const SizedBox(width: 12),
                         FilledButton.icon(
                           onPressed: onSave,
                           icon: const Icon(Icons.save, size: 18),
-                          label: Text(isEditing ? 'Cập nhật' : 'Thêm phụ cấp'),
+                          label: Text(tr(isEditing ? 'Cập nhật' : 'Thêm phụ cấp')),
                           style: FilledButton.styleFrom(
                             backgroundColor: HrmPageChrome.primaryNavy,
                             padding: const EdgeInsets.symmetric(
@@ -2190,7 +2186,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
             child: TextField(
               style: const TextStyle(fontSize: 13, color: Color(0xFF18181B)),
               decoration: InputDecoration(
-                hintText: 'Tìm nhân viên...',
+                hintText: tr('Tìm nhân viên...'),
                 hintStyle:
                     const TextStyle(color: Color(0xFFA1A1AA), fontSize: 13),
                 prefixIcon: const Icon(Icons.search,
@@ -2235,7 +2231,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                       size: 20,
                       color: HrmPageChrome.primaryNavy),
                   const SizedBox(width: 10),
-                  Text('Chọn tất cả (${tempIds.length}/${_employees.length})',
+                  Text(tr('Chọn tất cả (${tempIds.length}/${_employees.length})'),
                       style: const TextStyle(
                           fontSize: 13, fontWeight: FontWeight.w500)),
                 ],
@@ -2288,7 +2284,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                           radius: 14,
                           backgroundColor: color.withValues(alpha: 0.15),
                           child: Text(
-                              (emp['fullName'] ?? emp['name'] ?? '?')[0],
+                              tr((emp['fullName'] ?? emp['name'] ?? '?')[0]),
                               style: TextStyle(
                                   fontSize: 11,
                                   fontWeight: FontWeight.bold,
@@ -2299,12 +2295,12 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(emp['fullName'] ?? emp['name'] ?? '',
+                              Text(tr(emp['fullName'] ?? emp['name'] ?? ''),
                                   style: const TextStyle(
                                       fontSize: 13,
                                       fontWeight: FontWeight.w500,
                                       color: Color(0xFF18181B))),
-                              Text(emp['employeeCode'] ?? '',
+                              Text(tr(emp['employeeCode'] ?? ''),
                                   style: const TextStyle(
                                       fontSize: 11, color: Color(0xFF71717A))),
                             ],
@@ -2322,14 +2318,14 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
             return Dialog.fullscreen(
               child: Scaffold(
                 appBar: AppBar(
-                  title: const Text('Chọn nhân viên'),
+                  title: Text(tr('Chọn nhân viên')),
                   leading: IconButton(
                       icon: const Icon(Icons.close),
                       onPressed: () => Navigator.pop(ctx)),
                   actions: [
                     TextButton(
                       onPressed: onConfirm,
-                      child: Text('Xác nhận (${tempIds.length})'),
+                      child: Text(tr('Xác nhận (${tempIds.length})')),
                     ),
                   ],
                 ),
@@ -2366,8 +2362,8 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                         const Icon(Icons.people,
                             color: HrmPageChrome.primaryNavy, size: 20),
                         const SizedBox(width: 8),
-                        const Expanded(
-                            child: Text('Chọn nhân viên',
+                        Expanded(
+                            child: Text(tr('Chọn nhân viên'),
                                 style: TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.bold,
@@ -2402,7 +2398,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                             shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(8)),
                           ),
-                          child: const Text('Tất cả NV'),
+                          child: Text(tr('Tất cả NV')),
                         ),
                         const SizedBox(width: 8),
                         OutlinedButton(
@@ -2413,7 +2409,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                             shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(8)),
                           ),
-                          child: const Text('Hủy'),
+                          child: Text(tr('Hủy')),
                         ),
                         const SizedBox(width: 12),
                         FilledButton(
@@ -2421,7 +2417,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                           style: FilledButton.styleFrom(
                             backgroundColor: HrmPageChrome.primaryNavy,
                           ),
-                          child: Text('Xác nhận (${tempIds.length})'),
+                          child: Text(tr('Xác nhận (${tempIds.length})')),
                         ),
                       ],
                     ),
@@ -2441,18 +2437,17 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
       builder: (context) => ScrollableAlertDialog(
         backgroundColor: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Xác nhận xóa',
+        title: Text(tr('Xác nhận xóa'),
             style: TextStyle(
                 color: Color(0xFF18181B), fontWeight: FontWeight.bold)),
-        content: Text(
-          'Bạn có chắc muốn xóa phụ cấp "${allowance['name']}"?',
+        content: Text(tr('${tr('Bạn có chắc muốn xóa phụ cấp "')}${allowance['name']}"?'),
           style: const TextStyle(color: Color(0xFF71717A)),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
             child:
-                const Text('Hủy', style: TextStyle(color: Color(0xFF71717A))),
+                Text(tr('Hủy'), style: TextStyle(color: Color(0xFF71717A))),
           ),
           FilledButton(
             onPressed: () async {
@@ -2464,26 +2459,26 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                 if (mounted) {
                   if (response['isSuccess'] == true) {
                     appNotification.showSuccess(
-                        title: 'Thành công', message: 'Đã xóa phụ cấp');
+                        title: 'Thành công', message: tr('Đã xóa phụ cấp'));
                   } else if (response['isSuccess'] == false) {
                     appNotification.showError(
                         title: 'Lỗi',
                         message: response['message'] ?? 'Lỗi khi xóa phụ cấp');
                   } else {
                     appNotification.showSuccess(
-                        title: 'Thành công', message: 'Đã xóa phụ cấp');
+                        title: 'Thành công', message: tr('Đã xóa phụ cấp'));
                   }
                 }
               } catch (e) {
                 if (mounted) {
-                  appNotification.showError(title: 'Lỗi', message: 'Lỗi: $e');
+                  appNotification.showError(title: 'Lỗi', message: tr('Lỗi: $e'));
                 }
               }
             },
             style: FilledButton.styleFrom(
               backgroundColor: const Color(0xFFEF4444),
             ),
-            child: const Text('Xóa'),
+            child: Text(tr('Xóa')),
           ),
         ],
       ),

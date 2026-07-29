@@ -20,6 +20,7 @@ import '../widgets/hrm_page_chrome.dart';
 import '../widgets/hrm_responsive_list_layout.dart';
 import '../widgets/app_responsive_dialog.dart';
 import '../utils/responsive_helper.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 // Hàm chuyển đổi tiếng Việt có dấu sang không dấu
 String removeVietnameseAccents(String str) {
@@ -274,14 +275,14 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
     final selectedDevice = await showDialog<Device>(
       context: context,
       builder: (context) => ScrollableAlertDialog(
-        title: Text(_l10n.selectDevice),
+        title: Text(tr(_l10n.selectDevice)),
         content: SizedBox(
           width:
               math.min(400, MediaQuery.of(context).size.width - 32).toDouble(),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text('Chọn máy để tải danh sách nhân viên:'),
+              Text(tr('Chọn máy để tải danh sách nhân viên:')),
               const SizedBox(height: 16),
               ..._devices.map((device) {
                 final isOnline = _isDeviceOnline(device.lastOnline);
@@ -290,8 +291,8 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                     Icons.router,
                     color: isOnline ? Colors.green : Colors.grey,
                   ),
-                  title: Text(device.deviceName),
-                  subtitle: Text('SN: ${device.serialNumber}'),
+                  title: Text(tr(device.deviceName)),
+                  subtitle: Text(tr('SN: ${device.serialNumber}')),
                   trailing: Container(
                     padding:
                         const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -302,7 +303,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
-                      isOnline ? 'Online' : 'Offline',
+                      tr(isOnline ? 'Online' : 'Offline'),
                       style: TextStyle(
                         color: isOnline ? Colors.green : Colors.grey,
                         fontSize: 11,
@@ -318,7 +319,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text(_l10n.cancel),
+            child: Text(tr(_l10n.cancel)),
           ),
         ],
       ),
@@ -331,12 +332,12 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => const ScrollableAlertDialog(
+      builder: (context) => ScrollableAlertDialog(
         content: Row(
           children: [
             CircularProgressIndicator(),
             SizedBox(width: 16),
-            Text('Đang gửi lệnh tải nhân viên từ máy...'),
+            Text(tr('Đang gửi lệnh tải nhân viên từ máy...')),
           ],
         ),
       ),
@@ -432,11 +433,11 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                 }).toList();
 
           return ScrollableAlertDialog(
-            title: const Row(
+            title: Row(
               children: [
                 Icon(Icons.upload, color: Colors.teal),
                 SizedBox(width: 8),
-                Text('Tải hồ sơ nhân sự xuống máy'),
+                Text(tr('Tải hồ sơ nhân sự xuống máy')),
               ],
             ),
             content: SizedBox(
@@ -449,8 +450,8 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                 children: [
                   // Device selector
                   DropdownButtonFormField<Device>(
-                    decoration: const InputDecoration(
-                      labelText: 'Chọn thiết bị *',
+                    decoration: InputDecoration(
+                      labelText: tr('Chọn thiết bị *'),
                       prefixIcon: Icon(Icons.devices),
                       border: OutlineInputBorder(),
                     ),
@@ -464,7 +465,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                                 size: 10,
                                 color: online ? Colors.green : Colors.grey),
                             const SizedBox(width: 8),
-                            Text('${d.deviceName} (${d.serialNumber})'),
+                            Text(tr('${d.deviceName} (${d.serialNumber})')),
                           ],
                         ),
                       );
@@ -492,11 +493,11 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            selectedDevice == null
+                            tr(selectedDevice == null
                                 ? 'Vui lòng chọn thiết bị để xem nhân viên'
                                 : '${unlinkedEmployees.length} nhân viên chưa liên kết máy. '
                                     'PIN trên máy ≤ 8 số: dùng mã NV nếu ngắn; '
-                                    'nếu mã/SĐT dài sẽ lấy đuôi 6–8 số hoặc tự cấp số mới (không trùng).',
+                                    'nếu mã/SĐT dài sẽ lấy đuôi 6–8 số hoặc tự cấp số mới (không trùng).'),
                             style: const TextStyle(
                                 fontSize: 12, color: Colors.blue),
                           ),
@@ -508,8 +509,8 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
 
                   // Search
                   TextField(
-                    decoration: const InputDecoration(
-                      hintText: 'Tìm nhân viên...',
+                    decoration: InputDecoration(
+                      hintText: tr('Tìm nhân viên...'),
                       prefixIcon: Icon(Icons.search),
                       border: OutlineInputBorder(),
                       isDense: true,
@@ -534,8 +535,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                           });
                         },
                       ),
-                      Text(
-                          'Chọn tất cả (${selectedEmployees.length}/${displayEmployees.length})'),
+                      Text(tr('Chọn tất cả (${selectedEmployees.length}/${displayEmployees.length})')),
                     ],
                   ),
                   const Divider(height: 24),
@@ -545,9 +545,9 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                     child: displayEmployees.isEmpty
                         ? Center(
                             child: Text(
-                            selectedDevice == null
+                            tr(selectedDevice == null
                                 ? 'Chọn thiết bị để xem danh sách nhân viên'
-                                : 'Tất cả nhân viên đã có trên máy chấm công',
+                                : 'Tất cả nhân viên đã có trên máy chấm công'),
                           ))
                         : ListView.builder(
                             itemCount: displayEmployees.length,
@@ -577,17 +577,17 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                                   backgroundColor: Colors.grey[200],
                                   child: emp.avatarUrl == null
                                       ? Text(
-                                          emp.firstName.isNotEmpty
+                                          tr(emp.firstName.isNotEmpty
                                               ? emp.firstName[0].toUpperCase()
-                                              : '?',
+                                              : '?'),
                                           style: TextStyle(
                                               color: Colors.grey[600]))
                                       : null,
                                 ),
-                                title: Text(emp.fullName,
+                                title: Text(tr(emp.fullName),
                                     style: const TextStyle(fontSize: 14)),
                                 subtitle: Text(
-                                  '${emp.employeeCode}${emp.department != null ? ' • ${emp.department}' : ''}',
+                                  tr('${emp.employeeCode}${emp.department != null ? ' • ${emp.department}' : ''}'),
                                   style: TextStyle(
                                       fontSize: 12, color: Colors.grey[600]),
                                 ),
@@ -626,8 +626,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
             const CircularProgressIndicator(),
             const SizedBox(width: 16),
             Expanded(
-                child: Text(
-                    'Đang tải ${selectedEmployees.length} nhân viên xuống máy...')),
+                child: Text(tr('Đang tải ${selectedEmployees.length} nhân viên xuống máy...'))),
           ],
         ),
       ),
@@ -692,7 +691,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
         showDialog(
           context: context,
           builder: (context) => ScrollableAlertDialog(
-            title: const Text('Nhân viên tải thất bại'),
+            title: Text(tr('Nhân viên tải thất bại')),
             content: SizedBox(
               width: math
                   .min(400, MediaQuery.of(context).size.width - 32)
@@ -703,7 +702,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                     .map((n) => ListTile(
                           leading: const Icon(Icons.error,
                               color: Colors.red, size: 18),
-                          title: Text(n, style: const TextStyle(fontSize: 13)),
+                          title: Text(tr(n), style: const TextStyle(fontSize: 13)),
                         ))
                     .toList(),
               ),
@@ -711,7 +710,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
             actions: [
               TextButton(
                   onPressed: () => Navigator.pop(context),
-                  child: const Text('Đóng')),
+                  child: Text(tr('Đóng'))),
             ],
           ),
         );
@@ -888,15 +887,14 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                _l10n.deviceUsers,
+                                tr(_l10n.deviceUsers),
                                 style: const TextStyle(
                                     fontSize: 20,
                                     fontWeight: FontWeight.bold,
                                     color: Colors.white),
                                 overflow: TextOverflow.ellipsis,
                               ),
-                              Text(
-                                '${_filteredUsers.length} nhân viên · ${_devices.length} thiết bị',
+                              Text(tr('${_filteredUsers.length} nhân viên · ${_devices.length} thiết bị'),
                                 style: TextStyle(
                                     fontSize: 12,
                                     color: Colors.white.withValues(alpha: 0.8)),
@@ -1003,7 +1001,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
             children: [
               Icon(icon, size: 15, color: Colors.white),
               const SizedBox(width: 5),
-              Text(label,
+              Text(tr(label),
                   style: const TextStyle(
                       fontSize: 11,
                       color: Colors.white,
@@ -1056,12 +1054,12 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                 child: Icon(icon, size: 16, color: color),
               ),
               const SizedBox(height: 4),
-              Text(value,
+              Text(tr(value),
                   style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.bold,
                       color: color)),
-              Text(label,
+              Text(tr(label),
                   style: TextStyle(
                       fontSize: 10,
                       color: isSelected ? color : const Color(0xFFA1A1AA),
@@ -1094,8 +1092,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                     size: 16, color: HrmPageChrome.primaryNavy),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: Text(
-                    'Đang lọc: $_overviewFilterLabel · ${_filteredUsers.length} user',
+                  child: Text(tr('Đang lọc: $_overviewFilterLabel · ${_filteredUsers.length} user'),
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
@@ -1103,8 +1100,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                     ),
                   ),
                 ),
-                Text(
-                  'Bỏ lọc',
+                Text(tr('Bỏ lọc'),
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
@@ -1165,7 +1161,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                               Icon(Icons.devices,
                                   size: 14, color: Colors.grey[500]),
                               const SizedBox(width: 6),
-                              Text(_l10n.allDevices),
+                              Text(tr(_l10n.allDevices)),
                             ],
                           ),
                         ),
@@ -1181,7 +1177,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                                   const SizedBox(width: 6),
                                   Expanded(
                                       child: Text(
-                                          '${d.deviceName} (${d.serialNumber})',
+                                          tr('${d.deviceName} (${d.serialNumber})'),
                                           overflow: TextOverflow.ellipsis)),
                                 ],
                               ),
@@ -1195,7 +1191,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                                 color: Theme.of(context).primaryColor),
                             const SizedBox(width: 6),
                             Expanded(
-                                child: Text(_l10n.allDevices,
+                                child: Text(tr(_l10n.allDevices),
                                     overflow: TextOverflow.ellipsis,
                                     style: const TextStyle(fontSize: 13))),
                           ],
@@ -1210,7 +1206,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                                 const SizedBox(width: 6),
                                 Expanded(
                                     child: Text(
-                                        '${d.deviceName} (${d.serialNumber})',
+                                        tr('${d.deviceName} (${d.serialNumber})'),
                                         overflow: TextOverflow.ellipsis,
                                         style: const TextStyle(fontSize: 13))),
                               ],
@@ -1237,7 +1233,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                         child: TextField(
                           style: const TextStyle(fontSize: 13),
                           decoration: InputDecoration(
-                            hintText: _l10n.search,
+                            hintText: tr(_l10n.search),
                             hintStyle: const TextStyle(
                                 fontSize: 13, color: Color(0xFFA1A1AA)),
                             prefixIcon: const Icon(Icons.search,
@@ -1275,7 +1271,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                               color: Theme.of(context).primaryColor, size: 16),
                           const SizedBox(width: 4),
                           Text(
-                            '${_filteredUsers.length}',
+                            tr('${_filteredUsers.length}'),
                             style: TextStyle(
                               color: Theme.of(context).primaryColor,
                               fontSize: 12,
@@ -1318,7 +1314,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                               Icon(Icons.devices,
                                   size: 14, color: Colors.grey[500]),
                               const SizedBox(width: 6),
-                              Text(_l10n.allDevices),
+                              Text(tr(_l10n.allDevices)),
                             ],
                           ),
                         ),
@@ -1334,7 +1330,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                                   const SizedBox(width: 6),
                                   Expanded(
                                       child: Text(
-                                          '${d.deviceName} (${d.serialNumber})',
+                                          tr('${d.deviceName} (${d.serialNumber})'),
                                           overflow: TextOverflow.ellipsis)),
                                 ],
                               ),
@@ -1348,7 +1344,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                                 color: Theme.of(context).primaryColor),
                             const SizedBox(width: 6),
                             Expanded(
-                                child: Text(_l10n.allDevices,
+                                child: Text(tr(_l10n.allDevices),
                                     overflow: TextOverflow.ellipsis,
                                     style: const TextStyle(fontSize: 13))),
                           ],
@@ -1363,7 +1359,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                                 const SizedBox(width: 6),
                                 Expanded(
                                     child: Text(
-                                        '${d.deviceName} (${d.serialNumber})',
+                                        tr('${d.deviceName} (${d.serialNumber})'),
                                         overflow: TextOverflow.ellipsis,
                                         style: const TextStyle(fontSize: 13))),
                               ],
@@ -1391,7 +1387,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                   child: TextField(
                     style: const TextStyle(fontSize: 13),
                     decoration: InputDecoration(
-                      hintText: _l10n.search,
+                      hintText: tr(_l10n.search),
                       hintStyle: const TextStyle(
                           fontSize: 13, color: Color(0xFFA1A1AA)),
                       prefixIcon: const Icon(Icons.search,
@@ -1425,7 +1421,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                         color: Theme.of(context).primaryColor, size: 16),
                     const SizedBox(width: 6),
                     Text(
-                      '${_filteredUsers.length} user',
+                      tr('${_filteredUsers.length} user'),
                       style: TextStyle(
                         color: Theme.of(context).primaryColor,
                         fontSize: 12,
@@ -1461,7 +1457,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                 Icon(Icons.analytics_outlined,
                     size: 16, color: Colors.blue.shade700),
                 const SizedBox(width: 6),
-                Text('Tổng quan',
+                Text(tr('Tổng quan'),
                     style: TextStyle(
                         fontWeight: FontWeight.w600,
                         fontSize: 13,
@@ -1569,7 +1565,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
 
   Widget _buildUsersListDesktopBody() {
     if (_isLoading) {
-      return const LoadingWidget(message: 'Đang tải...');
+      return LoadingWidget(message: tr('Đang tải...'));
     }
     if (_devices.isEmpty) {
       return const EmptyState(
@@ -1622,7 +1618,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
     if (_isLoading) {
       return [
         HrmScrollSlivers.fillRemaining(
-            child: const LoadingWidget(message: 'Đang tải...')),
+            child: LoadingWidget(message: tr('Đang tải...'))),
       ];
     }
     if (_devices.isEmpty) {
@@ -1739,17 +1735,9 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                               dataRowMinHeight: 42,
                               dataRowMaxHeight: 48,
                               columns: [
-                                const DataColumn(
+                                DataColumn(
                                     label: Expanded(
-                                        child: Text('Photo',
-                                            textAlign: TextAlign.center,
-                                            style: TextStyle(
-                                                fontWeight: FontWeight.w600,
-                                                fontSize: 13,
-                                                color: Color(0xFF71717A))))),
-                                const DataColumn(
-                                    label: Expanded(
-                                        child: Text('ID',
+                                        child: Text(tr('Photo'),
                                             textAlign: TextAlign.center,
                                             style: TextStyle(
                                                 fontWeight: FontWeight.w600,
@@ -1757,7 +1745,15 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                                                 color: Color(0xFF71717A))))),
                                 DataColumn(
                                     label: Expanded(
-                                        child: Text(_l10n.privilege,
+                                        child: Text(tr('ID'),
+                                            textAlign: TextAlign.center,
+                                            style: TextStyle(
+                                                fontWeight: FontWeight.w600,
+                                                fontSize: 13,
+                                                color: Color(0xFF71717A))))),
+                                DataColumn(
+                                    label: Expanded(
+                                        child: Text(tr(_l10n.privilege),
                                             textAlign: TextAlign.center,
                                             style: const TextStyle(
                                                 fontWeight: FontWeight.w600,
@@ -1765,7 +1761,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                                                 color: Color(0xFF71717A))))),
                                 DataColumn(
                                     label: Expanded(
-                                        child: Text(_l10n.deviceName,
+                                        child: Text(tr(_l10n.deviceName),
                                             textAlign: TextAlign.center,
                                             style: const TextStyle(
                                                 fontWeight: FontWeight.w600,
@@ -1773,7 +1769,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                                                 color: Color(0xFF71717A))))),
                                 DataColumn(
                                     label: Expanded(
-                                        child: Text(_l10n.nameOnDevice,
+                                        child: Text(tr(_l10n.nameOnDevice),
                                             textAlign: TextAlign.center,
                                             style: const TextStyle(
                                                 fontWeight: FontWeight.w600,
@@ -1781,7 +1777,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                                                 color: Color(0xFF71717A))))),
                                 DataColumn(
                                     label: Expanded(
-                                        child: Text(_l10n.employeeName,
+                                        child: Text(tr(_l10n.employeeName),
                                             textAlign: TextAlign.center,
                                             style: const TextStyle(
                                                 fontWeight: FontWeight.w600,
@@ -1789,7 +1785,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                                                 color: Color(0xFF71717A))))),
                                 DataColumn(
                                     label: Expanded(
-                                        child: Text(_l10n.password,
+                                        child: Text(tr(_l10n.password),
                                             textAlign: TextAlign.center,
                                             style: const TextStyle(
                                                 fontWeight: FontWeight.w600,
@@ -1797,15 +1793,15 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                                                 color: Color(0xFF71717A))))),
                                 DataColumn(
                                     label: Expanded(
-                                        child: Text(_l10n.cardCode,
+                                        child: Text(tr(_l10n.cardCode),
                                             textAlign: TextAlign.center,
                                             style: const TextStyle(
                                                 fontWeight: FontWeight.w600,
                                                 fontSize: 13,
                                                 color: Color(0xFF71717A))))),
-                                const DataColumn(
+                                DataColumn(
                                     label: Expanded(
-                                        child: Text('Vân tay',
+                                        child: Text(tr('Vân tay'),
                                             textAlign: TextAlign.center,
                                             style: TextStyle(
                                                 fontWeight: FontWeight.w600,
@@ -1909,9 +1905,9 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                       backgroundColor: Colors.grey[200],
                       child: avatarUrl == null
                           ? Text(
-                              user.name.isNotEmpty
+                              tr(user.name.isNotEmpty
                                   ? user.name[0].toUpperCase()
-                                  : '?',
+                                  : '?'),
                               style: TextStyle(
                                   color: Colors.grey[600],
                                   fontWeight: FontWeight.bold,
@@ -1928,7 +1924,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        user.name.isNotEmpty ? user.name : 'User ${user.pin}',
+                        tr(user.name.isNotEmpty ? user.name : 'User ${user.pin}'),
                         style: const TextStyle(
                             fontWeight: FontWeight.w600, fontSize: 14),
                         maxLines: 2,
@@ -1936,9 +1932,9 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                          [user.pin, user.deviceName ?? '']
+                          tr([user.pin, user.deviceName ?? '']
                               .where((s) => s.isNotEmpty)
-                              .join(' · '),
+                              .join(' · ')),
                           style: const TextStyle(
                               color: Color(0xFF71717A), fontSize: 12),
                           maxLines: 1,
@@ -1959,9 +1955,9 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                           const SizedBox(width: 4),
                           Expanded(
                             child: Text(
-                              user.employeeId != null
+                              tr(user.employeeId != null
                                   ? _getFullEmployeeName(user)
-                                  : (_l10n.notLinked),
+                                  : (_l10n.notLinked)),
                               style: TextStyle(
                                 fontSize: 12,
                                 color: user.employeeId != null
@@ -1986,7 +1982,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                                 ? const Color(0xFF16A34A)
                                 : const Color(0xFFD4D4D8)),
                         const SizedBox(width: 2),
-                        Text('MK',
+                        Text(tr('MK'),
                             style: TextStyle(
                                 fontSize: 10,
                                 color: user.password != null &&
@@ -2001,7 +1997,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                                 ? const Color(0xFF2563EB)
                                 : const Color(0xFFD4D4D8)),
                         const SizedBox(width: 2),
-                        Text('Thẻ',
+                        Text(tr('Thẻ'),
                             style: TextStyle(
                                 fontSize: 10,
                                 color: user.cardNumber != null &&
@@ -2015,7 +2011,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                                 ? const Color(0xFFEA580C)
                                 : const Color(0xFFD4D4D8)),
                         const SizedBox(width: 2),
-                        Text('${user.fingerprintCount} vân tay',
+                        Text(tr('${user.fingerprintCount} vân tay'),
                             style: TextStyle(
                                 fontSize: 10,
                                 color: user.fingerprintCount > 0
@@ -2056,7 +2052,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                 Icon(Icons.account_tree_outlined, size: 15, color: primary),
                 const SizedBox(width: 6),
                 Text(
-                  branchName,
+                  tr(branchName),
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.bold,
@@ -2072,7 +2068,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Text(
-                    '$count',
+                    tr('$count'),
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 11,
@@ -2122,7 +2118,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
           DataCell(Row(children: [
             Icon(Icons.account_tree_outlined, size: 14, color: primary),
             const SizedBox(width: 6),
-            Text(label,
+            Text(tr(label),
                 style: TextStyle(
                     fontWeight: FontWeight.bold, color: primary, fontSize: 13)),
             const SizedBox(width: 8),
@@ -2130,7 +2126,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
               decoration: BoxDecoration(
                   color: primary, borderRadius: BorderRadius.circular(9)),
-              child: Text('${group.length}',
+              child: Text(tr('${group.length}'),
                   style: const TextStyle(
                       color: Colors.white,
                       fontSize: 11,
@@ -2162,30 +2158,30 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
               backgroundColor: Colors.grey[200],
               child: avatarUrl == null
                   ? Text(
-                      user.name.isNotEmpty ? user.name[0].toUpperCase() : '?',
+                      tr(user.name.isNotEmpty ? user.name[0].toUpperCase() : '?'),
                       style: TextStyle(
                           color: Colors.grey[600], fontWeight: FontWeight.bold))
                   : null,
             ),
           )),
-          DataCell(Center(child: Text(user.pin))),
+          DataCell(Center(child: Text(tr(user.pin)))),
           DataCell(Center(child: _buildPrivilegeChip(user.privilege))),
-          DataCell(Center(child: Text(user.deviceName ?? '-'))),
-          DataCell(Center(child: Text(user.name))),
+          DataCell(Center(child: Text(tr(user.deviceName ?? '-')))),
+          DataCell(Center(child: Text(tr(user.name)))),
           DataCell(Center(
             child: user.employeeName != null
                 ? Row(mainAxisSize: MainAxisSize.min, children: [
                     const Icon(Icons.link, size: 14, color: Colors.green),
                     const SizedBox(width: 4),
-                    Text(_getFullEmployeeName(user),
+                    Text(tr(_getFullEmployeeName(user)),
                         style: const TextStyle(color: Colors.green)),
                   ])
-                : const Text('-', style: TextStyle(color: Colors.grey)),
+                : Text(tr('-'), style: TextStyle(color: Colors.grey)),
           )),
-          DataCell(Center(child: Text(user.password ?? '-'))),
-          DataCell(Center(child: Text(user.cardNumber ?? '-'))),
+          DataCell(Center(child: Text(tr(user.password ?? '-')))),
+          DataCell(Center(child: Text(tr(user.cardNumber ?? '-')))),
           DataCell(Center(
-              child: Text('${user.fingerprintCount}',
+              child: Text(tr('${user.fingerprintCount}'),
                   style: TextStyle(
                       color: user.fingerprintCount > 0
                           ? const Color(0xFFEA580C)
@@ -2211,8 +2207,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
             color: const Color(0xFFF0FDF4),
             borderRadius: BorderRadius.circular(12),
           ),
-          child: Text(
-            'Hiển thị ${(_currentPage - 1) * _pageSize + 1}-${(_currentPage * _pageSize).clamp(0, totalItems)} / $totalItems',
+          child: Text(tr('Hiển thị ${(_currentPage - 1) * _pageSize + 1}-${(_currentPage * _pageSize).clamp(0, totalItems)} / $totalItems'),
             style: const TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w500,
@@ -2222,7 +2217,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
         final pageSizeSelector = Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('Hiển thị:',
+            Text(tr('Hiển thị:'),
                 style: TextStyle(fontSize: 12, color: Colors.grey[500])),
             const SizedBox(width: 8),
             Container(
@@ -2239,7 +2234,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                   isDense: true,
                   style: TextStyle(fontSize: 13, color: Colors.grey[800]),
                   items: _pageSizeOptions
-                      .map((s) => DropdownMenuItem(value: s, child: Text('$s')))
+                      .map((s) => DropdownMenuItem(value: s, child: Text(tr('$s'))))
                       .toList(),
                   onChanged: (v) {
                     if (v != null) {
@@ -2270,7 +2265,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Text(
-                '$_currentPage / $totalPages',
+                tr('$_currentPage / $totalPages'),
                 style: const TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
@@ -2352,8 +2347,8 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
             backgroundColor: Colors.blue,
             child: Icon(Icons.edit, color: Colors.white, size: 20),
           ),
-          title: Text(_l10n.editInfo),
-          subtitle: const Text('Sửa tên, mã thẻ, mật khẩu, quyền'),
+          title: Text(tr(_l10n.editInfo)),
+          subtitle: Text(tr('Sửa tên, mã thẻ, mật khẩu, quyền')),
           onTap: () {
             Navigator.pop(context);
             _showEditUserDialog(user);
@@ -2364,8 +2359,8 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
             backgroundColor: Colors.purple,
             child: Icon(Icons.fingerprint, color: Colors.white, size: 20),
           ),
-          title: const Text('Quản lý vân tay'),
-          subtitle: const Text('Thêm, xóa dấu vân tay'),
+          title: Text(tr('Quản lý vân tay')),
+          subtitle: Text(tr('Thêm, xóa dấu vân tay')),
           onTap: () {
             Navigator.pop(context);
             _showFingerprintDialog(user);
@@ -2376,8 +2371,8 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
             backgroundColor: Colors.teal,
             child: Icon(Icons.face, color: Colors.white, size: 20),
           ),
-          title: const Text('Quản lý khuôn mặt'),
-          subtitle: const Text('Thêm, xóa khuôn mặt'),
+          title: Text(tr('Quản lý khuôn mặt')),
+          subtitle: Text(tr('Thêm, xóa khuôn mặt')),
           onTap: () {
             Navigator.pop(context);
             _showFaceDialog(user);
@@ -2389,12 +2384,12 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                 user.employeeId != null ? Colors.green : Colors.orange,
             child: const Icon(Icons.link, color: Colors.white, size: 20),
           ),
-          title: Text(user.employeeId != null
+          title: Text(tr(user.employeeId != null
               ? 'Đổi liên kết nhân viên'
-              : 'Gán với nhân sự'),
-          subtitle: Text(user.employeeId != null
+              : 'Gán với nhân sự')),
+          subtitle: Text(tr(user.employeeId != null
               ? 'Đang liên kết: ${user.employeeName}'
-              : 'Liên kết với nhân viên trong hệ thống'),
+              : 'Liên kết với nhân viên trong hệ thống')),
           onTap: () {
             Navigator.pop(context);
             _showLinkEmployeeDialog(user);
@@ -2408,8 +2403,8 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
             child: Icon(Icons.delete, color: Colors.white, size: 20),
           ),
           title:
-              const Text('Xóa người dùng', style: TextStyle(color: Colors.red)),
-          subtitle: const Text('Xóa khỏi máy chấm công'),
+              Text(tr('Xóa người dùng'), style: TextStyle(color: Colors.red)),
+          subtitle: Text(tr('Xóa khỏi máy chấm công')),
           onTap: () {
             Navigator.pop(context);
             _confirmDeleteUser(user);
@@ -2435,7 +2430,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                 backgroundColor:
                     Theme.of(context).primaryColor.withValues(alpha: 0.2),
                 child: Text(
-                  user.name.isNotEmpty ? user.name[0].toUpperCase() : user.pin,
+                  tr(user.name.isNotEmpty ? user.name[0].toUpperCase() : user.pin),
                   style: TextStyle(
                       color: Theme.of(context).primaryColor,
                       fontWeight: FontWeight.bold),
@@ -2444,7 +2439,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
-                  'PIN: ${user.pin} | ${user.privilegeText}',
+                  tr('PIN: ${user.pin} | ${user.privilegeText}'),
                   style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                 ),
               ),
@@ -2469,12 +2464,12 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
           const SizedBox(width: 8),
           SizedBox(
             width: 80,
-            child: Text(label,
+            child: Text(tr(label),
                 style: TextStyle(color: Colors.grey[600], fontSize: 12)),
           ),
           Expanded(
             child: Text(
-              value,
+              tr(value),
               style: TextStyle(fontWeight: FontWeight.w500, color: valueColor),
             ),
           ),
@@ -2649,7 +2644,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: Text(
-                        shortName,
+                        tr(shortName),
                         style: TextStyle(
                           fontSize: 9,
                           fontWeight:
@@ -2717,7 +2712,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                         ),
                         const SizedBox(width: 4),
                         Text(
-                          isLeftHand ? 'TAY TRÁI' : 'TAY PHẢI',
+                          tr(isLeftHand ? 'TAY TRÁI' : 'TAY PHẢI'),
                           style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.bold,
@@ -2785,8 +2780,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                       const Icon(Icons.fingerprint, color: Colors.purple),
                       const SizedBox(width: 8),
                       Expanded(
-                        child: Text(
-                          'Vân tay - ${user.name}',
+                        child: Text(tr('Vân tay - ${user.name}'),
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(fontSize: 16),
                         ),
@@ -2813,8 +2807,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                                   const Icon(Icons.fingerprint,
                                       color: Colors.blue, size: 20),
                                   const SizedBox(width: 8),
-                                  Text(
-                                    'Đã đăng ký: ${enrolledFingers.length}/10 vân tay',
+                                  Text(tr('Đã đăng ký: ${enrolledFingers.length}/10 vân tay'),
                                     style: const TextStyle(
                                         fontWeight: FontWeight.bold,
                                         color: Colors.blue),
@@ -2836,8 +2829,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                                       color: Colors.orange, size: 16),
                                   const SizedBox(width: 8),
                                   Expanded(
-                                    child: Text(
-                                      'Chọn ngón tay → Đăng ký / Xóa',
+                                    child: Text(tr('Chọn ngón tay → Đăng ký / Xóa'),
                                       style: TextStyle(
                                           fontSize: 12,
                                           color: Colors.orange.shade700),
@@ -2859,7 +2851,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                                         borderRadius:
                                             BorderRadius.circular(4))),
                                 const SizedBox(width: 4),
-                                const Text('Đã đăng ký',
+                                Text(tr('Đã đăng ký'),
                                     style: TextStyle(fontSize: 11)),
                                 const SizedBox(width: 16),
                                 Container(
@@ -2870,7 +2862,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                                         borderRadius:
                                             BorderRadius.circular(4))),
                                 const SizedBox(width: 4),
-                                const Text('Chưa đăng ký',
+                                Text(tr('Chưa đăng ký'),
                                     style: TextStyle(fontSize: 11)),
                               ],
                             ),
@@ -2895,7 +2887,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                                 child: Column(
                                   children: [
                                     Text(
-                                      fingerNames[selectedFinger!],
+                                      tr(fingerNames[selectedFinger!]),
                                       style: const TextStyle(
                                           fontWeight: FontWeight.bold,
                                           fontSize: 16,
@@ -2903,9 +2895,9 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                                     ),
                                     const SizedBox(height: 4),
                                     Text(
-                                      enrolledFingers.contains(selectedFinger)
+                                      tr(enrolledFingers.contains(selectedFinger)
                                           ? 'Đã đăng ký ✓'
-                                          : 'Chưa đăng ký',
+                                          : 'Chưa đăng ký'),
                                       style: TextStyle(
                                         fontSize: 12,
                                         color: enrolledFingers
@@ -2932,9 +2924,9 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                                       },
                                       icon: const Icon(Icons.add, size: 18),
                                       label: Text(
-                                        enrolledFingers.contains(selectedFinger)
+                                        tr(enrolledFingers.contains(selectedFinger)
                                             ? 'Đăng ký lại'
-                                            : 'Đăng ký',
+                                            : 'Đăng ký'),
                                         style: const TextStyle(fontSize: 13),
                                       ),
                                       style: FilledButton.styleFrom(
@@ -2958,7 +2950,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                                                 enrolledFingers),
                                         icon: const Icon(Icons.delete,
                                             size: 18, color: Colors.red),
-                                        label: const Text('Xóa',
+                                        label: Text(tr('Xóa'),
                                             style: TextStyle(
                                                 fontSize: 13,
                                                 color: Colors.red)),
@@ -2982,7 +2974,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                                 onPressed: () => _deleteAllFingerprints(user),
                                 icon: const Icon(Icons.delete_sweep,
                                     color: Colors.red, size: 18),
-                                label: const Text('Xóa tất cả',
+                                label: Text(tr('Xóa tất cả'),
                                     style: TextStyle(
                                         color: Colors.red, fontSize: 12)),
                               ),
@@ -2999,7 +2991,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
               children: [
                 const Icon(Icons.fingerprint, color: Colors.purple),
                 const SizedBox(width: 8),
-                Expanded(child: Text('Vân tay - ${user.name}')),
+                Expanded(child: Text(tr('Vân tay - ${user.name}'))),
               ],
             ),
             content: isLoading
@@ -3024,8 +3016,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                               const Icon(Icons.fingerprint,
                                   color: Colors.blue, size: 20),
                               const SizedBox(width: 8),
-                              Text(
-                                'Đã đăng ký: ${enrolledFingers.length}/10 vân tay',
+                              Text(tr('Đã đăng ký: ${enrolledFingers.length}/10 vân tay'),
                                 style: const TextStyle(
                                     fontWeight: FontWeight.bold,
                                     color: Colors.blue),
@@ -3047,8 +3038,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                                   color: Colors.orange, size: 16),
                               const SizedBox(width: 8),
                               Expanded(
-                                child: Text(
-                                  'Chọn ngón tay → Đăng ký / Xóa',
+                                child: Text(tr('Chọn ngón tay → Đăng ký / Xóa'),
                                   style: TextStyle(
                                       fontSize: 12,
                                       color: Colors.orange.shade700),
@@ -3069,7 +3059,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                                     color: Colors.green,
                                     borderRadius: BorderRadius.circular(4))),
                             const SizedBox(width: 4),
-                            const Text('Đã đăng ký',
+                            Text(tr('Đã đăng ký'),
                                 style: TextStyle(fontSize: 11)),
                             const SizedBox(width: 16),
                             Container(
@@ -3079,7 +3069,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                                     color: Colors.grey.shade300,
                                     borderRadius: BorderRadius.circular(4))),
                             const SizedBox(width: 4),
-                            const Text('Chưa đăng ký',
+                            Text(tr('Chưa đăng ký'),
                                 style: TextStyle(fontSize: 11)),
                           ],
                         ),
@@ -3106,7 +3096,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                             child: Column(
                               children: [
                                 Text(
-                                  fingerNames[selectedFinger!],
+                                  tr(fingerNames[selectedFinger!]),
                                   style: const TextStyle(
                                       fontWeight: FontWeight.bold,
                                       fontSize: 16,
@@ -3114,9 +3104,9 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
-                                  enrolledFingers.contains(selectedFinger)
+                                  tr(enrolledFingers.contains(selectedFinger)
                                       ? 'Đã đăng ký ✓'
-                                      : 'Chưa đăng ký',
+                                      : 'Chưa đăng ký'),
                                   style: TextStyle(
                                     fontSize: 12,
                                     color:
@@ -3145,9 +3135,9 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                                   },
                                   icon: const Icon(Icons.add, size: 18),
                                   label: Text(
-                                    enrolledFingers.contains(selectedFinger)
+                                    tr(enrolledFingers.contains(selectedFinger)
                                         ? 'Đăng ký lại'
-                                        : 'Đăng ký',
+                                        : 'Đăng ký'),
                                     style: const TextStyle(fontSize: 13),
                                   ),
                                   style: FilledButton.styleFrom(
@@ -3170,7 +3160,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                                     ),
                                     icon: const Icon(Icons.delete,
                                         size: 18, color: Colors.red),
-                                    label: const Text('Xóa',
+                                    label: Text(tr('Xóa'),
                                         style: TextStyle(
                                             fontSize: 13, color: Colors.red)),
                                     style: OutlinedButton.styleFrom(
@@ -3196,7 +3186,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                                 onPressed: () => _deleteAllFingerprints(user),
                                 icon: const Icon(Icons.delete_sweep,
                                     color: Colors.red, size: 18),
-                                label: const Text('Xóa tất cả',
+                                label: Text(tr('Xóa tất cả'),
                                     style: TextStyle(
                                         color: Colors.red, fontSize: 12)),
                               ),
@@ -3209,7 +3199,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: const Text('Đóng'),
+                child: Text(tr('Đóng')),
               ),
             ],
           );
@@ -3236,8 +3226,8 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => ScrollableAlertDialog(
-        title: const Text('Xác nhận xóa'),
-        content: Text('Xóa vân tay ${fingerNames[fingerIndex]}?'),
+        title: Text(tr('Xác nhận xóa')),
+        content: Text(tr('Xóa vân tay ${fingerNames[fingerIndex]}?')),
         actions: [
           AppDialogActions.delete(
             onCancel: () => Navigator.pop(ctx, false),
@@ -3384,9 +3374,8 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => ScrollableAlertDialog(
-        title: const Text('Xác nhận xóa'),
-        content: Text(
-            'Bạn có chắc chắn muốn xóa tất cả vân tay của "${user.name}"?'),
+        title: Text(tr('Xác nhận xóa')),
+        content: Text(tr('Bạn có chắc chắn muốn xóa tất cả vân tay của "${user.name}"?')),
         actions: [
           AppDialogActions.delete(
             onCancel: () => Navigator.pop(context, false),
@@ -3404,12 +3393,12 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => const ScrollableAlertDialog(
+      builder: (context) => ScrollableAlertDialog(
         content: Row(
           children: [
             CircularProgressIndicator(),
             SizedBox(width: 16),
-            Text('Đang xóa vân tay...'),
+            Text(tr('Đang xóa vân tay...')),
           ],
         ),
       ),
@@ -3466,7 +3455,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
               children: [
                 const Icon(Icons.face, color: Colors.teal),
                 const SizedBox(width: 8),
-                Expanded(child: Text('Khuôn mặt - ${user.name}')),
+                Expanded(child: Text(tr('Khuôn mặt - ${user.name}'))),
               ],
             ),
             content: isLoading
@@ -3529,9 +3518,9 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                               ),
                               const SizedBox(height: 16),
                               Text(
-                                hasFace
+                                tr(hasFace
                                     ? 'Đã đăng ký khuôn mặt ✓'
-                                    : 'Chưa đăng ký khuôn mặt',
+                                    : 'Chưa đăng ký khuôn mặt'),
                                 style: TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.bold,
@@ -3542,9 +3531,9 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                               ),
                               const SizedBox(height: 4),
                               Text(
-                                hasFace
+                                tr(hasFace
                                     ? 'Khuôn mặt đã được lưu trên thiết bị'
-                                    : 'Chưa có dữ liệu khuôn mặt',
+                                    : 'Chưa có dữ liệu khuôn mặt'),
                                 style: TextStyle(
                                   fontSize: 12,
                                   color: Colors.grey.shade600,
@@ -3577,9 +3566,9 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                                 const SizedBox(width: 8),
                                 Expanded(
                                   child: Text(
-                                    canRemoteFace
+                                    tr(canRemoteFace
                                         ? 'Nhìn MÀN HÌNH MÁY CHẤM CÔNG (không phải điện thoại). Sau khi bấm đăng ký, máy có ~60 giây để quét mặt. Nếu máy không đổi giao diện: chạm/đánh thức màn hình, hoặc đăng ký Face trong Menu máy rồi bấm “Đồng bộ từ máy”.'
-                                        : 'Máy này không hỗ trợ đăng ký khuôn mặt từ xa. Vui lòng đăng ký trực tiếp trên máy.',
+                                        : 'Máy này không hỗ trợ đăng ký khuôn mặt từ xa. Vui lòng đăng ký trực tiếp trên máy.'),
                                     style: TextStyle(
                                       fontSize: 12,
                                       color: canRemoteFace
@@ -3611,9 +3600,9 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                             },
                             icon: const Icon(Icons.face, size: 20),
                             label: Text(
-                              hasFace
+                              tr(hasFace
                                   ? 'Đăng ký lại khuôn mặt'
-                                  : 'Đăng ký khuôn mặt',
+                                  : 'Đăng ký khuôn mặt'),
                               style: const TextStyle(fontSize: 14),
                             ),
                             style: FilledButton.styleFrom(
@@ -3635,7 +3624,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                                 isReEnroll: hasFace,
                               ),
                               icon: const Icon(Icons.sync, size: 18),
-                              label: const Text('Đã đăng ký trên máy — Đồng bộ',
+                              label: Text(tr('Đã đăng ký trên máy — Đồng bộ'),
                                   style: TextStyle(fontSize: 14)),
                               style: OutlinedButton.styleFrom(
                                 foregroundColor: Colors.teal,
@@ -3658,7 +3647,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                               ),
                               icon: const Icon(Icons.delete,
                                   size: 18, color: Colors.red),
-                              label: const Text('Xóa khuôn mặt',
+                              label: Text(tr('Xóa khuôn mặt'),
                                   style: TextStyle(
                                       fontSize: 14, color: Colors.red)),
                               style: OutlinedButton.styleFrom(
@@ -3678,7 +3667,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: const Text('Đóng'),
+                child: Text(tr('Đóng')),
               ),
             ],
           );
@@ -3742,15 +3731,14 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
     await showDialog<void>(
       context: context,
       builder: (ctx) => ScrollableAlertDialog(
-        title: const Row(
+        title: Row(
           children: [
             Icon(Icons.info_outline, color: Colors.orange),
             SizedBox(width: 8),
-            Expanded(child: Text('Thông báo')),
+            Expanded(child: Text(tr('Thông báo'))),
           ],
         ),
-        content: const Text(
-          'Giao diện máy chấm công không hỗ trợ. Quý khách vui lòng đăng ký trực tiếp trên máy.',
+        content: Text(tr('Giao diện máy chấm công không hỗ trợ. Quý khách vui lòng đăng ký trực tiếp trên máy.'),
         ),
         actions: [
           FilledButton(
@@ -3758,7 +3746,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
             style: FilledButton.styleFrom(
               backgroundColor: HrmPageChrome.primaryNavy,
             ),
-            child: const Text('Đã hiểu'),
+            child: Text(tr('Đã hiểu')),
           ),
         ],
       ),
@@ -3781,25 +3769,24 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
             const SizedBox(width: 8),
             Expanded(
               child: Text(
-                isReEnroll ? 'Đăng ký lại khuôn mặt' : 'Đăng ký khuôn mặt',
+                tr(isReEnroll ? 'Đăng ký lại khuôn mặt' : 'Đăng ký khuôn mặt'),
               ),
             ),
           ],
         ),
-        content: Text(
-          'Sau khi đăng ký khuôn mặt trực tiếp trên máy chấm công cho ${user.name}, bấm "Đồng bộ ngay" để tải dữ liệu khuôn mặt về hệ thống.',
+        content: Text(tr('Sau khi đăng ký khuôn mặt trực tiếp trên máy chấm công cho ${user.name}, bấm "Đồng bộ ngay" để tải dữ liệu khuôn mặt về hệ thống.'),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: Text(_l10n.cancel),
+            child: Text(tr(_l10n.cancel)),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: FilledButton.styleFrom(
               backgroundColor: HrmPageChrome.primaryNavy,
             ),
-            child: const Text('Đồng bộ ngay'),
+            child: Text(tr('Đồng bộ ngay')),
           ),
         ],
       ),
@@ -3811,13 +3798,13 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (ctx) => const ScrollableAlertDialog(
+      builder: (ctx) => ScrollableAlertDialog(
         content: Row(
           children: [
             CircularProgressIndicator(),
             SizedBox(width: 16),
             Expanded(
-              child: Text('Đang gửi lệnh đồng bộ sinh trắc học từ máy...'),
+              child: Text(tr('Đang gửi lệnh đồng bộ sinh trắc học từ máy...')),
             ),
           ],
         ),
@@ -3871,8 +3858,8 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => ScrollableAlertDialog(
-        title: const Text('Xác nhận xóa'),
-        content: Text('Xóa khuôn mặt của "${user.name}"?'),
+        title: Text(tr('Xác nhận xóa')),
+        content: Text(tr('Xóa khuôn mặt của "${user.name}"?')),
         actions: [
           AppDialogActions.delete(
             onCancel: () => Navigator.pop(ctx, false),
@@ -4104,7 +4091,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
         borderRadius: BorderRadius.circular(compact ? 8 : 12),
       ),
       child: Text(
-        text,
+        tr(text),
         style: TextStyle(
           color: color,
           fontSize: compact ? 10 : 11,
@@ -4129,7 +4116,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                   ? Theme.of(context).primaryColor.withValues(alpha: 0.2)
                   : Colors.grey.withValues(alpha: 0.2),
               child: Text(
-                user.name.isNotEmpty ? user.name[0].toUpperCase() : user.pin,
+                tr(user.name.isNotEmpty ? user.name[0].toUpperCase() : user.pin),
                 style: TextStyle(
                   color: user.isActive
                       ? Theme.of(context).primaryColor
@@ -4150,7 +4137,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                     children: [
                       Expanded(
                         child: Text(
-                          user.name.isNotEmpty ? user.name : 'User ${user.pin}',
+                          tr(user.name.isNotEmpty ? user.name : 'User ${user.pin}'),
                           style: const TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
@@ -4186,8 +4173,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                       children: [
                         Icon(Icons.link, size: 14, color: Colors.green[400]),
                         const SizedBox(width: 4),
-                        Text(
-                          'Liên kết: ${user.employeeName}',
+                        Text(tr('Liên kết: ${user.employeeName}'),
                           style:
                               TextStyle(color: Colors.green[400], fontSize: 13),
                         ),
@@ -4217,13 +4203,13 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                 },
                 itemBuilder: (context) => [
                   if (_perm.canEdit('DeviceUser'))
-                    const PopupMenuItem(
+                    PopupMenuItem(
                       value: 'edit',
                       child: Row(
                         children: [
                           Icon(Icons.edit, size: 20),
                           SizedBox(width: 12),
-                          Text('Chỉnh sửa'),
+                          Text(tr('Chỉnh sửa')),
                         ],
                       ),
                     ),
@@ -4234,20 +4220,20 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                         children: [
                           const Icon(Icons.link, size: 20, color: Colors.blue),
                           const SizedBox(width: 12),
-                          Text(user.employeeId != null
+                          Text(tr(user.employeeId != null
                               ? 'Đổi liên kết NV'
-                              : 'Liên kết NV'),
+                              : 'Liên kết NV')),
                         ],
                       ),
                     ),
                   if (_perm.canDelete('DeviceUser'))
-                    const PopupMenuItem(
+                    PopupMenuItem(
                       value: 'delete',
                       child: Row(
                         children: [
                           Icon(Icons.delete, size: 20, color: Colors.red),
                           SizedBox(width: 12),
-                          Text('Xóa', style: TextStyle(color: Colors.red)),
+                          Text(tr('Xóa'), style: TextStyle(color: Colors.red)),
                         ],
                       ),
                     ),
@@ -4269,7 +4255,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
         borderRadius: BorderRadius.circular(12),
       ),
       child: Text(
-        isActive ? 'Active' : 'Inactive',
+        tr(isActive ? 'Active' : 'Inactive'),
         style: TextStyle(
           color: isActive ? Colors.green : Colors.grey,
           fontSize: 11,
@@ -4285,7 +4271,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
       children: [
         Icon(icon, size: 14, color: Colors.grey[500]),
         const SizedBox(width: 4),
-        Text(text, style: TextStyle(color: Colors.grey[500], fontSize: 13)),
+        Text(tr(text), style: TextStyle(color: Colors.grey[500], fontSize: 13)),
       ],
     );
   }
@@ -4304,13 +4290,13 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
 
   void _showUserForm(DeviceUser? user) {
     final isEditing = user != null;
-    final pinController = TextEditingController(text: user?.pin);
+    final pinController = TextEditingController(text: trN(user?.pin));
     final nameController =
-        TextEditingController(text: user?.name); // Tên trong máy (không dấu)
+        TextEditingController(text: trN(user?.name)); // Tên trong máy (không dấu)
     final employeeNameController =
         TextEditingController(); // Tên nhân viên (có dấu)
-    final cardController = TextEditingController(text: user?.cardNumber);
-    final passwordController = TextEditingController(text: user?.password);
+    final cardController = TextEditingController(text: trN(user?.cardNumber));
+    final passwordController = TextEditingController(text: trN(user?.password));
     String? selectedDeviceId =
         user?.deviceId ?? _selectedDeviceId ?? _devices.first.id;
     int selectedPrivilege = user?.privilege ?? 0;
@@ -4338,15 +4324,15 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
               // Thiết bị
               DropdownButtonFormField<String>(
                 initialValue: selectedDeviceId,
-                decoration: const InputDecoration(
-                  labelText: 'Tên thiết bị *',
+                decoration: InputDecoration(
+                  labelText: tr('Tên thiết bị *'),
                   prefixIcon: Icon(Icons.devices),
                   border: OutlineInputBorder(),
                 ),
                 items: _devices
                     .map((d) => DropdownMenuItem(
                           value: d.id,
-                          child: Text(d.deviceName),
+                          child: Text(tr(d.deviceName)),
                         ))
                     .toList(),
                 onChanged: isEditing
@@ -4363,12 +4349,12 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                   // Expanded(
                   //   child: TextField(
                   //     controller: pinController,
-                  //     decoration: const InputDecoration(
-                  //       labelText: 'ID máy chấm công (PIN)',
+                  //     decoration: InputDecoration(
+                  //       labelText: tr('ID máy chấm công (PIN)'),
                   //       prefixIcon: Icon(Icons.pin),
-                  //       hintText: 'Để trống sẽ tự sinh',
+                  //       hintText: tr('Để trống sẽ tự sinh'),
                   //       border: OutlineInputBorder(),
-                  //       helperText: 'Máy chấm công sẽ tự cấp ID khi đồng bộ',
+                  //       helperText: tr('Máy chấm công sẽ tự cấp ID khi đồng bộ'),
                   //     ),
                   //     enabled: !isEditing,
                   //   ),
@@ -4377,15 +4363,15 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                   Expanded(
                     child: DropdownButtonFormField<int>(
                       initialValue: selectedPrivilege == 14 ? 14 : 0,
-                      decoration: const InputDecoration(
-                        labelText: 'Quyền',
+                      decoration: InputDecoration(
+                        labelText: tr('Quyền'),
                         prefixIcon: Icon(Icons.security),
                         border: OutlineInputBorder(),
                       ),
-                      items: const [
-                        DropdownMenuItem(value: 0, child: Text('Người dùng')),
+                      items: [
+                        DropdownMenuItem(value: 0, child: Text(tr('Người dùng'))),
                         DropdownMenuItem(
-                            value: 14, child: Text('Quản trị viên')),
+                            value: 14, child: Text(tr('Quản trị viên'))),
                       ],
                       onChanged: (value) =>
                           setDialogState(() => selectedPrivilege = value ?? 0),
@@ -4398,13 +4384,12 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
               // Tên nhân viên (có dấu)
               TextField(
                 controller: employeeNameController,
-                decoration: const InputDecoration(
-                  labelText: 'Tên nhân viên (có dấu)',
+                decoration: InputDecoration(
+                  labelText: tr('Tên nhân viên (có dấu)'),
                   prefixIcon: Icon(Icons.person),
-                  hintText: 'VD: Nguyễn Văn A',
+                  hintText: tr('VD: Nguyễn Văn A'),
                   border: OutlineInputBorder(),
-                  helperText:
-                      'Nhập tên có dấu, sẽ tự động sinh tên không dấu bên dưới',
+                  helperText: tr('Nhập tên có dấu, sẽ tự động sinh tên không dấu bên dưới'),
                 ),
                 onChanged: (value) {
                   if (autoGenerateName) {
@@ -4422,10 +4407,10 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                   Expanded(
                     child: TextField(
                       controller: nameController,
-                      decoration: const InputDecoration(
-                        labelText: 'Tên trong máy (không dấu) *',
+                      decoration: InputDecoration(
+                        labelText: tr('Tên trong máy (không dấu) *'),
                         prefixIcon: Icon(Icons.badge),
-                        hintText: 'VD: Nguyen Van A',
+                        hintText: tr('VD: Nguyen Van A'),
                         border: OutlineInputBorder(),
                       ),
                       enabled: !autoGenerateName || isEditing,
@@ -4448,7 +4433,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                             });
                           },
                         ),
-                        const Text('Tự động', style: TextStyle(fontSize: 12)),
+                        Text(tr('Tự động'), style: TextStyle(fontSize: 12)),
                       ],
                     ),
                   ],
@@ -4460,8 +4445,8 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
               if (isMobileForm) ...[
                 TextField(
                   controller: passwordController,
-                  decoration: const InputDecoration(
-                    labelText: 'Mật khẩu',
+                  decoration: InputDecoration(
+                    labelText: tr('Mật khẩu'),
                     prefixIcon: Icon(Icons.lock),
                     border: OutlineInputBorder(),
                   ),
@@ -4470,8 +4455,8 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                 const SizedBox(height: 16),
                 TextField(
                   controller: cardController,
-                  decoration: const InputDecoration(
-                    labelText: 'Mã thẻ từ',
+                  decoration: InputDecoration(
+                    labelText: tr('Mã thẻ từ'),
                     prefixIcon: Icon(Icons.credit_card),
                     border: OutlineInputBorder(),
                   ),
@@ -4482,8 +4467,8 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                     Expanded(
                       child: TextField(
                         controller: passwordController,
-                        decoration: const InputDecoration(
-                          labelText: 'Mật khẩu',
+                        decoration: InputDecoration(
+                          labelText: tr('Mật khẩu'),
                           prefixIcon: Icon(Icons.lock),
                           border: OutlineInputBorder(),
                         ),
@@ -4494,8 +4479,8 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                     Expanded(
                       child: TextField(
                         controller: cardController,
-                        decoration: const InputDecoration(
-                          labelText: 'Mã thẻ từ',
+                        decoration: InputDecoration(
+                          labelText: tr('Mã thẻ từ'),
                           prefixIcon: Icon(Icons.credit_card),
                           border: OutlineInputBorder(),
                         ),
@@ -4518,7 +4503,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                     children: [
                       const Icon(Icons.fingerprint, color: Colors.grey),
                       const SizedBox(width: 8),
-                      Text('UID: ${user.id}',
+                      Text(tr('UID: ${user.id}'),
                           style: const TextStyle(color: Colors.grey)),
                     ],
                   ),
@@ -4576,7 +4561,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
             return Dialog.fullscreen(
               child: Scaffold(
                 appBar: AppBar(
-                  title: Text(isEditing ? 'Chỉnh sửa user' : 'Thêm user mới'),
+                  title: Text(tr(isEditing ? 'Chỉnh sửa user' : 'Thêm user mới')),
                   leading: IconButton(
                     icon: const Icon(Icons.close),
                     onPressed: () => Navigator.pop(context),
@@ -4589,7 +4574,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                         style: FilledButton.styleFrom(
                           backgroundColor: HrmPageChrome.primaryNavy,
                         ),
-                        child: Text(isEditing ? 'Cập nhật' : 'Thêm'),
+                        child: Text(tr(isEditing ? 'Cập nhật' : 'Thêm')),
                       ),
                     ),
                   ],
@@ -4605,7 +4590,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
           return ScrollableAlertDialog(
             insetPadding:
                 const EdgeInsets.symmetric(horizontal: 40, vertical: 24),
-            title: Text(isEditing ? 'Chỉnh sửa user' : 'Thêm user mới'),
+            title: Text(tr(isEditing ? 'Chỉnh sửa user' : 'Thêm user mới')),
             content: SizedBox(
               width: math
                   .min(500, MediaQuery.of(context).size.width - 32)
@@ -4615,14 +4600,14 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: Text(_l10n.cancel),
+                child: Text(tr(_l10n.cancel)),
               ),
               FilledButton(
                 onPressed: onSubmit,
                 style: FilledButton.styleFrom(
                   backgroundColor: HrmPageChrome.primaryNavy,
                 ),
-                child: Text(isEditing ? 'Cập nhật' : 'Thêm'),
+                child: Text(tr(isEditing ? 'Cập nhật' : 'Thêm')),
               ),
             ],
           );
@@ -4652,26 +4637,25 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => ScrollableAlertDialog(
-          title: const Text('Đồng bộ nhân viên vào máy chấm công'),
+          title: Text(tr('Đồng bộ nhân viên vào máy chấm công')),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Text(
-                  'Chọn nhân viên và thiết bị để đồng bộ. User sẽ được tạo trên máy chấm công.',
+                Text(tr('Chọn nhân viên và thiết bị để đồng bộ. User sẽ được tạo trên máy chấm công.'),
                   style: TextStyle(color: Colors.grey),
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<String>(
                   initialValue: selectedDeviceId,
-                  decoration: const InputDecoration(
-                    labelText: 'Thiết bị *',
+                  decoration: InputDecoration(
+                    labelText: tr('Thiết bị *'),
                     prefixIcon: Icon(Icons.devices),
                   ),
                   items: _devices
                       .map((d) => DropdownMenuItem(
                             value: d.id,
-                            child: Text(d.deviceName),
+                            child: Text(tr(d.deviceName)),
                           ))
                       .toList(),
                   onChanged: (value) =>
@@ -4680,14 +4664,14 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                 const SizedBox(height: 16),
                 DropdownButtonFormField<Employee>(
                   initialValue: selectedEmployee,
-                  decoration: const InputDecoration(
-                    labelText: 'Chọn nhân viên *',
+                  decoration: InputDecoration(
+                    labelText: tr('Chọn nhân viên *'),
                     prefixIcon: Icon(Icons.person),
                   ),
                   items: _employees
                       .map((e) => DropdownMenuItem(
                             value: e,
-                            child: Text('${e.fullName} (${e.enrollNumber})'),
+                            child: Text(tr('${e.fullName} (${e.enrollNumber})')),
                           ))
                       .toList(),
                   onChanged: (value) {
@@ -4702,30 +4686,30 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                 const SizedBox(height: 16),
                 TextField(
                   controller: pinController,
-                  decoration: const InputDecoration(
-                    labelText: 'PIN trên máy chấm công *',
+                  decoration: InputDecoration(
+                    labelText: tr('PIN trên máy chấm công *'),
                     prefixIcon: Icon(Icons.pin),
-                    hintText: 'Mã số trên máy chấm công',
+                    hintText: tr('Mã số trên máy chấm công'),
                   ),
                 ),
                 const SizedBox(height: 16),
                 TextField(
                   controller: cardController,
-                  decoration: const InputDecoration(
-                    labelText: 'Số thẻ (nếu có)',
+                  decoration: InputDecoration(
+                    labelText: tr('Số thẻ (nếu có)'),
                     prefixIcon: Icon(Icons.credit_card),
                   ),
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<int>(
                   initialValue: selectedPrivilege == 14 ? 14 : 0,
-                  decoration: const InputDecoration(
-                    labelText: 'Quyền hạn',
+                  decoration: InputDecoration(
+                    labelText: tr('Quyền hạn'),
                     prefixIcon: Icon(Icons.security),
                   ),
-                  items: const [
-                    DropdownMenuItem(value: 0, child: Text('Người dùng')),
-                    DropdownMenuItem(value: 14, child: Text('Quản trị viên')),
+                  items: [
+                    DropdownMenuItem(value: 0, child: Text(tr('Người dùng'))),
+                    DropdownMenuItem(value: 14, child: Text(tr('Quản trị viên'))),
                   ],
                   onChanged: (value) =>
                       setDialogState(() => selectedPrivilege = value ?? 0),
@@ -4736,7 +4720,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: Text(_l10n.cancel),
+              child: Text(tr(_l10n.cancel)),
             ),
             FilledButton.icon(
               onPressed: () async {
@@ -4779,7 +4763,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                 if (mounted) setState(() => _isLoading = false);
               },
               icon: const Icon(Icons.sync),
-              label: const Text('Đồng bộ'),
+              label: Text(tr('Đồng bộ')),
               style: FilledButton.styleFrom(
                 backgroundColor: HrmPageChrome.primaryNavy,
               ),
@@ -4851,9 +4835,9 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                 child: Scaffold(
                   appBar: AppBar(
                     title: Text(
-                      user.employeeId != null
+                      tr(user.employeeId != null
                           ? 'Đổi liên kết NV'
-                          : 'Gán nhân sự',
+                          : 'Gán nhân sự'),
                       style: const TextStyle(fontSize: 16),
                     ),
                     leading: IconButton(
@@ -4885,7 +4869,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                           backgroundColor: HrmPageChrome.primaryNavy,
                           minimumSize: const Size.fromHeight(44),
                         ),
-                        child: const Text('Liên kết'),
+                        child: Text(tr('Liên kết')),
                       ),
                     ),
                   ),
@@ -4905,9 +4889,9 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    user.employeeId != null
+                    tr(user.employeeId != null
                         ? 'Đổi liên kết nhân viên'
-                        : 'Gán nhân sự',
+                        : 'Gán nhân sự'),
                   ),
                 ),
               ],
@@ -4927,14 +4911,14 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(dialogCtx),
-                child: Text(_l10n.cancel),
+                child: Text(tr(_l10n.cancel)),
               ),
               FilledButton(
                 onPressed: onLink,
                 style: FilledButton.styleFrom(
                   backgroundColor: HrmPageChrome.primaryNavy,
                 ),
-                child: const Text('Liên kết'),
+                child: Text(tr('Liên kết')),
               ),
             ],
           );
@@ -4961,9 +4945,9 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                 backgroundColor:
                     Theme.of(context).primaryColor.withValues(alpha: 0.12),
                 child: Text(
-                  user.name.isNotEmpty
+                  tr(user.name.isNotEmpty
                       ? user.name[0].toUpperCase()
-                      : user.pin,
+                      : user.pin),
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                     color: Theme.of(context).primaryColor,
@@ -4976,12 +4960,12 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      user.name.isNotEmpty ? user.name : 'PIN ${user.pin}',
+                      tr(user.name.isNotEmpty ? user.name : 'PIN ${user.pin}'),
                       style: const TextStyle(fontWeight: FontWeight.w600),
                     ),
                     Text(
-                      'PIN ${user.pin}'
-                      '${user.deviceName != null ? ' · ${user.deviceName}' : ''}',
+                      tr('PIN ${user.pin}'
+                      '${user.deviceName != null ? ' · ${user.deviceName}' : ''}'),
                       style: const TextStyle(
                         fontSize: 12,
                         color: Color(0xFF64748B),
@@ -4995,9 +4979,9 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
         ),
         const SizedBox(height: 8),
         Text(
-          user.employeeId != null
+          tr(user.employeeId != null
               ? 'Đang liên kết: ${user.employeeName ?? '—'}. Chọn nhân viên khác để thay đổi.'
-              : 'Chọn nhân viên trong hệ thống để liên kết với user trên máy chấm công.',
+              : 'Chọn nhân viên trong hệ thống để liên kết với user trên máy chấm công.'),
           style: const TextStyle(fontSize: 13, color: Color(0xFF64748B)),
         ),
       ],
@@ -5008,9 +4992,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
     AppResponsiveDialog.confirmDelete(
       context: context,
       itemName: user.name.isNotEmpty ? user.name : 'PIN ${user.pin}',
-      message:
-          'Bạn có chắc muốn xóa "${user.name}" (PIN: ${user.pin})?\n\n'
-          'User sẽ bị xóa khỏi máy chấm công.',
+      message: tr('Bạn có chắc muốn xóa "${user.name}" (PIN: ${user.pin})?\n\nUser sẽ bị xóa khỏi máy chấm công.'),
       onConfirm: () async {
         setState(() => _isLoading = true);
         final success = await _apiService.deleteDeviceUser(user.id);
@@ -5122,7 +5104,7 @@ class _EmployeeLinkPickerPanelState extends State<_EmployeeLinkPickerPanel> {
         TextField(
           controller: _searchController,
           decoration: InputDecoration(
-            hintText: 'Tìm theo tên, mã NV, phòng ban...',
+            hintText: tr('Tìm theo tên, mã NV, phòng ban...'),
             prefixIcon: const Icon(Icons.search, size: 20),
             suffixIcon: _query.isNotEmpty
                 ? IconButton(
@@ -5143,12 +5125,12 @@ class _EmployeeLinkPickerPanelState extends State<_EmployeeLinkPickerPanel> {
           segments: [
             ButtonSegment(
               value: _EmployeeLinkFilter.all,
-              label: Text('Tất cả ($allCount)'),
+              label: Text(tr('Tất cả ($allCount)')),
               icon: const Icon(Icons.people_outline, size: 16),
             ),
             ButtonSegment(
               value: _EmployeeLinkFilter.unlinked,
-              label: Text('Chưa liên kết ($unlinkedCount)'),
+              label: Text(tr('Chưa liên kết ($unlinkedCount)')),
               icon: const Icon(Icons.person_add_alt_1_outlined, size: 16),
             ),
           ],
@@ -5176,8 +5158,7 @@ class _EmployeeLinkPickerPanelState extends State<_EmployeeLinkPickerPanel> {
                 Icon(Icons.check_circle, size: 18, color: Colors.green.shade700),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: Text(
-                    'Đã chọn: ${_selected!.fullName} (${_selected!.enrollNumber})',
+                  child: Text(tr('Đã chọn: ${_selected!.fullName} (${_selected!.enrollNumber})'),
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
@@ -5187,7 +5168,7 @@ class _EmployeeLinkPickerPanelState extends State<_EmployeeLinkPickerPanel> {
                 ),
                 IconButton(
                   icon: const Icon(Icons.close, size: 18),
-                  tooltip: 'Bỏ chọn',
+                  tooltip: tr('Bỏ chọn'),
                   onPressed: () {
                     setState(() => _selected = null);
                     widget.onSelected(null);
@@ -5201,8 +5182,7 @@ class _EmployeeLinkPickerPanelState extends State<_EmployeeLinkPickerPanel> {
           ),
         ],
         const SizedBox(height: 8),
-        Text(
-          '${display.length} nhân viên',
+        Text(tr('${display.length} nhân viên'),
           style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
         ),
         const SizedBox(height: 4),
@@ -5216,11 +5196,11 @@ class _EmployeeLinkPickerPanelState extends State<_EmployeeLinkPickerPanel> {
                           size: 40, color: Colors.grey.shade300),
                       const SizedBox(height: 8),
                       Text(
-                        _query.isNotEmpty
+                        tr(_query.isNotEmpty
                             ? 'Không tìm thấy nhân viên phù hợp'
                             : (_filter == _EmployeeLinkFilter.unlinked
                                 ? 'Không còn nhân viên chưa liên kết'
-                                : 'Chưa có nhân viên'),
+                                : 'Chưa có nhân viên')),
                         style: TextStyle(color: Colors.grey.shade600),
                         textAlign: TextAlign.center,
                       ),
@@ -5255,9 +5235,9 @@ class _EmployeeLinkPickerPanelState extends State<_EmployeeLinkPickerPanel> {
                                     ? Theme.of(context).primaryColor
                                     : const Color(0xFFE2E8F0),
                                 child: Text(
-                                  emp.fullName.isNotEmpty
+                                  tr(emp.fullName.isNotEmpty
                                       ? emp.fullName[0].toUpperCase()
-                                      : '?',
+                                      : '?'),
                                   style: TextStyle(
                                     fontSize: 13,
                                     fontWeight: FontWeight.w600,
@@ -5273,7 +5253,7 @@ class _EmployeeLinkPickerPanelState extends State<_EmployeeLinkPickerPanel> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      emp.fullName,
+                                      tr(emp.fullName),
                                       style: TextStyle(
                                         fontWeight: isSelected
                                             ? FontWeight.w600
@@ -5283,12 +5263,12 @@ class _EmployeeLinkPickerPanelState extends State<_EmployeeLinkPickerPanel> {
                                     ),
                                     const SizedBox(height: 2),
                                     Text(
-                                      [
+                                      tr([
                                         'Mã: ${emp.enrollNumber}',
                                         if (emp.department != null &&
                                             emp.department!.isNotEmpty)
                                           emp.department!,
-                                      ].join(' · '),
+                                      ].join(' · ')),
                                       style: const TextStyle(
                                         fontSize: 12,
                                         color: Color(0xFF64748B),
@@ -5305,8 +5285,7 @@ class _EmployeeLinkPickerPanelState extends State<_EmployeeLinkPickerPanel> {
                                     color: Colors.orange.shade50,
                                     borderRadius: BorderRadius.circular(6),
                                   ),
-                                  child: Text(
-                                    'Đã liên kết',
+                                  child: Text(tr('Đã liên kết'),
                                     style: TextStyle(
                                       fontSize: 10,
                                       color: Colors.orange.shade800,
@@ -5522,7 +5501,7 @@ class _EnrollmentProgressDialogState extends State<_EnrollmentProgressDialog> {
                     : Colors.purple,
           ),
           const SizedBox(width: 8),
-          const Expanded(child: Text('Đăng ký vân tay')),
+          Expanded(child: Text(tr('Đăng ký vân tay'))),
         ],
       ),
       content: Column(
@@ -5541,7 +5520,7 @@ class _EnrollmentProgressDialogState extends State<_EnrollmentProgressDialog> {
                 const Icon(Icons.fingerprint, color: Colors.purple),
                 const SizedBox(width: 8),
                 Text(
-                  widget.fingerName,
+                  tr(widget.fingerName),
                   style: const TextStyle(
                       fontWeight: FontWeight.bold, fontSize: 16),
                 ),
@@ -5611,8 +5590,7 @@ class _EnrollmentProgressDialogState extends State<_EnrollmentProgressDialog> {
                         ),
                       ),
                       const SizedBox(height: 4),
-                      Text(
-                        'Lần ${index + 1}',
+                      Text(tr('Lần ${index + 1}'),
                         style: const TextStyle(
                           fontSize: 12,
                           color: Colors.green,
@@ -5641,7 +5619,7 @@ class _EnrollmentProgressDialogState extends State<_EnrollmentProgressDialog> {
 
           // Message
           Text(
-            _message,
+            tr(_message),
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 14,
@@ -5658,13 +5636,12 @@ class _EnrollmentProgressDialogState extends State<_EnrollmentProgressDialog> {
                 color: Colors.orange.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: const Row(
+              child: Row(
                 children: [
                   Icon(Icons.info_outline, color: Colors.orange, size: 20),
                   SizedBox(width: 8),
                   Expanded(
-                    child: Text(
-                      'Đặt ngón tay lên máy chấm công\nvà giữ yên cho đến khi hoàn tất.',
+                    child: Text(tr('Đặt ngón tay lên máy chấm công\nvà giữ yên cho đến khi hoàn tất.'),
                       style: TextStyle(fontSize: 12, color: Colors.orange),
                     ),
                   ),
@@ -5678,7 +5655,7 @@ class _EnrollmentProgressDialogState extends State<_EnrollmentProgressDialog> {
         if (_status != 'success')
           TextButton(
             onPressed: _cancel,
-            child: Text(_status == 'error' ? 'Đóng' : 'Hủy'),
+            child: Text(tr(_status == 'error' ? 'Đóng' : 'Hủy')),
           ),
         if (_status == 'error')
           FilledButton(
@@ -5694,7 +5671,7 @@ class _EnrollmentProgressDialogState extends State<_EnrollmentProgressDialog> {
             style: FilledButton.styleFrom(
               backgroundColor: HrmPageChrome.primaryNavy,
             ),
-            child: const Text('Thử lại'),
+            child: Text(tr('Thử lại')),
           ),
       ],
     );
@@ -5873,7 +5850,7 @@ class _FaceEnrollmentProgressDialogState
                     : Colors.teal,
           ),
           const SizedBox(width: 8),
-          const Expanded(child: Text('Đăng ký khuôn mặt')),
+          Expanded(child: Text(tr('Đăng ký khuôn mặt'))),
         ],
       ),
       content: Column(
@@ -5919,7 +5896,7 @@ class _FaceEnrollmentProgressDialogState
 
           // Message
           Text(
-            _message,
+            tr(_message),
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 14,
@@ -5936,13 +5913,12 @@ class _FaceEnrollmentProgressDialogState
                 color: Colors.orange.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: const Row(
+              child: Row(
                 children: [
                   Icon(Icons.info_outline, color: Colors.orange, size: 20),
                   SizedBox(width: 8),
                   Expanded(
-                    child: Text(
-                      'Nhìn thẳng vào camera máy chấm công\nvà giữ yên cho đến khi hoàn tất.',
+                    child: Text(tr('Nhìn thẳng vào camera máy chấm công\nvà giữ yên cho đến khi hoàn tất.'),
                       style: TextStyle(fontSize: 12, color: Colors.orange),
                     ),
                   ),
@@ -5956,7 +5932,7 @@ class _FaceEnrollmentProgressDialogState
         if (_status != 'success')
           TextButton(
             onPressed: _cancel,
-            child: Text(_status == 'error' ? 'Đóng' : 'Hủy'),
+            child: Text(tr(_status == 'error' ? 'Đóng' : 'Hủy')),
           ),
         if (_status == 'error')
           FilledButton(
@@ -5971,7 +5947,7 @@ class _FaceEnrollmentProgressDialogState
             style: FilledButton.styleFrom(
               backgroundColor: HrmPageChrome.primaryNavy,
             ),
-            child: const Text('Thử lại'),
+            child: Text(tr('Thử lại')),
           ),
       ],
     );

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// Footer phân trang client-side (dùng chung nhiều màn danh sách).
 class ListPaginationBar extends StatelessWidget {
@@ -46,16 +47,16 @@ class ListPaginationBar extends StatelessWidget {
         runSpacing: 8,
         children: [
           Text(
-            totalCount > 0
+            tr(totalCount > 0
                 ? 'Hiển thị $start-$end / $totalCount'
-                : 'Không có dữ liệu',
+                : 'Không có dữ liệu'),
             style: TextStyle(fontSize: 12, color: Colors.grey[600]),
           ),
           if (onPageSizeChanged != null)
             Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text('Hiển thị:',
+                Text(tr('Hiển thị:'),
                     style: TextStyle(fontSize: 12, color: Colors.grey[500])),
                 const SizedBox(width: 8),
                 Container(
@@ -75,7 +76,7 @@ class ListPaginationBar extends StatelessWidget {
                       items: pageSizeOptions
                           .map((s) => DropdownMenuItem(
                                 value: s,
-                                child: Text('$s'),
+                                child: Text(tr('$s')),
                               ))
                           .toList(),
                       onChanged: (v) {
@@ -110,7 +111,7 @@ class ListPaginationBar extends StatelessWidget {
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
-                  '$currentPage / $totalPages',
+                  tr('$currentPage / $totalPages'),
                   style: const TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,

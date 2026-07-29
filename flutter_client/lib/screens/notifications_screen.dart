@@ -16,6 +16,7 @@ import '../services/api_service.dart';
 import '../services/signalr_service.dart';
 import '../widgets/hrm_responsive_list_layout.dart';
 import 'main_layout.dart' show ScreenRefreshNotifier;
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 class NotificationsScreen extends StatefulWidget {
   final bool adminPortalMode;
@@ -209,7 +210,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       debugPrint('Error loading notifications: $e');
       if (mounted) {
         appNotification.showError(
-            title: 'Lỗi', message: 'Lỗi tải thông báo: $e');
+            title: 'Lỗi', message: tr('Lỗi tải thông báo: $e'));
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -297,7 +298,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       ScreenRefreshNotifier.refreshNotificationCount();
       if (mounted) {
         appNotification.showSuccess(
-            title: 'Thành công', message: 'Đã đánh dấu tất cả đã đọc');
+            title: 'Thành công', message: tr('Đã đánh dấu tất cả đã đọc'));
       }
     }
   }
@@ -330,16 +331,16 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => ScrollableAlertDialog(
-        title: const Text('Xóa tất cả thông báo?'),
-        content: const Text('Hành động này không thể hoàn tác.'),
+        title: Text(tr('Xóa tất cả thông báo?')),
+        content: Text(tr('Hành động này không thể hoàn tác.')),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Hủy')),
+              child: Text(tr('Hủy'))),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Xóa tất cả'),
+            child: Text(tr('Xóa tất cả')),
           ),
         ],
       ),
@@ -355,7 +356,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       ScreenRefreshNotifier.refreshNotificationCount();
       if (mounted) {
         appNotification.showSuccess(
-            title: 'Thành công', message: 'Đã xóa tất cả thông báo');
+            title: 'Thành công', message: tr('Đã xóa tất cả thông báo'));
       }
     } else {
       if (mounted) {
@@ -534,18 +535,18 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF4F4F5),
       appBar: AppBar(
-        title: const Text('Thông báo'),
+        title: Text(tr('Thông báo')),
         centerTitle: false,
         actions: [
           if (_unreadCount > 0)
             IconButton(
-              tooltip: 'Đánh dấu đã đọc',
+              tooltip: tr('Đánh dấu đã đọc'),
               icon: const Icon(Icons.done_all),
               onPressed: _markAllAsRead,
             ),
           if (_notifications.isNotEmpty && _canDeleteNotifications)
             IconButton(
-              tooltip: 'Xóa tất cả',
+              tooltip: tr('Xóa tất cả'),
               icon: Icon(Icons.delete_sweep_outlined,
                   color: Colors.red.shade400),
               onPressed: _deleteAllNotifications,
@@ -766,7 +767,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                   active ? color.withValues(alpha: 0.4) : Colors.grey.shade300),
         ),
         child: Row(mainAxisSize: MainAxisSize.min, children: [
-          Text(label,
+          Text(tr(label),
               style: TextStyle(
                   fontSize: 13,
                   fontWeight: active ? FontWeight.w600 : FontWeight.w400,
@@ -777,7 +778,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
               decoration: BoxDecoration(
                   color: color, borderRadius: BorderRadius.circular(10)),
-              child: Text(count > 99 ? '99+' : '$count',
+              child: Text(tr(count > 99 ? '99+' : '$count'),
                   style: const TextStyle(
                       color: Colors.white,
                       fontSize: 10,
@@ -806,7 +807,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         child: Row(mainAxisSize: MainAxisSize.min, children: [
           Icon(icon, size: 15, color: active ? color : Colors.grey.shade500),
           const SizedBox(width: 5),
-          Text(label,
+          Text(tr(label),
               style: TextStyle(
                   fontSize: 12,
                   fontWeight: active ? FontWeight.w600 : FontWeight.w400,
@@ -824,14 +825,14 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       height: 1.4,
       color: n.isRead ? Colors.grey.shade500 : Colors.grey.shade700,
     );
-    return _ExpandableText(text: n.effectiveMessage, style: style);
+    return _ExpandableText(text: tr(n.effectiveMessage), style: style);
   }
 
   Widget _buildDateHeader(String label) {
     return Padding(
       padding: const EdgeInsets.only(top: 14, bottom: 6, left: 4),
       child: Text(
-        label,
+        tr(label),
         style: TextStyle(
             fontSize: 13,
             fontWeight: FontWeight.w700,
@@ -910,7 +911,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                               Padding(
                                 padding: const EdgeInsets.only(bottom: 2),
                                 child: Text(
-                                  n.categoryLabel!,
+                                  tr(n.categoryLabel!),
                                   style: TextStyle(
                                     fontSize: 11,
                                     fontWeight: FontWeight.w600,
@@ -921,7 +922,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                                 ),
                               ),
                             Text(
-                              n.effectiveTitle,
+                              tr(n.effectiveTitle),
                               style: TextStyle(
                                 fontWeight:
                                     n.isRead ? FontWeight.w500 : FontWeight.w700,
@@ -944,7 +945,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                     _buildExpandableMessage(n),
                     const SizedBox(height: 6),
                     Text(
-                      timeago.format(n.createdAt, locale: 'vi'),
+                      tr(timeago.format(n.createdAt, locale: 'vi')),
                       style:
                           TextStyle(fontSize: 11, color: Colors.grey.shade400),
                     ),
@@ -1003,7 +1004,7 @@ class _ExpandableTextState extends State<_ExpandableText> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final tp = TextPainter(
-          text: TextSpan(text: widget.text, style: widget.style),
+          text: TextSpan(text: tr(widget.text), style: widget.style),
           maxLines: 3,
           textDirection: Directionality.of(context),
         )..layout(maxWidth: constraints.maxWidth);
@@ -1014,7 +1015,7 @@ class _ExpandableTextState extends State<_ExpandableText> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              widget.text,
+              tr(widget.text),
               style: widget.style,
               maxLines: _expanded ? null : 3,
               overflow: _expanded ? null : TextOverflow.ellipsis,
@@ -1025,7 +1026,7 @@ class _ExpandableTextState extends State<_ExpandableText> {
                 child: Padding(
                   padding: const EdgeInsets.only(top: 3),
                   child: Text(
-                    _expanded ? 'Thu gọn' : 'Xem thêm',
+                    tr(_expanded ? 'Thu gọn' : 'Xem thêm'),
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,

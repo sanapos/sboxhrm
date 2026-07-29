@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../../models/cash_transaction.dart';
 import '../../utils/pos_vietqr_helper.dart';
 import 'pos_theme.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 const _kiotBlue = PosTheme.kiotBlue;
 
@@ -77,8 +78,7 @@ class _PosVietQrPaymentPanelState extends State<PosVietQrPaymentPanel> {
           borderRadius: BorderRadius.circular(8),
           border: Border.all(color: Colors.orange.shade200),
         ),
-        child: const Text(
-          'Chưa có tài khoản ngân hàng. Vào Thiết lập cửa hàng để thêm.',
+        child: Text(tr('Chưa có tài khoản ngân hàng. Vào Thiết lập cửa hàng để thêm.'),
           style: TextStyle(fontSize: 12),
         ),
       );
@@ -100,14 +100,12 @@ class _PosVietQrPaymentPanelState extends State<PosVietQrPaymentPanel> {
             children: [
               const Icon(Icons.qr_code_2, color: _kiotBlue, size: 20),
               const SizedBox(width: 6),
-              const Expanded(
-                child: Text(
-                  'VietQR thanh toán',
+              Expanded(
+                child: Text(tr('VietQR thanh toán'),
                   style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
                 ),
               ),
-              Text(
-                '${_money.format(widget.amount)} đ',
+              Text(tr('${_money.format(widget.amount)} đ'),
                 style: const TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.bold,
@@ -121,8 +119,8 @@ class _PosVietQrPaymentPanelState extends State<PosVietQrPaymentPanel> {
             DropdownButtonFormField<String>(
               value: acc.id,
               isDense: true,
-              decoration: const InputDecoration(
-                labelText: 'Tài khoản nhận',
+              decoration: InputDecoration(
+                labelText: tr('Tài khoản nhận'),
                 border: OutlineInputBorder(),
                 isDense: true,
                 contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
@@ -132,8 +130,8 @@ class _PosVietQrPaymentPanelState extends State<PosVietQrPaymentPanel> {
                     (a) => DropdownMenuItem(
                       value: a.id,
                       child: Text(
-                        '${a.bankShortName ?? a.bankName} · ${a.accountNumber}'
-                        '${a.isDefault ? ' (Mặc định)' : ''}',
+                        tr('${a.bankShortName ?? a.bankName} · ${a.accountNumber}'
+                        '${a.isDefault ? ' (Mặc định)' : ''}'),
                         style: const TextStyle(fontSize: 12),
                       ),
                     ),
@@ -150,11 +148,11 @@ class _PosVietQrPaymentPanelState extends State<PosVietQrPaymentPanel> {
           ] else ...[
             const SizedBox(height: 6),
             Text(
-              '${acc.bankShortName ?? acc.bankName} · ${acc.accountNumber}',
+              tr('${acc.bankShortName ?? acc.bankName} · ${acc.accountNumber}'),
               style: TextStyle(fontSize: 11, color: Colors.grey.shade700),
             ),
             Text(
-              acc.accountName,
+              tr(acc.accountName),
               style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
             ),
           ],
@@ -186,12 +184,12 @@ class _PosVietQrPaymentPanelState extends State<PosVietQrPaymentPanel> {
                       errorWidget: (_, __, ___) => SizedBox(
                         width: qrSize,
                         height: qrSize,
-                        child: const Column(
+                        child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Icon(Icons.error_outline, color: Colors.red),
                             SizedBox(height: 6),
-                            Text('Không tải được mã QR', style: TextStyle(fontSize: 11)),
+                            Text(tr('Không tải được mã QR'), style: TextStyle(fontSize: 11)),
                           ],
                         ),
                       ),
@@ -200,8 +198,7 @@ class _PosVietQrPaymentPanelState extends State<PosVietQrPaymentPanel> {
           ),
           if (widget.description != null && widget.description!.trim().isNotEmpty) ...[
             const SizedBox(height: 8),
-            Text(
-              'Nội dung: ${widget.description!.trim()}',
+            Text(tr('Nội dung: ${widget.description!.trim()}'),
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 11, color: Colors.grey.shade700),
             ),
@@ -223,7 +220,7 @@ Future<void> showPosVietQrPaymentDialog(
   await showDialog<void>(
     context: context,
     builder: (ctx) => AlertDialog(
-      title: const Text('Quét VietQR thanh toán'),
+      title: Text(tr('Quét VietQR thanh toán')),
       content: SizedBox(
         width: 320,
         child: PosVietQrPaymentPanel(
@@ -234,7 +231,7 @@ Future<void> showPosVietQrPaymentDialog(
         ),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Đóng')),
+        TextButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('Đóng'))),
       ],
     ),
   );

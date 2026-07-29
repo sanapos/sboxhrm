@@ -21,6 +21,7 @@ import '../widgets/pos/pos_purchase_toolbar.dart';
 import '../widgets/pos/pos_theme.dart';
 import '../widgets/pos_barcode_scanner.dart';
 import '../screens/main_layout.dart' show ScreenRefreshNotifier;
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 const _blue = Color(0xFF2563EB);
 
@@ -49,10 +50,10 @@ class _ReturnLine {
     double returnPrice = 0,
     double discount = 0,
     String? lineNote,
-  })  : qtyCtrl = TextEditingController(text: qty.toStringAsFixed(0)),
-        returnPriceCtrl = TextEditingController(text: returnPrice.toStringAsFixed(0)),
-        discountCtrl = TextEditingController(text: discount.toStringAsFixed(0)),
-        lineNoteCtrl = TextEditingController(text: lineNote ?? '');
+  })  : qtyCtrl = TextEditingController(text: tr(qty.toStringAsFixed(0))),
+        returnPriceCtrl = TextEditingController(text: tr(returnPrice.toStringAsFixed(0))),
+        discountCtrl = TextEditingController(text: tr(discount.toStringAsFixed(0))),
+        lineNoteCtrl = TextEditingController(text: tr(lineNote ?? ''));
 
   String get lineKey => '$productId:${variantId ?? 'base'}';
 
@@ -115,8 +116,8 @@ class _PosPurchaseReturnEditorScreenState
     extends State<PosPurchaseReturnEditorScreen> {
   final _api = ApiService();
   final _noteCtrl = TextEditingController();
-  final _discountCtrl = TextEditingController(text: '0');
-  final _refundReceivedCtrl = TextEditingController(text: '0');
+  final _discountCtrl = TextEditingController(text: tr('0'));
+  final _refundReceivedCtrl = TextEditingController(text: tr('0'));
   final _returnNoCtrl = TextEditingController();
   final _receiptSearchCtrl = TextEditingController();
   final _moneyFmt = NumberFormat('#,##0', 'vi_VN');
@@ -276,7 +277,7 @@ class _PosPurchaseReturnEditorScreenState
     if (receiptId == null) {
       if (mounted) {
         NotificationOverlayManager().showError(
-            title: 'Không tìm thấy', message: 'Không tìm thấy phiếu nhập "$q"');
+            title: 'Không tìm thấy', message: tr('Không tìm thấy phiếu nhập "$q"'));
         setState(() => _loading = false);
       }
       return;
@@ -324,7 +325,7 @@ class _PosPurchaseReturnEditorScreenState
     if (_lines.any((l) => l.lineKey == line.lineKey)) {
       line.dispose();
       NotificationOverlayManager()
-          .showWarning(title: 'Trùng', message: 'Hàng đã có trong phiếu');
+          .showWarning(title: 'Trùng', message: tr('Hàng đã có trong phiếu'));
       return;
     }
     await _loadVariantsForLine(line);
@@ -340,18 +341,18 @@ class _PosPurchaseReturnEditorScreenState
   }
 
   Future<void> _editLineNote(_ReturnLine line) async {
-    final ctrl = TextEditingController(text: line.lineNoteCtrl.text);
+    final ctrl = TextEditingController(text: tr(line.lineNoteCtrl.text));
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Ghi chú dòng hàng'),
+        title: Text(tr('Ghi chú dòng hàng')),
         content: TextField(controller: ctrl, maxLines: 3),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Huỷ')),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Huỷ'))),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: FilledButton.styleFrom(backgroundColor: _blue),
-            child: const Text('Lưu'),
+            child: Text(tr('Lưu')),
           ),
         ],
       ),
@@ -387,7 +388,7 @@ class _PosPurchaseReturnEditorScreenState
   Future<void> _save({required bool complete}) async {
     if (_lines.isEmpty) {
       NotificationOverlayManager()
-          .showWarning(title: 'Phiếu trống', message: 'Thêm ít nhất một dòng hàng');
+          .showWarning(title: 'Phiếu trống', message: tr('Thêm ít nhất một dòng hàng'));
       return;
     }
     setState(() => _saving = true);
@@ -469,14 +470,14 @@ class _PosPurchaseReturnEditorScreenState
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Xóa phiếu'),
-        content: Text('Xóa hẳn phiếu $_returnNo?'),
+        title: Text(tr('Xóa phiếu')),
+        content: Text(tr('Xóa hẳn phiếu $_returnNo?')),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Không')),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Không'))),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Xóa'),
+            child: Text(tr('Xóa')),
           ),
         ],
       ),
@@ -503,14 +504,14 @@ class _PosPurchaseReturnEditorScreenState
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Hủy phiếu trả hàng'),
-        content: Text('Hủy phiếu $_returnNo và hoàn hàng về kho?'),
+        title: Text(tr('Hủy phiếu trả hàng')),
+        content: Text(tr('Hủy phiếu $_returnNo và hoàn hàng về kho?')),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Không')),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Không'))),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Hủy phiếu'),
+            child: Text(tr('Hủy phiếu')),
           ),
         ],
       ),
@@ -542,7 +543,7 @@ class _PosPurchaseReturnEditorScreenState
   }
 
   Widget _qtyCell(_ReturnLine l) {
-    if (_readOnly) return Text(l.qtyCtrl.text, style: const TextStyle(fontSize: 13));
+    if (_readOnly) return Text(tr(l.qtyCtrl.text), style: const TextStyle(fontSize: 13));
     return Row(
       children: [
         IconButton(
@@ -578,7 +579,7 @@ class _PosPurchaseReturnEditorScreenState
 
   Widget _unitCell(_ReturnLine l) {
     if (_readOnly || l.unitViews.length <= 1) {
-      return Text(l.unitName, style: const TextStyle(fontSize: 13));
+      return Text(tr(l.unitName), style: const TextStyle(fontSize: 13));
     }
     return DropdownButtonHideUnderline(
       child: DropdownButton<String?>(
@@ -588,7 +589,7 @@ class _PosPurchaseReturnEditorScreenState
         items: l.unitViews
             .map((v) => DropdownMenuItem<String?>(
                   value: v.variantId,
-                  child: Text(v.label, style: const TextStyle(fontSize: 12)),
+                  child: Text(tr(v.label), style: const TextStyle(fontSize: 12)),
                 ))
             .toList(),
         onChanged: (v) {
@@ -609,7 +610,7 @@ class _PosPurchaseReturnEditorScreenState
           flex: flex,
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
-            child: Text(label,
+            child: Text(tr(label),
                 style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
           ),
         );
@@ -655,9 +656,9 @@ class _PosPurchaseReturnEditorScreenState
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    dataCell(Text('${i + 1}', style: const TextStyle(fontSize: 13)), 1),
+                    dataCell(Text(tr('${i + 1}'), style: const TextStyle(fontSize: 13)), 1),
                     dataCell(
-                        Text(l.productCode,
+                        Text(tr(l.productCode),
                             style: const TextStyle(fontSize: 13, color: _blue)),
                         2),
                     dataCell(
@@ -665,7 +666,7 @@ class _PosPurchaseReturnEditorScreenState
                         crossAxisAlignment: CrossAxisAlignment.start,
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Text(l.productName,
+                          Text(tr(l.productName),
                               style: const TextStyle(
                                   fontSize: 13, fontWeight: FontWeight.w500)),
                           if (!_readOnly)
@@ -679,9 +680,9 @@ class _PosPurchaseReturnEditorScreenState
                                   const SizedBox(width: 4),
                                   Flexible(
                                     child: Text(
-                                      l.lineNoteCtrl.text.isEmpty
+                                      tr(l.lineNoteCtrl.text.isEmpty
                                           ? 'Ghi chú…'
-                                          : l.lineNoteCtrl.text,
+                                          : l.lineNoteCtrl.text),
                                       style: TextStyle(
                                         fontSize: 11,
                                         color: l.lineNoteCtrl.text.isEmpty
@@ -702,12 +703,12 @@ class _PosPurchaseReturnEditorScreenState
                     dataCell(_unitCell(l), 2),
                     dataCell(_qtyCell(l), 2),
                     dataCell(
-                        Text('${_moneyFmt.format(l.importCost)} đ',
+                        Text(tr('${_moneyFmt.format(l.importCost)} đ'),
                             style: const TextStyle(fontSize: 13)),
                         2),
                     dataCell(
                       _readOnly
-                          ? Text('${_moneyFmt.format(double.tryParse(l.returnPriceCtrl.text) ?? 0)} đ',
+                          ? Text(tr('${_moneyFmt.format(double.tryParse(l.returnPriceCtrl.text) ?? 0)} đ'),
                               style: const TextStyle(fontSize: 13))
                           : TextField(
                               controller: l.returnPriceCtrl,
@@ -722,7 +723,7 @@ class _PosPurchaseReturnEditorScreenState
                     ),
                     dataCell(
                       _readOnly
-                          ? Text(l.discountCtrl.text, style: const TextStyle(fontSize: 13))
+                          ? Text(tr(l.discountCtrl.text), style: const TextStyle(fontSize: 13))
                           : TextField(
                               controller: l.discountCtrl,
                               keyboardType: TextInputType.number,
@@ -735,7 +736,7 @@ class _PosPurchaseReturnEditorScreenState
                       2,
                     ),
                     dataCell(
-                        Text('${_moneyFmt.format(l.lineTotal)} đ',
+                        Text(tr('${_moneyFmt.format(l.lineTotal)} đ'),
                             style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
                         2),
                     if (!_readOnly)
@@ -767,8 +768,8 @@ class _PosPurchaseReturnEditorScreenState
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: const TextStyle(fontSize: 13, color: PosTheme.textSecondary)),
-          Text(value,
+          Text(tr(label), style: const TextStyle(fontSize: 13, color: PosTheme.textSecondary)),
+          Text(tr(value),
               style: TextStyle(
                   fontWeight: bold ? FontWeight.bold : FontWeight.w500,
                   color: color,
@@ -782,7 +783,7 @@ class _PosPurchaseReturnEditorScreenState
   Widget build(BuildContext context) {
     final perm = Provider.of<PermissionProvider>(context);
     if (!perm.canEdit('PosProducts')) {
-      return const Scaffold(body: Center(child: Text('Không có quyền trả hàng nhập')));
+      return Scaffold(body: Center(child: Text(tr('Không có quyền trả hàng nhập'))));
     }
 
     return Shortcuts(
@@ -801,7 +802,7 @@ class _PosPurchaseReturnEditorScreenState
               children: [
                 const Icon(Icons.assignment_return_outlined, color: _blue, size: 22),
                 const SizedBox(width: 8),
-                Text(_returnId == null ? 'Trả hàng nhập' : 'Trả hàng · $_returnNo'),
+                Text(tr(_returnId == null ? 'Trả hàng nhập' : 'Trả hàng · $_returnNo')),
               ],
             ),
           ),
@@ -827,8 +828,8 @@ class _PosPurchaseReturnEditorScreenState
                                           flex: 2,
                                           child: TextField(
                                             controller: _receiptSearchCtrl,
-                                            decoration: const InputDecoration(
-                                              hintText: 'Tải từ phiếu nhập (mã PN)…',
+                                            decoration: InputDecoration(
+                                              hintText: tr('Tải từ phiếu nhập (mã PN)…'),
                                               isDense: true,
                                               border: OutlineInputBorder(),
                                               filled: true,
@@ -840,7 +841,7 @@ class _PosPurchaseReturnEditorScreenState
                                         const SizedBox(width: 8),
                                         OutlinedButton(
                                           onPressed: _loadFromReceiptSearch,
-                                          child: const Text('Tải PN'),
+                                          child: Text(tr('Tải PN')),
                                         ),
                                         const SizedBox(width: 12),
                                         Expanded(
@@ -848,7 +849,7 @@ class _PosPurchaseReturnEditorScreenState
                                           child: PosPurchaseProductSearchBar(
                                             api: _api,
                                             readOnly: _readOnly,
-                                            hintText: 'Tìm hàng hóa (F3)',
+                                            hintText: tr('Tìm hàng hóa (F3)'),
                                             onPick: _onPickProduct,
                                           ),
                                         ),
@@ -860,18 +861,18 @@ class _PosPurchaseReturnEditorScreenState
                                     child: PosPurchaseProductSearchBar(
                                       api: _api,
                                       readOnly: _readOnly,
-                                      hintText: 'Tìm hàng hóa (F3)',
+                                      hintText: tr('Tìm hàng hóa (F3)'),
                                       onPick: _onPickProduct,
                                     ),
                                   )
                                 else
-                                  const Expanded(
-                                    child: Text('Chi tiết phiếu trả hàng nhập',
+                                  Expanded(
+                                    child: Text(tr('Chi tiết phiếu trả hàng nhập'),
                                         style: TextStyle(
                                             fontSize: 15, fontWeight: FontWeight.w600)),
                                   ),
                                 IconButton(
-                                  tooltip: 'Quét mã vạch',
+                                  tooltip: tr('Quét mã vạch'),
                                   icon: const Icon(Icons.qr_code_scanner_outlined),
                                   onPressed: _readOnly ? null : _scanBarcode,
                                 ),
@@ -887,10 +888,10 @@ class _PosPurchaseReturnEditorScreenState
                                         Icon(Icons.assignment_return_outlined,
                                             size: 48, color: Colors.grey.shade400),
                                         const SizedBox(height: 12),
-                                        Text('Chưa có hàng trong phiếu trả',
+                                        Text(tr('Chưa có hàng trong phiếu trả'),
                                             style: TextStyle(color: Colors.grey.shade600)),
                                         const SizedBox(height: 8),
-                                        Text('Tìm hàng hoặc tải từ phiếu nhập (F3)',
+                                        Text(tr('Tìm hàng hoặc tải từ phiếu nhập (F3)'),
                                             style: TextStyle(
                                                 fontSize: 12, color: Colors.grey.shade500)),
                                       ],
@@ -915,17 +916,17 @@ class _PosPurchaseReturnEditorScreenState
                             if (_sourceReceiptNo != null)
                               ListTile(
                                 contentPadding: EdgeInsets.zero,
-                                title: const Text('Phiếu nhập gốc',
+                                title: Text(tr('Phiếu nhập gốc'),
                                     style: TextStyle(fontSize: 12)),
-                                subtitle: Text(_sourceReceiptNo!,
+                                subtitle: Text(tr(_sourceReceiptNo!),
                                     style: const TextStyle(
                                         color: _blue, fontWeight: FontWeight.w600)),
                               ),
                             ListTile(
                               contentPadding: EdgeInsets.zero,
-                              title: const Text('Ngày trả', style: TextStyle(fontSize: 12)),
+                              title: Text(tr('Ngày trả'), style: TextStyle(fontSize: 12)),
                               subtitle:
-                                  Text(DateFormat('dd/MM/yyyy HH:mm').format(_returnDate)),
+                                  Text(tr(DateFormat('dd/MM/yyyy HH:mm').format(_returnDate))),
                               trailing: _readOnly
                                   ? null
                                   : IconButton(
@@ -954,11 +955,11 @@ class _PosPurchaseReturnEditorScreenState
                                     decoration:
                                         PosTheme.inputDecoration(label: 'Tìm nhà cung cấp'),
                                     items: [
-                                      const DropdownMenuItem(
-                                          value: null, child: Text('— Chọn NCC —')),
+                                      DropdownMenuItem(
+                                          value: null, child: Text(tr('— Chọn NCC —'))),
                                       ..._suppliers.map((s) => DropdownMenuItem(
                                             value: s.id,
-                                            child: Text('${s.supplierCode} · ${s.name}',
+                                            child: Text(tr('${s.supplierCode} · ${s.name}'),
                                                 overflow: TextOverflow.ellipsis),
                                           )),
                                     ],
@@ -970,7 +971,7 @@ class _PosPurchaseReturnEditorScreenState
                                 if (!_readOnly) ...[
                                   const SizedBox(width: 8),
                                   IconButton(
-                                    tooltip: 'Thêm NCC',
+                                    tooltip: tr('Thêm NCC'),
                                     onPressed: _openAddSupplier,
                                     icon: const Icon(Icons.add, color: _blue),
                                   ),
@@ -1018,10 +1019,10 @@ class _PosPurchaseReturnEditorScreenState
                             DropdownButtonFormField<String>(
                               value: _paymentMethod,
                               decoration: PosTheme.inputDecoration(label: 'Phương thức'),
-                              items: const [
-                                DropdownMenuItem(value: 'Tiền mặt', child: Text('Tiền mặt')),
+                              items: [
+                                DropdownMenuItem(value: 'Tiền mặt', child: Text(tr('Tiền mặt'))),
                                 DropdownMenuItem(
-                                    value: 'Chuyển khoản', child: Text('Chuyển khoản')),
+                                    value: 'Chuyển khoản', child: Text(tr('Chuyển khoản'))),
                               ],
                               onChanged:
                                   _readOnly ? null : (v) => setState(() => _paymentMethod = v!),
@@ -1044,20 +1045,20 @@ class _PosPurchaseReturnEditorScreenState
                               const SizedBox(height: 16),
                               OutlinedButton(
                                 onPressed: _saving ? null : () => _save(complete: false),
-                                child: Text(_saving ? '…' : 'Lưu tạm'),
+                                child: Text(tr(_saving ? '…' : 'Lưu tạm')),
                               ),
                               const SizedBox(height: 8),
                               FilledButton(
                                 onPressed: _saving ? null : () => _save(complete: true),
                                 style: FilledButton.styleFrom(backgroundColor: _blue),
-                                child: Text(_saving ? '…' : 'Hoàn thành'),
+                                child: Text(tr(_saving ? '…' : 'Hoàn thành')),
                               ),
                               if (_returnId != null) ...[
                                 const SizedBox(height: 8),
                                 OutlinedButton.icon(
                                   onPressed: _saving ? null : _deleteDraft,
                                   icon: const Icon(Icons.delete_outline, size: 18),
-                                  label: const Text('Xóa phiếu'),
+                                  label: Text(tr('Xóa phiếu')),
                                 ),
                               ],
                             ] else if (_status == 'Completed' && _returnId != null) ...[
@@ -1065,14 +1066,14 @@ class _PosPurchaseReturnEditorScreenState
                               OutlinedButton.icon(
                                 onPressed: _saving ? null : _voidCompleted,
                                 icon: const Icon(Icons.cancel_outlined, size: 18),
-                                label: const Text('Hủy phiếu'),
+                                label: Text(tr('Hủy phiếu')),
                               ),
                             ] else if (_status == 'Cancelled' && _returnId != null) ...[
                               const SizedBox(height: 16),
                               OutlinedButton.icon(
                                 onPressed: _saving ? null : _deleteDraft,
                                 icon: const Icon(Icons.delete_outline, size: 18),
-                                label: const Text('Xóa phiếu'),
+                                label: Text(tr('Xóa phiếu')),
                               ),
                             ],
                           ],

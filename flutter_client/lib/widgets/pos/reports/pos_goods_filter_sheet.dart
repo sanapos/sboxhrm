@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../pos_theme.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 enum PosGoodsInventoryFilter {
   all,
@@ -66,7 +67,7 @@ class _PosGoodsFilterSheetState extends State<PosGoodsFilterSheet> {
 
   Widget _chip(String label, bool selected, VoidCallback onTap) {
     return FilterChip(
-      label: Text(label),
+      label: Text(tr(label)),
       selected: selected,
       onSelected: (_) => onTap(),
       selectedColor: PosTheme.kiotBlueLight,
@@ -98,15 +99,14 @@ class _PosGoodsFilterSheetState extends State<PosGoodsFilterSheet> {
                     icon: const Icon(Icons.arrow_back),
                     onPressed: () => Navigator.pop(context),
                   ),
-                  const Expanded(
-                    child: Text(
-                      'Lọc báo cáo',
+                  Expanded(
+                    child: Text(tr('Lọc báo cáo'),
                       style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
                     ),
                   ),
                   TextButton(
                     onPressed: () => Navigator.pop(context, _filter),
-                    child: const Text('Áp dụng'),
+                    child: Text(tr('Áp dụng')),
                   ),
                 ],
               ),
@@ -176,7 +176,7 @@ class _PosGoodsFilterSheetState extends State<PosGoodsFilterSheet> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+          Text(tr(title), style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
           const SizedBox(height: 8),
           child,
         ],
@@ -192,7 +192,7 @@ class _PosGoodsFilterSheetState extends State<PosGoodsFilterSheet> {
         padding: const EdgeInsets.symmetric(vertical: 10),
         child: Row(
           children: [
-            Expanded(child: Text(label, style: const TextStyle(fontSize: 14))),
+            Expanded(child: Text(tr(label), style: const TextStyle(fontSize: 14))),
             if (selected) const Icon(Icons.check, color: PosTheme.kiotBlue, size: 20),
           ],
         ),

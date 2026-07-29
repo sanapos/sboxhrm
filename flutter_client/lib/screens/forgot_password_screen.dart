@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import '../widgets/notification_overlay.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 class ForgotPasswordScreen extends StatefulWidget {
   const ForgotPasswordScreen({super.key});
@@ -91,7 +92,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
       if (result['isSuccess'] == true) {
         if (mounted) {
-          NotificationOverlayManager().showSuccess(title: 'Thành công', message: 'Đổi mật khẩu thành công! Vui lòng đăng nhập lại.');
+          NotificationOverlayManager().showSuccess(title: 'Thành công', message: tr('Đổi mật khẩu thành công! Vui lòng đăng nhập lại.'));
           Navigator.of(context).pop();
         }
       } else {
@@ -143,7 +144,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
                     // Title
                     Text(
-                      _step == 1 ? 'Quên mật khẩu' : 'Xác nhận OTP',
+                      tr(_step == 1 ? 'Quên mật khẩu' : 'Xác nhận OTP'),
                       style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                             fontWeight: FontWeight.bold,
                           ),
@@ -151,9 +152,9 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      _step == 1
+                      tr(_step == 1
                           ? 'Nhập mã cửa hàng và email để nhận mã OTP'
-                          : 'Nhập mã OTP đã gửi đến ${_emailController.text.trim()} và mật khẩu mới',
+                          : 'Nhập mã OTP đã gửi đến ${_emailController.text.trim()} và mật khẩu mới'),
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                             color: Colors.grey,
                           ),
@@ -193,7 +194,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(
-                                _errorMessage!,
+                                tr(_errorMessage!),
                                 style: const TextStyle(color: Colors.red, fontSize: 14),
                               ),
                             ),
@@ -218,7 +219,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(
-                                _successMessage!,
+                                tr(_successMessage!),
                                 style: const TextStyle(color: Colors.green, fontSize: 14),
                               ),
                             ),
@@ -231,8 +232,8 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                       TextFormField(
                         controller: _storeCodeController,
                         decoration: InputDecoration(
-                          labelText: 'Mã cửa hàng *',
-                          hintText: 'VD: sanapos',
+                          labelText: tr('Mã cửa hàng *'),
+                          hintText: tr('VD: sanapos'),
                           prefixIcon: const Icon(Icons.store),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
@@ -252,8 +253,8 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                         controller: _emailController,
                         keyboardType: TextInputType.emailAddress,
                         decoration: InputDecoration(
-                          labelText: 'Email *',
-                          hintText: 'Nhập email đăng ký',
+                          labelText: tr('Email *'),
+                          hintText: tr('Nhập email đăng ký'),
                           prefixIcon: const Icon(Icons.email),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
@@ -285,8 +286,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                                     color: Colors.white,
                                   ),
                                 )
-                              : const Text(
-                                  'Gửi mã OTP',
+                              : Text(tr('Gửi mã OTP'),
                                   style: TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.w600,
@@ -309,8 +309,8 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                         ),
                         textAlign: TextAlign.center,
                         decoration: InputDecoration(
-                          labelText: 'Mã OTP *',
-                          hintText: '000000',
+                          labelText: tr('Mã OTP *'),
+                          hintText: tr('000000'),
                           prefixIcon: const Icon(Icons.pin),
                           counterText: '',
                           border: OutlineInputBorder(
@@ -334,8 +334,8 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                         controller: _newPasswordController,
                         obscureText: _obscurePassword,
                         decoration: InputDecoration(
-                          labelText: 'Mật khẩu mới *',
-                          hintText: 'Nhập mật khẩu mới',
+                          labelText: tr('Mật khẩu mới *'),
+                          hintText: tr('Nhập mật khẩu mới'),
                           prefixIcon: const Icon(Icons.lock),
                           suffixIcon: IconButton(
                             icon: Icon(_obscurePassword ? Icons.visibility_off : Icons.visibility),
@@ -362,8 +362,8 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                         controller: _confirmPasswordController,
                         obscureText: _obscureConfirmPassword,
                         decoration: InputDecoration(
-                          labelText: 'Xác nhận mật khẩu *',
-                          hintText: 'Nhập lại mật khẩu mới',
+                          labelText: tr('Xác nhận mật khẩu *'),
+                          hintText: tr('Nhập lại mật khẩu mới'),
                           prefixIcon: const Icon(Icons.lock_outline),
                           suffixIcon: IconButton(
                             icon: Icon(_obscureConfirmPassword ? Icons.visibility_off : Icons.visibility),
@@ -393,7 +393,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                             _otpController.clear();
                             _handleSendOtp();
                           },
-                          child: const Text('Gửi lại mã OTP?'),
+                          child: Text(tr('Gửi lại mã OTP?')),
                         ),
                       ),
                       const SizedBox(height: 16),
@@ -412,8 +412,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                                     color: Colors.white,
                                   ),
                                 )
-                              : const Text(
-                                  'Xác nhận đổi mật khẩu',
+                              : Text(tr('Xác nhận đổi mật khẩu'),
                                   style: TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.w600,
@@ -436,7 +435,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                           });
                         },
                         icon: const Icon(Icons.arrow_back, size: 18),
-                        label: const Text('Quay lại nhập email'),
+                        label: Text(tr('Quay lại nhập email')),
                       ),
                     ],
 
@@ -446,7 +445,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                     TextButton.icon(
                       onPressed: () => Navigator.of(context).pop(),
                       icon: const Icon(Icons.login, size: 18),
-                      label: const Text('Quay lại đăng nhập'),
+                      label: Text(tr('Quay lại đăng nhập')),
                     ),
                   ],
                 ),
@@ -469,7 +468,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
       ),
       child: Center(
         child: Text(
-          '$step',
+          tr('$step'),
           style: TextStyle(
             color: isActive ? Colors.white : Colors.grey.shade600,
             fontWeight: FontWeight.bold,

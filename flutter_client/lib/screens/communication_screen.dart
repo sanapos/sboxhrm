@@ -16,6 +16,7 @@ import '../utils/image_source_picker.dart';
 import 'package:provider/provider.dart';
 import '../providers/permission_provider.dart';
 import '../widgets/hrm_page_chrome.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 class CommunicationScreen extends StatefulWidget {
   const CommunicationScreen({super.key});
@@ -246,8 +247,8 @@ class _CommunicationScreenState extends State<CommunicationScreen>
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => ScrollableAlertDialog(
-        title: const Text('Xóa bài viết'),
-        content: Text('Bạn có chắc muốn xóa "${comm.title}"?'),
+        title: Text(tr('Xóa bài viết')),
+        content: Text(tr('Bạn có chắc muốn xóa "${comm.title}"?')),
         actions: [
           AppDialogActions.delete(
             onCancel: () => Navigator.pop(ctx, false),
@@ -263,7 +264,7 @@ class _CommunicationScreenState extends State<CommunicationScreen>
         _loadCommunications();
         _loadStats();
         NotificationOverlayManager()
-            .showSuccess(title: 'Thành công', message: 'Đã xóa bài viết');
+            .showSuccess(title: 'Thành công', message: tr('Đã xóa bài viết'));
       } else {
         NotificationOverlayManager()
             .showError(title: 'Lỗi', message: result['message'] ?? 'Lỗi');
@@ -276,9 +277,8 @@ class _CommunicationScreenState extends State<CommunicationScreen>
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => ScrollableAlertDialog(
-        title: const Text('Xuất bản bài viết'),
-        content: Text(
-            'Bạn có chắc muốn xuất bản "${comm.title}"?\nBài viết sẽ hiển thị cho toàn bộ nhân viên.'),
+        title: Text(tr('Xuất bản bài viết')),
+        content: Text(tr('Bạn có chắc muốn xuất bản "${comm.title}"?\nBài viết sẽ hiển thị cho toàn bộ nhân viên.')),
         actions: [
           AppDialogActions(
             onCancel: () => Navigator.pop(ctx, false),
@@ -304,7 +304,7 @@ class _CommunicationScreenState extends State<CommunicationScreen>
         _loadCommunications();
         _loadStats();
         NotificationOverlayManager().showSuccess(
-            title: 'Thành công', message: 'Đã xuất bản thành công!');
+            title: 'Thành công', message: tr('Đã xuất bản thành công!'));
       } else {
         NotificationOverlayManager().showError(
             title: 'Lỗi', message: result['message'] ?? 'Lỗi xuất bản');
@@ -375,7 +375,7 @@ class _CommunicationScreenState extends State<CommunicationScreen>
           ),
           const SizedBox(width: 12),
           Expanded(
-            child: Text('Truyền thông nội bộ',
+            child: Text(tr('Truyền thông nội bộ'),
                 style: theme.textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.bold,
                     color: const Color(0xFF18181B)),
@@ -402,7 +402,7 @@ class _CommunicationScreenState extends State<CommunicationScreen>
             FilledButton.icon(
               onPressed: () => _openCreateDialog(),
               icon: const Icon(Icons.add, size: 20),
-              label: const Text('Tạo bài mới'),
+              label: Text(tr('Tạo bài mới')),
               style: FilledButton.styleFrom(
                 backgroundColor: HrmPageChrome.primaryNavy,
                 padding:
@@ -439,7 +439,7 @@ class _CommunicationScreenState extends State<CommunicationScreen>
                     children: [
                       Icon(t.icon, size: 18),
                       const SizedBox(width: 8),
-                      Text(t.label,
+                      Text(tr(t.label),
                           style: const TextStyle(
                               fontWeight: FontWeight.w600, fontSize: 13)),
                     ],
@@ -702,13 +702,13 @@ class _CommunicationScreenState extends State<CommunicationScreen>
                   child: Icon(icon, color: color, size: 20),
                 ),
                 const SizedBox(height: 8),
-                Text(value,
+                Text(tr(value),
                     style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
                         color: color)),
                 const SizedBox(height: 2),
-                Text(label,
+                Text(tr(label),
                     style:
                         const TextStyle(fontSize: 11, color: Color(0xFF71717A)),
                     overflow: TextOverflow.ellipsis,
@@ -749,11 +749,11 @@ class _CommunicationScreenState extends State<CommunicationScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          Row(
             children: [
               Icon(Icons.pie_chart, size: 20, color: HrmPageChrome.primaryNavy),
               SizedBox(width: 8),
-              Text('Phân bổ theo loại',
+              Text(tr('Phân bổ theo loại'),
                   style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
@@ -762,10 +762,10 @@ class _CommunicationScreenState extends State<CommunicationScreen>
           ),
           const SizedBox(height: 20),
           if (dist.isEmpty)
-            const Center(
+            Center(
                 child: Padding(
                     padding: EdgeInsets.all(20),
-                    child: Text('Chưa có dữ liệu',
+                    child: Text(tr('Chưa có dữ liệu'),
                         style: TextStyle(color: Color(0xFFA1A1AA)))))
           else
             ...dist.map((d) {
@@ -795,12 +795,12 @@ class _CommunicationScreenState extends State<CommunicationScreen>
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Text(config.$1,
+                              Text(tr(config.$1),
                                   style: const TextStyle(
                                       fontSize: 13,
                                       fontWeight: FontWeight.w600,
                                       color: Color(0xFF374151))),
-                              Text('$count bài  (${pct.toStringAsFixed(0)}%)',
+                              Text(tr('$count bài  (${pct.toStringAsFixed(0)}%)'),
                                   style: const TextStyle(
                                       fontSize: 12, color: Color(0xFF71717A))),
                             ],
@@ -841,7 +841,7 @@ class _CommunicationScreenState extends State<CommunicationScreen>
             children: [
               const Icon(Icons.access_time, size: 20, color: HrmPageChrome.primaryNavy),
               const SizedBox(width: 8),
-              const Text('Bài viết gần đây',
+              Text(tr('Bài viết gần đây'),
                   style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
@@ -851,17 +851,17 @@ class _CommunicationScreenState extends State<CommunicationScreen>
                 onPressed: () {
                   _tabController.animateTo(1);
                 },
-                child: const Text('Xem tất cả →',
+                child: Text(tr('Xem tất cả →'),
                     style: TextStyle(color: HrmPageChrome.primaryNavy, fontSize: 13)),
               ),
             ],
           ),
           const SizedBox(height: 16),
           if (recent.isEmpty)
-            const Center(
+            Center(
                 child: Padding(
                     padding: EdgeInsets.all(24),
-                    child: Text('Chưa có bài viết',
+                    child: Text(tr('Chưa có bài viết'),
                         style: TextStyle(color: Color(0xFFA1A1AA)))))
           else
             ...recent.map((c) => _recentPostItem(c)),
@@ -899,7 +899,7 @@ class _CommunicationScreenState extends State<CommunicationScreen>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(c.title,
+                  Text(tr(c.title),
                       style: const TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
@@ -909,11 +909,11 @@ class _CommunicationScreenState extends State<CommunicationScreen>
                   const SizedBox(height: 4),
                   Row(
                     children: [
-                      Text(c.authorName ?? '',
+                      Text(tr(c.authorName ?? ''),
                           style: const TextStyle(
                               fontSize: 12, color: Color(0xFF71717A))),
                       const SizedBox(width: 8),
-                      Text(DateFormat('dd/MM/yyyy').format(c.createdAt),
+                      Text(tr(DateFormat('dd/MM/yyyy').format(c.createdAt)),
                           style: const TextStyle(
                               fontSize: 11, color: Color(0xFFA1A1AA))),
                     ],
@@ -927,12 +927,12 @@ class _CommunicationScreenState extends State<CommunicationScreen>
                 Icon(Icons.visibility_outlined,
                     size: 14, color: Colors.grey[400]),
                 const SizedBox(width: 4),
-                Text('${c.viewCount}',
+                Text(tr('${c.viewCount}'),
                     style: TextStyle(fontSize: 11, color: Colors.grey[500])),
                 const SizedBox(width: 10),
                 Icon(Icons.favorite_border, size: 14, color: Colors.grey[400]),
                 const SizedBox(width: 4),
-                Text('${c.likeCount}',
+                Text(tr('${c.likeCount}'),
                     style: TextStyle(fontSize: 11, color: Colors.grey[500])),
               ],
             ),
@@ -950,7 +950,7 @@ class _CommunicationScreenState extends State<CommunicationScreen>
         final searchField = TextField(
           controller: _searchCtrl,
           decoration: InputDecoration(
-            hintText: 'Tìm kiếm bài viết...',
+            hintText: tr('Tìm kiếm bài viết...'),
             hintStyle: const TextStyle(color: Color(0xFFA1A1AA)),
             prefixIcon: const Icon(Icons.search, color: Color(0xFFA1A1AA)),
             suffixIcon: _searchTerm.isNotEmpty
@@ -988,12 +988,12 @@ class _CommunicationScreenState extends State<CommunicationScreen>
           value: _filterPriority,
           hint: 'Ưu tiên',
           icon: Icons.flag_outlined,
-          items: const [
-            DropdownMenuItem(value: null, child: Text('Tất cả')),
-            DropdownMenuItem(value: 0, child: Text('Thấp')),
-            DropdownMenuItem(value: 1, child: Text('Bình thường')),
-            DropdownMenuItem(value: 2, child: Text('🔥 Cao')),
-            DropdownMenuItem(value: 3, child: Text('🚨 Khẩn cấp')),
+          items: [
+            DropdownMenuItem(value: null, child: Text(tr('Tất cả'))),
+            DropdownMenuItem(value: 0, child: Text(tr('Thấp'))),
+            DropdownMenuItem(value: 1, child: Text(tr('Bình thường'))),
+            DropdownMenuItem(value: 2, child: Text(tr('🔥 Cao'))),
+            DropdownMenuItem(value: 3, child: Text(tr('🚨 Khẩn cấp'))),
           ],
           onChanged: (v) {
             setState(() {
@@ -1007,13 +1007,13 @@ class _CommunicationScreenState extends State<CommunicationScreen>
           value: _filterStatus,
           hint: 'Trạng thái',
           icon: Icons.circle_outlined,
-          items: const [
-            DropdownMenuItem(value: null, child: Text('Tất cả')),
-            DropdownMenuItem(value: 0, child: Text('Nháp')),
-            DropdownMenuItem(value: 1, child: Text('Chờ duyệt')),
-            DropdownMenuItem(value: 2, child: Text('Đã xuất bản')),
-            DropdownMenuItem(value: 3, child: Text('Lưu trữ')),
-            DropdownMenuItem(value: 4, child: Text('Từ chối')),
+          items: [
+            DropdownMenuItem(value: null, child: Text(tr('Tất cả'))),
+            DropdownMenuItem(value: 0, child: Text(tr('Nháp'))),
+            DropdownMenuItem(value: 1, child: Text(tr('Chờ duyệt'))),
+            DropdownMenuItem(value: 2, child: Text(tr('Đã xuất bản'))),
+            DropdownMenuItem(value: 3, child: Text(tr('Lưu trữ'))),
+            DropdownMenuItem(value: 4, child: Text(tr('Từ chối'))),
           ],
           onChanged: (v) {
             setState(() {
@@ -1027,13 +1027,13 @@ class _CommunicationScreenState extends State<CommunicationScreen>
           value: _sortBy,
           hint: 'Sắp xếp',
           icon: Icons.sort,
-          items: const [
-            DropdownMenuItem(value: 'newest', child: Text('Mới nhất')),
-            DropdownMenuItem(value: 'oldest', child: Text('Cũ nhất')),
+          items: [
+            DropdownMenuItem(value: 'newest', child: Text(tr('Mới nhất'))),
+            DropdownMenuItem(value: 'oldest', child: Text(tr('Cũ nhất'))),
             DropdownMenuItem(
-                value: 'most_viewed', child: Text('Xem nhiều nhất')),
+                value: 'most_viewed', child: Text(tr('Xem nhiều nhất'))),
             DropdownMenuItem(
-                value: 'most_liked', child: Text('Thích nhiều nhất')),
+                value: 'most_liked', child: Text(tr('Thích nhiều nhất'))),
           ],
           onChanged: (v) {
             setState(() {
@@ -1115,7 +1115,7 @@ class _CommunicationScreenState extends State<CommunicationScreen>
       child: DropdownButtonFormField<T>(
         initialValue: value,
         decoration: InputDecoration(
-          labelText: hint,
+          labelText: tr(hint),
           prefixIcon: Icon(icon, size: 18, color: const Color(0xFFA1A1AA)),
           filled: true,
           fillColor: const Color(0xFFFAFAFA),
@@ -1167,12 +1167,12 @@ class _CommunicationScreenState extends State<CommunicationScreen>
           children: [
             Icon(Icons.error_outline, size: 64, color: Colors.red[300]),
             const SizedBox(height: 16),
-            Text(_errorMessage!, style: TextStyle(color: Colors.red[700])),
+            Text(tr(_errorMessage!), style: TextStyle(color: Colors.red[700])),
             const SizedBox(height: 16),
             FilledButton.icon(
                 onPressed: _loadCommunications,
                 icon: const Icon(Icons.refresh),
-                label: const Text('Thử lại')),
+                label: Text(tr('Thử lại'))),
           ],
         ),
       );
@@ -1191,13 +1191,13 @@ class _CommunicationScreenState extends State<CommunicationScreen>
                   size: 48, color: Color(0xFFA1A1AA)),
             ),
             const SizedBox(height: 16),
-            const Text('Chưa có bài viết nào',
+            Text(tr('Chưa có bài viết nào'),
                 style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w500,
                     color: Color(0xFF71717A))),
             const SizedBox(height: 8),
-            const Text('Hãy tạo bài viết đầu tiên',
+            Text(tr('Hãy tạo bài viết đầu tiên'),
                 style: TextStyle(fontSize: 13, color: Color(0xFFA1A1AA))),
             const SizedBox(height: 20),
             if (Provider.of<PermissionProvider>(context, listen: false)
@@ -1205,7 +1205,7 @@ class _CommunicationScreenState extends State<CommunicationScreen>
               FilledButton.icon(
                 onPressed: () => _openCreateDialog(),
                 icon: const Icon(Icons.add),
-                label: const Text('Tạo bài mới'),
+                label: Text(tr('Tạo bài mới')),
                 style: FilledButton.styleFrom(
                     backgroundColor: HrmPageChrome.primaryNavy),
               ),
@@ -1282,7 +1282,7 @@ class _CommunicationScreenState extends State<CommunicationScreen>
                 Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Row(children: [
                 Expanded(
-                    child: Text(c.title,
+                    child: Text(tr(c.title),
                         style: const TextStyle(
                             fontWeight: FontWeight.w600, fontSize: 14),
                         maxLines: 1,
@@ -1300,12 +1300,12 @@ class _CommunicationScreenState extends State<CommunicationScreen>
               ]),
               const SizedBox(height: 2),
               Text(
-                [
+                tr([
                   typeLabel,
                   '${c.viewCount} xem',
                   '${c.likeCount} thích',
                   '${c.createdAt.day}/${c.createdAt.month}/${c.createdAt.year}',
-                ].join(' · '),
+                ].join(' · ')),
                 style: const TextStyle(color: Color(0xFF71717A), fontSize: 12),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
@@ -1320,7 +1320,7 @@ class _CommunicationScreenState extends State<CommunicationScreen>
                   : const Color(0xFFFFFBEB),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: Text(c.statusDisplay,
+            child: Text(tr(c.statusDisplay),
                 style: TextStyle(
                     fontSize: 10,
                     fontWeight: FontWeight.w600,
@@ -1410,7 +1410,7 @@ class _CommunicationScreenState extends State<CommunicationScreen>
                     ),
                     const SizedBox(height: 8),
                     // Title
-                    Text(c.title,
+                    Text(tr(c.title),
                         style: const TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.bold,
@@ -1420,7 +1420,7 @@ class _CommunicationScreenState extends State<CommunicationScreen>
                         overflow: TextOverflow.ellipsis),
                     if (c.summary != null && c.summary!.isNotEmpty) ...[
                       const SizedBox(height: 4),
-                      Text(c.summary!,
+                      Text(tr(c.summary!),
                           style: const TextStyle(
                               fontSize: 12,
                               color: Color(0xFF71717A),
@@ -1437,7 +1437,7 @@ class _CommunicationScreenState extends State<CommunicationScreen>
                             radius: 10,
                             backgroundColor:
                                 HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
-                            child: Text(c.authorName![0].toUpperCase(),
+                            child: Text(tr(c.authorName![0].toUpperCase()),
                                 style: const TextStyle(
                                     fontSize: 9,
                                     color: HrmPageChrome.primaryNavy,
@@ -1445,7 +1445,7 @@ class _CommunicationScreenState extends State<CommunicationScreen>
                           ),
                           const SizedBox(width: 6),
                           Expanded(
-                              child: Text(c.authorName!,
+                              child: Text(tr(c.authorName!),
                                   style: const TextStyle(
                                       fontSize: 11, color: Color(0xFF71717A)),
                                   overflow: TextOverflow.ellipsis)),
@@ -1539,13 +1539,13 @@ class _CommunicationScreenState extends State<CommunicationScreen>
                             decoration: BoxDecoration(
                                 color: const Color(0xFFFFFBEB),
                                 borderRadius: BorderRadius.circular(6)),
-                            child: const Row(
+                            child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   Icon(Icons.push_pin,
                                       size: 12, color: Color(0xFFF59E0B)),
                                   SizedBox(width: 4),
-                                  Text('Ghim',
+                                  Text(tr('Ghim'),
                                       style: TextStyle(
                                           fontSize: 10,
                                           color: Color(0xFFF59E0B),
@@ -1561,7 +1561,7 @@ class _CommunicationScreenState extends State<CommunicationScreen>
                             decoration: BoxDecoration(
                                 color: const Color(0xFFFEF2F2),
                                 borderRadius: BorderRadius.circular(6)),
-                            child: const Text('Khẩn cấp',
+                            child: Text(tr('Khẩn cấp'),
                                 style: TextStyle(
                                     fontSize: 10,
                                     color: Color(0xFFEF4444),
@@ -1574,31 +1574,31 @@ class _CommunicationScreenState extends State<CommunicationScreen>
                             if (Provider.of<PermissionProvider>(context,
                                     listen: false)
                                 .canEdit('Communication'))
-                              const PopupMenuItem(
+                              PopupMenuItem(
                                   value: 'edit',
                                   child: Row(children: [
                                     Icon(Icons.edit, size: 16),
                                     SizedBox(width: 8),
-                                    Text('Chỉnh sửa')
+                                    Text(tr('Chỉnh sửa'))
                                   ])),
                             if (c.status != CommunicationStatus.published)
-                              const PopupMenuItem(
+                              PopupMenuItem(
                                   value: 'publish',
                                   child: Row(children: [
                                     Icon(Icons.send, size: 16),
                                     SizedBox(width: 8),
-                                    Text('Xuất bản')
+                                    Text(tr('Xuất bản'))
                                   ])),
                             if (Provider.of<PermissionProvider>(context,
                                     listen: false)
                                 .canDelete('Communication'))
-                              const PopupMenuItem(
+                              PopupMenuItem(
                                   value: 'delete',
                                   child: Row(children: [
                                     Icon(Icons.delete,
                                         size: 16, color: Colors.red),
                                     SizedBox(width: 8),
-                                    Text('Xóa',
+                                    Text(tr('Xóa'),
                                         style: TextStyle(color: Colors.red))
                                   ])),
                           ],
@@ -1613,7 +1613,7 @@ class _CommunicationScreenState extends State<CommunicationScreen>
                       ],
                     ),
                     const SizedBox(height: 8),
-                    Text(c.title,
+                    Text(tr(c.title),
                         style: const TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
@@ -1622,7 +1622,7 @@ class _CommunicationScreenState extends State<CommunicationScreen>
                         overflow: TextOverflow.ellipsis),
                     if (c.summary != null) ...[
                       const SizedBox(height: 6),
-                      Text(c.summary!,
+                      Text(tr(c.summary!),
                           style: const TextStyle(
                               fontSize: 13,
                               color: Color(0xFF71717A),
@@ -1638,14 +1638,14 @@ class _CommunicationScreenState extends State<CommunicationScreen>
                             radius: 12,
                             backgroundColor:
                                 HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
-                            child: Text(c.authorName![0].toUpperCase(),
+                            child: Text(tr(c.authorName![0].toUpperCase()),
                                 style: const TextStyle(
                                     fontSize: 10,
                                     color: HrmPageChrome.primaryNavy,
                                     fontWeight: FontWeight.bold)),
                           ),
                           const SizedBox(width: 8),
-                          Text(c.authorName!,
+                          Text(tr(c.authorName!),
                               style: const TextStyle(
                                   fontSize: 12,
                                   fontWeight: FontWeight.w500,
@@ -1655,7 +1655,7 @@ class _CommunicationScreenState extends State<CommunicationScreen>
                         Icon(Icons.access_time,
                             size: 13, color: Colors.grey[400]),
                         const SizedBox(width: 4),
-                        Text(DateFormat('dd/MM/yyyy HH:mm').format(c.createdAt),
+                        Text(tr(DateFormat('dd/MM/yyyy HH:mm').format(c.createdAt)),
                             style: TextStyle(
                                 fontSize: 11, color: Colors.grey[500])),
                         const Spacer(),
@@ -1708,7 +1708,7 @@ class _CommunicationScreenState extends State<CommunicationScreen>
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('Hiển thị:',
+              Text(tr('Hiển thị:'),
                   style: TextStyle(fontSize: 12, color: Colors.grey[500])),
               const SizedBox(width: 8),
               Container(
@@ -1726,7 +1726,7 @@ class _CommunicationScreenState extends State<CommunicationScreen>
                     style: TextStyle(fontSize: 13, color: Colors.grey[800]),
                     items: _pageSizeOptions
                         .map((s) =>
-                            DropdownMenuItem(value: s, child: Text('$s')))
+                            DropdownMenuItem(value: s, child: Text(tr('$s'))))
                         .toList(),
                     onChanged: (v) {
                       if (v != null) {
@@ -1750,12 +1750,12 @@ class _CommunicationScreenState extends State<CommunicationScreen>
                   }
                 : null,
             icon: const Icon(Icons.chevron_left, size: 18),
-            label: const Text('Trước'),
+            label: Text(tr('Trước')),
             style: OutlinedButton.styleFrom(
                 foregroundColor: const Color(0xFF71717A),
                 side: const BorderSide(color: Color(0xFFE4E4E7))),
           ),
-          Text('Hiển thị $start-$end / $_totalCount',
+          Text(tr('Hiển thị $start-$end / $_totalCount'),
               style: const TextStyle(
                   fontWeight: FontWeight.w500, color: Color(0xFF52525B))),
           OutlinedButton.icon(
@@ -1765,7 +1765,7 @@ class _CommunicationScreenState extends State<CommunicationScreen>
                     _loadCommunications();
                   }
                 : null,
-            icon: const Text('Sau'),
+            icon: Text(tr('Sau')),
             label: const Icon(Icons.chevron_right, size: 18),
             style: OutlinedButton.styleFrom(
                 foregroundColor: const Color(0xFF71717A),
@@ -1807,7 +1807,7 @@ class _CommunicationScreenState extends State<CommunicationScreen>
       child: Row(mainAxisSize: MainAxisSize.min, children: [
         Icon(_typeIcon(type), size: 12, color: _typeColor(type)),
         const SizedBox(width: 4),
-        Text(_typeLabel(type),
+        Text(tr(_typeLabel(type)),
             style: TextStyle(
                 fontSize: 10,
                 color: _typeColor(type),
@@ -1820,7 +1820,7 @@ class _CommunicationScreenState extends State<CommunicationScreen>
     return Row(mainAxisSize: MainAxisSize.min, children: [
       Icon(icon, size: 14, color: color ?? const Color(0xFFA1A1AA)),
       const SizedBox(width: 3),
-      Text('$value',
+      Text(tr('$value'),
           style:
               TextStyle(fontSize: 11, color: color ?? const Color(0xFFA1A1AA))),
     ]);
@@ -2000,7 +2000,7 @@ class _CommunicationDetailPanelState extends State<_CommunicationDetailPanel> {
       if (mounted) {
         NotificationOverlayManager().showWarning(
             title: 'Cảnh báo',
-            message: 'Bình luận không được vượt quá 2000 ký tự');
+            message: tr('Bình luận không được vượt quá 2000 ký tự'));
       }
       return;
     }
@@ -2069,15 +2069,15 @@ class _CommunicationDetailPanelState extends State<_CommunicationDetailPanel> {
                   IconButton(
                     onPressed: widget.onClose,
                     icon: const Icon(Icons.arrow_back, size: 20),
-                    tooltip: 'Quay lại',
+                    tooltip: tr('Quay lại'),
                     style: IconButton.styleFrom(
                         foregroundColor: const Color(0xFF52525B)),
                   ),
                   const SizedBox(width: 8),
                   const Icon(Icons.article, size: 20, color: HrmPageChrome.primaryNavy),
                   const SizedBox(width: 8),
-                  const Expanded(
-                      child: Text('Chi tiết bài viết',
+                  Expanded(
+                      child: Text(tr('Chi tiết bài viết'),
                           style: TextStyle(
                               fontWeight: FontWeight.bold,
                               fontSize: 16,
@@ -2086,7 +2086,7 @@ class _CommunicationDetailPanelState extends State<_CommunicationDetailPanel> {
                     IconButton(
                       onPressed: widget.onEdit,
                       icon: const Icon(Icons.edit_outlined, size: 18),
-                      tooltip: 'Chỉnh sửa',
+                      tooltip: tr('Chỉnh sửa'),
                       style: IconButton.styleFrom(
                           foregroundColor: HrmPageChrome.primaryNavy),
                     ),
@@ -2094,7 +2094,7 @@ class _CommunicationDetailPanelState extends State<_CommunicationDetailPanel> {
                     IconButton(
                       onPressed: widget.onPublish,
                       icon: const Icon(Icons.send_outlined, size: 18),
-                      tooltip: 'Xuất bản',
+                      tooltip: tr('Xuất bản'),
                       style: IconButton.styleFrom(
                           foregroundColor: const Color(0xFF22C55E)),
                     ),
@@ -2102,14 +2102,14 @@ class _CommunicationDetailPanelState extends State<_CommunicationDetailPanel> {
                     IconButton(
                       onPressed: widget.onDelete,
                       icon: const Icon(Icons.delete_outline, size: 18),
-                      tooltip: 'Xóa',
+                      tooltip: tr('Xóa'),
                       style: IconButton.styleFrom(
                           foregroundColor: const Color(0xFFEF4444)),
                     ),
                   IconButton(
                     onPressed: widget.onClose,
                     icon: const Icon(Icons.close, size: 18),
-                    tooltip: 'Đóng',
+                    tooltip: tr('Đóng'),
                   ),
                 ],
               ),
@@ -2166,7 +2166,7 @@ class _CommunicationDetailPanelState extends State<_CommunicationDetailPanel> {
                                   color: _CommunicationScreenState._typeColor(
                                       c.type)),
                               const SizedBox(width: 4),
-                              Text(c.typeDisplay,
+                              Text(tr(c.typeDisplay),
                                   style: TextStyle(
                                       fontSize: 12,
                                       color:
@@ -2184,7 +2184,7 @@ class _CommunicationDetailPanelState extends State<_CommunicationDetailPanel> {
                                   : const Color(0xFFFFFBEB),
                               borderRadius: BorderRadius.circular(8),
                             ),
-                            child: Text(c.statusDisplay,
+                            child: Text(tr(c.statusDisplay),
                                 style: TextStyle(
                                     fontSize: 12,
                                     color: c.status ==
@@ -2200,13 +2200,13 @@ class _CommunicationDetailPanelState extends State<_CommunicationDetailPanel> {
                               decoration: BoxDecoration(
                                   color: const Color(0xFFFFFBEB),
                                   borderRadius: BorderRadius.circular(8)),
-                              child: const Row(
+                              child: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
                                     Icon(Icons.push_pin,
                                         size: 13, color: Color(0xFFF59E0B)),
                                     SizedBox(width: 4),
-                                    Text('Ghim',
+                                    Text(tr('Ghim'),
                                         style: TextStyle(
                                             fontSize: 12,
                                             color: Color(0xFFF59E0B),
@@ -2218,7 +2218,7 @@ class _CommunicationDetailPanelState extends State<_CommunicationDetailPanel> {
                       const SizedBox(height: 16),
 
                       // Title
-                      Text(c.title,
+                      Text(tr(c.title),
                           style: const TextStyle(
                               fontSize: 26,
                               fontWeight: FontWeight.w800,
@@ -2235,14 +2235,14 @@ class _CommunicationDetailPanelState extends State<_CommunicationDetailPanel> {
                               radius: 14,
                               backgroundColor: HrmPageChrome.primaryNavy
                                   .withValues(alpha: 0.1),
-                              child: Text(c.authorName![0].toUpperCase(),
+                              child: Text(tr(c.authorName![0].toUpperCase()),
                                   style: const TextStyle(
                                       fontSize: 11,
                                       color: HrmPageChrome.primaryNavy,
                                       fontWeight: FontWeight.bold)),
                             ),
                             const SizedBox(width: 8),
-                            Text(c.authorName!,
+                            Text(tr(c.authorName!),
                                 style: const TextStyle(
                                     fontSize: 13,
                                     fontWeight: FontWeight.w500,
@@ -2253,8 +2253,8 @@ class _CommunicationDetailPanelState extends State<_CommunicationDetailPanel> {
                               size: 14, color: Colors.grey[400]),
                           const SizedBox(width: 4),
                           Text(
-                              DateFormat('dd/MM/yyyy HH:mm')
-                                  .format(c.createdAt),
+                              tr(DateFormat('dd/MM/yyyy HH:mm')
+                                  .format(c.createdAt)),
                               style: TextStyle(
                                   fontSize: 12, color: Colors.grey[500])),
                         ],
@@ -2277,7 +2277,7 @@ class _CommunicationDetailPanelState extends State<_CommunicationDetailPanel> {
                                   size: 16, color: HrmPageChrome.primaryNavy),
                               const SizedBox(width: 8),
                               Expanded(
-                                  child: Text(c.summary!,
+                                  child: Text(tr(c.summary!),
                                       style: const TextStyle(
                                           fontSize: 13,
                                           color: Color(0xFF1D4ED8),
@@ -2310,7 +2310,7 @@ class _CommunicationDetailPanelState extends State<_CommunicationDetailPanel> {
                                       color: const Color(0xFFF1F5F9),
                                       borderRadius: BorderRadius.circular(20),
                                     ),
-                                    child: Text('#${t.trim()}',
+                                    child: Text(tr('#${t.trim()}'),
                                         style: const TextStyle(
                                             fontSize: 11,
                                             color: HrmPageChrome.primaryNavy)),
@@ -2322,7 +2322,7 @@ class _CommunicationDetailPanelState extends State<_CommunicationDetailPanel> {
 
                       // Attached images
                       if (c.attachedImages.isNotEmpty) ...[
-                        const Text('Hình ảnh đính kèm',
+                        Text(tr('Hình ảnh đính kèm'),
                             style: TextStyle(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w600,
@@ -2419,7 +2419,7 @@ class _CommunicationDetailPanelState extends State<_CommunicationDetailPanel> {
 
                       // ── REACTIONS ──
                       if (_canInteractWithPost) ...[
-                      const Text('Tương tác',
+                      Text(tr('Tương tác'),
                           style: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.bold,
@@ -2452,10 +2452,10 @@ class _CommunicationDetailPanelState extends State<_CommunicationDetailPanel> {
                               child: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    Text(r.$2,
+                                    Text(tr(r.$2),
                                         style: const TextStyle(fontSize: 16)),
                                     const SizedBox(width: 6),
-                                    Text(r.$3,
+                                    Text(tr(r.$3),
                                         style: TextStyle(
                                             fontSize: 12,
                                             fontWeight: isActive
@@ -2481,7 +2481,7 @@ class _CommunicationDetailPanelState extends State<_CommunicationDetailPanel> {
                           const Icon(Icons.chat_bubble_outline,
                               size: 18, color: HrmPageChrome.primaryNavy),
                           const SizedBox(width: 8),
-                          Text('Bình luận (${_comments.length})',
+                          Text(tr('Bình luận (${_comments.length})'),
                               style: const TextStyle(
                                   fontSize: 14,
                                   fontWeight: FontWeight.bold,
@@ -2506,7 +2506,7 @@ class _CommunicationDetailPanelState extends State<_CommunicationDetailPanel> {
                               const Icon(Icons.reply,
                                   size: 14, color: HrmPageChrome.primaryNavy),
                               const SizedBox(width: 8),
-                              Text('Trả lời $_replyToName',
+                              Text(tr('Trả lời $_replyToName'),
                                   style: const TextStyle(
                                       fontSize: 12, color: HrmPageChrome.primaryNavy)),
                               const Spacer(),
@@ -2529,9 +2529,9 @@ class _CommunicationDetailPanelState extends State<_CommunicationDetailPanel> {
                               child: TextField(
                                 controller: _commentCtrl,
                                 decoration: InputDecoration(
-                                  hintText: _replyToName != null
+                                  hintText: tr(_replyToName != null
                                       ? 'Trả lời $_replyToName...'
-                                      : 'Viết bình luận...',
+                                      : 'Viết bình luận...'),
                                   hintStyle: const TextStyle(
                                       fontSize: 13, color: Color(0xFFA1A1AA)),
                                   filled: true,
@@ -2561,7 +2561,7 @@ class _CommunicationDetailPanelState extends State<_CommunicationDetailPanel> {
                                 onPressed: _addComment,
                                 icon: const Icon(Icons.send,
                                     size: 18, color: Colors.white),
-                                tooltip: 'Gửi',
+                                tooltip: tr('Gửi'),
                               ),
                             ),
                           ],
@@ -2577,7 +2577,7 @@ class _CommunicationDetailPanelState extends State<_CommunicationDetailPanel> {
                                 child:
                                     CircularProgressIndicator(strokeWidth: 2)))
                       else if (_comments.isEmpty)
-                        const Center(
+                        Center(
                             child: Padding(
                           padding: EdgeInsets.all(24),
                           child:
@@ -2585,10 +2585,10 @@ class _CommunicationDetailPanelState extends State<_CommunicationDetailPanel> {
                             Icon(Icons.chat_bubble_outline,
                                 size: 36, color: Color(0xFFCBD5E1)),
                             SizedBox(height: 8),
-                            Text('Chưa có bình luận nào',
+                            Text(tr('Chưa có bình luận nào'),
                                 style: TextStyle(
                                     color: Color(0xFFA1A1AA), fontSize: 13)),
-                            Text('Hãy là người đầu tiên bình luận!',
+                            Text(tr('Hãy là người đầu tiên bình luận!'),
                                 style: TextStyle(
                                     color: Color(0xFFCBD5E1), fontSize: 12)),
                           ]),
@@ -2619,7 +2619,7 @@ class _CommunicationDetailPanelState extends State<_CommunicationDetailPanel> {
                 radius: depth > 0 ? 12 : 14,
                 backgroundColor: HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
                 child: Text(
-                  (cm.userName ?? '?')[0].toUpperCase(),
+                  tr((cm.userName ?? '?')[0].toUpperCase()),
                   style: TextStyle(
                       fontSize: depth > 0 ? 9 : 11,
                       color: HrmPageChrome.primaryNavy,
@@ -2633,13 +2633,13 @@ class _CommunicationDetailPanelState extends State<_CommunicationDetailPanel> {
                   children: [
                     Row(
                       children: [
-                        Text(cm.userName ?? 'Ẩn danh',
+                        Text(tr(cm.userName ?? 'Ẩn danh'),
                             style: const TextStyle(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w600,
                                 color: Color(0xFF374151))),
                         const SizedBox(width: 8),
-                        Text(_timeAgo(cm.createdAt),
+                        Text(tr(_timeAgo(cm.createdAt)),
                             style: const TextStyle(
                                 fontSize: 11, color: Color(0xFFA1A1AA))),
                       ],
@@ -2653,7 +2653,7 @@ class _CommunicationDetailPanelState extends State<_CommunicationDetailPanel> {
                             : const Color(0xFFF1F5F9),
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      child: Text(cm.content,
+                      child: Text(tr(cm.content),
                           style: const TextStyle(
                               fontSize: 13,
                               color: Color(0xFF374151),
@@ -2669,10 +2669,10 @@ class _CommunicationDetailPanelState extends State<_CommunicationDetailPanel> {
                               _replyToName = cm.userName;
                             }),
                             borderRadius: BorderRadius.circular(4),
-                            child: const Padding(
+                            child: Padding(
                               padding: EdgeInsets.symmetric(
                                   horizontal: 8, vertical: 2),
-                              child: Text('Trả lời',
+                              child: Text(tr('Trả lời'),
                                   style: TextStyle(
                                       fontSize: 11,
                                       color: HrmPageChrome.primaryNavy,
@@ -2684,7 +2684,7 @@ class _CommunicationDetailPanelState extends State<_CommunicationDetailPanel> {
                           Icon(Icons.favorite,
                               size: 12, color: Colors.red[300]),
                           const SizedBox(width: 2),
-                          Text('${cm.likeCount}',
+                          Text(tr('${cm.likeCount}'),
                               style: TextStyle(
                                   fontSize: 11, color: Colors.red[300])),
                         ],
@@ -2709,12 +2709,12 @@ class _CommunicationDetailPanelState extends State<_CommunicationDetailPanel> {
       children: [
         Icon(icon, size: 18, color: color ?? const Color(0xFFA1A1AA)),
         const SizedBox(height: 4),
-        Text(value,
+        Text(tr(value),
             style: TextStyle(
                 fontWeight: FontWeight.bold,
                 fontSize: 15,
                 color: color ?? const Color(0xFF374151))),
-        Text(label,
+        Text(tr(label),
             style: const TextStyle(fontSize: 11, color: Color(0xFFA1A1AA))),
       ],
     );
@@ -2823,7 +2823,7 @@ class _CreateEditDialogState extends State<_CreateEditDialog> {
     if (!_formKey.currentState!.validate()) return;
     if (_richEditorCtrl.isEmpty) {
       NotificationOverlayManager().showWarning(
-          title: 'Thiếu thông tin', message: 'Vui lòng nhập nội dung bài viết');
+          title: 'Thiếu thông tin', message: tr('Vui lòng nhập nội dung bài viết'));
       return;
     }
     setState(() => _isSubmitting = true);
@@ -2865,7 +2865,7 @@ class _CreateEditDialogState extends State<_CreateEditDialog> {
     } catch (e) {
       if (mounted) {
         NotificationOverlayManager()
-            .showError(title: 'Lỗi', message: 'Lỗi: $e');
+            .showError(title: 'Lỗi', message: tr('Lỗi: $e'));
       }
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
@@ -2890,8 +2890,7 @@ class _CreateEditDialogState extends State<_CreateEditDialog> {
           if (mounted) {
             NotificationOverlayManager().showWarning(
                 title: 'Quá dung lượng',
-                message:
-                    '${img.name}: Kích thước ảnh tối đa 10MB (hiện ${(img.bytes.length / 1024 / 1024).toStringAsFixed(1)}MB)');
+                message: tr('${img.name}: Kích thước ảnh tối đa 10MB (hiện ${(img.bytes.length / 1024 / 1024).toStringAsFixed(1)}MB)'));
           }
           continue;
         }
@@ -2902,8 +2901,7 @@ class _CreateEditDialogState extends State<_CreateEditDialog> {
           if (mounted) {
             NotificationOverlayManager().showWarning(
                 title: 'Định dạng không hợp lệ',
-                message:
-                    '${img.name}: Chỉ hỗ trợ định dạng JPEG, PNG, GIF, WebP');
+                message: tr('${img.name}: Chỉ hỗ trợ định dạng JPEG, PNG, GIF, WebP'));
           }
           continue;
         }
@@ -2927,7 +2925,7 @@ class _CreateEditDialogState extends State<_CreateEditDialog> {
     } catch (e) {
       if (mounted) {
         NotificationOverlayManager()
-            .showError(title: 'Lỗi', message: 'Lỗi: $e');
+            .showError(title: 'Lỗi', message: tr('Lỗi: $e'));
       }
     } finally {
       if (mounted) setState(() => _isUploadingImage = false);
@@ -2937,7 +2935,7 @@ class _CreateEditDialogState extends State<_CreateEditDialog> {
   Future<void> _generateAi() async {
     if (_aiPromptCtrl.text.trim().isEmpty) {
       NotificationOverlayManager().showWarning(
-          title: 'Thiếu thông tin', message: 'Vui lòng nhập mô tả cho AI');
+          title: 'Thiếu thông tin', message: tr('Vui lòng nhập mô tả cho AI'));
       return;
     }
     setState(() => _isAiGenerating = true);
@@ -2962,7 +2960,7 @@ class _CreateEditDialogState extends State<_CreateEditDialog> {
             }
           });
           NotificationOverlayManager()
-              .showSuccess(title: 'Thành công', message: 'AI đã tạo nội dung!');
+              .showSuccess(title: 'Thành công', message: tr('AI đã tạo nội dung!'));
         }
       } else if (mounted) {
         NotificationOverlayManager()
@@ -2990,8 +2988,8 @@ class _CreateEditDialogState extends State<_CreateEditDialog> {
               TextFormField(
                 controller: _titleCtrl,
                 decoration: InputDecoration(
-                  labelText: 'Tiêu đề *',
-                  hintText: 'Nhập tiêu đề bài viết',
+                  labelText: tr('Tiêu đề *'),
+                  hintText: tr('Nhập tiêu đề bài viết'),
                   prefixIcon: const Icon(Icons.title),
                   border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12)),
@@ -3004,8 +3002,8 @@ class _CreateEditDialogState extends State<_CreateEditDialog> {
               TextFormField(
                 controller: _summaryCtrl,
                 decoration: InputDecoration(
-                  labelText: 'Tóm tắt',
-                  hintText: 'Mô tả ngắn gọn...',
+                  labelText: tr('Tóm tắt'),
+                  hintText: tr('Mô tả ngắn gọn...'),
                   prefixIcon: const Icon(Icons.short_text),
                   border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12)),
@@ -3013,10 +3011,10 @@ class _CreateEditDialogState extends State<_CreateEditDialog> {
                 maxLines: 2,
               ),
               const SizedBox(height: 16),
-              const Row(children: [
+              Row(children: [
                 Icon(Icons.edit_document, size: 18, color: HrmPageChrome.primaryNavy),
                 SizedBox(width: 8),
-                Text('Nội dung bài viết *',
+                Text(tr('Nội dung bài viết *'),
                     style: TextStyle(
                         fontWeight: FontWeight.w600,
                         fontSize: 14,
@@ -3041,8 +3039,8 @@ class _CreateEditDialogState extends State<_CreateEditDialog> {
               TextFormField(
                 controller: _tagsCtrl,
                 decoration: InputDecoration(
-                  labelText: 'Tags',
-                  hintText: 'Nhập tags, cách nhau bằng dấu phẩy',
+                  labelText: tr('Tags'),
+                  hintText: tr('Nhập tags, cách nhau bằng dấu phẩy'),
                   prefixIcon: const Icon(Icons.tag),
                   border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12)),
@@ -3064,7 +3062,7 @@ class _CreateEditDialogState extends State<_CreateEditDialog> {
                       const Icon(Icons.image_outlined,
                           color: HrmPageChrome.primaryNavy, size: 20),
                       const SizedBox(width: 8),
-                      const Text('Hình ảnh',
+                      Text(tr('Hình ảnh'),
                           style: TextStyle(
                               fontWeight: FontWeight.bold,
                               color: Color(0xFF52525B))),
@@ -3083,9 +3081,9 @@ class _CreateEditDialogState extends State<_CreateEditDialog> {
                               ? null
                               : () => _pickAndUploadImage(isThumbnail: true),
                           icon: const Icon(Icons.photo_camera, size: 18),
-                          label: Text(_thumbnailUrl != null
+                          label: Text(tr(_thumbnailUrl != null
                               ? 'Đổi ảnh bìa'
-                              : 'Chọn ảnh bìa'),
+                              : 'Chọn ảnh bìa')),
                           style: OutlinedButton.styleFrom(
                               foregroundColor: HrmPageChrome.primaryNavy,
                               side: const BorderSide(color: HrmPageChrome.primaryNavy),
@@ -3100,7 +3098,7 @@ class _CreateEditDialogState extends State<_CreateEditDialog> {
                               ? null
                               : () => _pickAndUploadImage(isThumbnail: false),
                           icon: const Icon(Icons.add_photo_alternate, size: 18),
-                          label: const Text('Thêm ảnh'),
+                          label: Text(tr('Thêm ảnh')),
                           style: OutlinedButton.styleFrom(
                               foregroundColor: const Color(0xFF059669),
                               side: const BorderSide(color: Color(0xFF059669)),
@@ -3203,7 +3201,7 @@ class _CreateEditDialogState extends State<_CreateEditDialog> {
           final rightContent = Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Loại bài viết',
+              Text(tr('Loại bài viết'),
                   style: TextStyle(
                       fontWeight: FontWeight.w600, color: Color(0xFF374151))),
               const SizedBox(height: 8),
@@ -3215,21 +3213,21 @@ class _CreateEditDialogState extends State<_CreateEditDialog> {
                   contentPadding:
                       const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                 ),
-                items: const [
-                  DropdownMenuItem(value: 0, child: Text('📰 Tin tức')),
-                  DropdownMenuItem(value: 1, child: Text('📢 Thông báo')),
-                  DropdownMenuItem(value: 2, child: Text('🎉 Sự kiện')),
-                  DropdownMenuItem(value: 3, child: Text('📋 Chính sách')),
-                  DropdownMenuItem(value: 4, child: Text('🎓 Đào tạo')),
-                  DropdownMenuItem(value: 5, child: Text('🏢 Văn hóa')),
-                  DropdownMenuItem(value: 6, child: Text('👤 Tuyển dụng')),
-                  DropdownMenuItem(value: 7, child: Text('📜 Nội quy')),
-                  DropdownMenuItem(value: 99, child: Text('📦 Khác')),
+                items: [
+                  DropdownMenuItem(value: 0, child: Text(tr('📰 Tin tức'))),
+                  DropdownMenuItem(value: 1, child: Text(tr('📢 Thông báo'))),
+                  DropdownMenuItem(value: 2, child: Text(tr('🎉 Sự kiện'))),
+                  DropdownMenuItem(value: 3, child: Text(tr('📋 Chính sách'))),
+                  DropdownMenuItem(value: 4, child: Text(tr('🎓 Đào tạo'))),
+                  DropdownMenuItem(value: 5, child: Text(tr('🏢 Văn hóa'))),
+                  DropdownMenuItem(value: 6, child: Text(tr('👤 Tuyển dụng'))),
+                  DropdownMenuItem(value: 7, child: Text(tr('📜 Nội quy'))),
+                  DropdownMenuItem(value: 99, child: Text(tr('📦 Khác'))),
                 ],
                 onChanged: (v) => setState(() => _selectedType = v ?? 0),
               ),
               const SizedBox(height: 16),
-              const Text('Mức độ ưu tiên',
+              Text(tr('Mức độ ưu tiên'),
                   style: TextStyle(
                       fontWeight: FontWeight.w600, color: Color(0xFF374151))),
               const SizedBox(height: 8),
@@ -3241,19 +3239,19 @@ class _CreateEditDialogState extends State<_CreateEditDialog> {
                   contentPadding:
                       const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                 ),
-                items: const [
-                  DropdownMenuItem(value: 0, child: Text('Thấp')),
-                  DropdownMenuItem(value: 1, child: Text('Bình thường')),
-                  DropdownMenuItem(value: 2, child: Text('🔥 Cao')),
-                  DropdownMenuItem(value: 3, child: Text('🚨 Khẩn cấp')),
+                items: [
+                  DropdownMenuItem(value: 0, child: Text(tr('Thấp'))),
+                  DropdownMenuItem(value: 1, child: Text(tr('Bình thường'))),
+                  DropdownMenuItem(value: 2, child: Text(tr('🔥 Cao'))),
+                  DropdownMenuItem(value: 3, child: Text(tr('🚨 Khẩn cấp'))),
                 ],
                 onChanged: (v) => setState(() => _selectedPriority = v ?? 1),
               ),
               const SizedBox(height: 16),
               SwitchListTile(
                 title:
-                    const Text('Ghim bài viết', style: TextStyle(fontSize: 14)),
-                subtitle: const Text('Hiển thị trên đầu danh sách',
+                    Text(tr('Ghim bài viết'), style: TextStyle(fontSize: 14)),
+                subtitle: Text(tr('Hiển thị trên đầu danh sách'),
                     style: TextStyle(fontSize: 12)),
                 value: _isPinned,
                 onChanged: (v) => setState(() => _isPinned = v),
@@ -3262,9 +3260,9 @@ class _CreateEditDialogState extends State<_CreateEditDialog> {
               ),
               if (!_isEditing)
                 SwitchListTile(
-                  title: const Text('Xuất bản ngay',
+                  title: Text(tr('Xuất bản ngay'),
                       style: TextStyle(fontSize: 14)),
-                  subtitle: const Text('Tự động xuất bản sau khi tạo',
+                  subtitle: Text(tr('Tự động xuất bản sau khi tạo'),
                       style: TextStyle(fontSize: 12)),
                   value: _publishImmediately,
                   onChanged: (v) => setState(() => _publishImmediately = v),
@@ -3288,11 +3286,11 @@ class _CreateEditDialogState extends State<_CreateEditDialog> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Row(children: [
+                      Row(children: [
                         Icon(Icons.auto_awesome,
                             color: HrmPageChrome.primaryNavy, size: 20),
                         SizedBox(width: 8),
-                        Text('Viết bài với AI',
+                        Text(tr('Viết bài với AI'),
                             style: TextStyle(
                                 fontWeight: FontWeight.bold,
                                 color: HrmPageChrome.primaryNavy)),
@@ -3301,8 +3299,7 @@ class _CreateEditDialogState extends State<_CreateEditDialog> {
                       TextFormField(
                         controller: _aiPromptCtrl,
                         decoration: InputDecoration(
-                          hintText:
-                              'Mô tả nội dung bạn muốn AI viết...\nVD: Viết nội quy sử dụng phòng họp',
+                          hintText: tr('Mô tả nội dung bạn muốn AI viết...\nVD: Viết nội quy sử dụng phòng họp'),
                           border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12)),
                           fillColor: Colors.white,
@@ -3319,7 +3316,7 @@ class _CreateEditDialogState extends State<_CreateEditDialog> {
                               child: DropdownButtonFormField<String>(
                                 initialValue: _aiProvider,
                                 decoration: InputDecoration(
-                                  labelText: 'AI Provider',
+                                  labelText: tr('AI Provider'),
                                   border: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(12)),
                                   contentPadding: const EdgeInsets.symmetric(
@@ -3330,7 +3327,7 @@ class _CreateEditDialogState extends State<_CreateEditDialog> {
                                 items: _aiProviders.map((p) {
                                   return DropdownMenuItem<String>(
                                     value: p['id'] as String,
-                                    child: Text(p['name'] as String),
+                                    child: Text(tr(p['name'] as String)),
                                   );
                                 }).toList(),
                                 onChanged: (v) =>
@@ -3343,7 +3340,7 @@ class _CreateEditDialogState extends State<_CreateEditDialog> {
                             child: DropdownButtonFormField<String>(
                               initialValue: _aiTone,
                               decoration: InputDecoration(
-                                labelText: 'Giọng văn',
+                                labelText: tr('Giọng văn'),
                                 border: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(12)),
                                 contentPadding: const EdgeInsets.symmetric(
@@ -3351,21 +3348,21 @@ class _CreateEditDialogState extends State<_CreateEditDialog> {
                                 fillColor: Colors.white,
                                 filled: true,
                               ),
-                              items: const [
+                              items: [
                                 DropdownMenuItem(
                                     value: 'professional',
-                                    child: Text('Chuyên nghiệp')),
+                                    child: Text(tr('Chuyên nghiệp'))),
                                 DropdownMenuItem(
                                     value: 'friendly',
-                                    child: Text('Thân thiện')),
+                                    child: Text(tr('Thân thiện'))),
                                 DropdownMenuItem(
                                     value: 'formal',
-                                    child: Text('Trang trọng')),
+                                    child: Text(tr('Trang trọng'))),
                                 DropdownMenuItem(
-                                    value: 'creative', child: Text('Sáng tạo')),
+                                    value: 'creative', child: Text(tr('Sáng tạo'))),
                                 DropdownMenuItem(
                                     value: 'inspirational',
-                                    child: Text('Truyền cảm hứng')),
+                                    child: Text(tr('Truyền cảm hứng'))),
                               ],
                               onChanged: (v) =>
                                   setState(() => _aiTone = v ?? 'professional'),
@@ -3385,9 +3382,9 @@ class _CreateEditDialogState extends State<_CreateEditDialog> {
                                   child: CircularProgressIndicator(
                                       strokeWidth: 2, color: Colors.white))
                               : const Icon(Icons.auto_awesome, size: 18),
-                          label: Text(_isAiGenerating
+                          label: Text(tr(_isAiGenerating
                               ? 'Đang tạo...'
-                              : 'Tạo nội dung AI'),
+                              : 'Tạo nội dung AI')),
                           style: FilledButton.styleFrom(
                               backgroundColor: HrmPageChrome.primaryNavy,
                               padding:
@@ -3430,7 +3427,7 @@ class _CreateEditDialogState extends State<_CreateEditDialog> {
           style: OutlinedButton.styleFrom(
               padding:
                   const EdgeInsets.symmetric(horizontal: 20, vertical: 14)),
-          child: const Text('Hủy'),
+          child: Text(tr('Hủy')),
         ),
         const SizedBox(width: 12),
         FilledButton.icon(
@@ -3442,9 +3439,9 @@ class _CreateEditDialogState extends State<_CreateEditDialog> {
                   child: CircularProgressIndicator(
                       strokeWidth: 2, color: Colors.white))
               : Icon(_isEditing ? Icons.save : Icons.send, size: 18),
-          label: Text(_isSubmitting
+          label: Text(tr(_isSubmitting
               ? 'Đang lưu...'
-              : (_isEditing ? 'Cập nhật' : 'Tạo bài')),
+              : (_isEditing ? 'Cập nhật' : 'Tạo bài'))),
           style: FilledButton.styleFrom(
               backgroundColor: HrmPageChrome.primaryNavy,
               padding:
@@ -3461,7 +3458,7 @@ class _CreateEditDialogState extends State<_CreateEditDialog> {
           height: double.infinity,
           child: Scaffold(
             appBar: AppBar(
-              title: Text(dialogTitle),
+              title: Text(tr(dialogTitle)),
               leading: IconButton(
                 icon: const Icon(Icons.close),
                 onPressed: () => Navigator.pop(context),
@@ -3504,7 +3501,7 @@ class _CreateEditDialogState extends State<_CreateEditDialog> {
                         color: Colors.white, size: 22),
                   ),
                   const SizedBox(width: 12),
-                  Text(dialogTitle,
+                  Text(tr(dialogTitle),
                       style: const TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.bold,

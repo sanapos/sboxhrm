@@ -5,6 +5,7 @@ import '../../services/api_service.dart';
 import '../../utils/pos_kiot_time_range.dart';
 import '../../widgets/pos/pos_theme.dart';
 import '../../widgets/pos/reports/pos_report_widgets.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// Báo cáo bán hàng kiểu KiotViet — doanh thu, lợi nhuận, top NV.
 class PosSalesReportScreen extends StatefulWidget {
@@ -155,7 +156,7 @@ class _PosSalesReportScreenState extends State<PosSalesReportScreen> {
                   title: 'Top nhân viên bán tốt',
                   trailing: TextButton(
                     onPressed: () {},
-                    child: const Text('Xem thêm >', style: TextStyle(fontSize: 12)),
+                    child: Text(tr('Xem thêm >'), style: TextStyle(fontSize: 12)),
                   ),
                   child: PosReportRankList(
                     items: topEmployees.whereType<Map<String, dynamic>>().toList(),

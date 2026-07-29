@@ -1,4 +1,5 @@
 import 'dart:convert';
+import '../l10n/app_tr.dart';
 
 /// Hồ sơ máy in — preset theo thiết bị + khổ giấy.
 abstract final class PosPrintPrinterProfiles {
@@ -158,7 +159,7 @@ class PosPrintBlock {
   }) =>
       PosPrintBlock(
         type: type ?? this.type,
-        text: text ?? this.text,
+        text: trN(text ?? this.text),
         field: field ?? this.field,
         leftField: leftField ?? this.leftField,
         rightField: rightField ?? this.rightField,
@@ -206,7 +207,7 @@ class PosPrintBlock {
     );
     return PosPrintBlock(
       type: type,
-      text: json['text']?.toString(),
+      text: trN(json['text']?.toString()),
       field: json['field']?.toString(),
       leftField: json['leftField']?.toString(),
       rightField: json['rightField']?.toString(),

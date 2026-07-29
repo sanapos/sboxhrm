@@ -6,6 +6,7 @@ import '../../utils/agent_mutation_result.dart';
 import '../../utils/responsive_helper.dart';
 import '../../widgets/admin/admin_mobile_widgets.dart';
 import 'system_admin_helpers.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 class LicensesTab extends StatefulWidget {
   final bool agentMode;
@@ -213,7 +214,7 @@ class LicensesTabState extends State<LicensesTab> {
             FilledButton.icon(
               onPressed: _showCreateLicenseDialog,
               icon: const Icon(Icons.add, size: 18),
-              label: const Text('Tạo key'),
+              label: Text(tr('Tạo key')),
               style: ElevatedButton.styleFrom(
                   backgroundColor: AdminHelpers.primaryDark,
                   foregroundColor: Colors.white),
@@ -221,14 +222,14 @@ class LicensesTabState extends State<LicensesTab> {
             OutlinedButton.icon(
               onPressed: _showBatchCreateDialog,
               icon: const Icon(Icons.library_add, size: 18),
-              label: const Text('Hàng loạt'),
+              label: Text(tr('Hàng loạt')),
             ),
           ],
           if (context.systemAdminCanManageLicenses)
             OutlinedButton.icon(
               onPressed: _showBatchAssignAgentDialog,
               icon: const Icon(Icons.assignment_ind, size: 18),
-              label: const Text('Cấp đại lý'),
+              label: Text(tr('Cấp đại lý')),
               style: OutlinedButton.styleFrom(
                   foregroundColor: AdminHelpers.info),
             ),
@@ -255,7 +256,7 @@ class LicensesTabState extends State<LicensesTab> {
               FilledButton.icon(
                 onPressed: _showCreateLicenseDialog,
                 icon: const Icon(Icons.add, size: 18),
-                label: const Text('Tạo key'),
+                label: Text(tr('Tạo key')),
                 style: ElevatedButton.styleFrom(
                     backgroundColor: AdminHelpers.primaryDark,
                     foregroundColor: Colors.white),
@@ -263,14 +264,14 @@ class LicensesTabState extends State<LicensesTab> {
               OutlinedButton.icon(
                 onPressed: _showBatchCreateDialog,
                 icon: const Icon(Icons.library_add, size: 18),
-                label: const Text('Tạo hàng loạt'),
+                label: Text(tr('Tạo hàng loạt')),
               ),
             ],
             if (context.systemAdminCanManageLicenses)
               OutlinedButton.icon(
                 onPressed: _showBatchAssignAgentDialog,
                 icon: const Icon(Icons.assignment_ind, size: 18),
-                label: const Text('Cấp cho đại lý'),
+                label: Text(tr('Cấp cho đại lý')),
                 style: OutlinedButton.styleFrom(
                     foregroundColor: AdminHelpers.info),
               ),
@@ -287,20 +288,20 @@ class LicensesTabState extends State<LicensesTab> {
         hint: 'Trạng thái',
         fullWidth: fullWidth,
         items: [
-          const DropdownMenuItem(value: null, child: Text('Tất cả')),
+          DropdownMenuItem(value: null, child: Text(tr('Tất cả'))),
           DropdownMenuItem(
               value: 'available',
-              child: Text(widget.agentMode
+              child: Text(tr(widget.agentMode
                   ? 'Chưa kích hoạt (${_countByStatus('available')})'
-                  : 'Chưa dùng (${_countByStatus('available')})')),
+                  : 'Chưa dùng (${_countByStatus('available')})'))),
           DropdownMenuItem(
               value: 'activated',
               child:
-                  Text('Đã kích hoạt (${_countByStatus('activated')})')),
+                  Text(tr('${tr('Đã kích hoạt (')}${_countByStatus('activated')})'))),
           if (!widget.agentMode)
             DropdownMenuItem(
                 value: 'revoked',
-                child: Text('Thu hồi (${_countByStatus('revoked')})')),
+                child: Text(tr('${tr('Thu hồi (')}${_countByStatus('revoked')})'))),
         ],
         onChanged: (v) {
           _statusFilter = v;
@@ -312,9 +313,9 @@ class LicensesTabState extends State<LicensesTab> {
         hint: 'Loại gói',
         fullWidth: fullWidth,
         items: [
-          const DropdownMenuItem(value: null, child: Text('Tất cả')),
+          DropdownMenuItem(value: null, child: Text(tr('Tất cả'))),
           ...types.map((t) => DropdownMenuItem(
-              value: t, child: Text(AdminHelpers.licenseTypeLabel(t)))),
+              value: t, child: Text(tr(AdminHelpers.licenseTypeLabel(t))))),
         ],
         onChanged: (v) {
           _typeFilter = v;
@@ -327,10 +328,10 @@ class LicensesTabState extends State<LicensesTab> {
           hint: 'Gói dịch vụ',
           fullWidth: fullWidth,
           items: [
-            const DropdownMenuItem(value: null, child: Text('Tất cả gói')),
+            DropdownMenuItem(value: null, child: Text(tr('Tất cả gói'))),
             ..._servicePackages.map((p) => DropdownMenuItem(
                 value: p['id']?.toString(),
-                child: Text(p['name']?.toString() ?? ''))),
+                child: Text(tr(p['name']?.toString() ?? '')))),
           ],
           onChanged: (v) {
             _packageFilter = v;
@@ -341,13 +342,13 @@ class LicensesTabState extends State<LicensesTab> {
           value: _assignFilter,
           hint: 'Phân bổ',
           fullWidth: fullWidth,
-          items: const [
-            DropdownMenuItem(value: null, child: Text('Tất cả')),
-            DropdownMenuItem(value: 'unassigned', child: Text('Chưa gán')),
+          items: [
+            DropdownMenuItem(value: null, child: Text(tr('Tất cả'))),
+            DropdownMenuItem(value: 'unassigned', child: Text(tr('Chưa gán'))),
             DropdownMenuItem(
-                value: 'assigned_agent', child: Text('Đã gán đại lý')),
+                value: 'assigned_agent', child: Text(tr('Đã gán đại lý'))),
             DropdownMenuItem(
-                value: 'assigned_store', child: Text('Đã gán cửa hàng')),
+                value: 'assigned_store', child: Text(tr('Đã gán cửa hàng'))),
           ],
           onChanged: (v) {
             _assignFilter = v;
@@ -359,12 +360,12 @@ class LicensesTabState extends State<LicensesTab> {
           hint: 'Đại lý',
           fullWidth: fullWidth,
           items: [
-            const DropdownMenuItem(value: null, child: Text('Tất cả đại lý')),
+            DropdownMenuItem(value: null, child: Text(tr('Tất cả đại lý'))),
             ..._agents.map((a) => DropdownMenuItem(
                 value: a['id']?.toString(),
-                child: Text(a['fullName']?.toString() ??
+                child: Text(tr(a['fullName']?.toString() ??
                     a['userName']?.toString() ??
-                    ''))),
+                    '')))),
           ],
           onChanged: (v) {
             _agentFilter = v;
@@ -388,7 +389,7 @@ class LicensesTabState extends State<LicensesTab> {
           TextButton.icon(
             onPressed: _clearLicenseFilters,
             icon: const Icon(Icons.clear_all, size: 16),
-            label: const Text('Xóa bộ lọc', style: TextStyle(fontSize: 12)),
+            label: Text(tr('Xóa bộ lọc'), style: TextStyle(fontSize: 12)),
           ),
       ],
     );
@@ -413,7 +414,7 @@ class LicensesTabState extends State<LicensesTab> {
         child: DropdownButton<T>(
           isExpanded: fullWidth,
           value: value,
-          hint: Text(hint, style: const TextStyle(fontSize: 13)),
+          hint: Text(tr(hint), style: const TextStyle(fontSize: 13)),
           items: items,
           onChanged: onChanged,
           style: const TextStyle(fontSize: 13, color: Colors.black87),
@@ -448,7 +449,7 @@ class LicensesTabState extends State<LicensesTab> {
             AdminHelpers.countBadge('Chưa gán', unassigned, AdminHelpers.warning),
           ],
           const SizedBox(width: 8),
-          Text('Hiển thị: ${_filteredLicenses.length}',
+          Text(tr('Hiển thị: ${_filteredLicenses.length}'),
               style: TextStyle(fontSize: 12, color: Colors.grey[500])),
         ]),
       ),
@@ -508,10 +509,10 @@ class LicensesTabState extends State<LicensesTab> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('Hiển thị ${startIndex + 1}-$endIndex / $totalCount', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+                Text(tr('Hiển thị ${startIndex + 1}-$endIndex / $totalCount'), style: TextStyle(fontSize: 12, color: Colors.grey[600])),
                 Row(children: [
                   IconButton(icon: const Icon(Icons.chevron_left, size: 20), onPressed: page > 1 ? () => setState(() => _currentPage--) : null, visualDensity: VisualDensity.compact),
-                  Text('$page / $totalPages', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
+                  Text(tr('$page / $totalPages'), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
                   IconButton(icon: const Icon(Icons.chevron_right, size: 20), onPressed: page < totalPages ? () => setState(() => _currentPage++) : null, visualDensity: VisualDensity.compact),
                 ]),
               ],
@@ -545,16 +546,16 @@ class LicensesTabState extends State<LicensesTab> {
           const SizedBox(width: 12),
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(key.length > 24 ? '${key.substring(0, 24)}...' : key, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12, fontFamily: 'monospace'), maxLines: 1, overflow: TextOverflow.ellipsis),
+              Text(tr(key.length > 24 ? '${key.substring(0, 24)}...' : key), style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12, fontFamily: 'monospace'), maxLines: 1, overflow: TextOverflow.ellipsis),
               const SizedBox(height: 2),
-              Text([AdminHelpers.licenseTypeLabel(licenseType), license['servicePackageName'] ?? '', '${license['durationDays'] ?? 0}d'].join(' \u00b7 '),
+              Text(tr([AdminHelpers.licenseTypeLabel(licenseType), license['servicePackageName'] ?? '', '${license['durationDays'] ?? 0}d'].join(' \u00b7 ')),
                 style: const TextStyle(color: Color(0xFF71717A), fontSize: 12), maxLines: 1, overflow: TextOverflow.ellipsis),
             ]),
           ),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
             decoration: BoxDecoration(color: statusColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
-            child: Text(statusText, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: statusColor)),
+            child: Text(tr(statusText), style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: statusColor)),
           ),
         ]),
       ),
@@ -572,7 +573,7 @@ class LicensesTabState extends State<LicensesTab> {
         icon: Icons.copy,
         label: 'Sao chép key',
         onTap: () {
-          Clipboard.setData(ClipboardData(text: key));
+          Clipboard.setData(ClipboardData(text: tr(key)));
           AdminHelpers.showSuccess(context, 'Đã copy key');
         },
       ),
@@ -647,7 +648,7 @@ class LicensesTabState extends State<LicensesTab> {
                     Row(children: [
                       Expanded(
                         child: SelectableText(
-                          license['key'] ?? 'N/A',
+                          tr(license['key'] ?? 'N/A'),
                           style: const TextStyle(
                               fontFamily: 'monospace',
                               fontWeight: FontWeight.w600,
@@ -656,10 +657,10 @@ class LicensesTabState extends State<LicensesTab> {
                       ),
                       IconButton(
                         icon: const Icon(Icons.copy, size: 16),
-                        tooltip: 'Copy key',
+                        tooltip: tr('Copy key'),
                         onPressed: () {
                           Clipboard.setData(
-                              ClipboardData(text: license['key'] ?? ''));
+                              ClipboardData(text: tr(license['key'] ?? '')));
                           if (mounted) {
                             AdminHelpers.showSuccess(context, 'Đã copy key');
                           }
@@ -707,14 +708,14 @@ class LicensesTabState extends State<LicensesTab> {
               IconButton(
                 icon: const Icon(Icons.block,
                     color: AdminHelpers.warning, size: 18),
-                tooltip: 'Thu hồi',
+                tooltip: tr('Thu hồi'),
                 onPressed: () => _revokeLicense(license),
               ),
             if (canDel && context.systemAdminCanDelete)
               IconButton(
                 icon: const Icon(Icons.delete_forever,
                     color: AdminHelpers.danger, size: 18),
-                tooltip: 'Xóa vĩnh viễn',
+                tooltip: tr('Xóa vĩnh viễn'),
                 onPressed: () => _deleteLicense(license),
               ),
           ]),
@@ -727,7 +728,7 @@ class LicensesTabState extends State<LicensesTab> {
     return Row(mainAxisSize: MainAxisSize.min, children: [
       Icon(icon, size: 13, color: Colors.grey[500]),
       const SizedBox(width: 4),
-      Text(text,
+      Text(tr(text),
           style: TextStyle(fontSize: 12, color: Colors.grey[700])),
     ]);
   }
@@ -769,15 +770,15 @@ class LicensesTabState extends State<LicensesTab> {
   void _showCreateLicenseDialog() {
     String licenseType = 'Basic';
     String? selectedPackageId;
-    final daysCtrl = TextEditingController(text: '365');
-    final usersCtrl = TextEditingController(text: '50');
-    final devicesCtrl = TextEditingController(text: '10');
+    final daysCtrl = TextEditingController(text: tr('365'));
+    final usersCtrl = TextEditingController(text: tr('50'));
+    final devicesCtrl = TextEditingController(text: tr('10'));
     final notesCtrl = TextEditingController();
 
     showDialog(
       context: context,
       builder: (ctx) => ScrollableAlertDialog(
-        title: const Text('Tạo License Key'),
+        title: Text(tr('Tạo License Key')),
         content: SizedBox(
           width: MediaQuery.of(context).size.width < 600 ? MediaQuery.of(context).size.width - 32 : 400,
           child: StatefulBuilder(
@@ -786,17 +787,17 @@ class LicensesTabState extends State<LicensesTab> {
               DropdownButtonFormField<String?>(
                 initialValue: selectedPackageId,
                 decoration: InputDecoration(
-                    labelText: 'Gói dịch vụ',
+                    labelText: tr('Gói dịch vụ'),
                     border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10))),
                 items: [
-                  const DropdownMenuItem(
-                      value: null, child: Text('-- Không chọn --')),
+                  DropdownMenuItem(
+                      value: null, child: Text(tr('-- Không chọn --'))),
                   ..._servicePackages
                       .where((p) => p['isActive'] == true)
                       .map((p) => DropdownMenuItem(
                           value: p['id']?.toString(),
-                          child: Text(p['name']?.toString() ?? ''))),
+                          child: Text(tr(p['name']?.toString() ?? '')))),
                 ],
                 onChanged: (v) {
                   setSt(() {
@@ -821,13 +822,13 @@ class LicensesTabState extends State<LicensesTab> {
               DropdownButtonFormField<String>(
                 initialValue: licenseType,
                 decoration: InputDecoration(
-                    labelText: 'Loại license',
+                    labelText: tr('Loại license'),
                     border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10))),
-                items: const [
-                  DropdownMenuItem(value: 'Basic', child: Text('Cơ bản')),
-                  DropdownMenuItem(value: 'Advanced', child: Text('Nâng cao')),
-                  DropdownMenuItem(value: 'Professional', child: Text('Chuyên nghiệp')),
+                items: [
+                  DropdownMenuItem(value: 'Basic', child: Text(tr('Cơ bản'))),
+                  DropdownMenuItem(value: 'Advanced', child: Text(tr('Nâng cao'))),
+                  DropdownMenuItem(value: 'Professional', child: Text(tr('Chuyên nghiệp'))),
                 ],
                 onChanged: (v) =>
                     setSt(() => licenseType = v ?? licenseType),
@@ -853,7 +854,7 @@ class LicensesTabState extends State<LicensesTab> {
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: const Text('Hủy')),
+              child: Text(tr('Hủy'))),
           FilledButton(
             onPressed: () async {
               final res = await _apiService.createLicenseKey(
@@ -878,7 +879,7 @@ class LicensesTabState extends State<LicensesTab> {
             style: ElevatedButton.styleFrom(
                 backgroundColor: AdminHelpers.primaryDark,
                 foregroundColor: Colors.white),
-            child: const Text('Tạo'),
+            child: Text(tr('Tạo')),
           ),
         ],
       ),
@@ -891,17 +892,17 @@ class LicensesTabState extends State<LicensesTab> {
   }
 
   void _showBatchCreateDialog() {
-    final countCtrl = TextEditingController(text: '10');
+    final countCtrl = TextEditingController(text: tr('10'));
     String licenseType = 'Basic';
     String? selectedPackageId;
-    final daysCtrl = TextEditingController(text: '365');
-    final usersCtrl = TextEditingController(text: '50');
-    final devicesCtrl = TextEditingController(text: '10');
+    final daysCtrl = TextEditingController(text: tr('365'));
+    final usersCtrl = TextEditingController(text: tr('50'));
+    final devicesCtrl = TextEditingController(text: tr('10'));
 
     showDialog(
       context: context,
       builder: (ctx) => ScrollableAlertDialog(
-        title: const Text('Tạo hàng loạt License'),
+        title: Text(tr('Tạo hàng loạt License')),
         content: SizedBox(
           width: MediaQuery.of(context).size.width < 600 ? MediaQuery.of(context).size.width - 32 : 400,
           child: StatefulBuilder(
@@ -913,17 +914,17 @@ class LicensesTabState extends State<LicensesTab> {
               DropdownButtonFormField<String?>(
                 initialValue: selectedPackageId,
                 decoration: InputDecoration(
-                    labelText: 'Gói dịch vụ',
+                    labelText: tr('Gói dịch vụ'),
                     border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10))),
                 items: [
-                  const DropdownMenuItem(
-                      value: null, child: Text('-- Không chọn --')),
+                  DropdownMenuItem(
+                      value: null, child: Text(tr('-- Không chọn --'))),
                   ..._servicePackages
                       .where((p) => p['isActive'] == true)
                       .map((p) => DropdownMenuItem(
                           value: p['id']?.toString(),
-                          child: Text(p['name']?.toString() ?? ''))),
+                          child: Text(tr(p['name']?.toString() ?? '')))),
                 ],
                 onChanged: (v) {
                   setSt(() {
@@ -948,13 +949,13 @@ class LicensesTabState extends State<LicensesTab> {
               DropdownButtonFormField<String>(
                 initialValue: licenseType,
                 decoration: InputDecoration(
-                    labelText: 'Loại license',
+                    labelText: tr('Loại license'),
                     border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10))),
-                items: const [
-                  DropdownMenuItem(value: 'Basic', child: Text('Cơ bản')),
-                  DropdownMenuItem(value: 'Advanced', child: Text('Nâng cao')),
-                  DropdownMenuItem(value: 'Professional', child: Text('Chuyên nghiệp')),
+                items: [
+                  DropdownMenuItem(value: 'Basic', child: Text(tr('Cơ bản'))),
+                  DropdownMenuItem(value: 'Advanced', child: Text(tr('Nâng cao'))),
+                  DropdownMenuItem(value: 'Professional', child: Text(tr('Chuyên nghiệp'))),
                 ],
                 onChanged: (v) =>
                     setSt(() => licenseType = v ?? licenseType),
@@ -978,7 +979,7 @@ class LicensesTabState extends State<LicensesTab> {
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: const Text('Hủy')),
+              child: Text(tr('Hủy'))),
           FilledButton(
             onPressed: () async {
               final res = await _apiService.createBatchLicenseKeys(
@@ -1004,7 +1005,7 @@ class LicensesTabState extends State<LicensesTab> {
             style: ElevatedButton.styleFrom(
                 backgroundColor: AdminHelpers.primaryDark,
                 foregroundColor: Colors.white),
-            child: const Text('Tạo'),
+            child: Text(tr('Tạo')),
           ),
         ],
       ),
@@ -1020,7 +1021,7 @@ class LicensesTabState extends State<LicensesTab> {
     String? selectedAgentId;
     String? selectedPackageId;
     String? selectedLicenseType;
-    final countCtrl = TextEditingController(text: '10');
+    final countCtrl = TextEditingController(text: tr('10'));
 
     // Count available keys
     final availableCount = _licenses
@@ -1033,7 +1034,7 @@ class LicensesTabState extends State<LicensesTab> {
     showDialog(
       context: context,
       builder: (ctx) => ScrollableAlertDialog(
-        title: const Text('Cấp key hàng loạt cho đại lý'),
+        title: Text(tr('Cấp key hàng loạt cho đại lý')),
         content: SizedBox(
           width: MediaQuery.of(context).size.width < 600 ? MediaQuery.of(context).size.width - 32 : 420,
           child: StatefulBuilder(
@@ -1064,8 +1065,7 @@ class LicensesTabState extends State<LicensesTab> {
                     const Icon(Icons.info_outline,
                         color: AdminHelpers.info, size: 18),
                     const SizedBox(width: 8),
-                    Text(
-                      'Tổng key khả dụng: $availableCount | Phù hợp bộ lọc: $filteredCount',
+                    Text(tr('Tổng key khả dụng: $availableCount | Phù hợp bộ lọc: $filteredCount'),
                       style: const TextStyle(
                           fontSize: 13, color: AdminHelpers.info),
                     ),
@@ -1075,7 +1075,7 @@ class LicensesTabState extends State<LicensesTab> {
                 DropdownButtonFormField<String>(
                   initialValue: selectedAgentId,
                   decoration: InputDecoration(
-                      labelText: 'Chọn đại lý *',
+                      labelText: tr('Chọn đại lý *'),
                       border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(10))),
                   items: _agents
@@ -1083,7 +1083,7 @@ class LicensesTabState extends State<LicensesTab> {
                       .map((a) => DropdownMenuItem(
                           value: a['id']?.toString(),
                           child: Text(
-                              '${a['name'] ?? ''} (${a['code'] ?? ''})')))
+                              tr('${a['name'] ?? ''} (${a['code'] ?? ''})'))))
                       .toList(),
                   onChanged: (v) => setSt(() => selectedAgentId = v),
                 ),
@@ -1094,17 +1094,17 @@ class LicensesTabState extends State<LicensesTab> {
                 DropdownButtonFormField<String?>(
                   initialValue: selectedPackageId,
                   decoration: InputDecoration(
-                      labelText: 'Gói dịch vụ (tuỳ chọn)',
+                      labelText: tr('Gói dịch vụ (tuỳ chọn)'),
                       border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(10))),
                   items: [
-                    const DropdownMenuItem(
-                        value: null, child: Text('-- Tất cả gói --')),
+                    DropdownMenuItem(
+                        value: null, child: Text(tr('-- Tất cả gói --'))),
                     ..._servicePackages
                         .where((p) => p['isActive'] == true)
                         .map((p) => DropdownMenuItem(
                             value: p['id']?.toString(),
-                            child: Text(p['name']?.toString() ?? ''))),
+                            child: Text(tr(p['name']?.toString() ?? '')))),
                   ],
                   onChanged: (v) => setSt(() => selectedPackageId = v),
                 ),
@@ -1112,16 +1112,16 @@ class LicensesTabState extends State<LicensesTab> {
                 DropdownButtonFormField<String?>(
                   initialValue: selectedLicenseType,
                   decoration: InputDecoration(
-                      labelText: 'Loại license (tuỳ chọn)',
+                      labelText: tr('Loại license (tuỳ chọn)'),
                       border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(10))),
-                  items: const [
+                  items: [
                     DropdownMenuItem(
-                        value: null, child: Text('-- Tất cả loại --')),
-                    DropdownMenuItem(value: 'Basic', child: Text('Cơ bản')),
-                    DropdownMenuItem(value: 'Advanced', child: Text('Nâng cao')),
+                        value: null, child: Text(tr('-- Tất cả loại --'))),
+                    DropdownMenuItem(value: 'Basic', child: Text(tr('Cơ bản'))),
+                    DropdownMenuItem(value: 'Advanced', child: Text(tr('Nâng cao'))),
                     DropdownMenuItem(
-                        value: 'Professional', child: Text('Chuyên nghiệp')),
+                        value: 'Professional', child: Text(tr('Chuyên nghiệp'))),
                   ],
                   onChanged: (v) => setSt(() => selectedLicenseType = v),
                 ),
@@ -1132,7 +1132,7 @@ class LicensesTabState extends State<LicensesTab> {
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: const Text('Hủy')),
+              child: Text(tr('Hủy'))),
           FilledButton.icon(
             onPressed: () async {
               if (selectedAgentId == null) {
@@ -1176,7 +1176,7 @@ class LicensesTabState extends State<LicensesTab> {
               loadData();
             },
             icon: const Icon(Icons.assignment_ind, size: 18),
-            label: const Text('Cấp key'),
+            label: Text(tr('Cấp key')),
             style: ElevatedButton.styleFrom(
                 backgroundColor: AdminHelpers.info,
                 foregroundColor: Colors.white),

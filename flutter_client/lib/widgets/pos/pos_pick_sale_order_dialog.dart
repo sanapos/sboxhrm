@@ -7,6 +7,8 @@ import '../../utils/pos_kiot_time_range.dart';
 import '../../widgets/pos_barcode_scanner.dart';
 import 'pos_mobile_widgets.dart';
 import 'pos_theme.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
+import 'package:zkteco_flutter_client/l10n/app_ui_locale.dart';
 
 const _kiotBlue = PosTheme.kiotBlue;
 
@@ -49,7 +51,7 @@ class _PosPickSaleOrderPage extends StatelessWidget {
     return Scaffold(
       backgroundColor: PosTheme.background,
       appBar: AppBar(
-        title: Text(_title),
+        title: Text(tr(_title)),
         backgroundColor: _kiotBlue,
         foregroundColor: Colors.white,
       ),
@@ -157,7 +159,7 @@ class _PosPickSaleOrderShellState extends State<_PosPickSaleOrderShell> {
         start: _from ?? DateTime(now.year, now.month, 1),
         end: _to ?? now,
       ),
-      locale: const Locale('vi', 'VN'),
+      locale: appUiLocale(),
     );
     if (picked == null) return;
     setState(() {
@@ -185,9 +187,9 @@ class _PosPickSaleOrderShellState extends State<_PosPickSaleOrderShell> {
           onPressed: _pickDateRange,
           icon: const Icon(Icons.date_range, size: 18),
           label: Text(
-            _from != null && _to != null
+            tr(_from != null && _to != null
                 ? '${DateFormat('dd/MM/yyyy').format(_from!)} – ${DateFormat('dd/MM/yyyy').format(_to!)}'
-                : 'Chọn khoảng ngày',
+                : 'Chọn khoảng ngày'),
           ),
         ),
       ],
@@ -220,7 +222,7 @@ class _PosPickSaleOrderShellState extends State<_PosPickSaleOrderShell> {
     return TextField(
       controller: ctrl,
       decoration: InputDecoration(
-        hintText: hint,
+        hintText: tr(hint),
         isDense: true,
         border: const OutlineInputBorder(),
         contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
@@ -240,9 +242,9 @@ class _PosPickSaleOrderShellState extends State<_PosPickSaleOrderShell> {
     if (_items.isEmpty) {
       return Center(
         child: Text(
-          widget.purpose == PosPickSaleOrderPurpose.resumeDraft
+          tr(widget.purpose == PosPickSaleOrderPurpose.resumeDraft
               ? 'Không có đơn tạm phù hợp'
-              : 'Không có hóa đơn phù hợp',
+              : 'Không có hóa đơn phù hợp'),
         ),
       );
     }
@@ -267,7 +269,7 @@ class _PosPickSaleOrderShellState extends State<_PosPickSaleOrderShell> {
                     children: [
                       Expanded(
                         child: Text(
-                          o.orderNo,
+                          tr(o.orderNo),
                           style: const TextStyle(
                             color: _kiotBlue,
                             fontWeight: FontWeight.w700,
@@ -276,7 +278,7 @@ class _PosPickSaleOrderShellState extends State<_PosPickSaleOrderShell> {
                         ),
                       ),
                       Text(
-                        _moneyFmt.format(o.total),
+                        tr(_moneyFmt.format(o.total)),
                         style: const TextStyle(
                           fontWeight: FontWeight.w700,
                           fontSize: 15,
@@ -286,22 +288,21 @@ class _PosPickSaleOrderShellState extends State<_PosPickSaleOrderShell> {
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    o.createdAt != null
+                    tr(o.createdAt != null
                         ? _dateFmt.format(o.createdAt!.toLocal())
-                        : '—',
+                        : '—'),
                     style: const TextStyle(
                       fontSize: 12,
                       color: PosTheme.textSecondary,
                     ),
                   ),
                   const SizedBox(height: 4),
-                  Text(
-                    'Khách: ${o.customerName ?? 'Khách lẻ'}',
+                  Text(tr('${tr('Khách: ')}${o.customerName ?? 'Khách lẻ'}'),
                     style: const TextStyle(fontSize: 13),
                   ),
                   if ((o.soldBy ?? o.createdBy)?.isNotEmpty == true)
                     Text(
-                      'NV: ${o.soldBy ?? o.createdBy}',
+                      tr('NV: ${o.soldBy ?? o.createdBy}'),
                       style: const TextStyle(
                         fontSize: 12,
                         color: PosTheme.textSecondary,
@@ -309,8 +310,7 @@ class _PosPickSaleOrderShellState extends State<_PosPickSaleOrderShell> {
                     ),
                   if (o.returnedAmount > 0) ...[
                     const SizedBox(height: 4),
-                    Text(
-                      'Đã trả: ${_moneyFmt.format(o.returnedAmount)}',
+                    Text(tr('Đã trả: ${_moneyFmt.format(o.returnedAmount)}'),
                       style: const TextStyle(fontSize: 12, color: Colors.orange),
                     ),
                   ],
@@ -330,9 +330,9 @@ class _PosPickSaleOrderShellState extends State<_PosPickSaleOrderShell> {
     if (_items.isEmpty) {
       return Center(
         child: Text(
-          widget.purpose == PosPickSaleOrderPurpose.resumeDraft
+          tr(widget.purpose == PosPickSaleOrderPurpose.resumeDraft
               ? 'Không có đơn tạm phù hợp'
-              : 'Không có hóa đơn phù hợp',
+              : 'Không có hóa đơn phù hợp'),
         ),
       );
     }
@@ -346,31 +346,31 @@ class _PosPickSaleOrderShellState extends State<_PosPickSaleOrderShell> {
           fontWeight: FontWeight.w600,
         ),
         dataRowMinHeight: 40,
-        columns: const [
-          DataColumn(label: Text('Mã hóa đơn')),
-          DataColumn(label: Text('Thời gian')),
-          DataColumn(label: Text('Nhân viên')),
-          DataColumn(label: Text('Khách hàng')),
-          DataColumn(label: Text('Tổng cộng'), numeric: true),
+        columns: [
+          DataColumn(label: Text(tr('Mã hóa đơn'))),
+          DataColumn(label: Text(tr('Thời gian'))),
+          DataColumn(label: Text(tr('Nhân viên'))),
+          DataColumn(label: Text(tr('Khách hàng'))),
+          DataColumn(label: Text(tr('Tổng cộng')), numeric: true),
           DataColumn(label: Text('')),
         ],
         rows: _items.map((o) {
           return DataRow(cells: [
-            DataCell(Text(o.orderNo,
+            DataCell(Text(tr(o.orderNo),
                 style: const TextStyle(
                     color: _kiotBlue, fontWeight: FontWeight.w600))),
             DataCell(Text(
-                o.createdAt != null ? _dateFmt.format(o.createdAt!.toLocal()) : '—')),
-            DataCell(Text(o.soldBy ?? o.createdBy ?? '—',
+                tr(o.createdAt != null ? _dateFmt.format(o.createdAt!.toLocal()) : '—'))),
+            DataCell(Text(tr(o.soldBy ?? o.createdBy ?? '—'),
                 overflow: TextOverflow.ellipsis)),
-            DataCell(Text(o.customerName ?? 'Khách lẻ',
+            DataCell(Text(tr(o.customerName ?? 'Khách lẻ'),
                 overflow: TextOverflow.ellipsis)),
-            DataCell(Text(_moneyFmt.format(o.total))),
+            DataCell(Text(tr(_moneyFmt.format(o.total)))),
             DataCell(
               OutlinedButton(
                 onPressed: () => _select(o),
                 style: OutlinedButton.styleFrom(foregroundColor: _kiotBlue),
-                child: const Text('Chọn'),
+                child: Text(tr('Chọn')),
               ),
             ),
           ]);
@@ -401,7 +401,7 @@ class _PosPickSaleOrderShellState extends State<_PosPickSaleOrderShell> {
                 children: [
                   Expanded(
                     child: Text(
-                      title,
+                      tr(title),
                       style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                     ),
                   ),
@@ -427,7 +427,7 @@ class _PosPickSaleOrderShellState extends State<_PosPickSaleOrderShell> {
                       child: ListView(
                         padding: const EdgeInsets.all(12),
                         children: [
-                          const Text('Tìm kiếm',
+                          Text(tr('Tìm kiếm'),
                               style: TextStyle(
                                   fontWeight: FontWeight.w600, fontSize: 13)),
                           const SizedBox(height: 8),
@@ -436,7 +436,7 @@ class _PosPickSaleOrderShellState extends State<_PosPickSaleOrderShell> {
                           FilledButton(
                             style: FilledButton.styleFrom(backgroundColor: _kiotBlue),
                             onPressed: _loading ? null : () => _load(),
-                            child: const Text('Lọc'),
+                            child: Text(tr('Lọc')),
                           ),
                         ],
                       ),
@@ -463,7 +463,7 @@ class _PosPickSaleOrderShellState extends State<_PosPickSaleOrderShell> {
                 child: TextField(
                   controller: _orderNoCtrl,
                   decoration: InputDecoration(
-                    hintText: 'Tìm mã HĐ, hàng, khách…',
+                    hintText: tr('Tìm mã HĐ, hàng, khách…'),
                     prefixIcon: const Icon(Icons.search, size: 20),
                     suffixIcon: PosBarcodeScanIcon(
                       controller: _orderNoCtrl,
@@ -514,7 +514,7 @@ class _PosPickSaleOrderShellState extends State<_PosPickSaleOrderShell> {
                     onPressed: _page > 1 && !_loading ? () => _load(page: _page - 1) : null,
                     icon: const Icon(Icons.chevron_left),
                   ),
-                  Text('$_page / $totalPages', style: const TextStyle(fontSize: 13)),
+                  Text(tr('$_page / $totalPages'), style: const TextStyle(fontSize: 13)),
                   IconButton(
                     onPressed: _page < totalPages && !_loading
                         ? () => _load(page: _page + 1)
@@ -524,8 +524,7 @@ class _PosPickSaleOrderShellState extends State<_PosPickSaleOrderShell> {
                 ],
               ),
             const Spacer(),
-            Text(
-              'Tổng $_total hóa đơn',
+            Text(tr('Tổng $_total hóa đơn'),
               style: const TextStyle(fontSize: 12, color: PosTheme.textSecondary),
             ),
           ],

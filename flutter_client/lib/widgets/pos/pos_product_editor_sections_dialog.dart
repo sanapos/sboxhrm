@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../utils/pos_product_editor_prefs.dart';
 import 'pos_theme.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// Dialog chọn mục hiển thị trên form thêm/sửa hàng hóa.
 Future<Set<PosProductEditorSection>?> showPosProductEditorSectionsDialog(
@@ -37,7 +38,7 @@ class _PosProductEditorSectionsDialogState
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Tùy chọn form hàng hóa'),
+      title: Text(tr('Tùy chọn form hàng hóa')),
       content: SizedBox(
         width: 420,
         child: SingleChildScrollView(
@@ -46,8 +47,8 @@ class _PosProductEditorSectionsDialogState
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                'Tắt các mục không dùng để form thêm hàng gọn hơn. '
-                'Khi sửa hàng đã có dữ liệu, mục liên quan vẫn hiện.',
+                tr('Tắt các mục không dùng để form thêm hàng gọn hơn. '
+                'Khi sửa hàng đã có dữ liệu, mục liên quan vẫn hiện.'),
                 style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
               ),
               const SizedBox(height: 12),
@@ -58,12 +59,12 @@ class _PosProductEditorSectionsDialogState
                   OutlinedButton(
                     onPressed: () => setState(
                         () => _selected = defaultPosProductEditorSections()),
-                    child: const Text('Form gọn'),
+                    child: Text(tr('Form gọn')),
                   ),
                   OutlinedButton(
                     onPressed: () => setState(
                         () => _selected = fullPosProductEditorSections()),
-                    child: const Text('Hiện tất cả'),
+                    child: Text(tr('Hiện tất cả')),
                   ),
                 ],
               ),
@@ -75,7 +76,7 @@ class _PosProductEditorSectionsDialogState
                   contentPadding: EdgeInsets.zero,
                   value: on,
                   activeColor: PosTheme.kiotBlue,
-                  title: Text(s.label, style: const TextStyle(fontSize: 14)),
+                  title: Text(tr(s.label), style: const TextStyle(fontSize: 14)),
                   onChanged: (v) {
                     setState(() {
                       if (v == true) {
@@ -94,7 +95,7 @@ class _PosProductEditorSectionsDialogState
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('Hủy'),
+          child: Text(tr('Hủy')),
         ),
         FilledButton(
           onPressed: () async {
@@ -103,7 +104,7 @@ class _PosProductEditorSectionsDialogState
             Navigator.pop(context, _selected);
           },
           style: FilledButton.styleFrom(backgroundColor: PosTheme.kiotBlue),
-          child: const Text('Lưu'),
+          child: Text(tr('Lưu')),
         ),
       ],
     );

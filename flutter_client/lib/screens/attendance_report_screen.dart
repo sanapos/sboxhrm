@@ -15,6 +15,7 @@ import '../utils/salary_profile_load_utils.dart';
 import '../utils/shift_records_calculator.dart';
 import '../widgets/pos/pos_theme.dart';
 import '../widgets/reports/hrm_report_widgets.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// Màu chủ đạo kiểu KiotViet (xanh dương #0070F4 + xanh lá #00B63E).
 const _theme = PosTheme.kiotBlue;
@@ -812,7 +813,7 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
                     Icon(items[i].icon, size: 14, color: items[i].color),
                     const SizedBox(width: 5),
                     Text(
-                      items[i].label,
+                      tr(items[i].label),
                       style: TextStyle(
                         fontSize: 11,
                         color: PosTheme.textSecondary,
@@ -821,7 +822,7 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
                     ),
                     const SizedBox(width: 6),
                     Text(
-                      items[i].value,
+                      tr(items[i].value),
                       style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w800,
@@ -926,9 +927,9 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
       return const SizedBox.shrink();
     }
     final items = [
-      const DropdownMenuItem<String?>(
+      DropdownMenuItem<String?>(
         value: null,
-        child: Text('Tất cả nhân viên'),
+        child: Text(tr('Tất cả nhân viên')),
       ),
       ..._employees.map((e) {
         final id = e['id']?.toString();
@@ -941,7 +942,7 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
         ].join(' · ');
         return DropdownMenuItem<String?>(
           value: id,
-          child: Text(label, overflow: TextOverflow.ellipsis),
+          child: Text(tr(label), overflow: TextOverflow.ellipsis),
         );
       }),
     ];
@@ -953,8 +954,8 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
     return DropdownButtonFormField<String?>(
       value: value,
       isExpanded: true,
-      decoration: const InputDecoration(
-        labelText: 'Nhân viên',
+      decoration: InputDecoration(
+        labelText: tr('Nhân viên'),
         isDense: true,
         border: OutlineInputBorder(),
         contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -1061,8 +1062,7 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
                   ),
                 ),
                 const SizedBox(width: 8),
-                const Text(
-                  'Chú thích',
+                Text(tr('Chú thích'),
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
@@ -1115,7 +1115,7 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
                               ),
                             ),
                             child: Text(
-                              it.code,
+                              tr(it.code),
                               style: TextStyle(
                                 color: it.fg,
                                 fontSize: it.code.length > 2 ? 10 : 12,
@@ -1126,7 +1126,7 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
-                              it.label,
+                              tr(it.label),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
@@ -1157,8 +1157,8 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
         .canView('AttendanceReport');
 
     if (!canView) {
-      return const Scaffold(
-        body: Center(child: Text('Bạn không có quyền xem báo cáo chấm công')),
+      return Scaffold(
+        body: Center(child: Text(tr('Bạn không có quyền xem báo cáo chấm công'))),
       );
     }
 
@@ -1299,8 +1299,8 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
                             horizontal: 10, vertical: 10),
                         child: Row(
                           children: [
-                            const Expanded(
-                              child: Text('Nhân viên',
+                            Expanded(
+                              child: Text(tr('Nhân viên'),
                                   style: TextStyle(
                                       fontWeight: FontWeight.w700,
                                       fontSize: 12)),
@@ -1331,7 +1331,7 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
                         child: Column(
                           children: [
                             Text(
-                              _fmtDay.format(d),
+                              tr(_fmtDay.format(d)),
                               style: TextStyle(
                                 fontWeight: FontWeight.w700,
                                 fontSize: 12,
@@ -1343,7 +1343,7 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
                               ),
                             ),
                             Text(
-                              _fmtWeekday.format(d),
+                              tr(_fmtWeekday.format(d)),
                               style: TextStyle(
                                 fontSize: 9,
                                 color: isSun
@@ -1383,14 +1383,14 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              name.isEmpty ? code : name,
+                              tr(name.isEmpty ? code : name),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
                                   fontSize: 12, fontWeight: FontWeight.w600),
                             ),
                             if (code.isNotEmpty)
-                              Text(code,
+                              Text(tr(code),
                                   style: TextStyle(
                                       fontSize: 10,
                                       color: Colors.grey.shade600)),
@@ -1500,7 +1500,7 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
         borderRadius: BorderRadius.circular(6),
       ),
       child: Text(
-        label,
+        tr(label),
         style: TextStyle(
           color: fg,
           fontSize: label.length > 3 ? 9 : 11,

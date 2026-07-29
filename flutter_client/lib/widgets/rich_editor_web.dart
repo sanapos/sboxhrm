@@ -11,6 +11,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import '../services/api_service.dart';
 import 'auth_cached_image.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 // ══════════════════════════════════════════════════════════
 // Controller
@@ -331,10 +332,10 @@ class _RichEditorState extends State<RichEditor> {
         height: 1.6,
         color: Color(0xFF334155),
       ),
-      decoration: const InputDecoration(
+      decoration: InputDecoration(
         border: InputBorder.none,
         contentPadding: EdgeInsets.all(20),
-        hintText: '<!-- Nhập mã HTML tại đây -->',
+        hintText: tr('<!-- Nhập mã HTML tại đây -->'),
         hintStyle: TextStyle(color: Color(0xFFA1A1AA)),
       ),
       onChanged: (value) => widget.onChanged?.call(value),
@@ -480,7 +481,7 @@ class _RichEditorState extends State<RichEditor> {
 
   Widget _headingDropdown() {
     return PopupMenuButton<String>(
-      tooltip: 'Kiểu đề mục',
+      tooltip: tr('Kiểu đề mục'),
       offset: const Offset(0, 36),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       child: Container(
@@ -511,7 +512,7 @@ class _RichEditorState extends State<RichEditor> {
       String value, String label, double size, FontWeight weight) {
     return PopupMenuItem(
       value: value,
-      child: Text(label,
+      child: Text(tr(label),
           style: TextStyle(fontSize: size, fontWeight: weight)),
     );
   }
@@ -520,7 +521,7 @@ class _RichEditorState extends State<RichEditor> {
 
   Widget _fontSizeDropdown() {
     return PopupMenuButton<String>(
-      tooltip: 'Cỡ chữ',
+      tooltip: tr('Cỡ chữ'),
       offset: const Offset(0, 36),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       child: Container(
@@ -537,27 +538,27 @@ class _RichEditorState extends State<RichEditor> {
         ),
       ),
       itemBuilder: (_) => [
-        const PopupMenuItem(
+        PopupMenuItem(
             value: '1',
-            child: Text('Rất nhỏ', style: TextStyle(fontSize: 10))),
-        const PopupMenuItem(
+            child: Text(tr('Rất nhỏ'), style: TextStyle(fontSize: 10))),
+        PopupMenuItem(
             value: '2',
-            child: Text('Nhỏ', style: TextStyle(fontSize: 12))),
-        const PopupMenuItem(
+            child: Text(tr('Nhỏ'), style: TextStyle(fontSize: 12))),
+        PopupMenuItem(
             value: '3',
-            child: Text('Bình thường', style: TextStyle(fontSize: 14))),
-        const PopupMenuItem(
+            child: Text(tr('Bình thường'), style: TextStyle(fontSize: 14))),
+        PopupMenuItem(
             value: '4',
-            child: Text('Vừa', style: TextStyle(fontSize: 16))),
-        const PopupMenuItem(
+            child: Text(tr('Vừa'), style: TextStyle(fontSize: 16))),
+        PopupMenuItem(
             value: '5',
-            child: Text('Lớn', style: TextStyle(fontSize: 18))),
-        const PopupMenuItem(
+            child: Text(tr('Lớn'), style: TextStyle(fontSize: 18))),
+        PopupMenuItem(
             value: '6',
-            child: Text('Rất lớn', style: TextStyle(fontSize: 22))),
-        const PopupMenuItem(
+            child: Text(tr('Rất lớn'), style: TextStyle(fontSize: 22))),
+        PopupMenuItem(
             value: '7',
-            child: Text('Cực lớn', style: TextStyle(fontSize: 28))),
+            child: Text(tr('Cực lớn'), style: TextStyle(fontSize: 28))),
       ],
       onSelected: (value) => _exec('fontSize', value),
     );
@@ -568,7 +569,7 @@ class _RichEditorState extends State<RichEditor> {
   Widget _colorButton(
       IconData icon, String tooltip, ValueChanged<String> onColor) {
     return PopupMenuButton<String>(
-      tooltip: tooltip,
+      tooltip: tr(tooltip),
       offset: const Offset(0, 36),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       child: Container(
@@ -638,11 +639,11 @@ class _RichEditorState extends State<RichEditor> {
       context: context,
       builder: (ctx) => ScrollableAlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Row(
+        title: Row(
           children: [
             Icon(Icons.link, color: Color(0xFF1E3A5F), size: 22),
             SizedBox(width: 10),
-            Text('Chèn liên kết',
+            Text(tr('Chèn liên kết'),
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
           ],
         ),
@@ -655,8 +656,8 @@ class _RichEditorState extends State<RichEditor> {
                 TextField(
                   controller: textCtrl,
                   decoration: InputDecoration(
-                    labelText: 'Văn bản hiển thị',
-                    hintText: 'Nhập văn bản...',
+                    labelText: tr('Văn bản hiển thị'),
+                    hintText: tr('Nhập văn bản...'),
                     prefixIcon: const Icon(Icons.text_fields, size: 20),
                   border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(10)),
@@ -666,8 +667,8 @@ class _RichEditorState extends State<RichEditor> {
               TextField(
                 controller: urlCtrl,
                 decoration: InputDecoration(
-                  labelText: 'URL',
-                  hintText: 'https://example.com',
+                  labelText: tr('URL'),
+                  hintText: tr('https://example.com'),
                   prefixIcon: const Icon(Icons.link, size: 20),
                   border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(10)),
@@ -679,7 +680,7 @@ class _RichEditorState extends State<RichEditor> {
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
+              onPressed: () => Navigator.pop(ctx), child: Text(tr('Hủy'))),
           FilledButton.icon(
             onPressed: () {
               final url = urlCtrl.text.trim();
@@ -693,7 +694,7 @@ class _RichEditorState extends State<RichEditor> {
               Navigator.pop(ctx);
             },
             icon: const Icon(Icons.check, size: 18),
-            label: const Text('Chèn'),
+            label: Text(tr('Chèn')),
             style: FilledButton.styleFrom(
                 backgroundColor: const Color(0xFF1E3A5F)),
           ),
@@ -719,11 +720,11 @@ class _RichEditorState extends State<RichEditor> {
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDlgState) => ScrollableAlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: const Row(
+          title: Row(
             children: [
               Icon(Icons.image, color: Color(0xFF1E3A5F), size: 22),
               SizedBox(width: 10),
-              Text('Chèn hình ảnh',
+              Text(tr('Chèn hình ảnh'),
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
             ],
           ),
@@ -761,7 +762,7 @@ class _RichEditorState extends State<RichEditor> {
                                   Icon(Icons.upload_file, size: 18,
                                       color: tabIndex == 0 ? const Color(0xFF1E3A5F) : const Color(0xFFA1A1AA)),
                                   const SizedBox(width: 6),
-                                  Text('Upload ảnh',
+                                  Text(tr('Upload ảnh'),
                                       style: TextStyle(
                                         fontWeight: tabIndex == 0 ? FontWeight.w600 : FontWeight.normal,
                                         color: tabIndex == 0 ? const Color(0xFF1E3A5F) : const Color(0xFFA1A1AA),
@@ -789,7 +790,7 @@ class _RichEditorState extends State<RichEditor> {
                                   Icon(Icons.link, size: 18,
                                       color: tabIndex == 1 ? const Color(0xFF1E3A5F) : const Color(0xFFA1A1AA)),
                                   const SizedBox(width: 6),
-                                  Text('URL ảnh',
+                                  Text(tr('URL ảnh'),
                                       style: TextStyle(
                                         fontWeight: tabIndex == 1 ? FontWeight.w600 : FontWeight.normal,
                                         color: tabIndex == 1 ? const Color(0xFF1E3A5F) : const Color(0xFFA1A1AA),
@@ -827,13 +828,13 @@ class _RichEditorState extends State<RichEditor> {
                       children: [
                         const Icon(Icons.check_circle, color: Colors.green, size: 18),
                         const SizedBox(width: 6),
-                        const Expanded(child: Text('Ảnh đã upload thành công!',
+                        Expanded(child: Text(tr('Ảnh đã upload thành công!'),
                             style: TextStyle(color: Colors.green, fontWeight: FontWeight.w500))),
                         TextButton(
                           onPressed: isUploading ? null : () async {
                             setDlgState(() { uploadedUrl = null; });
                           },
-                          child: const Text('Chọn ảnh khác'),
+                          child: Text(tr('Chọn ảnh khác')),
                         ),
                       ],
                     ),
@@ -873,23 +874,23 @@ class _RichEditorState extends State<RichEditor> {
                           color: const Color(0xFFFAFAFA),
                         ),
                         child: isUploading
-                            ? const Center(child: Column(
+                            ? Center(child: Column(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   CircularProgressIndicator(strokeWidth: 3),
                                   SizedBox(height: 12),
-                                  Text('Đang upload...', style: TextStyle(color: Color(0xFF71717A))),
+                                  Text(tr('Đang upload...'), style: TextStyle(color: Color(0xFF71717A))),
                                 ],
                               ))
-                            : const Column(
+                            : Column(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
                                   Icon(Icons.cloud_upload_outlined, size: 40, color: Color(0xFFA1A1AA)),
                                   SizedBox(height: 8),
-                                  Text('Nhấn để chọn ảnh từ thiết bị',
+                                  Text(tr('Nhấn để chọn ảnh từ thiết bị'),
                                       style: TextStyle(color: Color(0xFF71717A), fontWeight: FontWeight.w500)),
                                   SizedBox(height: 4),
-                                  Text('Hỗ trợ: JPG, PNG, GIF, WebP (tối đa 10MB)',
+                                  Text(tr('Hỗ trợ: JPG, PNG, GIF, WebP (tối đa 10MB)'),
                                       style: TextStyle(color: Color(0xFFA1A1AA), fontSize: 12)),
                                 ],
                               ),
@@ -903,8 +904,8 @@ class _RichEditorState extends State<RichEditor> {
                   TextField(
                     controller: urlCtrl,
                     decoration: InputDecoration(
-                      labelText: 'URL hình ảnh',
-                      hintText: 'https://example.com/image.jpg',
+                      labelText: tr('URL hình ảnh'),
+                      hintText: tr('https://example.com/image.jpg'),
                       prefixIcon: const Icon(Icons.image, size: 20),
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                     ),
@@ -915,8 +916,8 @@ class _RichEditorState extends State<RichEditor> {
                 TextField(
                   controller: altCtrl,
                   decoration: InputDecoration(
-                    labelText: 'Mô tả ảnh (alt text)',
-                    hintText: 'Mô tả cho hình ảnh...',
+                    labelText: tr('Mô tả ảnh (alt text)'),
+                    hintText: tr('Mô tả cho hình ảnh...'),
                     prefixIcon: const Icon(Icons.description, size: 20),
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                   ),
@@ -924,7 +925,7 @@ class _RichEditorState extends State<RichEditor> {
                 const SizedBox(height: 14),
                 Row(
                   children: [
-                    const Text('Căn chỉnh:',
+                    Text(tr('Căn chỉnh:'),
                         style: TextStyle(fontWeight: FontWeight.w500)),
                     const SizedBox(width: 12),
                     _alignChip('Trái', Icons.format_align_left, align == 'none',
@@ -940,29 +941,29 @@ class _RichEditorState extends State<RichEditor> {
                 const SizedBox(height: 14),
                 Row(
                   children: [
-                    const Text('Kích thước:',
+                    Text(tr('Kích thước:'),
                         style: TextStyle(fontWeight: FontWeight.w500)),
                     const SizedBox(width: 12),
                     ChoiceChip(
-                      label: const Text('25%'),
+                      label: Text(tr('25%')),
                       selected: size == '25',
                       onSelected: (_) => setDlgState(() => size = '25'),
                     ),
                     const SizedBox(width: 6),
                     ChoiceChip(
-                      label: const Text('50%'),
+                      label: Text(tr('50%')),
                       selected: size == '50',
                       onSelected: (_) => setDlgState(() => size = '50'),
                     ),
                     const SizedBox(width: 6),
                     ChoiceChip(
-                      label: const Text('75%'),
+                      label: Text(tr('75%')),
                       selected: size == '75',
                       onSelected: (_) => setDlgState(() => size = '75'),
                     ),
                     const SizedBox(width: 6),
                     ChoiceChip(
-                      label: const Text('100%'),
+                      label: Text(tr('100%')),
                       selected: size == '100',
                       onSelected: (_) => setDlgState(() => size = '100'),
                     ),
@@ -971,29 +972,29 @@ class _RichEditorState extends State<RichEditor> {
                 const SizedBox(height: 14),
                 Row(
                   children: [
-                    const Text('Bo góc:',
+                    Text(tr('Bo góc:'),
                         style: TextStyle(fontWeight: FontWeight.w500)),
                     const SizedBox(width: 12),
                     ChoiceChip(
-                      label: const Text('Không'),
+                      label: Text(tr('Không')),
                       selected: borderRadius == '0',
                       onSelected: (_) => setDlgState(() => borderRadius = '0'),
                     ),
                     const SizedBox(width: 6),
                     ChoiceChip(
-                      label: const Text('8px'),
+                      label: Text(tr('8px')),
                       selected: borderRadius == '8',
                       onSelected: (_) => setDlgState(() => borderRadius = '8'),
                     ),
                     const SizedBox(width: 6),
                     ChoiceChip(
-                      label: const Text('16px'),
+                      label: Text(tr('16px')),
                       selected: borderRadius == '16',
                       onSelected: (_) => setDlgState(() => borderRadius = '16'),
                     ),
                     const SizedBox(width: 6),
                     ChoiceChip(
-                      label: const Text('24px'),
+                      label: Text(tr('24px')),
                       selected: borderRadius == '24',
                       onSelected: (_) => setDlgState(() => borderRadius = '24'),
                     ),
@@ -1006,7 +1007,7 @@ class _RichEditorState extends State<RichEditor> {
           actions: [
             TextButton(
                 onPressed: () => Navigator.pop(ctx),
-                child: const Text('Hủy')),
+                child: Text(tr('Hủy'))),
             FilledButton.icon(
               onPressed: () {
                 final url = tabIndex == 0 ? (uploadedUrl ?? '') : urlCtrl.text.trim();
@@ -1032,7 +1033,7 @@ class _RichEditorState extends State<RichEditor> {
                 Navigator.pop(ctx);
               },
               icon: const Icon(Icons.check, size: 18),
-              label: const Text('Chèn'),
+              label: Text(tr('Chèn')),
               style: FilledButton.styleFrom(
                   backgroundColor: const Color(0xFF1E3A5F)),
             ),
@@ -1048,7 +1049,7 @@ class _RichEditorState extends State<RichEditor> {
     String currentSize = '100';
     String currentAlign = 'none';
     String currentBorderRadius = '8';
-    final altCtrl = TextEditingController(text: img.alt ?? '');
+    final altCtrl = TextEditingController(text: tr(img.alt ?? ''));
 
     // Parse current styles using getPropertyValue for reliability
     final maxWidthStr = img.style.getPropertyValue('max-width');
@@ -1106,13 +1107,13 @@ class _RichEditorState extends State<RichEditor> {
               children: [
                 const Icon(Icons.image, color: Color(0xFF1E3A5F), size: 22),
                 const SizedBox(width: 10),
-                const Expanded(
-                  child: Text('Chỉnh sửa hình ảnh',
+                Expanded(
+                  child: Text(tr('Chỉnh sửa hình ảnh'),
                       style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
                 ),
                 IconButton(
                   icon: const Icon(Icons.delete_outline, color: Colors.red),
-                  tooltip: 'Xóa ảnh',
+                  tooltip: tr('Xóa ảnh'),
                   onPressed: () {
                     img.remove();
                     widget.onChanged?.call(widget.controller.html);
@@ -1151,7 +1152,7 @@ class _RichEditorState extends State<RichEditor> {
                   // Alignment
                   Row(
                     children: [
-                      const Text('Căn chỉnh:',
+                      Text(tr('Căn chỉnh:'),
                           style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
                       const SizedBox(width: 12),
                       _alignChip('Trái', Icons.format_align_left, currentAlign == 'none',
@@ -1169,29 +1170,29 @@ class _RichEditorState extends State<RichEditor> {
                   // Size
                   Row(
                     children: [
-                      const Text('Kích thước:',
+                      Text(tr('Kích thước:'),
                           style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
                       const SizedBox(width: 12),
                       ChoiceChip(
-                        label: const Text('25%'),
+                        label: Text(tr('25%')),
                         selected: currentSize == '25',
                         onSelected: (_) => setDlgState(() => currentSize = '25'),
                       ),
                       const SizedBox(width: 6),
                       ChoiceChip(
-                        label: const Text('50%'),
+                        label: Text(tr('50%')),
                         selected: currentSize == '50',
                         onSelected: (_) => setDlgState(() => currentSize = '50'),
                       ),
                       const SizedBox(width: 6),
                       ChoiceChip(
-                        label: const Text('75%'),
+                        label: Text(tr('75%')),
                         selected: currentSize == '75',
                         onSelected: (_) => setDlgState(() => currentSize = '75'),
                       ),
                       const SizedBox(width: 6),
                       ChoiceChip(
-                        label: const Text('100%'),
+                        label: Text(tr('100%')),
                         selected: currentSize == '100',
                         onSelected: (_) => setDlgState(() => currentSize = '100'),
                       ),
@@ -1202,29 +1203,29 @@ class _RichEditorState extends State<RichEditor> {
                   // Border Radius
                   Row(
                     children: [
-                      const Text('Bo góc:',
+                      Text(tr('Bo góc:'),
                           style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
                       const SizedBox(width: 12),
                       ChoiceChip(
-                        label: const Text('Không'),
+                        label: Text(tr('Không')),
                         selected: currentBorderRadius == '0',
                         onSelected: (_) => setDlgState(() => currentBorderRadius = '0'),
                       ),
                       const SizedBox(width: 6),
                       ChoiceChip(
-                        label: const Text('8px'),
+                        label: Text(tr('8px')),
                         selected: currentBorderRadius == '8',
                         onSelected: (_) => setDlgState(() => currentBorderRadius = '8'),
                       ),
                       const SizedBox(width: 6),
                       ChoiceChip(
-                        label: const Text('16px'),
+                        label: Text(tr('16px')),
                         selected: currentBorderRadius == '16',
                         onSelected: (_) => setDlgState(() => currentBorderRadius = '16'),
                       ),
                       const SizedBox(width: 6),
                       ChoiceChip(
-                        label: const Text('24px'),
+                        label: Text(tr('24px')),
                         selected: currentBorderRadius == '24',
                         onSelected: (_) => setDlgState(() => currentBorderRadius = '24'),
                       ),
@@ -1236,7 +1237,7 @@ class _RichEditorState extends State<RichEditor> {
                   TextField(
                     controller: altCtrl,
                     decoration: InputDecoration(
-                      labelText: 'Mô tả ảnh (alt text)',
+                      labelText: tr('Mô tả ảnh (alt text)'),
                       prefixIcon: const Icon(Icons.description, size: 20),
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                     ),
@@ -1248,14 +1249,14 @@ class _RichEditorState extends State<RichEditor> {
             actions: [
               TextButton(
                   onPressed: () => Navigator.pop(ctx),
-                  child: const Text('Hủy')),
+                  child: Text(tr('Hủy'))),
               FilledButton.icon(
                 onPressed: () {
                   applyStyles();
                   Navigator.pop(ctx);
                 },
                 icon: const Icon(Icons.check, size: 18),
-                label: const Text('Áp dụng'),
+                label: Text(tr('Áp dụng')),
                 style: FilledButton.styleFrom(
                     backgroundColor: const Color(0xFF1E3A5F)),
               ),
@@ -1283,7 +1284,7 @@ class _RichEditorState extends State<RichEditor> {
             Icon(icon, size: 16,
                 color: selected ? const Color(0xFF1E3A5F) : const Color(0xFF71717A)),
             const SizedBox(width: 4),
-            Text(label,
+            Text(tr(label),
                 style: TextStyle(
                   fontSize: 12,
                   color: selected ? const Color(0xFF1E3A5F) : const Color(0xFF71717A),
@@ -1332,8 +1333,8 @@ class _RichEditorState extends State<RichEditor> {
           children: [
             const Icon(Icons.table_chart, color: Color(0xFF1E3A5F), size: 22),
             const SizedBox(width: 10),
-            const Expanded(
-              child: Text('Chỉnh sửa bảng',
+            Expanded(
+              child: Text(tr('Chỉnh sửa bảng'),
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
             ),
             IconButton(
@@ -1347,9 +1348,9 @@ class _RichEditorState extends State<RichEditor> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Align(
+              Align(
                 alignment: Alignment.centerLeft,
-                child: Text('Thêm hàng',
+                child: Text(tr('Thêm hàng'),
                     style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: Color(0xFF52525B))),
               ),
               const SizedBox(height: 8),
@@ -1367,9 +1368,9 @@ class _RichEditorState extends State<RichEditor> {
                 ],
               ),
               const SizedBox(height: 14),
-              const Align(
+              Align(
                 alignment: Alignment.centerLeft,
-                child: Text('Thêm cột',
+                child: Text(tr('Thêm cột'),
                     style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: Color(0xFF52525B))),
               ),
               const SizedBox(height: 8),
@@ -1389,9 +1390,9 @@ class _RichEditorState extends State<RichEditor> {
               const SizedBox(height: 14),
               const Divider(),
               const SizedBox(height: 8),
-              const Align(
+              Align(
                 alignment: Alignment.centerLeft,
-                child: Text('Xóa',
+                child: Text(tr('Xóa'),
                     style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: Color(0xFFEF4444))),
               ),
               const SizedBox(height: 8),
@@ -1417,9 +1418,9 @@ class _RichEditorState extends State<RichEditor> {
               const SizedBox(height: 14),
               const Divider(),
               const SizedBox(height: 8),
-              const Align(
+              Align(
                 alignment: Alignment.centerLeft,
-                child: Text('Kiểu bảng',
+                child: Text(tr('Kiểu bảng'),
                     style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: Color(0xFF52525B))),
               ),
               const SizedBox(height: 8),
@@ -1460,7 +1461,7 @@ class _RichEditorState extends State<RichEditor> {
             children: [
               Icon(icon, size: 20, color: c),
               const SizedBox(height: 4),
-              Text(label,
+              Text(tr(label),
                   style: TextStyle(fontSize: 11, color: c, fontWeight: FontWeight.w500),
                   textAlign: TextAlign.center),
             ],
@@ -1619,11 +1620,11 @@ class _RichEditorState extends State<RichEditor> {
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDlgState) => ScrollableAlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: const Row(
+          title: Row(
             children: [
               Icon(Icons.play_circle_fill, color: Color(0xFFFF0000), size: 22),
               SizedBox(width: 10),
-              Text('Chèn video YouTube',
+              Text(tr('Chèn video YouTube'),
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
             ],
           ),
@@ -1636,13 +1637,13 @@ class _RichEditorState extends State<RichEditor> {
                   TextField(
                     controller: urlCtrl,
                   decoration: InputDecoration(
-                    labelText: 'URL video YouTube',
-                    hintText: 'https://www.youtube.com/watch?v=...',
+                    labelText: tr('URL video YouTube'),
+                    hintText: tr('https://www.youtube.com/watch?v=...'),
                     prefixIcon: const Icon(Icons.link, size: 20),
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                     suffixIcon: IconButton(
                       icon: const Icon(Icons.search, size: 20),
-                      tooltip: 'Xem trước',
+                      tooltip: tr('Xem trước'),
                       onPressed: () {
                         final id = extractVideoId(urlCtrl.text.trim());
                         setDlgState(() => previewId = id);
@@ -1667,13 +1668,13 @@ class _RichEditorState extends State<RichEditor> {
                       errorWidget: (_, __, ___) => Container(
                         height: 180,
                         color: Colors.grey[200],
-                        child: const Center(
+                        child: Center(
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Icon(Icons.videocam_off, color: Colors.grey, size: 40),
                               SizedBox(height: 8),
-                              Text('Không tải được thumbnail',
+                              Text(tr('Không tải được thumbnail'),
                                   style: TextStyle(color: Colors.grey)),
                             ],
                           ),
@@ -1686,7 +1687,7 @@ class _RichEditorState extends State<RichEditor> {
                     children: [
                       const Icon(Icons.check_circle, color: Colors.green, size: 16),
                       const SizedBox(width: 6),
-                      Text('Video ID: $previewId',
+                      Text(tr('Video ID: $previewId'),
                           style: const TextStyle(color: Color(0xFF71717A), fontSize: 12)),
                     ],
                   ),
@@ -1698,12 +1699,12 @@ class _RichEditorState extends State<RichEditor> {
                       color: const Color(0xFFFEF2F2),
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: const Row(
+                    child: Row(
                       children: [
                         Icon(Icons.warning_amber_rounded, color: Color(0xFFEF4444), size: 18),
                         SizedBox(width: 8),
                         Expanded(
-                          child: Text('Không nhận dạng được URL YouTube. Vui lòng kiểm tra lại.',
+                          child: Text(tr('Không nhận dạng được URL YouTube. Vui lòng kiểm tra lại.'),
                               style: TextStyle(color: Color(0xFFEF4444), fontSize: 13)),
                         ),
                       ],
@@ -1713,23 +1714,23 @@ class _RichEditorState extends State<RichEditor> {
                 ],
                 Row(
                   children: [
-                    const Text('Chiều rộng:',
+                    Text(tr('Chiều rộng:'),
                         style: TextStyle(fontWeight: FontWeight.w500)),
                     const SizedBox(width: 12),
                     ChoiceChip(
-                      label: const Text('50%'),
+                      label: Text(tr('50%')),
                       selected: width == '50',
                       onSelected: (_) => setDlgState(() => width = '50'),
                     ),
                     const SizedBox(width: 6),
                     ChoiceChip(
-                      label: const Text('75%'),
+                      label: Text(tr('75%')),
                       selected: width == '75',
                       onSelected: (_) => setDlgState(() => width = '75'),
                     ),
                     const SizedBox(width: 6),
                     ChoiceChip(
-                      label: const Text('100%'),
+                      label: Text(tr('100%')),
                       selected: width == '100',
                       onSelected: (_) => setDlgState(() => width = '100'),
                     ),
@@ -1742,7 +1743,7 @@ class _RichEditorState extends State<RichEditor> {
           actions: [
             TextButton(
                 onPressed: () => Navigator.pop(ctx),
-                child: const Text('Hủy')),
+                child: Text(tr('Hủy'))),
             FilledButton.icon(
               onPressed: previewId != null
                   ? () {
@@ -1758,7 +1759,7 @@ class _RichEditorState extends State<RichEditor> {
                     }
                   : null,
               icon: const Icon(Icons.check, size: 18),
-              label: const Text('Chèn video'),
+              label: Text(tr('Chèn video')),
               style: FilledButton.styleFrom(
                   backgroundColor: const Color(0xFFFF0000)),
             ),
@@ -1779,11 +1780,11 @@ class _RichEditorState extends State<RichEditor> {
         builder: (ctx, setDlgState) => ScrollableAlertDialog(
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: const Row(
+          title: Row(
             children: [
               Icon(Icons.table_chart, color: Color(0xFF1E3A5F), size: 22),
               SizedBox(width: 10),
-              Text('Chèn bảng',
+              Text(tr('Chèn bảng'),
                   style:
                       TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
             ],
@@ -1793,7 +1794,7 @@ class _RichEditorState extends State<RichEditor> {
             children: [
               Row(
                 children: [
-                  const Text('Số hàng dữ liệu:',
+                  Text(tr('Số hàng dữ liệu:'),
                       style: TextStyle(fontWeight: FontWeight.w500)),
                   const SizedBox(width: 12),
                   SizedBox(
@@ -1809,13 +1810,13 @@ class _RichEditorState extends State<RichEditor> {
                       items: List.generate(
                           10,
                           (i) => DropdownMenuItem(
-                              value: i + 1, child: Text('${i + 1}'))),
+                              value: i + 1, child: Text(tr('${i + 1}')))),
                       onChanged: (v) =>
                           setDlgState(() => rows = v ?? 3),
                     ),
                   ),
                   const SizedBox(width: 20),
-                  const Text('Số cột:',
+                  Text(tr('Số cột:'),
                       style: TextStyle(fontWeight: FontWeight.w500)),
                   const SizedBox(width: 12),
                   SizedBox(
@@ -1831,7 +1832,7 @@ class _RichEditorState extends State<RichEditor> {
                       items: List.generate(
                           10,
                           (i) => DropdownMenuItem(
-                              value: i + 1, child: Text('${i + 1}'))),
+                              value: i + 1, child: Text(tr('${i + 1}')))),
                       onChanged: (v) =>
                           setDlgState(() => cols = v ?? 3),
                     ),
@@ -1843,7 +1844,7 @@ class _RichEditorState extends State<RichEditor> {
                 value: hasHeader,
                 onChanged: (v) =>
                     setDlgState(() => hasHeader = v ?? true),
-                title: const Text('Có hàng tiêu đề'),
+                title: Text(tr('Có hàng tiêu đề')),
                 contentPadding: EdgeInsets.zero,
                 controlAffinity: ListTileControlAffinity.leading,
               ),
@@ -1852,7 +1853,7 @@ class _RichEditorState extends State<RichEditor> {
           actions: [
             TextButton(
                 onPressed: () => Navigator.pop(ctx),
-                child: const Text('Hủy')),
+                child: Text(tr('Hủy'))),
             FilledButton.icon(
               onPressed: () {
                 final sb = StringBuffer('<table>');
@@ -1876,7 +1877,7 @@ class _RichEditorState extends State<RichEditor> {
                 Navigator.pop(ctx);
               },
               icon: const Icon(Icons.check, size: 18),
-              label: const Text('Chèn'),
+              label: Text(tr('Chèn')),
               style: FilledButton.styleFrom(
                   backgroundColor: const Color(0xFF1E3A5F)),
             ),
@@ -1889,7 +1890,7 @@ class _RichEditorState extends State<RichEditor> {
   // ─────────────── Insert Button / CTA Dialog ───────────────
 
   void _showButtonDialog() {
-    final textCtrl = TextEditingController(text: 'Nhấn vào đây');
+    final textCtrl = TextEditingController(text: tr('Nhấn vào đây'));
     final urlCtrl = TextEditingController();
     String color = '#6366F1';
     showDialog(
@@ -1898,11 +1899,11 @@ class _RichEditorState extends State<RichEditor> {
         builder: (ctx, setDlgState) => ScrollableAlertDialog(
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: const Row(
+          title: Row(
             children: [
               Icon(Icons.smart_button, color: Color(0xFF1E3A5F), size: 22),
               SizedBox(width: 10),
-              Text('Chèn nút bấm',
+              Text(tr('Chèn nút bấm'),
                   style:
                       TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
             ],
@@ -1916,7 +1917,7 @@ class _RichEditorState extends State<RichEditor> {
                   TextField(
                     controller: textCtrl,
                   decoration: InputDecoration(
-                    labelText: 'Văn bản nút',
+                    labelText: tr('Văn bản nút'),
                     border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10)),
                   ),
@@ -1925,8 +1926,8 @@ class _RichEditorState extends State<RichEditor> {
                 TextField(
                   controller: urlCtrl,
                   decoration: InputDecoration(
-                    labelText: 'URL liên kết',
-                    hintText: 'https://...',
+                    labelText: tr('URL liên kết'),
+                    hintText: tr('https://...'),
                     prefixIcon: const Icon(Icons.link, size: 20),
                     border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10)),
@@ -1935,7 +1936,7 @@ class _RichEditorState extends State<RichEditor> {
                 const SizedBox(height: 14),
                 Row(
                   children: [
-                    const Text('Màu nút:',
+                    Text(tr('Màu nút:'),
                         style: TextStyle(fontWeight: FontWeight.w500)),
                     const SizedBox(width: 12),
                     ...[
@@ -1982,7 +1983,7 @@ class _RichEditorState extends State<RichEditor> {
           actions: [
             TextButton(
                 onPressed: () => Navigator.pop(ctx),
-                child: const Text('Hủy')),
+                child: Text(tr('Hủy'))),
             FilledButton.icon(
               onPressed: () {
                 final text = textCtrl.text.trim();
@@ -2003,7 +2004,7 @@ class _RichEditorState extends State<RichEditor> {
                 Navigator.pop(ctx);
               },
               icon: const Icon(Icons.check, size: 18),
-              label: const Text('Chèn'),
+              label: Text(tr('Chèn')),
               style: FilledButton.styleFrom(
                   backgroundColor: const Color(0xFF1E3A5F)),
             ),

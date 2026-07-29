@@ -12,6 +12,7 @@ import '../utils/web_marketing_gate_stub.dart'
     if (dart.library.html) '../utils/web_marketing_gate_web.dart' as web_home;
 import '../widgets/store_agent_support_card.dart';
 import 'store_success_screen.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 String _sanitizeStoreLoginNameInput(String input) {
   var code = input.toLowerCase();
@@ -51,7 +52,7 @@ class _StoreLoginNameInputFormatter extends TextInputFormatter {
     if (text == newValue.text) return newValue;
     final offset = newValue.selection.baseOffset.clamp(0, text.length);
     return TextEditingValue(
-      text: text,
+      text: tr(text),
       selection: TextSelection.collapsed(offset: offset),
     );
   }
@@ -459,8 +460,8 @@ class _RegisterScreenState extends State<RegisterScreen>
                     color: Colors.white.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(20),
                   ),
-                  child: const Text(
-                    'SBOX HRM',
+                  child: Text(
+                    tr('SBOX HRM'),
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 12,
@@ -470,8 +471,7 @@ class _RegisterScreenState extends State<RegisterScreen>
                   ),
                 ),
                 const SizedBox(height: 24),
-                const Text(
-                  'Bắt đầu hành trình\nquản lý nhân sự',
+                Text(tr('Bắt đầu hành trình\nquản lý nhân sự'),
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 42,
@@ -481,8 +481,7 @@ class _RegisterScreenState extends State<RegisterScreen>
                   ),
                 ),
                 const SizedBox(height: 16),
-                Text(
-                  'Đăng ký doanh nghiệp để sử dụng hệ thống\nquản lý nhân sự thông minh.',
+                Text(tr('Đăng ký doanh nghiệp để sử dụng hệ thống\nquản lý nhân sự thông minh.'),
                   style: TextStyle(
                     color: Colors.white.withValues(alpha: 0.8),
                     fontSize: 17,
@@ -521,11 +520,10 @@ class _RegisterScreenState extends State<RegisterScreen>
                             color: Color(0xFF0C56D0), size: 20),
                       ),
                       const SizedBox(width: 16),
-                      const Column(
+                      Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            'THIẾT LẬP NHANH',
+                          Text(tr('THIẾT LẬP NHANH'),
                             style: TextStyle(
                                 color: Color(0xFF586064),
                                 fontSize: 10,
@@ -533,8 +531,7 @@ class _RegisterScreenState extends State<RegisterScreen>
                                 letterSpacing: 1.5),
                           ),
                           SizedBox(height: 2),
-                          Text(
-                            'CHỈ 2 PHÚT',
+                          Text(tr('CHỈ 2 PHÚT'),
                             style: TextStyle(
                                 color: Color(0xFF0C56D0),
                                 fontSize: 20,
@@ -578,8 +575,7 @@ class _RegisterScreenState extends State<RegisterScreen>
                   Align(
                     alignment:
                         isDesktop ? Alignment.centerLeft : Alignment.center,
-                    child: const Text(
-                      'Đăng ký doanh nghiệp',
+                    child: Text(tr('Đăng ký doanh nghiệp'),
                       style: TextStyle(
                         fontSize: 28,
                         fontWeight: FontWeight.w800,
@@ -592,8 +588,7 @@ class _RegisterScreenState extends State<RegisterScreen>
                   Align(
                     alignment:
                         isDesktop ? Alignment.centerLeft : Alignment.center,
-                    child: const Text(
-                      'Tạo tài khoản doanh nghiệp mới để bắt đầu.',
+                    child: Text(tr('Tạo tài khoản doanh nghiệp mới để bắt đầu.'),
                       style: TextStyle(color: Color(0xFF586064), fontSize: 14),
                     ),
                   ),
@@ -625,8 +620,7 @@ class _RegisterScreenState extends State<RegisterScreen>
                                 color: Color(0xFFD46B08)),
                             const SizedBox(width: 10),
                             Expanded(
-                              child: Text(
-                                'Bạn đang đăng ký qua mã đại lý: $_agentCode',
+                              child: Text(tr('Bạn đang đăng ký qua mã đại lý: $_agentCode'),
                                 style: const TextStyle(
                                   color: Color(0xFFAD4E00),
                                   fontWeight: FontWeight.w600,
@@ -694,7 +688,7 @@ class _RegisterScreenState extends State<RegisterScreen>
                               ? IconButton(
                                   icon: const Icon(Icons.refresh_rounded,
                                       color: Color(0xFF0C56D0), size: 20),
-                                  tooltip: 'Tạo lại từ tên doanh nghiệp',
+                                  tooltip: tr('Tạo lại từ tên doanh nghiệp'),
                                   onPressed: () {
                                     setState(() {
                                       _loginNameManuallyEdited = false;
@@ -747,7 +741,7 @@ class _RegisterScreenState extends State<RegisterScreen>
                           initialValue: _selectedProvince,
                           isExpanded: true,
                           decoration: InputDecoration(
-                            hintText: 'Chọn tỉnh / thành phố',
+                            hintText: tr('Chọn tỉnh / thành phố'),
                             prefixIcon: const Icon(Icons.location_city_outlined,
                                 color: Color(0xFF586064), size: 20),
                             filled: true,
@@ -775,7 +769,7 @@ class _RegisterScreenState extends State<RegisterScreen>
                                 (p) => DropdownMenuItem<String>(
                                   value: p,
                                   child: Text(
-                                    p,
+                                    tr(p),
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
@@ -818,9 +812,9 @@ class _RegisterScreenState extends State<RegisterScreen>
                           initialValue: _selectedServicePackageId,
                           isExpanded: true,
                           decoration: InputDecoration(
-                            hintText: _isLoadingPackages
+                            hintText: tr(_isLoadingPackages
                                 ? 'Đang tải gói dịch vụ...'
-                                : 'Chọn gói dùng thử',
+                                : 'Chọn gói dùng thử'),
                             prefixIcon: const Icon(Icons.inventory_2_outlined,
                                 color: Color(0xFF586064), size: 20),
                             filled: true,
@@ -848,7 +842,7 @@ class _RegisterScreenState extends State<RegisterScreen>
                                 (package) => DropdownMenuItem<String>(
                                   value: package.id,
                                   child: Text(
-                                    package.displayLabel,
+                                    tr(package.displayLabel),
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
@@ -973,11 +967,11 @@ class _RegisterScreenState extends State<RegisterScreen>
                                           strokeWidth: 2.5,
                                           color: Colors.white),
                                     )
-                                  : const Row(
+                                  : Row(
                                       mainAxisAlignment:
                                           MainAxisAlignment.center,
                                       children: [
-                                        Text('Đăng ký doanh nghiệp',
+                                        Text(tr('Đăng ký doanh nghiệp'),
                                             style: TextStyle(
                                                 fontSize: 15,
                                                 fontWeight: FontWeight.w700)),
@@ -997,14 +991,14 @@ class _RegisterScreenState extends State<RegisterScreen>
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Text('Đã có tài khoản?',
+                      Text(tr('Đã có tài khoản?'),
                           style: TextStyle(
                               color: Color(0xFF586064), fontSize: 14)),
                       TextButton(
                         onPressed: () => Navigator.of(context).pop(),
                         style: TextButton.styleFrom(
                             foregroundColor: const Color(0xFF0C56D0)),
-                        child: const Text('Đăng nhập',
+                        child: Text(tr('Đăng nhập'),
                             style: TextStyle(
                               fontWeight: FontWeight.w700,
                               fontSize: 14,
@@ -1038,8 +1032,7 @@ class _RegisterScreenState extends State<RegisterScreen>
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
-                          '@2026 SBOX HRM HỆ THỐNG QUẢN TRỊ NHÂN SỰ',
+                        Text(tr('@2026 SBOX HRM HỆ THỐNG QUẢN TRỊ NHÂN SỰ'),
                           style: TextStyle(
                               color: Colors.grey.shade400,
                               fontSize: 10,
@@ -1080,8 +1073,7 @@ class _RegisterScreenState extends State<RegisterScreen>
                           ],
                         ),
                         const SizedBox(height: 6),
-                        Text(
-                          '@2026 SBOX HRM HỆ THỐNG QUẢN TRỊ NHÂN SỰ',
+                        Text(tr('@2026 SBOX HRM HỆ THỐNG QUẢN TRỊ NHÂN SỰ'),
                           style: TextStyle(
                               color: Colors.grey.shade400,
                               fontSize: 10,
@@ -1104,11 +1096,11 @@ class _RegisterScreenState extends State<RegisterScreen>
       mainAxisAlignment:
           isDesktop ? MainAxisAlignment.start : MainAxisAlignment.center,
       mainAxisSize: MainAxisSize.min,
-      children: const [
+      children: [
         Icon(Icons.bubble_chart, color: Color(0xFF0C56D0), size: 44),
         SizedBox(width: 14),
         Text(
-          'SBOX HRM',
+          tr('SBOX HRM'),
           style: TextStyle(
             fontSize: 32,
             fontWeight: FontWeight.w900,
@@ -1151,7 +1143,7 @@ class _RegisterScreenState extends State<RegisterScreen>
               children: [
                 Expanded(
                   child: Text(
-                    package.name,
+                    tr(package.name),
                     style: const TextStyle(
                       color: Color(0xFF1E3A5F),
                       fontSize: 14,
@@ -1182,7 +1174,7 @@ class _RegisterScreenState extends State<RegisterScreen>
             ),
             const SizedBox(height: 6),
             Text(
-              package.descriptionText,
+              tr(package.descriptionText),
               style: const TextStyle(
                 color: Color(0xFF586064),
                 fontSize: 13,
@@ -1191,7 +1183,7 @@ class _RegisterScreenState extends State<RegisterScreen>
             ),
             const SizedBox(height: 6),
             Text(
-              package.limitsLine,
+              tr(package.limitsLine),
               style: const TextStyle(
                 color: Color(0xFF7A8790),
                 fontSize: 12,
@@ -1202,7 +1194,7 @@ class _RegisterScreenState extends State<RegisterScreen>
             InkWell(
               onTap: _openLandingPricing,
               borderRadius: BorderRadius.circular(6),
-              child: const Padding(
+              child: Padding(
                 padding: EdgeInsets.symmetric(vertical: 2),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -1210,8 +1202,7 @@ class _RegisterScreenState extends State<RegisterScreen>
                     Icon(Icons.open_in_new_rounded,
                         size: 15, color: Color(0xFF0C56D0)),
                     SizedBox(width: 6),
-                    Text(
-                      'Xem bảng giá các gói dịch vụ trên trang chủ',
+                    Text(tr('Xem bảng giá các gói dịch vụ trên trang chủ'),
                       style: TextStyle(
                         color: Color(0xFF0C56D0),
                         fontSize: 12,
@@ -1239,8 +1230,7 @@ class _RegisterScreenState extends State<RegisterScreen>
         title: Row(
           children: [
             Expanded(
-              child: Text(
-                'Chức năng gói ${package.name}',
+              child: Text(tr('Chức năng gói ${package.name}'),
                 style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
               ),
             ),
@@ -1254,8 +1244,7 @@ class _RegisterScreenState extends State<RegisterScreen>
         content: SizedBox(
           width: 420,
           child: modules.isEmpty
-              ? const Text(
-                  'Gói này bao gồm các chức năng cơ bản của SBOX HRM.',
+              ? Text(tr('Gói này bao gồm các chức năng cơ bản của SBOX HRM.'),
                   style: TextStyle(fontSize: 14, height: 1.5),
                 )
               : SingleChildScrollView(
@@ -1273,7 +1262,7 @@ class _RegisterScreenState extends State<RegisterScreen>
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Text(
-                                  PermissionNavigation.label(code),
+                                  tr(PermissionNavigation.label(code)),
                                   style: const TextStyle(
                                     fontSize: 14,
                                     height: 1.4,
@@ -1294,11 +1283,11 @@ class _RegisterScreenState extends State<RegisterScreen>
               Navigator.of(ctx).pop();
               _openLandingPricing();
             },
-            child: const Text('Xem bảng giá trang chủ'),
+            child: Text(tr('Xem bảng giá trang chủ')),
           ),
           FilledButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Đóng'),
+            child: Text(tr('Đóng')),
           ),
         ],
       ),
@@ -1317,7 +1306,7 @@ class _RegisterScreenState extends State<RegisterScreen>
 
   static Widget _buildLabel(String text) {
     return Text(
-      text,
+      tr(text),
       style: const TextStyle(
         fontSize: 11,
         fontWeight: FontWeight.w700,
@@ -1331,7 +1320,7 @@ class _RegisterScreenState extends State<RegisterScreen>
     return MouseRegion(
       cursor: SystemMouseCursors.click,
       child: Text(
-        text,
+        tr(text),
         style: TextStyle(
           color: Colors.grey.shade400,
           fontSize: 10,
@@ -1364,7 +1353,7 @@ class _RegisterScreenState extends State<RegisterScreen>
           const SizedBox(width: 12),
           Expanded(
             child: Text(
-              message,
+              tr(message),
               style: TextStyle(
                 color:
                     isError ? const Color(0xFFDC2626) : const Color(0xFF16A34A),
@@ -1403,7 +1392,7 @@ class _RegisterScreenState extends State<RegisterScreen>
       style: const TextStyle(color: Color(0xFF2B3437), fontSize: 15),
       validator: validator,
       decoration: InputDecoration(
-        hintText: hint,
+        hintText: tr(hint),
         hintStyle: const TextStyle(color: Color(0xFFABB3B7), fontSize: 14),
         prefixIcon: Icon(icon, color: const Color(0xFFABB3B7), size: 20),
         suffixIcon: suffixIcon,

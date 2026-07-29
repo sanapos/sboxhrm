@@ -16,6 +16,7 @@ import '../../utils/responsive_helper.dart';
 import '../notification_overlay.dart';
 import 'pos_pdf_preview_dialog.dart';
 import 'pos_theme.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// Dialog chọn loại giấy in tem mã — giao diện kiểu KiotViet.
 Future<void> showPosBarcodeLabelDialog(
@@ -58,9 +59,9 @@ class _PosBarcodeLabelDialogState extends State<_PosBarcodeLabelDialog> {
   @override
   void initState() {
     super.initState();
-    _copiesCtrl = TextEditingController(text: '1');
+    _copiesCtrl = TextEditingController(text: tr('1'));
     _lanHostCtrl = TextEditingController();
-    _lanPortCtrl = TextEditingController(text: '9100');
+    _lanPortCtrl = TextEditingController(text: tr('9100'));
     _selectedTemplate = posBarcodeLabelTemplateById(_labelPrinter.templateId) ??
         defaultBarcodeLabelTemplate;
     _loadPrinterSettings();
@@ -132,7 +133,7 @@ class _PosBarcodeLabelDialogState extends State<_PosBarcodeLabelDialog> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Không tạo được bản in: $e')),
+        SnackBar(content: Text(tr('Không tạo được bản in: $e'))),
       );
     }
   }
@@ -142,7 +143,7 @@ class _PosBarcodeLabelDialogState extends State<_PosBarcodeLabelDialog> {
     if (template == null) {
       NotificationOverlayManager().showWarning(
         title: 'Chưa chọn khổ giấy',
-        message: 'Chọn mẫu tem và bấm «Xem bản in» hoặc chọn thẻ mẫu',
+        message: tr('Chọn mẫu tem và bấm «Xem bản in» hoặc chọn thẻ mẫu'),
       );
       return;
     }
@@ -180,7 +181,7 @@ class _PosBarcodeLabelDialogState extends State<_PosBarcodeLabelDialog> {
       setState(() => _printing = false);
       NotificationOverlayManager().showError(
         title: 'Chưa chọn máy in',
-        message: 'Cấu hình máy in tem trong Máy in cửa hàng hoặc Thiết lập in',
+        message: tr('Cấu hình máy in tem trong Máy in cửa hàng hoặc Thiết lập in'),
       );
       return;
     }
@@ -190,7 +191,7 @@ class _PosBarcodeLabelDialogState extends State<_PosBarcodeLabelDialog> {
       setState(() => _printing = false);
       NotificationOverlayManager().showError(
         title: 'Thiếu IP máy in',
-        message: 'Nhập địa chỉ IP máy in tem (LAN/WiFi)',
+        message: tr('Nhập địa chỉ IP máy in tem (LAN/WiFi)'),
       );
       return;
     }
@@ -205,12 +206,12 @@ class _PosBarcodeLabelDialogState extends State<_PosBarcodeLabelDialog> {
     if (ok) {
       NotificationOverlayManager().showSuccess(
         title: 'Đã gửi in tem',
-        message: '${widget.products.length} mặt hàng × $_copies tem',
+        message: tr('${widget.products.length} mặt hàng × $_copies tem'),
       );
     } else {
       NotificationOverlayManager().showError(
         title: 'In tem thất bại',
-        message: 'Kiểm tra kết nối, khổ giấy và giao thức TSPL/ESC/POS',
+        message: tr('Kiểm tra kết nối, khổ giấy và giao thức TSPL/ESC/POS'),
       );
     }
   }
@@ -223,11 +224,11 @@ class _PosBarcodeLabelDialogState extends State<_PosBarcodeLabelDialog> {
     setState(() => _printing = false);
     if (ok) {
       NotificationOverlayManager()
-          .showSuccess(title: 'In thử', message: 'Đã gửi tem mẫu');
+          .showSuccess(title: 'In thử', message: tr('Đã gửi tem mẫu'));
     } else {
       NotificationOverlayManager().showError(
         title: 'In thử thất bại',
-        message: 'Kiểm tra kết nối máy in tem',
+        message: tr('Kiểm tra kết nối máy in tem'),
       );
     }
   }
@@ -235,7 +236,7 @@ class _PosBarcodeLabelDialogState extends State<_PosBarcodeLabelDialog> {
   Future<void> _exportExcel() async {
     if (_selectedTemplate == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Chọn mẫu giấy trước')),
+        SnackBar(content: Text(tr('Chọn mẫu giấy trước'))),
       );
       return;
     }
@@ -311,8 +312,7 @@ class _PosBarcodeLabelDialogState extends State<_PosBarcodeLabelDialog> {
       child: Row(
         children: [
           Expanded(
-            child: Text(
-              'In tem mã hàng (${widget.products.length})',
+            child: Text(tr('In tem mã hàng (${widget.products.length})'),
               style: TextStyle(
                 fontSize: mobile ? 15 : 16,
                 fontWeight: FontWeight.w600,
@@ -342,7 +342,7 @@ class _PosBarcodeLabelDialogState extends State<_PosBarcodeLabelDialog> {
           OutlinedButton.icon(
             onPressed: _printing ? null : _exportExcel,
             icon: const Icon(Icons.table_chart_outlined, size: 18),
-            label: const Text('Excel'),
+            label: Text(tr('Excel')),
           ),
           const Spacer(),
           FilledButton.icon(
@@ -354,7 +354,7 @@ class _PosBarcodeLabelDialogState extends State<_PosBarcodeLabelDialog> {
                     child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                   )
                 : const Icon(Icons.print, size: 18),
-            label: const Text('IN TEM'),
+            label: Text(tr('IN TEM')),
             style: FilledButton.styleFrom(
               backgroundColor: PosTheme.kiotBlue,
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
@@ -419,14 +419,13 @@ class _PosBarcodeLabelDialogState extends State<_PosBarcodeLabelDialog> {
       child: ExpansionTile(
         initiallyExpanded: _printerExpanded || _labelPrinter.enabled,
         onExpansionChanged: (v) => setState(() => _printerExpanded = v),
-        title: const Text(
-          'Máy in tem nhãn',
+        title: Text(tr('Máy in tem nhãn'),
           style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
         ),
         subtitle: Text(
-          _labelPrinter.enabled
+          tr(_labelPrinter.enabled
               ? '${_labelPrinter.connectionType.label} · ${_labelPrinter.protocol.label}'
-              : 'Bluetooth, LAN, USB — TSPL / ESC/POS',
+              : 'Bluetooth, LAN, USB — TSPL / ESC/POS'),
           style: const TextStyle(fontSize: 11),
         ),
         children: [
@@ -437,7 +436,7 @@ class _PosBarcodeLabelDialogState extends State<_PosBarcodeLabelDialog> {
               children: [
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
-                  title: const Text('Dùng máy in tem', style: TextStyle(fontSize: 13)),
+                  title: Text(tr('Dùng máy in tem'), style: TextStyle(fontSize: 13)),
                   value: _labelPrinter.enabled,
                   activeThumbColor: PosTheme.kiotBlue,
                   onChanged: (v) =>
@@ -452,7 +451,7 @@ class _PosBarcodeLabelDialogState extends State<_PosBarcodeLabelDialog> {
                     }
                     final selected = _labelPrinter.connectionType == t;
                     return ChoiceChip(
-                      label: Text(t.label, style: const TextStyle(fontSize: 11)),
+                      label: Text(tr(t.label), style: const TextStyle(fontSize: 11)),
                       selected: selected,
                       selectedColor: PosTheme.kiotBlueLight,
                       onSelected: (_) => setState(
@@ -464,13 +463,13 @@ class _PosBarcodeLabelDialogState extends State<_PosBarcodeLabelDialog> {
                 const SizedBox(height: 8),
                 DropdownButtonFormField<String>(
                   value: _labelPrinter.protocol.key,
-                  decoration: const InputDecoration(
-                    labelText: 'Giao thức',
+                  decoration: InputDecoration(
+                    labelText: tr('Giao thức'),
                     isDense: true,
                     border: OutlineInputBorder(),
                   ),
                   items: PosLabelPrinterProtocol.values
-                      .map((p) => DropdownMenuItem(value: p.key, child: Text(p.label)))
+                      .map((p) => DropdownMenuItem(value: p.key, child: Text(tr(p.label))))
                       .toList(),
                   onChanged: (v) {
                     if (v == null) return;
@@ -482,16 +481,16 @@ class _PosBarcodeLabelDialogState extends State<_PosBarcodeLabelDialog> {
                 const SizedBox(height: 8),
                 Row(
                   children: [
-                    const Text('Khe giấy (mm)', style: TextStyle(fontSize: 12)),
+                    Text(tr('Khe giấy (mm)'), style: TextStyle(fontSize: 12)),
                     const Spacer(),
                     DropdownButton<double>(
                       value: [2.0, 3.0, 4.0].contains(_labelPrinter.gapMm)
                           ? _labelPrinter.gapMm
                           : 2.0,
-                      items: const [
-                        DropdownMenuItem(value: 2.0, child: Text('2 mm')),
-                        DropdownMenuItem(value: 3.0, child: Text('3 mm')),
-                        DropdownMenuItem(value: 4.0, child: Text('4 mm')),
+                      items: [
+                        DropdownMenuItem(value: 2.0, child: Text(tr('2 mm'))),
+                        DropdownMenuItem(value: 3.0, child: Text(tr('3 mm'))),
+                        DropdownMenuItem(value: 4.0, child: Text(tr('4 mm'))),
                       ],
                       onChanged: (v) {
                         if (v == null) return;
@@ -505,11 +504,11 @@ class _PosBarcodeLabelDialogState extends State<_PosBarcodeLabelDialog> {
                   const SizedBox(height: 8),
                   ListTile(
                     contentPadding: EdgeInsets.zero,
-                    title: const Text('Máy Bluetooth', style: TextStyle(fontSize: 12)),
+                    title: Text(tr('Máy Bluetooth'), style: TextStyle(fontSize: 12)),
                     subtitle: Text(
-                      _labelPrinter.bluetoothName?.isNotEmpty == true
+                      tr(_labelPrinter.bluetoothName?.isNotEmpty == true
                           ? '${_labelPrinter.bluetoothName}'
-                          : 'Chưa chọn',
+                          : 'Chưa chọn'),
                       style: const TextStyle(fontSize: 11),
                     ),
                     trailing: const Icon(Icons.chevron_right, size: 20),
@@ -520,9 +519,9 @@ class _PosBarcodeLabelDialogState extends State<_PosBarcodeLabelDialog> {
                   const SizedBox(height: 8),
                   TextField(
                     controller: _lanHostCtrl,
-                    decoration: const InputDecoration(
-                      labelText: 'IP máy in tem',
-                      hintText: '192.168.1.100',
+                    decoration: InputDecoration(
+                      labelText: tr('IP máy in tem'),
+                      hintText: tr('192.168.1.100'),
                       isDense: true,
                       border: OutlineInputBorder(),
                     ),
@@ -531,8 +530,8 @@ class _PosBarcodeLabelDialogState extends State<_PosBarcodeLabelDialog> {
                   TextField(
                     controller: _lanPortCtrl,
                     keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(
-                      labelText: 'Cổng (9100)',
+                    decoration: InputDecoration(
+                      labelText: tr('Cổng (9100)'),
                       isDense: true,
                       border: OutlineInputBorder(),
                     ),
@@ -542,7 +541,7 @@ class _PosBarcodeLabelDialogState extends State<_PosBarcodeLabelDialog> {
                 OutlinedButton.icon(
                   onPressed: _printing ? null : _testLabelPrinter,
                   icon: const Icon(Icons.print_outlined, size: 18),
-                  label: const Text('In thử tem mẫu'),
+                  label: Text(tr('In thử tem mẫu')),
                 ),
               ],
             ),
@@ -560,7 +559,7 @@ class _PosBarcodeLabelDialogState extends State<_PosBarcodeLabelDialog> {
     if (_btDevices.isEmpty) {
       NotificationOverlayManager().showWarning(
         title: 'Không có máy in',
-        message: 'Ghép máy in Bluetooth trong Cài đặt Android',
+        message: tr('Ghép máy in Bluetooth trong Cài đặt Android'),
       );
       return;
     }
@@ -570,15 +569,15 @@ class _PosBarcodeLabelDialogState extends State<_PosBarcodeLabelDialog> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Padding(
+            Padding(
               padding: EdgeInsets.all(16),
-              child: Text('Chọn máy in tem',
+              child: Text(tr('Chọn máy in tem'),
                   style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
             ),
             ..._btDevices.map(
               (d) => ListTile(
-                title: Text(d['name'] ?? 'Máy in'),
-                subtitle: Text(d['address'] ?? ''),
+                title: Text(tr(d['name'] ?? 'Máy in')),
+                subtitle: Text(tr(d['address'] ?? '')),
                 onTap: () {
                   setState(() {
                     _labelPrinter = _labelPrinter.copyWith(
@@ -599,7 +598,7 @@ class _PosBarcodeLabelDialogState extends State<_PosBarcodeLabelDialog> {
   Widget _fieldLabel(String text) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 4),
-      child: Text(text, style: const TextStyle(fontSize: 12, color: PosTheme.textSecondary)),
+      child: Text(tr(text), style: const TextStyle(fontSize: 12, color: PosTheme.textSecondary)),
     );
   }
 
@@ -616,7 +615,7 @@ class _PosBarcodeLabelDialogState extends State<_PosBarcodeLabelDialog> {
       items: items
           .map((e) => DropdownMenuItem(
                 value: e,
-                child: Text(label(e), style: const TextStyle(fontSize: 12)),
+                child: Text(tr(label(e)), style: const TextStyle(fontSize: 12)),
               ))
           .toList(),
       onChanged: onChanged,
@@ -629,15 +628,14 @@ class _PosBarcodeLabelDialogState extends State<_PosBarcodeLabelDialog> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Khổ giấy tem',
+          Text(tr('Khổ giấy tem'),
             style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: PosTheme.kiotBlue),
           ),
           const SizedBox(height: 4),
           Text(
-            _selectedTemplate != null
+            tr(_selectedTemplate != null
                 ? 'Đang chọn: ${_selectedTemplate!.sizeLabel}'
-                : 'Chọn khổ giấy khớp cuộn tem trên máy in',
+                : 'Chọn khổ giấy khớp cuộn tem trên máy in'),
             style: const TextStyle(fontSize: 11, color: PosTheme.textSecondary),
           ),
           const SizedBox(height: 12),
@@ -670,18 +668,17 @@ class _PosBarcodeLabelDialogState extends State<_PosBarcodeLabelDialog> {
                         ),
                         const SizedBox(height: 6),
                         Text(
-                          t.name,
+                          tr(t.name),
                           textAlign: TextAlign.center,
                           style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
                         ),
                         Text(
-                          t.sizeLabel,
+                          tr(t.sizeLabel),
                           textAlign: TextAlign.center,
                           style: const TextStyle(fontSize: 10, color: PosTheme.textSecondary),
                         ),
                         if (t.cols > 1)
-                          Text(
-                            '${t.cols} nhãn/hàng',
+                          Text(tr('${t.cols} nhãn/hàng'),
                             style: TextStyle(fontSize: 9, color: Colors.grey.shade600),
                           ),
                         const SizedBox(height: 8),
@@ -692,7 +689,7 @@ class _PosBarcodeLabelDialogState extends State<_PosBarcodeLabelDialog> {
                             const Spacer(),
                             TextButton(
                               onPressed: () => _preview(t),
-                              child: const Text('Xem PDF', style: TextStyle(fontSize: 11)),
+                              child: Text(tr('Xem PDF'), style: TextStyle(fontSize: 11)),
                             ),
                           ],
                         ),
@@ -705,8 +702,8 @@ class _PosBarcodeLabelDialogState extends State<_PosBarcodeLabelDialog> {
           ),
           const SizedBox(height: 12),
           Text(
-            'Lưu ý: Khổ giấy tem phải khớp cài đặt trên máy in. TSPL dùng cho Xprinter, TSC, Zywell tem. '
-            'Nếu lệch vị trí, chỉnh khe giấy (GAP).',
+            tr('Lưu ý: Khổ giấy tem phải khớp cài đặt trên máy in. TSPL dùng cho Xprinter, TSC, Zywell tem. '
+            'Nếu lệch vị trí, chỉnh khe giấy (GAP).'),
             style: TextStyle(fontSize: 10, color: Colors.grey.shade700, height: 1.4),
           ),
         ],

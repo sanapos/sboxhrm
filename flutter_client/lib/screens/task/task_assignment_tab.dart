@@ -4,6 +4,7 @@ import '../../models/task.dart';
 import '../../services/api_service.dart';
 import '../../widgets/app_button.dart';
 import '../../widgets/hrm_page_chrome.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// Tab Phân công — dashboard giao việc cho quản lý / NV chờ xác nhận.
 class TaskAssignmentTab extends StatefulWidget {
@@ -76,11 +77,11 @@ class _TaskAssignmentTabState extends State<TaskAssignmentTab> {
       await _load();
       widget.onRefreshParent?.call();
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Đã xác nhận nhận việc')),
+        SnackBar(content: Text(tr('Đã xác nhận nhận việc'))),
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(r['message'] ?? 'Lỗi')),
+        SnackBar(content: Text(tr(r['message'] ?? 'Lỗi'))),
       );
     }
   }
@@ -90,11 +91,11 @@ class _TaskAssignmentTabState extends State<TaskAssignmentTab> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => ScrollableAlertDialog(
-        title: const Text('Từ chối nhận việc'),
+        title: Text(tr('Từ chối nhận việc')),
         content: TextField(
           controller: reasonCtrl,
-          decoration: const InputDecoration(
-            labelText: 'Lý do',
+          decoration: InputDecoration(
+            labelText: tr('Lý do'),
             border: OutlineInputBorder(),
           ),
           maxLines: 3,
@@ -102,10 +103,10 @@ class _TaskAssignmentTabState extends State<TaskAssignmentTab> {
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Hủy')),
+              child: Text(tr('Hủy'))),
           FilledButton(
               onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('Xác nhận')),
+              child: Text(tr('Xác nhận'))),
         ],
       ),
     );
@@ -123,7 +124,7 @@ class _TaskAssignmentTabState extends State<TaskAssignmentTab> {
       widget.onRefreshParent?.call();
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(r['message'] ?? 'Lỗi')),
+        SnackBar(content: Text(tr(r['message'] ?? 'Lỗi'))),
       );
     }
   }
@@ -240,10 +241,10 @@ class _TaskAssignmentTabState extends State<TaskAssignmentTab> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label,
+          Text(tr(label),
               style: const TextStyle(fontSize: 12, color: Color(0xFF71717A))),
           const SizedBox(height: 6),
-          Text('$value',
+          Text(tr('$value'),
               style: TextStyle(
                   fontSize: 24, fontWeight: FontWeight.bold, color: color)),
         ],
@@ -259,7 +260,7 @@ class _TaskAssignmentTabState extends State<TaskAssignmentTab> {
 
   Widget _sectionTitle(String t) => Padding(
         padding: const EdgeInsets.only(bottom: 8),
-        child: Text(t,
+        child: Text(tr(t),
             style: const TextStyle(
                 fontSize: 16, fontWeight: FontWeight.w600, color: HrmPageChrome.primaryNavy)),
       );
@@ -268,21 +269,21 @@ class _TaskAssignmentTabState extends State<TaskAssignmentTab> {
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
       child: ListTile(
-        title: Text(t.title, maxLines: 2, overflow: TextOverflow.ellipsis),
+        title: Text(tr(t.title), maxLines: 2, overflow: TextOverflow.ellipsis),
         subtitle: Text(
-            '${t.taskCode} · ${getTaskStatusLabel(t.status)}${t.assigneeName != null ? ' · ${t.assigneeName}' : ''}'),
+            tr('${t.taskCode} · ${getTaskStatusLabel(t.status)}${t.assigneeName != null ? ' · ${t.assigneeName}' : ''}')),
         trailing: showActions
             ? Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   IconButton(
-                    tooltip: 'Nhận việc',
+                    tooltip: tr('Nhận việc'),
                     icon: const Icon(Icons.check_circle_outline,
                         color: HrmPageChrome.primaryNavy),
                     onPressed: () => _accept(t),
                   ),
                   IconButton(
-                    tooltip: 'Từ chối',
+                    tooltip: tr('Từ chối'),
                     icon: const Icon(Icons.close, color: Colors.red),
                     onPressed: () => _reject(t),
                   ),
@@ -302,10 +303,9 @@ class _TaskAssignmentTabState extends State<TaskAssignmentTab> {
       margin: const EdgeInsets.only(bottom: 6),
       child: ListTile(
         dense: true,
-        title: Text(a.employeeName ?? '—'),
-        subtitle: Text(
-            'Tổng ${a.totalTasks} · Đang làm ${a.inProgressTasks} · Quá hạn ${a.overdueTasks}'),
-        trailing: Text('$rate%',
+        title: Text(tr(a.employeeName ?? '—')),
+        subtitle: Text(tr('Tổng ${a.totalTasks} · Đang làm ${a.inProgressTasks} · Quá hạn ${a.overdueTasks}')),
+        trailing: Text(tr('$rate%'),
             style: const TextStyle(fontWeight: FontWeight.w600)),
         onTap: a.employeeId.isNotEmpty
             ? () => widget.onFilterByAssignee?.call(a.employeeId)

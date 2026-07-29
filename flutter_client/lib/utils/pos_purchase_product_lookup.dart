@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../models/pos_product.dart';
 import '../services/api_service.dart';
 import '../widgets/pos/pos_theme.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// Kết quả tìm hàng cho phiếu nhập/trả NCC.
 class PosPurchaseLookupPick {
@@ -117,7 +118,7 @@ class _ProductPickSheet extends StatelessWidget {
             child: Row(
               children: [
                 Expanded(
-                  child: Text('Chọn hàng hóa · "$query"',
+                  child: Text(tr('Chọn hàng hóa · "$query"'),
                       style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                 ),
                 IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close)),
@@ -131,9 +132,9 @@ class _ProductPickSheet extends StatelessWidget {
               itemBuilder: (_, i) {
                 final p = items[i];
                 return ListTile(
-                  title: Text(p.name),
-                  subtitle: Text('${p.productCode}${p.barcode != null ? ' · ${p.barcode}' : ''}'),
-                  trailing: Text('GV: ${money.format(p.costPrice)}',
+                  title: Text(tr(p.name)),
+                  subtitle: Text(tr('${p.productCode}${p.barcode != null ? ' · ${p.barcode}' : ''}')),
+                  trailing: Text(tr('GV: ${money.format(p.costPrice)}'),
                       style: const TextStyle(fontSize: 12, color: PosTheme.textSecondary)),
                   onTap: () => Navigator.pop(context, p),
                 );

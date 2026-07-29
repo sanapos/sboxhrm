@@ -5,6 +5,7 @@ import '../../models/pos_product.dart';
 import '../../utils/pos_kiot_time_range.dart';
 import 'pos_kiot_time_filter.dart';
 import 'pos_theme.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// Sidebar lọc bên trái — layout giống KiotViet (có Tùy chỉnh ngày).
 class PosProductFilterSidebar extends StatelessWidget {
@@ -144,7 +145,7 @@ class PosProductFilterSidebar extends StatelessWidget {
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
             dense: true,
-            title: const Text('Gồm ngừng kinh doanh',
+            title: Text(tr('Gồm ngừng kinh doanh'),
                 style: TextStyle(fontSize: 13)),
             value: includeInactive,
             activeThumbColor: PosTheme.kiotBlue,
@@ -162,7 +163,7 @@ class PosProductFilterSidebar extends StatelessWidget {
         children: [
           Expanded(
             child: Text(
-              title,
+              tr(title),
               style: const TextStyle(
                 fontWeight: FontWeight.w600,
                 fontSize: 13,
@@ -179,7 +180,7 @@ class PosProductFilterSidebar extends StatelessWidget {
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 foregroundColor: PosTheme.textSecondary,
               ),
-              child: const Text('Quản lý', style: TextStyle(fontSize: 12)),
+              child: Text(tr('Quản lý'), style: TextStyle(fontSize: 12)),
             ),
           if (onCreate != null) ...[
             if (onManage != null) const SizedBox(width: 4),
@@ -191,7 +192,7 @@ class PosProductFilterSidebar extends StatelessWidget {
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 foregroundColor: PosTheme.kiotBlue,
               ),
-              child: const Text('Tạo mới', style: TextStyle(fontSize: 12)),
+              child: Text(tr('Tạo mới'), style: TextStyle(fontSize: 12)),
             ),
           ],
         ],
@@ -211,10 +212,10 @@ class PosProductFilterSidebar extends StatelessWidget {
       isExpanded: true,
       decoration: _fieldDecoration(hint),
       items: [
-        const DropdownMenuItem<String?>(value: null, child: Text('Tất cả')),
+        DropdownMenuItem<String?>(value: null, child: Text(tr('Tất cả'))),
         ...items.map((c) => DropdownMenuItem<String?>(
               value: c.id,
-              child: Text(c.name, overflow: TextOverflow.ellipsis),
+              child: Text(tr(c.name), overflow: TextOverflow.ellipsis),
             )),
       ],
       onChanged: onChanged,
@@ -226,16 +227,16 @@ class PosProductFilterSidebar extends StatelessWidget {
       initialValue: stockFilter,
       isExpanded: true,
       decoration: _fieldDecoration('Tất cả'),
-      items: const [
-        DropdownMenuItem(value: PosStockFilter.all, child: Text('Tất cả')),
+      items: [
+        DropdownMenuItem(value: PosStockFilter.all, child: Text(tr('Tất cả'))),
         DropdownMenuItem(
-            value: PosStockFilter.outOfStock, child: Text('Hết hàng')),
+            value: PosStockFilter.outOfStock, child: Text(tr('Hết hàng'))),
         DropdownMenuItem(
             value: PosStockFilter.belowMin,
-            child: Text('Dưới định mức tồn')),
+            child: Text(tr('Dưới định mức tồn'))),
         DropdownMenuItem(
             value: PosStockFilter.aboveMax,
-            child: Text('Vượt định mức tồn')),
+            child: Text(tr('Vượt định mức tồn'))),
       ],
       onChanged: (v) {
         if (v != null) onStockFilterChanged(v);
@@ -307,7 +308,7 @@ class PosProductFilterSidebar extends StatelessWidget {
       child: InputDecorator(
         decoration: _fieldDecoration(label),
         child: Text(
-          value != null ? _dateFmt.format(value) : 'Chọn ngày',
+          tr(value != null ? _dateFmt.format(value) : 'Chọn ngày'),
           style: TextStyle(
             fontSize: 13,
             color: value != null ? PosTheme.textPrimary : Colors.grey,
@@ -322,11 +323,11 @@ class PosProductFilterSidebar extends StatelessWidget {
       initialValue: productType,
       isExpanded: true,
       decoration: _fieldDecoration('Tất cả'),
-      items: const [
-        DropdownMenuItem<PosProductType?>(value: null, child: Text('Tất cả')),
-        DropdownMenuItem(value: PosProductType.goods, child: Text('Hàng hóa')),
-        DropdownMenuItem(value: PosProductType.service, child: Text('Dịch vụ')),
-        DropdownMenuItem(value: PosProductType.combo, child: Text('Combo')),
+      items: [
+        DropdownMenuItem<PosProductType?>(value: null, child: Text(tr('Tất cả'))),
+        DropdownMenuItem(value: PosProductType.goods, child: Text(tr('Hàng hóa'))),
+        DropdownMenuItem(value: PosProductType.service, child: Text(tr('Dịch vụ'))),
+        DropdownMenuItem(value: PosProductType.combo, child: Text(tr('Combo'))),
       ],
       onChanged: onProductTypeChanged,
     );
@@ -337,10 +338,10 @@ class PosProductFilterSidebar extends StatelessWidget {
       initialValue: directSaleFilter,
       isExpanded: true,
       decoration: _fieldDecoration('Tất cả'),
-      items: const [
-        DropdownMenuItem<bool?>(value: null, child: Text('Tất cả')),
-        DropdownMenuItem(value: true, child: Text('Có bán trực tiếp')),
-        DropdownMenuItem(value: false, child: Text('Không bán trực tiếp')),
+      items: [
+        DropdownMenuItem<bool?>(value: null, child: Text(tr('Tất cả'))),
+        DropdownMenuItem(value: true, child: Text(tr('Có bán trực tiếp'))),
+        DropdownMenuItem(value: false, child: Text(tr('Không bán trực tiếp'))),
       ],
       onChanged: onDirectSaleFilterChanged,
     );
@@ -359,7 +360,7 @@ class PosProductFilterSidebar extends StatelessWidget {
               color: selected ? PosTheme.kiotBlue : Colors.grey,
             ),
             const SizedBox(width: 8),
-            Text(label, style: const TextStyle(fontSize: 13)),
+            Text(tr(label), style: const TextStyle(fontSize: 13)),
           ],
         ),
       ),
@@ -367,7 +368,7 @@ class PosProductFilterSidebar extends StatelessWidget {
   }
 
   InputDecoration _fieldDecoration(String hint) => InputDecoration(
-        hintText: hint,
+        hintText: tr(hint),
         isDense: true,
         filled: true,
         fillColor: Colors.white,

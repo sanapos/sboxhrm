@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'pos_product_unit_view.dart';
 import 'pos_theme.dart';
+import '../../l10n/app_tr.dart';
 
 /// Chip chọn đơn vị / hàng cùng loại dưới tên SP (KiotViet).
 class PosUnitChipSelector extends StatelessWidget {
@@ -54,7 +55,7 @@ class PosUnitChipSelector extends StatelessWidget {
             vertical: compact ? 1 : 2,
           ),
           child: Text(
-            label,
+            tr(label),
             style: TextStyle(
               fontSize: compact ? 10 : 11,
               fontWeight: selected ? FontWeight.w600 : FontWeight.normal,

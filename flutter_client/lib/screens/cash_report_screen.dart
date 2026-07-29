@@ -10,6 +10,7 @@ import '../utils/cash_report_helpers.dart';
 import '../providers/auth_provider.dart';
 import '../utils/api_datetime.dart';
 import '../utils/vietnamese_text_fix.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 const _cRowH = 54.0;
 const _cHdrH = 44.0;
@@ -309,7 +310,7 @@ class _CashReportScreenState extends State<CashReportScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF3F4F6),
       appBar: AppBar(
-        title: const Text('Báo cáo thu chi'),
+        title: Text(tr('Báo cáo thu chi')),
         backgroundColor: _cTheme,
         foregroundColor: Colors.white,
         elevation: 0,
@@ -318,7 +319,7 @@ class _CashReportScreenState extends State<CashReportScreen> {
               .canExport('CashReport'))
             IconButton(
                 icon: const Icon(Icons.file_download_outlined),
-                tooltip: 'Xuất Excel',
+                tooltip: tr('Xuất Excel'),
                 onPressed: _exportExcel),
           IconButton(icon: const Icon(Icons.refresh), onPressed: _load),
         ],
@@ -378,7 +379,7 @@ class _CashReportScreenState extends State<CashReportScreen> {
                 children: [
                   const Icon(Icons.tune, size: 18, color: Color(0xFF6B7280)),
                   const SizedBox(width: 6),
-                  const Text('Bộ lọc',
+                  Text(tr('Bộ lọc'),
                       style: TextStyle(
                           fontSize: 13, fontWeight: FontWeight.w600)),
                   if (_clientFilterCount > 0) ...[
@@ -390,7 +391,7 @@ class _CashReportScreenState extends State<CashReportScreen> {
                         color: _cTheme.withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      child: Text('$_clientFilterCount',
+                      child: Text(tr('$_clientFilterCount'),
                           style: const TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.w700,
@@ -398,7 +399,7 @@ class _CashReportScreenState extends State<CashReportScreen> {
                     ),
                   ],
                   const Spacer(),
-                  Text('${_filtered.length}/${_items.length}',
+                  Text(tr('${_filtered.length}/${_items.length}'),
                       style: TextStyle(
                           fontSize: 11, color: Colors.grey.shade600)),
                 ],
@@ -412,10 +413,10 @@ class _CashReportScreenState extends State<CashReportScreen> {
                       width: 108,
                       label: 'Loại',
                       value: _typeFilter,
-                      items: const [
-                        DropdownMenuItem(value: null, child: Text('Tất cả')),
-                        DropdownMenuItem(value: 1, child: Text('Thu')),
-                        DropdownMenuItem(value: 2, child: Text('Chi')),
+                      items: [
+                        DropdownMenuItem(value: null, child: Text(tr('Tất cả'))),
+                        DropdownMenuItem(value: 1, child: Text(tr('Thu'))),
+                        DropdownMenuItem(value: 2, child: Text(tr('Chi'))),
                       ],
                       onChanged: _onTypeChanged,
                     ),
@@ -424,11 +425,11 @@ class _CashReportScreenState extends State<CashReportScreen> {
                       label: 'Danh mục',
                       value: _categoryFilter,
                       items: [
-                        const DropdownMenuItem(
-                            value: null, child: Text('Tất cả')),
+                        DropdownMenuItem(
+                            value: null, child: Text(tr('Tất cả'))),
                         ...cats.map((c) => DropdownMenuItem(
                               value: c['key'] as String,
-                              child: Text(c['name'] as String,
+                              child: Text(tr(c['name'] as String),
                                   overflow: TextOverflow.ellipsis),
                             )),
                       ],
@@ -438,22 +439,22 @@ class _CashReportScreenState extends State<CashReportScreen> {
                       width: 148,
                       label: 'Trạng thái',
                       value: _statusFilter,
-                      items: const [
-                        DropdownMenuItem(value: null, child: Text('Tất cả')),
+                      items: [
+                        DropdownMenuItem(value: null, child: Text(tr('Tất cả'))),
                         DropdownMenuItem(
-                            value: 'paid_income', child: Text('Đã thu')),
+                            value: 'paid_income', child: Text(tr('Đã thu'))),
                         DropdownMenuItem(
-                            value: 'paid_expense', child: Text('Đã chi')),
+                            value: 'paid_expense', child: Text(tr('Đã chi'))),
                         DropdownMenuItem(
-                            value: 'pending_income', child: Text('Chờ thu')),
+                            value: 'pending_income', child: Text(tr('Chờ thu'))),
                         DropdownMenuItem(
-                            value: 'pending_expense', child: Text('Chờ chi')),
+                            value: 'pending_expense', child: Text(tr('Chờ chi'))),
                         DropdownMenuItem(
-                            value: 'pending', child: Text('Chờ thanh toán')),
+                            value: 'pending', child: Text(tr('Chờ thanh toán'))),
                         DropdownMenuItem(
-                            value: 'completed', child: Text('Đã vào/ra quỹ')),
+                            value: 'completed', child: Text(tr('Đã vào/ra quỹ'))),
                         DropdownMenuItem(
-                            value: 'cancelled', child: Text('Đã hủy')),
+                            value: 'cancelled', child: Text(tr('Đã hủy'))),
                       ],
                       onChanged: (v) => _applyStatusFilter(v),
                     ),
@@ -461,20 +462,20 @@ class _CashReportScreenState extends State<CashReportScreen> {
                       width: 132,
                       label: 'Giá trị',
                       value: _amountMinFilter,
-                      items: const [
-                        DropdownMenuItem(value: null, child: Text('Tất cả')),
+                      items: [
+                        DropdownMenuItem(value: null, child: Text(tr('Tất cả'))),
                         DropdownMenuItem(
                             value: CashReportAmountThresholds.oneMillion,
-                            child: Text('≥ 1 triệu')),
+                            child: Text(tr('≥ 1 triệu'))),
                         DropdownMenuItem(
                             value: CashReportAmountThresholds.fiveMillion,
-                            child: Text('≥ 5 triệu')),
+                            child: Text(tr('≥ 5 triệu'))),
                         DropdownMenuItem(
                             value: CashReportAmountThresholds.tenMillion,
-                            child: Text('≥ 10 triệu')),
+                            child: Text(tr('≥ 10 triệu'))),
                         DropdownMenuItem(
                             value: CashReportAmountThresholds.fiftyMillion,
-                            child: Text('≥ 50 triệu')),
+                            child: Text(tr('≥ 50 triệu'))),
                       ],
                       onChanged: (v) => setState(() => _amountMinFilter = v),
                     ),
@@ -488,7 +489,7 @@ class _CashReportScreenState extends State<CashReportScreen> {
                     child: TextButton.icon(
                       onPressed: _clearClientFilters,
                       icon: const Icon(Icons.filter_alt_off, size: 16),
-                      label: const Text('Xóa bộ lọc',
+                      label: Text(tr('Xóa bộ lọc'),
                           style: TextStyle(fontSize: 12)),
                     ),
                   ),
@@ -511,7 +512,7 @@ class _CashReportScreenState extends State<CashReportScreen> {
       width: width,
       child: InputDecorator(
         decoration: InputDecoration(
-          labelText: label,
+          labelText: tr(label),
           labelStyle: const TextStyle(fontSize: 11),
           isDense: true,
           contentPadding:
@@ -566,7 +567,7 @@ class _CashReportScreenState extends State<CashReportScreen> {
         children: [
           Expanded(
             child: Text(
-              '${_filtered.length} phiếu · ${parts.join(' · ')}',
+              tr('${_filtered.length} phiếu · ${parts.join(' · ')}'),
               style: const TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
@@ -581,7 +582,7 @@ class _CashReportScreenState extends State<CashReportScreen> {
               _clearClientFilters();
               _load();
             },
-            child: const Text('Bỏ lọc', style: TextStyle(fontSize: 12)),
+            child: Text(tr('Bỏ lọc'), style: TextStyle(fontSize: 12)),
           ),
         ],
       ),
@@ -610,7 +611,7 @@ class _CashReportScreenState extends State<CashReportScreen> {
             focusNode: focusNode,
             style: const TextStyle(fontSize: 13),
             decoration: InputDecoration(
-              hintText: hint,
+              hintText: tr(hint),
               hintStyle:
                   const TextStyle(fontSize: 12, color: Color(0xFF9CA3AF)),
               prefixIcon: const Icon(Icons.person_search_outlined,
@@ -654,7 +655,7 @@ class _CashReportScreenState extends State<CashReportScreen> {
                                   size: 16, color: Color(0xFF6B7280)),
                               const SizedBox(width: 8),
                               Flexible(
-                                  child: Text(option,
+                                  child: Text(tr(option),
                                       style: const TextStyle(
                                           fontSize: 13,
                                           color: Color(0xFF111827)))),
@@ -685,13 +686,13 @@ class _CashReportScreenState extends State<CashReportScreen> {
               const Icon(Icons.account_balance_wallet_outlined,
                   size: 16, color: Color(0xFF0EA5E9)),
               const SizedBox(width: 6),
-              Text('Sổ quỹ · $period',
+              Text(tr('Sổ quỹ · $period'),
                   style: const TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w700,
                       color: Color(0xFF111827))),
               const Spacer(),
-              Text('${_filtered.length}/${_items.length} dòng',
+              Text(tr('${_filtered.length}/${_items.length} dòng'),
                   style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
             ],
           ),
@@ -762,8 +763,7 @@ class _CashReportScreenState extends State<CashReportScreen> {
             Align(
               alignment: Alignment.centerLeft,
               child: InputChip(
-                label: Text(
-                    'Lọc: ${cashReportStatusFilterLabel(_statusFilter!)}',
+                label: Text(tr('Lọc: ${cashReportStatusFilterLabel(_statusFilter!)}'),
                     style: const TextStyle(fontSize: 11)),
                 deleteIcon: const Icon(Icons.close, size: 14),
                 onDeleted: () => setState(() => _statusFilter = null),
@@ -809,7 +809,7 @@ class _CashReportScreenState extends State<CashReportScreen> {
                 Icon(icon, color: color, size: 18),
                 const SizedBox(width: 6),
                 Expanded(
-                  child: Text(title,
+                  child: Text(tr(title),
                       style: TextStyle(
                           fontSize: 10,
                           fontWeight: FontWeight.w600,
@@ -819,11 +819,11 @@ class _CashReportScreenState extends State<CashReportScreen> {
               ],
             ),
             const SizedBox(height: 4),
-            Text(value,
+            Text(tr(value),
                 style: TextStyle(
                     fontSize: 13, fontWeight: FontWeight.bold, color: color),
                 overflow: TextOverflow.ellipsis),
-            Text(subtitle,
+            Text(tr(subtitle),
                 style: TextStyle(fontSize: 10, color: Colors.grey.shade500),
                 overflow: TextOverflow.ellipsis),
           ],
@@ -859,15 +859,15 @@ class _CashReportScreenState extends State<CashReportScreen> {
           dense: true,
           contentPadding:
               const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
-          title: Text(catName,
+          title: Text(tr(catName),
               style: const TextStyle(
                   fontSize: 13, fontWeight: FontWeight.w600)),
           subtitle: Text(
-            '${date != null ? _fmtDate.format(date) : '—'} · ${t['transactionCode'] ?? ''}\n${st.label}${bal != null ? ' · SD: ${_fmtMoney.format(bal)}đ' : ''}',
+            tr('${date != null ? _fmtDate.format(date) : '—'} · ${t['transactionCode'] ?? ''}\n${st.label}${bal != null ? ' · SD: ${_fmtMoney.format(bal)}đ' : ''}'),
             style: const TextStyle(fontSize: 11, height: 1.35),
           ),
           trailing: Text(
-            '${type == CashTransactionType.income ? '+' : '-'}${_fmtMoney.format(amt)}đ',
+            tr('${type == CashTransactionType.income ? '+' : '-'}${_fmtMoney.format(amt)}đ'),
             style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w700,
@@ -889,7 +889,7 @@ class _CashReportScreenState extends State<CashReportScreen> {
               size: 56, color: Colors.grey.shade300),
           const SizedBox(height: 12),
           Text(
-            hasFilter ? 'Không có phiếu phù hợp bộ lọc' : 'Không có dữ liệu',
+            tr(hasFilter ? 'Không có phiếu phù hợp bộ lọc' : 'Không có dữ liệu'),
             style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
             textAlign: TextAlign.center,
           ),
@@ -900,7 +900,7 @@ class _CashReportScreenState extends State<CashReportScreen> {
                 setState(() => _typeFilter = null);
                 _clearClientFilters();
               },
-              child: const Text('Xóa bộ lọc'),
+              child: Text(tr('Xóa bộ lọc')),
             ),
           ],
         ],
@@ -922,7 +922,7 @@ class _CashReportScreenState extends State<CashReportScreen> {
           color: hdrBg,
           alignment: Alignment.centerLeft,
           padding: const EdgeInsets.symmetric(horizontal: 12),
-          child: Text(t,
+          child: Text(tr(t),
               style: const TextStyle(
                   fontWeight: FontWeight.w700,
                   fontSize: 12,
@@ -937,7 +937,7 @@ class _CashReportScreenState extends State<CashReportScreen> {
           color: i.isEven ? evenBg : oddBg,
           alignment: Alignment.centerLeft,
           padding: const EdgeInsets.symmetric(horizontal: 12),
-          child: Text(t,
+          child: Text(tr(t),
               style: TextStyle(
                   fontSize: 12, color: textColor ?? const Color(0xFF374151)),
               overflow: ellipsis ? TextOverflow.ellipsis : null),
@@ -969,7 +969,7 @@ class _CashReportScreenState extends State<CashReportScreen> {
                       color: hdrBg,
                       alignment: Alignment.centerLeft,
                       padding: const EdgeInsets.symmetric(horizontal: 12),
-                      child: const Text('Danh mục',
+                      child: Text(tr('Danh mục'),
                           style: TextStyle(
                               fontWeight: FontWeight.w700,
                               fontSize: 12,
@@ -991,7 +991,7 @@ class _CashReportScreenState extends State<CashReportScreen> {
                             mainAxisAlignment: MainAxisAlignment.center,
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(catName,
+                              Text(tr(catName),
                                   style: const TextStyle(
                                       fontSize: 12.5,
                                       fontWeight: FontWeight.w600,
@@ -1007,7 +1007,7 @@ class _CashReportScreenState extends State<CashReportScreen> {
                                   border: Border.all(
                                       color: typeColor.withValues(alpha: 0.35)),
                                 ),
-                                child: Text(type.label,
+                                child: Text(tr(type.label),
                                     style: TextStyle(
                                         fontSize: 10,
                                         fontWeight: FontWeight.w700,

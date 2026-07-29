@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'wh_mobile_theme.dart';
+import '../../l10n/app_tr.dart';
 
 /// Scaffold chuẩn cho màn Kho mobile — nền xám, bottom bar cố định.
 class WhMobileScaffold extends StatelessWidget {
@@ -99,9 +100,9 @@ class _WhGlassAppBar extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(title, style: WhMobileTheme.titleMedium, maxLines: 1, overflow: TextOverflow.ellipsis),
+                    Text(tr(title), style: WhMobileTheme.titleMedium, maxLines: 1, overflow: TextOverflow.ellipsis),
                     if (subtitle != null)
-                      Text(subtitle!, style: WhMobileTheme.caption, maxLines: 1, overflow: TextOverflow.ellipsis),
+                      Text(tr(subtitle!), style: WhMobileTheme.caption, maxLines: 1, overflow: TextOverflow.ellipsis),
                   ],
                 ),
               ),
@@ -163,7 +164,7 @@ class WhMobileBottomBar extends StatelessWidget {
                             child: OutlinedButton(
                               onPressed: loading ? null : onSaveDraft,
                               style: WhMobileTheme.secondaryButton(),
-                              child: Text(loading ? 'Đang lưu…' : saveDraftLabel),
+                              child: Text(tr(loading ? 'Đang lưu…' : saveDraftLabel)),
                             ),
                           ),
                         if (onSaveDraft != null && onComplete != null)
@@ -174,7 +175,7 @@ class WhMobileBottomBar extends StatelessWidget {
                             child: FilledButton(
                               onPressed: loading ? null : onComplete,
                               style: WhMobileTheme.primaryButton(),
-                              child: Text(loading ? 'Đang lưu…' : completeLabel),
+                              child: Text(tr(loading ? 'Đang lưu…' : completeLabel)),
                             ),
                           ),
                       ],
@@ -211,7 +212,7 @@ class WhStatusPill extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
       ),
       child: Text(
-        WhMobileTheme.statusLabel(status, draftLabel: draftLabel),
+        tr(WhMobileTheme.statusLabel(status, draftLabel: draftLabel)),
         style: TextStyle(
           fontSize: 12,
           fontWeight: FontWeight.w600,
@@ -294,17 +295,17 @@ class WhDocListTile extends StatelessWidget {
                 Row(
                   children: [
                     Expanded(
-                      child: Text(docNo, style: WhMobileTheme.titleMedium),
+                      child: Text(tr(docNo), style: WhMobileTheme.titleMedium),
                     ),
                     WhStatusPill(status: status, draftLabel: draftLabel),
                   ],
                 ),
                 if (subtitle != null) ...[
                   const SizedBox(height: 4),
-                  Text(subtitle!, style: WhMobileTheme.caption),
+                  Text(tr(subtitle!), style: WhMobileTheme.caption),
                 ],
                 const SizedBox(height: 6),
-                Text(meta, style: WhMobileTheme.caption),
+                Text(tr(meta), style: WhMobileTheme.caption),
               ],
             ),
           ),
@@ -312,7 +313,7 @@ class WhDocListTile extends StatelessWidget {
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Text(amountLabel, style: WhMobileTheme.money),
+              Text(tr(amountLabel), style: WhMobileTheme.money),
               const SizedBox(height: 4),
               Icon(Icons.chevron_right_rounded, color: WhMobileTheme.textTertiary, size: 22),
             ],
@@ -356,7 +357,7 @@ class WhQtyStepper extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (label != null) ...[
-          Text(label!, style: WhMobileTheme.label),
+          Text(tr(label!), style: WhMobileTheme.label),
           const SizedBox(height: 6),
         ],
         Row(
@@ -368,7 +369,7 @@ class WhQtyStepper extends StatelessWidget {
             ),
             Expanded(
               child: Center(
-                child: Text(display, style: WhMobileTheme.titleLarge.copyWith(fontSize: 24)),
+                child: Text(tr(display), style: WhMobileTheme.titleLarge.copyWith(fontSize: 24)),
               ),
             ),
             _StepBtn(
@@ -467,7 +468,7 @@ class WhLineCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
-                  '$index',
+                  tr('$index'),
                   style: const TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
@@ -480,9 +481,9 @@ class WhLineCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(name, style: WhMobileTheme.titleMedium.copyWith(fontSize: 15)),
+                    Text(tr(name), style: WhMobileTheme.titleMedium.copyWith(fontSize: 15)),
                     if (code != null && code!.isNotEmpty)
-                      Text('$code${unit != null ? ' · $unit' : ''}', style: WhMobileTheme.caption),
+                      Text(tr('$code${unit != null ? ' · $unit' : ''}'), style: WhMobileTheme.caption),
                   ],
                 ),
               ),
@@ -515,7 +516,7 @@ class WhSectionHeader extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(4, 8, 4, 8),
       child: Row(
         children: [
-          Expanded(child: Text(title.toUpperCase(), style: WhMobileTheme.label)),
+          Expanded(child: Text(tr(title.toUpperCase()), style: WhMobileTheme.label)),
           if (action != null) action!,
         ],
       ),
@@ -588,9 +589,9 @@ class WhSummaryRow extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: WhMobileTheme.caption),
+          Text(tr(label), style: WhMobileTheme.caption),
           Text(
-            value,
+            tr(value),
             style: (bold ? WhMobileTheme.money : WhMobileTheme.body).copyWith(
               fontWeight: bold ? FontWeight.w700 : FontWeight.w500,
               color: color,
@@ -626,10 +627,10 @@ class WhEmptyState extends StatelessWidget {
           children: [
             Icon(icon, size: 56, color: WhMobileTheme.textTertiary),
             const SizedBox(height: 16),
-            Text(title, style: WhMobileTheme.titleMedium, textAlign: TextAlign.center),
+            Text(tr(title), style: WhMobileTheme.titleMedium, textAlign: TextAlign.center),
             if (subtitle != null) ...[
               const SizedBox(height: 8),
-              Text(subtitle!, style: WhMobileTheme.caption, textAlign: TextAlign.center),
+              Text(tr(subtitle!), style: WhMobileTheme.caption, textAlign: TextAlign.center),
             ],
             if (action != null) ...[const SizedBox(height: 20), action!],
           ],
@@ -681,7 +682,7 @@ class WhHubTile extends StatelessWidget {
               ),
               const SizedBox(height: 10),
               Text(
-                label,
+                tr(label),
                 textAlign: TextAlign.center,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,

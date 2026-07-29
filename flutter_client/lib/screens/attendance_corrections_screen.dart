@@ -17,6 +17,7 @@ import '../widgets/loading_widget.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/notification_overlay.dart';
 import '../widgets/attendance_correction_reason_field.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 class AttendanceCorrectionsScreen extends StatefulWidget {
   final String? highlightId;
@@ -85,7 +86,7 @@ class _AttendanceCorrectionsScreenState
       debugPrint('Error loading correction requests: $e');
       if (mounted) {
         appNotification.showError(
-            title: 'Lỗi', message: 'Không thể tải dữ liệu');
+            title: 'Lỗi', message: tr('Không thể tải dữ liệu'));
       }
     } finally {
       if (mounted) {
@@ -134,14 +135,14 @@ class _AttendanceCorrectionsScreenState
               children: [
                 DropdownButtonFormField<CorrectionAction>(
                   initialValue: selectedAction,
-                  decoration: const InputDecoration(
-                    labelText: 'Loại yêu cầu *',
+                  decoration: InputDecoration(
+                    labelText: tr('Loại yêu cầu *'),
                     border: OutlineInputBorder(),
                   ),
                   items: CorrectionAction.values
                       .map((action) => DropdownMenuItem(
                             value: action,
-                            child: Text(getCorrectionActionLabel(action)),
+                            child: Text(tr(getCorrectionActionLabel(action))),
                           ))
                       .toList(),
                   onChanged: (val) =>
@@ -162,12 +163,12 @@ class _AttendanceCorrectionsScreenState
                     }
                   },
                   child: InputDecorator(
-                    decoration: const InputDecoration(
-                      labelText: 'Ngày chấm công *',
+                    decoration: InputDecoration(
+                      labelText: tr('Ngày chấm công *'),
                       border: OutlineInputBorder(),
                       prefixIcon: Icon(Icons.calendar_today),
                     ),
-                    child: Text(DateFormat('dd/MM/yyyy').format(selectedDate)),
+                    child: Text(tr(DateFormat('dd/MM/yyyy').format(selectedDate))),
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -186,14 +187,14 @@ class _AttendanceCorrectionsScreenState
                             }
                           },
                           child: InputDecorator(
-                            decoration: const InputDecoration(
-                              labelText: 'Giờ vào mới',
+                            decoration: InputDecoration(
+                              labelText: tr('Giờ vào mới'),
                               border: OutlineInputBorder(),
                             ),
                             child: Text(
-                              newCheckIn != null
+                              tr(newCheckIn != null
                                   ? '${newCheckIn!.hour.toString().padLeft(2, '0')}:${newCheckIn!.minute.toString().padLeft(2, '0')}'
-                                  : '--:--',
+                                  : '--:--'),
                             ),
                           ),
                         ),
@@ -211,14 +212,14 @@ class _AttendanceCorrectionsScreenState
                             }
                           },
                           child: InputDecorator(
-                            decoration: const InputDecoration(
-                              labelText: 'Giờ ra mới',
+                            decoration: InputDecoration(
+                              labelText: tr('Giờ ra mới'),
                               border: OutlineInputBorder(),
                             ),
                             child: Text(
-                              newCheckOut != null
+                              tr(newCheckOut != null
                                   ? '${newCheckOut!.hour.toString().padLeft(2, '0')}:${newCheckOut!.minute.toString().padLeft(2, '0')}'
-                                  : '--:--',
+                                  : '--:--'),
                             ),
                           ),
                         ),
@@ -246,7 +247,7 @@ class _AttendanceCorrectionsScreenState
           Future<Null> onSubmit() async {
             if (reasonController.text.trim().isEmpty) {
               appNotification.showWarning(
-                  title: 'Cảnh báo', message: 'Vui lòng nhập lý do');
+                  title: 'Cảnh báo', message: tr('Vui lòng nhập lý do'));
               return;
             }
             try {
@@ -282,7 +283,7 @@ class _AttendanceCorrectionsScreenState
               }
             } catch (e) {
               appNotification.showError(
-                  title: 'Lỗi', message: 'Lỗi kết nối: $e');
+                  title: 'Lỗi', message: tr('Lỗi kết nối: $e'));
             } finally {
               reasonController.dispose();
             }
@@ -296,7 +297,7 @@ class _AttendanceCorrectionsScreenState
                 height: double.infinity,
                 child: Scaffold(
                   appBar: AppBar(
-                    title: const Text('Yêu cầu sửa chấm công',
+                    title: Text(tr('Yêu cầu sửa chấm công'),
                         overflow: TextOverflow.ellipsis, maxLines: 1),
                     leading: IconButton(
                         icon: const Icon(Icons.close),
@@ -310,11 +311,11 @@ class _AttendanceCorrectionsScreenState
                       children: [
                         TextButton(
                             onPressed: () => Navigator.pop(context),
-                            child: const Text('Hủy')),
+                            child: Text(tr('Hủy'))),
                         const SizedBox(width: 12),
                         ElevatedButton(
                             onPressed: onSubmit,
-                            child: const Text('Gửi yêu cầu')),
+                            child: Text(tr('Gửi yêu cầu'))),
                       ],
                     ),
                   ),
@@ -323,14 +324,14 @@ class _AttendanceCorrectionsScreenState
             );
           }
           return ScrollableAlertDialog(
-            title: const Text('Yêu cầu sửa chấm công'),
+            title: Text(tr('Yêu cầu sửa chấm công')),
             content: formContent,
             actions: [
               TextButton(
                   onPressed: () => Navigator.pop(context),
-                  child: const Text('Hủy')),
+                  child: Text(tr('Hủy'))),
               ElevatedButton(
-                  onPressed: onSubmit, child: const Text('Gửi yêu cầu')),
+                  onPressed: onSubmit, child: Text(tr('Gửi yêu cầu'))),
             ],
           );
         },
@@ -452,13 +453,13 @@ class _AttendanceCorrectionsScreenState
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          '${getCorrectionActionLabel(request.action)} · ${DateFormat('dd/MM/yyyy').format(request.correctionDate)}',
+                          tr('${getCorrectionActionLabel(request.action)} · ${DateFormat('dd/MM/yyyy').format(request.correctionDate)}'),
                           style: const TextStyle(
                               fontSize: 16, fontWeight: FontWeight.bold),
                         ),
                         if (request.reason != null &&
                             request.reason!.isNotEmpty)
-                          Text(request.reason!,
+                          Text(tr(request.reason!),
                               style: TextStyle(
                                   fontSize: 13, color: Colors.grey[600])),
                       ],
@@ -473,7 +474,7 @@ class _AttendanceCorrectionsScreenState
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
-                      getCorrectionStatusLabel(request.status),
+                      tr(getCorrectionStatusLabel(request.status)),
                       style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.bold,
@@ -503,8 +504,7 @@ class _AttendanceCorrectionsScreenState
                     const Icon(Icons.account_tree,
                         size: 16, color: Colors.blueGrey),
                     const SizedBox(width: 6),
-                    Text(
-                      'Tiến trình duyệt (${request.currentApprovalStep}/${request.totalApprovalLevels})',
+                    Text(tr('Tiến trình duyệt (${request.currentApprovalStep}/${request.totalApprovalLevels})'),
                       style: const TextStyle(
                           fontSize: 14, fontWeight: FontWeight.bold),
                     ),
@@ -537,10 +537,10 @@ class _AttendanceCorrectionsScreenState
         children: [
           SizedBox(
             width: 100,
-            child: Text(label,
+            child: Text(tr(label),
                 style: TextStyle(fontSize: 13, color: Colors.grey[600])),
           ),
-          Expanded(child: Text(value, style: const TextStyle(fontSize: 13))),
+          Expanded(child: Text(tr(value), style: const TextStyle(fontSize: 13))),
         ],
       ),
     );
@@ -549,7 +549,7 @@ class _AttendanceCorrectionsScreenState
   Widget _buildApprovalTimeline(AttendanceCorrectionRequest request) {
     final records = request.approvalRecords;
     if (records.isEmpty) {
-      return const Text('Chưa có dữ liệu duyệt',
+      return Text(tr('Chưa có dữ liệu duyệt'),
           style: TextStyle(fontSize: 12, color: Colors.grey));
     }
 
@@ -579,7 +579,7 @@ class _AttendanceCorrectionsScreenState
               Row(
                 children: [
                   Text(
-                    record.stepName ?? 'Bước ${record.stepOrder}',
+                    tr(record.stepName ?? 'Bước ${record.stepOrder}'),
                     style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
@@ -594,7 +594,7 @@ class _AttendanceCorrectionsScreenState
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
-                      _getApprovalStatusLabel(record.status),
+                      tr(_getApprovalStatusLabel(record.status)),
                       style: TextStyle(
                           fontSize: 10,
                           fontWeight: FontWeight.w600,
@@ -605,16 +605,15 @@ class _AttendanceCorrectionsScreenState
               ),
               const SizedBox(height: 4),
               Text(
-                record.status == ApprovalStatus.pending
+                tr(record.status == ApprovalStatus.pending
                     ? 'Người duyệt: ${record.assignedUserName ?? 'Chưa xác định'}'
-                    : 'Người duyệt: ${record.actualUserName ?? record.assignedUserName ?? '--'}',
+                    : 'Người duyệt: ${record.actualUserName ?? record.assignedUserName ?? '--'}'),
                 style: TextStyle(fontSize: 12, color: Colors.grey[700]),
               ),
               if (record.note != null && record.note!.isNotEmpty)
                 Padding(
                   padding: const EdgeInsets.only(top: 2),
-                  child: Text(
-                    'Ghi chú: ${record.note}',
+                  child: Text(tr('Ghi chú: ${record.note}'),
                     style: TextStyle(
                         fontSize: 11,
                         color: Colors.grey[600],
@@ -625,7 +624,7 @@ class _AttendanceCorrectionsScreenState
                 Padding(
                   padding: const EdgeInsets.only(top: 2),
                   child: Text(
-                    formatApiDateTime(record.actionDate),
+                    tr(formatApiDateTime(record.actionDate)),
                     style: TextStyle(
                         fontSize: 11, color: Colors.grey[500]),
                   ),
@@ -663,19 +662,19 @@ class _AttendanceCorrectionsScreenState
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        '${getCorrectionActionLabel(request.action)} · ${DateFormat('dd/MM/yyyy').format(request.correctionDate)}',
+                        tr('${getCorrectionActionLabel(request.action)} · ${DateFormat('dd/MM/yyyy').format(request.correctionDate)}'),
                         style: const TextStyle(
                             fontSize: 14, fontWeight: FontWeight.w600),
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        [
+                        tr([
                           if (request.action != CorrectionAction.delete)
                             '${request.originalCheckIn ?? '--:--'}/${request.originalCheckOut ?? '--:--'} → ${request.newCheckIn ?? '--:--'}/${request.newCheckOut ?? '--:--'}',
                           if (request.reason != null &&
                               request.reason!.isNotEmpty)
                             request.reason!,
-                        ].join(' · '),
+                        ].join(' · ')),
                         style: TextStyle(fontSize: 12, color: Colors.grey[500]),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -690,7 +689,7 @@ class _AttendanceCorrectionsScreenState
                   decoration: BoxDecoration(
                       color: statusColor.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(4)),
-                  child: Text(getCorrectionStatusLabel(request.status),
+                  child: Text(tr(getCorrectionStatusLabel(request.status)),
                       style: TextStyle(
                           color: statusColor,
                           fontSize: 10,
@@ -706,8 +705,7 @@ class _AttendanceCorrectionsScreenState
                   const Icon(Icons.account_tree,
                       size: 12, color: Colors.blueGrey),
                   const SizedBox(width: 4),
-                  Text(
-                    'Duyệt ${request.currentApprovalStep}/${request.totalApprovalLevels}',
+                  Text(tr('Duyệt ${request.currentApprovalStep}/${request.totalApprovalLevels}'),
                     style:
                         const TextStyle(fontSize: 11, color: Colors.blueGrey),
                   ),
@@ -801,7 +799,7 @@ class _AttendanceCorrectionsScreenState
         );
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Sửa chấm công',
+        title: Text(tr('Sửa chấm công'),
             overflow: TextOverflow.ellipsis, maxLines: 1),
         bottom: TabBar(
           controller: _tabController,
@@ -810,7 +808,7 @@ class _AttendanceCorrectionsScreenState
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Text('Chờ duyệt'),
+                  Text(tr('Chờ duyệt')),
                   if (_pendingRequests.isNotEmpty) ...[
                     const SizedBox(width: 8),
                     Container(
@@ -821,7 +819,7 @@ class _AttendanceCorrectionsScreenState
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Text(
-                        '${_pendingRequests.length}',
+                        tr('${_pendingRequests.length}'),
                         style:
                             const TextStyle(color: Colors.white, fontSize: 12),
                       ),
@@ -830,7 +828,7 @@ class _AttendanceCorrectionsScreenState
                 ],
               ),
             ),
-            const Tab(text: 'Tất cả'),
+            Tab(text: tr('Tất cả')),
           ],
         ),
       ),
@@ -849,7 +847,7 @@ class _AttendanceCorrectionsScreenState
           ? FloatingActionButton.extended(
               onPressed: _showCreateDialog,
               icon: const Icon(Icons.add),
-              label: const Text('Yêu cầu mới'),
+              label: Text(tr('Yêu cầu mới')),
             )
           : null,
     );

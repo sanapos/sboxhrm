@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import '../widgets/pos/pos_html_preview_stub.dart'
     if (dart.library.js_interop) '../widgets/pos/pos_html_preview_web.dart';
@@ -38,7 +39,7 @@ Future<void> showPosHtmlPrintDialog(
               child: Row(
                 children: [
                   Expanded(
-                    child: Text(title,
+                    child: Text(tr(title),
                         style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
                   ),
                   IconButton(onPressed: () => Navigator.pop(ctx), icon: const Icon(Icons.close)),
@@ -49,13 +50,13 @@ Future<void> showPosHtmlPrintDialog(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Row(
                 children: [
-                  const Text('Số bản in:', style: TextStyle(fontSize: 13)),
+                  Text(tr('Số bản in:'), style: TextStyle(fontSize: 13)),
                   const SizedBox(width: 8),
                   DropdownButton<int>(
                     value: copies,
                     items: List.generate(
                       10,
-                      (i) => DropdownMenuItem(value: i + 1, child: Text('${i + 1}')),
+                      (i) => DropdownMenuItem(value: i + 1, child: Text(tr('${i + 1}'))),
                     ),
                     onChanged: (v) {
                       if (v != null) setDlg(() => copies = v);
@@ -71,7 +72,7 @@ Future<void> showPosHtmlPrintDialog(
                         }
                       },
                       icon: const Icon(Icons.print, size: 18),
-                      label: const Text('In'),
+                      label: Text(tr('In')),
                     )
                   else if (isMobile)
                     FilledButton.icon(
@@ -81,7 +82,7 @@ Future<void> showPosHtmlPrintDialog(
                         await Share.share(htmlDocument, subject: title);
                       },
                       icon: const Icon(Icons.share, size: 18),
-                      label: const Text('Chia sẻ / In'),
+                      label: Text(tr('Chia sẻ / In')),
                     ),
                 ],
               ),

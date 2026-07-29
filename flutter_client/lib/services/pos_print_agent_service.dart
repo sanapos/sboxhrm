@@ -17,6 +17,7 @@ import '../utils/pos_store_printer_mapper.dart';
 import '../utils/pos_sunmi_native_print.dart';
 import '../utils/pos_thermal_printer_settings.dart';
 import '../widgets/notification_overlay.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// Print Agent: thiết bị nhận job in cloud (LAN/BT/USB) và in cục bộ.
 class PosPrintAgentService {
@@ -107,7 +108,7 @@ class PosPrintAgentService {
     await stop(markOffline: false);
     NotificationOverlayManager().showWarning(
       title: 'Agent đã tắt từ máy khác',
-      message: 'Chỉ giữ Agent trên máy gần máy in',
+      message: tr('Chỉ giữ Agent trên máy gần máy in'),
     );
   }
 
@@ -194,7 +195,7 @@ class PosPrintAgentService {
         _warnedNoPrinters = true;
         NotificationOverlayManager().showWarning(
           title: 'Agent chưa gán máy in',
-          message: 'Bật Agent và chọn ít nhất một chip máy in bên dưới',
+          message: tr('Bật Agent và chọn ít nhất một chip máy in bên dưới'),
         );
       }
       return;

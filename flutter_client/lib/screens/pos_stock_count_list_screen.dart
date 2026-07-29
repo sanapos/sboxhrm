@@ -22,6 +22,7 @@ import '../widgets/pos/pos_stock_count_helpers.dart';
 import '../widgets/pos/pos_theme.dart';
 import 'pos_stock_count_editor_screen.dart';
 import '../screens/main_layout.dart' show ScreenRefreshNotifier;
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 const _blue = Color(0xFF2563EB);
 
@@ -186,14 +187,14 @@ class _PosStockCountListScreenState extends State<PosStockCountListScreen> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Cân bằng kho'),
-        content: Text('Hoàn thành phiếu ${c.countNo} và cập nhật tồn kho?'),
+        title: Text(tr('Cân bằng kho')),
+        content: Text(tr('Hoàn thành phiếu ${c.countNo} và cập nhật tồn kho?')),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Hủy')),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Hủy'))),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: FilledButton.styleFrom(backgroundColor: _blue),
-            child: const Text('Xác nhận'),
+            child: Text(tr('Xác nhận')),
           ),
         ],
       ),
@@ -231,7 +232,7 @@ class _PosStockCountListScreenState extends State<PosStockCountListScreen> {
       final copy =
           PosStockCount.fromJson(res['data'] as Map<String, dynamic>);
       NotificationOverlayManager()
-          .showSuccess(title: 'Sao chép', message: 'Đã tạo ${copy.countNo}');
+          .showSuccess(title: 'Sao chép', message: tr('Đã tạo ${copy.countNo}'));
       _load(page: _page);
       _openEditor(countId: copy.id);
     } else {
@@ -244,14 +245,14 @@ class _PosStockCountListScreenState extends State<PosStockCountListScreen> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Xóa phiếu'),
-        content: Text('Xóa hẳn phiếu ${c.countNo}? Thao tác không thể hoàn tác.'),
+        title: Text(tr('Xóa phiếu')),
+        content: Text(tr('Xóa hẳn phiếu ${c.countNo}? Thao tác không thể hoàn tác.')),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Không')),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Không'))),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Xóa'),
+            child: Text(tr('Xóa')),
           ),
         ],
       ),
@@ -283,15 +284,14 @@ class _PosStockCountListScreenState extends State<PosStockCountListScreen> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Hủy phiếu kiểm kê'),
-        content: Text(
-            'Hủy phiếu ${c.countNo} và hoàn tồn kho về trước khi cân bằng?'),
+        title: Text(tr('Hủy phiếu kiểm kê')),
+        content: Text(tr('Hủy phiếu ${c.countNo} và hoàn tồn kho về trước khi cân bằng?')),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Không')),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Không'))),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Hủy phiếu'),
+            child: Text(tr('Hủy phiếu')),
           ),
         ],
       ),
@@ -329,7 +329,7 @@ class _PosStockCountListScreenState extends State<PosStockCountListScreen> {
       if (!mounted) return;
       if (res['isSuccess'] != true || res['data'] == null) {
         NotificationOverlayManager().showError(
-            title: 'Lỗi', message: 'Không tải được phiếu để in');
+            title: 'Lỗi', message: tr('Không tải được phiếu để in'));
         return;
       }
       count = PosStockCount.fromJson(res['data'] as Map<String, dynamic>);
@@ -362,7 +362,7 @@ class _PosStockCountListScreenState extends State<PosStockCountListScreen> {
               CheckboxListTile(
                 dense: true,
                 contentPadding: EdgeInsets.zero,
-                title: const Text('Phiếu tạm', style: TextStyle(fontSize: 13)),
+                title: Text(tr('Phiếu tạm'), style: TextStyle(fontSize: 13)),
                 value: _statusFilter.contains('InProgress'),
                 activeColor: _blue,
                 onChanged: (v) => _toggleStatus('InProgress', v),
@@ -370,7 +370,7 @@ class _PosStockCountListScreenState extends State<PosStockCountListScreen> {
               CheckboxListTile(
                 dense: true,
                 contentPadding: EdgeInsets.zero,
-                title: const Text('Đã cân bằng kho', style: TextStyle(fontSize: 13)),
+                title: Text(tr('Đã cân bằng kho'), style: TextStyle(fontSize: 13)),
                 value: _statusFilter.contains('Completed'),
                 activeColor: _blue,
                 onChanged: (v) => _toggleStatus('Completed', v),
@@ -378,7 +378,7 @@ class _PosStockCountListScreenState extends State<PosStockCountListScreen> {
               CheckboxListTile(
                 dense: true,
                 contentPadding: EdgeInsets.zero,
-                title: const Text('Đã hủy', style: TextStyle(fontSize: 13)),
+                title: Text(tr('Đã hủy'), style: TextStyle(fontSize: 13)),
                 value: _statusFilter.contains('Cancelled'),
                 activeColor: _blue,
                 onChanged: (v) => _toggleStatus('Cancelled', v),
@@ -394,8 +394,8 @@ class _PosStockCountListScreenState extends State<PosStockCountListScreen> {
           'Người tạo',
           TextField(
             controller: _createdByCtrl,
-            decoration: const InputDecoration(
-              hintText: 'Chọn người tạo…',
+            decoration: InputDecoration(
+              hintText: tr('Chọn người tạo…'),
               isDense: true,
               border: OutlineInputBorder(),
               contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
@@ -407,7 +407,7 @@ class _PosStockCountListScreenState extends State<PosStockCountListScreen> {
         FilledButton(
           onPressed: () => _load(),
           style: FilledButton.styleFrom(backgroundColor: _blue),
-          child: const Text('Áp dụng lọc', style: TextStyle(fontSize: 12)),
+          child: Text(tr('Áp dụng lọc'), style: TextStyle(fontSize: 12)),
         ),
       ],
     );
@@ -421,8 +421,8 @@ class _PosStockCountListScreenState extends State<PosStockCountListScreen> {
   Widget build(BuildContext context) {
     final perm = Provider.of<PermissionProvider>(context);
     if (!perm.canView('PosProducts')) {
-      return const Scaffold(
-          body: Center(child: Text('Không có quyền xem kiểm kê kho')));
+      return Scaffold(
+          body: Center(child: Text(tr('Không có quyền xem kiểm kê kho'))));
     }
     final canEdit = perm.canEdit('PosStockCounts');
 
@@ -452,8 +452,8 @@ class _PosStockCountListScreenState extends State<PosStockCountListScreen> {
                         12, posUseMobileList(context) ? 8 : 10, 12, 0),
                     child: TextField(
                       controller: _searchCtrl,
-                      decoration: const InputDecoration(
-                        hintText: 'Tìm mã KK, ghi chú…',
+                      decoration: InputDecoration(
+                        hintText: tr('Tìm mã KK, ghi chú…'),
                         prefixIcon: Icon(Icons.search, size: 20),
                         border: OutlineInputBorder(),
                         isDense: true,
@@ -467,7 +467,7 @@ class _PosStockCountListScreenState extends State<PosStockCountListScreen> {
                     child: _loading
                         ? const LoadingWidget()
                         : _items.isEmpty
-                            ? const Center(child: Text('Chưa có phiếu kiểm kê'))
+                            ? Center(child: Text(tr('Chưa có phiếu kiểm kê')))
                             : Column(
                                 crossAxisAlignment: CrossAxisAlignment.stretch,
                                 children: [
@@ -503,7 +503,7 @@ class _PosStockCountListScreenState extends State<PosStockCountListScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       child: Row(
         children: [
-          Text('Tổng $_total phiếu',
+          Text(tr('Tổng $_total phiếu'),
               style:
                   const TextStyle(fontSize: 12, color: PosTheme.textSecondary)),
           const Spacer(),
@@ -511,7 +511,7 @@ class _PosStockCountListScreenState extends State<PosStockCountListScreen> {
             icon: const Icon(Icons.chevron_left),
             onPressed: _page > 1 ? () => _load(page: _page - 1) : null,
           ),
-          Text('Trang $_page / $pages', style: const TextStyle(fontSize: 12)),
+          Text(tr('Trang $_page / $pages'), style: const TextStyle(fontSize: 12)),
           IconButton(
             icon: const Icon(Icons.chevron_right),
             onPressed: _page < pages ? () => _load(page: _page + 1) : null,
@@ -536,19 +536,19 @@ class _PosStockCountListScreenState extends State<PosStockCountListScreen> {
       child: Row(
         children: [
           const SizedBox(width: 24),
-          Expanded(flex: 2, child: Text('Mã KK', style: h)),
-          Expanded(flex: 2, child: Text('Thời gian', style: h)),
-          Expanded(flex: 2, child: Text('Ngày cân bằng', style: h)),
+          Expanded(flex: 2, child: Text(tr('Mã KK'), style: h)),
+          Expanded(flex: 2, child: Text(tr('Thời gian'), style: h)),
+          Expanded(flex: 2, child: Text(tr('Ngày cân bằng'), style: h)),
           Expanded(
               flex: 2,
-              child: Text('SL thực tế', style: h, textAlign: TextAlign.right)),
+              child: Text(tr('SL thực tế'), style: h, textAlign: TextAlign.right)),
           Expanded(
               flex: 2,
-              child: Text('Tổng thực tế', style: h, textAlign: TextAlign.right)),
+              child: Text(tr('Tổng thực tế'), style: h, textAlign: TextAlign.right)),
           Expanded(
               flex: 2,
-              child: Text('Tổng chênh lệch', style: h, textAlign: TextAlign.right)),
-          SizedBox(width: 110, child: Text('Trạng thái', style: h, textAlign: TextAlign.right)),
+              child: Text(tr('Tổng chênh lệch'), style: h, textAlign: TextAlign.right)),
+          SizedBox(width: 110, child: Text(tr('Trạng thái'), style: h, textAlign: TextAlign.right)),
         ],
       ),
     );
@@ -623,7 +623,7 @@ class _PosStockCountListScreenState extends State<PosStockCountListScreen> {
                   const SizedBox(width: 4),
                   Expanded(
                     flex: 2,
-                    child: Text(c.countNo,
+                    child: Text(tr(c.countNo),
                         style: posDocNoTextStyle(
                           c.status == 'InProgress' ? 'InProgress' : c.status,
                           activeColor: _blue,
@@ -632,33 +632,33 @@ class _PosStockCountListScreenState extends State<PosStockCountListScreen> {
                   Expanded(
                     flex: 2,
                     child: Text(
-                      created != null ? _dateFmt.format(created.toLocal()) : '—',
+                      tr(created != null ? _dateFmt.format(created.toLocal()) : '—'),
                       style: const TextStyle(fontSize: 13),
                     ),
                   ),
                   Expanded(
                     flex: 2,
                     child: Text(
-                      completed != null ? _dateFmt.format(completed.toLocal()) : '—',
+                      tr(completed != null ? _dateFmt.format(completed.toLocal()) : '—'),
                       style: const TextStyle(fontSize: 13),
                     ),
                   ),
                   Expanded(
                     flex: 2,
-                    child: Text(_fmtQty(c.totalActualQty),
+                    child: Text(tr(_fmtQty(c.totalActualQty)),
                         style: const TextStyle(fontSize: 13),
                         textAlign: TextAlign.right),
                   ),
                   Expanded(
                     flex: 2,
-                    child: Text('${_moneyFmt.format(c.totalActualValue)} đ',
+                    child: Text(tr('${_moneyFmt.format(c.totalActualValue)} đ'),
                         style: const TextStyle(fontSize: 13),
                         textAlign: TextAlign.right),
                   ),
                   Expanded(
                     flex: 2,
                     child: Text(
-                      '${c.totalDiffQty >= 0 ? '+' : ''}${_fmtQty(c.totalDiffQty)}',
+                      tr('${c.totalDiffQty >= 0 ? '+' : ''}${_fmtQty(c.totalDiffQty)}'),
                       style: TextStyle(
                         fontSize: 13,
                         color: c.totalDiffQty == 0
@@ -704,7 +704,7 @@ class _PosStockCountListScreenState extends State<PosStockCountListScreen> {
         children: [
           Row(
             children: [
-              const Text('Chi tiết phiếu',
+              Text(tr('Chi tiết phiếu'),
                   style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
               const Spacer(),
               stockCountStatusChip(c.status),
@@ -738,39 +738,39 @@ class _PosStockCountListScreenState extends State<PosStockCountListScreen> {
                 dataRowMaxHeight: 40,
                 columnSpacing: 16,
                 headingRowColor: WidgetStateProperty.all(Colors.white),
-                columns: const [
+                columns: [
                   DataColumn(
-                      label: Text('Mã hàng',
+                      label: Text(tr('Mã hàng'),
                           style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600))),
                   DataColumn(
-                      label: Text('Tên hàng',
+                      label: Text(tr('Tên hàng'),
                           style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600))),
                   DataColumn(
-                      label: Text('Tồn kho',
+                      label: Text(tr('Tồn kho'),
                           style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600))),
                   DataColumn(
-                      label: Text('Thực tế',
+                      label: Text(tr('Thực tế'),
                           style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600))),
                   DataColumn(
-                      label: Text('SL lệch',
+                      label: Text(tr('SL lệch'),
                           style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600))),
                   DataColumn(
-                      label: Text('Giá trị lệch',
+                      label: Text(tr('Giá trị lệch'),
                           style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600))),
                 ],
                 rows: c.lines.map((l) {
                   return DataRow(cells: [
-                    DataCell(Text(l.productCode, style: const TextStyle(fontSize: 12))),
-                    DataCell(Text(l.productName, style: const TextStyle(fontSize: 12))),
-                    DataCell(Text(_fmtQty(l.systemQty), style: const TextStyle(fontSize: 12))),
+                    DataCell(Text(tr(l.productCode), style: const TextStyle(fontSize: 12))),
+                    DataCell(Text(tr(l.productName), style: const TextStyle(fontSize: 12))),
+                    DataCell(Text(tr(_fmtQty(l.systemQty)), style: const TextStyle(fontSize: 12))),
                     DataCell(Text(
-                        l.countedQty != null ? _fmtQty(l.countedQty!) : '—',
+                        tr(l.countedQty != null ? _fmtQty(l.countedQty!) : '—'),
                         style: const TextStyle(fontSize: 12))),
                     DataCell(Text(
-                        l.countedQty != null ? _fmtQty(l.diffQty) : '—',
+                        tr(l.countedQty != null ? _fmtQty(l.diffQty) : '—'),
                         style: const TextStyle(fontSize: 12))),
                     DataCell(Text(
-                        l.countedQty != null ? '${_moneyFmt.format(l.diffValue)} đ' : '—',
+                        tr(l.countedQty != null ? '${_moneyFmt.format(l.diffValue)} đ' : '—'),
                         style: const TextStyle(fontSize: 12))),
                   ]);
                 }).toList(),
@@ -782,12 +782,11 @@ class _PosStockCountListScreenState extends State<PosStockCountListScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                Text('Tổng SL thực tế: ${_fmtQty(c.totalActualQty)}',
+                Text(tr('Tổng SL thực tế: ${_fmtQty(c.totalActualQty)}'),
                     style: const TextStyle(fontSize: 12)),
-                Text('Tổng giá trị thực tế: ${_moneyFmt.format(c.totalActualValue)} đ',
+                Text(tr('Tổng giá trị thực tế: ${_moneyFmt.format(c.totalActualValue)} đ'),
                     style: const TextStyle(fontSize: 12)),
-                Text(
-                    'Tổng chênh lệch: ${c.totalDiffQty >= 0 ? '+' : ''}${_fmtQty(c.totalDiffQty)} (${_moneyFmt.format(c.totalDiffValue)} đ)',
+                Text(tr('${tr('Tổng chênh lệch: ')}${c.totalDiffQty >= 0 ? '+' : ''}${_fmtQty(c.totalDiffQty)} (${_moneyFmt.format(c.totalDiffValue)} đ)'),
                     style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
               ],
             ),
@@ -801,42 +800,42 @@ class _PosStockCountListScreenState extends State<PosStockCountListScreen> {
                 FilledButton(
                   onPressed: () => _openEditor(countId: c.id),
                   style: FilledButton.styleFrom(backgroundColor: _blue),
-                  child: const Text('Mở phiếu'),
+                  child: Text(tr('Mở phiếu')),
                 ),
               if (canEdit && c.status == 'InProgress')
                 OutlinedButton.icon(
                   onPressed: () => _completeCount(c),
                   icon: const Icon(Icons.inventory_2_outlined, size: 16),
-                  label: const Text('Cân bằng kho'),
+                  label: Text(tr('Cân bằng kho')),
                 ),
               if (canEdit)
                 OutlinedButton.icon(
                   onPressed: () => _copyCount(c),
                   icon: const Icon(Icons.copy, size: 16),
-                  label: const Text('Sao chép'),
+                  label: Text(tr('Sao chép')),
                 ),
               if (canEdit && c.status == 'InProgress')
                 OutlinedButton.icon(
                   onPressed: () => _deleteCount(c),
                   icon: const Icon(Icons.delete_outline, size: 16),
-                  label: const Text('Xóa'),
+                  label: Text(tr('Xóa')),
                 ),
               if (canEdit && c.status == 'Completed')
                 OutlinedButton.icon(
                   onPressed: () => _voidCompletedCount(c),
                   icon: const Icon(Icons.cancel_outlined, size: 16),
-                  label: const Text('Hủy'),
+                  label: Text(tr('Hủy')),
                 ),
               if (canEdit && c.status == 'Cancelled')
                 OutlinedButton.icon(
                   onPressed: () => _deleteCount(c),
                   icon: const Icon(Icons.delete_outline, size: 16),
-                  label: const Text('Xóa'),
+                  label: Text(tr('Xóa')),
                 ),
               OutlinedButton.icon(
                 onPressed: () => _printCount(c),
                 icon: const Icon(Icons.print, size: 16),
-                label: const Text('In'),
+                label: Text(tr('In')),
               ),
             ],
           ),
@@ -850,9 +849,9 @@ class _PosStockCountListScreenState extends State<PosStockCountListScreen> {
           style: const TextStyle(fontSize: 12, color: Colors.black87),
           children: [
             TextSpan(
-                text: '$label: ',
+                text: tr('$label: '),
                 style: const TextStyle(color: PosTheme.textSecondary)),
-            TextSpan(text: value),
+            TextSpan(text: tr(value)),
           ],
         ),
       );

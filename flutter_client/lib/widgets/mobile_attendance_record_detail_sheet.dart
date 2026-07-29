@@ -9,6 +9,8 @@ import 'notification_overlay.dart';
 import 'map_location_picker.dart';
 import 'punch_location_preview.dart';
 import 'punch_photo_preview.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
+import 'package:zkteco_flutter_client/l10n/app_ui_locale.dart';
 
 /// Chi tiết bản ghi chấm công mobile — vị trí GPS, ảnh mặt, duyệt (tuỳ chọn).
 Future<void> showMobileAttendanceRecordDetailSheet(
@@ -184,7 +186,7 @@ class _MobileAttendanceRecordDetailBodyState
       initialDate: initial,
       firstDate: DateTime(initial.year - 2),
       lastDate: DateTime(initial.year + 1),
-      locale: const Locale('vi', 'VN'),
+      locale: appUiLocale(),
     );
     if (pickedDate == null || !mounted) return;
 
@@ -212,7 +214,7 @@ class _MobileAttendanceRecordDetailBodyState
       if (res['isSuccess'] == true) {
         appNotification.showSuccess(
           title: 'Đã cập nhật',
-          message: 'Giờ chấm công đã được sửa',
+          message: tr('Giờ chấm công đã được sửa'),
         );
         await _loadRecordDetail();
         widget.onRecordChanged?.call();
@@ -236,23 +238,22 @@ class _MobileAttendanceRecordDetailBodyState
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Xóa bản ghi chấm công'),
-        content: Text(
-          'Xóa bản ghi ${ _record.punchTypeLabel} của ${_record.employeeName} '
+        title: Text(tr('Xóa bản ghi chấm công')),
+        content: Text(tr('${tr('Xóa bản ghi ')}${ _record.punchTypeLabel} của ${_record.employeeName} '
           'lúc ${DateFormat('HH:mm dd/MM/yyyy').format(_record.punchTime)}?\n\n'
-          'Bản ghi chấm công liên kết (nếu có) cũng sẽ bị xóa.',
+          'Bản ghi chấm công liên kết (nếu có) cũng sẽ bị xóa.'),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Hủy'),
+            child: Text(tr('Hủy')),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: FilledButton.styleFrom(
               backgroundColor: const Color(0xFFEF4444),
             ),
-            child: const Text('Xóa'),
+            child: Text(tr('Xóa')),
           ),
         ],
       ),
@@ -267,7 +268,7 @@ class _MobileAttendanceRecordDetailBodyState
       if (res['isSuccess'] == true) {
         appNotification.showSuccess(
           title: 'Đã xóa',
-          message: 'Bản ghi chấm công đã được xóa',
+          message: tr('Bản ghi chấm công đã được xóa'),
         );
         widget.onRecordChanged?.call();
         if (mounted) Navigator.pop(context);
@@ -329,7 +330,7 @@ class _MobileAttendanceRecordDetailBodyState
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
-                        record.punchTypeLabel,
+                        tr(record.punchTypeLabel),
                         style: TextStyle(
                           fontWeight: FontWeight.w600,
                           color: punchColor,
@@ -339,7 +340,7 @@ class _MobileAttendanceRecordDetailBodyState
                     ),
                     const Spacer(),
                     Text(
-                      _statusLabel(),
+                      tr(_statusLabel()),
                       style: const TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
@@ -350,7 +351,7 @@ class _MobileAttendanceRecordDetailBodyState
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  record.employeeName,
+                  tr(record.employeeName),
                   style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
@@ -359,16 +360,15 @@ class _MobileAttendanceRecordDetailBodyState
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  '${timeFmt.format(record.punchTime)} · ${dateFmt.format(record.punchTime)}',
+                  tr('${timeFmt.format(record.punchTime)} · ${dateFmt.format(record.punchTime)}'),
                   style: const TextStyle(
                       fontSize: 13, color: Color(0xFF71717A)),
                 ),
                 if (_isPending) ...[
                   const SizedBox(height: 16),
-                  const Align(
+                  Align(
                     alignment: Alignment.centerLeft,
-                    child: Text(
-                      'Ảnh hiện trường (check-in CT)',
+                    child: Text(tr('Ảnh hiện trường (check-in CT)'),
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
@@ -438,8 +438,7 @@ class _MobileAttendanceRecordDetailBodyState
                     value: record.rejectReason!,
                   ),
                 const SizedBox(height: 12),
-                Text(
-                  'Vị trí GPS lúc chấm',
+                Text(tr('Vị trí GPS lúc chấm'),
                   style: const TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
@@ -455,7 +454,7 @@ class _MobileAttendanceRecordDetailBodyState
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    '${record.latitude!.toStringAsFixed(6)}, ${record.longitude!.toStringAsFixed(6)}',
+                    tr('${record.latitude!.toStringAsFixed(6)}, ${record.longitude!.toStringAsFixed(6)}'),
                     style: const TextStyle(
                         fontSize: 12, color: Color(0xFF71717A)),
                   ),
@@ -465,7 +464,7 @@ class _MobileAttendanceRecordDetailBodyState
                     child: OutlinedButton.icon(
                       onPressed: () => _openFullMap(context),
                       icon: const Icon(Icons.map_outlined, size: 18),
-                      label: const Text('Xem trên bản đồ'),
+                      label: Text(tr('Xem trên bản đồ')),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: const Color(0xFF1E3A5F),
                         side: const BorderSide(color: Color(0xFF1E3A5F)),
@@ -482,14 +481,13 @@ class _MobileAttendanceRecordDetailBodyState
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(color: const Color(0xFFFDE68A)),
                     ),
-                    child: const Row(
+                    child: Row(
                       children: [
                         Icon(Icons.location_off,
                             color: Color(0xFFF59E0B), size: 22),
                         SizedBox(width: 10),
                         Expanded(
-                          child: Text(
-                            'Bản ghi không có tọa độ GPS hợp lệ (có thể do tắt định vị khi chấm).',
+                          child: Text(tr('Bản ghi không có tọa độ GPS hợp lệ (có thể do tắt định vị khi chấm).'),
                             style: TextStyle(
                                 fontSize: 12, color: Color(0xFF92400E)),
                           ),
@@ -518,7 +516,7 @@ class _MobileAttendanceRecordDetailBodyState
                                   child: CircularProgressIndicator(strokeWidth: 2),
                                 )
                               : const Icon(Icons.edit_calendar_outlined, size: 18),
-                          label: const Text('Sửa giờ'),
+                          label: Text(tr('Sửa giờ')),
                           style: OutlinedButton.styleFrom(
                             foregroundColor: const Color(0xFF1E3A5F),
                             side: const BorderSide(color: Color(0xFF1E3A5F)),
@@ -532,7 +530,7 @@ class _MobileAttendanceRecordDetailBodyState
                         child: OutlinedButton.icon(
                           onPressed: _saving ? null : _deleteRecord,
                           icon: const Icon(Icons.delete_outline, size: 18),
-                          label: const Text('Xóa'),
+                          label: Text(tr('Xóa')),
                           style: OutlinedButton.styleFrom(
                             foregroundColor: const Color(0xFFEF4444),
                             side: const BorderSide(color: Color(0xFFEF4444)),
@@ -559,7 +557,7 @@ class _MobileAttendanceRecordDetailBodyState
                             widget.onReject!();
                           },
                           icon: const Icon(Icons.close, size: 18),
-                          label: const Text('Từ chối'),
+                          label: Text(tr('Từ chối')),
                           style: OutlinedButton.styleFrom(
                             foregroundColor: const Color(0xFFEF4444),
                             side: const BorderSide(color: Color(0xFFEF4444)),
@@ -577,7 +575,7 @@ class _MobileAttendanceRecordDetailBodyState
                             widget.onApprove!();
                           },
                           icon: const Icon(Icons.check, size: 18),
-                          label: const Text('Duyệt'),
+                          label: Text(tr('Duyệt')),
                           style: FilledButton.styleFrom(
                             backgroundColor: const Color(0xFF1E3A5F),
                             padding: const EdgeInsets.symmetric(vertical: 12),
@@ -616,13 +614,13 @@ class _DetailRow extends StatelessWidget {
           const SizedBox(width: 10),
           Expanded(
             flex: 2,
-            child: Text(label,
+            child: Text(tr(label),
                 style: const TextStyle(fontSize: 13, color: Color(0xFF71717A))),
           ),
           Expanded(
             flex: 3,
             child: Text(
-              value,
+              tr(value),
               textAlign: TextAlign.right,
               style: const TextStyle(
                 fontSize: 13,

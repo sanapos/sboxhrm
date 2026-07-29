@@ -12,6 +12,7 @@ import '../utils/asset_report_helpers.dart';
 import '../utils/report_screen_helpers.dart';
 import '../utils/responsive_helper.dart';
 import 'package:excel/excel.dart' as excel_lib;
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 const _theme = Color(0xFF059669);
 const _rowH = 52.0;
@@ -242,7 +243,7 @@ class _AssetReportScreenState extends State<AssetReportScreen>
   Future<void> _exportRegister() async {
     if (_register.isEmpty) {
       NotificationOverlayManager()
-          .showError(title: 'Thông báo', message: 'Không có dữ liệu để xuất');
+          .showError(title: 'Thông báo', message: tr('Không có dữ liệu để xuất'));
       return;
     }
     const headers = [
@@ -327,14 +328,14 @@ class _AssetReportScreenState extends State<AssetReportScreen>
                           unselectedLabelColor: Colors.grey[600],
                           indicatorColor: _theme,
                           tabAlignment: TabAlignment.start,
-                          tabs: const [
-                            Tab(text: 'Tổng hợp'),
-                            Tab(text: 'Danh mục'),
-                            Tab(text: 'Cấp phát'),
-                            Tab(text: 'Chuyển giao'),
-                            Tab(text: 'Nhập/xuất kho'),
-                            Tab(text: 'Kiểm kê CL'),
-                            Tab(text: 'Bảo hành'),
+                          tabs: [
+                            Tab(text: tr('Tổng hợp')),
+                            Tab(text: tr('Danh mục')),
+                            Tab(text: tr('Cấp phát')),
+                            Tab(text: tr('Chuyển giao')),
+                            Tab(text: tr('Nhập/xuất kho')),
+                            Tab(text: tr('Kiểm kê CL')),
+                            Tab(text: tr('Bảo hành')),
                           ],
                         ),
                       ),
@@ -387,7 +388,7 @@ class _AssetReportScreenState extends State<AssetReportScreen>
             final sec = assetReportMobileSections[i];
             final selected = _tabs.index == i;
             return FilterChip(
-              label: Text(sec.label, style: const TextStyle(fontSize: 12)),
+              label: Text(tr(sec.label), style: const TextStyle(fontSize: 12)),
               avatar: Icon(sec.icon,
                   size: 16,
                   color: selected ? Colors.white : const Color(0xFF6B7280)),
@@ -447,7 +448,7 @@ class _AssetReportScreenState extends State<AssetReportScreen>
             children: [
               const Icon(Icons.tune, size: 18, color: Color(0xFF6B7280)),
               const SizedBox(width: 6),
-              const Text('Bộ lọc',
+              Text(tr('Bộ lọc'),
                   style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
               if (_activeFilterCount > 0) ...[
                 const SizedBox(width: 8),
@@ -458,7 +459,7 @@ class _AssetReportScreenState extends State<AssetReportScreen>
                     color: _theme.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: Text('$_activeFilterCount',
+                  child: Text(tr('$_activeFilterCount'),
                       style: const TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w700,
@@ -492,7 +493,7 @@ class _AssetReportScreenState extends State<AssetReportScreen>
                 child: TextButton.icon(
                   onPressed: _clearFilters,
                   icon: const Icon(Icons.filter_alt_off, size: 16),
-                  label: const Text('Xóa lọc', style: TextStyle(fontSize: 12)),
+                  label: Text(tr('Xóa lọc'), style: TextStyle(fontSize: 12)),
                 ),
               ),
           ],
@@ -525,12 +526,12 @@ class _AssetReportScreenState extends State<AssetReportScreen>
         width: w,
         label: 'Trạng thái',
         value: _statusFilter,
-        items: const [
-          DropdownMenuItem(value: null, child: Text('Tất cả')),
-          DropdownMenuItem(value: 0, child: Text('Đang dùng')),
-          DropdownMenuItem(value: 5, child: Text('Trong kho')),
-          DropdownMenuItem(value: 1, child: Text('Bảo trì')),
-          DropdownMenuItem(value: 2, child: Text('Hỏng')),
+        items: [
+          DropdownMenuItem(value: null, child: Text(tr('Tất cả'))),
+          DropdownMenuItem(value: 0, child: Text(tr('Đang dùng'))),
+          DropdownMenuItem(value: 5, child: Text(tr('Trong kho'))),
+          DropdownMenuItem(value: 1, child: Text(tr('Bảo trì'))),
+          DropdownMenuItem(value: 2, child: Text(tr('Hỏng'))),
         ],
         onChanged: (v) {
           setState(() => _statusFilter = v);
@@ -544,15 +545,15 @@ class _AssetReportScreenState extends State<AssetReportScreen>
         width: w,
         label: 'Loại TS',
         value: _typeFilter,
-        items: const [
-          DropdownMenuItem(value: null, child: Text('Tất cả')),
-          DropdownMenuItem(value: 0, child: Text('Điện tử')),
-          DropdownMenuItem(value: 1, child: Text('Nội thất')),
-          DropdownMenuItem(value: 2, child: Text('Phương tiện')),
-          DropdownMenuItem(value: 3, child: Text('Công cụ')),
-          DropdownMenuItem(value: 4, child: Text('Máy móc')),
-          DropdownMenuItem(value: 5, child: Text('Phần mềm')),
-          DropdownMenuItem(value: 6, child: Text('Khác')),
+        items: [
+          DropdownMenuItem(value: null, child: Text(tr('Tất cả'))),
+          DropdownMenuItem(value: 0, child: Text(tr('Điện tử'))),
+          DropdownMenuItem(value: 1, child: Text(tr('Nội thất'))),
+          DropdownMenuItem(value: 2, child: Text(tr('Phương tiện'))),
+          DropdownMenuItem(value: 3, child: Text(tr('Công cụ'))),
+          DropdownMenuItem(value: 4, child: Text(tr('Máy móc'))),
+          DropdownMenuItem(value: 5, child: Text(tr('Phần mềm'))),
+          DropdownMenuItem(value: 6, child: Text(tr('Khác'))),
         ],
         onChanged: (v) {
           setState(() => _typeFilter = v);
@@ -564,10 +565,10 @@ class _AssetReportScreenState extends State<AssetReportScreen>
         label: 'Danh mục',
         value: _categoryId,
         items: [
-          const DropdownMenuItem(value: null, child: Text('Tất cả')),
+          DropdownMenuItem(value: null, child: Text(tr('Tất cả'))),
           ..._categories.map((c) => DropdownMenuItem(
                 value: c['id']?.toString(),
-                child: Text(c['name']?.toString() ?? '-',
+                child: Text(tr(c['name']?.toString() ?? '-'),
                     overflow: TextOverflow.ellipsis),
               )),
         ],
@@ -605,11 +606,11 @@ class _AssetReportScreenState extends State<AssetReportScreen>
         width: w,
         label: 'Loại GD kho',
         value: _stockTypeFilter,
-        items: const [
-          DropdownMenuItem(value: null, child: Text('Tất cả')),
-          DropdownMenuItem(value: 0, child: Text('Nhập kho')),
-          DropdownMenuItem(value: 1, child: Text('Xuất kho')),
-          DropdownMenuItem(value: 2, child: Text('Điều chỉnh')),
+        items: [
+          DropdownMenuItem(value: null, child: Text(tr('Tất cả'))),
+          DropdownMenuItem(value: 0, child: Text(tr('Nhập kho'))),
+          DropdownMenuItem(value: 1, child: Text(tr('Xuất kho'))),
+          DropdownMenuItem(value: 2, child: Text(tr('Điều chỉnh'))),
         ],
         onChanged: (v) {
           setState(() => _stockTypeFilter = v);
@@ -624,11 +625,11 @@ class _AssetReportScreenState extends State<AssetReportScreen>
         label: 'Đợt kiểm kê',
         value: _inventoryId,
         items: [
-          const DropdownMenuItem(value: null, child: Text('Tất cả')),
+          DropdownMenuItem(value: null, child: Text(tr('Tất cả'))),
           ..._inventories.map((inv) => DropdownMenuItem(
                 value: inv['id']?.toString(),
                 child: Text(
-                  '${inv['inventoryCode'] ?? ''} - ${inv['name'] ?? ''}',
+                  tr('${inv['inventoryCode'] ?? ''} - ${inv['name'] ?? ''}'),
                   overflow: TextOverflow.ellipsis,
                 ),
               )),
@@ -641,7 +642,7 @@ class _AssetReportScreenState extends State<AssetReportScreen>
       fields.add(Align(
         alignment: Alignment.centerLeft,
         child: FilterChip(
-          label: const Text('Chỉ chênh lệch', style: TextStyle(fontSize: 12)),
+          label: Text(tr('Chỉ chênh lệch'), style: TextStyle(fontSize: 12)),
           selected: _onlyVariance,
           onSelected: (v) {
             setState(() => _onlyVariance = v);
@@ -656,11 +657,11 @@ class _AssetReportScreenState extends State<AssetReportScreen>
         width: w,
         label: 'Trong (ngày)',
         value: _warrantyDays,
-        items: const [
-          DropdownMenuItem(value: 7, child: Text('7 ngày')),
-          DropdownMenuItem(value: 30, child: Text('30 ngày')),
-          DropdownMenuItem(value: 60, child: Text('60 ngày')),
-          DropdownMenuItem(value: 90, child: Text('90 ngày')),
+        items: [
+          DropdownMenuItem(value: 7, child: Text(tr('7 ngày'))),
+          DropdownMenuItem(value: 30, child: Text(tr('30 ngày'))),
+          DropdownMenuItem(value: 60, child: Text(tr('60 ngày'))),
+          DropdownMenuItem(value: 90, child: Text(tr('90 ngày'))),
         ],
         onChanged: (v) {
           if (v != null) {
@@ -673,7 +674,7 @@ class _AssetReportScreenState extends State<AssetReportScreen>
         alignment: Alignment.centerLeft,
         child: FilterChip(
           label:
-              const Text('Gồm đã hết hạn', style: TextStyle(fontSize: 12)),
+              Text(tr('Gồm đã hết hạn'), style: TextStyle(fontSize: 12)),
           selected: _includeExpiredWarranty,
           onSelected: (v) {
             setState(() => _includeExpiredWarranty = v);
@@ -703,7 +704,7 @@ class _AssetReportScreenState extends State<AssetReportScreen>
   }) {
     final child = InputDecorator(
       decoration: InputDecoration(
-        labelText: label,
+        labelText: tr(label),
         labelStyle: const TextStyle(fontSize: 11),
         isDense: true,
         contentPadding:
@@ -732,7 +733,7 @@ class _AssetReportScreenState extends State<AssetReportScreen>
   }) {
     final field = TextField(
       decoration: InputDecoration(
-        labelText: label,
+        labelText: tr(label),
         labelStyle: const TextStyle(fontSize: 11),
         isDense: true,
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
@@ -761,23 +762,23 @@ class _AssetReportScreenState extends State<AssetReportScreen>
           children: [
             const Icon(Icons.inventory_2, color: Colors.white, size: 28),
             const SizedBox(width: 12),
-            const Expanded(
+            Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Báo cáo tài sản',
+                  Text(tr('Báo cáo tài sản'),
                       style: TextStyle(
                           color: Colors.white,
                           fontSize: 18,
                           fontWeight: FontWeight.bold)),
-                  Text('Kho, kiểm kê, bảo hành, cấp phát',
+                  Text(tr('Kho, kiểm kê, bảo hành, cấp phát'),
                       style: TextStyle(color: Colors.white70, fontSize: 12)),
                 ],
               ),
             ),
             if (canExport && _tabs.index == 1)
               IconButton(
-                tooltip: 'Xuất Excel',
+                tooltip: tr('Xuất Excel'),
                 onPressed: _exportRegister,
                 icon: const Icon(Icons.download, color: Colors.white),
               ),
@@ -829,7 +830,7 @@ class _AssetReportScreenState extends State<AssetReportScreen>
 
   Widget _buildSummaryTab() {
     if (_summary.isEmpty) {
-      return const Center(child: Text('Không có dữ liệu'));
+      return Center(child: Text(tr('Không có dữ liệu')));
     }
     final cards = [
       ('Tổng TS', '${_summary['totalAssets'] ?? 0}', Icons.inventory, null),
@@ -913,10 +914,10 @@ class _AssetReportScreenState extends State<AssetReportScreen>
         children: [
           Icon(icon, color: _theme, size: 22),
           const SizedBox(height: 8),
-          Text(value,
+          Text(tr(value),
               style: const TextStyle(
                   fontSize: 22, fontWeight: FontWeight.bold, color: _theme)),
-          Text(label, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+          Text(tr(label), style: TextStyle(fontSize: 12, color: Colors.grey[600])),
         ],
       ),
     ),
@@ -932,10 +933,10 @@ class _AssetReportScreenState extends State<AssetReportScreen>
       ),
       child: Row(
         children: [
-          Text(label,
+          Text(tr(label),
               style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
           const Spacer(),
-          Text('${_fmtMoney.format(value)} đ',
+          Text(tr('${_fmtMoney.format(value)} đ'),
               style: const TextStyle(
                   fontWeight: FontWeight.bold, color: _theme, fontSize: 16)),
         ],
@@ -953,7 +954,7 @@ class _AssetReportScreenState extends State<AssetReportScreen>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(title,
+              Text(tr(title),
                   style: const TextStyle(
                       fontWeight: FontWeight.bold, fontSize: 14)),
               const Divider(),
@@ -967,8 +968,8 @@ class _AssetReportScreenState extends State<AssetReportScreen>
                   padding: const EdgeInsets.symmetric(vertical: 4),
                   child: Row(
                     children: [
-                      Expanded(child: Text(name.toString())),
-                      Text('${m['count'] ?? 0}',
+                      Expanded(child: Text(tr(name.toString()))),
+                      Text(tr('${m['count'] ?? 0}'),
                           style: const TextStyle(fontWeight: FontWeight.w600)),
                     ],
                   ),
@@ -1057,7 +1058,7 @@ class _AssetReportScreenState extends State<AssetReportScreen>
         color: _theme.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(8),
       ),
-      child: Text('$label: $value',
+      child: Text(tr('$label: $value'),
           style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
     );
   }
@@ -1134,10 +1135,10 @@ class _AssetReportScreenState extends State<AssetReportScreen>
     Color? Function(Map<String, dynamic>)? rowColor,
   }) {
     if (rows.isEmpty) {
-      return const Center(
+      return Center(
         child: Padding(
           padding: EdgeInsets.all(32),
-          child: Text('Không có dữ liệu trong khoảng lọc'),
+          child: Text(tr('Không có dữ liệu trong khoảng lọc')),
         ),
       );
     }
@@ -1182,10 +1183,10 @@ class _AssetReportScreenState extends State<AssetReportScreen>
     Color? Function(Map<String, dynamic>)? rowColor,
   }) {
     if (rows.isEmpty) {
-      return const Center(
+      return Center(
         child: Padding(
           padding: EdgeInsets.all(32),
-          child: Text('Không có dữ liệu trong khoảng lọc'),
+          child: Text(tr('Không có dữ liệu trong khoảng lọc')),
         ),
       );
     }
@@ -1224,7 +1225,7 @@ class _AssetReportScreenState extends State<AssetReportScreen>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Expanded(
-                  child: Text(title,
+                  child: Text(tr(title),
                       style: const TextStyle(
                           fontSize: 14, fontWeight: FontWeight.w600)),
                 ),
@@ -1232,16 +1233,16 @@ class _AssetReportScreenState extends State<AssetReportScreen>
               ],
             ),
             const SizedBox(height: 4),
-            Text(code,
+            Text(tr(code),
                 style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
             const SizedBox(height: 4),
-            Text(subtitle,
+            Text(tr(subtitle),
                 style: TextStyle(fontSize: 12, color: Colors.grey.shade700)),
             if (trailing != null) ...[
               const SizedBox(height: 8),
               Align(
                 alignment: Alignment.centerRight,
-                child: Text(trailing,
+                child: Text(tr(trailing),
                     style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w700,
@@ -1263,7 +1264,7 @@ class _AssetReportScreenState extends State<AssetReportScreen>
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: color.withValues(alpha: 0.35)),
       ),
-      child: Text(status ?? '—',
+      child: Text(tr(status ?? '—'),
           style: TextStyle(
               fontSize: 10, fontWeight: FontWeight.w600, color: color)),
     );
@@ -1353,7 +1354,7 @@ class _AssetReportScreenState extends State<AssetReportScreen>
     Color? Function(Map<String, dynamic>)? rowColor,
   }) {
     if (rows.isEmpty) {
-      return const Center(child: Text('Không có dữ liệu trong khoảng lọc'));
+      return Center(child: Text(tr('Không có dữ liệu trong khoảng lọc')));
     }
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
@@ -1364,7 +1365,7 @@ class _AssetReportScreenState extends State<AssetReportScreen>
           headingRowColor: WidgetStateProperty.all(_theme.withValues(alpha: 0.08)),
           columns: headers
               .map((h) => DataColumn(
-                  label: Text(h,
+                  label: Text(tr(h),
                       style: const TextStyle(
                           fontWeight: FontWeight.bold, fontSize: 12))))
               .toList(),
@@ -1374,7 +1375,7 @@ class _AssetReportScreenState extends State<AssetReportScreen>
                       ? WidgetStateProperty.all(rowColor(r))
                       : null,
                   cells: rowBuilder(r)
-                      .map((c) => DataCell(Text(c,
+                      .map((c) => DataCell(Text(tr(c),
                           style: const TextStyle(fontSize: 12),
                           overflow: TextOverflow.ellipsis)))
                       .toList()))

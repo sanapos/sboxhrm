@@ -8,6 +8,7 @@ import '../utils/responsive_helper.dart';
 import '../widgets/hrm/hrm_settings_mobile_kit.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../widgets/notification_overlay.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 class ProductSalarySettingsScreen extends StatefulWidget {
   const ProductSalarySettingsScreen({super.key});
@@ -105,8 +106,7 @@ class _ProductSalarySettingsScreenState
               backgroundColor: Colors.white,
               elevation: 0,
               automaticallyImplyLeading: false,
-              title: const Text(
-                'Lương sản phẩm',
+              title: Text(tr('Lương sản phẩm'),
                 style: TextStyle(
                   color: Color(0xFF18181B),
                   fontWeight: FontWeight.bold,
@@ -119,13 +119,13 @@ class _ProductSalarySettingsScreenState
                     onPressed: _showAddGroupDialog,
                     icon: const Icon(Icons.create_new_folder_outlined,
                         color: HrmPageChrome.primaryNavy),
-                    tooltip: 'Thêm nhóm SP',
+                    tooltip: tr('Thêm nhóm SP'),
                   ),
                   IconButton(
                     onPressed: _groups.isEmpty ? null : _showAddItemDialog,
                     icon: const Icon(Icons.add_box_outlined,
                         color: HrmPageChrome.primaryNavy),
-                    tooltip: 'Thêm sản phẩm',
+                    tooltip: tr('Thêm sản phẩm'),
                   ),
                 ],
               ],
@@ -159,8 +159,8 @@ class _ProductSalarySettingsScreenState
                     const Icon(Icons.precision_manufacturing,
                         color: HrmPageChrome.primaryNavy, size: 28),
                     const SizedBox(width: 12),
-                    const Expanded(
-                      child: Text('Lương sản phẩm',
+                    Expanded(
+                      child: Text(tr('Lương sản phẩm'),
                           style: TextStyle(
                               fontSize: 20,
                               fontWeight: FontWeight.w700,
@@ -170,7 +170,7 @@ class _ProductSalarySettingsScreenState
                       FilledButton.icon(
                         onPressed: _showAddGroupDialog,
                         icon: const Icon(Icons.add, size: 18),
-                        label: const Text('Thêm nhóm SP'),
+                        label: Text(tr('Thêm nhóm SP')),
                         style: FilledButton.styleFrom(
                           backgroundColor: HrmPageChrome.primaryNavy,
                         ),
@@ -179,7 +179,7 @@ class _ProductSalarySettingsScreenState
                       FilledButton.icon(
                         onPressed: _groups.isEmpty ? null : _showAddItemDialog,
                         icon: const Icon(Icons.add, size: 18),
-                        label: const Text('Thêm sản phẩm'),
+                        label: Text(tr('Thêm sản phẩm')),
                         style: FilledButton.styleFrom(
                           backgroundColor: HrmPageChrome.primaryNavy,
                         ),
@@ -188,8 +188,7 @@ class _ProductSalarySettingsScreenState
                   ],
                 ),
                 const SizedBox(height: 8),
-                const Text(
-                  'Quản lý nhóm sản phẩm, sản phẩm và đơn giá theo bậc',
+                Text(tr('Quản lý nhóm sản phẩm, sản phẩm và đơn giá theo bậc'),
                   style: TextStyle(color: Color(0xFF71717A), fontSize: 13),
                 ),
               ],
@@ -228,9 +227,9 @@ class _ProductSalarySettingsScreenState
                             size: 64, color: Colors.grey[300]),
                         const SizedBox(height: 16),
                         Text(
-                          _groups.isEmpty
+                          tr(_groups.isEmpty
                               ? 'Chưa có nhóm sản phẩm.\nHãy thêm nhóm sản phẩm trước.'
-                              : 'Chưa có sản phẩm nào.',
+                              : 'Chưa có sản phẩm nào.'),
                           textAlign: TextAlign.center,
                           style:
                               TextStyle(color: Colors.grey[500], fontSize: 14),
@@ -271,7 +270,7 @@ class _ProductSalarySettingsScreenState
     final selected = _selectedGroupId == groupId;
     return FilterChip(
       selected: selected,
-      label: Text(label),
+      label: Text(tr(label)),
       selectedColor: HrmPageChrome.primaryNavy,
       labelStyle: TextStyle(
           color: selected ? Colors.white : const Color(0xFF334155),
@@ -315,7 +314,7 @@ class _ProductSalarySettingsScreenState
                     color: HrmPageChrome.primaryNavy.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(6),
                   ),
-                  child: Text(item['code'] ?? '',
+                  child: Text(tr(item['code'] ?? ''),
                       style: const TextStyle(
                           fontWeight: FontWeight.w600,
                           fontSize: 12,
@@ -323,7 +322,7 @@ class _ProductSalarySettingsScreenState
                 ),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: Text(item['name'] ?? '',
+                  child: Text(tr(item['name'] ?? ''),
                       style: const TextStyle(
                           fontWeight: FontWeight.w600,
                           fontSize: 15,
@@ -338,7 +337,7 @@ class _ProductSalarySettingsScreenState
                       color: const Color(0xFFF1F5F9),
                       borderRadius: BorderRadius.circular(6),
                     ),
-                    child: Text(groupName,
+                    child: Text(tr(groupName),
                         style: const TextStyle(
                             fontSize: 11, color: Color(0xFF64748B))),
                   ),
@@ -350,7 +349,7 @@ class _ProductSalarySettingsScreenState
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
                     onPressed: () => _showEditItemDialog(item),
-                    tooltip: 'Sửa',
+                    tooltip: tr('Sửa'),
                   ),
                 ],
                 if (_perm.canDelete('ProductSalary')) ...[
@@ -361,7 +360,7 @@ class _ProductSalarySettingsScreenState
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
                     onPressed: () => _confirmDeleteItem(item),
-                    tooltip: 'Xóa',
+                    tooltip: tr('Xóa'),
                   ),
                 ],
               ],
@@ -369,14 +368,14 @@ class _ProductSalarySettingsScreenState
             if (item['unit'] != null && (item['unit'] as String).isNotEmpty)
               Padding(
                 padding: const EdgeInsets.only(top: 4),
-                child: Text('Đơn vị: ${item['unit']}',
+                child: Text(tr('${tr('Đơn vị: ')}${item['unit']}'),
                     style: const TextStyle(
                         fontSize: 12, color: Color(0xFF71717A))),
               ),
             const SizedBox(height: 12),
             // Price tiers table
             if (priceTiers.isNotEmpty) ...[
-              const Text('Bảng đơn giá theo bậc',
+              Text(tr('Bảng đơn giá theo bậc'),
                   style: TextStyle(
                       fontWeight: FontWeight.w600,
                       fontSize: 13,
@@ -394,7 +393,7 @@ class _ProductSalarySettingsScreenState
                     2: FlexColumnWidth(1.5),
                   },
                   children: [
-                    const TableRow(
+                    TableRow(
                       decoration: BoxDecoration(
                         color: Color(0xFFF8FAFC),
                         borderRadius: BorderRadius.vertical(
@@ -403,21 +402,21 @@ class _ProductSalarySettingsScreenState
                       children: [
                         Padding(
                             padding: EdgeInsets.all(10),
-                            child: Text('Bậc',
+                            child: Text(tr('Bậc'),
                                 style: TextStyle(
                                     fontWeight: FontWeight.w600,
                                     fontSize: 12,
                                     color: Color(0xFF475569)))),
                         Padding(
                             padding: EdgeInsets.all(10),
-                            child: Text('Số lượng',
+                            child: Text(tr('Số lượng'),
                                 style: TextStyle(
                                     fontWeight: FontWeight.w600,
                                     fontSize: 12,
                                     color: Color(0xFF475569)))),
                         Padding(
                             padding: EdgeInsets.all(10),
-                            child: Text('Đơn giá (đ)',
+                            child: Text(tr('Đơn giá (đ)'),
                                 style: TextStyle(
                                     fontWeight: FontWeight.w600,
                                     fontSize: 12,
@@ -440,17 +439,15 @@ class _ProductSalarySettingsScreenState
                         children: [
                           Padding(
                               padding: const EdgeInsets.all(10),
-                              child: Text(
-                                  'Bậc ${tier['tierLevel'] ?? entry.key + 1}',
+                              child: Text(tr('${tr('Bậc ')}${tier['tierLevel'] ?? entry.key + 1}'),
                                   style: const TextStyle(fontSize: 13))),
                           Padding(
                               padding: const EdgeInsets.all(10),
-                              child: Text(range,
+                              child: Text(tr(range),
                                   style: const TextStyle(fontSize: 13))),
                           Padding(
                               padding: const EdgeInsets.all(10),
-                              child: Text(
-                                  '${_currencyFormat.format(price)} đ',
+                              child: Text(tr('${_currencyFormat.format(price)} đ'),
                                   style: const TextStyle(
                                       fontSize: 13,
                                       fontWeight: FontWeight.w600,
@@ -469,12 +466,12 @@ class _ProductSalarySettingsScreenState
                   color: const Color(0xFFFFFBEB),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Row(
+                child: Row(
                   children: [
                     Icon(Icons.info_outline,
                         size: 16, color: Color(0xFFF59E0B)),
                     SizedBox(width: 8),
-                    Text('Chưa thiết lập đơn giá',
+                    Text(tr('Chưa thiết lập đơn giá'),
                         style:
                             TextStyle(fontSize: 12, color: Color(0xFFF59E0B))),
                   ],
@@ -494,7 +491,7 @@ class _ProductSalarySettingsScreenState
     showDialog(
       context: context,
       builder: (ctx) => ScrollableAlertDialog(
-        title: const Text('Thêm nhóm sản phẩm'),
+        title: Text(tr('Thêm nhóm sản phẩm')),
         content: SizedBox(
           width: 400,
           child: Column(
@@ -502,14 +499,14 @@ class _ProductSalarySettingsScreenState
             children: [
               TextField(
                 controller: nameCtl,
-                decoration: const InputDecoration(
-                    labelText: 'Tên nhóm *', border: OutlineInputBorder()),
+                decoration: InputDecoration(
+                    labelText: tr('Tên nhóm *'), border: OutlineInputBorder()),
               ),
               const SizedBox(height: 12),
               TextField(
                 controller: descCtl,
-                decoration: const InputDecoration(
-                    labelText: 'Mô tả', border: OutlineInputBorder()),
+                decoration: InputDecoration(
+                    labelText: tr('Mô tả'), border: OutlineInputBorder()),
               ),
             ],
           ),
@@ -517,7 +514,7 @@ class _ProductSalarySettingsScreenState
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: const Text('Hủy')),
+              child: Text(tr('Hủy'))),
           FilledButton(
             onPressed: () async {
               if (nameCtl.text.trim().isEmpty) return;
@@ -528,13 +525,13 @@ class _ProductSalarySettingsScreenState
                 'sortOrder': _groups.length,
               });
               if (res['isSuccess'] == true) {
-                appNotification.showSuccess(title: 'Thành công', message: 'Đã thêm nhóm sản phẩm');
+                appNotification.showSuccess(title: 'Thành công', message: tr('Đã thêm nhóm sản phẩm'));
                 _loadData();
               } else {
                 appNotification.showError(title: 'Lỗi', message: res['message'] ?? 'Lỗi');
               }
             },
-            child: const Text('Thêm'),
+            child: Text(tr('Thêm')),
           ),
         ],
       ),
@@ -542,12 +539,12 @@ class _ProductSalarySettingsScreenState
   }
 
   void _showEditGroupDialog(Map<String, dynamic> group) {
-    final nameCtl = TextEditingController(text: group['name'] ?? '');
-    final descCtl = TextEditingController(text: group['description'] ?? '');
+    final nameCtl = TextEditingController(text: tr(group['name'] ?? ''));
+    final descCtl = TextEditingController(text: tr(group['description'] ?? ''));
     showDialog(
       context: context,
       builder: (ctx) => ScrollableAlertDialog(
-        title: const Text('Sửa nhóm sản phẩm'),
+        title: Text(tr('Sửa nhóm sản phẩm')),
         content: SizedBox(
           width: 400,
           child: Column(
@@ -555,14 +552,14 @@ class _ProductSalarySettingsScreenState
             children: [
               TextField(
                 controller: nameCtl,
-                decoration: const InputDecoration(
-                    labelText: 'Tên nhóm *', border: OutlineInputBorder()),
+                decoration: InputDecoration(
+                    labelText: tr('Tên nhóm *'), border: OutlineInputBorder()),
               ),
               const SizedBox(height: 12),
               TextField(
                 controller: descCtl,
-                decoration: const InputDecoration(
-                    labelText: 'Mô tả', border: OutlineInputBorder()),
+                decoration: InputDecoration(
+                    labelText: tr('Mô tả'), border: OutlineInputBorder()),
               ),
             ],
           ),
@@ -574,18 +571,17 @@ class _ProductSalarySettingsScreenState
               final confirm = await showDialog<bool>(
                 context: context,
                 builder: (c) => ScrollableAlertDialog(
-                  title: const Text('Xác nhận xóa'),
-                  content: Text(
-                      'Xóa nhóm "${group['name']}"? Các sản phẩm trong nhóm cũng sẽ bị xóa.'),
+                  title: Text(tr('Xác nhận xóa')),
+                  content: Text(tr('${tr('Xóa nhóm "')}${group['name']}"? Các sản phẩm trong nhóm cũng sẽ bị xóa.')),
                   actions: [
                     TextButton(
                         onPressed: () => Navigator.pop(c, false),
-                        child: const Text('Hủy')),
+                        child: Text(tr('Hủy'))),
                     FilledButton(
                         onPressed: () => Navigator.pop(c, true),
                         style: FilledButton.styleFrom(
                             backgroundColor: Colors.red),
-                        child: const Text('Xóa')),
+                        child: Text(tr('Xóa'))),
                   ],
                 ),
               );
@@ -593,7 +589,7 @@ class _ProductSalarySettingsScreenState
                 final res = await _apiService
                     .deleteProductGroup(group['id'].toString());
                 if (res['isSuccess'] == true) {
-                  appNotification.showSuccess(title: 'Thành công', message: 'Đã xóa nhóm');
+                  appNotification.showSuccess(title: 'Thành công', message: tr('Đã xóa nhóm'));
                   if (_selectedGroupId == group['id']?.toString()) {
                     _selectedGroupId = null;
                   }
@@ -601,13 +597,13 @@ class _ProductSalarySettingsScreenState
                 }
               }
             },
-            child: const Text('Xóa nhóm',
+            child: Text(tr('Xóa nhóm'),
                 style: TextStyle(color: Colors.red)),
           ),
           const Spacer(),
           TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: const Text('Hủy')),
+              child: Text(tr('Hủy'))),
           FilledButton(
             onPressed: () async {
               if (nameCtl.text.trim().isEmpty) return;
@@ -618,11 +614,11 @@ class _ProductSalarySettingsScreenState
                 'description': descCtl.text.trim(),
               });
               if (res['isSuccess'] == true) {
-                appNotification.showSuccess(title: 'Thành công', message: 'Đã cập nhật nhóm');
+                appNotification.showSuccess(title: 'Thành công', message: tr('Đã cập nhật nhóm'));
                 _loadData();
               }
             },
-            child: const Text('Lưu'),
+            child: Text(tr('Lưu')),
           ),
         ],
       ),
@@ -640,10 +636,10 @@ class _ProductSalarySettingsScreenState
   void _showItemDialog(Map<String, dynamic>? item) {
     final isMobile = Responsive.isMobile(context);
     final isEdit = item != null;
-    final codeCtl = TextEditingController(text: item?['code'] ?? '');
-    final nameCtl = TextEditingController(text: item?['name'] ?? '');
-    final unitCtl = TextEditingController(text: item?['unit'] ?? '');
-    final descCtl = TextEditingController(text: item?['description'] ?? '');
+    final codeCtl = TextEditingController(text: tr(item?['code'] ?? ''));
+    final nameCtl = TextEditingController(text: tr(item?['name'] ?? ''));
+    final unitCtl = TextEditingController(text: tr(item?['unit'] ?? ''));
+    final descCtl = TextEditingController(text: tr(item?['description'] ?? ''));
     String? selectedGroupId =
         item?['productGroupId']?.toString() ?? _selectedGroupId;
 
@@ -663,10 +659,10 @@ class _ProductSalarySettingsScreenState
     final maxCtls = <TextEditingController>[];
     final priceCtls = <TextEditingController>[];
     for (var t in tiers) {
-      minCtls.add(TextEditingController(text: '${t['minQuantity'] ?? 0}'));
-      maxCtls.add(TextEditingController(text: t['maxQuantity']?.toString() ?? ''));
+      minCtls.add(TextEditingController(text: tr('${t['minQuantity'] ?? 0}')));
+      maxCtls.add(TextEditingController(text: tr(t['maxQuantity']?.toString() ?? '')));
       final p = t['unitPrice'];
-      priceCtls.add(TextEditingController(text: p is double ? '${p.toInt()}' : '${p ?? 0}'));
+      priceCtls.add(TextEditingController(text: tr(p is double ? '${p.toInt()}' : '${p ?? 0}')));
     }
 
     Future<void> onSave() async {
@@ -720,13 +716,13 @@ class _ProductSalarySettingsScreenState
         children: [
           DropdownButtonFormField<String>(
             initialValue: selectedGroupId,
-            decoration: const InputDecoration(
-                labelText: 'Nhóm sản phẩm *',
+            decoration: InputDecoration(
+                labelText: tr('Nhóm sản phẩm *'),
                 border: OutlineInputBorder()),
             items: _groups
                 .map((g) => DropdownMenuItem(
                     value: g['id']?.toString(),
-                    child: Text(g['name'] ?? '')))
+                    child: Text(tr(g['name'] ?? ''))))
                 .toList(),
             onChanged: (v) =>
                 setDlgState(() => selectedGroupId = v),
@@ -735,29 +731,29 @@ class _ProductSalarySettingsScreenState
           if (isMobile) ...[
             TextField(
               controller: codeCtl,
-              decoration: const InputDecoration(
-                  labelText: 'Mã SP *',
+              decoration: InputDecoration(
+                  labelText: tr('Mã SP *'),
                   border: OutlineInputBorder()),
             ),
             const SizedBox(height: 12),
             TextField(
               controller: nameCtl,
-              decoration: const InputDecoration(
-                  labelText: 'Tên sản phẩm *',
+              decoration: InputDecoration(
+                  labelText: tr('Tên sản phẩm *'),
                   border: OutlineInputBorder()),
             ),
             const SizedBox(height: 12),
             TextField(
               controller: unitCtl,
-              decoration: const InputDecoration(
-                  labelText: 'Đơn vị (cái, kg...)',
+              decoration: InputDecoration(
+                  labelText: tr('Đơn vị (cái, kg...)'),
                   border: OutlineInputBorder()),
             ),
             const SizedBox(height: 12),
             TextField(
               controller: descCtl,
-              decoration: const InputDecoration(
-                  labelText: 'Mô tả',
+              decoration: InputDecoration(
+                  labelText: tr('Mô tả'),
                   border: OutlineInputBorder()),
             ),
           ] else ...[
@@ -766,8 +762,8 @@ class _ProductSalarySettingsScreenState
                 Expanded(
                   child: TextField(
                     controller: codeCtl,
-                    decoration: const InputDecoration(
-                        labelText: 'Mã SP *',
+                    decoration: InputDecoration(
+                        labelText: tr('Mã SP *'),
                         border: OutlineInputBorder()),
                   ),
                 ),
@@ -776,8 +772,8 @@ class _ProductSalarySettingsScreenState
                   flex: 2,
                   child: TextField(
                     controller: nameCtl,
-                    decoration: const InputDecoration(
-                        labelText: 'Tên sản phẩm *',
+                    decoration: InputDecoration(
+                        labelText: tr('Tên sản phẩm *'),
                         border: OutlineInputBorder()),
                   ),
                 ),
@@ -789,8 +785,8 @@ class _ProductSalarySettingsScreenState
                 Expanded(
                   child: TextField(
                     controller: unitCtl,
-                    decoration: const InputDecoration(
-                        labelText: 'Đơn vị (cái, kg...)',
+                    decoration: InputDecoration(
+                        labelText: tr('Đơn vị (cái, kg...)'),
                         border: OutlineInputBorder()),
                   ),
                 ),
@@ -799,8 +795,8 @@ class _ProductSalarySettingsScreenState
                   flex: 2,
                   child: TextField(
                     controller: descCtl,
-                    decoration: const InputDecoration(
-                        labelText: 'Mô tả',
+                    decoration: InputDecoration(
+                        labelText: tr('Mô tả'),
                         border: OutlineInputBorder()),
                   ),
                 ),
@@ -810,7 +806,7 @@ class _ProductSalarySettingsScreenState
           const SizedBox(height: 20),
           Row(
             children: [
-              const Text('Bảng đơn giá theo bậc',
+              Text(tr('Bảng đơn giá theo bậc'),
                   style: TextStyle(
                       fontWeight: FontWeight.w600, fontSize: 14)),
               const Spacer(),
@@ -823,13 +819,13 @@ class _ProductSalarySettingsScreenState
                       'unitPrice': 0.0,
                       'tierLevel': tiers.length + 1,
                     });
-                    minCtls.add(TextEditingController(text: '0'));
+                    minCtls.add(TextEditingController(text: tr('0')));
                     maxCtls.add(TextEditingController(text: ''));
-                    priceCtls.add(TextEditingController(text: '0'));
+                    priceCtls.add(TextEditingController(text: tr('0')));
                   });
                 },
                 icon: const Icon(Icons.add, size: 16),
-                label: const Text('Thêm bậc'),
+                label: Text(tr('Thêm bậc')),
               ),
             ],
           ),
@@ -851,7 +847,7 @@ class _ProductSalarySettingsScreenState
                   children: [
                     Row(
                       children: [
-                        Text('Bậc ${idx + 1}',
+                        Text(tr('Bậc ${idx + 1}'),
                             style: const TextStyle(
                                 fontWeight: FontWeight.w600, fontSize: 13)),
                         const Spacer(),
@@ -878,8 +874,8 @@ class _ProductSalarySettingsScreenState
                         Expanded(
                           child: TextField(
                             controller: minCtls[idx],
-                            decoration: const InputDecoration(
-                                labelText: 'Từ SL',
+                            decoration: InputDecoration(
+                                labelText: tr('Từ SL'),
                                 border: OutlineInputBorder(),
                                 isDense: true,
                                 contentPadding: EdgeInsets.symmetric(
@@ -894,9 +890,9 @@ class _ProductSalarySettingsScreenState
                         Expanded(
                           child: TextField(
                             controller: maxCtls[idx],
-                            decoration: const InputDecoration(
-                                labelText: 'Đến SL',
-                                hintText: '∞',
+                            decoration: InputDecoration(
+                                labelText: tr('Đến SL'),
+                                hintText: tr('∞'),
                                 border: OutlineInputBorder(),
                                 isDense: true,
                                 contentPadding: EdgeInsets.symmetric(
@@ -911,8 +907,8 @@ class _ProductSalarySettingsScreenState
                         Expanded(
                           child: TextField(
                             controller: priceCtls[idx],
-                            decoration: const InputDecoration(
-                                labelText: 'Đơn giá (đ)',
+                            decoration: InputDecoration(
+                                labelText: tr('Đơn giá (đ)'),
                                 border: OutlineInputBorder(),
                                 isDense: true,
                                 contentPadding: EdgeInsets.symmetric(
@@ -935,7 +931,7 @@ class _ProductSalarySettingsScreenState
                 children: [
                   SizedBox(
                     width: 40,
-                    child: Text('Bậc ${idx + 1}',
+                    child: Text(tr('Bậc ${idx + 1}'),
                         style: const TextStyle(
                             fontWeight: FontWeight.w500,
                             fontSize: 13)),
@@ -944,8 +940,8 @@ class _ProductSalarySettingsScreenState
                   Expanded(
                     child: TextField(
                       controller: minCtls[idx],
-                      decoration: const InputDecoration(
-                          labelText: 'Từ SL',
+                      decoration: InputDecoration(
+                          labelText: tr('Từ SL'),
                           border: OutlineInputBorder(),
                           isDense: true),
                       keyboardType: TextInputType.number,
@@ -957,9 +953,9 @@ class _ProductSalarySettingsScreenState
                   Expanded(
                     child: TextField(
                       controller: maxCtls[idx],
-                      decoration: const InputDecoration(
-                          labelText: 'Đến SL',
-                          hintText: '∞',
+                      decoration: InputDecoration(
+                          labelText: tr('Đến SL'),
+                          hintText: tr('∞'),
                           border: OutlineInputBorder(),
                           isDense: true),
                       keyboardType: TextInputType.number,
@@ -971,8 +967,8 @@ class _ProductSalarySettingsScreenState
                   Expanded(
                     child: TextField(
                       controller: priceCtls[idx],
-                      decoration: const InputDecoration(
-                          labelText: 'Đơn giá (đ)',
+                      decoration: InputDecoration(
+                          labelText: tr('Đơn giá (đ)'),
                           border: OutlineInputBorder(),
                           isDense: true),
                       keyboardType: TextInputType.number,
@@ -1009,7 +1005,7 @@ class _ProductSalarySettingsScreenState
             return Dialog.fullscreen(
               child: Scaffold(
                 appBar: AppBar(
-                  title: Text(isEdit ? 'Sửa sản phẩm' : 'Thêm sản phẩm'),
+                  title: Text(tr(isEdit ? 'Sửa sản phẩm' : 'Thêm sản phẩm')),
                   leading: IconButton(
                     icon: const Icon(Icons.close),
                     onPressed: () => Navigator.pop(ctx),
@@ -1020,7 +1016,7 @@ class _ProductSalarySettingsScreenState
                     TextButton(
                       onPressed: onSave,
                       style: TextButton.styleFrom(foregroundColor: Colors.white),
-                      child: Text(isEdit ? 'Lưu' : 'Thêm'),
+                      child: Text(tr(isEdit ? 'Lưu' : 'Thêm')),
                     ),
                   ],
                 ),
@@ -1032,7 +1028,7 @@ class _ProductSalarySettingsScreenState
             );
           }
           return ScrollableAlertDialog(
-            title: Text(isEdit ? 'Sửa sản phẩm' : 'Thêm sản phẩm'),
+            title: Text(tr(isEdit ? 'Sửa sản phẩm' : 'Thêm sản phẩm')),
             content: SizedBox(
               width: 500,
               child: SingleChildScrollView(
@@ -1042,10 +1038,10 @@ class _ProductSalarySettingsScreenState
             actions: [
               TextButton(
                   onPressed: () => Navigator.pop(ctx),
-                  child: const Text('Hủy')),
+                  child: Text(tr('Hủy'))),
               FilledButton(
                 onPressed: onSave,
-                child: Text(isEdit ? 'Lưu' : 'Thêm'),
+                child: Text(tr(isEdit ? 'Lưu' : 'Thêm')),
               ),
             ],
           );
@@ -1058,23 +1054,23 @@ class _ProductSalarySettingsScreenState
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => ScrollableAlertDialog(
-        title: const Text('Xác nhận xóa'),
-        content: Text('Xóa sản phẩm "${item['name']}"?'),
+        title: Text(tr('Xác nhận xóa')),
+        content: Text(tr('${tr('Xóa sản phẩm "')}${item['name']}"?')),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Hủy')),
+              child: Text(tr('Hủy'))),
           FilledButton(
               onPressed: () => Navigator.pop(ctx, true),
               style: FilledButton.styleFrom(backgroundColor: Colors.red),
-              child: const Text('Xóa')),
+              child: Text(tr('Xóa'))),
         ],
       ),
     );
     if (confirm == true) {
       final res = await _apiService.deleteProductItem(item['id'].toString());
       if (res['isSuccess'] == true) {
-        appNotification.showSuccess(title: 'Thành công', message: 'Đã xóa sản phẩm');
+        appNotification.showSuccess(title: 'Thành công', message: tr('Đã xóa sản phẩm'));
         _loadData();
       }
     }

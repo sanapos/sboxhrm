@@ -12,6 +12,7 @@ import 'package:provider/provider.dart';
 import '../providers/permission_provider.dart';
 import '../providers/auth_provider.dart';
 import '../utils/salary_profile_load_utils.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// Màn hình Tổng hợp lương
 class PayrollScreen extends StatefulWidget {
@@ -158,13 +159,13 @@ class _PayrollScreenState extends State<PayrollScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Tổng hợp lương',
+                      Text(tr('Tổng hợp lương'),
                           style: vietnameseTextStyle(TextStyle(
                               color: Colors.white,
                               fontSize: isMobile ? 16 : 20,
                               fontWeight: FontWeight.bold))),
                       if (!isMobile)
-                        Text('Bảng lương chi tiết nhân viên',
+                        Text(tr('Bảng lương chi tiết nhân viên'),
                             style: vietnameseTextStyle(TextStyle(
                                 color: Colors.white.withValues(alpha: 0.8),
                                 fontSize: 13))),
@@ -202,7 +203,7 @@ class _PayrollScreenState extends State<PayrollScreen> {
                             child: Row(children: [
                               const Icon(Icons.table_chart_outlined, size: 18),
                               const SizedBox(width: 10),
-                              Text('Xuất Excel', style: vietnameseTextStyle())
+                              Text(tr('Xuất Excel'), style: vietnameseTextStyle())
                             ])),
                       if (Provider.of<PermissionProvider>(context,
                               listen: false)
@@ -212,14 +213,14 @@ class _PayrollScreenState extends State<PayrollScreen> {
                             child: Row(children: [
                               const Icon(Icons.image_outlined, size: 18),
                               const SizedBox(width: 10),
-                              Text('Xuất PNG', style: vietnameseTextStyle())
+                              Text(tr('Xuất PNG'), style: vietnameseTextStyle())
                             ])),
                       PopupMenuItem(
                           value: 'cols',
                           child: Row(children: [
                             const Icon(Icons.view_column_outlined, size: 18),
                             const SizedBox(width: 10),
-                            Text('Chọn cột', style: vietnameseTextStyle())
+                            Text(tr('Chọn cột'), style: vietnameseTextStyle())
                           ])),
                     ],
                   )
@@ -273,13 +274,13 @@ class _PayrollScreenState extends State<PayrollScreen> {
                           icon: const Icon(Icons.keyboard_arrow_down,
                               size: 18, color: Color(0xFF9CA3AF)),
                           items: [
-                            const DropdownMenuItem<String?>(
+                            DropdownMenuItem<String?>(
                                 value: null,
-                                child: Text('T\u1ea5t c\u1ea3 chi nh\u00e1nh',
+                                child: Text(tr('T\u1ea5t c\u1ea3 chi nh\u00e1nh'),
                                     style: TextStyle(fontSize: 13))),
                             ..._branches.map((b) => DropdownMenuItem<String?>(
                                 value: b['id']?.toString(),
-                                child: Text(b['name']?.toString() ?? '',
+                                child: Text(tr(b['name']?.toString() ?? ''),
                                     overflow: TextOverflow.ellipsis,
                                     style: const TextStyle(fontSize: 13)))),
                           ],
@@ -306,7 +307,7 @@ class _PayrollScreenState extends State<PayrollScreen> {
 
   Widget _monthYearChip(bool isMobile) {
     return PopupMenuButton<String>(
-      tooltip: 'Chọn tháng',
+      tooltip: tr('Chọn tháng'),
       child: Container(
         padding: EdgeInsets.symmetric(
             horizontal: isMobile ? 8 : 10, vertical: isMobile ? 6 : 8),
@@ -320,7 +321,7 @@ class _PayrollScreenState extends State<PayrollScreen> {
             const Icon(Icons.calendar_month, size: 16, color: Colors.white),
             const SizedBox(width: 4),
             Text(
-              '$_selectedMonth/$_selectedYear',
+              tr('$_selectedMonth/$_selectedYear'),
               style: TextStyle(
                 color: Colors.white,
                 fontSize: isMobile ? 12 : 13,
@@ -347,7 +348,7 @@ class _PayrollScreenState extends State<PayrollScreen> {
         return List.generate(12, (i) {
           final d = DateTime(now.year, now.month - i, 1);
           final label = '${d.month}/${d.year}';
-          return PopupMenuItem(value: label, child: Text('Tháng $label'));
+          return PopupMenuItem(value: label, child: Text(tr('Tháng $label')));
         });
       },
     );
@@ -398,7 +399,7 @@ class _PayrollScreenState extends State<PayrollScreen> {
             children: [
               Icon(icon, color: Colors.white, size: 16),
               const SizedBox(width: 6),
-              Text(label,
+              Text(tr(label),
                   style: const TextStyle(
                       color: Colors.white,
                       fontSize: 13,

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import 'settings_hub_screen.dart';
 import '../widgets/hrm_page_chrome.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 class AppInfoScreen extends StatefulWidget {
   /// type: 'terms' | 'privacy' | 'help' | 'bugreport'
@@ -67,7 +68,7 @@ class _AppInfoScreenState extends State<AppInfoScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(appBarTitle),
+        title: Text(tr(appBarTitle)),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () => SettingsHubScreen.goBack(context),
@@ -76,18 +77,18 @@ class _AppInfoScreenState extends State<AppInfoScreen> {
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
-              ? Center(child: Text(_error!, style: const TextStyle(color: Colors.red)))
+              ? Center(child: Text(tr(_error!), style: const TextStyle(color: Colors.red)))
               : SingleChildScrollView(
                   padding: const EdgeInsets.all(20),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       if (_title.isNotEmpty) ...[
-                        Text(_title,
+                        Text(tr(_title),
                             style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                         const SizedBox(height: 16),
                       ],
-                      Text(_content, style: const TextStyle(fontSize: 15, height: 1.6)),
+                      Text(tr(_content), style: const TextStyle(fontSize: 15, height: 1.6)),
                     ],
                   ),
                 ),
@@ -136,14 +137,14 @@ class _BugReportFormState extends State<_BugReportForm> {
       } else {
         setState(() => _submitting = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(res['message'] as String? ?? 'Gửi thất bại'), backgroundColor: Colors.red),
+          SnackBar(content: Text(tr(res['message'] as String? ?? 'Gửi thất bại')), backgroundColor: Colors.red),
         );
       }
     } catch (e) {
       if (!mounted) return;
       setState(() => _submitting = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Gửi thất bại: $e'), backgroundColor: Colors.red),
+        SnackBar(content: Text(tr('Gửi thất bại: $e')), backgroundColor: Colors.red),
       );
     }
   }
@@ -152,7 +153,7 @@ class _BugReportFormState extends State<_BugReportForm> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Báo lỗi & Góp ý'),
+        title: Text(tr('Báo lỗi & Góp ý')),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: widget.onBack,
@@ -165,15 +166,15 @@ class _BugReportFormState extends State<_BugReportForm> {
                 children: [
                   const Icon(Icons.check_circle_outline, color: Colors.green, size: 64),
                   const SizedBox(height: 16),
-                  const Text('Cảm ơn bạn đã gửi phản hồi!',
+                  Text(tr('Cảm ơn bạn đã gửi phản hồi!'),
                       style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 8),
-                  const Text('Chúng tôi sẽ xem xét và phản hồi sớm nhất có thể.',
+                  Text(tr('Chúng tôi sẽ xem xét và phản hồi sớm nhất có thể.'),
                       textAlign: TextAlign.center),
                   const SizedBox(height: 24),
                   FilledButton(
                     onPressed: widget.onBack,
-                    child: const Text('Quay lại'),
+                    child: Text(tr('Quay lại')),
                   ),
                 ],
               ),
@@ -185,41 +186,41 @@ class _BugReportFormState extends State<_BugReportForm> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const Text('Loại phản hồi',
+                    Text(tr('Loại phản hồi'),
                         style: TextStyle(fontWeight: FontWeight.w600)),
                     const SizedBox(height: 8),
                     DropdownButtonFormField<String>(
                       initialValue: _type,
                       decoration: const InputDecoration(border: OutlineInputBorder()),
-                      items: const [
-                        DropdownMenuItem(value: 'Bug', child: Text('🐛 Báo lỗi')),
-                        DropdownMenuItem(value: 'Suggestion', child: Text('💡 Góp ý / Đề xuất')),
-                        DropdownMenuItem(value: 'Other', child: Text('📝 Khác')),
+                      items: [
+                        DropdownMenuItem(value: 'Bug', child: Text(tr('🐛 Báo lỗi'))),
+                        DropdownMenuItem(value: 'Suggestion', child: Text(tr('💡 Góp ý / Đề xuất'))),
+                        DropdownMenuItem(value: 'Other', child: Text(tr('📝 Khác'))),
                       ],
                       onChanged: (v) => setState(() => _type = v!),
                     ),
                     const SizedBox(height: 16),
-                    const Text('Tiêu đề',
+                    Text(tr('Tiêu đề'),
                         style: TextStyle(fontWeight: FontWeight.w600)),
                     const SizedBox(height: 8),
                     TextFormField(
                       controller: _titleCtrl,
-                      decoration: const InputDecoration(
-                        hintText: 'Mô tả ngắn gọn vấn đề...',
+                      decoration: InputDecoration(
+                        hintText: tr('Mô tả ngắn gọn vấn đề...'),
                         border: OutlineInputBorder(),
                       ),
                       validator: (v) =>
                           (v == null || v.trim().isEmpty) ? 'Vui lòng nhập tiêu đề' : null,
                     ),
                     const SizedBox(height: 16),
-                    const Text('Nội dung chi tiết',
+                    Text(tr('Nội dung chi tiết'),
                         style: TextStyle(fontWeight: FontWeight.w600)),
                     const SizedBox(height: 8),
                     TextFormField(
                       controller: _contentCtrl,
                       maxLines: 6,
-                      decoration: const InputDecoration(
-                        hintText: 'Mô tả chi tiết lỗi, cách tái hiện, hoặc ý kiến góp ý...',
+                      decoration: InputDecoration(
+                        hintText: tr('Mô tả chi tiết lỗi, cách tái hiện, hoặc ý kiến góp ý...'),
                         border: OutlineInputBorder(),
                         alignLabelWithHint: true,
                       ),
@@ -238,7 +239,7 @@ class _BugReportFormState extends State<_BugReportForm> {
                                 child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                               )
                             : const Icon(Icons.send),
-                        label: Text(_submitting ? 'Đang gửi...' : 'Gửi phản hồi'),
+                        label: Text(tr(_submitting ? 'Đang gửi...' : 'Gửi phản hồi')),
                         style: FilledButton.styleFrom(backgroundColor: HrmPageChrome.primaryNavy),
                       ),
                     ),

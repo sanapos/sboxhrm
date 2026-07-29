@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../services/api_service.dart';
 import 'admin_login_screen.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 class AgentRegisterScreen extends StatefulWidget {
   const AgentRegisterScreen({super.key, required this.token});
@@ -82,10 +83,10 @@ class _AgentRegisterScreenState extends State<AgentRegisterScreen> {
           context: context,
           barrierDismissible: false,
           builder: (ctx) => AlertDialog(
-            title: const Text('Đăng ký thành công'),
+            title: Text(tr('Đăng ký thành công')),
             content: Text(
-              res['data']?['message']?.toString() ??
-                  'Bạn có thể đăng nhập cổng đại lý bằng email và mật khẩu vừa tạo.',
+              tr(res['data']?['message']?.toString() ??
+                  'Bạn có thể đăng nhập cổng đại lý bằng email và mật khẩu vừa tạo.'),
             ),
             actions: [
               FilledButton(
@@ -95,7 +96,7 @@ class _AgentRegisterScreenState extends State<AgentRegisterScreen> {
                     MaterialPageRoute(builder: (_) => const AdminLoginScreen()),
                   );
                 },
-                child: const Text('Đăng nhập cổng đại lý'),
+                child: Text(tr('Đăng nhập cổng đại lý')),
               ),
             ],
           ),
@@ -138,13 +139,13 @@ class _AgentRegisterScreenState extends State<AgentRegisterScreen> {
                               const Icon(Icons.error_outline,
                                   color: Colors.red, size: 48),
                               const SizedBox(height: 12),
-                              Text(_error!,
+                              Text(tr(_error!),
                                   textAlign: TextAlign.center,
                                   style: const TextStyle(color: Colors.red)),
                               const SizedBox(height: 16),
                               TextButton(
                                 onPressed: _loadAgentInfo,
-                                child: const Text('Thử lại'),
+                                child: Text(tr('Thử lại')),
                               ),
                             ],
                           )
@@ -153,14 +154,13 @@ class _AgentRegisterScreenState extends State<AgentRegisterScreen> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
-                                const Row(
+                                Row(
                                   children: [
                                     Icon(Icons.support_agent,
                                         color: Color(0xFF0F172A), size: 28),
                                     SizedBox(width: 10),
                                     Expanded(
-                                      child: Text(
-                                        'Đăng ký tài khoản đại lý',
+                                      child: Text(tr('Đăng ký tài khoản đại lý'),
                                         style: TextStyle(
                                           fontSize: 22,
                                           fontWeight: FontWeight.bold,
@@ -171,7 +171,7 @@ class _AgentRegisterScreenState extends State<AgentRegisterScreen> {
                                 ),
                                 const SizedBox(height: 8),
                                 Text(
-                                  _agentInfo?['agentName']?.toString() ?? '',
+                                  tr(_agentInfo?['agentName']?.toString() ?? ''),
                                   style: const TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.w600,
@@ -179,16 +179,15 @@ class _AgentRegisterScreenState extends State<AgentRegisterScreen> {
                                   ),
                                 ),
                                 if (_agentInfo?['agentCode'] != null)
-                                  Text(
-                                    'Mã: ${_agentInfo!['agentCode']}',
+                                  Text(tr('${tr('Mã: ')}${_agentInfo!['agentCode']}'),
                                     style: const TextStyle(
                                         color: Color(0xFF64748B)),
                                   ),
                                 const SizedBox(height: 20),
                                 TextFormField(
                                   controller: _nameCtrl,
-                                  decoration: const InputDecoration(
-                                    labelText: 'Họ tên',
+                                  decoration: InputDecoration(
+                                    labelText: tr('Họ tên'),
                                     border: OutlineInputBorder(),
                                   ),
                                   validator: (v) =>
@@ -200,8 +199,8 @@ class _AgentRegisterScreenState extends State<AgentRegisterScreen> {
                                 TextFormField(
                                   controller: _emailCtrl,
                                   keyboardType: TextInputType.emailAddress,
-                                  decoration: const InputDecoration(
-                                    labelText: 'Email đăng nhập',
+                                  decoration: InputDecoration(
+                                    labelText: tr('Email đăng nhập'),
                                     border: OutlineInputBorder(),
                                   ),
                                   validator: (v) {
@@ -217,7 +216,7 @@ class _AgentRegisterScreenState extends State<AgentRegisterScreen> {
                                   controller: _passwordCtrl,
                                   obscureText: _obscure1,
                                   decoration: InputDecoration(
-                                    labelText: 'Mật khẩu',
+                                    labelText: tr('Mật khẩu'),
                                     border: const OutlineInputBorder(),
                                     suffixIcon: IconButton(
                                       icon: Icon(_obscure1
@@ -239,7 +238,7 @@ class _AgentRegisterScreenState extends State<AgentRegisterScreen> {
                                   controller: _confirmCtrl,
                                   obscureText: _obscure2,
                                   decoration: InputDecoration(
-                                    labelText: 'Xác nhận mật khẩu',
+                                    labelText: tr('Xác nhận mật khẩu'),
                                     border: const OutlineInputBorder(),
                                     suffixIcon: IconButton(
                                       icon: Icon(_obscure2
@@ -258,7 +257,7 @@ class _AgentRegisterScreenState extends State<AgentRegisterScreen> {
                                 ),
                                 if (_error != null) ...[
                                   const SizedBox(height: 12),
-                                  Text(_error!,
+                                  Text(tr(_error!),
                                       style: const TextStyle(color: Colors.red)),
                                 ],
                                 const SizedBox(height: 20),
@@ -278,7 +277,7 @@ class _AgentRegisterScreenState extends State<AgentRegisterScreen> {
                                             color: Colors.white,
                                           ),
                                         )
-                                      : const Text('Hoàn tất đăng ký'),
+                                      : Text(tr('Hoàn tất đăng ký')),
                                 ),
                               ],
                             ),

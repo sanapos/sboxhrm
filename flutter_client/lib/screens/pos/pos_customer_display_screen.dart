@@ -8,6 +8,7 @@ import 'package:video_player/video_player.dart';
 import '../../models/customer_display_models.dart';
 import '../../services/customer_display_sync.dart';
 import '../../widgets/hrm_page_chrome.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// Màn hình phụ phía khách: luôn 2 cột — media | bill (trắng/đen).
 /// Không có ảnh/video → panel branding SBOX HRM (giống trang chủ).
@@ -222,8 +223,8 @@ class _PosCustomerDisplayScreenState extends State<PosCustomerDisplayScreen> {
               ),
             ),
             const SizedBox(height: 20),
-            const Text(
-              'SBOX HRM',
+            Text(
+              tr('SBOX HRM'),
               style: TextStyle(
                 color: Colors.white,
                 fontSize: 36,
@@ -233,7 +234,7 @@ class _PosCustomerDisplayScreenState extends State<PosCustomerDisplayScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              store.isNotEmpty ? store : 'Xin chào quý khách',
+              tr(store.isNotEmpty ? store : 'Xin chào quý khách'),
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: Colors.white.withValues(alpha: 0.8),
@@ -262,7 +263,7 @@ class _PosCustomerDisplayScreenState extends State<PosCustomerDisplayScreen> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            (s.storeName ?? 'Hóa đơn').trim(),
+            tr((s.storeName ?? 'Hóa đơn').trim()),
             style: const TextStyle(
               color: _billFg,
               fontSize: 20,
@@ -271,19 +272,19 @@ class _PosCustomerDisplayScreenState extends State<PosCustomerDisplayScreen> {
           ),
           const SizedBox(height: 4),
           Text(
-            active
+            tr(active
                 ? (table.isEmpty ? 'Đơn hiện tại' : table)
-                : 'Chờ phục vụ',
+                : 'Chờ phục vụ'),
             style: const TextStyle(color: _billMuted, fontSize: 14),
           ),
           if (active &&
               ((s.orderNo ?? '').isNotEmpty || s.guestCount > 0)) ...[
             const SizedBox(height: 2),
             Text(
-              [
+              tr([
                 if ((s.orderNo ?? '').isNotEmpty) s.orderNo,
                 if (s.guestCount > 0) '${s.guestCount} khách',
-              ].join(' · '),
+              ].join(' · ')),
               style: const TextStyle(color: _billMuted, fontSize: 13),
             ),
           ],
@@ -294,7 +295,7 @@ class _PosCustomerDisplayScreenState extends State<PosCustomerDisplayScreen> {
             child: !active || s.lines.isEmpty
                 ? Center(
                     child: Text(
-                      active ? 'Chưa có món' : 'Xin chào quý khách',
+                      tr(active ? 'Chưa có món' : 'Xin chào quý khách'),
                       style: const TextStyle(
                         color: _billMuted,
                         fontSize: 18,
@@ -317,7 +318,7 @@ class _PosCustomerDisplayScreenState extends State<PosCustomerDisplayScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  l.name,
+                                  tr(l.name),
                                   style: const TextStyle(
                                     color: _billFg,
                                     fontSize: 16,
@@ -326,9 +327,9 @@ class _PosCustomerDisplayScreenState extends State<PosCustomerDisplayScreen> {
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
-                                  'SL $qty'
+                                  tr('SL $qty'
                                   '${(l.unitLabel ?? '').isNotEmpty ? ' ${l.unitLabel}' : ''}'
-                                  ' × ${_money.format(l.unitPrice)}đ',
+                                  ' × ${_money.format(l.unitPrice)}đ'),
                                   style: const TextStyle(
                                     color: _billMuted,
                                     fontSize: 13,
@@ -338,8 +339,7 @@ class _PosCustomerDisplayScreenState extends State<PosCustomerDisplayScreen> {
                             ),
                           ),
                           const SizedBox(width: 8),
-                          Text(
-                            '${_money.format(l.lineTotal)}đ',
+                          Text(tr('${_money.format(l.lineTotal)}đ'),
                             style: const TextStyle(
                               color: _billFg,
                               fontSize: 16,
@@ -369,8 +369,7 @@ class _PosCustomerDisplayScreenState extends State<PosCustomerDisplayScreen> {
             emphasize: true,
           ),
           const SizedBox(height: 16),
-          Text(
-            'Cảm ơn quý khách',
+          Text(tr('Cảm ơn quý khách'),
             textAlign: TextAlign.center,
             style: TextStyle(
               color: HrmPageChrome.primaryNavy.withValues(alpha: 0.85),
@@ -392,7 +391,7 @@ class _PosCustomerDisplayScreenState extends State<PosCustomerDisplayScreen> {
     return Row(
       children: [
         Text(
-          label,
+          tr(label),
           style: TextStyle(
             color: emphasize ? _billFg : _billMuted,
             fontSize: emphasize ? 16 : 15,
@@ -401,7 +400,7 @@ class _PosCustomerDisplayScreenState extends State<PosCustomerDisplayScreen> {
         ),
         const Spacer(),
         Text(
-          value,
+          tr(value),
           style: TextStyle(
             color: valueColor ?? _billFg,
             fontSize: emphasize ? 28 : 17,

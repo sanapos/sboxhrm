@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../utils/app_error_utils.dart';
 import '../utils/navigation_notifier.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// Màn hình thay thế [ErrorWidget] mặc định — tránh nền xanh/tối chung chung.
 class AppFatalErrorScreen extends StatelessWidget {
@@ -45,7 +46,7 @@ class AppFatalErrorScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 20),
                 Text(
-                  info.title,
+                  tr(info.title),
                   textAlign: TextAlign.center,
                   style: const TextStyle(
                     fontSize: 20,
@@ -55,8 +56,7 @@ class AppFatalErrorScreen extends StatelessWidget {
                 ),
                 if (screen != null && screen.isNotEmpty) ...[
                   const SizedBox(height: 8),
-                  Text(
-                    'Màn hình: $screen',
+                  Text(tr('Màn hình: $screen'),
                     textAlign: TextAlign.center,
                     style: const TextStyle(
                       fontSize: 14,
@@ -67,7 +67,7 @@ class AppFatalErrorScreen extends StatelessWidget {
                 ],
                 const SizedBox(height: 10),
                 Text(
-                  info.message,
+                  tr(info.message),
                   textAlign: TextAlign.center,
                   style: const TextStyle(
                     fontSize: 15,
@@ -88,8 +88,7 @@ class AppFatalErrorScreen extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          'Chi tiết lỗi (gửi ảnh màn hình này cho IT):',
+                        Text(tr('Chi tiết lỗi (gửi ảnh màn hình này cho IT):'),
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
@@ -98,7 +97,7 @@ class AppFatalErrorScreen extends StatelessWidget {
                         ),
                         const SizedBox(height: 6),
                         SelectableText(
-                          info.technicalHint!,
+                          tr(info.technicalHint!),
                           style: const TextStyle(
                             fontSize: 12,
                             height: 1.4,
@@ -108,8 +107,7 @@ class AppFatalErrorScreen extends StatelessWidget {
                         ),
                         if (details.library != null) ...[
                           const SizedBox(height: 6),
-                          Text(
-                            'Vị trí: ${details.library}',
+                          Text(tr('Vị trí: ${details.library}'),
                             style: const TextStyle(
                               fontSize: 11,
                               color: Color(0xFFA1A1AA),
@@ -123,21 +121,20 @@ class AppFatalErrorScreen extends StatelessWidget {
                 if (kDebugMode && details.stack != null) ...[
                   const SizedBox(height: 12),
                   ExpansionTile(
-                    title: const Text(
-                      'Stack trace (debug)',
+                    title: Text(
+                      tr('Stack trace (debug)'),
                       style: TextStyle(fontSize: 13),
                     ),
                     children: [
                       SelectableText(
-                        details.stack.toString(),
+                        tr(details.stack.toString()),
                         style: const TextStyle(fontSize: 10),
                       ),
                     ],
                   ),
                 ],
                 const SizedBox(height: 20),
-                Text(
-                  'Đóng app hoàn toàn rồi mở lại. Nếu lỗi lặp lại, chụp màn hình này và báo quản trị.',
+                Text(tr('Đóng app hoàn toàn rồi mở lại. Nếu lỗi lặp lại, chụp màn hình này và báo quản trị.'),
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 13,

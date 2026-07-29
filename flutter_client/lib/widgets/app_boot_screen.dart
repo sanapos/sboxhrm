@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'pos/pos_theme.dart';
 import 'sbox_hrm_brand.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// Màn chờ khi [AuthProvider.isInitializing] — tránh Scaffold trắng trống trên iOS.
 class AppBootScreen extends StatelessWidget {
@@ -31,8 +32,7 @@ class AppBootScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 16),
-              const Text(
-                'Đang tải…',
+              Text(tr('Đang tải…'),
                 style: TextStyle(
                   color: PosTheme.textSecondary,
                   fontSize: 14,

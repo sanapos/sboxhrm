@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../l10n/app_tr.dart';
 
 class LoadingWidget extends StatelessWidget {
   final String? message;
@@ -30,7 +31,7 @@ class LoadingWidget extends StatelessWidget {
           if (message != null) ...[
             const SizedBox(height: 16),
             Text(
-              message!,
+              tr(message!),
               style: TextStyle(
                 color: Colors.grey[400],
                 fontSize: 14,

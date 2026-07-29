@@ -13,6 +13,7 @@ import '../widgets/hrm/hrm_settings_mobile_kit.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../widgets/notification_overlay.dart';
 import '../widgets/device_sync_progress_overlay.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 class DeviceManagementSettingsScreen extends StatefulWidget {
   const DeviceManagementSettingsScreen({super.key});
 
@@ -48,7 +49,7 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
       if (mounted) {
         appNotification.showError(
           title: 'Lỗi tải dữ liệu',
-          message: 'Không thể tải danh sách thiết bị: $e',
+          message: tr('Không thể tải danh sách thiết bị: $e'),
         );
       }
     }
@@ -120,24 +121,24 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
       context: context,
       builder: (ctx) => ScrollableAlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Text(isDangerous ? '⚠️ Cảnh báo nguy hiểm' : 'Xác nhận'),
-        content: Text(isDangerous
+        title: Text(tr(isDangerous ? '⚠️ Cảnh báo nguy hiểm' : 'Xác nhận')),
+        content: Text(tr(isDangerous
             ? 'CẢNH BÁO: Thao tác "$label" sẽ XÓA VĨNH VIỄN dữ liệu trên thiết bị "${device['deviceName']}"!\n\nHành động này KHÔNG THỂ hoàn tác. Bạn có chắc chắn?'
-            : 'Bạn có chắc muốn "$label" trên thiết bị "${device['deviceName']}"?'),
+            : 'Bạn có chắc muốn "$label" trên thiết bị "${device['deviceName']}"?')),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Hủy')),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Hủy'))),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: isDangerous ? FilledButton.styleFrom(backgroundColor: const Color(0xFFEF4444)) : null,
-            child: Text(isDangerous ? 'Xác nhận XÓA' : 'Xác nhận'),
+            child: Text(tr(isDangerous ? 'Xác nhận XÓA' : 'Xác nhận')),
           ),
         ],
       ),
     );
     if (confirmed != true || !mounted) {
-      return const _DeviceCommandOutcome(
+      return _DeviceCommandOutcome(
         success: false,
-        message: 'Đã hủy thao tác',
+        message: tr('Đã hủy thao tác'),
         cancelled: true,
       );
     }
@@ -165,9 +166,9 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
 
     final result = await _apiService.sendDeviceCommand(deviceId, commandType);
     if (!mounted) {
-      return const _DeviceCommandOutcome(
+      return _DeviceCommandOutcome(
         success: false,
-        message: 'Không thể gửi lệnh',
+        message: tr('Không thể gửi lệnh'),
       );
     }
 
@@ -277,9 +278,9 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
   }
 
   Future<void> _showRenameDialog(Map<String, dynamic> device) async {
-    final nameCtrl = TextEditingController(text: device['deviceName'] ?? '');
-    final locationCtrl = TextEditingController(text: device['location'] ?? '');
-    final descCtrl = TextEditingController(text: device['description'] ?? '');
+    final nameCtrl = TextEditingController(text: tr(device['deviceName'] ?? ''));
+    final locationCtrl = TextEditingController(text: tr(device['location'] ?? ''));
+    final descCtrl = TextEditingController(text: tr(device['description'] ?? ''));
 
     final isMobileDialog = Responsive.isMobile(context);
 
@@ -290,7 +291,7 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
         TextField(
           controller: nameCtrl,
           decoration: InputDecoration(
-            labelText: 'Tên thiết bị',
+            labelText: tr('Tên thiết bị'),
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
             prefixIcon: const Icon(Icons.devices),
           ),
@@ -299,7 +300,7 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
         TextField(
           controller: locationCtrl,
           decoration: InputDecoration(
-            labelText: 'Vị trí lắp đặt',
+            labelText: tr('Vị trí lắp đặt'),
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
             prefixIcon: const Icon(Icons.location_on),
           ),
@@ -308,7 +309,7 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
         TextField(
           controller: descCtrl,
           decoration: InputDecoration(
-            labelText: 'Mô tả',
+            labelText: tr('Mô tả'),
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
             prefixIcon: const Icon(Icons.description),
           ),
@@ -324,12 +325,12 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
           return Dialog.fullscreen(
             child: Scaffold(
               appBar: AppBar(
-                title: const Text('Chỉnh sửa thiết bị'),
+                title: Text(tr('Chỉnh sửa thiết bị')),
                 leading: IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(ctx, false)),
                 actions: [
                   Padding(
                     padding: const EdgeInsets.only(right: 8),
-                    child: FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Lưu')),
+                    child: FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(tr('Lưu'))),
                   ),
                 ],
               ),
@@ -340,11 +341,11 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
 
         return ScrollableAlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: const Row(
+          title: Row(
             children: [
               Icon(Icons.edit, color: HrmPageChrome.primaryNavy),
               SizedBox(width: 8),
-              Text('Chỉnh sửa thiết bị'),
+              Text(tr('Chỉnh sửa thiết bị')),
             ],
           ),
           content: SizedBox(
@@ -352,8 +353,8 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
             child: formBody,
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Hủy')),
-            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Lưu')),
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Hủy'))),
+            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(tr('Lưu'))),
           ],
         );
       },
@@ -380,10 +381,10 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
     });
     if (!mounted) return;
     if (success) {
-      NotificationOverlayManager().showSuccess(title: 'Thành công', message: 'Đã cập nhật thiết bị');
+      NotificationOverlayManager().showSuccess(title: 'Thành công', message: tr('Đã cập nhật thiết bị'));
       _loadDevices();
     } else {
-      NotificationOverlayManager().showError(title: 'Lỗi', message: 'Cập nhật thất bại');
+      NotificationOverlayManager().showError(title: 'Lỗi', message: tr('Cập nhật thất bại'));
     }
   }
 
@@ -467,7 +468,7 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
                 serialError = snCtrl.text.trim().isEmpty ? 'Vui lòng nhập Serial Number' : null;
               });
               if (nameCtrl.text.trim().isEmpty) {
-                NotificationOverlayManager().showWarning(title: 'Thiếu thông tin', message: 'Vui lòng nhập Tên thiết bị');
+                NotificationOverlayManager().showWarning(title: 'Thiếu thông tin', message: tr('Vui lòng nhập Tên thiết bị'));
               }
               return;
             }
@@ -517,7 +518,7 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
             });
             if (!mounted) return;
             if (createResult['success'] == true) {
-              NotificationOverlayManager().showSuccess(title: 'Thành công', message: 'Đã thêm thiết bị');
+              NotificationOverlayManager().showSuccess(title: 'Thành công', message: tr('Đã thêm thiết bị'));
               _loadDevices();
             } else {
               final msg = createResult['message'] ?? 'Thêm thiết bị thất bại';
@@ -535,7 +536,7 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
               TextField(
                 controller: snCtrl,
                 decoration: InputDecoration(
-                  labelText: 'Serial Number *',
+                  labelText: tr('Serial Number *'),
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                   prefixIcon: const Icon(Icons.qr_code),
                   suffixIcon: Row(
@@ -544,7 +545,7 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
                       // Scan barcode button
                       IconButton(
                         icon: const Icon(Icons.qr_code_scanner, color: HrmPageChrome.primaryNavy),
-                        tooltip: 'Quét mã barcode',
+                        tooltip: tr('Quét mã barcode'),
                         onPressed: scanBarcode,
                       ),
                       // Check serial button
@@ -556,12 +557,12 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
                       else
                         IconButton(
                           icon: const Icon(Icons.search, color: Color(0xFF586064)),
-                          tooltip: 'Kiểm tra Serial',
+                          tooltip: tr('Kiểm tra Serial'),
                           onPressed: checkSerial,
                         ),
                     ],
                   ),
-                  errorText: serialError,
+                  errorText: trN(serialError),
                   errorMaxLines: 3,
                 ),
                 onSubmitted: (_) => checkSerial(),
@@ -580,7 +581,7 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
                     children: [
                       const Icon(Icons.check_circle, color: Color(0xFF059669), size: 18),
                       const SizedBox(width: 8),
-                      Expanded(child: Text(serialSuccess!, style: const TextStyle(color: Color(0xFF059669), fontSize: 13, fontWeight: FontWeight.w500))),
+                      Expanded(child: Text(tr(serialSuccess!), style: const TextStyle(color: Color(0xFF059669), fontSize: 13, fontWeight: FontWeight.w500))),
                     ],
                   ),
                 ),
@@ -589,7 +590,7 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
               TextField(
                 controller: nameCtrl,
                 decoration: InputDecoration(
-                  labelText: 'Tên thiết bị *',
+                  labelText: tr('Tên thiết bị *'),
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                   prefixIcon: const Icon(Icons.devices),
                 ),
@@ -598,7 +599,7 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
               TextField(
                 controller: locationCtrl,
                 decoration: InputDecoration(
-                  labelText: 'Vị trí lắp đặt',
+                  labelText: tr('Vị trí lắp đặt'),
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                   prefixIcon: const Icon(Icons.location_on),
                 ),
@@ -607,7 +608,7 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
               TextField(
                 controller: descCtrl,
                 decoration: InputDecoration(
-                  labelText: 'Mô tả',
+                  labelText: tr('Mô tả'),
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                   prefixIcon: const Icon(Icons.description),
                 ),
@@ -619,14 +620,14 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
             return Dialog.fullscreen(
               child: Scaffold(
                 appBar: AppBar(
-                  title: const Text('Thêm máy chấm công'),
+                  title: Text(tr('Thêm máy chấm công')),
                   leading: IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(ctx, false)),
                   actions: [
                     Padding(
                       padding: const EdgeInsets.only(right: 8),
                       child: FilledButton(
                         onPressed: isCheckingSerial ? null : submitDevice,
-                        child: const Text('Thêm'),
+                        child: Text(tr('Thêm')),
                       ),
                     ),
                   ],
@@ -638,11 +639,11 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
 
           return ScrollableAlertDialog(
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            title: const Row(
+            title: Row(
               children: [
                 Icon(Icons.add_circle, color: HrmPageChrome.primaryNavy),
                 SizedBox(width: 8),
-                Text('Thêm máy chấm công'),
+                Text(tr('Thêm máy chấm công')),
               ],
             ),
             content: SizedBox(
@@ -650,10 +651,10 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
               child: SingleChildScrollView(child: formBody),
             ),
             actions: [
-              TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Hủy')),
+              TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Hủy'))),
               FilledButton(
                 onPressed: isCheckingSerial ? null : submitDevice,
-                child: const Text('Thêm'),
+                child: Text(tr('Thêm')),
               ),
             ],
           );
@@ -672,14 +673,14 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
       context: context,
       builder: (ctx) => ScrollableAlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Xóa thiết bị'),
-        content: Text('Bạn có chắc muốn xóa "${device['deviceName']}"?\nHành động này không thể hoàn tác.'),
+        title: Text(tr('Xóa thiết bị')),
+        content: Text(tr('${tr('Bạn có chắc muốn xóa "')}${device['deviceName']}"?\nHành động này không thể hoàn tác.')),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Hủy')),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Hủy'))),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Xóa'),
+            child: Text(tr('Xóa')),
           ),
         ],
       ),
@@ -688,7 +689,7 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
     final result = await _apiService.deleteDevice(device['id'].toString());
     if (!mounted) return;
     if (result['success'] == true) {
-      NotificationOverlayManager().showSuccess(title: 'Thành công', message: 'Đã xóa thiết bị');
+      NotificationOverlayManager().showSuccess(title: 'Thành công', message: tr('Đã xóa thiết bị'));
       _loadDevices();
     } else {
       final msg = result['message'] ?? 'Xóa thất bại';
@@ -700,7 +701,7 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
     final deviceId = device['id']?.toString();
     if (deviceId == null) return;
     
-    NotificationOverlayManager().showInfo(title: 'Cập nhật', message: 'Đang cập nhật trạng thái...');
+    NotificationOverlayManager().showInfo(title: 'Cập nhật', message: tr('Đang cập nhật trạng thái...'));
     
     final result = await _apiService.refreshDeviceStatus(deviceId);
     if (!mounted) return;
@@ -712,12 +713,12 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
       });
       final isOnline = result['isOnline'] == true;
       if (isOnline) {
-        NotificationOverlayManager().showSuccess(title: 'Online', message: 'Thiết bị đang Online');
+        NotificationOverlayManager().showSuccess(title: 'Online', message: tr('Thiết bị đang Online'));
       } else {
-        NotificationOverlayManager().showWarning(title: 'Offline', message: 'Thiết bị đang Offline');
+        NotificationOverlayManager().showWarning(title: 'Offline', message: tr('Thiết bị đang Offline'));
       }
     } else {
-      NotificationOverlayManager().showError(title: 'Lỗi', message: 'Không thể cập nhật trạng thái');
+      NotificationOverlayManager().showError(title: 'Lỗi', message: tr('Không thể cập nhật trạng thái'));
     }
   }
 
@@ -823,10 +824,9 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Kết nối máy chấm công', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: Colors.white)),
+                Text(tr('Kết nối máy chấm công'), style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: Colors.white)),
                 const SizedBox(height: 6),
-                Text(
-                  'Quản lý danh sách máy chấm công, theo dõi trạng thái kết nối và điều khiển từ xa',
+                Text(tr('Quản lý danh sách máy chấm công, theo dõi trạng thái kết nối và điều khiển từ xa'),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(fontSize: 13, color: Colors.white.withValues(alpha: 0.8), height: 1.4),
@@ -852,7 +852,7 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
                 : FilledButton.icon(
                     onPressed: _showAddDeviceDialog,
                     icon: const Icon(Icons.add, size: 18),
-                    label: const Text('Thêm thiết bị'),
+                    label: Text(tr('Thêm thiết bị')),
                     style: FilledButton.styleFrom(
                       backgroundColor: Colors.white.withValues(alpha: 0.2),
                       foregroundColor: Colors.white,
@@ -884,9 +884,8 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: const [
-                Text(
-                  'Hướng dẫn cấu hình máy chấm công',
+              children: [
+                Text(tr('Hướng dẫn cấu hình máy chấm công'),
                   style: TextStyle(
                     fontWeight: FontWeight.w700,
                     fontSize: 14,
@@ -895,7 +894,7 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
                 ),
                 SizedBox(height: 6),
                 Text(
-                  DeviceSetupGuide.summary,
+                  tr(DeviceSetupGuide.summary),
                   style: TextStyle(
                     fontSize: 13,
                     height: 1.45,
@@ -957,7 +956,7 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
     final searchField = TextField(
       onChanged: (v) => setState(() => _searchQuery = v),
       decoration: InputDecoration(
-        hintText: 'Tìm theo tên, SN, vị trí, IP...',
+        hintText: tr('Tìm theo tên, SN, vị trí, IP...'),
         prefixIcon: const Icon(Icons.search, size: 20),
         filled: true,
         fillColor: Colors.white,
@@ -1015,12 +1014,12 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(label, style: TextStyle(fontSize: 13, fontWeight: isActive ? FontWeight.w600 : FontWeight.w500, color: isActive ? color : const Color(0xFF71717A))),
+            Text(tr(label), style: TextStyle(fontSize: 13, fontWeight: isActive ? FontWeight.w600 : FontWeight.w500, color: isActive ? color : const Color(0xFF71717A))),
             const SizedBox(width: 6),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
               decoration: BoxDecoration(color: isActive ? color.withValues(alpha: 0.15) : const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(8)),
-              child: Text('$count', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: isActive ? color : const Color(0xFFA1A1AA))),
+              child: Text(tr('$count'), style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: isActive ? color : const Color(0xFFA1A1AA))),
             ),
           ],
         ),
@@ -1039,7 +1038,7 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
               Icon(Icons.devices_other, size: 64, color: Colors.grey.shade300),
               const SizedBox(height: 16),
               Text(
-                _devices.isEmpty ? 'Chưa có máy chấm công nào' : 'Không tìm thấy thiết bị phù hợp',
+                tr(_devices.isEmpty ? 'Chưa có máy chấm công nào' : 'Không tìm thấy thiết bị phù hợp'),
                 style: TextStyle(fontSize: 16, color: Colors.grey.shade500),
               ),
               if (_devices.isEmpty) ...[
@@ -1047,7 +1046,7 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
                 FilledButton.icon(
                   onPressed: _showAddDeviceDialog,
                   icon: const Icon(Icons.add, size: 18),
-                  label: const Text('Thêm máy chấm công đầu tiên'),
+                  label: Text(tr('Thêm máy chấm công đầu tiên')),
                 ),
               ],
             ],
@@ -1133,10 +1132,10 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
           const SizedBox(width: 12),
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(deviceName, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14), maxLines: 1, overflow: TextOverflow.ellipsis),
+              Text(tr(deviceName), style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14), maxLines: 1, overflow: TextOverflow.ellipsis),
               const SizedBox(height: 2),
               Text(
-                [serialNumber, ipAddress].join(' · '),
+                tr([serialNumber, ipAddress].join(' · ')),
                 style: const TextStyle(color: Color(0xFF71717A), fontSize: 12),
                 maxLines: 1, overflow: TextOverflow.ellipsis,
               ),
@@ -1145,7 +1144,7 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
             decoration: BoxDecoration(color: online ? Colors.green.withValues(alpha: 0.1) : Colors.red.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
-            child: Text(online ? 'Online' : 'Offline', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: online ? Colors.green : Colors.red)),
+            child: Text(tr(online ? 'Online' : 'Offline'), style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: online ? Colors.green : Colors.red)),
           ),
         ]),
       ),
@@ -1216,9 +1215,9 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(deviceName, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Color(0xFF0F172A)), maxLines: 1, overflow: TextOverflow.ellipsis),
+                          Text(tr(deviceName), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Color(0xFF0F172A)), maxLines: 1, overflow: TextOverflow.ellipsis),
                           const SizedBox(height: 2),
-                          Text('SN: $serialNumber', style: const TextStyle(fontSize: 11, color: Color(0xFFA1A1AA))),
+                          Text(tr('SN: $serialNumber'), style: const TextStyle(fontSize: 11, color: Color(0xFFA1A1AA))),
                         ],
                       ),
                     ),
@@ -1234,7 +1233,7 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
                         children: [
                           Container(width: 7, height: 7, decoration: BoxDecoration(color: statusColor, shape: BoxShape.circle)),
                           const SizedBox(width: 5),
-                          Text(online ? 'Online' : 'Offline', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: statusColor)),
+                          Text(tr(online ? 'Online' : 'Offline'), style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: statusColor)),
                         ],
                       ),
                     ),
@@ -1292,9 +1291,9 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
       children: [
         Icon(icon, size: 14, color: const Color(0xFFA1A1AA)),
         const SizedBox(width: 6),
-        Text('$label: ', style: const TextStyle(fontSize: 12, color: Color(0xFFA1A1AA))),
+        Text(tr('$label: '), style: const TextStyle(fontSize: 12, color: Color(0xFFA1A1AA))),
         Expanded(
-          child: Text(value, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Color(0xFF334155)), maxLines: 1, overflow: TextOverflow.ellipsis),
+          child: Text(tr(value), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Color(0xFF334155)), maxLines: 1, overflow: TextOverflow.ellipsis),
         ),
       ],
     );
@@ -1315,7 +1314,7 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
           children: [
             Icon(icon, size: 14, color: color),
             const SizedBox(width: 4),
-            Text(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: color)),
+            Text(tr(label), style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: color)),
           ],
         ),
       ),
@@ -1387,8 +1386,8 @@ class _BarcodeScannerDialogState extends State<_BarcodeScannerDialog> {
                 children: [
                   const Icon(Icons.qr_code_scanner, color: Colors.white, size: 22),
                   const SizedBox(width: 10),
-                  const Expanded(
-                    child: Text('Quét mã Barcode / QR', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w700)),
+                  Expanded(
+                    child: Text(tr('Quét mã Barcode / QR'), style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w700)),
                   ),
                   IconButton(
                     icon: const Icon(Icons.close, color: Colors.white, size: 20),
@@ -1469,8 +1468,7 @@ class _BarcodeScannerDialogState extends State<_BarcodeScannerDialog> {
                 padding: const EdgeInsets.all(14),
                 child: Column(
                   children: [
-                    const Text(
-                      'Hướng camera vào mã barcode trên máy chấm công',
+                    Text(tr('Hướng camera vào mã barcode trên máy chấm công'),
                       textAlign: TextAlign.center,
                       style: TextStyle(color: Color(0xFF586064), fontSize: 13),
                     ),
@@ -1478,7 +1476,7 @@ class _BarcodeScannerDialogState extends State<_BarcodeScannerDialog> {
                     TextButton.icon(
                       onPressed: () => setState(() => _showManualInput = true),
                       icon: const Icon(Icons.keyboard, size: 16),
-                      label: const Text('Nhập thủ công', style: TextStyle(fontSize: 12)),
+                      label: Text(tr('Nhập thủ công'), style: TextStyle(fontSize: 12)),
                     ),
                   ],
                 ),
@@ -1498,10 +1496,9 @@ class _BarcodeScannerDialogState extends State<_BarcodeScannerDialog> {
           children: [
             const Icon(Icons.videocam_off, color: Colors.red, size: 48),
             const SizedBox(height: 12),
-            Text(message, textAlign: TextAlign.center, style: const TextStyle(color: Colors.red, fontSize: 13)),
+            Text(tr(message), textAlign: TextAlign.center, style: const TextStyle(color: Colors.red, fontSize: 13)),
             const SizedBox(height: 8),
-            const Text(
-              'Vui lòng kiểm tra:\n• Quyền camera trong trình duyệt\n• Kết nối qua HTTPS hoặc localhost',
+            Text(tr('Vui lòng kiểm tra:\n• Quyền camera trong trình duyệt\n• Kết nối qua HTTPS hoặc localhost'),
               textAlign: TextAlign.center,
               style: TextStyle(color: Color(0xFF586064), fontSize: 11),
             ),
@@ -1509,7 +1506,7 @@ class _BarcodeScannerDialogState extends State<_BarcodeScannerDialog> {
             FilledButton.icon(
               onPressed: () => setState(() => _showManualInput = true),
               icon: const Icon(Icons.keyboard, size: 16),
-              label: const Text('Nhập mã thủ công'),
+              label: Text(tr('Nhập mã thủ công')),
               style: FilledButton.styleFrom(backgroundColor: HrmPageChrome.primaryNavy),
             ),
           ],
@@ -1526,12 +1523,12 @@ class _BarcodeScannerDialogState extends State<_BarcodeScannerDialog> {
         children: [
           const Icon(Icons.qr_code, color: HrmPageChrome.primaryNavy, size: 40),
           const SizedBox(height: 12),
-          const Text('Nhập mã Serial Number', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
+          Text(tr('Nhập mã Serial Number'), style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
           const SizedBox(height: 16),
           TextField(
             controller: _manualController,
             decoration: InputDecoration(
-              hintText: 'Nhập SN máy chấm công...',
+              hintText: tr('Nhập SN máy chấm công...'),
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
               contentPadding: const EdgeInsets.all(12),
             ),
@@ -1541,7 +1538,7 @@ class _BarcodeScannerDialogState extends State<_BarcodeScannerDialog> {
             children: [
               TextButton(
                 onPressed: () => setState(() => _showManualInput = false),
-                child: const Text('Quay lại camera'),
+                child: Text(tr('Quay lại camera')),
               ),
               const Spacer(),
               FilledButton(
@@ -1551,7 +1548,7 @@ class _BarcodeScannerDialogState extends State<_BarcodeScannerDialog> {
                 },
                 style: FilledButton.styleFrom(
                     backgroundColor: HrmPageChrome.primaryNavy),
-                child: const Text('Xác nhận'),
+                child: Text(tr('Xác nhận')),
               ),
             ],
           ),
@@ -1658,7 +1655,7 @@ class _DeviceDetailDialogState extends State<_DeviceDetailDialog> {
     messenger?.clearSnackBars();
     messenger?.showSnackBar(
       SnackBar(
-        content: Text(outcome.message),
+        content: Text(tr(outcome.message)),
         backgroundColor: outcome.success
             ? (outcome.isSync ? const Color(0xFF0284C7) : const Color(0xFF16A34A))
             : const Color(0xFFDC2626),
@@ -1761,7 +1758,7 @@ class _DeviceDetailDialogState extends State<_DeviceDetailDialog> {
           const SizedBox(width: 10),
           Expanded(
             child: Text(
-              feedback.message,
+              tr(feedback.message),
               style: TextStyle(
                 fontSize: 13,
                 height: 1.35,
@@ -1850,7 +1847,7 @@ class _DeviceDetailDialogState extends State<_DeviceDetailDialog> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(device['deviceName'] ?? '',
+                      Text(tr(device['deviceName'] ?? ''),
                           style: const TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.w700,
@@ -1875,7 +1872,7 @@ class _DeviceDetailDialogState extends State<_DeviceDetailDialog> {
                                         shape: BoxShape.circle)),
                                 const SizedBox(width: 5),
                                 Text(
-                                    widget.isOnline ? 'Online' : 'Offline',
+                                    tr(widget.isOnline ? 'Online' : 'Offline'),
                                     style: TextStyle(
                                         fontSize: 12,
                                         fontWeight: FontWeight.w600,
@@ -1913,7 +1910,7 @@ class _DeviceDetailDialogState extends State<_DeviceDetailDialog> {
                         decoration: BoxDecoration(
                             color: statusColor, shape: BoxShape.circle)),
                     const SizedBox(width: 5),
-                    Text(widget.isOnline ? 'Online' : 'Offline',
+                    Text(tr(widget.isOnline ? 'Online' : 'Offline'),
                         style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
@@ -1991,7 +1988,7 @@ class _DeviceDetailDialogState extends State<_DeviceDetailDialog> {
                     child: OutlinedButton.icon(
                       onPressed: widget.onRename,
                       icon: const Icon(Icons.edit, size: 16),
-                      label: const Text('Đổi tên / Sửa'),
+                      label: Text(tr('Đổi tên / Sửa')),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: HrmPageChrome.primaryNavy,
                         side: const BorderSide(
@@ -2008,7 +2005,7 @@ class _DeviceDetailDialogState extends State<_DeviceDetailDialog> {
                     child: OutlinedButton.icon(
                       onPressed: widget.onDelete,
                       icon: const Icon(Icons.delete, size: 16),
-                      label: const Text('Xóa thiết bị'),
+                      label: Text(tr('Xóa thiết bị')),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: Colors.red,
                         side: const BorderSide(color: Colors.red),
@@ -2028,7 +2025,7 @@ class _DeviceDetailDialogState extends State<_DeviceDetailDialog> {
       return Dialog.fullscreen(
         child: Scaffold(
           appBar: AppBar(
-            title: Text(device['deviceName'] ?? 'Chi tiết thiết bị'),
+            title: Text(tr(device['deviceName'] ?? 'Chi tiết thiết bị')),
             leading: IconButton(
                 icon: const Icon(Icons.close),
                 onPressed: () => Navigator.pop(context)),
@@ -2070,7 +2067,7 @@ class _DeviceDetailDialogState extends State<_DeviceDetailDialog> {
               child: Icon(icon, size: 16, color: color),
             ),
             const SizedBox(width: 8),
-            Text(title,
+            Text(tr(title),
                 style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
@@ -2101,12 +2098,12 @@ class _DeviceDetailDialogState extends State<_DeviceDetailDialog> {
         children: [
           SizedBox(
             width: 160,
-            child: Text(label,
+            child: Text(tr(label),
                 style: const TextStyle(
                     fontSize: 13, color: Color(0xFF71717A))),
           ),
           Expanded(
-            child: Text(value,
+            child: Text(tr(value),
                 style: const TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w500,
@@ -2151,7 +2148,7 @@ class _DeviceDetailDialogState extends State<_DeviceDetailDialog> {
                 Icon(icon, size: 24, color: isDisabled ? color.withValues(alpha: 0.45) : color),
               const SizedBox(height: 8),
               Text(
-                label,
+                tr(label),
                 textAlign: TextAlign.center,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,

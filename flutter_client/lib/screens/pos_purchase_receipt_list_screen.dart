@@ -24,6 +24,7 @@ import '../widgets/pos/pos_purchase_toolbar.dart';
 import '../widgets/pos/pos_theme.dart';
 import '../widgets/pos/pos_supplier_debt_pay_dialog.dart';
 import 'pos_purchase_receipt_editor_screen.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 const _blue = Color(0xFF2563EB);
 
@@ -264,7 +265,7 @@ class _PosPurchaseReceiptListScreenState
     if (!mounted) return;
     if (products.isEmpty) {
       NotificationOverlayManager()
-          .showWarning(title: 'In tem', message: 'Không có hàng để in tem');
+          .showWarning(title: 'In tem', message: tr('Không có hàng để in tem'));
       return;
     }
     await showPosBarcodeLabelDialog(context, products);
@@ -274,15 +275,14 @@ class _PosPurchaseReceiptListScreenState
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Nhập hàng vào kho'),
-        content: Text(
-            'Hoàn thành phiếu ${r.receiptNo} và cập nhật tồn kho?'),
+        title: Text(tr('Nhập hàng vào kho')),
+        content: Text(tr('Hoàn thành phiếu ${r.receiptNo} và cập nhật tồn kho?')),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Hủy')),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Hủy'))),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: FilledButton.styleFrom(backgroundColor: _blue),
-            child: const Text('Xác nhận'),
+            child: Text(tr('Xác nhận')),
           ),
         ],
       ),
@@ -318,7 +318,7 @@ class _PosPurchaseReceiptListScreenState
     if (res['isSuccess'] == true && res['data'] != null) {
       final copy = PosPurchaseReceipt.fromJson(res['data'] as Map<String, dynamic>);
       NotificationOverlayManager()
-          .showSuccess(title: 'Sao chép', message: 'Đã tạo ${copy.receiptNo}');
+          .showSuccess(title: 'Sao chép', message: tr('Đã tạo ${copy.receiptNo}'));
       _load(page: _page);
       _openEditor(receiptId: copy.id);
     } else {
@@ -331,14 +331,14 @@ class _PosPurchaseReceiptListScreenState
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Xóa phiếu'),
-        content: Text('Xóa hẳn phiếu ${r.receiptNo}? Thao tác không thể hoàn tác.'),
+        title: Text(tr('Xóa phiếu')),
+        content: Text(tr('Xóa hẳn phiếu ${r.receiptNo}? Thao tác không thể hoàn tác.')),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Không')),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Không'))),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Xóa'),
+            child: Text(tr('Xóa')),
           ),
         ],
       ),
@@ -371,15 +371,14 @@ class _PosPurchaseReceiptListScreenState
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Hủy phiếu nhập'),
-        content: Text(
-            'Hủy phiếu ${r.receiptNo} và trừ lại hàng đã nhập kho?'),
+        title: Text(tr('Hủy phiếu nhập')),
+        content: Text(tr('Hủy phiếu ${r.receiptNo} và trừ lại hàng đã nhập kho?')),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Không')),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Không'))),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Hủy phiếu'),
+            child: Text(tr('Hủy phiếu')),
           ),
         ],
       ),
@@ -439,7 +438,7 @@ class _PosPurchaseReceiptListScreenState
               CheckboxListTile(
                 dense: true,
                 contentPadding: EdgeInsets.zero,
-                title: const Text('Phiếu tạm', style: TextStyle(fontSize: 13)),
+                title: Text(tr('Phiếu tạm'), style: TextStyle(fontSize: 13)),
                 value: _statusFilter.contains('Draft'),
                 activeColor: _blue,
                 onChanged: (v) => _toggleStatus('Draft', v),
@@ -447,7 +446,7 @@ class _PosPurchaseReceiptListScreenState
               CheckboxListTile(
                 dense: true,
                 contentPadding: EdgeInsets.zero,
-                title: const Text('Đã nhập hàng', style: TextStyle(fontSize: 13)),
+                title: Text(tr('Đã nhập hàng'), style: TextStyle(fontSize: 13)),
                 value: _statusFilter.contains('Completed'),
                 activeColor: _blue,
                 onChanged: (v) => _toggleStatus('Completed', v),
@@ -455,7 +454,7 @@ class _PosPurchaseReceiptListScreenState
               CheckboxListTile(
                 dense: true,
                 contentPadding: EdgeInsets.zero,
-                title: const Text('Đã hủy', style: TextStyle(fontSize: 13)),
+                title: Text(tr('Đã hủy'), style: TextStyle(fontSize: 13)),
                 value: _statusFilter.contains('Cancelled'),
                 activeColor: _blue,
                 onChanged: (v) => _toggleStatus('Cancelled', v),
@@ -480,16 +479,16 @@ class _PosPurchaseReceiptListScreenState
               border: OutlineInputBorder(),
               contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
             ),
-            hint: const Text('Tất cả NCC', style: TextStyle(fontSize: 12)),
+            hint: Text(tr('Tất cả NCC'), style: TextStyle(fontSize: 12)),
             items: [
-              const DropdownMenuItem<String?>(
+              DropdownMenuItem<String?>(
                 value: null,
-                child: Text('Tất cả NCC', style: TextStyle(fontSize: 12)),
+                child: Text(tr('Tất cả NCC'), style: TextStyle(fontSize: 12)),
               ),
               ..._suppliers.map(
                 (s) => DropdownMenuItem<String?>(
                   value: s.id,
-                  child: Text(s.name,
+                  child: Text(tr(s.name),
                       style: const TextStyle(fontSize: 12),
                       overflow: TextOverflow.ellipsis),
                 ),
@@ -505,8 +504,8 @@ class _PosPurchaseReceiptListScreenState
           'Người tạo',
           TextField(
             controller: _createdByCtrl,
-            decoration: const InputDecoration(
-              hintText: 'Chọn người tạo…',
+            decoration: InputDecoration(
+              hintText: tr('Chọn người tạo…'),
               isDense: true,
               border: OutlineInputBorder(),
               contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
@@ -519,8 +518,8 @@ class _PosPurchaseReceiptListScreenState
           'Số hóa đơn đầu vào',
           TextField(
             controller: _invoiceNoCtrl,
-            decoration: const InputDecoration(
-              hintText: 'Số HĐ đầu vào…',
+            decoration: InputDecoration(
+              hintText: tr('Số HĐ đầu vào…'),
               isDense: true,
               border: OutlineInputBorder(),
               contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
@@ -533,8 +532,8 @@ class _PosPurchaseReceiptListScreenState
           'Người nhập',
           TextField(
             controller: _importedByCtrl,
-            decoration: const InputDecoration(
-              hintText: 'Chọn người nhập…',
+            decoration: InputDecoration(
+              hintText: tr('Chọn người nhập…'),
               isDense: true,
               border: OutlineInputBorder(),
               contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
@@ -546,7 +545,7 @@ class _PosPurchaseReceiptListScreenState
         FilledButton(
           onPressed: () => _load(),
           style: FilledButton.styleFrom(backgroundColor: _blue),
-          child: const Text('Áp dụng lọc', style: TextStyle(fontSize: 12)),
+          child: Text(tr('Áp dụng lọc'), style: TextStyle(fontSize: 12)),
         ),
       ],
     );
@@ -560,8 +559,8 @@ class _PosPurchaseReceiptListScreenState
   Widget build(BuildContext context) {
     final perm = Provider.of<PermissionProvider>(context);
     if (!perm.canView('PosProducts')) {
-      return const Scaffold(
-          body: Center(child: Text('Không có quyền xem nhập hàng')));
+      return Scaffold(
+          body: Center(child: Text(tr('Không có quyền xem nhập hàng'))));
     }
     final canEdit = perm.canEdit('PosPurchaseReceipts');
 
@@ -591,8 +590,8 @@ class _PosPurchaseReceiptListScreenState
                         12, posUseMobileList(context) ? 8 : 10, 12, 0),
                     child: TextField(
                       controller: _searchCtrl,
-                      decoration: const InputDecoration(
-                        hintText: 'Tìm mã phiếu nhập, ghi chú…',
+                      decoration: InputDecoration(
+                        hintText: tr('Tìm mã phiếu nhập, ghi chú…'),
                         prefixIcon: Icon(Icons.search, size: 20),
                         border: OutlineInputBorder(),
                         isDense: true,
@@ -606,8 +605,8 @@ class _PosPurchaseReceiptListScreenState
                     child: _loading
                         ? const LoadingWidget()
                         : _items.isEmpty
-                            ? const Center(
-                                child: Text('Chưa có phiếu nhập hàng'))
+                            ? Center(
+                                child: Text(tr('Chưa có phiếu nhập hàng')))
                             : Column(
                                 crossAxisAlignment: CrossAxisAlignment.stretch,
                                 children: [
@@ -643,7 +642,7 @@ class _PosPurchaseReceiptListScreenState
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       child: Row(
         children: [
-          Text('Tổng $_total phiếu',
+          Text(tr('Tổng $_total phiếu'),
               style:
                   const TextStyle(fontSize: 12, color: PosTheme.textSecondary)),
           const Spacer(),
@@ -651,7 +650,7 @@ class _PosPurchaseReceiptListScreenState
             icon: const Icon(Icons.chevron_left),
             onPressed: _page > 1 ? () => _load(page: _page - 1) : null,
           ),
-          Text('Trang $_page / $pages', style: const TextStyle(fontSize: 12)),
+          Text(tr('Trang $_page / $pages'), style: const TextStyle(fontSize: 12)),
           IconButton(
             icon: const Icon(Icons.chevron_right),
             onPressed: _page < pages ? () => _load(page: _page + 1) : null,
@@ -676,14 +675,14 @@ class _PosPurchaseReceiptListScreenState
       child: Row(
         children: [
           const SizedBox(width: 24),
-          Expanded(flex: 2, child: Text('Mã PN', style: h)),
-          Expanded(flex: 2, child: Text('Thời gian', style: h)),
-          Expanded(flex: 2, child: Text('Mã NCC', style: h)),
-          Expanded(flex: 3, child: Text('NCC', style: h)),
+          Expanded(flex: 2, child: Text(tr('Mã PN'), style: h)),
+          Expanded(flex: 2, child: Text(tr('Thời gian'), style: h)),
+          Expanded(flex: 2, child: Text(tr('Mã NCC'), style: h)),
+          Expanded(flex: 3, child: Text(tr('NCC'), style: h)),
           Expanded(
               flex: 2,
-              child: Text('Cần trả NCC', style: h, textAlign: TextAlign.right)),
-          SizedBox(width: 100, child: Text('Trạng thái', style: h, textAlign: TextAlign.right)),
+              child: Text(tr('Cần trả NCC'), style: h, textAlign: TextAlign.right)),
+          SizedBox(width: 100, child: Text(tr('Trạng thái'), style: h, textAlign: TextAlign.right)),
         ],
       ),
     );
@@ -756,30 +755,30 @@ class _PosPurchaseReceiptListScreenState
                   const SizedBox(width: 4),
                   Expanded(
                     flex: 2,
-                    child: Text(r.receiptNo,
+                    child: Text(tr(r.receiptNo),
                         style: posDocNoTextStyle(r.status, activeColor: _blue)),
                   ),
                   Expanded(
                     flex: 2,
                     child: Text(
-                      dt != null ? _dateFmt.format(dt.toLocal()) : '—',
+                      tr(dt != null ? _dateFmt.format(dt.toLocal()) : '—'),
                       style: const TextStyle(fontSize: 13),
                     ),
                   ),
                   Expanded(
                     flex: 2,
-                    child: Text(r.supplierCode ?? '—',
+                    child: Text(tr(r.supplierCode ?? '—'),
                         style: const TextStyle(fontSize: 13)),
                   ),
                   Expanded(
                     flex: 3,
-                    child: Text(r.supplierName ?? '—',
+                    child: Text(tr(r.supplierName ?? '—'),
                         style: const TextStyle(fontSize: 13),
                         overflow: TextOverflow.ellipsis),
                   ),
                   Expanded(
                     flex: 2,
-                    child: Text('${_moneyFmt.format(_balanceDue(r))} đ',
+                    child: Text(tr('${_moneyFmt.format(_balanceDue(r))} đ'),
                         style: const TextStyle(fontSize: 13),
                         textAlign: TextAlign.right),
                   ),
@@ -834,12 +833,12 @@ class _PosPurchaseReceiptListScreenState
                 FilledButton(
                   onPressed: () => _openEditor(receiptId: r.id),
                   style: FilledButton.styleFrom(backgroundColor: _blue),
-                  child: const Text('Mở phiếu'),
+                  child: Text(tr('Mở phiếu')),
                 ),
               OutlinedButton.icon(
                 onPressed: () => _printReceipt(r),
                 icon: const Icon(Icons.print, size: 16),
-                label: const Text('In phiếu'),
+                label: Text(tr('In phiếu')),
               ),
               OutlinedButton.icon(
                 onPressed: r.lines.isEmpty && _expandedDetail == null
@@ -856,25 +855,25 @@ class _PosPurchaseReceiptListScreenState
                         }
                       },
                 icon: const Icon(Icons.qr_code, size: 16),
-                label: const Text('In tem mã'),
+                label: Text(tr('In tem mã')),
               ),
               if (canEdit && r.status == 'Draft')
                 OutlinedButton.icon(
                   onPressed: () => _completeReceipt(r),
                   icon: const Icon(Icons.inventory_2_outlined, size: 16),
-                  label: const Text('Nhập hàng vào kho'),
+                  label: Text(tr('Nhập hàng vào kho')),
                 ),
               if (canEdit)
                 OutlinedButton.icon(
                   onPressed: () => _copyReceipt(r),
                   icon: const Icon(Icons.copy, size: 16),
-                  label: const Text('Sao chép'),
+                  label: Text(tr('Sao chép')),
                 ),
               if (canEdit && r.status == 'Draft')
                 OutlinedButton.icon(
                   onPressed: () => _deleteReceipt(r),
                   icon: const Icon(Icons.delete_outline, size: 16),
-                  label: const Text('Xóa'),
+                  label: Text(tr('Xóa')),
                 ),
               if (canEdit && r.status == 'Completed' && _balanceDue(r) > 0)
                 OutlinedButton.icon(
@@ -889,19 +888,19 @@ class _PosPurchaseReceiptListScreenState
                     }
                   },
                   icon: const Icon(Icons.payments_outlined, size: 16),
-                  label: const Text('Thanh toán NCC'),
+                  label: Text(tr('Thanh toán NCC')),
                 ),
               if (canEdit && r.status == 'Completed')
                 OutlinedButton.icon(
                   onPressed: () => _voidCompletedReceipt(r),
                   icon: const Icon(Icons.cancel_outlined, size: 16),
-                  label: const Text('Hủy'),
+                  label: Text(tr('Hủy')),
                 ),
               if (canEdit && r.status == 'Cancelled')
                 OutlinedButton.icon(
                   onPressed: () => _deleteReceipt(r),
                   icon: const Icon(Icons.delete_outline, size: 16),
-                  label: const Text('Xóa'),
+                  label: Text(tr('Xóa')),
                 ),
             ],
           ),
@@ -923,7 +922,7 @@ class _PosPurchaseReceiptListScreenState
             fontWeight: active ? FontWeight.w600 : FontWeight.normal,
             fontSize: 13),
       ),
-      child: Text(label),
+      child: Text(tr(label)),
     );
   }
 
@@ -959,13 +958,13 @@ class _PosPurchaseReceiptListScreenState
               columnSpacing: 16,
               headingRowColor:
                   WidgetStateProperty.all(Colors.white),
-              columns: const [
-                DataColumn(label: Text('Mã hàng', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600))),
-                DataColumn(label: Text('Tên hàng', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600))),
-                DataColumn(label: Text('SL', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600))),
-                DataColumn(label: Text('Đơn giá', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600))),
-                DataColumn(label: Text('VAT', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600))),
-                DataColumn(label: Text('Thành tiền', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600))),
+              columns: [
+                DataColumn(label: Text(tr('Mã hàng'), style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600))),
+                DataColumn(label: Text(tr('Tên hàng'), style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600))),
+                DataColumn(label: Text(tr('SL'), style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600))),
+                DataColumn(label: Text(tr('Đơn giá'), style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600))),
+                DataColumn(label: Text(tr('VAT'), style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600))),
+                DataColumn(label: Text(tr('Thành tiền'), style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600))),
               ],
               rows: r.lines.map((l) {
                 final vatLabel = l.vatExempt
@@ -974,12 +973,12 @@ class _PosPurchaseReceiptListScreenState
                         ? '—'
                         : '${l.vatRate.toStringAsFixed(0)}%';
                 return DataRow(cells: [
-                  DataCell(Text(l.productCode, style: const TextStyle(fontSize: 12))),
-                  DataCell(Text(l.productName, style: const TextStyle(fontSize: 12))),
-                  DataCell(Text(l.qty.toStringAsFixed(0), style: const TextStyle(fontSize: 12))),
-                  DataCell(Text('${_moneyFmt.format(l.costPrice)} đ', style: const TextStyle(fontSize: 12))),
-                  DataCell(Text(vatLabel, style: const TextStyle(fontSize: 12))),
-                  DataCell(Text('${_moneyFmt.format(l.lineTotal + l.vatAmount)} đ',
+                  DataCell(Text(tr(l.productCode), style: const TextStyle(fontSize: 12))),
+                  DataCell(Text(tr(l.productName), style: const TextStyle(fontSize: 12))),
+                  DataCell(Text(tr(l.qty.toStringAsFixed(0)), style: const TextStyle(fontSize: 12))),
+                  DataCell(Text(tr('${_moneyFmt.format(l.costPrice)} đ'), style: const TextStyle(fontSize: 12))),
+                  DataCell(Text(tr(vatLabel), style: const TextStyle(fontSize: 12))),
+                  DataCell(Text(tr('${_moneyFmt.format(l.lineTotal + l.vatAmount)} đ'),
                       style: const TextStyle(fontSize: 12))),
                 ]);
               }).toList(),
@@ -991,16 +990,15 @@ class _PosPurchaseReceiptListScreenState
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Text('Tổng tiền hàng: ${_moneyFmt.format(r.totalCost)} đ',
+              Text(tr('Tổng tiền hàng: ${_moneyFmt.format(r.totalCost)} đ'),
                   style: const TextStyle(fontSize: 12)),
-              Text('Tổng VAT: ${_moneyFmt.format(r.totalVat)} đ',
+              Text(tr('Tổng VAT: ${_moneyFmt.format(r.totalVat)} đ'),
                   style: const TextStyle(fontSize: 12)),
-              Text('Giảm giá: ${_moneyFmt.format(r.discountAmount)} đ',
+              Text(tr('Giảm giá: ${_moneyFmt.format(r.discountAmount)} đ'),
                   style: const TextStyle(fontSize: 12)),
-              Text(
-                  'Tổng cộng: ${_moneyFmt.format(r.grandTotal != 0 ? r.grandTotal : r.totalCost + r.totalVat - r.discountAmount)} đ',
+              Text(tr('Tổng cộng: ${_moneyFmt.format(r.grandTotal != 0 ? r.grandTotal : r.totalCost + r.totalVat - r.discountAmount)} đ'),
                   style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-              Text('Đã trả NCC: ${_moneyFmt.format(r.paidAmount)} đ',
+              Text(tr('Đã trả NCC: ${_moneyFmt.format(r.paidAmount)} đ'),
                   style: const TextStyle(fontSize: 12)),
             ],
           ),
@@ -1014,9 +1012,9 @@ class _PosPurchaseReceiptListScreenState
           style: const TextStyle(fontSize: 12, color: Colors.black87),
           children: [
             TextSpan(
-                text: '$label: ',
+                text: tr('$label: '),
                 style: const TextStyle(color: PosTheme.textSecondary)),
-            TextSpan(text: value),
+            TextSpan(text: tr(value)),
           ],
         ),
       );
@@ -1041,13 +1039,13 @@ class _PosPurchaseReceiptListScreenState
                 }
               },
               icon: const Icon(Icons.payments_outlined, size: 18),
-              label: Text('Thanh toán còn lại (${_moneyFmt.format(due)} đ)'),
+              label: Text(tr('Thanh toán còn lại (${_moneyFmt.format(due)} đ)')),
             ),
           ),
         if (_payments.isEmpty)
-          const Padding(
+          Padding(
             padding: EdgeInsets.symmetric(vertical: 12),
-            child: Text('Chưa có thanh toán',
+            child: Text(tr('Chưa có thanh toán'),
                 style: TextStyle(fontSize: 12, color: PosTheme.textSecondary)),
           )
         else
@@ -1059,13 +1057,13 @@ class _PosPurchaseReceiptListScreenState
               dense: true,
               contentPadding: EdgeInsets.zero,
               title: Text(
-                  '${p['paymentNo'] ?? p['PaymentNo']} — ${_moneyFmt.format((p['amount'] ?? p['Amount'] as num?)?.toDouble() ?? 0)} đ',
+                  tr('${p['paymentNo'] ?? p['PaymentNo']} — ${_moneyFmt.format((p['amount'] ?? p['Amount'] as num?)?.toDouble() ?? 0)} đ'),
                   style: const TextStyle(fontSize: 12)),
               subtitle: Text(
-                [
+                tr([
                   if (dt != null) _dateFmt.format(dt.toLocal()),
                   p['paymentMethod'] ?? p['PaymentMethod'],
-                ].whereType<String>().join(' · '),
+                ].whereType<String>().join(' · ')),
                 style: const TextStyle(fontSize: 11),
               ),
             );

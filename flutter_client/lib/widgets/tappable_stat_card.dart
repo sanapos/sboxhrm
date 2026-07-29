@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// Ô thống kê bấm được — áp dụng bộ lọc và highlight khi đang chọn.
 class TappableStatCard extends StatelessWidget {
@@ -80,7 +81,7 @@ class SummaryFilterBanner extends StatelessWidget {
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              '$label · $filteredCount/$totalCount',
+              tr('$label · $filteredCount/$totalCount'),
               style: const TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
@@ -96,7 +97,7 @@ class SummaryFilterBanner extends StatelessWidget {
               minimumSize: Size.zero,
               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
             ),
-            child: const Text('Xóa lọc'),
+            child: Text(tr('Xóa lọc')),
           ),
         ],
       ),

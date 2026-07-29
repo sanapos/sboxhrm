@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../utils/vietnamese_font.dart';
+import '../l10n/app_tr.dart';
 
 /// Text variants with safe overflow defaults for Vietnamese UI.
 enum AppTextVariant { body, title, label, chip, tableCell, metric }
@@ -135,7 +136,7 @@ class AppText extends StatelessWidget {
     final theme = Theme.of(context).textTheme;
     final effective = _baseStyle(theme).merge(style);
     final text = Text(
-      data,
+      tr(data),
       style: effective,
       maxLines: maxLines,
       overflow: overflow,

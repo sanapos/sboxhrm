@@ -13,6 +13,7 @@ import '../../widgets/pos/pos_product_type_badge.dart';
 import '../../widgets/pos/pos_theme.dart';
 import 'pos_product_editor_page.dart';
 import '../main_layout.dart' show ScreenRefreshNotifier;
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 class PosProductDetailScreen extends StatefulWidget {
   const PosProductDetailScreen({super.key, required this.product});
@@ -126,7 +127,7 @@ class _PosProductDetailScreenState extends State<PosProductDetailScreen> {
     if (saved == true) {
       NotificationOverlayManager().showSuccess(
         title: 'Thành công',
-        message: 'Đã tạo hàng hóa mới từ bản sao',
+        message: tr('Đã tạo hàng hóa mới từ bản sao'),
       );
     }
   }
@@ -135,17 +136,17 @@ class _PosProductDetailScreenState extends State<PosProductDetailScreen> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Xóa hàng hóa'),
-        content: Text('Xóa «${_product.name}»?'),
+        title: Text(tr('Xóa hàng hóa')),
+        content: Text(tr('Xóa «${_product.name}»?')),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Hủy'),
+            child: Text(tr('Hủy')),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Xóa'),
+            child: Text(tr('Xóa')),
           ),
         ],
       ),
@@ -156,7 +157,7 @@ class _PosProductDetailScreenState extends State<PosProductDetailScreen> {
     if (res['isSuccess'] == true) {
       NotificationOverlayManager().showSuccess(
         title: 'Thành công',
-        message: 'Đã xóa hàng hóa',
+        message: tr('Đã xóa hàng hóa'),
       );
       ScreenRefreshNotifier.refreshPosAfterStockChange();
       Navigator.pop(context, true);
@@ -183,7 +184,7 @@ class _PosProductDetailScreenState extends State<PosProductDetailScreen> {
     await showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text('Thẻ kho — ${_product.name}'),
+        title: Text(tr('Thẻ kho — ${_product.name}')),
         content: SizedBox(
           width: 720,
           height: 400,
@@ -196,7 +197,7 @@ class _PosProductDetailScreenState extends State<PosProductDetailScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Đóng'),
+            child: Text(tr('Đóng')),
           ),
         ],
       ),
@@ -213,7 +214,7 @@ class _PosProductDetailScreenState extends State<PosProductDetailScreen> {
     return Scaffold(
       backgroundColor: PosTheme.background,
       appBar: AppBar(
-        title: const Text('Chi tiết hàng hóa'),
+        title: Text(tr('Chi tiết hàng hóa')),
         backgroundColor: PosTheme.primary,
         foregroundColor: Colors.white,
         elevation: 0,
@@ -277,7 +278,7 @@ class _PosProductDetailScreenState extends State<PosProductDetailScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    p.name,
+                    tr(p.name),
                     style: const TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
@@ -286,7 +287,7 @@ class _PosProductDetailScreenState extends State<PosProductDetailScreen> {
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    p.productCode,
+                    tr(p.productCode),
                     style: const TextStyle(
                       fontSize: 13,
                       color: PosTheme.textSecondary,
@@ -316,8 +317,7 @@ class _PosProductDetailScreenState extends State<PosProductDetailScreen> {
                               Icon(Icons.star,
                                   size: 12, color: Colors.amber.shade700),
                               const SizedBox(width: 4),
-                              Text(
-                                'Yêu thích',
+                              Text(tr('Yêu thích'),
                                 style: TextStyle(
                                   fontSize: 10,
                                   fontWeight: FontWeight.w600,
@@ -332,7 +332,7 @@ class _PosProductDetailScreenState extends State<PosProductDetailScreen> {
                   if (p.categoryPath != null && p.categoryPath!.isNotEmpty) ...[
                     const SizedBox(height: 6),
                     Text(
-                      p.categoryPath!,
+                      tr(p.categoryPath!),
                       style: const TextStyle(
                         fontSize: 12,
                         color: PosTheme.textSecondary,
@@ -367,16 +367,16 @@ class _PosProductDetailScreenState extends State<PosProductDetailScreen> {
       child: Column(
         children: [
           SwitchListTile(
-            title: const Text('Ngừng kinh doanh'),
-            subtitle: const Text('Ẩn sản phẩm khỏi mọi kênh bán'),
+            title: Text(tr('Ngừng kinh doanh')),
+            subtitle: Text(tr('Ẩn sản phẩm khỏi mọi kênh bán')),
             value: !_product.isActive,
             activeThumbColor: PosTheme.primary,
             onChanged: (v) => _toggleActive(!v),
           ),
           const Divider(height: 1),
           SwitchListTile(
-            title: const Text('Ẩn POS'),
-            subtitle: const Text('Không hiển thị trên màn hình bán hàng'),
+            title: Text(tr('Ẩn POS')),
+            subtitle: Text(tr('Không hiển thị trên màn hình bán hàng')),
             value: !_product.isDirectSale,
             activeThumbColor: PosTheme.primary,
             onChanged: _product.isActive ? (v) => _toggleDirectSale(!v) : null,
@@ -399,7 +399,7 @@ class _PosProductDetailScreenState extends State<PosProductDetailScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              title,
+              tr(title),
               style: const TextStyle(
                 fontSize: 15,
                 fontWeight: FontWeight.bold,
@@ -466,7 +466,7 @@ class _PosProductDetailScreenState extends State<PosProductDetailScreen> {
           SizedBox(
             width: 130,
             child: Text(
-              label,
+              tr(label),
               style: const TextStyle(
                 fontSize: 13,
                 color: PosTheme.textSecondary,
@@ -475,7 +475,7 @@ class _PosProductDetailScreenState extends State<PosProductDetailScreen> {
           ),
           Expanded(
             child: Text(
-              value,
+              tr(value),
               style: const TextStyle(fontSize: 13, color: PosTheme.textPrimary),
             ),
           ),
@@ -493,14 +493,14 @@ class _PosProductDetailScreenState extends State<PosProductDetailScreen> {
             children: [
               Expanded(
                 child: Text(
-                  c.componentProductName.isNotEmpty
+                  tr(c.componentProductName.isNotEmpty
                       ? c.componentProductName
-                      : c.componentProductCode,
+                      : c.componentProductCode),
                   style: const TextStyle(fontSize: 13),
                 ),
               ),
               Text(
-                '× ${c.qty}',
+                tr('× ${c.qty}'),
                 style: const TextStyle(
                   fontSize: 13,
                   color: PosTheme.textSecondary,
@@ -508,7 +508,7 @@ class _PosProductDetailScreenState extends State<PosProductDetailScreen> {
               ),
               const SizedBox(width: 12),
               Text(
-                _moneyFmt.format(c.componentBasePrice * c.qty),
+                tr(_moneyFmt.format(c.componentBasePrice * c.qty)),
                 style: const TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
@@ -532,12 +532,12 @@ class _PosProductDetailScreenState extends State<PosProductDetailScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(v.name,
+                    Text(tr(v.name),
                         style: const TextStyle(
                             fontSize: 13, fontWeight: FontWeight.w500)),
                     if (v.skuCode.isNotEmpty)
                       Text(
-                        v.skuCode,
+                        tr(v.skuCode),
                         style: const TextStyle(
                           fontSize: 11,
                           color: PosTheme.textSecondary,
@@ -547,12 +547,11 @@ class _PosProductDetailScreenState extends State<PosProductDetailScreen> {
                 ),
               ),
               Text(
-                _moneyFmt.format(v.basePrice),
+                tr(_moneyFmt.format(v.basePrice)),
                 style: const TextStyle(fontSize: 13),
               ),
               const SizedBox(width: 12),
-              Text(
-                'Tồn: ${_moneyFmt.format(v.onHandQty)}',
+              Text(tr('Tồn: ${_moneyFmt.format(v.onHandQty)}'),
                 style: const TextStyle(
                   fontSize: 12,
                   color: PosTheme.textSecondary,
@@ -576,13 +575,13 @@ class _PosProductDetailScreenState extends State<PosProductDetailScreen> {
             onPressed: _openEditor,
             style: PosTheme.filledButtonStyle,
             icon: const Icon(Icons.edit, size: 18),
-            label: const Text('Chỉnh sửa'),
+            label: Text(tr('Chỉnh sửa')),
           ),
         if (perm.canCreate('PosProducts'))
           OutlinedButton.icon(
             onPressed: _copyProduct,
             icon: const Icon(Icons.copy, size: 18),
-            label: const Text('Sao chép'),
+            label: Text(tr('Sao chép')),
             style: OutlinedButton.styleFrom(
               foregroundColor: PosTheme.primary,
               side: const BorderSide(color: PosTheme.primary),
@@ -592,14 +591,14 @@ class _PosProductDetailScreenState extends State<PosProductDetailScreen> {
           OutlinedButton.icon(
             onPressed: _deleteProduct,
             icon: const Icon(Icons.delete_outline, size: 18),
-            label: const Text('Xóa'),
+            label: Text(tr('Xóa')),
             style: OutlinedButton.styleFrom(foregroundColor: Colors.red),
           ),
         if (isGoods)
           OutlinedButton.icon(
             onPressed: _showStockCard,
             icon: const Icon(Icons.receipt_long, size: 18),
-            label: const Text('Thẻ kho'),
+            label: Text(tr('Thẻ kho')),
             style: OutlinedButton.styleFrom(
               foregroundColor: PosTheme.textPrimary,
             ),
@@ -607,7 +606,7 @@ class _PosProductDetailScreenState extends State<PosProductDetailScreen> {
         OutlinedButton.icon(
           onPressed: () => showPosBarcodeLabelDialog(context, [_product]),
           icon: const Icon(Icons.qr_code, size: 18),
-          label: const Text('In tem mã'),
+          label: Text(tr('In tem mã')),
           style: OutlinedButton.styleFrom(
             foregroundColor: PosTheme.textPrimary,
           ),

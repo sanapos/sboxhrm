@@ -32,6 +32,7 @@ import '../widgets/pos/pos_theme.dart';
 import 'pos_sale_order_editor_screen.dart';
 import 'pos_sale_return_screen.dart';
 import 'pos_sale_return_list_screen.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 enum _ListColumn {
   orderNo('Mã đơn'),
@@ -300,19 +301,18 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Hủy đơn (hoàn kho)'),
-        content: Text(
-            'Hủy đơn ${o.orderNo}?\n\n'
+        title: Text(tr('Hủy đơn (hoàn kho)')),
+        content: Text(tr('${tr('Hủy đơn ')}${o.orderNo}?\n\n'
             '• Hoàn kho hàng đã bán\n'
             '• Hoàn công nợ / điểm / voucher (nếu có)\n'
             '• Đơn chuyển sang «Đã hủy» (vẫn thấy trong danh sách)\n\n'
-            'Chỉ dùng khi đơn đã hoàn thành và chưa trả hàng.'),
+            'Chỉ dùng khi đơn đã hoàn thành và chưa trả hàng.')),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Không')),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Không'))),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Hủy đơn'),
+            child: Text(tr('Hủy đơn')),
           ),
         ],
       ),
@@ -324,7 +324,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
       if (res['data'] is! Map<String, dynamic>) {
         NotificationOverlayManager().showError(
           title: 'Lỗi',
-          message: 'Server không trả về dữ liệu đơn — vui lòng tải lại danh sách',
+          message: tr('Server không trả về dữ liệu đơn — vui lòng tải lại danh sách'),
         );
         await _load(page: _page);
         return;
@@ -333,8 +333,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
       if (updated.status != 'Cancelled') {
         NotificationOverlayManager().showError(
           title: 'Lỗi',
-          message:
-              'Đơn vẫn ở trạng thái ${posSaleOrderStatusLabel(updated.status)} — chưa hủy được trên server',
+          message: tr('Đơn vẫn ở trạng thái ${posSaleOrderStatusLabel(updated.status)} — chưa hủy được trên server'),
         );
         await _load(page: _page);
         return;
@@ -354,7 +353,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
       ScreenRefreshNotifier.refreshPosAfterStockChange(sellStockLines: stockLines);
       NotificationOverlayManager().showSuccess(
           title: 'Đã hủy đơn',
-          message: '${o.orderNo} · trạng thái: Đã hủy');
+          message: tr('${o.orderNo} · trạng thái: Đã hủy'));
       await _load(page: _page);
       _reconcileOrderAfterLoad(updated);
       if (mounted) setState(() {});
@@ -368,18 +367,17 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Xóa khỏi danh sách'),
-        content: Text(
-            'Ẩn đơn ${o.orderNo} khỏi danh sách?\n\n'
+        title: Text(tr('Xóa khỏi danh sách')),
+        content: Text(tr('${tr('Ẩn đơn ')}${o.orderNo} khỏi danh sách?\n\n'
             '• Không hoàn kho thêm (kho đã xử lý trước đó)\n'
             '• Chỉ xóa khỏi màn hình — dữ liệu vẫn lưu trên server\n\n'
-            'Dùng cho đơn đã hủy, đơn tạm, hoặc đơn đã trả hết 100%.'),
+            'Dùng cho đơn đã hủy, đơn tạm, hoặc đơn đã trả hết 100%.')),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Không')),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Không'))),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Xóa'),
+            child: Text(tr('Xóa')),
           ),
         ],
       ),
@@ -422,14 +420,14 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Hoàn thành đơn'),
-        content: Text('Xác nhận hoàn thành đơn ${o.orderNo} và trừ kho?'),
+        title: Text(tr('Hoàn thành đơn')),
+        content: Text(tr('Xác nhận hoàn thành đơn ${o.orderNo} và trừ kho?')),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Không')),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Không'))),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: FilledButton.styleFrom(backgroundColor: PosTheme.kiotBlue),
-            child: const Text('Hoàn thành'),
+            child: Text(tr('Hoàn thành')),
           ),
         ],
       ),
@@ -476,7 +474,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDlg) => AlertDialog(
-          title: const Text('Tùy chọn cột'),
+          title: Text(tr('Tùy chọn cột')),
           content: SizedBox(
             width: 280,
             child: SingleChildScrollView(
@@ -486,7 +484,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
                   return CheckboxListTile(
                     dense: true,
                     activeColor: PosTheme.kiotBlue,
-                    title: Text(c.label, style: const TextStyle(fontSize: 13)),
+                    title: Text(tr(c.label), style: const TextStyle(fontSize: 13)),
                     value: _visibleColumns.contains(c),
                     onChanged: (v) {
                       setDlg(() {
@@ -505,7 +503,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
           actions: [
             TextButton(
               onPressed: () => setDlg(() => _visibleColumns = _defaultListColumns()),
-              child: const Text('Mặc định'),
+              child: Text(tr('Mặc định')),
             ),
             FilledButton(
               onPressed: () {
@@ -513,7 +511,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
                 Navigator.pop(ctx);
               },
               style: FilledButton.styleFrom(backgroundColor: PosTheme.kiotBlue),
-              child: const Text('Áp dụng'),
+              child: Text(tr('Áp dụng')),
             ),
           ],
         ),
@@ -541,7 +539,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
           'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         );
         NotificationOverlayManager()
-            .showSuccess(title: 'Xuất file', message: 'Đã xuất Excel đơn hàng');
+            .showSuccess(title: 'Xuất file', message: tr('Đã xuất Excel đơn hàng'));
       } else {
         NotificationOverlayManager().showError(
             title: 'Lỗi', message: res['message']?.toString() ?? 'Export thất bại');
@@ -557,7 +555,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
     if (res['isSuccess'] == true && res['data'] != null) {
       final copy = PosSaleOrder.fromJson(res['data'] as Map<String, dynamic>);
       NotificationOverlayManager()
-          .showSuccess(title: 'Sao chép', message: 'Đã tạo ${copy.orderNo}');
+          .showSuccess(title: 'Sao chép', message: tr('Đã tạo ${copy.orderNo}'));
       await _openEditor(orderId: copy.id);
     } else {
       NotificationOverlayManager().showError(
@@ -587,7 +585,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
               CheckboxListTile(
                 dense: true,
                 contentPadding: EdgeInsets.zero,
-                title: const Text('Đang xử lý', style: TextStyle(fontSize: 13)),
+                title: Text(tr('Đang xử lý'), style: TextStyle(fontSize: 13)),
                 value: _statusFilter.contains('Draft'),
                 activeColor: PosTheme.kiotBlue,
                 onChanged: (v) => _toggleStatus('Draft', v),
@@ -595,7 +593,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
               CheckboxListTile(
                 dense: true,
                 contentPadding: EdgeInsets.zero,
-                title: const Text('Hoàn thành', style: TextStyle(fontSize: 13)),
+                title: Text(tr('Hoàn thành'), style: TextStyle(fontSize: 13)),
                 value: _statusFilter.contains('Completed'),
                 activeColor: PosTheme.kiotBlue,
                 onChanged: (v) => _toggleStatus('Completed', v),
@@ -603,7 +601,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
               CheckboxListTile(
                 dense: true,
                 contentPadding: EdgeInsets.zero,
-                title: const Text('Đã hủy', style: TextStyle(fontSize: 13)),
+                title: Text(tr('Đã hủy'), style: TextStyle(fontSize: 13)),
                 value: _statusFilter.contains('Cancelled'),
                 activeColor: PosTheme.kiotBlue,
                 onChanged: (v) => _toggleStatus('Cancelled', v),
@@ -622,7 +620,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
               RadioListTile<bool?>(
                 dense: true,
                 contentPadding: EdgeInsets.zero,
-                title: const Text('Tất cả', style: TextStyle(fontSize: 13)),
+                title: Text(tr('Tất cả'), style: TextStyle(fontSize: 13)),
                 value: null,
                 groupValue: _isDeliveryFilter,
                 activeColor: PosTheme.kiotBlue,
@@ -634,7 +632,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
               RadioListTile<bool?>(
                 dense: true,
                 contentPadding: EdgeInsets.zero,
-                title: const Text('Không giao hàng', style: TextStyle(fontSize: 13)),
+                title: Text(tr('Không giao hàng'), style: TextStyle(fontSize: 13)),
                 value: false,
                 groupValue: _isDeliveryFilter,
                 activeColor: PosTheme.kiotBlue,
@@ -646,7 +644,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
               RadioListTile<bool?>(
                 dense: true,
                 contentPadding: EdgeInsets.zero,
-                title: const Text('Giao hàng', style: TextStyle(fontSize: 13)),
+                title: Text(tr('Giao hàng'), style: TextStyle(fontSize: 13)),
                 value: true,
                 groupValue: _isDeliveryFilter,
                 activeColor: PosTheme.kiotBlue,
@@ -668,12 +666,12 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
               border: OutlineInputBorder(),
               contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
             ),
-            hint: const Text('Tất cả', style: TextStyle(fontSize: 12)),
+            hint: Text(tr('Tất cả'), style: TextStyle(fontSize: 12)),
             items: _paymentMethods
                 .map(
                   (m) => DropdownMenuItem<String?>(
                     value: m,
-                    child: Text(m ?? 'Tất cả', style: const TextStyle(fontSize: 12)),
+                    child: Text(tr(m ?? 'Tất cả'), style: const TextStyle(fontSize: 12)),
                   ),
                 )
                 .toList(),
@@ -686,7 +684,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
         FilledButton(
           onPressed: () => _load(),
           style: FilledButton.styleFrom(backgroundColor: PosTheme.kiotBlue),
-          child: const Text('Áp dụng lọc', style: TextStyle(fontSize: 12)),
+          child: Text(tr('Áp dụng lọc'), style: TextStyle(fontSize: 12)),
         ),
       ],
     );
@@ -731,8 +729,8 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
   Widget build(BuildContext context) {
     final perm = Provider.of<PermissionProvider>(context);
     if (!perm.canView('PosProducts')) {
-      return const Scaffold(
-          body: Center(child: Text('Không có quyền xem đơn hàng')));
+      return Scaffold(
+          body: Center(child: Text(tr('Không có quyền xem đơn hàng'))));
     }
     final canEdit =
         perm.canEdit('PosSaleOrders') || perm.canEdit('PosProducts');
@@ -753,7 +751,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
               filterChips: Padding(
                 padding: const EdgeInsets.only(left: 4),
                 child: ActionChip(
-                  label: Text(_timeFilter.displayLabel,
+                  label: Text(tr(_timeFilter.displayLabel),
                       style: const TextStyle(fontSize: 12)),
                   onPressed: _openFilters,
                 ),
@@ -776,7 +774,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
                             height: 16,
                             child: CircularProgressIndicator(strokeWidth: 2))
                         : const Icon(Icons.download, size: 18),
-                    label: const Text('Xuất file'),
+                    label: Text(tr('Xuất file')),
                   ),
                 IconButton(
                   onPressed: () {
@@ -787,12 +785,12 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
                     );
                   },
                   icon: const Icon(Icons.assignment_return_outlined),
-                  tooltip: 'Danh sách trả hàng',
+                  tooltip: tr('Danh sách trả hàng'),
                 ),
                 IconButton(
                   onPressed: _showColumnPicker,
                   icon: const Icon(Icons.view_column_outlined),
-                  tooltip: 'Tùy chọn cột',
+                  tooltip: tr('Tùy chọn cột'),
                 ),
               ],
             ),
@@ -807,8 +805,8 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
                         12, posUseMobileList(context) ? 8 : 10, 12, 0),
                     child: TextField(
                       controller: _searchCtrl,
-                      decoration: const InputDecoration(
-                        hintText: 'Tìm mã đơn, khách hàng…',
+                      decoration: InputDecoration(
+                        hintText: tr('Tìm mã đơn, khách hàng…'),
                         prefixIcon: Icon(Icons.search, size: 20),
                         border: OutlineInputBorder(),
                         isDense: true,
@@ -827,9 +825,9 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
                                 child: ListView(
                                   physics:
                                       const AlwaysScrollableScrollPhysics(),
-                                  children: const [
+                                  children: [
                                     SizedBox(height: 120),
-                                    Center(child: Text('Chưa có đơn hàng')),
+                                    Center(child: Text(tr('Chưa có đơn hàng'))),
                                   ],
                                 ),
                               )
@@ -869,7 +867,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       child: Row(
         children: [
-          Text('Tổng $_total đơn',
+          Text(tr('Tổng $_total đơn'),
               style:
                   const TextStyle(fontSize: 12, color: PosTheme.textSecondary)),
           const Spacer(),
@@ -877,7 +875,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
             icon: const Icon(Icons.chevron_left),
             onPressed: _page > 1 ? () => _load(page: _page - 1) : null,
           ),
-          Text('Trang $_page / $pages', style: const TextStyle(fontSize: 12)),
+          Text(tr('Trang $_page / $pages'), style: const TextStyle(fontSize: 12)),
           IconButton(
             icon: const Icon(Icons.chevron_right),
             onPressed: _page < pages ? () => _load(page: _page + 1) : null,
@@ -895,7 +893,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
       if (!_visibleColumns.contains(c)) return const SizedBox.shrink();
       return Expanded(
         flex: flex,
-        child: Text(c.label, style: h, textAlign: align),
+        child: Text(tr(c.label), style: h, textAlign: align),
       );
     }
 
@@ -943,22 +941,21 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'Doanh thu thuần',
+                  Text(tr('Doanh thu thuần'),
                     style: TextStyle(
                       fontSize: 13,
                       color: PosTheme.textSecondary,
                     ),
                   ),
                   Text(
-                    '$_total hoá đơn${returnedTotal > 0 ? ' · Hoàn trả ${_moneyFmt.format(returnedTotal)}' : ''}',
+                    tr('$_total hoá đơn${returnedTotal > 0 ? ' · Hoàn trả ${_moneyFmt.format(returnedTotal)}' : ''}'),
                     style: const TextStyle(fontSize: 12, color: PosTheme.textSecondary),
                   ),
                 ],
               ),
             ),
             Text(
-              _moneyFmt.format(totalAmount),
+              tr(_moneyFmt.format(totalAmount)),
               style: const TextStyle(
                 fontSize: 22,
                 fontWeight: FontWeight.bold,
@@ -983,8 +980,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
-        Text(
-          '${_moneyFmt.format(o.total)} đ',
+        Text(tr('${_moneyFmt.format(o.total)} đ'),
           style: TextStyle(
             fontSize: 15,
             fontWeight: FontWeight.bold,
@@ -1001,8 +997,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
               color: Colors.orange.shade50,
               borderRadius: BorderRadius.circular(4),
             ),
-            child: Text(
-              'Đã trả ${_moneyFmt.format(o.returnedAmount)}',
+            child: Text(tr('Đã trả ${_moneyFmt.format(o.returnedAmount)}'),
               style: TextStyle(
                 fontSize: 10,
                 fontWeight: FontWeight.w600,
@@ -1056,7 +1051,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
             children: [
               Expanded(
                 child: Text(
-                  label,
+                  tr(label),
                   style: const TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
@@ -1066,9 +1061,9 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
                 ),
               ),
               Text(
-                dayReturn > 0
+                tr(dayReturn > 0
                     ? 'Thuần ${_moneyFmt.format(dayNet)} · Trả ${_moneyFmt.format(dayReturn)}'
-                    : 'Tổng ngày: ${_moneyFmt.format(dayNet)} đ',
+                    : 'Tổng ngày: ${_moneyFmt.format(dayNet)} đ'),
                 style: const TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
@@ -1127,7 +1122,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
                 children: [
                   Expanded(
                     child: Text(
-                      order.orderNo,
+                      tr(order.orderNo),
                       style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
@@ -1166,9 +1161,9 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
                         },
                         icon: const Icon(Icons.print, size: 16),
                         label: Text(
-                          order.printCount > 0
+                          tr(order.printCount > 0
                               ? 'In lại (đã in ${order.printCount} lần)'
-                              : 'In',
+                              : 'In'),
                         ),
                         style: FilledButton.styleFrom(backgroundColor: PosTheme.kiotBlue),
                       ),
@@ -1179,7 +1174,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
                           _openEditor(orderId: order.id);
                         },
                         icon: const Icon(Icons.edit, size: 16),
-                        label: const Text('Chỉnh sửa'),
+                        label: Text(tr('Chỉnh sửa')),
                       ),
                     if (canEdit && order.canCancelWithStock)
                       OutlinedButton.icon(
@@ -1188,7 +1183,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
                           _cancelOrder(order);
                         },
                         icon: const Icon(Icons.cancel_outlined, size: 16),
-                        label: const Text('Hủy đơn (hoàn kho)'),
+                        label: Text(tr('Hủy đơn (hoàn kho)')),
                       ),
                     if (canEdit &&
                         order.status == 'Completed' &&
@@ -1204,7 +1199,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
                           if (ok == true && mounted) _load();
                         },
                         icon: const Icon(Icons.assignment_return_outlined, size: 16),
-                        label: const Text('Trả hàng'),
+                        label: Text(tr('Trả hàng')),
                       ),
                     if (canEdit && order.canDeleteFromList)
                       OutlinedButton.icon(
@@ -1214,9 +1209,9 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
                         },
                         icon: const Icon(Icons.delete_outline, size: 16),
                         style: OutlinedButton.styleFrom(foregroundColor: Colors.red),
-                        label: Text(order.status == 'Draft'
+                        label: Text(tr(order.status == 'Draft'
                             ? 'Xóa phiếu tạm'
-                            : 'Xóa khỏi DS'),
+                            : 'Xóa khỏi DS')),
                       ),
                   ],
                 ),
@@ -1252,7 +1247,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
                   ],
                   Expanded(
                     child: Text(
-                      o.customerName ?? 'Khách lẻ',
+                      tr(o.customerName ?? 'Khách lẻ'),
                       style: TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w600,
@@ -1274,7 +1269,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
                 children: [
                   Expanded(
                     child: Text(
-                      '$timeStr · ${o.orderNo}',
+                      tr('$timeStr · ${o.orderNo}'),
                       style: const TextStyle(
                         fontSize: 12,
                         color: PosTheme.textSecondary,
@@ -1282,7 +1277,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
                     ),
                   ),
                   Text(
-                    o.paymentMethod,
+                    tr(o.paymentMethod),
                     style: const TextStyle(
                       fontSize: 12,
                       color: PosTheme.textSecondary,
@@ -1293,7 +1288,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
               if (firstLine != null) ...[
                 const SizedBox(height: 6),
                 Text(
-                  '${firstLine.productName} x${_qtyFmt(firstLine.qty)}',
+                  tr('${firstLine.productName} x${_qtyFmt(firstLine.qty)}'),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(fontSize: 12, color: PosTheme.textSecondary),
@@ -1367,7 +1362,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
                     Expanded(
                       flex: 2,
                       child: Text(
-                        o.orderNo,
+                        tr(o.orderNo),
                         style: TextStyle(
                           color: posSaleOrderAccentColor(o.status, fallback: PosTheme.kiotBlue),
                           fontWeight: FontWeight.w600,
@@ -1382,7 +1377,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
                     Expanded(
                       flex: 2,
                       child: Text(
-                        dt != null ? _dateFmt.format(dt.toLocal()) : '—',
+                        tr(dt != null ? _dateFmt.format(dt.toLocal()) : '—'),
                         style: const TextStyle(fontSize: 12),
                       ),
                     ),
@@ -1390,7 +1385,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
                     Expanded(
                       flex: 2,
                       child: Text(
-                        o.customerName ?? 'Khách lẻ',
+                        tr(o.customerName ?? 'Khách lẻ'),
                         style: posSaleOrderCancelledTextStyle(
                               o.status,
                               base: const TextStyle(fontSize: 12),
@@ -1402,14 +1397,14 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
                   if (_visibleColumns.contains(_ListColumn.subTotal))
                     Expanded(
                       flex: 2,
-                      child: Text('${_moneyFmt.format(o.subTotal)} đ',
+                      child: Text(tr('${_moneyFmt.format(o.subTotal)} đ'),
                           style: const TextStyle(fontSize: 12),
                           textAlign: TextAlign.right),
                     ),
                   if (_visibleColumns.contains(_ListColumn.discount))
                     Expanded(
                       flex: 2,
-                      child: Text('${_moneyFmt.format(o.discount)} đ',
+                      child: Text(tr('${_moneyFmt.format(o.discount)} đ'),
                           style: const TextStyle(fontSize: 12),
                           textAlign: TextAlign.right),
                     ),
@@ -1419,8 +1414,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
-                          Text(
-                            '${_moneyFmt.format(o.total)} đ',
+                          Text(tr('${_moneyFmt.format(o.total)} đ'),
                             style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w600,
@@ -1437,8 +1431,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
                             textAlign: TextAlign.right,
                           ),
                           if (o.hasReturns)
-                            Text(
-                              'Đã trả ${_moneyFmt.format(o.returnedAmount)}',
+                            Text(tr('Đã trả ${_moneyFmt.format(o.returnedAmount)}'),
                               style: TextStyle(
                                 fontSize: 10,
                                 color: Colors.orange.shade800,
@@ -1451,27 +1444,27 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
                   if (_visibleColumns.contains(_ListColumn.paid))
                     Expanded(
                       flex: 2,
-                      child: Text('${_moneyFmt.format(o.paidAmount)} đ',
+                      child: Text(tr('${_moneyFmt.format(o.paidAmount)} đ'),
                           style: const TextStyle(fontSize: 12),
                           textAlign: TextAlign.right),
                     ),
                   if (_visibleColumns.contains(_ListColumn.balance))
                     Expanded(
                       flex: 2,
-                      child: Text('${_moneyFmt.format(_balance(o))} đ',
+                      child: Text(tr('${_moneyFmt.format(_balance(o))} đ'),
                           style: const TextStyle(fontSize: 12),
                           textAlign: TextAlign.right),
                     ),
                   if (_visibleColumns.contains(_ListColumn.delivery))
                     Expanded(
                       flex: 1,
-                      child: Text(o.isDelivery ? 'Có' : '—',
+                      child: Text(tr(o.isDelivery ? 'Có' : '—'),
                           style: const TextStyle(fontSize: 12)),
                     ),
                   if (_visibleColumns.contains(_ListColumn.deliveryStatus))
                     Expanded(
                       flex: 2,
-                      child: Text(o.deliveryStatus ?? '—',
+                      child: Text(tr(o.deliveryStatus ?? '—'),
                           style: const TextStyle(fontSize: 12),
                           overflow: TextOverflow.ellipsis),
                     ),
@@ -1527,7 +1520,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
                 FilledButton.icon(
                   onPressed: () => _openEditor(orderId: o.id),
                   icon: const Icon(Icons.edit, size: 16),
-                  label: const Text('Chỉnh sửa'),
+                  label: Text(tr('Chỉnh sửa')),
                   style: FilledButton.styleFrom(backgroundColor: PosTheme.kiotBlue),
                 ),
                 OutlinedButton.icon(
@@ -1536,13 +1529,13 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
                       : () => _completeOrder(o),
                   icon: const Icon(Icons.check_circle_outline, size: 16),
                   label: Text(
-                    _completingId == o.id ? 'Đang xử lý…' : 'Hoàn thành',
+                    tr(_completingId == o.id ? 'Đang xử lý…' : 'Hoàn thành'),
                   ),
                 ),
                 OutlinedButton.icon(
                   onPressed: () => _deleteOrder(o),
                   icon: const Icon(Icons.delete_outline, size: 16),
-                  label: const Text('Xóa khỏi DS'),
+                  label: Text(tr('Xóa khỏi DS')),
                 ),
               ],
               if (canEdit && o.status == 'Completed') ...[
@@ -1550,7 +1543,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
                   OutlinedButton.icon(
                     onPressed: () => _cancelOrder(o),
                     icon: const Icon(Icons.cancel_outlined, size: 16),
-                    label: const Text('Hủy đơn (hoàn kho)'),
+                    label: Text(tr('Hủy đơn (hoàn kho)')),
                   ),
                 if (!o.isFullyReturned)
                   OutlinedButton.icon(
@@ -1563,21 +1556,21 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
                       if (ok == true && mounted) _load();
                     },
                     icon: const Icon(Icons.assignment_return_outlined, size: 16),
-                    label: const Text('Trả hàng'),
+                    label: Text(tr('Trả hàng')),
                   ),
                 OutlinedButton.icon(
                   onPressed: () => _printOrder(o),
                   icon: const Icon(Icons.print, size: 16),
                   label: Text(
-                    o.printCount > 0
+                    tr(o.printCount > 0
                         ? 'In lại (đã in ${o.printCount} lần)'
-                        : 'In',
+                        : 'In'),
                   ),
                 ),
                 OutlinedButton.icon(
                   onPressed: () => _copyOrder(o),
                   icon: const Icon(Icons.copy, size: 16),
-                  label: const Text('Sao chép'),
+                  label: Text(tr('Sao chép')),
                 ),
               ],
               if (canEdit && o.canDeleteFromList)
@@ -1585,7 +1578,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
                   onPressed: () => _deleteOrder(o),
                   icon: const Icon(Icons.delete_outline, size: 16),
                   style: OutlinedButton.styleFrom(foregroundColor: Colors.red),
-                  label: Text(o.status == 'Draft' ? 'Xóa phiếu tạm' : 'Xóa khỏi DS'),
+                  label: Text(tr(o.status == 'Draft' ? 'Xóa phiếu tạm' : 'Xóa khỏi DS')),
                 ),
             ],
           ),
@@ -1607,7 +1600,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
             fontWeight: active ? FontWeight.w600 : FontWeight.normal,
             fontSize: 13),
       ),
-      child: Text(label),
+      child: Text(tr(label)),
     );
   }
 
@@ -1623,18 +1616,18 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
           style: const TextStyle(fontSize: 12, color: Colors.black87),
           children: [
             TextSpan(
-                text: '$label: ',
+                text: tr('$label: '),
                 style: const TextStyle(color: PosTheme.textSecondary)),
-            TextSpan(text: value),
+            TextSpan(text: tr(value)),
           ],
         ),
       );
 
   Widget _buildPaymentsTab(PosSaleOrder o) {
     if (_payments.isEmpty) {
-      return const Padding(
+      return Padding(
         padding: EdgeInsets.symmetric(vertical: 12),
-        child: Text('Chưa có thanh toán',
+        child: Text(tr('Chưa có thanh toán'),
             style: TextStyle(fontSize: 12, color: PosTheme.textSecondary)),
       );
     }
@@ -1646,14 +1639,14 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
           dense: true,
           contentPadding: EdgeInsets.zero,
           title: Text(
-              '${p['paymentNo'] ?? p['PaymentNo']} — ${_moneyFmt.format((p['amount'] ?? p['Amount'] as num?)?.toDouble() ?? 0)} đ',
+              tr('${p['paymentNo'] ?? p['PaymentNo']} — ${_moneyFmt.format((p['amount'] ?? p['Amount'] as num?)?.toDouble() ?? 0)} đ'),
               style: const TextStyle(fontSize: 12)),
           subtitle: Text(
-            [
+            tr([
               if (dt != null) _dateFmt.format(dt.toLocal()),
               p['paymentMethod'] ?? p['PaymentMethod'],
               if (p['note'] ?? p['Note'] != null) p['note'] ?? p['Note'],
-            ].whereType<String>().join(' · '),
+            ].whereType<String>().join(' · ')),
             style: const TextStyle(fontSize: 11),
           ),
         );

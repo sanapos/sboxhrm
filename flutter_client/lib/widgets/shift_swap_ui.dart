@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'hrm_page_chrome.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// Chú thích quy trình đổi ca — hiển thị trên các màn liên quan.
 class ShiftSwapFlowHelpBanner extends StatelessWidget {
@@ -38,8 +39,7 @@ class ShiftSwapFlowHelpBanner extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'Quy trình đổi ca (3 bước)',
+                    Text(tr('Quy trình đổi ca (3 bước)'),
                       style: TextStyle(
                         fontWeight: FontWeight.w700,
                         fontSize: compact ? 12 : 13,
@@ -48,12 +48,12 @@ class ShiftSwapFlowHelpBanner extends StatelessWidget {
                     ),
                     SizedBox(height: compact ? 4 : 6),
                     Text(
-                      compact
+                      tr(compact
                           ? '① Gửi YC → ② Đồng nghiệp đồng ý → ③ QL duyệt. Bấm vào từng dòng để xem chi tiết.'
                           : '① Bạn gửi yêu cầu đổi ca với đồng nghiệp.\n'
                               '② Đồng nghiệp chấp nhận hoặc từ chối trên tab「Cần phản hồi」.\n'
                               '③ Quản lý duyệt trên tab「Chờ duyệt」— sau đó lịch làm việc được cập nhật tự động.\n'
-                              'Bấm vào từng yêu cầu để xem đầy đủ thông tin.',
+                              'Bấm vào từng yêu cầu để xem đầy đủ thông tin.'),
                       style: TextStyle(
                         fontSize: compact ? 11 : 12,
                         height: 1.35,
@@ -171,8 +171,8 @@ void showShiftSwapDetailSheet(BuildContext context, Map<String, dynamic> swap) {
               children: [
                 const Icon(Icons.swap_horiz, color: HrmPageChrome.primaryNavy),
                 const SizedBox(width: 8),
-                const Expanded(
-                  child: Text('Chi tiết yêu cầu đổi ca',
+                Expanded(
+                  child: Text(tr('Chi tiết yêu cầu đổi ca'),
                       style:
                           TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
                 ),
@@ -183,7 +183,7 @@ void showShiftSwapDetailSheet(BuildContext context, Map<String, dynamic> swap) {
                     color: shiftSwapStatusColor(status).withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Text(shiftSwapStatusText(status),
+                  child: Text(tr(shiftSwapStatusText(status)),
                       style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
@@ -207,8 +207,7 @@ void showShiftSwapDetailSheet(BuildContext context, Map<String, dynamic> swap) {
             if ((swap['note'] ?? '').toString().isNotEmpty)
               _detailRow('Ghi chú QL', swap['note'].toString()),
             const SizedBox(height: 8),
-            Text(
-              'Tạo lúc: ${formatSwapDate(swap['createdAt'])}',
+            Text(tr('${tr('Tạo lúc: ')}${formatSwapDate(swap['createdAt'])}'),
               style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
             ),
           ],
@@ -224,13 +223,13 @@ Widget _detailRow(String label, String value, {Color? valueColor}) {
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label,
+        Text(tr(label),
             style: const TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w600,
                 color: Color(0xFF94A3B8))),
         const SizedBox(height: 2),
-        Text(value,
+        Text(tr(value),
             style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,

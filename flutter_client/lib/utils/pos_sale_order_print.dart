@@ -22,6 +22,7 @@ import 'pos_sunmi_native_print.dart';
 import 'pos_thermal_printer_settings.dart';
 import 'pos_thermal_printer_service.dart';
 import 'pos_print_template_runtime.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// Hóa đơn bán chưa in được — treo trên màn thu ngân để in lại.
 class PendingSalePrintJob {
@@ -105,8 +106,7 @@ Future<Uint8List> buildPosSaleOrderPdfBytes({
           if (printCount > 1) ...[
             pw.SizedBox(height: 6),
             pw.Center(
-              child: pw.Text(
-                '*** Bản in lại — thông báo chủ cửa hàng ***',
+              child: pw.Text(tr('*** Bản in lại — thông báo chủ cửa hàng ***'),
                 style: pw.TextStyle(
                   font: fonts.bold,
                   fontSize: 11,
@@ -119,22 +119,22 @@ Future<Uint8List> buildPosSaleOrderPdfBytes({
           pw.Row(
             mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
             children: [
-              pw.Text('Mã đơn: ${orderNo.isEmpty ? '—' : orderNo}', style: body10),
-              pw.Text('Ngày bán: ${dateFmt.format(saleDate.toLocal())}', style: body10),
+              pw.Text('${tr('Mã đơn: ')}${orderNo.isEmpty ? '—' : orderNo}', style: body10),
+              pw.Text(tr('Ngày bán: ${dateFmt.format(saleDate.toLocal())}'), style: body10),
             ],
           ),
           pw.SizedBox(height: 6),
           if (branchName != null && branchName.isNotEmpty)
-            pw.Text('Chi nhánh: $branchName', style: body10),
+            pw.Text(tr('Chi nhánh: $branchName'), style: body10),
           if (createdBy != null && createdBy.isNotEmpty)
-            pw.Text('Người tạo: $createdBy', style: body10),
+            pw.Text(tr('Người tạo: $createdBy'), style: body10),
           if (soldBy != null && soldBy.isNotEmpty)
-            pw.Text('Người bán: $soldBy', style: body10),
-          pw.Text('Khách hàng: ${customerName ?? 'Khách lẻ'}', style: body10),
+            pw.Text(tr('Người bán: $soldBy'), style: body10),
+          pw.Text('${tr('Khách hàng: ')}${customerName ?? 'Khách lẻ'}', style: body10),
           if (salesChannel != null && salesChannel.isNotEmpty)
-            pw.Text('Kênh bán: $salesChannel', style: body10),
+            pw.Text(tr('Kênh bán: $salesChannel'), style: body10),
           if (priceListName != null && priceListName.isNotEmpty)
-            pw.Text('Bảng giá: $priceListName', style: body10),
+            pw.Text(tr('Bảng giá: $priceListName'), style: body10),
           pw.SizedBox(height: 12),
           pw.TableHelper.fromTextArray(
             headers: const [
@@ -167,17 +167,17 @@ Future<Uint8List> buildPosSaleOrderPdfBytes({
             cellAlignment: pw.Alignment.centerLeft,
           ),
           pw.SizedBox(height: 10),
-          pw.Text('Tổng số lượng: ${qtyFmt.format(printQty)}', style: body10),
-          pw.Text('Tổng tiền hàng: ${money.format(subTotal)}', style: body10),
-          pw.Text('Giảm giá: ${money.format(discount)}', style: body10),
-          pw.Text('Tổng cộng: ${money.format(total)}', style: bold10),
-          pw.Text('Đã thanh toán: ${money.format(paidAmount)} ($paymentMethod)', style: body10),
-          pw.Text('Còn lại: ${money.format(balanceDue)}', style: body10),
+          pw.Text(tr('Tổng số lượng: ${qtyFmt.format(printQty)}'), style: body10),
+          pw.Text(tr('Tổng tiền hàng: ${money.format(subTotal)}'), style: body10),
+          pw.Text(tr('Giảm giá: ${money.format(discount)}'), style: body10),
+          pw.Text(tr('Tổng cộng: ${money.format(total)}'), style: bold10),
+          pw.Text(tr('Đã thanh toán: ${money.format(paidAmount)} ($paymentMethod)'), style: body10),
+          pw.Text(tr('Còn lại: ${money.format(balanceDue)}'), style: body10),
           if (returnedAmount > 0)
-            pw.Text('Đã trả hàng: ${money.format(returnedAmount)}', style: body10),
+            pw.Text(tr('Đã trả hàng: ${money.format(returnedAmount)}'), style: body10),
           if (note != null && note.isNotEmpty) ...[
             pw.SizedBox(height: 8),
-            pw.Text('Ghi chú: $note', style: body10),
+            pw.Text(tr('Ghi chú: $note'), style: body10),
           ],
           pw.Spacer(),
           pw.Row(
@@ -185,16 +185,16 @@ Future<Uint8List> buildPosSaleOrderPdfBytes({
             children: [
               pw.Column(
                 children: [
-                  pw.Text('Khách hàng', style: bold10),
+                  pw.Text(tr('Khách hàng'), style: bold10),
                   pw.SizedBox(height: 48),
-                  pw.Text('(Ký, họ tên)', style: body10),
+                  pw.Text(tr('(Ký, họ tên)'), style: body10),
                 ],
               ),
               pw.Column(
                 children: [
-                  pw.Text('Người bán', style: bold10),
+                  pw.Text(tr('Người bán'), style: bold10),
                   pw.SizedBox(height: 48),
-                  pw.Text('(Ký, họ tên)', style: body10),
+                  pw.Text(tr('(Ký, họ tên)'), style: body10),
                 ],
               ),
             ],
@@ -499,7 +499,7 @@ Future<bool> _tryLocalSalePrint({
           if (showFeedback) {
             NotificationOverlayManager().showSuccess(
               title: printOrder.isReprint ? 'In lại hóa đơn' : 'In hóa đơn',
-              message: 'Máy in Sunmi (mẫu V2)',
+              message: tr('Máy in Sunmi (mẫu V2)'),
             );
           }
           return true;
@@ -522,7 +522,7 @@ Future<bool> _tryLocalSalePrint({
         if (showFeedback) {
           NotificationOverlayManager().showSuccess(
             title: printOrder.isReprint ? 'In lại hóa đơn' : 'In hóa đơn',
-            message: 'Máy in Sunmi',
+            message: tr('Máy in Sunmi'),
           );
         }
         return true;
@@ -587,7 +587,7 @@ Future<bool> _tryLocalSalePrint({
       if (showFeedback) {
         NotificationOverlayManager().showSuccess(
           title: printOrder.isReprint ? 'In lại hóa đơn' : 'In hóa đơn',
-          message: 'Máy in cục bộ',
+          message: tr('Máy in cục bộ'),
         );
       }
       return true;
@@ -605,7 +605,7 @@ Future<bool> _tryLocalSalePrint({
         if (showFeedback) {
           NotificationOverlayManager().showSuccess(
             title: printOrder.isReprint ? 'In lại hóa đơn' : 'In hóa đơn',
-            message: 'Máy in cục bộ',
+            message: tr('Máy in cục bộ'),
           );
         }
         return true;
@@ -618,7 +618,7 @@ Future<bool> _tryLocalSalePrint({
   if (showFeedback) {
     NotificationOverlayManager().showError(
       title: 'In thất bại',
-      message: 'Không in được hóa đơn trên máy in cục bộ',
+      message: tr('Không in được hóa đơn trên máy in cục bộ'),
     );
   }
   return false;

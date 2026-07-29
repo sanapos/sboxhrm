@@ -13,6 +13,7 @@ import '../widgets/notification_overlay.dart';
 import '../widgets/store_agent_support_card.dart';
 import '../utils/web_marketing_gate_stub.dart'
     if (dart.library.html) '../utils/web_marketing_gate_web.dart' as web_home;
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -394,8 +395,8 @@ class _LoginScreenState extends State<LoginScreen>
                     color: Colors.white.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(20),
                   ),
-                  child: const Text(
-                    'SBOX HRM',
+                  child: Text(
+                    tr('SBOX HRM'),
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 13,
@@ -406,8 +407,7 @@ class _LoginScreenState extends State<LoginScreen>
                 ),
                 const SizedBox(height: 24),
                 // Title - font-headline text-5xl font-extrabold
-                const Text(
-                  'Quản lý nhân sự\nthời gian thực',
+                Text(tr('Quản lý nhân sự\nthời gian thực'),
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 38,
@@ -418,8 +418,7 @@ class _LoginScreenState extends State<LoginScreen>
                 ),
                 const SizedBox(height: 16),
                 // Description - text-white/80 text-lg
-                Text(
-                  'Hệ thống quản lý và vận hành nhân sự công nghệ mới,\nChấm công nhanh và Tính lương chuẩn.',
+                Text(tr('Hệ thống quản lý và vận hành nhân sự công nghệ mới,\nChấm công nhanh và Tính lương chuẩn.'),
                   style: TextStyle(
                     color: Colors.white.withValues(alpha: 0.8),
                     fontSize: 15,
@@ -458,12 +457,11 @@ class _LoginScreenState extends State<LoginScreen>
                             color: Color(0xFF0C56D0), size: 20),
                       ),
                       const SizedBox(width: 16),
-                      const Flexible(
+                      Flexible(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              'HIỆU QUẢ CÔNG VIỆC',
+                            Text(tr('HIỆU QUẢ CÔNG VIỆC'),
                               style: TextStyle(
                                   color: Color(0xFF586064),
                                   fontSize: 11,
@@ -472,8 +470,7 @@ class _LoginScreenState extends State<LoginScreen>
                               overflow: TextOverflow.ellipsis,
                             ),
                             SizedBox(height: 2),
-                            Text(
-                              'TĂNG 100%',
+                            Text(tr('TĂNG 100%'),
                               style: TextStyle(
                                   color: Color(0xFF0C56D0),
                                   fontSize: 18,
@@ -541,7 +538,7 @@ class _LoginScreenState extends State<LoginScreen>
                               : Icons.open_in_browser_rounded,
                           size: 16,
                           color: Color(0xFF6B7280)),
-                      label: const Text('Trang chủ'),
+                      label: Text(tr('Trang chủ')),
                       style: TextButton.styleFrom(
                         foregroundColor: const Color(0xFF6B7280),
                         padding: const EdgeInsets.symmetric(
@@ -560,8 +557,7 @@ class _LoginScreenState extends State<LoginScreen>
                   Align(
                     alignment:
                         isDesktop ? Alignment.centerLeft : Alignment.center,
-                    child: const Text(
-                      'Chào mừng trở lại',
+                    child: Text(tr('Chào mừng trở lại'),
                       style: TextStyle(
                         fontSize: 26,
                         fontWeight: FontWeight.w700,
@@ -575,8 +571,7 @@ class _LoginScreenState extends State<LoginScreen>
                   Align(
                     alignment:
                         isDesktop ? Alignment.centerLeft : Alignment.center,
-                    child: const Text(
-                      'Nhập thông tin để truy cập hệ thống quản trị.',
+                    child: Text(tr('Nhập thông tin để truy cập hệ thống quản trị.'),
                       style: TextStyle(
                           color: Color(0xFF586064), fontSize: 14, height: 1.5),
                     ),
@@ -641,7 +636,7 @@ class _LoginScreenState extends State<LoginScreen>
                                 minimumSize: Size.zero,
                                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                               ),
-                              child: const Text('Quên mật khẩu?',
+                              child: Text(tr('Quên mật khẩu?'),
                                   style: TextStyle(
                                       fontSize: 13,
                                       fontWeight: FontWeight.w600)),
@@ -704,7 +699,7 @@ class _LoginScreenState extends State<LoginScreen>
                                 ),
                               ),
                               const SizedBox(width: 10),
-                              const Text('Ghi nhớ đăng nhập',
+                              Text(tr('Ghi nhớ đăng nhập'),
                                   style: TextStyle(
                                       color: Color(0xFF586064), fontSize: 14)),
                             ],
@@ -753,11 +748,11 @@ class _LoginScreenState extends State<LoginScreen>
                                           strokeWidth: 2.5,
                                           color: Colors.white),
                                     )
-                                  : const Row(
+                                  : Row(
                                       mainAxisAlignment:
                                           MainAxisAlignment.center,
                                       children: [
-                                        Text('Đăng nhập',
+                                        Text(tr('Đăng nhập'),
                                             style: TextStyle(
                                                 fontSize: 15,
                                                 fontWeight: FontWeight.w600)),
@@ -781,7 +776,7 @@ class _LoginScreenState extends State<LoginScreen>
                         alignment: WrapAlignment.center,
                         crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
-                          const Text('Chưa có tài khoản?',
+                          Text(tr('Chưa có tài khoản?'),
                               style: TextStyle(
                                   color: Color(0xFF586064),
                                   fontSize: 14,
@@ -791,7 +786,7 @@ class _LoginScreenState extends State<LoginScreen>
                                 Navigator.of(context).pushNamed('/register'),
                             style: TextButton.styleFrom(
                                 foregroundColor: const Color(0xFF0C56D0)),
-                            child: const Text('Đăng ký ngay',
+                            child: Text(tr('Đăng ký ngay'),
                                 style: TextStyle(
                                   fontWeight: FontWeight.w600,
                                   fontSize: 14,
@@ -865,7 +860,7 @@ class _LoginScreenState extends State<LoginScreen>
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             Expanded(
-              child: Text(copyright, style: copyrightStyle),
+              child: Text(tr(copyright), style: copyrightStyle),
             ),
             links,
           ],
@@ -883,7 +878,7 @@ class _LoginScreenState extends State<LoginScreen>
           FittedBox(
             fit: BoxFit.scaleDown,
             child: Text(
-              copyright,
+              tr(copyright),
               style: copyrightStyle,
               textAlign: TextAlign.center,
             ),
@@ -904,8 +899,8 @@ class _LoginScreenState extends State<LoginScreen>
           child: Image.asset('assets/logo.png', width: 44, height: 44),
         ),
         const SizedBox(width: 14),
-        const Text(
-          'SBOX HRM',
+        Text(
+          tr('SBOX HRM'),
           style: TextStyle(
             fontSize: 28,
             fontWeight: FontWeight.w800,
@@ -924,7 +919,7 @@ class _LoginScreenState extends State<LoginScreen>
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
         child: Text(
-          text,
+          tr(text),
           style: TextStyle(
             color: Colors.grey.shade500,
             fontSize: 11,
@@ -1005,7 +1000,7 @@ class _LoginScreenState extends State<LoginScreen>
 
   static Widget _buildLabel(String text) {
     return Text(
-      text,
+      tr(text),
       style: const TextStyle(
         fontSize: 12,
         fontWeight: FontWeight.w600,
@@ -1028,7 +1023,7 @@ class _LoginScreenState extends State<LoginScreen>
           child: Icon(icon, color: const Color(0xFF586064), size: 24),
         ),
         const SizedBox(height: 6),
-        Text(label,
+        Text(tr(label),
             style: const TextStyle(
                 color: Color(0xFF586064),
                 fontSize: 11,
@@ -1057,7 +1052,7 @@ class _LoginScreenState extends State<LoginScreen>
                   color: Color(0xFFDC2626), size: 20),
               const SizedBox(width: 12),
               Expanded(
-                child: Text(message,
+                child: Text(tr(message),
                     style: const TextStyle(
                         color: Color(0xFFDC2626), fontSize: 13, height: 1.4)),
               ),
@@ -1077,8 +1072,7 @@ class _LoginScreenState extends State<LoginScreen>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'Liên hệ gia hạn ngay',
+                  Text(tr('Liên hệ gia hạn ngay'),
                     style: TextStyle(
                       fontWeight: FontWeight.w700,
                       fontSize: 13,
@@ -1093,7 +1087,7 @@ class _LoginScreenState extends State<LoginScreen>
                       OutlinedButton.icon(
                         onPressed: () => _launchTel(_supportPhoneDigits),
                         icon: const Icon(Icons.phone_rounded, size: 16),
-                        label: Text('Gọi $_supportPhoneDisplay'),
+                        label: Text(tr('Gọi $_supportPhoneDisplay')),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: const Color(0xFF0C4A6E),
                           visualDensity: VisualDensity.compact,
@@ -1103,9 +1097,9 @@ class _LoginScreenState extends State<LoginScreen>
                         onPressed: () => _launchZalo(_zaloDigits),
                         icon: const Icon(Icons.chat_rounded, size: 16),
                         label: Text(
-                            _storeAgentContact != null
+                            tr(_storeAgentContact != null
                                 ? 'Zalo đại lý'
-                                : 'Zalo $_phoneNumber'),
+                                : 'Zalo $_phoneNumber')),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: const Color(0xFF0C4A6E),
                           visualDensity: VisualDensity.compact,
@@ -1139,7 +1133,7 @@ class _LoginScreenState extends State<LoginScreen>
           const TextStyle(color: Color(0xFF2B3437), fontSize: 15, height: 1.5),
       validator: validator,
       decoration: InputDecoration(
-        hintText: hint,
+        hintText: tr(hint),
         hintStyle: const TextStyle(
             color: Color(0xFFABB3B7), fontSize: 14, height: 1.5),
         prefixIcon: Icon(icon, color: const Color(0xFFABB3B7), size: 20),

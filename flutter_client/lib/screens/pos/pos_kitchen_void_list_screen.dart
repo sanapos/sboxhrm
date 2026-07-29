@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import '../../models/pos_sell_industry.dart';
 import '../../services/api_service.dart';
 import '../../widgets/pos/pos_theme.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// Danh sách phiếu hủy món đã báo bếp — đối soát / chống gian lận sau tạm tính.
 class PosKitchenVoidListScreen extends StatefulWidget {
@@ -135,7 +136,7 @@ class _PosKitchenVoidListScreenState extends State<PosKitchenVoidListScreen> {
     return Scaffold(
       backgroundColor: PosTheme.background,
       appBar: AppBar(
-        title: const Text('Phiếu hủy bếp'),
+        title: Text(tr('Phiếu hủy bếp')),
         backgroundColor: Colors.white,
         foregroundColor: Colors.black87,
         elevation: 0.5,
@@ -158,16 +159,16 @@ class _PosKitchenVoidListScreenState extends State<PosKitchenVoidListScreen> {
                     children: [
                       ActionChip(
                         avatar: const Icon(Icons.date_range, size: 16),
-                        label: Text('Từ ${_dayFmt.format(_from)}'),
+                        label: Text(tr('Từ ${_dayFmt.format(_from)}')),
                         onPressed: _pickFrom,
                       ),
                       ActionChip(
                         avatar: const Icon(Icons.event, size: 16),
-                        label: Text('Đến ${_dayFmt.format(_to)}'),
+                        label: Text(tr('Đến ${_dayFmt.format(_to)}')),
                         onPressed: _pickTo,
                       ),
                       ChoiceChip(
-                        label: Text('Tất cả'),
+                        label: Text(tr('Tất cả')),
                         selected: _phase == _BillPhaseFilter.all,
                         onSelected: (_) {
                           setState(() => _phase = _BillPhaseFilter.all);
@@ -175,7 +176,7 @@ class _PosKitchenVoidListScreenState extends State<PosKitchenVoidListScreen> {
                         },
                       ),
                       ChoiceChip(
-                        label: Text('Trước TT ($_beforeBillCount)'),
+                        label: Text(tr('Trước TT ($_beforeBillCount)')),
                         selected: _phase == _BillPhaseFilter.before,
                         onSelected: (_) {
                           setState(() => _phase = _BillPhaseFilter.before);
@@ -183,7 +184,7 @@ class _PosKitchenVoidListScreenState extends State<PosKitchenVoidListScreen> {
                         },
                       ),
                       ChoiceChip(
-                        label: Text('Sau TT ($_afterBillCount)'),
+                        label: Text(tr('Sau TT ($_afterBillCount)')),
                         selected: _phase == _BillPhaseFilter.after,
                         onSelected: (_) {
                           setState(() => _phase = _BillPhaseFilter.after);
@@ -199,22 +200,22 @@ class _PosKitchenVoidListScreenState extends State<PosKitchenVoidListScreen> {
                         child: DropdownButtonFormField<String?>(
                           value: _resourceId,
                           isExpanded: true,
-                          decoration: const InputDecoration(
-                            labelText: 'Bàn',
+                          decoration: InputDecoration(
+                            labelText: tr('Bàn'),
                             isDense: true,
                             border: OutlineInputBorder(),
                             contentPadding: EdgeInsets.symmetric(
                                 horizontal: 10, vertical: 8),
                           ),
                           items: [
-                            const DropdownMenuItem(
+                            DropdownMenuItem(
                               value: null,
-                              child: Text('Tất cả bàn'),
+                              child: Text(tr('Tất cả bàn')),
                             ),
                             ..._resources.map(
                               (r) => DropdownMenuItem(
                                 value: r.id,
-                                child: Text('${r.name} (${r.code})'),
+                                child: Text(tr('${r.name} (${r.code})')),
                               ),
                             ),
                           ],
@@ -229,7 +230,7 @@ class _PosKitchenVoidListScreenState extends State<PosKitchenVoidListScreen> {
                         child: TextField(
                           controller: _staffCtrl,
                           decoration: InputDecoration(
-                            labelText: 'Nhân viên',
+                            labelText: tr('Nhân viên'),
                             isDense: true,
                             border: const OutlineInputBorder(),
                             contentPadding: const EdgeInsets.symmetric(
@@ -253,9 +254,9 @@ class _PosKitchenVoidListScreenState extends State<PosKitchenVoidListScreen> {
             child: _loading
                 ? const Center(child: CircularProgressIndicator())
                 : _error != null
-                    ? Center(child: Text(_error!))
+                    ? Center(child: Text(tr(_error!)))
                     : _items.isEmpty
-                        ? const Center(child: Text('Chưa có phiếu hủy'))
+                        ? Center(child: Text(tr('Chưa có phiếu hủy')))
                         : ListView.separated(
                             padding: const EdgeInsets.all(12),
                             itemCount: _items.length,
@@ -289,11 +290,11 @@ class _PosKitchenVoidListScreenState extends State<PosKitchenVoidListScreen> {
                                     ),
                                   ),
                                   title: Text(
-                                    '${e['productName'] ?? e['ProductName'] ?? ''} × ${_qtyFmt.format(qty)}',
+                                    tr('${e['productName'] ?? e['ProductName'] ?? ''} × ${_qtyFmt.format(qty)}'),
                                     style: const TextStyle(
                                         fontWeight: FontWeight.w600),
                                   ),
-                                  subtitle: Text([
+                                  subtitle: Text(tr([
                                     if ((e['resourceName'] ??
                                             e['ResourceName'] ??
                                             '')
@@ -310,7 +311,7 @@ class _PosKitchenVoidListScreenState extends State<PosKitchenVoidListScreen> {
                                         .isNotEmpty)
                                       '${e['voidedBy'] ?? e['VoidedBy']}',
                                     after ? '⚠ Sau tạm tính' : 'Trước tạm tính',
-                                  ].join(' · ')),
+                                  ].join(' · '))),
                                 ),
                               );
                             },

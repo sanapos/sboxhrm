@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// Bản đồ xem trước vị trí chấm công (mobile / chấm công thô).
 class PunchLocationPreview extends StatefulWidget {
@@ -115,13 +116,13 @@ class _PunchLocationPreviewState extends State<PunchLocationPreview> {
                       color: Colors.white.withValues(alpha: 0.92),
                       borderRadius: BorderRadius.circular(6),
                     ),
-                    child: const Row(
+                    child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(Icons.touch_app,
                             size: 14, color: Color(0xFF1E3A5F)),
                         SizedBox(width: 4),
-                        Text('Chạm để phóng to',
+                        Text(tr('Chạm để phóng to'),
                             style: TextStyle(
                                 fontSize: 11, color: Color(0xFF1E3A5F))),
                       ],

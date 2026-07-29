@@ -21,6 +21,7 @@ import '../widgets/auth_cached_image.dart';
 import '../widgets/hrm_mini_stat_chip.dart';
 import '../utils/navigation_notifier.dart';
 import 'main_layout.dart' show ScreenRefreshNotifier;
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 enum _DeviceOutsideCheckInFilter { all, outsideOn, outsideOff }
 
 class MobileAttendanceSettingsScreen extends StatefulWidget {
@@ -254,7 +255,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    label,
+                    tr(label),
                     textAlign: TextAlign.center,
                     style: const TextStyle(fontSize: 10, color: Color(0xFF71717A)),
                     overflow: TextOverflow.ellipsis,
@@ -373,7 +374,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
       if (mounted) {
         appNotification.showError(
           title: 'Lỗi',
-          message: 'Không thể tải dữ liệu chấm công mobile: $e',
+          message: tr('Không thể tải dữ liệu chấm công mobile: $e'),
         );
       }
     } finally {
@@ -394,8 +395,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
         toolbarHeight: embedded ? 0 : kToolbarHeight,
         title: embedded
             ? null
-            : const Text(
-                'Chấm Công Mobile',
+            : Text(tr('Chấm Công Mobile'),
                 style: TextStyle(
                   color: Color(0xFF18181B),
                   fontWeight: FontWeight.bold,
@@ -407,10 +407,10 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
           labelColor: HrmPageChrome.primaryNavy,
           unselectedLabelColor: const Color(0xFF71717A),
           indicatorColor: HrmPageChrome.primaryNavy,
-          tabs: const [
-            Tab(icon: Icon(Icons.settings), text: 'Cài đặt'),
-            Tab(icon: Icon(Icons.location_on), text: 'Vị trí'),
-            Tab(icon: Icon(Icons.phone_android), text: 'Thiết bị'),
+          tabs: [
+            Tab(icon: Icon(Icons.settings), text: tr('Cài đặt')),
+            Tab(icon: Icon(Icons.location_on), text: tr('Vị trí')),
+            Tab(icon: Icon(Icons.phone_android), text: tr('Thiết bị')),
           ],
         ),
       ),
@@ -673,9 +673,9 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 child: Text(
-                  _settings.minPunchIntervalMinutes == 0
+                  tr(_settings.minPunchIntervalMinutes == 0
                       ? 'Tắt kiểm tra chấm trùng - cho phép chấm liên tục'
-                      : 'Nếu chấm công dưới ${_settings.minPunchIntervalMinutes} phút sẽ bị từ chối là chấm trùng',
+                      : 'Nếu chấm công dưới ${_settings.minPunchIntervalMinutes} phút sẽ bị từ chối là chấm trùng'),
                   style: const TextStyle(fontSize: 12, color: Color(0xFF71717A)),
                 ),
               ),
@@ -694,7 +694,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                         child: CircularProgressIndicator(
                             strokeWidth: 2, color: Colors.white))
                     : const Icon(Icons.save),
-                label: Text(_isSaving ? 'Đang lưu...' : 'Lưu cài đặt'),
+                label: Text(tr(_isSaving ? 'Đang lưu...' : 'Lưu cài đặt')),
                 style: FilledButton.styleFrom(
                   backgroundColor: HrmPageChrome.primaryNavy,
                   padding: const EdgeInsets.symmetric(vertical: 16),
@@ -741,7 +741,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                 ),
                 const SizedBox(width: 12),
                 Text(
-                  title,
+                  tr(title),
                   style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
@@ -775,8 +775,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Chế độ xác thực',
+          Text(tr('Chế độ xác thực'),
             style: TextStyle(
               fontSize: 15,
               fontWeight: FontWeight.w600,
@@ -785,9 +784,9 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
           ),
           const SizedBox(height: 4),
           Text(
-            enabledCount <= 1
+            tr(enabledCount <= 1
                 ? 'Chỉ có ${enabledNames.isNotEmpty ? enabledNames.first : "0"} phương thức bật'
-                : 'Đang bật: ${enabledNames.join(", ")}',
+                : 'Đang bật: ${enabledNames.join(", ")}'),
             style: const TextStyle(fontSize: 12, color: Color(0xFF71717A)),
           ),
           const SizedBox(height: 8),
@@ -865,7 +864,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
             Icon(icon, color: selected ? HrmPageChrome.primaryNavy : const Color(0xFF71717A), size: 24),
             const SizedBox(height: 4),
             Text(
-              label,
+              tr(label),
               style: TextStyle(
                 fontWeight: FontWeight.bold,
                 fontSize: 13,
@@ -873,7 +872,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
               ),
             ),
             Text(
-              subtitle,
+              tr(subtitle),
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 10,
@@ -901,7 +900,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  title,
+                  tr(title),
                   style: const TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w500,
@@ -910,7 +909,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  subtitle,
+                  tr(subtitle),
                   style: const TextStyle(
                     fontSize: 13,
                     color: Color(0xFF71717A),
@@ -948,7 +947,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
             children: [
               Flexible(
                 child: Text(
-                  title,
+                  tr(title),
                   style: const TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w500,
@@ -966,7 +965,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
-                    subtitle,
+                    tr(subtitle),
                     style: const TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
@@ -1014,7 +1013,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
         await DeviceSitePhotoPrefs.setStoreEnabled(_settings.requirePhotoProof);
         appNotification.showSuccess(
           title: 'Thành công',
-          message: 'Đã lưu cài đặt chấm công mobile',
+          message: tr('Đã lưu cài đặt chấm công mobile'),
         );
       } else {
         appNotification.showError(
@@ -1026,7 +1025,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
       if (mounted) {
         appNotification.showError(
           title: 'Lỗi',
-          message: 'Không thể lưu cài đặt: $e',
+          message: tr('Không thể lưu cài đặt: $e'),
         );
       }
     } finally {
@@ -1049,8 +1048,8 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
         border: Border.all(color: const Color(0xFFE4E4E7)),
       ),
       child: TextField(
-        decoration: const InputDecoration(
-          hintText: 'Tìm kiếm vị trí...',
+        decoration: InputDecoration(
+          hintText: tr('Tìm kiếm vị trí...'),
           border: InputBorder.none,
           icon: Icon(Icons.search, color: Color(0xFF71717A)),
         ),
@@ -1079,7 +1078,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                 FilledButton.icon(
                   onPressed: () => _showAddLocationDialog(),
                   icon: const Icon(Icons.add_location_alt),
-                  label: const Text('Thêm'),
+                  label: Text(tr('Thêm')),
                   style: FilledButton.styleFrom(
                     backgroundColor: HrmPageChrome.primaryNavy,
                     padding: const EdgeInsets.symmetric(
@@ -1202,7 +1201,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(location.name,
+                        Text(tr(location.name),
                             style: const TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w600,
@@ -1210,7 +1209,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                             overflow: TextOverflow.ellipsis),
                         const SizedBox(height: 2),
                         Text(
-                          '${location.address} · ${location.radius}m · ${location.autoApproveInRange ? 'Tự động' : 'Duyệt tay'}${location.wifiSsid != null && location.wifiSsid!.isNotEmpty ? ' · 📶 ${location.wifiSsid}' : ''}',
+                          tr('${location.address} · ${location.radius}m · ${location.autoApproveInRange ? 'Tự động' : 'Duyệt tay'}${location.wifiSsid != null && location.wifiSsid!.isNotEmpty ? ' · 📶 ${location.wifiSsid}' : ''}'),
                           style: const TextStyle(
                               fontSize: 12, color: Color(0xFF71717A)),
                           overflow: TextOverflow.ellipsis,
@@ -1231,7 +1230,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                               ),
                               const SizedBox(width: 4),
                               Text(
-                                empLabel,
+                                tr(empLabel),
                                 style: TextStyle(
                                   fontSize: 11,
                                   fontWeight: FontWeight.w600,
@@ -1255,7 +1254,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                             HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(6),
                       ),
-                      child: const Text('Hoạt động',
+                      child: Text(tr('Hoạt động'),
                           style: TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.w600,
@@ -1270,7 +1269,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
           ),
           const SizedBox(width: 4),
           IconButton(
-            tooltip: 'Gán nhân viên',
+            tooltip: tr('Gán nhân viên'),
             onPressed: () => _showLocationEmployeesDialog(location),
             icon: const Icon(Icons.group_add_outlined,
                 size: 20, color: HrmPageChrome.primaryNavy),
@@ -1300,7 +1299,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
   void _showAddLocationDialog() {
     final nameController = TextEditingController();
     final addressController = TextEditingController();
-    final radiusController = TextEditingController(text: '100');
+    final radiusController = TextEditingController(text: tr('100'));
     final wifiBssidController = TextEditingController();
     final isMobile = Responsive.isMobile(context);
     double? selectedLat;
@@ -1313,11 +1312,11 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
         builder: (context, setDialogState) {
           Future<Null> onSave() async {
             if (nameController.text.isEmpty || addressController.text.isEmpty) {
-              appNotification.showError(title: 'Lỗi', message: 'Vui lòng nhập tên vị trí và địa chỉ');
+              appNotification.showError(title: 'Lỗi', message: tr('Vui lòng nhập tên vị trí và địa chỉ'));
               return;
             }
             if (selectedLat == null || selectedLng == null) {
-              appNotification.showError(title: 'Lỗi', message: 'Vui lòng chọn vị trí trên bản đồ');
+              appNotification.showError(title: 'Lỗi', message: tr('Vui lòng chọn vị trí trên bản đồ'));
               return;
             }
             try {
@@ -1332,7 +1331,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
               if (context.mounted) {
                 if (response['isSuccess'] == true) {
                   Navigator.pop(context);
-                  appNotification.showSuccess(title: 'Thành công', message: 'Đã thêm vị trí mới');
+                  appNotification.showSuccess(title: 'Thành công', message: tr('Đã thêm vị trí mới'));
                   _loadData();
                 } else {
                   appNotification.showError(title: 'Lỗi', message: response['message'] ?? 'Không thể thêm vị trí');
@@ -1340,7 +1339,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
               }
             } catch (e) {
               if (mounted) {
-                appNotification.showError(title: 'Lỗi', message: 'Không thể thêm vị trí: $e');
+                appNotification.showError(title: 'Lỗi', message: tr('Không thể thêm vị trí: $e'));
               }
             }
           }
@@ -1353,8 +1352,8 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                 TextField(
                   controller: nameController,
                   decoration: InputDecoration(
-                    labelText: 'Tên vị trí *',
-                    hintText: 'VD: Văn phòng chính',
+                    labelText: tr('Tên vị trí *'),
+                    hintText: tr('VD: Văn phòng chính'),
                     prefixIcon: const Icon(Icons.business),
                     filled: true,
                     fillColor: const Color(0xFFFAFAFA),
@@ -1368,8 +1367,8 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                 TextField(
                   controller: addressController,
                   decoration: InputDecoration(
-                    labelText: 'Địa chỉ *',
-                    hintText: 'VD: 123 Nguyễn Huệ, Q1',
+                    labelText: tr('Địa chỉ *'),
+                    hintText: tr('VD: 123 Nguyễn Huệ, Q1'),
                     prefixIcon: const Icon(Icons.location_on),
                     filled: true,
                     fillColor: const Color(0xFFFAFAFA),
@@ -1384,7 +1383,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                   controller: radiusController,
                   keyboardType: TextInputType.number,
                   decoration: InputDecoration(
-                    labelText: 'Bán kính cho phép (mét)',
+                    labelText: tr('Bán kính cho phép (mét)'),
                     prefixIcon: const Icon(Icons.radar),
                     filled: true,
                     fillColor: const Color(0xFFFAFAFA),
@@ -1398,8 +1397,8 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                 TextField(
                   controller: wifiBssidController,
                   decoration: InputDecoration(
-                    labelText: 'MAC Router WiFi (BSSID)',
-                    hintText: 'VD: AA:BB:CC:DD:EE:FF',
+                    labelText: tr('MAC Router WiFi (BSSID)'),
+                    hintText: tr('VD: AA:BB:CC:DD:EE:FF'),
                     prefixIcon: const Icon(Icons.router),
                     suffixIcon: isDetectingBssid
                         ? const Padding(
@@ -1408,7 +1407,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                           )
                         : IconButton(
                             icon: const Icon(Icons.wifi_find, color: HrmPageChrome.primaryNavy),
-                            tooltip: 'Lấy MAC WiFi đang kết nối',
+                            tooltip: tr('Lấy MAC WiFi đang kết nối'),
                             onPressed: () async {
                               setDialogState(() => isDetectingBssid = true);
                               try {
@@ -1416,7 +1415,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                                   final locStatus = await Permission.location.request();
                                   if (!locStatus.isGranted) {
                                     if (context.mounted) {
-                                      appNotification.showError(title: 'Lỗi', message: 'Cần quyền vị trí để lấy MAC WiFi');
+                                      appNotification.showError(title: 'Lỗi', message: tr('Cần quyền vị trí để lấy MAC WiFi'));
                                     }
                                     return;
                                   }
@@ -1429,12 +1428,12 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                                   });
                                 } else {
                                   if (context.mounted) {
-                                    appNotification.showError(title: 'Không tìm thấy', message: 'Hãy kết nối WiFi cửa hàng trước');
+                                    appNotification.showError(title: 'Không tìm thấy', message: tr('Hãy kết nối WiFi cửa hàng trước'));
                                   }
                                 }
                               } catch (e) {
                                 if (context.mounted) {
-                                  appNotification.showError(title: 'Lỗi', message: 'Không thể lấy MAC WiFi: $e');
+                                  appNotification.showError(title: 'Lỗi', message: tr('Không thể lấy MAC WiFi: $e'));
                                 }
                               } finally {
                                 setDialogState(() => isDetectingBssid = false);
@@ -1447,7 +1446,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                       borderRadius: BorderRadius.circular(12),
                       borderSide: const BorderSide(color: Color(0xFFE4E4E7)),
                     ),
-                    helperText: 'Kết nối WiFi cửa hàng rồi nhấn nút để tự động lấy',
+                    helperText: tr('Kết nối WiFi cửa hàng rồi nhấn nút để tự động lấy'),
                     helperMaxLines: 2,
                   ),
                 ),
@@ -1501,9 +1500,9 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                selectedLat != null
+                                tr(selectedLat != null
                                     ? 'Đã chọn vị trí'
-                                    : 'Chọn vị trí trên bản đồ',
+                                    : 'Chọn vị trí trên bản đồ'),
                                 style: TextStyle(
                                   fontSize: 14,
                                   fontWeight: FontWeight.w600,
@@ -1515,13 +1514,12 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                               if (selectedLat != null) ...[
                                 const SizedBox(height: 2),
                                 Text(
-                                  '${selectedLat!.toStringAsFixed(6)}, ${selectedLng!.toStringAsFixed(6)}',
+                                  tr('${selectedLat!.toStringAsFixed(6)}, ${selectedLng!.toStringAsFixed(6)}'),
                                   style: const TextStyle(fontSize: 11, color: Color(0xFF71717A)),
                                 ),
                               ] else ...[
                                 const SizedBox(height: 2),
-                                const Text(
-                                  'Nhấn để mở bản đồ và chọn tọa độ',
+                                Text(tr('Nhấn để mở bản đồ và chọn tọa độ'),
                                   style: TextStyle(fontSize: 11, color: Color(0xFF71717A)),
                                 ),
                               ],
@@ -1545,7 +1543,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                 height: double.infinity,
                 child: Scaffold(
                   appBar: AppBar(
-                    title: const Text('Thêm vị trí làm việc'),
+                    title: Text(tr('Thêm vị trí làm việc')),
                     leading: IconButton(
                       icon: const Icon(Icons.close),
                       onPressed: () => Navigator.pop(context),
@@ -1559,13 +1557,13 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                       children: [
                         TextButton(
                           onPressed: () => Navigator.pop(context),
-                          child: const Text('Hủy', style: TextStyle(color: Color(0xFF71717A))),
+                          child: Text(tr('Hủy'), style: TextStyle(color: Color(0xFF71717A))),
                         ),
                         const SizedBox(width: 12),
                         FilledButton(
                           onPressed: onSave,
                           style: FilledButton.styleFrom(backgroundColor: HrmPageChrome.primaryNavy),
-                          child: const Text('Thêm'),
+                          child: Text(tr('Thêm')),
                         ),
                       ],
                     ),
@@ -1578,23 +1576,23 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
           return ScrollableAlertDialog(
             backgroundColor: Colors.white,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            title: const Row(
+            title: Row(
               children: [
                 Icon(Icons.add_location_alt, color: HrmPageChrome.primaryNavy),
                 SizedBox(width: 12),
-                Text('Thêm vị trí làm việc', style: TextStyle(color: Color(0xFF18181B))),
+                Text(tr('Thêm vị trí làm việc'), style: TextStyle(color: Color(0xFF18181B))),
               ],
             ),
             content: SizedBox(width: 480, child: formContent),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: const Text('Hủy', style: TextStyle(color: Color(0xFF71717A))),
+                child: Text(tr('Hủy'), style: TextStyle(color: Color(0xFF71717A))),
               ),
               FilledButton(
                 onPressed: onSave,
                 style: FilledButton.styleFrom(backgroundColor: HrmPageChrome.primaryNavy),
-                child: const Text('Thêm'),
+                child: Text(tr('Thêm')),
               ),
             ],
           );
@@ -1622,7 +1620,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                   child: TextField(
                     controller: _faceSearchController,
                     decoration: InputDecoration(
-                      hintText: 'Tìm kiếm nhân viên...',
+                      hintText: tr('Tìm kiếm nhân viên...'),
                       border: InputBorder.none,
                       icon: const Icon(Icons.search, color: Color(0xFF71717A)),
                       suffixIcon: _faceSearchQuery.isNotEmpty
@@ -1643,7 +1641,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
               FilledButton.icon(
                 onPressed: () => _showRegisterFaceDialog(),
                 icon: const Icon(Icons.face),
-                label: const Text('Đăng ký'),
+                label: Text(tr('Đăng ký')),
                 style: FilledButton.styleFrom(
                   backgroundColor: HrmPageChrome.primaryNavy,
                   padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
@@ -1786,18 +1784,17 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(registration.employeeName, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Color(0xFF18181B)), overflow: TextOverflow.ellipsis),
+                  Text(tr(registration.employeeName), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Color(0xFF18181B)), overflow: TextOverflow.ellipsis),
                   const SizedBox(height: 2),
                   Text(
-                    '${registration.employeeCode ?? ''} · ${registration.department ?? ''}',
+                    tr('${registration.employeeCode ?? ''} · ${registration.department ?? ''}'),
                     style: const TextStyle(fontSize: 12, color: Color(0xFF71717A)),
                     overflow: TextOverflow.ellipsis,
                   ),
                   if (hasPhotos)
                     Padding(
                       padding: const EdgeInsets.only(top: 4),
-                      child: Text(
-                        '${registration.faceImages.length} ảnh đăng ký',
+                      child: Text(tr('${registration.faceImages.length} ảnh đăng ký'),
                         style: TextStyle(fontSize: 11, color: Colors.grey[500]),
                       ),
                     ),
@@ -1836,7 +1833,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                 borderRadius: BorderRadius.circular(6),
               ),
               child: Text(
-                registration.isVerified ? 'Đã xác thực' : 'Chờ xác thực',
+                tr(registration.isVerified ? 'Đã xác thực' : 'Chờ xác thực'),
                 style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: statusColor),
               ),
             ),
@@ -1878,11 +1875,11 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
           return ScrollableAlertDialog(
             backgroundColor: Colors.white,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            title: const Row(
+            title: Row(
               children: [
                 Icon(Icons.face, color: HrmPageChrome.primaryNavy),
                 SizedBox(width: 12),
-                Text('Đăng ký khuôn mặt', style: TextStyle(color: Color(0xFF18181B))),
+                Text(tr('Đăng ký khuôn mặt'), style: TextStyle(color: Color(0xFF18181B))),
               ],
             ),
             content: SizedBox(
@@ -1892,7 +1889,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // Employee selector
-                  const Text('Chọn nhân viên', style: TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF18181B))),
+                  Text(tr('Chọn nhân viên'), style: TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF18181B))),
                   const SizedBox(height: 8),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -1901,9 +1898,9 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: DropdownButtonFormField<String>(
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         border: InputBorder.none,
-                        hintText: 'Chọn nhân viên...',
+                        hintText: tr('Chọn nhân viên...'),
                       ),
                       isExpanded: true,
                       menuMaxHeight: 300,
@@ -1921,7 +1918,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                                 radius: 16,
                                 backgroundColor: HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
                                 child: Text(
-                                  name.isNotEmpty ? name[0].toUpperCase() : '?',
+                                  tr(name.isNotEmpty ? name[0].toUpperCase() : '?'),
                                   style: const TextStyle(color: HrmPageChrome.primaryNavy, fontWeight: FontWeight.bold, fontSize: 14),
                                 ),
                               ),
@@ -1931,9 +1928,9 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    Text(name, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500), overflow: TextOverflow.ellipsis),
+                                    Text(tr(name), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500), overflow: TextOverflow.ellipsis),
                                     if (code.isNotEmpty || dept.isNotEmpty)
-                                      Text('$code${code.isNotEmpty && dept.isNotEmpty ? ' · ' : ''}$dept',
+                                      Text(tr('$code${code.isNotEmpty && dept.isNotEmpty ? ' · ' : ''}$dept'),
                                           style: const TextStyle(fontSize: 12, color: Color(0xFF71717A)), overflow: TextOverflow.ellipsis),
                                   ],
                                 ),
@@ -1953,14 +1950,14 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                     ),
                   ),
                   if (employees.isEmpty)
-                    const Padding(
+                    Padding(
                       padding: EdgeInsets.only(top: 8),
-                      child: Text('Không tải được danh sách nhân viên', style: TextStyle(color: Color(0xFFEF4444), fontSize: 12)),
+                      child: Text(tr('Không tải được danh sách nhân viên'), style: TextStyle(color: Color(0xFFEF4444), fontSize: 12)),
                     ),
                   if (unregistered.isEmpty && employees.isNotEmpty)
-                    const Padding(
+                    Padding(
                       padding: EdgeInsets.only(top: 8),
-                      child: Text('Tất cả nhân viên đã được đăng ký khuôn mặt', style: TextStyle(color: Color(0xFF71717A), fontSize: 12)),
+                      child: Text(tr('Tất cả nhân viên đã được đăng ký khuôn mặt'), style: TextStyle(color: Color(0xFF71717A), fontSize: 12)),
                     ),
                   const SizedBox(height: 20),
 
@@ -1986,11 +1983,11 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  '${selectedEmployee!['lastName'] ?? ''} ${selectedEmployee!['firstName'] ?? ''}'.trim(),
+                                  tr('${selectedEmployee!['lastName'] ?? ''} ${selectedEmployee!['firstName'] ?? ''}'.trim()),
                                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF18181B)),
                                 ),
                                 Text(
-                                  selectedEmployee!['employeeCode'] ?? '',
+                                  tr(selectedEmployee!['employeeCode'] ?? ''),
                                   style: const TextStyle(color: Color(0xFF71717A), fontSize: 13),
                                 ),
                               ],
@@ -2009,13 +2006,12 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                       color: const Color(0xFFFEF3C7),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: const Row(
+                    child: Row(
                       children: [
                         Icon(Icons.lightbulb, color: Color(0xFFF59E0B), size: 20),
                         SizedBox(width: 8),
                         Expanded(
-                          child: Text(
-                            'Camera sẽ mở và chụp 5 ảnh khuôn mặt: thẳng, trái, phải, trên, dưới',
+                          child: Text(tr('Camera sẽ mở và chụp 5 ảnh khuôn mặt: thẳng, trái, phải, trên, dưới'),
                             style: TextStyle(fontSize: 12, color: Color(0xFF92400E)),
                           ),
                         ),
@@ -2028,7 +2024,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(ctx),
-                child: const Text('Hủy', style: TextStyle(color: Color(0xFF71717A))),
+                child: Text(tr('Hủy'), style: TextStyle(color: Color(0xFF71717A))),
               ),
               FilledButton.icon(
                 onPressed: selectedEmployee == null
@@ -2038,7 +2034,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                         _startFaceCapture(selectedEmployee!);
                       },
                 icon: const Icon(Icons.camera_alt),
-                label: const Text('Bắt đầu chụp'),
+                label: Text(tr('Bắt đầu chụp')),
                 style: FilledButton.styleFrom(
                   backgroundColor: HrmPageChrome.primaryNavy,
                   disabledBackgroundColor: const Color(0xFFE4E4E7),
@@ -2067,7 +2063,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (_) => const Center(
+      builder: (_) => Center(
         child: Card(
           child: Padding(
             padding: EdgeInsets.all(32),
@@ -2076,7 +2072,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
               children: [
                 CircularProgressIndicator(color: HrmPageChrome.primaryNavy),
                 SizedBox(height: 16),
-                Text('Đang đăng ký khuôn mặt...', style: TextStyle(fontWeight: FontWeight.w600)),
+                Text(tr('Đang đăng ký khuôn mặt...'), style: TextStyle(fontWeight: FontWeight.w600)),
               ],
             ),
           ),
@@ -2097,7 +2093,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
       if (response['isSuccess'] == true) {
         appNotification.showSuccess(
           title: 'Thành công',
-          message: 'Đã đăng ký khuôn mặt cho "$employeeName" (${result.base64Images.length} ảnh)',
+          message: tr('Đã đăng ký khuôn mặt cho "$employeeName" (${result.base64Images.length} ảnh)'),
         );
         _loadData();
       } else {
@@ -2111,7 +2107,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
         Navigator.pop(context); // close loading
         appNotification.showError(
           title: 'Lỗi',
-          message: 'Không thể đăng ký khuôn mặt: $e',
+          message: tr('Không thể đăng ký khuôn mặt: $e'),
         );
       }
     }
@@ -2134,7 +2130,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
       child: TextField(
         controller: _deviceSearchController,
         decoration: InputDecoration(
-          hintText: 'Tìm kiếm theo nhân viên, tên máy...',
+          hintText: tr('Tìm kiếm theo nhân viên, tên máy...'),
           border: InputBorder.none,
           icon: const Icon(Icons.search, color: Color(0xFF71717A)),
           suffixIcon: _deviceSearchQuery.isNotEmpty
@@ -2171,7 +2167,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                 FilledButton.icon(
                   onPressed: () => _showAddDeviceDialog(),
                   icon: const Icon(Icons.add),
-                  label: const Text('Cấp quyền'),
+                  label: Text(tr('Cấp quyền')),
                   style: FilledButton.styleFrom(
                     backgroundColor: HrmPageChrome.primaryNavy,
                     padding: const EdgeInsets.symmetric(
@@ -2253,8 +2249,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                           children: [
                             const Icon(Icons.swap_horiz, size: 18, color: Color(0xFF2563EB)),
                             const SizedBox(width: 6),
-                            Text(
-                              'Yêu cầu đổi máy (${_filteredDeviceChangeRequests.length})',
+                            Text(tr('Yêu cầu đổi máy (${_filteredDeviceChangeRequests.length})'),
                               style: const TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.bold,
@@ -2339,7 +2334,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
               Icon(icon, size: 16, color: isSelected ? color : const Color(0xFF71717A)),
               const SizedBox(width: 6),
               Text(
-                '$label ($count)',
+                tr('$label ($count)'),
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
@@ -2370,8 +2365,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                 const Icon(Icons.filter_alt, size: 16, color: Color(0xFF2563EB)),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: Text(
-                    'Đang lọc: $_deviceOutsideFilterLabel · ${_filteredAuthorizedDevices.length} thiết bị',
+                  child: Text(tr('Đang lọc: $_deviceOutsideFilterLabel · ${_filteredAuthorizedDevices.length} thiết bị'),
                     style: const TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
@@ -2379,8 +2373,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                     ),
                   ),
                 ),
-                const Text(
-                  'Bỏ lọc',
+                Text(tr('Bỏ lọc'),
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
@@ -2449,7 +2442,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                     children: [
                       Expanded(
                         child: Text(
-                          employeeLabel,
+                          tr(employeeLabel),
                           style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
@@ -2467,13 +2460,13 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                             color: const Color(0xFFFEF3C7),
                             borderRadius: BorderRadius.circular(6),
                           ),
-                          child: const Text('Chờ duyệt', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Color(0xFFF59E0B))),
+                          child: Text(tr('Chờ duyệt'), style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Color(0xFFF59E0B))),
                         ),
                     ],
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    subtitleParts.join(' · '),
+                    tr(subtitleParts.join(' · ')),
                     style: const TextStyle(fontSize: 12, color: Color(0xFF71717A)),
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -2484,14 +2477,14 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
               IconButton(
                 onPressed: () => _approveDevice(device, true),
                 icon: const Icon(Icons.check_circle, color: Color(0xFF22C55E), size: 24),
-                tooltip: 'Duyệt',
+                tooltip: tr('Duyệt'),
                 constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
                 padding: EdgeInsets.zero,
               ),
               IconButton(
                 onPressed: () => _approveDevice(device, false),
                 icon: const Icon(Icons.cancel, color: Color(0xFFEF4444), size: 24),
-                tooltip: 'Từ chối',
+                tooltip: tr('Từ chối'),
                 constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
                 padding: EdgeInsets.zero,
               ),
@@ -2514,11 +2507,11 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
       builder: (context) => ScrollableAlertDialog(
         backgroundColor: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Row(
+        title: Row(
           children: [
             Icon(Icons.phone_android, color: HrmPageChrome.primaryNavy),
             SizedBox(width: 12),
-            Text('Cấp quyền thiết bị', style: TextStyle(color: Color(0xFF18181B))),
+            Text(tr('Cấp quyền thiết bị'), style: TextStyle(color: Color(0xFF18181B))),
           ],
         ),
         content: Column(
@@ -2552,16 +2545,14 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                     ),
                   ),
                   const SizedBox(height: 16),
-                  const Text(
-                    'Quét mã QR từ ứng dụng mobile',
+                  Text(tr('Quét mã QR từ ứng dụng mobile'),
                     style: TextStyle(
                       fontWeight: FontWeight.w500,
                       color: Color(0xFF18181B),
                     ),
                   ),
                   const SizedBox(height: 4),
-                  const Text(
-                    'Mã có hiệu lực trong 5 phút',
+                  Text(tr('Mã có hiệu lực trong 5 phút'),
                     style: TextStyle(
                       fontSize: 12,
                       color: Color(0xFF71717A),
@@ -2577,13 +2568,12 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                 color: const Color(0xFFEFF6FF),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: const Row(
+              child: Row(
                 children: [
                   Icon(Icons.info_outline, color: HrmPageChrome.primaryNavy, size: 20),
                   SizedBox(width: 8),
                   Expanded(
-                    child: Text(
-                      'Nhân viên cần cài ứng dụng ZKTeco Mobile để quét mã',
+                    child: Text(tr('Nhân viên cần cài ứng dụng ZKTeco Mobile để quét mã'),
                       style: TextStyle(fontSize: 12, color: HrmPageChrome.primaryNavy),
                     ),
                   ),
@@ -2595,7 +2585,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Đóng', style: TextStyle(color: Color(0xFF71717A))),
+            child: Text(tr('Đóng'), style: TextStyle(color: Color(0xFF71717A))),
           ),
         ],
       ),
@@ -2621,7 +2611,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
           ),
           const SizedBox(height: 16),
           Text(
-            title,
+            tr(title),
             style: const TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w600,
@@ -2630,7 +2620,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
           ),
           const SizedBox(height: 8),
           Text(
-            subtitle,
+            tr(subtitle),
             textAlign: TextAlign.center,
             style: const TextStyle(
               fontSize: 14,
@@ -2646,14 +2636,14 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => ScrollableAlertDialog(
-        title: const Text('Xác nhận xóa'),
-        content: Text('Xóa vị trí "${location.name}"?'),
+        title: Text(tr('Xác nhận xóa')),
+        content: Text(tr('Xóa vị trí "${location.name}"?')),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Hủy')),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Hủy'))),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: FilledButton.styleFrom(backgroundColor: const Color(0xFFEF4444)),
-            child: const Text('Xóa'),
+            child: Text(tr('Xóa')),
           ),
         ],
       ),
@@ -2663,7 +2653,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
       final response = await _apiService.deleteWorkLocation(location.id);
       if (mounted) {
         if (response['isSuccess'] == true) {
-          appNotification.showSuccess(title: 'Thành công', message: 'Đã xóa vị trí');
+          appNotification.showSuccess(title: 'Thành công', message: tr('Đã xóa vị trí'));
           _loadData();
         } else {
           appNotification.showError(title: 'Lỗi', message: response['message'] ?? 'Không thể xóa');
@@ -2671,7 +2661,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
       }
     } catch (e) {
       if (mounted) {
-        appNotification.showError(title: 'Lỗi', message: 'Không thể xóa: $e');
+        appNotification.showError(title: 'Lỗi', message: tr('Không thể xóa: $e'));
       }
     }
   }
@@ -2680,14 +2670,14 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => ScrollableAlertDialog(
-        title: const Text('Xác nhận xóa'),
-        content: Text('Xóa thiết bị "${device.deviceName}" của ${device.employeeName ?? 'nhân viên'}?'),
+        title: Text(tr('Xác nhận xóa')),
+        content: Text(tr('${tr('Xóa thiết bị "')}${device.deviceName}" của ${device.employeeName ?? 'nhân viên'}?')),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Hủy')),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Hủy'))),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: FilledButton.styleFrom(backgroundColor: const Color(0xFFEF4444)),
-            child: const Text('Xóa'),
+            child: Text(tr('Xóa')),
           ),
         ],
       ),
@@ -2697,7 +2687,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
       final response = await _apiService.revokeDevice(device.id);
       if (mounted) {
         if (response['isSuccess'] == true) {
-          appNotification.showSuccess(title: 'Thành công', message: 'Đã xóa thiết bị');
+          appNotification.showSuccess(title: 'Thành công', message: tr('Đã xóa thiết bị'));
           _loadData();
         } else {
           appNotification.showError(title: 'Lỗi', message: response['message'] ?? 'Không thể xóa');
@@ -2705,7 +2695,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
       }
     } catch (e) {
       if (mounted) {
-        appNotification.showError(title: 'Lỗi', message: 'Không thể xóa: $e');
+        appNotification.showError(title: 'Lỗi', message: tr('Không thể xóa: $e'));
       }
     }
   }
@@ -2713,10 +2703,10 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
   // ==================== API HELPER METHODS ====================
 
   void _showEditLocationDialog(WorkLocation location) {
-    final nameController = TextEditingController(text: location.name);
-    final addressController = TextEditingController(text: location.address);
-    final radiusController = TextEditingController(text: location.radius.toString());
-    final wifiBssidController = TextEditingController(text: location.wifiBssid ?? '');
+    final nameController = TextEditingController(text: tr(location.name));
+    final addressController = TextEditingController(text: tr(location.address));
+    final radiusController = TextEditingController(text: tr(location.radius.toString()));
+    final wifiBssidController = TextEditingController(text: tr(location.wifiBssid ?? ''));
     final isMobile = Responsive.isCompactViewport(context);
     double editLat = location.latitude;
     double editLng = location.longitude;
@@ -2728,7 +2718,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
         builder: (dialogContext, setDialogState) {
           Future<Null> onSave() async {
             if (nameController.text.isEmpty || addressController.text.isEmpty) {
-              appNotification.showError(title: 'Lỗi', message: 'Vui lòng nhập tên vị trí và địa chỉ');
+              appNotification.showError(title: 'Lỗi', message: tr('Vui lòng nhập tên vị trí và địa chỉ'));
               return;
             }
             try {
@@ -2745,7 +2735,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
               if (dialogContext.mounted) {
                 if (response['isSuccess'] == true) {
                   Navigator.pop(dialogContext);
-                  appNotification.showSuccess(title: 'Thành công', message: 'Đã cập nhật vị trí');
+                  appNotification.showSuccess(title: 'Thành công', message: tr('Đã cập nhật vị trí'));
                   _loadData();
                 } else {
                   appNotification.showError(title: 'Lỗi', message: response['message'] ?? 'Không thể cập nhật');
@@ -2753,7 +2743,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
               }
             } catch (e) {
               if (mounted) {
-                appNotification.showError(title: 'Lỗi', message: 'Không thể cập nhật: $e');
+                appNotification.showError(title: 'Lỗi', message: tr('Không thể cập nhật: $e'));
               }
             }
           }
@@ -2768,7 +2758,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                 TextField(
                   controller: nameController,
                   decoration: InputDecoration(
-                    labelText: 'Tên vị trí *',
+                    labelText: tr('Tên vị trí *'),
                     prefixIcon: const Icon(Icons.business),
                     filled: true,
                     fillColor: const Color(0xFFFAFAFA),
@@ -2779,7 +2769,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                 TextField(
                   controller: addressController,
                   decoration: InputDecoration(
-                    labelText: 'Địa chỉ *',
+                    labelText: tr('Địa chỉ *'),
                     prefixIcon: const Icon(Icons.location_on),
                     filled: true,
                     fillColor: const Color(0xFFFAFAFA),
@@ -2791,7 +2781,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                   controller: radiusController,
                   keyboardType: TextInputType.number,
                   decoration: InputDecoration(
-                    labelText: 'Bán kính cho phép (mét)',
+                    labelText: tr('Bán kính cho phép (mét)'),
                     prefixIcon: const Icon(Icons.radar),
                     filled: true,
                     fillColor: const Color(0xFFFAFAFA),
@@ -2802,8 +2792,8 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                 TextField(
                   controller: wifiBssidController,
                   decoration: InputDecoration(
-                    labelText: 'MAC Router WiFi (BSSID)',
-                    hintText: 'VD: AA:BB:CC:DD:EE:FF',
+                    labelText: tr('MAC Router WiFi (BSSID)'),
+                    hintText: tr('VD: AA:BB:CC:DD:EE:FF'),
                     prefixIcon: const Icon(Icons.router),
                     suffixIcon: isDetectingBssid
                         ? const Padding(
@@ -2812,7 +2802,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                           )
                         : IconButton(
                             icon: const Icon(Icons.wifi_find, color: HrmPageChrome.primaryNavy),
-                            tooltip: 'Lấy MAC WiFi đang kết nối',
+                            tooltip: tr('Lấy MAC WiFi đang kết nối'),
                             onPressed: () async {
                               setDialogState(() => isDetectingBssid = true);
                               try {
@@ -2820,7 +2810,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                                   final locStatus = await Permission.location.request();
                                   if (!locStatus.isGranted) {
                                     if (dialogContext.mounted) {
-                                      appNotification.showError(title: 'Lỗi', message: 'Cần quyền vị trí để lấy MAC WiFi');
+                                      appNotification.showError(title: 'Lỗi', message: tr('Cần quyền vị trí để lấy MAC WiFi'));
                                     }
                                     return;
                                   }
@@ -2833,12 +2823,12 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                                   });
                                 } else {
                                   if (dialogContext.mounted) {
-                                    appNotification.showError(title: 'Không tìm thấy', message: 'Hãy kết nối WiFi cửa hàng trước');
+                                    appNotification.showError(title: 'Không tìm thấy', message: tr('Hãy kết nối WiFi cửa hàng trước'));
                                   }
                                 }
                               } catch (e) {
                                 if (dialogContext.mounted) {
-                                  appNotification.showError(title: 'Lỗi', message: 'Không thể lấy MAC WiFi: $e');
+                                  appNotification.showError(title: 'Lỗi', message: tr('Không thể lấy MAC WiFi: $e'));
                                 }
                               } finally {
                                 setDialogState(() => isDetectingBssid = false);
@@ -2848,7 +2838,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                     filled: true,
                     fillColor: const Color(0xFFFAFAFA),
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                    helperText: 'Kết nối WiFi cửa hàng rồi nhấn nút để tự động lấy',
+                    helperText: tr('Kết nối WiFi cửa hàng rồi nhấn nút để tự động lấy'),
                     helperMaxLines: 2,
                   ),
                 ),
@@ -2902,9 +2892,9 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                hasCoords
+                                tr(hasCoords
                                     ? 'Vị trí đã chọn'
-                                    : 'Chọn vị trí trên bản đồ',
+                                    : 'Chọn vị trí trên bản đồ'),
                                 style: TextStyle(
                                   fontSize: 14,
                                   fontWeight: FontWeight.w600,
@@ -2915,9 +2905,9 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                               ),
                               const SizedBox(height: 2),
                               Text(
-                                hasCoords
+                                tr(hasCoords
                                     ? '${editLat.toStringAsFixed(6)}, ${editLng.toStringAsFixed(6)}'
-                                    : 'Nhấn để mở bản đồ và chọn tọa độ',
+                                    : 'Nhấn để mở bản đồ và chọn tọa độ'),
                                 style: const TextStyle(fontSize: 11, color: Color(0xFF71717A)),
                               ),
                             ],
@@ -2940,7 +2930,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                 height: double.infinity,
                 child: Scaffold(
                   appBar: AppBar(
-                    title: const Text('Sửa vị trí làm việc'),
+                    title: Text(tr('Sửa vị trí làm việc')),
                     leading: IconButton(
                       icon: const Icon(Icons.close),
                       onPressed: () => Navigator.pop(dialogContext),
@@ -2959,19 +2949,19 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                             },
                             icon: const Icon(Icons.delete_outline,
                                 size: 18, color: Color(0xFFEF4444)),
-                            label: const Text('Xóa',
+                            label: Text(tr('Xóa'),
                                 style: TextStyle(color: Color(0xFFEF4444))),
                           ),
                         const Spacer(),
                         TextButton(
                           onPressed: () => Navigator.pop(dialogContext),
-                          child: const Text('Hủy', style: TextStyle(color: Color(0xFF71717A))),
+                          child: Text(tr('Hủy'), style: TextStyle(color: Color(0xFF71717A))),
                         ),
                         const SizedBox(width: 12),
                         FilledButton(
                           onPressed: onSave,
                           style: FilledButton.styleFrom(backgroundColor: HrmPageChrome.primaryNavy),
-                          child: const Text('Lưu'),
+                          child: Text(tr('Lưu')),
                         ),
                       ],
                     ),
@@ -2984,11 +2974,11 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
           return ScrollableAlertDialog(
             backgroundColor: Colors.white,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            title: const Row(
+            title: Row(
               children: [
                 Icon(Icons.edit_location_alt, color: Color(0xFFF59E0B)),
                 SizedBox(width: 12),
-                Text('Sửa vị trí làm việc', style: TextStyle(color: Color(0xFF18181B))),
+                Text(tr('Sửa vị trí làm việc'), style: TextStyle(color: Color(0xFF18181B))),
               ],
             ),
             content: formContent,
@@ -3005,19 +2995,19 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                         },
                         icon: const Icon(Icons.delete_outline,
                             size: 18, color: Color(0xFFEF4444)),
-                        label: const Text('Xóa',
+                        label: Text(tr('Xóa'),
                             style: TextStyle(color: Color(0xFFEF4444))),
                       ),
                     const Spacer(),
                     TextButton(
                       onPressed: () => Navigator.pop(context),
-                      child: const Text('Hủy', style: TextStyle(color: Color(0xFF71717A))),
+                      child: Text(tr('Hủy'), style: TextStyle(color: Color(0xFF71717A))),
                     ),
                     const SizedBox(width: 8),
                     FilledButton(
                       onPressed: onSave,
                       style: FilledButton.styleFrom(backgroundColor: HrmPageChrome.primaryNavy),
-                      child: const Text('Lưu'),
+                      child: Text(tr('Lưu')),
                     ),
                   ],
                 ),
@@ -3035,14 +3025,14 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
         final confirmed = await showDialog<bool>(
           context: context,
           builder: (ctx) => ScrollableAlertDialog(
-            title: const Text('Xác nhận xóa'),
-            content: Text('Xóa đăng ký khuôn mặt của "${registration.employeeName}"?'),
+            title: Text(tr('Xác nhận xóa')),
+            content: Text(tr('Xóa đăng ký khuôn mặt của "${registration.employeeName}"?')),
             actions: [
-              TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Hủy')),
+              TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Hủy'))),
               FilledButton(
                 onPressed: () => Navigator.pop(ctx, true),
                 style: FilledButton.styleFrom(backgroundColor: const Color(0xFFEF4444)),
-                child: const Text('Xóa'),
+                child: Text(tr('Xóa')),
               ),
             ],
           ),
@@ -3052,7 +3042,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
           final response = await _apiService.deleteFaceRegistration(registration.id);
           if (mounted) {
             if (response['isSuccess'] == true) {
-              appNotification.showSuccess(title: 'Thành công', message: 'Đã xóa đăng ký khuôn mặt');
+              appNotification.showSuccess(title: 'Thành công', message: tr('Đã xóa đăng ký khuôn mặt'));
               _loadData();
             } else {
               appNotification.showError(title: 'Lỗi', message: response['message'] ?? 'Không thể xóa');
@@ -3060,7 +3050,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
           }
         } catch (e) {
           if (mounted) {
-            appNotification.showError(title: 'Lỗi', message: 'Không thể xóa: $e');
+            appNotification.showError(title: 'Lỗi', message: tr('Không thể xóa: $e'));
           }
         }
         break;
@@ -3090,9 +3080,9 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
             title: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(registration.employeeName, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                Text(tr(registration.employeeName), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                 if (registration.employeeCode != null)
-                  Text(registration.employeeCode!, style: const TextStyle(fontSize: 12, color: Colors.white70)),
+                  Text(tr(registration.employeeCode!), style: const TextStyle(fontSize: 12, color: Colors.white70)),
               ],
             ),
             actions: [
@@ -3104,7 +3094,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
-                  registration.isVerified ? 'Đã xác thực' : 'Chờ xác thực',
+                  tr(registration.isVerified ? 'Đã xác thực' : 'Chờ xác thực'),
                   style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600,
                     color: registration.isVerified ? Colors.white : const Color(0xFFFEF3C7)),
                 ),
@@ -3112,13 +3102,13 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
             ],
           ),
           body: registration.faceImages.isEmpty
-              ? const Center(
+              ? Center(
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(Icons.image_not_supported, size: 48, color: Color(0xFF71717A)),
                       SizedBox(height: 8),
-                      Text('Chưa có ảnh khuôn mặt', style: TextStyle(color: Color(0xFF71717A))),
+                      Text(tr('Chưa có ảnh khuôn mặt'), style: TextStyle(color: Color(0xFF71717A))),
                     ],
                   ),
                 )
@@ -3127,7 +3117,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('${registration.faceImages.length} ảnh đã đăng ký',
+                      Text(tr('${registration.faceImages.length} ảnh đã đăng ký'),
                           style: const TextStyle(color: Color(0xFF71717A), fontSize: 13)),
                       const SizedBox(height: 12),
                       SafeFixedGrid(
@@ -3164,7 +3154,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                                       Padding(
                                         padding: const EdgeInsets.symmetric(
                                             horizontal: 4),
-                                        child: Text(url,
+                                        child: Text(tr(url),
                                             style: const TextStyle(
                                                 fontSize: 8,
                                                 color: Color(0xFF71717A)),
@@ -3181,8 +3171,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                       ),
                       if (registration.registeredAt != null) ...[
                         const SizedBox(height: 12),
-                        Text(
-                          'Đăng ký: ${registration.registeredAt!.day}/${registration.registeredAt!.month}/${registration.registeredAt!.year}',
+                        Text(tr('Đăng ký: ${registration.registeredAt!.day}/${registration.registeredAt!.month}/${registration.registeredAt!.year}'),
                           style: const TextStyle(fontSize: 12, color: Color(0xFF71717A)),
                         ),
                       ],
@@ -3202,7 +3191,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                       },
                       icon: const Icon(Icons.delete_outline,
                           size: 18, color: Color(0xFFEF4444)),
-                      label: const Text('Xóa',
+                      label: Text(tr('Xóa'),
                           style: TextStyle(color: Color(0xFFEF4444))),
                     ),
                   const Spacer(),
@@ -3213,7 +3202,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                         _retakeFaceRegistration(registration);
                       },
                     icon: const Icon(Icons.camera_alt, size: 18),
-                    label: const Text('Chụp lại'),
+                    label: Text(tr('Chụp lại')),
                     style: FilledButton.styleFrom(
                       backgroundColor: HrmPageChrome.primaryNavy,
                     ),
@@ -3248,11 +3237,11 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                     children: [
                       const Icon(Icons.broken_image, color: Colors.white54, size: 48),
                       const SizedBox(height: 8),
-                      const Text('Không tải được ảnh', style: TextStyle(color: Colors.white54)),
+                      Text(tr('Không tải được ảnh'), style: TextStyle(color: Colors.white54)),
                       const SizedBox(height: 4),
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 24),
-                        child: Text(url, style: const TextStyle(fontSize: 10, color: Colors.white38), textAlign: TextAlign.center),
+                        child: Text(tr(url), style: const TextStyle(fontSize: 10, color: Colors.white38), textAlign: TextAlign.center),
                       ),
                     ],
                   ),
@@ -3271,7 +3260,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
               top: MediaQuery.of(ctx).padding.top + 16,
               left: 48,
               right: 48,
-              child: Text(title, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
+              child: Text(tr(title), style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
             ),
           ],
         ),
@@ -3284,14 +3273,14 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => ScrollableAlertDialog(
-        title: const Text('Chụp lại khuôn mặt'),
-        content: Text('Ảnh khuôn mặt cũ của "${registration.employeeName}" sẽ bị xóa và chụp lại ảnh mới.'),
+        title: Text(tr('Chụp lại khuôn mặt')),
+        content: Text(tr('Ảnh khuôn mặt cũ của "${registration.employeeName}" sẽ bị xóa và chụp lại ảnh mới.')),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Hủy')),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Hủy'))),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: FilledButton.styleFrom(backgroundColor: HrmPageChrome.primaryNavy),
-            child: const Text('Tiếp tục'),
+            child: Text(tr('Tiếp tục')),
           ),
         ],
       ),
@@ -3320,7 +3309,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (_) => const Center(
+      builder: (_) => Center(
         child: Card(
           child: Padding(
             padding: EdgeInsets.all(32),
@@ -3329,7 +3318,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
               children: [
                 CircularProgressIndicator(color: HrmPageChrome.primaryNavy),
                 SizedBox(height: 16),
-                Text('Đang đăng ký lại khuôn mặt...', style: TextStyle(fontWeight: FontWeight.w600)),
+                Text(tr('Đang đăng ký lại khuôn mặt...'), style: TextStyle(fontWeight: FontWeight.w600)),
               ],
             ),
           ),
@@ -3350,7 +3339,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
       if (response['isSuccess'] == true) {
         appNotification.showSuccess(
           title: 'Thành công',
-          message: 'Đã chụp lại khuôn mặt cho "${registration.employeeName}"',
+          message: tr('Đã chụp lại khuôn mặt cho "${registration.employeeName}"'),
         );
         _loadData();
       } else {
@@ -3362,7 +3351,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
     } catch (e) {
       if (mounted) {
         Navigator.pop(context);
-        appNotification.showError(title: 'Lỗi', message: 'Không thể đăng ký: $e');
+        appNotification.showError(title: 'Lỗi', message: tr('Không thể đăng ký: $e'));
       }
     }
   }
@@ -3398,7 +3387,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
       }
     } catch (e) {
       if (mounted) {
-        appNotification.showError(title: 'Lỗi', message: 'Không thể thay đổi quyền: $e');
+        appNotification.showError(title: 'Lỗi', message: tr('Không thể thay đổi quyền: $e'));
       }
     }
   }
@@ -3417,8 +3406,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
     if (!_settings.requirePhotoProof && targetValue) {
       appNotification.showError(
         title: 'Chưa bật tính năng',
-        message:
-            'Vào tab Cài đặt chung → bật «Ảnh hiện trường (cửa hàng)» trước.',
+        message: tr('Vào tab Cài đặt chung → bật «Ảnh hiện trường (cửa hàng)» trước.'),
       );
       return false;
     }
@@ -3480,7 +3468,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
       return false;
     } catch (e) {
       if (mounted) {
-        appNotification.showError(title: 'Lỗi', message: 'Lỗi: $e');
+        appNotification.showError(title: 'Lỗi', message: tr('Lỗi: $e'));
       }
       return false;
     }
@@ -3508,7 +3496,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
       }
     } catch (e) {
       if (mounted) {
-        appNotification.showError(title: 'Lỗi', message: 'Lỗi: $e');
+        appNotification.showError(title: 'Lỗi', message: tr('Lỗi: $e'));
       }
     }
   }
@@ -3537,7 +3525,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
       }
     } catch (e) {
       if (mounted) {
-        appNotification.showError(title: 'Lỗi', message: 'Lỗi: $e');
+        appNotification.showError(title: 'Lỗi', message: tr('Lỗi: $e'));
       }
     }
   }
@@ -3564,28 +3552,26 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  req['employeeName'] ?? '',
+                  tr(req['employeeName'] ?? ''),
                   style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Color(0xFF18181B)),
                   overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  '${req['oldDeviceName'] ?? '?'} → ${req['newDeviceName'] ?? '?'}',
+                  tr('${req['oldDeviceName'] ?? '?'} → ${req['newDeviceName'] ?? '?'}'),
                   style: const TextStyle(fontSize: 12, color: Color(0xFF71717A)),
                   overflow: TextOverflow.ellipsis,
                 ),
                 if (req['reason'] != null && (req['reason'] as String).isNotEmpty) ...[
                   const SizedBox(height: 2),
-                  Text(
-                    'Lý do: ${req['reason']}',
+                  Text(tr('${tr('Lý do: ')}${req['reason']}'),
                     style: const TextStyle(fontSize: 11, color: Color(0xFFA1A1AA), fontStyle: FontStyle.italic),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ],
                 if (formatSelectedWorkLocationsFromRequest(req) != 'Chưa chọn') ...[
                   const SizedBox(height: 2),
-                  Text(
-                    'Vị trí: ${formatSelectedWorkLocationsFromRequest(req)}',
+                  Text(tr('Vị trí: ${formatSelectedWorkLocationsFromRequest(req)}'),
                     style: const TextStyle(fontSize: 11, color: Color(0xFF71717A)),
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -3593,7 +3579,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                 if (requestedAt != null) ...[
                   const SizedBox(height: 2),
                   Text(
-                    '${requestedAt.day}/${requestedAt.month}/${requestedAt.year}',
+                    tr('${requestedAt.day}/${requestedAt.month}/${requestedAt.year}'),
                     style: const TextStyle(fontSize: 11, color: Color(0xFFA1A1AA)),
                   ),
                 ],
@@ -3603,14 +3589,14 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
           IconButton(
             onPressed: () => _approveDeviceChange(req, true),
             icon: const Icon(Icons.check_circle, color: Color(0xFF22C55E), size: 24),
-            tooltip: 'Duyệt đổi máy',
+            tooltip: tr('Duyệt đổi máy'),
             constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
             padding: EdgeInsets.zero,
           ),
           IconButton(
             onPressed: () => _approveDeviceChange(req, false),
             icon: const Icon(Icons.cancel, color: Color(0xFFEF4444), size: 24),
-            tooltip: 'Từ chối',
+            tooltip: tr('Từ chối'),
             constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
             padding: EdgeInsets.zero,
           ),
@@ -3627,12 +3613,12 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
         builder: (ctx) {
           final controller = TextEditingController();
           return ScrollableAlertDialog(
-            title: const Text('Từ chối đổi máy'),
+            title: Text(tr('Từ chối đổi máy')),
             content: SingleChildScrollView(
               child: TextField(
                 controller: controller,
-                decoration: const InputDecoration(
-                  labelText: 'Lý do từ chối (không bắt buộc)',
+                decoration: InputDecoration(
+                  labelText: tr('Lý do từ chối (không bắt buộc)'),
                   border: OutlineInputBorder(),
                 ),
                 maxLines: 2,
@@ -3641,12 +3627,12 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(ctx),
-                child: const Text('Hủy'),
+                child: Text(tr('Hủy')),
               ),
               FilledButton(
                 onPressed: () => Navigator.pop(ctx, controller.text),
                 style: FilledButton.styleFrom(backgroundColor: const Color(0xFFEF4444)),
-                child: const Text('Từ chối'),
+                child: Text(tr('Từ chối')),
               ),
             ],
           );
@@ -3681,7 +3667,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
       }
     } catch (e) {
       if (mounted) {
-        appNotification.showError(title: 'Lỗi', message: 'Lỗi: $e');
+        appNotification.showError(title: 'Lỗi', message: tr('Lỗi: $e'));
       }
     }
   }
@@ -3694,12 +3680,12 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
         builder: (ctx) {
           final controller = TextEditingController();
           return ScrollableAlertDialog(
-            title: const Text('Từ chối đăng ký'),
+            title: Text(tr('Từ chối đăng ký')),
             content: SingleChildScrollView(
               child: TextField(
                 controller: controller,
-                decoration: const InputDecoration(
-                  labelText: 'Lý do từ chối (không bắt buộc)',
+                decoration: InputDecoration(
+                  labelText: tr('Lý do từ chối (không bắt buộc)'),
                   border: OutlineInputBorder(),
                 ),
                 maxLines: 2,
@@ -3708,12 +3694,12 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(ctx),
-                child: const Text('Hủy'),
+                child: Text(tr('Hủy')),
               ),
               FilledButton(
                 onPressed: () => Navigator.pop(ctx, controller.text),
                 style: FilledButton.styleFrom(backgroundColor: const Color(0xFFEF4444)),
-                child: const Text('Từ chối'),
+                child: Text(tr('Từ chối')),
               ),
             ],
           );
@@ -3748,7 +3734,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
       }
     } catch (e) {
       if (mounted) {
-        appNotification.showError(title: 'Lỗi', message: 'Lỗi: $e');
+        appNotification.showError(title: 'Lỗi', message: tr('Lỗi: $e'));
       }
     }
   }
@@ -3787,9 +3773,9 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
             title: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(_deviceEmployeeLabel(current), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                Text(tr(_deviceEmployeeLabel(current)), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                 Text(
-                  '${current.deviceName} · ${current.deviceModel}',
+                  tr('${current.deviceName} · ${current.deviceModel}'),
                   style: const TextStyle(fontSize: 12, color: Colors.white70),
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -3804,7 +3790,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                     color: const Color(0xFFF59E0B).withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: const Text('Chờ duyệt', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFFFEF3C7))),
+                  child: Text(tr('Chờ duyệt'), style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFFFEF3C7))),
                 ),
             ],
           ),
@@ -3830,8 +3816,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                 const SizedBox(height: 8),
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
-                  title: const Text(
-                    'Chụp ảnh hiện trường sau chấm',
+                  title: Text(tr('Chụp ảnh hiện trường sau chấm'),
                     style: TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w600,
@@ -3839,11 +3824,11 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                     ),
                   ),
                   subtitle: Text(
-                    !_settings.requirePhotoProof
+                    tr(!_settings.requirePhotoProof
                         ? 'Bật «Ảnh hiện trường (cửa hàng)» ở tab Cài đặt chung trước'
                         : (photoProofOn
                             ? 'ĐANG BẬT trên thiết bị này'
-                            : 'ĐANG TẮT trên thiết bị này'),
+                            : 'ĐANG TẮT trên thiết bị này')),
                     style: TextStyle(
                       fontSize: 13,
                       color: !_settings.requirePhotoProof
@@ -3881,18 +3866,18 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
 
                 const SizedBox(height: 16),
                 Text(
-                  device.faceImages.isNotEmpty
+                  tr(device.faceImages.isNotEmpty
                       ? 'Khuôn mặt của ${_deviceEmployeeLabel(device)} trên thiết bị'
-                      : 'Khuôn mặt trên thiết bị',
+                      : 'Khuôn mặt trên thiết bị'),
                   style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: Color(0xFF18181B)),
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  device.faceImages.isNotEmpty
+                  tr(device.faceImages.isNotEmpty
                       ? '${device.faceImages.length} ảnh đồng bộ từ đăng ký khuôn mặt của nhân viên'
                       : (device.employeeId != null && device.employeeId!.isNotEmpty
                           ? 'Nhân viên chưa có ảnh khuôn mặt — đăng ký khi cấp thiết bị hoặc quét trên máy nhân viên'
-                          : 'Gán nhân viên cho thiết bị để xem ảnh khuôn mặt'),
+                          : 'Gán nhân viên cho thiết bị để xem ảnh khuôn mặt')),
                   style: const TextStyle(fontSize: 12, color: Color(0xFF71717A)),
                 ),
                 if (device.faceImages.isNotEmpty) ...[
@@ -3912,13 +3897,12 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(color: const Color(0xFFE4E4E7)),
                     ),
-                    child: const Row(
+                    child: Row(
                       children: [
                         Icon(Icons.face_retouching_off, color: Color(0xFF71717A)),
                         SizedBox(width: 12),
                         Expanded(
-                          child: Text(
-                            'Chưa có ảnh khuôn mặt gắn với thiết bị này',
+                          child: Text(tr('Chưa có ảnh khuôn mặt gắn với thiết bị này'),
                             style: TextStyle(fontSize: 13, color: Color(0xFF71717A)),
                           ),
                         ),
@@ -3945,7 +3929,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                       },
                       icon: const Icon(Icons.delete_outline,
                           size: 18, color: Color(0xFFEF4444)),
-                      label: const Text('Xóa',
+                      label: Text(tr('Xóa'),
                           style: TextStyle(color: Color(0xFFEF4444))),
                     ),
                   if (_perm.canEdit('MobileAttendance'))
@@ -3960,7 +3944,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                       color: device.allowOutsideCheckIn ? const Color(0xFFF59E0B) : const Color(0xFF6B7280),
                     ),
                     label: Text(
-                      device.allowOutsideCheckIn ? 'Tắt ngoài CT' : 'Bật ngoài CT',
+                      tr(device.allowOutsideCheckIn ? 'Tắt ngoài CT' : 'Bật ngoài CT'),
                       style: TextStyle(color: device.allowOutsideCheckIn ? const Color(0xFFF59E0B) : const Color(0xFF6B7280)),
                     ),
                   ),
@@ -3980,7 +3964,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                             : const Color(0xFF6B7280),
                       ),
                       label: Text(
-                        device.allowTravelCheckIn ? 'Tắt đi đường' : 'Bật đi đường',
+                        tr(device.allowTravelCheckIn ? 'Tắt đi đường' : 'Bật đi đường'),
                         style: TextStyle(
                           color: device.allowTravelCheckIn
                               ? const Color(0xFF0EA5E9)
@@ -3995,7 +3979,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                         _approveDevice(device, false);
                       },
                       icon: const Icon(Icons.close, size: 18),
-                      label: const Text('Từ chối'),
+                      label: Text(tr('Từ chối')),
                       style: FilledButton.styleFrom(
                         backgroundColor: const Color(0xFFEF4444),
                       ),
@@ -4006,7 +3990,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                         _approveDevice(device, true);
                       },
                       icon: const Icon(Icons.check, size: 18),
-                      label: const Text('Duyệt'),
+                      label: Text(tr('Duyệt')),
                       style: FilledButton.styleFrom(
                         backgroundColor: const Color(0xFF22C55E),
                       ),
@@ -4072,7 +4056,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
           const SizedBox(width: 10),
           Expanded(
             child: Text(
-              label,
+              tr(label),
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
@@ -4093,9 +4077,9 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
         children: [
           SizedBox(
             width: 120,
-            child: Text(label, style: const TextStyle(color: Color(0xFF71717A), fontSize: 13)),
+            child: Text(tr(label), style: const TextStyle(color: Color(0xFF71717A), fontSize: 13)),
           ),
-          Expanded(child: Text(value, style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13))),
+          Expanded(child: Text(tr(value), style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13))),
         ],
       ),
     );
@@ -4193,8 +4177,7 @@ class _LocationEmployeesAssignDialogState
         Navigator.pop(context, _selectedIds.length);
         NotificationOverlayManager().showSuccess(
           title: 'Đã lưu',
-          message:
-              'Đã gán ${_selectedIds.length} nhân viên cho «${widget.location.name}»',
+          message: tr('Đã gán ${_selectedIds.length} nhân viên cho «${widget.location.name}»'),
         );
       } else {
         NotificationOverlayManager().showError(
@@ -4205,7 +4188,7 @@ class _LocationEmployeesAssignDialogState
     } catch (e) {
       if (mounted) {
         NotificationOverlayManager()
-            .showError(title: 'Lỗi', message: 'Không thể lưu: $e');
+            .showError(title: 'Lỗi', message: tr('Không thể lưu: $e'));
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -4230,13 +4213,13 @@ class _LocationEmployeesAssignDialogState
     }
     if (_loadError.isNotEmpty) {
       return Center(
-        child: Text(_loadError,
+        child: Text(tr(_loadError),
             style: const TextStyle(color: Color(0xFFEF4444))),
       );
     }
     if (_allEmployees.isEmpty) {
-      return const Center(
-        child: Text('Chưa có nhân viên trong hệ thống',
+      return Center(
+        child: Text(tr('Chưa có nhân viên trong hệ thống'),
             style: TextStyle(color: Color(0xFF71717A))),
       );
     }
@@ -4269,11 +4252,11 @@ class _LocationEmployeesAssignDialogState
                     });
                   },
             title: Text(
-              name.isNotEmpty ? name : id,
+              tr(name.isNotEmpty ? name : id),
               style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
             ),
             subtitle: subtitle.isNotEmpty
-                ? Text(subtitle,
+                ? Text(tr(subtitle),
                     style: const TextStyle(
                         fontSize: 12, color: Color(0xFF71717A)))
                 : null,
@@ -4294,17 +4277,17 @@ class _LocationEmployeesAssignDialogState
             color: const Color(0xFFF4F4F5),
             borderRadius: BorderRadius.circular(10),
           ),
-          child: const Text(
-            'Chọn nhân viên được phép chấm tại vị trí này. '
+          child: Text(
+            tr('Chọn nhân viên được phép chấm tại vị trí này. '
             'NV chưa được gán vị trí nào → chấm được mọi vị trí. '
-            'NV đã gán ít nhất 1 vị trí → chỉ chấm các vị trí đã gán.',
+            'NV đã gán ít nhất 1 vị trí → chỉ chấm các vị trí đã gán.'),
             style: TextStyle(fontSize: 12, color: Color(0xFF52525B), height: 1.35),
           ),
         ),
         const SizedBox(height: 12),
         TextField(
           decoration: InputDecoration(
-            hintText: 'Tìm theo tên, mã, phòng ban…',
+            hintText: tr('Tìm theo tên, mã, phòng ban…'),
             prefixIcon: const Icon(Icons.search, size: 20),
             filled: true,
             fillColor: const Color(0xFFFAFAFA),
@@ -4319,8 +4302,7 @@ class _LocationEmployeesAssignDialogState
         const SizedBox(height: 8),
         Row(
           children: [
-            Text(
-              'Đã chọn: ${_selectedIds.length}',
+            Text(tr('Đã chọn: ${_selectedIds.length}'),
               style: const TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
@@ -4336,11 +4318,11 @@ class _LocationEmployeesAssignDialogState
                           if (id.isNotEmpty) _selectedIds.add(id);
                         }
                       }),
-              child: const Text('Chọn tất cả'),
+              child: Text(tr('Chọn tất cả')),
             ),
             TextButton(
               onPressed: _saving ? null : () => setState(_selectedIds.clear),
-              child: const Text('Bỏ chọn'),
+              child: Text(tr('Bỏ chọn')),
             ),
           ],
         ),
@@ -4371,8 +4353,7 @@ class _LocationEmployeesAssignDialogState
                         color: HrmPageChrome.primaryNavy),
                     const SizedBox(width: 10),
                     Expanded(
-                      child: Text(
-                        'Gán NV — ${widget.location.name}',
+                      child: Text(tr('Gán NV — ${widget.location.name}'),
                         style: const TextStyle(
                             fontSize: 16, fontWeight: FontWeight.w700),
                         maxLines: 2,
@@ -4398,7 +4379,7 @@ class _LocationEmployeesAssignDialogState
                   children: [
                     TextButton(
                       onPressed: _saving ? null : () => Navigator.pop(context),
-                      child: const Text('Hủy'),
+                      child: Text(tr('Hủy')),
                     ),
                     const Spacer(),
                     FilledButton(
@@ -4412,7 +4393,7 @@ class _LocationEmployeesAssignDialogState
                               child: CircularProgressIndicator(
                                   strokeWidth: 2, color: Colors.white),
                             )
-                          : const Text('Lưu gán'),
+                          : Text(tr('Lưu gán')),
                     ),
                   ],
                 ),
@@ -4429,8 +4410,7 @@ class _LocationEmployeesAssignDialogState
           const Icon(Icons.group_add, color: HrmPageChrome.primaryNavy),
           const SizedBox(width: 10),
           Expanded(
-            child: Text(
-              'Gán nhân viên — ${widget.location.name}',
+            child: Text(tr('Gán nhân viên — ${widget.location.name}'),
               style: const TextStyle(fontSize: 16),
             ),
           ),
@@ -4440,7 +4420,7 @@ class _LocationEmployeesAssignDialogState
       actions: [
         TextButton(
           onPressed: _saving ? null : () => Navigator.pop(context),
-          child: const Text('Hủy'),
+          child: Text(tr('Hủy')),
         ),
         FilledButton(
           onPressed: canSave ? _save : null,
@@ -4453,7 +4433,7 @@ class _LocationEmployeesAssignDialogState
                   child: CircularProgressIndicator(
                       strokeWidth: 2, color: Colors.white),
                 )
-              : const Text('Lưu gán'),
+              : Text(tr('Lưu gán')),
         ),
       ],
     );

@@ -6,6 +6,7 @@ import '../../services/api_service.dart';
 import '../../widgets/notification_overlay.dart';
 import '../../widgets/pos/pos_mobile_widgets.dart';
 import '../../widgets/pos/pos_theme.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 class PosVouchersScreen extends StatefulWidget {
   const PosVouchersScreen({super.key});
@@ -55,13 +56,13 @@ class _PosVouchersScreenState extends State<PosVouchersScreen> {
   }
 
   Future<void> _openEditor([PosVoucher? existing]) async {
-    final codeCtrl = TextEditingController(text: existing?.code ?? '');
-    final nameCtrl = TextEditingController(text: existing?.name ?? '');
+    final codeCtrl = TextEditingController(text: tr(existing?.code ?? ''));
+    final nameCtrl = TextEditingController(text: tr(existing?.name ?? ''));
     final valueCtrl = TextEditingController(
-      text: existing != null ? existing.discountValue.toStringAsFixed(0) : '',
+      text: tr(existing != null ? existing.discountValue.toStringAsFixed(0) : ''),
     );
     final minCtrl = TextEditingController(
-      text: existing != null ? existing.minOrderAmount.toStringAsFixed(0) : '0',
+      text: tr(existing != null ? existing.minOrderAmount.toStringAsFixed(0) : '0'),
     );
     var isPercent = existing?.isPercent ?? false;
     var isActive = existing?.isActive ?? true;
@@ -70,25 +71,25 @@ class _PosVouchersScreenState extends State<PosVouchersScreen> {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDlg) => AlertDialog(
-          title: Text(existing == null ? 'Thêm voucher' : 'Sửa voucher'),
+          title: Text(tr(existing == null ? 'Thêm voucher' : 'Sửa voucher')),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 TextField(
                   controller: codeCtrl,
-                  decoration: const InputDecoration(labelText: 'Mã voucher *'),
+                  decoration: InputDecoration(labelText: tr('Mã voucher *')),
                   textCapitalization: TextCapitalization.characters,
                 ),
                 TextField(
                   controller: nameCtrl,
-                  decoration: const InputDecoration(labelText: 'Tên'),
+                  decoration: InputDecoration(labelText: tr('Tên')),
                 ),
                 const SizedBox(height: 8),
                 SegmentedButton<bool>(
-                  segments: const [
-                    ButtonSegment(value: false, label: Text('Giảm tiền')),
-                    ButtonSegment(value: true, label: Text('Giảm %')),
+                  segments: [
+                    ButtonSegment(value: false, label: Text(tr('Giảm tiền'))),
+                    ButtonSegment(value: true, label: Text(tr('Giảm %'))),
                   ],
                   selected: {isPercent},
                   onSelectionChanged: (s) => setDlg(() => isPercent = s.first),
@@ -97,17 +98,17 @@ class _PosVouchersScreenState extends State<PosVouchersScreen> {
                   controller: valueCtrl,
                   keyboardType: TextInputType.number,
                   decoration: InputDecoration(
-                    labelText: isPercent ? 'Phần trăm' : 'Số tiền giảm',
+                    labelText: tr(isPercent ? 'Phần trăm' : 'Số tiền giảm'),
                   ),
                 ),
                 TextField(
                   controller: minCtrl,
                   keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(labelText: 'Đơn tối thiểu'),
+                  decoration: InputDecoration(labelText: tr('Đơn tối thiểu')),
                 ),
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
-                  title: const Text('Đang hoạt động'),
+                  title: Text(tr('Đang hoạt động')),
                   value: isActive,
                   onChanged: (v) => setDlg(() => isActive = v),
                 ),
@@ -115,8 +116,8 @@ class _PosVouchersScreenState extends State<PosVouchersScreen> {
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Huỷ')),
-            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Lưu')),
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Huỷ'))),
+            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(tr('Lưu'))),
           ],
         ),
       ),
@@ -203,16 +204,16 @@ class _PosVouchersScreenState extends State<PosVouchersScreen> {
                           borderRadius: BorderRadius.circular(10),
                           child: ListTile(
                             onTap: () => _openEditor(v),
-                            title: Text(v.code,
+                            title: Text(tr(v.code),
                                 style: const TextStyle(fontWeight: FontWeight.bold)),
                             subtitle: Text(
-                              [
+                              tr([
                                 if (v.name != null && v.name!.isNotEmpty) v.name,
                                 'Giảm $discountLabel',
                                 if (v.minOrderAmount > 0)
                                   'ĐH tối thiểu ${_moneyFmt.format(v.minOrderAmount)}',
                                 'Đã dùng ${v.usedCount}${v.maxUses != null ? '/${v.maxUses}' : ''}',
-                              ].whereType<String>().join(' · '),
+                              ].whereType<String>().join(' · ')),
                             ),
                             trailing: Icon(
                               v.isActive ? Icons.check_circle : Icons.cancel,

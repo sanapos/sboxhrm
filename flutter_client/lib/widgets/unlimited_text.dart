@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../l10n/app_tr.dart';
 
 /// Multiline text — opts out of app-wide [DefaultTextStyle] ?? line limits.
 class UnlimitedText extends StatelessWidget {
@@ -16,7 +17,7 @@ class UnlimitedText extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Text(
-      data,
+      tr(data),
       style: style,
       textAlign: textAlign,
       maxLines: null,

@@ -4,6 +4,7 @@ import '../../utils/navigation_notifier.dart';
 import '../../utils/responsive_helper.dart';
 import 'pos_theme.dart';
 import 'pos_hub_scope.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// Thanh công cụ POS phía trên (giống KiotViet).
 class PosModuleToolbar extends StatelessWidget {
@@ -49,8 +50,8 @@ class PosModuleToolbar extends StatelessWidget {
       child: Row(
         children: [
           const SizedBox(width: 12),
-          const Text(
-            'SBOX POS',
+          Text(
+            tr('SBOX POS'),
             style: TextStyle(
               color: Colors.white,
               fontWeight: FontWeight.bold,
@@ -69,7 +70,7 @@ class PosModuleToolbar extends StatelessWidget {
                   const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             ),
             icon: const Icon(Icons.point_of_sale, size: 18),
-            label: const Text('Bán hàng'),
+            label: Text(tr('Bán hàng')),
           ),
           const SizedBox(width: 12),
         ],
@@ -97,7 +98,7 @@ class PosModuleToolbar extends StatelessWidget {
         ),
         icon: Icon(t.icon, size: compact ? 14 : 16),
         label: Text(
-          t.label,
+          tr(t.label),
           style: TextStyle(
             fontWeight: active ? FontWeight.w600 : FontWeight.normal,
             fontSize: compact ? 11 : 13,

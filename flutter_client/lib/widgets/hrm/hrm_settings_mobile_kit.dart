@@ -4,6 +4,7 @@ import '../../utils/responsive_helper.dart';
 import '../hrm_page_chrome.dart';
 import '../pos/pos_theme.dart';
 import '../safe_layout_widgets.dart';
+import '../../l10n/app_tr.dart';
 
 /// Giao diện mobile cho màn con Thiết lập HRM (kiểu KiotViet / POS hub).
 class HrmSettingsMobileKit {
@@ -51,14 +52,14 @@ class HrmSettingsAddButton extends StatelessWidget {
           minimumSize: const Size(40, 40),
           padding: EdgeInsets.zero,
         ),
-        tooltip: label,
+        tooltip: tr(label),
       );
     }
     return TextButton.icon(
       onPressed: onPressed,
       icon: Icon(icon, size: 18, color: PosTheme.kiotBlue),
       label: Text(
-        label,
+        tr(label),
         style: const TextStyle(
           color: PosTheme.kiotBlue,
           fontWeight: FontWeight.w600,
@@ -102,7 +103,7 @@ class HrmSettingsSection extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  title,
+                  tr(title),
                   style: const TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.bold,
@@ -184,7 +185,7 @@ class HrmSettingsFilterChips extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.only(right: 6),
               child: FilterChip(
-                label: Text(opt.label, style: const TextStyle(fontSize: 12)),
+                label: Text(tr(opt.label), style: const TextStyle(fontSize: 12)),
                 selected: selected == opt.value,
                 onSelected: (_) => onSelected(opt.value),
                 selectedColor: PosTheme.kiotBlueLight,
@@ -203,7 +204,7 @@ class HrmSettingsFilterChips extends StatelessWidget {
             ),
           if (onClear != null)
             ActionChip(
-              label: Text(clearLabel, style: const TextStyle(fontSize: 12)),
+              label: Text(tr(clearLabel), style: const TextStyle(fontSize: 12)),
               avatar: const Icon(Icons.filter_alt_off, size: 16),
               onPressed: onClear,
               padding: const EdgeInsets.symmetric(horizontal: 4),
@@ -323,7 +324,7 @@ class HrmSettingsEntityTile extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          title,
+                          tr(title),
                           style: const TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w600,
@@ -335,7 +336,7 @@ class HrmSettingsEntityTile extends StatelessWidget {
                         if (subtitle != null) ...[
                           const SizedBox(height: 2),
                           Text(
-                            subtitle!,
+                            tr(subtitle!),
                             style: const TextStyle(
                               fontSize: 11,
                               color: PosTheme.textSecondary,
@@ -369,7 +370,7 @@ class HrmSettingsEntityTile extends StatelessWidget {
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: Text(
-                        badge!,
+                        tr(badge!),
                         style: TextStyle(
                           fontSize: 9,
                           fontWeight: FontWeight.w600,
@@ -382,7 +383,7 @@ class HrmSettingsEntityTile extends StatelessWidget {
               if (meta != null) ...[
                 const Spacer(),
                 Text(
-                  meta!,
+                  tr(meta!),
                   style: const TextStyle(
                     fontSize: 10,
                     color: PosTheme.textSecondary,
@@ -439,7 +440,7 @@ class HrmSettingsDenseTile extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      title,
+                      tr(title),
                       style: const TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
@@ -451,7 +452,7 @@ class HrmSettingsDenseTile extends StatelessWidget {
                     if (subtitle != null) ...[
                       const SizedBox(height: 2),
                       Text(
-                        subtitle!,
+                        tr(subtitle!),
                         style: const TextStyle(
                           fontSize: 12,
                           color: PosTheme.textSecondary,

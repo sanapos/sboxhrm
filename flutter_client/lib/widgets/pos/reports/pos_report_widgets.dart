@@ -6,6 +6,7 @@ import '../../../utils/pos_kiot_time_range.dart';
 import '../pos_kiot_time_filter.dart';
 import '../pos_mobile_widgets.dart';
 import '../pos_theme.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 const _kiotBlue = PosTheme.kiotBlue;
 
@@ -44,7 +45,7 @@ class PosReportMobileScaffold extends StatelessWidget {
                 ),
                 Expanded(
                   child: Text(
-                    title,
+                    tr(title),
                     style: const TextStyle(
                       fontSize: 17,
                       fontWeight: FontWeight.w600,
@@ -129,7 +130,7 @@ class PosReportCard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          title,
+                          tr(title),
                           style: const TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.w600,
@@ -137,7 +138,7 @@ class PosReportCard extends StatelessWidget {
                         ),
                         if (subtitle != null)
                           Text(
-                            subtitle!,
+                            tr(subtitle!),
                             style: const TextStyle(
                               fontSize: 12,
                               color: PosTheme.textSecondary,
@@ -179,7 +180,7 @@ class PosReportRankList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (items.isEmpty) {
-      return const Text('Chưa có dữ liệu', style: TextStyle(color: PosTheme.textSecondary));
+      return Text(tr('Chưa có dữ liệu'), style: TextStyle(color: PosTheme.textSecondary));
     }
     final fmt = moneyFmt ?? NumberFormat('#,##0', 'vi_VN');
     final maxVal = items
@@ -230,7 +231,7 @@ class _RankRow extends StatelessWidget {
           children: [
             Expanded(
               child: Text(
-                label,
+                tr(label),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(fontSize: 13),
@@ -238,7 +239,7 @@ class _RankRow extends StatelessWidget {
             ),
             const SizedBox(width: 8),
             Text(
-              formatted,
+              tr(formatted),
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
@@ -287,8 +288,7 @@ class PosReportInventoryBanner extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Tồn kho ${fmt.format(inventoryValue)}',
+          Text(tr('Tồn kho ${fmt.format(inventoryValue)}'),
             style: const TextStyle(
               color: Colors.white,
               fontSize: 18,
@@ -296,8 +296,7 @@ class PosReportInventoryBanner extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 4),
-          Text(
-            '$productCount sản phẩm',
+          Text(tr('$productCount sản phẩm'),
             style: TextStyle(color: Colors.white.withValues(alpha: 0.9), fontSize: 13),
           ),
         ],
@@ -321,7 +320,7 @@ class PosReportBarChart extends StatelessWidget {
     if (points.isEmpty) {
       return SizedBox(
         height: height,
-        child: const Center(child: Text('Chưa có dữ liệu')),
+        child: Center(child: Text(tr('Chưa có dữ liệu'))),
       );
     }
     final fmt = DateFormat('dd/MM', 'vi_VN');
@@ -348,7 +347,7 @@ class PosReportBarChart extends StatelessWidget {
                 showTitles: true,
                 reservedSize: 36,
                 getTitlesWidget: (v, _) => Text(
-                  v >= 1000 ? '${(v / 1000).toStringAsFixed(0)}k' : v.toStringAsFixed(0),
+                  tr(v >= 1000 ? '${(v / 1000).toStringAsFixed(0)}k' : v.toStringAsFixed(0)),
                   style: const TextStyle(fontSize: 10),
                 ),
               ),
@@ -362,7 +361,7 @@ class PosReportBarChart extends StatelessWidget {
                   return Padding(
                     padding: const EdgeInsets.only(top: 4),
                     child: Text(
-                      fmt.format(points[i].date),
+                      tr(fmt.format(points[i].date)),
                       style: const TextStyle(fontSize: 10),
                     ),
                   );
@@ -408,7 +407,7 @@ class PosReportMultiLineChart extends StatelessWidget {
     if (points.isEmpty) {
       return SizedBox(
         height: height,
-        child: const Center(child: Text('Chưa có dữ liệu')),
+        child: Center(child: Text(tr('Chưa có dữ liệu'))),
       );
     }
     final allVals = points.expand((p) => [p.revenue, p.cogs, p.profit]).toList();
@@ -432,7 +431,7 @@ class PosReportMultiLineChart extends StatelessWidget {
                 showTitles: true,
                 reservedSize: 36,
                 getTitlesWidget: (v, _) => Text(
-                  v >= 1000 ? '${(v / 1000).toStringAsFixed(0)}k' : v.toStringAsFixed(0),
+                  tr(v >= 1000 ? '${(v / 1000).toStringAsFixed(0)}k' : v.toStringAsFixed(0)),
                   style: const TextStyle(fontSize: 10),
                 ),
               ),
@@ -444,7 +443,7 @@ class PosReportMultiLineChart extends StatelessWidget {
                   final i = v.toInt();
                   if (i < 0 || i >= points.length) return const SizedBox.shrink();
                   return Text(
-                    DateFormat('dd/MM').format(points[i].date),
+                    tr(DateFormat('dd/MM').format(points[i].date)),
                     style: const TextStyle(fontSize: 10),
                   );
                 },
@@ -503,7 +502,7 @@ class PosReportDonut extends StatelessWidget {
     if (total <= 0 || slices.isEmpty) {
       return SizedBox(
         height: size,
-        child: const Center(child: Text('Chưa có dữ liệu')),
+        child: Center(child: Text(tr('Chưa có dữ liệu'))),
       );
     }
     return SizedBox(
@@ -529,9 +528,9 @@ class PosReportDonut extends StatelessWidget {
           Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text('Tổng', style: TextStyle(fontSize: 12, color: PosTheme.textSecondary)),
+              Text(tr('Tổng'), style: TextStyle(fontSize: 12, color: PosTheme.textSecondary)),
               Text(
-                fmt.format(total),
+                tr(fmt.format(total)),
                 style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
@@ -574,12 +573,12 @@ class PosReportMetricTiles extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    tiles[i].label,
+                    tr(tiles[i].label),
                     style: TextStyle(fontSize: 11, color: tiles[i].color),
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    fmt.format(tiles[i].value),
+                    tr(fmt.format(tiles[i].value)),
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.bold,
@@ -616,7 +615,7 @@ class PosReportBranchFooter extends StatelessWidget {
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              branchName.isEmpty ? 'Chi nhánh' : branchName,
+              tr(branchName.isEmpty ? 'Chi nhánh' : branchName),
               style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
             ),
           ),

@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'notification_overlay.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 class CameraFaceCaptureResult {
   final List<String> base64Images;
@@ -80,7 +81,7 @@ class _CameraFaceCaptureState extends State<CameraFaceCapture> {
       }
     } catch (e) {
       if (mounted) {
-        NotificationOverlayManager().showError(title: 'Lỗi', message: 'Không thể chụp ảnh: $e');
+        NotificationOverlayManager().showError(title: 'Lỗi', message: tr('Không thể chụp ảnh: $e'));
       }
     } finally {
       if (mounted) setState(() => _isCapturing = false);
@@ -147,7 +148,7 @@ class _CameraFaceCaptureState extends State<CameraFaceCapture> {
                 children: [
                   const Icon(Icons.person, color: Colors.white70, size: 18),
                   const SizedBox(width: 8),
-                  Text(widget.employeeName!,
+                  Text(tr(widget.employeeName!),
                       style: const TextStyle(
                           color: Colors.white, fontWeight: FontWeight.w600)),
                 ],
@@ -160,8 +161,7 @@ class _CameraFaceCaptureState extends State<CameraFaceCapture> {
               color: Colors.white.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(20),
             ),
-            child: Text(
-              'Ảnh ${_capturedImages.length}/${widget.requiredPhotos}',
+            child: Text(tr('Ảnh ${_capturedImages.length}/${widget.requiredPhotos}'),
               style: const TextStyle(
                   color: Colors.white, fontWeight: FontWeight.w600),
             ),
@@ -184,7 +184,7 @@ class _CameraFaceCaptureState extends State<CameraFaceCapture> {
           if (step != null) ...[
             Icon(step.icon, color: Colors.white70, size: 32),
             const SizedBox(height: 8),
-            Text(step.instruction,
+            Text(tr(step.instruction),
                 style: const TextStyle(color: Colors.white, fontSize: 18)),
           ],
           const SizedBox(height: 32),
@@ -217,13 +217,13 @@ class _CameraFaceCaptureState extends State<CameraFaceCapture> {
             child: const Icon(Icons.check, color: Colors.white, size: 60),
           ),
           const SizedBox(height: 24),
-          const Text('Chụp ảnh hoàn tất!',
+          Text(tr('Chụp ảnh hoàn tất!'),
               style: TextStyle(
                   color: Colors.white,
                   fontSize: 22,
                   fontWeight: FontWeight.bold)),
           const SizedBox(height: 8),
-          Text('${_capturedImages.length} ảnh đã được chụp thành công',
+          Text(tr('${_capturedImages.length} ảnh đã được chụp thành công'),
               style: const TextStyle(color: Colors.white70, fontSize: 16)),
           const SizedBox(height: 32),
           Row(
@@ -336,7 +336,7 @@ class _CameraFaceCaptureState extends State<CameraFaceCapture> {
         ),
         const SizedBox(height: 8),
         Text(
-          _isCapturing ? 'Đang chụp...' : 'Nhấn để chụp',
+          tr(_isCapturing ? 'Đang chụp...' : 'Nhấn để chụp'),
           style: TextStyle(
               color: Colors.white.withValues(alpha: 0.6), fontSize: 13),
         ),
@@ -351,7 +351,7 @@ class _CameraFaceCaptureState extends State<CameraFaceCapture> {
           child: OutlinedButton.icon(
             onPressed: _resetAll,
             icon: const Icon(Icons.refresh, color: Colors.white70),
-            label: const Text('Chụp lại',
+            label: Text(tr('Chụp lại'),
                 style: TextStyle(color: Colors.white70)),
             style: OutlinedButton.styleFrom(
               padding: const EdgeInsets.symmetric(vertical: 16),
@@ -367,7 +367,7 @@ class _CameraFaceCaptureState extends State<CameraFaceCapture> {
           child: ElevatedButton.icon(
             onPressed: _confirmAndReturn,
             icon: const Icon(Icons.check),
-            label: const Text('Xác nhận & Đăng ký'),
+            label: Text(tr('Xác nhận & Đăng ký')),
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF1E3A5F),
               foregroundColor: Colors.white,

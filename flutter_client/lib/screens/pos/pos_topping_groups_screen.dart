@@ -5,6 +5,7 @@ import '../../models/pos_product.dart';
 import '../../services/api_service.dart';
 import '../../widgets/notification_overlay.dart';
 import '../../widgets/pos/pos_theme.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// Quản lý nhóm topping dùng chung (gắn vào nhiều hàng hóa).
 class PosToppingGroupsScreen extends StatefulWidget {
@@ -52,7 +53,7 @@ class _PosToppingGroupsScreenState extends State<PosToppingGroupsScreen> {
   }
 
   Future<void> _editGroup([PosProductToppingGroup? existing]) async {
-    final nameCtrl = TextEditingController(text: existing?.name ?? '');
+    final nameCtrl = TextEditingController(text: tr(existing?.name ?? ''));
     var items = List<PosProductToppingOption>.from(existing?.items ?? const []);
 
     final saved = await showDialog<bool>(
@@ -62,7 +63,7 @@ class _PosToppingGroupsScreenState extends State<PosToppingGroupsScreen> {
         return StatefulBuilder(
           builder: (ctx, setModal) {
             return AlertDialog(
-              title: Text(existing == null ? 'Thêm nhóm topping' : 'Sửa nhóm topping'),
+              title: Text(tr(existing == null ? 'Thêm nhóm topping' : 'Sửa nhóm topping')),
               content: SizedBox(
                 width: 440,
                 child: SingleChildScrollView(
@@ -72,15 +73,14 @@ class _PosToppingGroupsScreenState extends State<PosToppingGroupsScreen> {
                     children: [
                       TextField(
                         controller: nameCtrl,
-                        decoration: const InputDecoration(
-                          labelText: 'Tên nhóm',
-                          hintText: 'VD: Topping trà sữa',
+                        decoration: InputDecoration(
+                          labelText: tr('Tên nhóm'),
+                          hintText: tr('VD: Topping trà sữa'),
                           border: OutlineInputBorder(),
                         ),
                       ),
                       const SizedBox(height: 12),
-                      const Text(
-                        'Sản phẩm trong nhóm',
+                      Text(tr('Sản phẩm trong nhóm'),
                         style: TextStyle(fontWeight: FontWeight.w600),
                       ),
                       const SizedBox(height: 6),
@@ -90,8 +90,8 @@ class _PosToppingGroupsScreenState extends State<PosToppingGroupsScreen> {
                         return ListTile(
                           contentPadding: EdgeInsets.zero,
                           dense: true,
-                          title: Text(t.toppingProductName),
-                          subtitle: Text('+${_money.format(t.extraPrice)} đ'),
+                          title: Text(tr(t.toppingProductName)),
+                          subtitle: Text(tr('+${_money.format(t.extraPrice)} đ')),
                           trailing: IconButton(
                             icon: const Icon(Icons.close, size: 18),
                             onPressed: () => setModal(() => items.removeAt(i)),
@@ -116,7 +116,7 @@ class _PosToppingGroupsScreenState extends State<PosToppingGroupsScreen> {
                           });
                         },
                         icon: const Icon(Icons.add, size: 18),
-                        label: const Text('Thêm sản phẩm topping'),
+                        label: Text(tr('Thêm sản phẩm topping')),
                       ),
                     ],
                   ),
@@ -125,11 +125,11 @@ class _PosToppingGroupsScreenState extends State<PosToppingGroupsScreen> {
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(ctx, false),
-                  child: const Text('Hủy'),
+                  child: Text(tr('Hủy')),
                 ),
                 FilledButton(
                   onPressed: () => Navigator.pop(ctx, true),
-                  child: const Text('Lưu'),
+                  child: Text(tr('Lưu')),
                 ),
               ],
             );
@@ -142,7 +142,7 @@ class _PosToppingGroupsScreenState extends State<PosToppingGroupsScreen> {
     if (name.isEmpty) {
       NotificationOverlayManager().showWarning(
         title: 'Thiếu tên',
-        message: 'Nhập tên nhóm topping',
+        message: tr('Nhập tên nhóm topping'),
       );
       return;
     }
@@ -216,7 +216,7 @@ class _PosToppingGroupsScreenState extends State<PosToppingGroupsScreen> {
               });
             }
             return AlertDialog(
-              title: const Text('Chọn hàng topping'),
+              title: Text(tr('Chọn hàng topping')),
               content: SizedBox(
                 width: 400,
                 height: 420,
@@ -224,8 +224,8 @@ class _PosToppingGroupsScreenState extends State<PosToppingGroupsScreen> {
                   children: [
                     TextField(
                       controller: qCtrl,
-                      decoration: const InputDecoration(
-                        hintText: 'Tìm hàng…',
+                      decoration: InputDecoration(
+                        hintText: tr('Tìm hàng…'),
                         prefixIcon: Icon(Icons.search),
                         isDense: true,
                         border: OutlineInputBorder(),
@@ -241,10 +241,10 @@ class _PosToppingGroupsScreenState extends State<PosToppingGroupsScreen> {
                               itemBuilder: (_, i) {
                                 final p = results[i];
                                 return ListTile(
-                                  title: Text(p.name),
+                                  title: Text(tr(p.name)),
                                   subtitle: Text(
-                                    '${p.productCode} · ${_money.format(p.basePrice)} đ'
-                                    '${p.isTopping ? ' · topping' : ''}',
+                                    tr('${p.productCode} · ${_money.format(p.basePrice)} đ'
+                                    '${p.isTopping ? ' · topping' : ''}'),
                                   ),
                                   onTap: () => Navigator.pop(dCtx, p),
                                 );
@@ -257,7 +257,7 @@ class _PosToppingGroupsScreenState extends State<PosToppingGroupsScreen> {
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(dCtx),
-                  child: const Text('Đóng'),
+                  child: Text(tr('Đóng')),
                 ),
               ],
             );
@@ -271,14 +271,14 @@ class _PosToppingGroupsScreenState extends State<PosToppingGroupsScreen> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Xóa nhóm topping'),
-        content: Text('Xóa «${g.name}»? Các hàng hóa đang gắn nhóm sẽ mất liên kết.'),
+        title: Text(tr('Xóa nhóm topping')),
+        content: Text(tr('Xóa «${g.name}»? Các hàng hóa đang gắn nhóm sẽ mất liên kết.')),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Hủy')),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Hủy'))),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Xóa'),
+            child: Text(tr('Xóa')),
           ),
         ],
       ),
@@ -302,12 +302,12 @@ class _PosToppingGroupsScreenState extends State<PosToppingGroupsScreen> {
     return Scaffold(
       backgroundColor: PosTheme.background,
       appBar: AppBar(
-        title: const Text('Nhóm topping'),
+        title: Text(tr('Nhóm topping')),
         backgroundColor: PosTheme.kiotBlue,
         foregroundColor: Colors.white,
         actions: [
           IconButton(
-            tooltip: 'Tải lại',
+            tooltip: tr('Tải lại'),
             onPressed: _load,
             icon: const Icon(Icons.refresh),
           ),
@@ -316,7 +316,7 @@ class _PosToppingGroupsScreenState extends State<PosToppingGroupsScreen> {
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _editGroup(),
         icon: const Icon(Icons.add),
-        label: const Text('Thêm nhóm'),
+        label: Text(tr('Thêm nhóm')),
         backgroundColor: PosTheme.kiotBlue,
       ),
       body: _loading
@@ -326,9 +326,9 @@ class _PosToppingGroupsScreenState extends State<PosToppingGroupsScreen> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(_error!, style: const TextStyle(color: Colors.red)),
+                      Text(tr(_error!), style: const TextStyle(color: Colors.red)),
                       const SizedBox(height: 12),
-                      FilledButton(onPressed: _load, child: const Text('Thử lại')),
+                      FilledButton(onPressed: _load, child: Text(tr('Thử lại'))),
                     ],
                   ),
                 )
@@ -339,8 +339,7 @@ class _PosToppingGroupsScreenState extends State<PosToppingGroupsScreen> {
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Text(
-                              'Chưa có nhóm topping',
+                            Text(tr('Chưa có nhóm topping'),
                               style: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w600,
@@ -348,8 +347,8 @@ class _PosToppingGroupsScreenState extends State<PosToppingGroupsScreen> {
                             ),
                             const SizedBox(height: 8),
                             Text(
-                              'Tạo nhóm (vd Topping trà sữa) gồm các SP + giá,\n'
-                              'rồi gắn nhóm vào từng hàng hóa.',
+                              tr('Tạo nhóm (vd Topping trà sữa) gồm các SP + giá,\n'
+                              'rồi gắn nhóm vào từng hàng hóa.'),
                               textAlign: TextAlign.center,
                               style: TextStyle(color: Colors.grey.shade600),
                             ),
@@ -368,16 +367,16 @@ class _PosToppingGroupsScreenState extends State<PosToppingGroupsScreen> {
                           borderRadius: BorderRadius.circular(10),
                           child: ListTile(
                             title: Text(
-                              g.name,
+                              tr(g.name),
                               style: const TextStyle(fontWeight: FontWeight.w700),
                             ),
                             subtitle: Text(
-                              g.items.isEmpty
+                              tr(g.items.isEmpty
                                   ? 'Chưa có sản phẩm'
                                   : g.items
                                       .map((t) =>
                                           '${t.toppingProductName} (+${_money.format(t.extraPrice)})')
-                                      .join(' · '),
+                                      .join(' · ')),
                               maxLines: 3,
                               overflow: TextOverflow.ellipsis,
                             ),
@@ -386,9 +385,9 @@ class _PosToppingGroupsScreenState extends State<PosToppingGroupsScreen> {
                                 if (v == 'edit') _editGroup(g);
                                 if (v == 'delete') _delete(g);
                               },
-                              itemBuilder: (_) => const [
-                                PopupMenuItem(value: 'edit', child: Text('Sửa')),
-                                PopupMenuItem(value: 'delete', child: Text('Xóa')),
+                              itemBuilder: (_) => [
+                                PopupMenuItem(value: 'edit', child: Text(tr('Sửa'))),
+                                PopupMenuItem(value: 'delete', child: Text(tr('Xóa'))),
                               ],
                             ),
                             onTap: () => _editGroup(g),

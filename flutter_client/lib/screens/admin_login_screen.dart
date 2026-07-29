@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../providers/auth_provider.dart';
 import '../services/api_service.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 class AdminLoginScreen extends StatefulWidget {
   const AdminLoginScreen({super.key});
@@ -327,9 +328,9 @@ class _AdminLoginScreenState extends State<AdminLoginScreen>
                                           const SizedBox(width: 10),
                                           Expanded(
                                             child: Text(
-                                              _isSetupMode
+                                              tr(_isSetupMode
                                                   ? 'Khởi tạo tài khoản SuperAdmin đầu tiên cho hệ thống'
-                                                  : 'Khu vực quản trị dành cho SuperAdmin và Agent',
+                                                  : 'Khu vực quản trị dành cho SuperAdmin và Agent'),
                                               style: const TextStyle(
                                                   color: Color(0xFFA78BFA),
                                                   fontSize: 12),
@@ -361,7 +362,7 @@ class _AdminLoginScreenState extends State<AdminLoginScreen>
                                                 size: 20),
                                             const SizedBox(width: 12),
                                             Expanded(
-                                              child: Text(_successMessage!,
+                                              child: Text(tr(_successMessage!),
                                                   style: const TextStyle(
                                                       color: Color(0xFF86EFAC),
                                                       fontSize: 13)),
@@ -392,7 +393,7 @@ class _AdminLoginScreenState extends State<AdminLoginScreen>
                                                 size: 20),
                                             const SizedBox(width: 12),
                                             Expanded(
-                                              child: Text(_errorMessage!,
+                                              child: Text(tr(_errorMessage!),
                                                   style: const TextStyle(
                                                       color: Color(0xFFFCA5A5),
                                                       fontSize: 13)),
@@ -525,7 +526,7 @@ class _AdminLoginScreenState extends State<AdminLoginScreen>
                                               ),
                                             ),
                                             const SizedBox(width: 8),
-                                            const Text('Nhớ đăng nhập',
+                                            Text(tr('Nhớ đăng nhập'),
                                                 style: TextStyle(
                                                     color: Colors.white38,
                                                     fontSize: 13)),
@@ -601,9 +602,9 @@ class _AdminLoginScreenState extends State<AdminLoginScreen>
                                                     ),
                                                     const SizedBox(width: 8),
                                                     Text(
-                                                      _isSetupMode
+                                                      tr(_isSetupMode
                                                           ? 'Khởi tạo SuperAdmin'
-                                                          : 'Đăng nhập quản trị',
+                                                          : 'Đăng nhập quản trị'),
                                                       style: const TextStyle(
                                                           fontSize: 16,
                                                           fontWeight:
@@ -631,9 +632,9 @@ class _AdminLoginScreenState extends State<AdminLoginScreen>
                                         style: TextButton.styleFrom(
                                             foregroundColor: Colors.white54),
                                         child: Text(
-                                          _isSetupMode
+                                          tr(_isSetupMode
                                               ? '← Quay lại đăng nhập'
-                                              : 'Chưa có SuperAdmin? Khởi tạo tài khoản',
+                                              : 'Chưa có SuperAdmin? Khởi tạo tài khoản'),
                                           style: const TextStyle(
                                               fontSize: 13,
                                               decoration:
@@ -653,7 +654,7 @@ class _AdminLoginScreenState extends State<AdminLoginScreen>
                           Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              const Text('Đăng nhập cửa hàng?',
+                              Text(tr('Đăng nhập cửa hàng?'),
                                   style: TextStyle(
                                       color: Colors.white38, fontSize: 14)),
                               TextButton(
@@ -662,7 +663,7 @@ class _AdminLoginScreenState extends State<AdminLoginScreen>
                                         '/', (route) => false),
                                 style: TextButton.styleFrom(
                                     foregroundColor: Colors.white),
-                                child: const Text('Về trang chủ',
+                                child: Text(tr('Về trang chủ'),
                                     style: TextStyle(
                                       fontWeight: FontWeight.w600,
                                       fontSize: 14,
@@ -710,8 +711,8 @@ class _AdminLoginScreenState extends State<AdminLoginScreen>
               size: 44, color: Colors.white),
         ),
         const SizedBox(height: 20),
-        const Text(
-          'SBOX HRM',
+        Text(
+          tr('SBOX HRM'),
           style: TextStyle(
             fontSize: 34,
             fontWeight: FontWeight.w800,
@@ -720,8 +721,7 @@ class _AdminLoginScreenState extends State<AdminLoginScreen>
           ),
         ),
         const SizedBox(height: 6),
-        const Text(
-          'Quản trị hệ thống',
+        Text(tr('Quản trị hệ thống'),
           style: TextStyle(
             color: Colors.white54,
             fontSize: 15,
@@ -750,8 +750,8 @@ class _AdminLoginScreenState extends State<AdminLoginScreen>
       style: const TextStyle(color: Colors.white, fontSize: 15),
       validator: validator,
       decoration: InputDecoration(
-        labelText: label,
-        hintText: hint,
+        labelText: tr(label),
+        hintText: tr(hint),
         labelStyle: const TextStyle(color: Colors.white38, fontSize: 14),
         hintStyle: TextStyle(
             color: Colors.white.withValues(alpha: 0.18), fontSize: 14),

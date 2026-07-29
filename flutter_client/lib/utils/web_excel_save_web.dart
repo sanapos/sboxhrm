@@ -1,5 +1,5 @@
 import 'dart:js_interop';
-import 'dart:js_util' as js_util;
+import 'dart:js_interop_unsafe';
 import 'dart:typed_data';
 
 import 'package:web/web.dart' as web;
@@ -17,11 +17,12 @@ Future<WebExcelSaveHandle?> beginWebExcelSave(
   String filename,
   String mimeType,
 ) async {
-  if (!js_util.hasProperty(web.window, 'showSaveFilePicker')) return null;
+  final window = web.window as JSObject;
+  if (window.getProperty('showSaveFilePicker'.toJS) == null) return null;
   try {
     final safeName = normalizeExportFileName(filename);
     final ext = safeName.toLowerCase().endsWith('.xls') ? '.xls' : '.xlsx';
-    final options = js_util.jsify({
+    final options = {
       'suggestedName': safeName,
       'types': [
         {
@@ -31,10 +32,10 @@ Future<WebExcelSaveHandle?> beginWebExcelSave(
           },
         },
       ],
-    });
-    final handle = await js_util.promiseToFuture<Object>(
-      js_util.callMethod(web.window, 'showSaveFilePicker', [options]),
-    );
+    }.jsify();
+    final handlePromise =
+        window.callMethod('showSaveFilePicker'.toJS, options) as JSPromise;
+    final handle = await handlePromise.toDart;
     return WebExcelSaveHandle(handle as JSObject);
   } catch (_) {
     // User cancelled or browser blocked the picker.
@@ -47,17 +48,13 @@ Future<void> completeWebExcelSave(
   List<int> bytes, {
   required String mimeType,
 }) async {
-  final writable = await js_util.promiseToFuture<Object>(
-    js_util.callMethod(handle.fileHandle, 'createWritable', []),
-  );
+  final writablePromise = handle.fileHandle
+      .callMethod('createWritable'.toJS) as JSPromise;
+  final writable = await writablePromise.toDart as JSObject;
   final blob = web.Blob(
     [Uint8List.fromList(bytes).toJS].toJS,
     web.BlobPropertyBag(type: mimeType),
   );
-  await js_util.promiseToFuture(
-    js_util.callMethod(writable, 'write', [blob]),
-  );
-  await js_util.promiseToFuture(
-    js_util.callMethod(writable, 'close', []),
-  );
+  await (writable.callMethod('write'.toJS, blob) as JSPromise).toDart;
+  await (writable.callMethod('close'.toJS) as JSPromise).toDart;
 }

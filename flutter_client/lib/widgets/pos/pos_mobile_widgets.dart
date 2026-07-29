@@ -9,6 +9,7 @@ import '../hrm_page_chrome.dart';
 import 'pos_hub_scope.dart';
 import 'pos_theme.dart';
 import '../safe_layout_widgets.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// Xác nhận và đăng xuất khỏi POS / cửa hàng.
 Future<void> showPosLogoutDialog(BuildContext context) async {
@@ -16,17 +17,17 @@ Future<void> showPosLogoutDialog(BuildContext context) async {
   final ok = await showDialog<bool>(
     context: context,
     builder: (ctx) => AlertDialog(
-      title: Text(l.logout),
-      content: Text(l.logoutConfirm),
+      title: Text(tr(l.logout)),
+      content: Text(tr(l.logoutConfirm)),
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(ctx, false),
-          child: Text(l.cancel),
+          child: Text(tr(l.cancel)),
         ),
         FilledButton(
           onPressed: () => Navigator.pop(ctx, true),
           style: FilledButton.styleFrom(backgroundColor: Colors.red),
-          child: Text(l.logout),
+          child: Text(tr(l.logout)),
         ),
       ],
     ),
@@ -58,7 +59,7 @@ class PosMobileProfileCard extends StatelessWidget {
             radius: 26,
             backgroundColor: PosTheme.kiotBlueLight,
             child: Text(
-              name.isNotEmpty ? name[0].toUpperCase() : 'S',
+              tr(name.isNotEmpty ? name[0].toUpperCase() : 'S'),
               style: const TextStyle(
                 color: PosTheme.kiotBlue,
                 fontWeight: FontWeight.bold,
@@ -72,14 +73,14 @@ class PosMobileProfileCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  name,
+                  tr(name),
                   style: const TextStyle(
                     fontSize: 17,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
                 Text(
-                  subtitle,
+                  tr(subtitle),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
@@ -91,12 +92,12 @@ class PosMobileProfileCard extends StatelessWidget {
             ),
           ),
           IconButton(
-            tooltip: 'Cài đặt',
+            tooltip: tr('Cài đặt'),
             onPressed: () => NavigationNotifier.goToModule('SettingsHub'),
             icon: const Icon(Icons.settings_outlined, color: PosTheme.kiotBlue),
           ),
           IconButton(
-            tooltip: 'Đăng xuất',
+            tooltip: tr('Đăng xuất'),
             onPressed: () => showPosLogoutDialog(context),
             icon: Icon(Icons.logout, color: Colors.red.shade600),
           ),
@@ -145,7 +146,7 @@ class PosMobileHubSection extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  title,
+                  tr(title),
                   style: const TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.bold,
@@ -210,7 +211,7 @@ class _PosMobileHubGridTile extends StatelessWidget {
             Icon(item.icon, color: PosTheme.kiotBlue, size: 26),
             const SizedBox(height: 6),
             Text(
-              item.label,
+              tr(item.label),
               textAlign: TextAlign.center,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
@@ -260,7 +261,7 @@ class PosMobileMetricTile extends StatelessWidget {
               ],
               Expanded(
                 child: Text(
-                  label,
+                  tr(label),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
@@ -274,7 +275,7 @@ class PosMobileMetricTile extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           Text(
-            value,
+            tr(value),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
@@ -286,7 +287,7 @@ class PosMobileMetricTile extends StatelessWidget {
           if (subtitle != null && subtitle!.isNotEmpty) ...[
             const SizedBox(height: 2),
             Text(
-              subtitle!,
+              tr(subtitle!),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
@@ -346,7 +347,7 @@ Future<void> showPosMobileFilterSheet(
             padding: const EdgeInsets.fromLTRB(16, 12, 8, 8),
             child: Row(
               children: [
-                Text(title,
+                Text(tr(title),
                     style: const TextStyle(
                         fontSize: 17, fontWeight: FontWeight.w600)),
                 const Spacer(),
@@ -384,7 +385,7 @@ Future<void> showPosMobileFilterSheet(
                             side: const BorderSide(color: PosTheme.kiotBlue),
                             minimumSize: const Size(0, 44),
                           ),
-                          child: const Text('Đặt lại'),
+                          child: Text(tr('Đặt lại')),
                         ),
                       ),
                     if (onReset != null && onApply != null)
@@ -397,7 +398,7 @@ Future<void> showPosMobileFilterSheet(
                             Navigator.pop(ctx);
                           },
                           style: PosTheme.mobilePrimaryButton,
-                          child: const Text('Áp dụng'),
+                          child: Text(tr('Áp dụng')),
                         ),
                       ),
                   ],
@@ -478,11 +479,11 @@ class PosMobileListHeader extends StatelessWidget {
               children: [
                 if (onOpenFilters != null)
                   IconButton(
-                    tooltip: 'Bộ lọc',
+                    tooltip: tr('Bộ lọc'),
                     onPressed: onOpenFilters,
                     icon: Badge(
                       isLabelVisible: activeFilterCount > 0,
-                      label: Text('$activeFilterCount'),
+                      label: Text(tr('$activeFilterCount')),
                       child: const Icon(Icons.filter_list),
                     ),
                   ),
@@ -490,7 +491,7 @@ class PosMobileListHeader extends StatelessWidget {
                   IconButton(
                     onPressed: onRefresh,
                     icon: const Icon(Icons.refresh),
-                    tooltip: 'Tải lại',
+                    tooltip: tr('Tải lại'),
                   ),
                 if (trailing != null) ...trailing!,
               ],
@@ -520,7 +521,7 @@ class PosMobileListHeader extends StatelessWidget {
                           ],
                           Expanded(
                             child: Text(
-                              title,
+                              tr(title),
                               style: const TextStyle(
                                 fontSize: 17,
                                 fontWeight: FontWeight.bold,
@@ -545,7 +546,7 @@ class PosMobileListHeader extends StatelessWidget {
                         child: FilledButton.icon(
                           onPressed: onCreate,
                           icon: const Icon(Icons.add, size: 18),
-                          label: Text(createLabel),
+                          label: Text(tr(createLabel)),
                           style: FilledButton.styleFrom(
                             backgroundColor: PosTheme.kiotBlue,
                             padding: const EdgeInsets.symmetric(vertical: 12),
@@ -560,7 +561,7 @@ class PosMobileListHeader extends StatelessWidget {
                     Icon(icon, color: PosTheme.kiotBlue),
                     const SizedBox(width: 10),
                     Expanded(
-                      child: Text(title,
+                      child: Text(tr(title),
                           style: const TextStyle(
                               fontSize: 18, fontWeight: FontWeight.bold)),
                     ),
@@ -568,7 +569,7 @@ class PosMobileListHeader extends StatelessWidget {
                       FilledButton.icon(
                         onPressed: onCreate,
                         icon: const Icon(Icons.add, size: 18),
-                        label: Text(createLabel),
+                        label: Text(tr(createLabel)),
                         style: FilledButton.styleFrom(
                             backgroundColor: PosTheme.kiotBlue),
                       ),
@@ -578,7 +579,7 @@ class PosMobileListHeader extends StatelessWidget {
                       IconButton(
                         onPressed: onRefresh,
                         icon: const Icon(Icons.refresh),
-                        tooltip: 'Tải lại',
+                        tooltip: tr('Tải lại'),
                       ),
                     ],
                   ],
@@ -644,7 +645,7 @@ class PosMobileExpandableDocCard extends StatelessWidget {
                       const SizedBox(width: 4),
                       Expanded(
                         child: Text(
-                          code,
+                          tr(code),
                           style: TextStyle(
                             color: accentColor,
                             fontWeight: FontWeight.w600,
@@ -683,12 +684,12 @@ class PosMobileExpandableDocCard extends StatelessWidget {
         children: [
           SizedBox(
             width: 88,
-            child: Text(f.label,
+            child: Text(tr(f.label),
                 style: const TextStyle(
                     fontSize: 12, color: PosTheme.textSecondary)),
           ),
           Expanded(
-            child: Text(f.value,
+            child: Text(tr(f.value),
                 style: const TextStyle(fontSize: 13),
                 textAlign: TextAlign.right),
           ),
@@ -725,8 +726,7 @@ class PosMobilePager extends StatelessWidget {
       child: Row(
         children: [
           Expanded(
-            child: Text(
-              'Tổng $total $label · Trang $page/$pages',
+            child: Text(tr('Tổng $total $label · Trang $page/$pages'),
               style: const TextStyle(
                   fontSize: 12, color: PosTheme.textSecondary),
             ),
@@ -812,7 +812,7 @@ class PosMobileLineItemCard extends StatelessWidget {
                 radius: 12,
                 backgroundColor: PosTheme.kiotBlueLight,
                 child: Text(
-                  '$index',
+                  tr('$index'),
                   style: const TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
@@ -824,10 +824,10 @@ class PosMobileLineItemCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(name,
+                    Text(tr(name),
                         style: const TextStyle(
                             fontWeight: FontWeight.w600, fontSize: 14)),
-                    Text(code,
+                    Text(tr(code),
                         style: const TextStyle(
                             fontSize: 12, color: PosTheme.textSecondary)),
                   ],
@@ -999,7 +999,7 @@ class PosMobileKiotHeader extends StatelessWidget {
               if (inHub)
                 IconButton(
                   visualDensity: VisualDensity.compact,
-                  tooltip: 'Về trang chủ',
+                  tooltip: tr('Về trang chủ'),
                   icon: const Icon(Icons.home_outlined,
                       color: PosTheme.textPrimary),
                   onPressed: onHome ??
@@ -1007,7 +1007,7 @@ class PosMobileKiotHeader extends StatelessWidget {
                 ),
               Expanded(
                 child: Text(
-                  title,
+                  tr(title),
                   style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
@@ -1024,14 +1024,14 @@ class PosMobileKiotHeader extends StatelessWidget {
                   visualDensity: VisualDensity.compact,
                   onPressed: onRefresh,
                   icon: const Icon(Icons.refresh),
-                  tooltip: 'Làm mới',
+                  tooltip: tr('Làm mới'),
                 ),
               if (onSearch != null)
                 IconButton(
                   visualDensity: VisualDensity.compact,
                   onPressed: onSearch,
                   icon: const Icon(Icons.search),
-                  tooltip: 'Tìm kiếm',
+                  tooltip: tr('Tìm kiếm'),
                 ),
               if (onFilter != null)
                 IconButton(
@@ -1039,7 +1039,7 @@ class PosMobileKiotHeader extends StatelessWidget {
                   onPressed: onFilter,
                   icon: Badge(
                     isLabelVisible: activeFilterCount > 0,
-                    label: Text('$activeFilterCount'),
+                    label: Text(tr('$activeFilterCount')),
                     child: const Icon(Icons.filter_list, size: 22),
                   ),
                 ),
@@ -1048,14 +1048,14 @@ class PosMobileKiotHeader extends StatelessWidget {
                   visualDensity: VisualDensity.compact,
                   onPressed: onSort,
                   icon: const Icon(Icons.import_export),
-                  tooltip: 'Sắp xếp',
+                  tooltip: tr('Sắp xếp'),
                 ),
               if (onMore != null)
                 IconButton(
                   visualDensity: VisualDensity.compact,
                   onPressed: onMore,
                   icon: const Icon(Icons.more_horiz),
-                  tooltip: 'Thêm',
+                  tooltip: tr('Thêm'),
                 ),
               ],
             ],
@@ -1072,7 +1072,7 @@ class PosMobileKiotHeader extends StatelessWidget {
                     onPressed: onFilter,
                     icon: Badge(
                       isLabelVisible: activeFilterCount > 0,
-                      label: Text('$activeFilterCount'),
+                      label: Text(tr('$activeFilterCount')),
                       child: const Icon(Icons.filter_list, size: 22),
                     ),
                   ),
@@ -1100,19 +1100,19 @@ class PosMobileKiotHeader extends StatelessWidget {
             visualDensity: VisualDensity.compact,
             onPressed: onRefresh,
             icon: const Icon(Icons.sync),
-            tooltip: 'Đồng bộ',
+            tooltip: tr('Đồng bộ'),
           ),
         if (onSearch != null)
           IconButton(
             visualDensity: VisualDensity.compact,
             onPressed: onSearch,
             icon: const Icon(Icons.search),
-            tooltip: 'Tìm kiếm',
+            tooltip: tr('Tìm kiếm'),
           ),
         PopupMenuButton<String>(
           icon: Badge(
             isLabelVisible: activeFilterCount > 0,
-            label: Text('$activeFilterCount'),
+            label: Text(tr('$activeFilterCount')),
             child: const Icon(Icons.more_horiz),
           ),
           onSelected: (v) {
@@ -1132,17 +1132,17 @@ class PosMobileKiotHeader extends StatelessWidget {
               PopupMenuItem(
                 value: 'filter',
                 child: Text(
-                  activeFilterCount > 0
+                  tr(activeFilterCount > 0
                       ? 'Bộ lọc ($activeFilterCount)'
-                      : 'Bộ lọc',
+                      : 'Bộ lọc'),
                 ),
               ),
             if (onSort != null)
-              const PopupMenuItem(value: 'sort', child: Text('Sắp xếp')),
+              PopupMenuItem(value: 'sort', child: Text(tr('Sắp xếp'))),
             if (onRefresh != null)
-              const PopupMenuItem(value: 'refresh', child: Text('Đồng bộ')),
+              PopupMenuItem(value: 'refresh', child: Text(tr('Đồng bộ'))),
             if (onMore != null)
-              const PopupMenuItem(value: 'more', child: Text('Thêm chức năng')),
+              PopupMenuItem(value: 'more', child: Text(tr('Thêm chức năng'))),
           ],
         ),
       ],
@@ -1219,7 +1219,7 @@ class PosMobileProductRow extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      name,
+                      tr(name),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
@@ -1234,7 +1234,7 @@ class PosMobileProductRow extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      code,
+                      tr(code),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
@@ -1260,7 +1260,7 @@ class PosMobileProductRow extends StatelessWidget {
                       Padding(
                         padding: const EdgeInsets.only(top: 2),
                         child: Text(
-                          stockText,
+                          tr(stockText),
                           style: const TextStyle(
                             fontSize: 11,
                             color: PosTheme.textSecondary,
@@ -1292,7 +1292,7 @@ class PosMobileProductRow extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      priceText,
+                      tr(priceText),
                       textAlign: TextAlign.right,
                       style: const TextStyle(
                         fontSize: 15,
@@ -1339,7 +1339,7 @@ class PosMobileProductRow extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8),
               child: Text(
-                qtyText,
+                tr(qtyText),
                 style: const TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w700,
@@ -1386,7 +1386,7 @@ class PosMobileProductRow extends StatelessWidget {
         borderRadius: BorderRadius.circular(4),
       ),
       child: Text(
-        text,
+        tr(text),
         style: const TextStyle(
           fontSize: 10,
           fontWeight: FontWeight.w500,
@@ -1412,7 +1412,7 @@ class PosMobileFab extends StatelessWidget {
   Widget build(BuildContext context) {
     return FloatingActionButton(
       onPressed: onPressed,
-      tooltip: tooltip,
+      tooltip: tr(tooltip),
       backgroundColor: PosTheme.kiotBlue,
       foregroundColor: Colors.white,
       elevation: 4,

@@ -14,6 +14,7 @@ import '../widgets/loading_widget.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/notification_overlay.dart';
 import '../widgets/employee_search_picker.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 class AccountManagementScreen extends StatefulWidget {
   const AccountManagementScreen({super.key});
 
@@ -244,20 +245,18 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                               color: Color(0xFF71717A), size: 20),
                         ),
                         const SizedBox(width: 12),
-                        const Expanded(
+                        Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
-                                'Quản lý Tài khoản',
+                              Text(tr('Quản lý Tài khoản'),
                                 style: TextStyle(
                                   color: HrmPageChrome.primaryNavy,
                                   fontSize: 20,
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
-                              Text(
-                                'Quản lý tài khoản người dùng hệ thống',
+                              Text(tr('Quản lý tài khoản người dùng hệ thống'),
                                 style: TextStyle(
                                     color: Color(0xFF71717A), fontSize: 13),
                               ),
@@ -273,13 +272,13 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                               onPressed: () => _showBulkAccountDialog(),
                               icon: const Icon(Icons.group_add,
                                   color: HrmPageChrome.primaryNavy, size: 22),
-                              tooltip: 'Đăng ký hàng loạt',
+                              tooltip: tr('Đăng ký hàng loạt'),
                             )
                           else
                             OutlinedButton.icon(
                               onPressed: () => _showBulkAccountDialog(),
                               icon: const Icon(Icons.group_add, size: 18),
-                              label: const Text('Đăng ký hàng loạt'),
+                              label: Text(tr('Đăng ký hàng loạt')),
                               style: OutlinedButton.styleFrom(
                                 foregroundColor: HrmPageChrome.primaryNavy,
                                 padding: const EdgeInsets.symmetric(
@@ -293,13 +292,13 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                             onPressed: () => _showAccountDialog(),
                             icon: const Icon(Icons.person_add,
                                 color: HrmPageChrome.primaryNavy, size: 22),
-                            tooltip: 'Thêm tài khoản',
+                            tooltip: tr('Thêm tài khoản'),
                           )
                         else
                           FilledButton.icon(
                             onPressed: () => _showAccountDialog(),
                             icon: const Icon(Icons.person_add, size: 18),
-                            label: const Text('Thêm tài khoản'),
+                            label: Text(tr('Thêm tài khoản')),
                             style: FilledButton.styleFrom(
                               backgroundColor: HrmPageChrome.primaryNavy,
                               padding: const EdgeInsets.symmetric(
@@ -397,7 +396,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                               style: const TextStyle(
                                   color: Color(0xFF18181B), fontSize: 14),
                               decoration: InputDecoration(
-                                hintText: 'Tìm theo tên hoặc username...',
+                                hintText: tr('Tìm theo tên hoặc username...'),
                                 hintStyle: const TextStyle(
                                     color: Color(0xFFA1A1AA), fontSize: 14),
                                 prefixIcon: const Icon(Icons.search,
@@ -459,31 +458,31 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                                 filled: true,
                                 fillColor: Colors.white,
                               ),
-                              items: const [
+                              items: [
                                 DropdownMenuItem(
                                     value: 'all',
-                                    child: Text('Tất cả vai trò')),
+                                    child: Text(tr('Tất cả vai trò'))),
                                 DropdownMenuItem(
                                     value: 'Admin',
-                                    child: Text('Quản trị viên')),
+                                    child: Text(tr('Quản trị viên'))),
                                 DropdownMenuItem(
-                                    value: 'Director', child: Text('Giám đốc')),
+                                    value: 'Director', child: Text(tr('Giám đốc'))),
                                 DropdownMenuItem(
-                                    value: 'Manager', child: Text('Quản lý')),
+                                    value: 'Manager', child: Text(tr('Quản lý'))),
                                 DropdownMenuItem(
                                     value: 'DepartmentHead',
-                                    child: Text('Trưởng phòng')),
+                                    child: Text(tr('Trưởng phòng'))),
                                 DropdownMenuItem(
                                     value: 'Accountant',
-                                    child: Text('Kế toán')),
+                                    child: Text(tr('Kế toán'))),
                                 DropdownMenuItem(
                                     value: 'Cashier',
-                                    child: Text('Thu ngân')),
+                                    child: Text(tr('Thu ngân'))),
                                 DropdownMenuItem(
                                     value: 'Employee',
-                                    child: Text('Nhân viên')),
+                                    child: Text(tr('Nhân viên'))),
                                 DropdownMenuItem(
-                                    value: 'User', child: Text('Người dùng')),
+                                    value: 'User', child: Text(tr('Người dùng'))),
                               ],
                               onChanged: (value) => setState(
                                   () => _selectedRole = value ?? 'all'),
@@ -522,16 +521,16 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                                 filled: true,
                                 fillColor: Colors.white,
                               ),
-                              items: const [
+                              items: [
                                 DropdownMenuItem(
                                     value: 'all',
-                                    child: Text('Tất cả trạng thái')),
+                                    child: Text(tr('Tất cả trạng thái'))),
                                 DropdownMenuItem(
                                     value: 'active',
-                                    child: Text('Đang hoạt động')),
+                                    child: Text(tr('Đang hoạt động'))),
                                 DropdownMenuItem(
                                     value: 'inactive',
-                                    child: Text('Ngừng hoạt động')),
+                                    child: Text(tr('Ngừng hoạt động'))),
                               ],
                               onChanged: (value) => setState(
                                   () => _selectedStatus = value ?? 'all'),
@@ -572,13 +571,13 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                                 filled: true,
                                 fillColor: Colors.white,
                               ),
-                              items: const [
+                              items: [
                                 DropdownMenuItem(
                                     value: 'all',
-                                    child: Text('Tất cả hồ sơ NS')),
+                                    child: Text(tr('Tất cả hồ sơ NS'))),
                                 DropdownMenuItem(
                                     value: 'missing_or_resigned',
-                                    child: Text('Không còn HS / Nghỉ việc')),
+                                    child: Text(tr('Không còn HS / Nghỉ việc'))),
                               ],
                               onChanged: (value) => setState(
                                   () => _selectedHrFilter = value ?? 'all'),
@@ -588,7 +587,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                           OutlinedButton.icon(
                             onPressed: _clearFilters,
                             icon: const Icon(Icons.filter_alt_off, size: 18),
-                            label: const Text('Xóa lọc'),
+                            label: Text(tr('Xóa lọc')),
                             style: OutlinedButton.styleFrom(
                               foregroundColor: const Color(0xFF71717A),
                               side: const BorderSide(color: Color(0xFFE4E4E7)),
@@ -643,15 +642,15 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                                       fontSize: 12,
                                       fontWeight: FontWeight.w600,
                                     ),
-                                    columns: const [
-                                      DataColumn(label: Text('#')),
-                                      DataColumn(label: Text('Nhân viên')),
-                                      DataColumn(label: Text('Email')),
-                                      DataColumn(label: Text('SĐT')),
-                                      DataColumn(label: Text('Vai trò')),
-                                      DataColumn(label: Text('Trạng thái')),
-                                      DataColumn(label: Text('Đăng nhập cuối')),
-                                      DataColumn(label: Text('Thao tác')),
+                                    columns: [
+                                      DataColumn(label: Text(tr('#'))),
+                                      DataColumn(label: Text(tr('Nhân viên'))),
+                                      DataColumn(label: Text(tr('Email'))),
+                                      DataColumn(label: Text(tr('SĐT'))),
+                                      DataColumn(label: Text(tr('Vai trò'))),
+                                      DataColumn(label: Text(tr('Trạng thái'))),
+                                      DataColumn(label: Text(tr('Đăng nhập cuối'))),
+                                      DataColumn(label: Text(tr('Thao tác'))),
                                     ],
                                     rows: List.generate(
                                         _filteredAccounts.length, (index) {
@@ -680,7 +679,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
         borderRadius: BorderRadius.circular(4),
       ),
       child: Text(
-        label,
+        tr(label),
         style: TextStyle(
           color: const Color(0xFFD97706),
           fontSize: fontSize,
@@ -709,7 +708,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
 
     return DataRow(
       cells: [
-        DataCell(Text('${index + 1}',
+        DataCell(Text(tr('${index + 1}'),
             style: const TextStyle(color: Color(0xFF71717A), fontSize: 13))),
         DataCell(Row(
           mainAxisSize: MainAxisSize.min,
@@ -722,7 +721,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Center(
-                  child: Text(initials,
+                  child: Text(tr(initials),
                       style: TextStyle(
                           color: roleInfo['color'] as Color,
                           fontSize: 12,
@@ -733,12 +732,12 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(fullName,
+                Text(tr(fullName),
                     style: const TextStyle(
                         color: Color(0xFF18181B),
                         fontSize: 13,
                         fontWeight: FontWeight.w600)),
-                Text('@${account['userName'] ?? ''}',
+                Text(tr('@${account['userName'] ?? ''}'),
                     style: const TextStyle(
                         color: Color(0xFFA1A1AA), fontSize: 11)),
                 _buildHrIssueBadge(account, fontSize: 10),
@@ -746,9 +745,9 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
             ),
           ],
         )),
-        DataCell(Text(account['email'] ?? '',
+        DataCell(Text(tr(account['email'] ?? ''),
             style: const TextStyle(color: Color(0xFF71717A), fontSize: 13))),
-        DataCell(Text(account['phoneNumber'] ?? '',
+        DataCell(Text(tr(account['phoneNumber'] ?? ''),
             style: const TextStyle(color: Color(0xFF71717A), fontSize: 13))),
         DataCell(Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -756,7 +755,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
             color: (roleInfo['color'] as Color).withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(5),
           ),
-          child: Text(roleInfo['label'] as String,
+          child: Text(tr(roleInfo['label'] as String),
               style: TextStyle(
                   color: roleInfo['color'] as Color,
                   fontSize: 11,
@@ -771,7 +770,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
             borderRadius: BorderRadius.circular(5),
           ),
           child: Text(
-            isActive ? 'Hoạt động' : 'Ngừng hoạt động',
+            tr(isActive ? 'Hoạt động' : 'Ngừng hoạt động'),
             style: TextStyle(
                 color: isActive
                     ? const Color(0xFF22C55E)
@@ -781,7 +780,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
           ),
         )),
         DataCell(Text(
-          lastLogin != null ? _formatDate(lastLogin) : '—',
+          tr(lastLogin != null ? _formatDate(lastLogin) : '—'),
           style: const TextStyle(color: Color(0xFFA1A1AA), fontSize: 12),
         )),
         DataCell(Row(
@@ -792,7 +791,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                 onPressed: () => _showChangePasswordDialog(account),
                 icon: const Icon(Icons.lock_reset, size: 18),
                 color: HrmPageChrome.primaryNavy,
-                tooltip: 'Đổi mật khẩu',
+                tooltip: tr('Đổi mật khẩu'),
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
               ),
@@ -801,7 +800,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                 onPressed: () => _showAccountDialog(account: account),
                 icon: const Icon(Icons.edit_outlined, size: 18),
                 color: const Color(0xFF71717A),
-                tooltip: 'Sửa',
+                tooltip: tr('Sửa'),
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
               ),
@@ -817,7 +816,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                 color: isActive
                     ? const Color(0xFFF59E0B)
                     : const Color(0xFF22C55E),
-                tooltip: isActive ? 'Vô hiệu hóa' : 'Kích hoạt lại',
+                tooltip: tr(isActive ? 'Vô hiệu hóa' : 'Kích hoạt lại'),
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
               ),
@@ -826,7 +825,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                 onPressed: () => _deleteAccount(account),
                 icon: const Icon(Icons.delete_outline, size: 18),
                 color: const Color(0xFFEF4444),
-                tooltip: 'Xóa',
+                tooltip: tr('Xóa'),
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
               ),
@@ -876,7 +875,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
     return TextField(
       style: const TextStyle(color: Color(0xFF18181B), fontSize: 14),
       decoration: InputDecoration(
-        hintText: 'Tìm theo tên hoặc username...',
+        hintText: tr('Tìm theo tên hoặc username...'),
         hintStyle: const TextStyle(color: Color(0xFFA1A1AA), fontSize: 14),
         prefixIcon:
             const Icon(Icons.search, color: Color(0xFFA1A1AA), size: 20),
@@ -947,7 +946,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
         ),
         child: Center(
           child: Text(
-            initials,
+            tr(initials),
             style: TextStyle(
               color: roleInfo['color'] as Color,
               fontSize: 14,
@@ -969,7 +968,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
               borderRadius: BorderRadius.circular(5),
             ),
             child: Text(
-              roleInfo['label'] as String,
+              tr(roleInfo['label'] as String),
               style: TextStyle(
                 color: roleInfo['color'] as Color,
                 fontSize: 10,
@@ -987,7 +986,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
               borderRadius: BorderRadius.circular(4),
             ),
             child: Text(
-              isActive ? 'Hoạt động' : 'Ngừng hoạt động',
+              tr(isActive ? 'Hoạt động' : 'Ngừng hoạt động'),
               style: TextStyle(
                 color: isActive
                     ? const Color(0xFF22C55E)
@@ -1056,19 +1055,19 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: Center(
-                    child: Text(initials,
+                    child: Text(tr(initials),
                         style: TextStyle(
                             color: roleInfo['color'] as Color,
                             fontSize: 20,
                             fontWeight: FontWeight.bold))),
               ),
               const SizedBox(height: 12),
-              Text(fullName,
+              Text(tr(fullName),
                   style: const TextStyle(
                       color: Color(0xFF18181B),
                       fontSize: 18,
                       fontWeight: FontWeight.bold)),
-              Text('@${account['userName'] ?? ''}',
+              Text(tr('@${account['userName'] ?? ''}'),
                   style:
                       const TextStyle(color: Color(0xFFA1A1AA), fontSize: 13)),
               const SizedBox(height: 12),
@@ -1083,7 +1082,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                           (roleInfo['color'] as Color).withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(6),
                     ),
-                    child: Text(roleInfo['label'] as String,
+                    child: Text(tr(roleInfo['label'] as String),
                         style: TextStyle(
                             color: roleInfo['color'] as Color,
                             fontSize: 12,
@@ -1100,7 +1099,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: Text(
-                      isActive ? 'Hoạt động' : 'Ngừng hoạt động',
+                      tr(isActive ? 'Hoạt động' : 'Ngừng hoạt động'),
                       style: TextStyle(
                           color: isActive
                               ? const Color(0xFF22C55E)
@@ -1119,7 +1118,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Text(
-                        _hrIssueLabel(account)!,
+                        tr(_hrIssueLabel(account)!),
                         style: const TextStyle(
                           color: Color(0xFFD97706),
                           fontSize: 12,
@@ -1154,7 +1153,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                           _showChangePasswordDialog(account);
                         },
                         icon: const Icon(Icons.lock_reset, size: 18),
-                        label: const Text('Đổi MK'),
+                        label: Text(tr('Đổi MK')),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: HrmPageChrome.primaryNavy,
                           side:
@@ -1173,7 +1172,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                           _showAccountDialog(account: account);
                         },
                         icon: const Icon(Icons.edit_outlined, size: 18),
-                        label: const Text('Sửa'),
+                        label: Text(tr('Sửa')),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: const Color(0xFF71717A),
                           side: const BorderSide(color: Color(0xFFE4E4E7)),
@@ -1202,7 +1201,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                           : Icons.person_outline,
                       size: 18,
                     ),
-                    label: Text(isActive ? 'Vô hiệu hóa' : 'Kích hoạt lại'),
+                    label: Text(tr(isActive ? 'Vô hiệu hóa' : 'Kích hoạt lại')),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: isActive
                           ? const Color(0xFFF59E0B)
@@ -1230,7 +1229,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                       _deleteAccount(account);
                     },
                     icon: const Icon(Icons.delete_outline, size: 18),
-                    label: const Text('Xóa'),
+                    label: Text(tr('Xóa')),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: const Color(0xFFEF4444),
                       side: const BorderSide(color: Color(0xFFEF4444)),
@@ -1257,11 +1256,11 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
           const SizedBox(width: 12),
           SizedBox(
             width: 100,
-            child: Text(label,
+            child: Text(tr(label),
                 style: const TextStyle(color: Color(0xFF71717A), fontSize: 13)),
           ),
           Expanded(
-            child: Text(value,
+            child: Text(tr(value),
                 style: const TextStyle(
                     color: Color(0xFF18181B),
                     fontSize: 13,
@@ -1292,17 +1291,17 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
             if (newPasswordController.text.isEmpty) {
               appNotification.showWarning(
                   title: 'Thiếu thông tin',
-                  message: 'Vui lòng nhập mật khẩu mới');
+                  message: tr('Vui lòng nhập mật khẩu mới'));
               return;
             }
             if (newPasswordController.text.length < 6) {
               appNotification.showWarning(
-                  title: 'Mật khẩu yếu', message: 'Mật khẩu tối thiểu 6 ký tự');
+                  title: 'Mật khẩu yếu', message: tr('Mật khẩu tối thiểu 6 ký tự'));
               return;
             }
             if (newPasswordController.text != confirmPasswordController.text) {
               appNotification.showWarning(
-                  title: 'Không khớp', message: 'Mật khẩu xác nhận không khớp');
+                  title: 'Không khớp', message: tr('Mật khẩu xác nhận không khớp'));
               return;
             }
             Navigator.pop(context);
@@ -1313,7 +1312,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                 if (response['isSuccess'] == true) {
                   appNotification.showSuccess(
                       title: 'Thành công',
-                      message: 'Đã đổi mật khẩu cho $fullName');
+                      message: tr('Đã đổi mật khẩu cho $fullName'));
                 } else {
                   appNotification.showError(
                       title: 'Lỗi',
@@ -1322,7 +1321,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
               }
             } catch (e) {
               if (mounted) {
-                appNotification.showError(title: 'Lỗi', message: 'Lỗi: $e');
+                appNotification.showError(title: 'Lỗi', message: tr('Lỗi: $e'));
               }
             }
           }
@@ -1341,12 +1340,12 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text('Đổi mật khẩu',
+                          Text(tr('Đổi mật khẩu'),
                               style: TextStyle(
                                   color: Color(0xFF18181B),
                                   fontSize: 18,
                                   fontWeight: FontWeight.bold)),
-                          Text(fullName,
+                          Text(tr(fullName),
                               style: const TextStyle(
                                   color: Color(0xFF71717A), fontSize: 13)),
                         ],
@@ -1360,7 +1359,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                 ),
                 const SizedBox(height: 20),
               ],
-              const Text('Mật khẩu mới',
+              Text(tr('Mật khẩu mới'),
                   style: TextStyle(color: Color(0xFF71717A), fontSize: 13)),
               const SizedBox(height: 6),
               TextField(
@@ -1368,7 +1367,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                 obscureText: !showNewPassword,
                 style: const TextStyle(color: Color(0xFF18181B), fontSize: 14),
                 decoration: InputDecoration(
-                  hintText: 'Nhập mật khẩu mới (tối thiểu 6 ký tự)',
+                  hintText: tr('Nhập mật khẩu mới (tối thiểu 6 ký tự)'),
                   hintStyle: const TextStyle(color: Color(0xFFA1A1AA)),
                   contentPadding:
                       const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
@@ -1394,7 +1393,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                 ),
               ),
               const SizedBox(height: 16),
-              const Text('Xác nhận mật khẩu',
+              Text(tr('Xác nhận mật khẩu'),
                   style: TextStyle(color: Color(0xFF71717A), fontSize: 13)),
               const SizedBox(height: 6),
               TextField(
@@ -1402,7 +1401,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                 obscureText: !showConfirmPassword,
                 style: const TextStyle(color: Color(0xFF18181B), fontSize: 14),
                 decoration: InputDecoration(
-                  hintText: 'Nhập lại mật khẩu mới',
+                  hintText: tr('Nhập lại mật khẩu mới'),
                   hintStyle: const TextStyle(color: Color(0xFFA1A1AA)),
                   contentPadding:
                       const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
@@ -1435,14 +1434,14 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                   children: [
                     TextButton(
                       onPressed: () => Navigator.pop(context),
-                      child: const Text('Hủy',
+                      child: Text(tr('Hủy'),
                           style: TextStyle(color: Color(0xFF71717A))),
                     ),
                     const Spacer(),
                     FilledButton.icon(
                       onPressed: onSubmit,
                       icon: const Icon(Icons.lock_reset, size: 18),
-                      label: const Text('Đổi mật khẩu'),
+                      label: Text(tr('Đổi mật khẩu')),
                       style: FilledButton.styleFrom(
                         backgroundColor: HrmPageChrome.primaryNavy,
                         padding: const EdgeInsets.symmetric(
@@ -1470,12 +1469,12 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                   title: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('Đổi mật khẩu',
+                      Text(tr('Đổi mật khẩu'),
                           style: TextStyle(
                               color: Color(0xFF18181B),
                               fontSize: 16,
                               fontWeight: FontWeight.bold)),
-                      Text(fullName,
+                      Text(tr(fullName),
                           style: const TextStyle(
                               color: Color(0xFF71717A), fontSize: 12)),
                     ],
@@ -1484,7 +1483,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                     TextButton.icon(
                       onPressed: onSubmit,
                       icon: const Icon(Icons.lock_reset, size: 18),
-                      label: const Text('Lưu'),
+                      label: Text(tr('Lưu')),
                       style: TextButton.styleFrom(
                           foregroundColor: HrmPageChrome.primaryNavy),
                     ),
@@ -1524,16 +1523,16 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
         roles0.isNotEmpty ? roles0.first.toString() : 'Employee';
 
     final employeeIdController = TextEditingController(
-        text: isEditing ? (account['userName']?.toString() ?? '') : '');
+        text: tr(isEditing ? (account['userName']?.toString() ?? '') : ''));
     final fullNameController = TextEditingController(
-        text: (account?['fullName'] ??
+        text: tr((account?['fullName'] ??
                 '${account?['lastName'] ?? ''} ${account?['firstName'] ?? ''}')
             .toString()
-            .trim());
+            .trim()));
     final emailController =
-        TextEditingController(text: account?['email'] ?? '');
+        TextEditingController(text: tr(account?['email'] ?? ''));
     final phoneController =
-        TextEditingController(text: account?['phoneNumber'] ?? '');
+        TextEditingController(text: tr(account?['phoneNumber'] ?? ''));
     final passwordController = TextEditingController();
     final confirmPasswordController = TextEditingController();
     String selectedRole = accountRole;
@@ -1601,31 +1600,31 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                 emailController.text.isEmpty) {
               appNotification.showWarning(
                   title: 'Thiếu thông tin',
-                  message: 'Vui lòng điền đầy đủ thông tin');
+                  message: tr('Vui lòng điền đầy đủ thông tin'));
               return;
             }
             if (!isEditing && selectedEmployee == null) {
               appNotification.showWarning(
                   title: 'Chưa chọn nhân viên',
-                  message: 'Vui lòng chọn nhân viên từ danh sách');
+                  message: tr('Vui lòng chọn nhân viên từ danh sách'));
               return;
             }
             if (!isEditing) {
               if (passwordController.text.isEmpty) {
                 appNotification.showWarning(
-                    title: 'Thiếu mật khẩu', message: 'Vui lòng nhập mật khẩu');
+                    title: 'Thiếu mật khẩu', message: tr('Vui lòng nhập mật khẩu'));
                 return;
               }
               if (passwordController.text != confirmPasswordController.text) {
                 appNotification.showWarning(
                     title: 'Mật khẩu không khớp',
-                    message: 'Vui lòng nhập lại mật khẩu');
+                    message: tr('Vui lòng nhập lại mật khẩu'));
                 return;
               }
               if (passwordController.text.length < 6) {
                 appNotification.showWarning(
                     title: 'Mật khẩu yếu',
-                    message: 'Mật khẩu tối thiểu 6 ký tự');
+                    message: tr('Mật khẩu tối thiểu 6 ký tự'));
                 return;
               }
             }
@@ -1675,7 +1674,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
               }
             } catch (e) {
               if (mounted) {
-                appNotification.showError(title: 'Lỗi', message: 'Lỗi: $e');
+                appNotification.showError(title: 'Lỗi', message: tr('Lỗi: $e'));
               }
             }
           }
@@ -1691,10 +1690,10 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     EmployeePickerFormField(
-                      labelText: 'Chọn nhân viên *',
-                      hintText: availableEmployees.isEmpty
+                      labelText: tr('Chọn nhân viên *'),
+                      hintText: tr(availableEmployees.isEmpty
                           ? 'Không còn nhân viên chưa có tài khoản'
-                          : 'Bấm để tìm và chọn nhân viên...',
+                          : 'Bấm để tìm và chọn nhân viên...'),
                       enabled: availableEmployees.isNotEmpty,
                       candidates: pickerCandidates,
                       selectedId: selectedEmployee?['id']?.toString(),
@@ -1728,9 +1727,9 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      availableEmployees.isEmpty
+                      tr(availableEmployees.isEmpty
                           ? 'Tất cả nhân viên trong hồ sơ đã có tài khoản'
-                          : 'Danh sách gồm nhân viên hồ sơ HR chưa đăng ký tài khoản (${availableEmployees.length})',
+                          : 'Danh sách gồm nhân viên hồ sơ HR chưa đăng ký tài khoản (${availableEmployees.length})'),
                       style: TextStyle(color: Colors.grey[500], fontSize: 11),
                     ),
                   ],
@@ -1746,10 +1745,10 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                   children: [
                     Row(
                       children: [
-                        Text(isEditing ? 'Tên đăng nhập' : 'Mã nhân viên',
+                        Text(tr(isEditing ? 'Tên đăng nhập' : 'Mã nhân viên'),
                             style: const TextStyle(
                                 color: Color(0xFF71717A), fontSize: 13)),
-                        const Text(' *',
+                        Text(tr(' *'),
                             style: TextStyle(color: Color(0xFFEF4444))),
                       ],
                     ),
@@ -1759,7 +1758,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                       style: const TextStyle(
                           color: Color(0xFF18181B), fontSize: 14),
                       decoration: InputDecoration(
-                        hintText: isEditing ? 'username' : 'NV001',
+                        hintText: tr(isEditing ? 'username' : 'NV001'),
                         hintStyle: const TextStyle(color: Color(0xFFA1A1AA)),
                         contentPadding: const EdgeInsets.symmetric(
                             horizontal: 12, vertical: 12),
@@ -1785,12 +1784,12 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                 second: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Row(
+                    Row(
                       children: [
-                        Text('Tên nhân viên',
+                        Text(tr('Tên nhân viên'),
                             style: TextStyle(
                                 color: Color(0xFF71717A), fontSize: 13)),
-                        Text(' *', style: TextStyle(color: Color(0xFFEF4444))),
+                        Text(tr(' *'), style: TextStyle(color: Color(0xFFEF4444))),
                       ],
                     ),
                     const SizedBox(height: 6),
@@ -1799,7 +1798,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                       style: const TextStyle(
                           color: Color(0xFF18181B), fontSize: 14),
                       decoration: InputDecoration(
-                        hintText: 'Nguyễn Văn A',
+                        hintText: tr('Nguyễn Văn A'),
                         hintStyle: const TextStyle(color: Color(0xFFA1A1AA)),
                         contentPadding: const EdgeInsets.symmetric(
                             horizontal: 12, vertical: 12),
@@ -1824,8 +1823,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                 ),
               ),
               const SizedBox(height: 4),
-              Text(
-                'Mã NV được tự động điền khi chọn nhân viên',
+              Text(tr('Mã NV được tự động điền khi chọn nhân viên'),
                 style: TextStyle(color: Colors.grey[500], fontSize: 11),
               ),
               const SizedBox(height: 16),
@@ -1836,12 +1834,12 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                 first: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Row(
+                    Row(
                       children: [
-                        Text('Email',
+                        Text(tr('Email'),
                             style: TextStyle(
                                 color: Color(0xFF71717A), fontSize: 13)),
-                        Text(' *', style: TextStyle(color: Color(0xFFEF4444))),
+                        Text(tr(' *'), style: TextStyle(color: Color(0xFFEF4444))),
                       ],
                     ),
                     const SizedBox(height: 6),
@@ -1851,7 +1849,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                           color: Color(0xFF18181B), fontSize: 14),
                       keyboardType: TextInputType.emailAddress,
                       decoration: InputDecoration(
-                        hintText: 'email@example.com',
+                        hintText: tr('email@example.com'),
                         hintStyle: const TextStyle(color: Color(0xFFA1A1AA)),
                         contentPadding: const EdgeInsets.symmetric(
                             horizontal: 12, vertical: 12),
@@ -1877,12 +1875,12 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                 second: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Row(
+                    Row(
                       children: [
-                        Text('Số điện thoại',
+                        Text(tr('Số điện thoại'),
                             style: TextStyle(
                                 color: Color(0xFF71717A), fontSize: 13)),
-                        Text(' *', style: TextStyle(color: Color(0xFFEF4444))),
+                        Text(tr(' *'), style: TextStyle(color: Color(0xFFEF4444))),
                       ],
                     ),
                     const SizedBox(height: 6),
@@ -1892,7 +1890,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                           color: Color(0xFF18181B), fontSize: 14),
                       keyboardType: TextInputType.phone,
                       decoration: InputDecoration(
-                        hintText: '0987654321',
+                        hintText: tr('0987654321'),
                         hintStyle: const TextStyle(color: Color(0xFFA1A1AA)),
                         contentPadding: const EdgeInsets.symmetric(
                             horizontal: 12, vertical: 12),
@@ -1922,12 +1920,12 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Row(
+                  Row(
                     children: [
-                      Text('Quyền hạn',
+                      Text(tr('Quyền hạn'),
                           style: TextStyle(
                               color: Color(0xFF71717A), fontSize: 13)),
-                      Text(' *', style: TextStyle(color: Color(0xFFEF4444))),
+                      Text(tr(' *'), style: TextStyle(color: Color(0xFFEF4444))),
                     ],
                   ),
                   const SizedBox(height: 6),
@@ -1968,7 +1966,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                               ),
                             ),
                             const SizedBox(width: 8),
-                            Text(role['label'] as String),
+                            Text(tr(role['label'] as String)),
                           ],
                         ),
                       );
@@ -1980,8 +1978,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                     },
                   ),
                   const SizedBox(height: 4),
-                  Text(
-                    'Chọn quyền hạn phù hợp với vai trò của nhân viên',
+                  Text(tr('Chọn quyền hạn phù hợp với vai trò của nhân viên'),
                     style: TextStyle(color: Colors.grey[500], fontSize: 11),
                   ),
                 ],
@@ -1995,12 +1992,12 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                   first: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Row(
+                      Row(
                         children: [
-                          Text('Mật khẩu',
+                          Text(tr('Mật khẩu'),
                               style: TextStyle(
                                   color: Color(0xFF71717A), fontSize: 13)),
-                          Text(' *',
+                          Text(tr(' *'),
                               style: TextStyle(color: Color(0xFFEF4444))),
                         ],
                       ),
@@ -2011,7 +2008,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                         style: const TextStyle(
                             color: Color(0xFF18181B), fontSize: 14),
                         decoration: InputDecoration(
-                          hintText: 'Tối thiểu 6 ký tự',
+                          hintText: tr('Tối thiểu 6 ký tự'),
                           hintStyle: const TextStyle(color: Color(0xFFA1A1AA)),
                           contentPadding: const EdgeInsets.symmetric(
                               horizontal: 12, vertical: 12),
@@ -2047,12 +2044,12 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                   second: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Row(
+                      Row(
                         children: [
-                          Text('Xác nhận mật khẩu',
+                          Text(tr('Xác nhận mật khẩu'),
                               style: TextStyle(
                                   color: Color(0xFF71717A), fontSize: 13)),
-                          Text(' *',
+                          Text(tr(' *'),
                               style: TextStyle(color: Color(0xFFEF4444))),
                         ],
                       ),
@@ -2063,7 +2060,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                         style: const TextStyle(
                             color: Color(0xFF18181B), fontSize: 14),
                         decoration: InputDecoration(
-                          hintText: 'Nhập lại mật khẩu',
+                          hintText: tr('Nhập lại mật khẩu'),
                           hintStyle: const TextStyle(color: Color(0xFFA1A1AA)),
                           contentPadding: const EdgeInsets.symmetric(
                               horizontal: 12, vertical: 12),
@@ -2115,7 +2112,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                     onPressed: () => Navigator.pop(context),
                   ),
                   title: Text(
-                    isEditing ? 'Sửa tài khoản' : 'Đăng ký tài khoản',
+                    tr(isEditing ? 'Sửa tài khoản' : 'Đăng ký tài khoản'),
                     style: const TextStyle(
                         color: Color(0xFF18181B),
                         fontSize: 16,
@@ -2125,7 +2122,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                     TextButton.icon(
                       onPressed: onSubmit,
                       icon: const Icon(Icons.save, size: 18),
-                      label: Text(isEditing ? 'Cập nhật' : 'Đăng ký'),
+                      label: Text(tr(isEditing ? 'Cập nhật' : 'Đăng ký')),
                       style: TextButton.styleFrom(
                           foregroundColor: HrmPageChrome.primaryNavy),
                     ),
@@ -2161,7 +2158,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                       children: [
                         Expanded(
                           child: Text(
-                            isEditing ? 'Sửa tài khoản' : 'Đăng ký tài khoản',
+                            tr(isEditing ? 'Sửa tài khoản' : 'Đăng ký tài khoản'),
                             style: const TextStyle(
                                 color: Color(0xFF18181B),
                                 fontSize: 18,
@@ -2183,7 +2180,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                       children: [
                         TextButton(
                           onPressed: () => Navigator.pop(context),
-                          child: const Text('Hủy',
+                          child: Text(tr('Hủy'),
                               style: TextStyle(color: Color(0xFF71717A))),
                         ),
                         const Spacer(),
@@ -2192,7 +2189,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                           child: FilledButton.icon(
                             onPressed: onSubmit,
                             icon: const Icon(Icons.person_add, size: 18),
-                            label: Text(isEditing ? 'Cập nhật' : 'Đăng ký'),
+                            label: Text(tr(isEditing ? 'Cập nhật' : 'Đăng ký')),
                             style: FilledButton.styleFrom(
                               backgroundColor: HrmPageChrome.primaryNavy,
                               padding: const EdgeInsets.symmetric(vertical: 14),
@@ -2227,20 +2224,19 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
       builder: (context) => ScrollableAlertDialog(
         backgroundColor: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Xác nhận xóa',
+        title: Text(tr('Xác nhận xóa'),
             style: TextStyle(
                 color: Color(0xFF18181B), fontWeight: FontWeight.bold)),
-        content: Text(
-          'Bạn có chắc muốn xóa tài khoản "${account['fullName']}"?\n\n'
+        content: Text(tr('${tr('Bạn có chắc muốn xóa tài khoản "')}${account['fullName']}"?\n\n'
           'Hệ thống sẽ gỡ liên kết đăng nhập; dữ liệu chấm công/lương gắn hồ sơ nhân sự vẫn được giữ. '
-          'Nếu vẫn lỗi ràng buộc, dùng Vô hiệu hóa để giải phóng slot gói.',
+          'Nếu vẫn lỗi ràng buộc, dùng Vô hiệu hóa để giải phóng slot gói.'),
           style: const TextStyle(color: Color(0xFF71717A)),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
             child:
-                const Text('Hủy', style: TextStyle(color: Color(0xFF71717A))),
+                Text(tr('Hủy'), style: TextStyle(color: Color(0xFF71717A))),
           ),
           FilledButton(
             onPressed: () async {
@@ -2251,7 +2247,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                 if (mounted) {
                   if (response['isSuccess'] == true) {
                     appNotification.showSuccess(
-                        title: 'Thành công', message: 'Đã xóa tài khoản');
+                        title: 'Thành công', message: tr('Đã xóa tài khoản'));
                   } else if (response['isSuccess'] == false) {
                     appNotification.showError(
                         title: 'Lỗi',
@@ -2259,18 +2255,18 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                             response['message'] ?? 'Lỗi khi xóa tài khoản');
                   } else {
                     appNotification.showSuccess(
-                        title: 'Thành công', message: 'Đã xóa tài khoản');
+                        title: 'Thành công', message: tr('Đã xóa tài khoản'));
                   }
                 }
               } catch (e) {
                 if (mounted) {
-                  appNotification.showError(title: 'Lỗi', message: 'Lỗi: $e');
+                  appNotification.showError(title: 'Lỗi', message: tr('Lỗi: $e'));
                 }
               }
             },
             style: FilledButton.styleFrom(
                 backgroundColor: const Color(0xFFEF4444)),
-            child: const Text('Xóa'),
+            child: Text(tr('Xóa')),
           ),
         ],
       ),
@@ -2306,21 +2302,21 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
         backgroundColor: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Text(
-          isActive ? 'Vô hiệu hóa tài khoản' : 'Kích hoạt lại tài khoản',
+          tr(isActive ? 'Vô hiệu hóa tài khoản' : 'Kích hoạt lại tài khoản'),
           style: const TextStyle(
               color: Color(0xFF18181B), fontWeight: FontWeight.bold),
         ),
         content: Text(
-          isActive
+          tr(isActive
               ? 'Vô hiệu hóa "$name"? Tài khoản không đăng nhập được và giải phóng 1 slot gói dịch vụ. Có thể kích hoạt lại sau.'
-              : 'Kích hoạt lại "$name"? Tài khoản sẽ chiếm lại 1 slot gói dịch vụ.',
+              : 'Kích hoạt lại "$name"? Tài khoản sẽ chiếm lại 1 slot gói dịch vụ.'),
           style: const TextStyle(color: Color(0xFF71717A)),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
             child:
-                const Text('Hủy', style: TextStyle(color: Color(0xFF71717A))),
+                Text(tr('Hủy'), style: TextStyle(color: Color(0xFF71717A))),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
@@ -2329,7 +2325,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                   ? const Color(0xFFF59E0B)
                   : const Color(0xFF22C55E),
             ),
-            child: Text(isActive ? 'Vô hiệu hóa' : 'Kích hoạt'),
+            child: Text(tr(isActive ? 'Vô hiệu hóa' : 'Kích hoạt')),
           ),
         ],
       ),
@@ -2363,7 +2359,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
       }
     } catch (e) {
       if (mounted) {
-        appNotification.showError(title: 'Lỗi', message: 'Lỗi: $e');
+        appNotification.showError(title: 'Lỗi', message: tr('Lỗi: $e'));
       }
     }
   }
@@ -2373,7 +2369,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
     if (availableEmployees.isEmpty) {
       appNotification.showWarning(
         title: 'Không có nhân viên',
-        message: 'Tất cả nhân viên đã có tài khoản',
+        message: tr('Tất cả nhân viên đã có tài khoản'),
       );
       return;
     }
@@ -2420,28 +2416,28 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
             if (selectedIds.isEmpty) {
               appNotification.showWarning(
                 title: 'Chưa chọn nhân viên',
-                message: 'Vui lòng chọn ít nhất một nhân viên',
+                message: tr('Vui lòng chọn ít nhất một nhân viên'),
               );
               return;
             }
             if (passwordController.text.isEmpty) {
               appNotification.showWarning(
                 title: 'Thiếu mật khẩu',
-                message: 'Vui lòng nhập mật khẩu chung',
+                message: tr('Vui lòng nhập mật khẩu chung'),
               );
               return;
             }
             if (passwordController.text != confirmPasswordController.text) {
               appNotification.showWarning(
                 title: 'Mật khẩu không khớp',
-                message: 'Vui lòng nhập lại mật khẩu',
+                message: tr('Vui lòng nhập lại mật khẩu'),
               );
               return;
             }
             if (passwordController.text.length < 6) {
               appNotification.showWarning(
                 title: 'Mật khẩu yếu',
-                message: 'Mật khẩu tối thiểu 6 ký tự',
+                message: tr('Mật khẩu tối thiểu 6 ký tự'),
               );
               return;
             }
@@ -2465,9 +2461,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                 final skipped = data['skipped'] ?? 0;
                 appNotification.showSuccess(
                   title: 'Đăng ký hàng loạt',
-                  message:
-                      'Thành công $created, bỏ qua $skipped, lỗi $failed. '
-                      'Nhân viên đăng nhập bằng email hoặc SĐT có trong hồ sơ (chỉ cần 1 trong 2).',
+                  message: tr('Thành công $created, bỏ qua $skipped, lỗi $failed. Nhân viên đăng nhập bằng email hoặc SĐT có trong hồ sơ (chỉ cần 1 trong 2).'),
                 );
               } else {
                 appNotification.showError(
@@ -2491,8 +2485,8 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
             return SizedBox(
               height: height,
               child: filtered.isEmpty
-                  ? const Center(
-                      child: Text('Không tìm thấy nhân viên',
+                  ? Center(
+                      child: Text(tr('Không tìm thấy nhân viên'),
                           style: TextStyle(color: Color(0xFF71717A))),
                     )
                   : ListView.builder(
@@ -2532,10 +2526,10 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                                     }
                                   });
                                 },
-                          title: Text(name.isEmpty ? code : name,
+                          title: Text(tr(name.isEmpty ? code : name),
                               style: const TextStyle(
                                   fontSize: 14, fontWeight: FontWeight.w600)),
-                          subtitle: Text(subtitleParts.join(' · '),
+                          subtitle: Text(tr(subtitleParts.join(' · ')),
                               style: const TextStyle(fontSize: 12)),
                           controlAffinity: ListTileControlAffinity.leading,
                           dense: true,
@@ -2549,9 +2543,9 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                'Chọn nhiều nhân viên, dùng chung 1 mật khẩu và 1 quyền. '
+                tr('Chọn nhiều nhân viên, dùng chung 1 mật khẩu và 1 quyền. '
                 'Mỗi người chỉ cần có email hoặc SĐT trong hồ sơ HR để đăng nhập '
-                '(báo lỗi nếu thiếu cả hai). Nhân viên có thể đổi mật khẩu sau khi đăng nhập.',
+                '(báo lỗi nếu thiếu cả hai). Nhân viên có thể đổi mật khẩu sau khi đăng nhập.'),
                 style: TextStyle(color: Colors.grey[600], fontSize: 12),
               ),
               const SizedBox(height: 12),
@@ -2559,7 +2553,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                 controller: searchController,
                 onChanged: (_) => setDialogState(() {}),
                 decoration: InputDecoration(
-                  hintText: 'Tìm theo tên hoặc mã NV...',
+                  hintText: tr('Tìm theo tên hoặc mã NV...'),
                   prefixIcon: const Icon(Icons.search, size: 20),
                   isDense: true,
                   border: OutlineInputBorder(
@@ -2584,12 +2578,12 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                     icon: Icon(allFilteredSelected
                         ? Icons.deselect
                         : Icons.select_all),
-                    label: Text(allFilteredSelected
+                    label: Text(tr(allFilteredSelected
                         ? 'Bỏ chọn'
-                        : 'Chọn tất cả (${filtered.length})'),
+                        : 'Chọn tất cả (${filtered.length})')),
                   ),
                   const Spacer(),
-                  Text('Đã chọn: ${selectedIds.length}',
+                  Text(tr('Đã chọn: ${selectedIds.length}'),
                       style: const TextStyle(
                           fontWeight: FontWeight.w600,
                           color: HrmPageChrome.primaryNavy)),
@@ -2600,14 +2594,14 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
               DropdownButtonFormField<String>(
                 value: selectedRole,
                 decoration: InputDecoration(
-                  labelText: 'Quyền hạn chung',
+                  labelText: tr('Quyền hạn chung'),
                   border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8)),
                 ),
                 items: roles
                     .map((r) => DropdownMenuItem<String>(
                           value: r['value'] as String,
-                          child: Text(r['label'] as String),
+                          child: Text(tr(r['label'] as String)),
                         ))
                     .toList(),
                 onChanged: (v) {
@@ -2619,7 +2613,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                 controller: passwordController,
                 obscureText: !showPassword,
                 decoration: InputDecoration(
-                  labelText: 'Mật khẩu chung *',
+                  labelText: tr('Mật khẩu chung *'),
                   border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8)),
                   suffixIcon: IconButton(
@@ -2636,7 +2630,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                 controller: confirmPasswordController,
                 obscureText: !showConfirmPassword,
                 decoration: InputDecoration(
-                  labelText: 'Nhập lại mật khẩu *',
+                  labelText: tr('Nhập lại mật khẩu *'),
                   border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8)),
                   suffixIcon: IconButton(
@@ -2654,7 +2648,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
           if (isMobile) {
             return Scaffold(
               appBar: AppBar(
-                title: const Text('Đăng ký hàng loạt'),
+                title: Text(tr('Đăng ký hàng loạt')),
                 leading: IconButton(
                   icon: const Icon(Icons.close),
                   onPressed:
@@ -2668,7 +2662,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                             width: 18,
                             height: 18,
                             child: CircularProgressIndicator(strokeWidth: 2))
-                        : const Text('Tạo'),
+                        : Text(tr('Tạo')),
                   ),
                 ],
               ),
@@ -2680,13 +2674,13 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
           }
 
           return AlertDialog(
-            title: const Text('Đăng ký tài khoản hàng loạt'),
+            title: Text(tr('Đăng ký tài khoản hàng loạt')),
             content: SizedBox(width: 520, child: formContent),
             actions: [
               TextButton(
                 onPressed:
                     isSubmitting ? null : () => Navigator.pop(dialogContext),
-                child: const Text('Hủy'),
+                child: Text(tr('Hủy')),
               ),
               FilledButton(
                 onPressed: isSubmitting ? null : onSubmit,
@@ -2698,7 +2692,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                         height: 18,
                         child: CircularProgressIndicator(
                             strokeWidth: 2, color: Colors.white))
-                    : Text('Tạo (${selectedIds.length})'),
+                    : Text(tr('Tạo (${selectedIds.length})')),
               ),
             ],
           );

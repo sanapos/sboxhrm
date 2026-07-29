@@ -12,6 +12,7 @@ import '../widgets/app_button.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../widgets/hrm_responsive_list_layout.dart';
 import '../widgets/notification_overlay.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 class DepartmentScreen extends StatefulWidget {
   const DepartmentScreen({super.key});
@@ -206,7 +207,7 @@ class _DepartmentScreenState extends State<DepartmentScreen>
           ? FloatingActionButton.extended(
               onPressed: () => _showDepartmentDialog(),
               icon: const Icon(Icons.add),
-              label: Text(_l10n.addNew),
+              label: Text(tr(_l10n.addNew)),
             )
           : null,
       body: Column(
@@ -222,10 +223,10 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                 controller: _tabController,
                 labelColor: Theme.of(context).primaryColor,
                 tabs: [
-                  Tab(icon: const Icon(Icons.list_alt), text: _l10n.list),
+                  Tab(icon: const Icon(Icons.list_alt), text: tr(_l10n.list)),
                   Tab(
                       icon: const Icon(Icons.account_tree),
-                      text: _l10n.orgChart),
+                      text: tr(_l10n.orgChart)),
                 ],
               ),
             ),
@@ -242,10 +243,10 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                       tabs: [
                         Tab(
                             icon: const Icon(Icons.list_alt),
-                            text: _l10n.list),
+                            text: tr(_l10n.list)),
                         Tab(
                             icon: const Icon(Icons.account_tree),
-                            text: _l10n.orgChart),
+                            text: tr(_l10n.orgChart)),
                       ],
                     ),
                     tabBarView: TabBarView(
@@ -294,13 +295,13 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      _l10n.deptManagement,
+                      tr(_l10n.deptManagement),
                       style: Theme.of(context).textTheme.titleLarge?.copyWith(
                             fontWeight: FontWeight.bold,
                           ),
                     ),
                     Text(
-                      _l10n.deptSubtitle,
+                      tr(_l10n.deptSubtitle),
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                             color: Colors.grey[600],
                           ),
@@ -321,7 +322,7 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                 FilledButton.icon(
                   onPressed: () => _showDepartmentDialog(),
                   icon: const Icon(Icons.add),
-                  label: Text(_l10n.addNew),
+                  label: Text(tr(_l10n.addNew)),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Theme.of(context).primaryColor,
                     foregroundColor: Colors.white,
@@ -338,7 +339,7 @@ class _DepartmentScreenState extends State<DepartmentScreen>
               children: [
                 TextField(
                   decoration: InputDecoration(
-                    hintText: _l10n.searchDept,
+                    hintText: tr(_l10n.searchDept),
                     prefixIcon: const Icon(Icons.search),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8),
@@ -358,7 +359,7 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                 Align(
                   alignment: Alignment.centerLeft,
                   child: FilterChip(
-                    label: Text(_l10n.inactive),
+                    label: Text(tr(_l10n.inactive)),
                     selected: _showInactive,
                     onSelected: (selected) {
                       setState(() => _showInactive = selected);
@@ -375,7 +376,7 @@ class _DepartmentScreenState extends State<DepartmentScreen>
               Expanded(
                 child: TextField(
                   decoration: InputDecoration(
-                    hintText: _l10n.searchDept,
+                    hintText: tr(_l10n.searchDept),
                     prefixIcon: const Icon(Icons.search),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8),
@@ -394,7 +395,7 @@ class _DepartmentScreenState extends State<DepartmentScreen>
               ),
               const SizedBox(width: 12),
               FilterChip(
-                label: Text(_l10n.inactive),
+                label: Text(tr(_l10n.inactive)),
                 selected: _showInactive,
                 onSelected: (selected) {
                   setState(() => _showInactive = selected);
@@ -426,7 +427,7 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                 size: 64, color: Colors.grey[400]),
             const SizedBox(height: 16),
             Text(
-              _l10n.noDept,
+              tr(_l10n.noDept),
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
                     color: Colors.grey[600],
                   ),
@@ -436,7 +437,7 @@ class _DepartmentScreenState extends State<DepartmentScreen>
               FilledButton.icon(
                 onPressed: () => _showDepartmentDialog(),
                 icon: const Icon(Icons.add),
-                label: Text(_l10n.createFirstDept),
+                label: Text(tr(_l10n.createFirstDept)),
               ),
           ],
         ),
@@ -517,22 +518,22 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
                   decoration: BoxDecoration(color: levelColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(4)),
-                  child: Text(dept.code ?? '', style: TextStyle(color: levelColor, fontWeight: FontWeight.bold, fontSize: 10)),
+                  child: Text(tr(dept.code ?? ''), style: TextStyle(color: levelColor, fontWeight: FontWeight.bold, fontSize: 10)),
                 ),
                 const SizedBox(width: 6),
-                Expanded(child: Text(dept.name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14), maxLines: 1, overflow: TextOverflow.ellipsis)),
+                Expanded(child: Text(tr(dept.name), style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14), maxLines: 1, overflow: TextOverflow.ellipsis)),
                 if (!dept.isActive) Container(
                   padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
                   decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(4)),
-                  child: const Text('Ngừng', style: TextStyle(fontSize: 9)),
+                  child: Text(tr('Ngừng'), style: TextStyle(fontSize: 9)),
                 ),
               ]),
               const SizedBox(height: 2),
               Text(
-                [
+                tr([
                   dept.managerName ?? _l10n.noManager,
                   '${dept.directEmployeeCount ?? 0} NV',
-                ].join(' · '),
+                ].join(' · ')),
                 style: const TextStyle(color: Color(0xFF71717A), fontSize: 12),
                 maxLines: 1, overflow: TextOverflow.ellipsis,
               ),
@@ -627,7 +628,7 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                                     borderRadius: BorderRadius.circular(4),
                                   ),
                                   child: Text(
-                                    dept.code ?? '',
+                                    tr(dept.code ?? ''),
                                     style: TextStyle(
                                       color: levelColor,
                                       fontWeight: FontWeight.bold,
@@ -638,7 +639,7 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                                 const SizedBox(width: 8),
                                 Flexible(
                                   child: Text(
-                                    dept.name,
+                                    tr(dept.name),
                                     style: TextStyle(
                                       fontWeight: FontWeight.bold,
                                       fontSize: dept.level == 0 ? 15 : 14,
@@ -655,7 +656,7 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                                       color: Colors.grey[300],
                                       borderRadius: BorderRadius.circular(4),
                                     ),
-                                    child: const Text('Ngừng',
+                                    child: Text(tr('Ngừng'),
                                         style: TextStyle(fontSize: 9)),
                                   ),
                                 ],
@@ -669,7 +670,7 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                                 const SizedBox(width: 3),
                                 Flexible(
                                   child: Text(
-                                    dept.managerName ?? _l10n.noManager,
+                                    tr(dept.managerName ?? _l10n.noManager),
                                     style: TextStyle(
                                       color: Colors.grey[600],
                                       fontSize: 12,
@@ -697,7 +698,7 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                                 size: 14, color: Colors.grey[600]),
                             const SizedBox(width: 4),
                             Text(
-                              '${dept.directEmployeeCount ?? 0}',
+                              tr('${dept.directEmployeeCount ?? 0}'),
                               style: const TextStyle(
                                 fontWeight: FontWeight.bold,
                                 fontSize: 13,
@@ -706,7 +707,7 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                             if (dept.totalEmployeeCount !=
                                 dept.directEmployeeCount)
                               Text(
-                                '/${dept.totalEmployeeCount ?? 0}',
+                                tr('/${dept.totalEmployeeCount ?? 0}'),
                                 style: TextStyle(
                                     color: Colors.grey[500], fontSize: 11),
                               ),
@@ -740,7 +741,7 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                                 children: [
                                   const Icon(Icons.edit, size: 18),
                                   const SizedBox(width: 8),
-                                  Text(_l10n.edit2),
+                                  Text(tr(_l10n.edit2)),
                                 ],
                               ),
                             ),
@@ -752,7 +753,7 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                                   const Icon(Icons.delete,
                                       size: 18, color: Colors.red),
                                   const SizedBox(width: 8),
-                                  Text(_l10n.delete,
+                                  Text(tr(_l10n.delete),
                                       style: const TextStyle(color: Colors.red)),
                                 ],
                               ),
@@ -825,17 +826,17 @@ class _DepartmentScreenState extends State<DepartmentScreen>
               child: const Icon(Icons.account_tree_outlined, size: 56, color: HrmPageChrome.primaryNavy),
             ),
             const SizedBox(height: 20),
-            Text('Chưa có cấu trúc phòng ban',
+            Text(tr('Chưa có cấu trúc phòng ban'),
               style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.grey[600], fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 8),
-            Text('Thêm phòng ban để tạo sơ đồ tổ chức', style: TextStyle(color: Colors.grey[400], fontSize: 13)),
+            Text(tr('Thêm phòng ban để tạo sơ đồ tổ chức'), style: TextStyle(color: Colors.grey[400], fontSize: 13)),
             if (_canCreateDepartment(context)) ...[
               const SizedBox(height: 16),
               FilledButton.icon(
                 onPressed: () => _showDepartmentDialog(),
                 icon: const Icon(Icons.add),
-                label: Text(_l10n.createFirstDept),
+                label: Text(tr(_l10n.createFirstDept)),
               ),
             ],
           ],
@@ -940,7 +941,7 @@ class _DepartmentScreenState extends State<DepartmentScreen>
             child: const Icon(Icons.apartment_rounded, color: Colors.white, size: 30),
           ),
           const SizedBox(height: 10),
-          Text(_l10n.company.toUpperCase(),
+          Text(tr(_l10n.company.toUpperCase()),
             style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 17, letterSpacing: 1.5),
           ),
           const SizedBox(height: 12),
@@ -969,7 +970,7 @@ class _DepartmentScreenState extends State<DepartmentScreen>
         children: [
           Icon(icon, size: 14, color: Colors.white70),
           const SizedBox(width: 5),
-          Text(text, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 12)),
+          Text(tr(text), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 12)),
         ],
       ),
     );
@@ -1077,7 +1078,7 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                           size: 14,
                         ),
                         const SizedBox(width: 4),
-                        Text(node.code ?? '',
+                        Text(tr(node.code ?? ''),
                           style: TextStyle(color: color, fontWeight: FontWeight.w800, fontSize: 11, letterSpacing: 0.5),
                         ),
                       ],
@@ -1088,7 +1089,7 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(color: Colors.grey[400], borderRadius: BorderRadius.circular(4)),
-                      child: const Text('Ngừng', style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w600)),
+                      child: Text(tr('Ngừng'), style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w600)),
                     ),
                   if (node.children.isNotEmpty)
                     Container(
@@ -1097,7 +1098,7 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                         color: color.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(4),
                       ),
-                      child: Text('${node.children.length} PB con',
+                      child: Text(tr('${node.children.length} PB con'),
                         style: TextStyle(color: color, fontSize: 9, fontWeight: FontWeight.w600),
                       ),
                     ),
@@ -1111,7 +1112,7 @@ class _DepartmentScreenState extends State<DepartmentScreen>
               child: Column(
                 children: [
                   // Department name
-                  Text(node.name,
+                  Text(tr(node.name),
                     style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: Color(0xFF18181B)),
                     textAlign: TextAlign.center,
                     maxLines: 2,
@@ -1140,7 +1141,7 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                             ),
                             alignment: Alignment.center,
                             child: Text(
-                              node.managerName!.isNotEmpty ? node.managerName![0].toUpperCase() : '?',
+                              tr(node.managerName!.isNotEmpty ? node.managerName![0].toUpperCase() : '?'),
                               style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 13),
                             ),
                           ),
@@ -1149,11 +1150,11 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(node.managerName!,
+                                Text(tr(node.managerName!),
                                   style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12, color: Color(0xFF334155)),
                                   overflow: TextOverflow.ellipsis,
                                 ),
-                                Text(_l10n.manager,
+                                Text(tr(_l10n.manager),
                                   style: TextStyle(fontSize: 10, color: Colors.grey[500]),
                                 ),
                               ],
@@ -1178,7 +1179,7 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                         children: [
                           Icon(Icons.person_off_outlined, size: 14, color: Colors.orange[400]),
                           const SizedBox(width: 6),
-                          Text('Chưa phân công quản lý',
+                          Text(tr('Chưa phân công quản lý'),
                             style: TextStyle(fontSize: 11, color: Colors.orange[400], fontStyle: FontStyle.italic),
                           ),
                         ],
@@ -1212,7 +1213,7 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                                     ),
                                     alignment: Alignment.center,
                                     child: Text(
-                                      _getEmployeeInitial(deptEmployees[i]),
+                                      tr(_getEmployeeInitial(deptEmployees[i])),
                                       style: TextStyle(color: color, fontWeight: FontWeight.w700, fontSize: 10),
                                     ),
                                   ),
@@ -1238,7 +1239,7 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                               color: (node.directEmployeeCount ?? 0) > 0 ? color : Colors.grey[500]),
                             const SizedBox(width: 4),
                             Text(
-                              '${node.directEmployeeCount ?? 0}',
+                              tr('${node.directEmployeeCount ?? 0}'),
                               style: TextStyle(
                                 fontWeight: FontWeight.w700,
                                 fontSize: 12,
@@ -1246,10 +1247,10 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                               ),
                             ),
                             if (node.totalEmployeeCount != node.directEmployeeCount)
-                              Text(' (${node.totalEmployeeCount ?? 0})',
+                              Text(tr(' (${node.totalEmployeeCount ?? 0})'),
                                 style: TextStyle(fontSize: 10, color: color.withValues(alpha: 0.5)),
                               ),
-                            Text(' NV', style: TextStyle(fontSize: 10, color: Colors.grey[500])),
+                            Text(tr(' NV'), style: TextStyle(fontSize: 10, color: Colors.grey[500])),
                           ],
                         ),
                       ),
@@ -1315,7 +1316,7 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            node.name,
+                            tr(node.name),
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
                               fontSize: 15,
@@ -1324,7 +1325,7 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            '${deptEmployees.length} employees',
+                            tr('${deptEmployees.length} employees'),
                             style: TextStyle(
                               fontSize: 12,
                               color: Colors.blue[600],
@@ -1353,7 +1354,7 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                                 size: 48, color: Colors.grey[400]),
                             const SizedBox(height: 12),
                             Text(
-                              _l10n.noEmployeesInDept,
+                              tr(_l10n.noEmployeesInDept),
                               style: TextStyle(color: Colors.grey[600]),
                               textAlign: TextAlign.center,
                             ),
@@ -1386,9 +1387,9 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                               onBackgroundImageError: photo != null && photo.isNotEmpty ? (_, __) {} : null,
                               child: photo == null || photo.isEmpty
                                   ? Text(
-                                      fullName.isNotEmpty
+                                      tr(fullName.isNotEmpty
                                           ? fullName[0].toUpperCase()
-                                          : '?',
+                                          : '?'),
                                       style: TextStyle(
                                         color: Colors.blue[700],
                                         fontWeight: FontWeight.bold,
@@ -1397,7 +1398,7 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                                   : null,
                             ),
                             title: Text(
-                              fullName.isNotEmpty ? fullName : 'Chưa có tên',
+                              tr(fullName.isNotEmpty ? fullName : 'Chưa có tên'),
                               style: const TextStyle(
                                 fontWeight: FontWeight.w600,
                                 fontSize: 13,
@@ -1414,7 +1415,7 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                                       const SizedBox(width: 4),
                                       Flexible(
                                         child: Text(
-                                          position,
+                                          tr(position),
                                           style: TextStyle(
                                             fontSize: 12,
                                             color: Colors.orange[700],
@@ -1430,8 +1431,7 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                                       Icon(Icons.badge_outlined,
                                           size: 12, color: Colors.grey[500]),
                                       const SizedBox(width: 4),
-                                      Text(
-                                        'Mã NV: $empCode',
+                                      Text(tr('Mã NV: $empCode'),
                                         style: TextStyle(
                                           fontSize: 11,
                                           color: Colors.grey[500],
@@ -1477,7 +1477,7 @@ class _DepartmentScreenState extends State<DepartmentScreen>
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('Hiển thị:', style: TextStyle(fontSize: 12, color: Colors.grey[500])),
+              Text(tr('Hiển thị:'), style: TextStyle(fontSize: 12, color: Colors.grey[500])),
               const SizedBox(width: 8),
               Container(
                 height: 34,
@@ -1492,7 +1492,7 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                     value: _pageSize,
                     isDense: true,
                     style: TextStyle(fontSize: 13, color: Colors.grey[800]),
-                    items: _pageSizeOptions.map((s) => DropdownMenuItem(value: s, child: Text('$s'))).toList(),
+                    items: _pageSizeOptions.map((s) => DropdownMenuItem(value: s, child: Text(tr('$s')))).toList(),
                     onChanged: (v) {
                       if (v != null) {
                         setState(() { _pageSize = v; _currentPage = 1; });
@@ -1528,8 +1528,7 @@ class _DepartmentScreenState extends State<DepartmentScreen>
               color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: Text(
-              'Hiển thị $start-$end / $_totalCount',
+            child: Text(tr('Hiển thị $start-$end / $_totalCount'),
               style: TextStyle(
                 color: Theme.of(context).primaryColor,
                 fontWeight: FontWeight.bold,
@@ -1619,7 +1618,7 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(dept.name,
+                          Text(tr(dept.name),
                             style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 17),
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
@@ -1631,7 +1630,7 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                               color: Colors.white.withValues(alpha: 0.2),
                               borderRadius: BorderRadius.circular(6),
                             ),
-                            child: Text(dept.code ?? '',
+                            child: Text(tr(dept.code ?? ''),
                               style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 12, letterSpacing: 0.5),
                             ),
                           ),
@@ -1672,7 +1671,7 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                                 ),
                                 const SizedBox(width: 4),
                                 Text(
-                                  dept.isActive ? _l10n.active : _l10n.stopped,
+                                  tr(dept.isActive ? _l10n.active : _l10n.stopped),
                                   style: TextStyle(
                                     fontSize: 12,
                                     fontWeight: FontWeight.w600,
@@ -1689,7 +1688,7 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                               color: color.withValues(alpha: 0.08),
                               borderRadius: BorderRadius.circular(20),
                             ),
-                            child: Text('Cấp ${dept.level}',
+                            child: Text(tr('Cấp ${dept.level}'),
                               style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: color),
                             ),
                           ),
@@ -1700,7 +1699,7 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                               color: Colors.blue.withValues(alpha: 0.08),
                               borderRadius: BorderRadius.circular(20),
                             ),
-                            child: Text('Thứ tự: ${dept.sortOrder}',
+                            child: Text(tr('Thứ tự: ${dept.sortOrder}'),
                               style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.blue[700]),
                             ),
                           ),
@@ -1744,7 +1743,7 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                                     ),
                                     alignment: Alignment.center,
                                     child: Text(
-                                      dept.managerName![0].toUpperCase(),
+                                      tr(dept.managerName![0].toUpperCase()),
                                       style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 16),
                                     ),
                                   ),
@@ -1753,9 +1752,9 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                                     child: Column(
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
-                                        Text(dept.managerName!, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                                        Text(tr(dept.managerName!), style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
                                         Text(
-                                          managerPosition.isNotEmpty ? managerPosition : 'Quản lý phòng ban',
+                                          tr(managerPosition.isNotEmpty ? managerPosition : 'Quản lý phòng ban'),
                                           style: TextStyle(fontSize: 12, color: Colors.grey[500]),
                                         ),
                                       ],
@@ -1778,7 +1777,7 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                               children: [
                                 Icon(Icons.person_off_outlined, size: 18, color: Colors.orange[400]),
                                 const SizedBox(width: 8),
-                                Text('Chưa phân công quản lý',
+                                Text(tr('Chưa phân công quản lý'),
                                   style: TextStyle(fontSize: 13, color: Colors.orange[400], fontStyle: FontStyle.italic),
                                 ),
                               ],
@@ -1834,7 +1833,7 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                                           ),
                                           alignment: Alignment.center,
                                           child: Text(
-                                            lastName.isNotEmpty ? lastName[0].toUpperCase() : '?',
+                                            tr(lastName.isNotEmpty ? lastName[0].toUpperCase() : '?'),
                                             style: TextStyle(color: color, fontWeight: FontWeight.w700, fontSize: 12),
                                           ),
                                         ),
@@ -1843,9 +1842,9 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                                           child: Column(
                                             crossAxisAlignment: CrossAxisAlignment.start,
                                             children: [
-                                              Text(fullName, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+                                              Text(tr(fullName), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
                                               if (position.isNotEmpty)
-                                                Text(position, style: TextStyle(fontSize: 11, color: Colors.grey[500])),
+                                                Text(tr(position), style: TextStyle(fontSize: 11, color: Colors.grey[500])),
                                             ],
                                           ),
                                         ),
@@ -1856,7 +1855,7 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                                               color: color.withValues(alpha: 0.1),
                                               borderRadius: BorderRadius.circular(4),
                                             ),
-                                            child: Text('QL', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: color)),
+                                            child: Text(tr('QL'), style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: color)),
                                           ),
                                       ],
                                     ),
@@ -1882,7 +1881,7 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                                 borderRadius: BorderRadius.circular(8),
                                 border: Border.all(color: color.withValues(alpha: 0.15)),
                               ),
-                              child: Text(pos, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: color)),
+                              child: Text(tr(pos), style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: color)),
                             )).toList(),
                           ),
                         ]),
@@ -1903,14 +1902,14 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                           children: [
                             Icon(Icons.schedule, size: 14, color: Colors.grey[400]),
                             const SizedBox(width: 6),
-                            Text('Tạo: ${DateFormat('dd/MM/yyyy HH:mm').format(dept.createdAt ?? DateTime.now())}',
+                            Text(tr('${tr('Tạo: ')}${DateFormat('dd/MM/yyyy HH:mm').format(dept.createdAt ?? DateTime.now())}'),
                               style: TextStyle(fontSize: 11, color: Colors.grey[500]),
                             ),
                             if (dept.updatedAt != null) ...[
                               const SizedBox(width: 16),
                               Icon(Icons.update, size: 14, color: Colors.grey[400]),
                               const SizedBox(width: 4),
-                              Text('Cập nhật: ${DateFormat('dd/MM/yyyy HH:mm').format(dept.updatedAt!)}',
+                              Text(tr('${tr('Cập nhật: ')}${DateFormat('dd/MM/yyyy HH:mm').format(dept.updatedAt!)}'),
                                 style: TextStyle(fontSize: 11, color: Colors.grey[500]),
                               ),
                             ],
@@ -1933,7 +1932,7 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                   children: [
                     TextButton(
                       onPressed: () => Navigator.pop(context),
-                      child: const Text('Đóng'),
+                      child: Text(tr('Đóng')),
                     ),
                     if (_isManager) ...[
                       const SizedBox(width: 8),
@@ -1943,7 +1942,7 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                           _showDepartmentDialog(department: dept);
                         },
                         icon: const Icon(Icons.edit, size: 16),
-                        label: const Text('Chỉnh sửa'),
+                        label: Text(tr('Chỉnh sửa')),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: color,
                           foregroundColor: Colors.white,
@@ -1969,7 +1968,7 @@ class _DepartmentScreenState extends State<DepartmentScreen>
           children: [
             Icon(icon, size: 16, color: Colors.grey[600]),
             const SizedBox(width: 6),
-            Text(title, style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: Colors.grey[700])),
+            Text(tr(title), style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: Colors.grey[700])),
           ],
         ),
         const SizedBox(height: 8),
@@ -1988,10 +1987,10 @@ class _DepartmentScreenState extends State<DepartmentScreen>
           const SizedBox(width: 8),
           SizedBox(
             width: 100,
-            child: Text(label, style: TextStyle(fontSize: 12, color: Colors.grey[500])),
+            child: Text(tr(label), style: TextStyle(fontSize: 12, color: Colors.grey[500])),
           ),
           Expanded(
-            child: Text(value, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+            child: Text(tr(value), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
           ),
         ],
       ),
@@ -2010,8 +2009,8 @@ class _DepartmentScreenState extends State<DepartmentScreen>
         children: [
           Icon(icon, size: 18, color: color),
           const SizedBox(height: 4),
-          Text(value, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: color)),
-          Text(label, style: TextStyle(fontSize: 11, color: Colors.grey[500]), overflow: TextOverflow.ellipsis),
+          Text(tr(value), style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: color)),
+          Text(tr(label), style: TextStyle(fontSize: 11, color: Colors.grey[500]), overflow: TextOverflow.ellipsis),
         ],
       ),
     );
@@ -2021,12 +2020,12 @@ class _DepartmentScreenState extends State<DepartmentScreen>
     final isEdit = department != null;
     final formKey = GlobalKey<FormState>();
 
-    final codeController = TextEditingController(text: department?.code ?? '');
-    final nameController = TextEditingController(text: department?.name ?? '');
+    final codeController = TextEditingController(text: tr(department?.code ?? ''));
+    final nameController = TextEditingController(text: tr(department?.name ?? ''));
     final descController =
-        TextEditingController(text: department?.description ?? '');
+        TextEditingController(text: tr(department?.description ?? ''));
     final sortOrderController =
-        TextEditingController(text: '${department?.sortOrder ?? 0}');
+        TextEditingController(text: tr('${department?.sortOrder ?? 0}'));
 
     String? selectedParentId = department?.parentDepartmentId;
     String? selectedManagerId = department?.managerId;
@@ -2056,9 +2055,9 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                   children: [
                     TextFormField(
                       controller: codeController,
-                      decoration: const InputDecoration(
-                        labelText: 'Mã phòng ban *',
-                        hintText: 'VD: IT, HR, SALES...',
+                      decoration: InputDecoration(
+                        labelText: tr('Mã phòng ban *'),
+                        hintText: tr('VD: IT, HR, SALES...'),
                         prefixIcon: Icon(Icons.code),
                       ),
                       validator: (v) =>
@@ -2067,9 +2066,9 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                     const SizedBox(height: 16),
                     TextFormField(
                       controller: nameController,
-                      decoration: const InputDecoration(
-                        labelText: 'Tên phòng ban *',
-                        hintText: 'VD: Phòng Công nghệ Thông tin',
+                      decoration: InputDecoration(
+                        labelText: tr('Tên phòng ban *'),
+                        hintText: tr('VD: Phòng Công nghệ Thông tin'),
                         prefixIcon: Icon(Icons.business),
                       ),
                       validator: (v) =>
@@ -2078,21 +2077,21 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                     const SizedBox(height: 16),
                     DropdownButtonFormField<String>(
                       initialValue: selectedParentId,
-                      decoration: const InputDecoration(
-                        labelText: 'Phòng ban cha',
+                      decoration: InputDecoration(
+                        labelText: tr('Phòng ban cha'),
                         prefixIcon: Icon(Icons.account_tree),
                       ),
                       items: [
-                        const DropdownMenuItem(
+                        DropdownMenuItem(
                           value: null,
-                          child: Text('Không có (Phòng ban gốc)'),
+                          child: Text(tr('Không có (Phòng ban gốc)')),
                         ),
                         ..._departmentOptions
                             .where((d) => d.id != department?.id)
                             .map((d) => DropdownMenuItem(
                                   value: d.id,
                                   child: Text(
-                                    '${'  ' * (d.level ?? 0)}${d.displayName}',
+                                    tr('${'  ' * (d.level ?? 0)}${d.displayName}'),
                                   ),
                                 )),
                       ],
@@ -2103,16 +2102,16 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                     // Quản lý phòng ban (người có chức vụ cao nhất)
                     DropdownButtonFormField<String>(
                       initialValue: selectedManagerId,
-                      decoration: const InputDecoration(
-                        labelText: 'Quản lý phòng ban',
+                      decoration: InputDecoration(
+                        labelText: tr('Quản lý phòng ban'),
                         prefixIcon: Icon(Icons.person),
-                        hintText: 'Chọn người quản lý...',
+                        hintText: tr('Chọn người quản lý...'),
                       ),
                       isExpanded: true,
                       items: [
-                        const DropdownMenuItem(
+                        DropdownMenuItem(
                           value: null,
-                          child: Text('Chưa phân công', style: TextStyle(color: Colors.grey)),
+                          child: Text(tr('Chưa phân công'), style: TextStyle(color: Colors.grey)),
                         ),
                         ..._employees.map((emp) {
                           final empId = emp['id']?.toString() ?? '';
@@ -2126,7 +2125,7 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                               children: [
                                 Expanded(
                                   child: Text(
-                                    fullName,
+                                    tr(fullName),
                                     style: const TextStyle(fontSize: 14),
                                     overflow: TextOverflow.ellipsis,
                                   ),
@@ -2135,7 +2134,7 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                                   Padding(
                                     padding: const EdgeInsets.only(left: 6),
                                     child: Text(
-                                      position,
+                                      tr(position),
                                       style: TextStyle(fontSize: 11, color: Colors.grey[500]),
                                     ),
                                   ),
@@ -2150,8 +2149,8 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                     const SizedBox(height: 16),
                     // Chức vụ trong phòng ban
                     InputDecorator(
-                      decoration: const InputDecoration(
-                        labelText: 'Chức vụ trong phòng ban',
+                      decoration: InputDecoration(
+                        labelText: tr('Chức vụ trong phòng ban'),
                         prefixIcon: Icon(Icons.badge),
                         border: OutlineInputBorder(),
                         contentPadding: EdgeInsets.fromLTRB(12, 12, 12, 8),
@@ -2164,7 +2163,7 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                               spacing: 6,
                               runSpacing: 4,
                               children: selectedPositions.map((pos) => Chip(
-                                label: Text(pos, style: const TextStyle(fontSize: 13)),
+                                label: Text(tr(pos), style: const TextStyle(fontSize: 13)),
                                 deleteIcon: const Icon(Icons.close, size: 16),
                                 onDeleted: () {
                                   setDialogState(() => selectedPositions.remove(pos));
@@ -2189,8 +2188,8 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                               return TextField(
                                 controller: controller,
                                 focusNode: focusNode,
-                                decoration: const InputDecoration(
-                                  hintText: 'Nhập chức vụ hoặc chọn gợi ý...',
+                                decoration: InputDecoration(
+                                  hintText: tr('Nhập chức vụ hoặc chọn gợi ý...'),
                                   border: InputBorder.none,
                                   isDense: true,
                                   contentPadding: EdgeInsets.symmetric(vertical: 8),
@@ -2217,7 +2216,7 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                                 spacing: 6,
                                 runSpacing: 4,
                                 children: defaultPositionSuggestions.take(6).map((s) => ActionChip(
-                                  label: Text(s, style: const TextStyle(fontSize: 12)),
+                                  label: Text(tr(s), style: const TextStyle(fontSize: 12)),
                                   onPressed: () {
                                     if (!selectedPositions.contains(s)) {
                                       setDialogState(() => selectedPositions.add(s));
@@ -2234,8 +2233,8 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                     const SizedBox(height: 16),
                     TextFormField(
                       controller: descController,
-                      decoration: const InputDecoration(
-                        labelText: 'Mô tả',
+                      decoration: InputDecoration(
+                        labelText: tr('Mô tả'),
                         prefixIcon: Icon(Icons.description),
                       ),
                       maxLines: 2,
@@ -2243,8 +2242,8 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                     const SizedBox(height: 16),
                     TextFormField(
                       controller: sortOrderController,
-                      decoration: const InputDecoration(
-                        labelText: 'Thứ tự hiển thị',
+                      decoration: InputDecoration(
+                        labelText: tr('Thứ tự hiển thị'),
                         prefixIcon: Icon(Icons.sort),
                       ),
                       keyboardType: TextInputType.number,
@@ -2252,11 +2251,11 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                     if (isEdit) ...[
                       const SizedBox(height: 16),
                       SwitchListTile(
-                        title: Text(_l10n.active),
+                        title: Text(tr(_l10n.active)),
                         subtitle: Text(
-                          isActive
+                          tr(isActive
                               ? 'Phòng ban đang hoạt động'
-                              : 'Phòng ban đã ngừng',
+                              : 'Phòng ban đã ngừng'),
                         ),
                         value: isActive,
                         onChanged: (v) => setDialogState(() => isActive = v),
@@ -2316,7 +2315,7 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                 height: double.infinity,
                 child: Scaffold(
                   appBar: AppBar(
-                    title: Text(isEdit ? 'Chỉnh sửa phòng ban' : 'Tạo phòng ban mới'),
+                    title: Text(tr(isEdit ? 'Chỉnh sửa phòng ban' : 'Tạo phòng ban mới')),
                     leading: IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context)),
                   ),
                   body: formContent,
@@ -2325,9 +2324,9 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
-                        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Hủy')),
+                        TextButton(onPressed: () => Navigator.pop(context), child: Text(tr('Hủy'))),
                         const SizedBox(width: 12),
-                        FilledButton(onPressed: onSave, child: Text(isEdit ? 'Cập nhật' : 'Tạo mới')),
+                        FilledButton(onPressed: onSave, child: Text(tr(isEdit ? 'Cập nhật' : 'Tạo mới'))),
                       ],
                     ),
                   ),
@@ -2343,7 +2342,7 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                   color: Theme.of(context).primaryColor,
                 ),
                 const SizedBox(width: 8),
-                Text(isEdit ? 'Chỉnh sửa phòng ban' : 'Tạo phòng ban mới'),
+                Text(tr(isEdit ? 'Chỉnh sửa phòng ban' : 'Tạo phòng ban mới')),
               ],
             ),
             content: SizedBox(
@@ -2366,16 +2365,15 @@ class _DepartmentScreenState extends State<DepartmentScreen>
     showDialog(
       context: context,
       builder: (context) => ScrollableAlertDialog(
-        title: const Row(
+        title: Row(
           children: [
             Icon(Icons.warning, color: Colors.red),
             SizedBox(width: 8),
-            Text('Xác nhận xóa'),
+            Text(tr('Xác nhận xóa')),
           ],
         ),
-        content: Text(
-          'Bạn có chắc chắn muốn xóa phòng ban "${dept.name}"?\n\n'
-          'Lưu ý: Không thể xóa phòng ban có phòng ban con hoặc có nhân viên.',
+        content: Text(tr('${tr('Bạn có chắc chắn muốn xóa phòng ban "')}${dept.name}"?\n\n'
+          'Lưu ý: Không thể xóa phòng ban có phòng ban con hoặc có nhân viên.'),
         ),
         actions: [AppDialogActions.delete(
           onCancel: () => Navigator.pop(context),

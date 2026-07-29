@@ -14,6 +14,7 @@ import '../services/app_permission_service.dart';
 import '../services/face_embedding_service_stub.dart'
     if (dart.library.io) '../services/face_embedding_service.dart';
 import '../services/mlkit_face_signature_service.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// Result of face verification: score + captured photo as base64.
 class FaceVerificationResult {
@@ -698,20 +699,20 @@ class _FaceVerificationCameraState extends State<FaceVerificationCamera>
       context: context,
       barrierDismissible: false,
       builder: (ctx) => ScrollableAlertDialog(
-        title: const Text('Lỗi khởi tạo nhận diện trên máy (iOS)'),
+        title: Text(tr('Lỗi khởi tạo nhận diện trên máy (iOS)')),
         content: SingleChildScrollView(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text(
-                'Không nạp được TFLite MobileFaceNet trên thiết bị. '
-                'Sẽ chuyển sang xác thực qua server. Vui lòng gửi log này cho kỹ thuật:',
+              Text(
+                tr('Không nạp được TFLite MobileFaceNet trên thiết bị. '
+                'Sẽ chuyển sang xác thực qua server. Vui lòng gửi log này cho kỹ thuật:'),
                 style: TextStyle(fontSize: 13),
               ),
               const SizedBox(height: 12),
               SelectableText(
-                shortErr,
+                tr(shortErr),
                 style: const TextStyle(
                   fontSize: 11,
                   fontFamily: 'monospace',
@@ -720,8 +721,7 @@ class _FaceVerificationCameraState extends State<FaceVerificationCamera>
               ),
               const SizedBox(height: 12),
               if (logPath != null)
-                Text(
-                  'Đã lưu log vào:\n$logPath',
+                Text(tr('Đã lưu log vào:\n$logPath'),
                   style: const TextStyle(fontSize: 10, color: Colors.black54),
                 ),
             ],
@@ -730,18 +730,18 @@ class _FaceVerificationCameraState extends State<FaceVerificationCamera>
         actions: [
           TextButton(
             onPressed: () async {
-              await Clipboard.setData(ClipboardData(text: initErr));
+              await Clipboard.setData(ClipboardData(text: tr(initErr)));
               if (ctx.mounted) {
                 ScaffoldMessenger.of(ctx).showSnackBar(
-                  const SnackBar(content: Text('Đã copy lỗi vào clipboard')),
+                  SnackBar(content: Text(tr('Đã copy lỗi vào clipboard'))),
                 );
               }
             },
-            child: const Text('Copy lỗi'),
+            child: Text(tr('Copy lỗi')),
           ),
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Tiếp tục (dùng server)'),
+            child: Text(tr('Tiếp tục (dùng server)')),
           ),
         ],
       ),
@@ -914,7 +914,7 @@ class _FaceVerificationCameraState extends State<FaceVerificationCamera>
                         const SizedBox(width: 8),
                         Flexible(
                           child: Text(
-                            _statusMessage,
+                            tr(_statusMessage),
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 15,
@@ -946,8 +946,7 @@ class _FaceVerificationCameraState extends State<FaceVerificationCamera>
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Text(
-                      'Xác thực khuôn mặt',
+                    Text(tr('Xác thực khuôn mặt'),
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 20,
@@ -955,8 +954,7 @@ class _FaceVerificationCameraState extends State<FaceVerificationCamera>
                       ),
                     ),
                     const SizedBox(height: 8),
-                    Text(
-                      'Nhìn thẳng vào camera và giữ nguyên',
+                    Text(tr('Nhìn thẳng vào camera và giữ nguyên'),
                       style: TextStyle(
                         color: Colors.white.withValues(alpha: 0.7),
                         fontSize: 14,
@@ -966,8 +964,7 @@ class _FaceVerificationCameraState extends State<FaceVerificationCamera>
                     if (!_captured)
                       TextButton(
                         onPressed: widget.onCancel,
-                        child: const Text(
-                          'Huỷ bỏ',
+                        child: Text(tr('Huỷ bỏ'),
                           style: TextStyle(color: Colors.white54, fontSize: 16),
                         ),
                       ),
@@ -1010,7 +1007,7 @@ class _FaceVerificationCameraState extends State<FaceVerificationCamera>
                           color: Colors.white54, size: 48),
                       const SizedBox(height: 16),
                       Text(
-                        _cameraError!,
+                        tr(_cameraError!),
                         style: const TextStyle(color: Colors.white, fontSize: 16),
                         textAlign: TextAlign.center,
                       ),
@@ -1021,7 +1018,7 @@ class _FaceVerificationCameraState extends State<FaceVerificationCamera>
                           backgroundColor: Colors.white24,
                           foregroundColor: Colors.white,
                         ),
-                        child: const Text('Mở Cài đặt'),
+                        child: Text(tr('Mở Cài đặt')),
                       ),
                     ],
                   ),
@@ -1030,13 +1027,13 @@ class _FaceVerificationCameraState extends State<FaceVerificationCamera>
 
             // 9. Loading
             if (!_isCameraReady && _cameraError == null)
-              const Center(
+              Center(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     CircularProgressIndicator(color: Colors.white),
                     SizedBox(height: 16),
-                    Text('Đang mở camera...',
+                    Text(tr('Đang mở camera...'),
                         style: TextStyle(color: Colors.white70, fontSize: 16)),
                   ],
                 ),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../widgets/hrm_page_chrome.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// Banner / empty state khi báo cáo lương không có dữ liệu vì NV chưa thiết lập bảng lương.
 class ReportSalarySetupBanner extends StatelessWidget {
@@ -39,8 +40,7 @@ class ReportSalarySetupBanner extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  '$notConfiguredCount nhân viên chưa thiết lập lương',
+                Text(tr('$notConfiguredCount nhân viên chưa thiết lập lương'),
                   style: TextStyle(
                     fontWeight: FontWeight.w600,
                     fontSize: dense ? 12 : 13,
@@ -49,8 +49,8 @@ class ReportSalarySetupBanner extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Báo cáo lương chỉ hiển thị nhân viên đã gán bảng lương. '
-                  'Vào Hồ sơ nhân sự → Thiết lập lương để cấu hình trước khi xem báo cáo.',
+                  tr('Báo cáo lương chỉ hiển thị nhân viên đã gán bảng lương. '
+                  'Vào Hồ sơ nhân sự → Thiết lập lương để cấu hình trước khi xem báo cáo.'),
                   style: TextStyle(
                     fontSize: dense ? 11 : 12,
                     color: const Color(0xFFC2410C),
@@ -70,7 +70,7 @@ class ReportSalarySetupBanner extends StatelessWidget {
                 minimumSize: Size.zero,
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
-              child: const Text('Thiết lập lương', style: TextStyle(fontSize: 12)),
+              child: Text(tr('Thiết lập lương'), style: TextStyle(fontSize: 12)),
             ),
           ],
         ],
@@ -101,8 +101,7 @@ class ReportSalarySetupEmptyState extends StatelessWidget {
             Icon(Icons.account_balance_wallet_outlined,
                 size: 64, color: Colors.grey.shade300),
             const SizedBox(height: 16),
-            const Text(
-              'Chưa có dữ liệu tổng hợp lương',
+            Text(tr('Chưa có dữ liệu tổng hợp lương'),
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
@@ -112,10 +111,10 @@ class ReportSalarySetupEmptyState extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              notConfiguredCount > 0
+              tr(notConfiguredCount > 0
                   ? 'Có $notConfiguredCount nhân viên đang hoạt động nhưng chưa được gán bảng lương. '
                       'Hãy thiết lập lương trước — sau đó báo cáo mới tính được lương và xuất Excel.'
-                  : 'Không có nhân viên phù hợp bộ lọc hoặc khoảng thời gian đã chọn.',
+                  : 'Không có nhân viên phù hợp bộ lọc hoặc khoảng thời gian đã chọn.'),
               style: TextStyle(fontSize: 13, color: Colors.grey.shade600, height: 1.4),
               textAlign: TextAlign.center,
             ),
@@ -124,7 +123,7 @@ class ReportSalarySetupEmptyState extends StatelessWidget {
               FilledButton.icon(
                 onPressed: onOpenSalarySettings,
                 icon: const Icon(Icons.settings_outlined, size: 18),
-                label: const Text('Mở Thiết lập lương'),
+                label: Text(tr('Mở Thiết lập lương')),
               ),
             ],
           ],

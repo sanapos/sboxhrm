@@ -13,6 +13,7 @@ import '../utils/responsive_helper.dart';
 import '../widgets/notification_overlay.dart';
 import '../utils/image_source_picker.dart';
 import '../widgets/hrm_page_chrome.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// Màn hình quản lý nội dung (Nội quy / Đào tạo)
 class ContentManagementScreen extends StatefulWidget {
@@ -158,7 +159,7 @@ class _ContentManagementScreenState extends State<ContentManagementScreen>
                 Icon(widget.themeIcon, size: 18, color: widget.themeColor),
           ),
           const SizedBox(width: 10),
-          Text(widget.screenTitle,
+          Text(tr(widget.screenTitle),
               style: const TextStyle(
                   color: Color(0xFF18181B),
                   fontWeight: FontWeight.bold,
@@ -169,7 +170,7 @@ class _ContentManagementScreenState extends State<ContentManagementScreen>
             TextButton.icon(
               onPressed: () => _openEditor(),
               icon: const Icon(Icons.add, size: 18),
-              label: Text(isMobile ? '' : 'Tạo bài viết'),
+              label: Text(tr(isMobile ? '' : 'Tạo bài viết')),
               style: TextButton.styleFrom(
                 foregroundColor: Colors.white,
                 backgroundColor: widget.themeColor,
@@ -186,12 +187,12 @@ class _ContentManagementScreenState extends State<ContentManagementScreen>
           labelColor: widget.themeColor,
           unselectedLabelColor: const Color(0xFFA1A1AA),
           indicatorColor: widget.themeColor,
-          tabs: const [
+          tabs: [
             Tab(
-                text: 'Bài viết',
+                text: tr('Bài viết'),
                 icon: Icon(Icons.article_outlined, size: 18)),
             Tab(
-                text: 'Thư mục',
+                text: tr('Thư mục'),
                 icon: Icon(Icons.folder_outlined, size: 18)),
           ],
         ),
@@ -222,7 +223,7 @@ class _ContentManagementScreenState extends State<ContentManagementScreen>
             child: TextField(
               onChanged: (v) => setState(() => _searchQuery = v),
               decoration: InputDecoration(
-                hintText: 'Tìm kiếm bài viết...',
+                hintText: tr('Tìm kiếm bài viết...'),
                 hintStyle:
                     const TextStyle(fontSize: 13, color: Color(0xFFA1A1AA)),
                 prefixIcon: const Icon(Icons.search,
@@ -251,16 +252,16 @@ class _ContentManagementScreenState extends State<ContentManagementScreen>
               child: DropdownButtonHideUnderline(
                 child: DropdownButton<String?>(
                   value: _selectedCategoryId,
-                  hint: const Text('Tất cả thư mục',
+                  hint: Text(tr('Tất cả thư mục'),
                       style: TextStyle(fontSize: 12)),
                   style: const TextStyle(
                       fontSize: 12, color: Color(0xFF334155)),
                   items: [
-                    const DropdownMenuItem(
-                        value: null, child: Text('Tất cả thư mục')),
+                    DropdownMenuItem(
+                        value: null, child: Text(tr('Tất cả thư mục'))),
                     ..._categories.map((c) => DropdownMenuItem(
                           value: c['id'].toString(),
-                          child: Text(c['name'] ?? ''),
+                          child: Text(tr(c['name'] ?? '')),
                         )),
                   ],
                   onChanged: (v) =>
@@ -282,7 +283,7 @@ class _ContentManagementScreenState extends State<ContentManagementScreen>
           _stat('Nháp', _articles.where((a) => _parseStatus(a['status']) == 0).length,
               const Color(0xFFF59E0B)),
           const Spacer(),
-          Text('${filtered.length} kết quả',
+          Text(tr('${filtered.length} kết quả'),
               style:
                   const TextStyle(color: Color(0xFFA1A1AA), fontSize: 12)),
         ]),
@@ -323,7 +324,7 @@ class _ContentManagementScreenState extends State<ContentManagementScreen>
   Widget _chip(String label, int status) {
     final on = _selectedStatusFilter == status;
     return FilterChip(
-      label: Text(label,
+      label: Text(tr(label),
           style: TextStyle(
               fontSize: 12,
               color: on ? Colors.white : const Color(0xFF71717A))),
@@ -344,11 +345,11 @@ class _ContentManagementScreenState extends State<ContentManagementScreen>
             color: c.withValues(alpha: 0.08),
             borderRadius: BorderRadius.circular(8)),
         child: Row(mainAxisSize: MainAxisSize.min, children: [
-          Text('$n',
+          Text(tr('$n'),
               style: TextStyle(
                   color: c, fontWeight: FontWeight.bold, fontSize: 14)),
           const SizedBox(width: 4),
-          Text(label,
+          Text(tr(label),
               style: TextStyle(color: c.withValues(alpha: 0.8), fontSize: 11)),
         ]),
       );
@@ -376,16 +377,16 @@ class _ContentManagementScreenState extends State<ContentManagementScreen>
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Row(children: [
-                Expanded(child: Text(title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14), maxLines: 1, overflow: TextOverflow.ellipsis)),
+                Expanded(child: Text(tr(title), style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14), maxLines: 1, overflow: TextOverflow.ellipsis)),
                 if (ai) const Padding(padding: EdgeInsets.only(left: 4), child: Icon(Icons.auto_awesome, size: 12, color: HrmPageChrome.primaryNavy)),
               ]),
               const SizedBox(height: 2),
               Text(
-                [
+                tr([
                   pub ? 'Đã XB' : draft ? 'Nháp' : 'Chờ duyệt',
                   '$views lượt xem',
                   if (created != null) '${created.day}/${created.month}/${created.year}',
-                ].join(' · '),
+                ].join(' · ')),
                 style: const TextStyle(color: Color(0xFF71717A), fontSize: 12),
                 maxLines: 1, overflow: TextOverflow.ellipsis,
               ),
@@ -405,14 +406,14 @@ class _ContentManagementScreenState extends State<ContentManagementScreen>
               },
               itemBuilder: (_) => [
                 if (_perm.canEdit('Communication'))
-                  const PopupMenuItem(value: 'edit', child: Text('Sửa')),
+                  PopupMenuItem(value: 'edit', child: Text(tr('Sửa'))),
                 if (draft && _perm.canEdit('Communication'))
-                  const PopupMenuItem(
-                      value: 'publish', child: Text('Xuất bản')),
+                  PopupMenuItem(
+                      value: 'publish', child: Text(tr('Xuất bản'))),
                 if (_perm.canDelete('Communication'))
-                  const PopupMenuItem(
+                  PopupMenuItem(
                       value: 'delete',
-                      child: Text('Xóa', style: TextStyle(color: Colors.red))),
+                      child: Text(tr('Xóa'), style: TextStyle(color: Colors.red))),
               ],
             ),
         ]),
@@ -430,7 +431,7 @@ class _ContentManagementScreenState extends State<ContentManagementScreen>
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
           color: c.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(4)),
-      child: Text(pub ? 'Đã xuất bản' : draft ? 'Nháp' : 'Chờ duyệt',
+      child: Text(tr(pub ? 'Đã xuất bản' : draft ? 'Nháp' : 'Chờ duyệt'),
           style: TextStyle(
               fontSize: 10, fontWeight: FontWeight.w600, color: c)),
     );
@@ -441,14 +442,14 @@ class _ContentManagementScreenState extends State<ContentManagementScreen>
           Icon(widget.themeIcon,
               size: 56, color: widget.themeColor.withValues(alpha: 0.2)),
           const SizedBox(height: 16),
-          const Text('Chưa có bài viết nào',
+          Text(tr('Chưa có bài viết nào'),
               style: TextStyle(color: Color(0xFFA1A1AA), fontSize: 14)),
           const SizedBox(height: 8),
           if (_perm.canCreate('Communication'))
             TextButton.icon(
               onPressed: () => _openEditor(),
               icon: const Icon(Icons.add, size: 16),
-              label: const Text('Tạo bài viết đầu tiên'),
+              label: Text(tr('Tạo bài viết đầu tiên')),
               style: TextButton.styleFrom(foregroundColor: widget.themeColor),
             ),
         ]),
@@ -465,7 +466,7 @@ class _ContentManagementScreenState extends State<ContentManagementScreen>
         child: Row(children: [
           Icon(Icons.folder_open, color: widget.themeColor, size: 20),
           const SizedBox(width: 8),
-          Text('Quản lý thư mục',
+          Text(tr('Quản lý thư mục'),
               style: TextStyle(
                   fontWeight: FontWeight.w600, color: widget.themeColor)),
           const Spacer(),
@@ -473,7 +474,7 @@ class _ContentManagementScreenState extends State<ContentManagementScreen>
             TextButton.icon(
               onPressed: () => _showCategoryDialog(),
               icon: const Icon(Icons.create_new_folder, size: 16),
-              label: const Text('Tạo thư mục'),
+              label: Text(tr('Tạo thư mục')),
               style: TextButton.styleFrom(foregroundColor: widget.themeColor),
             ),
         ]),
@@ -485,14 +486,14 @@ class _ContentManagementScreenState extends State<ContentManagementScreen>
                 child: Column(mainAxisSize: MainAxisSize.min, children: [
                 Icon(Icons.folder_off, size: 48, color: Colors.grey[300]),
                 const SizedBox(height: 12),
-                const Text('Chưa có thư mục',
+                Text(tr('Chưa có thư mục'),
                     style: TextStyle(color: Color(0xFFA1A1AA))),
                 const SizedBox(height: 8),
                 if (_perm.canCreate('Communication'))
                   TextButton.icon(
                     onPressed: () => _showCategoryDialog(),
                     icon: const Icon(Icons.add, size: 16),
-                    label: const Text('Tạo thư mục đầu tiên'),
+                    label: Text(tr('Tạo thư mục đầu tiên')),
                   ),
               ]))
             : RefreshIndicator(
@@ -546,17 +547,17 @@ class _ContentManagementScreenState extends State<ContentManagementScreen>
           const SizedBox(width: 12),
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14), maxLines: 1, overflow: TextOverflow.ellipsis),
+              Text(tr(name), style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14), maxLines: 1, overflow: TextOverflow.ellipsis),
               if (desc.isNotEmpty) ...[
                 const SizedBox(height: 2),
-                Text(desc, style: const TextStyle(color: Color(0xFF71717A), fontSize: 12), maxLines: 1, overflow: TextOverflow.ellipsis),
+                Text(tr(desc), style: const TextStyle(color: Color(0xFF71717A), fontSize: 12), maxLines: 1, overflow: TextOverflow.ellipsis),
               ],
             ]),
           ),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
             decoration: BoxDecoration(color: const Color(0xFFF4F4F5), borderRadius: BorderRadius.circular(10)),
-            child: Text('$count', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Color(0xFF71717A))),
+            child: Text(tr('$count'), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Color(0xFF71717A))),
           ),
           const SizedBox(width: 4),
           if (_perm.canEdit('Communication'))
@@ -573,9 +574,9 @@ class _ContentManagementScreenState extends State<ContentManagementScreen>
   // ═══════════════════════════════════════════════════════════
   void _showCategoryDialog({Map<String, dynamic>? category}) {
     final isEdit = category != null;
-    final nameC = TextEditingController(text: category?['name'] ?? '');
+    final nameC = TextEditingController(text: tr(category?['name'] ?? ''));
     final descC =
-        TextEditingController(text: category?['description'] ?? '');
+        TextEditingController(text: tr(category?['description'] ?? ''));
 
     showDialog(
       context: context,
@@ -583,7 +584,7 @@ class _ContentManagementScreenState extends State<ContentManagementScreen>
         backgroundColor: Colors.white,
         shape:
             RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Text(isEdit ? 'Sửa thư mục' : 'Tạo thư mục mới',
+        title: Text(tr(isEdit ? 'Sửa thư mục' : 'Tạo thư mục mới'),
             style: const TextStyle(
                 fontSize: 16, fontWeight: FontWeight.bold)),
         content: SizedBox(
@@ -593,7 +594,7 @@ class _ContentManagementScreenState extends State<ContentManagementScreen>
             TextField(
               controller: nameC,
               decoration: InputDecoration(
-                labelText: 'Tên thư mục *',
+                labelText: tr('Tên thư mục *'),
                 filled: true,
                 fillColor: const Color(0xFFFAFAFA),
                 border: OutlineInputBorder(
@@ -606,7 +607,7 @@ class _ContentManagementScreenState extends State<ContentManagementScreen>
               controller: descC,
               maxLines: 2,
               decoration: InputDecoration(
-                labelText: 'Mô tả',
+                labelText: tr('Mô tả'),
                 filled: true,
                 fillColor: const Color(0xFFFAFAFA),
                 border: OutlineInputBorder(
@@ -619,7 +620,7 @@ class _ContentManagementScreenState extends State<ContentManagementScreen>
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Hủy',
+            child: Text(tr('Hủy'),
                 style: TextStyle(color: Color(0xFF71717A))),
           ),
           FilledButton(
@@ -627,7 +628,7 @@ class _ContentManagementScreenState extends State<ContentManagementScreen>
               if (nameC.text.trim().isEmpty) {
                 appNotification.showWarning(
                     title: 'Thiếu thông tin',
-                    message: 'Vui lòng nhập tên thư mục');
+                    message: tr('Vui lòng nhập tên thư mục'));
                 return;
               }
               try {
@@ -655,7 +656,7 @@ class _ContentManagementScreenState extends State<ContentManagementScreen>
                 }
               } catch (e) {
                 appNotification.showError(
-                    title: 'Lỗi', message: 'Lỗi: $e');
+                    title: 'Lỗi', message: tr('Lỗi: $e'));
               }
             },
             style: ElevatedButton.styleFrom(
@@ -664,7 +665,7 @@ class _ContentManagementScreenState extends State<ContentManagementScreen>
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8)),
             ),
-            child: Text(isEdit ? 'Cập nhật' : 'Tạo'),
+            child: Text(tr(isEdit ? 'Cập nhật' : 'Tạo')),
           ),
         ],
       ),
@@ -678,18 +679,18 @@ class _ContentManagementScreenState extends State<ContentManagementScreen>
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => ScrollableAlertDialog(
-        title: const Text('Xác nhận xóa'),
-        content: Text('Xóa thư mục "${c['name']}"?'),
+        title: Text(tr('Xác nhận xóa')),
+        content: Text(tr('${tr('Xóa thư mục "')}${c['name']}"?')),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Hủy')),
+              child: Text(tr('Hủy'))),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.red,
                 foregroundColor: Colors.white),
-            child: const Text('Xóa'),
+            child: Text(tr('Xóa')),
           ),
         ],
       ),
@@ -698,7 +699,7 @@ class _ContentManagementScreenState extends State<ContentManagementScreen>
       final r = await _api.deleteContentCategory(c['id'].toString());
       if (r['isSuccess'] == true) {
         appNotification.showSuccess(
-            title: 'Đã xóa', message: 'Đã xóa thư mục');
+            title: 'Đã xóa', message: tr('Đã xóa thư mục'));
         _loadCategories();
       }
     }
@@ -711,7 +712,7 @@ class _ContentManagementScreenState extends State<ContentManagementScreen>
     final r = await _api.publishCommunication(a['id'].toString());
     if (r['isSuccess'] != false) {
       appNotification.showSuccess(
-          title: 'Thành công', message: 'Đã xuất bản');
+          title: 'Thành công', message: tr('Đã xuất bản'));
       _loadArticles();
     } else {
       appNotification.showError(
@@ -723,18 +724,18 @@ class _ContentManagementScreenState extends State<ContentManagementScreen>
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => ScrollableAlertDialog(
-        title: const Text('Xác nhận xóa'),
-        content: Text('Xóa bài viết "${a['title']}"?'),
+        title: Text(tr('Xác nhận xóa')),
+        content: Text(tr('${tr('Xóa bài viết "')}${a['title']}"?')),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Hủy')),
+              child: Text(tr('Hủy'))),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.red,
                 foregroundColor: Colors.white),
-            child: const Text('Xóa'),
+            child: Text(tr('Xóa')),
           ),
         ],
       ),
@@ -743,7 +744,7 @@ class _ContentManagementScreenState extends State<ContentManagementScreen>
       final r = await _api.deleteCommunication(a['id'].toString());
       if (r['isSuccess'] != false) {
         appNotification.showSuccess(
-            title: 'Đã xóa', message: 'Đã xóa bài viết');
+            title: 'Đã xóa', message: tr('Đã xóa bài viết'));
         _loadArticles();
       }
     }
@@ -818,9 +819,9 @@ class _ArticleEditorPageState extends State<_ArticleEditorPage> {
   void initState() {
     super.initState();
     final a = widget.article;
-    _titleCtrl = TextEditingController(text: a?['title'] ?? '');
-    _summaryCtrl = TextEditingController(text: a?['summary'] ?? '');
-    _tagsCtrl = TextEditingController(text: a?['tags'] ?? '');
+    _titleCtrl = TextEditingController(text: tr(a?['title'] ?? ''));
+    _summaryCtrl = TextEditingController(text: tr(a?['summary'] ?? ''));
+    _tagsCtrl = TextEditingController(text: tr(a?['tags'] ?? ''));
     _videoUrlCtrl = TextEditingController();
     _selectedCategoryId = a?['categoryId']?.toString();
     _thumbnailUrl = a?['thumbnailUrl'];
@@ -912,7 +913,7 @@ class _ArticleEditorPageState extends State<_ArticleEditorPage> {
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
-          _isEditing ? 'Chỉnh sửa bài viết' : 'Soạn bài viết mới',
+          tr(_isEditing ? 'Chỉnh sửa bài viết' : 'Soạn bài viết mới'),
           style: const TextStyle(
               color: Color(0xFF18181B),
               fontSize: 16,
@@ -925,13 +926,13 @@ class _ArticleEditorPageState extends State<_ArticleEditorPage> {
                 color: _showAiPanel
                     ? HrmPageChrome.primaryNavy
                     : const Color(0xFFA1A1AA)),
-            tooltip: 'AI Gemini',
+            tooltip: tr('AI Gemini'),
             onPressed: () =>
                 setState(() => _showAiPanel = !_showAiPanel),
           ),
           TextButton(
             onPressed: _isSaving ? null : () => _save(publish: false),
-            child: const Text('Lưu nháp',
+            child: Text(tr('Lưu nháp'),
                 style: TextStyle(color: Color(0xFF71717A))),
           ),
           const SizedBox(width: 4),
@@ -953,7 +954,7 @@ class _ArticleEditorPageState extends State<_ArticleEditorPage> {
                       height: 16,
                       child: CircularProgressIndicator(
                           strokeWidth: 2, color: Colors.white))
-                  : const Text('Xuất bản'),
+                  : Text(tr('Xuất bản')),
             ),
           ),
         ],
@@ -1025,8 +1026,8 @@ class _ArticleEditorPageState extends State<_ArticleEditorPage> {
                             fontWeight: FontWeight.bold,
                             color: Color(0xFF18181B)),
                         maxLines: 2,
-                        decoration: const InputDecoration(
-                          hintText: 'Nhập tiêu đề bài viết...',
+                        decoration: InputDecoration(
+                          hintText: tr('Nhập tiêu đề bài viết...'),
                           hintStyle: TextStyle(
                               color: Color(0xFFCBD5E1), fontSize: 22),
                           border: InputBorder.none,
@@ -1041,8 +1042,8 @@ class _ArticleEditorPageState extends State<_ArticleEditorPage> {
                       child: TextField(
                         controller: _summaryCtrl,
                         maxLines: 2,
-                        decoration: const InputDecoration(
-                          hintText: 'Tóm tắt ngắn gọn...',
+                        decoration: InputDecoration(
+                          hintText: tr('Tóm tắt ngắn gọn...'),
                           hintStyle: TextStyle(
                               color: Color(0xFFCBD5E1), fontSize: 14),
                           border: InputBorder.none,
@@ -1183,8 +1184,8 @@ class _ArticleEditorPageState extends State<_ArticleEditorPage> {
                     size: 16, color: HrmPageChrome.primaryNavy),
               ),
               const SizedBox(width: 8),
-              const Expanded(
-                child: Text('AI Gemini — Trợ lý soạn thảo',
+              Expanded(
+                child: Text(tr('AI Gemini — Trợ lý soạn thảo'),
                     style: TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 13,
@@ -1198,7 +1199,7 @@ class _ArticleEditorPageState extends State<_ArticleEditorPage> {
                     color: HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(6),
                   ),
-                  child: const Text('Đã dùng AI',
+                  child: Text(tr('Đã dùng AI'),
                       style: TextStyle(
                           color: HrmPageChrome.primaryNavy,
                           fontSize: 10,
@@ -1220,7 +1221,7 @@ class _ArticleEditorPageState extends State<_ArticleEditorPage> {
                       maxLines: 2,
                       minLines: 1,
                       decoration: InputDecoration(
-                        hintText: _aiHint(),
+                        hintText: tr(_aiHint()),
                         hintStyle: const TextStyle(
                             color: Color(0xFFCBD5E1), fontSize: 13),
                         filled: true,
@@ -1245,12 +1246,12 @@ class _ArticleEditorPageState extends State<_ArticleEditorPage> {
                         padding: const EdgeInsets.symmetric(
                             horizontal: 16, vertical: 14),
                       ),
-                      child: const Row(
+                      child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(Icons.stop, size: 16),
                           SizedBox(width: 6),
-                          Text('Dừng'),
+                          Text(tr('Dừng')),
                         ],
                       ),
                     )
@@ -1265,12 +1266,12 @@ class _ArticleEditorPageState extends State<_ArticleEditorPage> {
                         padding: const EdgeInsets.symmetric(
                             horizontal: 16, vertical: 14),
                       ),
-                      child: const Row(
+                      child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(Icons.auto_awesome, size: 16),
                           SizedBox(width: 6),
-                          Text('Soạn'),
+                          Text(tr('Soạn')),
                         ],
                       ),
                     ),
@@ -1282,7 +1283,7 @@ class _ArticleEditorPageState extends State<_ArticleEditorPage> {
               alignment: WrapAlignment.spaceBetween,
               children: _quickPrompts()
                   .map((p) => ActionChip(
-                        label: Text(p,
+                        label: Text(tr(p),
                             style: const TextStyle(
                                 fontSize: 11,
                                 color: Color(0xFF71717A))),
@@ -1323,7 +1324,7 @@ class _ArticleEditorPageState extends State<_ArticleEditorPage> {
                           ),
                           const SizedBox(width: 8),
                           Text(
-                            _aiStreamedText.isEmpty ? 'AI đang suy nghĩ...' : 'AI đang viết...',
+                            tr(_aiStreamedText.isEmpty ? 'AI đang suy nghĩ...' : 'AI đang viết...'),
                             style: TextStyle(
                               fontSize: 11,
                               color: HrmPageChrome.primaryNavy.withValues(alpha: 0.7),
@@ -1335,7 +1336,7 @@ class _ArticleEditorPageState extends State<_ArticleEditorPage> {
                       if (_aiStreamedText.isNotEmpty) ...[
                         const SizedBox(height: 8),
                         Text(
-                          _aiStreamedText,
+                          tr(_aiStreamedText),
                           style: const TextStyle(fontSize: 12, color: Color(0xFF52525B), height: 1.5),
                         ),
                       ],
@@ -1377,7 +1378,7 @@ class _ArticleEditorPageState extends State<_ArticleEditorPage> {
     if (prompt.isEmpty) {
       appNotification.showWarning(
           title: 'Thiếu nội dung',
-          message: 'Vui lòng mô tả nội dung bạn muốn AI soạn');
+          message: tr('Vui lòng mô tả nội dung bạn muốn AI soạn'));
       return;
     }
     setState(() {
@@ -1428,7 +1429,7 @@ class _ArticleEditorPageState extends State<_ArticleEditorPage> {
           });
           appNotification.showSuccess(
               title: 'AI đã soạn xong',
-              message: 'Bạn có thể chỉnh sửa nội dung');
+              message: tr('Bạn có thể chỉnh sửa nội dung'));
         } else {
           setState(() => _isGeneratingAi = false);
         }
@@ -1436,7 +1437,7 @@ class _ArticleEditorPageState extends State<_ArticleEditorPage> {
       onError: (e) {
         if (!mounted) return;
         appNotification.showError(
-            title: 'Lỗi', message: 'Lỗi kết nối AI: $e');
+            title: 'Lỗi', message: tr('Lỗi kết nối AI: $e'));
         setState(() => _isGeneratingAi = false);
       },
     );
@@ -1453,7 +1454,7 @@ class _ArticleEditorPageState extends State<_ArticleEditorPage> {
         _isGeneratingAi = false;
       });
       appNotification.showWarning(
-          title: 'Đã dừng', message: 'Nội dung đã soạn được giữ lại');
+          title: 'Đã dừng', message: tr('Nội dung đã soạn được giữ lại'));
     } else {
       setState(() => _isGeneratingAi = false);
     }
@@ -1468,7 +1469,7 @@ class _ArticleEditorPageState extends State<_ArticleEditorPage> {
       icon: Icons.perm_media_outlined,
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         // ── Thumbnail ──
-        const Text('Ảnh đại diện',
+        Text(tr('Ảnh đại diện'),
             style: TextStyle(
                 fontWeight: FontWeight.w600,
                 fontSize: 13,
@@ -1494,13 +1495,13 @@ class _ArticleEditorPageState extends State<_ArticleEditorPage> {
                     : null,
               ),
               child: _thumbnailUrl == null || _thumbnailUrl!.isEmpty
-                  ? const Column(
+                  ? Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Icon(Icons.add_photo_alternate,
                             size: 28, color: Color(0xFFA1A1AA)),
                         SizedBox(height: 4),
-                        Text('Chọn ảnh',
+                        Text(tr('Chọn ảnh'),
                             style: TextStyle(
                                 fontSize: 11,
                                 color: Color(0xFFA1A1AA))),
@@ -1530,7 +1531,7 @@ class _ArticleEditorPageState extends State<_ArticleEditorPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             if (widget.categories.isNotEmpty) ...[
-              const Text('Thư mục',
+              Text(tr('Thư mục'),
                   style: TextStyle(
                       fontWeight: FontWeight.w600,
                       fontSize: 13,
@@ -1547,16 +1548,16 @@ class _ArticleEditorPageState extends State<_ArticleEditorPage> {
                   child: DropdownButton<String?>(
                     value: _selectedCategoryId,
                     isExpanded: true,
-                    hint: const Text('Chọn thư mục',
+                    hint: Text(tr('Chọn thư mục'),
                         style: TextStyle(fontSize: 13)),
                     items: [
-                      const DropdownMenuItem(
+                      DropdownMenuItem(
                           value: null,
-                          child: Text('Không chọn')),
+                          child: Text(tr('Không chọn'))),
                       ...widget.categories.map((c) =>
                           DropdownMenuItem(
                             value: c['id'].toString(),
-                            child: Text(c['name'] ?? '',
+                            child: Text(tr(c['name'] ?? ''),
                                 style: const TextStyle(
                                     fontSize: 13)),
                           )),
@@ -1568,7 +1569,7 @@ class _ArticleEditorPageState extends State<_ArticleEditorPage> {
               ),
               const SizedBox(height: 16),
             ],
-            const Text('Tags / Từ khóa',
+            Text(tr('Tags / Từ khóa'),
                 style: TextStyle(
                     fontWeight: FontWeight.w600,
                     fontSize: 13,
@@ -1577,8 +1578,7 @@ class _ArticleEditorPageState extends State<_ArticleEditorPage> {
             TextField(
               controller: _tagsCtrl,
               decoration: InputDecoration(
-                hintText:
-                    'nội quy, giờ làm, trang phục (phân cách dấu phẩy)',
+                hintText: tr('nội quy, giờ làm, trang phục (phân cách dấu phẩy)'),
                 hintStyle: const TextStyle(
                     fontSize: 12, color: Color(0xFFCBD5E1)),
                 filled: true,
@@ -1617,7 +1617,7 @@ class _ArticleEditorPageState extends State<_ArticleEditorPage> {
             Row(children: [
               Icon(icon, size: 16, color: widget.themeColor),
               const SizedBox(width: 6),
-              Text(title,
+              Text(tr(title),
                   style: TextStyle(
                       fontWeight: FontWeight.w600,
                       fontSize: 13,
@@ -1663,7 +1663,7 @@ class _ArticleEditorPageState extends State<_ArticleEditorPage> {
     if (_titleCtrl.text.trim().isEmpty) {
       appNotification.showWarning(
           title: 'Thiếu tiêu đề',
-          message: 'Vui lòng nhập tiêu đề');
+          message: tr('Vui lòng nhập tiêu đề'));
       return;
     }
     final plainText =
@@ -1671,7 +1671,7 @@ class _ArticleEditorPageState extends State<_ArticleEditorPage> {
     if (plainText.isEmpty) {
       appNotification.showWarning(
           title: 'Thiếu nội dung',
-          message: 'Vui lòng nhập nội dung bài viết');
+          message: tr('Vui lòng nhập nội dung bài viết'));
       return;
     }
     setState(() => _isSaving = true);
@@ -1745,7 +1745,7 @@ class _ArticleEditorPageState extends State<_ArticleEditorPage> {
       }
     } catch (e) {
       appNotification.showError(
-          title: 'Lỗi', message: 'Lỗi: $e');
+          title: 'Lỗi', message: tr('Lỗi: $e'));
     } finally {
       if (mounted) setState(() => _isSaving = false);
     }

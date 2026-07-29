@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../services/api_service.dart';
 import '../screens/system_admin/system_admin_helpers.dart';
 import '../utils/vietnamese_font.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// Top banner that polls active SuperAdmin announcements and lets the user
 /// click action / acknowledge / dismiss.  Designed to be placed at the top
@@ -232,13 +233,13 @@ class _AnnouncementBannerState extends State<AnnouncementBanner> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(title,
+                    Text(tr(title),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: vietnameseTextStyle(const TextStyle(
                             fontWeight: FontWeight.bold, fontSize: 14))),
                     const SizedBox(height: 2),
-                    Text(content,
+                    Text(tr(content),
                         maxLines: 3,
                         overflow: TextOverflow.ellipsis,
                         style:
@@ -246,9 +247,9 @@ class _AnnouncementBannerState extends State<AnnouncementBanner> {
                     if (actionUrl != null && actionUrl.isNotEmpty) ...[
                       const SizedBox(height: 4),
                       Text(
-                        actionLabel?.isNotEmpty == true
+                        tr(actionLabel?.isNotEmpty == true
                             ? actionLabel!
-                            : 'Xem chi tiết',
+                            : 'Xem chi tiết'),
                         style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
@@ -264,7 +265,7 @@ class _AnnouncementBannerState extends State<AnnouncementBanner> {
               children: [
                 if (canDismiss)
                   IconButton(
-                    tooltip: 'Tắt thông báo',
+                    tooltip: tr('Tắt thông báo'),
                     visualDensity: VisualDensity.compact,
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(
@@ -281,7 +282,7 @@ class _AnnouncementBannerState extends State<AnnouncementBanner> {
                           foregroundColor: Colors.white,
                           visualDensity: VisualDensity.compact),
                       onPressed: () => _onAck(id),
-                      child: const Text('Đồng ý'),
+                      child: Text(tr('Đồng ý')),
                     ),
                   ),
               ],
@@ -337,8 +338,7 @@ class _AnnouncementBannerState extends State<AnnouncementBanner> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Liên hệ gia hạn ngay',
+          Text(tr('Liên hệ gia hạn ngay'),
             style: vietnameseTextStyle(const TextStyle(
               fontWeight: FontWeight.w700,
               fontSize: 14,
@@ -353,12 +353,12 @@ class _AnnouncementBannerState extends State<AnnouncementBanner> {
               OutlinedButton.icon(
                 onPressed: () => _launchTel(_renewalPhone),
                 icon: const Icon(Icons.phone_rounded, size: 18),
-                label: Text('Gọi $_renewalPhoneDisplay'),
+                label: Text(tr('Gọi $_renewalPhoneDisplay')),
               ),
               OutlinedButton.icon(
                 onPressed: () => _launchZalo(_renewalPhone),
                 icon: const Icon(Icons.chat_rounded, size: 18),
-                label: const Text('Chat Zalo'),
+                label: Text(tr('Chat Zalo')),
               ),
             ],
           ),
@@ -381,12 +381,12 @@ class _AnnouncementBannerState extends State<AnnouncementBanner> {
       context: context,
       barrierDismissible: !requireAck,
       builder: (_) => ScrollableAlertDialog(
-        title: Text(_formatRenewalTitle(a, a['title']?.toString() ?? '')),
+        title: Text(tr(_formatRenewalTitle(a, a['title']?.toString() ?? ''))),
         content: SingleChildScrollView(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(_formatRenewalContent(a)),
+              Text(tr(_formatRenewalContent(a))),
               if (isRenewal) _renewalContactPanel(),
             ],
           ),
@@ -398,9 +398,9 @@ class _AnnouncementBannerState extends State<AnnouncementBanner> {
                 Navigator.pop(context);
                 _onAction(id, actionUrl);
               },
-              child: Text(actionLabel?.isNotEmpty == true
+              child: Text(tr(actionLabel?.isNotEmpty == true
                   ? actionLabel!
-                  : 'Mở liên kết'),
+                  : 'Mở liên kết')),
             ),
           if (requireAck)
             ElevatedButton(
@@ -408,7 +408,7 @@ class _AnnouncementBannerState extends State<AnnouncementBanner> {
                 Navigator.pop(context);
                 _onAck(id);
               },
-              child: const Text('Tôi đã đọc'),
+              child: Text(tr('Tôi đã đọc')),
             )
           else if (canDismiss)
             TextButton(
@@ -416,12 +416,12 @@ class _AnnouncementBannerState extends State<AnnouncementBanner> {
                 Navigator.pop(context);
                 _onDismiss(id);
               },
-              child: const Text('Tắt thông báo'),
+              child: Text(tr('Tắt thông báo')),
             )
           else
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Đóng'),
+              child: Text(tr('Đóng')),
             ),
         ],
       ),

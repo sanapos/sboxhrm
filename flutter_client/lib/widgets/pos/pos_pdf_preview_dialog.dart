@@ -5,6 +5,7 @@ import 'package:printing/printing.dart';
 
 import 'pos_pdf_iframe_stub.dart'
     if (dart.library.js_interop) 'pos_pdf_iframe_web.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// Dialog xem trước PDF — web dùng iframe (giống KiotViet), desktop dùng PdfPreview.
 Future<void> showPosPdfPreviewDialog(
@@ -35,7 +36,7 @@ Future<void> showPosPdfPreviewDialog(
                   children: [
                     Expanded(
                       child: Text(
-                        title,
+                        tr(title),
                         style: const TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.w600,
@@ -45,7 +46,7 @@ Future<void> showPosPdfPreviewDialog(
                     IconButton(
                       onPressed: () => Navigator.pop(ctx),
                       icon: const Icon(Icons.close),
-                      tooltip: 'Đóng',
+                      tooltip: tr('Đóng'),
                     ),
                   ],
                 ),

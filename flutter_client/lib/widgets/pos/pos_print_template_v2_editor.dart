@@ -7,6 +7,7 @@ import '../../utils/pos_print_template_v2_presets.dart';
 import '../../utils/responsive_helper.dart';
 import '../../widgets/pos/pos_print_template_preview.dart';
 import '../../widgets/pos/pos_theme.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// Trình soạn mẫu in V2 — block-based, chỉnh cỡ chữ / đậm / căn.
 class PosPrintTemplateV2Editor extends StatefulWidget {
@@ -101,7 +102,7 @@ class _PosPrintTemplateV2EditorState extends State<PosPrintTemplateV2Editor>
 
   void _addBlock(PosPrintBlockType type) {
     final block = switch (type) {
-      PosPrintBlockType.text => const PosPrintBlock(type: PosPrintBlockType.text, text: 'Dòng mới'),
+      PosPrintBlockType.text => PosPrintBlock(type: PosPrintBlockType.text, text: tr('Dòng mới')),
       PosPrintBlockType.field => const PosPrintBlock(type: PosPrintBlockType.field, field: 'Ghi_Chu'),
       PosPrintBlockType.pair => const PosPrintBlock(
           type: PosPrintBlockType.pair,
@@ -164,10 +165,10 @@ class _PosPrintTemplateV2EditorState extends State<PosPrintTemplateV2Editor>
             unselectedLabelColor: PosTheme.textSecondary,
             indicatorColor: PosTheme.edgeBlue,
             labelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
-            tabs: const [
-              Tab(text: 'Khối'),
-              Tab(text: 'Chỉnh sửa'),
-              Tab(text: 'Xem trước'),
+            tabs: [
+              Tab(text: tr('Khối')),
+              Tab(text: tr('Chỉnh sửa')),
+              Tab(text: tr('Xem trước')),
             ],
           ),
         ),
@@ -195,8 +196,7 @@ class _PosPrintTemplateV2EditorState extends State<PosPrintTemplateV2Editor>
           sliver: SliverToBoxAdapter(
             child: Row(
               children: [
-                Text(
-                  'Danh sách khối (${blocks.length})',
+                Text(tr('Danh sách khối (${blocks.length})'),
                   style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
                 ),
                 const Spacer(),
@@ -204,16 +204,16 @@ class _PosPrintTemplateV2EditorState extends State<PosPrintTemplateV2Editor>
                   TextButton.icon(
                     onPressed: () => _showAddBlockSheet(context),
                     icon: const Icon(Icons.add, size: 18),
-                    label: const Text('Thêm'),
+                    label: Text(tr('Thêm')),
                   ),
               ],
             ),
           ),
         ),
         if (blocks.isEmpty)
-          const SliverFillRemaining(
+          SliverFillRemaining(
             hasScrollBody: false,
-            child: Center(child: Text('Chưa có khối nội dung')),
+            child: Center(child: Text(tr('Chưa có khối nội dung'))),
           )
         else
           SliverPadding(
@@ -252,7 +252,7 @@ class _PosPrintTemplateV2EditorState extends State<PosPrintTemplateV2Editor>
                 radius: 14,
                 backgroundColor: selected ? PosTheme.edgeBlue : const Color(0xFFE5E7EB),
                 foregroundColor: selected ? Colors.white : PosTheme.textSecondary,
-                child: Text('${i + 1}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+                child: Text(tr('${i + 1}'), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
               ),
               const SizedBox(width: 10),
               Expanded(
@@ -260,7 +260,7 @@ class _PosPrintTemplateV2EditorState extends State<PosPrintTemplateV2Editor>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      _blockLabel(b),
+                      tr(_blockLabel(b)),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
@@ -271,7 +271,7 @@ class _PosPrintTemplateV2EditorState extends State<PosPrintTemplateV2Editor>
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      _blockMeta(b),
+                      tr(_blockMeta(b)),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(fontSize: 12, color: PosTheme.textSecondary),
@@ -288,11 +288,11 @@ class _PosPrintTemplateV2EditorState extends State<PosPrintTemplateV2Editor>
                     if (a == 'down') _moveBlock(i, 1);
                     if (a == 'edit') _selectBlock(i, openProperties: true);
                   },
-                  itemBuilder: (_) => const [
-                    PopupMenuItem(value: 'edit', child: Text('Chỉnh sửa')),
-                    PopupMenuItem(value: 'up', child: Text('Lên')),
-                    PopupMenuItem(value: 'down', child: Text('Xuống')),
-                    PopupMenuItem(value: 'del', child: Text('Xóa')),
+                  itemBuilder: (_) => [
+                    PopupMenuItem(value: 'edit', child: Text(tr('Chỉnh sửa'))),
+                    PopupMenuItem(value: 'up', child: Text(tr('Lên'))),
+                    PopupMenuItem(value: 'down', child: Text(tr('Xuống'))),
+                    PopupMenuItem(value: 'del', child: Text(tr('Xóa'))),
                   ],
                 )
               else
@@ -315,14 +315,12 @@ class _PosPrintTemplateV2EditorState extends State<PosPrintTemplateV2Editor>
             children: [
               Icon(Icons.view_list_outlined, size: 48, color: Colors.grey.shade400),
               const SizedBox(height: 12),
-              const Text(
-                'Chưa có khối để chỉnh',
+              Text(tr('Chưa có khối để chỉnh'),
                 style: TextStyle(fontWeight: FontWeight.w600),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 8),
-              Text(
-                'Vào tab «Khối» để thêm hoặc chọn một khối.',
+              Text(tr('Vào tab «Khối» để thêm hoặc chọn một khối.'),
                 style: TextStyle(color: PosTheme.textSecondary),
                 textAlign: TextAlign.center,
               ),
@@ -352,13 +350,12 @@ class _PosPrintTemplateV2EditorState extends State<PosPrintTemplateV2Editor>
                 child: Column(
                   children: [
                     Text(
-                      _blockLabel(sel),
+                      tr(_blockLabel(sel)),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
                     ),
-                    Text(
-                      'Khối ${i + 1}/${blocks.length}',
+                    Text(tr('Khối ${i + 1}/${blocks.length}'),
                       style: const TextStyle(fontSize: 12, color: PosTheme.textSecondary),
                     ),
                   ],
@@ -407,14 +404,14 @@ class _PosPrintTemplateV2EditorState extends State<PosPrintTemplateV2Editor>
           shrinkWrap: true,
           padding: const EdgeInsets.fromLTRB(8, 0, 8, 16),
           children: [
-            const Padding(
+            Padding(
               padding: EdgeInsets.all(12),
-              child: Text('Thêm khối nội dung', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+              child: Text(tr('Thêm khối nội dung'), style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
             ),
             for (final t in types)
               ListTile(
                 leading: Icon(_blockIcon(t.$2), color: PosTheme.edgeBlue),
-                title: Text(t.$1),
+                title: Text(tr(t.$1)),
                 onTap: () {
                   Navigator.pop(ctx);
                   _addBlock(t.$2);
@@ -446,9 +443,9 @@ class _PosPrintTemplateV2EditorState extends State<PosPrintTemplateV2Editor>
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      const Padding(
+                      Padding(
                         padding: EdgeInsets.all(10),
-                        child: Text('Khối nội dung', style: TextStyle(fontWeight: FontWeight.w600)),
+                        child: Text(tr('Khối nội dung'), style: TextStyle(fontWeight: FontWeight.w600)),
                       ),
                       Expanded(
                         child: ReorderableListView.builder(
@@ -471,9 +468,9 @@ class _PosPrintTemplateV2EditorState extends State<PosPrintTemplateV2Editor>
                               key: ValueKey('block_${i}_${b.type.name}'),
                               selected: selected,
                               dense: true,
-                              title: Text(_blockLabel(b), style: const TextStyle(fontSize: 13)),
+                              title: Text(tr(_blockLabel(b)), style: const TextStyle(fontSize: 13)),
                               subtitle: Text(
-                                _blockMeta(b),
+                                tr(_blockMeta(b)),
                                 style: const TextStyle(fontSize: 11),
                               ),
                               onTap: () => _selectBlock(i),
@@ -485,10 +482,10 @@ class _PosPrintTemplateV2EditorState extends State<PosPrintTemplateV2Editor>
                                         if (a == 'up') _moveBlock(i, -1);
                                         if (a == 'down') _moveBlock(i, 1);
                                       },
-                                      itemBuilder: (_) => const [
-                                        PopupMenuItem(value: 'up', child: Text('Lên')),
-                                        PopupMenuItem(value: 'down', child: Text('Xuống')),
-                                        PopupMenuItem(value: 'del', child: Text('Xóa')),
+                                      itemBuilder: (_) => [
+                                        PopupMenuItem(value: 'up', child: Text(tr('Lên'))),
+                                        PopupMenuItem(value: 'down', child: Text(tr('Xuống'))),
+                                        PopupMenuItem(value: 'del', child: Text(tr('Xóa'))),
                                       ],
                                     ),
                             );
@@ -522,7 +519,7 @@ class _PosPrintTemplateV2EditorState extends State<PosPrintTemplateV2Editor>
                 child: Card(
                   margin: EdgeInsets.zero,
                   child: sel == null
-                      ? const Center(child: Text('Chưa có khối'))
+                      ? Center(child: Text(tr('Chưa có khối')))
                       : _BlockPropertiesPanel(
                           key: ValueKey('desk_props_${_selectedIndex}_${sel.type.name}'),
                           block: sel,
@@ -545,14 +542,14 @@ class _PosPrintTemplateV2EditorState extends State<PosPrintTemplateV2Editor>
     final paperField = DropdownButtonFormField<String>(
       value: _tpl.paperSize,
       isExpanded: true,
-      decoration: const InputDecoration(
-        labelText: 'Khổ giấy',
+      decoration: InputDecoration(
+        labelText: tr('Khổ giấy'),
         isDense: true,
         border: OutlineInputBorder(),
       ),
       items: PosPrintPaperSizes.labels.entries
           .where((e) => e.key == PosPrintPaperSizes.k58 || e.key == PosPrintPaperSizes.k80)
-          .map((e) => DropdownMenuItem(value: e.key, child: Text(e.value)))
+          .map((e) => DropdownMenuItem(value: e.key, child: Text(tr(e.value))))
           .toList(),
       onChanged: widget.readOnly
           ? null
@@ -565,13 +562,13 @@ class _PosPrintTemplateV2EditorState extends State<PosPrintTemplateV2Editor>
     final printerField = DropdownButtonFormField<String>(
       value: _tpl.printerProfile,
       isExpanded: true,
-      decoration: const InputDecoration(
-        labelText: 'Máy in',
+      decoration: InputDecoration(
+        labelText: tr('Máy in'),
         isDense: true,
         border: OutlineInputBorder(),
       ),
       items: PosPrintPrinterProfiles.labels.entries
-          .map((e) => DropdownMenuItem(value: e.key, child: Text(e.value)))
+          .map((e) => DropdownMenuItem(value: e.key, child: Text(tr(e.value))))
           .toList(),
       onChanged: widget.readOnly
           ? null
@@ -609,7 +606,7 @@ class _PosPrintTemplateV2EditorState extends State<PosPrintTemplateV2Editor>
                         _update(preset);
                       },
                       icon: const Icon(Icons.refresh_rounded, size: 18),
-                      label: const Text('Khôi phục mẫu gốc'),
+                      label: Text(tr('Khôi phục mẫu gốc')),
                     ),
                   ],
                 ],
@@ -631,7 +628,7 @@ class _PosPrintTemplateV2EditorState extends State<PosPrintTemplateV2Editor>
                         _update(preset);
                       },
                       icon: const Icon(Icons.refresh_rounded, size: 18),
-                      label: const Text('Khôi phục mẫu gốc'),
+                      label: Text(tr('Khôi phục mẫu gốc')),
                     ),
                 ],
               ),
@@ -653,10 +650,10 @@ class _PosPrintTemplateV2EditorState extends State<PosPrintTemplateV2Editor>
               padding: const EdgeInsets.all(10),
               child: Row(
                 children: [
-                  const Text('Xem trước', style: TextStyle(fontWeight: FontWeight.w600)),
+                  Text(tr('Xem trước'), style: TextStyle(fontWeight: FontWeight.w600)),
                   const Spacer(),
                   Text(
-                    PosPrintPaperSizes.labels[_tpl.paperSize] ?? _tpl.paperSize,
+                    tr(PosPrintPaperSizes.labels[_tpl.paperSize] ?? _tpl.paperSize),
                     style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
                   ),
                 ],
@@ -684,7 +681,7 @@ class _PosPrintTemplateV2EditorState extends State<PosPrintTemplateV2Editor>
   }
 
   Widget _addChip(String label, PosPrintBlockType type) => ActionChip(
-        label: Text(label, style: const TextStyle(fontSize: 11)),
+        label: Text(tr(label), style: const TextStyle(fontSize: 11)),
         onPressed: () => _addBlock(type),
       );
 
@@ -748,9 +745,9 @@ class _BlockPropertiesPanelState extends State<_BlockPropertiesPanel> {
   @override
   void initState() {
     super.initState();
-    _textCtrl = TextEditingController(text: widget.block.text ?? '');
-    _qrTitleCtrl = TextEditingController(text: widget.block.qrTitle ?? '');
-    _qrCaptionCtrl = TextEditingController(text: widget.block.qrCaption);
+    _textCtrl = TextEditingController(text: tr(widget.block.text ?? ''));
+    _qrTitleCtrl = TextEditingController(text: tr(widget.block.qrTitle ?? ''));
+    _qrCaptionCtrl = TextEditingController(text: tr(widget.block.qrCaption));
   }
 
   @override
@@ -790,19 +787,19 @@ class _BlockPropertiesPanelState extends State<_BlockPropertiesPanel> {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        Text(_typeLabel(block.type), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+        Text(tr(_typeLabel(block.type)), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
         const SizedBox(height: 16),
         if (block.type == PosPrintBlockType.text)
           TextField(
             readOnly: readOnly,
             controller: _textCtrl,
             maxLines: 3,
-            decoration: const InputDecoration(
-              labelText: 'Nội dung',
-              hintText: 'Hỗ trợ {Token}',
+            decoration: InputDecoration(
+              labelText: tr('Nội dung'),
+              hintText: tr('Hỗ trợ {Token}'),
               border: OutlineInputBorder(),
             ),
-            onChanged: (v) => onChanged(block.copyWith(text: v)),
+            onChanged: (v) => onChanged(block.copyWith(text: tr(v))),
           ),
         if (block.type == PosPrintBlockType.field)
           _tokenField('Trường dữ liệu', block.field, (v) => onChanged(block.copyWith(field: v))),
@@ -815,22 +812,22 @@ class _BlockPropertiesPanelState extends State<_BlockPropertiesPanel> {
           DropdownButtonFormField<PosPrintQrPlacement>(
             value: block.qrPlacement,
             isExpanded: true,
-            decoration: const InputDecoration(
-              labelText: 'Vị trí so với tổng cộng',
+            decoration: InputDecoration(
+              labelText: tr('Vị trí so với tổng cộng'),
               border: OutlineInputBorder(),
             ),
-            items: const [
+            items: [
               DropdownMenuItem(
                 value: PosPrintQrPlacement.aboveTotals,
-                child: Text('Trên tổng cộng'),
+                child: Text(tr('Trên tổng cộng')),
               ),
               DropdownMenuItem(
                 value: PosPrintQrPlacement.belowTotals,
-                child: Text('Dưới tổng cộng'),
+                child: Text(tr('Dưới tổng cộng')),
               ),
               DropdownMenuItem(
                 value: PosPrintQrPlacement.custom,
-                child: Text('Tùy chỉnh (kéo thả khối)'),
+                child: Text(tr('Tùy chỉnh (kéo thả khối)')),
               ),
             ],
             onChanged: readOnly
@@ -840,7 +837,7 @@ class _BlockPropertiesPanelState extends State<_BlockPropertiesPanel> {
                   },
           ),
           const SizedBox(height: 12),
-          Text('Kích thước QR: ${block.qrSize}px'),
+          Text(tr('Kích thước QR: ${block.qrSize}px')),
           Slider(
             value: block.qrSize.clamp(100, 220).toDouble(),
             min: 100,
@@ -854,8 +851,8 @@ class _BlockPropertiesPanelState extends State<_BlockPropertiesPanel> {
           TextField(
             readOnly: readOnly,
             controller: _qrTitleCtrl,
-            decoration: const InputDecoration(
-              labelText: 'Dòng trên mã QR (tuỳ chọn)',
+            decoration: InputDecoration(
+              labelText: tr('Dòng trên mã QR (tuỳ chọn)'),
               border: OutlineInputBorder(),
             ),
             onChanged: (v) => onChanged(
@@ -869,16 +866,16 @@ class _BlockPropertiesPanelState extends State<_BlockPropertiesPanel> {
           TextField(
             readOnly: readOnly,
             controller: _qrCaptionCtrl,
-            decoration: const InputDecoration(
-              labelText: 'Dòng dưới mã QR',
-              hintText: 'Quét VietQR thanh toán',
+            decoration: InputDecoration(
+              labelText: tr('Dòng dưới mã QR'),
+              hintText: tr('Quét VietQR thanh toán'),
               border: OutlineInputBorder(),
             ),
             onChanged: (v) => onChanged(block.copyWith(qrCaption: v)),
           ),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
-            title: const Text('Hiện số tiền dưới QR'),
+            title: Text(tr('Hiện số tiền dưới QR')),
             value: block.qrShowAmount,
             onChanged: readOnly
                 ? null
@@ -892,7 +889,7 @@ class _BlockPropertiesPanelState extends State<_BlockPropertiesPanel> {
             block.type != PosPrintBlockType.vietQr &&
             block.type != PosPrintBlockType.spacer) ...[
           const SizedBox(height: 16),
-          Text('Cỡ chữ: ${block.style.fontSize.toInt()}'),
+          Text(tr('Cỡ chữ: ${block.style.fontSize.toInt()}')),
           Slider(
             value: block.style.fontSize.clamp(14, 48),
             min: 14,
@@ -905,14 +902,14 @@ class _BlockPropertiesPanelState extends State<_BlockPropertiesPanel> {
           ),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
-            title: const Text('In đậm'),
+            title: Text(tr('In đậm')),
             value: block.style.bold,
             onChanged: readOnly
                 ? null
                 : (v) => onChanged(block.copyWith(style: block.style.copyWith(bold: v))),
           ),
           const SizedBox(height: 4),
-          const Text('Căn lề', style: TextStyle(fontWeight: FontWeight.w500)),
+          Text(tr('Căn lề'), style: TextStyle(fontWeight: FontWeight.w500)),
           const SizedBox(height: 8),
           SegmentedButton<PosPrintTextAlign>(
             segments: const [
@@ -931,13 +928,13 @@ class _BlockPropertiesPanelState extends State<_BlockPropertiesPanel> {
           DropdownButtonFormField<PosPrintDividerStyle>(
             value: block.divider,
             isExpanded: true,
-            decoration: const InputDecoration(
-              labelText: 'Kiểu kẻ',
+            decoration: InputDecoration(
+              labelText: tr('Kiểu kẻ'),
               border: OutlineInputBorder(),
             ),
-            items: const [
-              DropdownMenuItem(value: PosPrintDividerStyle.dash, child: Text('Gạch ngang')),
-              DropdownMenuItem(value: PosPrintDividerStyle.equals, child: Text('Đường kép (=)')),
+            items: [
+              DropdownMenuItem(value: PosPrintDividerStyle.dash, child: Text(tr('Gạch ngang'))),
+              DropdownMenuItem(value: PosPrintDividerStyle.equals, child: Text(tr('Đường kép (=)'))),
             ],
             onChanged: readOnly
                 ? null
@@ -947,14 +944,14 @@ class _BlockPropertiesPanelState extends State<_BlockPropertiesPanel> {
           ),
           const SizedBox(height: 12),
           Text(
-            'Số ký tự: $_effectiveDividerChars'
-            '${block.dividerChars == null ? ' (tự động)' : ''}',
+            tr('Số ký tự: $_effectiveDividerChars'
+            '${block.dividerChars == null ? ' (tự động)' : ''}'),
             style: const TextStyle(fontWeight: FontWeight.w500),
           ),
           Row(
             children: [
               IconButton(
-                tooltip: 'Giảm',
+                tooltip: tr('Giảm'),
                 onPressed: readOnly
                     ? null
                     : () {
@@ -967,10 +964,10 @@ class _BlockPropertiesPanelState extends State<_BlockPropertiesPanel> {
                 onPressed: readOnly
                     ? null
                     : () => onChanged(block.copyWith(clearDividerChars: true)),
-                child: const Text('Tự động'),
+                child: Text(tr('Tự động')),
               ),
               IconButton(
-                tooltip: 'Tăng',
+                tooltip: tr('Tăng'),
                 onPressed: readOnly
                     ? null
                     : () {
@@ -1004,10 +1001,10 @@ class _BlockPropertiesPanelState extends State<_BlockPropertiesPanel> {
       value: tokens.contains(value) ? value : tokens.first,
       isExpanded: true,
       decoration: InputDecoration(
-        labelText: label,
+        labelText: tr(label),
         border: const OutlineInputBorder(),
       ),
-      items: tokens.map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
+      items: tokens.map((t) => DropdownMenuItem(value: t, child: Text(tr(t)))).toList(),
       onChanged: widget.readOnly ? null : (v) => onField(v ?? tokens.first),
     );
   }

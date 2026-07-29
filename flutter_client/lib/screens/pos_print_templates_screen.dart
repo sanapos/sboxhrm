@@ -20,6 +20,7 @@ import '../widgets/hrm/hrm_settings_mobile_kit.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../widgets/pos/pos_module_toolbar.dart';
 import '../widgets/pos/pos_theme.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 const _blue = Color(0xFF2563EB);
 
@@ -141,11 +142,11 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Bỏ thay đổi?'),
-        content: const Text('Mẫu in đang chỉnh sửa chưa lưu. Bỏ thay đổi?'),
+        title: Text(tr('Bỏ thay đổi?')),
+        content: Text(tr('Mẫu in đang chỉnh sửa chưa lưu. Bỏ thay đổi?')),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Hủy')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Bỏ')),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Hủy'))),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(tr('Bỏ'))),
         ],
       ),
     );
@@ -162,7 +163,7 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
     if (_selected == null) return;
     final name = _nameCtrl.text.trim();
     if (name.isEmpty) {
-      NotificationOverlayManager().showError(title: 'Lỗi', message: 'Nhập tên mẫu in');
+      NotificationOverlayManager().showError(title: 'Lỗi', message: tr('Nhập tên mẫu in'));
       return;
     }
     setState(() => _saving = true);
@@ -182,7 +183,7 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
     setState(() => _saving = false);
     if (res['isSuccess'] == true) {
       _dirty = false;
-      NotificationOverlayManager().showSuccess(title: 'Đã lưu', message: 'Mẫu in đã được cập nhật');
+      NotificationOverlayManager().showSuccess(title: 'Đã lưu', message: tr('Mẫu in đã được cập nhật'));
       await _load();
     } else {
       NotificationOverlayManager().showError(
@@ -201,13 +202,13 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
         : <PosPrintTemplatePreset>[];
 
     String paper = PosPrintPaperSizes.k80;
-    final nameCtrl = TextEditingController(text: 'Mẫu in mới');
+    final nameCtrl = TextEditingController(text: tr('Mẫu in mới'));
 
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDlg) => AlertDialog(
-          title: const Text('Thêm mẫu in'),
+          title: Text(tr('Thêm mẫu in')),
           content: SizedBox(
             width: 420,
             child: Column(
@@ -215,14 +216,14 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
               children: [
                 TextField(
                   controller: nameCtrl,
-                  decoration: const InputDecoration(labelText: 'Tên mẫu in'),
+                  decoration: InputDecoration(labelText: tr('Tên mẫu in')),
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
                   value: paper,
-                  decoration: const InputDecoration(labelText: 'Khổ giấy'),
+                  decoration: InputDecoration(labelText: tr('Khổ giấy')),
                   items: PosPrintPaperSizes.labels.entries
-                      .map((e) => DropdownMenuItem(value: e.key, child: Text(e.value)))
+                      .map((e) => DropdownMenuItem(value: e.key, child: Text(tr(e.value))))
                       .toList(),
                   onChanged: (v) {
                     if (v == null) return;
@@ -232,11 +233,11 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
                   value: paper,
-                  decoration: const InputDecoration(labelText: 'Mẫu gợi ý'),
+                  decoration: InputDecoration(labelText: tr('Mẫu gợi ý')),
                   items: presets
                       .map((p) => DropdownMenuItem(
                             value: p.paperSize,
-                            child: Text(p.name),
+                            child: Text(tr(p.name)),
                           ))
                       .toList(),
                   onChanged: (v) {
@@ -254,8 +255,8 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Bỏ qua')),
-            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Tạo')),
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Bỏ qua'))),
+            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(tr('Tạo'))),
           ],
         ),
       ),
@@ -281,7 +282,7 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
       'sortOrder': _templates.length,
     });
     if (res['isSuccess'] == true && res['data'] is Map) {
-      NotificationOverlayManager().showSuccess(title: 'Đã tạo', message: 'Mẫu in mới');
+      NotificationOverlayManager().showSuccess(title: 'Đã tạo', message: tr('Mẫu in mới'));
       await _load();
       final created = PosPrintTemplate.fromJson(res['data'] as Map<String, dynamic>);
       _applyTemplate(created);
@@ -332,11 +333,11 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
         if (!mounted) return;
         if (ok) {
           NotificationOverlayManager()
-              .showSuccess(title: 'In thử', message: 'Đã in mẫu trên Sunmi');
+              .showSuccess(title: 'In thử', message: tr('Đã in mẫu trên Sunmi'));
         } else {
           NotificationOverlayManager().showError(
             title: 'In thử thất bại',
-            message: 'Sunmi không phản hồi',
+            message: tr('Sunmi không phản hồi'),
           );
         }
         return;
@@ -356,11 +357,11 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
       if (!mounted) return;
       if (ok) {
         NotificationOverlayManager()
-            .showSuccess(title: 'In thử', message: 'Đã gửi mẫu in thử');
+            .showSuccess(title: 'In thử', message: tr('Đã gửi mẫu in thử'));
       } else {
         NotificationOverlayManager().showError(
           title: 'In thử thất bại',
-          message: 'Kiểm tra kết nối máy in cục bộ',
+          message: tr('Kiểm tra kết nối máy in cục bộ'),
         );
       }
     } catch (e) {
@@ -379,14 +380,14 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Xóa mẫu in?'),
-        content: Text('Xóa mẫu «${_selected!.name}»?'),
+        title: Text(tr('Xóa mẫu in?')),
+        content: Text(tr('Xóa mẫu «${_selected!.name}»?')),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Hủy')),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Hủy'))),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Xóa'),
+            child: Text(tr('Xóa')),
           ),
         ],
       ),
@@ -434,7 +435,7 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
                           foregroundColor: active ? _blue : PosTheme.textPrimary,
                           backgroundColor: active ? const Color(0xFFE8F0FE) : null,
                         ),
-                        child: Text(e.value,
+                        child: Text(tr(e.value),
                             style: TextStyle(
                               fontWeight: active ? FontWeight.w600 : FontWeight.normal,
                               fontSize: 13,
@@ -461,8 +462,8 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
                           padding: const EdgeInsets.only(bottom: 8),
                           child: TextField(
                             controller: _nameCtrl,
-                            decoration: const InputDecoration(
-                              labelText: 'Tên mẫu in',
+                            decoration: InputDecoration(
+                              labelText: tr('Tên mẫu in'),
                               isDense: true,
                             ),
                             onChanged: (_) => setState(() => _dirty = true),
@@ -470,7 +471,7 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
                         ),
                         Expanded(
                           child: _v2Template == null
-                              ? const Center(child: Text('Đang tải…'))
+                              ? Center(child: Text(tr('Đang tải…')))
                               : PosPrintTemplateV2Editor(
                                   template: _v2Template!,
                                   onChanged: (v) => setState(() {
@@ -498,8 +499,8 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
             padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
             child: TextField(
               controller: _nameCtrl,
-              decoration: const InputDecoration(
-                labelText: 'Tên mẫu in',
+              decoration: InputDecoration(
+                labelText: tr('Tên mẫu in'),
                 border: OutlineInputBorder(),
                 isDense: true,
               ),
@@ -530,12 +531,12 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
         isDense: true,
         contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
-        hintText: _templates.isEmpty ? 'Chưa có mẫu — bấm +' : null,
+        hintText: trN(_templates.isEmpty ? 'Chưa có mẫu — bấm +' : null),
       ),
       items: _templates
           .map((t) => DropdownMenuItem(
                 value: t.id,
-                child: Text('${t.name} (${PosPrintPaperSizes.labels[t.paperSize] ?? t.paperSize})'),
+                child: Text(tr('${t.name} (${PosPrintPaperSizes.labels[t.paperSize] ?? t.paperSize})')),
               ))
           .toList(),
       onChanged: (id) {
@@ -554,7 +555,7 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             if (!embeddedKit)
-              const Text('Mẫu in', style: TextStyle(fontWeight: FontWeight.w600)),
+              Text(tr('Mẫu in'), style: TextStyle(fontWeight: FontWeight.w600)),
             if (!embeddedKit) const SizedBox(height: 8),
             selector,
             const SizedBox(height: 8),
@@ -568,12 +569,12 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
                   ),
                   const Spacer(),
                   IconButton(
-                    tooltip: 'Xóa mẫu',
+                    tooltip: tr('Xóa mẫu'),
                     onPressed: _selected == null ? null : _deleteTemplate,
                     icon: const Icon(Icons.delete_outline, color: Colors.red),
                   ),
                   IconButton(
-                    tooltip: 'In thử',
+                    tooltip: tr('In thử'),
                     onPressed: _testingPrint || _v2Template == null ? null : _testPrintTemplate,
                     icon: _testingPrint
                         ? const SizedBox(
@@ -594,7 +595,7 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
                                 strokeWidth: 2, color: Colors.white),
                           )
                         : const Icon(Icons.save, size: 16),
-                    label: const Text('Lưu'),
+                    label: Text(tr('Lưu')),
                   ),
                 ],
               )
@@ -606,13 +607,13 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
                     OutlinedButton.icon(
                       onPressed: _addTemplate,
                       icon: const Icon(Icons.add_circle_outline, size: 18),
-                      label: const Text('Thêm'),
+                      label: Text(tr('Thêm')),
                     ),
                     const SizedBox(width: 8),
                     OutlinedButton.icon(
                       onPressed: _selected == null ? null : _deleteTemplate,
                       icon: const Icon(Icons.delete_outline, size: 18),
-                      label: const Text('Xóa'),
+                      label: Text(tr('Xóa')),
                       style: OutlinedButton.styleFrom(foregroundColor: Colors.red),
                     ),
                     const SizedBox(width: 8),
@@ -625,7 +626,7 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
                           : const Icon(Icons.print_outlined, size: 18),
-                      label: const Text('In thử'),
+                      label: Text(tr('In thử')),
                     ),
                     const SizedBox(width: 8),
                     FilledButton.icon(
@@ -638,7 +639,7 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
                               child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                             )
                           : const Icon(Icons.save, size: 16),
-                      label: const Text('Lưu'),
+                      label: Text(tr('Lưu')),
                     ),
                   ],
                 ),
@@ -652,21 +653,21 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
       child: Row(
         children: [
-          const Text('Mẫu in:', style: TextStyle(fontWeight: FontWeight.w600)),
+          Text(tr('Mẫu in:'), style: TextStyle(fontWeight: FontWeight.w600)),
           const SizedBox(width: 8),
           Expanded(child: selector),
           IconButton(
-            tooltip: 'Thêm mẫu',
+            tooltip: tr('Thêm mẫu'),
             onPressed: _addTemplate,
             icon: const Icon(Icons.add_circle_outline, color: _blue),
           ),
           IconButton(
-            tooltip: 'Xóa mẫu',
+            tooltip: tr('Xóa mẫu'),
             onPressed: _selected == null ? null : _deleteTemplate,
             icon: const Icon(Icons.delete_outline, color: Colors.red),
           ),
           IconButton(
-            tooltip: 'In thử',
+            tooltip: tr('In thử'),
             onPressed: _testingPrint || _v2Template == null ? null : _testPrintTemplate,
             icon: _testingPrint
                 ? const SizedBox(
@@ -687,7 +688,7 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
                     child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                   )
                 : const Icon(Icons.save, size: 18),
-            label: const Text('Lưu'),
+            label: Text(tr('Lưu')),
           ),
         ],
       ),

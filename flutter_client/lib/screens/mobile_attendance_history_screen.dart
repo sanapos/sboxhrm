@@ -6,6 +6,7 @@ import '../widgets/hrm_page_chrome.dart';
 import '../widgets/mobile_attendance_record_detail_sheet.dart';
 import '../widgets/punch_photo_preview.dart';
 import '../widgets/hrm_responsive_list_layout.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 class MobileAttendanceHistoryScreen extends StatefulWidget {
   const MobileAttendanceHistoryScreen({super.key});
@@ -112,8 +113,7 @@ class _MobileAttendanceHistoryScreenState
           icon: const Icon(Icons.arrow_back, color: Color(0xFF18181B)),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
-          'Lịch sử chấm công',
+        title: Text(tr('Lịch sử chấm công'),
           style: TextStyle(
             color: Color(0xFF18181B),
             fontWeight: FontWeight.bold,
@@ -176,7 +176,7 @@ class _MobileAttendanceHistoryScreenState
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Text(
-                '${months[_selectedMonth.month - 1]} ${_selectedMonth.year}',
+                tr('${months[_selectedMonth.month - 1]} ${_selectedMonth.year}'),
                 style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
@@ -246,7 +246,7 @@ class _MobileAttendanceHistoryScreenState
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text(
-                    weekdays[date.weekday - 1],
+                    tr(weekdays[date.weekday - 1]),
                     style: TextStyle(
                       fontSize: 11,
                       color: isSelected
@@ -258,7 +258,7 @@ class _MobileAttendanceHistoryScreenState
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    '${date.day}',
+                    tr('${date.day}'),
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
@@ -356,7 +356,7 @@ class _MobileAttendanceHistoryScreenState
           Icon(icon, color: color, size: 20),
           const SizedBox(height: 4),
           Text(
-            value,
+            tr(value),
             style: const TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
@@ -364,7 +364,7 @@ class _MobileAttendanceHistoryScreenState
             ),
           ),
           Text(
-            label,
+            tr(label),
             style: const TextStyle(
               fontSize: 11,
               color: Color(0xFF71717A),
@@ -394,8 +394,7 @@ class _MobileAttendanceHistoryScreenState
               children: [
                 Icon(Icons.event_busy, size: 64, color: Colors.grey.shade300),
                 const SizedBox(height: 16),
-                const Text(
-                  'Không có dữ liệu chấm công',
+                Text(tr('Không có dữ liệu chấm công'),
                   style: TextStyle(color: Color(0xFF71717A)),
                 ),
               ],
@@ -460,8 +459,7 @@ class _MobileAttendanceHistoryScreenState
           children: [
             Icon(Icons.event_busy, size: 64, color: Colors.grey.shade300),
             const SizedBox(height: 16),
-            const Text(
-              'Không có dữ liệu chấm công',
+            Text(tr('Không có dữ liệu chấm công'),
               style: TextStyle(color: Color(0xFF71717A)),
             ),
           ],
@@ -482,7 +480,7 @@ class _MobileAttendanceHistoryScreenState
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text('Hiển thị ${startIndex + 1}-$endIndex / $totalCount ngày',
+          Text(tr('Hiển thị ${startIndex + 1}-$endIndex / $totalCount ngày'),
               style: TextStyle(fontSize: 12, color: Colors.grey[600])),
           Row(children: [
             IconButton(
@@ -490,7 +488,7 @@ class _MobileAttendanceHistoryScreenState
                 onPressed:
                     page > 1 ? () => setState(() => _currentPage--) : null,
                 visualDensity: VisualDensity.compact),
-            Text('$page / $totalPages',
+            Text(tr('$page / $totalPages'),
                 style:
                     const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
             IconButton(
@@ -544,14 +542,14 @@ class _MobileAttendanceHistoryScreenState
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      weekdays[date.weekday - 1],
+                      tr(weekdays[date.weekday - 1]),
                       style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         color: Color(0xFF18181B),
                       ),
                     ),
                     Text(
-                      dateKey,
+                      tr(dateKey),
                       style: const TextStyle(
                         fontSize: 12,
                         color: Color(0xFF71717A),
@@ -568,7 +566,7 @@ class _MobileAttendanceHistoryScreenState
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
-                      _calculateWorkHours(records),
+                      tr(_calculateWorkHours(records)),
                       style: const TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
@@ -630,12 +628,12 @@ class _MobileAttendanceHistoryScreenState
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    '${record.punchTime.hour.toString().padLeft(2, '0')}:${record.punchTime.minute.toString().padLeft(2, '0')} · ${record.punchTypeLabel}',
+                    tr('${record.punchTime.hour.toString().padLeft(2, '0')}:${record.punchTime.minute.toString().padLeft(2, '0')} · ${record.punchTypeLabel}'),
                     style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Color(0xFF18181B)),
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    '${record.formattedDistanceFromLocation} · ${record.faceMatchScore?.toInt() ?? 0}%',
+                    tr('${record.formattedDistanceFromLocation} · ${record.faceMatchScore?.toInt() ?? 0}%'),
                     style: const TextStyle(fontSize: 12, color: Color(0xFF71717A)),
                   ),
                 ],
@@ -647,7 +645,7 @@ class _MobileAttendanceHistoryScreenState
                 color: statusColor.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(6),
               ),
-              child: Text(statusLabel, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: statusColor)),
+              child: Text(tr(statusLabel), style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: statusColor)),
             ),
             const SizedBox(width: 4),
             const Icon(Icons.chevron_right, size: 18, color: Color(0xFF71717A)),
@@ -675,14 +673,14 @@ class _MobileAttendanceHistoryScreenState
           Expanded(
             flex: 2,
             child: Text(
-              label,
+              tr(label),
               style: const TextStyle(color: Color(0xFF71717A)),
             ),
           ),
           Expanded(
             flex: 3,
             child: Text(
-              value,
+              tr(value),
               style: const TextStyle(
                 fontWeight: FontWeight.w500,
                 color: Color(0xFF18181B),
@@ -754,8 +752,7 @@ class _MobileAttendanceHistoryScreenState
               ),
             ),
             const SizedBox(height: 20),
-            const Text(
-              'Lọc theo trạng thái',
+            Text(tr('Lọc theo trạng thái'),
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
@@ -796,7 +793,7 @@ class _MobileAttendanceHistoryScreenState
                   backgroundColor: HrmPageChrome.primaryNavy,
                   padding: const EdgeInsets.symmetric(vertical: 14),
                 ),
-                child: const Text('Áp dụng'),
+                child: Text(tr('Áp dụng')),
               ),
             ),
             const SizedBox(height: 10),
@@ -809,7 +806,7 @@ class _MobileAttendanceHistoryScreenState
 
   Widget _buildFilterChip(String label, bool isSelected, ValueChanged<bool> onSelected) {
     return FilterChip(
-      label: Text(label),
+      label: Text(tr(label)),
       selected: isSelected,
       onSelected: onSelected,
       selectedColor: HrmPageChrome.primaryNavy.withValues(alpha: 0.1),

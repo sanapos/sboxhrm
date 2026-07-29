@@ -12,6 +12,7 @@ import '../utils/web_route_parser.dart';
 import '../widgets/landing_product_image.dart';
 import 'landing_guide_screen.dart';
 import '../widgets/landing_youtube_player.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// Landing/Marketing page for SBOX HRM.
 /// Nội dung (tiêu đề, mô tả, liên hệ...) load từ /api/publicsettings để
@@ -392,13 +393,13 @@ class _LandingScreenState extends State<LandingScreen> {
                     Image.asset('assets/logo.png',
                         height: 38, filterQuality: FilterQuality.high),
                     const SizedBox(width: 8),
-                    const Text('SBOX',
+                    Text(tr('SBOX'),
                         style: TextStyle(
                             color: kBlue,
                             fontWeight: FontWeight.w900,
                             fontSize: 18,
                             letterSpacing: 0.5)),
-                    const Text(' HRM',
+                    Text(tr(' HRM'),
                         style: TextStyle(
                             color: kDark,
                             fontWeight: FontWeight.bold,
@@ -447,7 +448,7 @@ class _LandingScreenState extends State<LandingScreen> {
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 16, vertical: 10),
                             ),
-                            child: const Text('Đăng ký',
+                            child: Text(tr('Đăng ký'),
                                 style: TextStyle(fontWeight: FontWeight.bold)),
                           ),
                         ),
@@ -463,7 +464,7 @@ class _LandingScreenState extends State<LandingScreen> {
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 20, vertical: 10),
                             ),
-                            child: const Text('Đăng nhập',
+                            child: Text(tr('Đăng nhập'),
                                 style: TextStyle(fontWeight: FontWeight.bold)),
                           ),
                         ),
@@ -640,7 +641,7 @@ class _MobileMenuOverlay extends StatelessWidget {
                               shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(8)),
                             ),
-                            child: const Text('Đăng nhập',
+                            child: Text(tr('Đăng nhập'),
                                 style: TextStyle(fontWeight: FontWeight.bold)),
                           ),
                         ),
@@ -655,7 +656,7 @@ class _MobileMenuOverlay extends StatelessWidget {
                               shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(8)),
                             ),
-                            child: const Text('Đăng ký',
+                            child: Text(tr('Đăng ký'),
                                 style: TextStyle(fontWeight: FontWeight.bold)),
                           ),
                         ),
@@ -680,7 +681,7 @@ class _MobileMenuOverlay extends StatelessWidget {
           children: [
             Icon(icon, color: _kGrey, size: 20),
             const SizedBox(width: 14),
-            Text(label,
+            Text(tr(label),
                 style: const TextStyle(
                     color: _kDark, fontSize: 16, fontWeight: FontWeight.w500)),
             const Spacer(),
@@ -705,7 +706,7 @@ class _NavLink extends StatelessWidget {
   Widget build(BuildContext context) {
     return TextButton(
       onPressed: onTap,
-      child: Text(label,
+      child: Text(tr(label),
           style: TextStyle(
               color: dark ? const Color(0xFF374151) : Colors.white,
               fontWeight: FontWeight.w500)),
@@ -801,7 +802,7 @@ class _HeroSection extends StatelessWidget {
         _badge(),
         const SizedBox(height: 20),
         Text(
-          heroTitle,
+          tr(heroTitle),
           textAlign: TextAlign.center,
           style: const TextStyle(
               color: Colors.white,
@@ -812,7 +813,7 @@ class _HeroSection extends StatelessWidget {
         ),
         const SizedBox(height: 16),
         Text(
-          heroSubtext,
+          tr(heroSubtext),
           textAlign: TextAlign.center,
           style: TextStyle(
               color: Colors.white.withValues(alpha: 0.88), fontSize: 15, height: 1.6),
@@ -837,7 +838,7 @@ class _HeroSection extends StatelessWidget {
               _badge(),
               const SizedBox(height: 24),
               Text(
-                heroTitle,
+                tr(heroTitle),
                 style: const TextStyle(
                     color: Colors.white,
                     fontSize: 42,
@@ -847,7 +848,7 @@ class _HeroSection extends StatelessWidget {
               ),
               const SizedBox(height: 20),
               Text(
-                heroSubtext,
+                tr(heroSubtext),
                 style: TextStyle(
                     color: Colors.white.withValues(alpha: 0.88),
                     fontSize: 17,
@@ -874,12 +875,12 @@ class _HeroSection extends StatelessWidget {
         borderRadius: BorderRadius.circular(100),
         border: Border.all(color: Colors.white.withValues(alpha: 0.3)),
       ),
-      child: const Row(
+      child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(Icons.verified_rounded, color: Color(0xFF93C5FD), size: 15),
           SizedBox(width: 6),
-          Text('Phần mềm HRM hàng đầu Việt Nam',
+          Text(tr('Phần mềm HRM hàng đầu Việt Nam'),
               style: TextStyle(
                   color: Colors.white,
                   fontSize: 12,
@@ -898,7 +899,7 @@ class _HeroSection extends StatelessWidget {
         FilledButton.icon(
           onPressed: onGetStarted,
           icon: const Icon(Icons.rocket_launch_rounded, size: 17),
-          label: const Text('Bắt đầu miễn phí',
+          label: Text(tr('Bắt đầu miễn phí'),
               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
           style: ElevatedButton.styleFrom(
             backgroundColor: Colors.white,
@@ -912,7 +913,7 @@ class _HeroSection extends StatelessWidget {
         OutlinedButton.icon(
           onPressed: onLogin,
           icon: const Icon(Icons.login_rounded, size: 17, color: Colors.white),
-          label: const Text('Đăng nhập',
+          label: Text(tr('Đăng nhập'),
               style: TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.w600,
@@ -944,12 +945,12 @@ class _HeroSection extends StatelessWidget {
   Widget _stat(String value, String label) => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(value,
+          Text(tr(value),
               style: const TextStyle(
                   color: Colors.white,
                   fontSize: 22,
                   fontWeight: FontWeight.w900)),
-          Text(label,
+          Text(tr(label),
               style: TextStyle(
                   color: Colors.white.withValues(alpha: 0.7), fontSize: 12)),
         ],
@@ -973,7 +974,7 @@ class _HeroSection extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Chấm công hôm nay',
+          Text(tr('Chấm công hôm nay'),
               style: TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.bold,
@@ -1007,13 +1008,13 @@ class _HeroSection extends StatelessWidget {
                         size: 14, color: Colors.white)),
                 const SizedBox(width: 10),
                 Expanded(
-                    child: Text(e.$1,
+                    child: Text(tr(e.$1),
                         style: const TextStyle(
                             color: Colors.white, fontSize: 13))),
                 Row(children: [
                   Icon(e.$3, size: 11, color: Colors.white54),
                   const SizedBox(width: 3),
-                  Text(e.$2,
+                  Text(tr(e.$2),
                       style:
                           const TextStyle(color: Colors.white54, fontSize: 11)),
                 ]),
@@ -1027,7 +1028,7 @@ class _HeroSection extends StatelessWidget {
                         : Colors.orange.withValues(alpha: 0.3),
                     borderRadius: BorderRadius.circular(6),
                   ),
-                  child: Text(e.$4,
+                  child: Text(tr(e.$4),
                       style: TextStyle(
                           color: e.$5
                               ? const Color(0xFF86EFAC)
@@ -1044,14 +1045,14 @@ class _HeroSection extends StatelessWidget {
             decoration: BoxDecoration(
                 color: Colors.white.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(10)),
-            child: const Row(children: [
+            child: Row(children: [
               Icon(Icons.trending_up_rounded,
                   color: Color(0xFF93C5FD), size: 20),
               SizedBox(width: 12),
               Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text('Hiệu quả công việc',
+                Text(tr('Hiệu quả công việc'),
                     style: TextStyle(color: Colors.white60, fontSize: 11)),
-                Text('TĂNG 100%',
+                Text(tr('TĂNG 100%'),
                     style: TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.w800,
@@ -1239,13 +1240,13 @@ class _FeaturesSection extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Text(f.title,
+                      Text(tr(f.title),
                           style: const TextStyle(
                               fontWeight: FontWeight.w700,
                               fontSize: 14,
                               color: Color(0xFF111827))),
                       const SizedBox(height: 4),
-                      Text(f.desc,
+                      Text(tr(f.desc),
                           style: const TextStyle(
                               color: Color(0xFF6B7280),
                               fontSize: 12,
@@ -1302,13 +1303,13 @@ class _FeaturesSection extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Text(f.$3,
+                    Text(tr(f.$3),
                         style: const TextStyle(
                             fontWeight: FontWeight.w700,
                             fontSize: 14,
                             color: Color(0xFF111827))),
                     const SizedBox(height: 4),
-                    Text(f.$4,
+                    Text(tr(f.$4),
                         style: const TextStyle(
                             color: Color(0xFF6B7280),
                             fontSize: 12,
@@ -1363,7 +1364,7 @@ class _PricingSection extends StatelessWidget {
           const SizedBox(height: 48),
           isMobile ? _buildMobileCards(context) : _buildDesktopCards(context),
           const SizedBox(height: 24),
-          Text('* Giá chưa bao gồm VAT. Liên hệ để được tư vấn gói phù hợp.',
+          Text(tr('* Giá chưa bao gồm VAT. Liên hệ để được tư vấn gói phù hợp.'),
               style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
         ],
       ),
@@ -1576,7 +1577,7 @@ class _PricingCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(children: [
-                  Text(plan.name,
+                  Text(tr(plan.name),
                       style: TextStyle(
                           fontWeight: FontWeight.w800,
                           fontSize: 16,
@@ -1594,7 +1595,7 @@ class _PricingCard extends StatelessWidget {
                             : color.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(100),
                       ),
-                      child: Text(plan.tag,
+                      child: Text(tr(plan.tag),
                           style: TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.bold,
@@ -1603,7 +1604,7 @@ class _PricingCard extends StatelessWidget {
                   ],
                 ]),
                 const SizedBox(height: 6),
-                Text(plan.desc,
+                Text(tr(plan.desc),
                     style: TextStyle(
                         fontSize: 12,
                         color: plan.highlight
@@ -1613,7 +1614,7 @@ class _PricingCard extends StatelessWidget {
                 RichText(
                     text: TextSpan(children: [
                   TextSpan(
-                      text: plan.price,
+                      text: tr(plan.price),
                       style: TextStyle(
                           fontSize: 28,
                           fontWeight: FontWeight.w900,
@@ -1621,7 +1622,7 @@ class _PricingCard extends StatelessWidget {
                               ? Colors.white
                               : const Color(0xFF111827))),
                   TextSpan(
-                      text: ' ${plan.unit}',
+                      text: tr(' ${plan.unit}'),
                       style: TextStyle(
                           fontSize: 13,
                           color: plan.highlight
@@ -1650,7 +1651,7 @@ class _PricingCard extends StatelessWidget {
                             color: plan.highlight ? Colors.white : color),
                         const SizedBox(width: 10),
                         Expanded(
-                            child: Text(f,
+                            child: Text(tr(f),
                                 style: TextStyle(
                                     fontSize: 13,
                                     color: plan.highlight
@@ -1676,11 +1677,11 @@ class _PricingCard extends StatelessWidget {
                       elevation: 0,
                     ),
                     child: Text(
-                      plan.price == '0'
+                      tr(plan.price == '0'
                           ? 'Dùng miễn phí'
                           : (plan.contactOnly
                               ? 'Liên hệ ngay'
-                              : 'Đăng ký ngay'),
+                              : 'Đăng ký ngay')),
                       style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
                   ),
@@ -1938,7 +1939,7 @@ class _VideoCardState extends State<_VideoCard> {
                         color: Colors.black.withValues(alpha: 0.70),
                         borderRadius: BorderRadius.circular(6),
                       ),
-                      child: Text(widget.duration,
+                      child: Text(tr(widget.duration),
                           style: const TextStyle(
                               color: Colors.white,
                               fontSize: 11,
@@ -1963,7 +1964,7 @@ class _VideoCardState extends State<_VideoCard> {
                             const SizedBox(width: 6),
                             Expanded(
                               child: Text(
-                                widget.title,
+                                tr(widget.title),
                                 style: const TextStyle(
                                     fontWeight: FontWeight.w800,
                                     fontSize: 15,
@@ -1974,7 +1975,7 @@ class _VideoCardState extends State<_VideoCard> {
                           const SizedBox(height: 4),
                           // Subtitle
                           Text(
-                            widget.subtitle,
+                            tr(widget.subtitle),
                             style: TextStyle(
                                 fontSize: 12,
                                 color: Colors.white.withValues(alpha: 0.82)),
@@ -1995,7 +1996,7 @@ class _VideoCardState extends State<_VideoCard> {
                               const Icon(Icons.play_arrow_rounded,
                                   color: Colors.white, size: 14),
                               const SizedBox(width: 4),
-                              Text(widget.badge,
+                              Text(tr(widget.badge),
                                   style: const TextStyle(
                                       color: Colors.white,
                                       fontWeight: FontWeight.bold,
@@ -2073,7 +2074,7 @@ class _LandingVideoPlayerDialog extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          title,
+                          tr(title),
                           style: const TextStyle(
                               color: Colors.white,
                               fontSize: 18,
@@ -2081,7 +2082,7 @@ class _LandingVideoPlayerDialog extends StatelessWidget {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          subtitle,
+                          tr(subtitle),
                           style: const TextStyle(
                               color: Color(0xFFCBD5E1),
                               fontSize: 13,
@@ -2119,7 +2120,7 @@ class _LandingVideoPlayerDialog extends StatelessWidget {
                           horizontal: 16, vertical: 12),
                     ),
                     icon: const Icon(Icons.open_in_new_rounded, size: 18),
-                    label: const Text('Xem trên YouTube'),
+                    label: Text(tr('Xem trên YouTube')),
                   ),
                   OutlinedButton.icon(
                     onPressed: () => Navigator.of(context).pop(),
@@ -2130,13 +2131,12 @@ class _LandingVideoPlayerDialog extends StatelessWidget {
                           horizontal: 16, vertical: 12),
                     ),
                     icon: const Icon(Icons.fullscreen_exit_rounded, size: 18),
-                    label: const Text('Thu nhỏ / Đóng'),
+                    label: Text(tr('Thu nhỏ / Đóng')),
                   ),
                 ],
               ),
               const SizedBox(height: 10),
-              const Text(
-                'Bạn có thể dùng nút fullscreen ngay trong trình phát để phóng to toàn màn hình.',
+              Text(tr('Bạn có thể dùng nút fullscreen ngay trong trình phát để phóng to toàn màn hình.'),
                 style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12),
               ),
             ],
@@ -2208,22 +2208,21 @@ class _ContactSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('LIÊN HỆ & HỖ TRỢ',
+        Text(tr('LIÊN HỆ & HỖ TRỢ'),
             style: TextStyle(
                 color: Colors.white70,
                 fontSize: 12,
                 fontWeight: FontWeight.w700,
                 letterSpacing: 1.5)),
         const SizedBox(height: 12),
-        const Text('Sẵn sàng nâng cấp\nquản lý nhân sự?',
+        Text(tr('Sẵn sàng nâng cấp\nquản lý nhân sự?'),
             style: TextStyle(
                 color: Colors.white,
                 fontSize: 28,
                 fontWeight: FontWeight.w900,
                 height: 1.2)),
         const SizedBox(height: 16),
-        Text(
-            'Đội ngũ tư vấn sẵn sàng hỗ trợ bạn chọn gói phù hợp, cài đặt thiết bị và đào tạo sử dụng — tất cả trong vòng 24 giờ làm việc.',
+        Text(tr('Đội ngũ tư vấn sẵn sàng hỗ trợ bạn chọn gói phù hợp, cài đặt thiết bị và đào tạo sử dụng — tất cả trong vòng 24 giờ làm việc.'),
             style: TextStyle(
                 color: Colors.white.withValues(alpha: 0.85),
                 fontSize: 15,
@@ -2268,7 +2267,7 @@ class _ContactSection extends StatelessWidget {
     return FilledButton.icon(
       onPressed: onTap,
       icon: Icon(icon, size: 16),
-      label: Text(label,
+      label: Text(tr(label),
           style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
       style: ElevatedButton.styleFrom(
         backgroundColor: Colors.white,
@@ -2294,10 +2293,10 @@ class _ContactSection extends StatelessWidget {
       Expanded(
           child:
               Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(label,
+        Text(tr(label),
             style:
                 TextStyle(color: Colors.white.withValues(alpha: 0.65), fontSize: 11)),
-        Text(value,
+        Text(tr(value),
             style: const TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.w600,
@@ -2372,7 +2371,7 @@ class _RegisterFormState extends State<_RegisterForm> {
                 ? (result['errors'] as List).join(', ')
                 : 'Không thể gửi yêu cầu tư vấn');
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(msg)),
+          SnackBar(content: Text(tr(msg))),
         );
         setState(() => _isSubmitting = false);
         return;
@@ -2449,14 +2448,13 @@ class _RegisterFormState extends State<_RegisterForm> {
               color: Color(0xFF0C56D0), size: 48),
         ),
         const SizedBox(height: 20),
-        const Text('Yêu cầu đã được gửi!',
+        Text(tr('Yêu cầu đã được gửi!'),
             style: TextStyle(
                 fontWeight: FontWeight.w800,
                 fontSize: 20,
                 color: Color(0xFF111827))),
         const SizedBox(height: 8),
-        const Text(
-            'Yêu cầu đã được lưu vào hệ thống. Zalo hoặc email hỗ trợ sẽ được mở để tư vấn viên hỗ trợ bạn ngay.',
+        Text(tr('Yêu cầu đã được lưu vào hệ thống. Zalo hoặc email hỗ trợ sẽ được mở để tư vấn viên hỗ trợ bạn ngay.'),
             textAlign: TextAlign.center,
             style: TextStyle(color: Color(0xFF6B7280), height: 1.5)),
       ],
@@ -2470,14 +2468,13 @@ class _RegisterFormState extends State<_RegisterForm> {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Text('Đăng ký tư vấn miễn phí',
+          Text(tr('Đăng ký tư vấn miễn phí'),
               style: TextStyle(
                   fontWeight: FontWeight.w800,
                   fontSize: 18,
                   color: Color(0xFF111827))),
           const SizedBox(height: 4),
-          const Text(
-              'Điền thông tin bên dưới — Zalo tư vấn viên sẽ được mở tự động',
+          Text(tr('Điền thông tin bên dưới — Zalo tư vấn viên sẽ được mở tự động'),
               style: TextStyle(color: Color(0xFF6B7280), fontSize: 13)),
           const SizedBox(height: 20),
           _field(_nameCtrl, 'Họ và tên', Icons.person_outline,
@@ -2496,7 +2493,7 @@ class _RegisterFormState extends State<_RegisterForm> {
           DropdownButtonFormField<String>(
             initialValue: _selectedPlan,
             decoration: InputDecoration(
-              labelText: 'Gói quan tâm',
+              labelText: tr('Gói quan tâm'),
               prefixIcon: const Icon(Icons.inventory_2_outlined, size: 18),
               border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
@@ -2510,7 +2507,7 @@ class _RegisterFormState extends State<_RegisterForm> {
                   const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
             ),
             items: plans
-                .map((p) => DropdownMenuItem(value: p, child: Text(p)))
+                .map((p) => DropdownMenuItem(value: p, child: Text(tr(p))))
                 .toList(),
             onChanged: (v) => setState(() => _selectedPlan = v!),
           ),
@@ -2533,7 +2530,7 @@ class _RegisterFormState extends State<_RegisterForm> {
                       width: 18,
                       child: CircularProgressIndicator(
                           strokeWidth: 2, color: Colors.white))
-                  : const Text('Nhắn Zalo tư vấn ngay',
+                  : Text(tr('Nhắn Zalo tư vấn ngay'),
                       style:
                           TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
             ),
@@ -2550,7 +2547,7 @@ class _RegisterFormState extends State<_RegisterForm> {
       keyboardType: keyboardType,
       validator: validator,
       decoration: InputDecoration(
-        labelText: label,
+        labelText: tr(label),
         prefixIcon: Icon(icon, size: 18),
         border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(10),
@@ -2607,14 +2604,14 @@ class _Footer extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('© 2024–2026 SBOX HRM. Bảo lưu mọi quyền.',
+              Text(tr('© 2024–2026 SBOX HRM. Bảo lưu mọi quyền.'),
                   style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
               Row(children: [
-                Text('Privacy',
+                Text(tr('Privacy'),
                     style:
                         TextStyle(color: Colors.grey.shade600, fontSize: 12)),
                 const SizedBox(width: 16),
-                Text('Terms',
+                Text(tr('Terms'),
                     style:
                         TextStyle(color: Colors.grey.shade600, fontSize: 12)),
               ]),
@@ -2677,20 +2674,20 @@ class _Footer extends StatelessWidget {
         Image.asset('assets/logo.png',
             height: 42, filterQuality: FilterQuality.high),
         const SizedBox(width: 10),
-        const Text('SBOX',
+        Text(tr('SBOX'),
             style: TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.w900,
                 fontSize: 18,
                 letterSpacing: 0.5)),
-        const Text(' HRM',
+        Text(tr(' HRM'),
             style: TextStyle(
                 color: Colors.white70,
                 fontWeight: FontWeight.bold,
                 fontSize: 18)),
       ]),
       const SizedBox(height: 12),
-      Text('Phần mềm quản lý nhân sự\nthế hệ mới cho doanh nghiệp Việt Nam.',
+      Text(tr('Phần mềm quản lý nhân sự\nthế hệ mới cho doanh nghiệp Việt Nam.'),
           style: TextStyle(
               color: Colors.grey.shade500, fontSize: 13, height: 1.6)),
     ]);
@@ -2700,7 +2697,7 @@ class _Footer extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(title,
+        Text(tr(title),
             style: const TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.w700,
@@ -2711,11 +2708,11 @@ class _Footer extends StatelessWidget {
               child: item.onTap != null
                   ? InkWell(
                       onTap: item.onTap,
-                      child: Text(item.label,
+                      child: Text(tr(item.label),
                           style: TextStyle(
                               color: Colors.grey.shade400, fontSize: 13)),
                     )
-                  : Text(item.label,
+                  : Text(tr(item.label),
                       style:
                           TextStyle(color: Colors.grey.shade500, fontSize: 13)),
             )),
@@ -2738,7 +2735,7 @@ class _SectionBadge extends StatelessWidget {
         color: dark ? Colors.white.withValues(alpha: 0.10) : const Color(0xFFEBF2FF),
         borderRadius: BorderRadius.circular(100),
       ),
-      child: Text(label,
+      child: Text(tr(label),
           style: TextStyle(
               color: dark ? Colors.white70 : const Color(0xFF0C56D0),
               fontSize: 12,
@@ -2755,7 +2752,7 @@ class _SectionTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Text(text,
+    return Text(tr(text),
         textAlign: TextAlign.center,
         style: TextStyle(
             fontSize: 28,
@@ -2772,7 +2769,7 @@ class _SectionSubtext extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Text(text,
+    return Text(tr(text),
         textAlign: TextAlign.center,
         style: TextStyle(
             color: dark ? Colors.white54 : const Color(0xFF6B7280),
@@ -2871,7 +2868,7 @@ class _DevicesSection extends StatelessWidget {
           OutlinedButton.icon(
             onPressed: onContact,
             icon: const Icon(Icons.support_agent_rounded, size: 18),
-            label: const Text('Tư vấn chọn thiết bị phù hợp'),
+            label: Text(tr('Tư vấn chọn thiết bị phù hợp')),
             style: OutlinedButton.styleFrom(
               foregroundColor: const Color(0xFF0C56D0),
               side: const BorderSide(color: Color(0xFF0C56D0)),
@@ -3039,7 +3036,7 @@ class _ProductCardState extends State<_ProductCard> {
                         color: const Color(0xFFEBF2FF),
                         borderRadius: BorderRadius.circular(6),
                       ),
-                      child: Text(p.brand,
+                      child: Text(tr(p.brand),
                           style: const TextStyle(
                               color: Color(0xFF0C56D0),
                               fontSize: 10,
@@ -3047,13 +3044,13 @@ class _ProductCardState extends State<_ProductCard> {
                               letterSpacing: 0.5)),
                     ),
                     const SizedBox(height: 6),
-                    Text(p.name,
+                    Text(tr(p.name),
                         style: const TextStyle(
                             fontWeight: FontWeight.w800,
                             fontSize: 13,
                             color: Color(0xFF111827))),
                     const SizedBox(height: 2),
-                    Text(p.sub,
+                    Text(tr(p.sub),
                         style: const TextStyle(
                             fontSize: 11, color: Color(0xFF6B7280))),
                     const SizedBox(height: 8),
@@ -3061,7 +3058,7 @@ class _ProductCardState extends State<_ProductCard> {
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        Text(p.price,
+                        Text(tr(p.price),
                             style: const TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w900,
@@ -3074,7 +3071,7 @@ class _ProductCardState extends State<_ProductCard> {
                             decoration: BoxDecoration(
                                 color: const Color(0xFFDCFCE7),
                                 borderRadius: BorderRadius.circular(4)),
-                            child: Text(p.badge,
+                            child: Text(tr(p.badge),
                                 style: const TextStyle(
                                     fontSize: 9,
                                     fontWeight: FontWeight.bold,
@@ -3084,13 +3081,13 @@ class _ProductCardState extends State<_ProductCard> {
                       ],
                     ),
                     if (p.oldPrice.isNotEmpty)
-                      Text(p.oldPrice,
+                      Text(tr(p.oldPrice),
                           style: const TextStyle(
                               fontSize: 11,
                               decoration: TextDecoration.lineThrough,
                               color: Color(0xFF9CA3AF))),
                     const SizedBox(height: 6),
-                    Text(p.specs,
+                    Text(tr(p.specs),
                         style: const TextStyle(
                             fontSize: 10,
                             color: Color(0xFF6B7280),
@@ -3099,7 +3096,7 @@ class _ProductCardState extends State<_ProductCard> {
                     Row(
                       children: [
                         const Spacer(),
-                        Text('Xem chi tiết',
+                        Text(tr('Xem chi tiết'),
                             style: TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w600,
@@ -3202,7 +3199,7 @@ class _ProductDetailDialogState extends State<_ProductDetailDialog> {
                       decoration: BoxDecoration(
                           color: const Color(0xFFEBF2FF),
                           borderRadius: BorderRadius.circular(6)),
-                      child: Text(p.brand,
+                      child: Text(tr(p.brand),
                           style: const TextStyle(
                               color: Color(0xFF0C56D0),
                               fontSize: 11,
@@ -3210,20 +3207,20 @@ class _ProductDetailDialogState extends State<_ProductDetailDialog> {
                               letterSpacing: 0.5)),
                     ),
                     const SizedBox(height: 10),
-                    Text(p.name,
+                    Text(tr(p.name),
                         style: const TextStyle(
                             fontWeight: FontWeight.w900,
                             fontSize: 20,
                             color: Color(0xFF111827))),
                     const SizedBox(height: 4),
-                    Text(p.sub,
+                    Text(tr(p.sub),
                         style: const TextStyle(
                             fontSize: 14, color: Color(0xFF6B7280))),
                     const SizedBox(height: 16),
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        Text(p.price,
+                        Text(tr(p.price),
                             style: const TextStyle(
                                 fontSize: 22,
                                 fontWeight: FontWeight.w900,
@@ -3236,7 +3233,7 @@ class _ProductDetailDialogState extends State<_ProductDetailDialog> {
                             decoration: BoxDecoration(
                                 color: const Color(0xFFDCFCE7),
                                 borderRadius: BorderRadius.circular(6)),
-                            child: Text(p.badge,
+                            child: Text(tr(p.badge),
                                 style: const TextStyle(
                                     fontSize: 11,
                                     fontWeight: FontWeight.bold,
@@ -3247,7 +3244,7 @@ class _ProductDetailDialogState extends State<_ProductDetailDialog> {
                     ),
                     if (p.oldPrice.isNotEmpty) ...[
                       const SizedBox(height: 4),
-                      Text(p.oldPrice,
+                      Text(tr(p.oldPrice),
                           style: const TextStyle(
                               fontSize: 13,
                               decoration: TextDecoration.lineThrough,
@@ -3256,7 +3253,7 @@ class _ProductDetailDialogState extends State<_ProductDetailDialog> {
                     const SizedBox(height: 16),
                     // Specs section: rich if available, else plain text summary
                     if (_specsDetailText.isNotEmpty) ...[
-                      const Text('Thông số kỹ thuật',
+                      Text(tr('Thông số kỹ thuật'),
                           style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w600,
@@ -3271,7 +3268,7 @@ class _ProductDetailDialogState extends State<_ProductDetailDialog> {
                             borderRadius: BorderRadius.circular(10)),
                         child: SingleChildScrollView(
                           child: SelectableText(
-                            _specsDetailText,
+                            tr(_specsDetailText),
                             style: const TextStyle(
                                 fontSize: 13,
                                 color: Color(0xFF374151),
@@ -3280,7 +3277,7 @@ class _ProductDetailDialogState extends State<_ProductDetailDialog> {
                         ),
                       ),
                     ] else if (_quillCtrl != null) ...[
-                      const Text('Thông số kỹ thuật',
+                      Text(tr('Thông số kỹ thuật'),
                           style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w600,
@@ -3318,7 +3315,7 @@ class _ProductDetailDialogState extends State<_ProductDetailDialog> {
                                 size: 16, color: Color(0xFF0C56D0)),
                             const SizedBox(width: 8),
                             Expanded(
-                                child: Text(p.specs,
+                                child: Text(tr(p.specs),
                                     style: const TextStyle(
                                         fontSize: 13,
                                         color: Color(0xFF374151),
@@ -3340,7 +3337,7 @@ class _ProductDetailDialogState extends State<_ProductDetailDialog> {
                               shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(10)),
                             ),
-                            child: const Text('Đóng'),
+                            child: Text(tr('Đóng')),
                           ),
                         ),
                         if (p.link.isNotEmpty) ...[
@@ -3363,7 +3360,7 @@ class _ProductDetailDialogState extends State<_ProductDetailDialog> {
                                 shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(10)),
                               ),
-                              child: const Text('Mua ngay'),
+                              child: Text(tr('Mua ngay')),
                             ),
                           ),
                         ],
@@ -3443,8 +3440,7 @@ class _DownloadSection extends StatelessWidget {
           const SizedBox(height: 16),
           const _SectionTitle('Tải driver, APK và công cụ hỗ trợ', dark: true),
           const SizedBox(height: 12),
-          Text(
-            'SuperAdmin có thể cấu hình trực tiếp danh sách driver, APK và các gói cài đặt bổ sung hiển thị trên landing page.',
+          Text(tr('SuperAdmin có thể cấu hình trực tiếp danh sách driver, APK và các gói cài đặt bổ sung hiển thị trên landing page.'),
             textAlign: TextAlign.center,
             style: TextStyle(
                 color: Colors.white.withValues(alpha: 0.85),
@@ -3544,14 +3540,14 @@ class _DownloadBadgeState extends State<_DownloadBadge> {
             children: [
               Icon(_iconForPlatform(d.platform), color: Colors.white, size: 32),
               const SizedBox(height: 10),
-              Text(d.title,
+              Text(tr(d.title),
                   textAlign: TextAlign.center,
                   style: const TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.w800,
                       fontSize: 13)),
               const SizedBox(height: 4),
-              Text(d.desc,
+              Text(tr(d.desc),
                   textAlign: TextAlign.center,
                   style: TextStyle(
                       color: Colors.white.withValues(alpha: 0.78),
@@ -3564,9 +3560,9 @@ class _DownloadBadgeState extends State<_DownloadBadge> {
                     color: Colors.white.withValues(alpha: 0.14),
                     borderRadius: BorderRadius.circular(20)),
                 child: Text(
-                  d.badge.isNotEmpty
+                  tr(d.badge.isNotEmpty
                       ? '${d.badge}${d.version.isNotEmpty ? ' • ${d.version}' : ''}'
-                      : (d.version.isNotEmpty ? d.version : d.platform),
+                      : (d.version.isNotEmpty ? d.version : d.platform)),
                   style: const TextStyle(
                       color: Colors.white,
                       fontSize: 10,
@@ -3574,12 +3570,12 @@ class _DownloadBadgeState extends State<_DownloadBadge> {
                 ),
               ),
               const SizedBox(height: 10),
-              const Row(
+              Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(Icons.download_rounded, size: 15, color: Colors.white),
                   SizedBox(width: 6),
-                  Text('Tải xuống',
+                  Text(tr('Tải xuống'),
                       style: TextStyle(
                           color: Colors.white,
                           fontSize: 11,

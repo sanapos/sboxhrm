@@ -35,6 +35,7 @@ import '../../utils/travel_eligibility_utils.dart';
 import '../../utils/mobile_attendance_vertical_layout.dart';
 import '../../widgets/synced_scroll_list_view.dart'
     show SyncedScrollListView, linkHorizontalScrollControllers;
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 class AttendanceByShiftTab extends StatefulWidget {
   final List<Attendance> attendances;
@@ -204,6 +205,8 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
         return r.overtimeMinutes > 0;
       case 'missing':
         return r.status.contains('Thiếu chấm') ||
+            r.status == 'Vắng' ||
+            r.punchTimes.isEmpty ||
             r.punchTimes.length % 2 != 0;
       case 'complete':
         return !r.status.contains('Thiếu chấm') &&
@@ -247,6 +250,8 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
         widget.shiftTemplates.length,
         widget.salaryProfiles.length,
         widget.holidays.length,
+        widget.employeesList?.length,
+        widget.approvedLeaves.length,
       );
 
   @override
@@ -508,11 +513,18 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
   }
 
   bool _statusHasMissingPunch(String status) =>
-      status.contains('Thiếu chấm') || status.contains('Thiếu ra');
+      status.contains('Thiếu chấm') ||
+      status.contains('Thiếu ra') ||
+      status == 'Vắng';
 
   void _onMissingStatusTap(_DailyShiftRecord record) {
     if (!widget.allowCorrection) return;
     if (!_statusHasMissingPunch(record.status)) return;
+
+    if (record.status == 'Vắng' || record.punchTimes.isEmpty) {
+      _showManualPunchDialog(record, isIn: true);
+      return;
+    }
 
     if (record.missingPunchHints.isEmpty) {
       _showManualPunchDialog(record);
@@ -538,11 +550,11 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
     showDialog(
       context: context,
       builder: (ctx) => ScrollableAlertDialog(
-        title: const Row(
+        title: Row(
           children: [
             Icon(Icons.playlist_add, color: Colors.orange),
             SizedBox(width: 8),
-            Expanded(child: Text('Bổ sung chấm công thiếu')),
+            Expanded(child: Text(tr('Bổ sung chấm công thiếu'))),
           ],
         ),
         content: SingleChildScrollView(
@@ -551,18 +563,17 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                '${record.employeeName} · ${DateFormat('dd/MM/yyyy').format(record.date)}',
+                tr('${record.employeeName} · ${DateFormat('dd/MM/yyyy').format(record.date)}'),
                 style: const TextStyle(
                     fontWeight: FontWeight.w600, fontSize: 13),
               ),
               const SizedBox(height: 4),
               Text(
-                record.status,
+                tr(record.status),
                 style: TextStyle(fontSize: 12, color: Colors.orange.shade800),
               ),
               const SizedBox(height: 16),
-              const Text(
-                'Chọn gợi ý để thêm nhanh:',
+              Text(tr('Chọn gợi ý để thêm nhanh:'),
                 style: TextStyle(fontWeight: FontWeight.w500),
               ),
               const SizedBox(height: 10),
@@ -592,7 +603,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                     ),
                     label: Align(
                       alignment: Alignment.centerLeft,
-                      child: Text(label),
+                      child: Text(tr(label)),
                     ),
                     style: OutlinedButton.styleFrom(
                       alignment: Alignment.centerLeft,
@@ -608,14 +619,14 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Đóng'),
+            child: Text(tr('Đóng')),
           ),
           TextButton(
             onPressed: () {
               Navigator.pop(ctx);
               _showManualPunchDialog(record);
             },
-            child: const Text('Tùy chỉnh khác'),
+            child: Text(tr('Tùy chỉnh khác')),
           ),
         ],
       ),
@@ -674,7 +685,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
         dayEndMinute: widget.dayEndMinute,
       );
 
-  /// Get unique employees from all attendances
+  /// Unique employees: punches + HR roster (để hiện NV chưa chấm).
   List<_EmployeeOption> get _allEmployees {
     final Map<String, _EmployeeOption> map = {};
     for (final att in widget.attendances) {
@@ -688,6 +699,24 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                   ? att.deviceUserName!
                   : '-'),
           code: att.employeeId ?? att.enrollNumber ?? '-',
+        );
+      }
+    }
+    final roster = widget.employeesList;
+    if (roster != null) {
+      for (final emp in roster) {
+        final code = emp['employeeCode']?.toString() ?? '';
+        final pin = emp['pin']?.toString() ?? '';
+        final id = code.isNotEmpty ? code : (pin.isNotEmpty ? pin : '');
+        if (id.isEmpty || map.containsKey(id)) continue;
+        final name = emp['fullName']?.toString() ??
+            emp['name']?.toString() ??
+            emp['employeeName']?.toString() ??
+            '-';
+        map[id] = _EmployeeOption(
+          id: id,
+          name: name,
+          code: code.isNotEmpty ? code : id,
         );
       }
     }
@@ -771,6 +800,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
         )
         .toList();
 
+    _appendUnpaidAbsentShiftPlaceholders(records);
 
     // Sort by employee name, then date
     records.sort((a, b) {
@@ -786,6 +816,109 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
     _cachedShiftData = result;
     _cachedShiftFp = fp;
     return result;
+  }
+
+  void _appendUnpaidAbsentShiftPlaceholders(List<_DailyShiftRecord> records) {
+    final roster = widget.employeesList;
+    if (roster == null || roster.isEmpty) return;
+
+    final existing = <String>{};
+    for (final r in records) {
+      final dk = DateFormat('yyyy-MM-dd').format(r.date);
+      existing.add('${r.employeeId}|$dk');
+      if (r.employeeCode.isNotEmpty) existing.add('${r.employeeCode}|$dk');
+    }
+
+    final leaveCtx = _verticalShiftLeaveContext();
+    final dates = attendanceDaysInRange(_selectedDateRange);
+
+    for (final emp in roster) {
+      final code = emp['employeeCode']?.toString() ?? '';
+      final pin = emp['pin']?.toString() ?? '';
+      final empId = code.isNotEmpty ? code : pin;
+      if (empId.isEmpty) continue;
+
+      if (_selectedEmployeeIds.isNotEmpty &&
+          !_selectedEmployeeIds.contains(empId) &&
+          !_selectedEmployeeIds.contains(code) &&
+          !_selectedEmployeeIds.contains(pin)) {
+        continue;
+      }
+
+      final name = emp['fullName']?.toString() ??
+          emp['name']?.toString() ??
+          emp['employeeName']?.toString() ??
+          '-';
+      final hrCode = code.isNotEmpty ? code : empId;
+
+      for (final date in dates) {
+        final dateKey = DateFormat('yyyy-MM-dd').format(date);
+        if (existing.contains('$empId|$dateKey') ||
+            (code.isNotEmpty && existing.contains('$code|$dateKey')) ||
+            (pin.isNotEmpty && existing.contains('$pin|$dateKey'))) {
+          continue;
+        }
+
+        final kind = leaveCtx.leaveLookup.classify(
+          day: date,
+          employeeCode: hrCode,
+          employeeUserId: leaveCtx.empUserIdMap[hrCode] ??
+              leaveCtx.empUserIdMap[empId],
+          hrEmployeeId:
+              leaveCtx.hrEmpIdMap[hrCode] ?? leaveCtx.hrEmpIdMap[empId],
+          displayEmployeeId: empId,
+          isHoliday: _getHolidayRate(date, hrCode) != null ||
+              _getHolidayRate(date, empId) != null,
+          isWeeklyOff: _isWeeklyOffDay(date, hrCode) ||
+              _isWeeklyOffDay(date, empId),
+        );
+        if (kind != AbsenceCellKind.unpaidAbsent) continue;
+
+        records.add(_DailyShiftRecord(
+          employeeId: empId,
+          employeeName: name,
+          employeeCode: hrCode,
+          date: date,
+          dayOfWeek: _getDayOfWeekVN(date.weekday),
+          punchTimes: const [],
+          displayPunchTimes: const [],
+          lateMinutes: 0,
+          earlyMinutes: 0,
+          overtimeMinutes: 0,
+          workHours: 0,
+          decimalHours: 0,
+          status: 'Vắng',
+          statusColor: const Color(0xFFEF4444),
+          workCount: 0,
+        ));
+        existing.add('$empId|$dateKey');
+      }
+    }
+  }
+
+  _DailyShiftRecord _placeholderShiftForAbsent({
+    required String empId,
+    required String empName,
+    required String empCode,
+    required DateTime date,
+  }) {
+    return _DailyShiftRecord(
+      employeeId: empId,
+      employeeName: empName,
+      employeeCode: empCode,
+      date: date,
+      dayOfWeek: _getDayOfWeekVN(date.weekday),
+      punchTimes: const [],
+      displayPunchTimes: const [],
+      lateMinutes: 0,
+      earlyMinutes: 0,
+      overtimeMinutes: 0,
+      workHours: 0,
+      decimalHours: 0,
+      status: 'Vắng',
+      statusColor: const Color(0xFFEF4444),
+      workCount: 0,
+    );
   }
 
   String _getDayOfWeekVN(int weekday) {
@@ -848,7 +981,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                   Icon(Icons.analytics_outlined,
                       size: 16, color: Colors.blue.shade700),
                   const SizedBox(width: 6),
-                  Text('Tổng quan',
+                  Text(tr('Tổng quan'),
                       style: TextStyle(
                           fontWeight: FontWeight.w600,
                           fontSize: 13,
@@ -935,13 +1068,13 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
 
     final datePreset = _buildDropdown<String>(
       value: _selectedPreset,
-      items: const [
-        DropdownMenuItem(value: 'today', child: Text('Hôm nay')),
-        DropdownMenuItem(value: 'yesterday', child: Text('Hôm qua')),
-        DropdownMenuItem(value: 'week', child: Text('Tuần này')),
-        DropdownMenuItem(value: 'lastWeek', child: Text('Tuần trước')),
-        DropdownMenuItem(value: 'month', child: Text('Tháng này')),
-        DropdownMenuItem(value: 'lastMonth', child: Text('Tháng trước')),
+      items: [
+        DropdownMenuItem(value: 'today', child: Text(tr('Hôm nay'))),
+        DropdownMenuItem(value: 'yesterday', child: Text(tr('Hôm qua'))),
+        DropdownMenuItem(value: 'week', child: Text(tr('Tuần này'))),
+        DropdownMenuItem(value: 'lastWeek', child: Text(tr('Tuần trước'))),
+        DropdownMenuItem(value: 'month', child: Text(tr('Tháng này'))),
+        DropdownMenuItem(value: 'lastMonth', child: Text(tr('Tháng trước'))),
       ],
       onChanged: (v) {
         if (v != null) {
@@ -962,16 +1095,16 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
 
     final shiftFilter = _buildDropdown<String>(
       value: _shiftFilter,
-      items: const [
-        DropdownMenuItem(value: 'all', child: Text('Tất cả trạng thái')),
-        DropdownMenuItem(value: 'valid', child: Text('Hợp lệ')),
-        DropdownMenuItem(value: 'late', child: Text('Đi trễ')),
-        DropdownMenuItem(value: 'early', child: Text('Về sớm')),
+      items: [
+        DropdownMenuItem(value: 'all', child: Text(tr('Tất cả trạng thái'))),
+        DropdownMenuItem(value: 'valid', child: Text(tr('Hợp lệ'))),
+        DropdownMenuItem(value: 'late', child: Text(tr('Đi trễ'))),
+        DropdownMenuItem(value: 'early', child: Text(tr('Về sớm'))),
         DropdownMenuItem(
-            value: 'late_early', child: Text('Đi trễ & Về sớm')),
-        DropdownMenuItem(value: 'ot', child: Text('Tăng ca')),
-        DropdownMenuItem(value: 'missing', child: Text('Thiếu chấm')),
-        DropdownMenuItem(value: 'complete', child: Text('Đủ chấm công')),
+            value: 'late_early', child: Text(tr('Đi trễ & Về sớm'))),
+        DropdownMenuItem(value: 'ot', child: Text(tr('Tăng ca'))),
+        DropdownMenuItem(value: 'missing', child: Text(tr('Thiếu chấm'))),
+        DropdownMenuItem(value: 'complete', child: Text(tr('Đủ chấm công'))),
       ],
       onChanged: (v) {
         if (v != null) {
@@ -997,8 +1130,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
           Icon(Icons.calendar_view_day,
               color: Theme.of(context).primaryColor, size: 16),
           const SizedBox(width: 6),
-          Text(
-            'Theo ca · ${_shiftData.length} bản ghi',
+          Text(tr('Theo ca · ${_shiftData.length} bản ghi'),
             style: TextStyle(
               color: Theme.of(context).primaryColor,
               fontSize: 12,
@@ -1156,7 +1288,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
           const SizedBox(width: 6),
           Flexible(
             child: Text(
-              '${fmt.format(range.start)} \u2013 ${fmt.format(range.end)}',
+              tr('${fmt.format(range.start)} \u2013 ${fmt.format(range.end)}'),
               style: const TextStyle(fontSize: 12),
               overflow: TextOverflow.ellipsis,
             ),
@@ -1197,9 +1329,9 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
             const SizedBox(width: 6),
             Flexible(
               child: Text(
-                selectedCount == 0
+                tr(selectedCount == 0
                     ? 'Tất cả nhân viên (${employees.length})'
-                    : '$selectedCount nhân viên đã chọn',
+                    : '$selectedCount nhân viên đã chọn'),
                 style: TextStyle(
                   fontSize: 12,
                   color: selectedCount > 0
@@ -1253,7 +1385,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                 children: [
                   const Icon(Icons.people, color: Colors.blue, size: 22),
                   const SizedBox(width: 8),
-                  const Text('Chọn nhân viên',
+                  Text(tr('Chọn nhân viên'),
                       style:
                           TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                   const Spacer(),
@@ -1267,9 +1399,9 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                       }
                     },
                     child: Text(
-                      tempSelected.length == employees.length
+                      tr(tempSelected.length == employees.length
                           ? 'Bỏ chọn tất cả'
-                          : 'Chọn tất cả',
+                          : 'Chọn tất cả'),
                       style: const TextStyle(fontSize: 12),
                     ),
                   ),
@@ -1285,7 +1417,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                   children: [
                     TextField(
                       decoration: InputDecoration(
-                        hintText: 'Tìm nhân viên...',
+                        hintText: tr('Tìm nhân viên...'),
                         hintStyle: const TextStyle(fontSize: 13),
                         prefixIcon: const Icon(Icons.search, size: 18),
                         isDense: true,
@@ -1307,8 +1439,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                       ),
                       child: Row(
                         children: [
-                          Text(
-                              'Đã chọn: ${tempSelected.length}/${employees.length}',
+                          Text(tr('Đã chọn: ${tempSelected.length}/${employees.length}'),
                               style: TextStyle(
                                   fontSize: 12,
                                   color: Colors.blue.shade700,
@@ -1362,9 +1493,9 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                                     radius: 14,
                                     backgroundColor: Colors.blue.shade100,
                                     child: Text(
-                                        emp.name.isNotEmpty
+                                        tr(emp.name.isNotEmpty
                                             ? emp.name[0].toUpperCase()
-                                            : '?',
+                                            : '?'),
                                         style: TextStyle(
                                             fontSize: 12,
                                             fontWeight: FontWeight.bold,
@@ -1376,11 +1507,11 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                                       crossAxisAlignment:
                                           CrossAxisAlignment.start,
                                       children: [
-                                        Text(emp.name,
+                                        Text(tr(emp.name),
                                             style: const TextStyle(
                                                 fontSize: 13,
                                                 fontWeight: FontWeight.w500)),
-                                        Text(emp.code,
+                                        Text(tr(emp.code),
                                             style: TextStyle(
                                                 fontSize: 11,
                                                 color: Colors.grey.shade600)),
@@ -1400,7 +1531,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(ctx),
-                  child: const Text('Hủy'),
+                  child: Text(tr('Hủy')),
                 ),
                 FilledButton(
                   onPressed: () {
@@ -1410,7 +1541,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                     });
                     Navigator.pop(ctx);
                   },
-                  child: const Text('Áp dụng'),
+                  child: Text(tr('Áp dụng')),
                 ),
               ],
             );
@@ -1434,7 +1565,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
     TimeOfDay selectedTime = initialTime ?? TimeOfDay.now();
     final int punchIndex = record.punchTimes.length + 1;
     final reasonController =
-        TextEditingController(text: initialReason ?? '');
+        TextEditingController(text: tr(initialReason ?? ''));
     final canFine = Provider.of<PermissionProvider>(context, listen: false)
         .canCreate('PenaltyTickets');
 
@@ -1442,11 +1573,11 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) => ScrollableAlertDialog(
-          title: const Row(
+          title: Row(
             children: [
               Icon(Icons.add_circle, color: Colors.blue),
               SizedBox(width: 8),
-              Text('Thêm chấm công'),
+              Text(tr('Thêm chấm công')),
             ],
           ),
           content: SingleChildScrollView(
@@ -1462,20 +1593,18 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Nhân viên: ${record.employeeName}',
+                        Text(tr('Nhân viên: ${record.employeeName}'),
                             style:
                                 const TextStyle(fontWeight: FontWeight.bold)),
-                        Text('Mã NV: ${record.employeeCode}'),
-                        Text(
-                            'Ngày: ${DateFormat('dd/MM/yyyy').format(selectedDate)}'),
+                        Text(tr('Mã NV: ${record.employeeCode}')),
+                        Text(tr('${tr('Ngày: ')}${DateFormat('dd/MM/yyyy').format(selectedDate)}')),
                         if (shiftContextLabel != null &&
                             shiftContextLabel.isNotEmpty)
-                          Text('Ca: $shiftContextLabel',
+                          Text(tr('Ca: $shiftContextLabel'),
                               style: TextStyle(
                                   color: Colors.blue.shade700,
                                   fontWeight: FontWeight.w500)),
-                        Text(
-                            'Lần chấm: $punchIndex (${resolvedIsIn ? "Vào" : "Ra"})'),
+                        Text(tr('Lần chấm: $punchIndex (${resolvedIsIn ? "Vào" : "Ra"})')),
                       ],
                     ),
                   ),
@@ -1483,7 +1612,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                 const SizedBox(height: 16),
 
                 // Chọn ngày (cho ca qua đêm)
-                const Text('Ngày chấm công:',
+                Text(tr('Ngày chấm công:'),
                     style: TextStyle(fontWeight: FontWeight.w500)),
                 const SizedBox(height: 8),
                 InkWell(
@@ -1509,7 +1638,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                       children: [
                         const Icon(Icons.calendar_today, color: Colors.blue),
                         const SizedBox(width: 8),
-                        Text(DateFormat('dd/MM/yyyy').format(selectedDate),
+                        Text(tr(DateFormat('dd/MM/yyyy').format(selectedDate)),
                             style: const TextStyle(
                                 fontSize: 16, fontWeight: FontWeight.bold)),
                         if (selectedDate != record.date) ...[
@@ -1521,7 +1650,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                               color: Colors.orange.shade100,
                               borderRadius: BorderRadius.circular(4),
                             ),
-                            child: Text('Ngày hôm sau',
+                            child: Text(tr('Ngày hôm sau'),
                                 style: TextStyle(
                                     fontSize: 10,
                                     color: Colors.orange.shade800)),
@@ -1536,7 +1665,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                 const SizedBox(height: 16),
 
                 // Chọn giờ
-                const Text('Chọn giờ chấm công:',
+                Text(tr('Chọn giờ chấm công:'),
                     style: TextStyle(fontWeight: FontWeight.w500)),
                 const SizedBox(height: 8),
                 InkWell(
@@ -1560,7 +1689,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                             color: resolvedIsIn ? Colors.green : Colors.red),
                         const SizedBox(width: 8),
                         Text(
-                          '${selectedTime.hour.toString().padLeft(2, '0')}:${selectedTime.minute.toString().padLeft(2, '0')}',
+                          tr('${selectedTime.hour.toString().padLeft(2, '0')}:${selectedTime.minute.toString().padLeft(2, '0')}'),
                           style: const TextStyle(
                               fontSize: 18, fontWeight: FontWeight.bold),
                         ),
@@ -1586,18 +1715,18 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
           ),
           actions: [
             TextButton(
-                onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
+                onPressed: () => Navigator.pop(ctx), child: Text(tr('Hủy'))),
             if (canFine)
               OutlinedButton.icon(
                 icon: const Icon(Icons.gavel, size: 16, color: Colors.orange),
-                label: const Text('Thêm công và phạt',
+                label: Text(tr('Thêm công và phạt'),
                     style: TextStyle(color: Colors.orange)),
                 style: OutlinedButton.styleFrom(
                     side: const BorderSide(color: Colors.orange)),
                 onPressed: () async {
                   if (reasonController.text.trim().isEmpty) {
                     NotificationOverlayManager().showError(
-                        title: 'Lỗi', message: 'Vui lòng nhập lý do');
+                        title: 'Lỗi', message: tr('Vui lòng nhập lý do'));
                     return;
                   }
                   final timeStr =
@@ -1643,11 +1772,11 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
               ),
             FilledButton.icon(
               icon: const Icon(Icons.send),
-              label: const Text('Xác nhận'),
+              label: Text(tr('Xác nhận')),
               onPressed: () async {
                 if (reasonController.text.trim().isEmpty) {
                   NotificationOverlayManager().showError(
-                      title: 'Lỗi', message: 'Vui lòng nhập lý do');
+                      title: 'Lỗi', message: tr('Vui lòng nhập lý do'));
                   return;
                 }
                 final timeStr =
@@ -1711,8 +1840,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
       if (employeeId == null || employeeId.isEmpty) {
         NotificationOverlayManager().showWarning(
             title: 'Không tạo được phiếu phạt',
-            message:
-                'Không xác định được hồ sơ nhân viên để tạo phiếu phạt');
+            message: tr('Không xác định được hồ sơ nhân viên để tạo phiếu phạt'));
         return false;
       }
 
@@ -1725,8 +1853,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
       if (amount <= 0) {
         NotificationOverlayManager().showWarning(
             title: 'Không tạo được phiếu phạt',
-            message: 'Mức phạt "Quên chấm công" chưa được cấu hình (0đ). '
-                'Vui lòng vào Thiết lập phạt để cài đặt.');
+            message: tr('Mức phạt "Quên chấm công" chưa được cấu hình (0đ). Vui lòng vào Thiết lập phạt để cài đặt.'));
         return false;
       }
 
@@ -1802,12 +1929,12 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
 
   Widget _buildTravelHoursCell(double hours, {bool bold = false}) {
     if (hours <= 0) {
-      return const Text('—',
+      return Text(tr('—'),
           textAlign: TextAlign.center,
           style: TextStyle(fontSize: 11, color: Color(0xFFA1A1AA)));
     }
     return Text(
-      _formatHoursMinutes(hours),
+      tr(_formatHoursMinutes(hours)),
       textAlign: TextAlign.center,
       style: TextStyle(
         fontSize: 12,
@@ -1822,7 +1949,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Text(title,
+        Text(tr(title),
             style: const TextStyle(
                 fontWeight: FontWeight.w600,
                 fontSize: 12,
@@ -1834,7 +1961,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
             color: color.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(4),
           ),
-          child: Text(total,
+          child: Text(tr(total),
               style: TextStyle(
                   fontSize: 10, fontWeight: FontWeight.w600, color: color)),
         ),
@@ -1925,13 +2052,13 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(value,
+                Text(tr(value),
                     style: TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.bold,
                         color: color),
                     overflow: TextOverflow.ellipsis),
-                Text(label,
+                Text(tr(label),
                     style:
                         const TextStyle(fontSize: 10, color: Color(0xFFA1A1AA)),
                     overflow: TextOverflow.ellipsis),
@@ -1982,7 +2109,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                       color: record.statusColor.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(12)),
                   child: Center(
-                      child: Text(dayOfWeek.substring(0, 2),
+                      child: Text(tr(dayOfWeek.substring(0, 2)),
                           style: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.bold,
@@ -1993,10 +2120,10 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                     child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                      Text(record.employeeName,
+                      Text(tr(record.employeeName),
                           style: const TextStyle(
                               fontWeight: FontWeight.bold, fontSize: 16)),
-                      Text('${record.employeeCode} · $dayOfWeek $dateStr',
+                      Text(tr('${record.employeeCode} · $dayOfWeek $dateStr'),
                           style: const TextStyle(
                               color: Color(0xFF71717A), fontSize: 13)),
                     ])),
@@ -2031,8 +2158,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                         size: 16,
                         color: h.isCheckIn ? Colors.green : Colors.red,
                       ),
-                      label: Text(
-                          'Thêm ${h.isCheckIn ? "vào" : "ra"} $t — ${h.shiftName}'),
+                      label: Text(tr('Thêm ${h.isCheckIn ? "vào" : "ra"} $t — ${h.shiftName}')),
                       onPressed: () => _showManualPunchDialog(
                         record,
                         isIn: h.isCheckIn,
@@ -2057,7 +2183,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
               _detailLabel('Giờ chấm công'),
               const SizedBox(height: 6),
               if (record.punchTimes.isEmpty && !widget.allowCorrection)
-                const Text('Không có dữ liệu',
+                Text(tr('Không có dữ liệu'),
                     style: TextStyle(color: Color(0xFFA1A1AA), fontSize: 13))
               else ...[
                 ...List.generate(
@@ -2082,8 +2208,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                         ),
                         const SizedBox(width: 10),
                         Expanded(
-                          child: Text(
-                            'Lần ${i + 1} (${i.isEven ? "Vào" : "Ra"})',
+                          child: Text(tr('Lần ${i + 1} (${i.isEven ? "Vào" : "Ra"})'),
                             style: TextStyle(
                                 fontSize: 13, color: Colors.grey.shade700),
                           ),
@@ -2115,8 +2240,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                         ),
                         const SizedBox(width: 10),
                         Expanded(
-                          child: Text(
-                            'Lần ${record.punchTimes.length + 1} (${record.punchTimes.length.isEven ? "Vào" : "Ra"})',
+                          child: Text(tr('Lần ${record.punchTimes.length + 1} (${record.punchTimes.length.isEven ? "Vào" : "Ra"})'),
                             style: TextStyle(
                                 fontSize: 13, color: Colors.grey.shade700),
                           ),
@@ -2172,16 +2296,16 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
 
   Widget _detailRow(String label, String value) {
     return Row(children: [
-      Text(label,
+      Text(tr(label),
           style: const TextStyle(color: Color(0xFF71717A), fontSize: 13)),
       const Spacer(),
-      Text(value,
+      Text(tr(value),
           style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
     ]);
   }
 
   Widget _detailLabel(String label) {
-    return Text(label,
+    return Text(tr(label),
         style: const TextStyle(
             color: Color(0xFF71717A),
             fontSize: 13,
@@ -2197,11 +2321,11 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
         border: Border.all(color: color.withValues(alpha: 0.15)),
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(label,
+        Text(tr(label),
             style:
                 TextStyle(color: color.withValues(alpha: 0.7), fontSize: 11)),
         const SizedBox(height: 2),
-        Text(value,
+        Text(tr(value),
             style: TextStyle(
                 fontWeight: FontWeight.bold, fontSize: 15, color: color)),
       ]),
@@ -2233,7 +2357,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                 color: record.statusColor.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8)),
             child: Center(
-                child: Text(dayOfWeek.substring(0, 2),
+                child: Text(tr(dayOfWeek.substring(0, 2)),
                     style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
@@ -2243,18 +2367,18 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
           Expanded(
             child:
                 Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(record.employeeName,
+              Text(tr(record.employeeName),
                   style: const TextStyle(
                       fontWeight: FontWeight.w600, fontSize: 14),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis),
               const SizedBox(height: 2),
               Text(
-                  [
+                  tr([
                     dateStr,
                     record.shiftNames.join(', '),
                     '${record.workHours.toStringAsFixed(1)}h'
-                  ].where((s) => s.isNotEmpty).join(' \u00b7 '),
+                  ].where((s) => s.isNotEmpty).join(' \u00b7 ')),
                   style:
                       const TextStyle(color: Color(0xFF71717A), fontSize: 12),
                   maxLines: 1,
@@ -2292,8 +2416,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
         color: const Color(0xFFF0FDF4),
         borderRadius: BorderRadius.circular(12),
       ),
-      child: Text(
-        'Hiển thị $startRow-$endRow / $totalRows',
+      child: Text(tr('Hiển thị $startRow-$endRow / $totalRows'),
         style: const TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w500,
@@ -2304,7 +2427,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
     final rowsPerPageWidget = Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        const Text('Số dòng:',
+        Text(tr('Số dòng:'),
             style: TextStyle(fontSize: 12, color: Color(0xFFA1A1AA))),
         const SizedBox(width: 6),
         Container(
@@ -2322,10 +2445,10 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
               style: TextStyle(
                   fontSize: 12,
                   color: Theme.of(context).textTheme.bodyMedium?.color),
-              items: const [
-                DropdownMenuItem(value: 20, child: Text('20')),
-                DropdownMenuItem(value: 50, child: Text('50')),
-                DropdownMenuItem(value: 100, child: Text('100')),
+              items: [
+                DropdownMenuItem(value: 20, child: Text(tr('20'))),
+                DropdownMenuItem(value: 50, child: Text(tr('50'))),
+                DropdownMenuItem(value: 100, child: Text(tr('100'))),
               ],
               onChanged: (v) {
                 if (v != null) {
@@ -2357,7 +2480,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
             borderRadius: BorderRadius.circular(8),
           ),
           child: Text(
-            '${_currentPage + 1} / ${totalPages == 0 ? 1 : totalPages}',
+            tr('${_currentPage + 1} / ${totalPages == 0 ? 1 : totalPages}'),
             style: const TextStyle(
                 fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white),
           ),
@@ -2401,14 +2524,14 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                 if (onOpenFullscreen != null) ...[
                   const SizedBox(width: 8),
                   Tooltip(
-                    message: 'Xem toàn màn hình',
+                    message: tr('Xem toàn màn hình'),
                     child: Material(
                       color: const Color(0xFFEFF6FF),
                       borderRadius: BorderRadius.circular(8),
                       child: InkWell(
                         onTap: onOpenFullscreen,
                         borderRadius: BorderRadius.circular(8),
-                        child: const Padding(
+                        child: Padding(
                           padding: EdgeInsets.symmetric(
                               horizontal: 10, vertical: 6),
                           child: Row(
@@ -2417,8 +2540,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                               Icon(Icons.fullscreen,
                                   size: 18, color: Color(0xFF2563EB)),
                               SizedBox(width: 6),
-                              Text(
-                                'Toàn màn hình',
+                              Text(tr('Toàn màn hình'),
                                 style: TextStyle(
                                   fontSize: 12,
                                   fontWeight: FontWeight.w600,
@@ -2485,11 +2607,11 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) => ScrollableAlertDialog(
-          title: const Row(
+          title: Row(
             children: [
               Icon(Icons.edit, color: Colors.orange),
               SizedBox(width: 8),
-              Text('Sửa/Xóa chấm công'),
+              Text(tr('Sửa/Xóa chấm công')),
             ],
           ),
           content: SingleChildScrollView(
@@ -2505,18 +2627,16 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Nhân viên: ${record.employeeName}',
+                        Text(tr('Nhân viên: ${record.employeeName}'),
                             style:
                                 const TextStyle(fontWeight: FontWeight.bold)),
-                        Text('Mã NV: ${record.employeeCode}'),
-                        Text(
-                            'Ngày: ${DateFormat('dd/MM/yyyy').format(record.date)}'),
-                        Text(
-                            'Lần chấm: ${punchIndex + 1} (${isIn ? "Vào" : "Ra"})'),
+                        Text(tr('Mã NV: ${record.employeeCode}')),
+                        Text(tr('${tr('Ngày: ')}${DateFormat('dd/MM/yyyy').format(record.date)}')),
+                        Text(tr('Lần chấm: ${punchIndex + 1} (${isIn ? "Vào" : "Ra"})')),
                         const SizedBox(height: 4),
                         Row(
                           children: [
-                            const Text('Giờ hiện tại: '),
+                            Text(tr('Giờ hiện tại: ')),
                             Container(
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 8, vertical: 2),
@@ -2526,7 +2646,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                                 borderRadius: BorderRadius.circular(4),
                               ),
                               child: Text(
-                                DateFormat('HH:mm').format(originalTime),
+                                tr(DateFormat('HH:mm').format(originalTime)),
                                 style: TextStyle(
                                   fontWeight: FontWeight.bold,
                                   color: isIn ? Colors.green : Colors.red,
@@ -2542,7 +2662,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                 const SizedBox(height: 16),
 
                 // Chọn ngày
-                const Text('Ngày:',
+                Text(tr('Ngày:'),
                     style: TextStyle(fontWeight: FontWeight.w500)),
                 const SizedBox(height: 8),
                 InkWell(
@@ -2568,7 +2688,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                       children: [
                         const Icon(Icons.calendar_today, color: Colors.blue),
                         const SizedBox(width: 8),
-                        Text(DateFormat('dd/MM/yyyy').format(selectedDate),
+                        Text(tr(DateFormat('dd/MM/yyyy').format(selectedDate)),
                             style: const TextStyle(
                                 fontSize: 16, fontWeight: FontWeight.bold)),
                         if (selectedDate !=
@@ -2582,7 +2702,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                               color: Colors.orange.shade100,
                               borderRadius: BorderRadius.circular(4),
                             ),
-                            child: Text('Ngày hôm sau',
+                            child: Text(tr('Ngày hôm sau'),
                                 style: TextStyle(
                                     fontSize: 10,
                                     color: Colors.orange.shade800)),
@@ -2597,7 +2717,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                 const SizedBox(height: 16),
 
                 // Chọn giờ mới
-                const Text('Sửa thành giờ mới:',
+                Text(tr('Sửa thành giờ mới:'),
                     style: TextStyle(fontWeight: FontWeight.w500)),
                 const SizedBox(height: 8),
                 InkWell(
@@ -2621,7 +2741,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                             color: isIn ? Colors.green : Colors.red),
                         const SizedBox(width: 8),
                         Text(
-                          '${selectedTime.hour.toString().padLeft(2, '0')}:${selectedTime.minute.toString().padLeft(2, '0')}',
+                          tr('${selectedTime.hour.toString().padLeft(2, '0')}:${selectedTime.minute.toString().padLeft(2, '0')}'),
                           style: const TextStyle(
                               fontSize: 18, fontWeight: FontWeight.bold),
                         ),
@@ -2656,19 +2776,19 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                 });
               },
               icon: const Icon(Icons.delete, color: Colors.red),
-              label: const Text('Xóa', style: TextStyle(color: Colors.red)),
+              label: Text(tr('Xóa'), style: TextStyle(color: Colors.red)),
             ),
             const SizedBox(width: 16),
             TextButton(
-                onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
+                onPressed: () => Navigator.pop(ctx), child: Text(tr('Hủy'))),
             FilledButton.icon(
               icon: const Icon(Icons.send),
-              label: const Text('Lưu'),
+              label: Text(tr('Lưu')),
               style: FilledButton.styleFrom(backgroundColor: Colors.orange),
               onPressed: () async {
                 if (reasonController.text.trim().isEmpty) {
                   NotificationOverlayManager().showError(
-                      title: 'Lỗi', message: 'Vui lòng nhập lý do');
+                      title: 'Lỗi', message: tr('Vui lòng nhập lý do'));
                   return;
                 }
                 final t =
@@ -2738,8 +2858,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
     if (rowId != null && rowId.startsWith('manual_')) {
       NotificationOverlayManager().showError(
         title: 'Lỗi',
-        message:
-            'Bản ghi chỉ có trên máy (thêm thủ công), không có trên server. Tải lại dữ liệu.',
+        message: tr('Bản ghi chỉ có trên máy (thêm thủ công), không có trên server. Tải lại dữ liệu.'),
       );
       return;
     }
@@ -2800,8 +2919,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
     if (punchRef == null || !isValidAttendanceGuid(punchRef.id)) {
       NotificationOverlayManager().showError(
         title: 'Lỗi',
-        message:
-            'Không tìm thấy bản ghi trên server (ngày này có thể chưa có chấm công). Kéo xuống để tải lại.',
+        message: tr('Không tìm thấy bản ghi trên server (ngày này có thể chưa có chấm công). Kéo xuống để tải lại.'),
       );
       return;
     }
@@ -2993,7 +3111,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
       row: row,
       colStart: 0,
       colEnd: lastCol,
-      text: 'BẢNG CHẤM CÔNG THEO CA',
+      text: tr('BẢNG CHẤM CÔNG THEO CA'),
       style: titleStyle,
     );
     row++;
@@ -3004,7 +3122,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
       colStart: 0,
       colEnd: lastCol,
       text:
-          'Từ ngày ${DateFormat('dd/MM/yyyy').format(range.start)} đến ngày ${DateFormat('dd/MM/yyyy').format(range.end)}',
+          tr('Từ ngày ${DateFormat('dd/MM/yyyy').format(range.start)} đến ngày ${DateFormat('dd/MM/yyyy').format(range.end)}'),
       style: _excelCenterStyle(fontSize: 12),
     );
     row += 2;
@@ -3015,7 +3133,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
         row: row,
         colStart: 0,
         colEnd: lastCol,
-        text: line,
+        text: tr(line),
         style: infoStyle,
       );
       row++;
@@ -3223,38 +3341,38 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
         row: row,
         colStart: 0,
         colEnd: sig1End,
-        text: 'Người lập',
+        text: tr('Người lập'),
         style: sigTitleStyle);
     _excelMergedText(sheet,
         row: row,
         colStart: sig2Start,
         colEnd: sig2End,
-        text: 'Nhân viên',
+        text: tr('Nhân viên'),
         style: sigTitleStyle);
     _excelMergedText(sheet,
         row: row,
         colStart: sig3Start,
         colEnd: lastCol,
-        text: 'Giám đốc',
+        text: tr('Giám đốc'),
         style: sigTitleStyle);
     row += 4;
     _excelMergedText(sheet,
         row: row,
         colStart: 0,
         colEnd: sig1End,
-        text: '(Ký, ghi rõ họ tên)',
+        text: tr('(Ký, ghi rõ họ tên)'),
         style: sigHintStyle);
     _excelMergedText(sheet,
         row: row,
         colStart: sig2Start,
         colEnd: sig2End,
-        text: '(Ký, ghi rõ họ tên)',
+        text: tr('(Ký, ghi rõ họ tên)'),
         style: sigHintStyle);
     _excelMergedText(sheet,
         row: row,
         colStart: sig3Start,
         colEnd: lastCol,
-        text: '(Ký, ghi rõ họ tên)',
+        text: tr('(Ký, ghi rõ họ tên)'),
         style: sigHintStyle);
     row += 2;
 
@@ -3655,7 +3773,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
           row: row,
           colStart: 0,
           colEnd: colCount - 1,
-          text: 'Bộ lọc: $filterDesc',
+          text: tr('Bộ lọc: $filterDesc'),
           style: _excelCenterStyle(fontSize: 10, italic: true),
         );
         row += 2;
@@ -3689,15 +3807,14 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
         if (mounted) {
           NotificationOverlayManager().showSuccess(
               title: 'Xuất Excel',
-              message:
-                  'Đã lưu ${orderedIds.length} nhân viên vào Tải về/SBOX HRM: $fileName');
+              message: tr('Đã lưu ${orderedIds.length} nhân viên vào Tải về/SBOX HRM: $fileName'));
         }
       }
     } catch (e) {
       debugPrint('Error exporting Excel: $e');
       if (mounted) {
         NotificationOverlayManager()
-            .showError(title: 'Lỗi', message: 'Không thể xuất Excel: $e');
+            .showError(title: 'Lỗi', message: tr('Không thể xuất Excel: $e'));
       }
     } finally {
       if (mounted) setState(() => _isExporting = false);
@@ -3709,7 +3826,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
     final records = _shiftData;
     if (records.isEmpty) {
       NotificationOverlayManager().showWarning(
-          title: 'Không có dữ liệu', message: 'Không có dữ liệu để xuất');
+          title: 'Không có dữ liệu', message: tr('Không có dữ liệu để xuất'));
       return;
     }
     setState(() => _isExporting = true);
@@ -3785,8 +3902,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
         if (mounted) {
           NotificationOverlayManager().showSuccess(
               title: 'Xuất PNG',
-              message:
-                  'Đã lưu ${orderedIds.length} nhân viên vào Ảnh/SBOX HRM: $fileName');
+              message: tr('Đã lưu ${orderedIds.length} nhân viên vào Ảnh/SBOX HRM: $fileName'));
         }
       } else {
         final pngBytes = await web_canvas.renderToPngBytes(
@@ -3799,17 +3915,16 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
               pngBytes, fileName, 'image/png');
           NotificationOverlayManager().showSuccess(
               title: 'Xuất PNG',
-              message:
-                  'Đã lưu ${orderedIds.length} nhân viên vào Ảnh/SBOX HRM: $fileName');
+              message: tr('Đã lưu ${orderedIds.length} nhân viên vào Ảnh/SBOX HRM: $fileName'));
         } else if (mounted) {
           NotificationOverlayManager()
-              .showError(title: 'Lỗi', message: 'Không thể xuất PNG');
+              .showError(title: 'Lỗi', message: tr('Không thể xuất PNG'));
         }
       }
     } catch (e) {
       if (mounted) {
         NotificationOverlayManager()
-            .showError(title: 'Lỗi', message: 'Lỗi xuất PNG: $e');
+            .showError(title: 'Lỗi', message: tr('Lỗi xuất PNG: $e'));
       }
     } finally {
       if (mounted) setState(() => _isExporting = false);
@@ -3832,13 +3947,13 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
     return Container(
       height: 200,
       decoration: _tableCardDecoration,
-      child: const Center(
+      child: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(Icons.inbox_outlined, size: 56, color: Color(0xFFCBD5E1)),
             SizedBox(height: 12),
-            Text('Không có dữ liệu',
+            Text(tr('Không có dữ liệu'),
                 style: TextStyle(color: Color(0xFFA1A1AA))),
           ],
         ),
@@ -3918,7 +4033,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
   }
 
   Widget _shiftHeaderText(String text) => Text(
-        text,
+        tr(text),
         textAlign: TextAlign.center,
         style: const TextStyle(
           fontSize: 11,
@@ -4077,7 +4192,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
           : record.punchTimes[punchIndex];
       if (!widget.allowCorrection) {
         return Text(
-          DateFormat('HH:mm').format(displayTime),
+          tr(DateFormat('HH:mm').format(displayTime)),
           textAlign: TextAlign.center,
           style: TextStyle(
             fontSize: 12,
@@ -4110,7 +4225,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
       );
     }
 
-    return const Text('—',
+    return Text(tr('—'),
         textAlign: TextAlign.center,
         style: TextStyle(fontSize: 11, color: Color(0xFFA1A1AA)));
   }
@@ -4122,39 +4237,39 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
     final cells = <Widget>[
       _shiftTableCell(const SizedBox.shrink()),
       _shiftTableCell(
-        Text('Σ ${totals.employeeName}',
+        Text(tr('Σ ${totals.employeeName}'),
             textAlign: TextAlign.center,
             style: const TextStyle(
                 fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF0F172A))),
       ),
-      _shiftTableCell(Text(totals.employeeCode,
+      _shiftTableCell(Text(tr(totals.employeeCode),
           textAlign: TextAlign.center,
           style: const TextStyle(fontSize: 11, color: Color(0xFF71717A)))),
-      _shiftTableCell(Text('Tổng',
+      _shiftTableCell(Text(tr('Tổng'),
           textAlign: TextAlign.center,
           style: TextStyle(
               fontSize: 11, fontWeight: FontWeight.w700, color: Colors.blue.shade700))),
-      _shiftTableCell(Text('${totals.presentDays} ngày',
+      _shiftTableCell(Text(tr('${totals.presentDays} ngày'),
           textAlign: TextAlign.center,
           style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600))),
     ];
     for (var i = 0; i < punchCols; i++) {
-      cells.add(_shiftTableCell(const Text('—',
+      cells.add(_shiftTableCell(Text(tr('—'),
           textAlign: TextAlign.center,
           style: TextStyle(fontSize: 11, color: Color(0xFFA1A1AA)))));
     }
     cells.addAll([
-      _shiftTableCell(Text(totals.lateMinutes > 0 ? '${totals.lateMinutes}P' : '—',
+      _shiftTableCell(Text(tr(totals.lateMinutes > 0 ? '${totals.lateMinutes}P' : '—'),
           textAlign: TextAlign.center,
           style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600))),
-      _shiftTableCell(Text(totals.earlyMinutes > 0 ? '${totals.earlyMinutes}P' : '—',
+      _shiftTableCell(Text(tr(totals.earlyMinutes > 0 ? '${totals.earlyMinutes}P' : '—'),
           textAlign: TextAlign.center,
           style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600))),
-      _shiftTableCell(Text(totals.overtimeMinutes > 0 ? '${totals.overtimeMinutes}P' : '—',
+      _shiftTableCell(Text(tr(totals.overtimeMinutes > 0 ? '${totals.overtimeMinutes}P' : '—'),
           textAlign: TextAlign.center,
           style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600))),
       _shiftTableCell(Text(
-          totals.workHours > 0 ? _formatHoursMinutes(totals.workHours) : '—',
+          tr(totals.workHours > 0 ? _formatHoursMinutes(totals.workHours) : '—'),
           textAlign: TextAlign.center,
           style: TextStyle(
               fontSize: 12,
@@ -4168,7 +4283,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
         bold: true,
       )),
       _shiftTableCell(Text(
-          totals.decimalHours > 0 ? totals.decimalHours.toStringAsFixed(2) : '—',
+          tr(totals.decimalHours > 0 ? totals.decimalHours.toStringAsFixed(2) : '—'),
           textAlign: TextAlign.center,
           style: TextStyle(
               fontSize: 12,
@@ -4177,7 +4292,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                   ? Colors.blue.shade700
                   : const Color(0xFFA1A1AA)))),
       _shiftTableCell(Text(
-          totals.totalWork > 0 ? totals.totalWork.toStringAsFixed(2) : '—',
+          tr(totals.totalWork > 0 ? totals.totalWork.toStringAsFixed(2) : '—'),
           textAlign: TextAlign.center,
           style: TextStyle(
               fontSize: 12,
@@ -4185,10 +4300,10 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
               color: totals.totalWork > 0
                   ? Colors.blue.shade700
                   : const Color(0xFFA1A1AA)))),
-      _shiftTableCell(const Text('—',
+      _shiftTableCell(Text(tr('—'),
           textAlign: TextAlign.center,
           style: TextStyle(fontSize: 11, color: Color(0xFFA1A1AA)))),
-      _shiftTableCell(const Text('—',
+      _shiftTableCell(Text(tr('—'),
           textAlign: TextAlign.center,
           style: TextStyle(fontSize: 11, color: Color(0xFFA1A1AA)))),
     ]);
@@ -4211,38 +4326,38 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
     for (final r in paged) {
       final stt = daySttMap[r.employeeId]?[_shiftRecordRowKey(r)] ?? 1;
       final cells = <Widget>[
-        _shiftTableCell(Text('$stt',
+        _shiftTableCell(Text(tr('$stt'),
             textAlign: TextAlign.center,
             style: const TextStyle(fontSize: 12, color: Color(0xFF71717A)))),
         _shiftTableCell(
           InkWell(
             onTap: () => _showRecordDetail(r),
-            child: Text(r.employeeName,
+            child: Text(tr(r.employeeName),
                 textAlign: TextAlign.center,
                 style: const TextStyle(
                     fontSize: 12, fontWeight: FontWeight.w500)),
           ),
         ),
-        _shiftTableCell(Text(r.employeeCode,
+        _shiftTableCell(Text(tr(r.employeeCode),
             textAlign: TextAlign.center, style: const TextStyle(fontSize: 12))),
-        _shiftTableCell(Text(r.dayOfWeek,
+        _shiftTableCell(Text(tr(r.dayOfWeek),
             textAlign: TextAlign.center,
             style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600))),
-        _shiftTableCell(Text(DateFormat('dd/MM/yyyy').format(r.date),
+        _shiftTableCell(Text(tr(DateFormat('dd/MM/yyyy').format(r.date)),
             textAlign: TextAlign.center, style: const TextStyle(fontSize: 12))),
       ];
       for (var i = 0; i < punchCols; i++) {
         cells.add(_shiftTableCell(_buildShiftPunchCell(r, i)));
       }
       cells.addAll([
-        _shiftTableCell(Text(r.lateMinutes > 0 ? '${r.lateMinutes}P' : '—',
+        _shiftTableCell(Text(tr(r.lateMinutes > 0 ? '${r.lateMinutes}P' : '—'),
             textAlign: TextAlign.center, style: const TextStyle(fontSize: 11))),
-        _shiftTableCell(Text(r.earlyMinutes > 0 ? '${r.earlyMinutes}P' : '—',
+        _shiftTableCell(Text(tr(r.earlyMinutes > 0 ? '${r.earlyMinutes}P' : '—'),
             textAlign: TextAlign.center, style: const TextStyle(fontSize: 11))),
-        _shiftTableCell(Text(r.overtimeMinutes > 0 ? '${r.overtimeMinutes}P' : '—',
+        _shiftTableCell(Text(tr(r.overtimeMinutes > 0 ? '${r.overtimeMinutes}P' : '—'),
             textAlign: TextAlign.center, style: const TextStyle(fontSize: 11))),
         _shiftTableCell(Text(
-            r.workHours > 0 ? _formatHoursMinutes(r.workHours) : '—',
+            tr(r.workHours > 0 ? _formatHoursMinutes(r.workHours) : '—'),
             textAlign: TextAlign.center,
             style: TextStyle(
                 fontSize: 12,
@@ -4250,7 +4365,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                 color: r.workHours > 0 ? Colors.green : Colors.grey))),
         _shiftTableCell(_buildTravelHoursCell(_travelHoursForShiftRecord(r))),
         _shiftTableCell(Text(
-            r.decimalHours > 0 ? r.decimalHours.toStringAsFixed(2) : '—',
+            tr(r.decimalHours > 0 ? r.decimalHours.toStringAsFixed(2) : '—'),
             textAlign: TextAlign.center,
             style: TextStyle(
                 fontSize: 12,
@@ -4258,14 +4373,14 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                     ? Colors.blue.shade700
                     : Colors.grey))),
         _shiftTableCell(Text(
-            r.workCount > 0 ? r.workCount.toStringAsFixed(2) : '—',
+            tr(r.workCount > 0 ? r.workCount.toStringAsFixed(2) : '—'),
             textAlign: TextAlign.center,
             style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
                 color: r.workCount > 0 ? Colors.blue.shade700 : Colors.grey))),
         _shiftTableCell(
-          Text(r.shiftNames.join(', '),
+          Text(tr(r.shiftNames.join(', ')),
               textAlign: TextAlign.left,
               style: const TextStyle(fontSize: 10)),
           alignment: Alignment.centerLeft,
@@ -4325,10 +4440,10 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
         child: Scaffold(
           backgroundColor: const Color(0xFFFAFAFA),
           appBar: AppBar(
-            title: const Text('Bảng chấm công theo ca',
+            title: Text(tr('Bảng chấm công theo ca'),
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
             leading: IconButton(
-              tooltip: 'Thoát chế độ toàn màn hình',
+              tooltip: tr('Thoát chế độ toàn màn hình'),
               icon: const Icon(Icons.fullscreen_exit),
               onPressed: () => Navigator.pop(dialogCtx),
             ),
@@ -4336,7 +4451,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
               TextButton.icon(
                 onPressed: () => Navigator.pop(dialogCtx),
                 icon: const Icon(Icons.close, size: 18),
-                label: const Text('Thoát'),
+                label: Text(tr('Thoát')),
               ),
             ],
           ),
@@ -4386,8 +4501,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                       border:
                           Border(top: BorderSide(color: Color(0xFFE4E4E7))),
                     ),
-                    child: Text(
-                      '${allRecords.length} bản ghi · ${daySttMap.length} nhân viên',
+                    child: Text(tr('${allRecords.length} bản ghi · ${daySttMap.length} nhân viên'),
                       style: TextStyle(
                           fontSize: 12, color: Colors.grey.shade600),
                     ),
@@ -4620,6 +4734,17 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                 date: date,
                 employees: widget.employeesList,
                 onCompleted: _notifyDataChanged,
+                onAddWork: widget.allowCorrection
+                    ? () {
+                        final record = _placeholderShiftForAbsent(
+                          empId: empId,
+                          empName: empName,
+                          empCode: empCode,
+                          date: date,
+                        );
+                        _showManualPunchDialog(record, isIn: true);
+                      }
+                    : null,
               );
             }
           : null,
@@ -4712,7 +4837,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
             weekday: 'CỘNG',
             attendance: Center(
               child: Text(
-                presentDays > 0 ? '$presentDays ngày' : '—',
+                tr(presentDays > 0 ? '$presentDays ngày' : '—'),
                 style: const TextStyle(
                   fontSize: 10,
                   fontWeight: FontWeight.w800,
@@ -4755,9 +4880,8 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
             title: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(empName, overflow: TextOverflow.ellipsis),
-                Text(
-                  'Mã $empCode',
+                Text(tr(empName), overflow: TextOverflow.ellipsis),
+                Text(tr('Mã $empCode'),
                   style: const TextStyle(
                       fontSize: 12, fontWeight: FontWeight.w400),
                 ),
@@ -4830,7 +4954,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
             Icon(icon, size: 13, color: color),
             const SizedBox(height: 3),
             Text(
-              value,
+              tr(value),
               textAlign: TextAlign.center,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
@@ -4841,7 +4965,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
               ),
             ),
             Text(
-              label,
+              tr(label),
               textAlign: TextAlign.center,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
@@ -4871,6 +4995,26 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
     for (final r in records) {
       empMap[r.employeeId] = r.employeeName;
       empCodeMap[r.employeeId] = r.employeeCode;
+    }
+    final roster = widget.employeesList;
+    if (roster != null) {
+      for (final emp in roster) {
+        final code = emp['employeeCode']?.toString() ?? '';
+        final pin = emp['pin']?.toString() ?? '';
+        final id = code.isNotEmpty ? code : pin;
+        if (id.isEmpty || empMap.containsKey(id)) continue;
+        if (_selectedEmployeeIds.isNotEmpty &&
+            !_selectedEmployeeIds.contains(id) &&
+            !_selectedEmployeeIds.contains(code) &&
+            !_selectedEmployeeIds.contains(pin)) {
+          continue;
+        }
+        empMap[id] = emp['fullName']?.toString() ??
+            emp['name']?.toString() ??
+            emp['employeeName']?.toString() ??
+            '-';
+        empCodeMap[id] = code.isNotEmpty ? code : id;
+      }
     }
     final employees = empMap.entries.toList()
       ..sort((a, b) => a.value.compareTo(b.value));
@@ -4992,7 +5136,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                         backgroundColor:
                             HrmPageChrome.primaryNavy.withValues(alpha: 0.12),
                         child: Text(
-                          _mobileShiftEmployeeInitials(empName),
+                          tr(_mobileShiftEmployeeInitials(empName)),
                           style: const TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w700,
@@ -5006,7 +5150,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              empName,
+                              tr(empName),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
@@ -5017,7 +5161,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                             ),
                             const SizedBox(height: 2),
                             Text(
-                              empCode,
+                              tr(empCode),
                               style: const TextStyle(
                                 fontSize: 11,
                                 color: Color(0xFF71717A),
@@ -5038,8 +5182,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                                 color: const Color(0xFFF59E0B)
                                     .withValues(alpha: 0.35)),
                           ),
-                          child: Text(
-                            'Trễ $lateDays',
+                          child: Text(tr('Trễ $lateDays'),
                             style: const TextStyle(
                               fontSize: 9,
                               fontWeight: FontWeight.w700,
@@ -5060,7 +5203,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                         const SizedBox(width: 5),
                         Expanded(
                           child: Text(
-                            'Ca: $shifts',
+                            tr('Ca: $shifts'),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
@@ -5150,8 +5293,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                           ),
                         ),
                         const SizedBox(width: 8),
-                        Text(
-                          '${formatWork(work)}/$expected công',
+                        Text(tr('${formatWork(work)}/$expected công'),
                           style: TextStyle(
                             fontSize: 10,
                             fontWeight: FontWeight.w600,
@@ -5194,16 +5336,14 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'Tổng cộng',
+                      Text(tr('Tổng cộng'),
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w800,
                           color: HrmPageChrome.primaryNavy,
                         ),
                       ),
-                      Text(
-                        '${employees.length} nhân viên',
+                      Text(tr('${employees.length} nhân viên'),
                         style: TextStyle(
                           fontSize: 10,
                           color: Colors.grey.shade700,
@@ -5216,26 +5356,26 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Text(
-                      grandHours > 0 ? _formatHoursMinutes(grandHours) : '—',
+                      tr(grandHours > 0 ? _formatHoursMinutes(grandHours) : '—'),
                       style: const TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w800,
                         color: Color(0xFF2563EB),
                       ),
                     ),
-                    const Text('tổng giờ',
+                    Text(tr('tổng giờ'),
                         style:
                             TextStyle(fontSize: 9, color: Color(0xFF71717A))),
                     const SizedBox(height: 4),
                     Text(
-                      formatWork(grandWork),
+                      tr(formatWork(grandWork)),
                       style: const TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w800,
                         color: Color(0xFF7C3AED),
                       ),
                     ),
-                    const Text('tổng công ca',
+                    Text(tr('tổng công ca'),
                         style:
                             TextStyle(fontSize: 9, color: Color(0xFF71717A))),
                   ],
@@ -5281,9 +5421,8 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                     size: 18, color: HrmPageChrome.primaryNavy),
               ),
               const SizedBox(width: 10),
-              const Expanded(
-                child: Text(
-                  'Danh sách nhân viên',
+              Expanded(
+                child: Text(tr('Danh sách nhân viên'),
                   style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
@@ -5299,7 +5438,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
-                  '${employees.length} NV',
+                  tr('${employees.length} NV'),
                   style: const TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
@@ -5314,8 +5453,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
       SliverPadding(
         padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
         sliver: SliverToBoxAdapter(
-          child: Text(
-            'Chạm thẻ để xem chi tiết: điểm danh, ca, đi trễ, về sớm theo ngày',
+          child: Text(tr('Chạm thẻ để xem chi tiết: điểm danh, ca, đi trễ, về sớm theo ngày'),
             style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
           ),
         ),
@@ -5345,7 +5483,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
         border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Text(
-        label,
+        tr(label),
         style: TextStyle(
           fontSize: 10,
           fontWeight: FontWeight.w700,
@@ -5366,7 +5504,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
         color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(4),
       ),
-      child: Text(day,
+      child: Text(tr(day),
           style: TextStyle(
               color: color, fontWeight: FontWeight.w600, fontSize: 11)),
     );
@@ -5388,7 +5526,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
           Icon(isIn ? Icons.login : Icons.logout, size: 12, color: color),
           const SizedBox(width: 3),
           Text(
-            DateFormat('HH:mm').format(time),
+            tr(DateFormat('HH:mm').format(time)),
             style: TextStyle(
                 fontSize: 12, fontWeight: FontWeight.w500, color: color),
           ),
@@ -5401,7 +5539,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
 
   Widget _buildShiftNameBadge(String? name) {
     if (name == null || name.isEmpty) {
-      return const Text('-', style: TextStyle(fontSize: 12));
+      return Text(tr('-'), style: TextStyle(fontSize: 12));
     }
     // Assign colors based on common shift name patterns
     Color color = Colors.blue;
@@ -5424,7 +5562,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
         borderRadius: BorderRadius.circular(4),
         border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
-      child: Text(name,
+      child: Text(tr(name),
           style: TextStyle(
               color: color, fontWeight: FontWeight.w600, fontSize: 11)),
     );
@@ -5438,7 +5576,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
         borderRadius: BorderRadius.circular(4),
       ),
       child: Text(
-        '${minutes}P',
+        tr('${minutes}P'),
         style:
             TextStyle(color: color, fontWeight: FontWeight.w600, fontSize: 11),
       ),
@@ -5446,7 +5584,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
   }
 
   Widget _buildHoursBadge(double hours) {
-    if (hours <= 0) return const Text('-', style: TextStyle(fontSize: 12));
+    if (hours <= 0) return Text(tr('-'), style: TextStyle(fontSize: 12));
     final h = hours.floor();
     final m = ((hours - h) * 60).round();
     return Container(
@@ -5456,7 +5594,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
         borderRadius: BorderRadius.circular(4),
       ),
       child: Text(
-        '${h}h${m > 0 ? '${m}p' : ''}',
+        tr('${h}h${m > 0 ? '${m}p' : ''}'),
         style: const TextStyle(
             color: Colors.green, fontWeight: FontWeight.w600, fontSize: 11),
       ),
@@ -5469,6 +5607,9 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
     _DailyShiftRecord? record,
   }) {
     IconData icon = Icons.check_circle;
+    if (status == 'Vắng') {
+      icon = Icons.add_circle_outline;
+    }
     if (status.contains('Thiếu chấm') || status.contains('Thiếu ra')) {
       icon = Icons.touch_app;
     }
@@ -5493,7 +5634,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
           Icon(icon, size: 12, color: color),
           const SizedBox(width: 4),
           Flexible(
-            child: Text(status,
+            child: Text(tr(status),
                 style: TextStyle(
                     color: color, fontWeight: FontWeight.w600, fontSize: 11)),
           ),
@@ -5507,7 +5648,9 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
     if (!tappable) return badge;
 
     return Tooltip(
-      message: 'Bấm để bổ sung chấm công thiếu',
+      message: record.status == 'Vắng'
+          ? 'Bấm để thêm công'
+          : 'Bấm để bổ sung chấm công thiếu',
       child: InkWell(
         onTap: () => _onMissingStatusTap(record),
         borderRadius: BorderRadius.circular(4),
@@ -5525,9 +5668,9 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
         borderRadius: BorderRadius.circular(4),
       ),
       child: Text(
-        count == count.roundToDouble()
+        tr(count == count.roundToDouble()
             ? '${count.toInt()}'
-            : count.toStringAsFixed(2),
+            : count.toStringAsFixed(2)),
         style:
             TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 12),
       ),
@@ -5535,7 +5678,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
   }
 
   Widget _buildDecimalHoursBadge(double hours) {
-    if (hours <= 0) return const Text('-', style: TextStyle(fontSize: 12));
+    if (hours <= 0) return Text(tr('-'), style: TextStyle(fontSize: 12));
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
@@ -5543,7 +5686,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
         borderRadius: BorderRadius.circular(4),
       ),
       child: Text(
-        hours.toStringAsFixed(2),
+        tr(hours.toStringAsFixed(2)),
         style: const TextStyle(
             color: Colors.teal, fontWeight: FontWeight.w600, fontSize: 11),
       ),

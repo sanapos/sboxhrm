@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../utils/responsive_helper.dart';
+import '../l10n/app_tr.dart';
 
 class StatCard extends StatefulWidget {
   final String title;
@@ -112,7 +113,7 @@ class _StatCardState extends State<StatCard> {
                               ),
                               const SizedBox(width: 4),
                               Text(
-                                widget.trend ?? '${widget.change! >= 0 ? '+' : ''}${widget.change!.toStringAsFixed(1)}%',
+                                tr(widget.trend ?? '${widget.change! >= 0 ? '+' : ''}${widget.change!.toStringAsFixed(1)}%'),
                                 style: TextStyle(
                                   color: isPositive ? Colors.green : Colors.red,
                                   fontSize: 12,
@@ -126,7 +127,7 @@ class _StatCardState extends State<StatCard> {
                   ),
                   SizedBox(height: isMobile ? 10 : 16),
                   Text(
-                    widget.title,
+                    tr(widget.title),
                     style: TextStyle(
                       color: Colors.grey[400],
                       fontSize: isMobile ? 12 : 14,
@@ -136,7 +137,7 @@ class _StatCardState extends State<StatCard> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    widget.value,
+                    tr(widget.value),
                     style: TextStyle(
                       fontSize: isMobile ? 20 : 28,
                       fontWeight: FontWeight.bold,
@@ -145,7 +146,7 @@ class _StatCardState extends State<StatCard> {
                   if (widget.subtitle != null) ...[
                     const SizedBox(height: 4),
                     Text(
-                      widget.subtitle!,
+                      tr(widget.subtitle!),
                       style: TextStyle(
                         color: Colors.grey[500],
                         fontSize: 12,
@@ -200,7 +201,7 @@ class MiniStatCard extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                value,
+                tr(value),
                 style: TextStyle(
                   color: effectiveColor,
                   fontWeight: FontWeight.bold,
@@ -208,7 +209,7 @@ class MiniStatCard extends StatelessWidget {
                 ),
               ),
               Text(
-                label,
+                tr(label),
                 style: TextStyle(
                   color: Colors.grey[400],
                   fontSize: 11,

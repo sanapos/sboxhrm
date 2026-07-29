@@ -22,6 +22,8 @@ import '../widgets/app_button.dart';
 import '../widgets/notification_overlay.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../widgets/app_scroll_safe.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
+import 'package:zkteco_flutter_client/l10n/app_ui_locale.dart';
 
 enum _SyncStatus { starting, deleting, syncing, completed, error }
 
@@ -409,7 +411,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
                 Icon(Icons.edit_calendar,
                     color: Colors.blue.shade700, size: 24),
                 const SizedBox(width: 8),
-                const Text('Sửa giờ chấm công'),
+                Text(tr('Sửa giờ chấm công')),
               ],
             ),
             content: SizedBox(
@@ -438,12 +440,11 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                att.employeeName ?? att.deviceUserName ?? 'N/A',
+                                tr(att.employeeName ?? att.deviceUserName ?? 'N/A'),
                                 style: const TextStyle(
                                     fontWeight: FontWeight.w600),
                               ),
-                              Text(
-                                'Mã NV: ${att.employeeId ?? att.pin ?? "—"}',
+                              Text(tr('Mã NV: ${att.employeeId ?? att.pin ?? "—"}'),
                                 style: TextStyle(
                                     fontSize: 12, color: Colors.grey.shade600),
                               ),
@@ -456,13 +457,13 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
                   const SizedBox(height: 16),
 
                   // Original time
-                  Text('Giờ chấm gốc:',
+                  Text(tr('Giờ chấm gốc:'),
                       style:
                           TextStyle(fontSize: 12, color: Colors.grey.shade600)),
                   const SizedBox(height: 4),
                   Text(
-                    DateFormat('dd/MM/yyyy HH:mm:ss')
-                        .format(att.attendanceTime),
+                    tr(DateFormat('dd/MM/yyyy HH:mm:ss')
+                        .format(att.attendanceTime)),
                     style: const TextStyle(
                         fontWeight: FontWeight.w500, fontSize: 15),
                   ),
@@ -470,7 +471,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
                   const Divider(),
                   const SizedBox(height: 12),
 
-                  Text('Chỉnh sửa:',
+                  Text(tr('Chỉnh sửa:'),
                       style: TextStyle(
                           fontSize: 12,
                           color: Colors.grey.shade600,
@@ -517,7 +518,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
                                     size: 18, color: Colors.blue.shade700),
                                 const SizedBox(width: 8),
                                 Text(
-                                  _dateFormat.format(editDate),
+                                  tr(_dateFormat.format(editDate)),
                                   style: const TextStyle(
                                       fontSize: 14,
                                       fontWeight: FontWeight.w500),
@@ -570,7 +571,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
                                     size: 18, color: Colors.blue.shade700),
                                 const SizedBox(width: 8),
                                 Text(
-                                  '${editTime.hour.toString().padLeft(2, '0')}:${editTime.minute.toString().padLeft(2, '0')}',
+                                  tr('${editTime.hour.toString().padLeft(2, '0')}:${editTime.minute.toString().padLeft(2, '0')}'),
                                   style: const TextStyle(
                                       fontSize: 14,
                                       fontWeight: FontWeight.w500,
@@ -597,8 +598,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
                         Icon(Icons.arrow_forward,
                             size: 16, color: Colors.blue.shade700),
                         const SizedBox(width: 8),
-                        Text(
-                          'Giờ mới: ${DateFormat('dd/MM/yyyy HH:mm:ss').format(editDate)}',
+                        Text(tr('${tr('Giờ mới: ')}${DateFormat('dd/MM/yyyy HH:mm:ss').format(editDate)}'),
                           style: TextStyle(
                               color: Colors.blue.shade700,
                               fontWeight: FontWeight.w600),
@@ -645,7 +645,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
     if (confirmed == true) {
       if (mounted) {
         NotificationOverlayManager().showSuccess(
-            title: 'Thành công', message: 'Đã cập nhật giờ chấm công');
+            title: 'Thành công', message: tr('Đã cập nhật giờ chấm công'));
       }
       _loadAttendances(resetPage: false);
     } else if (confirmed == false) {
@@ -663,14 +663,14 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
           children: [
             Icon(Icons.delete_forever, color: Colors.red.shade700, size: 24),
             const SizedBox(width: 8),
-            const Text('Xóa chấm công'),
+            Text(tr('Xóa chấm công')),
           ],
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Bạn có chắc muốn xóa bản ghi chấm công này?'),
+            Text(tr('Bạn có chắc muốn xóa bản ghi chấm công này?')),
             const SizedBox(height: 12),
             Container(
               padding: const EdgeInsets.all(12),
@@ -683,28 +683,24 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    att.employeeName ?? att.deviceUserName ?? 'N/A',
+                    tr(att.employeeName ?? att.deviceUserName ?? 'N/A'),
                     style: const TextStyle(fontWeight: FontWeight.w600),
                   ),
                   const SizedBox(height: 4),
-                  Text(
-                    'Mã NV: ${att.employeeId ?? att.pin ?? "—"}',
+                  Text(tr('Mã NV: ${att.employeeId ?? att.pin ?? "—"}'),
                     style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
                   ),
-                  Text(
-                    'Giờ chấm: ${DateFormat('dd/MM/yyyy HH:mm:ss').format(att.attendanceTime)}',
+                  Text(tr('${tr('Giờ chấm: ')}${DateFormat('dd/MM/yyyy HH:mm:ss').format(att.attendanceTime)}'),
                     style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
                   ),
-                  Text(
-                    'Thiết bị: ${att.deviceName ?? "—"}',
+                  Text(tr('Thiết bị: ${att.deviceName ?? "—"}'),
                     style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
                   ),
                 ],
               ),
             ),
             const SizedBox(height: 8),
-            Text(
-              'Lưu ý: Hành động này không thể hoàn tác!',
+            Text(tr('Lưu ý: Hành động này không thể hoàn tác!'),
               style: TextStyle(
                   color: Colors.red.shade700,
                   fontWeight: FontWeight.w600,
@@ -727,7 +723,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
     if (success) {
       if (mounted) {
         NotificationOverlayManager().showSuccess(
-            title: 'Thành công', message: 'Đã xóa bản ghi chấm công');
+            title: 'Thành công', message: tr('Đã xóa bản ghi chấm công'));
       }
       _loadAttendances(resetPage: false);
     } else {
@@ -902,7 +898,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
       if (mounted) {
         NotificationOverlayManager().showSuccess(
             title: 'Xuất Excel',
-            message: 'Đã xuất Excel: $fileName (${data.length} bản ghi)');
+            message: tr('Đã xuất Excel: $fileName (${data.length} bản ghi)'));
       }
     } catch (e) {
       _showError('Lỗi xuất Excel: $e');
@@ -1052,7 +1048,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
       if (mounted) {
         NotificationOverlayManager().showSuccess(
             title: 'Xuất PDF',
-            message: 'Đã xuất PDF: $fileName (${data.length} bản ghi)');
+            message: tr('Đã xuất PDF: $fileName (${data.length} bản ghi)'));
       }
     } catch (e) {
       _showError('Lỗi xuất PDF: $e');
@@ -1093,7 +1089,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
 
       if (mounted) {
         NotificationOverlayManager().showSuccess(
-            title: 'Xuất PNG', message: 'Đã xuất ảnh PNG: $fileName');
+            title: 'Xuất PNG', message: tr('Đã xuất ảnh PNG: $fileName'));
       }
     } catch (e) {
       _showError('Lỗi xuất PNG: $e');
@@ -1125,9 +1121,9 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
                 children: [
                   Icon(Icons.sync, color: Colors.blue.shade700, size: 24),
                   const SizedBox(width: 8),
-                  Text(fromTime != null
+                  Text(tr(fromTime != null
                       ? 'Đồng bộ theo thời gian'
-                      : 'Tải lại dữ liệu chấm công'),
+                      : 'Tải lại dữ liệu chấm công')),
                 ],
               ),
               content: SizedBox(
@@ -1139,7 +1135,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // Device selection
-                    Text('Chọn máy chấm công:',
+                    Text(tr('Chọn máy chấm công:'),
                         style: TextStyle(
                             fontWeight: FontWeight.w600,
                             color: Colors.grey.shade700)),
@@ -1156,8 +1152,8 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
                             horizontal: 12, vertical: 10),
                       ),
                       items: [
-                        const DropdownMenuItem(
-                            value: null, child: Text('Tất cả thiết bị')),
+                        DropdownMenuItem(
+                            value: null, child: Text(tr('Tất cả thiết bị'))),
                         ..._devices.map((d) => DropdownMenuItem(
                               value: d['id']?.toString(),
                               child: Row(
@@ -1174,9 +1170,9 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
                                   const SizedBox(width: 8),
                                   Expanded(
                                     child: Text(
-                                      d['deviceName'] ??
+                                      tr(d['deviceName'] ??
                                           d['serialNumber'] ??
-                                          'N/A',
+                                          'N/A'),
                                       overflow: TextOverflow.ellipsis,
                                     ),
                                   ),
@@ -1190,7 +1186,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
                     const SizedBox(height: 20),
 
                     // Sync mode
-                    Text('Chế độ đồng bộ:',
+                    Text(tr('Chế độ đồng bộ:'),
                         style: TextStyle(
                             fontWeight: FontWeight.w600,
                             color: Colors.grey.shade700)),
@@ -1202,9 +1198,8 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
                       groupValue: syncMode,
                       // ignore: deprecated_member_use
                       onChanged: (v) => setDialogState(() => syncMode = v!),
-                      title: const Text('Bổ sung chấm công mới'),
-                      subtitle: const Text(
-                          'Chỉ tải các bản ghi chấm công chưa có trên server'),
+                      title: Text(tr('Bổ sung chấm công mới')),
+                      subtitle: Text(tr('Chỉ tải các bản ghi chấm công chưa có trên server')),
                       dense: true,
                       contentPadding: EdgeInsets.zero,
                     ),
@@ -1215,10 +1210,9 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
                       groupValue: syncMode,
                       // ignore: deprecated_member_use
                       onChanged: (v) => setDialogState(() => syncMode = v!),
-                      title: const Text('Xóa hết và tải lại',
+                      title: Text(tr('Xóa hết và tải lại'),
                           style: TextStyle(color: Colors.red)),
-                      subtitle: const Text(
-                          'Xóa toàn bộ chấm công của máy trên DB, rồi tải lại từ đầu'),
+                      subtitle: Text(tr('Xóa toàn bộ chấm công của máy trên DB, rồi tải lại từ đầu')),
                       dense: true,
                       contentPadding: EdgeInsets.zero,
                     ),
@@ -1238,8 +1232,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
                                 color: Colors.red.shade700, size: 20),
                             const SizedBox(width: 8),
                             Expanded(
-                              child: Text(
-                                'Dữ liệu chấm công hiện tại trên server của ${selectedDeviceId != null ? "máy đã chọn" : "TẤT CẢ máy"} sẽ bị xóa trước khi tải lại!',
+                              child: Text(tr('Dữ liệu chấm công hiện tại trên server của ${selectedDeviceId != null ? "máy đã chọn" : "TẤT CẢ máy"} sẽ bị xóa trước khi tải lại!'),
                                 style: TextStyle(
                                     color: Colors.red.shade700, fontSize: 12),
                               ),
@@ -1261,8 +1254,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
                             Icon(Icons.date_range,
                                 color: Colors.blue.shade700, size: 18),
                             const SizedBox(width: 8),
-                            Text(
-                              'Thời gian: ${_dateTimeFormat.format(fromTime)} → ${_dateTimeFormat.format(toTime)}',
+                            Text(tr('Thời gian: ${_dateTimeFormat.format(fromTime)} → ${_dateTimeFormat.format(toTime)}'),
                               style: TextStyle(
                                   color: Colors.blue.shade700, fontSize: 13),
                             ),
@@ -1302,14 +1294,14 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
             children: [
               Icon(Icons.warning, color: Colors.red.shade700),
               const SizedBox(width: 8),
-              const Text('Xác nhận xóa dữ liệu'),
+              Text(tr('Xác nhận xóa dữ liệu')),
             ],
           ),
           content: Text(
-            'Bạn có CHẮC CHẮN muốn xóa toàn bộ dữ liệu chấm công '
+            tr('Bạn có CHẮC CHẮN muốn xóa toàn bộ dữ liệu chấm công '
             '${selectedDeviceId != null ? "của máy đã chọn" : "của TẤT CẢ máy"} '
             'trên server và tải lại từ đầu?\n\n'
-            'Thao tác này KHÔNG THỂ hoàn tác.',
+            'Thao tác này KHÔNG THỂ hoàn tác.'),
             style: const TextStyle(fontSize: 14),
           ),
           actions: [
@@ -1516,14 +1508,13 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
                 children: [
                   Icon(Icons.date_range, color: Colors.blue.shade700, size: 24),
                   const SizedBox(width: 8),
-                  const Text('Chọn khoảng thời gian'),
+                  Text(tr('Chọn khoảng thời gian')),
                 ],
               ),
               content: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Text(
-                      'Chọn khoảng thời gian để đồng bộ dữ liệu chấm công từ máy:'),
+                  Text(tr('Chọn khoảng thời gian để đồng bộ dữ liệu chấm công từ máy:')),
                   const SizedBox(height: 16),
                   _buildDatePickerRow(
                     label: 'Từ ngày',
@@ -1587,9 +1578,9 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
           children: [
             const Icon(Icons.calendar_today, size: 18),
             const SizedBox(width: 8),
-            Text(label, style: const TextStyle(color: Colors.grey)),
+            Text(tr(label), style: const TextStyle(color: Colors.grey)),
             const Spacer(),
-            Text(_dateFormat.format(date),
+            Text(tr(_dateFormat.format(date)),
                 style: const TextStyle(fontWeight: FontWeight.w500)),
           ],
         ),
@@ -1625,13 +1616,13 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
                 children: [
                   Icon(Icons.people, color: Colors.blue.shade700),
                   const SizedBox(width: 8),
-                  const Text('Chọn nhân viên'),
+                  Text(tr('Chọn nhân viên')),
                   const Spacer(),
                   if (tempSelected.isNotEmpty)
                     TextButton(
                       onPressed: () =>
                           setDialogState(() => tempSelected.clear()),
-                      child: Text('Bỏ chọn tất cả (${tempSelected.length})'),
+                      child: Text(tr('Bỏ chọn tất cả (${tempSelected.length})')),
                     ),
                 ],
               ),
@@ -1646,7 +1637,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
                     TextField(
                       autofocus: true,
                       decoration: InputDecoration(
-                        hintText: 'Tìm theo tên, mã NV, PIN...',
+                        hintText: tr('Tìm theo tên, mã NV, PIN...'),
                         prefixIcon: const Icon(Icons.search, size: 20),
                         isDense: true,
                         border: OutlineInputBorder(
@@ -1680,8 +1671,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
                             });
                           },
                         ),
-                        Text(
-                          'Chọn tất cả (${filtered.length} nhân viên)',
+                        Text(tr('Chọn tất cả (${filtered.length} nhân viên)'),
                           style: TextStyle(
                             fontSize: 13,
                             color: Colors.grey.shade700,
@@ -1697,8 +1687,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
                               color: Colors.blue.shade50,
                               borderRadius: BorderRadius.circular(12),
                             ),
-                            child: Text(
-                              'Đã chọn: ${tempSelected.length}',
+                            child: Text(tr('Đã chọn: ${tempSelected.length}'),
                               style: TextStyle(
                                 fontSize: 12,
                                 color: Colors.blue.shade700,
@@ -1721,7 +1710,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
                                   Icon(Icons.search_off,
                                       size: 48, color: Colors.grey.shade300),
                                   const SizedBox(height: 8),
-                                  Text('Không tìm thấy nhân viên',
+                                  Text(tr('Không tìm thấy nhân viên'),
                                       style: TextStyle(
                                           color: Colors.grey.shade500)),
                                 ],
@@ -1779,9 +1768,9 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
                                             backgroundColor:
                                                 Colors.blue.shade100,
                                             child: Text(
-                                              name.isNotEmpty
+                                              tr(name.isNotEmpty
                                                   ? name[0].toUpperCase()
-                                                  : '?',
+                                                  : '?'),
                                               style: TextStyle(
                                                   fontSize: 13,
                                                   fontWeight: FontWeight.bold,
@@ -1795,7 +1784,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
                                                   CrossAxisAlignment.start,
                                               children: [
                                                 Text(
-                                                  name,
+                                                  tr(name),
                                                   style: TextStyle(
                                                     fontWeight: FontWeight.w500,
                                                     fontSize: 13,
@@ -1804,8 +1793,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
                                                         : null,
                                                   ),
                                                 ),
-                                                Text(
-                                                  'Mã: $code  ·  PIN: $pin',
+                                                Text(tr('Mã: $code  ·  PIN: $pin'),
                                                   style: TextStyle(
                                                       fontSize: 11,
                                                       color:
@@ -1822,8 +1810,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
                                               borderRadius:
                                                   BorderRadius.circular(10),
                                             ),
-                                            child: Text(
-                                              '$attCount lần',
+                                            child: Text(tr('$attCount lần'),
                                               style: TextStyle(
                                                   fontSize: 11,
                                                   color: Colors.grey.shade600),
@@ -2094,7 +2081,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  sync.deviceName,
+                  tr(sync.deviceName),
                   style: const TextStyle(
                       fontWeight: FontWeight.w600, fontSize: 13),
                   overflow: TextOverflow.ellipsis,
@@ -2111,7 +2098,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
           ),
           const SizedBox(height: 6),
           Text(
-            sync.message,
+            tr(sync.message),
             style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
           ),
           if (sync.status != _SyncStatus.completed &&
@@ -2161,14 +2148,12 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'Chấm công trên máy',
+                Text(tr('Chấm công trên máy'),
                   style: theme.textTheme.headlineSmall
                       ?.copyWith(fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 2),
-                Text(
-                  'Dữ liệu chấm công real-time từ máy chấm công · $_totalCount bản ghi',
+                Text(tr('Dữ liệu chấm công real-time từ máy chấm công · $_totalCount bản ghi'),
                   style: theme.textTheme.bodySmall
                       ?.copyWith(color: Colors.grey.shade600),
                 ),
@@ -2195,7 +2180,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
               }
             },
             enabled: !_isExporting,
-            tooltip: 'Xuất dữ liệu',
+            tooltip: tr('Xuất dữ liệu'),
             icon: _isExporting
                 ? const SizedBox(
                     width: 18,
@@ -2210,7 +2195,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
                     Icon(Icons.table_chart,
                         color: Colors.green.shade700, size: 20),
                     const SizedBox(width: 12),
-                    const Text('Xuất Excel (.xlsx)'),
+                    Text(tr('Xuất Excel (.xlsx)')),
                   ],
                 ),
               ),
@@ -2221,7 +2206,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
                     Icon(Icons.picture_as_pdf,
                         color: Colors.red.shade700, size: 20),
                     const SizedBox(width: 12),
-                    const Text('Xuất PDF'),
+                    Text(tr('Xuất PDF')),
                   ],
                 ),
               ),
@@ -2231,7 +2216,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
                   children: [
                     Icon(Icons.image, color: Colors.blue.shade700, size: 20),
                     const SizedBox(width: 12),
-                    const Text('Xuất ảnh PNG'),
+                    Text(tr('Xuất ảnh PNG')),
                   ],
                 ),
               ),
@@ -2250,8 +2235,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
         children: [
           Icon(Icons.fiber_new, color: Colors.green.shade700, size: 20),
           const SizedBox(width: 8),
-          Text(
-            '${_realtimeQueue.length} bản ghi mới từ máy chấm công',
+          Text(tr('${_realtimeQueue.length} bản ghi mới từ máy chấm công'),
             style: TextStyle(
               color: Colors.green.shade700,
               fontWeight: FontWeight.w500,
@@ -2283,7 +2267,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
               initialValue: _selectedDeviceId,
               isExpanded: true,
               decoration: InputDecoration(
-                labelText: 'Thiết bị',
+                labelText: tr('Thiết bị'),
                 prefixIcon: const Icon(Icons.router, size: 18),
                 isDense: true,
                 border:
@@ -2292,12 +2276,12 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
                     const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               ),
               items: [
-                const DropdownMenuItem(
-                    value: null, child: Text('Tất cả thiết bị')),
+                DropdownMenuItem(
+                    value: null, child: Text(tr('Tất cả thiết bị'))),
                 ..._devices.map((d) => DropdownMenuItem(
                       value: d['id']?.toString(),
                       child: Text(
-                        d['deviceName'] ?? d['serialNumber'] ?? 'N/A',
+                        tr(d['deviceName'] ?? d['serialNumber'] ?? 'N/A'),
                         overflow: TextOverflow.ellipsis,
                       ),
                     )),
@@ -2316,7 +2300,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
               initialValue: _selectedPreset,
               isExpanded: true,
               decoration: InputDecoration(
-                labelText: 'Thời gian',
+                labelText: tr('Thời gian'),
                 prefixIcon: const Icon(Icons.calendar_today, size: 18),
                 isDense: true,
                 border:
@@ -2324,16 +2308,16 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
                 contentPadding:
                     const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               ),
-              items: const [
-                DropdownMenuItem(value: 'all', child: Text('Tất cả')),
-                DropdownMenuItem(value: 'today', child: Text('Hôm nay')),
-                DropdownMenuItem(value: 'yesterday', child: Text('Hôm qua')),
-                DropdownMenuItem(value: 'week', child: Text('Tuần này')),
-                DropdownMenuItem(value: 'lastWeek', child: Text('Tuần trước')),
-                DropdownMenuItem(value: 'month', child: Text('Tháng này')),
+              items: [
+                DropdownMenuItem(value: 'all', child: Text(tr('Tất cả'))),
+                DropdownMenuItem(value: 'today', child: Text(tr('Hôm nay'))),
+                DropdownMenuItem(value: 'yesterday', child: Text(tr('Hôm qua'))),
+                DropdownMenuItem(value: 'week', child: Text(tr('Tuần này'))),
+                DropdownMenuItem(value: 'lastWeek', child: Text(tr('Tuần trước'))),
+                DropdownMenuItem(value: 'month', child: Text(tr('Tháng này'))),
                 DropdownMenuItem(
-                    value: 'lastMonth', child: Text('Tháng trước')),
-                DropdownMenuItem(value: 'custom', child: Text('Tùy chọn...')),
+                    value: 'lastMonth', child: Text(tr('Tháng trước'))),
+                DropdownMenuItem(value: 'custom', child: Text(tr('Tùy chọn...'))),
               ],
               onChanged: (v) async {
                 if (v == 'custom') {
@@ -2343,7 +2327,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
                     lastDate: DateTime(2030),
                     initialDateRange:
                         DateTimeRange(start: _fromDate, end: _toDate),
-                    locale: const Locale('vi'),
+                    locale: appUiLocale(),
                     builder: (context, child) => Theme(
                       data: Theme.of(context).copyWith(
                         colorScheme: ColorScheme.light(
@@ -2381,7 +2365,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
                 Icon(Icons.date_range, size: 16, color: Colors.blue.shade700),
                 const SizedBox(width: 6),
                 Text(
-                  '${DateFormat('dd/MM/yyyy').format(_fromDate)} - ${DateFormat('dd/MM/yyyy').format(_toDate)}',
+                  tr('${DateFormat('dd/MM/yyyy').format(_fromDate)} - ${DateFormat('dd/MM/yyyy').format(_toDate)}'),
                   style: TextStyle(
                       fontSize: 12,
                       color: Colors.blue.shade700,
@@ -2424,9 +2408,9 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
                   const SizedBox(width: 8),
                   Flexible(
                     child: Text(
-                      _selectedEmployeePins.isEmpty
+                      tr(_selectedEmployeePins.isEmpty
                           ? 'Chọn nhân viên...'
-                          : '${_selectedEmployeePins.length} nhân viên',
+                          : '${_selectedEmployeePins.length} nhân viên'),
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         fontSize: 13,
@@ -2454,17 +2438,17 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
               initialValue: _filterAttendanceState,
               isExpanded: true,
               decoration: InputDecoration(
-                labelText: 'Kiểu chấm',
+                labelText: tr('Kiểu chấm'),
                 isDense: true,
                 border:
                     OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                 contentPadding:
                     const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               ),
-              items: const [
-                DropdownMenuItem(value: null, child: Text('Tất cả')),
-                DropdownMenuItem(value: 0, child: Text('Vào')),
-                DropdownMenuItem(value: 1, child: Text('Ra')),
+              items: [
+                DropdownMenuItem(value: null, child: Text(tr('Tất cả'))),
+                DropdownMenuItem(value: 0, child: Text(tr('Vào'))),
+                DropdownMenuItem(value: 1, child: Text(tr('Ra'))),
               ],
               onChanged: (val) => setState(() => _filterAttendanceState = val),
             ),
@@ -2477,20 +2461,20 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
               initialValue: _filterVerifyMode,
               isExpanded: true,
               decoration: InputDecoration(
-                labelText: 'Phương thức',
+                labelText: tr('Phương thức'),
                 isDense: true,
                 border:
                     OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                 contentPadding:
                     const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               ),
-              items: const [
-                DropdownMenuItem(value: null, child: Text('Tất cả')),
-                DropdownMenuItem(value: 0, child: Text('Mật khẩu')),
-                DropdownMenuItem(value: 1, child: Text('Vân tay')),
-                DropdownMenuItem(value: 2, child: Text('Thẻ')),
-                DropdownMenuItem(value: 15, child: Text('Khuôn mặt')),
-                DropdownMenuItem(value: 100, child: Text('Thủ công')),
+              items: [
+                DropdownMenuItem(value: null, child: Text(tr('Tất cả'))),
+                DropdownMenuItem(value: 0, child: Text(tr('Mật khẩu'))),
+                DropdownMenuItem(value: 1, child: Text(tr('Vân tay'))),
+                DropdownMenuItem(value: 2, child: Text(tr('Thẻ'))),
+                DropdownMenuItem(value: 15, child: Text(tr('Khuôn mặt'))),
+                DropdownMenuItem(value: 100, child: Text(tr('Thủ công'))),
               ],
               onChanged: (val) => setState(() => _filterVerifyMode = val),
             ),
@@ -2501,7 +2485,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
               _filterAttendanceState != null ||
               _filterVerifyMode != null)
             ActionChip(
-              label: const Text('Xóa bộ lọc'),
+              label: Text(tr('Xóa bộ lọc')),
               avatar: const Icon(Icons.clear_all, size: 16),
               onPressed: () {
                 setState(() {
@@ -2523,13 +2507,11 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
         children: [
           Icon(Icons.access_time, size: 72, color: Colors.grey.shade300),
           const SizedBox(height: 16),
-          Text(
-            'Chưa có dữ liệu chấm công',
+          Text(tr('Chưa có dữ liệu chấm công'),
             style: TextStyle(fontSize: 18, color: Colors.grey.shade600),
           ),
           const SizedBox(height: 8),
-          Text(
-            'Dữ liệu sẽ hiển thị khi nhân viên chấm công trên máy\nhoặc bấm "Tải lại tất cả" để đồng bộ từ thiết bị',
+          Text(tr('Dữ liệu sẽ hiển thị khi nhân viên chấm công trên máy\nhoặc bấm "Tải lại tất cả" để đồng bộ từ thiết bị'),
             textAlign: TextAlign.center,
             style: TextStyle(color: Colors.grey.shade500),
           ),
@@ -2537,7 +2519,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
           FilledButton.icon(
             onPressed: () => _syncAttendancesFromDevices(),
             icon: const Icon(Icons.sync),
-            label: const Text('Đồng bộ dữ liệu'),
+            label: Text(tr('Đồng bộ dữ liệu')),
           ),
         ],
       ),
@@ -2594,20 +2576,20 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                              att.employeeName ??
+                              tr(att.employeeName ??
                                   att.deviceUserName ??
-                                  '\u2014',
+                                  '\u2014'),
                               style: const TextStyle(
                                   fontWeight: FontWeight.w600, fontSize: 14),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis),
                           const SizedBox(height: 2),
                           Text(
-                              [
+                              tr([
                                 _dateFormat.format(att.attendanceTime),
                                 _timeFormat.format(att.attendanceTime),
                                 att.deviceName ?? ''
-                              ].where((s) => s.isNotEmpty).join(' \u00b7 '),
+                              ].where((s) => s.isNotEmpty).join(' \u00b7 ')),
                               style: const TextStyle(
                                   color: Color(0xFF71717A), fontSize: 12),
                               maxLines: 1,
@@ -2651,51 +2633,51 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
                   sortColumnIndex: _getSortColumnIndex(),
                   sortAscending: _sortAscending,
                   columns: [
-                    const DataColumn(
-                        label: Expanded(
-                            child: Text('STT', textAlign: TextAlign.center))),
                     DataColumn(
-                      label: const Expanded(
-                          child: Text('Mã nhân viên',
+                        label: Expanded(
+                            child: Text(tr('STT'), textAlign: TextAlign.center))),
+                    DataColumn(
+                      label: Expanded(
+                          child: Text(tr('Mã nhân viên'),
                               textAlign: TextAlign.center)),
                       onSort: (_, asc) => _onSort('pin', asc),
                     ),
                     DataColumn(
-                      label: const Expanded(
-                          child: Text('Tên nhân viên',
+                      label: Expanded(
+                          child: Text(tr('Tên nhân viên'),
                               textAlign: TextAlign.center)),
                       onSort: (_, asc) => _onSort('name', asc),
                     ),
-                    const DataColumn(
+                    DataColumn(
                         label: Expanded(
                             child:
-                                Text('Thiết bị', textAlign: TextAlign.center))),
+                                Text(tr('Thiết bị'), textAlign: TextAlign.center))),
                     DataColumn(
-                      label: const Expanded(
-                          child: Text('Ngày', textAlign: TextAlign.center)),
+                      label: Expanded(
+                          child: Text(tr('Ngày'), textAlign: TextAlign.center)),
                       onSort: (_, asc) => _onSort('time', asc),
                     ),
-                    const DataColumn(
+                    DataColumn(
                         label: Expanded(
-                            child: Text('Thứ', textAlign: TextAlign.center))),
-                    const DataColumn(
+                            child: Text(tr('Thứ'), textAlign: TextAlign.center))),
+                    DataColumn(
                         label: Expanded(
                             child:
-                                Text('Giờ chấm', textAlign: TextAlign.center))),
+                                Text(tr('Giờ chấm'), textAlign: TextAlign.center))),
                     DataColumn(
-                      label: const Expanded(
+                      label: Expanded(
                           child:
-                              Text('Kiểu chấm', textAlign: TextAlign.center)),
+                              Text(tr('Kiểu chấm'), textAlign: TextAlign.center)),
                       onSort: (_, asc) => _onSort('state', asc),
                     ),
-                    const DataColumn(
+                    DataColumn(
                         label: Expanded(
-                            child: Text('Phương thức',
+                            child: Text(tr('Phương thức'),
                                 textAlign: TextAlign.center))),
-                    const DataColumn(
+                    DataColumn(
                         label: Expanded(
                             child:
-                                Text('Thao tác', textAlign: TextAlign.center))),
+                                Text(tr('Thao tác'), textAlign: TextAlign.center))),
                   ],
                   rows: List.generate(data.length, (index) {
                     final att = data[index];
@@ -2711,7 +2693,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
                       cells: [
                         DataCell(Center(
                             child: Text(
-                          '${(_currentPage - 1) * _pageSize + index + 1}',
+                          tr('${(_currentPage - 1) * _pageSize + index + 1}'),
                           style: TextStyle(
                               color: Colors.grey.shade500, fontSize: 12),
                         ))),
@@ -2720,7 +2702,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
                           child: ConstrainedBox(
                             constraints: const BoxConstraints(maxWidth: 180),
                             child: Text(
-                              att.employeeName ?? att.deviceUserName ?? '—',
+                              tr(att.employeeName ?? att.deviceUserName ?? '—'),
                               overflow: TextOverflow.ellipsis,
                               style:
                                   const TextStyle(fontWeight: FontWeight.w500),
@@ -2731,7 +2713,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
                           child: ConstrainedBox(
                             constraints: const BoxConstraints(maxWidth: 120),
                             child: Text(
-                              att.deviceName ?? '—',
+                              tr(att.deviceName ?? '—'),
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
                                   color: Colors.grey.shade600, fontSize: 12),
@@ -2740,7 +2722,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
                         )),
                         DataCell(Center(
                             child:
-                                Text(_dateFormat.format(att.attendanceTime)))),
+                                Text(tr(_dateFormat.format(att.attendanceTime))))),
                         DataCell(Center(
                           child: Container(
                             padding: const EdgeInsets.symmetric(
@@ -2750,7 +2732,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
                               borderRadius: BorderRadius.circular(4),
                             ),
                             child: Text(
-                              _getDayOfWeek(att.attendanceTime),
+                              tr(_getDayOfWeek(att.attendanceTime)),
                               style: TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w500,
@@ -2763,7 +2745,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
                         )),
                         DataCell(Center(
                             child: Text(
-                          _timeFormat.format(att.attendanceTime),
+                          tr(_timeFormat.format(att.attendanceTime)),
                           style: const TextStyle(
                               fontFamily: 'monospace',
                               fontWeight: FontWeight.w600),
@@ -2783,7 +2765,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
                                       _showEditAttendanceDialog(att),
                                   icon: Icon(Icons.edit,
                                       size: 18, color: Colors.blue.shade700),
-                                  tooltip: 'Sửa giờ chấm',
+                                  tooltip: tr('Sửa giờ chấm'),
                                   padding: EdgeInsets.zero,
                                   constraints: const BoxConstraints(
                                       minWidth: 32, minHeight: 32),
@@ -2793,7 +2775,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
                                   onPressed: () => _deleteAttendance(att),
                                   icon: Icon(Icons.delete_outline,
                                       size: 18, color: Colors.red.shade600),
-                                  tooltip: 'Xóa',
+                                  tooltip: tr('Xóa'),
                                   padding: EdgeInsets.zero,
                                   constraints: const BoxConstraints(
                                       minWidth: 32, minHeight: 32),
@@ -2818,10 +2800,10 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
       mainAxisAlignment: MainAxisAlignment.center,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(code ?? pin,
+        Text(tr(code ?? pin),
             style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
         if (code != null && code != pin)
-          Text('PIN: $pin',
+          Text(tr('PIN: $pin'),
               style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
       ],
     );
@@ -2849,7 +2831,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
           ),
           const SizedBox(width: 4),
           Text(
-            label,
+            tr(label),
             style: TextStyle(
               color: color,
               fontWeight: FontWeight.w600,
@@ -2874,7 +2856,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
         children: [
           Icon(_getVerifyIcon(mode), size: 14, color: color),
           const SizedBox(width: 4),
-          Text(label,
+          Text(tr(label),
               style: TextStyle(
                   color: color, fontSize: 12, fontWeight: FontWeight.w500)),
         ],
@@ -2891,14 +2873,13 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
       ),
       child: Builder(builder: (context) {
         final isMobile = Responsive.isMobile(context);
-        final infoText = Text(
-          'Tổng: $_totalCount bản ghi',
+        final infoText = Text(tr('Tổng: $_totalCount bản ghi'),
           style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
         );
         final pageSizeSelector = Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('Hiển thị:',
+            Text(tr('Hiển thị:'),
                 style: TextStyle(fontSize: 12, color: Colors.grey[500])),
             const SizedBox(width: 8),
             Container(
@@ -2915,7 +2896,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
                   isDense: true,
                   style: TextStyle(fontSize: 13, color: Colors.grey[800]),
                   items: _pageSizeOptions
-                      .map((s) => DropdownMenuItem(value: s, child: Text('$s')))
+                      .map((s) => DropdownMenuItem(value: s, child: Text(tr('$s'))))
                       .toList(),
                   onChanged: (v) {
                     if (v != null) {
@@ -2940,7 +2921,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
                     }
                   : null,
               icon: const Icon(Icons.first_page, size: 20),
-              tooltip: 'Trang đầu',
+              tooltip: tr('Trang đầu'),
             ),
             IconButton(
               onPressed: _currentPage > 1
@@ -2950,7 +2931,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
                     }
                   : null,
               icon: const Icon(Icons.chevron_left, size: 20),
-              tooltip: 'Trang trước',
+              tooltip: tr('Trang trước'),
             ),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
@@ -2959,7 +2940,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Text(
-                'Trang $_currentPage / $totalPages',
+                tr('Trang $_currentPage / $totalPages'),
                 style: TextStyle(
                   fontWeight: FontWeight.w600,
                   color: Colors.blue.shade700,
@@ -2975,7 +2956,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
                     }
                   : null,
               icon: const Icon(Icons.chevron_right, size: 20),
-              tooltip: 'Trang sau',
+              tooltip: tr('Trang sau'),
             ),
             IconButton(
               onPressed: _currentPage < totalPages
@@ -2985,7 +2966,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
                     }
                   : null,
               icon: const Icon(Icons.last_page, size: 20),
-              tooltip: 'Trang cuối',
+              tooltip: tr('Trang cuối'),
             ),
           ],
         );

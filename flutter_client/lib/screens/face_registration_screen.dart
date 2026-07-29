@@ -5,6 +5,7 @@ import '../services/api_service.dart';
 import '../widgets/circle_face_capture_widget.dart';
 import '../widgets/notification_overlay.dart';
 import '../widgets/hrm_page_chrome.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 class FaceRegistrationScreen extends StatefulWidget {
   final String? employeeId;
@@ -41,8 +42,7 @@ class _FaceRegistrationScreenState extends State<FaceRegistrationScreen> {
         backgroundColor: Colors.white,
         elevation: 0,
         automaticallyImplyLeading: false,
-        title: const Text(
-          'Đăng ký khuôn mặt',
+        title: Text(tr('Đăng ký khuôn mặt'),
           style: TextStyle(
             color: Color(0xFF18181B),
             fontWeight: FontWeight.bold,
@@ -82,7 +82,7 @@ class _FaceRegistrationScreenState extends State<FaceRegistrationScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        widget.employeeName!,
+                        tr(widget.employeeName!),
                         style: const TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 16,
@@ -90,8 +90,7 @@ class _FaceRegistrationScreenState extends State<FaceRegistrationScreen> {
                         ),
                       ),
                       if (widget.employeeId != null)
-                        Text(
-                          'Mã NV: ${widget.employeeId}',
+                        Text(tr('Mã NV: ${widget.employeeId}'),
                           style: const TextStyle(
                             color: Color(0xFF71717A),
                             fontSize: 13,
@@ -127,7 +126,7 @@ class _FaceRegistrationScreenState extends State<FaceRegistrationScreen> {
                         child: isCompleted
                             ? const Icon(Icons.check, color: Colors.white, size: 20)
                             : Text(
-                                '${index + 1}',
+                                tr('${index + 1}'),
                                 style: TextStyle(
                                   color: isCurrent ? Colors.white : const Color(0xFF71717A),
                                   fontWeight: FontWeight.bold,
@@ -151,9 +150,9 @@ class _FaceRegistrationScreenState extends State<FaceRegistrationScreen> {
           ),
           const SizedBox(height: 12),
           Text(
-            _capturedImages.length >= _requiredImages
+            tr(_capturedImages.length >= _requiredImages
                 ? 'Hoàn tất - Đã chụp $_requiredImages ảnh'
-                : 'Chưa chụp - Nhấn "Bắt đầu chụp" để bắt đầu',
+                : 'Chưa chụp - Nhấn "Bắt đầu chụp" để bắt đầu'),
             style: const TextStyle(
               color: Color(0xFF71717A),
               fontSize: 14,
@@ -184,8 +183,7 @@ class _FaceRegistrationScreenState extends State<FaceRegistrationScreen> {
               ),
             ),
             const SizedBox(height: 32),
-            const Text(
-              'Đăng ký khuôn mặt',
+            Text(tr('Đăng ký khuôn mặt'),
               style: TextStyle(
                 fontSize: 22,
                 fontWeight: FontWeight.bold,
@@ -193,8 +191,7 @@ class _FaceRegistrationScreenState extends State<FaceRegistrationScreen> {
               ),
             ),
             const SizedBox(height: 12),
-            const Text(
-              'Hệ thống sẽ chụp 5 góc khuôn mặt:\nThẳng, Trái, Phải, Trên, Dưới',
+            Text(tr('Hệ thống sẽ chụp 5 góc khuôn mặt:\nThẳng, Trái, Phải, Trên, Dưới'),
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: Color(0xFF71717A),
@@ -208,8 +205,7 @@ class _FaceRegistrationScreenState extends State<FaceRegistrationScreen> {
               child: FilledButton.icon(
                 onPressed: _openFaceCapture,
                 icon: const Icon(Icons.camera_alt),
-                label: const Text(
-                  'Bắt đầu chụp',
+                label: Text(tr('Bắt đầu chụp'),
                   style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
                 ),
                 style: ElevatedButton.styleFrom(
@@ -235,8 +231,7 @@ class _FaceRegistrationScreenState extends State<FaceRegistrationScreen> {
     if (images.length < _requiredImages) {
       NotificationOverlayManager().showError(
         title: 'Chưa đủ ảnh',
-        message:
-            'Cần đủ $_requiredImages ảnh khuôn mặt (hiện có ${images.length}). Vui lòng chụp lại.',
+        message: tr('Cần đủ $_requiredImages ảnh khuôn mặt (hiện có ${images.length}). Vui lòng chụp lại.'),
       );
       return;
     }
@@ -265,8 +260,7 @@ class _FaceRegistrationScreenState extends State<FaceRegistrationScreen> {
             ),
           ),
           const SizedBox(height: 24),
-          const Text(
-            'Đã chụp đủ ảnh!',
+          Text(tr('Đã chụp đủ ảnh!'),
             style: TextStyle(
               fontSize: 24,
               fontWeight: FontWeight.bold,
@@ -274,8 +268,7 @@ class _FaceRegistrationScreenState extends State<FaceRegistrationScreen> {
             ),
           ),
           const SizedBox(height: 8),
-          const Text(
-            'Nhấn "Đăng ký" để hoàn tất quá trình',
+          Text(tr('Nhấn "Đăng ký" để hoàn tất quá trình'),
             style: TextStyle(
               color: Color(0xFF71717A),
             ),
@@ -313,7 +306,7 @@ class _FaceRegistrationScreenState extends State<FaceRegistrationScreen> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      label,
+                      tr(label),
                       style: const TextStyle(
                         fontSize: 10,
                         color: Color(0xFF71717A),
@@ -331,7 +324,7 @@ class _FaceRegistrationScreenState extends State<FaceRegistrationScreen> {
                 child: OutlinedButton.icon(
                   onPressed: _resetCapture,
                   icon: const Icon(Icons.refresh),
-                  label: const Text('Chụp lại'),
+                  label: Text(tr('Chụp lại')),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: const Color(0xFF71717A),
                     padding: const EdgeInsets.symmetric(vertical: 16),
@@ -357,7 +350,7 @@ class _FaceRegistrationScreenState extends State<FaceRegistrationScreen> {
                           ),
                         )
                       : const Icon(Icons.check),
-                  label: Text(_isLoading ? 'Đang xử lý...' : 'Đăng ký'),
+                  label: Text(tr(_isLoading ? 'Đang xử lý...' : 'Đăng ký')),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: HrmPageChrome.primaryNavy,
                     foregroundColor: Colors.white,
@@ -406,7 +399,7 @@ class _FaceRegistrationScreenState extends State<FaceRegistrationScreen> {
       if (!mounted) return;
 
       if (response['isSuccess'] == true) {
-        NotificationOverlayManager().showSuccess(title: 'Thành công', message: 'Đăng ký khuôn mặt thành công! Chờ quản lý duyệt.');
+        NotificationOverlayManager().showSuccess(title: 'Thành công', message: tr('Đăng ký khuôn mặt thành công! Chờ quản lý duyệt.'));
         setState(() {
           _capturedImages.clear();
         });

@@ -11,6 +11,7 @@ import '../../utils/number_formatter.dart';
 import '../notification_overlay.dart';
 import '../pos_barcode_scanner.dart';
 import 'pos_theme.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// Dữ liệu mở dialog «Thiết lập đơn vị tính và thuộc tính» (kiểu KiotViet).
 class UnitAttributeSetupInput {
@@ -96,10 +97,10 @@ class _EditableUnit {
     this.isDirectSale = true,
     this.isBase = false,
     bool autoPrice = false,
-  })  : nameCtrl = TextEditingController(text: name),
+  })  : nameCtrl = TextEditingController(text: tr(name)),
         rateCtrl = TextEditingController(
-            text: isBase ? '1' : _fmtRate(rate)),
-        priceCtrl = TextEditingController(text: _fmtMoney(price)),
+            text: tr(isBase ? '1' : _fmtRate(rate))),
+        priceCtrl = TextEditingController(text: tr(_fmtMoney(price))),
         priceAuto = autoPrice || (!isBase && price <= 0);
 
   String? id;
@@ -148,8 +149,8 @@ class _EditableAttr {
     this.attributeId = '',
     String attributeName = '',
     String valuesText = '',
-  })  : nameCtrl = TextEditingController(text: attributeName),
-        valuesCtrl = TextEditingController(text: valuesText);
+  })  : nameCtrl = TextEditingController(text: tr(attributeName)),
+        valuesCtrl = TextEditingController(text: tr(valuesText));
 
   String attributeId;
   final TextEditingController nameCtrl;
@@ -174,16 +175,16 @@ class _RelatedRow {
     double cost = 0,
     double price = 0,
     double onHandQty = 0,
-  })  : codeCtrl = TextEditingController(text: skuCode),
-        barcodeCtrl = TextEditingController(text: barcode),
+  })  : codeCtrl = TextEditingController(text: tr(skuCode)),
+        barcodeCtrl = TextEditingController(text: tr(barcode)),
         costCtrl = TextEditingController(
-            text: _EditableUnit._fmtMoney(cost)),
+            text: tr(_EditableUnit._fmtMoney(cost))),
         priceCtrl = TextEditingController(
-            text: _EditableUnit._fmtMoney(price)),
+            text: tr(_EditableUnit._fmtMoney(price))),
         stockCtrl = TextEditingController(
-            text: onHandQty == onHandQty.roundToDouble()
+            text: tr(onHandQty == onHandQty.roundToDouble()
                 ? onHandQty.toStringAsFixed(0)
-                : onHandQty.toString());
+                : onHandQty.toString()));
 
   String? variantId;
   final String attrLabel;
@@ -345,7 +346,7 @@ class _UnitAttributeSetupDialogState extends State<_UnitAttributeSetupDialog> {
           children: [
             ListTile(
               leading: const Icon(Icons.add, color: PosTheme.kiotBlue),
-              title: const Text('Tạo thuộc tính mới',
+              title: Text(tr('Tạo thuộc tính mới'),
                   style: TextStyle(color: PosTheme.kiotBlue)),
               onTap: () => Navigator.pop(ctx, createNew),
             ),
@@ -355,7 +356,7 @@ class _UnitAttributeSetupDialogState extends State<_UnitAttributeSetupDialog> {
                 shrinkWrap: true,
                 children: _attrCatalog
                     .map((c) => ListTile(
-                          title: Text(c.name),
+                          title: Text(tr(c.name)),
                           onTap: () => Navigator.pop(ctx, c),
                         ))
                     .toList(),
@@ -379,11 +380,11 @@ class _UnitAttributeSetupDialogState extends State<_UnitAttributeSetupDialog> {
   }
 
   Future<void> _quickCreateAttribute(_EditableAttr a) async {
-    final ctrl = TextEditingController(text: a.nameCtrl.text.trim());
+    final ctrl = TextEditingController(text: tr(a.nameCtrl.text.trim()));
     final name = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Tạo thuộc tính mới'),
+        title: Text(tr('Tạo thuộc tính mới')),
         content: TextField(
           controller: ctrl,
           autofocus: true,
@@ -395,12 +396,12 @@ class _UnitAttributeSetupDialogState extends State<_UnitAttributeSetupDialog> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Hủy'),
+            child: Text(tr('Hủy')),
           ),
           FilledButton(
             style: PosTheme.filledButtonStyle,
             onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
-            child: const Text('Lưu'),
+            child: Text(tr('Lưu')),
           ),
         ],
       ),
@@ -778,7 +779,7 @@ class _UnitAttributeSetupDialogState extends State<_UnitAttributeSetupDialog> {
     if (_isParentOnlyRow(row)) {
       NotificationOverlayManager().showError(
         title: 'Không thể xóa',
-        message: 'Không thể xóa dòng đơn vị cơ bản của hàng hóa',
+        message: tr('Không thể xóa dòng đơn vị cơ bản của hàng hóa'),
       );
       return;
     }
@@ -794,21 +795,21 @@ class _UnitAttributeSetupDialogState extends State<_UnitAttributeSetupDialog> {
 
   Future<void> _openPriceSetup() async {
     var mode = 'unit_prices';
-    final marginCtrl = TextEditingController(text: '30');
+    final marginCtrl = TextEditingController(text: tr('30'));
     final baseCost = widget.input.costPrice;
     final uniformCostCtrl = TextEditingController(
-      text: _EditableUnit._fmtMoney(baseCost),
+      text: tr(_EditableUnit._fmtMoney(baseCost)),
     );
 
     final applied = await showDialog<bool>(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDlg) => AlertDialog(
-          title: const Row(
+          title: Row(
             children: [
               Icon(Icons.settings, size: 20, color: PosTheme.kiotBlue),
               SizedBox(width: 8),
-              Text('Thiết lập giá'),
+              Text(tr('Thiết lập giá')),
             ],
           ),
           content: SizedBox(
@@ -821,9 +822,8 @@ class _UnitAttributeSetupDialogState extends State<_UnitAttributeSetupDialog> {
                   value: 'unit_prices',
                   groupValue: mode,
                   onChanged: (v) => setDlg(() => mode = v!),
-                  title: const Text('Lấy giá bán từ đơn vị tính'),
-                  subtitle: const Text(
-                    'Áp giá bán đã nhập ở phần đơn vị cho từng dòng hàng cùng loại',
+                  title: Text(tr('Lấy giá bán từ đơn vị tính')),
+                  subtitle: Text(tr('Áp giá bán đã nhập ở phần đơn vị cho từng dòng hàng cùng loại'),
                     style: TextStyle(fontSize: 12),
                   ),
                   dense: true,
@@ -833,9 +833,8 @@ class _UnitAttributeSetupDialogState extends State<_UnitAttributeSetupDialog> {
                   value: 'cost_by_conversion',
                   groupValue: mode,
                   onChanged: (v) => setDlg(() => mode = v!),
-                  title: const Text('Giá vốn theo quy đổi'),
-                  subtitle: Text(
-                    'Giá vốn = ${_moneyFmt.format(baseCost)} × hệ số quy đổi',
+                  title: Text(tr('Giá vốn theo quy đổi')),
+                  subtitle: Text(tr('Giá vốn = ${_moneyFmt.format(baseCost)} × hệ số quy đổi'),
                     style: const TextStyle(fontSize: 12),
                   ),
                   dense: true,
@@ -845,7 +844,7 @@ class _UnitAttributeSetupDialogState extends State<_UnitAttributeSetupDialog> {
                   value: 'uniform_cost',
                   groupValue: mode,
                   onChanged: (v) => setDlg(() => mode = v!),
-                  title: const Text('Giá vốn đồng nhất cho tất cả dòng'),
+                  title: Text(tr('Giá vốn đồng nhất cho tất cả dòng')),
                   dense: true,
                   contentPadding: EdgeInsets.zero,
                 ),
@@ -863,7 +862,7 @@ class _UnitAttributeSetupDialogState extends State<_UnitAttributeSetupDialog> {
                   value: 'margin',
                   groupValue: mode,
                   onChanged: (v) => setDlg(() => mode = v!),
-                  title: const Text('Giá bán = giá vốn + % lợi nhuận'),
+                  title: Text(tr('Giá bán = giá vốn + % lợi nhuận')),
                   dense: true,
                   contentPadding: EdgeInsets.zero,
                 ),
@@ -882,12 +881,12 @@ class _UnitAttributeSetupDialogState extends State<_UnitAttributeSetupDialog> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Bỏ qua'),
+              child: Text(tr('Bỏ qua')),
             ),
             FilledButton(
               onPressed: () => Navigator.pop(ctx, true),
               style: FilledButton.styleFrom(backgroundColor: PosTheme.kiotBlue),
-              child: const Text('Áp dụng'),
+              child: Text(tr('Áp dụng')),
             ),
           ],
         ),
@@ -1384,7 +1383,7 @@ class _UnitAttributeSetupDialogState extends State<_UnitAttributeSetupDialog> {
   void _showSuccess(String message) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), backgroundColor: PosTheme.primary),
+      SnackBar(content: Text(tr(message)), backgroundColor: PosTheme.primary),
     );
   }
 
@@ -1394,12 +1393,12 @@ class _UnitAttributeSetupDialogState extends State<_UnitAttributeSetupDialog> {
     showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Lỗi'),
-        content: Text(message),
+        title: Text(tr('Lỗi')),
+        content: Text(tr(message)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Đóng'),
+            child: Text(tr('Đóng')),
           ),
         ],
       ),
@@ -1466,9 +1465,8 @@ class _UnitAttributeSetupDialogState extends State<_UnitAttributeSetupDialog> {
       padding: const EdgeInsets.fromLTRB(20, 16, 8, 12),
       child: Row(
         children: [
-          const Expanded(
-            child: Text(
-              'Thiết lập đơn vị tính và thuộc tính',
+          Expanded(
+            child: Text(tr('Thiết lập đơn vị tính và thuộc tính'),
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
             ),
           ),
@@ -1485,7 +1483,7 @@ class _UnitAttributeSetupDialogState extends State<_UnitAttributeSetupDialog> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('Đơn vị tính',
+        Text(tr('Đơn vị tính'),
             style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
         const SizedBox(height: 8),
         _unitHeaderRow(),
@@ -1500,7 +1498,7 @@ class _UnitAttributeSetupDialogState extends State<_UnitAttributeSetupDialog> {
           child: TextButton.icon(
             onPressed: _addUnit,
             icon: const Icon(Icons.add, size: 18, color: PosTheme.kiotBlue),
-            label: const Text('Thêm đơn vị',
+            label: Text(tr('Thêm đơn vị'),
                 style: TextStyle(color: PosTheme.kiotBlue)),
           ),
         ),
@@ -1518,15 +1516,15 @@ class _UnitAttributeSetupDialogState extends State<_UnitAttributeSetupDialog> {
         children: [
           const Expanded(flex: 22, child: SizedBox()),
           const SizedBox(width: 8),
-          const SizedBox(
+          SizedBox(
             width: 168,
-            child: Text('Quy đổi',
+            child: Text(tr('Quy đổi'),
                 style: TextStyle(fontSize: 11, color: PosTheme.textSecondary)),
           ),
           const SizedBox(width: 8),
-          const Expanded(
+          Expanded(
             flex: 14,
-            child: Text('Giá bán',
+            child: Text(tr('Giá bán'),
                 style: TextStyle(fontSize: 11, color: PosTheme.textSecondary)),
           ),
           const SizedBox(width: 108),
@@ -1554,7 +1552,7 @@ class _UnitAttributeSetupDialogState extends State<_UnitAttributeSetupDialog> {
     final rateField = !u.isBase
         ? Row(
             children: [
-              Text('= ',
+              Text(tr('= '),
                   style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w500,
@@ -1573,7 +1571,7 @@ class _UnitAttributeSetupDialogState extends State<_UnitAttributeSetupDialog> {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  baseName,
+                  tr(baseName),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
@@ -1613,7 +1611,7 @@ class _UnitAttributeSetupDialogState extends State<_UnitAttributeSetupDialog> {
             Padding(
               padding: const EdgeInsets.only(bottom: 6),
               child: Text(
-                u.isBase ? 'Đơn vị cơ bản' : 'Đơn vị quy đổi',
+                tr(u.isBase ? 'Đơn vị cơ bản' : 'Đơn vị quy đổi'),
                 style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
@@ -1637,7 +1635,7 @@ class _UnitAttributeSetupDialogState extends State<_UnitAttributeSetupDialog> {
                   onChanged: (v) =>
                       setState(() => u.isDirectSale = v ?? true),
                 ),
-                const Text('Bán trực tiếp', style: TextStyle(fontSize: 12)),
+                Text(tr('Bán trực tiếp'), style: TextStyle(fontSize: 12)),
                 const Spacer(),
                 if (onDelete != null)
                   IconButton(
@@ -1667,7 +1665,7 @@ class _UnitAttributeSetupDialogState extends State<_UnitAttributeSetupDialog> {
                 children: [
                   Padding(
                     padding: const EdgeInsets.only(top: 16),
-                    child: Text('=',
+                    child: Text(tr('='),
                         style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w500,
@@ -1690,7 +1688,7 @@ class _UnitAttributeSetupDialogState extends State<_UnitAttributeSetupDialog> {
                     child: Padding(
                       padding: const EdgeInsets.only(top: 16),
                       child: Text(
-                        baseName,
+                        tr(baseName),
                         maxLines: 2,
                         overflow: TextOverflow.visible,
                         softWrap: true,
@@ -1720,8 +1718,8 @@ class _UnitAttributeSetupDialogState extends State<_UnitAttributeSetupDialog> {
                   onChanged: (v) =>
                       setState(() => u.isDirectSale = v ?? true),
                 ),
-                const Expanded(
-                  child: Text('Bán trực tiếp',
+                Expanded(
+                  child: Text(tr('Bán trực tiếp'),
                       style: TextStyle(fontSize: 11), maxLines: 2),
                 ),
               ],
@@ -1743,7 +1741,7 @@ class _UnitAttributeSetupDialogState extends State<_UnitAttributeSetupDialog> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('Thuộc tính',
+        Text(tr('Thuộc tính'),
             style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
         const SizedBox(height: 10),
         ..._attrs.asMap().entries.map((e) => _attrRow(e.key)),
@@ -1752,7 +1750,7 @@ class _UnitAttributeSetupDialogState extends State<_UnitAttributeSetupDialog> {
           child: TextButton.icon(
             onPressed: _addAttr,
             icon: const Icon(Icons.add, size: 18, color: PosTheme.kiotBlue),
-            label: const Text('Thêm thuộc tính',
+            label: Text(tr('Thêm thuộc tính'),
                 style: TextStyle(color: PosTheme.kiotBlue)),
           ),
         ),
@@ -1776,7 +1774,7 @@ class _UnitAttributeSetupDialogState extends State<_UnitAttributeSetupDialog> {
                 hint: 'HƯƠNG VỊ, Màu sắc...',
                 suffix: IconButton(
                   icon: const Icon(Icons.arrow_drop_down, size: 22),
-                  tooltip: 'Chọn từ danh mục',
+                  tooltip: tr('Chọn từ danh mục'),
                   onPressed: () => _pickAttrFromCatalog(a),
                 ),
               ),
@@ -1817,12 +1815,12 @@ class _UnitAttributeSetupDialogState extends State<_UnitAttributeSetupDialog> {
           spacing: 4,
           runSpacing: 4,
           children: [
-            const Text('Hàng cùng loại',
+            Text(tr('Hàng cùng loại'),
                 style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
             TextButton.icon(
               onPressed: _openPriceSetup,
               icon: const Icon(Icons.settings, size: 16, color: PosTheme.kiotBlue),
-              label: const Text('Thiết lập giá',
+              label: Text(tr('Thiết lập giá'),
                   style: TextStyle(color: PosTheme.kiotBlue)),
             ),
             TextButton.icon(
@@ -1837,13 +1835,13 @@ class _UnitAttributeSetupDialogState extends State<_UnitAttributeSetupDialog> {
                 });
               },
               icon: const Icon(Icons.refresh, size: 16),
-              label: const Text('Tính lại giá'),
+              label: Text(tr('Tính lại giá')),
             ),
           ],
         ),
         const SizedBox(height: 8),
         if (_relatedRows.isEmpty)
-          Text('Thêm đơn vị hoặc thuộc tính để sinh dòng hàng',
+          Text(tr('Thêm đơn vị hoặc thuộc tính để sinh dòng hàng'),
               style: TextStyle(color: Colors.grey.shade600, fontSize: 13))
         else
           SingleChildScrollView(
@@ -1876,16 +1874,16 @@ class _UnitAttributeSetupDialogState extends State<_UnitAttributeSetupDialog> {
     return Container(
       color: Colors.grey.shade50,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      child: const Row(
+      child: Row(
         children: [
-          Expanded(flex: 24, child: Text('Giá trị thuộc tính', style: _th)),
-          Expanded(flex: 14, child: Text('Đơn vị', style: _th)),
-          Expanded(flex: 10, child: Text('Quy đổi', style: _th)),
-          Expanded(flex: 16, child: Text('Mã hàng', style: _th)),
-          Expanded(flex: 16, child: Text('Mã vạch', style: _th)),
-          Expanded(flex: 14, child: Text('Giá vốn', style: _th)),
-          Expanded(flex: 14, child: Text('Giá bán', style: _th)),
-          Expanded(flex: 10, child: Text('Tồn kho', style: _th)),
+          Expanded(flex: 24, child: Text(tr('Giá trị thuộc tính'), style: _th)),
+          Expanded(flex: 14, child: Text(tr('Đơn vị'), style: _th)),
+          Expanded(flex: 10, child: Text(tr('Quy đổi'), style: _th)),
+          Expanded(flex: 16, child: Text(tr('Mã hàng'), style: _th)),
+          Expanded(flex: 16, child: Text(tr('Mã vạch'), style: _th)),
+          Expanded(flex: 14, child: Text(tr('Giá vốn'), style: _th)),
+          Expanded(flex: 14, child: Text(tr('Giá bán'), style: _th)),
+          Expanded(flex: 10, child: Text(tr('Tồn kho'), style: _th)),
           SizedBox(width: 40),
         ],
       ),
@@ -1917,7 +1915,7 @@ class _UnitAttributeSetupDialogState extends State<_UnitAttributeSetupDialog> {
           Expanded(
             flex: 24,
             child: Text(
-              r.attrLabel.isEmpty ? '—' : r.attrLabel,
+              tr(r.attrLabel.isEmpty ? '—' : r.attrLabel),
               style: TextStyle(
                 fontSize: 12,
                 color: r.attrLabel.isEmpty
@@ -1928,7 +1926,7 @@ class _UnitAttributeSetupDialogState extends State<_UnitAttributeSetupDialog> {
           ),
           Expanded(
             flex: 14,
-            child: Text(r.unitName, style: const TextStyle(fontSize: 12)),
+            child: Text(tr(r.unitName), style: const TextStyle(fontSize: 12)),
           ),
           Expanded(
             flex: 10,
@@ -1938,7 +1936,7 @@ class _UnitAttributeSetupDialogState extends State<_UnitAttributeSetupDialog> {
                 color: Colors.grey.shade100,
                 borderRadius: BorderRadius.circular(4),
               ),
-              child: Text(convText,
+              child: Text(tr(convText),
                   textAlign: TextAlign.center,
                   style: const TextStyle(fontSize: 12)),
             ),
@@ -1956,7 +1954,7 @@ class _UnitAttributeSetupDialogState extends State<_UnitAttributeSetupDialog> {
                   controller: r.codeCtrl,
                   decoration: InputDecoration(
                     isDense: true,
-                    hintText: r.isBaseUnit ? null : 'Tự động',
+                    hintText: trN(r.isBaseUnit ? null : 'Tự động'),
                     border: const OutlineInputBorder(),
                     contentPadding:
                         const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
@@ -2080,11 +2078,11 @@ class _UnitAttributeSetupDialogState extends State<_UnitAttributeSetupDialog> {
           children: [
             OutlinedButton(
               onPressed: _saving ? null : () => Navigator.pop(context),
-              child: const Text('Bỏ qua'),
+              child: Text(tr('Bỏ qua')),
             ),
             OutlinedButton(
               onPressed: _saving ? null : () => _save(addMore: true),
-              child: const Text('Lưu & thêm cùng loại'),
+              child: Text(tr('Lưu & thêm cùng loại')),
             ),
             FilledButton(
               onPressed: _saving ? null : () => _save(addMore: false),
@@ -2096,7 +2094,7 @@ class _UnitAttributeSetupDialogState extends State<_UnitAttributeSetupDialog> {
                       child: CircularProgressIndicator(
                           strokeWidth: 2, color: Colors.white),
                     )
-                  : const Text('Lưu'),
+                  : Text(tr('Lưu')),
             ),
           ],
         ),

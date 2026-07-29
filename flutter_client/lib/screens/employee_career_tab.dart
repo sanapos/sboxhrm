@@ -8,6 +8,7 @@ import '../models/employee.dart';
 import '../widgets/loading_widget.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../utils/responsive_helper.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 // ═══════════════════════════════════════════════════════════════
 // QUẢN LÝ QUÁ TRÌNH CÔNG TÁC CỦA NHÂN VIÊN
@@ -196,27 +197,27 @@ class _EmployeeCareerScreenState extends State<EmployeeCareerScreen>
               mainAxisSize: MainAxisSize.min,
               children: [
                 DropdownButtonFormField<String>(
-                  decoration: const InputDecoration(
-                    labelText: 'Phòng ban *',
+                  decoration: InputDecoration(
+                    labelText: tr('Phòng ban *'),
                     prefixIcon: Icon(Icons.business),
                   ),
                   items: departments
                       .map((d) => DropdownMenuItem(
                           value: d['id']?.toString(),
-                          child: Text(d['name']?.toString() ?? '')))
+                          child: Text(tr(d['name']?.toString() ?? ''))))
                       .toList(),
                   onChanged: (v) => setState(() => selectedDeptId = v),
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<String>(
-                  decoration: const InputDecoration(
-                    labelText: 'Chức vụ *',
+                  decoration: InputDecoration(
+                    labelText: tr('Chức vụ *'),
                     prefixIcon: Icon(Icons.badge),
                   ),
                   items: positions
                       .map((p) => DropdownMenuItem(
                           value: p['id']?.toString(),
-                          child: Text(p['name']?.toString() ?? '')))
+                          child: Text(tr(p['name']?.toString() ?? ''))))
                       .toList(),
                   onChanged: (v) => setState(() => selectedPosId = v),
                 ),
@@ -235,12 +236,12 @@ class _EmployeeCareerScreenState extends State<EmployeeCareerScreen>
                           if (d != null) setState(() => startDate = d);
                         },
                         child: InputDecorator(
-                          decoration: const InputDecoration(
-                              labelText: 'Ngày bắt đầu',
+                          decoration: InputDecoration(
+                              labelText: tr('Ngày bắt đầu'),
                               prefixIcon: Icon(Icons.calendar_today)),
-                          child: Text(startDate != null
+                          child: Text(tr(startDate != null
                               ? DateFormat('dd/MM/yyyy').format(startDate!)
-                              : 'Chọn ngày'),
+                              : 'Chọn ngày')),
                         ),
                       ),
                     ),
@@ -258,7 +259,7 @@ class _EmployeeCareerScreenState extends State<EmployeeCareerScreen>
                         },
                         child: InputDecorator(
                           decoration: InputDecoration(
-                            labelText: 'Ngày kết thúc',
+                            labelText: tr('Ngày kết thúc'),
                             prefixIcon: const Icon(Icons.event_available),
                             suffixIcon: endDate != null
                                 ? IconButton(
@@ -267,9 +268,9 @@ class _EmployeeCareerScreenState extends State<EmployeeCareerScreen>
                                         setState(() => endDate = null))
                                 : null,
                           ),
-                          child: Text(endDate != null
+                          child: Text(tr(endDate != null
                               ? DateFormat('dd/MM/yyyy').format(endDate!)
-                              : 'Đang giữ'),
+                              : 'Đang giữ')),
                         ),
                       ),
                     ),
@@ -277,7 +278,7 @@ class _EmployeeCareerScreenState extends State<EmployeeCareerScreen>
                 ),
                 const SizedBox(height: 12),
                 SwitchListTile(
-                  title: const Text('Chức vụ chính'),
+                  title: Text(tr('Chức vụ chính')),
                   value: isPrimary,
                   onChanged: (v) => setState(() => isPrimary = v),
                   contentPadding: EdgeInsets.zero,
@@ -294,8 +295,8 @@ class _EmployeeCareerScreenState extends State<EmployeeCareerScreen>
             isMobile: isMobile,
             onSave: () async {
               if (selectedDeptId == null || selectedPosId == null) {
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                    content: Text('Vui lòng chọn phòng ban và chức vụ')));
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                    content: Text(tr('Vui lòng chọn phòng ban và chức vụ'))));
                 return;
               }
               final data = {
@@ -342,9 +343,9 @@ class _EmployeeCareerScreenState extends State<EmployeeCareerScreen>
                 TextField(
                   controller: nameCtrl,
                   decoration: InputDecoration(
-                    labelText: isDiscipline
+                    labelText: tr(isDiscipline
                         ? 'Hình thức kỷ luật *'
-                        : 'Nội dung khen thưởng *',
+                        : 'Nội dung khen thưởng *'),
                     prefixIcon:
                         Icon(isDiscipline ? Icons.gavel : Icons.star_outline),
                   ),
@@ -352,10 +353,10 @@ class _EmployeeCareerScreenState extends State<EmployeeCareerScreen>
                 const SizedBox(height: 16),
                 TextField(
                   controller: docNumberCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Số quyết định',
+                  decoration: InputDecoration(
+                    labelText: tr('Số quyết định'),
                     prefixIcon: Icon(Icons.numbers),
-                    hintText: 'VD: QĐ-01/2025',
+                    hintText: tr('VD: QĐ-01/2025'),
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -370,20 +371,20 @@ class _EmployeeCareerScreenState extends State<EmployeeCareerScreen>
                     if (d != null) setState(() => effectiveDate = d);
                   },
                   child: InputDecorator(
-                    decoration: const InputDecoration(
-                      labelText: 'Ngày hiệu lực',
+                    decoration: InputDecoration(
+                      labelText: tr('Ngày hiệu lực'),
                       prefixIcon: Icon(Icons.calendar_today),
                     ),
-                    child: Text(effectiveDate != null
+                    child: Text(tr(effectiveDate != null
                         ? DateFormat('dd/MM/yyyy').format(effectiveDate!)
-                        : 'Chọn ngày'),
+                        : 'Chọn ngày')),
                   ),
                 ),
                 const SizedBox(height: 16),
                 TextField(
                   controller: notesCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Ghi chú',
+                  decoration: InputDecoration(
+                    labelText: tr('Ghi chú'),
                     prefixIcon: Icon(Icons.notes),
                   ),
                   maxLines: 3,
@@ -403,7 +404,7 @@ class _EmployeeCareerScreenState extends State<EmployeeCareerScreen>
             onSave: () async {
               if (nameCtrl.text.trim().isEmpty) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Vui lòng nhập nội dung')));
+                    SnackBar(content: Text(tr('Vui lòng nhập nội dung'))));
                 return;
               }
               final data = {
@@ -447,17 +448,17 @@ class _EmployeeCareerScreenState extends State<EmployeeCareerScreen>
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => ScrollableAlertDialog(
-        title: const Text('Xóa ghi nhận?'),
-        content: const Text('Bạn có chắc muốn xóa ghi nhận này không?'),
+        title: Text(tr('Xóa ghi nhận?')),
+        content: Text(tr('Bạn có chắc muốn xóa ghi nhận này không?')),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Hủy')),
+              child: Text(tr('Hủy'))),
           FilledButton(
             style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.red, foregroundColor: Colors.white),
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Xóa'),
+            child: Text(tr('Xóa')),
           ),
         ],
       ),
@@ -478,17 +479,17 @@ class _EmployeeCareerScreenState extends State<EmployeeCareerScreen>
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => ScrollableAlertDialog(
-        title: Text(isDiscipline ? 'Xóa kỷ luật?' : 'Xóa khen thưởng?'),
-        content: const Text('Bạn có chắc muốn xóa bản ghi này không?'),
+        title: Text(tr(isDiscipline ? 'Xóa kỷ luật?' : 'Xóa khen thưởng?')),
+        content: Text(tr('Bạn có chắc muốn xóa bản ghi này không?')),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Hủy')),
+              child: Text(tr('Hủy'))),
           FilledButton(
             style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.red, foregroundColor: Colors.white),
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Xóa'),
+            child: Text(tr('Xóa')),
           ),
         ],
       ),
@@ -524,11 +525,11 @@ class _EmployeeCareerScreenState extends State<EmployeeCareerScreen>
       mainAxisAlignment: MainAxisAlignment.end,
       children: [
         TextButton(
-            onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
+            onPressed: () => Navigator.pop(ctx), child: Text(tr('Hủy'))),
         const SizedBox(width: 12),
         FilledButton(
           onPressed: onSave,
-          child: const Text('Lưu'),
+          child: Text(tr('Lưu')),
         ),
       ],
     );
@@ -540,7 +541,7 @@ class _EmployeeCareerScreenState extends State<EmployeeCareerScreen>
           height: double.infinity,
           child: Scaffold(
             appBar: AppBar(
-              title: Text(title),
+              title: Text(tr(title)),
               leading: IconButton(
                   icon: const Icon(Icons.close),
                   onPressed: () => Navigator.pop(ctx)),
@@ -556,7 +557,7 @@ class _EmployeeCareerScreenState extends State<EmployeeCareerScreen>
       title: Row(children: [
         Icon(icon, color: iconColor, size: 22),
         const SizedBox(width: 10),
-        Text(title, style: const TextStyle(fontSize: 16)),
+        Text(tr(title), style: const TextStyle(fontSize: 16)),
       ]),
       content: SizedBox(width: 480, child: content),
       actions: [actions],
@@ -566,13 +567,13 @@ class _EmployeeCareerScreenState extends State<EmployeeCareerScreen>
   void _showSuccess(String msg) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(msg), backgroundColor: Colors.green));
+        SnackBar(content: Text(tr(msg)), backgroundColor: Colors.green));
   }
 
   void _showError(String msg) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(msg), backgroundColor: Colors.red));
+        SnackBar(content: Text(tr(msg)), backgroundColor: Colors.red));
   }
 
   // ─── Build ─────────────────────────────────────────────────────────────────
@@ -584,9 +585,9 @@ class _EmployeeCareerScreenState extends State<EmployeeCareerScreen>
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Quá trình công tác',
+            Text(tr('Quá trình công tác'),
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            Text(widget.employee.fullName,
+            Text(tr(widget.employee.fullName),
                 style: const TextStyle(
                     fontSize: 12, fontWeight: FontWeight.normal)),
           ],
@@ -594,11 +595,11 @@ class _EmployeeCareerScreenState extends State<EmployeeCareerScreen>
         bottom: TabBar(
           controller: _tabController,
           isScrollable: true,
-          tabs: const [
-            Tab(icon: Icon(Icons.badge, size: 18), text: 'Chức vụ'),
-            Tab(icon: Icon(Icons.business, size: 18), text: 'Phòng ban'),
-            Tab(icon: Icon(Icons.emoji_events, size: 18), text: 'Khen thưởng'),
-            Tab(icon: Icon(Icons.gavel, size: 18), text: 'Kỷ luật'),
+          tabs: [
+            Tab(icon: Icon(Icons.badge, size: 18), text: tr('Chức vụ')),
+            Tab(icon: Icon(Icons.business, size: 18), text: tr('Phòng ban')),
+            Tab(icon: Icon(Icons.emoji_events, size: 18), text: tr('Khen thưởng')),
+            Tab(icon: Icon(Icons.gavel, size: 18), text: tr('Kỷ luật')),
           ],
         ),
       ),
@@ -623,7 +624,7 @@ class _EmployeeCareerScreenState extends State<EmployeeCareerScreen>
           ? FloatingActionButton.extended(
               onPressed: _showAddPositionDialog,
               icon: const Icon(Icons.add),
-              label: const Text('Thêm chức vụ'),
+              label: Text(tr('Thêm chức vụ')),
               backgroundColor: HrmPageChrome.primaryNavy,
               foregroundColor: Colors.white,
             )
@@ -688,7 +689,7 @@ class _EmployeeCareerScreenState extends State<EmployeeCareerScreen>
                   Row(children: [
                     Expanded(
                       child: Text(
-                        a['positionName']?.toString() ?? '—',
+                        tr(a['positionName']?.toString() ?? '—'),
                         style: TextStyle(
                             fontWeight: FontWeight.w600,
                             fontSize: 14,
@@ -703,7 +704,7 @@ class _EmployeeCareerScreenState extends State<EmployeeCareerScreen>
                           color: HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(20),
                         ),
-                        child: const Text('Chính',
+                        child: Text(tr('Chính'),
                             style: TextStyle(
                                 fontSize: 10,
                                 color: HrmPageChrome.primaryNavy,
@@ -718,7 +719,7 @@ class _EmployeeCareerScreenState extends State<EmployeeCareerScreen>
                           color: Colors.green.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(20),
                         ),
-                        child: const Text('Hiện tại',
+                        child: Text(tr('Hiện tại'),
                             style: TextStyle(
                                 fontSize: 10,
                                 color: Colors.green,
@@ -728,7 +729,7 @@ class _EmployeeCareerScreenState extends State<EmployeeCareerScreen>
                   ]),
                   const SizedBox(height: 4),
                   Text(
-                    a['departmentName']?.toString() ?? '—',
+                    tr(a['departmentName']?.toString() ?? '—'),
                     style:
                         const TextStyle(fontSize: 12, color: Color(0xFF52525B)),
                   ),
@@ -738,7 +739,7 @@ class _EmployeeCareerScreenState extends State<EmployeeCareerScreen>
                         size: 12, color: Color(0xFFA1A1AA)),
                     const SizedBox(width: 4),
                     Text(
-                      '${_fmt(a['startDate']?.toString())} → ${_fmt(a['endDate']?.toString())}',
+                      tr('${_fmt(a['startDate']?.toString())} → ${_fmt(a['endDate']?.toString())}'),
                       style: const TextStyle(
                           fontSize: 11, color: Color(0xFFA1A1AA)),
                     ),
@@ -752,7 +753,7 @@ class _EmployeeCareerScreenState extends State<EmployeeCareerScreen>
                 icon: const Icon(Icons.delete_outline,
                     size: 18, color: Color(0xFFA1A1AA)),
                 onPressed: () => _deleteAssignment(a['id']?.toString() ?? ''),
-                tooltip: 'Xóa',
+                tooltip: tr('Xóa'),
               ),
           ],
         ),
@@ -769,7 +770,7 @@ class _EmployeeCareerScreenState extends State<EmployeeCareerScreen>
           ? FloatingActionButton.extended(
               onPressed: _showAddPositionDialog,
               icon: const Icon(Icons.add),
-              label: const Text('Ghi nhận thay đổi'),
+              label: Text(tr('Ghi nhận thay đổi')),
               backgroundColor: const Color(0xFF0369A1),
               foregroundColor: Colors.white,
             )
@@ -826,7 +827,7 @@ class _EmployeeCareerScreenState extends State<EmployeeCareerScreen>
                   Row(children: [
                     Expanded(
                       child: Text(
-                        a['departmentName']?.toString() ?? '—',
+                        tr(a['departmentName']?.toString() ?? '—'),
                         style: const TextStyle(
                             fontWeight: FontWeight.w600,
                             fontSize: 14,
@@ -841,7 +842,7 @@ class _EmployeeCareerScreenState extends State<EmployeeCareerScreen>
                           color: Colors.green.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(20),
                         ),
-                        child: const Text('Hiện tại',
+                        child: Text(tr('Hiện tại'),
                             style: TextStyle(
                                 fontSize: 10,
                                 color: Colors.green,
@@ -849,8 +850,7 @@ class _EmployeeCareerScreenState extends State<EmployeeCareerScreen>
                       ),
                   ]),
                   const SizedBox(height: 4),
-                  Text(
-                    'Chức vụ: ${a['positionName']?.toString() ?? '—'}',
+                  Text(tr('${tr('Chức vụ: ')}${a['positionName']?.toString() ?? '—'}'),
                     style:
                         const TextStyle(fontSize: 12, color: Color(0xFF52525B)),
                   ),
@@ -860,7 +860,7 @@ class _EmployeeCareerScreenState extends State<EmployeeCareerScreen>
                         size: 12, color: Color(0xFFA1A1AA)),
                     const SizedBox(width: 4),
                     Text(
-                      '${_fmt(a['startDate']?.toString())} → ${_fmt(a['endDate']?.toString())}',
+                      tr('${_fmt(a['startDate']?.toString())} → ${_fmt(a['endDate']?.toString())}'),
                       style: const TextStyle(
                           fontSize: 11, color: Color(0xFFA1A1AA)),
                     ),
@@ -874,7 +874,7 @@ class _EmployeeCareerScreenState extends State<EmployeeCareerScreen>
                 icon: const Icon(Icons.delete_outline,
                     size: 18, color: Color(0xFFA1A1AA)),
                 onPressed: () => _deleteAssignment(a['id']?.toString() ?? ''),
-                tooltip: 'Xóa',
+                tooltip: tr('Xóa'),
               ),
           ],
         ),
@@ -891,7 +891,7 @@ class _EmployeeCareerScreenState extends State<EmployeeCareerScreen>
           ? FloatingActionButton.extended(
               onPressed: () => _showAddAwardDialog(isDiscipline: false),
               icon: const Icon(Icons.add),
-              label: const Text('Thêm khen thưởng'),
+              label: Text(tr('Thêm khen thưởng')),
               backgroundColor: const Color(0xFFD97706),
               foregroundColor: Colors.white,
             )
@@ -923,7 +923,7 @@ class _EmployeeCareerScreenState extends State<EmployeeCareerScreen>
           ? FloatingActionButton.extended(
               onPressed: () => _showAddAwardDialog(isDiscipline: true),
               icon: const Icon(Icons.add),
-              label: const Text('Thêm kỷ luật'),
+              label: Text(tr('Thêm kỷ luật')),
               backgroundColor: const Color(0xFFDC2626),
               foregroundColor: Colors.white,
             )
@@ -978,7 +978,7 @@ class _EmployeeCareerScreenState extends State<EmployeeCareerScreen>
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    doc['name']?.toString() ?? '—',
+                    tr(doc['name']?.toString() ?? '—'),
                     style: TextStyle(
                         fontWeight: FontWeight.w600,
                         fontSize: 14,
@@ -987,8 +987,7 @@ class _EmployeeCareerScreenState extends State<EmployeeCareerScreen>
                   if (doc['documentNumber'] != null &&
                       doc['documentNumber'].toString().isNotEmpty) ...[
                     const SizedBox(height: 3),
-                    Text(
-                      'Số QĐ: ${doc['documentNumber']}',
+                    Text(tr('${tr('Số QĐ: ')}${doc['documentNumber']}'),
                       style: const TextStyle(
                           fontSize: 12, color: Color(0xFF52525B)),
                     ),
@@ -999,8 +998,7 @@ class _EmployeeCareerScreenState extends State<EmployeeCareerScreen>
                       const Icon(Icons.calendar_today,
                           size: 12, color: Color(0xFFA1A1AA)),
                       const SizedBox(width: 4),
-                      Text(
-                        'Ngày: ${_fmt(doc['effectiveDate']?.toString())}',
+                      Text(tr('${tr('Ngày: ')}${_fmt(doc['effectiveDate']?.toString())}'),
                         style: const TextStyle(
                             fontSize: 11, color: Color(0xFFA1A1AA)),
                       ),
@@ -1016,7 +1014,7 @@ class _EmployeeCareerScreenState extends State<EmployeeCareerScreen>
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Text(
-                        doc['notes'].toString(),
+                        tr(doc['notes'].toString()),
                         style: const TextStyle(
                             fontSize: 12, color: Color(0xFF52525B)),
                       ),
@@ -1030,7 +1028,7 @@ class _EmployeeCareerScreenState extends State<EmployeeCareerScreen>
                   size: 18, color: Color(0xFFA1A1AA)),
               onPressed: () =>
                   _deleteDocument(doc['id']?.toString() ?? '', isDiscipline),
-              tooltip: 'Xóa',
+              tooltip: tr('Xóa'),
             ),
           ],
         ),
@@ -1045,7 +1043,7 @@ class _EmployeeCareerScreenState extends State<EmployeeCareerScreen>
         children: [
           Icon(Icons.inbox_outlined, size: 48, color: Colors.grey[300]),
           const SizedBox(height: 12),
-          Text(message,
+          Text(tr(message),
               style: TextStyle(fontSize: 14, color: Colors.grey[400])),
         ],
       ),

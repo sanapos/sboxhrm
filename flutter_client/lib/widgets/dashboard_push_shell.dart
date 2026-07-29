@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// Wraps screens pushed from [DashboardScreen] ?? with a back control.
 /// Main-layout tabs omit this; dashboard deep-links need an explicit way back.
@@ -25,7 +26,7 @@ class DashboardPushShell extends StatelessWidget {
               shadowColor: Colors.black26,
               borderRadius: BorderRadius.circular(8),
               child: IconButton(
-                tooltip: 'Quay lại',
+                tooltip: tr('Quay lại'),
                 icon: const Icon(Icons.arrow_back),
                 onPressed: () => Navigator.maybePop(context),
               ),

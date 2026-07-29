@@ -11,6 +11,7 @@ import 'pos_product_image.dart';
 import 'pos_sale_order_helpers.dart';
 
 import 'pos_theme.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 
 
@@ -88,15 +89,13 @@ class PosSaleOrderReceiptView extends StatelessWidget {
 
           if (order.lines.isEmpty)
 
-            const Padding(
+            Padding(
 
               padding: EdgeInsets.all(24),
 
               child: Center(
 
-                child: Text(
-
-                  'Đơn không có dòng hàng',
+                child: Text(tr('Đơn không có dòng hàng'),
 
                   style: TextStyle(color: PosTheme.textSecondary),
 
@@ -168,7 +167,7 @@ class PosSaleOrderReceiptView extends StatelessWidget {
 
                         child: Text(
 
-                          order.note!.trim(),
+                          tr(order.note!.trim()),
 
                           style: const TextStyle(fontSize: 12, color: PosTheme.textSecondary),
 
@@ -230,9 +229,7 @@ class PosSaleOrderReceiptView extends StatelessWidget {
 
                     padding: const EdgeInsets.only(top: 4),
 
-                    child: Text(
-
-                      'Tích điểm: +${order.pointsEarned.toStringAsFixed(0)} điểm',
+                    child: Text(tr('Tích điểm: +${order.pointsEarned.toStringAsFixed(0)} điểm'),
 
                       style: const TextStyle(fontSize: 12, color: Color(0xFF059669)),
 
@@ -294,7 +291,7 @@ class PosSaleOrderReceiptView extends StatelessWidget {
               Expanded(
 
                 child: Text(
-                  order.orderNo,
+                  tr(order.orderNo),
                   style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
@@ -316,8 +313,7 @@ class PosSaleOrderReceiptView extends StatelessWidget {
 
           const SizedBox(height: 4),
 
-          Text(
-            '${money.format(order.total)} đ',
+          Text(tr('${money.format(order.total)} đ'),
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w700,
@@ -361,9 +357,7 @@ class PosSaleOrderReceiptView extends StatelessWidget {
 
             const Divider(height: 16),
 
-            const Text(
-
-              'Giao hàng',
+            Text(tr('Giao hàng'),
 
               style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: PosTheme.textSecondary),
 
@@ -435,13 +429,13 @@ class PosSaleOrderReceiptView extends StatelessWidget {
 
               TextSpan(
 
-                text: '$label: ',
+                text: tr('$label: '),
 
                 style: const TextStyle(color: PosTheme.textSecondary),
 
               ),
 
-              TextSpan(text: value),
+              TextSpan(text: tr(value)),
 
             ],
 
@@ -483,19 +477,19 @@ class PosSaleOrderReceiptView extends StatelessWidget {
 
         children: [
 
-          const SizedBox(width: _wStt, child: Text('STT', style: hdr)),
+          SizedBox(width: _wStt, child: Text(tr('STT'), style: hdr)),
 
           SizedBox(width: _wImg + _gapImg),
 
-          const Expanded(child: Text('Mặt hàng', style: hdr)),
+          Expanded(child: Text(tr('Mặt hàng'), style: hdr)),
 
-          const SizedBox(width: _wQty, child: Text('SL', style: hdr, textAlign: TextAlign.center)),
+          SizedBox(width: _wQty, child: Text(tr('SL'), style: hdr, textAlign: TextAlign.center)),
 
-          const SizedBox(width: _wUnit, child: Text('ĐVT', style: hdr, textAlign: TextAlign.center)),
+          SizedBox(width: _wUnit, child: Text(tr('ĐVT'), style: hdr, textAlign: TextAlign.center)),
 
-          const SizedBox(width: _wPrice, child: Text('Đơn giá', style: hdr, textAlign: TextAlign.right)),
+          SizedBox(width: _wPrice, child: Text(tr('Đơn giá'), style: hdr, textAlign: TextAlign.right)),
 
-          const SizedBox(width: _wTotal, child: Text('Thành tiền', style: hdr, textAlign: TextAlign.right)),
+          SizedBox(width: _wTotal, child: Text(tr('Thành tiền'), style: hdr, textAlign: TextAlign.right)),
 
         ],
 
@@ -539,7 +533,7 @@ class PosSaleOrderReceiptView extends StatelessWidget {
 
               child: Text(
 
-                '$index',
+                tr('$index'),
 
                 style: const TextStyle(fontSize: 11, color: PosTheme.textSecondary),
 
@@ -573,7 +567,7 @@ class PosSaleOrderReceiptView extends StatelessWidget {
 
                   Text(
 
-                    line.productName,
+                    tr(line.productName),
 
                     maxLines: 1,
 
@@ -587,7 +581,7 @@ class PosSaleOrderReceiptView extends StatelessWidget {
 
                     Text(
 
-                      '↳ ${line.lineNote!.trim()}',
+                      tr('↳ ${line.lineNote!.trim()}'),
 
                       maxLines: 1,
 
@@ -601,7 +595,7 @@ class PosSaleOrderReceiptView extends StatelessWidget {
 
                     Text(
 
-                      'CK: -${money.format(line.discountAmount)}',
+                      tr('CK: -${money.format(line.discountAmount)}'),
 
                       style: TextStyle(fontSize: 10, color: Colors.red.shade700),
 
@@ -611,7 +605,7 @@ class PosSaleOrderReceiptView extends StatelessWidget {
 
                     Text(
 
-                      'Seri: ${line.serialNumbers.join(', ')}',
+                      tr('Seri: ${line.serialNumbers.join(', ')}'),
 
                       maxLines: 2,
 
@@ -633,7 +627,7 @@ class PosSaleOrderReceiptView extends StatelessWidget {
 
               child: Text(
 
-                qtyFmt.format(line.qty),
+                tr(qtyFmt.format(line.qty)),
 
                 textAlign: TextAlign.center,
 
@@ -649,7 +643,7 @@ class PosSaleOrderReceiptView extends StatelessWidget {
 
               child: Text(
 
-                line.unitName ?? '—',
+                tr(line.unitName ?? '—'),
 
                 textAlign: TextAlign.center,
 
@@ -669,7 +663,7 @@ class PosSaleOrderReceiptView extends StatelessWidget {
 
               child: Text(
 
-                money.format(line.unitPrice),
+                tr(money.format(line.unitPrice)),
 
                 textAlign: TextAlign.right,
 
@@ -685,7 +679,7 @@ class PosSaleOrderReceiptView extends StatelessWidget {
 
               child: Text(
 
-                money.format(line.lineTotal),
+                tr(money.format(line.lineTotal)),
 
                 textAlign: TextAlign.right,
 
@@ -733,7 +727,7 @@ class PosSaleOrderReceiptView extends StatelessWidget {
 
             child: Text(
 
-              label,
+              tr(label),
 
               style: TextStyle(
 
@@ -749,9 +743,7 @@ class PosSaleOrderReceiptView extends StatelessWidget {
 
           ),
 
-          Text(
-
-            '$value đ',
+          Text(tr('$value đ'),
 
             style: TextStyle(
 

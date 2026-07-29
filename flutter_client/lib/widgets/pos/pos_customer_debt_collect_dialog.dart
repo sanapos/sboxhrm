@@ -5,6 +5,7 @@ import '../../models/pos_customer.dart';
 import '../../services/api_service.dart';
 import '../notification_overlay.dart';
 import 'pos_theme.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// Thu nợ công nợ khách hàng POS.
 Future<bool?> showPosCustomerDebtCollectDialog(
@@ -62,7 +63,7 @@ class _PosCustomerDebtCollectDialogState extends State<PosCustomerDebtCollectDia
     final amount = _parseAmount();
     if (amount <= 0) {
       NotificationOverlayManager()
-          .showError(title: 'Lỗi', message: 'Nhập số tiền thu nợ');
+          .showError(title: 'Lỗi', message: tr('Nhập số tiền thu nợ'));
       return;
     }
     setState(() => _saving = true);
@@ -77,7 +78,7 @@ class _PosCustomerDebtCollectDialogState extends State<PosCustomerDebtCollectDia
     if (res['isSuccess'] == true) {
       NotificationOverlayManager().showSuccess(
         title: 'Thu nợ thành công',
-        message: '${_moneyFmt.format(amount)} đ — ${widget.customer.name}',
+        message: tr('${_moneyFmt.format(amount)} đ — ${widget.customer.name}'),
       );
       Navigator.pop(context, true);
     } else {
@@ -101,11 +102,10 @@ class _PosCustomerDebtCollectDialogState extends State<PosCustomerDebtCollectDia
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text('Thu nợ — ${c.name}',
+              Text(tr('Thu nợ — ${c.name}'),
                   style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
               const SizedBox(height: 8),
-              Text(
-                'Nợ hiện tại: ${_moneyFmt.format(c.currentDebt)} đ',
+              Text(tr('Nợ hiện tại: ${_moneyFmt.format(c.currentDebt)} đ'),
                 style: const TextStyle(color: PosTheme.textSecondary),
               ),
               const SizedBox(height: 16),
@@ -119,7 +119,7 @@ class _PosCustomerDebtCollectDialogState extends State<PosCustomerDebtCollectDia
                 value: _method,
                 decoration: PosTheme.inputDecoration(label: 'Hình thức'),
                 items: _methods
-                    .map((m) => DropdownMenuItem(value: m, child: Text(m)))
+                    .map((m) => DropdownMenuItem(value: m, child: Text(tr(m))))
                     .toList(),
                 onChanged: _saving ? null : (v) => setState(() => _method = v ?? _method),
               ),
@@ -132,7 +132,7 @@ class _PosCustomerDebtCollectDialogState extends State<PosCustomerDebtCollectDia
               const SizedBox(height: 20),
               Row(
                 children: [
-                  TextButton(onPressed: () => Navigator.pop(context), child: const Text('Huỷ')),
+                  TextButton(onPressed: () => Navigator.pop(context), child: Text(tr('Huỷ'))),
                   const Spacer(),
                   FilledButton(
                     onPressed: _saving ? null : _submit,
@@ -142,7 +142,7 @@ class _PosCustomerDebtCollectDialogState extends State<PosCustomerDebtCollectDia
                             height: 18,
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
-                        : const Text('Xác nhận thu'),
+                        : Text(tr('Xác nhận thu')),
                   ),
                 ],
               ),

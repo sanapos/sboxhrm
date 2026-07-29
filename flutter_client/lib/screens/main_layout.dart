@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../l10n/app_localizations.dart';
+import '../l10n/app_tr.dart';
 import '../providers/auth_provider.dart';
 import '../providers/permission_provider.dart';
 import '../services/api_service.dart';
@@ -429,7 +430,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     final perm = Provider.of<PermissionProvider>(context, listen: false);
     if (!perm.canView('Overtime')) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Bạn không có quyền xem Tăng ca')),
+        SnackBar(content: Text(tr('Bạn không có quyền xem Tăng ca'))),
       );
       return;
     }
@@ -1892,8 +1893,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                           .map((i) => NavigationRailDestination(
                                 icon: Icon(_navItems[i].icon),
                                 selectedIcon: Icon(_navItems[i].activeIcon),
-                                label: Text(_navItems[i].localizedLabel(
-                                    AppLocalizations.of(context))),
+                                label: Text(tr(_navItems[i].localizedLabel(
+                                    AppLocalizations.of(context)))),
                               ))
                           .toList(),
                     );
@@ -1968,29 +1969,29 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       case 'Dashboard':
         return l.overview;
       case 'MobileAttendance':
-        return 'Chấm công';
+        return l.attendance;
       case 'PosSell':
-        return 'Bán hàng';
+        return l.posSell;
       case 'PosProducts':
-        return 'Hàng hóa';
+        return l.posProducts;
       case 'PosSaleOrders':
-        return 'Đơn hàng';
+        return l.posSaleOrders;
       case 'Employee':
-        return 'Nhân sự';
+        return l.employeeRecords;
       case 'Payroll':
-        return 'Lương';
+        return l.payrollSummary;
       case 'Leave':
-        return 'Nghỉ phép';
+        return l.leave;
       case 'Communication':
-        return 'Truyền thông';
+        return l.communication;
       case 'PosSalesReport':
-        return 'Báo cáo';
+        return l.posSalesReport;
       case 'SettingsHub':
-        return 'Cài đặt';
+        return l.settings;
       case 'Notification':
-        return 'Thông báo';
+        return l.notifications;
       case 'Payslip':
-        return 'Phiếu lương';
+        return l.payrollSummary;
       default:
         return moduleCode;
     }
@@ -2036,7 +2037,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
             ? IconButton(
                 icon: const Icon(Icons.arrow_back, size: 22),
                 onPressed: _goBack,
-                tooltip: l.goBack,
+                tooltip: tr(l.goBack),
                 visualDensity: VisualDensity.compact,
               )
             : null,
@@ -2044,26 +2045,26 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
             .textTheme
             .headlineLarge
             ?.copyWith(fontSize: 17),
-        title: Text(_settingsHubTitle(l)),
+        title: Text(tr(_settingsHubTitle(l))),
         actions: [
           IconButton(
             icon: const Icon(Icons.auto_awesome, color: Color(0xFF8B5CF6)),
             onPressed: () => showAiAssistant(context),
-            tooltip: 'Trợ lý ảo AI',
+            tooltip: tr('Trợ lý ảo AI'),
           ),
           IconButton(
             icon: Badge(
               isLabelVisible: _unreadNotificationsCount > 0,
-              label: Text(_unreadNotificationsCount > 99
+              label: Text(tr(_unreadNotificationsCount > 99
                   ? '99+'
-                  : '$_unreadNotificationsCount'),
+                  : '$_unreadNotificationsCount')),
               child: const Icon(Icons.notifications_outlined),
             ),
             onPressed: () {
               _tryNavigateToIndex(_notificationsIndex);
               _loadNotificationCount();
             },
-            tooltip: l.notifications,
+            tooltip: tr(l.notifications),
           ),
           _buildUserMenu(),
         ],
@@ -2295,9 +2296,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
           children: [
             Row(
               children: [
-                const Expanded(
-                  child: Text(
-                    'TRUY CẬP NHANH',
+                Expanded(
+                  child: Text(tr('TRUY CẬP NHANH'),
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
@@ -2308,7 +2308,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                 ),
                 IconButton(
                   visualDensity: VisualDensity.compact,
-                  tooltip: 'Tùy chỉnh truy cập nhanh',
+                  tooltip: tr('Tùy chỉnh truy cập nhanh'),
                   icon: const Icon(Icons.tune_rounded, size: 18),
                   onPressed: () {
                     Navigator.pop(context);
@@ -2353,7 +2353,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                           ),
                           const SizedBox(height: 6),
                           Text(
-                            def?.label ?? code,
+                            tr(def?.label ?? code),
                             textAlign: TextAlign.center,
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
@@ -2483,7 +2483,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
           const Icon(Icons.remove, size: 20, color: Colors.grey),
           const SizedBox(height: 2),
           Text(
-            label,
+            tr(label),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(fontSize: 9, color: Colors.grey.shade500),
@@ -2539,7 +2539,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
             ),
           ),
           Text(
-            label,
+            tr(label),
             style: TextStyle(
               fontSize: 9,
               fontWeight: FontWeight.w600,
@@ -2583,7 +2583,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
             ),
             const SizedBox(height: 1),
             Text(
-              label,
+              tr(label),
               style: TextStyle(
                 fontSize: 9,
                 fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
@@ -2673,8 +2673,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                                 width: 32, height: 32),
                           ),
                           const SizedBox(width: 10),
-                          const Expanded(
-                            child: Text('SBOX HRM',
+                          Expanded(
+                            child: Text(tr('SBOX HRM'),
                                 style: TextStyle(
                                   fontSize: 18,
                                   fontWeight: FontWeight.w900,
@@ -2737,7 +2737,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                           children: [
                             Expanded(
                               child: Text(
-                                groupName.toUpperCase(),
+                                tr(groupName.toUpperCase()),
                                 style: TextStyle(
                                   fontSize: 11,
                                   fontWeight: FontWeight.w600,
@@ -2810,8 +2810,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                                     const SizedBox(width: 12),
                                     Expanded(
                                       child: Text(
-                                        item.localizedLabel(
-                                            AppLocalizations.of(context)),
+                                        tr(item.localizedLabel(
+                                            AppLocalizations.of(context))),
                                         style: TextStyle(
                                           fontSize: 13,
                                           color: isSelected
@@ -2882,7 +2882,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
             radius: _isExpanded ? 20 : 18,
             backgroundColor: HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
             child: Text(
-              (user?.fullName ?? 'U')[0].toUpperCase(),
+              tr((user?.fullName ?? 'U')[0].toUpperCase()),
               style: TextStyle(
                 color: HrmPageChrome.primaryNavy,
                 fontWeight: FontWeight.w700,
@@ -2897,7 +2897,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    user?.fullName ?? 'User',
+                    tr(user?.fullName ?? 'User'),
                     style: const TextStyle(
                       fontWeight: FontWeight.w600,
                       fontSize: 14,
@@ -2907,7 +2907,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                   ),
                   const SizedBox(height: 1),
                   Text(
-                    user?.role ?? 'Employee',
+                    tr(user?.role ?? 'Employee'),
                     style: const TextStyle(
                       color: Color(0xFF586064),
                       fontSize: 12,
@@ -2956,11 +2956,11 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
               icon: Icon(Icons.arrow_back,
                   color: Theme.of(context).colorScheme.onSurface),
               onPressed: _goBack,
-              tooltip: AppLocalizations.of(context).goBack,
+              tooltip: tr(AppLocalizations.of(context).goBack),
             ),
           if (_canGoBack) const SizedBox(width: 4),
           Text(
-            _settingsHubTitle(AppLocalizations.of(context)),
+            tr(_settingsHubTitle(AppLocalizations.of(context))),
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w700,
@@ -2979,7 +2979,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
             ),
             child: TextField(
               decoration: InputDecoration(
-                hintText: AppLocalizations.of(context).search,
+                hintText: tr(AppLocalizations.of(context).search),
                 hintStyle: const TextStyle(color: Color(0xFFA1A1AA)),
                 prefixIcon: const Icon(Icons.search, color: Color(0xFFA1A1AA)),
                 border: InputBorder.none,
@@ -2991,16 +2991,16 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
           IconButton(
             icon: const Icon(Icons.auto_awesome, color: Color(0xFF8B5CF6)),
             onPressed: () => showAiAssistant(context),
-            tooltip: 'Trợ lý ảo AI',
+            tooltip: tr('Trợ lý ảo AI'),
           ),
           const SizedBox(width: 4),
           // Notifications
           IconButton(
             icon: Badge(
               isLabelVisible: _unreadNotificationsCount > 0,
-              label: Text(_unreadNotificationsCount > 99
+              label: Text(tr(_unreadNotificationsCount > 99
                   ? '99+'
-                  : '$_unreadNotificationsCount'),
+                  : '$_unreadNotificationsCount')),
               child: const Icon(Icons.notifications_outlined),
             ),
             onPressed: () {
@@ -3008,7 +3008,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
               // Reload notification count khi chuyển đến màn hình thông báo
               _loadNotificationCount();
             },
-            tooltip: AppLocalizations.of(context).notifications,
+            tooltip: tr(AppLocalizations.of(context).notifications),
           ),
           const SizedBox(width: 8),
           _buildUserMenu(),
@@ -3032,7 +3032,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
             backgroundColor:
                 Theme.of(context).primaryColor.withValues(alpha: 0.2),
             child: Text(
-              (user?.fullName ?? 'U')[0].toUpperCase(),
+              tr((user?.fullName ?? 'U')[0].toUpperCase()),
               style: TextStyle(
                 color: Theme.of(context).primaryColor,
                 fontWeight: FontWeight.bold,
@@ -3051,11 +3051,11 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                user?.fullName ?? 'User',
+                tr(user?.fullName ?? 'User'),
                 style: const TextStyle(fontWeight: FontWeight.bold),
               ),
               Text(
-                user?.email ?? '',
+                tr(user?.email ?? ''),
                 style: const TextStyle(color: Color(0xFFA1A1AA), fontSize: 13),
               ),
             ],
@@ -3068,7 +3068,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
             children: [
               const Icon(Icons.person_outline, size: 20),
               const SizedBox(width: 12),
-              Text(AppLocalizations.of(context).personalInfo),
+              Text(tr(AppLocalizations.of(context).personalInfo)),
             ],
           ),
         ),
@@ -3078,7 +3078,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
             children: [
               const Icon(Icons.settings_outlined, size: 20),
               const SizedBox(width: 12),
-              Text(AppLocalizations.of(context).settings),
+              Text(tr(AppLocalizations.of(context).settings)),
             ],
           ),
         ),
@@ -3089,7 +3089,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
             children: [
               const Icon(Icons.logout, size: 20, color: Colors.red),
               const SizedBox(width: 12),
-              Text(AppLocalizations.of(context).logout,
+              Text(tr(AppLocalizations.of(context).logout),
                   style: const TextStyle(color: Colors.red)),
             ],
           ),
@@ -3175,8 +3175,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                   child: Image.asset('assets/logo.png', width: 32, height: 32),
                 ),
                 const SizedBox(width: 10),
-                const Expanded(
-                  child: Text('SBOX HRM',
+                Expanded(
+                  child: Text(tr('SBOX HRM'),
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.w900,
@@ -3215,7 +3215,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                     Padding(
                       padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
                       child: Text(
-                        groupLabel.toUpperCase(),
+                        tr(groupLabel.toUpperCase()),
                         style: const TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
@@ -3238,7 +3238,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                           size: 22,
                         ),
                         title: Text(
-                          item.localizedLabel(l),
+                          tr(item.localizedLabel(l)),
                           style: TextStyle(
                             color: isSelected
                                 ? Theme.of(context).primaryColor
@@ -3273,7 +3273,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
           const Divider(),
           ListTile(
             leading: const Icon(Icons.logout, color: Colors.red),
-            title: Text(l.logout, style: const TextStyle(color: Colors.red)),
+            title: Text(tr(l.logout), style: const TextStyle(color: Colors.red)),
             onTap: () {
               Navigator.pop(context);
               _showLogoutDialog();
@@ -3291,12 +3291,12 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     showDialog(
       context: context,
       builder: (context) => ScrollableAlertDialog(
-        title: Text(l.logout),
-        content: Text(l.logoutConfirm),
+        title: Text(tr(l.logout)),
+        content: Text(tr(l.logoutConfirm)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text(l.cancel),
+            child: Text(tr(l.cancel)),
           ),
           FilledButton(
             onPressed: () {
@@ -3305,7 +3305,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
               Provider.of<AuthProvider>(context, listen: false).logout();
             },
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
-            child: Text(l.logout),
+            child: Text(tr(l.logout)),
           ),
         ],
       ),
@@ -3346,19 +3346,22 @@ class NavItem {
 
   /// Get localized label based on moduleCode
   String localizedLabel(AppLocalizations l) {
-    return _labelMap[moduleCode] != null ? _labelMap[moduleCode]!(l) : label;
+    return _labelMap[moduleCode] != null
+        ? _labelMap[moduleCode]!(l)
+        : tr(label);
   }
 
   /// Get localized subtitle
   String? localizedSubtitle(AppLocalizations l) {
-    return _subtitleMap[moduleCode] != null
-        ? _subtitleMap[moduleCode]!(l)
-        : subtitle;
+    if (_subtitleMap[moduleCode] != null) {
+      return _subtitleMap[moduleCode]!(l);
+    }
+    return subtitle == null ? null : tr(subtitle!);
   }
 
   /// Get localized group name
   String localizedGroup(AppLocalizations l) {
-    return _groupMap[group] != null ? _groupMap[group]!(l) : group;
+    return _groupMap[group] != null ? _groupMap[group]!(l) : tr(group);
   }
 
   static final Map<String, String Function(AppLocalizations)> _labelMap = {
@@ -3379,31 +3382,31 @@ class NavItem {
     'Payroll': (l) => l.payrollSummary,
     'BonusPenalty': (l) => l.bonusPenalty,
     'AdvanceRequests': (l) => l.salaryAdvance,
-    'BusinessTripExpense': (l) => 'Công tác phí',
+    'BusinessTripExpense': (l) => l.businessTripExpense,
     'CashTransaction': (l) => l.incomeExpense,
-    'PenaltyTickets': (l) => 'Phiếu phạt',
+    'PenaltyTickets': (l) => l.penaltyTickets,
     'Asset': (l) => l.assets,
     'Task': (l) => l.tasks,
     'Communication': (l) => l.communication,
     'KPI': (l) => 'KPI',
-    'Feedback': (l) => 'Phản ánh / Ý kiến',
-    'PosProducts': (l) => 'Hàng hóa',
-    'PosSell': (l) => 'Bán hàng',
-    'PosSaleOrders': (l) => 'Đơn hàng',
-    'PosSaleReturns': (l) => 'Trả hàng bán',
-    'PosPurchaseReceipts': (l) => 'Nhập hàng NCC',
-    'PosPurchaseReturns': (l) => 'Trả hàng nhập',
-    'PosStockCounts': (l) => 'Kiểm kho',
-    'PosDamageIssues': (l) => 'Xuất hủy',
-    'PosInternalUseIssues': (l) => 'Xuất dùng nội bộ',
-    'PosSalesReport': (l) => 'Báo cáo POS',
-    'PenaltyReport': (l) => 'Báo cáo phạt',
-    'AttendanceReport': (l) => 'Báo cáo chấm công',
-    'CashReport': (l) => 'Báo cáo thu chi',
-    'AdvanceReport': (l) => 'Báo cáo ứng lương',
-    'BusinessTripReport': (l) => 'Báo cáo công tác phí',
-    'LeaveReport': (l) => 'Báo cáo nghỉ phép',
-    'AssetReport': (l) => 'Báo cáo tài sản',
+    'Feedback': (l) => l.feedback,
+    'PosProducts': (l) => l.posProducts,
+    'PosSell': (l) => l.posSell,
+    'PosSaleOrders': (l) => l.posSaleOrders,
+    'PosSaleReturns': (l) => l.posSaleReturns,
+    'PosPurchaseReceipts': (l) => l.posPurchaseReceipts,
+    'PosPurchaseReturns': (l) => l.posPurchaseReturns,
+    'PosStockCounts': (l) => l.posStockCounts,
+    'PosDamageIssues': (l) => l.posDamageIssues,
+    'PosInternalUseIssues': (l) => l.posInternalUseIssues,
+    'PosSalesReport': (l) => l.posSalesReport,
+    'PenaltyReport': (l) => l.penaltyReport,
+    'AttendanceReport': (l) => l.attendanceReport,
+    'CashReport': (l) => l.cashReport,
+    'AdvanceReport': (l) => l.advanceReport,
+    'BusinessTripReport': (l) => l.businessTripReport,
+    'LeaveReport': (l) => l.leaveReport,
+    'AssetReport': (l) => l.assetReport,
     'SettingsHub': (l) => l.hrmSetup,
     'Settings': (l) => l.settings,
   };
@@ -3416,8 +3419,9 @@ class NavItem {
     'Attendance': (l) => l.attendanceData,
     'Payroll': (l) => l.employeePayroll,
     'AdvanceRequests': (l) => l.advanceManagement,
-    'BusinessTripExpense': (l) => 'Công tác phí — ứng & hoạch toán',
-    'AssetReport': (l) => 'Danh mục, kho, kiểm kê, bảo hành',
+    'BusinessTripExpense': (l) => l.businessTripExpenseSubtitle,
+    'AssetReport': (l) => l.assetReportSubtitle,
+    'Settings': (l) => l.settingsHubSubtitle,
   };
 
   static final Map<String, String Function(AppLocalizations)> _groupMap = {
@@ -3426,7 +3430,7 @@ class NavItem {
     'Chấm công': (l) => l.groupAttendance,
     'Tài chính': (l) => l.groupFinance,
     'Quản lý Vận hành': (l) => l.groupOperations,
-    'POS': (l) => 'POS / Bán hàng',
+    'POS': (l) => l.groupPos,
     'Báo cáo': (l) => l.groupReports,
     'Đại lý': (l) => l.groupAgent,
     'Cài đặt': (l) => l.groupSettings,
@@ -3632,8 +3636,8 @@ class _HomeMenuScreenState extends State<_HomeMenuScreen> {
               sliver: SliverToBoxAdapter(
                 child: RepaintBoundary(
                   child: PosMobileHubSectionGrid(
-                    title:
-                        NavItem._groupMap[groupName]?.call(l) ?? groupName,
+                    title: NavItem._groupMap[groupName]?.call(l) ??
+                        tr(groupName),
                     items: groupedItems[groupName]!
                         .map(
                           (entry) => PosMobileHubGridItem(
@@ -3738,7 +3742,7 @@ class _HomeMenuScreenState extends State<_HomeMenuScreen> {
                       builder: (context) {
                         final l = AppLocalizations.of(context);
                         return Text(
-                          NavItem._groupMap[groupName]?.call(l) ?? groupName,
+                          tr(NavItem._groupMap[groupName]?.call(l) ?? groupName),
                           style: TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.w600,
@@ -3792,7 +3796,7 @@ class _HomeMenuScreenState extends State<_HomeMenuScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        '$_greetingIcon $_greeting,',
+                        tr('$_greetingIcon $_greeting,'),
                         style: TextStyle(
                           fontSize: isMobile ? 14 : 16,
                           color: Colors.white.withValues(alpha: 0.8),
@@ -3801,7 +3805,7 @@ class _HomeMenuScreenState extends State<_HomeMenuScreen> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        user?.fullName ?? 'User',
+                        tr(user?.fullName ?? 'User'),
                         style: TextStyle(
                           fontSize: isMobile ? 20 : 26,
                           fontWeight: FontWeight.w800,
@@ -3818,7 +3822,7 @@ class _HomeMenuScreenState extends State<_HomeMenuScreen> {
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Text(
-                          _formatTodayDate(),
+                          tr(_formatTodayDate()),
                           style: TextStyle(
                             fontSize: 12,
                             color: Colors.white.withValues(alpha: 0.9),
@@ -3834,7 +3838,7 @@ class _HomeMenuScreenState extends State<_HomeMenuScreen> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       IconButton(
-                        tooltip: 'Cài đặt',
+                        tooltip: tr('Cài đặt'),
                         onPressed: () {
                           final idx = widget.navItems.indexWhere(
                               (n) => n.moduleCode == 'SettingsHub');
@@ -3846,24 +3850,24 @@ class _HomeMenuScreenState extends State<_HomeMenuScreen> {
                         ),
                       ),
                       IconButton(
-                        tooltip: 'Đăng xuất',
+                        tooltip: tr('Đăng xuất'),
                         onPressed: () async {
                           final l = AppLocalizations.of(context);
                           final ok = await showDialog<bool>(
                             context: context,
                             builder: (ctx) => AlertDialog(
-                              title: Text(l.logout),
-                              content: Text(l.logoutConfirm),
+                              title: Text(tr(l.logout)),
+                              content: Text(tr(l.logoutConfirm)),
                               actions: [
                                 TextButton(
                                   onPressed: () => Navigator.pop(ctx, false),
-                                  child: Text(l.cancel),
+                                  child: Text(tr(l.cancel)),
                                 ),
                                 FilledButton(
                                   onPressed: () => Navigator.pop(ctx, true),
                                   style: FilledButton.styleFrom(
                                       backgroundColor: Colors.red),
-                                  child: Text(l.logout),
+                                  child: Text(tr(l.logout)),
                                 ),
                               ],
                             ),
@@ -3944,8 +3948,8 @@ class _HomeMenuScreenState extends State<_HomeMenuScreen> {
                               builder: (context) {
                                 final l = AppLocalizations.of(context);
                                 return Text(
-                                  NavItem._groupMap[groupName]?.call(l) ??
-                                      groupName,
+                                  tr(NavItem._groupMap[groupName]?.call(l) ??
+                                      groupName),
                                   style: const TextStyle(
                                     fontSize: 15,
                                     fontWeight: FontWeight.w700,
@@ -3957,7 +3961,7 @@ class _HomeMenuScreenState extends State<_HomeMenuScreen> {
                             ),
                             const SizedBox(height: 2),
                             Text(
-                              groupDesc,
+                              tr(groupDesc),
                               style: const TextStyle(
                                 fontSize: 12,
                                 color: Color(0xFF586064),
@@ -3974,7 +3978,7 @@ class _HomeMenuScreenState extends State<_HomeMenuScreen> {
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Text(
-                          '${items.length}',
+                          tr('${items.length}'),
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w700,
@@ -4196,7 +4200,7 @@ class _MenuCardState extends State<_MenuCard>
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        widget.label,
+                        tr(widget.label),
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
@@ -4213,7 +4217,7 @@ class _MenuCardState extends State<_MenuCard>
                           widget.subtitle!.isNotEmpty) ...[
                         const SizedBox(height: 3),
                         Text(
-                          widget.subtitle!,
+                          tr(widget.subtitle!),
                           style: const TextStyle(
                             fontSize: 11,
                             color: Color(0xFF8A9199),
@@ -4411,9 +4415,9 @@ class _AttendanceNotificationPopupState
                                         borderRadius: BorderRadius.circular(4),
                                       ),
                                       child: Text(
-                                        widget.isCheckIn
+                                        tr(widget.isCheckIn
                                             ? 'CHECK IN'
-                                            : 'CHECK OUT',
+                                            : 'CHECK OUT'),
                                         style: const TextStyle(
                                           fontSize: 9,
                                           fontWeight: FontWeight.w700,
@@ -4424,7 +4428,7 @@ class _AttendanceNotificationPopupState
                                     ),
                                     const SizedBox(width: 6),
                                     Text(
-                                      widget.timeStr,
+                                      tr(widget.timeStr),
                                       style: TextStyle(
                                         fontSize: 13,
                                         fontWeight: FontWeight.w600,
@@ -4452,7 +4456,7 @@ class _AttendanceNotificationPopupState
                                 ),
                                 const SizedBox(height: 6),
                                 Text(
-                                  widget.userName,
+                                  tr(widget.userName),
                                   style: const TextStyle(
                                     fontSize: 14,
                                     fontWeight: FontWeight.w600,
@@ -4469,7 +4473,7 @@ class _AttendanceNotificationPopupState
                                     const SizedBox(width: 4),
                                     Expanded(
                                       child: Text(
-                                        widget.deviceName,
+                                        tr(widget.deviceName),
                                         style: TextStyle(
                                           fontSize: 12,
                                           color: Colors.grey.shade500,
@@ -4494,7 +4498,7 @@ class _AttendanceNotificationPopupState
                                               color: Colors.grey.shade600),
                                           const SizedBox(width: 3),
                                           Text(
-                                            widget.verifyType,
+                                            tr(widget.verifyType),
                                             style: TextStyle(
                                                 fontSize: 9,
                                                 color: Colors.grey.shade600),
@@ -4728,7 +4732,7 @@ class _DeviceStatusPopupState extends State<_DeviceStatusPopup>
                                         borderRadius: BorderRadius.circular(4),
                                       ),
                                       child: Text(
-                                        _statusLabel,
+                                        tr(_statusLabel),
                                         style: const TextStyle(
                                           fontSize: 9,
                                           fontWeight: FontWeight.w700,
@@ -4739,7 +4743,7 @@ class _DeviceStatusPopupState extends State<_DeviceStatusPopup>
                                     ),
                                     const SizedBox(width: 6),
                                     Text(
-                                      timeStr,
+                                      tr(timeStr),
                                       style: TextStyle(
                                         fontSize: 12,
                                         fontWeight: FontWeight.w600,
@@ -4767,7 +4771,7 @@ class _DeviceStatusPopupState extends State<_DeviceStatusPopup>
                                 ),
                                 const SizedBox(height: 6),
                                 Text(
-                                  widget.notification.deviceName,
+                                  tr(widget.notification.deviceName),
                                   style: const TextStyle(
                                     fontSize: 14,
                                     fontWeight: FontWeight.w600,
@@ -4780,7 +4784,7 @@ class _DeviceStatusPopupState extends State<_DeviceStatusPopup>
                                 Row(
                                   children: [
                                     Text(
-                                      'SN: ${widget.notification.serialNumber}',
+                                      tr('SN: ${widget.notification.serialNumber}'),
                                       style: TextStyle(
                                         fontSize: 11,
                                         color: Colors.grey.shade500,
@@ -4796,7 +4800,7 @@ class _DeviceStatusPopupState extends State<_DeviceStatusPopup>
                                       const SizedBox(width: 2),
                                       Expanded(
                                         child: Text(
-                                          widget.notification.location!,
+                                          tr(widget.notification.location!),
                                           style: TextStyle(
                                             fontSize: 11,
                                             color: Colors.grey.shade500,

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../utils/navigation_notifier.dart';
 import 'hrm_page_chrome.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// Back bar khi màn hình được mở bằng [Navigator.push] (không qua [MainLayout]).
 class HrmPushedScreenShell extends StatelessWidget {
@@ -42,12 +43,12 @@ class HrmPushedScreenShell extends StatelessWidget {
                   IconButton(
                     icon: const Icon(Icons.arrow_back, size: 22),
                     onPressed: () => Navigator.of(context).pop(),
-                    tooltip: 'Quay lại',
+                    tooltip: tr('Quay lại'),
                   ),
                   if (title != null && title!.isNotEmpty)
                     Expanded(
                       child: Text(
-                        title!,
+                        tr(title!),
                         style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,

@@ -26,6 +26,7 @@ import '../utils/leave_salary_shifts.dart';
 import '../utils/staffing_quota_utils.dart';
 import '../utils/navigation_notifier.dart';
 import 'settings_hub_screen.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 class WorkScheduleScreen extends StatefulWidget {
   const WorkScheduleScreen({super.key});
@@ -480,7 +481,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                 onPressed: _submitAllRegistrations,
                 backgroundColor: HrmPageChrome.primaryNavy,
                 icon: const Icon(Icons.send, size: 18),
-                label: Text('Gửi đăng ký (${_pendingRegistrations.length})',
+                label: Text(tr('Gửi đăng ký (${_pendingRegistrations.length})'),
                     style: const TextStyle(fontWeight: FontWeight.bold)),
               )
             : null,
@@ -516,7 +517,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
               onPressed: _submitAllRegistrations,
               backgroundColor: HrmPageChrome.primaryNavy,
               icon: const Icon(Icons.send, size: 18),
-              label: Text('Gửi (${_pendingRegistrations.length})',
+              label: Text(tr('Gửi (${_pendingRegistrations.length})'),
                   style: const TextStyle(fontWeight: FontWeight.bold)),
             )
           : null,
@@ -551,7 +552,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
               const SizedBox(width: 6),
               Flexible(
                   child: Text(
-                      Responsive.isMobile(context) ? 'Theo ca' : _l10n.byShift,
+                      tr(Responsive.isMobile(context) ? 'Theo ca' : _l10n.byShift),
                       overflow: TextOverflow.ellipsis)),
             ]),
           ),
@@ -561,9 +562,9 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
               const SizedBox(width: 6),
               Flexible(
                   child: Text(
-                      Responsive.isMobile(context)
+                      tr(Responsive.isMobile(context)
                           ? 'Chờ duyệt'
-                          : _l10n.pendingSchedule,
+                          : _l10n.pendingSchedule),
                       overflow: TextOverflow.ellipsis)),
               if (_pendingRegistrations.isNotEmpty ||
                   _registrations
@@ -579,7 +580,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Text(
-                    '${_pendingRegistrations.length + _registrations.where((r) => r.status == ScheduleRegistrationStatus.pending).length}',
+                    tr('${_pendingRegistrations.length + _registrations.where((r) => r.status == ScheduleRegistrationStatus.pending).length}'),
                     style: const TextStyle(
                         color: Colors.white,
                         fontSize: 10,
@@ -595,9 +596,9 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
               const SizedBox(width: 6),
               Flexible(
                   child: Text(
-                      Responsive.isMobile(context)
+                      tr(Responsive.isMobile(context)
                           ? 'Đã duyệt'
-                          : _l10n.approvedSchedule,
+                          : _l10n.approvedSchedule),
                       overflow: TextOverflow.ellipsis)),
             ]),
           ),
@@ -669,7 +670,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                     NavigationNotifier.scheduleApproval),
                 icon: const Icon(Icons.assignment_turned_in,
                     size: 16, color: Color(0xFFF59E0B)),
-                label: const Text('Duyệt lịch làm việc',
+                label: Text(tr('Duyệt lịch làm việc'),
                     style: TextStyle(
                         color: Color(0xFFF59E0B), fontWeight: FontWeight.w600)),
                 style: OutlinedButton.styleFrom(
@@ -748,7 +749,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
             OutlinedButton.icon(
               onPressed: onExportExcel,
               icon: const Icon(Icons.table_chart_outlined, size: 14),
-              label: const Text('Excel', style: TextStyle(fontSize: 11)),
+              label: Text(tr('Excel'), style: TextStyle(fontSize: 11)),
               style: OutlinedButton.styleFrom(
                 foregroundColor: const Color(0xFF22C55E),
                 side: const BorderSide(color: Color(0xFF22C55E)),
@@ -762,7 +763,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
             OutlinedButton.icon(
               onPressed: onExportPng,
               icon: const Icon(Icons.image_outlined, size: 14),
-              label: const Text('PNG', style: TextStyle(fontSize: 11)),
+              label: Text(tr('PNG'), style: TextStyle(fontSize: 11)),
               style: OutlinedButton.styleFrom(
                 foregroundColor: HrmPageChrome.primaryNavy,
                 side: const BorderSide(color: HrmPageChrome.primaryNavy),
@@ -857,7 +858,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                       color: const Color(0xFFEFF6FF),
                       borderRadius: BorderRadius.circular(8)),
                   child: Text(
-                    'T$weekNumber (${dateFormat.format(_selectedWeekStart)}-${dateFormat.format(weekEnd)})',
+                    tr('T$weekNumber (${dateFormat.format(_selectedWeekStart)}-${dateFormat.format(weekEnd)})'),
                     style: const TextStyle(
                         color: Color(0xFF18181B),
                         fontWeight: FontWeight.w600,
@@ -910,7 +911,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                                   border: Border(
                                       right: BorderSide(
                                           color: Color(0xFFE4E4E7)))),
-                              child: const Text('Ca / Ngày',
+                              child: Text(tr('Ca / Ngày'),
                                   style: TextStyle(
                                       fontSize: 11,
                                       fontWeight: FontWeight.w700,
@@ -941,7 +942,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                                   ),
                                   child: Column(
                                     children: [
-                                      Text(dayLabels[di],
+                                      Text(tr(dayLabels[di]),
                                           style: TextStyle(
                                             fontSize: 11,
                                             fontWeight: FontWeight.w700,
@@ -951,7 +952,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                                                     ? const Color(0xFFEF4444)
                                                     : const Color(0xFF71717A)),
                                           )),
-                                      Text('${day.day}/${day.month}',
+                                      Text(tr('${day.day}/${day.month}'),
                                           style: TextStyle(
                                             fontSize: 10,
                                             color: isToday
@@ -970,7 +971,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                       if (_shifts.isEmpty)
                         Padding(
                             padding: const EdgeInsets.all(24),
-                            child: Text(_employeeShiftEmptyMessage(),
+                            child: Text(tr(_employeeShiftEmptyMessage()),
                                 style: const TextStyle(
                                     color: Color(0xFF71717A))))
                       else
@@ -999,7 +1000,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                                               color: Color(0xFFE4E4E7)))),
                                   child: Column(
                                     children: [
-                                      Text(shift.name,
+                                      Text(tr(shift.name),
                                           style: const TextStyle(
                                               fontSize: 12,
                                               fontWeight: FontWeight.w700,
@@ -1008,7 +1009,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                                           maxLines: 1,
                                           overflow: TextOverflow.ellipsis),
                                       Text(
-                                          '${_formatTime(shift.startTime)}-${_formatTime(shift.endTime)}',
+                                          tr('${_formatTime(shift.startTime)}-${_formatTime(shift.endTime)}'),
                                           style: const TextStyle(
                                               fontSize: 9,
                                               color: Color(0xFF71717A)),
@@ -1084,7 +1085,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                 borderRadius: BorderRadius.circular(3),
                 border: Border.all(color: color, width: 1.5))),
         const SizedBox(width: 4),
-        Text(label,
+        Text(tr(label),
             style: TextStyle(
                 fontSize: 11, color: color, fontWeight: FontWeight.w500)),
       ],
@@ -1237,7 +1238,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                   color: Color(0xFFD97706), size: 20),
               const SizedBox(width: 8),
               Expanded(
-                  child: Text('${shift.name} - ${day.day}/${day.month}',
+                  child: Text(tr('${shift.name} - ${day.day}/${day.month}'),
                       style: const TextStyle(
                           fontWeight: FontWeight.w700, fontSize: 15))),
               Container(
@@ -1245,7 +1246,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                 decoration: BoxDecoration(
                     color: const Color(0xFFFEF3C7),
                     borderRadius: BorderRadius.circular(8)),
-                child: const Text('Chờ duyệt',
+                child: Text(tr('Chờ duyệt'),
                     style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
@@ -1288,7 +1289,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
               const Icon(Icons.cancel, color: Color(0xFFEF4444), size: 20),
               const SizedBox(width: 8),
               Expanded(
-                  child: Text('${shift.name} - ${day.day}/${day.month}',
+                  child: Text(tr('${shift.name} - ${day.day}/${day.month}'),
                       style: const TextStyle(
                           fontWeight: FontWeight.w700, fontSize: 15))),
               Container(
@@ -1296,7 +1297,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                 decoration: BoxDecoration(
                     color: const Color(0xFFFEE2E2),
                     borderRadius: BorderRadius.circular(8)),
-                child: const Text('Từ chối',
+                child: Text(tr('Từ chối'),
                     style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
@@ -1312,7 +1313,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                 decoration: BoxDecoration(
                     color: const Color(0xFFFEF2F2),
                     borderRadius: BorderRadius.circular(8)),
-                child: Text('Lý do: ${reg.rejectionReason}',
+                child: Text(tr('Lý do: ${reg.rejectionReason}'),
                     style: const TextStyle(
                         fontSize: 12, color: Color(0xFFEF4444))),
               ),
@@ -1359,7 +1360,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                   size: 20),
               const SizedBox(width: 8),
               Expanded(
-                  child: Text('${shift.name} - ${day.day}/${day.month}',
+                  child: Text(tr('${shift.name} - ${day.day}/${day.month}'),
                       style: const TextStyle(
                           fontWeight: FontWeight.w700, fontSize: 15))),
               Container(
@@ -1370,7 +1371,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                       : const Color(0xFFD1FAE5),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: Text(isScheduled ? 'Đã xếp lịch' : 'Đã duyệt',
+                child: Text(tr(isScheduled ? 'Đã xếp lịch' : 'Đã duyệt'),
                     style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
@@ -1383,7 +1384,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
             Row(children: [
               const SizedBox(width: 28),
               Text(
-                  '${_formatTime(shift.startTime)} - ${_formatTime(shift.endTime)}',
+                  tr('${_formatTime(shift.startTime)} - ${_formatTime(shift.endTime)}'),
                   style:
                       const TextStyle(fontSize: 12, color: Color(0xFF71717A))),
             ]),
@@ -1418,10 +1419,10 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
             borderRadius: BorderRadius.circular(10)),
         child: Icon(icon, color: color, size: 20),
       ),
-      title: Text(title,
+      title: Text(tr(title),
           style: TextStyle(
               fontWeight: FontWeight.w600, fontSize: 14, color: color)),
-      subtitle: Text(subtitle,
+      subtitle: Text(tr(subtitle),
           style: const TextStyle(fontSize: 11, color: Color(0xFF71717A))),
       trailing: Icon(Icons.chevron_right, color: color.withValues(alpha: 0.5)),
       onTap: onTap,
@@ -1438,22 +1439,22 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
       context: context,
       builder: (ctx) => ScrollableAlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-        title: const Row(children: [
+        title: Row(children: [
           Icon(Icons.delete_outline, color: Color(0xFFEF4444)),
           SizedBox(width: 8),
-          Text('Xác nhận xóa'),
+          Text(tr('Xác nhận xóa')),
         ]),
         content:
-            Text('Xóa đăng ký ${shift.name} ngày ${day.day}/${day.month}?'),
+            Text(tr('Xóa đăng ký ${shift.name} ngày ${day.day}/${day.month}?')),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Hủy')),
+              child: Text(tr('Hủy'))),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: FilledButton.styleFrom(
                 backgroundColor: const Color(0xFFEF4444)),
-            child: const Text('Xóa'),
+            child: Text(tr('Xóa')),
           ),
         ],
       ),
@@ -1464,7 +1465,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
     if (result['isSuccess'] == true) {
       appNotification.showSuccess(
           title: 'Đã xóa',
-          message: 'Đã xóa đăng ký ${shift.name} ngày ${day.day}/${day.month}');
+          message: tr('Đã xóa đăng ký ${shift.name} ngày ${day.day}/${day.month}'));
       _loadRegistrations();
     } else {
       appNotification.showError(
@@ -1497,10 +1498,10 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
         return ScrollableAlertDialog(
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: const Row(children: [
+          title: Row(children: [
             Icon(Icons.swap_horiz, color: HrmPageChrome.primaryNavy),
             SizedBox(width: 8),
-            Expanded(child: Text('Đổi ca', style: TextStyle(fontSize: 16))),
+            Expanded(child: Text(tr('Đổi ca'), style: TextStyle(fontSize: 16))),
           ]),
           content: SizedBox(
             width: 400,
@@ -1517,15 +1518,15 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                   child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('Ca hiện tại:',
+                        Text(tr('Ca hiện tại:'),
                             style: TextStyle(
                                 fontSize: 11, color: Color(0xFF71717A))),
                         const SizedBox(height: 4),
                         Text(
-                            '${shift.name} (${_formatTime(shift.startTime)}-${_formatTime(shift.endTime)})',
+                            tr('${shift.name} (${_formatTime(shift.startTime)}-${_formatTime(shift.endTime)})'),
                             style: const TextStyle(
                                 fontWeight: FontWeight.w600, fontSize: 13)),
-                        Text('Ngày ${day.day}/${day.month}/${day.year}',
+                        Text(tr('Ngày ${day.day}/${day.month}/${day.year}'),
                             style: const TextStyle(
                                 fontSize: 12, color: Color(0xFF71717A))),
                       ]),
@@ -1536,10 +1537,10 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                   initialValue: targetUserId,
                   isExpanded: true,
                   decoration: InputDecoration(
-                    labelText: 'Đồng nghiệp muốn đổi *',
-                    helperText: colleagues.isEmpty
+                    labelText: tr('Đồng nghiệp muốn đổi *'),
+                    helperText: tr(colleagues.isEmpty
                         ? 'Chưa có danh sách — thử tải lại trang'
-                        : 'Cùng phòng ban với bạn',
+                        : 'Cùng phòng ban với bạn'),
                     prefixIcon: const Icon(Icons.person, size: 18),
                     border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10)),
@@ -1549,7 +1550,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                       .map((c) => DropdownMenuItem(
                             value: c['userId']?.toString(),
                             child: Text(
-                                '${c['fullName'] ?? ''} (${c['employeeCode'] ?? ''})',
+                                tr('${c['fullName'] ?? ''} (${c['employeeCode'] ?? ''})'),
                                 overflow: TextOverflow.ellipsis),
                           ))
                       .toList(),
@@ -1561,8 +1562,8 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                   initialValue: targetShiftId,
                   isExpanded: true,
                   decoration: InputDecoration(
-                    labelText: 'Ca muốn nhận *',
-                    helperText: 'Thường chọn cùng ca hoặc ca đồng nghiệp đang giữ',
+                    labelText: tr('Ca muốn nhận *'),
+                    helperText: tr('Thường chọn cùng ca hoặc ca đồng nghiệp đang giữ'),
                     prefixIcon: const Icon(Icons.schedule, size: 18),
                     border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10)),
@@ -1572,7 +1573,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                       .map((s) => DropdownMenuItem(
                             value: s.id,
                             child: Text(
-                                '${s.name} (${_formatTime(s.startTime)}-${_formatTime(s.endTime)})'),
+                                tr('${s.name} (${_formatTime(s.startTime)}-${_formatTime(s.endTime)})')),
                           ))
                       .toList(),
                   onChanged: (v) => setDialogState(() => targetShiftId = v ?? shift.id),
@@ -1581,7 +1582,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                 TextField(
                   controller: noteCtrl,
                   decoration: InputDecoration(
-                    labelText: 'Ghi chú',
+                    labelText: tr('Ghi chú'),
                     border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10)),
                     isDense: true,
@@ -1593,7 +1594,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
           ),
           actions: [
             TextButton(
-                onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
+                onPressed: () => Navigator.pop(ctx), child: Text(tr('Hủy'))),
             FilledButton.icon(
               onPressed: targetUserId == null || targetShiftId == null
                   ? null
@@ -1608,7 +1609,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                       );
                     },
               icon: const Icon(Icons.send, size: 16),
-              label: const Text('Gửi yêu cầu'),
+              label: Text(tr('Gửi yêu cầu')),
               style: FilledButton.styleFrom(
                   backgroundColor: HrmPageChrome.primaryNavy),
             ),
@@ -1636,8 +1637,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
     if (result['isSuccess'] == true) {
       appNotification.showSuccess(
         title: 'Đã gửi',
-        message:
-            'Đồng nghiệp cần đồng ý, sau đó quản lý duyệt. Xem tiến độ tại Duyệt lịch → Đổi ca.',
+        message: tr('Đồng nghiệp cần đồng ý, sau đó quản lý duyệt. Xem tiến độ tại Duyệt lịch → Đổi ca.'),
       );
     } else {
       appNotification.showError(
@@ -1666,11 +1666,11 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
         return ScrollableAlertDialog(
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: const Row(children: [
+          title: Row(children: [
             Icon(Icons.event_busy, color: Color(0xFFF59E0B)),
             SizedBox(width: 8),
             Expanded(
-                child: Text('Xin nghỉ phép', style: TextStyle(fontSize: 16))),
+                child: Text(tr('Xin nghỉ phép'), style: TextStyle(fontSize: 16))),
           ]),
           content: SizedBox(
             width: 400,
@@ -1686,15 +1686,15 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                   child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('Nghỉ phép cho:',
+                        Text(tr('Nghỉ phép cho:'),
                             style: TextStyle(
                                 fontSize: 11, color: Color(0xFF71717A))),
                         const SizedBox(height: 4),
                         Text(
-                            '${shift.name} (${_formatTime(shift.startTime)}-${_formatTime(shift.endTime)})',
+                            tr('${shift.name} (${_formatTime(shift.startTime)}-${_formatTime(shift.endTime)})'),
                             style: const TextStyle(
                                 fontWeight: FontWeight.w600, fontSize: 13)),
-                        Text('Ngày ${day.day}/${day.month}/${day.year}',
+                        Text(tr('Ngày ${day.day}/${day.month}/${day.year}'),
                             style: const TextStyle(
                                 fontSize: 12, color: Color(0xFF71717A))),
                       ]),
@@ -1712,7 +1712,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                               size: 14,
                               color: isSelected ? Colors.white : t.$4),
                           const SizedBox(width: 4),
-                          Text(t.$2,
+                          Text(tr(t.$2),
                               style: TextStyle(
                                   fontSize: 11,
                                   color: isSelected ? Colors.white : t.$4)),
@@ -1733,7 +1733,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                 TextField(
                   controller: reasonCtrl,
                   decoration: InputDecoration(
-                    labelText: 'Lý do',
+                    labelText: tr('Lý do'),
                     border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10)),
                     isDense: true,
@@ -1745,7 +1745,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
           ),
           actions: [
             TextButton(
-                onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
+                onPressed: () => Navigator.pop(ctx), child: Text(tr('Hủy'))),
             FilledButton.icon(
               onPressed: () async {
                 Navigator.pop(ctx);
@@ -1757,7 +1757,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                 );
               },
               icon: const Icon(Icons.send, size: 16),
-              label: const Text('Gửi đơn'),
+              label: Text(tr('Gửi đơn')),
               style: FilledButton.styleFrom(
                   backgroundColor: const Color(0xFFF59E0B)),
             ),
@@ -1783,8 +1783,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
     if (result['isSuccess'] == true) {
       appNotification.showSuccess(
           title: 'Đã gửi',
-          message:
-              'Đơn nghỉ phép ${shift.name} ngày ${day.day}/${day.month} đã được gửi');
+          message: tr('Đơn nghỉ phép ${shift.name} ngày ${day.day}/${day.month} đã được gửi'));
     } else {
       appNotification.showError(
           title: 'Lỗi',
@@ -1814,7 +1813,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Đăng ký tuần này (${weekRegs.length})',
+          Text(tr('Đăng ký tuần này (${weekRegs.length})'),
               style: const TextStyle(
                   fontWeight: FontWeight.w700,
                   fontSize: 13,
@@ -1849,7 +1848,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      '${DateFormat('E dd/MM', 'vi').format(reg.date)} - ${shift?.name ?? (reg.isDayOff ? 'Nghỉ' : 'Ca')}',
+                      tr('${DateFormat('E dd/MM', 'vi').format(reg.date)} - ${shift?.name ?? (reg.isDayOff ? 'Nghỉ' : 'Ca')}'),
                       style: const TextStyle(
                           fontSize: 12, color: Color(0xFF18181B)),
                     ),
@@ -1925,7 +1924,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                     decoration: BoxDecoration(
                         color: statusColor.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(8)),
-                    child: Text(statusText,
+                    child: Text(tr(statusText),
                         style: TextStyle(
                             fontSize: 10,
                             fontWeight: FontWeight.w600,
@@ -1952,7 +1951,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
         OutlinedButton.icon(
           onPressed: _previousWeek,
           icon: const Icon(Icons.chevron_left, size: 18),
-          label: isMobile ? const SizedBox.shrink() : Text(_l10n.prevWeek),
+          label: isMobile ? const SizedBox.shrink() : Text(tr(_l10n.prevWeek)),
           style: OutlinedButton.styleFrom(
             foregroundColor: const Color(0xFF71717A),
             side: const BorderSide(color: Color(0xFFE4E4E7)),
@@ -1965,7 +1964,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
         FilledButton.icon(
           onPressed: _goToThisWeek,
           icon: const Icon(Icons.today, size: 16),
-          label: isMobile ? const SizedBox.shrink() : Text(_l10n.thisWeek),
+          label: isMobile ? const SizedBox.shrink() : Text(tr(_l10n.thisWeek)),
           style: ElevatedButton.styleFrom(
             backgroundColor: HrmPageChrome.primaryNavy,
             foregroundColor: Colors.white,
@@ -1977,7 +1976,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
         const SizedBox(width: 6),
         OutlinedButton.icon(
           onPressed: _nextWeek,
-          icon: isMobile ? const SizedBox.shrink() : Text(_l10n.nextWeek),
+          icon: isMobile ? const SizedBox.shrink() : Text(tr(_l10n.nextWeek)),
           label: const Icon(Icons.chevron_right, size: 18),
           style: OutlinedButton.styleFrom(
             foregroundColor: const Color(0xFF71717A),
@@ -1996,9 +1995,9 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
               borderRadius: BorderRadius.circular(8),
             ),
             child: Text(
-              isMobile
+              tr(isMobile
                   ? 'T$weekNumber (${dateFormat.format(_selectedWeekStart)}-${dateFormat.format(weekEnd)})'
-                  : 'Tuần $weekNumber (${dateFormat.format(_selectedWeekStart)} - ${dateFormat.format(weekEnd)})',
+                  : 'Tuần $weekNumber (${dateFormat.format(_selectedWeekStart)} - ${dateFormat.format(weekEnd)})'),
               style: const TextStyle(
                   color: Color(0xFF18181B),
                   fontWeight: FontWeight.w600,
@@ -2029,16 +2028,16 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                   size: 16, color: Color(0xFF71717A)),
               isDense: true,
             ),
-            hint: const Text('Chi nhánh', style: TextStyle(fontSize: 13)),
+            hint: Text(tr('Chi nhánh'), style: TextStyle(fontSize: 13)),
             style: const TextStyle(color: Color(0xFF18181B), fontSize: 13),
             items: [
-              const DropdownMenuItem<String?>(
+              DropdownMenuItem<String?>(
                   value: null,
-                  child: Text('Tất cả chi nhánh',
+                  child: Text(tr('Tất cả chi nhánh'),
                       overflow: TextOverflow.ellipsis)),
               ..._branches.map((b) => DropdownMenuItem<String?>(
                     value: b['id']?.toString(),
-                    child: Text(b['name']?.toString() ?? '',
+                    child: Text(tr(b['name']?.toString() ?? ''),
                         overflow: TextOverflow.ellipsis),
                   )),
             ],
@@ -2071,14 +2070,14 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
             const Icon(Icons.business, size: 16, color: Color(0xFF71717A)),
         isDense: true,
       ),
-      hint: Text(_l10n.department, style: const TextStyle(fontSize: 13)),
+      hint: Text(tr(_l10n.department), style: const TextStyle(fontSize: 13)),
       style: const TextStyle(color: Color(0xFF18181B), fontSize: 13),
       items: [
         DropdownMenuItem<String>(
-            value: null, child: Text(_l10n.allDepartments)),
+            value: null, child: Text(tr(_l10n.allDepartments))),
         ..._departments.map((d) => DropdownMenuItem<String>(
               value: d['name']?.toString() ?? '',
-              child: Text(d['name']?.toString() ?? '',
+              child: Text(tr(d['name']?.toString() ?? ''),
                   overflow: TextOverflow.ellipsis),
             )),
       ],
@@ -2108,13 +2107,13 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
             const Icon(Icons.person_search, size: 16, color: Color(0xFF71717A)),
         isDense: true,
       ),
-      hint: Text(_l10n.employee, style: const TextStyle(fontSize: 13)),
+      hint: Text(tr(_l10n.employee), style: const TextStyle(fontSize: 13)),
       style: const TextStyle(color: Color(0xFF18181B), fontSize: 13),
       items: [
-        DropdownMenuItem<String>(value: null, child: Text(_l10n.allEmployees)),
+        DropdownMenuItem<String>(value: null, child: Text(tr(_l10n.allEmployees))),
         ..._filteredEmployees.map((e) => DropdownMenuItem<String>(
               value: _effectiveUserId(e),
-              child: Text(e.fullName, overflow: TextOverflow.ellipsis),
+              child: Text(tr(e.fullName), overflow: TextOverflow.ellipsis),
             )),
       ],
       onChanged: (value) {
@@ -2201,12 +2200,12 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
           border:
               Border.all(color: const Color(0xFFFB923C).withValues(alpha: 0.3)),
         ),
-        child: const Row(
+        child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(Icons.help_outline, size: 16, color: Color(0xFFFB923C)),
             SizedBox(width: 6),
-            Text('Hướng dẫn',
+            Text(tr('Hướng dẫn'),
                 style: TextStyle(
                     color: Color(0xFFFB923C),
                     fontWeight: FontWeight.w600,
@@ -2240,7 +2239,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
               children: [
                 const Icon(Icons.copy_all, size: 18, color: HrmPageChrome.primaryNavy),
                 const SizedBox(width: 8),
-                Text(_l10n.copySchedule,
+                Text(tr(_l10n.copySchedule),
                     style: const TextStyle(
                         color: Color(0xFF18181B),
                         fontWeight: FontWeight.w600,
@@ -2301,7 +2300,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                 const Icon(Icons.manage_accounts,
                     size: 18, color: HrmPageChrome.primaryNavy),
                 const SizedBox(width: 8),
-                const Text('Quản lý',
+                Text(tr('Quản lý'),
                     style: TextStyle(
                         color: Color(0xFF18181B),
                         fontWeight: FontWeight.w600,
@@ -2334,7 +2333,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
           children: [
             Icon(icon, size: 14, color: color),
             const SizedBox(width: 6),
-            Text(label,
+            Text(tr(label),
                 style: TextStyle(
                     color: color, fontWeight: FontWeight.w600, fontSize: 12)),
           ],
@@ -2360,11 +2359,11 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
             backgroundColor: Colors.white,
             shape:
                 RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            title: const Row(
+            title: Row(
               children: [
                 Icon(Icons.today, color: HrmPageChrome.primaryNavy),
                 SizedBox(width: 8),
-                Text('Sao chép lịch ngày',
+                Text(tr('Sao chép lịch ngày'),
                     style: TextStyle(
                         color: Color(0xFF18181B), fontWeight: FontWeight.bold)),
               ],
@@ -2376,12 +2375,12 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Sao chép lịch từ một ngày sang các ngày khác.',
+                    Text(tr('Sao chép lịch từ một ngày sang các ngày khác.'),
                         style:
                             TextStyle(color: Color(0xFF71717A), fontSize: 13)),
                     const SizedBox(height: 16),
                     // Source date picker
-                    Text(_l10n.sourceDate,
+                    Text(tr(_l10n.sourceDate),
                         style: const TextStyle(
                             color: Color(0xFF18181B),
                             fontWeight: FontWeight.w600)),
@@ -2413,8 +2412,8 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                                 size: 16, color: Color(0xFF71717A)),
                             const SizedBox(width: 8),
                             Text(
-                                DateFormat('dd/MM/yyyy (EEEE)', 'vi')
-                                    .format(sourceDate),
+                                tr(DateFormat('dd/MM/yyyy (EEEE)', 'vi')
+                                    .format(sourceDate)),
                                 style:
                                     const TextStyle(color: Color(0xFF18181B))),
                           ],
@@ -2425,7 +2424,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                     // Target dates - inline calendar
                     Row(
                       children: [
-                        Text(_l10n.targetDate,
+                        Text(tr(_l10n.targetDate),
                             style: const TextStyle(
                                 color: Color(0xFF18181B),
                                 fontWeight: FontWeight.w600)),
@@ -2434,7 +2433,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                           TextButton(
                             onPressed: () =>
                                 setDialogState(() => targetDates.clear()),
-                            child: Text('Xóa tất cả (${targetDates.length})',
+                            child: Text(tr('Xóa tất cả (${targetDates.length})'),
                                 style: const TextStyle(
                                     color: Color(0xFFEF4444), fontSize: 12)),
                           ),
@@ -2455,7 +2454,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                             .map((d) => Chip(
                                   backgroundColor: const Color(0xFFEFF6FF),
                                   label: Text(
-                                      DateFormat('dd/MM (EEE)', 'vi').format(d),
+                                      tr(DateFormat('dd/MM (EEE)', 'vi').format(d)),
                                       style: const TextStyle(
                                           fontSize: 11,
                                           color: Color(0xFF18181B))),
@@ -2497,7 +2496,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: Text(_l10n.cancel,
+                child: Text(tr(_l10n.cancel),
                     style: const TextStyle(color: Color(0xFF71717A))),
               ),
               FilledButton.icon(
@@ -2510,7 +2509,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                             applyToAllEmployees ? null : selectedEmployeeIds);
                       },
                 icon: const Icon(Icons.content_copy, size: 16),
-                label: const Text('Sao chép'),
+                label: Text(tr('Sao chép')),
                 style: FilledButton.styleFrom(backgroundColor: HrmPageChrome.primaryNavy),
               ),
             ],
@@ -2577,7 +2576,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                 ),
                 alignment: Alignment.center,
                 child: Text(
-                  '$day',
+                  tr('$day'),
                   style: TextStyle(
                     color: isSelected
                         ? Colors.white
@@ -2619,8 +2618,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
               ),
-              Text(
-                'Tháng ${calendarMonth.month}/${calendarMonth.year}',
+              Text(tr('Tháng ${calendarMonth.month}/${calendarMonth.year}'),
                 style: const TextStyle(
                     color: Color(0xFF18181B),
                     fontWeight: FontWeight.bold,
@@ -2641,7 +2639,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
             children: dayNames
                 .map((d) => Expanded(
                       child: Center(
-                          child: Text(d,
+                          child: Text(tr(d),
                               style: TextStyle(
                                   color: d == 'CN'
                                       ? const Color(0xFFEF4444)
@@ -2672,7 +2670,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SwitchListTile(
-          title: Text(_l10n.applyToAll,
+          title: Text(tr(_l10n.applyToAll),
               style: const TextStyle(color: Color(0xFF18181B), fontSize: 13)),
           value: applyToAll,
           onChanged: onToggleAll,
@@ -2682,7 +2680,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
         if (!applyToAll) ...[
           Row(
             children: [
-              const Text('Chọn nhân viên:',
+              Text(tr('Chọn nhân viên:'),
                   style: TextStyle(
                       color: Color(0xFF18181B),
                       fontWeight: FontWeight.w600,
@@ -2691,11 +2689,11 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
               TextButton(
                 onPressed: onSelectAllEmployees,
                 child:
-                    Text(_l10n.selectAll, style: const TextStyle(fontSize: 11)),
+                    Text(tr(_l10n.selectAll), style: const TextStyle(fontSize: 11)),
               ),
               TextButton(
                 onPressed: onDeselectAllEmployees,
-                child: Text(_l10n.deselectAll,
+                child: Text(tr(_l10n.deselectAll),
                     style: const TextStyle(
                         fontSize: 11, color: Color(0xFFEF4444))),
               ),
@@ -2717,7 +2715,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                 return CheckboxListTile(
                   value: isChecked,
                   onChanged: (v) => onToggleEmployee(effId, v ?? false),
-                  title: Text(employee.fullName,
+                  title: Text(tr(employee.fullName),
                       style: const TextStyle(fontSize: 13)),
                   dense: true,
                   visualDensity: VisualDensity.compact,
@@ -2730,8 +2728,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
           if (selectedIds.isNotEmpty)
             Padding(
               padding: const EdgeInsets.only(top: 4),
-              child: Text(
-                  'Đã chọn ${selectedIds.length}/${_employees.length} nhân viên',
+              child: Text(tr('Đã chọn ${selectedIds.length}/${_employees.length} nhân viên'),
                   style: TextStyle(
                       color: activeColor,
                       fontSize: 11,
@@ -2823,7 +2820,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
       if (addedCount > 0) {
         appNotification.showSuccess(
           title: _l10n.copySuccess,
-          message: 'Đã thêm $addedCount đăng ký vào danh sách chờ gửi',
+          message: tr('Đã thêm $addedCount đăng ký vào danh sách chờ gửi'),
         );
         // Navigate to target week
         final firstTarget = (List.of(targetDates)..sort()).first;
@@ -2833,7 +2830,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
       } else {
         appNotification.showWarning(
           title: 'Không có dữ liệu',
-          message: 'Ngày nguồn không có lịch để sao chép',
+          message: tr('Ngày nguồn không có lịch để sao chép'),
         );
       }
     } finally {
@@ -2858,11 +2855,11 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
             backgroundColor: Colors.white,
             shape:
                 RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            title: const Row(
+            title: Row(
               children: [
                 Icon(Icons.date_range, color: HrmPageChrome.primaryNavy),
                 SizedBox(width: 8),
-                Text('Sao chép lịch tuần',
+                Text(tr('Sao chép lịch tuần'),
                     style: TextStyle(
                         color: Color(0xFF18181B), fontWeight: FontWeight.bold)),
               ],
@@ -2874,13 +2871,12 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                        'Sao chép toàn bộ lịch của một tuần sang các tuần tiếp theo.',
+                    Text(tr('Sao chép toàn bộ lịch của một tuần sang các tuần tiếp theo.'),
                         style:
                             TextStyle(color: Color(0xFF71717A), fontSize: 13)),
                     const SizedBox(height: 16),
                     // Source week
-                    const Text('Tuần nguồn:',
+                    Text(tr('Tuần nguồn:'),
                         style: TextStyle(
                             color: Color(0xFF18181B),
                             fontWeight: FontWeight.w600)),
@@ -2918,8 +2914,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                             const Icon(Icons.date_range,
                                 size: 16, color: HrmPageChrome.primaryNavy),
                             const SizedBox(width: 8),
-                            Text(
-                              'Tuần ${_getWeekNumber(sourceWeekStart)}: ${DateFormat('dd/MM').format(sourceWeekStart)} - ${DateFormat('dd/MM/yyyy').format(sourceWeekEnd)}',
+                            Text(tr('${tr('Tuần ')}${_getWeekNumber(sourceWeekStart)}: ${DateFormat('dd/MM').format(sourceWeekStart)} - ${DateFormat('dd/MM/yyyy').format(sourceWeekEnd)}'),
                               style: const TextStyle(
                                   color: Color(0xFF18181B),
                                   fontWeight: FontWeight.w500),
@@ -2930,7 +2925,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                     ),
                     const SizedBox(height: 16),
                     // Target week
-                    const Text('Tuần đích bắt đầu từ:',
+                    Text(tr('Tuần đích bắt đầu từ:'),
                         style: TextStyle(
                             color: Color(0xFF18181B),
                             fontWeight: FontWeight.w600)),
@@ -2962,8 +2957,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                             const Icon(Icons.calendar_today,
                                 size: 16, color: Color(0xFF71717A)),
                             const SizedBox(width: 8),
-                            Text(
-                              'Tuần ${_getWeekNumber(targetWeekStart)}: ${DateFormat('dd/MM').format(targetWeekStart)} - ${DateFormat('dd/MM/yyyy').format(targetWeekStart.add(const Duration(days: 6)))}',
+                            Text(tr('${tr('Tuần ')}${_getWeekNumber(targetWeekStart)}: ${DateFormat('dd/MM').format(targetWeekStart)} - ${DateFormat('dd/MM/yyyy').format(targetWeekStart.add(const Duration(days: 6)))}'),
                               style: const TextStyle(color: Color(0xFF18181B)),
                             ),
                           ],
@@ -2972,7 +2966,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                     ),
                     const SizedBox(height: 16),
                     // Number of weeks
-                    const Text('Số tuần sao chép:',
+                    Text(tr('Số tuần sao chép:'),
                         style: TextStyle(
                             color: Color(0xFF18181B),
                             fontWeight: FontWeight.w600)),
@@ -2993,7 +2987,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                             color: const Color(0xFFEFF6FF),
                             borderRadius: BorderRadius.circular(8),
                           ),
-                          child: Text('$numberOfWeeks tuần',
+                          child: Text(tr('$numberOfWeeks tuần'),
                               style: const TextStyle(
                                   color: Color(0xFF18181B),
                                   fontWeight: FontWeight.bold,
@@ -3019,7 +3013,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text('Sẽ sao chép đến:',
+                          Text(tr('Sẽ sao chép đến:'),
                               style: TextStyle(
                                   color: Color(0xFF71717A), fontSize: 11)),
                           const SizedBox(height: 4),
@@ -3031,8 +3025,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                                   targetWeekStart.add(Duration(days: 7 * i));
                               return Chip(
                                 backgroundColor: const Color(0xFFEFF6FF),
-                                label: Text(
-                                    'Tuần ${_getWeekNumber(wStart)}: ${DateFormat('dd/MM').format(wStart)}',
+                                label: Text(tr('${tr('Tuần ')}${_getWeekNumber(wStart)}: ${DateFormat('dd/MM').format(wStart)}'),
                                     style: const TextStyle(
                                         fontSize: 10,
                                         color: HrmPageChrome.primaryNavy)),
@@ -3076,7 +3069,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: Text(_l10n.cancel,
+                child: Text(tr(_l10n.cancel),
                     style: const TextStyle(color: Color(0xFF71717A))),
               ),
               FilledButton.icon(
@@ -3091,7 +3084,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                             applyToAllEmployees ? null : selectedEmployeeIds);
                       },
                 icon: const Icon(Icons.content_copy, size: 16),
-                label: const Text('Sao chép'),
+                label: Text(tr('Sao chép')),
                 style: FilledButton.styleFrom(backgroundColor: HrmPageChrome.primaryNavy),
               ),
             ],
@@ -3192,11 +3185,11 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
     if (addedCount > 0) {
       appNotification.showSuccess(
           title: 'Sao chép tuần thành công',
-          message: 'Đã thêm $addedCount đăng ký vào danh sách chờ gửi');
+          message: tr('Đã thêm $addedCount đăng ký vào danh sách chờ gửi'));
     } else {
       appNotification.showWarning(
           title: 'Không có dữ liệu',
-          message: 'Tuần nguồn không có lịch để sao chép');
+          message: tr('Tuần nguồn không có lịch để sao chép'));
     }
   }
 
@@ -3233,11 +3226,11 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
             backgroundColor: Colors.white,
             shape:
                 RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            title: const Row(
+            title: Row(
               children: [
                 Icon(Icons.calendar_month, color: HrmPageChrome.primaryNavy),
                 SizedBox(width: 8),
-                Text('Sao chép lịch tháng',
+                Text(tr('Sao chép lịch tháng'),
                     style: TextStyle(
                         color: Color(0xFF18181B), fontWeight: FontWeight.bold)),
               ],
@@ -3249,8 +3242,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                        'Sao chép lịch theo từng tuần trong tháng nguồn sang tháng đích.',
+                    Text(tr('Sao chép lịch theo từng tuần trong tháng nguồn sang tháng đích.'),
                         style:
                             TextStyle(color: Color(0xFF71717A), fontSize: 13)),
                     const SizedBox(height: 16),
@@ -3261,7 +3253,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text('Tháng nguồn:',
+                              Text(tr('Tháng nguồn:'),
                                   style: TextStyle(
                                       color: Color(0xFF18181B),
                                       fontWeight: FontWeight.w600)),
@@ -3284,7 +3276,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                                           12,
                                           (i) => DropdownMenuItem(
                                               value: i + 1,
-                                              child: Text(monthNames[i + 1]))),
+                                              child: Text(tr(monthNames[i + 1])))),
                                       onChanged: (v) => setDialogState(
                                           () => sourceMonth = v!),
                                     ),
@@ -3309,7 +3301,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                                               value:
                                                   DateTime.now().year - 1 + i,
                                               child: Text(
-                                                  '${DateTime.now().year - 1 + i}'))),
+                                                  tr('${DateTime.now().year - 1 + i}')))),
                                       onChanged: (v) =>
                                           setDialogState(() => sourceYear = v!),
                                     ),
@@ -3328,7 +3320,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text('Tháng đích:',
+                              Text(tr('Tháng đích:'),
                                   style: TextStyle(
                                       color: Color(0xFF18181B),
                                       fontWeight: FontWeight.w600)),
@@ -3351,7 +3343,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                                           12,
                                           (i) => DropdownMenuItem(
                                               value: i + 1,
-                                              child: Text(monthNames[i + 1]))),
+                                              child: Text(tr(monthNames[i + 1])))),
                                       onChanged: (v) => setDialogState(
                                           () => targetMonth = v!),
                                     ),
@@ -3376,7 +3368,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                                               value:
                                                   DateTime.now().year - 1 + i,
                                               child: Text(
-                                                  '${DateTime.now().year - 1 + i}'))),
+                                                  tr('${DateTime.now().year - 1 + i}')))),
                                       onChanged: (v) =>
                                           setDialogState(() => targetYear = v!),
                                     ),
@@ -3419,7 +3411,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: Text(_l10n.cancel,
+                child: Text(tr(_l10n.cancel),
                     style: const TextStyle(color: Color(0xFF71717A))),
               ),
               FilledButton.icon(
@@ -3435,7 +3427,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                             applyToAllEmployees ? null : selectedEmployeeIds);
                       },
                 icon: const Icon(Icons.content_copy, size: 16),
-                label: const Text('Sao chép'),
+                label: Text(tr('Sao chép')),
                 style: FilledButton.styleFrom(backgroundColor: HrmPageChrome.primaryNavy),
               ),
             ],
@@ -3547,14 +3539,14 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
       if (addedCount > 0) {
         appNotification.showSuccess(
             title: 'Sao chép tháng thành công',
-            message: 'Đã thêm $addedCount đăng ký vào danh sách chờ gửi');
+            message: tr('Đã thêm $addedCount đăng ký vào danh sách chờ gửi'));
         setState(() => _selectedWeekStart = _getWeekStart(targetStart));
         await _loadSchedules();
         await _loadRegistrations();
       } else {
         appNotification.showWarning(
             title: 'Không có dữ liệu',
-            message: 'Tháng nguồn không có lịch để sao chép');
+            message: tr('Tháng nguồn không có lịch để sao chép'));
       }
     } finally {
       setState(() => _isLoading = false);
@@ -3568,11 +3560,11 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
       builder: (context) => ScrollableAlertDialog(
         backgroundColor: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Row(
+        title: Row(
           children: [
             Icon(Icons.menu_book, color: Color(0xFFFB923C)),
             SizedBox(width: 8),
-            Text('Hướng dẫn đăng ký lịch làm việc',
+            Text(tr('Hướng dẫn đăng ký lịch làm việc'),
                 style: TextStyle(
                     color: Color(0xFF18181B),
                     fontWeight: FontWeight.bold,
@@ -3664,7 +3656,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
           FilledButton(
             onPressed: () => Navigator.pop(context),
             style: FilledButton.styleFrom(backgroundColor: HrmPageChrome.primaryNavy),
-            child: const Text('Đã hiểu'),
+            child: Text(tr('Đã hiểu')),
           ),
         ],
       ),
@@ -3680,7 +3672,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
           children: [
             Icon(icon, color: color, size: 20),
             const SizedBox(width: 8),
-            Text(title,
+            Text(tr(title),
                 style: TextStyle(
                     color: color, fontWeight: FontWeight.bold, fontSize: 15)),
           ],
@@ -3691,9 +3683,9 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('• ', style: TextStyle(color: Color(0xFF71717A))),
+                  Text(tr('• '), style: TextStyle(color: Color(0xFF71717A))),
                   Expanded(
-                      child: Text(step,
+                      child: Text(tr(step),
                           style: const TextStyle(
                               color: Color(0xFF52525B),
                               fontSize: 13,
@@ -3781,7 +3773,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                   decoration: const BoxDecoration(
                       border:
                           Border(right: BorderSide(color: Color(0xFFE4E4E7)))),
-                  child: const Text('Nhân viên',
+                  child: Text(tr('Nhân viên'),
                       style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w700,
@@ -3810,7 +3802,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                         ),
                         child: Column(
                           children: [
-                            Text(dayLabels[di],
+                            Text(tr(dayLabels[di]),
                                 style: TextStyle(
                                     fontSize: 11,
                                     fontWeight: FontWeight.w700,
@@ -3819,7 +3811,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                                         : (isSun
                                             ? const Color(0xFFEF4444)
                                             : const Color(0xFF71717A)))),
-                            Text('${day.day}/${day.month}',
+                            Text(tr('${day.day}/${day.month}'),
                                 style: TextStyle(
                                     fontSize: 10,
                                     color: isToday
@@ -3836,10 +3828,10 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
           ),
           // Employee rows
           if (activeEmps.isEmpty)
-            const Padding(
+            Padding(
                 padding: EdgeInsets.all(24),
                 child: Center(
-                    child: Text('Chưa có đăng ký nào',
+                    child: Text(tr('Chưa có đăng ký nào'),
                         style: TextStyle(color: Color(0xFF71717A)))))
           else
             ...activeEmps.asMap().entries.map((entry) {
@@ -3863,14 +3855,14 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(emp.fullName,
+                          Text(tr(emp.fullName),
                               style: const TextStyle(
                                   fontSize: 11,
                                   fontWeight: FontWeight.w600,
                                   color: Color(0xFF18181B)),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis),
-                          Text(emp.employeeCode,
+                          Text(tr(emp.employeeCode),
                               style: const TextStyle(
                                   fontSize: 9, color: Color(0xFF71717A))),
                         ],
@@ -3966,28 +3958,28 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
     final dayOffCount = schedules.where((s) => s.isDayOff).length;
     final pendCount = pendingRegs.length + localPending.length;
     if (confirmedCount > 0) {
-      labels.add(Text('$confirmedCount ca',
+      labels.add(Text(tr('$confirmedCount ca'),
           style: const TextStyle(
               fontSize: 9,
               color: HrmPageChrome.primaryNavy,
               fontWeight: FontWeight.w600)));
     }
     if (dayOffCount > 0) {
-      labels.add(const Text('Nghỉ',
+      labels.add(Text(tr('Nghỉ'),
           style: TextStyle(
               fontSize: 9,
               color: Color(0xFF71717A),
               fontWeight: FontWeight.w600)));
     }
     if (pendCount > 0) {
-      labels.add(Text('$pendCount chờ',
+      labels.add(Text(tr('$pendCount chờ'),
           style: const TextStyle(
               fontSize: 9,
               color: Color(0xFFA16207),
               fontWeight: FontWeight.w600)));
     }
     if (rejectedRegs.isNotEmpty) {
-      labels.add(Text('${rejectedRegs.length} từ chối',
+      labels.add(Text(tr('${rejectedRegs.length} từ chối'),
           style: const TextStyle(fontSize: 8, color: Color(0xFFEF4444))));
     }
 
@@ -4056,7 +4048,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                 ),
                 const SizedBox(width: 10),
                 Expanded(
-                    child: Text('$dayLabel — $dateStr',
+                    child: Text(tr('$dayLabel — $dateStr'),
                         style: const TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w700,
@@ -4175,12 +4167,12 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(emp.fullName,
+                            Text(tr(emp.fullName),
                                 style: const TextStyle(
                                     fontSize: 12,
                                     fontWeight: FontWeight.w600,
                                     color: Color(0xFF18181B))),
-                            Text(emp.employeeCode,
+                            Text(tr(emp.employeeCode),
                                 style: const TextStyle(
                                     fontSize: 10, color: Color(0xFF71717A))),
                           ],
@@ -4209,10 +4201,10 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
             }
             if (rows.isEmpty) {
               return [
-                const Padding(
+                Padding(
                     padding: EdgeInsets.all(24),
                     child: Center(
-                        child: Text('Không có đăng ký',
+                        child: Text(tr('Không có đăng ký'),
                             style: TextStyle(color: Color(0xFF71717A)))))
               ];
             }
@@ -4283,7 +4275,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                   decoration: const BoxDecoration(
                       border:
                           Border(right: BorderSide(color: Color(0xFFE4E4E7)))),
-                  child: const Text('Nhân viên',
+                  child: Text(tr('Nhân viên'),
                       style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w700,
@@ -4312,7 +4304,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                         ),
                         child: Column(
                           children: [
-                            Text(dayLabels[di],
+                            Text(tr(dayLabels[di]),
                                 style: TextStyle(
                                     fontSize: 11,
                                     fontWeight: FontWeight.w700,
@@ -4321,7 +4313,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                                         : (isSun
                                             ? const Color(0xFFEF4444)
                                             : const Color(0xFF71717A)))),
-                            Text('${day.day}/${day.month}',
+                            Text(tr('${day.day}/${day.month}'),
                                 style: TextStyle(
                                     fontSize: 10,
                                     color: isToday
@@ -4338,10 +4330,10 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
           ),
           // Employee rows
           if (activeEmps.isEmpty)
-            const Padding(
+            Padding(
                 padding: EdgeInsets.all(24),
                 child: Center(
-                    child: Text('Chưa có lịch đã duyệt',
+                    child: Text(tr('Chưa có lịch đã duyệt'),
                         style: TextStyle(color: Color(0xFF71717A)))))
           else
             ...activeEmps.asMap().entries.map((entry) {
@@ -4365,14 +4357,14 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(emp.fullName,
+                          Text(tr(emp.fullName),
                               style: const TextStyle(
                                   fontSize: 11,
                                   fontWeight: FontWeight.w600,
                                   color: Color(0xFF18181B)),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis),
-                          Text(emp.department ?? emp.employeeCode,
+                          Text(tr(emp.department ?? emp.employeeCode),
                               style: const TextStyle(
                                   fontSize: 9, color: Color(0xFF71717A))),
                         ],
@@ -4419,7 +4411,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
             color: isToday ? const Color(0xFFF5F5F4) : Colors.white,
             borderRadius: BorderRadius.circular(4)),
         child: Center(
-            child: Text('—',
+            child: Text(tr('—'),
                 style: TextStyle(color: Colors.grey[300], fontSize: 14))),
       );
     }
@@ -4427,14 +4419,14 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
     // Build compact display
     final labels = <Widget>[];
     if (hasDayOff) {
-      labels.add(const Text('Nghỉ',
+      labels.add(Text(tr('Nghỉ'),
           style: TextStyle(
               fontSize: 9,
               color: Color(0xFF71717A),
               fontWeight: FontWeight.w600)));
     }
     if (totalShifts > 0) {
-      labels.add(Text('$totalShifts ca',
+      labels.add(Text(tr('$totalShifts ca'),
           style: const TextStyle(
               fontSize: 10,
               color: HrmPageChrome.primaryNavy,
@@ -4505,7 +4497,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                 ),
                 const SizedBox(width: 10),
                 Expanded(
-                    child: Text('$dayLabel — $dateStr',
+                    child: Text(tr('$dayLabel — $dateStr'),
                         style: const TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w700,
@@ -4515,9 +4507,9 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
           ),
           // Group by shift
           if (_shifts.isEmpty)
-            const Padding(
+            Padding(
                 padding: EdgeInsets.all(24),
-                child: Text('Chưa có ca',
+                child: Text(tr('Chưa có ca'),
                     style: TextStyle(color: Color(0xFF71717A))))
           else
             ..._shifts.asMap().entries.map((entry) {
@@ -4579,7 +4571,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                                 color: HrmPageChrome.primaryNavy
                                     .withValues(alpha: 0.1),
                                 borderRadius: BorderRadius.circular(6)),
-                            child: Text(shift.name,
+                            child: Text(tr(shift.name),
                                 style: const TextStyle(
                                     fontSize: 12,
                                     fontWeight: FontWeight.w700,
@@ -4587,12 +4579,12 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                           ),
                           const SizedBox(width: 8),
                           Text(
-                              '${_formatTime(shift.startTime)} - ${_formatTime(shift.endTime)}',
+                              tr('${_formatTime(shift.startTime)} - ${_formatTime(shift.endTime)}'),
                               style: const TextStyle(
                                   fontSize: 11, color: Color(0xFF71717A))),
                           const Spacer(),
                           Text(
-                              '${names.where((n) => n['isDayOff'] != true).length} NV',
+                              tr('${names.where((n) => n['isDayOff'] != true).length} NV'),
                               style: const TextStyle(
                                   fontSize: 11,
                                   fontWeight: FontWeight.w700,
@@ -4601,7 +4593,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                       ),
                       const SizedBox(height: 6),
                       if (names.isEmpty)
-                        Text('Chưa có nhân viên',
+                        Text(tr('Chưa có nhân viên'),
                             style: TextStyle(
                                 fontSize: 11, color: Colors.grey[400]))
                       else
@@ -4649,7 +4641,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
               children: [
                 Icon(Icons.account_tree_outlined, size: 15, color: primary),
                 const SizedBox(width: 6),
-                Text(branchName,
+                Text(tr(branchName),
                     style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.bold,
@@ -4660,7 +4652,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                       const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                   decoration: BoxDecoration(
                       color: primary, borderRadius: BorderRadius.circular(10)),
-                  child: Text('$count',
+                  child: Text(tr('$count'),
                       style: const TextStyle(
                           color: Colors.white,
                           fontSize: 11,
@@ -4762,9 +4754,9 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                   border:
                       TableBorder.all(color: const Color(0xFFE4E4E7), width: 1),
                   columns: [
-                    const DataColumn(
+                    DataColumn(
                       label: Expanded(
-                          child: Text('NHÂN VIÊN',
+                          child: Text(tr('NHÂN VIÊN'),
                               textAlign: TextAlign.center,
                               style: TextStyle(
                                   color: Color(0xFF18181B),
@@ -4780,7 +4772,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Text(
-                              dayNames[i],
+                              tr(dayNames[i]),
                               style: TextStyle(
                                 color: isToday
                                     ? HrmPageChrome.primaryNavy
@@ -4790,7 +4782,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                               ),
                             ),
                             Text(
-                              dateFormat.format(day),
+                              tr(dateFormat.format(day)),
                               style: TextStyle(
                                 color: isToday
                                     ? HrmPageChrome.primaryNavy
@@ -4802,9 +4794,9 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                         ),
                       );
                     }),
-                    const DataColumn(
+                    DataColumn(
                       label: Expanded(
-                          child: Text('TỔNG CA',
+                          child: Text(tr('TỔNG CA'),
                               textAlign: TextAlign.center,
                               style: TextStyle(
                                   color: Color(0xFF18181B),
@@ -4816,7 +4808,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                           DataRow(cells: [
                             DataCell(
                               Center(
-                                child: Text('Chưa có nhân viên',
+                                child: Text(tr('Chưa có nhân viên'),
                                     style: TextStyle(color: Colors.grey[400])),
                               ),
                             ),
@@ -4836,7 +4828,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Text('Hiển thị:',
+                      Text(tr('Hiển thị:'),
                           style:
                               TextStyle(fontSize: 12, color: Colors.grey[500])),
                       const SizedBox(width: 8),
@@ -4856,7 +4848,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                                 fontSize: 13, color: Colors.grey[800]),
                             items: _pageSizeOptions
                                 .map((s) => DropdownMenuItem(
-                                    value: s, child: Text('$s')))
+                                    value: s, child: Text(tr('$s'))))
                                 .toList(),
                             onChanged: (v) {
                               if (v != null) {
@@ -4880,8 +4872,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                           onPressed: safePage > 1
                               ? () => setState(() => _schedulePage--)
                               : null),
-                      Text(
-                          'Hiển thị ${(safePage - 1) * _schedulePageSize + 1}-${(safePage * _schedulePageSize).clamp(0, allEmps.length)} / ${allEmps.length} nhân viên',
+                      Text(tr('Hiển thị ${(safePage - 1) * _schedulePageSize + 1}-${(safePage * _schedulePageSize).clamp(0, allEmps.length)} / ${allEmps.length} nhân viên'),
                           style: const TextStyle(fontSize: 13)),
                       IconButton(
                           icon: const Icon(Icons.chevron_right),
@@ -5024,7 +5015,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                   decoration: const BoxDecoration(
                       border:
                           Border(right: BorderSide(color: Color(0xFFE4E4E7)))),
-                  child: const Text('Ca / Ngày',
+                  child: Text(tr('Ca / Ngày'),
                       style: TextStyle(
                           fontSize: 10,
                           fontWeight: FontWeight.w700,
@@ -5053,7 +5044,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                         ),
                         child: Column(
                           children: [
-                            Text(dayLabels[di],
+                            Text(tr(dayLabels[di]),
                                 style: TextStyle(
                                   fontSize: 11,
                                   fontWeight: FontWeight.w700,
@@ -5063,7 +5054,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                                           ? const Color(0xFFEF4444)
                                           : const Color(0xFF71717A)),
                                 )),
-                            Text('${day.day}/${day.month}',
+                            Text(tr('${day.day}/${day.month}'),
                                 style: TextStyle(
                                   fontSize: 10,
                                   color: isToday
@@ -5081,9 +5072,9 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
           ),
           // Shift rows
           if (_shifts.isEmpty)
-            const Padding(
+            Padding(
                 padding: EdgeInsets.all(24),
-                child: Text('Chưa có ca làm việc',
+                child: Text(tr('Chưa có ca làm việc'),
                     style: TextStyle(color: Color(0xFF71717A))))
           else
             ..._shifts.asMap().entries.map((entry) {
@@ -5109,7 +5100,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                               right: BorderSide(color: Color(0xFFE4E4E7)))),
                       child: Column(
                         children: [
-                          Text(shift.name,
+                          Text(tr(shift.name),
                               style: const TextStyle(
                                   fontSize: 11,
                                   fontWeight: FontWeight.w700,
@@ -5118,7 +5109,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis),
                           Text(
-                              '${_formatTime(shift.startTime)}-${_formatTime(shift.endTime)}',
+                              tr('${_formatTime(shift.startTime)}-${_formatTime(shift.endTime)}'),
                               style: const TextStyle(
                                   fontSize: 9, color: Color(0xFF71717A)),
                               textAlign: TextAlign.center),
@@ -5188,7 +5179,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                 ),
                 const SizedBox(width: 10),
                 Expanded(
-                  child: Text('$dayLabel — $dateStr',
+                  child: Text(tr('$dayLabel — $dateStr'),
                       style: const TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w700,
@@ -5199,9 +5190,9 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
           ),
           // Shift rows with employee names
           if (_shifts.isEmpty)
-            const Padding(
+            Padding(
                 padding: EdgeInsets.all(24),
-                child: Text('Chưa có ca',
+                child: Text(tr('Chưa có ca'),
                     style: TextStyle(color: Color(0xFF71717A))))
           else
             ..._shifts.asMap().entries.map((entry) {
@@ -5238,7 +5229,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                                 color: const Color(0xFF0891B2)
                                     .withValues(alpha: 0.1),
                                 borderRadius: BorderRadius.circular(6)),
-                            child: Text(shift.name,
+                            child: Text(tr(shift.name),
                                 style: const TextStyle(
                                     fontSize: 12,
                                     fontWeight: FontWeight.w700,
@@ -5246,12 +5237,12 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                           ),
                           const SizedBox(width: 8),
                           Text(
-                              '${_formatTime(shift.startTime)} - ${_formatTime(shift.endTime)}',
+                              tr('${_formatTime(shift.startTime)} - ${_formatTime(shift.endTime)}'),
                               style: const TextStyle(
                                   fontSize: 11, color: Color(0xFF71717A))),
                           const Spacer(),
                           Text(
-                              '${schedules.length + uniqueRegs.length + pendingLocal.length} NV',
+                              tr('${schedules.length + uniqueRegs.length + pendingLocal.length} NV'),
                               style: const TextStyle(
                                   fontSize: 11,
                                   fontWeight: FontWeight.w700,
@@ -5282,7 +5273,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                           pendingLocal.isEmpty)
                         Padding(
                           padding: const EdgeInsets.symmetric(vertical: 4),
-                          child: Text('Chưa có nhân viên',
+                          child: Text(tr('Chưa có nhân viên'),
                               style: TextStyle(
                                   fontSize: 12,
                                   color: Colors.grey[400],
@@ -5359,7 +5350,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
         children: [
           Icon(icon, size: 12, color: color),
           const SizedBox(width: 4),
-          Text(name,
+          Text(tr(name),
               style: TextStyle(
                   fontSize: 11, color: color, fontWeight: FontWeight.w600)),
         ],
@@ -5457,7 +5448,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                     padding: EdgeInsets.only(right: 2),
                     child: Icon(Icons.arrow_upward,
                         size: 10, color: Color(0xFFF59E0B))),
-              Text('$totalCount',
+              Text(tr('$totalCount'),
                   style: TextStyle(
                       fontWeight: FontWeight.w800,
                       fontSize: 15,
@@ -5467,7 +5458,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                               ? const Color(0xFFF59E0B)
                               : borderColor))),
               if (quota != null && maxForDay > 0)
-                Text('/$maxForDay',
+                Text(tr('/$maxForDay'),
                     style:
                         const TextStyle(fontSize: 9, color: Color(0xFF71717A))),
             ],
@@ -5529,13 +5520,13 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
         backgroundColor: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(shift.name,
+          Text(tr(shift.name),
               style: const TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 16,
                   color: Color(0xFF18181B))),
           Text(
-              '${DateFormat('EEEE dd/MM/yyyy', 'vi').format(day)} • ${_formatTime(shift.startTime)}-${_formatTime(shift.endTime)}',
+              tr('${DateFormat('EEEE dd/MM/yyyy', 'vi').format(day)} • ${_formatTime(shift.startTime)}-${_formatTime(shift.endTime)}'),
               style: const TextStyle(fontSize: 12, color: Color(0xFF71717A))),
         ]),
         content: SizedBox(
@@ -5546,7 +5537,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
               mainAxisSize: MainAxisSize.min,
               children: [
                 if (schedules.isNotEmpty) ...[
-                  const Text('Đã xếp lịch',
+                  Text(tr('Đã xếp lịch'),
                       style: TextStyle(
                           fontWeight: FontWeight.w600,
                           fontSize: 12,
@@ -5593,7 +5584,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                   const SizedBox(height: 8),
                 ],
                 if (pendingLocal.isNotEmpty) ...[
-                  const Text('Chưa gửi',
+                  Text(tr('Chưa gửi'),
                       style: TextStyle(
                           fontWeight: FontWeight.w600,
                           fontSize: 12,
@@ -5610,7 +5601,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                 if (schedules.isEmpty &&
                     submittedRegs.isEmpty &&
                     pendingLocal.isEmpty)
-                  const Text('Chưa có nhân viên nào',
+                  Text(tr('Chưa có nhân viên nào'),
                       style: TextStyle(color: Color(0xFF71717A), fontSize: 13)),
               ],
             ),
@@ -5618,7 +5609,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx), child: const Text('Đóng'))
+              onPressed: () => Navigator.pop(ctx), child: Text(tr('Đóng')))
         ],
       ),
     );
@@ -5632,7 +5623,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
           Icon(icon, size: 14, color: color),
           const SizedBox(width: 6),
           Expanded(
-              child: Text(name,
+              child: Text(tr(name),
                   style: TextStyle(
                       fontSize: 12,
                       color: color,
@@ -5699,7 +5690,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                 ),
                 const SizedBox(width: 8),
                 Expanded(
-                    child: Text('Thêm NV vào ${shift.name}',
+                    child: Text(tr('Thêm NV vào ${shift.name}'),
                         style: const TextStyle(
                             color: Color(0xFF18181B),
                             fontWeight: FontWeight.bold,
@@ -5707,7 +5698,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
               ]),
               const SizedBox(height: 4),
               Text(
-                  '${DateFormat('EEEE dd/MM/yyyy', 'vi').format(day)}  •  ${_formatTime(shift.startTime)} - ${_formatTime(shift.endTime)}',
+                  tr('${DateFormat('EEEE dd/MM/yyyy', 'vi').format(day)}  •  ${_formatTime(shift.startTime)} - ${_formatTime(shift.endTime)}'),
                   style:
                       const TextStyle(fontSize: 13, color: Color(0xFF71717A))),
             ]),
@@ -5718,7 +5709,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                 TextField(
                   controller: searchCtrl,
                   decoration: InputDecoration(
-                    hintText: 'Tìm nhân viên...',
+                    hintText: tr('Tìm nhân viên...'),
                     prefixIcon: const Icon(Icons.search),
                     border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10)),
@@ -5751,7 +5742,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                           color: const Color(0xFF0891B2),
                           size: 20),
                       const SizedBox(width: 4),
-                      Text(allSelected ? 'Bỏ chọn tất cả' : 'Chọn tất cả',
+                      Text(tr(allSelected ? 'Bỏ chọn tất cả' : 'Chọn tất cả'),
                           style: const TextStyle(
                               fontSize: 12, color: Color(0xFF0891B2))),
                     ]),
@@ -5764,7 +5755,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                       decoration: BoxDecoration(
                           color: const Color(0xFF0891B2).withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(12)),
-                      child: Text('Đã chọn: ${selectedIds.length}',
+                      child: Text(tr('Đã chọn: ${selectedIds.length}'),
                           style: const TextStyle(
                               fontSize: 12,
                               color: Color(0xFF0891B2),
@@ -5774,7 +5765,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                 const SizedBox(height: 8),
                 Expanded(
                   child: filtered.isEmpty
-                      ? const Center(child: Text('Không tìm thấy nhân viên'))
+                      ? Center(child: Text(tr('Không tìm thấy nhân viên')))
                       : ListView.builder(
                           itemCount: filtered.length,
                           itemBuilder: (ctx, i) {
@@ -5787,9 +5778,9 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                                   ? CircleAvatar(
                                       backgroundColor: Colors.grey[200],
                                       child: Text(
-                                        emp.firstName.isNotEmpty
+                                        tr(emp.firstName.isNotEmpty
                                             ? emp.firstName[0].toUpperCase()
-                                            : '?',
+                                            : '?'),
                                         style: const TextStyle(
                                             color: Colors.grey,
                                             fontWeight: FontWeight.bold),
@@ -5803,7 +5794,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                                           ? const Color(0xFF0891B2)
                                           : Colors.grey[400],
                                     ),
-                              title: Text(emp.fullName,
+                              title: Text(tr(emp.fullName),
                                   style: TextStyle(
                                     color: isAssigned
                                         ? Colors.grey
@@ -5815,7 +5806,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                                         ? FontWeight.w600
                                         : FontWeight.normal,
                                   )),
-                              subtitle: Text(emp.employeeCode,
+                              subtitle: Text(tr(emp.employeeCode),
                                   style: TextStyle(
                                       fontSize: 11, color: Colors.grey[500])),
                               trailing: isAssigned
@@ -5826,7 +5817,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                                           color: const Color(0xFFE5E7EB),
                                           borderRadius:
                                               BorderRadius.circular(12)),
-                                      child: const Text('Đã phân',
+                                      child: Text(tr('Đã phân'),
                                           style: TextStyle(
                                               fontSize: 11,
                                               color: Color(0xFF71717A))),
@@ -5858,7 +5849,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                     searchCtrl.dispose();
                     Navigator.pop(ctx);
                   },
-                  child: const Text('Đóng',
+                  child: Text(tr('Đóng'),
                       style: TextStyle(color: Color(0xFF71717A)))),
               FilledButton.icon(
                 onPressed: selectedIds.isEmpty
@@ -5872,8 +5863,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                         }
                       },
                 icon: const Icon(Icons.check, size: 18),
-                label: Text(
-                    'Thêm ${selectedIds.isEmpty ? '' : '(${selectedIds.length})'}'),
+                label: Text(tr('${tr('Thêm ')}${selectedIds.isEmpty ? '' : '(${selectedIds.length})'}')),
                 style: FilledButton.styleFrom(
                   backgroundColor: const Color(0xFF0891B2),
                   disabledBackgroundColor: Colors.grey[300],
@@ -5910,7 +5900,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  note,
+                  tr(note),
                   style: const TextStyle(
                       color: Color(0xFF856404),
                       fontWeight: FontWeight.bold,
@@ -5918,8 +5908,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                   textAlign: TextAlign.center,
                   overflow: TextOverflow.ellipsis,
                 ),
-                const Text(
-                  'Chờ gửi',
+                Text(tr('Chờ gửi'),
                   style: TextStyle(color: Color(0xFF856404), fontSize: 9),
                 ),
               ],
@@ -5980,7 +5969,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
             mainAxisSize: MainAxisSize.min,
             children: [
               ...shiftNames.map((name) => Text(
-                    name,
+                    tr(name),
                     style: const TextStyle(
                         color: Color(0xFF856404),
                         fontWeight: FontWeight.bold,
@@ -5988,8 +5977,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                     textAlign: TextAlign.center,
                     overflow: TextOverflow.ellipsis,
                   )),
-              const Text(
-                'Chờ gửi',
+              Text(tr('Chờ gửi'),
                 style: TextStyle(color: Color(0xFF856404), fontSize: 9),
               ),
             ],
@@ -6026,7 +6014,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                 const Icon(Icons.beach_access, color: Colors.white, size: 14),
                 const SizedBox(height: 1),
                 Text(
-                  leaveLabel,
+                  tr(leaveLabel),
                   style: const TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
@@ -6083,7 +6071,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                 )
               : null;
           shiftWidgets.add(Text(
-            shift?.name ?? 'Ca làm',
+            tr(shift?.name ?? 'Ca làm'),
             style: const TextStyle(
                 color: Colors.white, fontWeight: FontWeight.bold, fontSize: 10),
             textAlign: TextAlign.center,
@@ -6091,7 +6079,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
           ));
           if (shift != null) {
             shiftWidgets.add(Text(
-              '${_formatTime(shift.startTime)} - ${_formatTime(shift.endTime)}',
+              tr('${_formatTime(shift.startTime)} - ${_formatTime(shift.endTime)}'),
               style: const TextStyle(color: Colors.white70, fontSize: 8),
             ));
           }
@@ -6204,7 +6192,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
               mainAxisSize: MainAxisSize.min,
               children: [
                 ...regLabels.map((label) => Text(
-                      label,
+                      tr(label),
                       style: TextStyle(
                           color: borderColor,
                           fontWeight: FontWeight.bold,
@@ -6213,7 +6201,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                       overflow: TextOverflow.ellipsis,
                     )),
                 Text(
-                  statusText,
+                  tr(statusText),
                   style: TextStyle(color: borderColor, fontSize: 9),
                 ),
               ],
@@ -6241,8 +6229,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
           children: [
             Icon(Icons.add_circle_outline, color: Colors.grey[400], size: 18),
             const SizedBox(height: 2),
-            Text(
-              'Đăng ký',
+            Text(tr('Đăng ký'),
               style: TextStyle(color: Colors.grey[400], fontSize: 9),
               textAlign: TextAlign.center,
             ),
@@ -6272,8 +6259,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
           backgroundColor: Colors.white,
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: Text(
-            'Đăng ký ca - ${employee.lastName} ${employee.firstName}',
+          title: Text(tr('Đăng ký ca - ${employee.lastName} ${employee.firstName}'),
             style: const TextStyle(
                 color: Color(0xFF18181B), fontWeight: FontWeight.bold),
           ),
@@ -6281,13 +6267,12 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'Ngày: ${DateFormat('EEEE, dd/MM/yyyy', 'vi').format(day)}',
+              Text(tr('${tr('Ngày: ')}${DateFormat('EEEE, dd/MM/yyyy', 'vi').format(day)}'),
                 style: const TextStyle(color: Color(0xFF71717A)),
               ),
               const SizedBox(height: 16),
               SwitchListTile(
-                title: const Text('Nghỉ phép',
+                title: Text(tr('Nghỉ phép'),
                     style: TextStyle(color: Color(0xFF18181B))),
                 value: isDayOff,
                 onChanged: (value) => setDialogState(() {
@@ -6298,7 +6283,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
               ),
               if (isDayOff) ...[
                 const SizedBox(height: 8),
-                const Text('Loại nghỉ phép:',
+                Text(tr('Loại nghỉ phép:'),
                     style: TextStyle(color: Color(0xFF18181B))),
                 const SizedBox(height: 8),
                 ...[
@@ -6306,7 +6291,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                   'Nghỉ phép có lương',
                   'Nghỉ phép không lương'
                 ].map((type) => RadioListTile<String>(
-                      title: Text(type,
+                      title: Text(tr(type),
                           style: const TextStyle(color: Color(0xFF18181B))),
                       value: type,
                       // ignore: deprecated_member_use
@@ -6320,14 +6305,14 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
               ],
               if (!isDayOff) ...[
                 const SizedBox(height: 16),
-                const Text('Chọn ca làm việc:',
+                Text(tr('Chọn ca làm việc:'),
                     style: TextStyle(color: Color(0xFF18181B))),
                 const SizedBox(height: 8),
                 ..._shifts.map((shift) => CheckboxListTile(
-                      title: Text(shift.name,
+                      title: Text(tr(shift.name),
                           style: const TextStyle(color: Color(0xFF18181B))),
                       subtitle: Text(
-                        '${_formatTime(shift.startTime)} - ${_formatTime(shift.endTime)}',
+                        tr('${_formatTime(shift.startTime)} - ${_formatTime(shift.endTime)}'),
                         style: const TextStyle(color: Color(0xFF71717A)),
                       ),
                       value: selectedShiftIds.contains(shift.id),
@@ -6348,14 +6333,14 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
             TextButton(
               onPressed: () => Navigator.pop(context),
               child:
-                  const Text('Hủy', style: TextStyle(color: Color(0xFF71717A))),
+                  Text(tr('Hủy'), style: TextStyle(color: Color(0xFF71717A))),
             ),
             FilledButton(
               onPressed: () {
                 if (!isDayOff && selectedShiftIds.isEmpty) {
                   appNotification.showWarning(
                     title: 'Thiếu thông tin',
-                    message: 'Vui lòng chọn ít nhất một ca làm việc',
+                    message: tr('Vui lòng chọn ít nhất một ca làm việc'),
                   );
                   return;
                 }
@@ -6371,7 +6356,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                 Navigator.pop(context);
               },
               style: FilledButton.styleFrom(backgroundColor: HrmPageChrome.primaryNavy),
-              child: const Text('Thêm vào danh sách chờ'),
+              child: Text(tr('Thêm vào danh sách chờ')),
             ),
           ],
         ),
@@ -6458,8 +6443,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                 children: [
                   const Icon(Icons.schedule_send, color: Color(0xFF856404)),
                   const SizedBox(width: 8),
-                  Text(
-                    'Danh sách đăng ký chờ gửi (${_pendingRegistrations.length})',
+                  Text(tr('Danh sách đăng ký chờ gửi (${_pendingRegistrations.length})'),
                     style: const TextStyle(
                       color: Color(0xFF856404),
                       fontWeight: FontWeight.bold,
@@ -6476,7 +6460,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                     OutlinedButton.icon(
                       onPressed: _clearAllPendingRegistrations,
                       icon: const Icon(Icons.delete_sweep, size: 18),
-                      label: const Text('Xóa tất cả'),
+                      label: Text(tr('Xóa tất cả')),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: const Color(0xFF856404),
                         side: const BorderSide(color: Color(0xFF856404)),
@@ -6486,7 +6470,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                     FilledButton.icon(
                       onPressed: _submitAllRegistrations,
                       icon: const Icon(Icons.send, size: 18),
-                      label: const Text('Gửi tất cả đăng ký'),
+                      label: Text(tr('Gửi tất cả đăng ký')),
                       style: FilledButton.styleFrom(
                           backgroundColor: HrmPageChrome.primaryNavy),
                     ),
@@ -6523,7 +6507,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                   });
                 },
                 label: Text(
-                  '${employee.firstName} - ${DateFormat('dd/MM').format(reg['date'])} - ${reg['isDayOff'] == true ? (reg['note'] ?? 'Nghỉ phép') : shift?.name ?? ''}',
+                  tr('${employee.firstName} - ${DateFormat('dd/MM').format(reg['date'])} - ${reg['isDayOff'] == true ? (reg['note'] ?? 'Nghỉ phép') : shift?.name ?? ''}'),
                   style:
                       const TextStyle(color: Color(0xFF856404), fontSize: 12),
                 ),
@@ -6571,12 +6555,12 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
         if (failCount == 0) {
           appNotification.showSuccess(
             title: 'Đăng ký thành công',
-            message: 'Đã gửi $successCount đăng ký',
+            message: tr('Đã gửi $successCount đăng ký'),
           );
         } else {
           appNotification.showError(
             title: 'Đăng ký không hoàn tất',
-            message: 'Thành công: $successCount, Thất bại: $failCount',
+            message: tr('Thành công: $successCount, Thất bại: $failCount'),
           );
         }
       }
@@ -6636,8 +6620,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
             children: [
               const Icon(Icons.list_alt, color: HrmPageChrome.primaryNavy),
               const SizedBox(width: 8),
-              Text(
-                'Danh sách yêu cầu đã gửi (${weekRegs.length})',
+              Text(tr('Danh sách yêu cầu đã gửi (${weekRegs.length})'),
                 style: const TextStyle(
                   color: Color(0xFF18181B),
                   fontWeight: FontWeight.bold,
@@ -6726,7 +6709,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          '${employee.fullName} - ${DateFormat('dd/MM/yyyy (EEEE)', 'vi').format(reg.date)}',
+                          tr('${employee.fullName} - ${DateFormat('dd/MM/yyyy (EEEE)', 'vi').format(reg.date)}'),
                           style: const TextStyle(
                               fontWeight: FontWeight.w600,
                               fontSize: 13,
@@ -6734,11 +6717,11 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          reg.isDayOff
+                          tr(reg.isDayOff
                               ? (reg.note != null && reg.note!.isNotEmpty
                                   ? reg.note!
                                   : 'Nghỉ phép')
-                              : (shift?.name ?? 'Ca'),
+                              : (shift?.name ?? 'Ca')),
                           style: const TextStyle(
                               color: Color(0xFF71717A), fontSize: 12),
                         ),
@@ -6746,8 +6729,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                             reg.rejectionReason != null &&
                             reg.rejectionReason!.isNotEmpty) ...[
                           const SizedBox(height: 2),
-                          Text(
-                            'Lý do: ${reg.rejectionReason}',
+                          Text(tr('Lý do: ${reg.rejectionReason}'),
                             style: const TextStyle(
                                 color: Color(0xFFEF4444),
                                 fontSize: 11,
@@ -6764,7 +6746,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                     IconButton(
                       icon: const Icon(Icons.delete_outline,
                           color: Color(0xFFEF4444), size: 20),
-                      tooltip: 'Xóa đăng ký',
+                      tooltip: tr('Xóa đăng ký'),
                       onPressed: () => _deleteRegistration(reg.id),
                     ),
                     const SizedBox(width: 4),
@@ -6777,7 +6759,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
-                      statusText,
+                      tr(statusText),
                       style: TextStyle(
                           color: statusColor,
                           fontWeight: FontWeight.bold,
@@ -6802,7 +6784,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
         borderRadius: BorderRadius.circular(12),
       ),
       child: Text(
-        '$label: $count',
+        tr('$label: $count'),
         style:
             TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 11),
       ),
@@ -6873,9 +6855,9 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                   border:
                       TableBorder.all(color: const Color(0xFFE4E4E7), width: 1),
                   columns: [
-                    const DataColumn(
+                    DataColumn(
                       label: Expanded(
-                          child: Text('NHÂN VIÊN',
+                          child: Text(tr('NHÂN VIÊN'),
                               textAlign: TextAlign.center,
                               style: TextStyle(
                                   color: HrmPageChrome.primaryNavy,
@@ -6891,7 +6873,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                         label: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Text(dayNames[i],
+                            Text(tr(dayNames[i]),
                                 style: TextStyle(
                                   color: isToday
                                       ? HrmPageChrome.primaryNavy
@@ -6899,7 +6881,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                                   fontWeight: FontWeight.bold,
                                   fontSize: 12,
                                 )),
-                            Text(dateFormat.format(day),
+                            Text(tr(dateFormat.format(day)),
                                 style: TextStyle(
                                   color: isToday
                                       ? HrmPageChrome.primaryNavy
@@ -6910,9 +6892,9 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                         ),
                       );
                     }),
-                    const DataColumn(
+                    DataColumn(
                       label: Expanded(
-                          child: Text('TỔNG CA',
+                          child: Text(tr('TỔNG CA'),
                               textAlign: TextAlign.center,
                               style: TextStyle(
                                   color: HrmPageChrome.primaryNavy,
@@ -6924,7 +6906,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                       ? [
                           DataRow(cells: [
                             DataCell(Center(
-                                child: Text('Chưa có nhân viên',
+                                child: Text(tr('Chưa có nhân viên'),
                                     style:
                                         TextStyle(color: Colors.grey[400])))),
                             ...List.generate(
@@ -6943,7 +6925,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Text('Hiển thị:',
+                      Text(tr('Hiển thị:'),
                           style:
                               TextStyle(fontSize: 12, color: Colors.grey[500])),
                       const SizedBox(width: 8),
@@ -6963,7 +6945,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                                 fontSize: 13, color: Colors.grey[800]),
                             items: _pageSizeOptions
                                 .map((s) => DropdownMenuItem(
-                                    value: s, child: Text('$s')))
+                                    value: s, child: Text(tr('$s'))))
                                 .toList(),
                             onChanged: (v) {
                               if (v != null) {
@@ -6988,7 +6970,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                               ? () => setState(() => _approvedPage--)
                               : null),
                       Text(
-                          '${(safePage - 1) * _schedulePageSize + 1}-${(safePage * _schedulePageSize).clamp(0, emps.length)} / ${emps.length}',
+                          tr('${(safePage - 1) * _schedulePageSize + 1}-${(safePage * _schedulePageSize).clamp(0, emps.length)} / ${emps.length}'),
                           style: const TextStyle(fontSize: 13)),
                       IconButton(
                           icon: const Icon(Icons.chevron_right),
@@ -7030,14 +7012,14 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(label,
+                Text(tr(label),
                     style: TextStyle(
                         fontSize: 10,
                         color: color,
                         fontWeight: FontWeight.w600),
                     overflow: TextOverflow.ellipsis),
                 if (time != null && time.isNotEmpty)
-                  Text(time,
+                  Text(tr(time),
                       style: TextStyle(
                           fontSize: 9, color: color.withValues(alpha: 0.7)),
                       overflow: TextOverflow.ellipsis),
@@ -7064,21 +7046,20 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
       child: Row(
         children: [
           Flexible(
-              child: Text(title,
+              child: Text(tr(title),
                   style: TextStyle(
                       fontWeight: FontWeight.bold, fontSize: 13, color: color),
                   overflow: TextOverflow.ellipsis)),
           const SizedBox(width: 8),
           Flexible(
-              child: Text(
-                  'Tuần $weekNumber: ${dateFormat.format(_selectedWeekStart)} - ${dateFormat.format(weekEnd)}',
+              child: Text(tr('Tuần $weekNumber: ${dateFormat.format(_selectedWeekStart)} - ${dateFormat.format(weekEnd)}'),
                   style: TextStyle(
                       fontSize: 12, color: color.withValues(alpha: 0.8)),
                   overflow: TextOverflow.ellipsis)),
           if (_selectedDepartment != null) ...[
             const SizedBox(width: 8),
             Flexible(
-                child: Text('Phòng ban: $_selectedDepartment',
+                child: Text(tr('Phòng ban: $_selectedDepartment'),
                     style: TextStyle(
                         fontSize: 12, color: color.withValues(alpha: 0.8)),
                     overflow: TextOverflow.ellipsis)),
@@ -7099,7 +7080,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
       ),
       child: Row(
         children: [
-          const Text('Chú thích: ',
+          Text(tr('Chú thích: '),
               style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
@@ -7121,7 +7102,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                                 borderRadius: BorderRadius.circular(4))),
                         const SizedBox(width: 4),
                         Text(
-                            '${s.name}: ${_formatTime(s.startTime)}-${_formatTime(s.endTime)}',
+                            tr('${s.name}: ${_formatTime(s.startTime)}-${_formatTime(s.endTime)}'),
                             style: const TextStyle(
                                 fontSize: 11, color: Color(0xFF71717A))),
                       ],
@@ -7148,7 +7129,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
             decoration: BoxDecoration(
                 color: color, borderRadius: BorderRadius.circular(4))),
         const SizedBox(width: 4),
-        Text(label,
+        Text(tr(label),
             style: TextStyle(
                 fontSize: 11, color: color, fontWeight: FontWeight.w600)),
       ],
@@ -7175,8 +7156,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Chú thích:',
+          Text(tr('Chú thích:'),
             style: TextStyle(
                 color: Color(0xFF18181B),
                 fontWeight: FontWeight.bold,
@@ -7185,7 +7165,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
           const SizedBox(height: 12),
           // Shift list with times
           if (_shifts.isNotEmpty) ...[
-            const Text('Danh sách ca làm việc:',
+            Text(tr('Danh sách ca làm việc:'),
                 style: TextStyle(
                     color: Color(0xFF71717A),
                     fontWeight: FontWeight.w600,
@@ -7215,14 +7195,14 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                             borderRadius: BorderRadius.circular(4)),
                       ),
                       const SizedBox(width: 8),
-                      Text(shift.name,
+                      Text(tr(shift.name),
                           style: const TextStyle(
                               color: Color(0xFF18181B),
                               fontWeight: FontWeight.w600,
                               fontSize: 13)),
                       const SizedBox(width: 8),
                       Text(
-                          '${_formatTime(shift.startTime)} - ${_formatTime(shift.endTime)}',
+                          tr('${_formatTime(shift.startTime)} - ${_formatTime(shift.endTime)}'),
                           style: const TextStyle(
                               color: Color(0xFF71717A), fontSize: 12)),
                     ],
@@ -7233,7 +7213,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
             const SizedBox(height: 12),
           ],
           // Status legend
-          const Text('Trạng thái:',
+          Text(tr('Trạng thái:'),
               style: TextStyle(
                   color: Color(0xFF71717A),
                   fontWeight: FontWeight.w600,
@@ -7299,7 +7279,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
           ),
         ),
         const SizedBox(width: 8),
-        Text(label,
+        Text(tr(label),
             style: const TextStyle(color: Color(0xFF18181B), fontSize: 14)),
       ],
     );
@@ -7321,7 +7301,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
           ),
         ),
         const SizedBox(width: 8),
-        Text(label,
+        Text(tr(label),
             style: const TextStyle(color: Color(0xFF18181B), fontSize: 14)),
       ],
     );
@@ -7336,14 +7316,14 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
           tableKey.currentContext?.findRenderObject() as RenderRepaintBoundary?;
       if (boundary == null) {
         appNotification.showError(
-            title: 'Lỗi', message: 'Không tìm thấy bảng dữ liệu để chụp');
+            title: 'Lỗi', message: tr('Không tìm thấy bảng dữ liệu để chụp'));
         return;
       }
       const pixelRatio = kIsWeb ? 2.0 : 3.0;
       final image = await boundary.toImage(pixelRatio: pixelRatio);
       final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
       if (byteData == null) {
-        appNotification.showError(title: 'Lỗi', message: 'Không thể tạo ảnh');
+        appNotification.showError(title: 'Lỗi', message: tr('Không thể tạo ảnh'));
         return;
       }
       final pngBytes = byteData.buffer.asUint8List();
@@ -7351,7 +7331,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
           '${fileNamePrefix}_${DateFormat('ddMMyyyy_HHmm').format(DateTime.now())}.png';
       await file_saver.saveAndOpenFileBytes(pngBytes, fileName, 'image/png');
       appNotification.showSuccess(
-          title: 'Xuất PNG', message: 'Đã xuất ảnh $fileName');
+          title: 'Xuất PNG', message: tr('Đã xuất ảnh $fileName'));
     } catch (e) {
       appNotification.showError(title: 'Lỗi xuất PNG', message: '$e');
     }
@@ -7398,7 +7378,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
       final boundary = exportKey.currentContext?.findRenderObject()
           as RenderRepaintBoundary?;
       if (boundary == null) {
-        appNotification.showError(title: 'Lỗi', message: 'Không thể tạo ảnh');
+        appNotification.showError(title: 'Lỗi', message: tr('Không thể tạo ảnh'));
         entry.remove();
         return;
       }
@@ -7406,7 +7386,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
       final image = await boundary.toImage(pixelRatio: pixelRatio);
       final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
       if (byteData == null) {
-        appNotification.showError(title: 'Lỗi', message: 'Không thể tạo ảnh');
+        appNotification.showError(title: 'Lỗi', message: tr('Không thể tạo ảnh'));
         entry.remove();
         return;
       }
@@ -7415,7 +7395,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
           'TheoCalamViec_${DateFormat('ddMMyyyy_HHmm').format(DateTime.now())}.png';
       await file_saver.saveAndOpenFileBytes(pngBytes, fileName, 'image/png');
       appNotification.showSuccess(
-          title: 'Xuất PNG', message: 'Đã xuất ảnh $fileName');
+          title: 'Xuất PNG', message: tr('Đã xuất ảnh $fileName'));
     } catch (e) {
       appNotification.showError(title: 'Lỗi xuất PNG', message: '$e');
     } finally {
@@ -7461,7 +7441,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                   borderRadius:
                       const BorderRadius.vertical(top: Radius.circular(8)),
                 ),
-                child: Text('${dayLabels[di]} ${dateFormat.format(day)}',
+                child: Text(tr('${dayLabels[di]} ${dateFormat.format(day)}'),
                     style: const TextStyle(
                         fontWeight: FontWeight.w700,
                         fontSize: 13,
@@ -7508,7 +7488,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                       SizedBox(
                         width: 120,
                         child: Text(
-                            '${shift.name} (${_formatTime(shift.startTime)}-${_formatTime(shift.endTime)})',
+                            tr('${shift.name} (${_formatTime(shift.startTime)}-${_formatTime(shift.endTime)})'),
                             style: const TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w600,
@@ -7516,7 +7496,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                       ),
                       const SizedBox(width: 8),
                       Expanded(
-                        child: Text(names.isEmpty ? '—' : names.join(', '),
+                        child: Text(tr(names.isEmpty ? '—' : names.join(', ')),
                             style: TextStyle(
                                 fontSize: 11,
                                 color: names.isEmpty
@@ -7525,7 +7505,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                       ),
                       SizedBox(
                           width: 30,
-                          child: Text('${names.length}',
+                          child: Text(tr('${names.length}'),
                               textAlign: TextAlign.right,
                               style: const TextStyle(
                                   fontSize: 11,
@@ -7994,7 +7974,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
       file_saver.saveFileBytes(bytes, fileName,
           'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
       appNotification.showSuccess(
-          title: 'Xuất Excel', message: 'Đã xuất file $fileName');
+          title: 'Xuất Excel', message: tr('Đã xuất file $fileName'));
     }
   }
 
@@ -8013,7 +7993,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
           DataCell(Row(children: [
             Icon(Icons.account_tree_outlined, size: 14, color: primary),
             const SizedBox(width: 6),
-            Text(entry.key,
+            Text(tr(entry.key),
                 style: TextStyle(
                     fontWeight: FontWeight.bold, color: primary, fontSize: 13)),
             const SizedBox(width: 8),
@@ -8021,7 +8001,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
               decoration: BoxDecoration(
                   color: primary, borderRadius: BorderRadius.circular(9)),
-              child: Text('${entry.value.length}',
+              child: Text(tr('${entry.value.length}'),
                   style: const TextStyle(
                       color: Colors.white,
                       fontSize: 11,
@@ -8047,12 +8027,12 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Text(employee.fullName.toUpperCase(),
+                Text(tr(employee.fullName.toUpperCase()),
                     style: const TextStyle(
                         color: Color(0xFF18181B),
                         fontWeight: FontWeight.w600,
                         fontSize: 13)),
-                Text(employee.phone ?? employee.employeeCode,
+                Text(tr(employee.phone ?? employee.employeeCode),
                     style: const TextStyle(
                         color: Color(0xFF71717A), fontSize: 11)),
               ],
@@ -8081,7 +8061,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
             );
           }),
           DataCell(Center(
-            child: Text('$totalShifts',
+            child: Text(tr('$totalShifts'),
                 style: TextStyle(
                     color:
                         totalShifts > 0 ? HrmPageChrome.primaryNavy : Colors.grey,
@@ -8099,7 +8079,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
       return Padding(
         padding: const EdgeInsets.all(24),
         child: Center(
-            child: Text('Chưa có nhân viên',
+            child: Text(tr('Chưa có nhân viên'),
                 style: TextStyle(color: Colors.grey[400]))),
       );
     }
@@ -8234,7 +8214,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                   children: [
                     SizedBox(
                       width: 56,
-                      child: Text('${dayNames[di]} ${dateFormat.format(day)}',
+                      child: Text(tr('${dayNames[di]} ${dateFormat.format(day)}'),
                           style: const TextStyle(
                               fontSize: 11, color: Color(0xFF71717A))),
                     ),
@@ -8247,7 +8227,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                           color: bgColor,
                           borderRadius: BorderRadius.circular(6),
                         ),
-                        child: Text(shiftLabel,
+                        child: Text(tr(shiftLabel),
                             style: TextStyle(
                                 fontSize: 12,
                                 color: shiftColor,
@@ -8286,12 +8266,12 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                         child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(employee.fullName.toUpperCase(),
+                              Text(tr(employee.fullName.toUpperCase()),
                                   style: const TextStyle(
                                       fontWeight: FontWeight.w700,
                                       fontSize: 13,
                                       color: Color(0xFF18181B))),
-                              Text(employee.phone ?? employee.employeeCode,
+                              Text(tr(employee.phone ?? employee.employeeCode),
                                   style: const TextStyle(
                                       fontSize: 11, color: Color(0xFF71717A))),
                             ]),
@@ -8305,7 +8285,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                               : Colors.grey.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        child: Text('$totalShifts ca',
+                        child: Text(tr('$totalShifts ca'),
                             style: TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.bold,
@@ -8334,7 +8314,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
         padding: const EdgeInsets.all(24),
         child: Center(
             child:
-                Text('Chưa có ca', style: TextStyle(color: Colors.grey[400]))),
+                Text(tr('Chưa có ca'), style: TextStyle(color: Colors.grey[400]))),
       );
     }
     return ListView.builder(
@@ -8371,7 +8351,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
               decoration: BoxDecoration(
                   color: HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(4)),
-              child: Text(empName,
+              child: Text(tr(empName),
                   style: const TextStyle(
                       fontSize: 10,
                       color: HrmPageChrome.primaryNavy,
@@ -8391,7 +8371,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                   color: const Color(0xFFFFC107).withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(4),
                   border: Border.all(color: const Color(0xFFFFC107), width: 1)),
-              child: Text(empName,
+              child: Text(tr(empName),
                   style: const TextStyle(
                       fontSize: 10,
                       color: Color(0xFF856404),
@@ -8412,14 +8392,14 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                   children: [
                     SizedBox(
                       width: 56,
-                      child: Text('${dayNames[di]} ${dateFormat.format(day)}',
+                      child: Text(tr('${dayNames[di]} ${dateFormat.format(day)}'),
                           style: const TextStyle(
                               fontSize: 11, color: Color(0xFF71717A))),
                     ),
                     const SizedBox(width: 6),
                     Expanded(
                       child: empNames.isEmpty
-                          ? Text('—',
+                          ? Text(tr('—'),
                               style: TextStyle(
                                   fontSize: 12, color: Colors.grey[300]))
                           : Wrap(spacing: 4, runSpacing: 2, children: empNames),
@@ -8455,13 +8435,13 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                         child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(shift.name,
+                              Text(tr(shift.name),
                                   style: const TextStyle(
                                       fontWeight: FontWeight.w700,
                                       fontSize: 13,
                                       color: Color(0xFF0891B2))),
                               Text(
-                                  '${_formatTime(shift.startTime)} - ${_formatTime(shift.endTime)}',
+                                  tr('${_formatTime(shift.startTime)} - ${_formatTime(shift.endTime)}'),
                                   style: const TextStyle(
                                       fontSize: 11, color: Color(0xFF71717A))),
                             ]),
@@ -8475,7 +8455,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                               : Colors.grey.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        child: Text('$totalEmployees NV',
+                        child: Text(tr('$totalEmployees NV'),
                             style: TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.bold,
@@ -8511,7 +8491,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
           DataCell(Row(children: [
             Icon(Icons.account_tree_outlined, size: 14, color: primary),
             const SizedBox(width: 6),
-            Text(entry.key,
+            Text(tr(entry.key),
                 style: TextStyle(
                     fontWeight: FontWeight.bold, color: primary, fontSize: 13)),
             const SizedBox(width: 8),
@@ -8519,7 +8499,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
               decoration: BoxDecoration(
                   color: primary, borderRadius: BorderRadius.circular(9)),
-              child: Text('${entry.value.length}',
+              child: Text(tr('${entry.value.length}'),
                   style: const TextStyle(
                       color: Colors.white,
                       fontSize: 11,
@@ -8544,12 +8524,12 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Text(employee.fullName.toUpperCase(),
+              Text(tr(employee.fullName.toUpperCase()),
                   style: const TextStyle(
                       color: Color(0xFF18181B),
                       fontWeight: FontWeight.w600,
                       fontSize: 13)),
-              Text(employee.department ?? employee.employeeCode,
+              Text(tr(employee.department ?? employee.employeeCode),
                   style:
                       const TextStyle(color: Color(0xFF71717A), fontSize: 11)),
             ],
@@ -8621,7 +8601,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
               padding: const EdgeInsets.symmetric(vertical: 4),
               child: allApproved.isEmpty
                   ? Center(
-                      child: Text('—',
+                      child: Text(tr('—'),
                           style:
                               TextStyle(color: Colors.grey[300], fontSize: 16)))
                   : Column(
@@ -8632,7 +8612,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
             ));
           }),
           DataCell(Center(
-              child: Text('$totalApproved',
+              child: Text(tr('$totalApproved'),
                   style: TextStyle(
                       color: totalApproved > 0
                           ? HrmPageChrome.primaryNavy
@@ -8650,7 +8630,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
       return Padding(
         padding: const EdgeInsets.all(24),
         child: Center(
-            child: Text('Chưa có nhân viên',
+            child: Text(tr('Chưa có nhân viên'),
                 style: TextStyle(color: Colors.grey[400]))),
       );
     }
@@ -8752,7 +8732,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                 children: [
                   SizedBox(
                     width: 56,
-                    child: Text('${dayNames[di]} ${dateFormat.format(day)}',
+                    child: Text(tr('${dayNames[di]} ${dateFormat.format(day)}'),
                         style: const TextStyle(
                             fontSize: 11, color: Color(0xFF71717A))),
                   ),
@@ -8765,7 +8745,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                         color: bgColor,
                         borderRadius: BorderRadius.circular(6),
                       ),
-                      child: Text(shiftLabel,
+                      child: Text(tr(shiftLabel),
                           style: TextStyle(
                               fontSize: 12,
                               color: shiftColor,
@@ -8803,12 +8783,12 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                         child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(employee.fullName.toUpperCase(),
+                              Text(tr(employee.fullName.toUpperCase()),
                                   style: const TextStyle(
                                       fontWeight: FontWeight.w700,
                                       fontSize: 13,
                                       color: Color(0xFF18181B))),
-                              Text(employee.department ?? employee.employeeCode,
+                              Text(tr(employee.department ?? employee.employeeCode),
                                   style: const TextStyle(
                                       fontSize: 11, color: Color(0xFF71717A))),
                             ]),
@@ -8822,7 +8802,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                               : Colors.grey.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        child: Text('$totalApproved ca',
+                        child: Text(tr('$totalApproved ca'),
                             style: TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.bold,
@@ -8848,21 +8828,21 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
       context: context,
       builder: (context) => ScrollableAlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Xác nhận xóa',
+        title: Text(tr('Xác nhận xóa'),
             style: TextStyle(
                 color: Color(0xFF18181B), fontWeight: FontWeight.bold)),
-        content: const Text('Bạn có chắc chắn muốn xóa đăng ký này?'),
+        content: Text(tr('Bạn có chắc chắn muốn xóa đăng ký này?')),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
             child:
-                const Text('Hủy', style: TextStyle(color: Color(0xFF71717A))),
+                Text(tr('Hủy'), style: TextStyle(color: Color(0xFF71717A))),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
             style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFFEF4444)),
-            child: const Text('Xóa'),
+            child: Text(tr('Xóa')),
           ),
         ],
       ),
@@ -8874,7 +8854,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
         if (result['isSuccess'] == true) {
           appNotification.showSuccess(
             title: 'Xóa đăng ký',
-            message: 'Đã xóa đăng ký thành công',
+            message: tr('Đã xóa đăng ký thành công'),
           );
         } else {
           appNotification.showError(
@@ -8911,11 +8891,11 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
           backgroundColor: Colors.white,
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: const Row(children: [
+          title: Row(children: [
             Icon(Icons.notifications_active, color: Color(0xFFD97706)),
             SizedBox(width: 8),
             Expanded(
-                child: Text('Nhắc nhở đăng ký lịch',
+                child: Text(tr('Nhắc nhở đăng ký lịch'),
                     style:
                         TextStyle(fontWeight: FontWeight.bold, fontSize: 16))),
           ]),
@@ -8925,12 +8905,11 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                    'Gửi thông báo đến nhân viên chưa đăng ký lịch làm việc cho tuần ${DateFormat('dd/MM').format(fromDate)} - ${DateFormat('dd/MM/yyyy').format(toDate)}.',
+                Text(tr('${tr('Gửi thông báo đến nhân viên chưa đăng ký lịch làm việc cho tuần ')}${DateFormat('dd/MM').format(fromDate)} - ${DateFormat('dd/MM/yyyy').format(toDate)}.'),
                     style: const TextStyle(
                         fontSize: 13, color: Color(0xFF71717A))),
                 const SizedBox(height: 16),
-                const Text('Phòng ban:',
+                Text(tr('Phòng ban:'),
                     style:
                         TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
                 const SizedBox(height: 4),
@@ -8944,11 +8923,11 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                         borderRadius: BorderRadius.circular(8)),
                   ),
                   items: [
-                    const DropdownMenuItem<String?>(
-                        value: null, child: Text('Tất cả phòng ban')),
+                    DropdownMenuItem<String?>(
+                        value: null, child: Text(tr('Tất cả phòng ban'))),
                     ..._departments.map((d) => DropdownMenuItem<String?>(
                           value: d['name']?.toString(),
-                          child: Text(d['name']?.toString() ?? ''),
+                          child: Text(tr(d['name']?.toString() ?? '')),
                         )),
                   ],
                   onChanged: (v) => setDialogState(() => selectedDept = v),
@@ -8958,7 +8937,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
           ),
           actions: [
             TextButton(
-                onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
+                onPressed: () => Navigator.pop(ctx), child: Text(tr('Hủy'))),
             FilledButton.icon(
               onPressed: isSending
                   ? null
@@ -8975,7 +8954,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                         final count = result['data'] ?? 0;
                         appNotification.showSuccess(
                             title: 'Thành công',
-                            message: 'Đã gửi nhắc nhở đến $count nhân viên');
+                            message: tr('Đã gửi nhắc nhở đến $count nhân viên'));
                       } else {
                         appNotification.showError(
                             title: 'Lỗi',
@@ -8989,7 +8968,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                       height: 16,
                       child: CircularProgressIndicator(strokeWidth: 2))
                   : const Icon(Icons.send, size: 16),
-              label: const Text('Gửi nhắc nhở'),
+              label: Text(tr('Gửi nhắc nhở')),
               style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFFD97706),
                   foregroundColor: Colors.white),
@@ -9019,11 +8998,11 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
           backgroundColor: Colors.white,
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: const Row(children: [
+          title: Row(children: [
             Icon(Icons.group_add, color: Color(0xFF059669)),
             SizedBox(width: 8),
             Expanded(
-                child: Text('Yêu cầu bổ sung ca',
+                child: Text(tr('Yêu cầu bổ sung ca'),
                     style:
                         TextStyle(fontWeight: FontWeight.bold, fontSize: 16))),
           ]),
@@ -9034,11 +9013,10 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                      'Gửi thông báo yêu cầu nhân viên đăng ký bổ sung cho ca làm cụ thể.',
+                  Text(tr('Gửi thông báo yêu cầu nhân viên đăng ký bổ sung cho ca làm cụ thể.'),
                       style: TextStyle(fontSize: 13, color: Color(0xFF71717A))),
                   const SizedBox(height: 16),
-                  const Text('Ca làm việc:',
+                  Text(tr('Ca làm việc:'),
                       style:
                           TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
                   const SizedBox(height: 4),
@@ -9055,14 +9033,14 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                         .map((s) => DropdownMenuItem<Shift>(
                               value: s,
                               child: Text(
-                                  '${s.name} (${_formatTime(s.startTime)}-${_formatTime(s.endTime)})',
+                                  tr('${s.name} (${_formatTime(s.startTime)}-${_formatTime(s.endTime)})'),
                                   style: const TextStyle(fontSize: 13)),
                             ))
                         .toList(),
                     onChanged: (v) => setDialogState(() => selectedShift = v),
                   ),
                   const SizedBox(height: 12),
-                  const Text('Ngày:',
+                  Text(tr('Ngày:'),
                       style:
                           TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
                   const SizedBox(height: 4),
@@ -9091,14 +9069,14 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                             size: 16, color: Color(0xFF71717A)),
                         const SizedBox(width: 8),
                         Text(
-                            DateFormat('EEEE dd/MM/yyyy', 'vi')
-                                .format(selectedDate),
+                            tr(DateFormat('EEEE dd/MM/yyyy', 'vi')
+                                .format(selectedDate)),
                             style: const TextStyle(fontSize: 13)),
                       ]),
                     ),
                   ),
                   const SizedBox(height: 12),
-                  const Text('Phòng ban:',
+                  Text(tr('Phòng ban:'),
                       style:
                           TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
                   const SizedBox(height: 4),
@@ -9112,17 +9090,17 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                           borderRadius: BorderRadius.circular(8)),
                     ),
                     items: [
-                      const DropdownMenuItem<String?>(
-                          value: null, child: Text('Tất cả phòng ban')),
+                      DropdownMenuItem<String?>(
+                          value: null, child: Text(tr('Tất cả phòng ban'))),
                       ..._departments.map((d) => DropdownMenuItem<String?>(
                             value: d['name']?.toString(),
-                            child: Text(d['name']?.toString() ?? ''),
+                            child: Text(tr(d['name']?.toString() ?? '')),
                           )),
                     ],
                     onChanged: (v) => setDialogState(() => selectedDept = v),
                   ),
                   const SizedBox(height: 12),
-                  const Text('Tin nhắn (tùy chọn):',
+                  Text(tr('Tin nhắn (tùy chọn):'),
                       style:
                           TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
                   const SizedBox(height: 4),
@@ -9131,7 +9109,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                     maxLines: 2,
                     decoration: InputDecoration(
                       isDense: true,
-                      hintText: 'Để trống sẽ dùng tin nhắn mặc định',
+                      hintText: tr('Để trống sẽ dùng tin nhắn mặc định'),
                       hintStyle: const TextStyle(
                           fontSize: 12, color: Color(0xFFA1A1AA)),
                       border: OutlineInputBorder(
@@ -9144,7 +9122,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
           ),
           actions: [
             TextButton(
-                onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
+                onPressed: () => Navigator.pop(ctx), child: Text(tr('Hủy'))),
             FilledButton.icon(
               onPressed: (isSending || selectedShift == null)
                   ? null
@@ -9163,7 +9141,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                         final count = result['data'] ?? 0;
                         appNotification.showSuccess(
                             title: 'Thành công',
-                            message: 'Đã gửi yêu cầu đến $count nhân viên');
+                            message: tr('Đã gửi yêu cầu đến $count nhân viên'));
                       } else {
                         appNotification.showError(
                             title: 'Lỗi',
@@ -9177,7 +9155,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                       height: 16,
                       child: CircularProgressIndicator(strokeWidth: 2))
                   : const Icon(Icons.send, size: 16),
-              label: const Text('Gửi yêu cầu'),
+              label: Text(tr('Gửi yêu cầu')),
               style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF059669),
                   foregroundColor: Colors.white),

@@ -1,6 +1,7 @@
 ﻿import 'package:flutter/material.dart';
 import 'dart:async';
 import 'dart:math' as math;
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// Widget for Face ID capture with animated overlay
 class FaceIdCaptureWidget extends StatefulWidget {
@@ -301,7 +302,7 @@ class _FaceIdCaptureWidgetState extends State<FaceIdCaptureWidget>
                     const Icon(Icons.info_outline, color: Colors.white, size: 20),
                     const SizedBox(width: 8),
                     Text(
-                      _livenessAction,
+                      tr(_livenessAction),
                       style: const TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.w600,
@@ -360,7 +361,7 @@ class _FaceIdCaptureWidgetState extends State<FaceIdCaptureWidget>
       child: Column(
         children: [
           Text(
-            _statusText,
+            tr(_statusText),
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w600,
@@ -378,8 +379,7 @@ class _FaceIdCaptureWidgetState extends State<FaceIdCaptureWidget>
               children: [
                 const Icon(Icons.check_circle, color: Color(0xFF1E3A5F), size: 18),
                 const SizedBox(width: 6),
-                Text(
-                  'Độ khớp: ${_matchScore!.toStringAsFixed(1)}%',
+                Text(tr('Độ khớp: ${_matchScore!.toStringAsFixed(1)}%'),
                   style: const TextStyle(
                     color: Color(0xFF1E3A5F),
                     fontWeight: FontWeight.w500,
@@ -454,11 +454,11 @@ class _FaceIdCaptureWidgetState extends State<FaceIdCaptureWidget>
                 ),
               const SizedBox(width: 8),
               Text(
-                _isCapturing
+                tr(_isCapturing
                     ? 'Đang xử lý...'
                     : _isVerified
                         ? 'Chụp lại'
-                        : 'Bắt đầu xác thực',
+                        : 'Bắt đầu xác thực'),
                 style: const TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 16,

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import 'navigation_notifier.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// Phân loại lỗi để hiển thị thông báo dễ hiểu (mạng / timeout / khác).
 enum AppErrorKind {
@@ -78,8 +79,7 @@ class AppErrorUtils {
       return AppErrorInfo(
         kind: AppErrorKind.unknown,
         title: 'Giao diện quá tải',
-        message:
-            'Ứng dụng gặp sự cố hiển thị. Đóng app hoàn toàn (vuốt khỏi đa nhiệm) rồi mở lại.',
+        message: tr('Ứng dụng gặp sự cố hiển thị. Đóng app hoàn toàn (vuốt khỏi đa nhiệm) rồi mở lại.'),
         technicalHint: hint,
       );
     }
@@ -89,23 +89,21 @@ class AppErrorUtils {
         return AppErrorInfo(
           kind: kind,
           title: 'Mất kết nối mạng',
-          message:
-              'Không thể kết nối máy chủ. Vui lòng bật Wi‑Fi hoặc 4G rồi thử lại.',
+          message: tr('Không thể kết nối máy chủ. Vui lòng bật Wi‑Fi hoặc 4G rồi thử lại.'),
           technicalHint: hint,
         );
       case AppErrorKind.timeout:
         return AppErrorInfo(
           kind: kind,
           title: 'Máy chủ không phản hồi',
-          message:
-              'Yêu cầu quá lâu không nhận được phản hồi. Kiểm tra mạng và thử lại.',
+          message: tr('Yêu cầu quá lâu không nhận được phản hồi. Kiểm tra mạng và thử lại.'),
           technicalHint: hint,
         );
       case AppErrorKind.server:
         return AppErrorInfo(
           kind: kind,
           title: 'Lỗi máy chủ',
-          message: 'Máy chủ đang gặp sự cố. Vui lòng thử lại sau.',
+          message: tr('Máy chủ đang gặp sự cố. Vui lòng thử lại sau.'),
           technicalHint: hint,
         );
       case AppErrorKind.unknown:

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/employee.dart';
 import '../utils/employee_work_status.dart';
 import 'full_screen_dialog.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// Một dòng nhân viên trong picker (tên + mã tách dòng, có tìm kiếm).
 class EmployeePickerItem {
@@ -321,8 +322,8 @@ class EmployeePickerFormField extends StatelessWidget {
       borderRadius: BorderRadius.circular(8),
       child: InputDecorator(
         decoration: InputDecoration(
-          labelText: labelText,
-          hintText: hintText ?? 'Bấm để tìm và chọn...',
+          labelText: tr(labelText),
+          hintText: tr(hintText ?? 'Bấm để tìm và chọn...'),
           prefixIcon: Icon(prefixIcon),
           suffixIcon: sel != null && allowClear
               ? IconButton(
@@ -334,14 +335,14 @@ class EmployeePickerFormField extends StatelessWidget {
         ),
         child: sel == null
             ? Text(
-                hintText ?? 'Bấm để tìm và chọn...',
+                tr(hintText ?? 'Bấm để tìm và chọn...'),
                 style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
               )
             : Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    sel.name,
+                    tr(sel.name),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
@@ -352,9 +353,8 @@ class EmployeePickerFormField extends StatelessWidget {
                   ),
                   if (sel.code.isNotEmpty) ...[
                     const SizedBox(height: 2),
-                    Text(
-                      'Mã NV: ${sel.code}'
-                      '${sel.department != null && sel.department!.isNotEmpty ? ' · ${sel.department}' : ''}',
+                    Text(tr('${tr('Mã NV: ')}${sel.code}'
+                      '${sel.department != null && sel.department!.isNotEmpty ? ' · ${sel.department}' : ''}'),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(fontSize: 13, color: Color(0xFF71717A)),
@@ -432,7 +432,7 @@ class _EmployeePickerSheetState extends State<_EmployeePickerSheet> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          widget.title,
+                          tr(widget.title),
                           style: const TextStyle(
                             fontSize: 17,
                             fontWeight: FontWeight.w700,
@@ -442,7 +442,7 @@ class _EmployeePickerSheetState extends State<_EmployeePickerSheet> {
                         if (widget.subtitle != null &&
                             widget.subtitle!.isNotEmpty)
                           Text(
-                            widget.subtitle!,
+                            tr(widget.subtitle!),
                             style: TextStyle(
                               fontSize: 12,
                               color: Colors.grey.shade600,
@@ -455,7 +455,7 @@ class _EmployeePickerSheetState extends State<_EmployeePickerSheet> {
                   ),
                   IconButton(
                     icon: const Icon(Icons.close),
-                    tooltip: 'Đóng',
+                    tooltip: tr('Đóng'),
                     onPressed: () => Navigator.pop(context),
                   ),
                 ],
@@ -469,7 +469,7 @@ class _EmployeePickerSheetState extends State<_EmployeePickerSheet> {
               controller: _search,
               autofocus: true,
               decoration: InputDecoration(
-                hintText: 'Tìm tên, mã NV, phòng ban, SĐT...',
+                hintText: tr('Tìm tên, mã NV, phòng ban, SĐT...'),
                 prefixIcon: const Icon(Icons.search, size: 20),
                 isDense: true,
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
@@ -481,8 +481,7 @@ class _EmployeePickerSheetState extends State<_EmployeePickerSheet> {
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
             child: Align(
               alignment: Alignment.centerLeft,
-              child: Text(
-                '${filtered.length} nhân viên',
+              child: Text(tr('${filtered.length} nhân viên'),
                 style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
               ),
             ),
@@ -491,14 +490,13 @@ class _EmployeePickerSheetState extends State<_EmployeePickerSheet> {
             ListTile(
               dense: true,
               leading: const Icon(Icons.clear, color: Color(0xFF71717A)),
-              title: const Text('Không chọn'),
+              title: Text(tr('Không chọn')),
               onTap: () => Navigator.pop(context),
             ),
           Expanded(
             child: filtered.isEmpty
                 ? Center(
-                    child: Text(
-                      'Không tìm thấy nhân viên',
+                    child: Text(tr('Không tìm thấy nhân viên'),
                       style: TextStyle(color: Colors.grey.shade500),
                     ),
                   )
@@ -524,9 +522,9 @@ class _EmployeePickerSheetState extends State<_EmployeePickerSheet> {
                                   radius: 20,
                                   backgroundColor: const Color(0xFFE4E4E7),
                                   child: Text(
-                                    emp.name.isNotEmpty
+                                    tr(emp.name.isNotEmpty
                                         ? emp.name[0].toUpperCase()
-                                        : '?',
+                                        : '?'),
                                     style: const TextStyle(
                                       fontWeight: FontWeight.w600,
                                       color: Color(0xFF52525B),
@@ -540,7 +538,7 @@ class _EmployeePickerSheetState extends State<_EmployeePickerSheet> {
                                         CrossAxisAlignment.start,
                                     children: [
                                       Text(
-                                        emp.name,
+                                        tr(emp.name),
                                         maxLines: 2,
                                         overflow: TextOverflow.ellipsis,
                                         style: const TextStyle(
@@ -552,13 +550,13 @@ class _EmployeePickerSheetState extends State<_EmployeePickerSheet> {
                                       ),
                                       const SizedBox(height: 4),
                                       Text(
-                                        [
+                                        tr([
                                           if (emp.code.isNotEmpty)
                                             'Mã NV: ${emp.code}',
                                           if (emp.department != null &&
                                               emp.department!.isNotEmpty)
                                             emp.department!,
-                                        ].join(' · '),
+                                        ].join(' · ')),
                                         maxLines: 2,
                                         overflow: TextOverflow.ellipsis,
                                         style: const TextStyle(
@@ -594,7 +592,7 @@ class _EmployeePickerSheetState extends State<_EmployeePickerSheet> {
                   Expanded(
                     child: OutlinedButton(
                       onPressed: () => Navigator.pop(context),
-                      child: const Text('Hủy'),
+                      child: Text(tr('Hủy')),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -606,7 +604,7 @@ class _EmployeePickerSheetState extends State<_EmployeePickerSheet> {
                       style: FilledButton.styleFrom(
                         backgroundColor: const Color(0xFF1E3A5F),
                       ),
-                      child: const Text('Chọn'),
+                      child: Text(tr('Chọn')),
                     ),
                   ),
                 ],

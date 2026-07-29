@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../l10n/app_tr.dart';
 
 /// Semantic button variants for consistent UI
 enum AppButtonVariant { primary, danger, success, warning, cancel, outlined }
@@ -156,7 +157,7 @@ class AppButton extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 8),
-          Text(label),
+          Text(tr(label)),
         ],
       );
     } else if (icon != null) {
@@ -165,11 +166,11 @@ class AppButton extends StatelessWidget {
         children: [
           Icon(icon, size: 18),
           const SizedBox(width: 8),
-          Text(label),
+          Text(tr(label)),
         ],
       );
     } else {
-      child = Text(label);
+      child = Text(tr(label));
     }
 
     final shape = RoundedRectangleBorder(

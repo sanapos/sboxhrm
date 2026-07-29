@@ -13,6 +13,7 @@ import '../utils/responsive_helper.dart';
 import '../widgets/notification_overlay.dart';
 import 'package:provider/provider.dart';
 import '../providers/permission_provider.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 class MealTrackingScreen extends StatefulWidget {
   const MealTrackingScreen({super.key});
@@ -294,7 +295,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
       if (res['isSuccess'] == true) {
         NotificationOverlayManager().showSuccess(
           title: 'Tính tiền cơm',
-          message: 'Đã tính tiền cơm tháng $_debtPeriod thành công',
+          message: tr('Đã tính tiền cơm tháng $_debtPeriod thành công'),
         );
         _loadDebtSummary();
       } else {
@@ -304,7 +305,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
         );
       }
     } catch (e) {
-      NotificationOverlayManager().showError(title: 'Lỗi', message: 'Lỗi: $e');
+      NotificationOverlayManager().showError(title: 'Lỗi', message: tr('Lỗi: $e'));
     }
   }
 
@@ -314,28 +315,28 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
     showDialog(
       context: context,
       builder: (ctx) => ScrollableAlertDialog(
-        title: Text('Thu tiền - ${debt.employeeName}'),
+        title: Text(tr('Thu tiền - ${debt.employeeName}')),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('Công nợ hiện tại: ${_formatCurrency(debt.balance)}',
+            Text(tr('Công nợ hiện tại: ${_formatCurrency(debt.balance)}'),
                 style: const TextStyle(
                     fontWeight: FontWeight.bold, color: Colors.red)),
             const SizedBox(height: 16),
             TextField(
               controller: amountCtl,
               keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: 'Số tiền thu *',
+              decoration: InputDecoration(
+                labelText: tr('Số tiền thu *'),
                 border: OutlineInputBorder(),
-                prefixText: '₫ ',
+                prefixText: tr('₫ '),
               ),
             ),
             const SizedBox(height: 12),
             TextField(
               controller: noteCtl,
-              decoration: const InputDecoration(
-                labelText: 'Ghi chú',
+              decoration: InputDecoration(
+                labelText: tr('Ghi chú'),
                 border: OutlineInputBorder(),
               ),
             ),
@@ -343,7 +344,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
+              onPressed: () => Navigator.pop(ctx), child: Text(tr('Hủy'))),
           FilledButton(
             onPressed: () async {
               final amount = double.tryParse(amountCtl.text.trim());
@@ -361,7 +362,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                 if (res['isSuccess'] == true) {
                   NotificationOverlayManager().showSuccess(
                       title: 'Thu tiền',
-                      message: 'Đã ghi nhận thu ${_formatCurrency(amount)}');
+                      message: tr('Đã ghi nhận thu ${_formatCurrency(amount)}'));
                   _loadDebtSummary();
                 } else {
                   NotificationOverlayManager().showError(
@@ -369,10 +370,10 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                 }
               } catch (e) {
                 NotificationOverlayManager()
-                    .showError(title: 'Lỗi', message: 'Lỗi: $e');
+                    .showError(title: 'Lỗi', message: tr('Lỗi: $e'));
               }
             },
-            child: const Text('Thu tiền'),
+            child: Text(tr('Thu tiền')),
           ),
         ],
       ),
@@ -414,7 +415,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
             if (ctx.mounted) Navigator.pop(ctx);
             if (res['isSuccess'] == true) {
               NotificationOverlayManager()
-                  .showSuccess(title: 'Thành công', message: 'Đã tạo buổi ăn');
+                  .showSuccess(title: 'Thành công', message: tr('Đã tạo buổi ăn'));
               _loadSessions();
             } else {
               NotificationOverlayManager().showError(
@@ -428,26 +429,26 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
             children: [
               TextField(
                 controller: nameCtl,
-                decoration: const InputDecoration(labelText: 'Tên buổi ăn *'),
+                decoration: InputDecoration(labelText: tr('Tên buổi ăn *')),
               ),
               const SizedBox(height: 12),
               TextField(
                 controller: descCtl,
-                decoration: const InputDecoration(labelText: 'Mô tả'),
+                decoration: InputDecoration(labelText: tr('Mô tả')),
               ),
               const SizedBox(height: 12),
               TextField(
                 controller: priceCtl,
                 keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: 'Giá mỗi suất (đ)',
-                  prefixText: '₫ ',
+                decoration: InputDecoration(
+                  labelText: tr('Giá mỗi suất (đ)'),
+                  prefixText: tr('₫ '),
                 ),
               ),
               const SizedBox(height: 12),
               ListTile(
-                title: const Text('Giờ bắt đầu'),
-                trailing: Text(startTime.format(ctx)),
+                title: Text(tr('Giờ bắt đầu')),
+                trailing: Text(tr(startTime.format(ctx))),
                 onTap: () async {
                   final t = await showTimePicker(
                       context: ctx, initialTime: startTime);
@@ -455,8 +456,8 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                 },
               ),
               ListTile(
-                title: const Text('Giờ kết thúc'),
-                trailing: Text(endTime.format(ctx)),
+                title: Text(tr('Giờ kết thúc')),
+                trailing: Text(tr(endTime.format(ctx))),
                 onTap: () async {
                   final t =
                       await showTimePicker(context: ctx, initialTime: endTime);
@@ -470,7 +471,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
             return Dialog.fullscreen(
               child: Scaffold(
                 appBar: AppBar(
-                  title: const Text('Thêm buổi ăn'),
+                  title: Text(tr('Thêm buổi ăn')),
                   leading: IconButton(
                       icon: const Icon(Icons.close),
                       onPressed: () => Navigator.pop(ctx)),
@@ -478,7 +479,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                     Padding(
                       padding: const EdgeInsets.only(right: 8),
                       child: FilledButton(
-                          onPressed: onSave, child: const Text('Lưu')),
+                          onPressed: onSave, child: Text(tr('Lưu'))),
                     ),
                   ],
                 ),
@@ -489,13 +490,13 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
           }
 
           return ScrollableAlertDialog(
-            title: const Text('Thêm buổi ăn'),
+            title: Text(tr('Thêm buổi ăn')),
             content: SingleChildScrollView(child: formBody),
             actions: [
               TextButton(
                   onPressed: () => Navigator.pop(ctx),
-                  child: const Text('Hủy')),
-              FilledButton(onPressed: onSave, child: const Text('Lưu')),
+                  child: Text(tr('Hủy'))),
+              FilledButton(onPressed: onSave, child: Text(tr('Lưu'))),
             ],
           );
         },
@@ -507,11 +508,11 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
     showDialog(
       context: context,
       builder: (ctx) => ScrollableAlertDialog(
-        title: const Text('Xóa buổi ăn'),
-        content: Text('Bạn có chắc muốn xóa "${session.name}"?'),
+        title: Text(tr('Xóa buổi ăn')),
+        content: Text(tr('Bạn có chắc muốn xóa "${session.name}"?')),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
+              onPressed: () => Navigator.pop(ctx), child: Text(tr('Hủy'))),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () async {
@@ -519,14 +520,14 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
               if (ctx.mounted) Navigator.pop(ctx);
               if (res['isSuccess'] == true) {
                 NotificationOverlayManager().showSuccess(
-                    title: 'Thành công', message: 'Đã xóa buổi ăn');
+                    title: 'Thành công', message: tr('Đã xóa buổi ăn'));
                 _loadSessions();
               } else {
                 NotificationOverlayManager().showError(
                     title: 'Lỗi', message: res['message'] ?? 'Lỗi xóa buổi ăn');
               }
             },
-            child: const Text('Xóa'),
+            child: Text(tr('Xóa')),
           ),
         ],
       ),
@@ -552,7 +553,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
             if (selectedSessionId == null) return;
             if (selectedDishIds.isEmpty) {
               NotificationOverlayManager().showError(
-                  title: 'Lỗi', message: 'Vui lòng chọn ít nhất 1 món');
+                  title: 'Lỗi', message: tr('Vui lòng chọn ít nhất 1 món'));
               return;
             }
             final items = selectedDishIds.toList().asMap().entries.map((entry) {
@@ -574,7 +575,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
             if (ctx.mounted) Navigator.pop(ctx);
             if (res['isSuccess'] == true) {
               NotificationOverlayManager()
-                  .showSuccess(title: 'Thành công', message: 'Đã tạo thực đơn');
+                  .showSuccess(title: 'Thành công', message: tr('Đã tạo thực đơn'));
               _loadWeeklyMenu();
             } else {
               NotificationOverlayManager().showError(
@@ -606,19 +607,19 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
             children: [
               DropdownButtonFormField<String>(
                 initialValue: selectedSessionId,
-                decoration: const InputDecoration(
-                    labelText: 'Buổi ăn *', border: OutlineInputBorder()),
+                decoration: InputDecoration(
+                    labelText: tr('Buổi ăn *'), border: OutlineInputBorder()),
                 items: _sessions
                     .map((s) =>
-                        DropdownMenuItem(value: s.id, child: Text(s.name)))
+                        DropdownMenuItem(value: s.id, child: Text(tr(s.name))))
                     .toList(),
                 onChanged: (v) => setDlgState(() => selectedSessionId = v),
               ),
               const SizedBox(height: 12),
               ListTile(
                 contentPadding: EdgeInsets.zero,
-                title: const Text('Ngày'),
-                trailing: Text(DateFormat('dd/MM/yyyy').format(menuDate)),
+                title: Text(tr('Ngày')),
+                trailing: Text(tr(DateFormat('dd/MM/yyyy').format(menuDate))),
                 onTap: () async {
                   final d = await showDatePicker(
                     context: ctx,
@@ -631,8 +632,8 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
               ),
               TextField(
                 controller: noteCtl,
-                decoration: const InputDecoration(
-                    labelText: 'Ghi chú', border: OutlineInputBorder()),
+                decoration: InputDecoration(
+                    labelText: tr('Ghi chú'), border: OutlineInputBorder()),
               ),
               const SizedBox(height: 12),
               // Selected menu preview
@@ -653,7 +654,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                           const Icon(Icons.restaurant_menu,
                               size: 16, color: Color(0xFF16A34A)),
                           const SizedBox(width: 6),
-                          Text('Thực đơn (${selectedDishes.length} món)',
+                          Text(tr('Thực đơn (${selectedDishes.length} món)'),
                               style: const TextStyle(
                                   fontWeight: FontWeight.bold,
                                   fontSize: 13,
@@ -663,7 +664,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                             GestureDetector(
                               onTap: () =>
                                   setDlgState(() => selectedDishIds.clear()),
-                              child: const Text('Bỏ hết',
+                              child: Text(tr('Bỏ hết'),
                                   style: TextStyle(
                                       fontSize: 12, color: Colors.red)),
                             ),
@@ -675,7 +676,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                         runSpacing: 4,
                         children: selectedDishes
                             .map((d) => Chip(
-                                  label: Text(d.name,
+                                  label: Text(tr(d.name),
                                       style: const TextStyle(fontSize: 11)),
                                   deleteIcon: const Icon(Icons.close, size: 14),
                                   onDeleted: () => setDlgState(
@@ -693,7 +694,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                 const SizedBox(height: 12),
               ],
               // Category filter
-              Text('Chọn món (${selectedDishIds.length} đã chọn)',
+              Text(tr('Chọn món (${selectedDishIds.length} đã chọn)'),
                   style: const TextStyle(
                       fontWeight: FontWeight.bold, fontSize: 15)),
               const SizedBox(height: 8),
@@ -704,7 +705,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                   children: [
                     FilterChip(
                       label:
-                          const Text('Tất cả', style: TextStyle(fontSize: 11)),
+                          Text(tr('Tất cả'), style: TextStyle(fontSize: 11)),
                       selected: filterCategory == null,
                       onSelected: (_) =>
                           setDlgState(() => filterCategory = null),
@@ -714,7 +715,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                     ...categories.map((c) {
                       final count = grouped[c]?.length ?? 0;
                       return FilterChip(
-                        label: Text('$c ($count)',
+                        label: Text(tr('$c ($count)'),
                             style: const TextStyle(fontSize: 11)),
                         selected: filterCategory == c,
                         onSelected: (_) => setDlgState(() =>
@@ -727,10 +728,9 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                 ),
               const SizedBox(height: 8),
               if (_masterDishes.isEmpty)
-                const Padding(
+                Padding(
                   padding: EdgeInsets.all(16),
-                  child: Text(
-                      'Chưa có món ăn. Vui lòng thêm món trong "Quản lý danh sách món".',
+                  child: Text(tr('Chưa có món ăn. Vui lòng thêm món trong "Quản lý danh sách món".'),
                       style: TextStyle(color: Colors.grey)),
                 ),
               ...filteredGrouped.entries.map((catEntry) {
@@ -743,7 +743,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                       padding: const EdgeInsets.only(top: 8, bottom: 4),
                       child: Row(
                         children: [
-                          Text(cat,
+                          Text(tr(cat),
                               style: const TextStyle(
                                   fontWeight: FontWeight.w600,
                                   color: Color(0xFF0284C7),
@@ -766,10 +766,10 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                               });
                             },
                             child: Text(
-                              dishes.every(
+                              tr(dishes.every(
                                       (d) => selectedDishIds.contains(d.id))
                                   ? 'Bỏ chọn'
-                                  : 'Chọn hết',
+                                  : 'Chọn hết'),
                               style: const TextStyle(
                                   fontSize: 12, color: Color(0xFF0284C7)),
                             ),
@@ -780,7 +780,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                     ...dishes.map((dish) => CheckboxListTile(
                           dense: true,
                           contentPadding: EdgeInsets.zero,
-                          title: Text(dish.name,
+                          title: Text(tr(dish.name),
                               style: const TextStyle(fontSize: 14)),
                           value: selectedDishIds.contains(dish.id),
                           onChanged: (v) {
@@ -803,7 +803,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
             return Dialog.fullscreen(
               child: Scaffold(
                 appBar: AppBar(
-                  title: const Text('Tạo thực đơn'),
+                  title: Text(tr('Tạo thực đơn')),
                   leading: IconButton(
                       icon: const Icon(Icons.close),
                       onPressed: () => Navigator.pop(ctx)),
@@ -811,7 +811,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                     Padding(
                       padding: const EdgeInsets.only(right: 8),
                       child: FilledButton(
-                          onPressed: onSave, child: const Text('Lưu')),
+                          onPressed: onSave, child: Text(tr('Lưu'))),
                     ),
                   ],
                 ),
@@ -822,7 +822,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
           }
 
           return ScrollableAlertDialog(
-            title: const Text('Tạo thực đơn'),
+            title: Text(tr('Tạo thực đơn')),
             content: SizedBox(
               width: 400,
               child: SingleChildScrollView(child: formBody),
@@ -830,8 +830,8 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
             actions: [
               TextButton(
                   onPressed: () => Navigator.pop(ctx),
-                  child: const Text('Hủy')),
-              FilledButton(onPressed: onSave, child: const Text('Lưu')),
+                  child: Text(tr('Hủy'))),
+              FilledButton(onPressed: onSave, child: Text(tr('Lưu'))),
             ],
           );
         },
@@ -842,7 +842,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
   // ==================== EDIT/DELETE MENU ====================
 
   void _showEditMenuDialog(MealMenu menu) {
-    final noteCtl = TextEditingController(text: menu.note ?? '');
+    final noteCtl = TextEditingController(text: tr(menu.note ?? ''));
     final Set<String> selectedDishIds = {};
     // Pre-select dishes that match master list by name
     for (final item in menu.items) {
@@ -860,7 +860,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
           Future<void> onSave() async {
             if (selectedDishIds.isEmpty) {
               NotificationOverlayManager().showError(
-                  title: 'Lỗi', message: 'Vui lòng chọn ít nhất 1 món');
+                  title: 'Lỗi', message: tr('Vui lòng chọn ít nhất 1 món'));
               return;
             }
             final items = selectedDishIds.toList().asMap().entries.map((entry) {
@@ -880,7 +880,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
             if (ctx.mounted) Navigator.pop(ctx);
             if (res['isSuccess'] == true) {
               NotificationOverlayManager().showSuccess(
-                  title: 'Thành công', message: 'Đã cập nhật thực đơn');
+                  title: 'Thành công', message: tr('Đã cập nhật thực đơn'));
               _loadWeeklyMenu();
             } else {
               NotificationOverlayManager().showError(
@@ -918,7 +918,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                     const SizedBox(width: 8),
                     Expanded(
                         child: Text(
-                      '${menu.mealSessionName ?? ''} - ${DateFormat('dd/MM/yyyy').format(menu.date)}',
+                      tr('${menu.mealSessionName ?? ''} - ${DateFormat('dd/MM/yyyy').format(menu.date)}'),
                       style: const TextStyle(
                           fontWeight: FontWeight.w600,
                           color: Color(0xFF1E40AF)),
@@ -929,8 +929,8 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
               const SizedBox(height: 12),
               TextField(
                 controller: noteCtl,
-                decoration: const InputDecoration(
-                    labelText: 'Ghi chú', border: OutlineInputBorder()),
+                decoration: InputDecoration(
+                    labelText: tr('Ghi chú'), border: OutlineInputBorder()),
               ),
               const SizedBox(height: 12),
               if (selectedDishes.isNotEmpty) ...[
@@ -949,7 +949,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                         const Icon(Icons.restaurant_menu,
                             size: 16, color: Color(0xFF16A34A)),
                         const SizedBox(width: 6),
-                        Text('Thực đơn (${selectedDishes.length} món)',
+                        Text(tr('Thực đơn (${selectedDishes.length} món)'),
                             style: const TextStyle(
                                 fontWeight: FontWeight.bold,
                                 fontSize: 13,
@@ -958,7 +958,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                         GestureDetector(
                           onTap: () =>
                               setDlgState(() => selectedDishIds.clear()),
-                          child: const Text('Bỏ hết',
+                          child: Text(tr('Bỏ hết'),
                               style:
                                   TextStyle(fontSize: 12, color: Colors.red)),
                         ),
@@ -969,7 +969,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                         runSpacing: 4,
                         children: selectedDishes
                             .map((d) => Chip(
-                                  label: Text(d.name,
+                                  label: Text(tr(d.name),
                                       style: const TextStyle(fontSize: 11)),
                                   deleteIcon: const Icon(Icons.close, size: 14),
                                   onDeleted: () => setDlgState(
@@ -986,7 +986,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                 ),
                 const SizedBox(height: 12),
               ],
-              Text('Chọn món (${selectedDishIds.length} đã chọn)',
+              Text(tr('Chọn món (${selectedDishIds.length} đã chọn)'),
                   style: const TextStyle(
                       fontWeight: FontWeight.bold, fontSize: 15)),
               const SizedBox(height: 8),
@@ -997,7 +997,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                   children: [
                     FilterChip(
                       label:
-                          const Text('Tất cả', style: TextStyle(fontSize: 11)),
+                          Text(tr('Tất cả'), style: TextStyle(fontSize: 11)),
                       selected: filterCategory == null,
                       onSelected: (_) =>
                           setDlgState(() => filterCategory = null),
@@ -1007,7 +1007,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                     ...categories.map((c) {
                       final count = grouped[c]?.length ?? 0;
                       return FilterChip(
-                        label: Text('$c ($count)',
+                        label: Text(tr('$c ($count)'),
                             style: const TextStyle(fontSize: 11)),
                         selected: filterCategory == c,
                         onSelected: (_) => setDlgState(() =>
@@ -1028,7 +1028,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                     Padding(
                       padding: const EdgeInsets.only(top: 8, bottom: 4),
                       child: Row(children: [
-                        Text(cat,
+                        Text(tr(cat),
                             style: const TextStyle(
                                 fontWeight: FontWeight.w600,
                                 color: Color(0xFF0284C7),
@@ -1051,9 +1051,9 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                             });
                           },
                           child: Text(
-                            dishes.every((d) => selectedDishIds.contains(d.id))
+                            tr(dishes.every((d) => selectedDishIds.contains(d.id))
                                 ? 'Bỏ chọn'
-                                : 'Chọn hết',
+                                : 'Chọn hết'),
                             style: const TextStyle(
                                 fontSize: 12, color: Color(0xFF0284C7)),
                           ),
@@ -1063,7 +1063,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                     ...dishes.map((dish) => CheckboxListTile(
                           dense: true,
                           contentPadding: EdgeInsets.zero,
-                          title: Text(dish.name,
+                          title: Text(tr(dish.name),
                               style: const TextStyle(fontSize: 14)),
                           value: selectedDishIds.contains(dish.id),
                           onChanged: (v) {
@@ -1086,7 +1086,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
             return Dialog.fullscreen(
               child: Scaffold(
                 appBar: AppBar(
-                  title: const Text('Sửa thực đơn'),
+                  title: Text(tr('Sửa thực đơn')),
                   leading: IconButton(
                       icon: const Icon(Icons.close),
                       onPressed: () => Navigator.pop(ctx)),
@@ -1094,7 +1094,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                     Padding(
                       padding: const EdgeInsets.only(right: 8),
                       child: FilledButton(
-                          onPressed: onSave, child: const Text('Lưu')),
+                          onPressed: onSave, child: Text(tr('Lưu'))),
                     ),
                   ],
                 ),
@@ -1104,14 +1104,14 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
             );
           }
           return ScrollableAlertDialog(
-            title: const Text('Sửa thực đơn'),
+            title: Text(tr('Sửa thực đơn')),
             content: SizedBox(
                 width: 400, child: SingleChildScrollView(child: formBody)),
             actions: [
               TextButton(
                   onPressed: () => Navigator.pop(ctx),
-                  child: const Text('Hủy')),
-              FilledButton(onPressed: onSave, child: const Text('Lưu')),
+                  child: Text(tr('Hủy'))),
+              FilledButton(onPressed: onSave, child: Text(tr('Lưu'))),
             ],
           );
         },
@@ -1123,17 +1123,16 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => ScrollableAlertDialog(
-        title: const Text('Xoá thực đơn'),
-        content: Text(
-            'Bạn có chắc muốn xoá thực đơn ${menu.mealSessionName ?? ''} ngày ${DateFormat('dd/MM/yyyy').format(menu.date)}?'),
+        title: Text(tr('Xoá thực đơn')),
+        content: Text(tr('${tr('Bạn có chắc muốn xoá thực đơn ')}${menu.mealSessionName ?? ''} ngày ${DateFormat('dd/MM/yyyy').format(menu.date)}?')),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Hủy')),
+              child: Text(tr('Hủy'))),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Xoá'),
+            child: Text(tr('Xoá')),
           ),
         ],
       ),
@@ -1142,7 +1141,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
     final res = await _apiService.deleteMealMenu(menu.id);
     if (res['isSuccess'] == true) {
       NotificationOverlayManager()
-          .showSuccess(title: 'Thành công', message: 'Đã xoá thực đơn');
+          .showSuccess(title: 'Thành công', message: tr('Đã xoá thực đơn'));
       _loadWeeklyMenu();
     } else {
       NotificationOverlayManager().showError(
@@ -1219,10 +1218,10 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
       final file = File(filePath);
       await file.writeAsBytes(bytes);
       await Share.shareXFiles([XFile(filePath)],
-          text: 'Thực đơn tuần ${DateFormat('dd/MM').format(_menuWeekStart)}');
+          text: tr('Thực đơn tuần ${DateFormat('dd/MM').format(_menuWeekStart)}'));
     } catch (e) {
       NotificationOverlayManager()
-          .showError(title: 'Lỗi', message: 'Không thể xuất Excel: $e');
+          .showError(title: 'Lỗi', message: tr('Không thể xuất Excel: $e'));
     }
   }
 
@@ -1232,7 +1231,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
           as RenderRepaintBoundary?;
       if (boundary == null) {
         NotificationOverlayManager()
-            .showError(title: 'Lỗi', message: 'Không thể chụp ảnh menu');
+            .showError(title: 'Lỗi', message: tr('Không thể chụp ảnh menu'));
         return;
       }
       final image = await boundary.toImage(pixelRatio: 3.0);
@@ -1245,10 +1244,10 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
       final file = File(filePath);
       await file.writeAsBytes(bytes);
       await Share.shareXFiles([XFile(filePath)],
-          text: 'Thực đơn tuần ${DateFormat('dd/MM').format(_menuWeekStart)}');
+          text: tr('Thực đơn tuần ${DateFormat('dd/MM').format(_menuWeekStart)}'));
     } catch (e) {
       NotificationOverlayManager()
-          .showError(title: 'Lỗi', message: 'Không thể xuất PNG: $e');
+          .showError(title: 'Lỗi', message: tr('Không thể xuất PNG: $e'));
     }
   }
 
@@ -1304,7 +1303,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                             onPressed: () =>
                                 _showAddDishDialog(ctx, setDlgState),
                             icon: const Icon(Icons.add, size: 18),
-                            label: const Text('Thêm món'),
+                            label: Text(tr('Thêm món')),
                           ),
                         ),
                         const SizedBox(width: 8),
@@ -1313,7 +1312,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                             onPressed: () => _showCategoryManagementDialog(
                                 ctx, setDlgState),
                             icon: const Icon(Icons.category, size: 18),
-                            label: const Text('Nhóm món'),
+                            label: Text(tr('Nhóm món')),
                           ),
                         ),
                       ],
@@ -1328,7 +1327,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                       runSpacing: 4,
                       children: [
                         FilterChip(
-                          label: const Text('Tất cả',
+                          label: Text(tr('Tất cả'),
                               style: TextStyle(fontSize: 11)),
                           selected: filterCategory == null,
                           onSelected: (_) =>
@@ -1340,7 +1339,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                         ...categories.map((c) {
                           final count = grouped[c]?.length ?? 0;
                           return FilterChip(
-                            label: Text('$c ($count)',
+                            label: Text(tr('$c ($count)'),
                                 style: const TextStyle(fontSize: 11)),
                             selected: filterCategory == c,
                             onSelected: (_) => setDlgState(() =>
@@ -1357,8 +1356,8 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                 const SizedBox(height: 8),
                 Expanded(
                   child: _masterDishes.isEmpty
-                      ? const Center(
-                          child: Text('Chưa có món ăn nào',
+                      ? Center(
+                          child: Text(tr('Chưa có món ăn nào'),
                               style: TextStyle(color: Colors.grey)))
                       : ListView(
                           children: filteredGrouped.entries.map((catEntry) {
@@ -1372,12 +1371,12 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                                   color: const Color(0xFFF0F9FF),
                                   child: Row(
                                     children: [
-                                      Text(catEntry.key,
+                                      Text(tr(catEntry.key),
                                           style: const TextStyle(
                                               fontWeight: FontWeight.bold,
                                               color: Color(0xFF0284C7))),
                                       const SizedBox(width: 8),
-                                      Text('(${catEntry.value.length})',
+                                      Text(tr('(${catEntry.value.length})'),
                                           style: const TextStyle(
                                               fontSize: 12,
                                               color: Colors.grey)),
@@ -1385,7 +1384,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                                   ),
                                 ),
                                 ...catEntry.value.map((dish) => ListTile(
-                                      title: Text(dish.name),
+                                      title: Text(tr(dish.name)),
                                       trailing: (canEditMeal || canDeleteMeal)
                                           ? Row(
                                               mainAxisSize: MainAxisSize.min,
@@ -1439,7 +1438,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
             return Dialog.fullscreen(
               child: Scaffold(
                 appBar: AppBar(
-                  title: const Text('Quản lý danh sách món'),
+                  title: Text(tr('Quản lý danh sách món')),
                   leading: IconButton(
                       icon: const Icon(Icons.close),
                       onPressed: () => Navigator.pop(ctx)),
@@ -1449,12 +1448,12 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
             );
           }
           return ScrollableAlertDialog(
-            title: const Text('Quản lý danh sách món'),
+            title: Text(tr('Quản lý danh sách món')),
             content: SizedBox(width: 450, height: 500, child: buildContent()),
             actions: [
               TextButton(
                   onPressed: () => Navigator.pop(ctx),
-                  child: const Text('Đóng'))
+                  child: Text(tr('Đóng')))
             ],
           );
         },
@@ -1470,14 +1469,13 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
         builder: (ctx, setDlgState) {
           final categories = _getDistinctCategories();
           return ScrollableAlertDialog(
-            title: const Text('Nhóm món hiện có'),
+            title: Text(tr('Nhóm món hiện có')),
             content: SizedBox(
               width: 350,
               height: 350,
               child: categories.isEmpty
-                  ? const Center(
-                      child: Text(
-                          'Chưa có nhóm nào.\nThêm món với nhóm mới để tạo.',
+                  ? Center(
+                      child: Text(tr('Chưa có nhóm nào.\nThêm món với nhóm mới để tạo.'),
                           textAlign: TextAlign.center,
                           style: TextStyle(color: Colors.grey)))
                   : ListView.builder(
@@ -1491,8 +1489,8 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                         return ListTile(
                           leading: const Icon(Icons.folder_outlined,
                               color: Color(0xFF0284C7)),
-                          title: Text(cat),
-                          subtitle: Text('$dishCount món',
+                          title: Text(tr(cat)),
+                          subtitle: Text(tr('$dishCount món'),
                               style: const TextStyle(fontSize: 12)),
                         );
                       },
@@ -1501,7 +1499,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
             actions: [
               TextButton(
                   onPressed: () => Navigator.pop(ctx),
-                  child: const Text('Đóng')),
+                  child: Text(tr('Đóng'))),
             ],
           );
         },
@@ -1519,30 +1517,30 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
       context: parentCtx,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDlgState) => ScrollableAlertDialog(
-          title: const Text('Thêm món mới'),
+          title: Text(tr('Thêm món mới')),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               TextField(
                 controller: nameCtl,
-                decoration: const InputDecoration(
-                    labelText: 'Tên món *', border: OutlineInputBorder()),
+                decoration: InputDecoration(
+                    labelText: tr('Tên món *'), border: OutlineInputBorder()),
                 autofocus: true,
               ),
               const SizedBox(height: 12),
               if (!addingNewCat)
                 DropdownButtonFormField<String>(
                   initialValue: selectedCategory,
-                  decoration: const InputDecoration(
-                    labelText: 'Nhóm món *',
+                  decoration: InputDecoration(
+                    labelText: tr('Nhóm món *'),
                     border: OutlineInputBorder(),
                   ),
                   items: [
                     ...categories
-                        .map((c) => DropdownMenuItem(value: c, child: Text(c))),
-                    const DropdownMenuItem(
+                        .map((c) => DropdownMenuItem(value: c, child: Text(tr(c)))),
+                    DropdownMenuItem(
                         value: '__new__',
-                        child: Text('+ Thêm nhóm mới...',
+                        child: Text(tr('+ Thêm nhóm mới...'),
                             style: TextStyle(
                                 color: Color(0xFF0284C7),
                                 fontWeight: FontWeight.w500))),
@@ -1557,7 +1555,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                       setDlgState(() => selectedCategory = v);
                     }
                   },
-                  hint: const Text('Chọn nhóm'),
+                  hint: Text(tr('Chọn nhóm')),
                 ),
               if (addingNewCat)
                 Row(
@@ -1566,8 +1564,8 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                       child: TextField(
                         controller: newCatCtl,
                         autofocus: true,
-                        decoration: const InputDecoration(
-                          labelText: 'Tên nhóm mới *',
+                        decoration: InputDecoration(
+                          labelText: tr('Tên nhóm mới *'),
                           border: OutlineInputBorder(),
                         ),
                       ),
@@ -1585,7 +1583,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
           ),
           actions: [
             TextButton(
-                onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
+                onPressed: () => Navigator.pop(ctx), child: Text(tr('Hủy'))),
             FilledButton(
               onPressed: () async {
                 if (nameCtl.text.trim().isEmpty) return;
@@ -1593,7 +1591,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                     addingNewCat ? newCatCtl.text.trim() : selectedCategory;
                 if (category == null || category.isEmpty) {
                   NotificationOverlayManager().showError(
-                      title: 'Lỗi', message: 'Vui lòng chọn hoặc tạo nhóm món');
+                      title: 'Lỗi', message: tr('Vui lòng chọn hoặc tạo nhóm món'));
                   return;
                 }
                 final res = await _apiService.createMealDish({
@@ -1610,7 +1608,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                       title: 'Lỗi', message: res['message'] ?? 'Thất bại');
                 }
               },
-              child: const Text('Thêm'),
+              child: Text(tr('Thêm')),
             ),
           ],
         ),
@@ -1620,7 +1618,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
 
   void _showEditDishDialog(
       BuildContext parentCtx, StateSetter parentSetState, MealDish dish) {
-    final nameCtl = TextEditingController(text: dish.name);
+    final nameCtl = TextEditingController(text: tr(dish.name));
     String? selectedCategory = dish.category;
     final categories = _getDistinctCategories();
     // Ensure current category is in the list
@@ -1634,24 +1632,24 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
       context: parentCtx,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDlgState) => ScrollableAlertDialog(
-          title: const Text('Sửa món'),
+          title: Text(tr('Sửa món')),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               TextField(
                 controller: nameCtl,
-                decoration: const InputDecoration(
-                    labelText: 'Tên món *', border: OutlineInputBorder()),
+                decoration: InputDecoration(
+                    labelText: tr('Tên món *'), border: OutlineInputBorder()),
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
                 initialValue: selectedCategory,
-                decoration: const InputDecoration(
-                  labelText: 'Nhóm món',
+                decoration: InputDecoration(
+                  labelText: tr('Nhóm món'),
                   border: OutlineInputBorder(),
                 ),
                 items: categories
-                    .map((c) => DropdownMenuItem(value: c, child: Text(c)))
+                    .map((c) => DropdownMenuItem(value: c, child: Text(tr(c))))
                     .toList(),
                 onChanged: (v) => setDlgState(() => selectedCategory = v),
               ),
@@ -1659,7 +1657,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
           ),
           actions: [
             TextButton(
-                onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
+                onPressed: () => Navigator.pop(ctx), child: Text(tr('Hủy'))),
             FilledButton(
               onPressed: () async {
                 if (nameCtl.text.trim().isEmpty) return;
@@ -1677,7 +1675,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                       title: 'Lỗi', message: res['message'] ?? 'Thất bại');
                 }
               },
-              child: const Text('Lưu'),
+              child: Text(tr('Lưu')),
             ),
           ],
         ),
@@ -1738,23 +1736,23 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
     final isMobile = Responsive.isMobile(context);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Chấm cơm'),
+        title: Text(tr('Chấm cơm')),
         bottom: TabBar(
           controller: _tabCtl,
           isScrollable: isMobile,
-          tabs: const [
-            Tab(icon: Icon(Icons.restaurant), text: 'Tổng quan'),
-            Tab(icon: Icon(Icons.list_alt), text: 'Lịch sử'),
-            Tab(icon: Icon(Icons.people), text: 'Tổng hợp'),
-            Tab(icon: Icon(Icons.menu_book), text: 'Thực đơn'),
-            Tab(icon: Icon(Icons.account_balance_wallet), text: 'Công nợ'),
+          tabs: [
+            Tab(icon: Icon(Icons.restaurant), text: tr('Tổng quan')),
+            Tab(icon: Icon(Icons.list_alt), text: tr('Lịch sử')),
+            Tab(icon: Icon(Icons.people), text: tr('Tổng hợp')),
+            Tab(icon: Icon(Icons.menu_book), text: tr('Thực đơn')),
+            Tab(icon: Icon(Icons.account_balance_wallet), text: tr('Công nợ')),
           ],
         ),
         actions: [
           if (_tabCtl.index == 0 || _tabCtl.index == 1)
             IconButton(
               icon: const Icon(Icons.calendar_today),
-              tooltip: 'Chọn ngày',
+              tooltip: tr('Chọn ngày'),
               onPressed: _pickDate,
             ),
           PopupMenuButton<String>(
@@ -1767,22 +1765,22 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
               if (v == 'exportExcel') _exportMenuAsExcel();
             },
             itemBuilder: (_) => [
-              const PopupMenuItem(
-                  value: 'sessions', child: Text('Quản lý buổi ăn')),
+              PopupMenuItem(
+                  value: 'sessions', child: Text(tr('Quản lý buổi ăn'))),
               if (Provider.of<PermissionProvider>(context, listen: false)
                   .canCreate('Meal'))
-                const PopupMenuItem(
-                    value: 'dishes', child: Text('Quản lý danh sách món')),
+                PopupMenuItem(
+                    value: 'dishes', child: Text(tr('Quản lý danh sách món'))),
               if (Provider.of<PermissionProvider>(context, listen: false)
                   .canCreate('Meal'))
-                const PopupMenuItem(
-                    value: 'createMenu', child: Text('Tạo thực đơn')),
+                PopupMenuItem(
+                    value: 'createMenu', child: Text(tr('Tạo thực đơn'))),
               if (_weeklyMenus.isNotEmpty) ...[
                 const PopupMenuDivider(),
-                const PopupMenuItem(
-                    value: 'exportPng', child: Text('Xuất ảnh PNG')),
-                const PopupMenuItem(
-                    value: 'exportExcel', child: Text('Xuất Excel')),
+                PopupMenuItem(
+                    value: 'exportPng', child: Text(tr('Xuất ảnh PNG'))),
+                PopupMenuItem(
+                    value: 'exportExcel', child: Text(tr('Xuất Excel'))),
               ],
             ],
           ),
@@ -1812,14 +1810,13 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
           children: [
             const Icon(Icons.restaurant, size: 64, color: Colors.grey),
             const SizedBox(height: 16),
-            Text(
-              'Chưa có dữ liệu cho ngày ${DateFormat('dd/MM/yyyy').format(_selectedDate)}',
+            Text(tr('${tr('Chưa có dữ liệu cho ngày ')}${DateFormat('dd/MM/yyyy').format(_selectedDate)}'),
               style: const TextStyle(color: Colors.grey),
             ),
             const SizedBox(height: 16),
             FilledButton(
               onPressed: _loadEstimate,
-              child: const Text('Tải lại'),
+              child: Text(tr('Tải lại')),
             ),
           ],
         ),
@@ -1839,7 +1836,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                 children: [
                   IconButton(
                     icon: const Icon(Icons.chevron_left),
-                    tooltip: 'Ngày trước',
+                    tooltip: tr('Ngày trước'),
                     onPressed: () {
                       setState(() => _selectedDate =
                           _selectedDate.subtract(const Duration(days: 1)));
@@ -1857,8 +1854,8 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                             const SizedBox(width: 6),
                             Flexible(
                               child: Text(
-                                DateFormat('EEEE, dd/MM/yyyy', 'vi')
-                                    .format(summary.date),
+                                tr(DateFormat('EEEE, dd/MM/yyyy', 'vi')
+                                    .format(summary.date)),
                                 style: const TextStyle(
                                     fontWeight: FontWeight.bold),
                                 textAlign: TextAlign.center,
@@ -1867,8 +1864,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                           ],
                         ),
                         const SizedBox(height: 2),
-                        Text(
-                          'Ước tính: ${summary.totalEstimated} | Thực tế: ${summary.totalActual}',
+                        Text(tr('Ước tính: ${summary.totalEstimated} | Thực tế: ${summary.totalActual}'),
                           style:
                               const TextStyle(color: Colors.grey, fontSize: 12),
                         ),
@@ -1877,7 +1873,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                   ),
                   IconButton(
                     icon: const Icon(Icons.chevron_right),
-                    tooltip: 'Ngày sau',
+                    tooltip: tr('Ngày sau'),
                     onPressed: () {
                       setState(() => _selectedDate =
                           _selectedDate.add(const Duration(days: 1)));
@@ -1924,7 +1920,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
           // Today's menu section
           _buildTodayMenuSection(),
           const SizedBox(height: 24),
-          const Text('Chi tiết theo buổi',
+          Text(tr('Chi tiết theo buổi'),
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           const SizedBox(height: 12),
           ...summary.sessions.map(_buildSessionCard),
@@ -1941,10 +1937,10 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
           children: [
             Icon(icon, color: color, size: 32),
             const SizedBox(height: 8),
-            Text(value,
+            Text(tr(value),
                 style: TextStyle(
                     fontSize: 28, fontWeight: FontWeight.bold, color: color)),
-            Text(label, style: const TextStyle(color: Colors.grey)),
+            Text(tr(label), style: const TextStyle(color: Colors.grey)),
           ],
         ),
       ),
@@ -1968,8 +1964,8 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
             children: [
               Icon(Icons.menu_book, size: 36, color: Colors.grey[300]),
               const SizedBox(width: 16),
-              const Expanded(
-                child: Text('Chưa có thực đơn cho ngày này',
+              Expanded(
+                child: Text(tr('Chưa có thực đơn cho ngày này'),
                     style: TextStyle(color: Colors.grey, fontSize: 14)),
               ),
             ],
@@ -1999,8 +1995,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                 const Icon(Icons.restaurant_menu,
                     color: Colors.white, size: 20),
                 const SizedBox(width: 8),
-                Text(
-                  'Thực đơn ${DateFormat('dd/MM/yyyy').format(_selectedDate)}',
+                Text(tr('${tr('Thực đơn ')}${DateFormat('dd/MM/yyyy').format(_selectedDate)}'),
                   style: const TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
@@ -2025,7 +2020,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(
-                            menu.mealSessionName ?? 'Buổi ăn',
+                            tr(menu.mealSessionName ?? 'Buổi ăn'),
                             style: const TextStyle(
                                 fontWeight: FontWeight.w600,
                                 color: Color(0xFF0284C7),
@@ -2035,7 +2030,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                         if (menu.note != null && menu.note!.isNotEmpty) ...[
                           const SizedBox(width: 8),
                           Expanded(
-                              child: Text(menu.note!,
+                              child: Text(tr(menu.note!),
                                   style: TextStyle(
                                       fontSize: 12,
                                       color: Colors.grey[600],
@@ -2058,7 +2053,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                               ),
                               const SizedBox(width: 10),
                               Expanded(
-                                  child: Text(item.dishName,
+                                  child: Text(tr(item.dishName),
                                       style: const TextStyle(fontSize: 14))),
                               if (item.category != null &&
                                   item.category!.isNotEmpty)
@@ -2070,7 +2065,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                                         .withValues(alpha: 0.08),
                                     borderRadius: BorderRadius.circular(6),
                                   ),
-                                  child: Text(item.category!,
+                                  child: Text(tr(item.category!),
                                       style: const TextStyle(
                                           fontSize: 11,
                                           color: Color(0xFF10B981),
@@ -2112,11 +2107,11 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(est.mealSessionName,
+                Text(tr(est.mealSessionName),
                     style: const TextStyle(
                         fontSize: 16, fontWeight: FontWeight.bold)),
                 Text(
-                  '${est.startTime ?? ''} - ${est.endTime ?? ''}',
+                  tr('${est.startTime ?? ''} - ${est.endTime ?? ''}'),
                   style: const TextStyle(color: Colors.grey),
                 ),
               ],
@@ -2124,7 +2119,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
             if (est.pricePerMeal > 0)
               Padding(
                 padding: const EdgeInsets.only(top: 4),
-                child: Text('Giá: ${_formatCurrency(est.pricePerMeal)}/suất',
+                child: Text(tr('Giá: ${_formatCurrency(est.pricePerMeal)}/suất'),
                     style: const TextStyle(
                         color: Color(0xFFF59E0B), fontSize: 13)),
               ),
@@ -2159,7 +2154,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
             // Today's menu inline
             if (todayMenus.isNotEmpty) ...[
               const Divider(height: 20),
-              const Text('🍽️ Thực đơn hôm nay',
+              Text(tr('🍽️ Thực đơn hôm nay'),
                   style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
@@ -2172,12 +2167,12 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                         const Icon(Icons.circle,
                             size: 5, color: Color(0xFF10B981)),
                         const SizedBox(width: 6),
-                        Text(item.dishName,
+                        Text(tr(item.dishName),
                             style: const TextStyle(fontSize: 13)),
                         if (item.category != null && item.category!.isNotEmpty)
                           Padding(
                             padding: const EdgeInsets.only(left: 6),
-                            child: Text('(${item.category})',
+                            child: Text(tr('(${item.category})'),
                                 style: const TextStyle(
                                     fontSize: 11, color: Colors.grey)),
                           ),
@@ -2195,10 +2190,10 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
     return Expanded(
       child: Column(
         children: [
-          Text(value,
+          Text(tr(value),
               style: TextStyle(
                   fontWeight: FontWeight.bold, color: color, fontSize: 15)),
-          Text(label, style: const TextStyle(fontSize: 11, color: Colors.grey)),
+          Text(tr(label), style: const TextStyle(fontSize: 11, color: Colors.grey)),
         ],
       ),
     );
@@ -2218,14 +2213,14 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
             children: [
               Expanded(
                 child: InputDecorator(
-                  decoration: const InputDecoration(
-                      labelText: 'Ngày',
+                  decoration: InputDecoration(
+                      labelText: tr('Ngày'),
                       border: OutlineInputBorder(),
                       contentPadding:
                           EdgeInsets.symmetric(horizontal: 12, vertical: 8)),
                   child: InkWell(
                     onTap: _pickDate,
-                    child: Text(DateFormat('dd/MM/yyyy').format(_selectedDate)),
+                    child: Text(tr(DateFormat('dd/MM/yyyy').format(_selectedDate))),
                   ),
                 ),
               ),
@@ -2233,15 +2228,15 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
               Expanded(
                 child: DropdownButtonFormField<String?>(
                   initialValue: _filterSessionId,
-                  decoration: const InputDecoration(
-                      labelText: 'Buổi ăn',
+                  decoration: InputDecoration(
+                      labelText: tr('Buổi ăn'),
                       border: OutlineInputBorder(),
                       contentPadding:
                           EdgeInsets.symmetric(horizontal: 12, vertical: 8)),
                   items: [
-                    const DropdownMenuItem(value: null, child: Text('Tất cả')),
+                    DropdownMenuItem(value: null, child: Text(tr('Tất cả'))),
                     ..._sessions.map((s) =>
-                        DropdownMenuItem(value: s.id, child: Text(s.name))),
+                        DropdownMenuItem(value: s.id, child: Text(tr(s.name)))),
                   ],
                   onChanged: (v) {
                     setState(() {
@@ -2256,7 +2251,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                 const SizedBox(width: 8),
                 IconButton.filled(
                   icon: const Icon(Icons.add),
-                  tooltip: 'Thêm chấm cơm',
+                  tooltip: tr('Thêm chấm cơm'),
                   onPressed: _showAddRecordDialog,
                 ),
               ],
@@ -2268,7 +2263,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
           padding: const EdgeInsets.fromLTRB(12, 0, 12, 4),
           child: TextField(
             decoration: InputDecoration(
-              hintText: 'Tìm theo tên nhân viên...',
+              hintText: tr('Tìm theo tên nhân viên...'),
               prefixIcon: const Icon(Icons.search, size: 20),
               border: const OutlineInputBorder(),
               contentPadding:
@@ -2291,9 +2286,9 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
             child: Align(
               alignment: Alignment.centerLeft,
               child: Text(
-                _totalPages > 1
+                tr(_totalPages > 1
                     ? '$_totalRecords bản ghi • Trang $_currentPage/$_totalPages'
-                    : '${_records.length} bản ghi',
+                    : '${_records.length} bản ghi'),
                 style: const TextStyle(color: Colors.grey, fontSize: 12),
               ),
             ),
@@ -2303,8 +2298,8 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
           child: _isLoading
               ? const Center(child: CircularProgressIndicator())
               : _records.isEmpty
-                  ? const Center(
-                      child: Text('Chưa có dữ liệu chấm cơm',
+                  ? Center(
+                      child: Text(tr('Chưa có dữ liệu chấm cơm'),
                           style: TextStyle(color: Colors.grey)))
                   : Builder(builder: (_) {
                       final filtered = _recordSearch.isEmpty
@@ -2315,8 +2310,8 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                                   .contains(_recordSearch.toLowerCase()))
                               .toList();
                       if (filtered.isEmpty) {
-                        return const Center(
-                            child: Text('Không tìm thấy',
+                        return Center(
+                            child: Text(tr('Không tìm thấy'),
                                 style: TextStyle(color: Colors.grey)));
                       }
                       return ListView.builder(
@@ -2333,15 +2328,15 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                               leading: CircleAvatar(
                                 backgroundColor: _sessionColor(r.mealSessionId),
                                 child: Text(
-                                  r.employeeName.isNotEmpty
+                                  tr(r.employeeName.isNotEmpty
                                       ? r.employeeName[0].toUpperCase()
-                                      : '?',
+                                      : '?'),
                                   style: const TextStyle(color: Colors.white),
                                 ),
                               ),
-                              title: Text(r.employeeName),
+                              title: Text(tr(r.employeeName)),
                               subtitle: Text(
-                                '${r.mealSessionName ?? ''} | ${DateFormat('HH:mm').format(r.mealTime)}',
+                                tr('${r.mealSessionName ?? ''} | ${DateFormat('HH:mm').format(r.mealTime)}'),
                               ),
                               trailing: canManage
                                   ? PopupMenuButton<String>(
@@ -2354,17 +2349,17 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                                         if (v == 'delete') _deleteRecord(r);
                                       },
                                       itemBuilder: (_) => [
-                                        const PopupMenuItem(
-                                            value: 'edit', child: Text('Sửa')),
-                                        const PopupMenuItem(
+                                        PopupMenuItem(
+                                            value: 'edit', child: Text(tr('Sửa'))),
+                                        PopupMenuItem(
                                             value: 'delete',
-                                            child: Text('Xóa',
+                                            child: Text(tr('Xóa'),
                                                 style: TextStyle(
                                                     color: Colors.red))),
                                       ],
                                     )
                                   : Text(
-                                      r.deviceName ?? r.pin ?? '',
+                                      tr(r.deviceName ?? r.pin ?? ''),
                                       style:
                                           const TextStyle(color: Colors.grey),
                                     ),
@@ -2390,7 +2385,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                         }
                       : null,
                 ),
-                Text('Trang $_currentPage / $_totalPages'),
+                Text(tr('Trang $_currentPage / $_totalPages')),
                 IconButton(
                   icon: const Icon(Icons.chevron_right),
                   onPressed: _currentPage < _totalPages
@@ -2421,13 +2416,13 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                 child: InkWell(
                   onTap: _pickSummaryRange,
                   child: InputDecorator(
-                    decoration: const InputDecoration(
-                        labelText: 'Khoảng thời gian',
+                    decoration: InputDecoration(
+                        labelText: tr('Khoảng thời gian'),
                         border: OutlineInputBorder(),
                         contentPadding:
                             EdgeInsets.symmetric(horizontal: 12, vertical: 8)),
                     child: Text(
-                      '${DateFormat('dd/MM/yyyy').format(_summaryFrom)} - ${DateFormat('dd/MM/yyyy').format(_summaryTo)}',
+                      tr('${DateFormat('dd/MM/yyyy').format(_summaryFrom)} - ${DateFormat('dd/MM/yyyy').format(_summaryTo)}'),
                     ),
                   ),
                 ),
@@ -2435,7 +2430,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
               const SizedBox(width: 12),
               FilledButton.icon(
                 icon: const Icon(Icons.search),
-                label: const Text('Xem'),
+                label: Text(tr('Xem')),
                 onPressed: _loadEmployeeSummary,
               ),
             ],
@@ -2448,7 +2443,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
               Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             TextField(
               decoration: InputDecoration(
-                hintText: 'Tìm theo tên / mã nhân viên...',
+                hintText: tr('Tìm theo tên / mã nhân viên...'),
                 prefixIcon: const Icon(Icons.search, size: 20),
                 border: const OutlineInputBorder(),
                 contentPadding:
@@ -2488,13 +2483,13 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                         icon: const Icon(Icons.keyboard_arrow_down,
                             size: 18, color: Color(0xFF9CA3AF)),
                         items: [
-                          const DropdownMenuItem<String?>(
+                          DropdownMenuItem<String?>(
                               value: null,
-                              child: Text('Tất cả chi nhánh',
+                              child: Text(tr('Tất cả chi nhánh'),
                                   style: TextStyle(fontSize: 13))),
                           ..._branches.map((b) => DropdownMenuItem<String?>(
                               value: b['id']?.toString(),
-                              child: Text(b['name']?.toString() ?? '',
+                              child: Text(tr(b['name']?.toString() ?? ''),
                                   overflow: TextOverflow.ellipsis,
                                   style: const TextStyle(fontSize: 13)))),
                         ],
@@ -2520,8 +2515,8 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
           child: _isLoading
               ? const Center(child: CircularProgressIndicator())
               : _employeeSummaries.isEmpty
-                  ? const Center(
-                      child: Text('Chưa có dữ liệu',
+                  ? Center(
+                      child: Text(tr('Chưa có dữ liệu'),
                           style: TextStyle(color: Colors.grey)))
                   : Builder(
                       builder: (_) {
@@ -2553,8 +2548,8 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                               .toList();
                         }
                         if (filtered.isEmpty) {
-                          return const Center(
-                              child: Text('Không tìm thấy',
+                          return Center(
+                              child: Text(tr('Không tìm thấy'),
                                   style: TextStyle(color: Colors.grey)));
                         }
                         return ListView.builder(
@@ -2578,9 +2573,9 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                                         backgroundColor:
                                             const Color(0xFF0284C7),
                                         child: Text(
-                                          s.employeeName.isNotEmpty
+                                          tr(s.employeeName.isNotEmpty
                                               ? s.employeeName[0].toUpperCase()
-                                              : '?',
+                                              : '?'),
                                           style: const TextStyle(
                                               color: Colors.white,
                                               fontWeight: FontWeight.bold),
@@ -2592,12 +2587,12 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                                           crossAxisAlignment:
                                               CrossAxisAlignment.start,
                                           children: [
-                                            Text(s.employeeName,
+                                            Text(tr(s.employeeName),
                                                 style: const TextStyle(
                                                     fontWeight: FontWeight.bold,
                                                     fontSize: 14)),
                                             Text(
-                                              '${s.employeeCode ?? ''} | ${s.totalMeals} suất | ${_formatCurrency(s.totalCost)}',
+                                              tr('${s.employeeCode ?? ''} | ${s.totalMeals} suất | ${_formatCurrency(s.totalCost)}'),
                                               style: const TextStyle(
                                                   color: Colors.grey,
                                                   fontSize: 12),
@@ -2617,8 +2612,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                                               ),
                                             ),
                                             const SizedBox(height: 2),
-                                            Text(
-                                              'Đã trả ${_formatCurrency(s.totalPaid)}',
+                                            Text(tr('Đã trả ${_formatCurrency(s.totalPaid)}'),
                                               style: const TextStyle(
                                                   fontSize: 11,
                                                   color: Colors.grey),
@@ -2632,7 +2626,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                                             CrossAxisAlignment.end,
                                         children: [
                                           Text(
-                                            _formatCurrency(s.balance),
+                                            tr(_formatCurrency(s.balance)),
                                             style: TextStyle(
                                                 fontWeight: FontWeight.bold,
                                                 fontSize: 15,
@@ -2641,9 +2635,9 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                                                     : const Color(0xFF10B981)),
                                           ),
                                           Text(
-                                            s.balance > 0
+                                            tr(s.balance > 0
                                                 ? 'Còn nợ'
-                                                : 'Đã trả đủ',
+                                                : 'Đã trả đủ'),
                                             style: TextStyle(
                                                 fontSize: 10,
                                                 color: Colors.grey[600]),
@@ -2668,15 +2662,13 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('${_employeeSummaries.length} NV',
+                Text(tr('${_employeeSummaries.length} NV'),
                     style: const TextStyle(fontWeight: FontWeight.bold)),
-                Text(
-                  'Suất: ${_employeeSummaries.fold<int>(0, (sum, e) => sum + e.totalMeals)}',
+                Text(tr('Suất: ${_employeeSummaries.fold<int>(0, (sum, e) => sum + e.totalMeals)}'),
                   style: const TextStyle(
                       fontWeight: FontWeight.bold, color: Color(0xFF0284C7)),
                 ),
-                Text(
-                  'Nợ: ${_formatCurrency(_employeeSummaries.fold<double>(0, (sum, e) => sum + e.balance))}',
+                Text(tr('Nợ: ${_formatCurrency(_employeeSummaries.fold<double>(0, (sum, e) => sum + e.balance))}'),
                   style: const TextStyle(
                       fontWeight: FontWeight.bold, color: Colors.red),
                 ),
@@ -2692,7 +2684,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
 
     Widget buildList() {
       if (emp.details.isEmpty) {
-        return const Center(child: Text('Không có chi tiết'));
+        return Center(child: Text(tr('Không có chi tiết')));
       }
       return ListView.builder(
         shrinkWrap: !isMobile,
@@ -2702,9 +2694,9 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
           final d = emp.details[i];
           return ListTile(
             leading: const Icon(Icons.restaurant, color: Color(0xFF10B981)),
-            title: Text(d.mealSessionName),
-            subtitle: Text(DateFormat('dd/MM/yyyy').format(d.date)),
-            trailing: Text(DateFormat('HH:mm').format(d.mealTime)),
+            title: Text(tr(d.mealSessionName)),
+            subtitle: Text(tr(DateFormat('dd/MM/yyyy').format(d.date))),
+            trailing: Text(tr(DateFormat('HH:mm').format(d.mealTime))),
           );
         },
       );
@@ -2717,7 +2709,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
           return Dialog.fullscreen(
             child: Scaffold(
               appBar: AppBar(
-                title: Text(emp.employeeName),
+                title: Text(tr(emp.employeeName)),
                 leading: IconButton(
                     icon: const Icon(Icons.close),
                     onPressed: () => Navigator.pop(ctx)),
@@ -2728,7 +2720,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
         }
 
         return ScrollableAlertDialog(
-          title: Text(emp.employeeName),
+          title: Text(tr(emp.employeeName)),
           content: SizedBox(
             width: 400,
             height: 400,
@@ -2736,7 +2728,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
           ),
           actions: [
             TextButton(
-                onPressed: () => Navigator.pop(ctx), child: const Text('Đóng')),
+                onPressed: () => Navigator.pop(ctx), child: Text(tr('Đóng'))),
           ],
         );
       },
@@ -2773,8 +2765,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                   ),
                   Expanded(
                     child: Center(
-                      child: Text(
-                        'Tuần ${DateFormat('dd/MM').format(_menuWeekStart)} - ${DateFormat('dd/MM/yyyy').format(weekEnd)}',
+                      child: Text(tr('${tr('Tuần ')}${DateFormat('dd/MM').format(_menuWeekStart)} - ${DateFormat('dd/MM/yyyy').format(weekEnd)}'),
                         style: const TextStyle(
                             fontSize: 16, fontWeight: FontWeight.w600),
                       ),
@@ -2798,7 +2789,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                     children: [
                       OutlinedButton.icon(
                         icon: const Icon(Icons.image, size: 16),
-                        label: const Text('Xuất ảnh'),
+                        label: Text(tr('Xuất ảnh')),
                         style: OutlinedButton.styleFrom(
                             visualDensity: VisualDensity.compact),
                         onPressed: _exportMenuAsPng,
@@ -2806,7 +2797,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                       const SizedBox(width: 8),
                       OutlinedButton.icon(
                         icon: const Icon(Icons.table_chart, size: 16),
-                        label: const Text('Xuất Excel'),
+                        label: Text(tr('Xuất Excel')),
                         style: OutlinedButton.styleFrom(
                             visualDensity: VisualDensity.compact),
                         onPressed: _exportMenuAsExcel,
@@ -2828,14 +2819,14 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                           Icon(Icons.restaurant_menu,
                               size: 72, color: Colors.grey[300]),
                           const SizedBox(height: 16),
-                          const Text('Chưa có thực đơn cho tuần này',
+                          Text(tr('Chưa có thực đơn cho tuần này'),
                               style:
                                   TextStyle(color: Colors.grey, fontSize: 15)),
                           if (canManage) ...[
                             const SizedBox(height: 16),
                             FilledButton.icon(
                               icon: const Icon(Icons.add),
-                              label: const Text('Tạo thực đơn'),
+                              label: Text(tr('Tạo thực đơn')),
                               onPressed: _showCreateMenuDialog,
                             ),
                           ],
@@ -2868,10 +2859,10 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                                   child: ListTile(
                                     dense: true,
                                     leading: _buildDayBadge(dayDate, today),
-                                    title: Text(_dayNames[dayIndex],
+                                    title: Text(tr(_dayNames[dayIndex]),
                                         style: const TextStyle(
                                             fontWeight: FontWeight.w500)),
-                                    subtitle: const Text('Chưa có thực đơn',
+                                    subtitle: Text(tr('Chưa có thực đơn'),
                                         style: TextStyle(fontSize: 12)),
                                   ),
                                 ),
@@ -2898,7 +2889,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                                   leading: _buildDayBadge(dayDate, today),
                                   title: Row(
                                     children: [
-                                      Text(_dayNames[dayIndex],
+                                      Text(tr(_dayNames[dayIndex]),
                                           style: const TextStyle(
                                               fontWeight: FontWeight.w600,
                                               fontSize: 15)),
@@ -2912,7 +2903,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                                           borderRadius:
                                               BorderRadius.circular(12),
                                         ),
-                                        child: Text('${dayMenus.length} buổi',
+                                        child: Text(tr('${dayMenus.length} buổi'),
                                             style: const TextStyle(
                                                 fontSize: 11,
                                                 color: Color(0xFF0284C7),
@@ -2946,7 +2937,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
       ),
       child: Center(
         child: Text(
-          '${date.day}',
+          tr('${date.day}'),
           style: TextStyle(
             fontWeight: FontWeight.bold,
             fontSize: 16,
@@ -2984,7 +2975,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      menu.mealSessionName ?? 'Buổi ăn',
+                      tr(menu.mealSessionName ?? 'Buổi ăn'),
                       style: const TextStyle(
                           fontWeight: FontWeight.w600,
                           color: Color(0xFF0284C7),
@@ -2995,14 +2986,14 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                     IconButton(
                       icon: const Icon(Icons.edit_outlined, size: 18),
                       visualDensity: VisualDensity.compact,
-                      tooltip: 'Sửa thực đơn',
+                      tooltip: tr('Sửa thực đơn'),
                       onPressed: () => _showEditMenuDialog(menu),
                     ),
                     IconButton(
                       icon: const Icon(Icons.delete_outline,
                           size: 18, color: Colors.red),
                       visualDensity: VisualDensity.compact,
-                      tooltip: 'Xoá thực đơn',
+                      tooltip: tr('Xoá thực đơn'),
                       onPressed: () => _deleteMenu(menu),
                     ),
                   ],
@@ -3012,7 +3003,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
             if (menu.note != null && menu.note!.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.fromLTRB(12, 6, 12, 0),
-                child: Text(menu.note!,
+                child: Text(tr(menu.note!),
                     style: TextStyle(
                         fontStyle: FontStyle.italic,
                         color: Colors.grey[600],
@@ -3036,7 +3027,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                         ),
                         const SizedBox(width: 10),
                         Expanded(
-                            child: Text(item.dishName,
+                            child: Text(tr(item.dishName),
                                 style: const TextStyle(fontSize: 13.5))),
                         if (item.category != null && item.category!.isNotEmpty)
                           Container(
@@ -3047,7 +3038,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                                   .withValues(alpha: 0.08),
                               borderRadius: BorderRadius.circular(6),
                             ),
-                            child: Text(item.category!,
+                            child: Text(tr(item.category!),
                                 style: const TextStyle(
                                     fontSize: 11,
                                     color: Color(0xFF10B981),
@@ -3093,8 +3084,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                 },
               ),
               Expanded(
-                child: Text(
-                  'Tháng $_debtPeriod',
+                child: Text(tr('Tháng $_debtPeriod'),
                   textAlign: TextAlign.center,
                   style: const TextStyle(
                       fontWeight: FontWeight.bold, fontSize: 16),
@@ -3130,26 +3120,25 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                       showDialog(
                         context: context,
                         builder: (ctx) => ScrollableAlertDialog(
-                          title: const Text('Tính tiền cơm'),
-                          content: Text(
-                              'Tự động tính tiền cơm cho tất cả nhân viên tháng $_debtPeriod dựa trên số suất ăn thực tế?'),
+                          title: Text(tr('Tính tiền cơm')),
+                          content: Text(tr('Tự động tính tiền cơm cho tất cả nhân viên tháng $_debtPeriod dựa trên số suất ăn thực tế?')),
                           actions: [
                             TextButton(
                                 onPressed: () => Navigator.pop(ctx),
-                                child: const Text('Hủy')),
+                                child: Text(tr('Hủy'))),
                             FilledButton(
                               onPressed: () {
                                 Navigator.pop(ctx);
                                 _doBatchCharge();
                               },
-                              child: const Text('Xác nhận'),
+                              child: Text(tr('Xác nhận')),
                             ),
                           ],
                         ),
                       );
                     },
                     icon: const Icon(Icons.calculate),
-                    label: const Text('Tính tiền cơm tháng'),
+                    label: Text(tr('Tính tiền cơm tháng')),
                     style: FilledButton.styleFrom(
                         backgroundColor: const Color(0xFFF59E0B)),
                   ),
@@ -3168,7 +3157,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
           padding: const EdgeInsets.fromLTRB(12, 0, 12, 4),
           child: TextField(
             decoration: InputDecoration(
-              hintText: 'Tìm theo tên / mã nhân viên...',
+              hintText: tr('Tìm theo tên / mã nhân viên...'),
               prefixIcon: const Icon(Icons.search, size: 20),
               border: const OutlineInputBorder(),
               contentPadding:
@@ -3189,8 +3178,8 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
           child: _isLoadingDebt
               ? const Center(child: CircularProgressIndicator())
               : _debtSummaries.isEmpty
-                  ? const Center(
-                      child: Text('Chưa có dữ liệu công nợ',
+                  ? Center(
+                      child: Text(tr('Chưa có dữ liệu công nợ'),
                           style: TextStyle(color: Colors.grey)))
                   : Builder(
                       builder: (_) {
@@ -3205,8 +3194,8 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                                         .contains(q))
                                 .toList();
                         if (filtered.isEmpty) {
-                          return const Center(
-                              child: Text('Không tìm thấy',
+                          return Center(
+                              child: Text(tr('Không tìm thấy'),
                                   style: TextStyle(color: Colors.grey)));
                         }
                         return ListView.builder(
@@ -3228,9 +3217,9 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                                           ? const Color(0xFFEF4444)
                                           : const Color(0xFF10B981),
                                       child: Text(
-                                        d.employeeName.isNotEmpty
+                                        tr(d.employeeName.isNotEmpty
                                             ? d.employeeName[0].toUpperCase()
-                                            : '?',
+                                            : '?'),
                                         style: const TextStyle(
                                             color: Colors.white,
                                             fontWeight: FontWeight.bold),
@@ -3242,12 +3231,12 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                                         crossAxisAlignment:
                                             CrossAxisAlignment.start,
                                         children: [
-                                          Text(d.employeeName,
+                                          Text(tr(d.employeeName),
                                               style: const TextStyle(
                                                   fontWeight: FontWeight.bold,
                                                   fontSize: 14)),
                                           Text(
-                                            '${d.employeeCode ?? ''} | ${d.totalMeals} suất',
+                                            tr('${d.employeeCode ?? ''} | ${d.totalMeals} suất'),
                                             style: const TextStyle(
                                                 color: Colors.grey,
                                                 fontSize: 12),
@@ -3267,8 +3256,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                                             ),
                                           ),
                                           const SizedBox(height: 2),
-                                          Text(
-                                            'Đã trả ${_formatCurrency(d.totalPaid)} / ${_formatCurrency(d.totalCharged)}',
+                                          Text(tr('Đã trả ${_formatCurrency(d.totalPaid)} / ${_formatCurrency(d.totalCharged)}'),
                                             style: const TextStyle(
                                                 fontSize: 11,
                                                 color: Colors.grey),
@@ -3282,7 +3270,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                                           CrossAxisAlignment.end,
                                       children: [
                                         Text(
-                                          _formatCurrency(d.balance),
+                                          tr(_formatCurrency(d.balance)),
                                           style: TextStyle(
                                               fontWeight: FontWeight.bold,
                                               fontSize: 15,
@@ -3291,9 +3279,9 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                                                   : const Color(0xFF10B981)),
                                         ),
                                         Text(
-                                          d.balance > 0
+                                          tr(d.balance > 0
                                               ? 'Còn nợ'
-                                              : 'Đã trả đủ',
+                                              : 'Đã trả đủ'),
                                           style: TextStyle(
                                               fontSize: 10,
                                               color: Colors.grey[600]),
@@ -3308,8 +3296,8 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                                                     _showRecordPaymentDialog(d),
                                                 borderRadius:
                                                     BorderRadius.circular(4),
-                                                child: const Tooltip(
-                                                  message: 'Thu tiền',
+                                                child: Tooltip(
+                                                  message: tr('Thu tiền'),
                                                   child: Padding(
                                                     padding: EdgeInsets.all(4),
                                                     child: Icon(Icons.payment,
@@ -3326,8 +3314,8 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                                                   _showDebtHistoryDialog(d),
                                               borderRadius:
                                                   BorderRadius.circular(4),
-                                              child: const Tooltip(
-                                                message: 'Lịch sử',
+                                              child: Tooltip(
+                                                message: tr('Lịch sử'),
                                                 child: Padding(
                                                   padding: EdgeInsets.all(4),
                                                   child: Icon(Icons.history,
@@ -3357,10 +3345,9 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('${_debtSummaries.length} NV',
+                Text(tr('${_debtSummaries.length} NV'),
                     style: const TextStyle(fontWeight: FontWeight.bold)),
-                Text(
-                  'Tổng nợ: ${_formatCurrency(_debtSummaries.fold<double>(0, (sum, e) => sum + e.balance))}',
+                Text(tr('Tổng nợ: ${_formatCurrency(_debtSummaries.fold<double>(0, (sum, e) => sum + e.balance))}'),
                   style: const TextStyle(
                       fontWeight: FontWeight.bold, color: Colors.red),
                 ),
@@ -3378,7 +3365,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
 
     Widget buildList() {
       if (_debtHistory.isEmpty) {
-        return const Center(child: Text('Chưa có giao dịch'));
+        return Center(child: Text(tr('Chưa có giao dịch')));
       }
       return ListView.builder(
         shrinkWrap: !isMobile,
@@ -3394,8 +3381,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
               child: Icon(isPayment ? Icons.arrow_downward : Icons.arrow_upward,
                   color: Colors.white, size: 18),
             ),
-            title: Text(
-              '${isPayment ? "Thu tiền" : "Tính cơm"}: ${_formatCurrency(d.amount)}',
+            title: Text(tr('${isPayment ? "Thu tiền" : "Tính cơm"}: ${_formatCurrency(d.amount)}'),
               style: TextStyle(
                   fontWeight: FontWeight.bold,
                   color: isPayment
@@ -3403,9 +3389,9 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                       : const Color(0xFFEF4444)),
             ),
             subtitle: Text(
-              '${DateFormat('dd/MM/yyyy').format(d.date)}${d.note != null && d.note!.isNotEmpty ? ' - ${d.note}' : ''}',
+              tr('${DateFormat('dd/MM/yyyy').format(d.date)}${d.note != null && d.note!.isNotEmpty ? ' - ${d.note}' : ''}'),
             ),
-            trailing: Text(d.recordedByName ?? '',
+            trailing: Text(tr(d.recordedByName ?? ''),
                 style: const TextStyle(fontSize: 11, color: Colors.grey)),
           );
         },
@@ -3419,7 +3405,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
           return Dialog.fullscreen(
             child: Scaffold(
               appBar: AppBar(
-                title: Text('Công nợ - ${debt.employeeName}'),
+                title: Text(tr('Công nợ - ${debt.employeeName}')),
                 leading: IconButton(
                     icon: const Icon(Icons.close),
                     onPressed: () => Navigator.pop(ctx)),
@@ -3433,28 +3419,28 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                       mainAxisAlignment: MainAxisAlignment.spaceAround,
                       children: [
                         Column(children: [
-                          Text(_formatCurrency(debt.totalCharged),
+                          Text(tr(_formatCurrency(debt.totalCharged)),
                               style:
                                   const TextStyle(fontWeight: FontWeight.bold)),
-                          const Text('Tiền cơm',
+                          Text(tr('Tiền cơm'),
                               style:
                                   TextStyle(fontSize: 12, color: Colors.grey)),
                         ]),
                         Column(children: [
-                          Text(_formatCurrency(debt.totalPaid),
+                          Text(tr(_formatCurrency(debt.totalPaid)),
                               style: const TextStyle(
                                   fontWeight: FontWeight.bold,
                                   color: Color(0xFF10B981))),
-                          const Text('Đã trả',
+                          Text(tr('Đã trả'),
                               style:
                                   TextStyle(fontSize: 12, color: Colors.grey)),
                         ]),
                         Column(children: [
-                          Text(_formatCurrency(debt.balance),
+                          Text(tr(_formatCurrency(debt.balance)),
                               style: const TextStyle(
                                   fontWeight: FontWeight.bold,
                                   color: Colors.red)),
-                          const Text('Còn nợ',
+                          Text(tr('Còn nợ'),
                               style:
                                   TextStyle(fontSize: 12, color: Colors.grey)),
                         ]),
@@ -3468,11 +3454,11 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
           );
         }
         return ScrollableAlertDialog(
-          title: Text('Công nợ - ${debt.employeeName}'),
+          title: Text(tr('Công nợ - ${debt.employeeName}')),
           content: SizedBox(width: 400, height: 400, child: buildList()),
           actions: [
             TextButton(
-                onPressed: () => Navigator.pop(ctx), child: const Text('Đóng')),
+                onPressed: () => Navigator.pop(ctx), child: Text(tr('Đóng'))),
           ],
         );
       },
@@ -3491,7 +3477,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDlgState) => ScrollableAlertDialog(
-          title: const Text('Thêm chấm cơm thủ công'),
+          title: Text(tr('Thêm chấm cơm thủ công')),
           content: SizedBox(
             width: 380,
             child: Column(
@@ -3516,8 +3502,8 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                   fieldViewBuilder: (ctx, ctl, fn, onSubmit) => TextField(
                     controller: ctl,
                     focusNode: fn,
-                    decoration: const InputDecoration(
-                        labelText: 'Nhân viên *', border: OutlineInputBorder()),
+                    decoration: InputDecoration(
+                        labelText: tr('Nhân viên *'), border: OutlineInputBorder()),
                   ),
                   onSelected: (e) {
                     selectedEmployeeId = e['userId']?.toString();
@@ -3527,11 +3513,11 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                 // Session dropdown
                 DropdownButtonFormField<String>(
                   initialValue: selectedSessionId,
-                  decoration: const InputDecoration(
-                      labelText: 'Buổi ăn *', border: OutlineInputBorder()),
+                  decoration: InputDecoration(
+                      labelText: tr('Buổi ăn *'), border: OutlineInputBorder()),
                   items: _sessions
                       .map((s) =>
-                          DropdownMenuItem(value: s.id, child: Text(s.name)))
+                          DropdownMenuItem(value: s.id, child: Text(tr(s.name))))
                       .toList(),
                   onChanged: (v) => setDlgState(() => selectedSessionId = v),
                 ),
@@ -3544,10 +3530,10 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                     if (t != null) setDlgState(() => mealTime = t);
                   },
                   child: InputDecorator(
-                    decoration: const InputDecoration(
-                        labelText: 'Giờ ăn', border: OutlineInputBorder()),
+                    decoration: InputDecoration(
+                        labelText: tr('Giờ ăn'), border: OutlineInputBorder()),
                     child: Text(
-                        '${mealTime.hour.toString().padLeft(2, '0')}:${mealTime.minute.toString().padLeft(2, '0')}'),
+                        tr('${mealTime.hour.toString().padLeft(2, '0')}:${mealTime.minute.toString().padLeft(2, '0')}')),
                   ),
                 ),
               ],
@@ -3555,13 +3541,13 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
           ),
           actions: [
             TextButton(
-                onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
+                onPressed: () => Navigator.pop(ctx), child: Text(tr('Hủy'))),
             FilledButton(
               onPressed: () async {
                 if (selectedEmployeeId == null || selectedSessionId == null) {
                   NotificationOverlayManager().showError(
                       title: 'Lỗi',
-                      message: 'Vui lòng chọn nhân viên và buổi ăn');
+                      message: tr('Vui lòng chọn nhân viên và buổi ăn'));
                   return;
                 }
                 Navigator.pop(ctx);
@@ -3579,14 +3565,14 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                 });
                 if (res['isSuccess'] == true) {
                   NotificationOverlayManager().showSuccess(
-                      title: 'Thành công', message: 'Đã thêm chấm cơm');
+                      title: 'Thành công', message: tr('Đã thêm chấm cơm'));
                   _loadRecords();
                 } else {
                   NotificationOverlayManager().showError(
                       title: 'Lỗi', message: res['message'] ?? 'Thêm thất bại');
                 }
               },
-              child: const Text('Thêm'),
+              child: Text(tr('Thêm')),
             ),
           ],
         ),
@@ -3603,17 +3589,17 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDlgState) => ScrollableAlertDialog(
-          title: Text('Sửa chấm cơm - ${record.employeeName}'),
+          title: Text(tr('Sửa chấm cơm - ${record.employeeName}')),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               DropdownButtonFormField<String>(
                 initialValue: selectedSessionId,
-                decoration: const InputDecoration(
-                    labelText: 'Buổi ăn', border: OutlineInputBorder()),
+                decoration: InputDecoration(
+                    labelText: tr('Buổi ăn'), border: OutlineInputBorder()),
                 items: _sessions
                     .map((s) =>
-                        DropdownMenuItem(value: s.id, child: Text(s.name)))
+                        DropdownMenuItem(value: s.id, child: Text(tr(s.name))))
                     .toList(),
                 onChanged: (v) => setDlgState(() => selectedSessionId = v),
               ),
@@ -3625,17 +3611,17 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                   if (t != null) setDlgState(() => mealTime = t);
                 },
                 child: InputDecorator(
-                  decoration: const InputDecoration(
-                      labelText: 'Giờ ăn', border: OutlineInputBorder()),
+                  decoration: InputDecoration(
+                      labelText: tr('Giờ ăn'), border: OutlineInputBorder()),
                   child: Text(
-                      '${mealTime.hour.toString().padLeft(2, '0')}:${mealTime.minute.toString().padLeft(2, '0')}'),
+                      tr('${mealTime.hour.toString().padLeft(2, '0')}:${mealTime.minute.toString().padLeft(2, '0')}')),
                 ),
               ),
             ],
           ),
           actions: [
             TextButton(
-                onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
+                onPressed: () => Navigator.pop(ctx), child: Text(tr('Hủy'))),
             FilledButton(
               onPressed: () async {
                 Navigator.pop(ctx);
@@ -3651,7 +3637,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                 });
                 if (res['isSuccess'] == true) {
                   NotificationOverlayManager()
-                      .showSuccess(title: 'Thành công', message: 'Đã cập nhật');
+                      .showSuccess(title: 'Thành công', message: tr('Đã cập nhật'));
                   _loadRecords();
                 } else {
                   NotificationOverlayManager().showError(
@@ -3659,7 +3645,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                       message: res['message'] ?? 'Cập nhật thất bại');
                 }
               },
-              child: const Text('Lưu'),
+              child: Text(tr('Lưu')),
             ),
           ],
         ),
@@ -3671,16 +3657,16 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => ScrollableAlertDialog(
-        title: const Text('Xác nhận xóa'),
-        content: Text('Xóa chấm cơm của ${record.employeeName}?'),
+        title: Text(tr('Xác nhận xóa')),
+        content: Text(tr('Xóa chấm cơm của ${record.employeeName}?')),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Hủy')),
+              child: Text(tr('Hủy'))),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Xóa'),
+            child: Text(tr('Xóa')),
           ),
         ],
       ),
@@ -3689,7 +3675,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
     final res = await _apiService.deleteMealRecord(record.id);
     if (res['isSuccess'] == true) {
       NotificationOverlayManager()
-          .showSuccess(title: 'Đã xóa', message: 'Xóa bản ghi thành công');
+          .showSuccess(title: 'Đã xóa', message: tr('Xóa bản ghi thành công'));
       _loadRecords();
     } else {
       NotificationOverlayManager()
@@ -3704,7 +3690,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
 
     Widget buildList() {
       if (_sessions.isEmpty) {
-        return const Center(child: Text('Chưa có buổi ăn nào'));
+        return Center(child: Text(tr('Chưa có buổi ăn nào')));
       }
       return ListView.builder(
         shrinkWrap: !isMobile,
@@ -3713,9 +3699,9 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
         itemBuilder: (_, i) {
           final s = _sessions[i];
           return ListTile(
-            title: Text(s.name),
+            title: Text(tr(s.name)),
             subtitle: Text(
-                '${s.startTime ?? ''} - ${s.endTime ?? ''}${s.pricePerMeal > 0 ? ' | ${_formatCurrency(s.pricePerMeal)}/suất' : ''}'),
+                tr('${s.startTime ?? ''} - ${s.endTime ?? ''}${s.pricePerMeal > 0 ? ' | ${_formatCurrency(s.pricePerMeal)}/suất' : ''}')),
             trailing: Provider.of<PermissionProvider>(context, listen: false)
                     .canDelete('Meal')
                 ? IconButton(
@@ -3738,7 +3724,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
           return Dialog.fullscreen(
             child: Scaffold(
               appBar: AppBar(
-                title: const Text('Quản lý buổi ăn'),
+                title: Text(tr('Quản lý buổi ăn')),
                 leading: IconButton(
                     icon: const Icon(Icons.close),
                     onPressed: () => Navigator.pop(ctx)),
@@ -3763,7 +3749,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
           title: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('Quản lý buổi ăn'),
+              Text(tr('Quản lý buổi ăn')),
               IconButton(
                 icon: const Icon(Icons.add),
                 onPressed: () {
@@ -3780,7 +3766,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
           ),
           actions: [
             TextButton(
-                onPressed: () => Navigator.pop(ctx), child: const Text('Đóng')),
+                onPressed: () => Navigator.pop(ctx), child: Text(tr('Đóng'))),
           ],
         );
       },

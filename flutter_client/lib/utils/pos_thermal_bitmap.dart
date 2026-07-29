@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
 import 'vietnamese_font.dart';
+import '../l10n/app_tr.dart';
 
 /// Một dòng trên hóa đơn cần render ảnh.
 class PosReceiptImageLine {
@@ -79,7 +80,7 @@ class PosThermalBitmapEncoder {
 
       final tp = TextPainter(
         text: TextSpan(
-          text: line.text,
+          text: tr(line.text),
           style: _thermalStyle(
             fontSize: line.fontSize * scale,
             bold: line.bold,
@@ -148,7 +149,7 @@ class PosThermalBitmapEncoder {
     return receiptToRaster(
       [
         PosReceiptImageLine(
-          text: text,
+          text: tr(text),
           fontSize: fontSize,
           bold: bold,
           center: center,

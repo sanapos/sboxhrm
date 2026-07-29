@@ -10,6 +10,7 @@ import '../widgets/hrm/hrm_settings_mobile_kit.dart';
 import '../widgets/hrm_mini_stat_chip.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../widgets/notification_overlay.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// Màn hình Quản lý Chi nhánh
 class BranchManagementScreen extends StatefulWidget {
@@ -144,7 +145,7 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
         toolbarHeight: embedded ? 0 : kToolbarHeight,
         title: embedded
             ? null
-            : const Text('Quản lý Chi nhánh',
+            : Text(tr('Quản lý Chi nhánh'),
                 style: TextStyle(
                     color: Color(0xFF18181B), fontWeight: FontWeight.bold),
                 overflow: TextOverflow.ellipsis,
@@ -152,10 +153,10 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
         bottom: TabBar(
           controller: _tabController,
           isScrollable: true,
-          tabs: const [
-            Tab(icon: Icon(Icons.list_alt), text: 'Danh sách'),
-            Tab(icon: Icon(Icons.account_tree), text: 'Cây chi nhánh'),
-            Tab(icon: Icon(Icons.analytics), text: 'Thống kê'),
+          tabs: [
+            Tab(icon: Icon(Icons.list_alt), text: tr('Danh sách')),
+            Tab(icon: Icon(Icons.account_tree), text: tr('Cây chi nhánh')),
+            Tab(icon: Icon(Icons.analytics), text: tr('Thống kê')),
           ],
         ),
       ),
@@ -248,17 +249,17 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Quản lý Chi nhánh',
+                      Text(tr('Quản lý Chi nhánh'),
                           style: theme.textTheme.titleLarge
                               ?.copyWith(fontWeight: FontWeight.bold)),
-                      Text('${_branches.length} chi nhánh',
+                      Text(tr('${_branches.length} chi nhánh'),
                           style: theme.textTheme.bodySmall
                               ?.copyWith(color: Colors.grey)),
                     ],
                   ),
                 ),
               ] else
-                Text('${_branches.length} chi nhánh',
+                Text(tr('${_branches.length} chi nhánh'),
                     style: theme.textTheme.bodyMedium
                         ?.copyWith(color: Colors.grey)),
               const Spacer(),
@@ -272,7 +273,7 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
                     : FilledButton.icon(
                         onPressed: () => _showBranchDialog(),
                         icon: const Icon(Icons.add, size: 18),
-                        label: const Text('Thêm mới'),
+                        label: Text(tr('Thêm mới')),
                       ),
             ],
           ),
@@ -286,7 +287,7 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
                     height: 40,
                     child: TextField(
                       decoration: InputDecoration(
-                        hintText: 'Tìm kiếm chi nhánh...',
+                        hintText: tr('Tìm kiếm chi nhánh...'),
                         prefixIcon: const Icon(Icons.search, size: 20),
                         border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(8)),
@@ -303,7 +304,7 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
                 ),
                 const SizedBox(width: 8),
                 FilterChip(
-                  label: const Text('Đang hoạt động'),
+                  label: Text(tr('Đang hoạt động')),
                   selected: _filterActive == true,
                   onSelected: (v) {
                     setState(() => _filterActive = v ? true : null);
@@ -312,7 +313,7 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
                 ),
                 const SizedBox(width: 4),
                 FilterChip(
-                  label: const Text('Ngừng HĐ'),
+                  label: Text(tr('Ngừng HĐ')),
                   selected: _filterActive == false,
                   onSelected: (v) {
                     setState(() => _filterActive = v ? false : null);
@@ -353,19 +354,19 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(branch.name,
+                  Text(tr(branch.name),
                       style: const TextStyle(
                           fontSize: 14, fontWeight: FontWeight.w600),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis),
                   const SizedBox(height: 2),
                   Text(
-                    [
+                    tr([
                       branch.code,
                       if (branch.managerName != null) branch.managerName!,
                       '${branch.employeeCount} NV',
                       if (branch.fullAddress.isNotEmpty) branch.fullAddress,
-                    ].join(' · '),
+                    ].join(' · ')),
                     style: TextStyle(fontSize: 12, color: Colors.grey[500]),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -380,12 +381,12 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
                 icon: const Icon(Icons.more_vert, size: 18),
                 itemBuilder: (context) => [
                   if (_perm.canEdit('Branch')) ...[
-                    const PopupMenuItem(
+                    PopupMenuItem(
                         value: 'edit',
                         child: Row(children: [
                           Icon(Icons.edit, size: 16),
                           SizedBox(width: 8),
-                          Text('Sửa')
+                          Text(tr('Sửa'))
                         ])),
                     PopupMenuItem(
                       value: 'toggle',
@@ -393,17 +394,17 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
                         Icon(isActive ? Icons.block : Icons.check_circle,
                             size: 16),
                         const SizedBox(width: 8),
-                        Text(isActive ? 'Ngừng hoạt động' : 'Kích hoạt'),
+                        Text(tr(isActive ? 'Ngừng hoạt động' : 'Kích hoạt')),
                       ]),
                     ),
                   ],
                   if (_perm.canDelete('Branch'))
-                    const PopupMenuItem(
+                    PopupMenuItem(
                         value: 'delete',
                         child: Row(children: [
                           Icon(Icons.delete, size: 16, color: Colors.red),
                           SizedBox(width: 8),
-                          Text('Xóa', style: TextStyle(color: Colors.red))
+                          Text(tr('Xóa'), style: TextStyle(color: Colors.red))
                         ])),
                 ],
                 onSelected: (action) {
@@ -463,14 +464,14 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
       },
       menuItems: [
         if (_perm.canEdit('Branch')) ...[
-          const PopupMenuItem(value: 'edit', child: Text('Sửa')),
+          PopupMenuItem(value: 'edit', child: Text(tr('Sửa'))),
           PopupMenuItem(
             value: 'toggle',
-            child: Text(isActive ? 'Ngừng hoạt động' : 'Kích hoạt'),
+            child: Text(tr(isActive ? 'Ngừng hoạt động' : 'Kích hoạt')),
           ),
         ],
         if (_perm.canDelete('Branch'))
-          const PopupMenuItem(value: 'delete', child: Text('Xóa')),
+          PopupMenuItem(value: 'delete', child: Text(tr('Xóa'))),
       ],
     );
   }
@@ -491,7 +492,7 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
           children: [
             Icon(Icons.star, size: 12, color: Colors.amber.shade700),
             const SizedBox(width: 4),
-            Text('Trụ sở chính',
+            Text(tr('Trụ sở chính'),
                 style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
@@ -509,7 +510,7 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
             color: isActive ? Colors.green.shade300 : Colors.red.shade300),
       ),
       child: Text(
-        isActive ? 'Hoạt động' : 'Ngừng HĐ',
+        tr(isActive ? 'Hoạt động' : 'Ngừng HĐ'),
         style: TextStyle(
             fontSize: 11,
             fontWeight: FontWeight.w600,
@@ -537,7 +538,7 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
                 Icon(Icons.account_tree,
                     color: Theme.of(context).colorScheme.primary),
                 const SizedBox(width: 8),
-                Text('Cây Chi nhánh',
+                Text(tr('Cây Chi nhánh'),
                     style: Theme.of(context)
                         .textTheme
                         .titleMedium
@@ -551,7 +552,7 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
                     setState(() {});
                   },
                   icon: const Icon(Icons.unfold_more, size: 18),
-                  label: const Text('Mở tất cả'),
+                  label: Text(tr('Mở tất cả')),
                 ),
                 TextButton.icon(
                   onPressed: () {
@@ -561,7 +562,7 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
                     setState(() {});
                   },
                   icon: const Icon(Icons.unfold_less, size: 18),
-                  label: const Text('Thu gọn'),
+                  label: Text(tr('Thu gọn')),
                 ),
               ],
             ),
@@ -648,12 +649,12 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
                           Row(
                             children: [
                               Expanded(
-                                child: Text(node.name,
+                                child: Text(tr(node.name),
                                     style: const TextStyle(
                                         fontWeight: FontWeight.bold,
                                         fontSize: 14)),
                               ),
-                              Text(node.code,
+                              Text(tr(node.code),
                                   style: TextStyle(
                                       fontSize: 11,
                                       color: Colors.grey.shade600,
@@ -663,9 +664,9 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
                           if (node.address != null || node.city != null) ...[
                             const SizedBox(height: 2),
                             Text(
-                              [node.address, node.city]
+                              tr([node.address, node.city]
                                   .where((e) => e != null && e.isNotEmpty)
-                                  .join(', '),
+                                  .join(', ')),
                               style: TextStyle(
                                   fontSize: 12, color: Colors.grey.shade600),
                               maxLines: 1,
@@ -688,7 +689,7 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
                           onBackgroundImageError:
                               node.managerPhoto != null ? (_, __) {} : null,
                           child: node.managerPhoto == null
-                              ? Text(node.managerName![0].toUpperCase(),
+                              ? Text(tr(node.managerName![0].toUpperCase()),
                                   style: const TextStyle(fontSize: 12))
                               : null,
                         ),
@@ -708,7 +709,7 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
                           Icon(Icons.people,
                               size: 14, color: Colors.blue.shade700),
                           const SizedBox(width: 4),
-                          Text('${node.employeeCount}',
+                          Text(tr('${node.employeeCount}'),
                               style: TextStyle(
                                   fontSize: 12,
                                   fontWeight: FontWeight.w600,
@@ -727,7 +728,7 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
                             color: Colors.red.shade50,
                             borderRadius: BorderRadius.circular(6),
                           ),
-                          child: Text('Ngừng',
+                          child: Text(tr('Ngừng'),
                               style: TextStyle(
                                   fontSize: 10, color: Colors.red.shade700)),
                         ),
@@ -766,7 +767,7 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             if (!HrmPageChrome.isEmbedded)
-              Text('Tổng quan Chi nhánh',
+              Text(tr('Tổng quan Chi nhánh'),
                   style: theme.textTheme.titleLarge
                       ?.copyWith(fontWeight: FontWeight.bold)),
             if (!HrmPageChrome.isEmbedded) const SizedBox(height: 16),
@@ -810,7 +811,7 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
             const SizedBox(height: 24),
             // Ratio chart
             if (s.totalBranches > 0) ...[
-              Text('Tỷ lệ hoạt động',
+              Text(tr('Tỷ lệ hoạt động'),
                   style: theme.textTheme.titleMedium
                       ?.copyWith(fontWeight: FontWeight.bold)),
               const SizedBox(height: 12),
@@ -819,7 +820,7 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
             ],
             // Average
             if (s.totalBranches > 0 && s.activeBranches > 0) ...[
-              Text('Thông tin thêm',
+              Text(tr('Thông tin thêm'),
                   style: theme.textTheme.titleMedium
                       ?.copyWith(fontWeight: FontWeight.bold)),
               const SizedBox(height: 12),
@@ -868,7 +869,7 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
                     color: Colors.green,
                     alignment: Alignment.center,
                     child: s.activeBranches > 0
-                        ? Text('${s.activeBranches}',
+                        ? Text(tr('${s.activeBranches}'),
                             style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 11,
@@ -882,7 +883,7 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
                     child: Container(
                       color: Colors.red.shade400,
                       alignment: Alignment.center,
-                      child: Text('${s.inactiveBranches}',
+                      child: Text(tr('${s.inactiveBranches}'),
                           style: const TextStyle(
                               color: Colors.white,
                               fontSize: 11,
@@ -916,7 +917,7 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
             height: 10,
             decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
         const SizedBox(width: 6),
-        Text(label, style: const TextStyle(fontSize: 12)),
+        Text(tr(label), style: const TextStyle(fontSize: 12)),
       ],
     );
   }
@@ -928,9 +929,9 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
         children: [
           Icon(icon, size: 20, color: Colors.grey.shade600),
           const SizedBox(width: 12),
-          Text(label, style: const TextStyle(fontSize: 14)),
+          Text(tr(label), style: const TextStyle(fontSize: 14)),
           const Spacer(),
-          Text(value,
+          Text(tr(value),
               style:
                   const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
         ],
@@ -985,10 +986,10 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(branch.name,
+                        Text(tr(branch.name),
                             style: theme.textTheme.titleLarge
                                 ?.copyWith(fontWeight: FontWeight.bold)),
-                        Text(branch.code,
+                        Text(tr(branch.code),
                             style: TextStyle(color: Colors.grey.shade600)),
                       ],
                     ),
@@ -1000,7 +1001,7 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
               // Details
               if (branch.description != null &&
                   branch.description!.isNotEmpty) ...[
-                Text(branch.description!, style: const TextStyle(fontSize: 14)),
+                Text(tr(branch.description!), style: const TextStyle(fontSize: 14)),
                 const SizedBox(height: 12),
               ],
               _detailRow(
@@ -1042,7 +1043,7 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
                         _showBranchDialog(branch: branch);
                       },
                       icon: const Icon(Icons.edit, size: 16),
-                      label: const Text('Sửa'),
+                      label: Text(tr('Sửa')),
                     ),
                     const SizedBox(width: 8),
                     FilledButton.icon(
@@ -1054,7 +1055,7 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
                           branch.isActive ? Icons.block : Icons.check_circle,
                           size: 16),
                       label:
-                          Text(branch.isActive ? 'Ngừng HĐ' : 'Kích hoạt'),
+                          Text(tr(branch.isActive ? 'Ngừng HĐ' : 'Kích hoạt')),
                     ),
                   ],
                 ],
@@ -1068,7 +1069,7 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
               height: double.infinity,
               child: Scaffold(
                 appBar: AppBar(
-                  title: Text(branch.name),
+                  title: Text(tr(branch.name)),
                   leading: IconButton(
                       icon: const Icon(Icons.close),
                       onPressed: () => Navigator.pop(ctx)),
@@ -1121,10 +1122,10 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(branch.name,
+                              Text(tr(branch.name),
                                   style: theme.textTheme.titleLarge
                                       ?.copyWith(fontWeight: FontWeight.bold)),
-                              Text(branch.code,
+                              Text(tr(branch.code),
                                   style:
                                       TextStyle(color: Colors.grey.shade600)),
                             ],
@@ -1141,7 +1142,7 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
                     const Divider(height: 32),
                     if (branch.description != null &&
                         branch.description!.isNotEmpty) ...[
-                      Text(branch.description!,
+                      Text(tr(branch.description!),
                           style: const TextStyle(fontSize: 14)),
                       const SizedBox(height: 12),
                     ],
@@ -1181,7 +1182,7 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
                               _showBranchDialog(branch: branch);
                             },
                             icon: const Icon(Icons.edit, size: 16),
-                            label: const Text('Sửa'),
+                            label: Text(tr('Sửa')),
                           ),
                           const SizedBox(width: 8),
                           FilledButton.icon(
@@ -1195,7 +1196,7 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
                                     : Icons.check_circle,
                                 size: 16),
                             label: Text(
-                                branch.isActive ? 'Ngừng HĐ' : 'Kích hoạt'),
+                                tr(branch.isActive ? 'Ngừng HĐ' : 'Kích hoạt')),
                           ),
                         ],
                       ),
@@ -1219,10 +1220,10 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
           const SizedBox(width: 8),
           SizedBox(
               width: 100,
-              child: Text(label,
+              child: Text(tr(label),
                   style: TextStyle(fontSize: 13, color: Colors.grey.shade600))),
           Expanded(
-              child: Text(value,
+              child: Text(tr(value),
                   style: const TextStyle(
                       fontSize: 13, fontWeight: FontWeight.w500))),
         ],
@@ -1239,22 +1240,22 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
     if (!mounted) return;
 
     final isEdit = branch != null;
-    final codeCtrl = TextEditingController(text: branch?.code ?? '');
-    final nameCtrl = TextEditingController(text: branch?.name ?? '');
-    final descCtrl = TextEditingController(text: branch?.description ?? '');
-    final phoneCtrl = TextEditingController(text: branch?.phone ?? '');
-    final emailCtrl = TextEditingController(text: branch?.email ?? '');
-    final addressCtrl = TextEditingController(text: branch?.address ?? '');
-    final cityCtrl = TextEditingController(text: branch?.city ?? '');
-    final districtCtrl = TextEditingController(text: branch?.district ?? '');
-    final wardCtrl = TextEditingController(text: branch?.ward ?? '');
-    final taxCodeCtrl = TextEditingController(text: branch?.taxCode ?? '');
-    final openTimeCtrl = TextEditingController(text: branch?.openTime ?? '');
-    final closeTimeCtrl = TextEditingController(text: branch?.closeTime ?? '');
+    final codeCtrl = TextEditingController(text: tr(branch?.code ?? ''));
+    final nameCtrl = TextEditingController(text: tr(branch?.name ?? ''));
+    final descCtrl = TextEditingController(text: tr(branch?.description ?? ''));
+    final phoneCtrl = TextEditingController(text: tr(branch?.phone ?? ''));
+    final emailCtrl = TextEditingController(text: tr(branch?.email ?? ''));
+    final addressCtrl = TextEditingController(text: tr(branch?.address ?? ''));
+    final cityCtrl = TextEditingController(text: tr(branch?.city ?? ''));
+    final districtCtrl = TextEditingController(text: tr(branch?.district ?? ''));
+    final wardCtrl = TextEditingController(text: tr(branch?.ward ?? ''));
+    final taxCodeCtrl = TextEditingController(text: tr(branch?.taxCode ?? ''));
+    final openTimeCtrl = TextEditingController(text: tr(branch?.openTime ?? ''));
+    final closeTimeCtrl = TextEditingController(text: tr(branch?.closeTime ?? ''));
     final maxEmpCtrl =
-        TextEditingController(text: branch?.maxEmployees?.toString() ?? '');
+        TextEditingController(text: tr(branch?.maxEmployees?.toString() ?? ''));
     final sortOrderCtrl =
-        TextEditingController(text: branch?.sortOrder.toString() ?? '0');
+        TextEditingController(text: tr(branch?.sortOrder.toString() ?? '0'));
     bool isHeadquarter = branch?.isHeadquarter ?? false;
     String? parentBranchId = branch?.parentBranchId;
     bool saving = false;
@@ -1328,7 +1329,7 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
                     ],
                   ),
                   const SizedBox(height: 16),
-                  Text('Địa chỉ',
+                  Text(tr('Địa chỉ'),
                       style: TextStyle(
                           fontWeight: FontWeight.bold,
                           color: Colors.grey.shade700)),
@@ -1360,7 +1361,7 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
                     ],
                   ),
                   const SizedBox(height: 16),
-                  Text('Cấu hình',
+                  Text(tr('Cấu hình'),
                       style: TextStyle(
                           fontWeight: FontWeight.bold,
                           color: Colors.grey.shade700)),
@@ -1371,21 +1372,21 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
                     decoration:
                         _inputDecoration('Chi nhánh cha', Icons.account_tree),
                     items: [
-                      const DropdownMenuItem(
-                          value: null, child: Text('-- Không có --')),
+                      DropdownMenuItem(
+                          value: null, child: Text(tr('-- Không có --'))),
                       ..._branchSelect.where((b) => b.id != branch?.id).map(
                           (b) => DropdownMenuItem(
                               value: b.id,
-                              child: Text('${b.code} - ${b.name}'))),
+                              child: Text(tr('${b.code} - ${b.name}')))),
                     ],
                     onChanged: (v) => setDialogState(() => parentBranchId = v),
                   ),
                   const SizedBox(height: 12),
                   // Headquarters toggle
                   SwitchListTile(
-                    title: const Text('Trụ sở chính'),
+                    title: Text(tr('Trụ sở chính')),
                     subtitle:
-                        const Text('Đánh dấu đây là trụ sở chính của công ty'),
+                        Text(tr('Đánh dấu đây là trụ sở chính của công ty')),
                     value: isHeadquarter,
                     onChanged: (v) => setDialogState(() => isHeadquarter = v),
                     contentPadding: EdgeInsets.zero,
@@ -1512,7 +1513,7 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
                   child: CircularProgressIndicator(strokeWidth: 2))
               : Icon(isEdit ? Icons.save : Icons.add, size: 18);
           final saveLabel =
-              Text(saving ? 'Đang lưu...' : (isEdit ? 'Lưu' : 'Tạo mới'));
+              Text(tr(saving ? 'Đang lưu...' : (isEdit ? 'Lưu' : 'Tạo mới')));
           if (isMobileBranch) {
             return Dialog(
               insetPadding: EdgeInsets.zero,
@@ -1522,7 +1523,7 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
                 child: Scaffold(
                   appBar: AppBar(
                     title:
-                        Text(isEdit ? 'Sửa chi nhánh' : 'Thêm chi nhánh mới'),
+                        Text(tr(isEdit ? 'Sửa chi nhánh' : 'Thêm chi nhánh mới')),
                     leading: IconButton(
                         icon: const Icon(Icons.close),
                         onPressed: saving ? null : () => Navigator.pop(ctx)),
@@ -1535,7 +1536,7 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
                       children: [
                         OutlinedButton(
                           onPressed: saving ? null : () => Navigator.pop(ctx),
-                          child: const Text('Hủy'),
+                          child: Text(tr('Hủy')),
                         ),
                         const SizedBox(width: 12),
                         FilledButton.icon(
@@ -1572,7 +1573,7 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
                             color: Colors.blue),
                         const SizedBox(width: 12),
                         Text(
-                          isEdit ? 'Sửa chi nhánh' : 'Thêm chi nhánh mới',
+                          tr(isEdit ? 'Sửa chi nhánh' : 'Thêm chi nhánh mới'),
                           style: const TextStyle(
                               fontSize: 18, fontWeight: FontWeight.bold),
                         ),
@@ -1597,7 +1598,7 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
                       children: [
                         OutlinedButton(
                           onPressed: saving ? null : () => Navigator.pop(ctx),
-                          child: const Text('Hủy'),
+                          child: Text(tr('Hủy')),
                         ),
                         const SizedBox(width: 12),
                         FilledButton.icon(
@@ -1619,7 +1620,7 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
 
   InputDecoration _inputDecoration(String label, IconData icon) {
     return InputDecoration(
-      labelText: label,
+      labelText: tr(label),
       prefixIcon: Icon(icon, size: 20),
       border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
@@ -1657,14 +1658,13 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
           children: [
             Icon(Icons.warning_amber, color: Colors.red.shade400),
             const SizedBox(width: 8),
-            const Text('Xác nhận xóa'),
+            Text(tr('Xác nhận xóa')),
           ],
         ),
-        content: Text(
-            'Bạn có chắc muốn xóa chi nhánh "${branch.name}" (${branch.code})?\n\nHành động này không thể hoàn tác.'),
+        content: Text(tr('Bạn có chắc muốn xóa chi nhánh "${branch.name}" (${branch.code})?\n\nHành động này không thể hoàn tác.')),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
+              onPressed: () => Navigator.pop(ctx), child: Text(tr('Hủy'))),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () async {
@@ -1673,7 +1673,7 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
               if (resp['isSuccess'] == true) {
                 appNotification.showSuccess(
                     title: 'Đã xóa',
-                    message: 'Chi nhánh "${branch.name}" đã được xóa.');
+                    message: tr('Chi nhánh "${branch.name}" đã được xóa.'));
                 _loadTabData(_currentTab);
               } else {
                 appNotification.showError(
@@ -1681,7 +1681,7 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
                     message: resp['message']?.toString() ?? 'Có lỗi xảy ra');
               }
             },
-            child: const Text('Xóa'),
+            child: Text(tr('Xóa')),
           ),
         ],
       ),
@@ -1699,13 +1699,13 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
         children: [
           Icon(Icons.business_outlined, size: 64, color: Colors.grey.shade400),
           const SizedBox(height: 16),
-          Text(title,
+          Text(tr(title),
               style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
                   color: Colors.grey.shade600)),
           const SizedBox(height: 8),
-          Text(subtitle,
+          Text(tr(subtitle),
               style: TextStyle(fontSize: 13, color: Colors.grey.shade500),
               textAlign: TextAlign.center),
           if (_perm.canCreate('Branch')) ...[
@@ -1713,7 +1713,7 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
             FilledButton.icon(
               onPressed: () => _showBranchDialog(),
               icon: const Icon(Icons.add, size: 18),
-              label: const Text('Thêm chi nhánh'),
+              label: Text(tr('Thêm chi nhánh')),
             ),
           ],
         ],

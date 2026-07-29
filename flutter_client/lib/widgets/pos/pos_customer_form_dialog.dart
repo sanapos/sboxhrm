@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../../models/pos_customer.dart';import '../../services/api_service.dart';
 import '../notification_overlay.dart';
 import 'pos_theme.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 const _blue = Color(0xFF2563EB);
 
@@ -36,15 +37,15 @@ class _PosCustomerFormDialogState extends State<PosCustomerFormDialog> {
   void initState() {
     super.initState();
     final c = widget.customer;
-    _nameCtrl = TextEditingController(text: c?.name ?? '');
-    _phoneCtrl = TextEditingController(text: c?.phone ?? '');
-    _emailCtrl = TextEditingController(text: c?.email ?? '');
-    _addressCtrl = TextEditingController(text: c?.address ?? '');
-    _provinceCtrl = TextEditingController(text: c?.province ?? '');
-    _wardCtrl = TextEditingController(text: c?.ward ?? '');
-    _companyCtrl = TextEditingController(text: c?.companyName ?? '');
-    _taxCtrl = TextEditingController(text: c?.taxCode ?? '');
-    _noteCtrl = TextEditingController(text: c?.note ?? '');
+    _nameCtrl = TextEditingController(text: tr(c?.name ?? ''));
+    _phoneCtrl = TextEditingController(text: tr(c?.phone ?? ''));
+    _emailCtrl = TextEditingController(text: tr(c?.email ?? ''));
+    _addressCtrl = TextEditingController(text: tr(c?.address ?? ''));
+    _provinceCtrl = TextEditingController(text: tr(c?.province ?? ''));
+    _wardCtrl = TextEditingController(text: tr(c?.ward ?? ''));
+    _companyCtrl = TextEditingController(text: tr(c?.companyName ?? ''));
+    _taxCtrl = TextEditingController(text: tr(c?.taxCode ?? ''));
+    _noteCtrl = TextEditingController(text: tr(c?.note ?? ''));
   }
 
   @override
@@ -109,7 +110,7 @@ class _PosCustomerFormDialogState extends State<PosCustomerFormDialog> {
               ),
               child: Row(
                 children: [
-                  Text(_isEdit ? 'Sửa khách hàng' : 'Thêm khách hàng',
+                  Text(tr(_isEdit ? 'Sửa khách hàng' : 'Thêm khách hàng'),
                       style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                   const Spacer(),
                   IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close)),
@@ -137,11 +138,11 @@ class _PosCustomerFormDialogState extends State<PosCustomerFormDialog> {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    const Text('Công nợ',
+                                    Text(tr('Công nợ'),
                                         style: TextStyle(fontSize: 12, color: PosTheme.textSecondary)),
                                     Text(
-                                      NumberFormat('#,##0', 'vi_VN')
-                                          .format(widget.customer!.currentDebt),
+                                      tr(NumberFormat('#,##0', 'vi_VN')
+                                          .format(widget.customer!.currentDebt)),
                                       style: const TextStyle(
                                         fontWeight: FontWeight.bold,
                                         color: Colors.red,
@@ -154,11 +155,11 @@ class _PosCustomerFormDialogState extends State<PosCustomerFormDialog> {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    const Text('Điểm tích luỹ',
+                                    Text(tr('Điểm tích luỹ'),
                                         style: TextStyle(fontSize: 12, color: PosTheme.textSecondary)),
                                     Text(
-                                      NumberFormat('#,##0', 'vi_VN')
-                                          .format(widget.customer!.pointBalance),
+                                      tr(NumberFormat('#,##0', 'vi_VN')
+                                          .format(widget.customer!.pointBalance)),
                                       style: const TextStyle(fontWeight: FontWeight.bold),
                                     ),
                                   ],
@@ -242,7 +243,7 @@ class _PosCustomerFormDialogState extends State<PosCustomerFormDialog> {
               padding: const EdgeInsets.all(16),
               child: Row(
                 children: [
-                  TextButton(onPressed: () => Navigator.pop(context), child: const Text('Hủy')),
+                  TextButton(onPressed: () => Navigator.pop(context), child: Text(tr('Hủy'))),
                   const Spacer(),
                   FilledButton(
                     onPressed: _saving ? null : _save,
@@ -250,7 +251,7 @@ class _PosCustomerFormDialogState extends State<PosCustomerFormDialog> {
                     child: _saving
                         ? const SizedBox(
                             width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
-                        : Text(_isEdit ? 'Lưu' : 'Tạo mới'),
+                        : Text(tr(_isEdit ? 'Lưu' : 'Tạo mới')),
                   ),
                 ],
               ),

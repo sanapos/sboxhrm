@@ -18,6 +18,7 @@ import '../../utils/pos_thermal_printer_settings.dart';
 import '../../widgets/notification_overlay.dart';
 import '../../widgets/pos/pos_theme.dart';
 import 'pos_product_printer_assignment_screen.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// Quản lý máy in cửa hàng + routing chứng từ + Print Agent.
 class PosStorePrintersScreen extends StatefulWidget {
@@ -83,7 +84,7 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
         setState(() {});
         NotificationOverlayManager().showWarning(
           title: 'Agent đã tắt từ máy khác',
-          message: 'Chỉ giữ Agent trên máy gần máy in',
+          message: tr('Chỉ giữ Agent trên máy gần máy in'),
         );
       }
     }
@@ -319,19 +320,18 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Tắt Agent máy kia?'),
-        content: Text(
-          'Tắt nhận lệnh in trên «${a.deviceName.isNotEmpty ? a.deviceName : 'Máy POS'}».\n'
-          'Chỉ giữ Agent trên máy gần máy in (Sunmi).',
+        title: Text(tr('Tắt Agent máy kia?')),
+        content: Text(tr('${tr('Tắt nhận lệnh in trên «')}${a.deviceName.isNotEmpty ? a.deviceName : 'Máy POS'}».\n'
+          'Chỉ giữ Agent trên máy gần máy in (Sunmi).'),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Hủy'),
+            child: Text(tr('Hủy')),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Tắt'),
+            child: Text(tr('Tắt')),
           ),
         ],
       ),
@@ -402,7 +402,7 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
       if (agentPrinters.isEmpty) {
         NotificationOverlayManager().showWarning(
           title: 'Chưa có máy in cloud',
-          message: 'Thêm máy in LAN/BT/USB trong danh sách bên dưới',
+          message: tr('Thêm máy in LAN/BT/USB trong danh sách bên dưới'),
         );
       }
 
@@ -419,20 +419,20 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
         final ok = await showDialog<bool>(
           context: context,
           builder: (ctx) => AlertDialog(
-            title: const Text('Đã có máy khác bật Agent'),
+            title: Text(tr('Đã có máy khác bật Agent')),
             content: Text(
-              'Nên chỉ 1 máy nhận lệnh in.\n\n'
+              tr('Nên chỉ 1 máy nhận lệnh in.\n\n'
               'Đang bật:\n$lines\n\n'
-              'Vẫn bật Agent trên máy này?',
+              'Vẫn bật Agent trên máy này?'),
             ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(ctx, false),
-                child: const Text('Hủy'),
+                child: Text(tr('Hủy')),
               ),
               FilledButton(
                 onPressed: () => Navigator.pop(ctx, true),
-                child: const Text('Vẫn bật'),
+                child: Text(tr('Vẫn bật')),
               ),
             ],
           ),
@@ -463,7 +463,7 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
       await PosPrintAgentService.instance.ensureRunning(storeId);
       NotificationOverlayManager().showSuccess(
         title: 'Print Agent bật',
-        message: 'Giữ app mở — nhận lệnh in cloud (LAN/BT/USB)',
+        message: tr('Giữ app mở — nhận lệnh in cloud (LAN/BT/USB)'),
       );
       await _loadOnlineAgents(silent: true);
     } else if (!v) {
@@ -480,7 +480,7 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
       if (res['isSuccess'] == true) {
         NotificationOverlayManager().showSuccess(
           title: 'Đã lưu',
-          message: 'Phân loại máy in theo chứng từ',
+          message: tr('Phân loại máy in theo chứng từ'),
         );
         await PosPrintOrchestrator.instance.invalidateCache();
       } else {
@@ -520,12 +520,12 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
     return Scaffold(
       backgroundColor: PosTheme.background,
       appBar: AppBar(
-        title: const Text('Máy in cửa hàng'),
+        title: Text(tr('Máy in cửa hàng')),
         backgroundColor: PosTheme.kiotBlue,
         foregroundColor: Colors.white,
         actions: [
           IconButton(
-            tooltip: 'Gán sản phẩm cho máy in',
+            tooltip: tr('Gán sản phẩm cho máy in'),
             onPressed: _printers.isEmpty
                 ? null
                 : () {
@@ -566,7 +566,7 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
         onPressed: () => _openEditor(),
         backgroundColor: PosTheme.kiotBlue,
         icon: const Icon(Icons.add),
-        label: const Text('Thêm máy in'),
+        label: Text(tr('Thêm máy in')),
       ),
     );
   }
@@ -583,9 +583,8 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
               children: [
                 const Icon(Icons.hub_outlined, color: PosTheme.kiotBlue),
                 const SizedBox(width: 8),
-                const Expanded(
-                  child: Text(
-                    'Máy nhận lệnh in (Agent)',
+                Expanded(
+                  child: Text(tr('Máy nhận lệnh in (Agent)'),
                     style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
                   ),
                 ),
@@ -604,27 +603,26 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(color: const Color(0xFFBFDBFE)),
               ),
-              child: const Text(
-                'Cách dùng đơn giản (1 máy in + nhiều điện thoại):\n'
+              child: Text(
+                tr('Cách dùng đơn giản (1 máy in + nhiều điện thoại):\n'
                 '1) Thêm máy in Zywell/LAN (IP:9100) vào danh sách bên dưới.\n'
                 '2) Chỉ 1 máy (Sunmi / điện thoại gần máy in): bật công tắc này + chọn chip máy in — giữ app mở.\n'
                 '3) Điện thoại thu ngân khác: tắt công tắc này. In → lệnh gửi máy chủ → máy ở bước 2 in ra.\n'
-                'Lưu ý: máy thu ngân tắt «máy in cục bộ» nếu muốn chỉ in qua máy chủ.',
+                'Lưu ý: máy thu ngân tắt «máy in cục bộ» nếu muốn chỉ in qua máy chủ.'),
                 style: TextStyle(fontSize: 12, height: 1.35, color: Color(0xFF1E3A5F)),
               ),
             ),
             const SizedBox(height: 8),
             Text(
-              _agent.enabled
+              tr(_agent.enabled
                   ? 'Máy này đang nhận lệnh in cho chip đã chọn'
-                  : 'Tắt trên máy thu ngân — chỉ bật trên 1 máy gần máy in',
+                  : 'Tắt trên máy thu ngân — chỉ bật trên 1 máy gần máy in'),
               style: const TextStyle(fontSize: 12, color: PosTheme.textSecondary),
             ),
             if (agentPrinters.isEmpty)
-              const Padding(
+              Padding(
                 padding: EdgeInsets.only(top: 6),
-                child: Text(
-                  'Chưa có máy in cửa hàng — bấm «Thêm máy in» (LAN/BT/Sunmi)',
+                child: Text(tr('Chưa có máy in cửa hàng — bấm «Thêm máy in» (LAN/BT/Sunmi)'),
                   style: TextStyle(fontSize: 11, color: Colors.orange),
                 ),
               ),
@@ -636,7 +634,7 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
                 children: agentPrinters.map((p) {
                   final selected = _agent.assignedPrinterIds.contains(p.id);
                   return FilterChip(
-                    label: Text(p.name, style: const TextStyle(fontSize: 11)),
+                    label: Text(tr(p.name), style: const TextStyle(fontSize: 11)),
                     selected: selected,
                     onSelected: (v) async {
                       var ids = List<String>.from(_agent.assignedPrinterIds);
@@ -666,10 +664,9 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
               ),
             ],
             if (_agent.enabled && _agent.assignedPrinterIds.isEmpty)
-              const Padding(
+              Padding(
                 padding: EdgeInsets.only(top: 6),
-                child: Text(
-                  '⚠ Chưa chọn chip máy in — Agent không nhận được lệnh từ Oppo',
+                child: Text(tr('⚠ Chưa chọn chip máy in — Agent không nhận được lệnh từ Oppo'),
                   style: TextStyle(color: Colors.orange, fontSize: 12),
                 ),
               ),
@@ -680,8 +677,8 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
               Padding(
                 padding: const EdgeInsets.only(top: 6),
                 child: Text(
-                  '⚠ Agent chưa đăng ký server'
-                  '${PosPrintAgentService.instance.lastRegisterError != null ? ': ${PosPrintAgentService.instance.lastRegisterError}' : ''}',
+                  tr('⚠ Agent chưa đăng ký server'
+                  '${PosPrintAgentService.instance.lastRegisterError != null ? ': ${PosPrintAgentService.instance.lastRegisterError}' : ''}'),
                   style: const TextStyle(color: Colors.red, fontSize: 12),
                 ),
               ),
@@ -689,24 +686,22 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
                 _agent.assignedPrinterIds.isNotEmpty &&
                 PosPrintAgentService.instance.isRunning &&
                 PosPrintAgentService.instance.isRegistered)
-              const Padding(
+              Padding(
                 padding: EdgeInsets.only(top: 6),
-                child: Text(
-                  '● Agent đang chạy — sẵn sàng nhận lệnh in',
+                child: Text(tr('● Agent đang chạy — sẵn sàng nhận lệnh in'),
                   style: TextStyle(color: Colors.green, fontSize: 12),
                 ),
               ),
             const SizedBox(height: 10),
             Row(
               children: [
-                const Expanded(
-                  child: Text(
-                    'Agent đang online trên cửa hàng',
+                Expanded(
+                  child: Text(tr('Agent đang online trên cửa hàng'),
                     style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
                   ),
                 ),
                 IconButton(
-                  tooltip: 'Tải lại',
+                  tooltip: tr('Tải lại'),
                   icon: const Icon(Icons.refresh, size: 18),
                   onPressed: () => unawaited(_loadOnlineAgents()),
                 ),
@@ -726,9 +721,9 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      _hasPrinterConflict
+                      tr(_hasPrinterConflict
                           ? 'Cảnh báo: cùng máy in đang được ≥2 máy Agent nhận — dễ tranh lệnh / in trùng. Chỉ giữ 1 máy Agent.'
-                          : 'Cảnh báo: đang có ${_onlineAgents.length} máy bật Agent. Nên chỉ bật trên máy gần máy in (Sunmi).',
+                          : 'Cảnh báo: đang có ${_onlineAgents.length} máy bật Agent. Nên chỉ bật trên máy gần máy in (Sunmi).'),
                       style: const TextStyle(
                         fontSize: 12,
                         height: 1.35,
@@ -752,12 +747,12 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
                             if (!mounted) return;
                             NotificationOverlayManager().showSuccess(
                               title: 'Đã gửi lệnh tắt Agent máy khác',
-                              message: 'Đợi vài giây rồi kéo refresh',
+                              message: tr('Đợi vài giây rồi kéo refresh'),
                             );
                             await _loadOnlineAgents(silent: true);
                           },
                           icon: const Icon(Icons.power_settings_new, size: 16),
-                          label: const Text('Tắt Agent các máy khác'),
+                          label: Text(tr('Tắt Agent các máy khác')),
                           style: TextButton.styleFrom(
                             foregroundColor: const Color(0xFF9A3412),
                           ),
@@ -768,8 +763,7 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
                 ),
               ),
             if (_onlineAgents.isEmpty)
-              const Text(
-                'Chưa có máy nào đang nhận lệnh in (Agent offline).',
+              Text(tr('Chưa có máy nào đang nhận lệnh in (Agent offline).'),
                 style: TextStyle(fontSize: 12, color: PosTheme.textSecondary),
               )
             else
@@ -805,7 +799,7 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
                           const SizedBox(width: 6),
                           Expanded(
                             child: Text(
-                              a.displayTitle,
+                              tr(a.displayTitle),
                               style: TextStyle(
                                 fontWeight: FontWeight.w700,
                                 fontSize: 13,
@@ -816,8 +810,7 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
                             ),
                           ),
                           if (mine)
-                            const Text(
-                              'Máy này',
+                            Text(tr('Máy này'),
                               style: TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w700,
@@ -833,19 +826,18 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
                                 minimumSize: const Size(0, 28),
                                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                               ),
-                              child: const Text('Tắt',
+                              child: Text(tr('Tắt'),
                                   style: TextStyle(fontSize: 12)),
                             ),
                         ],
                       ),
                       const SizedBox(height: 2),
-                      Text(
-                        'Tài khoản: ${a.accountDisplay}',
+                      Text(tr('Tài khoản: ${a.accountDisplay}'),
                         style: const TextStyle(fontSize: 12),
                       ),
                       if (a.printerNames.isNotEmpty)
                         Text(
-                          'Máy in: ${a.printerNames.join(', ')}',
+                          tr('Máy in: ${a.printerNames.join(', ')}'),
                           style: const TextStyle(
                             fontSize: 11,
                             color: PosTheme.textSecondary,
@@ -868,21 +860,20 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Danh sách máy in',
+            Text(tr('Danh sách máy in'),
                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
             const SizedBox(height: 8),
             if (_printers.isEmpty)
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'Chưa có máy in. Thêm máy in LAN/BT/Sunmi cho in cloud.',
+                  Text(tr('Chưa có máy in. Thêm máy in LAN/BT/Sunmi cho in cloud.'),
                     style: TextStyle(color: PosTheme.textSecondary),
                   ),
                   TextButton.icon(
                     onPressed: () => unawaited(_load()),
                     icon: const Icon(Icons.refresh, size: 16),
-                    label: const Text('Tải lại danh sách'),
+                    label: Text(tr('Tải lại danh sách')),
                   ),
                 ],
               ),
@@ -918,9 +909,9 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
           size: 20,
         ),
       ),
-      title: Text(p.name),
+      title: Text(tr(p.name)),
       subtitle: Text(
-        '$kind · ${p.connectionType}${p.needsPrintAgent ? ' · Cần Agent' : ' · In trực tiếp'}',
+        tr('$kind · ${p.connectionType}${p.needsPrintAgent ? ' · Cần Agent' : ' · In trực tiếp'}'),
         style: const TextStyle(fontSize: 11),
       ),
       trailing: Row(
@@ -956,15 +947,15 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
                 final yes = await showDialog<bool>(
                   context: context,
                   builder: (c) => AlertDialog(
-                    title: const Text('Xóa máy in?'),
-                    content: Text(p.name),
+                    title: Text(tr('Xóa máy in?')),
+                    content: Text(tr(p.name)),
                     actions: [
                       TextButton(
                           onPressed: () => Navigator.pop(c, false),
-                          child: const Text('Hủy')),
+                          child: Text(tr('Hủy'))),
                       FilledButton(
                           onPressed: () => Navigator.pop(c, true),
-                          child: const Text('Xóa')),
+                          child: Text(tr('Xóa'))),
                     ],
                   ),
                 );
@@ -1001,15 +992,15 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
                 }
               }
             },
-            itemBuilder: (_) => const [
-              PopupMenuItem(value: 'products', child: Text('Sản phẩm in kho')),
-              PopupMenuItem(value: 'test', child: Text('Test in cục bộ')),
+            itemBuilder: (_) => [
+              PopupMenuItem(value: 'products', child: Text(tr('Sản phẩm in kho'))),
+              PopupMenuItem(value: 'test', child: Text(tr('Test in cục bộ'))),
               PopupMenuItem(
                 value: 'test_cloud',
-                child: Text('Test in qua cloud (máy thu ngân)'),
+                child: Text(tr('Test in qua cloud (máy thu ngân)')),
               ),
-              PopupMenuItem(value: 'edit', child: Text('Sửa')),
-              PopupMenuItem(value: 'delete', child: Text('Xóa')),
+              PopupMenuItem(value: 'edit', child: Text(tr('Sửa'))),
+              PopupMenuItem(value: 'delete', child: Text(tr('Xóa'))),
             ],
           ),
         ],
@@ -1022,10 +1013,9 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
     return Card(
       child: ListTile(
         leading: const Icon(Icons.restaurant_menu_outlined, color: PosTheme.kiotBlue),
-        title: const Text('Gán sản phẩm cho máy in',
+        title: Text(tr('Gán sản phẩm cho máy in'),
             style: TextStyle(fontWeight: FontWeight.w600)),
-        subtitle: const Text(
-          'Chọn máy in → thêm sản phẩm (tất cả, theo nhóm, từng món).',
+        subtitle: Text(tr('Chọn máy in → thêm sản phẩm (tất cả, theo nhóm, từng món).'),
           style: TextStyle(fontSize: 12),
         ),
         trailing: const Icon(Icons.chevron_right),
@@ -1049,11 +1039,10 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Máy in theo loại chứng từ',
+            Text(tr('Máy in theo loại chứng từ'),
                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
             const SizedBox(height: 4),
-            const Text(
-              'Chọn một hoặc nhiều máy in — bấm in sẽ gửi tới tất cả máy đã chọn.',
+            Text(tr('Chọn một hoặc nhiều máy in — bấm in sẽ gửi tới tất cả máy đã chọn.'),
               style: TextStyle(fontSize: 11, color: PosTheme.textSecondary),
             ),
             const SizedBox(height: 8),
@@ -1067,14 +1056,13 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(e.value,
+                    Text(tr(e.value),
                         style: const TextStyle(
                             fontSize: 13, fontWeight: FontWeight.w600)),
                     if (_printersForDoc(e.key) != '—')
                       Padding(
                         padding: const EdgeInsets.only(top: 2, bottom: 4),
-                        child: Text(
-                          'Đang chọn: ${_printersForDoc(e.key)}',
+                        child: Text(tr('Đang chọn: ${_printersForDoc(e.key)}'),
                           style: const TextStyle(
                               fontSize: 11, color: PosTheme.textSecondary),
                         ),
@@ -1085,7 +1073,7 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
                       children: _printers.map((p) {
                         return FilterChip(
                           label:
-                              Text(p.name, style: const TextStyle(fontSize: 11)),
+                              Text(tr(p.name), style: const TextStyle(fontSize: 11)),
                           selected: selectedIds.contains(p.id),
                           onSelected: (v) => _toggleRoute(e.key, p.id, v),
                         );
@@ -1107,7 +1095,7 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
                     : const Icon(Icons.save, size: 18),
-                label: const Text('Lưu phân loại'),
+                label: Text(tr('Lưu phân loại')),
               ),
             ),
           ],
@@ -1135,7 +1123,7 @@ class _PrinterEditorSheetState extends State<_PrinterEditorSheet> {
   final _api = ApiService();
   final _nameCtrl = TextEditingController();
   final _lanHostCtrl = TextEditingController();
-  final _lanPortCtrl = TextEditingController(text: '9100');
+  final _lanPortCtrl = TextEditingController(text: tr('9100'));
   final _usbNameCtrl = TextEditingController();
   final _btMacCtrl = TextEditingController();
   String _printerKind = 'receipt';
@@ -1201,7 +1189,7 @@ class _PrinterEditorSheetState extends State<_PrinterEditorSheet> {
     if (_btDevices.isEmpty) {
       NotificationOverlayManager().showWarning(
         title: 'Không tìm thấy máy in BT',
-        message: 'Ghép máy in trong Cài đặt Android → Bluetooth, rồi bấm Làm mới',
+        message: tr('Ghép máy in trong Cài đặt Android → Bluetooth, rồi bấm Làm mới'),
       );
       return;
     }
@@ -1211,15 +1199,15 @@ class _PrinterEditorSheetState extends State<_PrinterEditorSheet> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Padding(
+            Padding(
               padding: EdgeInsets.all(16),
-              child: Text('Chọn máy in Bluetooth',
+              child: Text(tr('Chọn máy in Bluetooth'),
                   style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
             ),
             ..._btDevices.map(
               (d) => ListTile(
-                title: Text(d['name'] ?? 'Máy in'),
-                subtitle: Text(d['address'] ?? ''),
+                title: Text(tr(d['name'] ?? 'Máy in')),
+                subtitle: Text(tr(d['address'] ?? '')),
                 onTap: () {
                   setState(() {
                     _btAddr = d['address'];
@@ -1247,7 +1235,7 @@ class _PrinterEditorSheetState extends State<_PrinterEditorSheet> {
       if (mac == null || mac.isEmpty) {
         NotificationOverlayManager().showError(
           title: 'Thiếu Bluetooth',
-          message: 'Chọn hoặc nhập địa chỉ MAC máy in',
+          message: tr('Chọn hoặc nhập địa chỉ MAC máy in'),
         );
         return;
       }
@@ -1256,7 +1244,7 @@ class _PrinterEditorSheetState extends State<_PrinterEditorSheet> {
     if (_connection == 'Lan' && _lanHostCtrl.text.trim().isEmpty) {
       NotificationOverlayManager().showError(
         title: 'Thiếu IP',
-        message: 'Nhập địa chỉ IP máy in LAN',
+        message: tr('Nhập địa chỉ IP máy in LAN'),
       );
       return;
     }
@@ -1330,22 +1318,22 @@ class _PrinterEditorSheetState extends State<_PrinterEditorSheet> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
-              widget.existing == null ? 'Thêm máy in' : 'Sửa máy in',
+              tr(widget.existing == null ? 'Thêm máy in' : 'Sửa máy in'),
               style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 12),
             TextField(
               controller: _nameCtrl,
-              decoration: const InputDecoration(
-                labelText: 'Tên máy in',
+              decoration: InputDecoration(
+                labelText: tr('Tên máy in'),
                 border: OutlineInputBorder(),
               ),
             ),
             const SizedBox(height: 10),
             SegmentedButton<String>(
-              segments: const [
-                ButtonSegment(value: 'receipt', label: Text('Hóa đơn')),
-                ButtonSegment(value: 'label', label: Text('Tem nhãn')),
+              segments: [
+                ButtonSegment(value: 'receipt', label: Text(tr('Hóa đơn'))),
+                ButtonSegment(value: 'label', label: Text(tr('Tem nhãn'))),
               ],
               selected: {_printerKind},
               onSelectionChanged: (s) =>
@@ -1354,14 +1342,14 @@ class _PrinterEditorSheetState extends State<_PrinterEditorSheet> {
             const SizedBox(height: 10),
             DropdownButtonFormField<String>(
               initialValue: _connection,
-              decoration: const InputDecoration(
-                labelText: 'Kết nối',
+              decoration: InputDecoration(
+                labelText: tr('Kết nối'),
                 border: OutlineInputBorder(),
               ),
               items: connections.entries
                   .map((e) => DropdownMenuItem(
                         value: e.key,
-                        child: Text(e.value),
+                        child: Text(tr(e.value)),
                       ))
                   .toList(),
               onChanged: (v) => setState(() => _connection = v ?? 'Lan'),
@@ -1370,9 +1358,9 @@ class _PrinterEditorSheetState extends State<_PrinterEditorSheet> {
               const SizedBox(height: 10),
               TextField(
                 controller: _lanHostCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'IP máy in',
-                  hintText: '192.168.1.100',
+                decoration: InputDecoration(
+                  labelText: tr('IP máy in'),
+                  hintText: tr('192.168.1.100'),
                   border: OutlineInputBorder(),
                 ),
               ),
@@ -1380,8 +1368,8 @@ class _PrinterEditorSheetState extends State<_PrinterEditorSheet> {
               TextField(
                 controller: _lanPortCtrl,
                 keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: 'Port (9100)',
+                decoration: InputDecoration(
+                  labelText: tr('Port (9100)'),
                   border: OutlineInputBorder(),
                 ),
               ),
@@ -1390,11 +1378,11 @@ class _PrinterEditorSheetState extends State<_PrinterEditorSheet> {
               const SizedBox(height: 10),
               ListTile(
                 contentPadding: EdgeInsets.zero,
-                title: const Text('Máy in đã ghép'),
+                title: Text(tr('Máy in đã ghép')),
                 subtitle: Text(
-                  _btName?.isNotEmpty == true
+                  tr(_btName?.isNotEmpty == true
                       ? '$_btName ($_btAddr)'
-                      : 'Chưa chọn — bấm để chọn',
+                      : 'Chưa chọn — bấm để chọn'),
                 ),
                 trailing: IconButton(
                   icon: const Icon(Icons.refresh),
@@ -1404,9 +1392,9 @@ class _PrinterEditorSheetState extends State<_PrinterEditorSheet> {
               ),
               TextField(
                 controller: _btMacCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'Địa chỉ MAC (nhập tay nếu cần)',
-                  hintText: 'AA:BB:CC:DD:EE:FF',
+                decoration: InputDecoration(
+                  labelText: tr('Địa chỉ MAC (nhập tay nếu cần)'),
+                  hintText: tr('AA:BB:CC:DD:EE:FF'),
                   border: OutlineInputBorder(),
                 ),
                 onChanged: (v) => _btAddr = v.trim().isEmpty ? _btAddr : v.trim(),
@@ -1416,31 +1404,31 @@ class _PrinterEditorSheetState extends State<_PrinterEditorSheet> {
               const SizedBox(height: 10),
               TextField(
                 controller: _usbNameCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'Tên thiết bị USB (tùy chọn)',
+                decoration: InputDecoration(
+                  labelText: tr('Tên thiết bị USB (tùy chọn)'),
                   border: OutlineInputBorder(),
                 ),
               ),
             ],
             if (_connection == 'Sunmi')
-              const ListTile(
+              ListTile(
                 contentPadding: EdgeInsets.zero,
                 leading: Icon(Icons.print, color: PosTheme.kiotBlue),
-                title: Text('Máy in Sunmi tích hợp'),
-                subtitle: Text('Tự nhận trên thiết bị Sunmi'),
+                title: Text(tr('Máy in Sunmi tích hợp')),
+                subtitle: Text(tr('Tự nhận trên thiết bị Sunmi')),
               ),
             if (_isLabel) ...[
               const SizedBox(height: 10),
               DropdownButtonFormField<String>(
                 initialValue: _templateId,
-                decoration: const InputDecoration(
-                  labelText: 'Khổ tem',
+                decoration: InputDecoration(
+                  labelText: tr('Khổ tem'),
                   border: OutlineInputBorder(),
                 ),
                 items: posBarcodeLabelTemplates
                     .map((t) => DropdownMenuItem(
                           value: t.id,
-                          child: Text('${t.sizeLabel} — ${t.name}',
+                          child: Text(tr('${t.sizeLabel} — ${t.name}'),
                               style: const TextStyle(fontSize: 12)),
                         ))
                     .toList(),
@@ -1451,14 +1439,14 @@ class _PrinterEditorSheetState extends State<_PrinterEditorSheet> {
               const SizedBox(height: 10),
               DropdownButtonFormField<String>(
                 initialValue: _protocol,
-                decoration: const InputDecoration(
-                  labelText: 'Giao thức',
+                decoration: InputDecoration(
+                  labelText: tr('Giao thức'),
                   border: OutlineInputBorder(),
                 ),
                 items: PosLabelPrinterProtocol.values
                     .map((p) => DropdownMenuItem(
                           value: p.key,
-                          child: Text(p.label),
+                          child: Text(tr(p.label)),
                         ))
                     .toList(),
                 onChanged: (v) {
@@ -1468,14 +1456,14 @@ class _PrinterEditorSheetState extends State<_PrinterEditorSheet> {
               const SizedBox(height: 10),
               DropdownButtonFormField<int>(
                 initialValue: _gapMm,
-                decoration: const InputDecoration(
-                  labelText: 'Khoảng cách tem (mm)',
+                decoration: InputDecoration(
+                  labelText: tr('Khoảng cách tem (mm)'),
                   border: OutlineInputBorder(),
                 ),
-                items: const [
-                  DropdownMenuItem(value: 2, child: Text('2 mm')),
-                  DropdownMenuItem(value: 3, child: Text('3 mm')),
-                  DropdownMenuItem(value: 4, child: Text('4 mm')),
+                items: [
+                  DropdownMenuItem(value: 2, child: Text(tr('2 mm'))),
+                  DropdownMenuItem(value: 3, child: Text(tr('3 mm'))),
+                  DropdownMenuItem(value: 4, child: Text(tr('4 mm'))),
                 ],
                 onChanged: (v) {
                   if (v != null) setState(() => _gapMm = v);
@@ -1485,14 +1473,14 @@ class _PrinterEditorSheetState extends State<_PrinterEditorSheet> {
               const SizedBox(height: 10),
               DropdownButtonFormField<String>(
                 initialValue: _brand,
-                decoration: const InputDecoration(
-                  labelText: 'Hãng máy in',
+                decoration: InputDecoration(
+                  labelText: tr('Hãng máy in'),
                   border: OutlineInputBorder(),
                 ),
                 items: PosThermalPrinterBrand.values
                     .map((b) => DropdownMenuItem(
                           value: b.key,
-                          child: Text(b.label),
+                          child: Text(tr(b.label)),
                         ))
                     .toList(),
                 onChanged: (v) => setState(() => _brand = v ?? 'zywell'),
@@ -1500,13 +1488,13 @@ class _PrinterEditorSheetState extends State<_PrinterEditorSheet> {
               const SizedBox(height: 10),
               DropdownButtonFormField<String>(
                 initialValue: _paper,
-                decoration: const InputDecoration(
-                  labelText: 'Khổ giấy',
+                decoration: InputDecoration(
+                  labelText: tr('Khổ giấy'),
                   border: OutlineInputBorder(),
                 ),
-                items: const [
-                  DropdownMenuItem(value: 'K58', child: Text('K58 (58mm)')),
-                  DropdownMenuItem(value: 'K80', child: Text('K80 (80mm)')),
+                items: [
+                  DropdownMenuItem(value: 'K58', child: Text(tr('K58 (58mm)'))),
+                  DropdownMenuItem(value: 'K80', child: Text(tr('K80 (80mm)'))),
                 ],
                 onChanged: (v) {
                   if (v != null) setState(() => _paper = v);
@@ -1515,7 +1503,7 @@ class _PrinterEditorSheetState extends State<_PrinterEditorSheet> {
             ],
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
-              title: const Text('Máy in mặc định'),
+              title: Text(tr('Máy in mặc định')),
               value: _isDefault,
               onChanged: (v) => setState(() => _isDefault = v),
             ),
@@ -1528,7 +1516,7 @@ class _PrinterEditorSheetState extends State<_PrinterEditorSheet> {
                       width: 20,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
-                  : const Text('Lưu'),
+                  : Text(tr('Lưu')),
             ),
           ],
         ),

@@ -9,6 +9,7 @@ import '../utils/leave_salary_shifts.dart';
 import '../utils/responsive_helper.dart';
 import 'employee_search_picker.dart';
 import 'notification_overlay.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 export '../features/leave/leave_catalog.dart' show normalizeLeaveType;
 
@@ -179,8 +180,7 @@ class _LeaveRequestFormDialogState extends State<LeaveRequestFormDialog> {
           color: const Color(0xFFFEF3C7),
           borderRadius: BorderRadius.circular(10),
         ),
-        child: const Text(
-          'Chưa có quỹ phép năm (gắn hồ sơ lương trong Thiết lập lương).',
+        child: Text(tr('Chưa có quỹ phép năm (gắn hồ sơ lương trong Thiết lập lương).'),
           style: TextStyle(fontSize: 13, color: Color(0xFF92400E)),
         ),
       );
@@ -218,9 +218,8 @@ class _LeaveRequestFormDialogState extends State<LeaveRequestFormDialog> {
               ),
               const SizedBox(width: 10),
               Expanded(
-                child: Text(
-                  'Phép năm còn: ${remaining.toStringAsFixed(remaining.truncateToDouble() == remaining ? 0 : 1)} ngày'
-                  '${_annualBalanceEntitlement != null ? ' / ${_annualBalanceEntitlement!.toStringAsFixed(0)} ngày/năm' : ''}',
+                child: Text(tr('${tr('Phép năm còn: ')}${remaining.toStringAsFixed(remaining.truncateToDouble() == remaining ? 0 : 1)} ngày'
+                  '${_annualBalanceEntitlement != null ? ' / ${_annualBalanceEntitlement!.toStringAsFixed(0)} ngày/năm' : ''}'),
                   style: TextStyle(
                     fontWeight: FontWeight.w700,
                     fontSize: 15,
@@ -233,10 +232,9 @@ class _LeaveRequestFormDialogState extends State<LeaveRequestFormDialog> {
             ],
           ),
           const SizedBox(height: 6),
-          Text(
-            'Đơn này cần: ${needed.toStringAsFixed(needed.truncateToDouble() == needed ? 0 : 1)} ngày'
+          Text(tr('${tr('Đơn này cần: ')}${needed.toStringAsFixed(needed.truncateToDouble() == needed ? 0 : 1)} ngày'
             '${_isHalfShift ? ' (nửa ca)' : ''}. '
-            '${insufficient ? 'Không đủ phép — không thể duyệt.' : 'Sẽ trừ khi duyệt xong.'}',
+            '${insufficient ? 'Không đủ phép — không thể duyệt.' : 'Sẽ trừ khi duyệt xong.'}'),
             style: TextStyle(
               fontSize: 12,
               color: insufficient
@@ -412,7 +410,7 @@ class _LeaveRequestFormDialogState extends State<LeaveRequestFormDialog> {
           appBar: AppBar(
             backgroundColor: _primaryDark,
             foregroundColor: Colors.white,
-            title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
+            title: Text(tr(title), style: const TextStyle(fontWeight: FontWeight.w600)),
             leading: IconButton(
               icon: const Icon(Icons.close),
               onPressed: _isSubmitting ? null : () => Navigator.pop(context, false),
@@ -462,7 +460,7 @@ class _LeaveRequestFormDialogState extends State<LeaveRequestFormDialog> {
           const Icon(Icons.event_note_rounded, color: Colors.white, size: 26),
           const SizedBox(width: 12),
           Expanded(
-            child: Text(title,
+            child: Text(tr(title),
                 style: const TextStyle(
                     color: Colors.white,
                     fontSize: 18,
@@ -503,7 +501,7 @@ class _LeaveRequestFormDialogState extends State<LeaveRequestFormDialog> {
                   radius: 14,
                   backgroundColor: active ? _primary : _border,
                   child: Text(
-                    '${i + 1}',
+                    tr('${i + 1}'),
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.bold,
@@ -523,13 +521,11 @@ class _LeaveRequestFormDialogState extends State<LeaveRequestFormDialog> {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        const Text(
-          'Bước 1 — Chọn nhóm chế độ',
+        Text(tr('Bước 1 — Chọn nhóm chế độ'),
           style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: _text),
         ),
         const SizedBox(height: 6),
-        const Text(
-          'Mỗi ngày nghỉ chỉ áp dụng một chế độ chi trả.',
+        Text(tr('Mỗi ngày nghỉ chỉ áp dụng một chế độ chi trả.'),
           style: TextStyle(fontSize: 13, color: _muted),
         ),
         const SizedBox(height: 16),
@@ -576,13 +572,13 @@ class _LeaveRequestFormDialogState extends State<LeaveRequestFormDialog> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              LeaveCatalog.categoryTitle(cat),
+                              tr(LeaveCatalog.categoryTitle(cat)),
                               style: const TextStyle(
                                   fontWeight: FontWeight.w700, fontSize: 15),
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              LeaveCatalog.categoryDescription(cat),
+                              tr(LeaveCatalog.categoryDescription(cat)),
                               style: const TextStyle(fontSize: 12, color: _muted),
                             ),
                           ],
@@ -606,8 +602,8 @@ class _LeaveRequestFormDialogState extends State<LeaveRequestFormDialog> {
   Widget _buildSubtypeStep() {
     final cat = _category;
     if (cat == null) {
-      return const Center(
-        child: Text('Chọn nhóm loại nghỉ ở bước trước',
+      return Center(
+        child: Text(tr('Chọn nhóm loại nghỉ ở bước trước'),
             style: TextStyle(color: _muted, fontSize: 14)),
       );
     }
@@ -615,8 +611,7 @@ class _LeaveRequestFormDialogState extends State<LeaveRequestFormDialog> {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        Text(
-          'Bước 2 — ${LeaveCatalog.categoryTitle(cat)}',
+        Text(tr('Bước 2 — ${LeaveCatalog.categoryTitle(cat)}'),
           style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: _text),
         ),
         const SizedBox(height: 12),
@@ -651,13 +646,13 @@ class _LeaveRequestFormDialogState extends State<LeaveRequestFormDialog> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(e.title,
+                            Text(tr(e.title),
                                 style: const TextStyle(
                                     fontWeight: FontWeight.w700, fontSize: 15)),
-                            Text(e.subtitle,
+                            Text(tr(e.subtitle),
                                 style: TextStyle(fontSize: 12, color: e.color)),
                             const SizedBox(height: 6),
-                            Text(e.legalHint,
+                            Text(tr(e.legalHint),
                                 style: const TextStyle(fontSize: 11, color: _muted)),
                           ],
                         ),
@@ -700,8 +695,8 @@ class _LeaveRequestFormDialogState extends State<LeaveRequestFormDialog> {
               Icons.description_rounded,
               TextFormField(
                 controller: _bhxhNoteController,
-                decoration: const InputDecoration(
-                  hintText: 'Số seri giấy nghỉ, mã hồ sơ BHXH…',
+                decoration: InputDecoration(
+                  hintText: tr('Số seri giấy nghỉ, mã hồ sơ BHXH…'),
                   filled: true,
                   border: OutlineInputBorder(),
                 ),
@@ -719,8 +714,8 @@ class _LeaveRequestFormDialogState extends State<LeaveRequestFormDialog> {
               maxLines: 3,
               validator: (v) =>
                   (v == null || v.trim().isEmpty) ? 'Vui lòng nhập lý do' : null,
-              decoration: const InputDecoration(
-                hintText: 'Mô tả ngắn gọn lý do nghỉ…',
+              decoration: InputDecoration(
+                hintText: tr('Mô tả ngắn gọn lý do nghỉ…'),
                 filled: true,
                 border: OutlineInputBorder(),
               ),
@@ -752,12 +747,12 @@ class _LeaveRequestFormDialogState extends State<LeaveRequestFormDialog> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(entry.title,
+                Text(tr(entry.title),
                     style: TextStyle(
                         fontWeight: FontWeight.w700,
                         color: entry.color,
                         fontSize: 15)),
-                Text(entry.paymentSource.label,
+                Text(tr(entry.paymentSource.label),
                     style: const TextStyle(fontSize: 12, color: _muted)),
               ],
             ),
@@ -768,7 +763,7 @@ class _LeaveRequestFormDialogState extends State<LeaveRequestFormDialog> {
               color: entry.paymentSource.color.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: Text(entry.paymentSource.label,
+            child: Text(tr(entry.paymentSource.label),
                 style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
@@ -787,7 +782,7 @@ class _LeaveRequestFormDialogState extends State<LeaveRequestFormDialog> {
           children: [
             Icon(icon, size: 18, color: _primary),
             const SizedBox(width: 6),
-            Text(title,
+            Text(tr(title),
                 style: const TextStyle(
                     fontWeight: FontWeight.w600, fontSize: 14, color: _text)),
           ],
@@ -809,9 +804,9 @@ class _LeaveRequestFormDialogState extends State<LeaveRequestFormDialog> {
       child: Column(
         children: [
           SwitchListTile(
-            title: const Text('Phép duyệt nhưng vẫn tính công',
+            title: Text(tr('Phép duyệt nhưng vẫn tính công'),
                 style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-            subtitle: const Text('Không ghi "Phép" trên chấm công',
+            subtitle: Text(tr('Không ghi "Phép" trên chấm công'),
                 style: TextStyle(fontSize: 12)),
             value: _countAsWork,
             onChanged: (v) {
@@ -821,7 +816,7 @@ class _LeaveRequestFormDialogState extends State<LeaveRequestFormDialog> {
           ),
           if (!_isEditMode)
             SwitchListTile(
-              title: const Text('Duyệt luôn khi tạo',
+              title: Text(tr('Duyệt luôn khi tạo'),
                   style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
               value: _autoApprove,
               onChanged: (v) => setState(() => _autoApprove = v),
@@ -844,8 +839,8 @@ class _LeaveRequestFormDialogState extends State<LeaveRequestFormDialog> {
         SwitchListTile(
           contentPadding: EdgeInsets.zero,
           value: _isHalfShift,
-          title: Text(l10n.halfShift),
-          subtitle: const Text('0.5 công / ngày', style: TextStyle(fontSize: 12)),
+          title: Text(tr(l10n.halfShift)),
+          subtitle: Text(tr('0.5 công / ngày'), style: TextStyle(fontSize: 12)),
           onChanged: (v) {
             setState(() => _isHalfShift = v);
             _loadAnnualBalance();
@@ -869,8 +864,8 @@ class _LeaveRequestFormDialogState extends State<LeaveRequestFormDialog> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(label, style: const TextStyle(fontSize: 11, color: _muted)),
-            Text(DateFormat('dd/MM/yyyy').format(date),
+            Text(tr(label), style: const TextStyle(fontSize: 11, color: _muted)),
+            Text(tr(DateFormat('dd/MM/yyyy').format(date)),
                 style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
           ],
         ),
@@ -884,9 +879,9 @@ class _LeaveRequestFormDialogState extends State<LeaveRequestFormDialog> {
     }
     if (!_hasSalaryShifts) {
       return Text(
-        _selectedEmployeeId == null
+        tr(_selectedEmployeeId == null
             ? 'Chọn nhân viên trước.'
-            : 'Chưa gắn ca trong Thiết lập lương.',
+            : 'Chưa gắn ca trong Thiết lập lương.'),
         style: const TextStyle(color: Color(0xFFB45309), fontSize: 13),
       );
     }
@@ -898,7 +893,7 @@ class _LeaveRequestFormDialogState extends State<LeaveRequestFormDialog> {
         final name = s['name']?.toString() ?? 'Ca';
         final sel = _selectedShiftIds.contains(id);
         return FilterChip(
-          label: Text(name),
+          label: Text(tr(name)),
           selected: sel,
           onSelected: (_) {
             setState(() {
@@ -921,7 +916,7 @@ class _LeaveRequestFormDialogState extends State<LeaveRequestFormDialog> {
         borderRadius: BorderRadius.circular(10),
         side: const BorderSide(color: _border),
       ),
-      title: Text(_employeeName() ?? 'Chọn nhân viên'),
+      title: Text(tr(_employeeName() ?? 'Chọn nhân viên')),
       trailing: const Icon(Icons.chevron_right),
       onTap: _pickEmployee,
     );
@@ -934,7 +929,7 @@ class _LeaveRequestFormDialogState extends State<LeaveRequestFormDialog> {
         borderRadius: BorderRadius.circular(10),
         side: const BorderSide(color: _border),
       ),
-      title: Text(_replacementName() ?? 'Không chọn'),
+      title: Text(tr(_replacementName() ?? 'Không chọn')),
       trailing: const Icon(Icons.person_search),
       onTap: _pickReplacement,
     );
@@ -1072,10 +1067,10 @@ class _LeaveRequestFormDialogState extends State<LeaveRequestFormDialog> {
         child: Row(
           children: [
             if (_step > 0 && !_isEditMode)
-              TextButton(onPressed: _isSubmitting ? null : _back, child: const Text('Quay lại')),
+              TextButton(onPressed: _isSubmitting ? null : _back, child: Text(tr('Quay lại'))),
             const Spacer(),
             if (_step < _totalSteps - 1 && !_isEditMode)
-              FilledButton(onPressed: _next, child: const Text('Tiếp'))
+              FilledButton(onPressed: _next, child: Text(tr('Tiếp')))
             else
               FilledButton(
                 onPressed: _isSubmitting ? null : _submit,
@@ -1085,7 +1080,7 @@ class _LeaveRequestFormDialogState extends State<LeaveRequestFormDialog> {
                         height: 22,
                         child: CircularProgressIndicator(
                             strokeWidth: 2, color: Colors.white))
-                    : Text(_isEditMode ? 'Cập nhật' : 'Gửi đơn'),
+                    : Text(tr(_isEditMode ? 'Cập nhật' : 'Gửi đơn')),
               ),
           ],
         ),
@@ -1097,19 +1092,19 @@ class _LeaveRequestFormDialogState extends State<LeaveRequestFormDialog> {
     showDialog<void>(
       context: context,
       builder: (ctx) => ScrollableAlertDialog(
-        title: const Text('Quy định nghỉ phép (tóm tắt)'),
-        content: const SingleChildScrollView(
+        title: Text(tr('Quy định nghỉ phép (tóm tắt)')),
+        content: SingleChildScrollView(
           child: Text(
-            '• DN trả lương: phép năm, lễ, VR có lương, nghỉ bù, ốm dùng phép năm.\n'
+            tr('• DN trả lương: phép năm, lễ, VR có lương, nghỉ bù, ốm dùng phép năm.\n'
             '• Không lương: VR không lương, nghỉ dài hạn không lương.\n'
             '• BHXH: ốm hưởng BHXH, thai sản — cần giấy tờ, không trùng lương DN cùng ngày.\n'
             '• Mỗi ngày chỉ một chế độ.\n'
-            '• Ca nghỉ theo Thiết lập lương; người thay ca cùng phòng ban.',
+            '• Ca nghỉ theo Thiết lập lương; người thay ca cùng phòng ban.'),
             style: TextStyle(fontSize: 14, height: 1.5),
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Đóng')),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('Đóng'))),
         ],
       ),
     );

@@ -13,6 +13,7 @@ import '../widgets/notification_overlay.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../widgets/hrm_responsive_list_layout.dart';
 import '../widgets/hrm_mini_stat_chip.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 class OvertimeScreen extends StatefulWidget {
   const OvertimeScreen({super.key});
@@ -135,11 +136,11 @@ class _OvertimeScreenState extends State<OvertimeScreen>
                       unselectedLabelColor: Colors.grey[600],
                       indicatorColor: const Color(0xFFEA580C),
                       indicatorWeight: 3,
-                      tabs: const [
-                        Tab(text: 'Tất cả'),
-                        Tab(text: 'Của tôi'),
-                        Tab(text: 'Chờ duyệt'),
-                        Tab(text: 'Thống kê'),
+                      tabs: [
+                        Tab(text: tr('Tất cả')),
+                        Tab(text: tr('Của tôi')),
+                        Tab(text: tr('Chờ duyệt')),
+                        Tab(text: tr('Thống kê')),
                       ],
                     ),
                     tabBarView: TabBarView(
@@ -177,11 +178,11 @@ class _OvertimeScreenState extends State<OvertimeScreen>
                         unselectedLabelColor: Colors.grey[600],
                         indicatorColor: const Color(0xFFEA580C),
                         indicatorWeight: 3,
-                        tabs: const [
-                          Tab(text: 'Tất cả'),
-                          Tab(text: 'Của tôi'),
-                          Tab(text: 'Chờ duyệt'),
-                          Tab(text: 'Thống kê'),
+                        tabs: [
+                          Tab(text: tr('Tất cả')),
+                          Tab(text: tr('Của tôi')),
+                          Tab(text: tr('Chờ duyệt')),
+                          Tab(text: tr('Thống kê')),
                         ],
                       ),
                       Expanded(
@@ -213,7 +214,7 @@ class _OvertimeScreenState extends State<OvertimeScreen>
               ? FloatingActionButton.extended(
                   onPressed: _showCreateDialog,
                   icon: const Icon(Icons.add),
-                  label: const Text('Đăng ký tăng ca'),
+                  label: Text(tr('Đăng ký tăng ca')),
                   backgroundColor: const Color(0xFFEA580C),
                 )
               : null,
@@ -252,17 +253,17 @@ class _OvertimeScreenState extends State<OvertimeScreen>
                     const Icon(Icons.more_time, color: Colors.white, size: 24),
               ),
               const SizedBox(width: 16),
-              const Expanded(
+              Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Qu\u1ea3n l\u00fd t\u0103ng ca',
+                    Text(tr('Qu\u1ea3n l\u00fd t\u0103ng ca'),
                         style: TextStyle(
                             color: Colors.white,
                             fontSize: 20,
                             fontWeight: FontWeight.bold)),
                     Text(
-                        '\u0110\u0103ng k\u00fd v\u00e0 ph\u00ea duy\u1ec7t t\u0103ng ca',
+                        tr('\u0110\u0103ng k\u00fd v\u00e0 ph\u00ea duy\u1ec7t t\u0103ng ca'),
                         style: TextStyle(color: Colors.white70, fontSize: 14)),
                   ],
                 ),
@@ -277,7 +278,7 @@ class _OvertimeScreenState extends State<OvertimeScreen>
               isExpanded: true,
               dropdownColor: Colors.white,
               decoration: InputDecoration(
-                labelText: 'Chi nh\u00e1nh',
+                labelText: tr('Chi nh\u00e1nh'),
                 labelStyle:
                     const TextStyle(color: Colors.white70, fontSize: 13),
                 isDense: true,
@@ -298,13 +299,13 @@ class _OvertimeScreenState extends State<OvertimeScreen>
               style: const TextStyle(color: Colors.white, fontSize: 13),
               iconEnabledColor: Colors.white,
               items: [
-                const DropdownMenuItem<String?>(
+                DropdownMenuItem<String?>(
                     value: null,
-                    child: Text('T\u1ea5t c\u1ea3 chi nh\u00e1nh',
+                    child: Text(tr('T\u1ea5t c\u1ea3 chi nh\u00e1nh'),
                         style: TextStyle(color: Colors.black87))),
                 ..._branches.map((b) => DropdownMenuItem<String?>(
                     value: b['id']?.toString(),
-                    child: Text(b['name']?.toString() ?? '',
+                    child: Text(tr(b['name']?.toString() ?? ''),
                         style: const TextStyle(color: Colors.black87),
                         overflow: TextOverflow.ellipsis))),
               ],
@@ -354,12 +355,12 @@ class _OvertimeScreenState extends State<OvertimeScreen>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(value,
+                  Text(tr(value),
                       style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.bold,
                           color: color)),
-                  Text(label,
+                  Text(tr(label),
                       style: TextStyle(fontSize: 10, color: Colors.grey[600]),
                       overflow: TextOverflow.ellipsis),
                 ],
@@ -390,7 +391,7 @@ class _OvertimeScreenState extends State<OvertimeScreen>
                   Icon(Icons.analytics_outlined,
                       size: 16, color: Colors.blue.shade700),
                   const SizedBox(width: 6),
-                  Text('Tổng quan',
+                  Text(tr('Tổng quan'),
                       style: TextStyle(
                           fontWeight: FontWeight.w600,
                           fontSize: 13,
@@ -419,7 +420,7 @@ class _OvertimeScreenState extends State<OvertimeScreen>
           children: [
             Icon(Icons.more_time, size: 64, color: Colors.grey[300]),
             const SizedBox(height: 16),
-            Text('Không có yêu cầu tăng ca',
+            Text(tr('Không có yêu cầu tăng ca'),
                 style: TextStyle(color: Colors.grey[500], fontSize: 16)),
           ],
         ),
@@ -493,8 +494,7 @@ class _OvertimeScreenState extends State<OvertimeScreen>
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        'Hiển thị ${startIndex + 1}-$endIndex / $totalCount',
+                      Text(tr('Hiển thị ${startIndex + 1}-$endIndex / $totalCount'),
                         style:
                             TextStyle(fontSize: 12, color: Colors.grey[600]),
                       ),
@@ -507,7 +507,7 @@ class _OvertimeScreenState extends State<OvertimeScreen>
                                 : null,
                             visualDensity: VisualDensity.compact,
                           ),
-                          Text('$page / $totalPages',
+                          Text(tr('$page / $totalPages'),
                               style: const TextStyle(
                                   fontSize: 12, fontWeight: FontWeight.w500)),
                           IconButton(
@@ -568,8 +568,7 @@ class _OvertimeScreenState extends State<OvertimeScreen>
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  'Hiển thị ${startIndex + 1}-$endIndex / $totalCount',
+                Text(tr('Hiển thị ${startIndex + 1}-$endIndex / $totalCount'),
                   style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                 ),
                 Row(
@@ -581,7 +580,7 @@ class _OvertimeScreenState extends State<OvertimeScreen>
                           : null,
                       visualDensity: VisualDensity.compact,
                     ),
-                    Text('$page / $totalPages',
+                    Text(tr('$page / $totalPages'),
                         style: const TextStyle(
                             fontSize: 12, fontWeight: FontWeight.w500)),
                     IconButton(
@@ -621,12 +620,12 @@ class _OvertimeScreenState extends State<OvertimeScreen>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(ot['employeeName'] ?? 'Nhân viên',
+                  Text(tr(ot['employeeName'] ?? 'Nhân viên'),
                       style: const TextStyle(
                           fontWeight: FontWeight.w600, fontSize: 14)),
                   const SizedBox(height: 2),
                   Text(
-                    '${_formatDate(ot['date'] ?? ot['overtimeDate'])} · ${ot['startTime']?.toString().substring(0, 5) ?? '--:--'}-${ot['endTime']?.toString().substring(0, 5) ?? '--:--'} · ${ot['totalHours'] ?? ot['hours'] ?? 0}h',
+                    tr('${_formatDate(ot['date'] ?? ot['overtimeDate'])} · ${ot['startTime']?.toString().substring(0, 5) ?? '--:--'}-${ot['endTime']?.toString().substring(0, 5) ?? '--:--'} · ${ot['totalHours'] ?? ot['hours'] ?? 0}h'),
                     style: TextStyle(fontSize: 12, color: Colors.grey[500]),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -640,7 +639,7 @@ class _OvertimeScreenState extends State<OvertimeScreen>
               decoration: BoxDecoration(
                   color: statusColor.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(10)),
-              child: Text(statusText,
+              child: Text(tr(statusText),
                   style: TextStyle(
                       color: statusColor,
                       fontWeight: FontWeight.w600,
@@ -673,7 +672,7 @@ class _OvertimeScreenState extends State<OvertimeScreen>
 
   Widget _buildStatisticsTab() {
     if (_statistics == null) {
-      return const Center(child: Text('Chưa có dữ liệu thống kê'));
+      return Center(child: Text(tr('Chưa có dữ liệu thống kê')));
     }
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
@@ -768,9 +767,9 @@ class _OvertimeScreenState extends State<OvertimeScreen>
               mainAxisSize: MainAxisSize.min,
               children: [
                 ListTile(
-                  title: Text(selectedDate != null
+                  title: Text(tr(selectedDate != null
                       ? DateFormat('dd/MM/yyyy').format(selectedDate!)
-                      : 'Chọn ngày'),
+                      : 'Chọn ngày')),
                   leading: const Icon(Icons.calendar_today),
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(10),
@@ -790,7 +789,7 @@ class _OvertimeScreenState extends State<OvertimeScreen>
                         child: TextField(
                             controller: startCtrl,
                             decoration: InputDecoration(
-                                labelText: 'Giờ bắt đầu (HH:mm) *',
+                                labelText: tr('Giờ bắt đầu (HH:mm) *'),
                                 border: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(10))))),
                     const SizedBox(width: 12),
@@ -798,7 +797,7 @@ class _OvertimeScreenState extends State<OvertimeScreen>
                         child: TextField(
                             controller: endCtrl,
                             decoration: InputDecoration(
-                                labelText: 'Giờ kết thúc (HH:mm) *',
+                                labelText: tr('Giờ kết thúc (HH:mm) *'),
                                 border: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(10))))),
                   ],
@@ -807,7 +806,7 @@ class _OvertimeScreenState extends State<OvertimeScreen>
                 TextField(
                     controller: reasonCtrl,
                     decoration: InputDecoration(
-                        labelText: 'Lý do *',
+                        labelText: tr('Lý do *'),
                         border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(10))),
                     maxLines: 2),
@@ -819,20 +818,20 @@ class _OvertimeScreenState extends State<OvertimeScreen>
                 if (selectedDate == null) {
                   appNotification.showWarning(
                       title: 'Thiếu thông tin',
-                      message: 'Vui lòng chọn ngày tăng ca');
+                      message: tr('Vui lòng chọn ngày tăng ca'));
                   return;
                 }
                 if (startCtrl.text.trim().isEmpty ||
                     endCtrl.text.trim().isEmpty) {
                   appNotification.showWarning(
                       title: 'Thiếu thông tin',
-                      message: 'Vui lòng nhập giờ bắt đầu và kết thúc');
+                      message: tr('Vui lòng nhập giờ bắt đầu và kết thúc'));
                   return;
                 }
                 if (reasonCtrl.text.trim().isEmpty) {
                   appNotification.showWarning(
                       title: 'Thiếu thông tin',
-                      message: 'Vui lòng nhập lý do tăng ca');
+                      message: tr('Vui lòng nhập lý do tăng ca'));
                   return;
                 }
                 final data = {
@@ -870,11 +869,11 @@ class _OvertimeScreenState extends State<OvertimeScreen>
                       leading: IconButton(
                           icon: const Icon(Icons.close),
                           onPressed: () => Navigator.pop(ctx)),
-                      title: const Row(children: [
+                      title: Row(children: [
                         Icon(Icons.more_time,
                             color: Color(0xFFEA580C), size: 20),
                         SizedBox(width: 10),
-                        Expanded(child: Text('Đăng ký tăng ca'))
+                        Expanded(child: Text(tr('Đăng ký tăng ca')))
                       ]),
                       elevation: 0.5,
                     ),
@@ -901,10 +900,10 @@ class _OvertimeScreenState extends State<OvertimeScreen>
             return ScrollableAlertDialog(
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16)),
-              title: const Row(children: [
+              title: Row(children: [
                 Icon(Icons.more_time, color: Color(0xFFEA580C)),
                 SizedBox(width: 8),
-                Text('Đăng ký tăng ca')
+                Text(tr('Đăng ký tăng ca'))
               ]),
               content: SizedBox(width: 420, child: content),
               actions: [actions],
@@ -932,7 +931,7 @@ class _OvertimeScreenState extends State<OvertimeScreen>
       child: TextField(
           controller: reasonCtrl,
           decoration: InputDecoration(
-              labelText: 'Lý do từ chối',
+              labelText: tr('Lý do từ chối'),
               border:
                   OutlineInputBorder(borderRadius: BorderRadius.circular(10))),
           maxLines: 2),

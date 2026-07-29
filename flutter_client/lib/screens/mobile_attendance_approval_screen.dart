@@ -11,6 +11,8 @@ import '../widgets/notification_overlay.dart';
 import 'package:provider/provider.dart';
 import '../providers/permission_provider.dart';
 import '../utils/attendance_correction_privilege.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
+import 'package:zkteco_flutter_client/l10n/app_ui_locale.dart';
 
 class MobileAttendanceApprovalScreen extends StatefulWidget {
   /// Nhúng trong [AttendanceApprovalScreen] (TabBarView cha) — tránh NestedScrollView lồng nhau.
@@ -189,7 +191,7 @@ class _MobileAttendanceApprovalScreenState
       debugPrint('Error loading mobile attendance data: $e');
       if (mounted) {
         appNotification.showError(
-            title: 'Lỗi', message: 'Không thể tải dữ liệu chấm công mobile');
+            title: 'Lỗi', message: tr('Không thể tải dữ liệu chấm công mobile'));
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -212,7 +214,7 @@ class _MobileAttendanceApprovalScreenState
             children: [
               const Icon(Icons.pending_actions, size: 18),
               const SizedBox(width: 6),
-              const Text('Chờ duyệt'),
+              Text(tr('Chờ duyệt')),
               if (_filteredPendingRecords.isNotEmpty) ...[
                 const SizedBox(width: 6),
                 Container(
@@ -223,7 +225,7 @@ class _MobileAttendanceApprovalScreenState
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Text(
-                    '${_filteredPendingRecords.length}',
+                    tr('${_filteredPendingRecords.length}'),
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 11,
@@ -235,33 +237,33 @@ class _MobileAttendanceApprovalScreenState
             ],
           ),
         ),
-        const Tab(
+        Tab(
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(Icons.check_circle, size: 18),
               SizedBox(width: 6),
-              Text('Đã duyệt'),
+              Text(tr('Đã duyệt')),
             ],
           ),
         ),
-        const Tab(
+        Tab(
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(Icons.cancel, size: 18),
               SizedBox(width: 6),
-              Text('Từ chối'),
+              Text(tr('Từ chối')),
             ],
           ),
         ),
-        const Tab(
+        Tab(
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(Icons.table_chart, size: 18),
               SizedBox(width: 6),
-              Text('Tổng hợp'),
+              Text(tr('Tổng hợp')),
             ],
           ),
         ),
@@ -292,7 +294,7 @@ class _MobileAttendanceApprovalScreenState
         children: [
           Expanded(child: _buildApprovalTabBar()),
           IconButton(
-            tooltip: 'Bộ lọc',
+            tooltip: tr('Bộ lọc'),
             icon: const Icon(Icons.filter_list, color: Color(0xFF71717A)),
             onPressed: _showFilterDialog,
           ),
@@ -369,7 +371,7 @@ class _MobileAttendanceApprovalScreenState
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('Hiển thị ${startIndex + 1}-$endIndex / $totalCount',
+                Text(tr('Hiển thị ${startIndex + 1}-$endIndex / $totalCount'),
                     style: TextStyle(fontSize: 12, color: Colors.grey[600])),
                 Row(children: [
                   IconButton(
@@ -378,7 +380,7 @@ class _MobileAttendanceApprovalScreenState
                           ? () => setState(() => _currentPage--)
                           : null,
                       visualDensity: VisualDensity.compact),
-                  Text('$page / $totalPages',
+                  Text(tr('$page / $totalPages'),
                       style: const TextStyle(
                           fontSize: 12, fontWeight: FontWeight.w500)),
                   IconButton(
@@ -429,8 +431,7 @@ class _MobileAttendanceApprovalScreenState
         alignment: WrapAlignment.spaceBetween,
         crossAxisAlignment: WrapCrossAlignment.center,
         children: [
-          Text(
-            '${_filteredPendingRecords.length} yêu cầu chờ duyệt',
+          Text(tr('${_filteredPendingRecords.length} yêu cầu chờ duyệt'),
             style: const TextStyle(
               fontWeight: FontWeight.w600,
               color: Color(0xFF18181B),
@@ -444,7 +445,7 @@ class _MobileAttendanceApprovalScreenState
                 OutlinedButton.icon(
                   onPressed: () => _bulkAction(false),
                   icon: const Icon(Icons.close, size: 18),
-                  label: const Text('Từ chối tất cả'),
+                  label: Text(tr('Từ chối tất cả')),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: const Color(0xFFEF4444),
                     side: const BorderSide(color: Color(0xFFEF4444)),
@@ -458,7 +459,7 @@ class _MobileAttendanceApprovalScreenState
                 FilledButton.icon(
                   onPressed: () => _bulkAction(true),
                   icon: const Icon(Icons.check, size: 18),
-                  label: const Text('Duyệt tất cả'),
+                  label: Text(tr('Duyệt tất cả')),
                   style: FilledButton.styleFrom(
                     backgroundColor: HrmPageChrome.primaryNavy,
                     padding:
@@ -521,7 +522,7 @@ class _MobileAttendanceApprovalScreenState
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(record.employeeName,
+                  Text(tr(record.employeeName),
                       style: const TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
@@ -529,7 +530,7 @@ class _MobileAttendanceApprovalScreenState
                       overflow: TextOverflow.ellipsis),
                   const SizedBox(height: 2),
                   Text(
-                    '$time · $date · ${record.punchTypeLabel} · ${record.formattedDistanceFromLocation} · ${record.faceMatchScore?.toStringAsFixed(0) ?? '0'}%',
+                    tr('$time · $date · ${record.punchTypeLabel} · ${record.formattedDistanceFromLocation} · ${record.faceMatchScore?.toStringAsFixed(0) ?? '0'}%'),
                     style:
                         const TextStyle(fontSize: 12, color: Color(0xFF71717A)),
                     overflow: TextOverflow.ellipsis,
@@ -546,7 +547,7 @@ class _MobileAttendanceApprovalScreenState
                     .withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(6),
               ),
-              child: Text(record.punchTypeLabel,
+              child: Text(tr(record.punchTypeLabel),
                   style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
@@ -603,7 +604,7 @@ class _MobileAttendanceApprovalScreenState
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(record.employeeName,
+                  Text(tr(record.employeeName),
                       style: const TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
@@ -611,7 +612,7 @@ class _MobileAttendanceApprovalScreenState
                       overflow: TextOverflow.ellipsis),
                   const SizedBox(height: 2),
                   Text(
-                    '$time · $date · ${record.punchTypeLabel} · ${record.approvedBy ?? 'N/A'}',
+                    tr('$time · $date · ${record.punchTypeLabel} · ${record.approvedBy ?? 'N/A'}'),
                     style:
                         const TextStyle(fontSize: 12, color: Color(0xFF71717A)),
                     overflow: TextOverflow.ellipsis,
@@ -629,11 +630,11 @@ class _MobileAttendanceApprovalScreenState
                 borderRadius: BorderRadius.circular(6),
               ),
               child: Text(
-                isApproved
+                tr(isApproved
                     ? (record.status == 'auto_approved'
                         ? 'Tự động duyệt'
                         : 'Đã duyệt')
-                    : 'Từ chối',
+                    : 'Từ chối'),
                 style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
@@ -702,7 +703,7 @@ class _MobileAttendanceApprovalScreenState
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('Hiển thị ${startIndex + 1}-$endIndex / $totalCount',
+                Text(tr('Hiển thị ${startIndex + 1}-$endIndex / $totalCount'),
                     style: TextStyle(fontSize: 12, color: Colors.grey[600])),
                 Row(children: [
                   IconButton(
@@ -711,7 +712,7 @@ class _MobileAttendanceApprovalScreenState
                           ? () => setState(() => _currentPage--)
                           : null,
                       visualDensity: VisualDensity.compact),
-                  Text('$page / $totalPages',
+                  Text(tr('$page / $totalPages'),
                       style: const TextStyle(
                           fontSize: 12, fontWeight: FontWeight.w500)),
                   IconButton(
@@ -773,7 +774,7 @@ class _MobileAttendanceApprovalScreenState
           Icon(icon, size: 64, color: Colors.grey.shade300),
           const SizedBox(height: 16),
           Text(
-            title,
+            tr(title),
             style: const TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w600,
@@ -782,7 +783,7 @@ class _MobileAttendanceApprovalScreenState
           ),
           const SizedBox(height: 4),
           Text(
-            subtitle,
+            tr(subtitle),
             textAlign: TextAlign.center,
             style: const TextStyle(
               color: Color(0xFFA1A1AA),
@@ -798,20 +799,19 @@ class _MobileAttendanceApprovalScreenState
       context: context,
       builder: (context) => ScrollableAlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Xác nhận duyệt'),
-        content: Text(
-            'Bạn có chắc muốn duyệt chấm công của ${record.employeeName}?\n\nSau khi duyệt, dữ liệu sẽ được thêm vào chấm công chi tiết.'),
+        title: Text(tr('Xác nhận duyệt')),
+        content: Text(tr('Bạn có chắc muốn duyệt chấm công của ${record.employeeName}?\n\nSau khi duyệt, dữ liệu sẽ được thêm vào chấm công chi tiết.')),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Hủy'),
+            child: Text(tr('Hủy')),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
             style: FilledButton.styleFrom(
               backgroundColor: HrmPageChrome.primaryNavy,
             ),
-            child: const Text('Duyệt'),
+            child: Text(tr('Duyệt')),
           ),
         ],
       ),
@@ -828,7 +828,7 @@ class _MobileAttendanceApprovalScreenState
           if (!mounted) return;
           NotificationOverlayManager().showSuccess(
               title: 'Thành công',
-              message: 'Đã duyệt và thêm vào chấm công chi tiết');
+              message: tr('Đã duyệt và thêm vào chấm công chi tiết'));
         } else {
           if (!mounted) return;
           appNotification.showError(
@@ -836,7 +836,7 @@ class _MobileAttendanceApprovalScreenState
         }
       } catch (e) {
         if (!mounted) return;
-        appNotification.showError(title: 'Lỗi', message: 'Lỗi kết nối: $e');
+        appNotification.showError(title: 'Lỗi', message: tr('Lỗi kết nối: $e'));
       }
     }
   }
@@ -848,19 +848,19 @@ class _MobileAttendanceApprovalScreenState
       context: context,
       builder: (context) => ScrollableAlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Từ chối chấm công'),
+        title: Text(tr('Từ chối chấm công')),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Từ chối chấm công của ${record.employeeName}'),
+              Text(tr('Từ chối chấm công của ${record.employeeName}')),
               const SizedBox(height: 16),
               TextField(
                 controller: reasonController,
                 decoration: InputDecoration(
-                  labelText: 'Lý do từ chối',
-                  hintText: 'Nhập lý do...',
+                  labelText: tr('Lý do từ chối'),
+                  hintText: tr('Nhập lý do...'),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
                   ),
@@ -873,14 +873,14 @@ class _MobileAttendanceApprovalScreenState
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Hủy'),
+            child: Text(tr('Hủy')),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, reasonController.text),
             style: FilledButton.styleFrom(
               backgroundColor: const Color(0xFFEF4444),
             ),
-            child: const Text('Từ chối'),
+            child: Text(tr('Từ chối')),
           ),
         ],
       ),
@@ -897,7 +897,7 @@ class _MobileAttendanceApprovalScreenState
           await _loadData();
           if (!mounted) return;
           NotificationOverlayManager()
-              .showInfo(title: 'Từ chối', message: 'Đã từ chối chấm công');
+              .showInfo(title: 'Từ chối', message: tr('Đã từ chối chấm công'));
         } else {
           if (!mounted) return;
           appNotification.showError(
@@ -906,7 +906,7 @@ class _MobileAttendanceApprovalScreenState
         }
       } catch (e) {
         if (!mounted) return;
-        appNotification.showError(title: 'Lỗi', message: 'Lỗi kết nối: $e');
+        appNotification.showError(title: 'Lỗi', message: tr('Lỗi kết nối: $e'));
       }
     }
     reasonController.dispose();
@@ -917,16 +917,16 @@ class _MobileAttendanceApprovalScreenState
       context: context,
       builder: (context) => ScrollableAlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Text(approve ? 'Duyệt tất cả' : 'Từ chối tất cả'),
+        title: Text(tr(approve ? 'Duyệt tất cả' : 'Từ chối tất cả')),
         content: Text(
-          approve
+          tr(approve
               ? 'Bạn có chắc muốn duyệt tất cả ${_pendingRecords.length} yêu cầu?\n\nTất cả sẽ được thêm vào chấm công chi tiết.'
-              : 'Bạn có chắc muốn từ chối tất cả ${_pendingRecords.length} yêu cầu?',
+              : 'Bạn có chắc muốn từ chối tất cả ${_pendingRecords.length} yêu cầu?'),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Hủy'),
+            child: Text(tr('Hủy')),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
@@ -934,7 +934,7 @@ class _MobileAttendanceApprovalScreenState
               backgroundColor:
                   approve ? HrmPageChrome.primaryNavy : const Color(0xFFEF4444),
             ),
-            child: Text(approve ? 'Duyệt tất cả' : 'Từ chối tất cả'),
+            child: Text(tr(approve ? 'Duyệt tất cả' : 'Từ chối tất cả')),
           ),
         ],
       ),
@@ -968,15 +968,15 @@ class _MobileAttendanceApprovalScreenState
       if (failCount > 0) {
         appNotification.showWarning(
           title: 'Hoàn tất',
-          message: 'Thành công: $successCount, Thất bại: $failCount',
+          message: tr('Thành công: $successCount, Thất bại: $failCount'),
         );
       } else {
         if (approve) {
           NotificationOverlayManager().showSuccess(
-              title: 'Thành công', message: 'Đã duyệt $successCount yêu cầu');
+              title: 'Thành công', message: tr('Đã duyệt $successCount yêu cầu'));
         } else {
           NotificationOverlayManager().showInfo(
-              title: 'Từ chối', message: 'Đã từ chối $successCount yêu cầu');
+              title: 'Từ chối', message: tr('Đã từ chối $successCount yêu cầu'));
         }
       }
     }
@@ -1046,7 +1046,7 @@ class _MobileAttendanceApprovalScreenState
                       lastDate: DateTime.now(),
                       initialDateRange:
                           DateTimeRange(start: _summaryFrom, end: _summaryTo),
-                      locale: const Locale('vi'),
+                      locale: appUiLocale(),
                       builder: (ctx, child) => Theme(
                         data: Theme.of(ctx).copyWith(
                           colorScheme: const ColorScheme.light(
@@ -1070,7 +1070,7 @@ class _MobileAttendanceApprovalScreenState
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
-                      '${DateFormat('dd/MM/yyyy').format(_summaryFrom)} – ${DateFormat('dd/MM/yyyy').format(_summaryTo)}',
+                      tr('${DateFormat('dd/MM/yyyy').format(_summaryFrom)} – ${DateFormat('dd/MM/yyyy').format(_summaryTo)}'),
                       style: const TextStyle(
                           fontSize: 13,
                           color: HrmPageChrome.primaryNavy,
@@ -1087,14 +1087,14 @@ class _MobileAttendanceApprovalScreenState
       return Column(
         children: [
           dateRangeBar(),
-          const Expanded(
+          Expanded(
             child: Center(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(Icons.table_chart, size: 56, color: Color(0xFFE4E4E7)),
                   SizedBox(height: 12),
-                  Text('Chưa có dữ liệu',
+                  Text(tr('Chưa có dữ liệu'),
                       style: TextStyle(color: Color(0xFF71717A))),
                 ],
               ),
@@ -1108,8 +1108,8 @@ class _MobileAttendanceApprovalScreenState
     Widget attendanceCell(String emp, DateTime day) {
       final recs = _recordsFor(emp, day);
       if (recs.isEmpty) {
-        return const Center(
-            child: Text('—',
+        return Center(
+            child: Text(tr('—'),
                 style: TextStyle(color: Color(0xFFA1A1AA), fontSize: 13)));
       }
       final hasIn = recs.any((r) => r.punchType == 0);
@@ -1132,8 +1132,8 @@ class _MobileAttendanceApprovalScreenState
     Widget hoursCell(String emp, DateTime day) {
       final recs = _recordsFor(emp, day);
       if (recs.isEmpty) {
-        return const Center(
-            child: Text('—',
+        return Center(
+            child: Text(tr('—'),
                 style: TextStyle(color: Color(0xFFA1A1AA), fontSize: 13)));
       }
       final ins = recs
@@ -1149,9 +1149,9 @@ class _MobileAttendanceApprovalScreenState
       if (ins.isEmpty || outs.isEmpty) {
         return Center(
           child: Text(
-            ins.isNotEmpty
+            tr(ins.isNotEmpty
                 ? 'V ${DateFormat('HH:mm').format(ins.first)}'
-                : 'R ${DateFormat('HH:mm').format(outs.first)}',
+                : 'R ${DateFormat('HH:mm').format(outs.first)}'),
             style: const TextStyle(fontSize: 10, color: Color(0xFFF59E0B)),
             textAlign: TextAlign.center,
           ),
@@ -1162,7 +1162,7 @@ class _MobileAttendanceApprovalScreenState
       final m = diff.inMinutes % 60;
       return Center(
         child: Text(
-          '$h:${m.toString().padLeft(2, '0')}',
+          tr('$h:${m.toString().padLeft(2, '0')}'),
           style: TextStyle(
             fontSize: 13,
             fontWeight: FontWeight.w600,
@@ -1233,17 +1233,17 @@ class _MobileAttendanceApprovalScreenState
               ),
             ),
             const SizedBox(height: 20),
-            const Text('Lọc chi nhánh',
+            Text(tr('Lọc chi nhánh'),
                 style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
                     color: Color(0xFF18181B))),
             const SizedBox(height: 16),
             if (_branches.isEmpty)
-              const Text('Không có chi nhánh')
+              Text(tr('Không có chi nhánh'))
             else ...[
               ListTile(
-                title: const Text('Tất cả chi nhánh'),
+                title: Text(tr('Tất cả chi nhánh')),
                 leading: const Icon(Icons.all_inclusive),
                 selected: _selectedBranchId == null,
                 onTap: () {
@@ -1252,7 +1252,7 @@ class _MobileAttendanceApprovalScreenState
                 },
               ),
               ..._branches.map((b) => ListTile(
-                    title: Text(b['name']?.toString() ?? ''),
+                    title: Text(tr(b['name']?.toString() ?? '')),
                     leading: const Icon(Icons.account_tree_outlined),
                     selected: _selectedBranchId == b['id']?.toString(),
                     onTap: () {
@@ -1283,7 +1283,7 @@ class _LegendItem extends StatelessWidget {
         children: [
           Icon(icon, size: 12, color: color),
           const SizedBox(width: 3),
-          Text(label,
+          Text(tr(label),
               style: const TextStyle(fontSize: 11, color: Color(0xFF52525B))),
         ],
       );
@@ -1396,7 +1396,7 @@ class _SyncScrollTablesState extends State<_SyncScrollTables> {
                 height: 14,
                 color: titleColor,
                 margin: const EdgeInsets.only(right: 6)),
-            Text(title,
+            Text(tr(title),
                 style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.bold,
@@ -1426,7 +1426,7 @@ class _SyncScrollTablesState extends State<_SyncScrollTables> {
                           bottom:
                               BorderSide(color: Colors.white24, width: 0.5)),
                     ),
-                    child: const Text('Nhân viên',
+                    child: Text(tr('Nhân viên'),
                         style: TextStyle(
                             color: Colors.white,
                             fontSize: 12,
@@ -1448,7 +1448,7 @@ class _SyncScrollTablesState extends State<_SyncScrollTables> {
                               BorderSide(color: Color(0xFFE4E4E7), width: 0.5),
                         ),
                       ),
-                      child: Text(e.value,
+                      child: Text(tr(e.value),
                           style: const TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.w500,
@@ -1491,7 +1491,7 @@ class _SyncScrollTablesState extends State<_SyncScrollTables> {
                                         color: Colors.white24, width: 0.5)),
                               ),
                               child: Text(
-                                widget.dayLabel(d),
+                                tr(widget.dayLabel(d)),
                                 style: TextStyle(
                                   color: isToday
                                       ? Colors.yellow.shade200

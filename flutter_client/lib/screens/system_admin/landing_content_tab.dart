@@ -7,6 +7,7 @@ import '../../services/api_service.dart';
 import '../../utils/landing_guide_url.dart';
 import '../../utils/landing_usage_guide.dart';
 import 'system_admin_helpers.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// SuperAdmin – Tab quản lý nội dung trang Landing Page của SBOX HRM.
 class LandingContentTab extends StatefulWidget {
@@ -45,16 +46,16 @@ class LandingContentTabState extends State<LandingContentTab>
             labelColor: AdminHelpers.primary,
             unselectedLabelColor: Colors.grey,
             indicatorColor: AdminHelpers.primary,
-            tabs: const [
-              Tab(icon: Icon(Icons.home_rounded), text: 'Hero & Liên hệ'),
-              Tab(icon: Icon(Icons.star_rounded), text: 'Tính năng'),
-              Tab(icon: Icon(Icons.inventory_2_rounded), text: 'Gói dịch vụ'),
-              Tab(icon: Icon(Icons.list_alt_rounded), text: 'Hướng dẫn'),
-              Tab(icon: Icon(Icons.video_library_rounded), text: 'Video'),
-              Tab(icon: Icon(Icons.devices_rounded), text: 'Sản phẩm'),
-              Tab(icon: Icon(Icons.download_rounded), text: 'Tải về'),
-              Tab(icon: Icon(Icons.help_outline_rounded), text: 'FAQ'),
-              Tab(icon: Icon(Icons.travel_explore_rounded), text: 'SEO Google'),
+            tabs: [
+              Tab(icon: Icon(Icons.home_rounded), text: tr('Hero & Liên hệ')),
+              Tab(icon: Icon(Icons.star_rounded), text: tr('Tính năng')),
+              Tab(icon: Icon(Icons.inventory_2_rounded), text: tr('Gói dịch vụ')),
+              Tab(icon: Icon(Icons.list_alt_rounded), text: tr('Hướng dẫn')),
+              Tab(icon: Icon(Icons.video_library_rounded), text: tr('Video')),
+              Tab(icon: Icon(Icons.devices_rounded), text: tr('Sản phẩm')),
+              Tab(icon: Icon(Icons.download_rounded), text: tr('Tải về')),
+              Tab(icon: Icon(Icons.help_outline_rounded), text: tr('FAQ')),
+              Tab(icon: Icon(Icons.travel_explore_rounded), text: tr('SEO Google')),
             ],
           ),
         ),
@@ -182,7 +183,7 @@ class _HeroContactSubTabState extends State<_HeroContactSubTab> {
         children: [
           _sectionHeader('Hero Section', Icons.web_rounded),
           const SizedBox(height: 4),
-          const Text('Nội dung hiển thị ở phần đầu trang chủ',
+          Text(tr('Nội dung hiển thị ở phần đầu trang chủ'),
               style: TextStyle(color: Color(0xFF6B7280), fontSize: 12)),
           const SizedBox(height: 16),
           ...[
@@ -216,7 +217,7 @@ class _HeroContactSubTabState extends State<_HeroContactSubTab> {
                       child: CircularProgressIndicator(
                           strokeWidth: 2, color: Colors.white))
                   : const Icon(Icons.save_rounded),
-              label: Text(_saving ? 'Đang lưu...' : 'Lưu thay đổi'),
+              label: Text(tr(_saving ? 'Đang lưu...' : 'Lưu thay đổi')),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AdminHelpers.primary,
                 foregroundColor: Colors.white,
@@ -237,7 +238,7 @@ class _HeroContactSubTabState extends State<_HeroContactSubTab> {
       controller: _fields[key],
       maxLines: isMulti ? 3 : 1,
       decoration: InputDecoration(
-        labelText: _labels[key] ?? key,
+        labelText: tr(_labels[key] ?? key),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
         filled: true,
         fillColor: Colors.white,
@@ -249,7 +250,7 @@ class _HeroContactSubTabState extends State<_HeroContactSubTab> {
     return Row(children: [
       Icon(icon, color: AdminHelpers.primary, size: 20),
       const SizedBox(width: 8),
-      Text(title,
+      Text(tr(title),
           style: const TextStyle(
               fontWeight: FontWeight.w700,
               fontSize: 16,
@@ -398,13 +399,13 @@ class _FeaturesSubTabState extends State<_FeaturesSubTab> {
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
           child: Row(
             children: [
-              const Text('Danh sách tính năng',
+              Text(tr('Danh sách tính năng'),
                   style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
               const Spacer(),
               FilledButton.icon(
                 onPressed: context.systemAdminCanEdit ? _addItem : null,
                 icon: const Icon(Icons.add_rounded, size: 16),
-                label: const Text('Thêm'),
+                label: Text(tr('Thêm')),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AdminHelpers.primary,
                   foregroundColor: Colors.white,
@@ -449,8 +450,8 @@ class _FeaturesSubTabState extends State<_FeaturesSubTab> {
                         child: Column(children: [
                           TextField(
                             controller: item.titleCtrl,
-                            decoration: const InputDecoration(
-                              labelText: 'Tiêu đề tính năng',
+                            decoration: InputDecoration(
+                              labelText: tr('Tiêu đề tính năng'),
                               isDense: true,
                               border: OutlineInputBorder(),
                             ),
@@ -459,8 +460,8 @@ class _FeaturesSubTabState extends State<_FeaturesSubTab> {
                           TextField(
                             controller: item.descCtrl,
                             maxLines: 2,
-                            decoration: const InputDecoration(
-                              labelText: 'Mô tả chi tiết',
+                            decoration: InputDecoration(
+                              labelText: tr('Mô tả chi tiết'),
                               isDense: true,
                               border: OutlineInputBorder(),
                             ),
@@ -492,7 +493,7 @@ class _FeaturesSubTabState extends State<_FeaturesSubTab> {
                       child: CircularProgressIndicator(
                           strokeWidth: 2, color: Colors.white))
                   : const Icon(Icons.save_rounded),
-              label: Text(_saving ? 'Đang lưu...' : 'Lưu danh sách tính năng'),
+              label: Text(tr(_saving ? 'Đang lưu...' : 'Lưu danh sách tính năng')),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AdminHelpers.primary,
                 foregroundColor: Colors.white,
@@ -510,8 +511,8 @@ class _FeaturesSubTabState extends State<_FeaturesSubTab> {
 
 class _FeatureItem {
   _FeatureItem(String title, String desc)
-      : titleCtrl = TextEditingController(text: title),
-        descCtrl = TextEditingController(text: desc);
+      : titleCtrl = TextEditingController(text: tr(title)),
+        descCtrl = TextEditingController(text: tr(desc));
   final TextEditingController titleCtrl;
   final TextEditingController descCtrl;
 }
@@ -532,12 +533,12 @@ class _PricePlan {
       {this.highlight = false,
       this.contactOnly = false,
       List<String>? features})
-      : nameCtrl = TextEditingController(text: name),
-        priceCtrl = TextEditingController(text: price),
-        unitCtrl = TextEditingController(text: unit),
-        descCtrl = TextEditingController(text: desc),
+      : nameCtrl = TextEditingController(text: tr(name)),
+        priceCtrl = TextEditingController(text: tr(price)),
+        unitCtrl = TextEditingController(text: tr(unit)),
+        descCtrl = TextEditingController(text: tr(desc)),
         featureCtrlsList = (features ?? [])
-            .map((f) => TextEditingController(text: f))
+            .map((f) => TextEditingController(text: tr(f)))
             .toList();
 
   final TextEditingController nameCtrl;
@@ -715,14 +716,14 @@ class _PricingSubTabState extends State<_PricingSubTab> {
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
           child: Row(
             children: [
-              const Expanded(
-                  child: Text('Gói dịch vụ & Bảng giá',
+              Expanded(
+                  child: Text(tr('Gói dịch vụ & Bảng giá'),
                       style: TextStyle(
                           fontWeight: FontWeight.w700, fontSize: 15))),
               FilledButton.icon(
                 onPressed: context.systemAdminCanEdit ? _addPlan : null,
                 icon: const Icon(Icons.add_rounded, size: 16),
-                label: const Text('Thêm gói'),
+                label: Text(tr('Thêm gói')),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AdminHelpers.primary,
                   foregroundColor: Colors.white,
@@ -755,8 +756,8 @@ class _PricingSubTabState extends State<_PricingSubTab> {
                           Expanded(
                             child: TextField(
                               controller: p.nameCtrl,
-                              decoration: const InputDecoration(
-                                labelText: 'Tên gói',
+                              decoration: InputDecoration(
+                                labelText: tr('Tên gói'),
                                 isDense: true,
                                 border: OutlineInputBorder(),
                               ),
@@ -767,7 +768,7 @@ class _PricingSubTabState extends State<_PricingSubTab> {
                             onPressed: context.systemAdminCanEdit ? () => _removePlan(idx) : null,
                             icon: const Icon(Icons.delete_outline_rounded,
                                 color: Colors.red),
-                            tooltip: 'Xóa gói',
+                            tooltip: tr('Xóa gói'),
                           ),
                         ]),
                         const SizedBox(height: 10),
@@ -776,8 +777,8 @@ class _PricingSubTabState extends State<_PricingSubTab> {
                             flex: 3,
                             child: TextField(
                               controller: p.priceCtrl,
-                              decoration: const InputDecoration(
-                                labelText: 'Giá (VD: 900.000)',
+                              decoration: InputDecoration(
+                                labelText: tr('Giá (VD: 900.000)'),
                                 isDense: true,
                                 border: OutlineInputBorder(),
                               ),
@@ -788,8 +789,8 @@ class _PricingSubTabState extends State<_PricingSubTab> {
                             flex: 2,
                             child: TextField(
                               controller: p.unitCtrl,
-                              decoration: const InputDecoration(
-                                labelText: 'Đơn vị (đ/năm)',
+                              decoration: InputDecoration(
+                                labelText: tr('Đơn vị (đ/năm)'),
                                 isDense: true,
                                 border: OutlineInputBorder(),
                               ),
@@ -799,8 +800,8 @@ class _PricingSubTabState extends State<_PricingSubTab> {
                         const SizedBox(height: 10),
                         TextField(
                           controller: p.descCtrl,
-                          decoration: const InputDecoration(
-                            labelText: 'Mô tả gói',
+                          decoration: InputDecoration(
+                            labelText: tr('Mô tả gói'),
                             isDense: true,
                             border: OutlineInputBorder(),
                           ),
@@ -813,7 +814,7 @@ class _PricingSubTabState extends State<_PricingSubTab> {
                             onChanged: (v) =>
                                 setState(() => p.highlight = v ?? false),
                           ),
-                          const Text('Nổi bật (highlight)',
+                          Text(tr('Nổi bật (highlight)'),
                               style: TextStyle(fontSize: 13)),
                           const SizedBox(width: 20),
                           Checkbox(
@@ -822,7 +823,7 @@ class _PricingSubTabState extends State<_PricingSubTab> {
                             onChanged: (v) =>
                                 setState(() => p.contactOnly = v ?? false),
                           ),
-                          const Text('Liên hệ để báo giá',
+                          Text(tr('Liên hệ để báo giá'),
                               style: TextStyle(fontSize: 13)),
                         ]),
                         const SizedBox(height: 12),
@@ -831,7 +832,7 @@ class _PricingSubTabState extends State<_PricingSubTab> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            const Text('Tính năng trong gói',
+                            Text(tr('Tính năng trong gói'),
                                 style: TextStyle(
                                     fontWeight: FontWeight.w600, fontSize: 13)),
                             TextButton.icon(
@@ -840,7 +841,7 @@ class _PricingSubTabState extends State<_PricingSubTab> {
                                   : null,
                               icon: const Icon(Icons.add_circle_outline_rounded,
                                   size: 16),
-                              label: const Text('Thêm tính năng',
+                              label: Text(tr('Thêm tính năng'),
                                   style: TextStyle(fontSize: 12)),
                               style: TextButton.styleFrom(
                                   foregroundColor: AdminHelpers.primary,
@@ -850,10 +851,9 @@ class _PricingSubTabState extends State<_PricingSubTab> {
                           ],
                         ),
                         if (p.featureCtrlsList.isEmpty)
-                          const Padding(
+                          Padding(
                             padding: EdgeInsets.symmetric(vertical: 6),
-                            child: Text(
-                                'Chưa có tính năng. Nhấn "Thêm tính năng" dể bổ sung.',
+                            child: Text(tr('Chưa có tính năng. Nhấn "Thêm tính năng" dể bổ sung.'),
                                 style: TextStyle(
                                     color: Colors.grey,
                                     fontSize: 12,
@@ -873,8 +873,8 @@ class _PricingSubTabState extends State<_PricingSubTab> {
                                       Expanded(
                                         child: TextField(
                                           controller: p.featureCtrlsList[fi],
-                                          decoration: const InputDecoration(
-                                            hintText: 'VD: Tối đa 30 nhân viên',
+                                          decoration: InputDecoration(
+                                            hintText: tr('VD: Tối đa 30 nhân viên'),
                                             isDense: true,
                                             border: OutlineInputBorder(),
                                             contentPadding:
@@ -894,7 +894,7 @@ class _PricingSubTabState extends State<_PricingSubTab> {
                                                   .remove_circle_outline_rounded,
                                               color: Colors.red,
                                               size: 18),
-                                          tooltip: 'Xóa',
+                                          tooltip: tr('Xóa'),
                                           padding: EdgeInsets.zero,
                                           constraints: const BoxConstraints(
                                               minWidth: 32, minHeight: 32),
@@ -920,7 +920,7 @@ class _PricingSubTabState extends State<_PricingSubTab> {
                       child: CircularProgressIndicator(
                           strokeWidth: 2, color: Colors.white))
                   : const Icon(Icons.save_rounded),
-              label: Text(_saving ? 'Đang lưu...' : 'Lưu bảng giá'),
+              label: Text(tr(_saving ? 'Đang lưu...' : 'Lưu bảng giá')),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AdminHelpers.primary,
                 foregroundColor: Colors.white,
@@ -1023,7 +1023,7 @@ class _GuideSubTabState extends State<_GuideSubTab>
 
   Future<void> _copyGuideLink(String sectionKey, String stepId) async {
     final link = LandingGuideUrl.buildLink(section: sectionKey, stepId: stepId);
-    await Clipboard.setData(ClipboardData(text: link));
+    await Clipboard.setData(ClipboardData(text: tr(link)));
     if (mounted) {
       AdminHelpers.showSuccess(context, 'Đã copy link hướng dẫn');
     }
@@ -1061,8 +1061,8 @@ class _GuideSubTabState extends State<_GuideSubTab>
             unselectedLabelColor: Colors.grey,
             indicatorColor: AdminHelpers.primary,
             tabs: [
-              Tab(text: 'Triển khai (${_basicSteps.length})'),
-              Tab(text: 'Nâng cao (${_advancedSteps.length})'),
+              Tab(text: tr('Triển khai (${_basicSteps.length})')),
+              Tab(text: tr('Nâng cao (${_advancedSteps.length})')),
             ],
           ),
         ),
@@ -1072,9 +1072,9 @@ class _GuideSubTabState extends State<_GuideSubTab>
             children: [
               Expanded(
                 child: Text(
-                  _guideTab.index == 0
+                  tr(_guideTab.index == 0
                       ? '12 bước triển khai từ đăng ký đến báo cáo'
-                      : '11 tính năng vận hành nâng cao sau triển khai',
+                      : '11 tính năng vận hành nâng cao sau triển khai'),
                   style: const TextStyle(
                       fontWeight: FontWeight.w600, fontSize: 13),
                 ),
@@ -1082,7 +1082,7 @@ class _GuideSubTabState extends State<_GuideSubTab>
               TextButton.icon(
                 onPressed: context.systemAdminCanEdit ? _resetCurrentSection : null,
                 icon: const Icon(Icons.restore_rounded, size: 18),
-                label: const Text('Khôi phục mặc định'),
+                label: Text(tr('Khôi phục mặc định')),
               ),
             ],
           ),
@@ -1109,7 +1109,7 @@ class _GuideSubTabState extends State<_GuideSubTab>
                       child: CircularProgressIndicator(
                           strokeWidth: 2, color: Colors.white))
                   : const Icon(Icons.save_rounded),
-              label: Text(_saving ? 'Đang lưu...' : 'Lưu hướng dẫn'),
+              label: Text(tr(_saving ? 'Đang lưu...' : 'Lưu hướng dẫn')),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AdminHelpers.primary,
                 foregroundColor: Colors.white,
@@ -1166,7 +1166,7 @@ class _GuideSubTabState extends State<_GuideSubTab>
                     color: AdminHelpers.primary,
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Text('${idx + 1}',
+                  child: Text(tr('${idx + 1}'),
                       style: const TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.bold,
@@ -1178,7 +1178,7 @@ class _GuideSubTabState extends State<_GuideSubTab>
                     children: [
                       Row(
                         children: [
-                          Text('ID: ${step.id}',
+                          Text(tr('ID: ${step.id}'),
                               style: TextStyle(
                                   fontSize: 11, color: Colors.grey[600])),
                           const Spacer(),
@@ -1186,7 +1186,7 @@ class _GuideSubTabState extends State<_GuideSubTab>
                             onPressed: () =>
                                 _copyGuideLink(sectionKey, step.id),
                             icon: const Icon(Icons.copy_rounded, size: 16),
-                            label: const Text('Copy link'),
+                            label: Text(tr('Copy link')),
                             style: TextButton.styleFrom(
                               foregroundColor: AdminHelpers.primary,
                               visualDensity: VisualDensity.compact,
@@ -1197,10 +1197,10 @@ class _GuideSubTabState extends State<_GuideSubTab>
                       Padding(
                         padding: const EdgeInsets.only(bottom: 8),
                         child: SelectableText(
-                          LandingGuideUrl.buildLink(
+                          tr(LandingGuideUrl.buildLink(
                             section: sectionKey,
                             stepId: step.id,
-                          ),
+                          )),
                           style: TextStyle(
                             fontSize: 11,
                             color: Colors.grey[700],
@@ -1212,8 +1212,8 @@ class _GuideSubTabState extends State<_GuideSubTab>
                       TextField(
                         controller: step.titleCtrl,
                         readOnly: !context.systemAdminCanEdit,
-                        decoration: const InputDecoration(
-                          labelText: 'Tiêu đề',
+                        decoration: InputDecoration(
+                          labelText: tr('Tiêu đề'),
                           isDense: true,
                           border: OutlineInputBorder(),
                         ),
@@ -1223,8 +1223,8 @@ class _GuideSubTabState extends State<_GuideSubTab>
                         controller: step.descCtrl,
                         readOnly: !context.systemAdminCanEdit,
                         maxLines: 3,
-                        decoration: const InputDecoration(
-                          labelText: 'Mô tả',
+                        decoration: InputDecoration(
+                          labelText: tr('Mô tả'),
                           isDense: true,
                           border: OutlineInputBorder(),
                         ),
@@ -1234,8 +1234,8 @@ class _GuideSubTabState extends State<_GuideSubTab>
                         controller: step.bulletsCtrl,
                         readOnly: !context.systemAdminCanEdit,
                         maxLines: 4,
-                        decoration: const InputDecoration(
-                          labelText: 'Các bước (mỗi dòng một ý)',
+                        decoration: InputDecoration(
+                          labelText: tr('Các bước (mỗi dòng một ý)'),
                           isDense: true,
                           border: OutlineInputBorder(),
                           alignLabelWithHint: true,
@@ -1246,8 +1246,8 @@ class _GuideSubTabState extends State<_GuideSubTab>
                         controller: step.tipCtrl,
                         readOnly: !context.systemAdminCanEdit,
                         maxLines: 2,
-                        decoration: const InputDecoration(
-                          labelText: 'Mẹo / lưu ý (tuỳ chọn)',
+                        decoration: InputDecoration(
+                          labelText: tr('Mẹo / lưu ý (tuỳ chọn)'),
                           isDense: true,
                           border: OutlineInputBorder(),
                         ),
@@ -1256,11 +1256,11 @@ class _GuideSubTabState extends State<_GuideSubTab>
                       TextField(
                         controller: step.videoUrlCtrl,
                         readOnly: !context.systemAdminCanEdit,
-                        decoration: const InputDecoration(
-                          labelText: 'Video (link YouTube)',
+                        decoration: InputDecoration(
+                          labelText: tr('Video (link YouTube)'),
                           isDense: true,
                           border: OutlineInputBorder(),
-                          hintText: 'https://www.youtube.com/watch?v=...',
+                          hintText: tr('https://www.youtube.com/watch?v=...'),
                         ),
                       ),
                       const SizedBox(height: 8),
@@ -1268,12 +1268,12 @@ class _GuideSubTabState extends State<_GuideSubTab>
                         controller: step.imageUrlsCtrl,
                         readOnly: !context.systemAdminCanEdit,
                         maxLines: 3,
-                        decoration: const InputDecoration(
-                          labelText: 'Hình ảnh (mỗi dòng một URL)',
+                        decoration: InputDecoration(
+                          labelText: tr('Hình ảnh (mỗi dòng một URL)'),
                           isDense: true,
                           border: OutlineInputBorder(),
                           alignLabelWithHint: true,
-                          hintText: 'https://sboxhrm.com/images/...',
+                          hintText: tr('https://sboxhrm.com/images/...'),
                         ),
                       ),
                     ],
@@ -1299,12 +1299,12 @@ class _GuideStepEditor {
     required String tip,
     required List<String> imageUrls,
     required String videoUrl,
-  })  : titleCtrl = TextEditingController(text: title),
-        descCtrl = TextEditingController(text: desc),
-        bulletsCtrl = TextEditingController(text: bullets.join('\n')),
-        tipCtrl = TextEditingController(text: tip),
-        imageUrlsCtrl = TextEditingController(text: imageUrls.join('\n')),
-        videoUrlCtrl = TextEditingController(text: videoUrl);
+  })  : titleCtrl = TextEditingController(text: tr(title)),
+        descCtrl = TextEditingController(text: tr(desc)),
+        bulletsCtrl = TextEditingController(text: tr(bullets.join('\n'))),
+        tipCtrl = TextEditingController(text: tr(tip)),
+        imageUrlsCtrl = TextEditingController(text: tr(imageUrls.join('\n'))),
+        videoUrlCtrl = TextEditingController(text: tr(videoUrl));
 
   factory _GuideStepEditor.fromStep(LandingUsageGuideStep step) {
     return _GuideStepEditor(
@@ -1381,19 +1381,19 @@ class _VideoSubTabState extends State<_VideoSubTab> {
 
   // Video 1: Giời thiểu
   final _introUrlCtrl = TextEditingController();
-  final _introTitleCtrl = TextEditingController(text: 'Video giới thiệu');
+  final _introTitleCtrl = TextEditingController(text: tr('Video giới thiệu'));
   final _introSubtitleCtrl = TextEditingController(
-      text: 'Tổng quan SBOX HRM – chấm công, lương, ca làm, báo cáo');
-  final _introBadgeCtrl = TextEditingController(text: 'Xem ngay');
-  final _introDurationCtrl = TextEditingController(text: '3:45');
+      text: tr('Tổng quan SBOX HRM – chấm công, lương, ca làm, báo cáo'));
+  final _introBadgeCtrl = TextEditingController(text: tr('Xem ngay'));
+  final _introDurationCtrl = TextEditingController(text: tr('3:45'));
 
   // Video 2: Hướng dẫn
   final _guideUrlCtrl = TextEditingController();
-  final _guideTitleCtrl = TextEditingController(text: 'Video hướng dẫn');
+  final _guideTitleCtrl = TextEditingController(text: tr('Video hướng dẫn'));
   final _guideSubtitleCtrl = TextEditingController(
-      text: 'Thiết lập từ A–Z: kết nối máy, thêm nhân viên, cài ca');
-  final _guideBadgeCtrl = TextEditingController(text: 'Học ngay');
-  final _guideDurationCtrl = TextEditingController(text: '12:00');
+      text: tr('Thiết lập từ A–Z: kết nối máy, thêm nhân viên, cài ca'));
+  final _guideBadgeCtrl = TextEditingController(text: tr('Học ngay'));
+  final _guideDurationCtrl = TextEditingController(text: tr('12:00'));
 
   @override
   void initState() {
@@ -1539,7 +1539,7 @@ class _VideoSubTabState extends State<_VideoSubTab> {
                       child: CircularProgressIndicator(
                           strokeWidth: 2, color: Colors.white))
                   : const Icon(Icons.save_rounded),
-              label: Text(_saving ? 'Đang lưu...' : 'Lưu cài đặt video'),
+              label: Text(tr(_saving ? 'Đang lưu...' : 'Lưu cài đặt video')),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AdminHelpers.primary,
                 foregroundColor: Colors.white,
@@ -1573,7 +1573,7 @@ class _VideoSubTabState extends State<_VideoSubTab> {
           Row(children: [
             Icon(icon, color: color, size: 22),
             const SizedBox(width: 8),
-            Text(label,
+            Text(tr(label),
                 style:
                     const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
           ]),
@@ -1581,8 +1581,8 @@ class _VideoSubTabState extends State<_VideoSubTab> {
           TextFormField(
             controller: urlCtrl,
             decoration: InputDecoration(
-              labelText: 'URL YouTube (bắt buộc)',
-              hintText: 'https://www.youtube.com/watch?v=...',
+              labelText: tr('URL YouTube (bắt buộc)'),
+              hintText: tr('https://www.youtube.com/watch?v=...'),
               border:
                   OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
               prefixIcon: const Icon(Icons.link_rounded),
@@ -1596,7 +1596,7 @@ class _VideoSubTabState extends State<_VideoSubTab> {
               child: TextFormField(
                 controller: titleCtrl,
                 decoration: InputDecoration(
-                  labelText: 'Tiêu đề video',
+                  labelText: tr('Tiêu đề video'),
                   isDense: true,
                   border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8)),
@@ -1609,8 +1609,8 @@ class _VideoSubTabState extends State<_VideoSubTab> {
               child: TextFormField(
                 controller: badgeCtrl,
                 decoration: InputDecoration(
-                  labelText: 'Nhãn (badge)',
-                  hintText: 'Xem ngay',
+                  labelText: tr('Nhãn (badge)'),
+                  hintText: tr('Xem ngay'),
                   isDense: true,
                   border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8)),
@@ -1623,8 +1623,8 @@ class _VideoSubTabState extends State<_VideoSubTab> {
               child: TextFormField(
                 controller: durationCtrl,
                 decoration: InputDecoration(
-                  labelText: 'Thời lượng',
-                  hintText: '3:45',
+                  labelText: tr('Thời lượng'),
+                  hintText: tr('3:45'),
                   isDense: true,
                   border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8)),
@@ -1637,7 +1637,7 @@ class _VideoSubTabState extends State<_VideoSubTab> {
             controller: subtitleCtrl,
             maxLines: 2,
             decoration: InputDecoration(
-              labelText: 'Mô tả ngắn',
+              labelText: tr('Mô tả ngắn'),
               isDense: true,
               border:
                   OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
@@ -1672,15 +1672,15 @@ class _ProductItem {
     String imageUrl = '',
     String link = '',
     String brand = '',
-  })  : nameCtrl = TextEditingController(text: name),
-        subCtrl = TextEditingController(text: sub),
-        priceCtrl = TextEditingController(text: price),
-        oldPriceCtrl = TextEditingController(text: oldPrice),
-        badgeCtrl = TextEditingController(text: badge),
-        specsCtrl = TextEditingController(text: specs),
-        imageUrlCtrl = TextEditingController(text: imageUrl),
-        linkCtrl = TextEditingController(text: link),
-        brandCtrl = TextEditingController(text: brand);
+  })  : nameCtrl = TextEditingController(text: tr(name)),
+        subCtrl = TextEditingController(text: tr(sub)),
+        priceCtrl = TextEditingController(text: tr(price)),
+        oldPriceCtrl = TextEditingController(text: tr(oldPrice)),
+        badgeCtrl = TextEditingController(text: tr(badge)),
+        specsCtrl = TextEditingController(text: tr(specs)),
+        imageUrlCtrl = TextEditingController(text: tr(imageUrl)),
+        linkCtrl = TextEditingController(text: tr(link)),
+        brandCtrl = TextEditingController(text: tr(brand));
 
   final TextEditingController nameCtrl;
   final TextEditingController subCtrl;
@@ -1887,13 +1887,13 @@ class _ProductsSubTabState extends State<_ProductsSubTab> {
               const Icon(Icons.devices_rounded,
                   size: 18, color: Color(0xFF0C56D0)),
               const SizedBox(width: 8),
-              const Text('Danh sách máy chấm công',
+              Text(tr('Danh sách máy chấm công'),
                   style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
               const Spacer(),
               TextButton.icon(
                 onPressed: context.systemAdminCanEdit ? _addProduct : null,
                 icon: const Icon(Icons.add_rounded, size: 18),
-                label: const Text('Thêm máy'),
+                label: Text(tr('Thêm máy')),
               ),
             ],
           ),
@@ -1918,7 +1918,7 @@ class _ProductsSubTabState extends State<_ProductsSubTab> {
                       child: CircularProgressIndicator(
                           strokeWidth: 2, color: Colors.white))
                   : const Icon(Icons.save_rounded),
-              label: Text(_saving ? 'Đang lưu...' : 'Lưu danh sách sản phẩm'),
+              label: Text(tr(_saving ? 'Đang lưu...' : 'Lưu danh sách sản phẩm')),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AdminHelpers.primary,
                 foregroundColor: Colors.white,
@@ -1948,7 +1948,7 @@ class _ProductsSubTabState extends State<_ProductsSubTab> {
               decoration: BoxDecoration(
                   color: const Color(0xFFEBF2FF),
                   borderRadius: BorderRadius.circular(8)),
-              child: Text('Sản phẩm ${idx + 1}',
+              child: Text(tr('Sản phẩm ${idx + 1}'),
                   style: const TextStyle(
                       color: Color(0xFF0C56D0),
                       fontWeight: FontWeight.w700,
@@ -1960,7 +1960,7 @@ class _ProductsSubTabState extends State<_ProductsSubTab> {
                   context.systemAdminCanEdit ? () => _removeProduct(idx) : null,
               icon: const Icon(Icons.delete_outline_rounded,
                   color: Colors.red, size: 20),
-              tooltip: 'Xóa sản phẩm',
+              tooltip: tr('Xóa sản phẩm'),
               visualDensity: VisualDensity.compact,
             ),
           ]),
@@ -2010,7 +2010,7 @@ class _ProductsSubTabState extends State<_ProductsSubTab> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('Thông số kỹ thuật chi tiết',
+        Text(tr('Thông số kỹ thuật chi tiết'),
             style: TextStyle(fontSize: 12, color: Color(0xFF6B7280))),
         const SizedBox(height: 6),
         InkWell(
@@ -2028,9 +2028,9 @@ class _ProductsSubTabState extends State<_ProductsSubTab> {
               children: [
                 Expanded(
                   child: Text(
-                    preview.isEmpty
+                    tr(preview.isEmpty
                         ? 'Chưa có thông số chi tiết — nhấn để soạn thảo'
-                        : preview,
+                        : preview),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
@@ -2083,8 +2083,8 @@ class _ProductsSubTabState extends State<_ProductsSubTab> {
     return TextFormField(
       controller: ctrl,
       decoration: InputDecoration(
-        labelText: label,
-        hintText: hint,
+        labelText: tr(label),
+        hintText: trN(hint),
         isDense: true,
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
         prefixIcon: icon != null ? Icon(icon, size: 18) : null,
@@ -2101,12 +2101,12 @@ class _DownloadItem {
     String badge = '',
     String platform = '',
     String url = '',
-  })  : titleCtrl = TextEditingController(text: title),
-        descCtrl = TextEditingController(text: desc),
-        versionCtrl = TextEditingController(text: version),
-        badgeCtrl = TextEditingController(text: badge),
-        platformCtrl = TextEditingController(text: platform),
-        urlCtrl = TextEditingController(text: url);
+  })  : titleCtrl = TextEditingController(text: tr(title)),
+        descCtrl = TextEditingController(text: tr(desc)),
+        versionCtrl = TextEditingController(text: tr(version)),
+        badgeCtrl = TextEditingController(text: tr(badge)),
+        platformCtrl = TextEditingController(text: tr(platform)),
+        urlCtrl = TextEditingController(text: tr(url));
 
   final TextEditingController titleCtrl;
   final TextEditingController descCtrl;
@@ -2281,13 +2281,13 @@ class _DownloadsSubTabState extends State<_DownloadsSubTab> {
               const Icon(Icons.download_rounded,
                   size: 18, color: Color(0xFF0C56D0)),
               const SizedBox(width: 8),
-              const Text('Danh sách file tải về',
+              Text(tr('Danh sách file tải về'),
                   style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
               const Spacer(),
               TextButton.icon(
                 onPressed: context.systemAdminCanEdit ? _addItem : null,
                 icon: const Icon(Icons.add_rounded, size: 18),
-                label: const Text('Thêm file'),
+                label: Text(tr('Thêm file')),
               ),
             ],
           ),
@@ -2312,7 +2312,7 @@ class _DownloadsSubTabState extends State<_DownloadsSubTab> {
                       child: CircularProgressIndicator(
                           strokeWidth: 2, color: Colors.white))
                   : const Icon(Icons.save_rounded),
-              label: Text(_saving ? 'Đang lưu...' : 'Lưu danh sách tải về'),
+              label: Text(tr(_saving ? 'Đang lưu...' : 'Lưu danh sách tải về')),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AdminHelpers.primary,
                 foregroundColor: Colors.white,
@@ -2342,7 +2342,7 @@ class _DownloadsSubTabState extends State<_DownloadsSubTab> {
               decoration: BoxDecoration(
                   color: const Color(0xFFEBF2FF),
                   borderRadius: BorderRadius.circular(8)),
-              child: Text('File ${idx + 1}',
+              child: Text(tr('File ${idx + 1}'),
                   style: const TextStyle(
                       color: Color(0xFF0C56D0),
                       fontWeight: FontWeight.w700,
@@ -2353,7 +2353,7 @@ class _DownloadsSubTabState extends State<_DownloadsSubTab> {
               onPressed: context.systemAdminCanEdit ? () => _removeItem(idx) : null,
               icon: const Icon(Icons.delete_outline_rounded,
                   color: Colors.red, size: 20),
-              tooltip: 'Xóa file',
+              tooltip: tr('Xóa file'),
               visualDensity: VisualDensity.compact,
             ),
           ]),
@@ -2393,8 +2393,8 @@ class _DownloadsSubTabState extends State<_DownloadsSubTab> {
     return TextFormField(
       controller: ctrl,
       decoration: InputDecoration(
-        labelText: label,
-        hintText: hint,
+        labelText: tr(label),
+        hintText: trN(hint),
         isDense: true,
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
         prefixIcon: icon != null ? Icon(icon, size: 18) : null,
@@ -2408,8 +2408,8 @@ class _DownloadsSubTabState extends State<_DownloadsSubTab> {
 // -------------------------------------------------------
 class _FaqItem {
   _FaqItem(String q, String a)
-      : qCtrl = TextEditingController(text: q),
-        aCtrl = TextEditingController(text: a);
+      : qCtrl = TextEditingController(text: tr(q)),
+        aCtrl = TextEditingController(text: tr(a));
   final TextEditingController qCtrl;
   final TextEditingController aCtrl;
 }
@@ -2530,16 +2530,15 @@ class _FaqSubTabState extends State<_FaqSubTab> {
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
           child: Row(
             children: [
-              const Expanded(
-                child: Text(
-                  'Câu hỏi thường gặp (trang chủ)',
+              Expanded(
+                child: Text(tr('Câu hỏi thường gặp (trang chủ)'),
                   style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
                 ),
               ),
               FilledButton.icon(
                 onPressed: context.systemAdminCanEdit ? _addItem : null,
                 icon: const Icon(Icons.add_rounded, size: 16),
-                label: const Text('Thêm'),
+                label: Text(tr('Thêm')),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AdminHelpers.primary,
                   foregroundColor: Colors.white,
@@ -2584,8 +2583,8 @@ class _FaqSubTabState extends State<_FaqSubTab> {
                         child: Column(children: [
                           TextField(
                             controller: item.qCtrl,
-                            decoration: const InputDecoration(
-                              labelText: 'Câu hỏi',
+                            decoration: InputDecoration(
+                              labelText: tr('Câu hỏi'),
                               isDense: true,
                               border: OutlineInputBorder(),
                             ),
@@ -2594,8 +2593,8 @@ class _FaqSubTabState extends State<_FaqSubTab> {
                           TextField(
                             controller: item.aCtrl,
                             maxLines: 3,
-                            decoration: const InputDecoration(
-                              labelText: 'Câu trả lời',
+                            decoration: InputDecoration(
+                              labelText: tr('Câu trả lời'),
                               isDense: true,
                               border: OutlineInputBorder(),
                             ),
@@ -2629,7 +2628,7 @@ class _FaqSubTabState extends State<_FaqSubTab> {
                       child: CircularProgressIndicator(
                           strokeWidth: 2, color: Colors.white))
                   : const Icon(Icons.save_rounded),
-              label: Text(_saving ? 'Đang lưu...' : 'Lưu FAQ'),
+              label: Text(tr(_saving ? 'Đang lưu...' : 'Lưu FAQ')),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AdminHelpers.primary,
                 foregroundColor: Colors.white,
@@ -2762,8 +2761,7 @@ class _SeoGoogleSubTabState extends State<_SeoGoogleSubTab> {
         children: [
           _hdr('Meta trang chủ', Icons.search_rounded),
           const SizedBox(height: 4),
-          const Text(
-            'Áp dụng cho trang chủ SEO (home.html). Để trống sẽ giữ nội dung mặc định trên trang.',
+          Text(tr('Áp dụng cho trang chủ SEO (home.html). Để trống sẽ giữ nội dung mặc định trên trang.'),
             style: TextStyle(color: Color(0xFF6B7280), fontSize: 12),
           ),
           const SizedBox(height: 16),
@@ -2784,8 +2782,7 @@ class _SeoGoogleSubTabState extends State<_SeoGoogleSubTab> {
           const Divider(height: 32),
           _hdr('Google Search Console & Analytics', Icons.analytics_rounded),
           const SizedBox(height: 4),
-          const Text(
-            'Mã xác minh Search Console và Measurement ID (GA4 / Google Ads). Hiển thị công khai trên trang chủ.',
+          Text(tr('Mã xác minh Search Console và Measurement ID (GA4 / Google Ads). Hiển thị công khai trên trang chủ.'),
             style: TextStyle(color: Color(0xFF6B7280), fontSize: 12),
           ),
           const SizedBox(height: 16),
@@ -2805,7 +2802,7 @@ class _SeoGoogleSubTabState extends State<_SeoGoogleSubTab> {
                       child: CircularProgressIndicator(
                           strokeWidth: 2, color: Colors.white))
                   : const Icon(Icons.save_rounded),
-              label: Text(_saving ? 'Đang lưu...' : 'Lưu thiết lập SEO'),
+              label: Text(tr(_saving ? 'Đang lưu...' : 'Lưu thiết lập SEO')),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AdminHelpers.primary,
                 foregroundColor: Colors.white,
@@ -2824,7 +2821,7 @@ class _SeoGoogleSubTabState extends State<_SeoGoogleSubTab> {
     return Row(children: [
       Icon(icon, color: AdminHelpers.primary, size: 20),
       const SizedBox(width: 8),
-      Text(title,
+      Text(tr(title),
           style: const TextStyle(
               fontWeight: FontWeight.w700,
               fontSize: 16,
@@ -2839,8 +2836,8 @@ class _SeoGoogleSubTabState extends State<_SeoGoogleSubTab> {
         controller: _fields[key],
         maxLines: _multiline.contains(key) ? 3 : 1,
         decoration: InputDecoration(
-          labelText: _labels[key] ?? key,
-          hintText: _hints[key],
+          labelText: tr(_labels[key] ?? key),
+          hintText: trN(_hints[key]),
           border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
           filled: true,
           fillColor: Colors.white,
@@ -2869,7 +2866,7 @@ class _SpecsEditorDialogState extends State<_SpecsEditorDialog> {
   void initState() {
     super.initState();
     _plainTextCtrl =
-        TextEditingController(text: _deltaToPlainText(widget.initialDelta));
+        TextEditingController(text: tr(_deltaToPlainText(widget.initialDelta)));
     _focusNode = FocusNode();
     _scrollCtrl = ScrollController();
     _ctrl = _initQuill(widget.initialDelta);
@@ -2935,8 +2932,7 @@ class _SpecsEditorDialogState extends State<_SpecsEditorDialog> {
         backgroundColor: Colors.white,
         elevation: 0,
         foregroundColor: const Color(0xFF111827),
-        title: const Text(
-          'Thông số kỹ thuật chi tiết',
+        title: Text(tr('Thông số kỹ thuật chi tiết'),
           style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
         ),
         actions: [
@@ -2951,7 +2947,7 @@ class _SpecsEditorDialogState extends State<_SpecsEditorDialog> {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                 ),
-                child: const Text('Xong'),
+                child: Text(tr('Xong')),
               ),
             ),
           ),
@@ -2968,8 +2964,7 @@ class _SpecsEditorDialogState extends State<_SpecsEditorDialog> {
           width: double.infinity,
           color: const Color(0xFFEEF4FF),
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          child: const Text(
-            'Trình duyệt web đang dùng chế độ nhập văn bản ổn định để tránh lỗi màn hình xám.',
+          child: Text(tr('Trình duyệt web đang dùng chế độ nhập văn bản ổn định để tránh lỗi màn hình xám.'),
             style: TextStyle(
                 fontSize: 12,
                 color: Color(0xFF1E40AF),
@@ -3001,8 +2996,8 @@ class _SpecsEditorDialogState extends State<_SpecsEditorDialog> {
                       height: 1.6,
                       color: Color(0xFF1F2937),
                     ),
-                    decoration: const InputDecoration(
-                      hintText: 'Nhập thông số kỹ thuật đầy đủ...',
+                    decoration: InputDecoration(
+                      hintText: tr('Nhập thông số kỹ thuật đầy đủ...'),
                       border: InputBorder.none,
                     ),
                   ),

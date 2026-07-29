@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// Kết quả crop ảnh
 class CropResult {
@@ -78,7 +79,7 @@ class _ImageCropDialogState extends State<ImageCropDialog> {
         children: [
           const Icon(Icons.crop, color: Colors.blue),
           const SizedBox(width: 8),
-          Text(widget.title),
+          Text(tr(widget.title)),
         ],
       ),
       content: SizedBox(
@@ -99,7 +100,7 @@ class _ImageCropDialogState extends State<ImageCropDialog> {
                   const Icon(Icons.aspect_ratio, size: 16, color: Colors.blue),
                   const SizedBox(width: 6),
                   Text(
-                    _aspectRatioLabel,
+                    tr(_aspectRatioLabel),
                     style: const TextStyle(
                       color: Colors.blue,
                       fontWeight: FontWeight.w500,
@@ -144,8 +145,7 @@ class _ImageCropDialogState extends State<ImageCropDialog> {
               ),
             ),
             const SizedBox(height: 8),
-            Text(
-              'Xem trước ảnh sẽ được sử dụng',
+            Text(tr('Xem trước ảnh sẽ được sử dụng'),
               style: TextStyle(color: Colors.grey[500], fontSize: 12),
             ),
           ],
@@ -154,7 +154,7 @@ class _ImageCropDialogState extends State<ImageCropDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context, null),
-          child: const Text('Hủy'),
+          child: Text(tr('Hủy')),
         ),
         ElevatedButton.icon(
           onPressed: () {
@@ -167,7 +167,7 @@ class _ImageCropDialogState extends State<ImageCropDialog> {
             );
           },
           icon: const Icon(Icons.check),
-          label: const Text('Sử dụng ảnh'),
+          label: Text(tr('Sử dụng ảnh')),
           style: ElevatedButton.styleFrom(
             backgroundColor: Colors.blue,
             foregroundColor: Colors.white,

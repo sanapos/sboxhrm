@@ -7,6 +7,7 @@ import '../utils/responsive_helper.dart';
 import '../widgets/notification_overlay.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../widgets/hrm_responsive_list_layout.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 class UserManagementScreen extends StatefulWidget {
   const UserManagementScreen({super.key});
@@ -108,9 +109,9 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
               Icon(Icons.person_search, size: 80, color: Colors.grey[300]),
               const SizedBox(height: 16),
               Text(
-                  _searchQuery.isNotEmpty
+                  tr(_searchQuery.isNotEmpty
                       ? 'Không tìm thấy tài khoản'
-                      : 'Chưa có tài khoản',
+                      : 'Chưa có tài khoản'),
                   style: TextStyle(color: Colors.grey[500], fontSize: 16)),
             ]),
           ),
@@ -151,7 +152,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
         onChanged: (v) => setState(() { _searchQuery = v; _currentPage = 1; }),
         style: const TextStyle(color: Colors.white),
         decoration: InputDecoration(
-          hintText: 'Tìm kiếm...',
+          hintText: tr('Tìm kiếm...'),
           hintStyle: const TextStyle(color: Colors.white54),
           prefixIcon: const Icon(Icons.search, color: Colors.white70, size: 20),
           filled: true,
@@ -176,12 +177,12 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                 child: const Icon(Icons.admin_panel_settings, color: Colors.white, size: 24),
               ),
               const SizedBox(width: 16),
-              const Expanded(
+              Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Quản lý tài khoản', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
-                    Text('Phân quyền, khóa/mở khóa tài khoản', style: TextStyle(color: Colors.white70, fontSize: 13)),
+                    Text(tr('Quản lý tài khoản'), style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+                    Text(tr('Phân quyền, khóa/mở khóa tài khoản'), style: TextStyle(color: Colors.white70, fontSize: 13)),
                   ],
                 ),
               ),
@@ -224,7 +225,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
       child: Row(children: [
         Icon(icon, color: Colors.white70, size: 16),
         const SizedBox(width: 6),
-        Text('$value $label', style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w500)),
+        Text(tr('$value $label'), style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w500)),
       ]),
     );
   }
@@ -236,7 +237,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           Icon(Icons.person_search, size: 80, color: Colors.grey[300]),
           const SizedBox(height: 16),
-          Text(_searchQuery.isNotEmpty ? 'Không tìm thấy tài khoản' : 'Chưa có tài khoản', style: TextStyle(color: Colors.grey[500], fontSize: 16)),
+          Text(tr(_searchQuery.isNotEmpty ? 'Không tìm thấy tài khoản' : 'Chưa có tài khoản'), style: TextStyle(color: Colors.grey[500], fontSize: 16)),
         ]),
       );
     }
@@ -284,8 +285,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                'Hiển thị ${startIndex + 1}-$endIndex / $totalCount',
+              Text(tr('Hiển thị ${startIndex + 1}-$endIndex / $totalCount'),
                 style: TextStyle(fontSize: 12, color: Colors.grey[600]),
               ),
               Row(
@@ -295,7 +295,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                     onPressed: page > 1 ? () => setState(() => _currentPage--) : null,
                     visualDensity: VisualDensity.compact,
                   ),
-                  Text('$page / $totalPages', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
+                  Text(tr('$page / $totalPages'), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
                   IconButton(
                     icon: const Icon(Icons.chevron_right, size: 20),
                     onPressed: page < totalPages ? () => setState(() => _currentPage++) : null,
@@ -327,7 +327,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                   radius: 20,
                   backgroundColor: roleColor.withValues(alpha: 0.1),
                   child: Text(
-                    (user['userName'] ?? user['fullName'] ?? 'U').toString().substring(0, 1).toUpperCase(),
+                    tr((user['userName'] ?? user['fullName'] ?? 'U').toString().substring(0, 1).toUpperCase()),
                     style: TextStyle(color: roleColor, fontWeight: FontWeight.bold, fontSize: 16),
                   ),
                 ),
@@ -349,20 +349,20 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                 children: [
                   Row(
                     children: [
-                      Expanded(child: Text(user['fullName'] ?? user['userName'] ?? 'N/A', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14), maxLines: 1, overflow: TextOverflow.ellipsis)),
+                      Expanded(child: Text(tr(user['fullName'] ?? user['userName'] ?? 'N/A'), style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14), maxLines: 1, overflow: TextOverflow.ellipsis)),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(color: roleColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(4)),
-                        child: Text(role, style: TextStyle(color: roleColor, fontSize: 10, fontWeight: FontWeight.w600)),
+                        child: Text(tr(role), style: TextStyle(color: roleColor, fontSize: 10, fontWeight: FontWeight.w600)),
                       ),
                     ],
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    [
+                    tr([
                       if (user['email'] != null) user['email'],
                       isLocked ? 'Bị khóa' : 'Hoạt động',
-                    ].join(' · '),
+                    ].join(' · ')),
                     style: TextStyle(fontSize: 12, color: Colors.grey[500]),
                     maxLines: 1, overflow: TextOverflow.ellipsis,
                   ),
@@ -374,12 +374,12 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                 icon: Icon(Icons.more_vert, color: Colors.grey[400], size: 18),
                 itemBuilder: (_) => [
                   if (_perm.canEdit('UserManagement'))
-                    const PopupMenuItem(
+                    PopupMenuItem(
                         value: 'role',
                         child: Row(children: [
                           Icon(Icons.security, size: 16),
                           SizedBox(width: 8),
-                          Text('Đổi vai trò')
+                          Text(tr('Đổi vai trò'))
                         ])),
                   if (_perm.canEdit('UserManagement'))
                     PopupMenuItem(
@@ -389,24 +389,24 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                             size: 16,
                             color: isLocked ? Colors.green : Colors.orange),
                         const SizedBox(width: 8),
-                        Text(isLocked ? 'Mở khóa' : 'Khóa'),
+                        Text(tr(isLocked ? 'Mở khóa' : 'Khóa')),
                       ]),
                     ),
                   if (_perm.canEdit('UserManagement'))
-                    const PopupMenuItem(
+                    PopupMenuItem(
                         value: 'reset',
                         child: Row(children: [
                           Icon(Icons.password, size: 16, color: Colors.blue),
                           SizedBox(width: 8),
-                          Text('Đặt lại mật khẩu')
+                          Text(tr('Đặt lại mật khẩu'))
                         ])),
                   if (_perm.canDelete('UserManagement'))
-                    const PopupMenuItem(
+                    PopupMenuItem(
                         value: 'delete',
                         child: Row(children: [
                           Icon(Icons.delete, size: 16, color: Colors.red),
                           SizedBox(width: 8),
-                          Text('Xóa', style: TextStyle(color: Colors.red))
+                          Text(tr('Xóa'), style: TextStyle(color: Colors.red))
                         ])),
                 ],
                 onSelected: (v) => _handleAction(v, user),
@@ -442,7 +442,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
             final result = await _apiService.deleteUser(userId);
             if (mounted) {
               if (result['isSuccess'] == true) {
-                NotificationOverlayManager().showSuccess(title: 'Thành công', message: 'Đã xóa tài khoản thành công');
+                NotificationOverlayManager().showSuccess(title: 'Thành công', message: tr('Đã xóa tài khoản thành công'));
               } else {
                 NotificationOverlayManager().showError(title: 'Lỗi', message: result['message'] ?? 'Lỗi xóa tài khoản');
               }
@@ -450,7 +450,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
             _loadData();
           } catch (e) {
             if (mounted) {
-              NotificationOverlayManager().showError(title: 'Lỗi', message: 'Lỗi: $e');
+              NotificationOverlayManager().showError(title: 'Lỗi', message: tr('Lỗi: $e'));
             }
           }
         }
@@ -462,11 +462,11 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
     return await showDialog<bool>(
       context: context,
       builder: (ctx) => ScrollableAlertDialog(
-        title: Text(title),
-        content: Text(content),
+        title: Text(tr(title)),
+        content: Text(tr(content)),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Hủy')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), style: ElevatedButton.styleFrom(backgroundColor: Colors.red), child: const Text('Xác nhận')),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Hủy'))),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), style: ElevatedButton.styleFrom(backgroundColor: Colors.red), child: Text(tr('Xác nhận'))),
         ],
       ),
     ) ?? false;
@@ -477,22 +477,22 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
     showDialog(
       context: context,
       builder: (ctx) => ScrollableAlertDialog(
-        title: const Text('Đổi vai trò'),
+        title: Text(tr('Đổi vai trò')),
         content: SizedBox(
           width: 350,
           child: Column(mainAxisSize: MainAxisSize.min, children: [
-            Text('Tài khoản: ${user['fullName'] ?? user['userName']}', style: TextStyle(color: Colors.grey[600])),
+            Text(tr('${tr('Tài khoản: ')}${user['fullName'] ?? user['userName']}'), style: TextStyle(color: Colors.grey[600])),
             const SizedBox(height: 16),
             DropdownButtonFormField<String>(
               initialValue: _availableRoles.contains(selectedRole) ? selectedRole : null,
-              decoration: InputDecoration(labelText: 'Vai trò', border: OutlineInputBorder(borderRadius: BorderRadius.circular(10))),
-              items: _availableRoles.map((r) => DropdownMenuItem(value: r, child: Text(r))).toList(),
+              decoration: InputDecoration(labelText: tr('Vai trò'), border: OutlineInputBorder(borderRadius: BorderRadius.circular(10))),
+              items: _availableRoles.map((r) => DropdownMenuItem(value: r, child: Text(tr(r)))).toList(),
               onChanged: (v) => selectedRole = v,
             ),
           ]),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('Hủy'))),
           FilledButton(
             onPressed: () async {
               if (selectedRole != null) {
@@ -505,7 +505,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                 }
               }
             },
-            child: const Text('Lưu'),
+            child: Text(tr('Lưu')),
           ),
         ],
       ),
@@ -519,17 +519,17 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) => ScrollableAlertDialog(
-          title: const Text('Đặt lại mật khẩu'),
+          title: Text(tr('Đặt lại mật khẩu')),
           content: SizedBox(
             width: 350,
             child: Column(mainAxisSize: MainAxisSize.min, children: [
-              Text('Tài khoản: ${user['fullName'] ?? user['userName']}', style: TextStyle(color: Colors.grey[600])),
+              Text(tr('${tr('Tài khoản: ')}${user['fullName'] ?? user['userName']}'), style: TextStyle(color: Colors.grey[600])),
               const SizedBox(height: 16),
               TextField(
                 controller: pwdCtrl,
                 obscureText: obscure,
                 decoration: InputDecoration(
-                  labelText: 'Mật khẩu mới',
+                  labelText: tr('Mật khẩu mới'),
                   prefixIcon: const Icon(Icons.lock, size: 20),
                   suffixIcon: IconButton(
                     icon: Icon(obscure ? Icons.visibility_off : Icons.visibility, size: 20),
@@ -541,7 +541,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
             ]),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
+            TextButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('Hủy'))),
             FilledButton(
               onPressed: () async {
                 if (pwdCtrl.text.isNotEmpty) {
@@ -550,7 +550,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                     if (ctx.mounted) {
                       Navigator.pop(ctx);
                       if (result['isSuccess'] == true) {
-                        NotificationOverlayManager().showSuccess(title: 'Thành công', message: 'Đã đặt lại mật khẩu');
+                        NotificationOverlayManager().showSuccess(title: 'Thành công', message: tr('Đã đặt lại mật khẩu'));
                       } else {
                         NotificationOverlayManager().showError(title: 'Lỗi', message: result['message'] ?? 'Lỗi');
                       }
@@ -560,7 +560,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                   }
                 }
               },
-              child: const Text('Đặt lại'),
+              child: Text(tr('Đặt lại')),
             ),
           ],
         ),

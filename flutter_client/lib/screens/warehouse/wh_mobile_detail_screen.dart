@@ -16,6 +16,7 @@ import '../../widgets/warehouse/wh_mobile_doc_service.dart';
 import '../../widgets/warehouse/wh_mobile_theme.dart';
 import '../main_layout.dart' show ScreenRefreshNotifier;
 import 'wh_mobile_editor_router.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// Chi tiết phiếu kho — xem nhanh, sửa hoặc hoàn thành.
 class WhMobileDocDetailScreen extends StatefulWidget {
@@ -199,14 +200,14 @@ class _WhMobileDocDetailScreenState extends State<WhMobileDocDetailScreen> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Xóa phiếu'),
-        content: Text('Xóa hẳn phiếu $_docNo?'),
+        title: Text(tr('Xóa phiếu')),
+        content: Text(tr('Xóa hẳn phiếu $_docNo?')),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Không')),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Không'))),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: FilledButton.styleFrom(backgroundColor: WhMobileTheme.danger),
-            child: const Text('Xóa'),
+            child: Text(tr('Xóa')),
           ),
         ],
       ),
@@ -261,7 +262,7 @@ class _WhMobileDocDetailScreenState extends State<WhMobileDocDetailScreen> {
                   ? TextButton.icon(
                       onPressed: _acting ? null : _delete,
                       icon: Icon(Icons.delete_outline_rounded, color: WhMobileTheme.danger),
-                      label: Text('Xóa phiếu', style: TextStyle(color: WhMobileTheme.danger)),
+                      label: Text(tr('Xóa phiếu'), style: TextStyle(color: WhMobileTheme.danger)),
                     )
                   : null,
             ),
@@ -286,22 +287,22 @@ class _WhMobileDocDetailScreenState extends State<WhMobileDocDetailScreen> {
                             draftLabel: widget.docType.draftStatusLabel,
                           ),
                           const Spacer(),
-                          Text(_svc.formatMoney(_amount), style: WhMobileTheme.money),
+                          Text(tr(_svc.formatMoney(_amount)), style: WhMobileTheme.money),
                         ],
                       ),
                       if (_subtitle != null) ...[
                         const SizedBox(height: 10),
-                        Text(_subtitle!, style: WhMobileTheme.titleMedium.copyWith(fontSize: 15)),
+                        Text(tr(_subtitle!), style: WhMobileTheme.titleMedium.copyWith(fontSize: 15)),
                       ],
                       if (_meta != null) ...[
                         const SizedBox(height: 6),
-                        Text(_meta!, style: WhMobileTheme.caption),
+                        Text(tr(_meta!), style: WhMobileTheme.caption),
                       ],
                       if (_note != null && _note!.trim().isNotEmpty) ...[
                         const SizedBox(height: 12),
-                        Text('Ghi chú', style: WhMobileTheme.label),
+                        Text(tr('Ghi chú'), style: WhMobileTheme.label),
                         const SizedBox(height: 4),
-                        Text(_note!, style: WhMobileTheme.body),
+                        Text(tr(_note!), style: WhMobileTheme.body),
                       ],
                     ],
                   ),
@@ -317,13 +318,13 @@ class _WhMobileDocDetailScreenState extends State<WhMobileDocDetailScreen> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          'SL: ${_lines[i]['qty']}',
+                          tr('SL: ${_lines[i]['qty']}'),
                           style: WhMobileTheme.body.copyWith(fontWeight: FontWeight.w600),
                         ),
                         if (_lines[i]['extra'] != null)
-                          Text(_lines[i]['extra'].toString(), style: WhMobileTheme.caption),
+                          Text(tr(_lines[i]['extra'].toString()), style: WhMobileTheme.caption),
                         Text(
-                          _svc.formatMoney((_lines[i]['total'] as num?)?.toDouble() ?? 0),
+                          tr(_svc.formatMoney((_lines[i]['total'] as num?)?.toDouble() ?? 0)),
                           style: WhMobileTheme.money.copyWith(fontSize: 15),
                         ),
                       ],

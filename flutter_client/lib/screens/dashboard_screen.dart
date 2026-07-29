@@ -43,6 +43,7 @@ import '../models/task.dart';
 import 'task_management_screen.dart';
 import 'penalty_tickets_screen.dart';
 import 'cash_transaction_screen.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 int? _approvalStatusCode(dynamic status) {
   if (status == null) return null;
@@ -740,8 +741,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         if (attLoad.truncated && mounted) {
           appNotification.showWarning(
             title: 'Tổng quan: log chấm công có thể chưa đủ',
-            message:
-                'Đã tải ${attLoad.items.length} bản ghi. Thu hẹp kỳ xem nếu thiếu ngày cuối.',
+            message: tr('Đã tải ${attLoad.items.length} bản ghi. Thu hẹp kỳ xem nếu thiếu ngày cuối.'),
           );
         }
       }
@@ -1578,8 +1578,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   backgroundColor: const Color(0xFF8B5CF6),
                   foregroundColor: Colors.white,
                   icon: const Icon(Icons.auto_awesome_rounded),
-                  label: const Text('Trợ lý AI'),
-                  tooltip: 'Mở trợ lý ảo HRM',
+                  label: Text(tr('Trợ lý AI')),
+                  tooltip: tr('Mở trợ lý ảo HRM'),
                 )
               : null,
         );
@@ -1605,8 +1605,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Quyền tổng quan',
+                Text(tr('Quyền tổng quan'),
                   style: TextStyle(
                     fontWeight: FontWeight.w700,
                     fontSize: 14,
@@ -1614,8 +1613,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ),
                 ),
                 const SizedBox(height: 6),
-                Text(
-                  'Tài khoản chỉ có quyền xem Tổng quan. Dùng Trang chủ để mở các module khác đã được cấp, hoặc liên hệ quản trị để bổ sung gói quyền (Chấm công, Thiết lập HRM…).',
+                Text(tr('Tài khoản chỉ có quyền xem Tổng quan. Dùng Trang chủ để mở các module khác đã được cấp, hoặc liên hệ quản trị để bổ sung gói quyền (Chấm công, Thiết lập HRM…).'),
                   style: TextStyle(
                     fontSize: 12,
                     height: 1.45,
@@ -1627,7 +1625,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   onPressed: () =>
                       NavigationNotifier.goTo(NavigationNotifier.home),
                   icon: const Icon(Icons.home_outlined, size: 18),
-                  label: const Text('Mở Trang chủ'),
+                  label: Text(tr('Mở Trang chủ')),
                 ),
               ],
             ),
@@ -1703,8 +1701,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildInsightSectionTitle() {
-    return const Text(
-      'Chỉ số nhân sự & vận hành',
+    return Text(tr('Chỉ số nhân sự & vận hành'),
       style: TextStyle(
         fontSize: 13,
         fontWeight: FontWeight.w700,
@@ -1780,7 +1777,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
             alignment: Alignment.center,
             child: Text(
-              initials,
+              tr(initials),
               style: const TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.bold,
@@ -1800,7 +1797,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     const SizedBox(width: 6),
                     Flexible(
                       child: Text(
-                        '${greet.greeting},',
+                        tr('${greet.greeting},'),
                         style: TextStyle(
                           color: Colors.white.withValues(alpha: 0.8),
                           fontSize: 14,
@@ -1813,7 +1810,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  fullName,
+                  tr(fullName),
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 19,
@@ -1846,7 +1843,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  '$hh:$mm',
+                  tr('$hh:$mm'),
                   style: const TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.bold,
@@ -1855,7 +1852,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ),
                 ),
                 Text(
-                  _now.year.toString(),
+                  tr(_now.year.toString()),
                   style: TextStyle(
                     color: Colors.white.withValues(alpha: 0.9),
                     fontSize: 9,
@@ -1890,7 +1887,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         border: Border.all(color: Colors.white24),
       ),
       child: Text(
-        text,
+        tr(text),
         style: const TextStyle(
           color: Colors.white,
           fontSize: 10,
@@ -1966,11 +1963,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ),
         child: Row(
           children: [
-            Text(item['icon'] as String, style: const TextStyle(fontSize: 16)),
+            Text(tr(item['icon'] as String), style: const TextStyle(fontSize: 16)),
             const SizedBox(width: 8),
             Expanded(
               child: Text(
-                item['text'] as String,
+                tr(item['text'] as String),
                 style: TextStyle(
                   fontSize: 12.5,
                   fontWeight: FontWeight.w600,
@@ -2121,7 +2118,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
               const SizedBox(height: 6),
               Text(
-                a.label,
+                tr(a.label),
                 textAlign: TextAlign.center,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
@@ -2164,9 +2161,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
               const Icon(Icons.analytics_outlined,
                   size: 18, color: HrmPageChrome.primaryNavy),
               const SizedBox(width: 6),
-              const Expanded(
-                child: Text(
-                  'Tổng quan chấm công',
+              Expanded(
+                child: Text(tr('Tổng quan chấm công'),
                   style: TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w700,
@@ -2182,7 +2178,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
-                    _rangeLabel(),
+                    tr(_rangeLabel()),
                     style: const TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
@@ -2235,8 +2231,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 ? Colors.white
                                 : const Color(0xFF475569)),
                         const SizedBox(width: 4),
-                        Text(
-                          'Lựa chọn khác',
+                        Text(tr('Lựa chọn khác'),
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
@@ -2283,8 +2278,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           if (caps.showInsightSection && !mobileGrid) ...[
             const Divider(height: 1, color: Color(0xFFE4E9F0)),
             const SizedBox(height: 12),
-            const Text(
-              'Chỉ số nhân sự & vận hành',
+            Text(tr('Chỉ số nhân sự & vận hành'),
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w700,
@@ -2436,13 +2430,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(title,
+                      Text(tr(title),
                           style: const TextStyle(
                               fontSize: 15,
                               fontWeight: FontWeight.bold,
                               color: Color(0xFF0F172A))),
-                      Text(
-                          '${empCards.length} NV · ${deptOrder.length} phòng ban',
+                      Text(tr('${empCards.length} NV · ${deptOrder.length} phòng ban'),
                           style: TextStyle(
                               fontSize: 12, color: Colors.grey.shade600)),
                     ],
@@ -2456,7 +2449,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               Expanded(
                 child: empCards.isEmpty
                     ? Center(
-                        child: Text('Không có nhân viên',
+                        child: Text(tr('Không có nhân viên'),
                             style: TextStyle(color: Colors.grey.shade500)))
                     : ListView.builder(
                         controller: sc,
@@ -2486,7 +2479,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                           Icon(Icons.business_rounded,
                                               size: 12, color: color),
                                           const SizedBox(width: 4),
-                                          Text(dept,
+                                          Text(tr(dept),
                                               style: TextStyle(
                                                   fontSize: 12,
                                                   fontWeight: FontWeight.w700,
@@ -2499,7 +2492,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                                 color: Colors.white,
                                                 borderRadius:
                                                     BorderRadius.circular(10)),
-                                            child: Text('${emps.length}',
+                                            child: Text(tr('${emps.length}'),
                                                 style: TextStyle(
                                                     fontSize: 10,
                                                     fontWeight: FontWeight.bold,
@@ -2527,10 +2520,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                             backgroundColor:
                                                 color.withValues(alpha: 0.15),
                                             child: Text(
-                                              (e['name'] as String).isNotEmpty
+                                              tr((e['name'] as String).isNotEmpty
                                                   ? (e['name'] as String)[0]
                                                       .toUpperCase()
-                                                  : '?',
+                                                  : '?'),
                                               style: TextStyle(
                                                   color: color,
                                                   fontWeight: FontWeight.bold,
@@ -2539,7 +2532,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                           ),
                                           const SizedBox(width: 8),
                                           Expanded(
-                                            child: Text(e['name'] as String,
+                                            child: Text(tr(e['name'] as String),
                                                 style: const TextStyle(
                                                     fontWeight: FontWeight.w600,
                                                     fontSize: 13),
@@ -2553,7 +2546,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                                 size: 11,
                                                 color: Color(0xFF22C55E)),
                                             const SizedBox(width: 2),
-                                            Text(e['checkIn'] as String,
+                                            Text(tr(e['checkIn'] as String),
                                                 style: const TextStyle(
                                                     fontSize: 11,
                                                     color: Color(0xFF16A34A),
@@ -2606,11 +2599,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
           child: Row(mainAxisSize: MainAxisSize.min, children: [
             Icon(icon, size: 11, color: color),
             const SizedBox(width: 3),
-            Text(label,
+            Text(tr(label),
                 style: TextStyle(
                     fontSize: 10, color: color, fontWeight: FontWeight.w600)),
             const SizedBox(width: 4),
-            Text('$count',
+            Text(tr('$count'),
                 style: TextStyle(
                     fontSize: 13, color: color, fontWeight: FontWeight.bold)),
           ]),
@@ -2638,8 +2631,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
             const Icon(Icons.calendar_today_rounded,
                 size: 16, color: HrmPageChrome.primaryNavy),
             const SizedBox(width: 6),
-            const Expanded(
-              child: Text('Lịch làm việc hôm nay',
+            Expanded(
+              child: Text(tr('Lịch làm việc hôm nay'),
                   style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w700,
@@ -2651,7 +2644,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 color: HrmPageChrome.primaryNavy.withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: Text('${shiftNames.length} ca',
+              child: Text(tr('${shiftNames.length} ca'),
                   style: const TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
@@ -2730,14 +2723,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           decoration: BoxDecoration(
                               color: shiftColor, shape: BoxShape.circle)),
                       const SizedBox(width: 6),
-                      Text(shiftName,
+                      Text(tr(shiftName),
                           style: TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.w700,
                               color: shiftColor)),
                       if (timeStr.isNotEmpty) ...[
                         const SizedBox(width: 6),
-                        Text(timeStr,
+                        Text(tr(timeStr),
                             style: TextStyle(
                                 fontSize: 11, color: Colors.grey.shade500)),
                       ],
@@ -2949,7 +2942,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            title,
+            tr(title),
             style: const TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.w600,
@@ -3009,7 +3002,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      c.label,
+                      tr(c.label),
                       style: const TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
@@ -3020,7 +3013,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      c.value,
+                      tr(c.value),
                       style: TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w800,
@@ -3079,7 +3072,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final initialAmount = priorApproved ?? requestedAmount;
     final currency = NumberFormat.currency(locale: 'vi_VN', symbol: '₫');
     final amountController = TextEditingController(
-        text: NumberFormat('#,###').format(initialAmount));
+        text: tr(NumberFormat('#,###').format(initialAmount)));
     String? errorText;
     final employeeName = (item['employeeName'] ?? '').toString();
 
@@ -3087,19 +3080,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) => ScrollableAlertDialog(
-          title: const Text('Xác nhận duyệt ứng lương'),
+          title: Text(tr('Xác nhận duyệt ứng lương')),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if (employeeName.isNotEmpty) Text('Nhân viên: $employeeName'),
+              if (employeeName.isNotEmpty) Text(tr('Nhân viên: $employeeName')),
               const SizedBox(height: 4),
-              Text('Số tiền yêu cầu: ${currency.format(requestedAmount)}'),
+              Text(tr('Số tiền yêu cầu: ${currency.format(requestedAmount)}')),
               if (priorApproved != null &&
                   priorApproved != requestedAmount) ...[
                 const SizedBox(height: 4),
-                Text(
-                  'Đề xuất bước trước: ${currency.format(priorApproved)}',
+                Text(tr('Đề xuất bước trước: ${currency.format(priorApproved)}'),
                   style:
                       TextStyle(color: Colors.orange.shade800, fontSize: 13),
                 ),
@@ -3110,12 +3102,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 keyboardType: TextInputType.number,
                 inputFormatters: [ThousandSeparatorFormatter()],
                 decoration: InputDecoration(
-                  labelText: 'Số tiền duyệt *',
+                  labelText: tr('Số tiền duyệt *'),
                   border: const OutlineInputBorder(),
                   prefixIcon: const Icon(Icons.attach_money),
-                  errorText: errorText,
-                  helperText:
-                      'Có thể duyệt thấp hơn số tiền yêu cầu (vd: YC 5tr → duyệt 3tr)',
+                  errorText: trN(errorText),
+                  helperText: tr('Có thể duyệt thấp hơn số tiền yêu cầu (vd: YC 5tr → duyệt 3tr)'),
                 ),
               ),
             ],
@@ -3123,7 +3114,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           actions: [
             TextButton(
                 onPressed: () => Navigator.pop(ctx),
-                child: const Text('Hủy')),
+                child: Text(tr('Hủy'))),
             FilledButton(
               onPressed: () {
                 final parsed =
@@ -3140,7 +3131,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 }
                 Navigator.pop(ctx, parsed);
               },
-              child: const Text('Duyệt'),
+              child: Text(tr('Duyệt')),
             ),
           ],
         ),
@@ -3264,10 +3255,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(c.label,
+                          Text(tr(c.label),
                               style: const TextStyle(
                                   fontSize: 16, fontWeight: FontWeight.bold)),
-                          Text(() {
+                          Text(tr(() {
                             if (c.kind == 'advance_detail') {
                               final advances = _pendingAdvances
                                   .whereType<Map<String, dynamic>>()
@@ -3285,7 +3276,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             return customContent != null
                                 ? c.value
                                 : '${items.length} mục';
-                          }(),
+                          }()),
                               style: TextStyle(
                                   fontSize: 12, color: Colors.grey.shade600)),
                         ],
@@ -3346,7 +3337,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           }
                         },
                         icon: Icon(cta.icon, size: 18),
-                        label: Text(cta.label,
+                        label: Text(tr(cta.label),
                             style:
                                 const TextStyle(fontWeight: FontWeight.w600)),
                       ),
@@ -3427,7 +3418,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               radius: 18,
               backgroundColor: accent.withValues(alpha: .12),
               child: Text(
-                  name.isNotEmpty ? name.characters.first.toUpperCase() : '?',
+                  tr(name.isNotEmpty ? name.characters.first.toUpperCase() : '?'),
                   style: TextStyle(
                       color: accent,
                       fontWeight: FontWeight.bold,
@@ -3438,13 +3429,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(name,
+                  Text(tr(name),
                       style: const TextStyle(
                           fontWeight: FontWeight.w600, fontSize: 13),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis),
                   if (sub1.isNotEmpty || sub2.isNotEmpty)
-                    Text([sub1, sub2].where((s) => s.isNotEmpty).join(' • '),
+                    Text(tr([sub1, sub2].where((s) => s.isNotEmpty).join(' • ')),
                         style: const TextStyle(
                             fontSize: 11, color: Color(0xFF71717A)),
                         maxLines: 1,
@@ -3458,7 +3449,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 decoration: BoxDecoration(
                     color: accent.withValues(alpha: .1),
                     borderRadius: BorderRadius.circular(8)),
-                child: Text(badge,
+                child: Text(tr(badge),
                     style: TextStyle(
                         fontSize: 10,
                         fontWeight: FontWeight.w600,
@@ -3568,7 +3559,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     if (empName.isNotEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Mở $resolved cho: $empName'),
+          content: Text(tr('Mở $resolved cho: $empName')),
           duration: const Duration(seconds: 2),
         ),
       );
@@ -3716,9 +3707,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
         final ok = result['isSuccess'] == true || result['isSuccess'] == 'true';
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text(ok
+            content: Text(tr(ok
                 ? (approve ? 'Đã duyệt thành công' : 'Đã từ chối')
-                : (result['message'] ?? 'Thao tác thất bại').toString()),
+                : (result['message'] ?? 'Thao tác thất bại').toString())),
             backgroundColor:
                 ok ? const Color(0xFF22C55E) : const Color(0xFFEF4444),
             duration: const Duration(seconds: 2),
@@ -3728,7 +3719,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text('Lỗi: $e'),
+            content: Text(tr('Lỗi: $e')),
             backgroundColor: const Color(0xFFEF4444),
           ));
         }
@@ -3766,25 +3757,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
             final confirmed = await showDialog<bool>(
               context: context,
               builder: (_) => ScrollableAlertDialog(
-                title: const Text('Lý do từ chối',
+                title: Text(tr('Lý do từ chối'),
                     style:
                         TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
                 content: TextField(
                   controller: ctrl,
-                  decoration: const InputDecoration(
-                      hintText: 'Nhập lý do...', border: OutlineInputBorder()),
+                  decoration: InputDecoration(
+                      hintText: tr('Nhập lý do...'), border: OutlineInputBorder()),
                   maxLines: 2,
                 ),
                 actions: [
                   TextButton(
                       onPressed: () => Navigator.pop(context, false),
-                      child: const Text('Hủy')),
+                      child: Text(tr('Hủy'))),
                   FilledButton(
                     style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFFEF4444),
                         foregroundColor: Colors.white),
                     onPressed: () => Navigator.pop(context, true),
-                    child: const Text('Từ chối'),
+                    child: Text(tr('Từ chối')),
                   ),
                 ],
               ),
@@ -3821,7 +3812,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     color: color.withValues(alpha: .12),
                     borderRadius: BorderRadius.circular(5),
                   ),
-                  child: Text(typeLabel,
+                  child: Text(tr(typeLabel),
                       style: TextStyle(
                           fontSize: 10,
                           fontWeight: FontWeight.w700,
@@ -3829,7 +3820,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
                 const SizedBox(width: 8),
                 Expanded(
-                    child: Text(title,
+                    child: Text(tr(title),
                         style: const TextStyle(
                             fontSize: 13, fontWeight: FontWeight.w600),
                         maxLines: 1,
@@ -3846,7 +3837,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     if (subtitle.isNotEmpty)
-                      Text(subtitle,
+                      Text(tr(subtitle),
                           style: const TextStyle(
                               fontSize: 11, color: Color(0xFF6B7280))),
                     if (dateStr != null && dateStr.isNotEmpty) ...[
@@ -3855,7 +3846,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         const Icon(Icons.calendar_today_outlined,
                             size: 11, color: Color(0xFF9CA3AF)),
                         const SizedBox(width: 4),
-                        Text(dateStr,
+                        Text(tr(dateStr),
                             style: const TextStyle(
                                 fontSize: 11, color: Color(0xFF6B7280))),
                       ]),
@@ -3869,7 +3860,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 size: 11, color: Color(0xFF9CA3AF)),
                             const SizedBox(width: 4),
                             Expanded(
-                                child: Text(extraInfo,
+                                child: Text(tr(extraInfo),
                                     style: const TextStyle(
                                         fontSize: 11, color: Color(0xFF6B7280)),
                                     maxLines: 2,
@@ -3904,7 +3895,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       ),
                       icon: const Icon(Icons.close, size: 14),
                       label:
-                          const Text('Từ chối', style: TextStyle(fontSize: 12)),
+                          Text(tr('Từ chối'), style: TextStyle(fontSize: 12)),
                       onPressed: reject,
                     ),
                   ),
@@ -3921,7 +3912,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       ),
                       icon: const Icon(Icons.check, size: 14),
                       label:
-                          const Text('Duyệt', style: TextStyle(fontSize: 12)),
+                          Text(tr('Duyệt'), style: TextStyle(fontSize: 12)),
                       onPressed: approve,
                     ),
                   ),
@@ -3955,12 +3946,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
               decoration: BoxDecoration(
                   color: color.withValues(alpha: .12),
                   borderRadius: BorderRadius.circular(6)),
-              child: Text('$count',
+              child: Text(tr('$count'),
                   style: TextStyle(
                       fontSize: 12, fontWeight: FontWeight.bold, color: color)),
             ),
             const SizedBox(width: 8),
-            Text(title,
+            Text(tr(title),
                 style:
                     const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
           ]),
@@ -4195,13 +4186,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     const Icon(Icons.account_balance_wallet_outlined,
                         size: 16, color: Color(0xFF10B981)),
                     const SizedBox(width: 6),
-                    Text('${advances.length} phiếu chờ duyệt',
+                    Text(tr('${advances.length} phiếu chờ duyệt'),
                         style: const TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w600,
                             color: Color(0xFF10B981))),
                   ]),
-                  Text('${_fmtMoney(totalAmount)}đ',
+                  Text(tr('${_fmtMoney(totalAmount)}đ'),
                       style: const TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.bold,
@@ -4239,10 +4230,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         result['isSuccess'] == 'true';
                     if (mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                        content: Text(ok
+                        content: Text(tr(ok
                             ? (approve ? 'Đã duyệt thành công' : 'Đã từ chối')
                             : (result['message'] ?? 'Thao tác thất bại')
-                                .toString()),
+                                .toString())),
                         backgroundColor: ok
                             ? const Color(0xFF22C55E)
                             : const Color(0xFFEF4444),
@@ -4261,7 +4252,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   } catch (e) {
                     if (mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                        content: Text('Lỗi: $e'),
+                        content: Text(tr('Lỗi: $e')),
                         backgroundColor: const Color(0xFFEF4444),
                       ));
                     }
@@ -4281,26 +4272,26 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   final confirmed = await showDialog<bool>(
                     context: context,
                     builder: (_) => ScrollableAlertDialog(
-                      title: const Text('Lý do từ chối',
+                      title: Text(tr('Lý do từ chối'),
                           style: TextStyle(
                               fontSize: 15, fontWeight: FontWeight.w600)),
                       content: TextField(
                         controller: ctrl,
-                        decoration: const InputDecoration(
-                            hintText: 'Nhập lý do...',
+                        decoration: InputDecoration(
+                            hintText: tr('Nhập lý do...'),
                             border: OutlineInputBorder()),
                         maxLines: 2,
                       ),
                       actions: [
                         TextButton(
                             onPressed: () => Navigator.pop(context, false),
-                            child: const Text('Hủy')),
+                            child: Text(tr('Hủy'))),
                         FilledButton(
                           style: ElevatedButton.styleFrom(
                               backgroundColor: const Color(0xFFEF4444),
                               foregroundColor: Colors.white),
                           onPressed: () => Navigator.pop(context, true),
-                          child: const Text('Từ chối'),
+                          child: Text(tr('Từ chối')),
                         ),
                       ],
                     ),
@@ -4332,7 +4323,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                     .withValues(alpha: .12),
                                 borderRadius: BorderRadius.circular(5),
                               ),
-                              child: const Text('Ứng lương',
+                              child: Text(tr('Ứng lương'),
                                   style: TextStyle(
                                       fontSize: 10,
                                       fontWeight: FontWeight.w700,
@@ -4340,7 +4331,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             ),
                             const SizedBox(width: 8),
                             Expanded(
-                              child: Text(name.isEmpty ? 'N/A' : name,
+                              child: Text(tr(name.isEmpty ? 'N/A' : name),
                                   style: const TextStyle(
                                       fontSize: 13,
                                       fontWeight: FontWeight.w600),
@@ -4355,7 +4346,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                     .withValues(alpha: .1),
                                 borderRadius: BorderRadius.circular(7),
                               ),
-                              child: Text('${_fmtMoney(amt.toDouble())}đ',
+                              child: Text(tr('${_fmtMoney(amt.toDouble())}đ'),
                                   style: const TextStyle(
                                       fontSize: 11,
                                       fontWeight: FontWeight.bold,
@@ -4370,7 +4361,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 if (dept.isNotEmpty)
-                                  Text(dept,
+                                  Text(tr(dept),
                                       style: const TextStyle(
                                           fontSize: 11,
                                           color: Color(0xFF6B7280))),
@@ -4380,7 +4371,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                     const Icon(Icons.calendar_today_outlined,
                                         size: 11, color: Color(0xFF9CA3AF)),
                                     const SizedBox(width: 4),
-                                    Text(dateStr,
+                                    Text(tr(dateStr),
                                         style: const TextStyle(
                                             fontSize: 11,
                                             color: Color(0xFF6B7280))),
@@ -4396,7 +4387,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                             size: 11, color: Color(0xFF9CA3AF)),
                                         const SizedBox(width: 4),
                                         Expanded(
-                                            child: Text(reason,
+                                            child: Text(tr(reason),
                                                 style: const TextStyle(
                                                     fontSize: 11,
                                                     color: Color(0xFF6B7280)),
@@ -4436,7 +4427,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                         borderRadius: BorderRadius.circular(7)),
                                   ),
                                   icon: const Icon(Icons.close, size: 14),
-                                  label: const Text('Từ chối',
+                                  label: Text(tr('Từ chối'),
                                       style: TextStyle(fontSize: 12)),
                                   onPressed: onReject,
                                 ),
@@ -4454,7 +4445,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                     elevation: 0,
                                   ),
                                   icon: const Icon(Icons.check, size: 14),
-                                  label: const Text('Duyệt',
+                                  label: Text(tr('Duyệt'),
                                       style: TextStyle(fontSize: 12)),
                                   onPressed: onApprove,
                                 ),
@@ -4624,9 +4615,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
               radius: 16,
               backgroundColor: const Color(0xFFFEF3C7),
               child: Text(
-                fullName.isNotEmpty
+                tr(fullName.isNotEmpty
                     ? fullName.characters.first.toUpperCase()
-                    : '?',
+                    : '?'),
                 style: const TextStyle(
                     color: Color(0xFFD97706),
                     fontWeight: FontWeight.bold,
@@ -4638,13 +4629,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                  Text(fullName.isEmpty ? 'N/A' : fullName,
+                  Text(tr(fullName.isEmpty ? 'N/A' : fullName),
                       style: const TextStyle(
                           fontSize: 13, fontWeight: FontWeight.w600),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis),
                   if (dept.isNotEmpty)
-                    Text(dept,
+                    Text(tr(dept),
                         style: const TextStyle(
                             fontSize: 11, color: Color(0xFF71717A))),
                 ])),
@@ -4655,7 +4646,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   color: const Color(0xFFF59E0B).withValues(alpha: .12),
                   borderRadius: BorderRadius.circular(6),
                 ),
-                child: Text(daysStr,
+                child: Text(tr(daysStr),
                     style: const TextStyle(
                         fontSize: 10,
                         fontWeight: FontWeight.w600,
@@ -4668,7 +4659,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               const Icon(Icons.calendar_today_outlined,
                   size: 12, color: Color(0xFF6B7280)),
               const SizedBox(width: 4),
-              Text(dateRange,
+              Text(tr(dateRange),
                   style:
                       const TextStyle(fontSize: 11, color: Color(0xFF6B7280))),
             ]),
@@ -4680,7 +4671,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   size: 12, color: Color(0xFF9CA3AF)),
               const SizedBox(width: 4),
               Expanded(
-                  child: Text(reason,
+                  child: Text(tr(reason),
                       style: const TextStyle(
                           fontSize: 11, color: Color(0xFF6B7280)),
                       maxLines: 2,
@@ -4705,14 +4696,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   color: const Color(0xFFF59E0B).withValues(alpha: .12),
                   borderRadius: BorderRadius.circular(6),
                 ),
-                child: Text('${entry.value.length}',
+                child: Text(tr('${entry.value.length}'),
                     style: const TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
                         color: Color(0xFFD97706))),
               ),
               const SizedBox(width: 8),
-              Text(entry.key,
+              Text(tr(entry.key),
                   style: const TextStyle(
                       fontSize: 13, fontWeight: FontWeight.w600)),
             ]),
@@ -4793,13 +4784,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                  Text(fullName.isEmpty ? 'N/A' : fullName,
+                  Text(tr(fullName.isEmpty ? 'N/A' : fullName),
                       style: const TextStyle(
                           fontSize: 13, fontWeight: FontWeight.w600),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis),
                   if (dept.isNotEmpty)
-                    Text(dept,
+                    Text(tr(dept),
                         style: const TextStyle(
                             fontSize: 11, color: Color(0xFF71717A))),
                 ])),
@@ -4808,7 +4799,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               decoration: BoxDecoration(
                   color: accent.withValues(alpha: .1),
                   borderRadius: BorderRadius.circular(8)),
-              child: Text(badge,
+              child: Text(tr(badge),
                   style: TextStyle(
                       fontSize: 10,
                       fontWeight: FontWeight.w600,
@@ -4827,12 +4818,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
               decoration: BoxDecoration(
                   color: color.withValues(alpha: .12),
                   borderRadius: BorderRadius.circular(6)),
-              child: Text('$count',
+              child: Text(tr('$count'),
                   style: TextStyle(
                       fontSize: 12, fontWeight: FontWeight.bold, color: color)),
             ),
             const SizedBox(width: 8),
-            Text(title,
+            Text(tr(title),
                 style:
                     const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
           ]),
@@ -4927,7 +4918,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               radius: 18,
               backgroundColor: color.withValues(alpha: 0.15),
               child: Text(
-                displayName.isNotEmpty ? displayName[0].toUpperCase() : '?',
+                tr(displayName.isNotEmpty ? displayName[0].toUpperCase() : '?'),
                 style: TextStyle(
                     color: color, fontWeight: FontWeight.bold, fontSize: 13),
               ),
@@ -4937,13 +4928,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                  Text(displayName,
+                  Text(tr(displayName),
                       style: const TextStyle(
                           fontWeight: FontWeight.w600, fontSize: 13),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis),
                   if (dept.isNotEmpty)
-                    Text(dept,
+                    Text(tr(dept),
                         style: const TextStyle(
                             fontSize: 11, color: Color(0xFF71717A)),
                         maxLines: 1,
@@ -4955,8 +4946,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 color: color.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: Text(
-                'Ngày $day',
+              child: Text(tr('Ngày $day'),
                 style: TextStyle(
                     fontSize: 11, fontWeight: FontWeight.w600, color: color),
               ),
@@ -4981,7 +4971,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           child: Row(children: [
             Icon(icon, size: 14, color: color),
             const SizedBox(width: 6),
-            Text(title,
+            Text(tr(title),
                 style: TextStyle(
                     fontSize: 13, fontWeight: FontWeight.w700, color: color)),
             const Spacer(),
@@ -4989,7 +4979,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
               decoration: BoxDecoration(
                   color: color, borderRadius: BorderRadius.circular(10)),
-              child: Text('${list.length}',
+              child: Text(tr('${list.length}'),
                   style: const TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.bold,
@@ -4997,7 +4987,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
             if (subtitle != null) ...[
               const SizedBox(width: 6),
-              Text(subtitle,
+              Text(tr(subtitle),
                   style: TextStyle(
                       fontSize: 11, color: color.withValues(alpha: 0.7))),
             ],
@@ -5006,7 +4996,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         if (list.isEmpty)
           Padding(
             padding: const EdgeInsets.only(bottom: 12, left: 4),
-            child: Text('Không có',
+            child: Text(tr('Không có'),
                 style: TextStyle(fontSize: 12, color: Colors.grey.shade400)),
           )
         else
@@ -5019,7 +5009,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       return Center(
           child: Padding(
         padding: const EdgeInsets.all(32),
-        child: Text('Không có sinh nhật trong tháng này',
+        child: Text(tr('Không có sinh nhật trong tháng này'),
             style: TextStyle(color: Colors.grey.shade500)),
       ));
     }
@@ -5151,7 +5141,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ),
       ),
       const SizedBox(height: 4),
-      Text('Tỉ lệ hoàn thành: ${rate.toStringAsFixed(0)}%',
+      Text(tr('Tỉ lệ hoàn thành: ${rate.toStringAsFixed(0)}%'),
           style: const TextStyle(fontSize: 12, color: Color(0xFF71717A))),
     ]);
   }
@@ -5216,8 +5206,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       tappableRow(Icons.cancel_outlined, 'Đã hủy', '$cancelled',
           const Color(0xFF71717A), '2'),
       const SizedBox(height: 10),
-      Text(
-        'Nhấn vào từng mục để xem danh sách',
+      Text(tr('Nhấn vào từng mục để xem danh sách'),
         style: TextStyle(
             fontSize: 11,
             color: Colors.grey.shade500,
@@ -5274,10 +5263,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ),
         const SizedBox(width: 12),
         Expanded(
-            child: Text(label,
+            child: Text(tr(label),
                 style: const TextStyle(
                     fontSize: 13, fontWeight: FontWeight.w500))),
-        Text(value,
+        Text(tr(value),
             style: TextStyle(
                 fontSize: 14, fontWeight: FontWeight.bold, color: color)),
       ]),
@@ -5318,7 +5307,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           borderRadius: BorderRadius.circular(20),
         ),
         child: Text(
-          label,
+          tr(label),
           style: TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w600,
@@ -5436,7 +5425,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           borderRadius: BorderRadius.circular(20),
         ),
         child: Text(
-          label,
+          tr(label),
           style: TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w600,
@@ -5458,8 +5447,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text(
-            'Tỉ lệ có mặt',
+          Text(tr('Tỉ lệ có mặt'),
             style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w600,
@@ -5614,7 +5602,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       AnimatedSwitcher(
                         duration: const Duration(milliseconds: 180),
                         child: Text(
-                          centerTop,
+                          tr(centerTop),
                           key: ValueKey(centerTop),
                           style: TextStyle(
                               fontSize: 26,
@@ -5626,7 +5614,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       AnimatedSwitcher(
                         duration: const Duration(milliseconds: 180),
                         child: Text(
-                          centerSub,
+                          tr(centerSub),
                           key: ValueKey(centerSub),
                           textAlign: TextAlign.center,
                           style: const TextStyle(
@@ -5637,8 +5625,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       ),
                       if (_touchedDonutIndex < 0) ...[
                         const SizedBox(height: 2),
-                        const Text(
-                          'Tỉ lệ có mặt',
+                        Text(tr('Tỉ lệ có mặt'),
                           textAlign: TextAlign.center,
                           style: TextStyle(
                               fontSize: 11,
@@ -5670,7 +5657,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 Padding(
                   padding: const EdgeInsets.only(left: 2, top: 2),
                   child: Text(
-                    '+${shiftNames.length - 4} ca',
+                    tr('+${shiftNames.length - 4} ca'),
                     style: const TextStyle(
                       fontSize: 10,
                       color: Color(0xFF94A3B8),
@@ -5796,7 +5783,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ),
                     const Spacer(),
                     Text(
-                      k.value,
+                      tr(k.value),
                       style: TextStyle(
                         fontSize: 22,
                         fontWeight: FontWeight.w800,
@@ -5810,7 +5797,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  label,
+                  tr(label),
                   style: const TextStyle(
                     fontSize: 12,
                     height: 1.25,
@@ -5851,7 +5838,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      label,
+                      tr(label),
                       style: const TextStyle(
                         fontSize: 11,
                         height: 1.2,
@@ -5863,7 +5850,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      k.value,
+                      tr(k.value),
                       style: TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.w800,
@@ -5955,12 +5942,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(k.label,
+                            Text(tr(k.label),
                                 style: const TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.bold,
                                     color: Color(0xFF0F172A))),
-                            Text('${items.length} mục',
+                            Text(tr('${items.length} mục'),
                                 style: TextStyle(
                                     fontSize: 12, color: Colors.grey.shade600)),
                           ],
@@ -5984,7 +5971,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               Icon(Icons.inbox_outlined,
                                   size: 48, color: Colors.grey.shade400),
                               const SizedBox(height: 8),
-                              Text('Không có dữ liệu',
+                              Text(tr('Không có dữ liệu'),
                                   style:
                                       TextStyle(color: Colors.grey.shade600)),
                             ],
@@ -6130,13 +6117,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text('Tổng nhân viên',
+                            Text(tr('Tổng nhân viên'),
                                 style: TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.bold,
                                     color: Color(0xFF0F172A))),
-                            Text(
-                                '${_dailyReportItems.length} NV · ${deptOrder.length} phòng ban',
+                            Text(tr('${_dailyReportItems.length} NV · ${deptOrder.length} phòng ban'),
                                 style: TextStyle(
                                     fontSize: 12, color: Colors.grey.shade600)),
                           ],
@@ -6160,7 +6146,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 Expanded(
                   child: byDept.isEmpty
                       ? Center(
-                          child: Text('Chưa có dữ liệu',
+                          child: Text(tr('Chưa có dữ liệu'),
                               style: TextStyle(color: Colors.grey.shade500)))
                       : ListView.builder(
                           controller: scrollController,
@@ -6200,7 +6186,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                                 size: 13,
                                                 color: HrmPageChrome.primaryNavy),
                                             const SizedBox(width: 4),
-                                            Text(deptName,
+                                            Text(tr(deptName),
                                                 style: const TextStyle(
                                                     fontSize: 12,
                                                     fontWeight: FontWeight.bold,
@@ -6278,9 +6264,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                                       : const Color(0xFF94A3B8))
                                                   .withValues(alpha: 0.18),
                                               child: Text(
-                                                name.isNotEmpty
+                                                tr(name.isNotEmpty
                                                     ? name[0].toUpperCase()
-                                                    : '?',
+                                                    : '?'),
                                                 style: TextStyle(
                                                   color: hasCheckedIn
                                                       ? const Color(0xFF16A34A)
@@ -6292,7 +6278,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                             ),
                                             const SizedBox(width: 8),
                                             Expanded(
-                                              child: Text(name,
+                                              child: Text(tr(name),
                                                   style: const TextStyle(
                                                       fontWeight:
                                                           FontWeight.w600,
@@ -6307,7 +6293,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                                   size: 11,
                                                   color: Color(0xFF22C55E)),
                                               const SizedBox(width: 2),
-                                              Text(checkInStr,
+                                              Text(tr(checkInStr),
                                                   style: TextStyle(
                                                       fontSize: 11,
                                                       fontWeight:
@@ -6324,7 +6310,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                                   size: 11,
                                                   color: Color(0xFFEF4444)),
                                               const SizedBox(width: 2),
-                                              Text(checkOutStr,
+                                              Text(tr(checkOutStr),
                                                   style: TextStyle(
                                                       fontSize: 11,
                                                       fontWeight:
@@ -6414,7 +6400,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           color: color,
         ),
         const SizedBox(width: 3),
-        Text(label,
+        Text(tr(label),
             style: TextStyle(
                 fontSize: 10, color: color, fontWeight: FontWeight.w700)),
       ]),
@@ -6428,9 +6414,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
           height: 8,
           decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
       const SizedBox(width: 4),
-      Text('$label: ',
+      Text(tr('$label: '),
           style: const TextStyle(fontSize: 10, color: Color(0xFF64748B))),
-      Text('$count NV',
+      Text(tr('$count NV'),
           style: TextStyle(
               fontSize: 10, color: color, fontWeight: FontWeight.w700)),
     ]);
@@ -6443,7 +6429,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           height: 8,
           decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
       const SizedBox(width: 3),
-      Text(label,
+      Text(tr(label),
           style: TextStyle(
               fontSize: 10, color: color, fontWeight: FontWeight.w600)),
     ]);
@@ -6584,19 +6570,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text('Vắng mặt',
+                            Text(tr('Vắng mặt'),
                                 style: TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.bold,
                                     color: Color(0xFF0F172A))),
-                            Text(() {
+                            Text(tr(() {
                               final reportDate = _effectiveDate ??
                                   _selectedDate ??
                                   DateTime.now();
                               final dateLabel =
                                   '${reportDate.day.toString().padLeft(2, '0')}/${reportDate.month.toString().padLeft(2, '0')}/${reportDate.year}';
                               return '${seenEmpCodes.length} NV · $dateLabel';
-                            }(),
+                            }()),
                                 style: TextStyle(
                                     fontSize: 12, color: Colors.grey.shade600)),
                           ],
@@ -6620,7 +6606,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               Icon(Icons.check_circle_outline,
                                   size: 48, color: Colors.green.shade400),
                               const SizedBox(height: 8),
-                              Text('Không có ai vắng mặt',
+                              Text(tr('Không có ai vắng mặt'),
                                   style:
                                       TextStyle(color: Colors.grey.shade600)),
                             ],
@@ -6665,7 +6651,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                                 size: 12,
                                                 color: Color(0xFFEF4444)),
                                             const SizedBox(width: 4),
-                                            Text(shiftLabel,
+                                            Text(tr(shiftLabel),
                                                 style: const TextStyle(
                                                     fontSize: 12,
                                                     fontWeight: FontWeight.w700,
@@ -6680,7 +6666,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                         color: Colors.grey.shade100,
                                         borderRadius: BorderRadius.circular(12),
                                       ),
-                                      child: Text('${emps.length} vắng',
+                                      child: Text(tr('${emps.length} vắng'),
                                           style: TextStyle(
                                               fontSize: 11,
                                               color: Colors.grey.shade700,
@@ -6719,9 +6705,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                               const Color(0xFFEF4444)
                                                   .withValues(alpha: 0.12),
                                           child: Text(
-                                            empName.isNotEmpty
+                                            tr(empName.isNotEmpty
                                                 ? empName[0].toUpperCase()
-                                                : '?',
+                                                : '?'),
                                             style: const TextStyle(
                                                 color: Color(0xFFDC2626),
                                                 fontWeight: FontWeight.bold,
@@ -6734,7 +6720,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                             crossAxisAlignment:
                                                 CrossAxisAlignment.start,
                                             children: [
-                                              Text(empName,
+                                              Text(tr(empName),
                                                   style: const TextStyle(
                                                       fontWeight:
                                                           FontWeight.w600,
@@ -6743,7 +6729,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                                   overflow:
                                                       TextOverflow.ellipsis),
                                               if (dept.isNotEmpty)
-                                                Text(dept,
+                                                Text(tr(dept),
                                                     style: TextStyle(
                                                         fontSize: 11,
                                                         color: Colors
@@ -6765,7 +6751,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                                 BorderRadius.circular(8),
                                           ),
                                           child: Text(
-                                            status.isNotEmpty ? status : 'Vắng',
+                                            tr(status.isNotEmpty ? status : 'Vắng'),
                                             style: const TextStyle(
                                                 fontSize: 10,
                                                 color: Color(0xFFEF4444),
@@ -6883,14 +6869,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text('Có mặt hôm nay',
+                            Text(tr('Có mặt hôm nay'),
                                 style: TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.bold,
                                     color: Color(0xFF0F172A))),
                             Text(
-                                '$totalPresent nhân viên'
-                                '${useShiftPairs && shiftOrder.isNotEmpty ? ' · ${shiftOrder.length} ca' : ''}',
+                                tr('$totalPresent nhân viên'
+                                '${useShiftPairs && shiftOrder.isNotEmpty ? ' · ${shiftOrder.length} ca' : ''}'),
                                 style: TextStyle(
                                     fontSize: 12, color: Colors.grey.shade600)),
                           ],
@@ -6946,7 +6932,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                                 size: 13,
                                                 color: Color(0xFF2D5F8B)),
                                             const SizedBox(width: 4),
-                                            Text(shiftName,
+                                            Text(tr(shiftName),
                                                 style: const TextStyle(
                                                     fontSize: 12,
                                                     fontWeight: FontWeight.bold,
@@ -6999,10 +6985,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                           backgroundColor: avatarColor
                                               .withValues(alpha: 0.18),
                                           child: Text(
-                                            emp.employeeName.isNotEmpty
+                                            tr(emp.employeeName.isNotEmpty
                                                 ? emp.employeeName[0]
                                                     .toUpperCase()
-                                                : '?',
+                                                : '?'),
                                             style: TextStyle(
                                                 color: avatarColor,
                                                 fontWeight: FontWeight.bold,
@@ -7015,7 +7001,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                             crossAxisAlignment:
                                                 CrossAxisAlignment.start,
                                             children: [
-                                              Text(emp.employeeName,
+                                              Text(tr(emp.employeeName),
                                                   style: const TextStyle(
                                                       fontWeight:
                                                           FontWeight.w600,
@@ -7025,7 +7011,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                                   overflow:
                                                       TextOverflow.ellipsis),
                                               if (emp.employeeCode.isNotEmpty)
-                                                Text(emp.employeeCode,
+                                                Text(tr(emp.employeeCode),
                                                     style: TextStyle(
                                                         fontSize: 11,
                                                         color: Colors
@@ -7043,7 +7029,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                                   size: 12,
                                                   color: Color(0xFF22C55E)),
                                               const SizedBox(width: 2),
-                                              Text(fmtTime(emp.checkIn),
+                                              Text(tr(fmtTime(emp.checkIn)),
                                                   style: const TextStyle(
                                                       fontSize: 12,
                                                       fontWeight:
@@ -7056,7 +7042,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                                     size: 12,
                                                     color: Color(0xFFEF4444)),
                                                 const SizedBox(width: 2),
-                                                Text(fmtTime(emp.checkOut),
+                                                Text(tr(fmtTime(emp.checkOut)),
                                                     style: const TextStyle(
                                                         fontSize: 12,
                                                         fontWeight:
@@ -7106,7 +7092,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ScrollController sc, List<Map<String, dynamic>> items) {
     if (items.isEmpty) {
       return Center(
-        child: Text('Chưa có dữ liệu',
+        child: Text(tr('Chưa có dữ liệu'),
             style: TextStyle(color: Colors.grey.shade500)),
       );
     }
@@ -7222,12 +7208,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text('Đi trễ / Về sớm',
+                            Text(tr('Đi trễ / Về sớm'),
                                 style: TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.bold,
                                     color: Color(0xFF0F172A))),
-                            Text('${groups.length} nhân viên',
+                            Text(tr('${groups.length} nhân viên'),
                                 style: TextStyle(
                                     fontSize: 12, color: Colors.grey.shade600)),
                           ],
@@ -7256,7 +7242,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 Expanded(
                   child: groups.isEmpty
                       ? Center(
-                          child: Text('Không có dữ liệu',
+                          child: Text(tr('Không có dữ liệu'),
                               style: TextStyle(color: Colors.grey.shade500)))
                       : ListView.separated(
                           controller: scrollController,
@@ -7310,16 +7296,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                     backgroundColor: const Color(0xFFF59E0B)
                                         .withValues(alpha: 0.18),
                                     child: Text(
-                                      g.name.isNotEmpty
+                                      tr(g.name.isNotEmpty
                                           ? g.name[0].toUpperCase()
-                                          : '?',
+                                          : '?'),
                                       style: const TextStyle(
                                           color: Color(0xFFD97706),
                                           fontWeight: FontWeight.bold,
                                           fontSize: 14),
                                     ),
                                   ),
-                                  title: Text(g.name,
+                                  title: Text(tr(g.name),
                                       style: const TextStyle(
                                           fontWeight: FontWeight.w700,
                                           fontSize: 13,
@@ -7327,7 +7313,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis),
                                   subtitle: Row(children: [
-                                    Text('${g.entries.length} ca',
+                                    Text(tr('${g.entries.length} ca'),
                                         style: TextStyle(
                                             fontSize: 11,
                                             color: Colors.grey.shade500)),
@@ -7393,7 +7379,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             radius: 20,
             backgroundColor: const Color(0xFFF59E0B).withValues(alpha: 0.18),
             child: Text(
-              name.isNotEmpty ? name[0].toUpperCase() : '?',
+              tr(name.isNotEmpty ? name[0].toUpperCase() : '?'),
               style: const TextStyle(
                   color: Color(0xFFD97706),
                   fontWeight: FontWeight.bold,
@@ -7405,7 +7391,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(name,
+                Text(tr(name),
                     style: const TextStyle(
                         fontWeight: FontWeight.w700,
                         fontSize: 13,
@@ -7442,12 +7428,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
       runSpacing: 2,
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
-        Text(shiftName,
+        Text(tr(shiftName),
             style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
         Row(mainAxisSize: MainAxisSize.min, children: [
           const Icon(Icons.login, size: 11, color: Color(0xFF22C55E)),
           const SizedBox(width: 2),
-          Text(checkIn,
+          Text(tr(checkIn),
               style: const TextStyle(
                   fontSize: 11,
                   color: Color(0xFF16A34A),
@@ -7455,7 +7441,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           const SizedBox(width: 6),
           const Icon(Icons.logout, size: 11, color: Color(0xFFEF4444)),
           const SizedBox(width: 2),
-          Text(checkOut,
+          Text(tr(checkOut),
               style: const TextStyle(
                   fontSize: 11,
                   color: Color(0xFFDC2626),
@@ -7477,7 +7463,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: color.withValues(alpha: 0.30)),
       ),
-      child: Text(label,
+      child: Text(tr(label),
           style: TextStyle(
               fontSize: 10, color: color, fontWeight: FontWeight.w700)),
     );
@@ -7587,14 +7573,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text('Chi tiết Vào / Ra',
+                            Text(tr('Chi tiết Vào / Ra'),
                                 style: TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.bold,
                                     color: Color(0xFF0F172A))),
                             Text(
-                                '$_checkIns vào · $_checkOuts ra'
-                                '${missingCount > 0 ? ' · $missingCount chưa ra' : ''}',
+                                tr('$_checkIns vào · $_checkOuts ra'
+                                '${missingCount > 0 ? ' · $missingCount chưa ra' : ''}'),
                                 style: TextStyle(
                                     fontSize: 12, color: Colors.grey.shade600)),
                           ],
@@ -7621,7 +7607,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 Expanded(
                   child: rows.isEmpty
                       ? Center(
-                          child: Text('Chưa có dữ liệu chấm công',
+                          child: Text(tr('Chưa có dữ liệu chấm công'),
                               style: TextStyle(color: Colors.grey.shade500)))
                       : ListView.separated(
                           controller: scrollController,
@@ -7650,9 +7636,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                   backgroundColor:
                                       color.withValues(alpha: 0.15),
                                   child: Text(
-                                    r.name.isNotEmpty
+                                    tr(r.name.isNotEmpty
                                         ? r.name[0].toUpperCase()
-                                        : '?',
+                                        : '?'),
                                     style: TextStyle(
                                         color: color,
                                         fontWeight: FontWeight.bold,
@@ -7665,13 +7651,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
                                     children: [
-                                      Text(r.name,
+                                      Text(tr(r.name),
                                           style: const TextStyle(
                                               fontWeight: FontWeight.w600,
                                               fontSize: 13),
                                           maxLines: 1,
                                           overflow: TextOverflow.ellipsis),
-                                      Text('Lần ${r.pairIndex}',
+                                      Text(tr('Lần ${r.pairIndex}'),
                                           style: TextStyle(
                                               fontSize: 11,
                                               color: Colors.grey.shade500)),
@@ -7686,7 +7672,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                       const Icon(Icons.login,
                                           size: 13, color: Color(0xFF22C55E)),
                                       const SizedBox(width: 3),
-                                      Text(fmtTime(r.checkIn),
+                                      Text(tr(fmtTime(r.checkIn)),
                                           style: const TextStyle(
                                               fontSize: 13,
                                               fontWeight: FontWeight.w600,
@@ -7698,18 +7684,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                         const Icon(Icons.logout,
                                             size: 13, color: Color(0xFFEF4444)),
                                         const SizedBox(width: 3),
-                                        Text(fmtTime(r.checkOut!),
+                                        Text(tr(fmtTime(r.checkOut!)),
                                             style: const TextStyle(
                                                 fontSize: 13,
                                                 fontWeight: FontWeight.w600,
                                                 color: Color(0xFFEF4444))),
                                       ])
                                     else
-                                      const Row(children: [
+                                      Row(children: [
                                         Icon(Icons.warning_amber_rounded,
                                             size: 13, color: Color(0xFFF59E0B)),
                                         SizedBox(width: 3),
-                                        Text('Chưa ra',
+                                        Text(tr('Chưa ra'),
                                             style: TextStyle(
                                                 fontSize: 12,
                                                 fontWeight: FontWeight.w600,
@@ -7738,7 +7724,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: color.withValues(alpha: 0.30)),
       ),
-      child: Text('$label: $count',
+      child: Text(tr('$label: $count'),
           style: TextStyle(
               fontSize: 12, color: color, fontWeight: FontWeight.w600)),
     );
@@ -7889,16 +7875,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(name,
+                  Text(tr(name),
                       style: const TextStyle(
                           fontWeight: FontWeight.w600, fontSize: 14)),
                   const SizedBox(height: 2),
                   Text(
-                    [
+                    tr([
                       if (sn.isNotEmpty) 'SN: $sn',
                       if (ip.isNotEmpty) 'IP: $ip',
                       if (lastSeen.isNotEmpty) 'Mất KN: $lastSeen',
-                    ].join('  •  '),
+                    ].join('  •  ')),
                     style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
                   ),
                 ],
@@ -7914,7 +7900,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Text(
-                isOnline ? 'Online' : 'Offline',
+                tr(isOnline ? 'Online' : 'Offline'),
                 style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
@@ -7960,7 +7946,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             radius: 18,
             backgroundColor: accent.withValues(alpha: .12),
             child: Text(
-              name.isNotEmpty ? name.characters.first.toUpperCase() : '?',
+              tr(name.isNotEmpty ? name.characters.first.toUpperCase() : '?'),
               style: TextStyle(
                   color: accent, fontWeight: FontWeight.bold, fontSize: 14),
             ),
@@ -7970,17 +7956,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(name,
+                Text(tr(name),
                     style: const TextStyle(
                         fontWeight: FontWeight.w600, fontSize: 14),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis),
                 const SizedBox(height: 2),
                 Text(
-                  [
+                  tr([
                     if (code.isNotEmpty) code,
                     if (dept.isNotEmpty) dept,
-                  ].join('  •  '),
+                  ].join('  •  ')),
                   style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -7994,7 +7980,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           const Icon(Icons.login,
                               size: 12, color: Color(0xFF22C55E)),
                           const SizedBox(width: 3),
-                          Text(ci,
+                          Text(tr(ci),
                               style: const TextStyle(
                                   fontSize: 11,
                                   color: Color(0xFF16A34A),
@@ -8006,7 +7992,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           const Icon(Icons.logout,
                               size: 12, color: Color(0xFFEF4444)),
                           const SizedBox(width: 3),
-                          Text(co,
+                          Text(tr(co),
                               style: const TextStyle(
                                   fontSize: 11,
                                   color: Color(0xFFDC2626),
@@ -8026,7 +8012,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Text(
-                status,
+                tr(status),
                 style: TextStyle(
                     fontSize: kind == 'late' ? 11 : 10,
                     fontWeight: FontWeight.w600,
@@ -8265,7 +8251,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             radius: 16,
             backgroundColor: color.withValues(alpha: 0.15),
             child: Text(
-              p.employeeName.isNotEmpty ? p.employeeName[0].toUpperCase() : '?',
+              tr(p.employeeName.isNotEmpty ? p.employeeName[0].toUpperCase() : '?'),
               style: TextStyle(
                   color: color, fontWeight: FontWeight.bold, fontSize: 13),
             ),
@@ -8275,13 +8261,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(p.employeeName,
+                Text(tr(p.employeeName),
                     style: const TextStyle(
                         fontWeight: FontWeight.w600, fontSize: 13),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis),
                 Text(
-                  '${p.shiftName} · ${fmt(p.checkIn)} → ${fmt(p.checkOut)}',
+                  tr('${p.shiftName} · ${fmt(p.checkIn)} → ${fmt(p.checkOut)}'),
                   style:
                       const TextStyle(fontSize: 11, color: Color(0xFFA1A1AA)),
                   maxLines: 1,
@@ -8297,7 +8283,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               color: color.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: Text(statusText,
+            child: Text(tr(statusText),
                 style: TextStyle(
                     color: color, fontSize: 11, fontWeight: FontWeight.w600)),
           ),
@@ -8337,7 +8323,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             radius: 16,
             backgroundColor: color.withValues(alpha: 0.15),
             child: Text(
-              name.isNotEmpty ? name[0].toUpperCase() : '?',
+              tr(name.isNotEmpty ? name[0].toUpperCase() : '?'),
               style: TextStyle(
                   color: color, fontWeight: FontWeight.bold, fontSize: 13),
             ),
@@ -8347,13 +8333,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(name,
+                Text(tr(name),
                     style: const TextStyle(
                         fontWeight: FontWeight.w600, fontSize: 13),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis),
                 Text(
-                  '$dateStr · ${a.deviceName ?? ''}'.trim(),
+                  tr('$dateStr · ${a.deviceName ?? ''}'.trim()),
                   style:
                       const TextStyle(fontSize: 11, color: Color(0xFFA1A1AA)),
                   maxLines: 1,
@@ -8366,7 +8352,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Text(timeStr,
+              Text(tr(timeStr),
                   style: const TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
@@ -8377,7 +8363,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   color: color.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: Text(stateLabel,
+                child: Text(tr(stateLabel),
                     style: TextStyle(
                         color: color,
                         fontSize: 10,
@@ -8416,7 +8402,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         CircleAvatar(
           radius: 16,
           backgroundColor: statusColor.withValues(alpha: 0.15),
-          child: Text(name.isNotEmpty ? name[0].toUpperCase() : '?',
+          child: Text(tr(name.isNotEmpty ? name[0].toUpperCase() : '?'),
               style: TextStyle(
                   color: statusColor,
                   fontWeight: FontWeight.bold,
@@ -8426,20 +8412,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
         Expanded(
             child:
                 Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(name,
+          Text(tr(name),
               style:
                   const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
           if (dept.isNotEmpty)
-            Text(dept,
+            Text(tr(dept),
                 style: const TextStyle(color: Color(0xFFA1A1AA), fontSize: 11)),
         ])),
         if (checkIn != null)
-          Text(_fmtTime(checkIn),
+          Text(tr(_fmtTime(checkIn)),
               style: const TextStyle(fontSize: 12, color: HrmPageChrome.primaryNavy)),
         if (checkOut != null) ...[
-          const Text(' → ',
+          Text(tr(' → '),
               style: TextStyle(fontSize: 10, color: Color(0xFFA1A1AA))),
-          Text(_fmtTime(checkOut),
+          Text(tr(_fmtTime(checkOut)),
               style: const TextStyle(fontSize: 12, color: HrmPageChrome.primaryNavy)),
         ],
         const SizedBox(width: 8),
@@ -8449,7 +8435,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             color: statusColor.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(12),
           ),
-          child: Text(statusText,
+          child: Text(tr(statusText),
               style: TextStyle(
                   color: statusColor,
                   fontSize: 11,
@@ -8503,8 +8489,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   const SizedBox(width: 8),
                   Expanded(
                       child: Text(
-                          (e['employeeName'] ?? e['fullName'] ?? 'N/A')
-                              .toString(),
+                          tr((e['employeeName'] ?? e['fullName'] ?? 'N/A')
+                              .toString()),
                           style: const TextStyle(
                               fontSize: 12, color: Color(0xFFA1A1AA)))),
                 ]),
@@ -8524,10 +8510,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
             size: 16, color: color),
         const SizedBox(width: 8),
         Expanded(
-            child: Text(name,
+            child: Text(tr(name),
                 style: const TextStyle(
                     fontSize: 13, fontWeight: FontWeight.w500))),
-        Text(detail,
+        Text(tr(detail),
             style: const TextStyle(fontSize: 11, color: Color(0xFFA1A1AA))),
       ]),
     );
@@ -8563,14 +8549,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(e.employeeName,
+                      Text(tr(e.employeeName),
                           style: const TextStyle(
                               fontSize: 13, fontWeight: FontWeight.w500)),
                       Text(
-                        [
+                        tr([
                           if (e.shiftName.isNotEmpty) e.shiftName,
                           if (timeStr.isNotEmpty) timeStr,
-                        ].join(' • '),
+                        ].join(' • ')),
                         style: const TextStyle(
                             fontSize: 11, color: Color(0xFFA1A1AA)),
                       ),
@@ -8584,7 +8570,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     decoration: BoxDecoration(
                         color: const Color(0xFFFEF3C7),
                         borderRadius: BorderRadius.circular(10)),
-                    child: Text(lateLabel,
+                    child: Text(tr(lateLabel),
                         style: const TextStyle(
                             fontSize: 11,
                             color: Color(0xFFD97706),
@@ -8596,7 +8582,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           if (entries.length > 8)
             Padding(
               padding: const EdgeInsets.only(top: 6),
-              child: Text('+${entries.length - 8} ca khác',
+              child: Text(tr('+${entries.length - 8} ca khác'),
                   style:
                       const TextStyle(color: Color(0xFF71717A), fontSize: 12)),
             ),
@@ -8641,11 +8627,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                      Text(name,
+                      Text(tr(name),
                           style: const TextStyle(
                               fontSize: 13, fontWeight: FontWeight.w500)),
                       if (dept.isNotEmpty)
-                        Text(dept,
+                        Text(tr(dept),
                             style: const TextStyle(
                                 fontSize: 11, color: Color(0xFFA1A1AA))),
                     ])),
@@ -8656,7 +8642,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     decoration: BoxDecoration(
                         color: const Color(0xFFFEF3C7),
                         borderRadius: BorderRadius.circular(10)),
-                    child: Text(lateLabel,
+                    child: Text(tr(lateLabel),
                         style: const TextStyle(
                             fontSize: 11,
                             color: Color(0xFFD97706),
@@ -8703,18 +8689,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   decoration: BoxDecoration(
                       color: const Color(0xFFFCE7F3),
                       borderRadius: BorderRadius.circular(8)),
-                  child: const Text('🎉', style: TextStyle(fontSize: 14)),
+                  child: Text(tr('🎉'), style: TextStyle(fontSize: 14)),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
                     child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                      Text(name,
+                      Text(tr(name),
                           style: const TextStyle(
                               fontSize: 13, fontWeight: FontWeight.w600)),
                       if (dept.isNotEmpty)
-                        Text(dept,
+                        Text(tr(dept),
                             style: const TextStyle(
                                 fontSize: 11, color: Color(0xFFA1A1AA))),
                     ])),
@@ -8725,7 +8711,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       gradient: const LinearGradient(
                           colors: [Color(0xFFEC4899), Color(0xFFF472B6)]),
                       borderRadius: BorderRadius.circular(12)),
-                  child: Text(_l10n.today,
+                  child: Text(tr(_l10n.today),
                       style: const TextStyle(
                           color: Colors.white,
                           fontSize: 11,
@@ -8759,13 +8745,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                      Text(name, style: const TextStyle(fontSize: 13)),
+                      Text(tr(name), style: const TextStyle(fontSize: 13)),
                       if (dept.toString().isNotEmpty)
-                        Text(dept.toString(),
+                        Text(tr(dept.toString()),
                             style: const TextStyle(
                                 fontSize: 11, color: Color(0xFFA1A1AA))),
                     ])),
-                Text('Ngày $day',
+                Text(tr('Ngày $day'),
                     style: const TextStyle(
                         fontSize: 11, color: Color(0xFFA1A1AA))),
               ]),
@@ -8861,10 +8847,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                  const Text('Ca hiện tại',
+                  Text(tr('Ca hiện tại'),
                       style: TextStyle(fontSize: 11, color: Color(0xFFA1A1AA))),
                   const SizedBox(height: 2),
-                  Text(currentShift,
+                  Text(tr(currentShift),
                       style: TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.bold,
@@ -8874,7 +8860,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
                   color: shiftColor, borderRadius: BorderRadius.circular(20)),
-              child: Text('$_presentCount/$scheduledWorkers',
+              child: Text(tr('$_presentCount/$scheduledWorkers'),
                   style: const TextStyle(
                       color: Colors.white,
                       fontSize: 12,
@@ -8901,10 +8887,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       size: 14, color: HrmPageChrome.primaryNavy),
                   const SizedBox(width: 8),
                   Expanded(
-                      child: Text(e.key,
+                      child: Text(tr(e.key),
                           style: const TextStyle(
                               fontSize: 13, fontWeight: FontWeight.w500))),
-                  Text('$attended/$total',
+                  Text(tr('$attended/$total'),
                       style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.bold,
@@ -8953,10 +8939,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
         child: Column(children: [
           Icon(icon, size: 18, color: color),
           const SizedBox(height: 4),
-          Text(value,
+          Text(tr(value),
               style: TextStyle(
                   fontWeight: FontWeight.bold, fontSize: 15, color: color)),
-          Text(label,
+          Text(tr(label),
               style: const TextStyle(fontSize: 10, color: Color(0xFFA1A1AA)),
               textAlign: TextAlign.center),
         ]),
@@ -9027,7 +9013,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   const Icon(Icons.monetization_on,
                       size: 14, color: HrmPageChrome.primaryNavy),
                   const SizedBox(width: 6),
-                  Text('Tổng thưởng KPI: ${_formatCurrency(totalBonusAmount)}',
+                  Text(tr('Tổng thưởng KPI: ${_formatCurrency(totalBonusAmount)}'),
                       style: const TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
@@ -9085,7 +9071,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           strokeWidth: 3,
                           backgroundColor: const Color(0xFFE4E4E7),
                           valueColor: AlwaysStoppedAnimation(kpiColor)),
-                      Text('${pct.toInt()}',
+                      Text(tr('${pct.toInt()}'),
                           style: TextStyle(
                               fontSize: 10,
                               fontWeight: FontWeight.bold,
@@ -9096,13 +9082,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                      Text(name,
+                      Text(tr(name),
                           style: const TextStyle(
                               fontSize: 13, fontWeight: FontWeight.w500)),
-                      Text(kpiLabel,
+                      Text(tr(kpiLabel),
                           style: TextStyle(fontSize: 11, color: kpiColor)),
                     ])),
-                Text('${score.toStringAsFixed(0)}/${target.toStringAsFixed(0)}',
+                Text(tr('${score.toStringAsFixed(0)}/${target.toStringAsFixed(0)}'),
                     style: const TextStyle(
                         fontSize: 12, color: Color(0xFF71717A))),
               ]),
@@ -9115,11 +9101,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Widget _kpiSummaryItem(String label, String value, Color color) {
     return Column(children: [
-      Text(value,
+      Text(tr(value),
           style: TextStyle(
               fontSize: 16, fontWeight: FontWeight.bold, color: color)),
       const SizedBox(height: 2),
-      Text(label,
+      Text(tr(label),
           style: const TextStyle(fontSize: 10, color: Color(0xFFA1A1AA)),
           textAlign: TextAlign.center),
     ]);
@@ -9196,7 +9182,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                          Text(title,
+                          Text(tr(title),
                               style: const TextStyle(
                                   fontSize: 13, fontWeight: FontWeight.w500),
                               maxLines: 1,
@@ -9208,12 +9194,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 decoration: BoxDecoration(
                                     color: typeColor.withValues(alpha: 0.1),
                                     borderRadius: BorderRadius.circular(8)),
-                                child: Text(typeLabel,
+                                child: Text(tr(typeLabel),
                                     style: TextStyle(
                                         fontSize: 10, color: typeColor))),
                             if (created != null) ...[
                               const SizedBox(width: 6),
-                              Text(_fmtDate(created),
+                              Text(tr(_fmtDate(created)),
                                   style: const TextStyle(
                                       fontSize: 10, color: Color(0xFFA1A1AA))),
                             ],
@@ -9257,9 +9243,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
           child: Column(children: [
             Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-              const Text('Tiến độ ngày làm việc',
+              Text(tr('Tiến độ ngày làm việc'),
                   style: TextStyle(fontSize: 12, color: Color(0xFF71717A))),
-              Text('${(progress * 100).toStringAsFixed(0)}%',
+              Text(tr('${(progress * 100).toStringAsFixed(0)}%'),
                   style: const TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.bold,
@@ -9307,12 +9293,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Widget _salaryInfo(String label, String value) {
     return Column(children: [
-      Text(value,
+      Text(tr(value),
           style: const TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.bold,
               color: Color(0xFF18181B))),
-      Text(label,
+      Text(tr(label),
           style: const TextStyle(fontSize: 10, color: Color(0xFFA1A1AA))),
     ]);
   }
@@ -9330,11 +9316,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
         children: [
           Icon(icon, size: 18, color: color),
           const SizedBox(height: 8),
-          Text(value,
+          Text(tr(value),
               style: TextStyle(
                   fontWeight: FontWeight.bold, fontSize: 14, color: color)),
           const SizedBox(height: 2),
-          Text(label,
+          Text(tr(label),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(fontSize: 10, color: Color(0xFFA1A1AA))),
@@ -9385,13 +9371,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                      Text(name,
+                      Text(tr(name),
                           style: const TextStyle(
                               fontSize: 13, fontWeight: FontWeight.w500)),
                       if (ip.isNotEmpty || loc.isNotEmpty)
                         Text(
-                            [if (ip.isNotEmpty) ip, if (loc.isNotEmpty) loc]
-                                .join(' • '),
+                            tr([if (ip.isNotEmpty) ip, if (loc.isNotEmpty) loc]
+                                .join(' • ')),
                             style: const TextStyle(
                                 fontSize: 11, color: Color(0xFFA1A1AA))),
                     ])),
@@ -9404,7 +9390,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               : const Color(0xFFEF4444))
                           .withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(12)),
-                  child: Text(isOn ? 'Online' : 'Offline',
+                  child: Text(tr(isOn ? 'Online' : 'Offline'),
                       style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
@@ -9498,7 +9484,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   size: 18, color: Color(0xFFD97706)),
               const SizedBox(width: 8),
               Expanded(
-                  child: Text('$totalPending đơn cần được xử lý',
+                  child: Text(tr('$totalPending đơn cần được xử lý'),
                       style: const TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
@@ -9532,7 +9518,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ),
         const SizedBox(width: 12),
         Expanded(
-            child: Text(label,
+            child: Text(tr(label),
                 style: const TextStyle(
                     fontSize: 13, fontWeight: FontWeight.w500))),
         Container(
@@ -9540,7 +9526,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           decoration: BoxDecoration(
               color: count > 0 ? color : const Color(0xFFE4E4E7),
               borderRadius: BorderRadius.circular(20)),
-          child: Text('$count',
+          child: Text(tr('$count'),
               style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.bold,
@@ -9646,8 +9632,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ),
                 ),
                 const SizedBox(height: 8),
-                Text(
-                    'Tỷ lệ hoàn thành: ${total > 0 ? (done / total * 100).toStringAsFixed(0) : 0}%',
+                Text(tr('Tỷ lệ hoàn thành: ${total > 0 ? (done / total * 100).toStringAsFixed(0) : 0}%'),
                     style: const TextStyle(
                         fontSize: 12, color: Color(0xFF71717A))),
               ],
@@ -9683,10 +9668,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
         Icon(icon, size: 20, color: color),
         const SizedBox(width: 8),
         Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(value,
+          Text(tr(value),
               style: TextStyle(
                   fontSize: 16, fontWeight: FontWeight.bold, color: color)),
-          Text(label,
+          Text(tr(label),
               style: const TextStyle(fontSize: 10, color: Color(0xFFA1A1AA))),
         ]),
       ]),
@@ -9770,12 +9755,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
               const Icon(Icons.check_circle,
                   size: 20, color: HrmPageChrome.primaryNavy),
               const SizedBox(height: 4),
-              Text('$approved',
+              Text(tr('$approved'),
                   style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
                       color: HrmPageChrome.primaryNavy)),
-              const Text('Đã duyệt',
+              Text(tr('Đã duyệt'),
                   style: TextStyle(fontSize: 10, color: Color(0xFFA1A1AA))),
             ]),
           )),
@@ -9793,12 +9778,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
               const Icon(Icons.monetization_on,
                   size: 20, color: HrmPageChrome.primaryNavy),
               const SizedBox(height: 4),
-              Text(_formatCurrency(totalAmount),
+              Text(tr(_formatCurrency(totalAmount)),
                   style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
                       color: HrmPageChrome.primaryNavy)),
-              const Text('Chi phí TC',
+              Text(tr('Chi phí TC'),
                   style: TextStyle(fontSize: 10, color: Color(0xFFA1A1AA))),
             ]),
           )),
@@ -9845,12 +9830,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                  Text('$totalTickets phiếu phạt',
+                  Text(tr('$totalTickets phiếu phạt'),
                       style: const TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.bold,
                           color: Color(0xFFEF4444))),
-                  Text('Tổng: ${_formatCurrency(totalAmount)}',
+                  Text(tr('Tổng: ${_formatCurrency(totalAmount)}'),
                       style: const TextStyle(
                           fontSize: 12, color: Color(0xFF71717A))),
                 ])),
@@ -9878,13 +9863,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
           decoration: BoxDecoration(
               color: color, borderRadius: BorderRadius.circular(3))),
       const SizedBox(width: 8),
-      Expanded(child: Text(label, style: const TextStyle(fontSize: 13))),
+      Expanded(child: Text(tr(label), style: const TextStyle(fontSize: 13))),
       Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
         decoration: BoxDecoration(
             color: color.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(12)),
-        child: Text('$count',
+        child: Text(tr('$count'),
             style: TextStyle(
                 fontSize: 12, fontWeight: FontWeight.w600, color: color)),
       ),
@@ -9926,12 +9911,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
               const Icon(Icons.arrow_downward,
                   size: 20, color: HrmPageChrome.primaryNavy),
               const SizedBox(height: 4),
-              Text(_formatCurrency(totalIncome),
+              Text(tr(_formatCurrency(totalIncome)),
                   style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
                       color: HrmPageChrome.primaryNavy)),
-              const Text('Thu',
+              Text(tr('Thu'),
                   style: TextStyle(fontSize: 11, color: Color(0xFFA1A1AA))),
             ]),
           )),
@@ -9949,12 +9934,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
               const Icon(Icons.arrow_upward,
                   size: 20, color: Color(0xFFEF4444)),
               const SizedBox(height: 4),
-              Text(_formatCurrency(totalExpense),
+              Text(tr(_formatCurrency(totalExpense)),
                   style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
                       color: Color(0xFFEF4444))),
-              const Text('Chi',
+              Text(tr('Chi'),
                   style: TextStyle(fontSize: 11, color: Color(0xFFA1A1AA))),
             ]),
           )),
@@ -9987,9 +9972,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                  const Text('Số dư',
+                  Text(tr('Số dư'),
                       style: TextStyle(fontSize: 11, color: Color(0xFFA1A1AA))),
-                  Text(_formatCurrency(balance.abs()),
+                  Text(tr(_formatCurrency(balance.abs())),
                       style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
@@ -10005,7 +9990,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           : const Color(0xFFEF4444))
                       .withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(20)),
-              child: Text(balance >= 0 ? 'Dương' : 'Âm',
+              child: Text(tr(balance >= 0 ? 'Dương' : 'Âm'),
                   style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
@@ -10081,14 +10066,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 const Icon(Icons.person, size: 14, color: Color(0xFFEF4444)),
                 const SizedBox(width: 8),
                 Expanded(
-                    child: Text(name, style: const TextStyle(fontSize: 13))),
+                    child: Text(tr(name), style: const TextStyle(fontSize: 13))),
                 Container(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                   decoration: BoxDecoration(
                       color: const Color(0xFFEF4444).withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(10)),
-                  child: Text('$absentDays ngày',
+                  child: Text(tr('$absentDays ngày'),
                       style: const TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
@@ -10117,10 +10102,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
           Icon(icon, size: 18, color: color),
           const SizedBox(width: 8),
           Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(value,
+            Text(tr(value),
                 style: TextStyle(
                     fontWeight: FontWeight.bold, fontSize: 14, color: color)),
-            Text(label,
+            Text(tr(label),
                 style: const TextStyle(fontSize: 10, color: Color(0xFFA1A1AA))),
           ]),
         ]),
@@ -10162,13 +10147,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
               child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                Text(fullName.isEmpty ? 'N/A' : fullName,
+                Text(tr(fullName.isEmpty ? 'N/A' : fullName),
                     style: const TextStyle(
                         fontSize: 13, fontWeight: FontWeight.w500),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis),
                 if (department.isNotEmpty)
-                  Text(department,
+                  Text(tr(department),
                       style: const TextStyle(
                           fontSize: 11, color: Color(0xFFA1A1AA))),
               ])),
@@ -10177,7 +10162,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             decoration: BoxDecoration(
                 color: statusColor.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(12)),
-            child: Text(statusText,
+            child: Text(tr(statusText),
                 style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
@@ -10198,9 +10183,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 if (_expiringDocs.isNotEmpty) ...[
-                  const Padding(
+                  Padding(
                     padding: EdgeInsets.only(bottom: 4),
-                    child: Text('Cần gia hạn',
+                    child: Text(tr('Cần gia hạn'),
                         style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w600,
@@ -10210,9 +10195,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ],
                 if (_expiredContracts.isNotEmpty) ...[
                   if (_expiringDocs.isNotEmpty) const SizedBox(height: 6),
-                  const Padding(
+                  Padding(
                     padding: EdgeInsets.only(bottom: 4),
-                    child: Text('Đã hết hạn',
+                    child: Text(tr('Đã hết hạn'),
                         style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w600,
@@ -10239,11 +10224,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text(value,
+            Text(tr(value),
                 style: TextStyle(
                     fontWeight: FontWeight.bold, fontSize: 15, color: color)),
             const SizedBox(height: 2),
-            Text(label,
+            Text(tr(label),
                 textAlign: TextAlign.center,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
@@ -10258,7 +10243,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget _sectionLabel(String text, Color color) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 6, top: 2),
-      child: Text(text,
+      child: Text(tr(text),
           style: TextStyle(
               fontSize: 12, fontWeight: FontWeight.w700, color: color)),
     );
@@ -10270,7 +10255,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       child: Column(children: [
         Icon(Icons.inbox_outlined, size: 32, color: Colors.grey[300]),
         const SizedBox(height: 8),
-        Text(message,
+        Text(tr(message),
             style: TextStyle(fontSize: 13, color: Colors.grey[400]),
             textAlign: TextAlign.center),
       ]),
@@ -10280,7 +10265,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget _emptyRow(String text) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
-      child: Text(text,
+      child: Text(tr(text),
           style: const TextStyle(fontSize: 12, color: Color(0xFFA1A1AA))),
     );
   }
@@ -10433,7 +10418,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ]),
         if (leaveTypes.isNotEmpty) ...[
           const SizedBox(height: 12),
-          const Text('Phân loại nghỉ phép',
+          Text(tr('Phân loại nghỉ phép'),
               style: TextStyle(
                   fontSize: 11,
                   color: Color(0xFF71717A),
@@ -10446,7 +10431,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               padding: const EdgeInsets.symmetric(vertical: 3),
               child: Row(children: [
                 Expanded(
-                    child: Text(e.key,
+                    child: Text(tr(e.key),
                         style: const TextStyle(fontSize: 12),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis)),
@@ -10465,7 +10450,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 const SizedBox(width: 6),
                 SizedBox(
                     width: 22,
-                    child: Text('${e.value}',
+                    child: Text(tr('${e.value}'),
                         style: const TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w600,
@@ -10490,11 +10475,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
           border: Border.all(color: color.withValues(alpha: 0.15)),
         ),
         child: Column(mainAxisSize: MainAxisSize.min, children: [
-          Text(value,
+          Text(tr(value),
               style: TextStyle(
                   fontSize: 16, fontWeight: FontWeight.bold, color: color)),
           const SizedBox(height: 2),
-          Text(label,
+          Text(tr(label),
               style: const TextStyle(fontSize: 9, color: Color(0xFF71717A)),
               textAlign: TextAlign.center,
               maxLines: 2),
@@ -10525,7 +10510,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
             alignment: Alignment.center,
             child: Text(
-              initials,
+              tr(initials),
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w800,
@@ -10544,7 +10529,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     Icon(greet.icon, color: greet.accent, size: 18),
                     const SizedBox(width: 6),
                     Text(
-                      greet.greeting,
+                      tr(greet.greeting),
                       style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w500,
@@ -10555,7 +10540,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  empName.isNotEmpty ? empName : _l10n.loadingOverview,
+                  tr(empName.isNotEmpty ? empName : _l10n.loadingOverview),
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w800,
@@ -10568,7 +10553,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 if (deptName != null && deptName.isNotEmpty) ...[
                   const SizedBox(height: 4),
                   Text(
-                    deptName,
+                    tr(deptName),
                     style: TextStyle(
                       fontSize: 12,
                       color: Colors.white.withValues(alpha: 0.78),
@@ -10587,7 +10572,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
-                    '${_weekday(_now.weekday)}, ${_now.day}/${_now.month}/${_now.year}',
+                    tr('${_weekday(_now.weekday)}, ${_now.day}/${_now.month}/${_now.year}'),
                     style: TextStyle(
                       fontSize: 12,
                       color: Colors.white.withValues(alpha: 0.9),
@@ -10727,7 +10712,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
               ],
             ),
-            child: const Padding(
+            child: Padding(
               padding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               child: Row(
                 children: [
@@ -10737,8 +10722,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          'Chấm công ngay',
+                        Text(tr('Chấm công ngay'),
                           style: TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.w700,
@@ -10746,8 +10730,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           ),
                         ),
                         SizedBox(height: 2),
-                        Text(
-                          'Mở chấm công mobile',
+                        Text(tr('Mở chấm công mobile'),
                           style: TextStyle(
                             fontSize: 12,
                             color: Colors.white70,
@@ -10799,11 +10782,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 color: const Color(0xFFF4F4F5),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: const Row(
+              child: Row(
                 children: [
                   Expanded(
                     flex: 2,
-                    child: Text('Ngày',
+                    child: Text(tr('Ngày'),
                         style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w700,
@@ -10811,14 +10794,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ),
                   Expanded(
                     flex: 2,
-                    child: Text('Ca',
+                    child: Text(tr('Ca'),
                         style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w700,
                             color: Color(0xFF71717A))),
                   ),
                   Expanded(
-                    child: Text('Vào',
+                    child: Text(tr('Vào'),
                         textAlign: TextAlign.center,
                         style: TextStyle(
                             fontSize: 11,
@@ -10826,7 +10809,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             color: Color(0xFF71717A))),
                   ),
                   Expanded(
-                    child: Text('Ra',
+                    child: Text(tr('Ra'),
                         textAlign: TextAlign.center,
                         style: TextStyle(
                             fontSize: 11,
@@ -10834,7 +10817,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             color: Color(0xFF71717A))),
                   ),
                   Expanded(
-                    child: Text('Giờ',
+                    child: Text(tr('Giờ'),
                         textAlign: TextAlign.center,
                         style: TextStyle(
                             fontSize: 11,
@@ -10849,8 +10832,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             if (records.length > previewCount)
               Padding(
                 padding: const EdgeInsets.only(top: 4),
-                child: Text(
-                  'và ${records.length - previewCount} ngày/ca khác',
+                child: Text(tr('và ${records.length - previewCount} ngày/ca khác'),
                   style: const TextStyle(
                     fontSize: 12,
                     color: Color(0xFF71717A),
@@ -10867,7 +10849,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 onPressed: () =>
                     NavigationNotifier.goToModule('AttendanceByShift'),
                 icon: const Icon(Icons.open_in_new_rounded, size: 16),
-                label: const Text('Mở báo cáo theo ca'),
+                label: Text(tr('Mở báo cáo theo ca')),
                 style: TextButton.styleFrom(
                   foregroundColor: const Color(0xFF7C3AED),
                   textStyle: const TextStyle(
@@ -10928,7 +10910,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      dateStr,
+                      tr(dateStr),
                       style: const TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w700,
@@ -10936,7 +10918,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       ),
                     ),
                     Text(
-                      weekday,
+                      tr(weekday),
                       style: const TextStyle(
                         fontSize: 10,
                         color: Color(0xFF71717A),
@@ -10948,7 +10930,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               Expanded(
                 flex: 2,
                 child: Text(
-                  shiftLabel,
+                  tr(shiftLabel),
                   style: const TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
@@ -10960,7 +10942,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
               Expanded(
                 child: Text(
-                  inText,
+                  tr(inText),
                   textAlign: TextAlign.center,
                   style: const TextStyle(
                     fontSize: 12,
@@ -10971,7 +10953,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
               Expanded(
                 child: Text(
-                  outText,
+                  tr(outText),
                   textAlign: TextAlign.center,
                   style: const TextStyle(
                     fontSize: 12,
@@ -10982,7 +10964,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
               Expanded(
                 child: Text(
-                  hoursText,
+                  tr(hoursText),
                   textAlign: TextAlign.center,
                   style: const TextStyle(
                     fontSize: 12,
@@ -11005,7 +10987,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Text(
-                    record.status,
+                    tr(record.status),
                     style: TextStyle(
                       fontSize: 10,
                       fontWeight: FontWeight.w600,
@@ -11017,8 +10999,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
                 if (record.lateMinutes > 0) ...[
                   const SizedBox(width: 6),
-                  Text(
-                    'Trễ ${record.lateMinutes}p',
+                  Text(tr('Trễ ${record.lateMinutes}p'),
                     style: const TextStyle(
                       fontSize: 10,
                       fontWeight: FontWeight.w600,
@@ -11028,8 +11009,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ],
                 if (record.earlyMinutes > 0) ...[
                   const SizedBox(width: 6),
-                  Text(
-                    'Sớm ${record.earlyMinutes}p',
+                  Text(tr('Sớm ${record.earlyMinutes}p'),
                     style: const TextStyle(
                       fontSize: 10,
                       fontWeight: FontWeight.w600,
@@ -11084,9 +11064,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     size: 18,
                   ),
                   label: Text(
-                    _employeeRawPunchesExpanded
+                    tr(_employeeRawPunchesExpanded
                         ? 'Thu gọn'
-                        : 'Xem thêm (${punches.length - previewCount} bản ghi)',
+                        : 'Xem thêm (${punches.length - previewCount} bản ghi)'),
                   ),
                   style: TextButton.styleFrom(
                     foregroundColor: const Color(0xFF0284C7),
@@ -11106,7 +11086,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               child: TextButton.icon(
                 onPressed: NavigationNotifier.goToAttendance,
                 icon: const Icon(Icons.open_in_new_rounded, size: 16),
-                label: const Text('Mở chấm công thô'),
+                label: Text(tr('Mở chấm công thô')),
                 style: TextButton.styleFrom(
                   foregroundColor: const Color(0xFF0284C7),
                   textStyle: const TextStyle(
@@ -11165,7 +11145,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               borderRadius: BorderRadius.circular(6),
             ),
             child: Text(
-              punch.punchTypeText,
+              tr(punch.punchTypeText),
               style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w700,
@@ -11179,7 +11159,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  timeText,
+                  tr(timeText),
                   style: const TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w700,
@@ -11189,7 +11169,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 if (subtitleParts.isNotEmpty) ...[
                   const SizedBox(height: 2),
                   Text(
-                    subtitleParts.join(' · '),
+                    tr(subtitleParts.join(' · ')),
                     style: const TextStyle(
                       fontSize: 11,
                       color: Color(0xFF71717A),
@@ -11265,13 +11245,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(statusText,
+                      Text(tr(statusText),
                           style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w600,
                               color: statusColor)),
                       if (isLate && lateMin != null)
-                        Text('Trễ $lateMin phút',
+                        Text(tr('Trễ $lateMin phút'),
                             style: const TextStyle(
                                 fontSize: 12, color: Color(0xFFEF4444))),
                     ],
@@ -11341,11 +11321,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ),
       child: Column(
         children: [
-          Text(label,
+          Text(tr(label),
               style:
                   TextStyle(fontSize: 11, color: color.withValues(alpha: 0.7))),
           const SizedBox(height: 4),
-          Text(time,
+          Text(tr(time),
               style: TextStyle(
                   fontSize: 18, fontWeight: FontWeight.bold, color: color)),
         ],
@@ -11421,8 +11401,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               color: const Color(0xFF2D5F8B).withValues(alpha: 0.06),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: Text(
-              'Tỷ lệ có mặt: ${rate.toStringAsFixed(1)}%',
+            child: Text(tr('Tỷ lệ có mặt: ${rate.toStringAsFixed(1)}%'),
               style: const TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
@@ -11438,7 +11417,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget _employeePeriodChip(String label, String period) {
     final selected = _employeeStatsPeriod == period;
     return ChoiceChip(
-      label: Text(label),
+      label: Text(tr(label)),
       selected: selected,
       onSelected: (v) {
         if (!v || selected) return;
@@ -11469,13 +11448,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label,
+          Text(tr(label),
               style: const TextStyle(fontSize: 11, color: Color(0xFF71717A))),
           const SizedBox(height: 4),
           Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Text(value,
+              Text(tr(value),
                   style: TextStyle(
                       fontSize: 22,
                       fontWeight: FontWeight.bold,
@@ -11484,7 +11463,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 const SizedBox(width: 4),
                 Padding(
                   padding: const EdgeInsets.only(bottom: 2),
-                  child: Text(suffix,
+                  child: Text(tr(suffix),
                       style: TextStyle(fontSize: 11, color: color)),
                 ),
               ],
@@ -11502,10 +11481,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
         children: [
           Icon(icon, color: color, size: 20),
           const SizedBox(height: 4),
-          Text(value,
+          Text(tr(value),
               style: TextStyle(
                   fontSize: 16, fontWeight: FontWeight.bold, color: color)),
-          Text(label,
+          Text(tr(label),
               style: const TextStyle(fontSize: 11, color: Color(0xFF71717A))),
         ],
       ),
@@ -11549,18 +11528,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(label,
+              Text(tr(label),
                   style: TextStyle(
                       fontSize: 12, color: color, fontWeight: FontWeight.w600)),
               Text(
-                '${_fmtShiftTime(shift['startTime'])} - ${_fmtShiftTime(shift['endTime'])}',
+                tr('${_fmtShiftTime(shift['startTime'])} - ${_fmtShiftTime(shift['endTime'])}'),
                 style: const TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.bold,
                     color: Color(0xFF18181B)),
               ),
               if (shift['description'] != null)
-                Text(shift['description'].toString(),
+                Text(tr(shift['description'].toString()),
                     style: const TextStyle(
                         fontSize: 12, color: Color(0xFF71717A))),
             ],
@@ -11618,10 +11597,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(type,
+                            Text(tr(type),
                                 style: const TextStyle(
                                     fontSize: 13, fontWeight: FontWeight.w600)),
-                            Text('$from - $to',
+                            Text(tr('$from - $to'),
                                 style: const TextStyle(
                                     fontSize: 11, color: Color(0xFF71717A))),
                           ],
@@ -11633,7 +11612,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         decoration: BoxDecoration(
                             color: stColor.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(12)),
-                        child: Text(status,
+                        child: Text(tr(status),
                             style: TextStyle(
                                 fontSize: 11,
                                 color: stColor,
@@ -11688,7 +11667,7 @@ class _DashCard extends StatelessWidget {
               child: Icon(icon, size: 18, color: color)),
           const SizedBox(width: 10),
           Expanded(
-              child: Text(title,
+              child: Text(tr(title),
                   style: const TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w700,
@@ -11700,7 +11679,7 @@ class _DashCard extends StatelessWidget {
                 decoration: BoxDecoration(
                     color: color.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(20)),
-                child: Text(badge!,
+                child: Text(tr(badge!),
                     style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w600,

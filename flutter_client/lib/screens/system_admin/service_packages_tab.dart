@@ -3,6 +3,7 @@ import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import '../../services/api_service.dart';
 import 'system_admin_helpers.dart';
 import '../../widgets/hrm_page_chrome.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 class ServicePackagesTab extends StatefulWidget {
   const ServicePackagesTab({super.key});
@@ -112,7 +113,7 @@ class ServicePackagesTabState extends State<ServicePackagesTab> {
           FilledButton.icon(
             onPressed: () => _showCreateEditDialog(null),
             icon: const Icon(Icons.add, size: 18),
-            label: const Text('Tạo gói mới'),
+            label: Text(tr('Tạo gói mới')),
             style: ElevatedButton.styleFrom(
               backgroundColor: AdminHelpers.primary,
               foregroundColor: Colors.white,
@@ -146,15 +147,15 @@ class ServicePackagesTabState extends State<ServicePackagesTab> {
           const SizedBox(width: 12),
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14), maxLines: 1, overflow: TextOverflow.ellipsis),
+              Text(tr(name), style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14), maxLines: 1, overflow: TextOverflow.ellipsis),
               const SizedBox(height: 2),
-              Text('$maxUsers users \u00b7 $maxDevices TB \u00b7 ${days}d', style: const TextStyle(color: Color(0xFF71717A), fontSize: 12)),
+              Text(tr('$maxUsers users \u00b7 $maxDevices TB \u00b7 ${days}d'), style: const TextStyle(color: Color(0xFF71717A), fontSize: 12)),
             ]),
           ),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
             decoration: BoxDecoration(color: isActive ? Colors.green.withValues(alpha: 0.1) : Colors.grey.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
-            child: Text(isActive ? 'H\u0110' : 'T\u1eaft', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: isActive ? Colors.green : Colors.grey)),
+            child: Text(tr(isActive ? 'H\u0110' : 'T\u1eaft'), style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: isActive ? Colors.green : Colors.grey)),
           ),
         ]),
       ),
@@ -183,7 +184,7 @@ class ServicePackagesTabState extends State<ServicePackagesTab> {
         ),
         title: Row(children: [
           Expanded(
-            child: Text(pkg['name'] ?? 'N/A',
+            child: Text(tr(pkg['name'] ?? 'N/A'),
                 style: const TextStyle(
                     fontWeight: FontWeight.w700, fontSize: 15)),
           ),
@@ -194,22 +195,22 @@ class ServicePackagesTabState extends State<ServicePackagesTab> {
         subtitle: Row(children: [
           Icon(Icons.people, size: 14, color: Colors.grey[500]),
           const SizedBox(width: 4),
-          Text('${pkg['maxUsers']} users',
+          Text(tr('${pkg['maxUsers']} users'),
               style: TextStyle(fontSize: 12, color: Colors.grey[600])),
           const SizedBox(width: 12),
           Icon(Icons.router, size: 14, color: Colors.grey[500]),
           const SizedBox(width: 4),
-          Text('${pkg['maxDevices']} thiết bị',
+          Text(tr('${pkg['maxDevices']} thiết bị'),
               style: TextStyle(fontSize: 12, color: Colors.grey[600])),
           const SizedBox(width: 12),
           Icon(Icons.calendar_today, size: 14, color: Colors.grey[500]),
           const SizedBox(width: 4),
-          Text('${pkg['defaultDurationDays']} ngày',
+          Text(tr('${pkg['defaultDurationDays']} ngày'),
               style: TextStyle(fontSize: 12, color: Colors.grey[600])),
           const SizedBox(width: 12),
           Icon(Icons.store, size: 14, color: Colors.grey[500]),
           const SizedBox(width: 4),
-          Text('$storeCount CH',
+          Text(tr('$storeCount CH'),
               style: TextStyle(fontSize: 12, color: Colors.grey[600])),
         ]),
         children: [
@@ -227,7 +228,7 @@ class ServicePackagesTabState extends State<ServicePackagesTab> {
                 Row(children: [
                   const Icon(Icons.check_circle, size: 16, color: AdminHelpers.success),
                   const SizedBox(width: 6),
-                  Text('Chức năng: ${modules.length}/$totalModules',
+                  Text(tr('Chức năng: ${modules.length}/$totalModules'),
                       style: const TextStyle(
                           fontWeight: FontWeight.w600, fontSize: 13)),
                 ]),
@@ -266,7 +267,7 @@ class ServicePackagesTabState extends State<ServicePackagesTab> {
                 OutlinedButton.icon(
                   onPressed: () => _showCreateEditDialog(pkg),
                   icon: const Icon(Icons.edit, size: 14),
-                  label: const Text('Sửa', style: TextStyle(fontSize: 12)),
+                  label: Text(tr('Sửa'), style: TextStyle(fontSize: 12)),
                   style: OutlinedButton.styleFrom(
                       foregroundColor: AdminHelpers.info,
                       side: BorderSide(
@@ -276,7 +277,7 @@ class ServicePackagesTabState extends State<ServicePackagesTab> {
                   onPressed: () => _togglePackageStatus(pkg),
                 icon: Icon(isActive ? Icons.pause : Icons.play_arrow,
                     size: 14),
-                label: Text(isActive ? 'Tắt' : 'Bật',
+                label: Text(tr(isActive ? 'Tắt' : 'Bật'),
                     style: const TextStyle(fontSize: 12)),
                 style: OutlinedButton.styleFrom(
                     foregroundColor:
@@ -293,7 +294,7 @@ class ServicePackagesTabState extends State<ServicePackagesTab> {
                   onPressed: () => _deletePackage(pkg),
                   icon: const Icon(Icons.delete, size: 14),
                   label:
-                      const Text('Xóa', style: TextStyle(fontSize: 12)),
+                      Text(tr('Xóa'), style: TextStyle(fontSize: 12)),
                   style: OutlinedButton.styleFrom(
                       foregroundColor: AdminHelpers.danger,
                       side: BorderSide(
@@ -311,15 +312,15 @@ class ServicePackagesTabState extends State<ServicePackagesTab> {
   Future<void> _showCreateEditDialog(Map<String, dynamic>? existing) async {
     final isEdit = existing != null;
     final nameCtrl =
-        TextEditingController(text: existing?['name']?.toString() ?? '');
+        TextEditingController(text: tr(existing?['name']?.toString() ?? ''));
     final descCtrl = TextEditingController(
-        text: existing?['description']?.toString() ?? '');
+        text: tr(existing?['description']?.toString() ?? ''));
     final daysCtrl = TextEditingController(
-        text: (existing?['defaultDurationDays'] ?? 30).toString());
+        text: tr((existing?['defaultDurationDays'] ?? 30).toString()));
     final usersCtrl = TextEditingController(
-        text: (existing?['maxUsers'] ?? 10).toString());
+        text: tr((existing?['maxUsers'] ?? 10).toString()));
     final devicesCtrl = TextEditingController(
-        text: (existing?['maxDevices'] ?? 2).toString());
+        text: tr((existing?['maxDevices'] ?? 2).toString()));
 
     final selectedModules = <String>{};
     if (existing != null) {
@@ -337,7 +338,7 @@ class ServicePackagesTabState extends State<ServicePackagesTab> {
               Icon(isEdit ? Icons.edit : Icons.add_circle,
                   color: AdminHelpers.primary, size: 24),
               const SizedBox(width: 8),
-              Text(isEdit ? 'Sửa gói dịch vụ' : 'Tạo gói dịch vụ mới',
+              Text(tr(isEdit ? 'Sửa gói dịch vụ' : 'Tạo gói dịch vụ mới'),
                   style: const TextStyle(fontSize: 17)),
             ]),
             content: SizedBox(
@@ -370,7 +371,7 @@ class ServicePackagesTabState extends State<ServicePackagesTab> {
                     const SizedBox(height: 20),
                     // Module selection
                     Row(children: [
-                      const Text('Chọn chức năng',
+                      Text(tr('Chọn chức năng'),
                           style: TextStyle(
                               fontWeight: FontWeight.w700, fontSize: 15)),
                       const Spacer(),
@@ -387,10 +388,10 @@ class ServicePackagesTabState extends State<ServicePackagesTab> {
                           });
                         },
                         child: Text(
-                            selectedModules.length ==
+                            tr(selectedModules.length ==
                                     _availableModules.length
                                 ? 'Bỏ chọn tất cả'
-                                : 'Chọn tất cả',
+                                : 'Chọn tất cả'),
                             style: const TextStyle(fontSize: 12)),
                       ),
                       const SizedBox(width: 4),
@@ -444,13 +445,13 @@ class ServicePackagesTabState extends State<ServicePackagesTab> {
                                           ? AdminHelpers.primary
                                           : Colors.grey),
                                   const SizedBox(width: 8),
-                                  Text(catName,
+                                  Text(tr(catName),
                                       style: const TextStyle(
                                           fontWeight: FontWeight.w600,
                                           fontSize: 13)),
                                   const Spacer(),
                                   Text(
-                                      '${catCodes.where((c) => selectedModules.contains(c)).length}/${catCodes.length}',
+                                      tr('${catCodes.where((c) => selectedModules.contains(c)).length}/${catCodes.length}'),
                                       style: TextStyle(
                                           fontSize: 11,
                                           color: Colors.grey[500])),
@@ -478,7 +479,7 @@ class ServicePackagesTabState extends State<ServicePackagesTab> {
                                       visualDensity:
                                           VisualDensity.compact,
                                       title: Text(
-                                          module['displayName'] ?? code,
+                                          tr(module['displayName'] ?? code),
                                           style: const TextStyle(
                                               fontSize: 12)),
                                       value: isChecked,
@@ -508,7 +509,7 @@ class ServicePackagesTabState extends State<ServicePackagesTab> {
             actions: [
               TextButton(
                   onPressed: () => Navigator.pop(ctx, false),
-                  child: const Text('Hủy')),
+                  child: Text(tr('Hủy'))),
               FilledButton.icon(
                 onPressed: () {
                   if (nameCtrl.text.trim().isEmpty) {
@@ -523,7 +524,7 @@ class ServicePackagesTabState extends State<ServicePackagesTab> {
                   Navigator.pop(ctx, true);
                 },
                 icon: Icon(isEdit ? Icons.save : Icons.add, size: 16),
-                label: Text(isEdit ? 'Lưu' : 'Tạo'),
+                label: Text(tr(isEdit ? 'Lưu' : 'Tạo')),
                 style: ElevatedButton.styleFrom(
                     backgroundColor: AdminHelpers.primary),
               ),

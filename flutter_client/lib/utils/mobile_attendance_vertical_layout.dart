@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// Mobile: nhân viên (hoặc chỉ 1 NV trong dữ liệu) → bảng dọc dễ đọc hơn bảng ngang.
 bool preferMobileVerticalAttendanceView({
@@ -121,7 +122,7 @@ class MobileAttendanceVerticalTable extends StatelessWidget {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      title!,
+                      tr(title!),
                       style: const TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
@@ -134,11 +135,10 @@ class MobileAttendanceVerticalTable extends StatelessWidget {
             ),
           _buildHeaderRow(),
           if (rows.isEmpty)
-            const Padding(
+            Padding(
               padding: EdgeInsets.all(20),
               child: Center(
-                child: Text(
-                  'Không có dữ liệu trong khoảng ngày đã chọn',
+                child: Text(tr('Không có dữ liệu trong khoảng ngày đã chọn'),
                   style: TextStyle(fontSize: 12, color: Color(0xFF71717A)),
                 ),
               ),
@@ -163,7 +163,7 @@ class MobileAttendanceVerticalTable extends StatelessWidget {
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 4),
               child: Text(
-                headers[i],
+                tr(headers[i]),
                 textAlign: i >= 2 ? TextAlign.center : TextAlign.center,
                 style: const TextStyle(
                   color: Colors.white,
@@ -212,7 +212,7 @@ class MobileAttendanceVerticalTable extends StatelessWidget {
               child: i == 2
                   ? row.attendance
                   : Text(
-                      cells[i] ?? '—',
+                      tr(cells[i] ?? '—'),
                       textAlign: TextAlign.center,
                       maxLines: i == 2 ? 4 : 2,
                       overflow: TextOverflow.ellipsis,
@@ -274,7 +274,7 @@ class MobileAttendanceVerticalTable extends StatelessWidget {
               child: i == 2
                   ? row.attendance
                   : Text(
-                      cells[i] ?? '—',
+                      tr(cells[i] ?? '—'),
                       textAlign: TextAlign.center,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
@@ -303,7 +303,7 @@ class MobileAttendanceVerticalTable extends StatelessWidget {
 Widget mobileAttendancePunchText(String text) {
   return Center(
     child: Text(
-      text,
+      tr(text),
       textAlign: TextAlign.center,
       maxLines: 4,
       overflow: TextOverflow.ellipsis,
@@ -425,7 +425,7 @@ class MobileAttendanceShiftVerticalTable extends StatelessWidget {
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          title!,
+                          tr(title!),
                           style: const TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w600,
@@ -436,8 +436,7 @@ class MobileAttendanceShiftVerticalTable extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 4),
-                  Text(
-                    'Vuốt ngang để xem đủ cột',
+                  Text(tr('Vuốt ngang để xem đủ cột'),
                     style: TextStyle(
                       fontSize: 10,
                       color: Colors.grey.shade600,
@@ -455,11 +454,10 @@ class MobileAttendanceShiftVerticalTable extends StatelessWidget {
                 children: [
                   _buildHeaderRow(),
                   if (rows.isEmpty)
-                    const Padding(
+                    Padding(
                       padding: EdgeInsets.all(20),
                       child: Center(
-                        child: Text(
-                          'Không có dữ liệu trong khoảng ngày đã chọn',
+                        child: Text(tr('Không có dữ liệu trong khoảng ngày đã chọn'),
                           style: TextStyle(
                               fontSize: 12, color: Color(0xFF71717A)),
                         ),
@@ -490,7 +488,7 @@ class MobileAttendanceShiftVerticalTable extends StatelessWidget {
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 4),
               child: Text(
-                headers[i],
+                tr(headers[i]),
                 textAlign: TextAlign.center,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
@@ -628,7 +626,7 @@ class MobileAttendanceShiftVerticalTable extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4),
       child: Text(
-        text,
+        tr(text),
         textAlign: TextAlign.center,
         maxLines: 3,
         overflow: TextOverflow.ellipsis,
@@ -742,7 +740,7 @@ class MobilePayrollVerticalTable extends StatelessWidget {
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          title!,
+                          tr(title!),
                           style: const TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w600,
@@ -753,8 +751,7 @@ class MobilePayrollVerticalTable extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 4),
-                  Text(
-                    'Vuốt ngang để xem đủ cột',
+                  Text(tr('Vuốt ngang để xem đủ cột'),
                     style: TextStyle(
                       fontSize: 10,
                       color: Colors.grey.shade600,
@@ -764,11 +761,10 @@ class MobilePayrollVerticalTable extends StatelessWidget {
               ),
             ),
           if (rows.isEmpty)
-            const Padding(
+            Padding(
               padding: EdgeInsets.all(20),
               child: Center(
-                child: Text(
-                  'Không có dữ liệu lương',
+                child: Text(tr('Không có dữ liệu lương'),
                   style: TextStyle(fontSize: 12, color: Color(0xFF71717A)),
                 ),
               ),
@@ -821,8 +817,7 @@ class MobilePayrollVerticalTable extends StatelessWidget {
                 bottom: BorderSide(color: Colors.white24, width: 0.5),
               ),
             ),
-            child: const Text(
-              'Nhân viên',
+            child: Text(tr('Nhân viên'),
               style: TextStyle(
                 color: Colors.white,
                 fontSize: 10,
@@ -873,7 +868,7 @@ class MobilePayrollVerticalTable extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                row.employeeName,
+                tr(row.employeeName),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
@@ -886,7 +881,7 @@ class MobilePayrollVerticalTable extends StatelessWidget {
               ),
               if (row.employeeSubtitle.isNotEmpty)
                 Text(
-                  row.employeeSubtitle,
+                  tr(row.employeeSubtitle),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
@@ -899,8 +894,7 @@ class MobilePayrollVerticalTable extends StatelessWidget {
                   ),
                 ),
               if (!isTotal)
-                const Text(
-                  'Chạm xem',
+                Text(tr('Chạm xem'),
                   style: TextStyle(fontSize: 8, color: Color(0xFF2563EB)),
                 ),
             ],
@@ -922,7 +916,7 @@ class MobilePayrollVerticalTable extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 4),
               child: Center(
                 child: Text(
-                  headers[i],
+                  tr(headers[i]),
                   textAlign: TextAlign.center,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
@@ -979,7 +973,7 @@ class MobilePayrollVerticalTable extends StatelessWidget {
                     ),
                   ),
                   child: Text(
-                    value,
+                    tr(value),
                     textAlign: TextAlign.center,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
@@ -1013,7 +1007,7 @@ Widget mobileAttendanceAbsenceLabel(
   VoidCallback? onTap,
 }) {
   final child = Text(
-    label,
+    tr(label),
     textAlign: TextAlign.center,
     style: TextStyle(
       fontSize: 10,

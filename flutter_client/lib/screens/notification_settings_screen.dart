@@ -5,6 +5,7 @@ import '../utils/notification_category_utils.dart';
 import '../utils/notification_group_settings.dart';
 import '../widgets/notification_overlay.dart';
 import '../widgets/hrm_page_chrome.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 class NotificationSettingsScreen extends StatefulWidget {
   const NotificationSettingsScreen({super.key});
@@ -98,7 +99,7 @@ class _NotificationSettingsScreenState
         if (mounted) {
           NotificationOverlayManager().showSuccess(
             title: 'Thành công',
-            message: 'Đã lưu thiết lập thông báo',
+            message: tr('Đã lưu thiết lập thông báo'),
           );
         }
       } else if (mounted) {
@@ -112,8 +113,7 @@ class _NotificationSettingsScreenState
       if (mounted) {
         NotificationOverlayManager().showError(
           title: 'Lưu thất bại',
-          message:
-              'Không kết nối được server. Thiết lập chưa được áp dụng — FCM vẫn có thể gửi thông báo.',
+          message: tr('Không kết nối được server. Thiết lập chưa được áp dụng — FCM vẫn có thể gửi thông báo.'),
         );
       }
     }
@@ -261,7 +261,7 @@ class _NotificationSettingsScreenState
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        title,
+                        tr(title),
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w700,
@@ -270,7 +270,7 @@ class _NotificationSettingsScreenState
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        subtitle,
+                        tr(subtitle),
                         style: const TextStyle(fontSize: 12, color: _textMuted),
                       ),
                     ],
@@ -321,7 +321,7 @@ class _NotificationSettingsScreenState
           const SizedBox(width: 12),
           Expanded(
             child: Text(
-              item.displayName,
+              tr(item.displayName),
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w500,
@@ -373,16 +373,14 @@ class _NotificationSettingsScreenState
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Thiết lập thông báo',
+                Text(tr('Thiết lập thông báo'),
                   style: TextStyle(
                       color: Colors.white,
                       fontSize: 20,
                       fontWeight: FontWeight.w700),
                 ),
                 const SizedBox(height: 4),
-                Text(
-                  'Chọn nhóm thông báo bạn muốn nhận. Tắt nhóm nào sẽ không nhận thông báo loại đó.',
+                Text(tr('Chọn nhóm thông báo bạn muốn nhận. Tắt nhóm nào sẽ không nhận thông báo loại đó.'),
                   style: TextStyle(
                       color: Colors.white.withValues(alpha: 0.7),
                       fontSize: 13),
@@ -408,7 +406,7 @@ class _NotificationSettingsScreenState
                     strokeWidth: 2, color: Colors.white),
               )
             : const Icon(Icons.save, size: 18),
-        label: Text(_isSaving ? 'Đang lưu...' : 'Lưu thiết lập'),
+        label: Text(tr(_isSaving ? 'Đang lưu...' : 'Lưu thiết lập')),
         style: ElevatedButton.styleFrom(
           backgroundColor: HrmPageChrome.primaryNavy,
           foregroundColor: Colors.white,

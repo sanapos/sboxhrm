@@ -13,6 +13,7 @@ import '../../../widgets/pos_barcode_scanner.dart';
 import '../../../widgets/warehouse/wh_mobile_components.dart';
 import '../../../widgets/warehouse/wh_mobile_theme.dart';
 import '../../main_layout.dart' show ScreenRefreshNotifier;
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 class WhMobileStockCountEditor extends StatefulWidget {
   const WhMobileStockCountEditor({super.key, this.countId});
@@ -175,7 +176,7 @@ class _WhMobileStockCountEditorState extends State<WhMobileStockCountEditor> {
 
   Future<void> _saveDraft() async {
     if (_lines.isEmpty) {
-      NotificationOverlayManager().showWarning(title: 'Phiếu trống', message: 'Thêm hàng trước khi lưu');
+      NotificationOverlayManager().showWarning(title: 'Phiếu trống', message: tr('Thêm hàng trước khi lưu'));
       return;
     }
     setState(() => _saving = true);
@@ -187,7 +188,7 @@ class _WhMobileStockCountEditorState extends State<WhMobileStockCountEditor> {
 
   Future<void> _complete() async {
     if (_lines.isEmpty) {
-      NotificationOverlayManager().showWarning(title: 'Phiếu trống', message: 'Thêm hàng trước');
+      NotificationOverlayManager().showWarning(title: 'Phiếu trống', message: tr('Thêm hàng trước'));
       return;
     }
     setState(() => _saving = true);
@@ -250,7 +251,7 @@ class _WhMobileStockCountEditorState extends State<WhMobileStockCountEditor> {
                 if (!_readOnly)
                   PosPurchaseProductSearchBar(
                     api: _api,
-                    hintText: 'Tìm hoặc quét mã hàng…',
+                    hintText: tr('Tìm hoặc quét mã hàng…'),
                     onPick: _pickProduct,
                   ),
                 const SizedBox(height: WhMobileTheme.gap),
@@ -289,14 +290,13 @@ class _WhMobileStockCountEditorState extends State<WhMobileStockCountEditor> {
                         ],
                       ),
                       trailing: l.diff != 0
-                          ? Text(
-                              'Lệch: ${_qtyFmt.format(l.diff)}',
+                          ? Text(tr('Lệch: ${_qtyFmt.format(l.diff)}'),
                               style: TextStyle(
                                 fontWeight: FontWeight.w600,
                                 color: l.diff > 0 ? WhMobileTheme.accent : WhMobileTheme.danger,
                               ),
                             )
-                          : const Text('Khớp ✓', style: TextStyle(color: WhMobileTheme.accent, fontWeight: FontWeight.w600)),
+                          : Text(tr('Khớp ✓'), style: TextStyle(color: WhMobileTheme.accent, fontWeight: FontWeight.w600)),
                     );
                   }),
                 const SizedBox(height: WhMobileTheme.gap),

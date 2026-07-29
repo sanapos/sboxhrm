@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../services/api_service.dart';
 import 'notification_overlay.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// Reusable AI text-assist bottom sheet.
 ///
@@ -106,7 +107,7 @@ class _AiAssistSheetState extends State<_AiAssistSheet> {
     if (prompt.isEmpty) {
       NotificationOverlayManager().showWarning(
           title: 'Thiếu nội dung',
-          message: 'Vui lòng mô tả điều bạn muốn AI viết');
+          message: tr('Vui lòng mô tả điều bạn muốn AI viết'));
       return;
     }
     setState(() => _isGenerating = true);
@@ -149,7 +150,7 @@ class _AiAssistSheetState extends State<_AiAssistSheet> {
   }
 
   Future<void> _copy() async {
-    await Clipboard.setData(ClipboardData(text: _resultCtrl.text));
+    await Clipboard.setData(ClipboardData(text: tr(_resultCtrl.text)));
     if (mounted) {
       NotificationOverlayManager()
           .showSuccess(title: 'Đã sao chép', message: '');
@@ -197,7 +198,7 @@ class _AiAssistSheetState extends State<_AiAssistSheet> {
                     ),
                     const SizedBox(width: 10),
                     Expanded(
-                      child: Text(widget.title,
+                      child: Text(tr(widget.title),
                           style: const TextStyle(
                               fontSize: 16, fontWeight: FontWeight.w700)),
                     ),
@@ -218,14 +219,14 @@ class _AiAssistSheetState extends State<_AiAssistSheet> {
                       controller: _promptCtrl,
                       maxLines: 3,
                       decoration: InputDecoration(
-                        labelText: 'Mô tả nội dung muốn AI viết *',
-                        hintText: 'VD: Phản ánh về bữa trưa hôm nay ít rau...',
+                        labelText: tr('Mô tả nội dung muốn AI viết *'),
+                        hintText: tr('VD: Phản ánh về bữa trưa hôm nay ít rau...'),
                         border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(10)),
                       ),
                     ),
                     const SizedBox(height: 12),
-                    Text('Giọng văn',
+                    Text(tr('Giọng văn'),
                         style: TextStyle(
                             fontSize: 12,
                             color: Colors.grey[700],
@@ -237,7 +238,7 @@ class _AiAssistSheetState extends State<_AiAssistSheet> {
                       children: _tones.map((t) {
                         final selected = _tone == t.$1;
                         return ChoiceChip(
-                          label: Text(t.$2),
+                          label: Text(tr(t.$2)),
                           selected: selected,
                           onSelected: (_) => setState(() => _tone = t.$1),
                         );
@@ -255,11 +256,11 @@ class _AiAssistSheetState extends State<_AiAssistSheet> {
                                 child: CircularProgressIndicator(
                                     strokeWidth: 2, color: Colors.white))
                             : const Icon(Icons.auto_awesome, size: 18),
-                        label: Text(_isGenerating
+                        label: Text(tr(_isGenerating
                             ? 'Đang tạo...'
                             : (_resultCtrl.text.isEmpty
                                 ? 'Tạo nội dung'
-                                : 'Tạo lại')),
+                                : 'Tạo lại'))),
                         style: FilledButton.styleFrom(
                           backgroundColor: const Color(0xFF8B5CF6),
                           padding: const EdgeInsets.symmetric(vertical: 12),
@@ -270,7 +271,7 @@ class _AiAssistSheetState extends State<_AiAssistSheet> {
                     if (_resultCtrl.text.isNotEmpty) ...[
                       Row(
                         children: [
-                          Text('Kết quả AI',
+                          Text(tr('Kết quả AI'),
                               style: TextStyle(
                                   fontSize: 12,
                                   color: Colors.grey[700],
@@ -279,7 +280,7 @@ class _AiAssistSheetState extends State<_AiAssistSheet> {
                           TextButton.icon(
                             onPressed: _copy,
                             icon: const Icon(Icons.copy, size: 16),
-                            label: const Text('Sao chép'),
+                            label: Text(tr('Sao chép')),
                           ),
                         ],
                       ),
@@ -303,7 +304,7 @@ class _AiAssistSheetState extends State<_AiAssistSheet> {
                               child: OutlinedButton.icon(
                                 onPressed: () => _apply(append: true),
                                 icon: const Icon(Icons.add, size: 18),
-                                label: const Text('Nối vào'),
+                                label: Text(tr('Nối vào')),
                               ),
                             ),
                             const SizedBox(width: 8),
@@ -311,7 +312,7 @@ class _AiAssistSheetState extends State<_AiAssistSheet> {
                               child: FilledButton.icon(
                                 onPressed: () => _apply(append: false),
                                 icon: const Icon(Icons.check, size: 18),
-                                label: const Text('Áp dụng'),
+                                label: Text(tr('Áp dụng')),
                               ),
                             ),
                           ],
@@ -330,8 +331,7 @@ class _AiAssistSheetState extends State<_AiAssistSheet> {
                                 color: Colors.grey[600], size: 18),
                             const SizedBox(width: 8),
                             Expanded(
-                              child: Text(
-                                'Nhập mô tả ngắn về điều bạn muốn viết, AI sẽ soạn giúp bạn bằng tiếng Việt.',
+                              child: Text(tr('Nhập mô tả ngắn về điều bạn muốn viết, AI sẽ soạn giúp bạn bằng tiếng Việt.'),
                                 style: TextStyle(
                                     fontSize: 12, color: Colors.grey[700]),
                               ),
@@ -374,7 +374,7 @@ class AiAssistIconButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return IconButton(
-      tooltip: tooltip ?? 'AI hỗ trợ soạn thảo',
+      tooltip: tr(tooltip ?? 'AI hỗ trợ soạn thảo'),
       iconSize: size,
       padding: EdgeInsets.zero,
       constraints: BoxConstraints.tightFor(width: size + 16, height: size + 16),

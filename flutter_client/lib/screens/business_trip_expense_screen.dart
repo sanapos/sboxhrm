@@ -10,6 +10,7 @@ import '../widgets/loading_widget.dart';
 import '../widgets/notification_overlay.dart';
 import 'business_trip_case_detail_screen.dart';
 import 'business_trip_categories_screen.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 const _theme = Color(0xFF0EA5E9);
 
@@ -281,12 +282,12 @@ class _BusinessTripExpenseScreenState extends State<BusinessTripExpenseScreen> {
         children: [
           ListTile(
             leading: const Icon(Icons.filter_list, color: _theme),
-            title: const Text('Bộ lọc',
+            title: Text(tr('Bộ lọc'),
                 style: TextStyle(fontWeight: FontWeight.w700)),
             subtitle: Text(
-              _hasFilters
+              tr(_hasFilters
                   ? 'Đang lọc · ${_cases.length} hồ sơ'
-                  : 'Theo thời gian, nhân viên, hạn mục, trạng thái',
+                  : 'Theo thời gian, nhân viên, hạn mục, trạng thái'),
               style: const TextStyle(fontSize: 12),
             ),
             trailing: Icon(
@@ -305,9 +306,9 @@ class _BusinessTripExpenseScreenState extends State<BusinessTripExpenseScreen> {
                         child: OutlinedButton.icon(
                           onPressed: () => _pickFilterDate(isFrom: true),
                           icon: const Icon(Icons.calendar_today, size: 16),
-                          label: Text(_fromDate == null
+                          label: Text(tr(_fromDate == null
                               ? 'Từ ngày'
-                              : _dateFmt.format(_fromDate!)),
+                              : _dateFmt.format(_fromDate!))),
                         ),
                       ),
                       const SizedBox(width: 8),
@@ -315,9 +316,9 @@ class _BusinessTripExpenseScreenState extends State<BusinessTripExpenseScreen> {
                         child: OutlinedButton.icon(
                           onPressed: () => _pickFilterDate(isFrom: false),
                           icon: const Icon(Icons.event, size: 16),
-                          label: Text(_toDate == null
+                          label: Text(tr(_toDate == null
                               ? 'Đến ngày'
-                              : _dateFmt.format(_toDate!)),
+                              : _dateFmt.format(_toDate!))),
                         ),
                       ),
                     ],
@@ -327,19 +328,19 @@ class _BusinessTripExpenseScreenState extends State<BusinessTripExpenseScreen> {
                     DropdownButtonFormField<String?>(
                       value: _employeeUserId,
                       isExpanded: true,
-                      decoration: const InputDecoration(
-                        labelText: 'Nhân viên',
+                      decoration: InputDecoration(
+                        labelText: tr('Nhân viên'),
                         border: OutlineInputBorder(),
                         isDense: true,
                       ),
                       items: [
-                        const DropdownMenuItem<String?>(
-                            value: null, child: Text('Tất cả nhân viên')),
+                        DropdownMenuItem<String?>(
+                            value: null, child: Text(tr('Tất cả nhân viên'))),
                         ..._employees.map((e) {
                           final uid = _employeeUserIdOf(e);
                           return DropdownMenuItem<String?>(
                             value: uid,
-                            child: Text(_employeeLabel(e),
+                            child: Text(tr(_employeeLabel(e)),
                                 overflow: TextOverflow.ellipsis),
                           );
                         }),
@@ -350,17 +351,17 @@ class _BusinessTripExpenseScreenState extends State<BusinessTripExpenseScreen> {
                   DropdownButtonFormField<String?>(
                     value: _categoryId,
                     isExpanded: true,
-                    decoration: const InputDecoration(
-                      labelText: 'Hạn mục chi phí',
+                    decoration: InputDecoration(
+                      labelText: tr('Hạn mục chi phí'),
                       border: OutlineInputBorder(),
                       isDense: true,
                     ),
                     items: [
-                      const DropdownMenuItem<String?>(
-                          value: null, child: Text('Tất cả hạn mục')),
+                      DropdownMenuItem<String?>(
+                          value: null, child: Text(tr('Tất cả hạn mục'))),
                       ..._categories.map((c) => DropdownMenuItem<String?>(
                             value: c['id']?.toString(),
-                            child: Text(c['name']?.toString() ?? ''),
+                            child: Text(tr(c['name']?.toString() ?? '')),
                           )),
                     ],
                     onChanged: (v) => setState(() => _categoryId = v),
@@ -369,18 +370,18 @@ class _BusinessTripExpenseScreenState extends State<BusinessTripExpenseScreen> {
                   DropdownButtonFormField<int?>(
                     value: _statusFilter,
                     isExpanded: true,
-                    decoration: const InputDecoration(
-                      labelText: 'Trạng thái',
+                    decoration: InputDecoration(
+                      labelText: tr('Trạng thái'),
                       border: OutlineInputBorder(),
                       isDense: true,
                     ),
                     items: [
-                      const DropdownMenuItem<int?>(
-                          value: null, child: Text('Tất cả trạng thái')),
+                      DropdownMenuItem<int?>(
+                          value: null, child: Text(tr('Tất cả trạng thái'))),
                       for (var i = 0; i <= 9; i++)
                         DropdownMenuItem<int?>(
                           value: i,
-                          child: Text(tripStatusLabel(i)),
+                          child: Text(tr(tripStatusLabel(i))),
                         ),
                     ],
                     onChanged: (v) => setState(() => _statusFilter = v),
@@ -391,13 +392,13 @@ class _BusinessTripExpenseScreenState extends State<BusinessTripExpenseScreen> {
                       if (_hasFilters)
                         TextButton(
                             onPressed: _clearFilters,
-                            child: const Text('Xóa lọc')),
+                            child: Text(tr('Xóa lọc'))),
                       const Spacer(),
                       FilledButton(
                         style:
                             FilledButton.styleFrom(backgroundColor: _theme),
                         onPressed: _load,
-                        child: const Text('Áp dụng'),
+                        child: Text(tr('Áp dụng')),
                       ),
                     ],
                   ),
@@ -427,24 +428,23 @@ class _BusinessTripExpenseScreenState extends State<BusinessTripExpenseScreen> {
               children: [
                 const Icon(Icons.category_outlined, color: _theme),
                 const SizedBox(width: 8),
-                const Expanded(
-                  child: Text(
-                    'Loại chi phí',
+                Expanded(
+                  child: Text(tr('Loại chi phí'),
                     style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
                   ),
                 ),
                 TextButton(
                   onPressed: _openCategories,
-                  child: Text(_canManageCategories(context)
+                  child: Text(tr(_canManageCategories(context)
                       ? 'Thêm / Sửa / Xóa'
-                      : 'Xem danh mục'),
+                      : 'Xem danh mục')),
                 ),
               ],
             ),
             Text(
-              _categories.isEmpty
+              tr(_categories.isEmpty
                   ? 'Chưa có danh mục. Mở “Thêm / Sửa / Xóa” để khởi tạo mẫu.'
-                  : 'Quản lý tên loại chi phí tại đây. Nhân viên chọn khi nhập tiền & hóa đơn.',
+                  : 'Quản lý tên loại chi phí tại đây. Nhân viên chọn khi nhập tiền & hóa đơn.'),
               style:
                   TextStyle(fontSize: 12, color: Colors.grey[700], height: 1.35),
             ),
@@ -464,7 +464,7 @@ class _BusinessTripExpenseScreenState extends State<BusinessTripExpenseScreen> {
                           size: 16,
                           color: _theme,
                         ),
-                        label: Text(c['name']?.toString() ?? ''),
+                        label: Text(tr(c['name']?.toString() ?? '')),
                         onPressed: () {
                           setState(() {
                             _categoryId = c['id']?.toString();
@@ -488,12 +488,12 @@ class _BusinessTripExpenseScreenState extends State<BusinessTripExpenseScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
-        title: const Text('Công tác phí'),
+        title: Text(tr('Công tác phí')),
         backgroundColor: _theme,
         foregroundColor: Colors.white,
         actions: [
           IconButton(
-            tooltip: 'Loại chi phí',
+            tooltip: tr('Loại chi phí'),
             onPressed: _openCategories,
             icon: const Icon(Icons.category_outlined),
           ),
@@ -505,7 +505,7 @@ class _BusinessTripExpenseScreenState extends State<BusinessTripExpenseScreen> {
               backgroundColor: _theme,
               onPressed: _openCreate,
               icon: const Icon(Icons.add),
-              label: const Text('Hồ sơ mới'),
+              label: Text(tr('Hồ sơ mới')),
             )
           : null,
       body: _loading
@@ -520,10 +520,10 @@ class _BusinessTripExpenseScreenState extends State<BusinessTripExpenseScreen> {
                         Icon(Icons.error_outline,
                             size: 48, color: Colors.red.shade400),
                         const SizedBox(height: 12),
-                        Text(_loadError!, textAlign: TextAlign.center),
+                        Text(tr(_loadError!), textAlign: TextAlign.center),
                         const SizedBox(height: 12),
                         FilledButton(
-                            onPressed: _load, child: const Text('Thử lại')),
+                            onPressed: _load, child: Text(tr('Thử lại'))),
                       ],
                     ),
                   ),
@@ -578,10 +578,10 @@ class _BusinessTripExpenseScreenState extends State<BusinessTripExpenseScreen> {
                                     backgroundColor:
                                         stColor.withValues(alpha: 0.15),
                                     foregroundColor: stColor,
-                                    child: Text(_avatarCode(c['caseCode'])),
+                                    child: Text(tr(_avatarCode(c['caseCode']))),
                                   ),
                                   title: Text(
-                                    c['title']?.toString() ?? '—',
+                                    tr(c['title']?.toString() ?? '—'),
                                     style: TextStyle(
                                       fontWeight: FontWeight.w600,
                                       decoration: isCancelled
@@ -593,7 +593,7 @@ class _BusinessTripExpenseScreenState extends State<BusinessTripExpenseScreen> {
                                     ),
                                   ),
                                   subtitle: Text(
-                                    [
+                                    tr([
                                       if ((c['employeeName']?.toString() ?? '')
                                               .trim()
                                               .isNotEmpty ||
@@ -616,12 +616,11 @@ class _BusinessTripExpenseScreenState extends State<BusinessTripExpenseScreen> {
                                       'Ứng: ${_currency.format(advance)} · HT: ${_currency.format(settled)}',
                                       if (!isCancelled)
                                         'Chạm để nhập chi phí / hóa đơn',
-                                    ].where((e) => e.toString().trim().isNotEmpty).join('\n'),
+                                    ].where((e) => e.toString().trim().isNotEmpty).join('\n')),
                                   ),
                                   isThreeLine: true,
                                   trailing: isCancelled
-                                      ? Text(
-                                          'Hủy',
+                                      ? Text(tr('Hủy'),
                                           style: TextStyle(
                                             color: stColor,
                                             fontWeight: FontWeight.w700,
@@ -692,7 +691,7 @@ class _BusinessTripCreateScreenState extends State<_BusinessTripCreateScreen> {
     if (title.isEmpty) {
       appNotification.showError(
         title: 'Thiếu thông tin',
-        message: 'Vui lòng nhập tiêu đề hồ sơ công tác',
+        message: tr('Vui lòng nhập tiêu đề hồ sơ công tác'),
       );
       return;
     }
@@ -712,7 +711,7 @@ class _BusinessTripCreateScreenState extends State<_BusinessTripCreateScreen> {
         final id = data is Map ? data['id']?.toString() : null;
         appNotification.showSuccess(
           title: 'Thành công',
-          message: 'Đã tạo hồ sơ — tiếp tục nhập chi phí',
+          message: tr('Đã tạo hồ sơ — tiếp tục nhập chi phí'),
         );
         Navigator.pop(context, id);
       } else {
@@ -728,8 +727,8 @@ class _BusinessTripCreateScreenState extends State<_BusinessTripCreateScreen> {
 
   InputDecoration _dec(String label, {String? hint, IconData? icon}) {
     return InputDecoration(
-      labelText: label,
-      hintText: hint,
+      labelText: tr(label),
+      hintText: trN(hint),
       prefixIcon: icon != null ? Icon(icon, color: _theme) : null,
       filled: true,
       fillColor: Colors.white,
@@ -750,7 +749,7 @@ class _BusinessTripCreateScreenState extends State<_BusinessTripCreateScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
-        title: const Text('Hồ sơ công tác mới'),
+        title: Text(tr('Hồ sơ công tác mới')),
         backgroundColor: _theme,
         foregroundColor: Colors.white,
       ),
@@ -772,13 +771,12 @@ class _BusinessTripCreateScreenState extends State<_BusinessTripCreateScreen> {
                     borderRadius: BorderRadius.circular(14),
                     border: Border.all(color: _theme.withValues(alpha: 0.25)),
                   ),
-                  child: const Row(
+                  child: Row(
                     children: [
                       Icon(Icons.flight_takeoff, color: _theme),
                       SizedBox(width: 10),
                       Expanded(
-                        child: Text(
-                          'Sau khi tạo, chọn loại chi phí (tiền ăn, xe, nhà nghỉ…), nhập số tiền và phân loại hóa đơn VAT / bán hàng / không giấy tờ.',
+                        child: Text(tr('Sau khi tạo, chọn loại chi phí (tiền ăn, xe, nhà nghỉ…), nhập số tiền và phân loại hóa đơn VAT / bán hàng / không giấy tờ.'),
                           style: TextStyle(fontSize: 13, height: 1.35),
                         ),
                       ),
@@ -817,9 +815,9 @@ class _BusinessTripCreateScreenState extends State<_BusinessTripCreateScreen> {
                         onPressed: () => _pickDate(true),
                         icon: const Icon(Icons.calendar_today, size: 18),
                         label: Text(
-                          _fromDate == null
+                          tr(_fromDate == null
                               ? 'Từ ngày'
-                              : _dateFmt.format(_fromDate!),
+                              : _dateFmt.format(_fromDate!)),
                         ),
                       ),
                     ),
@@ -837,9 +835,9 @@ class _BusinessTripCreateScreenState extends State<_BusinessTripCreateScreen> {
                         onPressed: () => _pickDate(false),
                         icon: const Icon(Icons.event, size: 18),
                         label: Text(
-                          _toDate == null
+                          tr(_toDate == null
                               ? 'Đến ngày'
-                              : _dateFmt.format(_toDate!),
+                              : _dateFmt.format(_toDate!)),
                         ),
                       ),
                     ),
@@ -868,7 +866,7 @@ class _BusinessTripCreateScreenState extends State<_BusinessTripCreateScreen> {
                     child: OutlinedButton(
                       onPressed:
                           _saving ? null : () => Navigator.pop(context),
-                      child: const Text('Hủy'),
+                      child: Text(tr('Hủy')),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -890,7 +888,7 @@ class _BusinessTripCreateScreenState extends State<_BusinessTripCreateScreen> {
                               ),
                             )
                           : const Icon(Icons.arrow_forward),
-                      label: Text(_saving ? 'Đang tạo…' : 'Tạo & nhập chi phí'),
+                      label: Text(tr(_saving ? 'Đang tạo…' : 'Tạo & nhập chi phí')),
                     ),
                   ),
                 ],

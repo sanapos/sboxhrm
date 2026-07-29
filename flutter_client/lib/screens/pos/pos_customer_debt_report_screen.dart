@@ -5,6 +5,7 @@ import '../../services/api_service.dart';
 import '../../widgets/notification_overlay.dart';
 import '../../widgets/pos/pos_mobile_widgets.dart';
 import '../../widgets/pos/pos_theme.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 class PosCustomerDebtReportScreen extends StatefulWidget {
   const PosCustomerDebtReportScreen({super.key});
@@ -102,10 +103,9 @@ class _PosCustomerDebtReportScreenState extends State<PosCustomerDebtReportScree
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('$_totalCustomers khách còn nợ',
+                        Text(tr('$_totalCustomers khách còn nợ'),
                             style: const TextStyle(color: PosTheme.textSecondary)),
-                        Text(
-                          '${_moneyFmt.format(_sumDebt)} đ',
+                        Text(tr('${_moneyFmt.format(_sumDebt)} đ'),
                           style: const TextStyle(
                             fontSize: 22,
                             fontWeight: FontWeight.bold,
@@ -143,12 +143,12 @@ class _PosCustomerDebtReportScreenState extends State<PosCustomerDebtReportScree
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  row['name']?.toString() ?? '—',
+                                  tr(row['name']?.toString() ?? '—'),
                                   style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
                                 ),
                                 if (row['phone'] != null)
                                   Text(
-                                    row['phone'].toString(),
+                                    tr(row['phone'].toString()),
                                     style: const TextStyle(
                                         fontSize: 12, color: PosTheme.textSecondary),
                                   ),
@@ -156,8 +156,7 @@ class _PosCustomerDebtReportScreenState extends State<PosCustomerDebtReportScree
                                 Row(
                                   children: [
                                     Expanded(
-                                      child: Text(
-                                        'Tổng nợ: ${_moneyFmt.format(debt)} đ',
+                                      child: Text(tr('Tổng nợ: ${_moneyFmt.format(debt)} đ'),
                                         style: const TextStyle(
                                           color: Colors.red,
                                           fontWeight: FontWeight.bold,
@@ -165,8 +164,7 @@ class _PosCustomerDebtReportScreenState extends State<PosCustomerDebtReportScree
                                       ),
                                     ),
                                     if (openDebt > 0)
-                                      Text(
-                                        'Nợ đơn mở: ${_moneyFmt.format(openDebt)}',
+                                      Text(tr('Nợ đơn mở: ${_moneyFmt.format(openDebt)}'),
                                         style: const TextStyle(fontSize: 11),
                                       ),
                                   ],

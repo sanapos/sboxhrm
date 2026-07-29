@@ -13,6 +13,8 @@ import '../utils/navigation_notifier.dart';
 import 'feedback_detail_screen.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../widgets/hrm_fab_clearance.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
+import 'package:zkteco_flutter_client/l10n/app_ui_locale.dart';
 
 class FeedbackScreen extends StatefulWidget {
   const FeedbackScreen({super.key});
@@ -255,7 +257,7 @@ class _FeedbackScreenState extends State<FeedbackScreen>
             children: [
               Row(
                 children: [
-                  const Text('Bộ lọc',
+                  Text(tr('Bộ lọc'),
                       style: TextStyle(
                           fontSize: 16, fontWeight: FontWeight.w600)),
                   const Spacer(),
@@ -271,7 +273,7 @@ class _FeedbackScreenState extends State<FeedbackScreen>
                           toDate = null;
                         });
                       },
-                      child: const Text('Xóa tất cả',
+                      child: Text(tr('Xóa tất cả'),
                           style: TextStyle(color: Color(0xFFEF4444))),
                     ),
                 ],
@@ -282,7 +284,7 @@ class _FeedbackScreenState extends State<FeedbackScreen>
                 status,
                 _statusLabels.entries
                     .map((e) =>
-                        DropdownMenuItem(value: e.key, child: Text(e.value)))
+                        DropdownMenuItem(value: e.key, child: Text(tr(e.value))))
                     .toList(),
                 (v) => setSheet(() => status = v),
               ),
@@ -292,7 +294,7 @@ class _FeedbackScreenState extends State<FeedbackScreen>
                 category,
                 _categoryLabels.entries
                     .map((e) =>
-                        DropdownMenuItem(value: e.key, child: Text(e.value)))
+                        DropdownMenuItem(value: e.key, child: Text(tr(e.value))))
                     .toList(),
                 (v) => setSheet(() => category = v),
               ),
@@ -310,20 +312,20 @@ class _FeedbackScreenState extends State<FeedbackScreen>
                 key: ValueKey('recipient-sheet-$recipientKey'),
                 initialValue: recipientKey,
                 isExpanded: true,
-                decoration: const InputDecoration(
-                  labelText: 'Người nhận',
+                decoration: InputDecoration(
+                  labelText: tr('Người nhận'),
                   border: OutlineInputBorder(),
                   isDense: true,
                 ),
                 items: [
-                  const DropdownMenuItem(
-                      value: null, child: Text('Tất cả người nhận')),
-                  const DropdownMenuItem(
-                      value: 'general', child: Text('Hòm thư chung')),
+                  DropdownMenuItem(
+                      value: null, child: Text(tr('Tất cả người nhận'))),
+                  DropdownMenuItem(
+                      value: 'general', child: Text(tr('Hòm thư chung'))),
                   ..._managers.map((m) {
                     final id = m['id']?.toString() ?? '';
                     final name = m['name']?.toString() ?? '';
-                    return DropdownMenuItem(value: id, child: Text(name));
+                    return DropdownMenuItem(value: id, child: Text(tr(name)));
                   }),
                 ],
                 onChanged: (v) => setSheet(() => recipientKey = v),
@@ -340,7 +342,7 @@ class _FeedbackScreenState extends State<FeedbackScreen>
                             start: fromDate!,
                             end: toDate ?? fromDate!)
                         : null,
-                    locale: const Locale('vi'),
+                    locale: appUiLocale(),
                   );
                   if (range != null) {
                     setSheet(() {
@@ -351,9 +353,9 @@ class _FeedbackScreenState extends State<FeedbackScreen>
                 },
                 icon: const Icon(Icons.date_range, size: 18),
                 label: Text(
-                  fromDate != null
+                  tr(fromDate != null
                       ? '${DateFormat('dd/MM/yy').format(fromDate!)} – ${DateFormat('dd/MM/yy').format(toDate ?? fromDate!)}'
-                      : 'Thời gian gửi',
+                      : 'Thời gian gửi'),
                 ),
               ),
               const SizedBox(height: 16),
@@ -373,7 +375,7 @@ class _FeedbackScreenState extends State<FeedbackScreen>
                 style: FilledButton.styleFrom(
                   backgroundColor: HrmPageChrome.primaryNavy,
                 ),
-                child: const Text('Áp dụng'),
+                child: Text(tr('Áp dụng')),
               ),
             ],
           ),
@@ -464,7 +466,7 @@ class _FeedbackScreenState extends State<FeedbackScreen>
       debugPrint('Load feedback lists error: $e');
       if (mounted) {
         NotificationOverlayManager().showError(
-            title: 'Lỗi', message: 'Không thể tải danh sách phản ánh');
+            title: 'Lỗi', message: tr('Không thể tải danh sách phản ánh'));
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -479,7 +481,7 @@ class _FeedbackScreenState extends State<FeedbackScreen>
       debugPrint('Load feedbacks error: $e');
       if (mounted) {
         NotificationOverlayManager().showError(
-            title: 'Lỗi', message: 'Không thể tải danh sách phản hồi');
+            title: 'Lỗi', message: tr('Không thể tải danh sách phản hồi'));
       }
     }
     if (mounted) setState(() => _isLoading = false);
@@ -493,7 +495,7 @@ class _FeedbackScreenState extends State<FeedbackScreen>
       debugPrint('Load my feedbacks error: $e');
       if (mounted) {
         NotificationOverlayManager().showError(
-            title: 'Lỗi', message: 'Không thể tải phản hồi của bạn');
+            title: 'Lỗi', message: tr('Không thể tải phản hồi của bạn'));
       }
     }
     if (mounted) setState(() => _isLoading = false);
@@ -523,7 +525,7 @@ class _FeedbackScreenState extends State<FeedbackScreen>
           ? FloatingActionButton.extended(
               onPressed: _showCreateDialog,
               icon: const Icon(Icons.add),
-              label: const Text('Gửi ý kiến'),
+              label: Text(tr('Gửi ý kiến')),
               backgroundColor: primary,
               foregroundColor: Colors.white,
               elevation: 4,
@@ -544,7 +546,7 @@ class _FeedbackScreenState extends State<FeedbackScreen>
                     FilledButton.icon(
                       onPressed: _showCreateDialog,
                       icon: const Icon(Icons.add, size: 18),
-                      label: const Text('Gửi ý kiến'),
+                      label: Text(tr('Gửi ý kiến')),
                       style: FilledButton.styleFrom(
                         backgroundColor: primary,
                         foregroundColor: Colors.white,
@@ -566,9 +568,9 @@ class _FeedbackScreenState extends State<FeedbackScreen>
                     labelColor: primary,
                     unselectedLabelColor: const Color(0xFF71717A),
                     indicatorColor: primary,
-                    tabs: const [
-                      Tab(text: 'Của tôi'),
-                      Tab(text: 'Hòm thư'),
+                    tabs: [
+                      Tab(text: tr('Của tôi')),
+                      Tab(text: tr('Hòm thư')),
                     ],
                   ),
                 ),
@@ -576,7 +578,7 @@ class _FeedbackScreenState extends State<FeedbackScreen>
                   Padding(
                     padding: const EdgeInsets.only(right: 4),
                     child: Chip(
-                      label: Text('$_activeFilterCount',
+                      label: Text(tr('$_activeFilterCount'),
                           style: const TextStyle(fontSize: 11)),
                       backgroundColor: primary.withValues(alpha: 0.1),
                       labelStyle: const TextStyle(color: primary),
@@ -585,7 +587,7 @@ class _FeedbackScreenState extends State<FeedbackScreen>
                     ),
                   ),
                 IconButton(
-                  tooltip: 'Bộ lọc',
+                  tooltip: tr('Bộ lọc'),
                   onPressed: () => _showFilterSheet(showSenderFilter),
                   icon: Badge(
                     isLabelVisible: hasActiveFilter,
@@ -631,14 +633,14 @@ class _FeedbackScreenState extends State<FeedbackScreen>
         key: ValueKey('$label-$value'),
         initialValue: value,
         decoration: InputDecoration(
-          labelText: label,
+          labelText: tr(label),
           border: const OutlineInputBorder(),
           contentPadding:
               const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           isDense: true,
         ),
         items: [
-          DropdownMenuItem<String>(value: null, child: Text('Tất cả $label')),
+          DropdownMenuItem<String>(value: null, child: Text(tr('Tất cả $label'))),
           ...items,
         ],
         onChanged: onChanged,
@@ -659,7 +661,7 @@ class _FeedbackScreenState extends State<FeedbackScreen>
         initialValue: value,
         isExpanded: true,
         decoration: InputDecoration(
-          labelText: label,
+          labelText: tr(label),
           border: const OutlineInputBorder(),
           contentPadding:
               const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -667,7 +669,7 @@ class _FeedbackScreenState extends State<FeedbackScreen>
         ),
         items: [
           DropdownMenuItem<String>(
-              value: null, child: Text('Tất cả $label')),
+              value: null, child: Text(tr('Tất cả $label'))),
           ...employees.map((e) {
             final id = e['id']?.toString() ?? '';
             final name = _employeeDisplayName(e);
@@ -675,7 +677,7 @@ class _FeedbackScreenState extends State<FeedbackScreen>
             return DropdownMenuItem<String>(
               value: id,
               child: Text(
-                code.isNotEmpty ? '$name ($code)' : name,
+                tr(code.isNotEmpty ? '$name ($code)' : name),
                 overflow: TextOverflow.ellipsis,
               ),
             );
@@ -699,16 +701,16 @@ class _FeedbackScreenState extends State<FeedbackScreen>
             Icon(Icons.inbox_outlined, size: 64, color: Colors.grey[300]),
             const SizedBox(height: 12),
             Text(
-              _hasActiveFilters
+              tr(_hasActiveFilters
                   ? 'Không có phản ánh phù hợp bộ lọc'
                   : (isMine
                       ? 'Bạn chưa gửi phản ánh nào'
-                      : 'Chưa có phản ánh nào'),
+                      : 'Chưa có phản ánh nào')),
               style: TextStyle(fontSize: 16, color: Colors.grey[500]),
             ),
             if (_hasActiveFilters) ...[
               const SizedBox(height: 8),
-              TextButton(onPressed: _clearFilters, child: const Text('Xóa bộ lọc')),
+              TextButton(onPressed: _clearFilters, child: Text(tr('Xóa bộ lọc'))),
             ],
           ],
         ),
@@ -779,7 +781,7 @@ class _FeedbackScreenState extends State<FeedbackScreen>
                     size: 20, color: HrmPageChrome.primaryNavy),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: Text(fb['title'] ?? '',
+                  child: Text(tr(fb['title'] ?? ''),
                       style: const TextStyle(
                           fontSize: 15, fontWeight: FontWeight.w600)),
                 ),
@@ -793,7 +795,7 @@ class _FeedbackScreenState extends State<FeedbackScreen>
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
-                    _statusLabels[status] ?? status,
+                    tr(_statusLabels[status] ?? status),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
@@ -833,7 +835,7 @@ class _FeedbackScreenState extends State<FeedbackScreen>
             ),
             const SizedBox(height: 10),
             // Content
-            Text(fb['content'] ?? '',
+            Text(tr(fb['content'] ?? ''),
                 style: const TextStyle(fontSize: 14, height: 1.5)),
             // Response
             if (response != null && response.isNotEmpty) ...[
@@ -853,8 +855,7 @@ class _FeedbackScreenState extends State<FeedbackScreen>
                         const Icon(Icons.reply, size: 16,
                             color: Color(0xFF059669)),
                         const SizedBox(width: 6),
-                        Text(
-                          'Phản hồi${respondedByName != null ? ' từ $respondedByName' : ''}',
+                        Text(tr('${tr('Phản hồi')}${respondedByName != null ? ' từ $respondedByName' : ''}'),
                           style: const TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.w600,
@@ -863,8 +864,8 @@ class _FeedbackScreenState extends State<FeedbackScreen>
                         if (respondedAt != null) ...[
                           const Spacer(),
                           Text(
-                            DateFormat('dd/MM/yyyy HH:mm')
-                                .format(respondedAt),
+                            tr(DateFormat('dd/MM/yyyy HH:mm')
+                                .format(respondedAt)),
                             style: TextStyle(
                                 fontSize: 11, color: Colors.grey[500]),
                           ),
@@ -872,7 +873,7 @@ class _FeedbackScreenState extends State<FeedbackScreen>
                       ],
                     ),
                     const SizedBox(height: 6),
-                    Text(response,
+                    Text(tr(response),
                         style: const TextStyle(fontSize: 14, height: 1.4)),
                   ],
                 ),
@@ -892,7 +893,7 @@ class _FeedbackScreenState extends State<FeedbackScreen>
                       children: [
                         const Icon(Icons.chat_bubble_outline, size: 14, color: Color(0xFF3B82F6)),
                         const SizedBox(width: 4),
-                        Text('$replyCount phản hồi',
+                        Text(tr('$replyCount phản hồi'),
                             style: const TextStyle(fontSize: 12, color: Color(0xFF3B82F6), fontWeight: FontWeight.w500)),
                       ],
                     ),
@@ -901,7 +902,7 @@ class _FeedbackScreenState extends State<FeedbackScreen>
                 TextButton.icon(
                   onPressed: () => _openDetail(fb, isMine: isMine),
                   icon: const Icon(Icons.chat_outlined, size: 16),
-                  label: const Text('Xem / Trả lời'),
+                  label: Text(tr('Xem / Trả lời')),
                   style: TextButton.styleFrom(
                       foregroundColor: HrmPageChrome.primaryNavy),
                 ),
@@ -910,7 +911,7 @@ class _FeedbackScreenState extends State<FeedbackScreen>
                   TextButton.icon(
                     onPressed: () => _confirmDelete(fb),
                     icon: const Icon(Icons.delete_outline, size: 16),
-                    label: const Text('Xóa'),
+                    label: Text(tr('Xóa')),
                     style: TextButton.styleFrom(
                         foregroundColor: const Color(0xFFEF4444)),
                   ),
@@ -943,7 +944,7 @@ class _FeedbackScreenState extends State<FeedbackScreen>
       children: [
         Icon(icon, size: 14, color: color ?? Colors.grey[500]),
         const SizedBox(width: 4),
-        Text(label,
+        Text(tr(label),
             style: TextStyle(
                 fontSize: 12, color: color ?? Colors.grey[600])),
       ],
@@ -967,10 +968,10 @@ class _FeedbackScreenState extends State<FeedbackScreen>
           children: [
             // Ẩn danh toggle
             SwitchListTile(
-              title: const Text('Gửi ẩn danh'),
-              subtitle: Text(isAnonymous
+              title: Text(tr('Gửi ẩn danh')),
+              subtitle: Text(tr(isAnonymous
                   ? 'Danh tính sẽ được bảo mật'
-                  : 'Người nhận sẽ biết bạn là ai'),
+                  : 'Người nhận sẽ biết bạn là ai')),
               value: isAnonymous,
               activeThumbColor: HrmPageChrome.primaryNavy,
               secondary: Icon(
@@ -985,12 +986,12 @@ class _FeedbackScreenState extends State<FeedbackScreen>
             // Phân loại
             DropdownButtonFormField<String>(
               initialValue: category,
-              decoration: const InputDecoration(
-                  labelText: 'Phân loại *',
+              decoration: InputDecoration(
+                  labelText: tr('Phân loại *'),
                   border: OutlineInputBorder()),
               items: _categoryLabels.entries
                   .map((e) => DropdownMenuItem(
-                      value: e.key, child: Text(e.value)))
+                      value: e.key, child: Text(tr(e.value))))
                   .toList(),
               onChanged: (v) =>
                   setDlgState(() => category = v ?? 'General'),
@@ -999,21 +1000,21 @@ class _FeedbackScreenState extends State<FeedbackScreen>
             // Gửi đến
             DropdownButtonFormField<String>(
               initialValue: recipientId,
-              decoration: const InputDecoration(
-                  labelText: 'Gửi đến',
-                  hintText: 'Hòm thư chung (mặc định)',
+              decoration: InputDecoration(
+                  labelText: tr('Gửi đến'),
+                  hintText: tr('Hòm thư chung (mặc định)'),
                   border: OutlineInputBorder()),
               items: [
-                const DropdownMenuItem<String>(
+                DropdownMenuItem<String>(
                     value: null,
-                    child: Text('📧 Hòm thư chung')),
+                    child: Text(tr('📧 Hòm thư chung'))),
                 ..._managers.map((m) {
                   final name = m['name'] ?? '';
                   final pos = m['position'] ?? '';
                   return DropdownMenuItem<String>(
                       value: m['id']?.toString(),
                       child: Text(
-                          '$name${pos.isNotEmpty ? ' ($pos)' : ''}'));
+                          tr('$name${pos.isNotEmpty ? ' ($pos)' : ''}')));
                 }),
               ],
               onChanged: (v) => setDlgState(() => recipientId = v),
@@ -1023,13 +1024,13 @@ class _FeedbackScreenState extends State<FeedbackScreen>
             TextField(
               controller: titleCtl,
               decoration: InputDecoration(
-                  labelText: 'Tiêu đề *',
+                  labelText: tr('Tiêu đề *'),
                   border: const OutlineInputBorder(),
                   suffixIcon: AiAssistIconButton(
                     kind: 'feedback',
                     title: 'AI gợi ý tiêu đề',
                     targetController: titleCtl,
-                    tooltip: 'AI gợi ý tiêu đề',
+                    tooltip: tr('AI gợi ý tiêu đề'),
                     contextBuilder: () =>
                         'Phân loại: ${_categoryLabels[category] ?? category}. '
                         'Gợi ý 1 tiêu đề ngắn gọn (tối đa 100 ký tự) cho phản ánh này. '
@@ -1042,14 +1043,14 @@ class _FeedbackScreenState extends State<FeedbackScreen>
             TextField(
               controller: contentCtl,
               decoration: InputDecoration(
-                  labelText: 'Nội dung *',
+                  labelText: tr('Nội dung *'),
                   border: const OutlineInputBorder(),
                   alignLabelWithHint: true,
                   suffixIcon: AiAssistIconButton(
                     kind: 'feedback',
                     title: 'AI soạn phản ánh',
                     targetController: contentCtl,
-                    tooltip: 'AI soạn phản ánh',
+                    tooltip: tr('AI soạn phản ánh'),
                     contextBuilder: () =>
                         'Phân loại: ${_categoryLabels[category] ?? category}. '
                         '${titleCtl.text.trim().isNotEmpty ? 'Tiêu đề: ${titleCtl.text.trim()}. ' : ''}'
@@ -1068,7 +1069,7 @@ class _FeedbackScreenState extends State<FeedbackScreen>
           contentCtl.text.trim().isEmpty) {
         appNotification.showError(
             title: 'Lỗi',
-            message: 'Vui lòng nhập tiêu đề và nội dung');
+            message: tr('Vui lòng nhập tiêu đề và nội dung'));
         return;
       }
       final res = await _apiService.createFeedback({
@@ -1104,7 +1105,7 @@ class _FeedbackScreenState extends State<FeedbackScreen>
               insetPadding: EdgeInsets.zero,
               child: Scaffold(
                 appBar: AppBar(
-                  title: const Text('Gửi phản ánh / Ý kiến', overflow: TextOverflow.ellipsis, maxLines: 1),
+                  title: Text(tr('Gửi phản ánh / Ý kiến'), overflow: TextOverflow.ellipsis, maxLines: 1),
                   backgroundColor: HrmPageChrome.primaryNavy,
                   foregroundColor: Colors.white,
                   leading: IconButton(
@@ -1120,7 +1121,7 @@ class _FeedbackScreenState extends State<FeedbackScreen>
                       Expanded(
                         child: OutlinedButton(
                           onPressed: () => Navigator.pop(ctx),
-                          child: const Text('Hủy'),
+                          child: Text(tr('Hủy')),
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -1129,7 +1130,7 @@ class _FeedbackScreenState extends State<FeedbackScreen>
                           onPressed: () => onSubmit(ctx),
                           style: FilledButton.styleFrom(
                               backgroundColor: HrmPageChrome.primaryNavy),
-                          child: const Text('Gửi'),
+                          child: Text(tr('Gửi')),
                         ),
                       ),
                     ],
@@ -1139,7 +1140,7 @@ class _FeedbackScreenState extends State<FeedbackScreen>
             );
           }
           return ScrollableAlertDialog(
-            title: const Text('Gửi phản ánh / Ý kiến'),
+            title: Text(tr('Gửi phản ánh / Ý kiến')),
             content: SizedBox(
               width: 500,
               child: buildFormContent(setDlgState),
@@ -1147,12 +1148,12 @@ class _FeedbackScreenState extends State<FeedbackScreen>
             actions: [
               TextButton(
                   onPressed: () => Navigator.pop(ctx),
-                  child: const Text('Hủy')),
+                  child: Text(tr('Hủy'))),
               FilledButton(
                 onPressed: () => onSubmit(ctx),
                 style: FilledButton.styleFrom(
                     backgroundColor: HrmPageChrome.primaryNavy),
-                child: const Text('Gửi'),
+                child: Text(tr('Gửi')),
               ),
             ],
           );
@@ -1164,7 +1165,7 @@ class _FeedbackScreenState extends State<FeedbackScreen>
   // ignore: unused_element
   void _showRespondDialog(Map<String, dynamic> fb) {
     final responseCtl =
-        TextEditingController(text: fb['response'] ?? '');
+        TextEditingController(text: tr(fb['response'] ?? ''));
     String status = fb['status'] ?? 'InProgress';
 
     Widget buildFormContent(StateSetter setDlgState) {
@@ -1184,16 +1185,16 @@ class _FeedbackScreenState extends State<FeedbackScreen>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(fb['title'] ?? '',
+                  Text(tr(fb['title'] ?? ''),
                       style: const TextStyle(fontWeight: FontWeight.w600)),
                   const SizedBox(height: 4),
-                  Text(fb['content'] ?? '',
+                  Text(tr(fb['content'] ?? ''),
                       style: const TextStyle(
                           fontSize: 13, color: Color(0xFF64748B))),
                   if (fb['isAnonymous'] == true)
-                    const Padding(
+                    Padding(
                       padding: EdgeInsets.only(top: 4),
-                      child: Text('🔒 Gửi ẩn danh',
+                      child: Text(tr('🔒 Gửi ẩn danh'),
                           style: TextStyle(
                               fontSize: 12, color: Color(0xFFEF4444))),
                     ),
@@ -1204,12 +1205,12 @@ class _FeedbackScreenState extends State<FeedbackScreen>
             // Status
             DropdownButtonFormField<String>(
               initialValue: status,
-              decoration: const InputDecoration(
-                  labelText: 'Trạng thái',
+              decoration: InputDecoration(
+                  labelText: tr('Trạng thái'),
                   border: OutlineInputBorder()),
               items: _statusLabels.entries
                   .map((e) => DropdownMenuItem(
-                      value: e.key, child: Text(e.value)))
+                      value: e.key, child: Text(tr(e.value))))
                   .toList(),
               onChanged: (v) =>
                   setDlgState(() => status = v ?? 'InProgress'),
@@ -1218,8 +1219,8 @@ class _FeedbackScreenState extends State<FeedbackScreen>
             // Response
             TextField(
               controller: responseCtl,
-              decoration: const InputDecoration(
-                  labelText: 'Phản hồi *',
+              decoration: InputDecoration(
+                  labelText: tr('Phản hồi *'),
                   border: OutlineInputBorder(),
                   alignLabelWithHint: true),
               maxLines: 4,
@@ -1233,7 +1234,7 @@ class _FeedbackScreenState extends State<FeedbackScreen>
     void onSubmit(BuildContext ctx) async {
       if (responseCtl.text.trim().isEmpty) {
         appNotification.showError(
-            title: 'Lỗi', message: 'Vui lòng nhập nội dung phản hồi');
+            title: 'Lỗi', message: tr('Vui lòng nhập nội dung phản hồi'));
         return;
       }
       final res = await _apiService.respondFeedback(
@@ -1244,7 +1245,7 @@ class _FeedbackScreenState extends State<FeedbackScreen>
       if (res['isSuccess'] == true) {
         if (ctx.mounted) Navigator.pop(ctx);
         appNotification.showSuccess(
-            title: 'Thành công', message: 'Đã phản hồi');
+            title: 'Thành công', message: tr('Đã phản hồi'));
         _loadAll();
       } else {
         appNotification.showError(
@@ -1264,7 +1265,7 @@ class _FeedbackScreenState extends State<FeedbackScreen>
               insetPadding: EdgeInsets.zero,
               child: Scaffold(
                 appBar: AppBar(
-                  title: const Text('Phản hồi ý kiến'),
+                  title: Text(tr('Phản hồi ý kiến')),
                   backgroundColor: HrmPageChrome.primaryNavy,
                   foregroundColor: Colors.white,
                   leading: IconButton(
@@ -1280,7 +1281,7 @@ class _FeedbackScreenState extends State<FeedbackScreen>
                       Expanded(
                         child: OutlinedButton(
                           onPressed: () => Navigator.pop(ctx),
-                          child: const Text('Hủy'),
+                          child: Text(tr('Hủy')),
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -1289,7 +1290,7 @@ class _FeedbackScreenState extends State<FeedbackScreen>
                           onPressed: () => onSubmit(ctx),
                           style: FilledButton.styleFrom(
                               backgroundColor: HrmPageChrome.primaryNavy),
-                          child: const Text('Gửi phản hồi'),
+                          child: Text(tr('Gửi phản hồi')),
                         ),
                       ),
                     ],
@@ -1299,7 +1300,7 @@ class _FeedbackScreenState extends State<FeedbackScreen>
             );
           }
           return ScrollableAlertDialog(
-            title: const Text('Phản hồi ý kiến'),
+            title: Text(tr('Phản hồi ý kiến')),
             content: SizedBox(
               width: 500,
               child: buildFormContent(setDlgState),
@@ -1307,12 +1308,12 @@ class _FeedbackScreenState extends State<FeedbackScreen>
             actions: [
               TextButton(
                   onPressed: () => Navigator.pop(ctx),
-                  child: const Text('Hủy')),
+                  child: Text(tr('Hủy'))),
               FilledButton(
                 onPressed: () => onSubmit(ctx),
                 style: FilledButton.styleFrom(
                     backgroundColor: HrmPageChrome.primaryNavy),
-                child: const Text('Gửi phản hồi'),
+                child: Text(tr('Gửi phản hồi')),
               ),
             ],
           );
@@ -1325,16 +1326,16 @@ class _FeedbackScreenState extends State<FeedbackScreen>
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => ScrollableAlertDialog(
-        title: const Text('Xác nhận xóa'),
-        content: const Text('Xóa phản ánh này?'),
+        title: Text(tr('Xác nhận xóa')),
+        content: Text(tr('Xóa phản ánh này?')),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Hủy')),
+              child: Text(tr('Hủy'))),
           FilledButton(
               onPressed: () => Navigator.pop(ctx, true),
               style: FilledButton.styleFrom(backgroundColor: Colors.red),
-              child: const Text('Xóa')),
+              child: Text(tr('Xóa'))),
         ],
       ),
     );
@@ -1342,7 +1343,7 @@ class _FeedbackScreenState extends State<FeedbackScreen>
       final res =
           await _apiService.deleteFeedback(fb['id'].toString());
       if (res['isSuccess'] == true) {
-        appNotification.showSuccess(title: 'Thành công', message: 'Đã xóa');
+        appNotification.showSuccess(title: 'Thành công', message: tr('Đã xóa'));
         _loadMy();
       } else {
         appNotification.showError(

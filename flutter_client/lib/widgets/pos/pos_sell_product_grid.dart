@@ -18,6 +18,7 @@ import '../pos_barcode_scanner.dart';
 import 'pos_product_image.dart';
 import 'pos_product_unit_view.dart';
 import 'pos_theme.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 const _blue = Color(0xFF2563EB);
 
@@ -245,7 +246,7 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
         onChanged: _onSearchChanged,
         textInputAction: TextInputAction.search,
         decoration: InputDecoration(
-          hintText: 'Tìm tên, mã hàng, mã vạch…',
+          hintText: tr('Tìm tên, mã hàng, mã vạch…'),
           isDense: true,
           filled: true,
           fillColor: const Color(0xFFF8FAFC),
@@ -393,7 +394,7 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
     return ListTile(
       dense: true,
       contentPadding: EdgeInsets.zero,
-      title: Text(label),
+      title: Text(tr(label)),
       trailing: isSelected
           ? const Icon(Icons.check, color: PosTheme.kiotBlue, size: 20)
           : null,
@@ -563,7 +564,7 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
               ),
             ),
             child: Text(
-              label,
+              tr(label),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
@@ -641,7 +642,7 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 7, horizontal: 2),
           child: Text(
-            label,
+            tr(label),
             textAlign: TextAlign.center,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
@@ -741,7 +742,7 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
                             ),
                             const SizedBox(height: 6),
                             Text(
-                              p.name,
+                              tr(p.name),
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
                               textAlign: TextAlign.center,
@@ -753,8 +754,7 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
                               ),
                             ),
                             const SizedBox(height: 6),
-                            Text(
-                              '${_moneyFmt.format(applyPosPriceListToProductBase(p, widget.priceOverrides))} đ',
+                            Text(tr('${_moneyFmt.format(applyPosPriceListToProductBase(p, widget.priceOverrides))} đ'),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               textAlign: TextAlign.center,
@@ -811,8 +811,7 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
               : const Color(0xFF93C5FD),
         ),
       ),
-      child: Text(
-        'Tồn ${_qtyFmt.format(qty)}',
+      child: Text(tr('Tồn ${_qtyFmt.format(qty)}'),
         style: TextStyle(
           fontSize: 9,
           fontWeight: FontWeight.w600,
@@ -833,7 +832,7 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
         borderRadius: BorderRadius.circular(4),
       ),
       child: Text(
-        text,
+        tr(text),
         style: const TextStyle(
           fontSize: 8,
           fontWeight: FontWeight.w500,
@@ -849,8 +848,7 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
     }
     if (_products.isEmpty) {
       return Center(
-        child: Text(
-          'Không có hàng bán trực tiếp',
+        child: Text(tr('Không có hàng bán trực tiếp'),
           style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
         ),
       );
@@ -891,7 +889,7 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
                       : null,
                 ),
                 Text(
-                  '${_page + 1}/$_sellListPageCount · ${_sortedSellListProducts.length} SP',
+                  tr('${_page + 1}/$_sellListPageCount · ${_sortedSellListProducts.length} SP'),
                   style: const TextStyle(fontSize: 11),
                 ),
                 IconButton(
@@ -999,8 +997,7 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
     }
     if (_products.isEmpty) {
       return Center(
-        child: Text(
-          'Không có hàng bán trực tiếp',
+        child: Text(tr('Không có hàng bán trực tiếp'),
           style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
         ),
       );
@@ -1049,7 +1046,7 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
                       : null,
                 ),
                 Text(
-                  '${_page + 1}/$_pageCount',
+                  tr('${_page + 1}/$_pageCount'),
                   style: const TextStyle(fontSize: 12),
                 ),
                 IconButton(
@@ -1097,7 +1094,7 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
                   ),
                 ),
                 IconButton(
-                  tooltip: 'Sắp xếp menu',
+                  tooltip: tr('Sắp xếp menu'),
                   visualDensity: VisualDensity.compact,
                   icon: const Icon(Icons.swap_vert, size: 22),
                   onPressed: _openCatalogSort,
@@ -1123,7 +1120,7 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
       padding: const EdgeInsets.only(right: 8),
       child: FilterChip(
         label: Text(
-          label,
+          tr(label),
           style: TextStyle(
             fontSize: 12,
             fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
@@ -1211,7 +1208,7 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
                               ),
                             ),
                             IconButton(
-                              tooltip: 'Sắp xếp menu',
+                              tooltip: tr('Sắp xếp menu'),
                               icon: const Icon(Icons.swap_vert),
                               onPressed: _openCatalogSort,
                             ),

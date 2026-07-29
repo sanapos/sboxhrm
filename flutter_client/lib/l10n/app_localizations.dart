@@ -13,9 +13,15 @@ class AppLocalizations {
       _AppLocalizationsDelegate();
 
   String get(String key) {
-    final map =
-        _localizedValues[locale.languageCode] ?? _localizedValues['vi']!;
-    return map[key] ?? _localizedValues['vi']![key] ?? key;
+    final lang = locale.languageCode;
+    final map = _localizedValues[lang] ?? _localizedValues['vi']!;
+    final value = map[key];
+    if (value != null) return value;
+    // English must not silently fall back to Vietnamese (mixed UI).
+    if (lang == 'en') {
+      return _localizedValues['en']![key] ?? key;
+    }
+    return _localizedValues['vi']![key] ?? key;
   }
 
   // Convenience getters for common strings
@@ -447,6 +453,31 @@ class AppLocalizations {
   String get prev => get('prev');
   String get male2 => get('male');
   String get female2 => get('female');
+
+  // POS / reports / extras (nav)
+  String get businessTripExpense => get('businessTripExpense');
+  String get businessTripExpenseSubtitle => get('businessTripExpenseSubtitle');
+  String get penaltyTickets => get('penaltyTickets');
+  String get feedback => get('feedback');
+  String get posProducts => get('posProducts');
+  String get posSell => get('posSell');
+  String get posSaleOrders => get('posSaleOrders');
+  String get posSaleReturns => get('posSaleReturns');
+  String get posPurchaseReceipts => get('posPurchaseReceipts');
+  String get posPurchaseReturns => get('posPurchaseReturns');
+  String get posStockCounts => get('posStockCounts');
+  String get posDamageIssues => get('posDamageIssues');
+  String get posInternalUseIssues => get('posInternalUseIssues');
+  String get posSalesReport => get('posSalesReport');
+  String get penaltyReport => get('penaltyReport');
+  String get cashReport => get('cashReport');
+  String get advanceReport => get('advanceReport');
+  String get businessTripReport => get('businessTripReport');
+  String get leaveReport => get('leaveReport');
+  String get assetReport => get('assetReport');
+  String get assetReportSubtitle => get('assetReportSubtitle');
+  String get groupPos => get('groupPos');
+  String get settingsHubSubtitle => get('settingsHubSubtitle');
 
   static const Map<String, Map<String, String>> _localizedValues = {
     'vi': {
@@ -881,6 +912,31 @@ class AppLocalizations {
       'back': 'Quay lại',
       'next': 'Tiếp',
       'prev': 'Trước',
+
+      // POS / reports / extras
+      'businessTripExpense': 'Công tác phí',
+      'businessTripExpenseSubtitle': 'Công tác phí — ứng & hoạch toán',
+      'penaltyTickets': 'Phiếu phạt',
+      'feedback': 'Phản ánh / Ý kiến',
+      'posProducts': 'Hàng hóa',
+      'posSell': 'Bán hàng',
+      'posSaleOrders': 'Đơn hàng',
+      'posSaleReturns': 'Trả hàng bán',
+      'posPurchaseReceipts': 'Nhập hàng NCC',
+      'posPurchaseReturns': 'Trả hàng nhập',
+      'posStockCounts': 'Kiểm kho',
+      'posDamageIssues': 'Xuất hủy',
+      'posInternalUseIssues': 'Xuất dùng nội bộ',
+      'posSalesReport': 'Báo cáo POS',
+      'penaltyReport': 'Báo cáo phạt',
+      'cashReport': 'Báo cáo thu chi',
+      'advanceReport': 'Báo cáo ứng lương',
+      'businessTripReport': 'Báo cáo công tác phí',
+      'leaveReport': 'Báo cáo nghỉ phép',
+      'assetReport': 'Báo cáo tài sản',
+      'assetReportSubtitle': 'Danh mục, kho, kiểm kê, bảo hành',
+      'groupPos': 'POS / Bán hàng',
+      'settingsHubSubtitle': 'Giao diện, ngôn ngữ, kết nối',
     },
     'en': {
       // Navigation / Sidebar
@@ -1097,7 +1153,7 @@ class AppLocalizations {
       'addNewEmployee': 'Add New Employee',
       'gender': 'Gender',
       'birthDate': 'Date of Birth',
-      'phone': 'phone Number',
+      'phone': 'Phone Number',
       'address': 'Address',
       'all': 'All',
       'employeeCode': 'Emp. Code',
@@ -1128,7 +1184,7 @@ class AppLocalizations {
       'maternityLeave': 'Maternity',
       'compensatoryLeave': 'Compensatory',
       'longTermLeave': 'Long-term',
-      'myRequests': 'Máy Requests',
+      'myRequests': 'My Requests',
       'allStatus': 'All Status',
       'allTypes': 'All Types',
       'today': 'Today',
@@ -1314,6 +1370,31 @@ class AppLocalizations {
       'back': 'Back',
       'next': 'Next',
       'prev': 'Previous',
+
+      // POS / reports / extras
+      'businessTripExpense': 'Business trip expense',
+      'businessTripExpenseSubtitle': 'Business trip — advance & settlement',
+      'penaltyTickets': 'Penalty tickets',
+      'feedback': 'Feedback',
+      'posProducts': 'Products',
+      'posSell': 'Sell',
+      'posSaleOrders': 'Orders',
+      'posSaleReturns': 'Sales returns',
+      'posPurchaseReceipts': 'Purchase receipts',
+      'posPurchaseReturns': 'Purchase returns',
+      'posStockCounts': 'Stock count',
+      'posDamageIssues': 'Damage issue',
+      'posInternalUseIssues': 'Internal use',
+      'posSalesReport': 'POS report',
+      'penaltyReport': 'Penalty report',
+      'cashReport': 'Cash report',
+      'advanceReport': 'Advance report',
+      'businessTripReport': 'Business trip report',
+      'leaveReport': 'Leave report',
+      'assetReport': 'Asset report',
+      'assetReportSubtitle': 'Catalog, warehouse, inventory, warranty',
+      'groupPos': 'POS / Sales',
+      'settingsHubSubtitle': 'Appearance, language, connection',
     },
   };
 }

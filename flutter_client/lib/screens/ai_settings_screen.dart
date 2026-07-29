@@ -6,6 +6,7 @@ import '../utils/responsive_helper.dart';
 import '../widgets/hrm/hrm_settings_mobile_kit.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../widgets/notification_overlay.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 class AiSettingsScreen extends StatefulWidget {
   const AiSettingsScreen({super.key});
 
@@ -105,7 +106,7 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
           data.length <= 2) {
         appNotification.showWarning(
             title: 'Chưa có API Key',
-            message: 'Vui lòng nhập API Key để sử dụng Gemini');
+            message: tr('Vui lòng nhập API Key để sử dụng Gemini'));
         setState(() => _isSaving = false);
         return;
       }
@@ -113,7 +114,7 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
       final result = await _apiService.updateGeminiConfig(data);
       if (result['isSuccess'] == true) {
         appNotification.showSuccess(
-            title: 'Thành công', message: 'Đã lưu cấu hình Gemini');
+            title: 'Thành công', message: tr('Đã lưu cấu hình Gemini'));
         _geminiApiKeyController.clear();
         await _loadAllConfigs();
       } else {
@@ -123,7 +124,7 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
       }
     } catch (e) {
       appNotification.showError(
-          title: 'Lỗi', message: 'Không thể lưu cấu hình: $e');
+          title: 'Lỗi', message: tr('Không thể lưu cấu hình: $e'));
     }
     if (mounted) setState(() => _isSaving = false);
   }
@@ -195,18 +196,18 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
                   setState(() => _geminiObscure = !_geminiObscure),
               onSave: _saveGeminiConfig,
               onTest: () => _testConnection(),
-              modelItems: const [
+              modelItems: [
                 DropdownMenuItem(
                     value: 'gemini-2.5-flash',
-                    child: Text('Gemini 2.5 Flash (Nhanh, miễn phí)')),
+                    child: Text(tr('Gemini 2.5 Flash (Nhanh, miễn phí)'))),
                 DropdownMenuItem(
                     value: 'gemini-2.5-pro',
-                    child: Text('Gemini 2.5 Pro (Chất lượng cao)')),
+                    child: Text(tr('Gemini 2.5 Pro (Chất lượng cao)'))),
                 DropdownMenuItem(
-                    value: 'gemini-2.0-flash', child: Text('Gemini 2.0 Flash')),
+                    value: 'gemini-2.0-flash', child: Text(tr('Gemini 2.0 Flash'))),
                 DropdownMenuItem(
                     value: 'gemini-2.0-flash-lite',
-                    child: Text('Gemini 2.0 Flash Lite (Siêu nhanh)')),
+                    child: Text(tr('Gemini 2.0 Flash Lite (Siêu nhanh)'))),
               ],
               helpSteps: const [
                 _HelpStep(1, 'Truy cập Google AI Studio',
@@ -302,13 +303,13 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(name,
+              Text(tr(name),
                   style: TextStyle(
                       fontSize: isMobile ? 17 : 22,
                       fontWeight: FontWeight.bold,
                       color: const Color(0xFF18181B))),
               const SizedBox(height: 4),
-              Text('Tích hợp AI để tự động tạo nội dung',
+              Text(tr('Tích hợp AI để tự động tạo nội dung'),
                   style: TextStyle(
                       color: Colors.grey[600], fontSize: isMobile ? 12 : 14)),
             ],
@@ -321,7 +322,7 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
               onChanged: _isSaving ? null : onToggle,
               activeThumbColor: const Color(0xFF2D5F8B),
             ),
-            Text(enabled ? 'Đang bật' : 'Đang tắt',
+            Text(tr(enabled ? 'Đang bật' : 'Đang tắt'),
                 style: TextStyle(
                     fontSize: 11,
                     color: enabled ? const Color(0xFF16A34A) : Colors.grey[500],
@@ -375,11 +376,11 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title,
+                Text(tr(title),
                     style: TextStyle(
                         fontWeight: FontWeight.w600, color: textColor)),
                 const SizedBox(height: 2),
-                Text(subtitle,
+                Text(tr(subtitle),
                     style: TextStyle(fontSize: 13, color: Colors.grey[600])),
               ],
             ),
@@ -408,7 +409,7 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
                 const Icon(Icons.lock, size: 16, color: Color(0xFF71717A)),
                 const SizedBox(width: 8),
                 Flexible(
-                  child: Text('Key hiện tại: $maskedKey',
+                  child: Text(tr('Key hiện tại: $maskedKey'),
                       style: const TextStyle(
                           fontFamily: 'monospace',
                           fontSize: 13,
@@ -418,11 +419,11 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
             ),
           ),
           const SizedBox(height: 12),
-          const Text('Nhập API Key mới (để trống nếu không đổi):',
+          Text(tr('Nhập API Key mới (để trống nếu không đổi):'),
               style: TextStyle(fontSize: 13, color: Color(0xFF71717A))),
           const SizedBox(height: 8),
         ] else ...[
-          const Text('Nhập API Key:',
+          Text(tr('Nhập API Key:'),
               style: TextStyle(fontSize: 13, color: Color(0xFF71717A))),
           const SizedBox(height: 8),
         ],
@@ -430,7 +431,7 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
           controller: controller,
           obscureText: obscure,
           decoration: InputDecoration(
-            hintText: 'sk-... hoặc AIza...',
+            hintText: tr('sk-... hoặc AIza...'),
             prefixIcon: const Icon(Icons.vpn_key, size: 20),
             suffixIcon: IconButton(
               icon: Icon(obscure ? Icons.visibility_off : Icons.visibility,
@@ -469,7 +470,7 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
       icon: Icons.tune,
       iconColor: HrmPageChrome.primaryNavy,
       children: [
-        const Text('Model',
+        Text(tr('Model'),
             style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w500,
@@ -501,7 +502,7 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Độ dài tối đa (tokens)',
+              Text(tr('Độ dài tối đa (tokens)'),
                   style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w500,
@@ -511,7 +512,7 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
                 controller: maxTokensController,
                 keyboardType: TextInputType.number,
                 decoration: InputDecoration(
-                  hintText: '2048',
+                  hintText: tr('2048'),
                   filled: true,
                   fillColor: Colors.white,
                   border: OutlineInputBorder(
@@ -530,7 +531,7 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Độ sáng tạo / Temperature (0.0 - 2.0)',
+              Text(tr('Độ sáng tạo / Temperature (0.0 - 2.0)'),
                   style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w500,
@@ -541,7 +542,7 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
                 keyboardType:
                     const TextInputType.numberWithOptions(decimal: true),
                 decoration: InputDecoration(
-                  hintText: '0.7',
+                  hintText: tr('0.7'),
                   filled: true,
                   fillColor: Colors.white,
                   border: OutlineInputBorder(
@@ -563,7 +564,7 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Độ dài tối đa (tokens)',
+                    Text(tr('Độ dài tối đa (tokens)'),
                         style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w500,
@@ -573,7 +574,7 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
                       controller: maxTokensController,
                       keyboardType: TextInputType.number,
                       decoration: InputDecoration(
-                        hintText: '2048',
+                        hintText: tr('2048'),
                         filled: true,
                         fillColor: Colors.white,
                         border: OutlineInputBorder(
@@ -596,7 +597,7 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Độ sáng tạo / Temperature (0.0 - 2.0)',
+                    Text(tr('Độ sáng tạo / Temperature (0.0 - 2.0)'),
                         style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w500,
@@ -607,7 +608,7 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
                       keyboardType:
                           const TextInputType.numberWithOptions(decimal: true),
                       decoration: InputDecoration(
-                        hintText: '0.7',
+                        hintText: tr('0.7'),
                         filled: true,
                         fillColor: Colors.white,
                         border: OutlineInputBorder(
@@ -628,8 +629,7 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
             ],
           ),
         const SizedBox(height: 8),
-        Text(
-          '💡 Temperature thấp (0.1-0.3): chính xác, nhất quán. Cao (0.7-1.5): sáng tạo, đa dạng.',
+        Text(tr('💡 Temperature thấp (0.1-0.3): chính xác, nhất quán. Cao (0.7-1.5): sáng tạo, đa dạng.'),
           style: TextStyle(fontSize: 12, color: Colors.grey[500]),
         ),
       ],
@@ -642,8 +642,7 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
       icon: Icons.science,
       iconColor: HrmPageChrome.primaryNavy,
       children: [
-        Text(
-          'Gửi yêu cầu thử để kiểm tra API Key và kết nối.',
+        Text(tr('Gửi yêu cầu thử để kiểm tra API Key và kết nối.'),
           style: TextStyle(fontSize: 13, color: Colors.grey[600]),
         ),
         const SizedBox(height: 12),
@@ -657,7 +656,7 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
                     height: 18,
                     child: CircularProgressIndicator(strokeWidth: 2))
                 : const Icon(Icons.play_arrow),
-            label: Text(_isTesting ? 'Đang kiểm tra...' : 'Kiểm tra kết nối'),
+            label: Text(tr(_isTesting ? 'Đang kiểm tra...' : 'Kiểm tra kết nối')),
             style: OutlinedButton.styleFrom(
               foregroundColor: HrmPageChrome.primaryNavy,
               side: const BorderSide(color: HrmPageChrome.primaryNavy),
@@ -696,7 +695,7 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    _testResult!,
+                    tr(_testResult!),
                     style: TextStyle(
                       fontSize: 13,
                       color: _testSuccess == true
@@ -728,7 +727,7 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
                     strokeWidth: 2, color: Colors.white))
             : const Icon(Icons.save),
         label: Text(
-          _isSaving ? 'Đang lưu...' : 'Lưu cấu hình',
+          tr(_isSaving ? 'Đang lưu...' : 'Lưu cấu hình'),
           style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
         ),
         style: FilledButton.styleFrom(
@@ -761,7 +760,7 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
               const Icon(Icons.info, size: 18, color: HrmPageChrome.primaryNavy),
               const SizedBox(width: 8),
               Expanded(
-                child: Text(note,
+                child: Text(tr(note),
                     style: TextStyle(fontSize: 13, color: Colors.grey[700])),
               ),
             ],
@@ -785,7 +784,7 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
               borderRadius: BorderRadius.circular(13),
             ),
             child: Center(
-              child: Text('$number',
+              child: Text(tr('$number'),
                   style: const TextStyle(
                       color: Colors.white,
                       fontSize: 13,
@@ -797,11 +796,11 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title,
+                Text(tr(title),
                     style: const TextStyle(
                         fontSize: 14, fontWeight: FontWeight.w500)),
                 if (subtitle != null)
-                  Text(subtitle,
+                  Text(tr(subtitle),
                       style: TextStyle(fontSize: 12, color: Colors.blue[600])),
               ],
             ),
@@ -832,7 +831,7 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
             children: [
               Icon(icon, color: iconColor, size: 22),
               const SizedBox(width: 8),
-              Text(title,
+              Text(tr(title),
                   style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,

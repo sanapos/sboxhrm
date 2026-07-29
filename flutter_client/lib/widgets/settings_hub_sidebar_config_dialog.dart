@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/settings_hub_sidebar_config.dart';
 import '../utils/settings_hub_catalog.dart';
 import '../widgets/hrm_page_chrome.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// Dialog tùy chỉnh thứ tự và hiển thị module sidebar Thiết lập HRM.
 class SettingsHubSidebarConfigDialog extends StatefulWidget {
@@ -78,8 +79,8 @@ class _SettingsHubSidebarConfigDialogState
       Navigator.of(context).pop(_currentConfig);
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Không thể lưu cấu hình menu. Vui lòng thử lại.'),
+        SnackBar(
+          content: Text(tr('Không thể lưu cấu hình menu. Vui lòng thử lại.')),
           backgroundColor: Color(0xFFDC2626),
         ),
       );
@@ -100,13 +101,12 @@ class _SettingsHubSidebarConfigDialogState
 
     return AlertDialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      title: const Row(
+      title: Row(
         children: [
           Icon(Icons.tune_rounded, color: HrmPageChrome.primaryNavy, size: 22),
           SizedBox(width: 10),
           Expanded(
-            child: Text(
-              'Tùy chỉnh menu Thiết lập HRM',
+            child: Text(tr('Tùy chỉnh menu Thiết lập HRM'),
               style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
             ),
           ),
@@ -118,8 +118,7 @@ class _SettingsHubSidebarConfigDialogState
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Bật/tắt module và kéo thả để sắp xếp thứ tự trên thanh công cụ trái.',
+            Text(tr('Bật/tắt module và kéo thả để sắp xếp thứ tự trên thanh công cụ trái.'),
               style: TextStyle(fontSize: 13, color: Color(0xFF64748B), height: 1.45),
             ),
             const SizedBox(height: 14),
@@ -153,7 +152,7 @@ class _SettingsHubSidebarConfigDialogState
                             color: Color(0xFF94A3B8)),
                       ),
                       title: Text(
-                        item.label,
+                        tr(item.label),
                         style: TextStyle(
                           fontWeight: FontWeight.w600,
                           color: visible
@@ -164,7 +163,7 @@ class _SettingsHubSidebarConfigDialogState
                         ),
                       ),
                       subtitle: Text(
-                        item.groupTitle,
+                        tr(item.groupTitle),
                         style: const TextStyle(fontSize: 11),
                       ),
                       trailing: Switch(
@@ -192,11 +191,11 @@ class _SettingsHubSidebarConfigDialogState
       actions: [
         TextButton(
           onPressed: _saving ? null : _resetDefault,
-          child: const Text('Mặc định'),
+          child: Text(tr('Mặc định')),
         ),
         TextButton(
           onPressed: _saving ? null : () => Navigator.of(context).pop(),
-          child: const Text('Hủy'),
+          child: Text(tr('Hủy')),
         ),
         FilledButton(
           onPressed: _saving ? null : _handleSave,
@@ -212,7 +211,7 @@ class _SettingsHubSidebarConfigDialogState
                     color: Colors.white,
                   ),
                 )
-              : const Text('Lưu'),
+              : Text(tr('Lưu')),
         ),
       ],
     );

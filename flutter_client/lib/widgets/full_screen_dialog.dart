@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// Dialog phủ toàn màn hình — không đóng khi bấm ra ngoài; dùng [buildPickerCloseAppBar].
 Future<T?> showFullScreenDialog<T>(
@@ -31,7 +32,7 @@ AppBar buildPickerCloseAppBar(
     surfaceTintColor: Colors.white,
     leading: IconButton(
       icon: const Icon(Icons.close),
-      tooltip: 'Đóng',
+      tooltip: tr('Đóng'),
       onPressed: () => Navigator.pop(context),
     ),
     title: subtitle != null && subtitle.isNotEmpty
@@ -40,14 +41,14 @@ AppBar buildPickerCloseAppBar(
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                title,
+                tr(title),
                 style: const TextStyle(
                   fontSize: 17,
                   fontWeight: FontWeight.w700,
                 ),
               ),
               Text(
-                subtitle,
+                tr(subtitle),
                 style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
@@ -55,7 +56,7 @@ AppBar buildPickerCloseAppBar(
             ],
           )
         : Text(
-            title,
+            tr(title),
             style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
           ),
     actions: actions,

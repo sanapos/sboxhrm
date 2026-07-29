@@ -21,6 +21,8 @@ import '../providers/permission_provider.dart';
 import '../providers/auth_provider.dart';
 import '../utils/navigation_notifier.dart';
 import '../widgets/hrm_pushed_screen_shell.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
+import 'package:zkteco_flutter_client/l10n/app_ui_locale.dart';
 
 class AdvanceRequestsScreen extends StatefulWidget {
   final String? highlightId;
@@ -203,7 +205,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
       initialDateRange: _fromDate != null && _toDate != null
           ? DateTimeRange(start: _fromDate!, end: _toDate!)
           : null,
-      locale: const Locale('vi', 'VN'),
+      locale: appUiLocale(),
     );
     if (picked != null) {
       setState(() {
@@ -400,27 +402,25 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
     // Ưu tiên số đã đề xuất ở bước duyệt trước (đa cấp), fallback số yêu cầu.
     final initialAmount = request.approvedAmount ?? request.amount;
     final amountController = TextEditingController(
-        text: NumberFormat('#,###').format(initialAmount));
+        text: tr(NumberFormat('#,###').format(initialAmount)));
     String? errorText;
 
     return showDialog<double>(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) => ScrollableAlertDialog(
-          title: const Text('Xác nhận duyệt ứng lương'),
+          title: Text(tr('Xác nhận duyệt ứng lương')),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                  'Nhân viên: ${request.employeeName} (${request.employeeCode})'),
+              Text(tr('Nhân viên: ${request.employeeName} (${request.employeeCode})')),
               const SizedBox(height: 4),
-              Text('Số tiền yêu cầu: ${_currencyFormat.format(request.amount)}'),
+              Text(tr('Số tiền yêu cầu: ${_currencyFormat.format(request.amount)}')),
               if (request.approvedAmount != null &&
                   request.approvedAmount != request.amount) ...[
                 const SizedBox(height: 4),
-                Text(
-                  'Đề xuất bước trước: ${_currencyFormat.format(request.approvedAmount!)}',
+                Text(tr('Đề xuất bước trước: ${_currencyFormat.format(request.approvedAmount!)}'),
                   style: TextStyle(color: Colors.orange.shade800, fontSize: 13),
                 ),
               ],
@@ -430,19 +430,18 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                 keyboardType: TextInputType.number,
                 inputFormatters: [ThousandSeparatorFormatter()],
                 decoration: InputDecoration(
-                  labelText: 'Số tiền duyệt *',
+                  labelText: tr('Số tiền duyệt *'),
                   border: const OutlineInputBorder(),
                   prefixIcon: const Icon(Icons.attach_money),
-                  errorText: errorText,
-                  helperText:
-                      'Có thể duyệt thấp hơn số tiền yêu cầu (vd: YC 5tr → duyệt 3tr)',
+                  errorText: trN(errorText),
+                  helperText: tr('Có thể duyệt thấp hơn số tiền yêu cầu (vd: YC 5tr → duyệt 3tr)'),
                 ),
               ),
             ],
           ),
           actions: [
             TextButton(
-                onPressed: () => Navigator.pop(ctx), child: Text(_l10n.cancel)),
+                onPressed: () => Navigator.pop(ctx), child: Text(tr(_l10n.cancel))),
             FilledButton(
               onPressed: () {
                 final parsed = parseFormattedNumber(amountController.text)
@@ -460,7 +459,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                 Navigator.pop(ctx, parsed);
               },
               style: FilledButton.styleFrom(backgroundColor: HrmPageChrome.primaryNavy),
-              child: Text(_l10n.approveLabel,
+              child: Text(tr(_l10n.approveLabel),
                   style: const TextStyle(color: Colors.white)),
             ),
           ],
@@ -473,17 +472,16 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => ScrollableAlertDialog(
-        title: Text(_l10n.reverseApproval),
-        content: const Text(
-            'Bạn có chắc muốn hoàn duyệt yêu cầu này? Trạng thái sẽ quay lại "Chờ duyệt".'),
+        title: Text(tr(_l10n.reverseApproval)),
+        content: Text(tr('Bạn có chắc muốn hoàn duyệt yêu cầu này? Trạng thái sẽ quay lại "Chờ duyệt".')),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: Text(_l10n.cancel)),
+              child: Text(tr(_l10n.cancel))),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
-            child: Text(_l10n.reverseApproval),
+            child: Text(tr(_l10n.reverseApproval)),
           ),
         ],
       ),
@@ -531,20 +529,20 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                               size: 18, color: Colors.blue),
                           const SizedBox(width: 8),
                           Expanded(
-                              child: Text(request.employeeName,
+                              child: Text(tr(request.employeeName),
                                   style: const TextStyle(
                                       fontWeight: FontWeight.bold))),
                         ],
                       ),
                       if (request.employeeCode.isNotEmpty) ...[
                         const SizedBox(height: 4),
-                        Text('${_l10n.employeeCode}: ${request.employeeCode}',
+                        Text(tr('${_l10n.employeeCode}: ${request.employeeCode}'),
                             style: TextStyle(
                                 fontSize: 12, color: Colors.grey[600])),
                       ],
                       const SizedBox(height: 8),
                       Text(
-                        _currencyFormat.format(request.payoutAmount),
+                        tr(_currencyFormat.format(request.payoutAmount)),
                         style: const TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 20,
@@ -553,8 +551,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                       if (request.isPartiallyApproved)
                         Padding(
                           padding: const EdgeInsets.only(top: 4),
-                          child: Text(
-                            'Đã duyệt một phần (yêu cầu ban đầu: ${_currencyFormat.format(request.amount)})',
+                          child: Text(tr('Đã duyệt một phần (yêu cầu ban đầu: ${_currencyFormat.format(request.amount)})'),
                             style: TextStyle(
                                 fontSize: 11, color: Colors.orange.shade800),
                           ),
@@ -566,7 +563,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                 DropdownButtonFormField<PaymentMethodType>(
                   initialValue: selectedMethod,
                   decoration: InputDecoration(
-                    labelText: _l10n.paymentMethod,
+                    labelText: tr(_l10n.paymentMethod),
                     border: const OutlineInputBorder(),
                     prefixIcon: const Icon(Icons.payment),
                   ),
@@ -579,7 +576,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                                 Icon(_getPaymentMethodIcon(m),
                                     size: 18, color: Colors.grey[700]),
                                 const SizedBox(width: 8),
-                                Text(m.label),
+                                Text(tr(m.label)),
                               ],
                             ),
                           ))
@@ -599,9 +596,8 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                       Icon(Icons.info_outline,
                           size: 16, color: Colors.amber.shade700),
                       const SizedBox(width: 8),
-                      const Expanded(
-                        child: Text(
-                          'Xác nhận thanh toán sẽ tạo phiếu chi tự động trong thu chi.',
+                      Expanded(
+                        child: Text(tr('Xác nhận thanh toán sẽ tạo phiếu chi tự động trong thu chi.'),
                           style: TextStyle(fontSize: 12),
                         ),
                       ),
@@ -620,7 +616,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                 height: double.infinity,
                 child: Scaffold(
                   appBar: AppBar(
-                    title: Text(_l10n.payAdvance),
+                    title: Text(tr(_l10n.payAdvance)),
                     leading: IconButton(
                       icon: const Icon(Icons.close),
                       onPressed: () => Navigator.pop(ctx, false),
@@ -634,7 +630,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                       children: [
                         TextButton(
                             onPressed: () => Navigator.pop(ctx, false),
-                            child: const Text('Hủy')),
+                            child: Text(tr('Hủy'))),
                         const SizedBox(width: 12),
                         FilledButton.icon(
                           onPressed: () => Navigator.pop(ctx, true),
@@ -642,7 +638,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                               backgroundColor: Colors.green),
                           icon: const Icon(Icons.payment,
                               color: Colors.white, size: 18),
-                          label: const Text('Thanh toán',
+                          label: Text(tr('Thanh toán'),
                               style: TextStyle(color: Colors.white)),
                         ),
                       ],
@@ -654,17 +650,17 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
           }
 
           return ScrollableAlertDialog(
-            title: Text(_l10n.payAdvance),
+            title: Text(tr(_l10n.payAdvance)),
             content: formContent,
             actions: [
               TextButton(
                   onPressed: () => Navigator.pop(ctx, false),
-                  child: const Text('Hủy')),
+                  child: Text(tr('Hủy'))),
               FilledButton.icon(
                 onPressed: () => Navigator.pop(ctx, true),
                 style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
                 icon: const Icon(Icons.payment, color: Colors.white, size: 18),
-                label: const Text('Thanh toán',
+                label: Text(tr('Thanh toán'),
                     style: TextStyle(color: Colors.white)),
               ),
             ],
@@ -710,20 +706,20 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
     showDialog(
       context: context,
       builder: (ctx) => ScrollableAlertDialog(
-        title: Text(_l10n.rejectRequest),
+        title: Text(tr(_l10n.rejectRequest)),
         content: SingleChildScrollView(
           child: TextField(
             controller: reasonController,
             maxLines: 3,
             decoration: InputDecoration(
-              labelText: _l10n.rejectReason,
+              labelText: tr(_l10n.rejectReason),
               border: const OutlineInputBorder(),
             ),
           ),
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx), child: Text(_l10n.cancel)),
+              onPressed: () => Navigator.pop(ctx), child: Text(tr(_l10n.cancel))),
           FilledButton(
             onPressed: () {
               Navigator.pop(ctx);
@@ -731,7 +727,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
             },
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             child:
-                Text(_l10n.reject, style: const TextStyle(color: Colors.white)),
+                Text(tr(_l10n.reject), style: const TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -742,21 +738,21 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => ScrollableAlertDialog(
-        title: Text(_l10n.deleteRequest),
+        title: Text(tr(_l10n.deleteRequest)),
         content: Text(
-          request.isPaid
+          tr(request.isPaid
               ? 'Bạn có chắc muốn xóa yêu cầu ứng lương này?\nPhiếu chi liên quan cũng sẽ bị xóa.'
-              : 'Bạn có chắc muốn xóa yêu cầu ứng lương này?',
+              : 'Bạn có chắc muốn xóa yêu cầu ứng lương này?'),
         ),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: Text(_l10n.cancel)),
+              child: Text(tr(_l10n.cancel))),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             child:
-                Text(_l10n.delete, style: const TextStyle(color: Colors.white)),
+                Text(tr(_l10n.delete), style: const TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -766,7 +762,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
     final result = await _apiService.deleteAdvanceRequest(request.id);
     if (result['isSuccess'] == true) {
       appNotification.showSuccess(
-          title: 'Thành công', message: 'Đã xóa yêu cầu');
+          title: 'Thành công', message: tr('Đã xóa yêu cầu'));
       _loadData();
     } else {
       appNotification.showError(
@@ -778,16 +774,16 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => ScrollableAlertDialog(
-        title: const Text('Hủy yêu cầu'),
-        content: const Text('Bạn có chắc muốn hủy yêu cầu ứng lương này?'),
+        title: Text(tr('Hủy yêu cầu')),
+        content: Text(tr('Bạn có chắc muốn hủy yêu cầu ứng lương này?')),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: Text(_l10n.cancel)),
+              child: Text(tr(_l10n.cancel))),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
-            child: const Text('Hủy yêu cầu',
+            child: Text(tr('Hủy yêu cầu'),
                 style: TextStyle(color: Colors.white)),
           ),
         ],
@@ -798,7 +794,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
     final result = await _apiService.cancelAdvanceRequest(request.id);
     if (result['isSuccess'] == true) {
       appNotification.showSuccess(
-          title: 'Thành công', message: 'Đã hủy yêu cầu');
+          title: 'Thành công', message: tr('Đã hủy yêu cầu'));
       _loadData();
     } else {
       appNotification.showError(
@@ -844,31 +840,31 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(record.stepName ?? 'Cấp ${record.stepOrder}',
+            Text(tr(record.stepName ?? 'Cấp ${record.stepOrder}'),
                 style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
                     color: dotColor)),
             if (record.assignedUserName != null &&
                 record.assignedUserName!.isNotEmpty)
-              Text('Phân công: ${record.assignedUserName}',
+              Text(tr('Phân công: ${record.assignedUserName}'),
                   style:
                       TextStyle(fontSize: 12, color: Colors.grey.shade600)),
             if (record.actualUserName != null &&
                 record.actualUserName!.isNotEmpty &&
                 record.status != ApprovalStatus.pending)
-              Text('Thực hiện: ${record.actualUserName}',
+              Text(tr('Thực hiện: ${record.actualUserName}'),
                   style:
                       TextStyle(fontSize: 12, color: Colors.grey.shade600)),
             if (record.actionDate != null)
               Text(
-                  DateFormat('dd/MM/yyyy HH:mm').format(record.actionDate!),
+                  tr(DateFormat('dd/MM/yyyy HH:mm').format(record.actionDate!)),
                   style:
                       TextStyle(fontSize: 11, color: Colors.grey.shade500)),
             if (record.note != null && record.note!.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.only(top: 2),
-                child: Text('"${record.note}"',
+                child: Text(tr('"${record.note}"'),
                     style: TextStyle(
                         fontSize: 12,
                         fontStyle: FontStyle.italic,
@@ -900,14 +896,14 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
           Future<Null> onSubmit() async {
             if (selectedEmployee == null) {
               appNotification.showWarning(
-                  title: 'Cảnh báo', message: 'Vui lòng chọn nhân viên');
+                  title: 'Cảnh báo', message: tr('Vui lòng chọn nhân viên'));
               return;
             }
             final amount =
                 parseFormattedNumber(amountController.text)?.toDouble();
             if (amount == null || amount <= 0) {
               appNotification.showWarning(
-                  title: 'Cảnh báo', message: 'Vui lòng nhập số tiền hợp lệ');
+                  title: 'Cảnh báo', message: tr('Vui lòng nhập số tiền hợp lệ'));
               return;
             }
             final result = await _apiService.createAdvanceRequest(
@@ -924,7 +920,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
             if (result['isSuccess'] == true) {
               if (context.mounted) Navigator.pop(context);
               appNotification.showSuccess(
-                  title: 'Thành công', message: 'Đã gửi yêu cầu ứng lương');
+                  title: 'Thành công', message: tr('Đã gửi yêu cầu ứng lương'));
               _loadData();
             } else {
               appNotification.showError(
@@ -957,7 +953,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                       Text(
-                                          '${selectedEmployee!.lastName} ${selectedEmployee!.firstName}',
+                                          tr('${selectedEmployee!.lastName} ${selectedEmployee!.firstName}'),
                                           style: TextStyle(
                                               fontSize: 14,
                                               fontWeight: FontWeight.w600,
@@ -965,12 +961,12 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                                       if (selectedEmployee!
                                           .employeeCode.isNotEmpty)
                                         Text(
-                                            '${selectedEmployee!.employeeCode}${selectedEmployee!.department != null ? ' • ${selectedEmployee!.department}' : ''}',
+                                            tr('${selectedEmployee!.employeeCode}${selectedEmployee!.department != null ? ' • ${selectedEmployee!.department}' : ''}'),
                                             style: TextStyle(
                                                 fontSize: 12,
                                                 color: Colors.blue.shade600)),
                                     ])
-                              : Text('Chưa tìm thấy hồ sơ nhân viên',
+                              : Text(tr('Chưa tìm thấy hồ sơ nhân viên'),
                                   style: TextStyle(
                                       fontSize: 13,
                                       color: Colors.orange.shade700))),
@@ -1001,10 +997,10 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                         controller: controller,
                         focusNode: focusNode,
                         decoration: InputDecoration(
-                          labelText: 'Chọn nhân viên *',
+                          labelText: tr('Chọn nhân viên *'),
                           border: const OutlineInputBorder(),
                           prefixIcon: const Icon(Icons.person_search),
-                          hintText: 'Tìm theo tên hoặc mã NV...',
+                          hintText: tr('Tìm theo tên hoặc mã NV...'),
                           suffixIcon: selectedEmployee != null
                               ? IconButton(
                                   icon: const Icon(Icons.clear, size: 18),
@@ -1053,10 +1049,10 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                                     ),
                                   ),
                                   title: Text(
-                                      '${employee.lastName} ${employee.firstName}',
+                                      tr('${employee.lastName} ${employee.firstName}'),
                                       style: const TextStyle(fontSize: 14)),
                                   subtitle: Text(
-                                    '${employee.employeeCode}${employee.department != null ? ' • ${employee.department}' : ''}',
+                                    tr('${employee.employeeCode}${employee.department != null ? ' • ${employee.department}' : ''}'),
                                     style: TextStyle(
                                         fontSize: 12, color: Colors.grey[600]),
                                   ),
@@ -1086,7 +1082,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
-                              '${selectedEmployee!.lastName} ${selectedEmployee!.firstName} (${selectedEmployee!.employeeCode})',
+                              tr('${selectedEmployee!.lastName} ${selectedEmployee!.firstName} (${selectedEmployee!.employeeCode})'),
                               style: TextStyle(
                                   fontSize: 13,
                                   color: Colors.green.shade700,
@@ -1104,7 +1100,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                   keyboardType: TextInputType.number,
                   inputFormatters: [ThousandSeparatorFormatter()],
                   decoration: InputDecoration(
-                    labelText: '${_l10n.amount} *',
+                    labelText: tr('${_l10n.amount} *'),
                     border: const OutlineInputBorder(),
                     prefixIcon: const Icon(Icons.attach_money),
                   ),
@@ -1115,15 +1111,15 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                     Expanded(
                       child: DropdownButtonFormField<int>(
                         initialValue: selectedMonth,
-                        decoration: const InputDecoration(
-                          labelText: 'Tháng',
+                        decoration: InputDecoration(
+                          labelText: tr('Tháng'),
                           border: OutlineInputBorder(),
                           prefixIcon: Icon(Icons.calendar_month),
                         ),
                         items: List.generate(
                             12,
                             (i) => DropdownMenuItem(
-                                value: i + 1, child: Text('Tháng ${i + 1}'))),
+                                value: i + 1, child: Text(tr('Tháng ${i + 1}')))),
                         onChanged: (v) =>
                             setDialogState(() => selectedMonth = v!),
                       ),
@@ -1132,8 +1128,8 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                     Expanded(
                       child: DropdownButtonFormField<int>(
                         initialValue: selectedYear,
-                        decoration: const InputDecoration(
-                          labelText: 'Năm',
+                        decoration: InputDecoration(
+                          labelText: tr('Năm'),
                           border: OutlineInputBorder(),
                           prefixIcon: Icon(Icons.date_range),
                         ),
@@ -1141,7 +1137,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                             5,
                             (i) => DropdownMenuItem(
                                 value: now.year - 2 + i,
-                                child: Text('${now.year - 2 + i}'))),
+                                child: Text(tr('${now.year - 2 + i}')))),
                         onChanged: (v) =>
                             setDialogState(() => selectedYear = v!),
                       ),
@@ -1153,7 +1149,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                   controller: reasonController,
                   maxLines: 3,
                   decoration: InputDecoration(
-                    labelText: _l10n.reason,
+                    labelText: tr(_l10n.reason),
                     border: const OutlineInputBorder(),
                     prefixIcon: const Icon(Icons.note),
                   ),
@@ -1161,8 +1157,8 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                 const SizedBox(height: 16),
                 TextField(
                   controller: noteController,
-                  decoration: const InputDecoration(
-                    labelText: 'Ghi chú (tùy chọn)',
+                  decoration: InputDecoration(
+                    labelText: tr('Ghi chú (tùy chọn)'),
                     border: OutlineInputBorder(),
                     prefixIcon: Icon(Icons.comment),
                   ),
@@ -1179,7 +1175,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                 height: double.infinity,
                 child: Scaffold(
                   appBar: AppBar(
-                    title: const Text('Yêu cầu ứng lương',
+                    title: Text(tr('Yêu cầu ứng lương'),
                         overflow: TextOverflow.ellipsis, maxLines: 1),
                     leading: IconButton(
                       icon: const Icon(Icons.close),
@@ -1194,12 +1190,12 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                       children: [
                         TextButton(
                             onPressed: () => Navigator.pop(context),
-                            child: Text(_l10n.cancel)),
+                            child: Text(tr(_l10n.cancel))),
                         const SizedBox(width: 12),
                         FilledButton.icon(
                           onPressed: onSubmit,
                           icon: const Icon(Icons.send, size: 18),
-                          label: const Text('Gửi yêu cầu'),
+                          label: Text(tr('Gửi yêu cầu')),
                         ),
                       ],
                     ),
@@ -1210,7 +1206,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
           }
 
           return ScrollableAlertDialog(
-            title: const Text('Yêu cầu ứng lương'),
+            title: Text(tr('Yêu cầu ứng lương')),
             content: SizedBox(
               width: Responsive.dialogWidth(context),
               child: formContent,
@@ -1218,11 +1214,11 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
             actions: [
               TextButton(
                   onPressed: () => Navigator.pop(context),
-                  child: Text(_l10n.cancel)),
+                  child: Text(tr(_l10n.cancel))),
               FilledButton.icon(
                 onPressed: onSubmit,
                 icon: const Icon(Icons.send, size: 18),
-                label: const Text('Gửi yêu cầu'),
+                label: Text(tr('Gửi yêu cầu')),
               ),
             ],
           );
@@ -1284,7 +1280,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
       final data = _filteredRequests;
       if (data.isEmpty) {
         appNotification.showError(
-            title: 'Lỗi', message: 'Không có dữ liệu để xuất');
+            title: 'Lỗi', message: tr('Không có dữ liệu để xuất'));
         return;
       }
 
@@ -1382,11 +1378,11 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
             'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
         appNotification.showSuccess(
             title: 'Thành công',
-            message: 'Đã xuất file Excel (${data.length} bản ghi)');
+            message: tr('Đã xuất file Excel (${data.length} bản ghi)'));
       }
     } catch (e) {
       appNotification.showError(
-          title: 'Lỗi', message: 'Không thể xuất Excel: $e');
+          title: 'Lỗi', message: tr('Không thể xuất Excel: $e'));
     }
   }
 
@@ -1400,15 +1396,15 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
       children: [
         Icon(_getStatusIcon(request), color: statusColor, size: 22),
         const SizedBox(width: 10),
-        const Expanded(
-            child: Text('Chi tiết ứng lương', style: TextStyle(fontSize: 17))),
+        Expanded(
+            child: Text(tr('Chi tiết ứng lương'), style: TextStyle(fontSize: 17))),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
           decoration: BoxDecoration(
             color: statusColor.withValues(alpha: 0.12),
             borderRadius: BorderRadius.circular(12),
           ),
-          child: Text(statusLabel,
+          child: Text(tr(statusLabel),
               style: TextStyle(
                   color: statusColor,
                   fontWeight: FontWeight.bold,
@@ -1466,8 +1462,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                 const Icon(Icons.linear_scale_rounded,
                     size: 18, color: Colors.blueGrey),
                 const SizedBox(width: 8),
-                Text(
-                    'Tiến trình duyệt: ${request.currentApprovalStep}/${request.totalApprovalLevels} cấp',
+                Text(tr('Tiến trình duyệt: ${request.currentApprovalStep}/${request.totalApprovalLevels} cấp'),
                     style: const TextStyle(
                         fontSize: 13, fontWeight: FontWeight.w600)),
               ],
@@ -1492,7 +1487,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
             ),
             const SizedBox(height: 12),
           ],
-          const Text('Lịch sử phê duyệt',
+          Text(tr('Lịch sử phê duyệt'),
               style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
           const SizedBox(height: 8),
           ..._buildApprovalTimeline(request),
@@ -1514,7 +1509,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                   icon: const Icon(Icons.close),
                   onPressed: () => Navigator.pop(ctx),
                 ),
-                title: const Text('Chi tiết ứng lương',
+                title: Text(tr('Chi tiết ứng lương'),
                     overflow: TextOverflow.ellipsis, maxLines: 1),
               ),
               body: SingleChildScrollView(
@@ -1537,7 +1532,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                     ..._buildDialogActions(request, ctx),
                     TextButton(
                         onPressed: () => Navigator.pop(ctx),
-                        child: const Text('Đóng')),
+                        child: Text(tr('Đóng'))),
                   ],
                 ),
               ),
@@ -1557,7 +1552,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
           actions: [
             ..._buildDialogActions(request, ctx),
             TextButton(
-                onPressed: () => Navigator.pop(ctx), child: const Text('Đóng')),
+                onPressed: () => Navigator.pop(ctx), child: Text(tr('Đóng'))),
           ],
         ),
       );
@@ -1577,7 +1572,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
               _approveRequest(request, true);
             },
             icon: const Icon(Icons.check, size: 16, color: Colors.green),
-            label: Text(_l10n.approveLabel,
+            label: Text(tr(_l10n.approveLabel),
                 style: const TextStyle(color: Colors.green)),
           ),
           TextButton.icon(
@@ -1587,7 +1582,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
             },
             icon: const Icon(Icons.close, size: 16, color: Colors.red),
             label:
-                Text(_l10n.reject, style: const TextStyle(color: Colors.red)),
+                Text(tr(_l10n.reject), style: const TextStyle(color: Colors.red)),
           ),
         ]);
       }
@@ -1599,7 +1594,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
               _cancelRequest(request);
             },
             icon: const Icon(Icons.block, size: 16, color: Colors.orange),
-            label: const Text('Hủy', style: TextStyle(color: Colors.orange)),
+            label: Text(tr('Hủy'), style: TextStyle(color: Colors.orange)),
           ),
         );
       }
@@ -1613,7 +1608,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
             _undoApprove(request);
           },
           icon: const Icon(Icons.undo, size: 16, color: Colors.orange),
-          label: Text(_l10n.reverseApproval,
+          label: Text(tr(_l10n.reverseApproval),
               style: const TextStyle(color: Colors.orange)),
         ),
         TextButton.icon(
@@ -1623,7 +1618,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
           },
           icon: const Icon(Icons.payment, size: 16, color: Colors.green),
           label:
-              Text(_l10n.payment, style: const TextStyle(color: Colors.green)),
+              Text(tr(_l10n.payment), style: const TextStyle(color: Colors.green)),
         ),
       ]);
     } else if (request.status == AdvanceRequestStatus.rejected &&
@@ -1635,7 +1630,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
             _undoApprove(request);
           },
           icon: const Icon(Icons.undo, size: 16, color: Colors.orange),
-          label: Text(_l10n.reverseApproval,
+          label: Text(tr(_l10n.reverseApproval),
               style: const TextStyle(color: Colors.orange)),
         ),
       );
@@ -1654,7 +1649,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
           },
           icon: Icon(Icons.delete, size: 16, color: Colors.red.shade300),
           label:
-              Text(_l10n.delete, style: TextStyle(color: Colors.red.shade300)),
+              Text(tr(_l10n.delete), style: TextStyle(color: Colors.red.shade300)),
         ),
       );
     }
@@ -1672,10 +1667,10 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
           const SizedBox(width: 10),
           SizedBox(
               width: 100,
-              child: Text(label,
+              child: Text(tr(label),
                   style: TextStyle(fontSize: 13, color: Colors.grey[600]))),
           Expanded(
-              child: Text(value,
+              child: Text(tr(value),
                   style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
@@ -1711,7 +1706,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
               child: TextField(
                 autofocus: true,
                 decoration: InputDecoration(
-                  hintText: 'Tìm theo tên, mã nhân viên...',
+                  hintText: tr('Tìm theo tên, mã nhân viên...'),
                   prefixIcon: const Icon(Icons.search, size: 20),
                   isDense: true,
                   border: OutlineInputBorder(
@@ -1731,7 +1726,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                 backgroundColor: Colors.grey.shade200,
                 child: const Icon(Icons.people, size: 16, color: Colors.grey),
               ),
-              title: const Text('Tất cả nhân viên',
+              title: Text(tr('Tất cả nhân viên'),
                   style: TextStyle(fontSize: 13, fontStyle: FontStyle.italic)),
               selected: _selectedEmployee == null,
               onTap: () {
@@ -1744,8 +1739,8 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
             );
 
             final employeeList = filtered.isEmpty
-                ? const Center(
-                    child: Text('Không tìm thấy nhân viên',
+                ? Center(
+                    child: Text(tr('Không tìm thấy nhân viên'),
                         style: TextStyle(color: Colors.grey)))
                 : ListView.builder(
                     itemCount: filtered.length,
@@ -1770,9 +1765,9 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                             color: Colors.blue.shade700,
                           ),
                         ),
-                        title: Text('${emp.lastName} ${emp.firstName}',
+                        title: Text(tr('${emp.lastName} ${emp.firstName}'),
                             style: const TextStyle(fontSize: 13)),
-                        subtitle: Text(emp.employeeCode,
+                        subtitle: Text(tr(emp.employeeCode),
                             style: TextStyle(
                                 fontSize: 11, color: Colors.grey[600])),
                         trailing: isSelected
@@ -1798,7 +1793,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                   height: double.infinity,
                   child: Scaffold(
                     appBar: AppBar(
-                      title: const Text('Chọn nhân viên'),
+                      title: Text(tr('Chọn nhân viên')),
                       leading: IconButton(
                         icon: const Icon(Icons.close),
                         onPressed: () => Navigator.pop(context),
@@ -1822,7 +1817,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
 
             return ScrollableAlertDialog(
               title:
-                  const Text('Chọn nhân viên', style: TextStyle(fontSize: 16)),
+                  Text(tr('Chọn nhân viên'), style: TextStyle(fontSize: 16)),
               contentPadding: const EdgeInsets.fromLTRB(0, 12, 0, 0),
               content: SizedBox(
                 width: Responsive.dialogWidth(context),
@@ -1840,7 +1835,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
               actions: [
                 TextButton(
                     onPressed: () => Navigator.pop(context),
-                    child: const Text('Đóng'))
+                    child: Text(tr('Đóng')))
               ],
             );
           },
@@ -1895,14 +1890,13 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(_l10n.salaryAdvance,
+                      Text(tr(_l10n.salaryAdvance),
                           style: TextStyle(
                               fontSize: isMobile ? 16 : 20,
                               fontWeight: FontWeight.bold,
                               color: Colors.white)),
                       if (!isMobile)
-                        Text(
-                          'Quản lý yêu cầu ứng lương nhân viên',
+                        Text(tr('Quản lý yêu cầu ứng lương nhân viên'),
                           style: TextStyle(
                               fontSize: 12,
                               color: Colors.white.withValues(alpha: 0.8)),
@@ -1962,7 +1956,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
               headerSections: _advancePageHeaderSections(isMobile),
               desktopBody: _isLoading
-                  ? const LoadingWidget(message: 'Đang tải dữ liệu...')
+                  ? LoadingWidget(message: tr('Đang tải dữ liệu...'))
                   : _filteredRequests.isEmpty
                       ? const EmptyState(
                           icon: Icons.money_off,
@@ -2001,7 +1995,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                   Icon(Icons.analytics_outlined,
                       size: 16, color: Colors.blue.shade700),
                   const SizedBox(width: 6),
-                  Text('Tổng quan',
+                  Text(tr('Tổng quan'),
                       style: TextStyle(
                           fontWeight: FontWeight.w600,
                           fontSize: 13,
@@ -2032,7 +2026,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
     if (_isLoading) {
       return [
         HrmScrollSlivers.fillRemaining(
-            child: const LoadingWidget(message: 'Đang tải dữ liệu...')),
+            child: LoadingWidget(message: tr('Đang tải dữ liệu...'))),
       ];
     }
     if (_filteredRequests.isEmpty) {
@@ -2158,16 +2152,16 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('$count',
+                Text(tr('$count'),
                     style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
                         color: color)),
-                Text(label,
+                Text(tr(label),
                     style: TextStyle(fontSize: 11, color: Colors.grey[600])),
                 const SizedBox(height: 2),
                 Text(
-                  _currencyFormat.format(amount),
+                  tr(_currencyFormat.format(amount)),
                   style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
@@ -2194,14 +2188,14 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
       width: isMobile ? 120 : 130,
       icon: Icons.calendar_today,
       items: [
-        DropdownMenuItem(value: 'all', child: Text(_l10n.all)),
-        DropdownMenuItem(value: 'today', child: Text(_l10n.today)),
-        DropdownMenuItem(value: 'yesterday', child: Text(_l10n.yesterday)),
-        DropdownMenuItem(value: 'this_week', child: Text(_l10n.thisWeek)),
-        DropdownMenuItem(value: 'last_week', child: Text(_l10n.lastWeek)),
-        DropdownMenuItem(value: 'this_month', child: Text(_l10n.thisMonth)),
-        DropdownMenuItem(value: 'last_month', child: Text(_l10n.lastMonth)),
-        DropdownMenuItem(value: 'custom', child: Text(_l10n.custom)),
+        DropdownMenuItem(value: 'all', child: Text(tr(_l10n.all))),
+        DropdownMenuItem(value: 'today', child: Text(tr(_l10n.today))),
+        DropdownMenuItem(value: 'yesterday', child: Text(tr(_l10n.yesterday))),
+        DropdownMenuItem(value: 'this_week', child: Text(tr(_l10n.thisWeek))),
+        DropdownMenuItem(value: 'last_week', child: Text(tr(_l10n.lastWeek))),
+        DropdownMenuItem(value: 'this_month', child: Text(tr(_l10n.thisMonth))),
+        DropdownMenuItem(value: 'last_month', child: Text(tr(_l10n.lastMonth))),
+        DropdownMenuItem(value: 'custom', child: Text(tr(_l10n.custom))),
       ],
       onChanged: (v) {
         if (v != null) _applyTimePreset(v);
@@ -2213,13 +2207,13 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
       width: isMobile ? 140 : 170,
       icon: Icons.flag,
       items: [
-        const DropdownMenuItem(value: null, child: Text('Tất cả trạng thái')),
+        DropdownMenuItem(value: null, child: Text(tr('Tất cả trạng thái'))),
         DropdownMenuItem(
-            value: AdvanceRequestStatus.pending, child: Text(_l10n.pending)),
+            value: AdvanceRequestStatus.pending, child: Text(tr(_l10n.pending))),
         DropdownMenuItem(
-            value: AdvanceRequestStatus.approved, child: Text(_l10n.approved)),
+            value: AdvanceRequestStatus.approved, child: Text(tr(_l10n.approved))),
         DropdownMenuItem(
-            value: AdvanceRequestStatus.rejected, child: Text(_l10n.rejected)),
+            value: AdvanceRequestStatus.rejected, child: Text(tr(_l10n.rejected))),
       ],
       onChanged: (v) {
         setState(() {
@@ -2235,7 +2229,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
       height: 36,
       child: TextField(
         decoration: InputDecoration(
-          hintText: 'Tìm tên/mã nhân viên...',
+          hintText: tr('Tìm tên/mã nhân viên...'),
           hintStyle: TextStyle(fontSize: 13, color: Colors.grey[400]),
           prefixIcon: Icon(Icons.search, size: 18, color: Colors.grey[400]),
           isDense: true,
@@ -2268,11 +2262,11 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
             width: isMobile ? 140 : 160,
             icon: Icons.account_tree_outlined,
             items: [
-              const DropdownMenuItem<String?>(
-                  value: null, child: Text('T\u1ea5t c\u1ea3 chi nh\u00e1nh')),
+              DropdownMenuItem<String?>(
+                  value: null, child: Text(tr('T\u1ea5t c\u1ea3 chi nh\u00e1nh'))),
               ..._branches.map((b) => DropdownMenuItem<String?>(
                   value: b['id']?.toString(),
-                  child: Text(b['name']?.toString() ?? '',
+                  child: Text(tr(b['name']?.toString() ?? ''),
                       overflow: TextOverflow.ellipsis))),
             ],
             onChanged: (v) => setState(() {
@@ -2294,8 +2288,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
           Icon(Icons.analytics_outlined,
               size: 14, color: Theme.of(context).primaryColor),
           const SizedBox(width: 6),
-          Text(
-            '${_filteredRequests.length} yêu cầu',
+          Text(tr('${_filteredRequests.length} yêu cầu'),
             style: TextStyle(
                 color: Theme.of(context).primaryColor,
                 fontSize: 12,
@@ -2456,7 +2449,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                 size: 15, color: Theme.of(context).primaryColor),
             const SizedBox(width: 8),
             Text(
-              '${DateFormat('dd/MM/yyyy').format(_fromDate!)} - ${DateFormat('dd/MM/yyyy').format(_toDate!)}',
+              tr('${DateFormat('dd/MM/yyyy').format(_fromDate!)} - ${DateFormat('dd/MM/yyyy').format(_toDate!)}'),
               style: const TextStyle(fontSize: 13),
             ),
             const SizedBox(width: 4),
@@ -2488,9 +2481,9 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
             const SizedBox(width: 8),
             Flexible(
               child: Text(
-                _selectedEmployee != null
+                tr(_selectedEmployee != null
                     ? '${_selectedEmployee!.lastName} ${_selectedEmployee!.firstName}'
-                    : 'Tất cả nhân viên',
+                    : 'Tất cả nhân viên'),
                 style: TextStyle(
                     fontSize: 13,
                     color: _selectedEmployee != null ? null : Colors.grey[600]),
@@ -2544,7 +2537,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                           backgroundColor:
                               HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
                           child: Text(
-                            r.employeeName.isNotEmpty ? r.employeeName[0] : '?',
+                            tr(r.employeeName.isNotEmpty ? r.employeeName[0] : '?'),
                             style: const TextStyle(
                                 color: HrmPageChrome.primaryNavy,
                                 fontWeight: FontWeight.bold,
@@ -2556,7 +2549,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(r.employeeName,
+                              Text(tr(r.employeeName),
                                   style: const TextStyle(
                                       fontWeight: FontWeight.w600,
                                       fontSize: 14),
@@ -2564,11 +2557,11 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                                   overflow: TextOverflow.ellipsis),
                               const SizedBox(height: 2),
                               Text(
-                                [
+                                tr([
                                   r.employeeCode,
                                   if (r.forMonth != null && r.forYear != null)
                                     'T${r.forMonth}/${r.forYear}'
-                                ].join(' · '),
+                                ].join(' · ')),
                                 style: const TextStyle(
                                     color: Color(0xFF71717A), fontSize: 12),
                               ),
@@ -2587,7 +2580,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                               Icon(_getStatusIcon(r),
                                   size: 12, color: statusColor),
                               const SizedBox(width: 4),
-                              Text(_getStatusLabel(r),
+                              Text(tr(_getStatusLabel(r)),
                                   style: TextStyle(
                                       fontSize: 11,
                                       fontWeight: FontWeight.bold,
@@ -2605,22 +2598,21 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              _currencyFormat.format(r.payoutAmount),
+                              tr(_currencyFormat.format(r.payoutAmount)),
                               style: const TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.bold,
                                   color: HrmPageChrome.primaryNavy),
                             ),
                             if (r.isPartiallyApproved)
-                              Text(
-                                'YC ban đầu: ${_currencyFormat.format(r.amount)}',
+                              Text(tr('YC ban đầu: ${_currencyFormat.format(r.amount)}'),
                                 style: TextStyle(
                                     fontSize: 10, color: Colors.orange.shade800),
                               ),
                           ],
                         ),
                         Text(
-                          DateFormat('dd/MM/yyyy').format(r.requestDate),
+                          tr(DateFormat('dd/MM/yyyy').format(r.requestDate)),
                           style: const TextStyle(
                               fontSize: 12, color: Color(0xFF71717A)),
                         ),
@@ -2628,7 +2620,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                     ),
                     if (r.reason != null && r.reason!.isNotEmpty) ...[
                       const SizedBox(height: 6),
-                      Text(r.reason!,
+                      Text(tr(r.reason!),
                           style:
                               TextStyle(fontSize: 12, color: Colors.grey[600]),
                           maxLines: 2,
@@ -2789,15 +2781,15 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                   return DataRow(
                     onSelectChanged: (_) => _showDetailDialog(r),
                     cells: [
-                      DataCell(Text('${idx + 1}',
+                      DataCell(Text(tr('${idx + 1}'),
                           style: const TextStyle(
                               fontSize: 12, color: Colors.grey))),
-                      DataCell(Text(r.employeeCode,
+                      DataCell(Text(tr(r.employeeCode),
                           style: const TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w600,
                               color: HrmPageChrome.primaryNavy))),
-                      DataCell(Text(r.employeeName,
+                      DataCell(Text(tr(r.employeeName),
                           style: const TextStyle(
                               fontSize: 12, fontWeight: FontWeight.w500))),
                       DataCell(Column(
@@ -2805,7 +2797,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Text(
-                            _currencyFormat.format(r.payoutAmount),
+                            tr(_currencyFormat.format(r.payoutAmount)),
                             style: const TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.bold,
@@ -2813,7 +2805,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                           ),
                           if (r.isPartiallyApproved)
                             Text(
-                              'YC: ${_currencyFormat.format(r.amount)}',
+                              tr('YC: ${_currencyFormat.format(r.amount)}'),
                               style: TextStyle(
                                   fontSize: 10, color: Colors.orange.shade800),
                             ),
@@ -2827,19 +2819,19 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                                 decoration: BoxDecoration(
                                     color: const Color(0xFFF1F5F9),
                                     borderRadius: BorderRadius.circular(6)),
-                                child: Text('T${r.forMonth}/${r.forYear}',
+                                child: Text(tr('T${r.forMonth}/${r.forYear}'),
                                     style: const TextStyle(
                                         fontSize: 11,
                                         fontWeight: FontWeight.w600)),
                               )
-                            : const Text('-',
+                            : Text(tr('-'),
                                 style: TextStyle(
                                     fontSize: 12, color: Colors.grey)),
                       ),
                       DataCell(
                         ConstrainedBox(
                           constraints: const BoxConstraints(maxWidth: 150),
-                          child: Text(r.reason ?? '-',
+                          child: Text(tr(r.reason ?? '-'),
                               style: TextStyle(
                                   fontSize: 12, color: Colors.grey[600]),
                               overflow: TextOverflow.ellipsis),
@@ -2858,7 +2850,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                               Icon(_getStatusIcon(r),
                                   size: 12, color: statusColor),
                               const SizedBox(width: 4),
-                              Text(_getStatusLabel(r),
+                              Text(tr(_getStatusLabel(r)),
                                   style: TextStyle(
                                       fontSize: 11,
                                       fontWeight: FontWeight.bold,
@@ -2868,9 +2860,9 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                         ),
                       ),
                       DataCell(Text(
-                          DateFormat('dd/MM/yyyy').format(r.requestDate),
+                          tr(DateFormat('dd/MM/yyyy').format(r.requestDate)),
                           style: const TextStyle(fontSize: 12))),
-                      DataCell(Text(r.approvedByName ?? '-',
+                      DataCell(Text(tr(r.approvedByName ?? '-'),
                           style: TextStyle(
                               fontSize: 12, color: Colors.grey[600]))),
                       DataCell(_buildRowActions(r)),
@@ -2970,8 +2962,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      'Hiển thị ${startIndex + 1}-$endIndex / $totalItems',
+                    Text(tr('Hiển thị ${startIndex + 1}-$endIndex / $totalItems'),
                       style: TextStyle(
                           fontSize: 12,
                           color: Colors.grey[600],
@@ -2980,7 +2971,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text('Hiển thị:',
+                        Text(tr('Hiển thị:'),
                             style: TextStyle(
                                 fontSize: 12, color: Colors.grey[500])),
                         const SizedBox(width: 8),
@@ -3000,7 +2991,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                                   fontSize: 13, color: Colors.grey[800]),
                               items: _pageSizeOptions
                                   .map((s) => DropdownMenuItem(
-                                      value: s, child: Text('$s')))
+                                      value: s, child: Text(tr('$s'))))
                                   .toList(),
                               onChanged: (v) {
                                 if (v != null) {
@@ -3033,7 +3024,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                         color: Theme.of(context).primaryColor,
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: Text('$_currentPage / $totalPages',
+                      child: Text(tr('$_currentPage / $totalPages'),
                           style: const TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.w600,
@@ -3053,8 +3044,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
           : Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  'Hiển thị ${startIndex + 1}-$endIndex / $totalItems',
+                Text(tr('Hiển thị ${startIndex + 1}-$endIndex / $totalItems'),
                   style: TextStyle(
                       fontSize: 13,
                       color: Colors.grey[600],
@@ -3062,7 +3052,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                 ),
                 Row(
                   children: [
-                    Text('Hiển thị:',
+                    Text(tr('Hiển thị:'),
                         style:
                             TextStyle(fontSize: 12, color: Colors.grey[500])),
                     const SizedBox(width: 8),
@@ -3082,7 +3072,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                               TextStyle(fontSize: 13, color: Colors.grey[800]),
                           items: _pageSizeOptions
                               .map((s) =>
-                                  DropdownMenuItem(value: s, child: Text('$s')))
+                                  DropdownMenuItem(value: s, child: Text(tr('$s'))))
                               .toList(),
                           onChanged: (v) {
                             if (v != null) {
@@ -3111,7 +3101,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                         color: Theme.of(context).primaryColor,
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: Text('$_currentPage / $totalPages',
+                      child: Text(tr('$_currentPage / $totalPages'),
                           style: const TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.w600,
@@ -3157,7 +3147,7 @@ class _ColHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Text(
-      text,
+      tr(text),
       style: const TextStyle(
           fontWeight: FontWeight.w600, fontSize: 12, color: Color(0xFF71717A)),
     );

@@ -2,6 +2,7 @@ import '../models/pos_print_template.dart';
 import '../models/pos_print_template_v2.dart';
 import 'pos_print_template_renderer.dart';
 import 'pos_thermal_bitmap.dart';
+import '../l10n/app_tr.dart';
 
 /// Một dòng in Sunmi / bitmap sau biên dịch.
 class PosPrintCompiledLine {
@@ -24,7 +25,7 @@ class PosPrintCompiledLine {
   final bool dividerEquals;
 
   PosReceiptImageLine toImageLine() => PosReceiptImageLine(
-        text: text,
+        text: tr(text),
         fontSize: fontSize,
         bold: bold,
         center: center,
@@ -155,7 +156,7 @@ abstract final class PosPrintTemplateCompiler {
               .clamp(16, 80);
           final rule = List.filled(chars, ch).join();
           steps.add(PosPrintCompiledLine(
-            text: rule,
+            text: tr(rule),
             fontSize: block.style.fontSize,
             isDivider: true,
             dividerEquals: block.divider == PosPrintDividerStyle.equals,
@@ -185,7 +186,7 @@ abstract final class PosPrintTemplateCompiler {
             ));
             if (note.trim().isNotEmpty) {
               steps.add(PosPrintCompiledLine(
-                text: ' * $note',
+                text: tr(' * $note'),
                 fontSize: block.style.fontSize - 2,
               ));
             }
@@ -210,7 +211,7 @@ abstract final class PosPrintTemplateCompiler {
             );
           }
         case PosPrintBlockType.spacer:
-          steps.add(const PosPrintCompiledLine(text: ' ', fontSize: 18));
+          steps.add(PosPrintCompiledLine(text: tr(' '), fontSize: 18));
           htmlBuf.write('<div style="height:${block.height}px"></div>');
         case PosPrintBlockType.vietQr:
           if (vietQrImageUrl != null && vietQrImageUrl.isNotEmpty) {
@@ -241,7 +242,7 @@ abstract final class PosPrintTemplateCompiler {
 
   static PosPrintCompiledLine _lineFromStyle(String text, PosPrintTextStyle style) =>
       PosPrintCompiledLine(
-        text: text,
+        text: tr(text),
         fontSize: style.fontSize,
         bold: style.bold,
         center: style.align == PosPrintTextAlign.center,
@@ -263,10 +264,10 @@ abstract final class PosPrintTemplateCompiler {
     final smallSize = bodySize - 2;
 
     if (name.isNotEmpty) {
-      steps.add(PosPrintCompiledLine(text: name, fontSize: bodySize, bold: true));
+      steps.add(PosPrintCompiledLine(text: tr(name), fontSize: bodySize, bold: true));
     }
     if (code.isNotEmpty) {
-      steps.add(PosPrintCompiledLine(text: '($code)', fontSize: smallSize));
+      steps.add(PosPrintCompiledLine(text: tr('($code)'), fontSize: smallSize));
     }
     steps.add(PosPrintCompiledPair(
       left: '$qty $unit x $price',

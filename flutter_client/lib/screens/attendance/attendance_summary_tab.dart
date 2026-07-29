@@ -31,6 +31,7 @@ import '../../widgets/synced_scroll_list_view.dart'
     show SyncedScrollListView, linkHorizontalScrollControllers;
 import '../../widgets/pinned_box_header_delegate.dart';
 import '../../utils/excel_report_builder.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// Model cho yêu cầu chỉnh sửa chấm công
 class AttendanceCorrectionRequest {
@@ -463,6 +464,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
         widget.holidays.length,
         widget.branches?.length,
         widget.employeesList?.length,
+        widget.approvedLeaves.length,
         widget.dayEndHour,
         widget.dayEndMinute,
       );
@@ -704,7 +706,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
   String? _attendanceIdForPunch(_DailySummary summary, int punchIndex) =>
       _attendancePunchRef(summary, punchIndex)?.id;
 
-  /// Get unique employees from all attendances (not filtered by date)
+  /// Unique employees: punches + HR roster (để hiện NV chưa chấm trong khoảng).
   List<_EmployeeOption> get _allEmployees {
     final Map<String, _EmployeeOption> map = {};
     for (final att in widget.attendances) {
@@ -723,6 +725,20 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
           name: name,
           code: code,
         );
+      }
+    }
+    final roster = widget.employeesList;
+    if (roster != null) {
+      for (final emp in roster) {
+        final code = emp['employeeCode']?.toString() ?? '';
+        final pin = emp['pin']?.toString() ?? '';
+        final id = code.isNotEmpty ? code : (pin.isNotEmpty ? pin : '');
+        if (id.isEmpty || map.containsKey(id)) continue;
+        final name = emp['fullName']?.toString() ??
+            emp['name']?.toString() ??
+            emp['employeeName']?.toString() ??
+            '-';
+        map[id] = _EmployeeOption(id: id, name: name, code: code.isNotEmpty ? code : id);
       }
     }
     final list = map.values.toList();
@@ -791,13 +807,12 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
       margin: const EdgeInsets.symmetric(horizontal: 16),
       padding: const EdgeInsets.symmetric(vertical: 48),
       decoration: _tableCardDecoration,
-      child: const Column(
+      child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           CircularProgressIndicator(),
           SizedBox(height: 14),
-          Text(
-            'Đang xử lý tổng hợp...',
+          Text(tr('Đang xử lý tổng hợp...'),
             style: TextStyle(fontSize: 13, color: Color(0xFF52525B)),
           ),
         ],
@@ -941,7 +956,127 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
       }
     }
 
-    return summaries;
+    return _appendUnpaidAbsentPlaceholders(summaries);
+  }
+
+  /// Thêm dòng trống (0 chấm) cho NV×ngày làm việc vắng — hiện nút + / Thêm công.
+  List<_DailySummary> _appendUnpaidAbsentPlaceholders(
+    List<_DailySummary> summaries,
+  ) {
+    final roster = widget.employeesList;
+    if (roster == null || roster.isEmpty) return summaries;
+
+    final existing = <String>{};
+    for (final s in summaries) {
+      existing.add('${s.employeeId}|${_summaryDateKeyFmt.format(s.date)}');
+      if (s.pin != null && s.pin!.isNotEmpty) {
+        existing.add('${s.pin}|${_summaryDateKeyFmt.format(s.date)}');
+      }
+      if (s.employeeCode.isNotEmpty) {
+        existing.add('${s.employeeCode}|${_summaryDateKeyFmt.format(s.date)}');
+      }
+    }
+
+    final leaveCtx = _verticalSummaryLeaveContext();
+    final dates = attendanceDaysInRange(_selectedDateRange);
+    final out = List<_DailySummary>.from(summaries);
+
+    for (final emp in roster) {
+      final code = emp['employeeCode']?.toString() ?? '';
+      final pin = emp['pin']?.toString() ?? '';
+      final empId = code.isNotEmpty ? code : pin;
+      if (empId.isEmpty) continue;
+
+      if (_selectedEmployeeIds.isNotEmpty &&
+          !_selectedEmployeeIds.contains(empId) &&
+          !_selectedEmployeeIds.contains(code) &&
+          !_selectedEmployeeIds.contains(pin)) {
+        continue;
+      }
+
+      final name = emp['fullName']?.toString() ??
+          emp['name']?.toString() ??
+          emp['employeeName']?.toString() ??
+          '-';
+      final hrCode = _codeOrPinToHrEmployeeCode[empId] ??
+          (code.isNotEmpty ? code : empId);
+      final applicationUserId = _codeOrPinToApplicationUserId[empId] ??
+          _codeOrPinToApplicationUserId[code];
+      final employeeGuid =
+          _employeeCodeToGuid[empId] ?? _employeeCodeToGuid[hrCode];
+
+      for (final date in dates) {
+        final dateKey = _summaryDateKeyFmt.format(date);
+        if (existing.contains('$empId|$dateKey') ||
+            (code.isNotEmpty && existing.contains('$code|$dateKey')) ||
+            (pin.isNotEmpty && existing.contains('$pin|$dateKey'))) {
+          continue;
+        }
+
+        final kind = leaveCtx.leaveLookup.classify(
+          day: date,
+          employeeCode: hrCode,
+          employeeUserId: leaveCtx.empUserIdMap[hrCode] ??
+              leaveCtx.empUserIdMap[empId] ??
+              applicationUserId,
+          hrEmployeeId: leaveCtx.hrEmpIdMap[hrCode] ??
+              leaveCtx.hrEmpIdMap[empId] ??
+              employeeGuid,
+          displayEmployeeId: empId,
+          isHoliday: _getHolidayRate(date, hrCode) != null ||
+              _getHolidayRate(date, empId) != null,
+          isWeeklyOff: _isWeeklyOffDay(date, hrCode) ||
+              _isWeeklyOffDay(date, empId),
+        );
+        if (kind != AbsenceCellKind.unpaidAbsent) continue;
+
+        out.add(_DailySummary(
+          employeeId: empId,
+          employeeName: name,
+          employeeCode: hrCode,
+          pin: pin.isNotEmpty ? pin : null,
+          applicationUserId: applicationUserId,
+          employeeGuid: employeeGuid,
+          date: date,
+          shift1Hours: 0,
+          shift2Hours: 0,
+          totalHours: 0,
+          totalPunches: 0,
+          workCount: 0,
+          branchName: _codeTobranchName[empId] ??
+              _codeTobranchName[hrCode] ??
+              '',
+        ));
+        existing.add('$empId|$dateKey');
+      }
+    }
+    return out;
+  }
+
+  _DailySummary _placeholderSummaryForAbsent({
+    required String empId,
+    required String empName,
+    required String empCode,
+    required DateTime date,
+  }) {
+    final hrCode = _codeOrPinToHrEmployeeCode[empId] ?? empCode;
+    return _DailySummary(
+      employeeId: empId,
+      employeeName: empName,
+      employeeCode: hrCode,
+      pin: empId != hrCode ? empId : null,
+      applicationUserId: _codeOrPinToApplicationUserId[empId] ??
+          _codeOrPinToApplicationUserId[hrCode],
+      employeeGuid:
+          _employeeCodeToGuid[empId] ?? _employeeCodeToGuid[hrCode],
+      date: date,
+      shift1Hours: 0,
+      shift2Hours: 0,
+      totalHours: 0,
+      totalPunches: 0,
+      workCount: 0,
+      branchName: _codeTobranchName[empId] ?? _codeTobranchName[hrCode] ?? '',
+    );
   }
 
   List<_DailySummary> _applySortAndFilter(List<_DailySummary> summaries) {
@@ -1085,12 +1220,12 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
 
   Widget _buildTravelHoursCell(double hours, {bool bold = false}) {
     if (hours <= 0) {
-      return const Text('—',
+      return Text(tr('—'),
           textAlign: TextAlign.center,
           style: TextStyle(fontSize: 11, color: Color(0xFFA1A1AA)));
     }
     return Text(
-      _formatHours(hours),
+      tr(_formatHours(hours)),
       textAlign: TextAlign.center,
       style: TextStyle(
         fontSize: 12,
@@ -1231,7 +1366,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                     Icon(Icons.analytics_outlined,
                         size: 16, color: Colors.blue.shade700),
                     const SizedBox(width: 6),
-                    Text('Tổng quan',
+                    Text(tr('Tổng quan'),
                         style: TextStyle(
                             fontWeight: FontWeight.w600,
                             fontSize: 13,
@@ -1367,7 +1502,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
           children: [
             Icon(Icons.inbox_outlined, size: 56, color: Colors.grey.shade300),
             const SizedBox(height: 12),
-            Text('Không có dữ liệu',
+            Text(tr('Không có dữ liệu'),
                 style: TextStyle(color: Colors.grey.shade400, fontSize: 14)),
           ],
         ),
@@ -1447,7 +1582,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
   }
 
   Widget _summaryHeaderText(String label) => Text(
-        label,
+        tr(label),
         textAlign: TextAlign.center,
         style: _summaryHeaderTextStyle,
       );
@@ -1496,7 +1631,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
       _summaryTableCell(const SizedBox.shrink()),
       _summaryTableCell(
         Text(
-          'Σ ${totals.employeeName}',
+          tr('Σ ${totals.employeeName}'),
           textAlign: TextAlign.center,
           style: const TextStyle(
             fontSize: 12,
@@ -1507,7 +1642,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
       ),
       _summaryTableCell(
         Text(
-          totals.employeeCode,
+          tr(totals.employeeCode),
           textAlign: TextAlign.center,
           style: const TextStyle(
             fontSize: 11,
@@ -1517,8 +1652,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
         ),
       ),
       _summaryTableCell(
-        Text(
-          'Tổng',
+        Text(tr('Tổng'),
           textAlign: TextAlign.center,
           style: TextStyle(
             fontSize: 11,
@@ -1528,8 +1662,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
         ),
       ),
       _summaryTableCell(
-        Text(
-          '${totals.presentDays} ngày',
+        Text(tr('${totals.presentDays} ngày'),
           textAlign: TextAlign.center,
           style: const TextStyle(
             fontSize: 11,
@@ -1541,7 +1674,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
     ];
     for (var i = 0; i < maxPunches; i++) {
       cells.add(_summaryTableCell(
-        const Text('—',
+        Text(tr('—'),
             textAlign: TextAlign.center,
             style: TextStyle(fontSize: 11, color: Color(0xFFA1A1AA))),
       ));
@@ -1551,7 +1684,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
       cells.add(_summaryTableCell(
         h > 0
             ? _buildHoursBadge(h, shiftColors[i - 1], isBold: true)
-            : const Text('—',
+            : Text(tr('—'),
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 11, color: Color(0xFFA1A1AA))),
       ));
@@ -1560,7 +1693,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
       _summaryTableCell(
         totals.totalHours > 0
             ? _buildHoursBadge(totals.totalHours, Colors.green, isBold: true)
-            : const Text('—',
+            : Text(tr('—'),
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 11, color: Color(0xFFA1A1AA))),
       ),
@@ -1573,7 +1706,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
       )),
       _summaryTableCell(
         Text(
-          workStr,
+          tr(workStr),
           textAlign: TextAlign.center,
           style: TextStyle(
             fontSize: 12,
@@ -1586,9 +1719,9 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
       ),
       _summaryTableCell(
         Text(
-          totals.totalHours > 0
+          tr(totals.totalHours > 0
               ? _formatDecimalHours(totals.totalHours)
-              : '—',
+              : '—'),
           textAlign: TextAlign.center,
           style: TextStyle(
             fontSize: 12,
@@ -1886,7 +2019,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
             ),
             const SizedBox(height: 8),
             Text(
-              value,
+              tr(value),
               textAlign: TextAlign.center,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
@@ -1899,7 +2032,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
             ),
             const SizedBox(height: 6),
             Text(
-              label,
+              tr(label),
               textAlign: TextAlign.center,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
@@ -1942,11 +2075,11 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(label,
+                Text(tr(label),
                     style:
                         TextStyle(color: Colors.grey.shade500, fontSize: 11)),
                 const SizedBox(height: 2),
-                Text(value,
+                Text(tr(value),
                     style: TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.bold,
@@ -1989,12 +2122,11 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
           child: Scaffold(
             backgroundColor: const Color(0xFFFAFAFA),
             appBar: AppBar(
-              title: const Text(
-                'Bảng chấm công chi tiết',
+              title: Text(tr('Bảng chấm công chi tiết'),
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
               ),
               leading: IconButton(
-                tooltip: 'Thoát chế độ toàn màn hình',
+                tooltip: tr('Thoát chế độ toàn màn hình'),
                 icon: const Icon(Icons.fullscreen_exit),
                 onPressed: () => Navigator.pop(dialogCtx),
               ),
@@ -2002,7 +2134,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                 TextButton.icon(
                   onPressed: () => Navigator.pop(dialogCtx),
                   icon: const Icon(Icons.close, size: 18),
-                  label: const Text('Thoát'),
+                  label: Text(tr('Thoát')),
                 ),
               ],
             ),
@@ -2067,8 +2199,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                       top: BorderSide(color: Color(0xFFE4E4E7)),
                     ),
                   ),
-                  child: Text(
-                    '${allSummaries.length} bản ghi · ${daySttMap.length} nhân viên',
+                  child: Text(tr('${allSummaries.length} bản ghi · ${daySttMap.length} nhân viên'),
                     style:
                         TextStyle(fontSize: 12, color: Colors.grey.shade600),
                   ),
@@ -2121,8 +2252,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
           Icon(Icons.format_list_numbered,
               size: 13, color: Colors.green.shade600),
           const SizedBox(width: 4),
-          Text(
-            'Hiển thị $startRow-$endRow / $totalRows bản ghi',
+          Text(tr('Hiển thị $startRow-$endRow / $totalRows bản ghi'),
             style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w500,
@@ -2135,7 +2265,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
     final rowsPerPage = Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text('Số dòng:',
+        Text(tr('Số dòng:'),
             style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
         const SizedBox(width: 6),
         Container(
@@ -2153,10 +2283,10 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
               style: TextStyle(
                   fontSize: 12,
                   color: Theme.of(context).textTheme.bodyMedium?.color),
-              items: const [
-                DropdownMenuItem(value: 20, child: Text('20')),
-                DropdownMenuItem(value: 50, child: Text('50')),
-                DropdownMenuItem(value: 100, child: Text('100')),
+              items: [
+                DropdownMenuItem(value: 20, child: Text(tr('20'))),
+                DropdownMenuItem(value: 50, child: Text(tr('50'))),
+                DropdownMenuItem(value: 100, child: Text(tr('100'))),
               ],
               onChanged: (v) {
                 if (v != null) {
@@ -2186,7 +2316,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
             borderRadius: BorderRadius.circular(8),
           ),
           child: Text(
-            '${_currentPage + 1} / ${totalPages == 0 ? 1 : totalPages}',
+            tr('${_currentPage + 1} / ${totalPages == 0 ? 1 : totalPages}'),
             style: const TextStyle(
                 fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white),
           ),
@@ -2227,7 +2357,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                     child: TextButton.icon(
                       onPressed: onOpenFullscreen,
                       icon: const Icon(Icons.fullscreen, size: 18),
-                      label: const Text('Toàn màn hình'),
+                      label: Text(tr('Toàn màn hình')),
                     ),
                   ),
                 ],
@@ -2244,14 +2374,14 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
               if (onOpenFullscreen != null) ...[
                 const SizedBox(width: 8),
                 Tooltip(
-                  message: 'Xem toàn màn hình',
+                  message: tr('Xem toàn màn hình'),
                   child: Material(
                     color: const Color(0xFFEFF6FF),
                     borderRadius: BorderRadius.circular(8),
                     child: InkWell(
                       onTap: onOpenFullscreen,
                       borderRadius: BorderRadius.circular(8),
-                      child: const Padding(
+                      child: Padding(
                         padding: EdgeInsets.symmetric(
                             horizontal: 10, vertical: 6),
                         child: Row(
@@ -2260,8 +2390,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                             Icon(Icons.fullscreen,
                                 size: 18, color: Color(0xFF2563EB)),
                             SizedBox(width: 6),
-                            Text(
-                              'Toàn màn hình',
+                            Text(tr('Toàn màn hình'),
                               style: TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w600,
@@ -2527,7 +2656,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
       row: row,
       colStart: 0,
       colEnd: lastCol,
-      text: 'BẢNG CHẤM CÔNG CHI TIẾT',
+      text: tr('BẢNG CHẤM CÔNG CHI TIẾT'),
       style: titleStyle,
     );
     row++;
@@ -2538,7 +2667,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
       colStart: 0,
       colEnd: lastCol,
       text:
-          'Từ ngày ${DateFormat('dd/MM/yyyy').format(range.start)} đến ngày ${DateFormat('dd/MM/yyyy').format(range.end)}',
+          tr('Từ ngày ${DateFormat('dd/MM/yyyy').format(range.start)} đến ngày ${DateFormat('dd/MM/yyyy').format(range.end)}'),
       style: _excelCenterStyle(fontSize: 12),
     );
     row += 2;
@@ -2549,7 +2678,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
         row: row,
         colStart: 0,
         colEnd: lastCol,
-        text: line,
+        text: tr(line),
         style: infoStyle,
       );
       row++;
@@ -2742,38 +2871,38 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
         row: row,
         colStart: 0,
         colEnd: sig1End,
-        text: 'Người lập',
+        text: tr('Người lập'),
         style: sigTitleStyle);
     _excelMergedText(sheet,
         row: row,
         colStart: sig2Start,
         colEnd: sig2End,
-        text: 'Nhân viên',
+        text: tr('Nhân viên'),
         style: sigTitleStyle);
     _excelMergedText(sheet,
         row: row,
         colStart: sig3Start,
         colEnd: lastCol,
-        text: 'Giám đốc',
+        text: tr('Giám đốc'),
         style: sigTitleStyle);
     row += 4;
     _excelMergedText(sheet,
         row: row,
         colStart: 0,
         colEnd: sig1End,
-        text: '(Ký, ghi rõ họ tên)',
+        text: tr('(Ký, ghi rõ họ tên)'),
         style: sigHintStyle);
     _excelMergedText(sheet,
         row: row,
         colStart: sig2Start,
         colEnd: sig2End,
-        text: '(Ký, ghi rõ họ tên)',
+        text: tr('(Ký, ghi rõ họ tên)'),
         style: sigHintStyle);
     _excelMergedText(sheet,
         row: row,
         colStart: sig3Start,
         colEnd: lastCol,
-        text: '(Ký, ghi rõ họ tên)',
+        text: tr('(Ký, ghi rõ họ tên)'),
         style: sigHintStyle);
     row += 2;
 
@@ -2834,7 +2963,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
           row: row,
           colStart: 0,
           colEnd: colCount - 1,
-          text: 'Bộ lọc: $filterDesc',
+          text: tr('Bộ lọc: $filterDesc'),
           style: _excelCenterStyle(fontSize: 10, italic: true),
         );
         row += 2;
@@ -2869,14 +2998,13 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
         if (mounted) {
           NotificationOverlayManager().showSuccess(
               title: 'Xuất Excel',
-              message:
-                  'Đã lưu ${orderedIds.length} nhân viên vào Tải về/SBOX HRM: $fileName');
+              message: tr('Đã lưu ${orderedIds.length} nhân viên vào Tải về/SBOX HRM: $fileName'));
         }
       }
     } catch (e) {
       if (mounted) {
         NotificationOverlayManager()
-            .showError(title: 'Lỗi', message: 'Không thể xuất Excel: $e');
+            .showError(title: 'Lỗi', message: tr('Không thể xuất Excel: $e'));
       }
     } finally {
       if (mounted) setState(() => _isExporting = false);
@@ -3204,7 +3332,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
     final summaries = _dailySummaryData;
     if (summaries.isEmpty) {
       NotificationOverlayManager().showWarning(
-          title: 'Không có dữ liệu', message: 'Không có dữ liệu để xuất');
+          title: 'Không có dữ liệu', message: tr('Không có dữ liệu để xuất'));
       return;
     }
 
@@ -3269,8 +3397,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
         if (mounted) {
           NotificationOverlayManager().showSuccess(
               title: 'Xuất PNG',
-              message:
-                  'Đã lưu ${orderedIds.length} nhân viên vào Ảnh/SBOX HRM: $fileName');
+              message: tr('Đã lưu ${orderedIds.length} nhân viên vào Ảnh/SBOX HRM: $fileName'));
         }
       } else {
         final pngBytes = await web_canvas.renderToPngBytes(
@@ -3283,17 +3410,16 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
               pngBytes, fileName, 'image/png');
           NotificationOverlayManager().showSuccess(
               title: 'Xuất PNG',
-              message:
-                  'Đã lưu ${orderedIds.length} nhân viên vào Ảnh/SBOX HRM: $fileName');
+              message: tr('Đã lưu ${orderedIds.length} nhân viên vào Ảnh/SBOX HRM: $fileName'));
         } else if (mounted) {
           NotificationOverlayManager()
-              .showError(title: 'Lỗi', message: 'Không thể xuất PNG');
+              .showError(title: 'Lỗi', message: tr('Không thể xuất PNG'));
         }
       }
     } catch (e) {
       if (mounted) {
         NotificationOverlayManager()
-            .showError(title: 'Lỗi', message: 'Lỗi xuất PNG: $e');
+            .showError(title: 'Lỗi', message: tr('Lỗi xuất PNG: $e'));
       }
     } finally {
       if (mounted) setState(() => _isExporting = false);
@@ -3332,9 +3458,9 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
             const SizedBox(width: 6),
             Flexible(
               child: Text(
-                selectedCount == 0
+                tr(selectedCount == 0
                     ? 'Tất cả nhân viên (${employees.length})'
-                    : '$selectedCount nhân viên đã chọn',
+                    : '$selectedCount nhân viên đã chọn'),
                 style: TextStyle(
                   fontSize: 12,
                   color: selectedCount > 0
@@ -3389,7 +3515,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                 children: [
                   const Icon(Icons.people, color: Colors.blue, size: 22),
                   const SizedBox(width: 8),
-                  const Text('Chọn nhân viên',
+                  Text(tr('Chọn nhân viên'),
                       style:
                           TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                   const Spacer(),
@@ -3403,9 +3529,9 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                       }
                     },
                     child: Text(
-                      tempSelected.length == employees.length
+                      tr(tempSelected.length == employees.length
                           ? 'Bỏ chọn tất cả'
-                          : 'Chọn tất cả',
+                          : 'Chọn tất cả'),
                       style: const TextStyle(fontSize: 12),
                     ),
                   ),
@@ -3422,7 +3548,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                     // Search box
                     TextField(
                       decoration: InputDecoration(
-                        hintText: 'Tìm nhân viên...',
+                        hintText: tr('Tìm nhân viên...'),
                         hintStyle: const TextStyle(fontSize: 13),
                         prefixIcon: const Icon(Icons.search, size: 18),
                         isDense: true,
@@ -3445,8 +3571,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                       ),
                       child: Row(
                         children: [
-                          Text(
-                              'Đã chọn: ${tempSelected.length}/${employees.length}',
+                          Text(tr('Đã chọn: ${tempSelected.length}/${employees.length}'),
                               style: TextStyle(
                                   fontSize: 12,
                                   color: Colors.blue.shade700,
@@ -3501,9 +3626,9 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                                     radius: 14,
                                     backgroundColor: Colors.blue.shade100,
                                     child: Text(
-                                        emp.name.isNotEmpty
+                                        tr(emp.name.isNotEmpty
                                             ? emp.name[0].toUpperCase()
-                                            : '?',
+                                            : '?'),
                                         style: TextStyle(
                                             fontSize: 12,
                                             fontWeight: FontWeight.bold,
@@ -3515,11 +3640,11 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                                       crossAxisAlignment:
                                           CrossAxisAlignment.start,
                                       children: [
-                                        Text(emp.name,
+                                        Text(tr(emp.name),
                                             style: const TextStyle(
                                                 fontSize: 13,
                                                 fontWeight: FontWeight.w500)),
-                                        Text(emp.code,
+                                        Text(tr(emp.code),
                                             style: TextStyle(
                                                 fontSize: 11,
                                                 color: Colors.grey.shade600)),
@@ -3539,7 +3664,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(ctx),
-                  child: const Text('Hủy'),
+                  child: Text(tr('Hủy')),
                 ),
                 FilledButton(
                   onPressed: () {
@@ -3550,7 +3675,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                     });
                     Navigator.pop(ctx);
                   },
-                  child: const Text('Áp dụng'),
+                  child: Text(tr('Áp dụng')),
                 ),
               ],
             );
@@ -3654,6 +3779,17 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                 date: date,
                 employees: widget.employeesList,
                 onCompleted: _notifyDataChanged,
+                onAddWork: widget.allowCorrection
+                    ? () {
+                        final summary = _placeholderSummaryForAbsent(
+                          empId: empId,
+                          empName: empName,
+                          empCode: empCode,
+                          date: date,
+                        );
+                        _showAddPunchDialog(summary, 1, true, context);
+                      }
+                    : null,
               );
             }
           : null,
@@ -3737,7 +3873,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
             weekday: 'CỘNG',
             attendance: Center(
               child: Text(
-                presentDays > 0 ? '$presentDays ngày' : '—',
+                tr(presentDays > 0 ? '$presentDays ngày' : '—'),
                 style: const TextStyle(
                   fontSize: 10,
                   fontWeight: FontWeight.w800,
@@ -3777,9 +3913,8 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
             title: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(empName, overflow: TextOverflow.ellipsis),
-                Text(
-                  'Mã $empCode',
+                Text(tr(empName), overflow: TextOverflow.ellipsis),
+                Text(tr('Mã $empCode'),
                   style: const TextStyle(
                       fontSize: 12, fontWeight: FontWeight.w400),
                 ),
@@ -3860,7 +3995,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
             Icon(icon, size: 14, color: color),
             const SizedBox(height: 4),
             Text(
-              value,
+              tr(value),
               textAlign: TextAlign.center,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
@@ -3871,7 +4006,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
               ),
             ),
             Text(
-              label,
+              tr(label),
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 9,
@@ -3895,6 +4030,26 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
     for (final s in summaries) {
       empMap[s.employeeId] = s.employeeName;
       empCodeMap[s.employeeId] = s.employeeCode;
+    }
+    final roster = widget.employeesList;
+    if (roster != null) {
+      for (final emp in roster) {
+        final code = emp['employeeCode']?.toString() ?? '';
+        final pin = emp['pin']?.toString() ?? '';
+        final id = code.isNotEmpty ? code : pin;
+        if (id.isEmpty || empMap.containsKey(id)) continue;
+        if (_selectedEmployeeIds.isNotEmpty &&
+            !_selectedEmployeeIds.contains(id) &&
+            !_selectedEmployeeIds.contains(code) &&
+            !_selectedEmployeeIds.contains(pin)) {
+          continue;
+        }
+        empMap[id] = emp['fullName']?.toString() ??
+            emp['name']?.toString() ??
+            emp['employeeName']?.toString() ??
+            '-';
+        empCodeMap[id] = code.isNotEmpty ? code : id;
+      }
     }
     final employees = empMap.entries.toList()
       ..sort((a, b) => a.value.compareTo(b.value));
@@ -3992,7 +4147,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                         backgroundColor:
                             HrmPageChrome.primaryNavy.withValues(alpha: 0.12),
                         child: Text(
-                          _mobileEmployeeInitials(empName),
+                          tr(_mobileEmployeeInitials(empName)),
                           style: const TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w700,
@@ -4006,7 +4161,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              empName,
+                              tr(empName),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
@@ -4017,7 +4172,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                             ),
                             const SizedBox(height: 2),
                             Text(
-                              empCode,
+                              tr(empCode),
                               style: const TextStyle(
                                 fontSize: 11,
                                 color: Color(0xFF71717A),
@@ -4082,8 +4237,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                           ),
                         ),
                         const SizedBox(width: 8),
-                        Text(
-                          '${formatWork(work)}/$expected công',
+                        Text(tr('${formatWork(work)}/$expected công'),
                           style: TextStyle(
                             fontSize: 10,
                             fontWeight: FontWeight.w600,
@@ -4123,16 +4277,14 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'Tổng cộng',
+                  Text(tr('Tổng cộng'),
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w800,
                       color: HrmPageChrome.primaryNavy,
                     ),
                   ),
-                  Text(
-                    '${employees.length} nhân viên',
+                  Text(tr('${employees.length} nhân viên'),
                     style: TextStyle(
                       fontSize: 10,
                       color: Colors.grey.shade700,
@@ -4145,25 +4297,25 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Text(
-                  grandHours > 0 ? _formatHours(grandHours) : '—',
+                  tr(grandHours > 0 ? _formatHours(grandHours) : '—'),
                   style: const TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w800,
                     color: Color(0xFF2563EB),
                   ),
                 ),
-                const Text('tổng giờ',
+                Text(tr('tổng giờ'),
                     style: TextStyle(fontSize: 9, color: Color(0xFF71717A))),
                 const SizedBox(height: 4),
                 Text(
-                  formatWork(grandWork),
+                  tr(formatWork(grandWork)),
                   style: const TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w800,
                     color: Color(0xFF7C3AED),
                   ),
                 ),
-                const Text('tổng công',
+                Text(tr('tổng công'),
                     style: TextStyle(fontSize: 9, color: Color(0xFF71717A))),
               ],
             ),
@@ -4188,9 +4340,8 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                     size: 18, color: HrmPageChrome.primaryNavy),
               ),
               const SizedBox(width: 10),
-              const Expanded(
-                child: Text(
-                  'Danh sách nhân viên',
+              Expanded(
+                child: Text(tr('Danh sách nhân viên'),
                   style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
@@ -4206,7 +4357,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
-                  '${employees.length} NV',
+                  tr('${employees.length} NV'),
                   style: const TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
@@ -4221,8 +4372,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
       SliverPadding(
         padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
         sliver: SliverToBoxAdapter(
-          child: Text(
-            'Chạm thẻ nhân viên để xem bảng chi tiết điểm danh theo ngày',
+          child: Text(tr('Chạm thẻ nhân viên để xem bảng chi tiết điểm danh theo ngày'),
             style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
           ),
         ),
@@ -4287,8 +4437,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
               ),
               const SizedBox(width: 10),
               Expanded(
-                child: Text(
-                  'Lần $i (${isIn ? "Vào" : "Ra"})',
+                child: Text(tr('Lần $i (${isIn ? "Vào" : "Ra"})'),
                   style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
                 ),
               ),
@@ -4317,8 +4466,8 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
               child: const Icon(Icons.login, size: 15, color: Colors.green),
             ),
             const SizedBox(width: 10),
-            const Expanded(
-                child: Text('Lần 1 (Vào)',
+            Expanded(
+                child: Text(tr('Lần 1 (Vào)'),
                     style: TextStyle(fontSize: 13, color: Colors.grey))),
             _buildPunchTime(null,
                 isIn: true, summary: s, punchIndex: 1, hostContext: hostContext),
@@ -4330,7 +4479,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
         children: [
           Padding(
             padding: const EdgeInsets.only(bottom: 6),
-            child: Text('Chấm công',
+            child: Text(tr('Chấm công'),
                 style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
@@ -4413,7 +4562,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                     leading: IconButton(
                         icon: const Icon(Icons.close),
                         onPressed: () => Navigator.pop(ctx)),
-                    title: Text(live.employeeName,
+                    title: Text(tr(live.employeeName),
                         overflow: TextOverflow.ellipsis),
                   ),
                   body: SingleChildScrollView(
@@ -4427,9 +4576,9 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                               radius: 20,
                               backgroundColor: Colors.blue.shade100,
                               child: Text(
-                                live.employeeName.isNotEmpty
+                                tr(live.employeeName.isNotEmpty
                                     ? live.employeeName[0].toUpperCase()
-                                    : '?',
+                                    : '?'),
                                 style: TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.bold,
@@ -4441,11 +4590,11 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(live.employeeName,
+                                  Text(tr(live.employeeName),
                                       style: const TextStyle(
                                           fontSize: 15,
                                           fontWeight: FontWeight.bold)),
-                                  Text('Mã: ${live.employeeCode}',
+                                  Text(tr('Mã: ${live.employeeCode}'),
                                       style: TextStyle(
                                           fontSize: 12,
                                           color: Colors.grey.shade600)),
@@ -4468,7 +4617,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                                   size: 16, color: Colors.grey.shade600),
                               const SizedBox(width: 8),
                               Text(
-                                '${_getDayOfWeekVN(live.date.weekday)}, ${DateFormat('dd/MM/yyyy').format(live.date)}',
+                                tr('${_getDayOfWeekVN(live.date.weekday)}, ${DateFormat('dd/MM/yyyy').format(live.date)}'),
                                 style: const TextStyle(
                                     fontSize: 13, fontWeight: FontWeight.w500),
                               ),
@@ -4518,9 +4667,9 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                             radius: 20,
                             backgroundColor: Colors.blue.shade100,
                             child: Text(
-                              live.employeeName.isNotEmpty
+                              tr(live.employeeName.isNotEmpty
                                   ? live.employeeName[0].toUpperCase()
-                                  : '?',
+                                  : '?'),
                               style: TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.bold,
@@ -4532,11 +4681,11 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(live.employeeName,
+                                Text(tr(live.employeeName),
                                     style: const TextStyle(
                                         fontSize: 15,
                                         fontWeight: FontWeight.bold)),
-                                Text('Mã: ${live.employeeCode}',
+                                Text(tr('Mã: ${live.employeeCode}'),
                                     style: TextStyle(
                                         fontSize: 12,
                                         color: Colors.grey.shade600)),
@@ -4566,7 +4715,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                               size: 16, color: Colors.grey.shade600),
                           const SizedBox(width: 8),
                           Text(
-                            '${_getDayOfWeekVN(live.date.weekday)}, ${DateFormat('dd/MM/yyyy').format(live.date)}',
+                            tr('${_getDayOfWeekVN(live.date.weekday)}, ${DateFormat('dd/MM/yyyy').format(live.date)}'),
                             style: const TextStyle(
                                 fontSize: 13, fontWeight: FontWeight.w500),
                           ),
@@ -4586,7 +4735,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                         width: double.infinity,
                         child: FilledButton(
                           onPressed: () => Navigator.pop(ctx),
-                          child: const Text('Đóng'),
+                          child: Text(tr('Đóng')),
                         ),
                       ),
                     ),
@@ -4619,11 +4768,11 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
             const SizedBox(width: 10),
           ],
           Expanded(
-            child: Text(label,
+            child: Text(tr(label),
                 style: TextStyle(fontSize: 13, color: Colors.grey.shade700)),
           ),
           Text(
-            value,
+            tr(value),
             style: TextStyle(
               fontSize: 13,
               fontWeight: isBold ? FontWeight.bold : FontWeight.w500,
@@ -4705,7 +4854,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                     const SizedBox(width: 6),
                     Flexible(
                       child: Text(
-                        branchLabel,
+                        tr(branchLabel),
                         style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w700,
@@ -4722,7 +4871,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Text(
-                        '$empCount NV',
+                        tr('$empCount NV'),
                         style: const TextStyle(
                             fontSize: 10,
                             fontWeight: FontWeight.w600,
@@ -4746,7 +4895,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
           1;
       final cells = <Widget>[
         _summaryTableCell(Text(
-          '$stt',
+          tr('$stt'),
           textAlign: TextAlign.center,
           style: const TextStyle(fontSize: 12, color: Colors.grey),
         )),
@@ -4755,7 +4904,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
             onTap: () =>
                 _showRowDetailDialog(summary, maxPunches, maxShifts),
             child: Text(
-              summary.employeeName,
+              tr(summary.employeeName),
               textAlign: TextAlign.center,
               style:
                   const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
@@ -4764,7 +4913,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
         ),
         _summaryTableCell(
           Text(
-            summary.employeeCode,
+            tr(summary.employeeCode),
             textAlign: TextAlign.center,
             style: const TextStyle(fontSize: 12),
           ),
@@ -4777,7 +4926,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
               borderRadius: BorderRadius.circular(4),
             ),
             child: Text(
-              dayOfWeek,
+              tr(dayOfWeek),
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: _getDayColor(summary.date.weekday),
@@ -4789,7 +4938,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
         ),
         _summaryTableCell(
           Text(
-            DateFormat('dd/MM/yyyy').format(summary.date),
+            tr(DateFormat('dd/MM/yyyy').format(summary.date)),
             textAlign: TextAlign.center,
             style: const TextStyle(fontSize: 12),
           ),
@@ -4837,11 +4986,11 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
             borderRadius: BorderRadius.circular(6),
           ),
           child: Text(
-            summary.workCount > 0
+            tr(summary.workCount > 0
                 ? (summary.effectiveMultiplier != 1.0
                     ? '${summary.workCount.toStringAsFixed(2)} (x${summary.effectiveMultiplier.toStringAsFixed(summary.effectiveMultiplier % 1 == 0 ? 0 : 1)})'
                     : summary.workCount.toStringAsFixed(2))
-                : '-',
+                : '-'),
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 12,
@@ -4860,7 +5009,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
 
       cells.add(_summaryTableCell(
         Text(
-          _formatDecimalHours(summary.totalHours),
+          tr(_formatDecimalHours(summary.totalHours)),
           textAlign: TextAlign.center,
           style: TextStyle(
             fontSize: 12,
@@ -4900,13 +5049,13 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
       value: _selectedPreset,
       width: isMobile ? 120 : null,
       icon: Icons.calendar_today,
-      items: const [
-        DropdownMenuItem(value: 'today', child: Text('Hôm nay')),
-        DropdownMenuItem(value: 'yesterday', child: Text('Hôm qua')),
-        DropdownMenuItem(value: 'week', child: Text('Tuần này')),
-        DropdownMenuItem(value: 'lastWeek', child: Text('Tuần trước')),
-        DropdownMenuItem(value: 'month', child: Text('Tháng này')),
-        DropdownMenuItem(value: 'lastMonth', child: Text('Tháng trước')),
+      items: [
+        DropdownMenuItem(value: 'today', child: Text(tr('Hôm nay'))),
+        DropdownMenuItem(value: 'yesterday', child: Text(tr('Hôm qua'))),
+        DropdownMenuItem(value: 'week', child: Text(tr('Tuần này'))),
+        DropdownMenuItem(value: 'lastWeek', child: Text(tr('Tuần trước'))),
+        DropdownMenuItem(value: 'month', child: Text(tr('Tháng này'))),
+        DropdownMenuItem(value: 'lastMonth', child: Text(tr('Tháng trước'))),
       ],
       onChanged: (v) {
         if (v != null) {
@@ -4927,10 +5076,10 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
       value: _shiftFilter,
       width: isMobile ? 150 : null,
       icon: Icons.warning_amber_rounded,
-      items: const [
-        DropdownMenuItem(value: 'all', child: Text('Tất cả ca')),
-        DropdownMenuItem(value: 'missing', child: Text('Thiếu chấm công')),
-        DropdownMenuItem(value: 'complete', child: Text('Đủ chấm công')),
+      items: [
+        DropdownMenuItem(value: 'all', child: Text(tr('Tất cả ca'))),
+        DropdownMenuItem(value: 'missing', child: Text(tr('Thiếu chấm công'))),
+        DropdownMenuItem(value: 'complete', child: Text(tr('Đủ chấm công'))),
       ],
       onChanged: (v) {
         if (v != null) {
@@ -4955,8 +5104,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
           Icon(Icons.table_chart,
               color: Theme.of(context).primaryColor, size: 14),
           const SizedBox(width: 5),
-          Text(
-            '${_dailySummaryData.length} bản ghi',
+          Text(tr('${_dailySummaryData.length} bản ghi'),
             style: TextStyle(
               color: Theme.of(context).primaryColor,
               fontSize: 12,
@@ -5112,7 +5260,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
           const SizedBox(width: 6),
           Flexible(
             child: Text(
-              '${fmt.format(range.start)} \u2013 ${fmt.format(range.end)}',
+              tr('${fmt.format(range.start)} \u2013 ${fmt.format(range.end)}'),
               style: const TextStyle(fontSize: 12),
               overflow: TextOverflow.ellipsis,
             ),
@@ -5132,8 +5280,8 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
   }) {
     if (time == null) {
       if (!widget.allowCorrection) {
-        return const Center(
-          child: Text('—',
+        return Center(
+          child: Text(tr('—'),
               style: TextStyle(fontSize: 11, color: Color(0xFFA1A1AA))),
         );
       }
@@ -5159,7 +5307,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
     if (!widget.allowCorrection) {
       return Center(
         child: Text(
-          DateFormat('HH:mm').format(time),
+          tr(DateFormat('HH:mm').format(time)),
           textAlign: TextAlign.center,
           style: TextStyle(
             fontSize: 12,
@@ -5194,7 +5342,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
               ),
               const SizedBox(width: 3),
               Text(
-                DateFormat('HH:mm').format(time),
+                tr(DateFormat('HH:mm').format(time)),
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w500,
@@ -5244,11 +5392,11 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
       context: hostContext,
       builder: (dialogCtx) => StatefulBuilder(
         builder: (dialogCtx, setDialogState) => ScrollableAlertDialog(
-          title: const Row(
+          title: Row(
             children: [
               Icon(Icons.add_circle, color: Colors.blue),
               SizedBox(width: 8),
-              Text('Thêm chấm công'),
+              Text(tr('Thêm chấm công')),
             ],
           ),
           content: SingleChildScrollView(
@@ -5264,13 +5412,12 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Nhân viên: ${live.employeeName}',
+                        Text(tr('Nhân viên: ${live.employeeName}'),
                             style:
                                 const TextStyle(fontWeight: FontWeight.bold)),
-                        Text('Mã NV: ${live.employeeCode}'),
-                        Text(
-                            'Ngày: ${DateFormat('dd/MM/yyyy').format(selectedDate)}'),
-                        Text('Lần chấm: $punchIndex (${isIn ? "Vào" : "Ra"})'),
+                        Text(tr('Mã NV: ${live.employeeCode}')),
+                        Text(tr('${tr('Ngày: ')}${DateFormat('dd/MM/yyyy').format(selectedDate)}')),
+                        Text(tr('Lần chấm: $punchIndex (${isIn ? "Vào" : "Ra"})')),
                       ],
                     ),
                   ),
@@ -5278,7 +5425,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                 const SizedBox(height: 16),
 
                 // Chọn ngày (cho ca qua đêm)
-                const Text('Ngày chấm công:',
+                Text(tr('Ngày chấm công:'),
                     style: TextStyle(fontWeight: FontWeight.w500)),
                 const SizedBox(height: 8),
                 InkWell(
@@ -5305,7 +5452,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                         const Icon(Icons.calendar_today, color: Colors.blue),
                         const SizedBox(width: 8),
                         Text(
-                          DateFormat('dd/MM/yyyy').format(selectedDate),
+                          tr(DateFormat('dd/MM/yyyy').format(selectedDate)),
                           style: const TextStyle(
                               fontSize: 16, fontWeight: FontWeight.bold),
                         ),
@@ -5318,7 +5465,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                               color: Colors.orange.shade100,
                               borderRadius: BorderRadius.circular(4),
                             ),
-                            child: Text('Ngày hôm sau',
+                            child: Text(tr('Ngày hôm sau'),
                                 style: TextStyle(
                                     fontSize: 10,
                                     color: Colors.orange.shade800)),
@@ -5333,7 +5480,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                 const SizedBox(height: 16),
 
                 // Chọn giờ
-                const Text('Chọn giờ chấm công:',
+                Text(tr('Chọn giờ chấm công:'),
                     style: TextStyle(fontWeight: FontWeight.w500)),
                 const SizedBox(height: 8),
                 InkWell(
@@ -5359,7 +5506,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                             color: isIn ? Colors.green : Colors.red),
                         const SizedBox(width: 8),
                         Text(
-                          '${selectedTime.hour.toString().padLeft(2, '0')}:${selectedTime.minute.toString().padLeft(2, '0')}',
+                          tr('${selectedTime.hour.toString().padLeft(2, '0')}:${selectedTime.minute.toString().padLeft(2, '0')}'),
                           style: const TextStyle(
                               fontSize: 18, fontWeight: FontWeight.bold),
                         ),
@@ -5387,22 +5534,21 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(dialogCtx),
-              child: const Text('Hủy'),
+              child: Text(tr('Hủy')),
             ),
             if (canFine)
               OutlinedButton.icon(
                 onPressed: () async {
                   if (reasonController.text.trim().isEmpty) {
                     appNotification.showError(
-                        title: 'Lỗi', message: 'Vui lòng nhập lý do');
+                        title: 'Lỗi', message: tr('Vui lòng nhập lý do'));
                     return;
                   }
                   if (live.employeeGuid == null ||
                       live.employeeGuid!.isEmpty) {
                     appNotification.showError(
                         title: 'Lỗi',
-                        message:
-                            'Không tìm thấy hồ sơ nhân viên. Hãy chọn lại chi nhánh để tải danh sách NV, hoặc liên kết PIN máy với hồ sơ HR.');
+                        message: tr('Không tìm thấy hồ sơ nhân viên. Hãy chọn lại chi nhánh để tải danh sách NV, hoặc liên kết PIN máy với hồ sơ HR.'));
                     return;
                   }
 
@@ -5440,7 +5586,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                           : 'Đã bổ sung chấm công (chưa tạo được phiếu phạt)');
                 },
                 icon: const Icon(Icons.gavel, size: 16, color: Colors.orange),
-                label: const Text('Thêm công và phạt',
+                label: Text(tr('Thêm công và phạt'),
                     style: TextStyle(color: Colors.orange)),
                 style: OutlinedButton.styleFrom(
                     side: const BorderSide(color: Colors.orange)),
@@ -5449,15 +5595,14 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
               onPressed: () async {
                 if (reasonController.text.trim().isEmpty) {
                   appNotification.showError(
-                      title: 'Lỗi', message: 'Vui lòng nhập lý do');
+                      title: 'Lỗi', message: tr('Vui lòng nhập lý do'));
                   return;
                 }
                 if (live.employeeGuid == null ||
                     live.employeeGuid!.isEmpty) {
                   appNotification.showError(
                       title: 'Lỗi',
-                      message:
-                          'Không tìm thấy hồ sơ nhân viên. Hãy chọn lại chi nhánh để tải danh sách NV, hoặc liên kết PIN máy với hồ sơ HR.');
+                      message: tr('Không tìm thấy hồ sơ nhân viên. Hãy chọn lại chi nhánh để tải danh sách NV, hoặc liên kết PIN máy với hồ sơ HR.'));
                   return;
                 }
 
@@ -5493,9 +5638,9 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
               icon: Icon(widget.directApplyCorrections
                   ? Icons.check_circle
                   : Icons.send),
-              label: Text(widget.directApplyCorrections
+              label: Text(tr(widget.directApplyCorrections
                   ? 'Áp dụng ngay'
-                  : 'Gửi yêu cầu'),
+                  : 'Gửi yêu cầu')),
             ),
           ],
         ),
@@ -5520,8 +5665,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
       if (amount <= 0) {
         appNotification.showWarning(
             title: 'Không tạo được phiếu phạt',
-            message: 'Mức phạt "Quên chấm công" chưa được cấu hình (0đ). '
-                'Vui lòng vào Thiết lập phạt để cài đặt.');
+            message: tr('Mức phạt "Quên chấm công" chưa được cấu hình (0đ). Vui lòng vào Thiết lập phạt để cài đặt.'));
         return false;
       }
 
@@ -5568,11 +5712,11 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
       context: hostContext,
       builder: (dialogCtx) => StatefulBuilder(
         builder: (dialogCtx, setDialogState) => ScrollableAlertDialog(
-          title: const Row(
+          title: Row(
             children: [
               Icon(Icons.edit, color: Colors.orange),
               SizedBox(width: 8),
-              Text('Sửa/Xóa chấm công'),
+              Text(tr('Sửa/Xóa chấm công')),
             ],
           ),
           content: SingleChildScrollView(
@@ -5588,17 +5732,16 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Nhân viên: ${live.employeeName}',
+                        Text(tr('Nhân viên: ${live.employeeName}'),
                             style:
                                 const TextStyle(fontWeight: FontWeight.bold)),
-                        Text('Mã NV: ${live.employeeCode}'),
-                        Text(
-                            'Ngày: ${DateFormat('dd/MM/yyyy').format(live.date)}'),
-                        Text('Lần chấm: $punchIndex (${isIn ? "Vào" : "Ra"})'),
+                        Text(tr('Mã NV: ${live.employeeCode}')),
+                        Text(tr('${tr('Ngày: ')}${DateFormat('dd/MM/yyyy').format(live.date)}')),
+                        Text(tr('Lần chấm: $punchIndex (${isIn ? "Vào" : "Ra"})')),
                         const SizedBox(height: 4),
                         Row(
                           children: [
-                            const Text('Giờ hiện tại: '),
+                            Text(tr('Giờ hiện tại: ')),
                             Container(
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 8, vertical: 2),
@@ -5608,7 +5751,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                                 borderRadius: BorderRadius.circular(4),
                               ),
                               child: Text(
-                                DateFormat('HH:mm').format(currentTime),
+                                tr(DateFormat('HH:mm').format(currentTime)),
                                 style: TextStyle(
                                   fontWeight: FontWeight.bold,
                                   color: isIn ? Colors.green : Colors.red,
@@ -5624,7 +5767,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                 const SizedBox(height: 16),
 
                 // Chọn giờ mới
-                const Text('Sửa thành giờ mới:',
+                Text(tr('Sửa thành giờ mới:'),
                     style: TextStyle(fontWeight: FontWeight.w500)),
                 const SizedBox(height: 8),
                 InkWell(
@@ -5650,7 +5793,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                             color: isIn ? Colors.green : Colors.red),
                         const SizedBox(width: 8),
                         Text(
-                          '${selectedTime.hour.toString().padLeft(2, '0')}:${selectedTime.minute.toString().padLeft(2, '0')}',
+                          tr('${selectedTime.hour.toString().padLeft(2, '0')}:${selectedTime.minute.toString().padLeft(2, '0')}'),
                           style: const TextStyle(
                               fontSize: 18, fontWeight: FontWeight.bold),
                         ),
@@ -5689,19 +5832,19 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                 });
               },
               icon: const Icon(Icons.delete, color: Colors.red),
-              label: const Text('Xóa', style: TextStyle(color: Colors.red)),
+              label: Text(tr('Xóa'), style: TextStyle(color: Colors.red)),
             ),
             // Dùng SizedBox thay cho Spacer trong AlertDialog actions
             const SizedBox(width: 16),
             TextButton(
               onPressed: () => Navigator.pop(dialogCtx),
-              child: const Text('Hủy'),
+              child: Text(tr('Hủy')),
             ),
             FilledButton.icon(
               onPressed: () async {
                 if (reasonController.text.trim().isEmpty) {
                   appNotification.showError(
-                      title: 'Lỗi', message: 'Vui lòng nhập lý do');
+                      title: 'Lỗi', message: tr('Vui lòng nhập lý do'));
                   return;
                 }
 
@@ -5717,8 +5860,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                 if (punchRef == null) {
                   appNotification.showError(
                     title: 'Lỗi',
-                    message:
-                        'Không tìm thấy bản ghi chấm công. Vui lòng tải lại dữ liệu.',
+                    message: tr('Không tìm thấy bản ghi chấm công. Vui lòng tải lại dữ liệu.'),
                   );
                   return;
                 }
@@ -5746,9 +5888,9 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
               icon: Icon(widget.directApplyCorrections
                   ? Icons.check_circle
                   : Icons.send),
-              label: Text(widget.directApplyCorrections
+              label: Text(tr(widget.directApplyCorrections
                   ? 'Áp dụng sửa'
-                  : 'Gửi yêu cầu sửa'),
+                  : 'Gửi yêu cầu sửa')),
               style: FilledButton.styleFrom(backgroundColor: Colors.orange),
             ),
           ],
@@ -5781,8 +5923,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
     if (punchRef == null) {
       appNotification.showError(
         title: 'Lỗi',
-        message:
-            'Không tìm thấy bản ghi chấm công trên server. Vui lòng tải lại dữ liệu.',
+        message: tr('Không tìm thấy bản ghi chấm công trên server. Vui lòng tải lại dữ liệu.'),
       );
       return;
     }
@@ -5808,8 +5949,8 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
 
   Widget _buildHoursBadge(double hours, Color color, {bool isBold = false}) {
     if (hours <= 0) {
-      return const Text(
-        '-',
+      return Text(
+        tr('-'),
         textAlign: TextAlign.center,
         style: TextStyle(fontSize: 12, color: Colors.grey),
       );
@@ -5821,7 +5962,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
         borderRadius: BorderRadius.circular(4),
       ),
       child: Text(
-        _formatHours(hours),
+        tr(_formatHours(hours)),
         textAlign: TextAlign.center,
         style: TextStyle(
           color: color,
@@ -5855,10 +5996,10 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(label,
+                  Text(tr(label),
                       style: TextStyle(color: Colors.grey[600], fontSize: 10)),
                   const SizedBox(height: 2),
-                  Text(value,
+                  Text(tr(value),
                       style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.bold,

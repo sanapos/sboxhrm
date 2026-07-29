@@ -5,6 +5,7 @@ import '../../services/api_service.dart';
 import '../../widgets/notification_overlay.dart';
 import '../../widgets/pos/pos_mobile_widgets.dart';
 import '../../widgets/pos/pos_theme.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 class PosWarrantyLookupScreen extends StatefulWidget {
   const PosWarrantyLookupScreen({super.key});
@@ -54,7 +55,7 @@ class _PosWarrantyLookupScreenState extends State<PosWarrantyLookupScreen> {
     if (q.isEmpty) {
       NotificationOverlayManager().showInfo(
         title: 'Tra cứu bảo hành',
-        message: 'Nhập seri, SĐT hoặc mã đơn',
+        message: tr('Nhập seri, SĐT hoặc mã đơn'),
       );
       return;
     }
@@ -96,10 +97,10 @@ class _PosWarrantyLookupScreenState extends State<PosWarrantyLookupScreen> {
           Padding(
             padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
             child: SegmentedButton<int>(
-              segments: const [
-                ButtonSegment(value: 0, label: Text('Seri')),
-                ButtonSegment(value: 1, label: Text('SĐT')),
-                ButtonSegment(value: 2, label: Text('Mã đơn')),
+              segments: [
+                ButtonSegment(value: 0, label: Text(tr('Seri'))),
+                ButtonSegment(value: 1, label: Text(tr('SĐT'))),
+                ButtonSegment(value: 2, label: Text(tr('Mã đơn'))),
               ],
               selected: {_mode},
               onSelectionChanged: (s) => setState(() => _mode = s.first),
@@ -131,7 +132,7 @@ class _PosWarrantyLookupScreenState extends State<PosWarrantyLookupScreen> {
                           height: 18,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : const Text('Tra'),
+                      : Text(tr('Tra')),
                 ),
               ],
             ),
@@ -145,11 +146,10 @@ class _PosWarrantyLookupScreenState extends State<PosWarrantyLookupScreen> {
                   ..._items.map(_warrantyCard),
                 ],
                 if (_items.isEmpty && !_loading)
-                  const Padding(
+                  Padding(
                     padding: EdgeInsets.symmetric(vertical: 24),
                     child: Center(
-                      child: Text(
-                        'Nhập thông tin và bấm Tra cứu',
+                      child: Text(tr('Nhập thông tin và bấm Tra cứu'),
                         style: TextStyle(color: PosTheme.textSecondary),
                       ),
                     ),
@@ -170,7 +170,7 @@ class _PosWarrantyLookupScreenState extends State<PosWarrantyLookupScreen> {
   Widget _sectionTitle(String text) => Padding(
         padding: const EdgeInsets.only(bottom: 8),
         child: Text(
-          text,
+          tr(text),
           style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
         ),
       );
@@ -203,7 +203,7 @@ class _PosWarrantyLookupScreenState extends State<PosWarrantyLookupScreen> {
             children: [
               Expanded(
                 child: Text(
-                  (r['serialNumber'] ?? r['SerialNumber'] ?? '').toString(),
+                  tr((r['serialNumber'] ?? r['SerialNumber'] ?? '').toString()),
                   style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
                 ),
               ),
@@ -214,7 +214,7 @@ class _PosWarrantyLookupScreenState extends State<PosWarrantyLookupScreen> {
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
-                  _statusLabel(status),
+                  tr(_statusLabel(status)),
                   style: TextStyle(fontSize: 11, color: statusColor, fontWeight: FontWeight.w600),
                 ),
               ),
@@ -222,30 +222,30 @@ class _PosWarrantyLookupScreenState extends State<PosWarrantyLookupScreen> {
           ),
           if (r['imei'] != null || r['Imei'] != null)
             Text(
-              'IMEI: ${r['imei'] ?? r['Imei']}',
+              tr('IMEI: ${r['imei'] ?? r['Imei']}'),
               style: const TextStyle(fontSize: 12, color: PosTheme.textSecondary),
             ),
           const SizedBox(height: 4),
           Text(
-            (r['productName'] ?? r['ProductName'] ?? '').toString(),
+            tr((r['productName'] ?? r['ProductName'] ?? '').toString()),
             style: const TextStyle(fontSize: 13),
           ),
           Text(
-            [
+            tr([
               if (months > 0) 'BH $months tháng',
               if (saleDate != null) 'Mua: ${_dateFmt.format(saleDate.toLocal())}',
               if (expiry != null) 'Hết BH: ${_dateFmt.format(expiry.toLocal())}',
-            ].join(' · '),
+            ].join(' · ')),
             style: const TextStyle(fontSize: 11, color: PosTheme.textSecondary),
           ),
           Text(
-            [
+            tr([
               'Đơn: ${r['orderNo'] ?? r['OrderNo'] ?? '—'}',
               if (r['customerName'] ?? r['CustomerName'] != null)
                 'KH: ${r['customerName'] ?? r['CustomerName']}',
               if (r['customerPhone'] ?? r['CustomerPhone'] != null)
                 'SĐT: ${r['customerPhone'] ?? r['CustomerPhone']}',
-            ].join(' · '),
+            ].join(' · ')),
             style: const TextStyle(fontSize: 11, color: PosTheme.textSecondary),
           ),
         ],

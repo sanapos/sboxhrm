@@ -12,6 +12,7 @@ import '../widgets/auth_cached_image.dart';
 import '../widgets/in_app_image_viewer.dart';
 import '../widgets/loading_widget.dart';
 import '../widgets/notification_overlay.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 export '../utils/business_trip_status.dart';
 
@@ -343,10 +344,10 @@ class _BusinessTripCaseDetailScreenState
   Future<void> _editCaseHeader() async {
     final c = _case;
     if (c == null) return;
-    final titleCtrl = TextEditingController(text: c['title']?.toString() ?? '');
+    final titleCtrl = TextEditingController(text: tr(c['title']?.toString() ?? ''));
     final destCtrl =
-        TextEditingController(text: c['destination']?.toString() ?? '');
-    final noteCtrl = TextEditingController(text: c['note']?.toString() ?? '');
+        TextEditingController(text: tr(c['destination']?.toString() ?? ''));
+    final noteCtrl = TextEditingController(text: tr(c['note']?.toString() ?? ''));
     DateTime? from = DateTime.tryParse(c['tripFromDate']?.toString() ?? '');
     DateTime? to = DateTime.tryParse(c['tripToDate']?.toString() ?? '');
 
@@ -354,17 +355,17 @@ class _BusinessTripCaseDetailScreenState
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDlg) => AlertDialog(
-          title: const Text('Sửa hồ sơ công tác'),
+          title: Text(tr('Sửa hồ sơ công tác')),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 TextField(
                     controller: titleCtrl,
-                    decoration: const InputDecoration(labelText: 'Tiêu đề *')),
+                    decoration: InputDecoration(labelText: tr('Tiêu đề *'))),
                 TextField(
                     controller: destCtrl,
-                    decoration: const InputDecoration(labelText: 'Điểm đến')),
+                    decoration: InputDecoration(labelText: tr('Điểm đến'))),
                 const SizedBox(height: 8),
                 Row(
                   children: [
@@ -380,9 +381,9 @@ class _BusinessTripCaseDetailScreenState
                           );
                           if (p != null) setDlg(() => from = p);
                         },
-                        child: Text(from == null
+                        child: Text(tr(from == null
                             ? 'Từ ngày'
-                            : _dateFmt.format(from!)),
+                            : _dateFmt.format(from!))),
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -399,7 +400,7 @@ class _BusinessTripCaseDetailScreenState
                           if (p != null) setDlg(() => to = p);
                         },
                         child: Text(
-                            to == null ? 'Đến ngày' : _dateFmt.format(to!)),
+                            tr(to == null ? 'Đến ngày' : _dateFmt.format(to!))),
                       ),
                     ),
                   ],
@@ -407,17 +408,17 @@ class _BusinessTripCaseDetailScreenState
                 TextField(
                     controller: noteCtrl,
                     maxLines: 2,
-                    decoration: const InputDecoration(labelText: 'Ghi chú')),
+                    decoration: InputDecoration(labelText: tr('Ghi chú'))),
               ],
             ),
           ),
           actions: [
             TextButton(
                 onPressed: () => Navigator.pop(ctx, false),
-                child: const Text('Hủy')),
+                child: Text(tr('Hủy'))),
             FilledButton(
                 onPressed: () => Navigator.pop(ctx, true),
-                child: const Text('Lưu')),
+                child: Text(tr('Lưu'))),
           ],
         ),
       ),
@@ -431,7 +432,7 @@ class _BusinessTripCaseDetailScreenState
     if (ok != true) return;
     if (title.isEmpty) {
       appNotification.showError(
-          title: 'Thiếu thông tin', message: 'Nhập tiêu đề');
+          title: 'Thiếu thông tin', message: tr('Nhập tiêu đề'));
       return;
     }
     final res = await _api.updateBusinessTripCase(widget.caseId, {
@@ -443,7 +444,7 @@ class _BusinessTripCaseDetailScreenState
     });
     if (!mounted) return;
     if (res['isSuccess'] == true) {
-      appNotification.showSuccess(title: 'Đã lưu', message: 'Đã cập nhật hồ sơ');
+      appNotification.showSuccess(title: 'Đã lưu', message: tr('Đã cập nhật hồ sơ'));
       await _reload();
     } else {
       appNotification.showError(
@@ -457,19 +458,19 @@ class _BusinessTripCaseDetailScreenState
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Xóa / hủy hồ sơ?'),
-        content: const Text(
-          'Hồ sơ nháp chưa duyệt sẽ bị xóa.\n'
-          'Hồ sơ đã gửi sẽ chuyển sang Hủy và hủy các phiếu Thu chi chờ thanh toán / phiếu ứng·HT chưa chi.',
+        title: Text(tr('Xóa / hủy hồ sơ?')),
+        content: Text(
+          tr('Hồ sơ nháp chưa duyệt sẽ bị xóa.\n'
+          'Hồ sơ đã gửi sẽ chuyển sang Hủy và hủy các phiếu Thu chi chờ thanh toán / phiếu ứng·HT chưa chi.'),
         ),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Đóng')),
+              child: Text(tr('Đóng'))),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Xác nhận'),
+            child: Text(tr('Xác nhận')),
           ),
         ],
       ),
@@ -479,7 +480,7 @@ class _BusinessTripCaseDetailScreenState
     if (!mounted) return;
     if (res['isSuccess'] == true) {
       appNotification.showSuccess(
-          title: 'Thành công', message: 'Đã xóa/hủy hồ sơ');
+          title: 'Thành công', message: tr('Đã xóa/hủy hồ sơ'));
       Navigator.pop(context);
     } else {
       appNotification.showError(
@@ -492,11 +493,11 @@ class _BusinessTripCaseDetailScreenState
   Future<void> _advanceDialog() async {
     final amountCtrl = TextEditingController();
     final reasonCtrl =
-        TextEditingController(text: _case?['title']?.toString() ?? '');
+        TextEditingController(text: tr(_case?['title']?.toString() ?? ''));
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Ứng công tác'),
+        title: Text(tr('Ứng công tác')),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -506,24 +507,24 @@ class _BusinessTripCaseDetailScreenState
               inputFormatters: [
                 FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]'))
               ],
-              decoration: const InputDecoration(
-                labelText: 'Số tiền ứng *',
-                prefixText: '₫ ',
+              decoration: InputDecoration(
+                labelText: tr('Số tiền ứng *'),
+                prefixText: tr('₫ '),
               ),
             ),
             TextField(
               controller: reasonCtrl,
-              decoration: const InputDecoration(labelText: 'Lý do'),
+              decoration: InputDecoration(labelText: tr('Lý do')),
             ),
           ],
         ),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Hủy')),
+              child: Text(tr('Hủy'))),
           FilledButton(
               onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('Gửi duyệt')),
+              child: Text(tr('Gửi duyệt'))),
         ],
       ),
     );
@@ -534,7 +535,7 @@ class _BusinessTripCaseDetailScreenState
     if (ok != true) return;
     if (amount <= 0) {
       appNotification.showError(
-          title: 'Thiếu thông tin', message: 'Số tiền ứng phải lớn hơn 0');
+          title: 'Thiếu thông tin', message: tr('Số tiền ứng phải lớn hơn 0'));
       return;
     }
     final res = await _api.createBusinessTripAdvance(widget.caseId, {
@@ -544,7 +545,7 @@ class _BusinessTripCaseDetailScreenState
     if (!mounted) return;
     if (res['isSuccess'] == true) {
       appNotification.showSuccess(
-          title: 'Thành công', message: 'Đã gửi duyệt ứng công tác');
+          title: 'Thành công', message: tr('Đã gửi duyệt ứng công tác'));
       await _reload();
     } else {
       appNotification.showError(
@@ -560,23 +561,23 @@ class _BusinessTripCaseDetailScreenState
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const ListTile(
-              title: Text('Chọn hình thức chi / thu',
+            ListTile(
+              title: Text(tr('Chọn hình thức chi / thu'),
                   style: TextStyle(fontWeight: FontWeight.w700)),
             ),
             ListTile(
               leading: const Icon(Icons.payments_outlined),
-              title: const Text('Tiền mặt'),
+              title: Text(tr('Tiền mặt')),
               onTap: () => Navigator.pop(ctx, 'Cash'),
             ),
             ListTile(
               leading: const Icon(Icons.account_balance_outlined),
-              title: const Text('Chuyển khoản'),
+              title: Text(tr('Chuyển khoản')),
               onTap: () => Navigator.pop(ctx, 'BankTransfer'),
             ),
             ListTile(
               leading: const Icon(Icons.qr_code_2),
-              title: const Text('VietQR'),
+              title: Text(tr('VietQR')),
               onTap: () => Navigator.pop(ctx, 'VietQR'),
             ),
             const SizedBox(height: 8),
@@ -589,7 +590,7 @@ class _BusinessTripCaseDetailScreenState
   void _openCashVoucher(String? cashId) {
     if (cashId == null || cashId.isEmpty) {
       appNotification.showError(
-          title: 'Chưa có phiếu', message: 'Chưa tạo phiếu Thu chi liên kết');
+          title: 'Chưa có phiếu', message: tr('Chưa tạo phiếu Thu chi liên kết'));
       return;
     }
     NavigationNotifier.goToCashTransaction(highlightId: cashId);
@@ -602,23 +603,22 @@ class _BusinessTripCaseDetailScreenState
       final choice = await showDialog<String>(
         context: context,
         builder: (ctx) => AlertDialog(
-          title: const Text('Dư ứng công tác'),
-          content: Text(
-            'Hoạch toán dư ${_currency.format(bal.abs())}.\n'
-            'Chọn cách xử lý:',
+          title: Text(tr('Dư ứng công tác')),
+          content: Text(tr('${tr('Hoạch toán dư ')}${_currency.format(bal.abs())}.\n'
+            'Chọn cách xử lý:'),
             style: const TextStyle(height: 1.4),
           ),
           actions: [
             TextButton(
                 onPressed: () => Navigator.pop(ctx),
-                child: const Text('Hủy')),
+                child: Text(tr('Hủy'))),
             OutlinedButton(
               onPressed: () => Navigator.pop(ctx, 'refund'),
-              child: const Text('Thu tiền mặt'),
+              child: Text(tr('Thu tiền mặt')),
             ),
             FilledButton(
               onPressed: () => Navigator.pop(ctx, 'debt'),
-              child: const Text('Ghi nợ ứng lương'),
+              child: Text(tr('Ghi nợ ứng lương')),
             ),
           ],
         ),
@@ -686,13 +686,13 @@ class _BusinessTripCaseDetailScreenState
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(label,
+                  Text(tr(label),
                       style: TextStyle(
                           fontSize: 12,
                           color: Colors.grey[600],
                           fontWeight: FontWeight.w600)),
                   const SizedBox(height: 2),
-                  Text(value.isEmpty ? '—' : value,
+                  Text(tr(value.isEmpty ? '—' : value),
                       style: const TextStyle(fontSize: 15, height: 1.35)),
                 ],
               ),
@@ -709,9 +709,9 @@ class _BusinessTripCaseDetailScreenState
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        line.categoryName.isEmpty
+                        tr(line.categoryName.isEmpty
                             ? 'Chi tiết khoản chi'
-                            : line.categoryName,
+                            : line.categoryName),
                         style: const TextStyle(
                             fontSize: 18, fontWeight: FontWeight.w700),
                       ),
@@ -729,14 +729,14 @@ class _BusinessTripCaseDetailScreenState
                 row('Loại giấy tờ', line.docType.label),
                 row('Số hóa đơn / chứng từ', line.invoiceNumber ?? ''),
                 row('Ghi chú', line.note),
-                Text('Đính kèm (${atts.length})',
+                Text(tr('Đính kèm (${atts.length})'),
                     style: TextStyle(
                         fontSize: 12,
                         color: Colors.grey[600],
                         fontWeight: FontWeight.w600)),
                 const SizedBox(height: 6),
                 if (atts.isEmpty)
-                  Text('Chưa có file đính kèm',
+                  Text(tr('Chưa có file đính kèm'),
                       style: TextStyle(color: Colors.grey[600]))
                 else
                   ...atts.asMap().entries.map((entry) {
@@ -776,10 +776,10 @@ class _BusinessTripCaseDetailScreenState
                                 ),
                               )
                             : const Icon(Icons.attach_file),
-                        title: Text(name,
+                        title: Text(tr(name),
                             maxLines: 1, overflow: TextOverflow.ellipsis),
                         subtitle: Text(
-                            isImg ? 'Chạm để xem trong app' : 'Chạm để mở tệp'),
+                            tr(isImg ? 'Chạm để xem trong app' : 'Chạm để mở tệp')),
                         trailing: Icon(
                           isImg ? Icons.zoom_in : Icons.open_in_new,
                           size: 18,
@@ -793,7 +793,7 @@ class _BusinessTripCaseDetailScreenState
                   FilledButton.icon(
                     onPressed: () => Navigator.pop(ctx, 'edit'),
                     icon: const Icon(Icons.edit_outlined),
-                    label: const Text('Sửa khoản chi này'),
+                    label: Text(tr('Sửa khoản chi này')),
                   ),
                 if (!_canEditSettlement &&
                     _canApprove &&
@@ -805,7 +805,7 @@ class _BusinessTripCaseDetailScreenState
                   OutlinedButton.icon(
                     onPressed: () => Navigator.pop(ctx, 'supplement'),
                     icon: const Icon(Icons.playlist_add_check),
-                    label: const Text('Yêu cầu bổ sung giấy tờ'),
+                    label: Text(tr('Yêu cầu bổ sung giấy tờ')),
                   ),
                 ],
               ],
@@ -826,25 +826,24 @@ class _BusinessTripCaseDetailScreenState
   }
 
   Future<void> _requestSettlementSupplement({String? hint}) async {
-    final ctrl = TextEditingController(text: hint ?? '');
+    final ctrl = TextEditingController(text: tr(hint ?? ''));
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Yêu cầu bổ sung giấy tờ'),
+        title: Text(tr('Yêu cầu bổ sung giấy tờ')),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text(
-              'Phiếu hoạch toán sẽ trả về nhân viên để bổ sung/sửa khoản chi và đính kèm. Nhập nội dung cần bổ sung:',
+            Text(tr('Phiếu hoạch toán sẽ trả về nhân viên để bổ sung/sửa khoản chi và đính kèm. Nhập nội dung cần bổ sung:'),
               style: TextStyle(height: 1.35),
             ),
             const SizedBox(height: 12),
             TextField(
               controller: ctrl,
               maxLines: 4,
-              decoration: const InputDecoration(
-                labelText: 'Nội dung yêu cầu *',
-                hintText: 'VD: Thiếu hóa đơn VAT tiền khách sạn ngày 10/7',
+              decoration: InputDecoration(
+                labelText: tr('Nội dung yêu cầu *'),
+                hintText: tr('VD: Thiếu hóa đơn VAT tiền khách sạn ngày 10/7'),
                 border: OutlineInputBorder(),
               ),
             ),
@@ -853,10 +852,10 @@ class _BusinessTripCaseDetailScreenState
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Hủy')),
+              child: Text(tr('Hủy'))),
           FilledButton(
               onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('Gửi yêu cầu')),
+              child: Text(tr('Gửi yêu cầu'))),
         ],
       ),
     );
@@ -865,7 +864,7 @@ class _BusinessTripCaseDetailScreenState
     if (ok != true) return;
     if (text.isEmpty) {
       appNotification.showError(
-          title: 'Thiếu nội dung', message: 'Nhập yêu cầu bổ sung');
+          title: 'Thiếu nội dung', message: tr('Nhập yêu cầu bổ sung'));
       return;
     }
     final reason = text.startsWith('Bổ sung')
@@ -880,7 +879,7 @@ class _BusinessTripCaseDetailScreenState
     if (res['isSuccess'] == true) {
       appNotification.showSuccess(
         title: 'Đã gửi',
-        message: 'Đã yêu cầu NV bổ sung giấy tờ / sửa hoạch toán',
+        message: tr('Đã yêu cầu NV bổ sung giấy tờ / sửa hoạch toán'),
       );
       await _reload();
     } else {
@@ -896,23 +895,23 @@ class _BusinessTripCaseDetailScreenState
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Từ chối hoạch toán'),
+        title: Text(tr('Từ chối hoạch toán')),
         content: TextField(
           controller: ctrl,
           maxLines: 3,
-          decoration: const InputDecoration(
-            labelText: 'Lý do từ chối *',
+          decoration: InputDecoration(
+            labelText: tr('Lý do từ chối *'),
             border: OutlineInputBorder(),
           ),
         ),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Hủy')),
+              child: Text(tr('Hủy'))),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Từ chối'),
+            child: Text(tr('Từ chối')),
           ),
         ],
       ),
@@ -921,7 +920,7 @@ class _BusinessTripCaseDetailScreenState
     ctrl.dispose();
     if (ok != true) return;
     if (reason.isEmpty) {
-      appNotification.showError(title: 'Thiếu lý do', message: 'Nhập lý do từ chối');
+      appNotification.showError(title: 'Thiếu lý do', message: tr('Nhập lý do từ chối'));
       return;
     }
     final res = await _api.approveBusinessTripSettlement(
@@ -945,7 +944,7 @@ class _BusinessTripCaseDetailScreenState
     if (_categories.isEmpty) {
       appNotification.showError(
         title: 'Chưa có hạn mục',
-        message: 'Chưa seed được danh mục chi phí. Thử tải lại.',
+        message: tr('Chưa seed được danh mục chi phí. Thử tải lại.'),
       );
       return;
     }
@@ -957,10 +956,10 @@ class _BusinessTripCaseDetailScreenState
         );
 
     final amountCtrl =
-        TextEditingController(text: line.amount > 0 ? line.amount.toStringAsFixed(0) : '');
-    final descCtrl = TextEditingController(text: line.description);
-    final noteCtrl = TextEditingController(text: line.note);
-    final invoiceCtrl = TextEditingController(text: line.invoiceNumber ?? '');
+        TextEditingController(text: tr(line.amount > 0 ? line.amount.toStringAsFixed(0) : ''));
+    final descCtrl = TextEditingController(text: tr(line.description));
+    final noteCtrl = TextEditingController(text: tr(line.note));
+    final invoiceCtrl = TextEditingController(text: tr(line.invoiceNumber ?? ''));
     var categoryId = line.categoryId;
     var categoryName = line.categoryName;
     var docType = line.docType;
@@ -1027,7 +1026,7 @@ class _BusinessTripCaseDetailScreenState
                     Row(
                       children: [
                         Text(
-                          existing == null ? 'Thêm khoản chi' : 'Sửa khoản chi',
+                          tr(existing == null ? 'Thêm khoản chi' : 'Sửa khoản chi'),
                           style: Theme.of(ctx).textTheme.titleLarge,
                         ),
                         const Spacer(),
@@ -1038,7 +1037,7 @@ class _BusinessTripCaseDetailScreenState
                       ],
                     ),
                     const SizedBox(height: 8),
-                    Text('Hạn mục',
+                    Text(tr('Hạn mục'),
                         style: TextStyle(
                             fontWeight: FontWeight.w600,
                             color: Colors.grey[700])),
@@ -1051,7 +1050,7 @@ class _BusinessTripCaseDetailScreenState
                         final name = c['name']?.toString() ?? '';
                         final selected = id == categoryId;
                         return ChoiceChip(
-                          label: Text(name),
+                          label: Text(tr(name)),
                           selected: selected,
                           selectedColor: _theme.withValues(alpha: 0.2),
                           onSelected: (_) => setSheet(() {
@@ -1070,18 +1069,18 @@ class _BusinessTripCaseDetailScreenState
                       controller: amountCtrl,
                       keyboardType: TextInputType.number,
                       autofocus: true,
-                      decoration: const InputDecoration(
-                        labelText: 'Số tiền *',
-                        prefixText: '₫ ',
+                      decoration: InputDecoration(
+                        labelText: tr('Số tiền *'),
+                        prefixText: tr('₫ '),
                         border: OutlineInputBorder(),
                       ),
                     ),
                     const SizedBox(height: 12),
                     TextField(
                       controller: descCtrl,
-                      decoration: const InputDecoration(
-                        labelText: 'Mô tả',
-                        hintText: 'VD: Ăn trưa 2 người',
+                      decoration: InputDecoration(
+                        labelText: tr('Mô tả'),
+                        hintText: tr('VD: Ăn trưa 2 người'),
                         border: OutlineInputBorder(),
                       ),
                     ),
@@ -1097,10 +1096,10 @@ class _BusinessTripCaseDetailScreenState
                         if (d != null) setSheet(() => expenseDate = d);
                       },
                       icon: const Icon(Icons.calendar_today, size: 16),
-                      label: Text('Ngày chi: ${_dateFmt.format(expenseDate)}'),
+                      label: Text(tr('Ngày chi: ${_dateFmt.format(expenseDate)}')),
                     ),
                     const SizedBox(height: 12),
-                    Text('Chứng từ',
+                    Text(tr('Chứng từ'),
                         style: TextStyle(
                             fontWeight: FontWeight.w600,
                             color: Colors.grey[700])),
@@ -1109,7 +1108,7 @@ class _BusinessTripCaseDetailScreenState
                       spacing: 8,
                       children: ExpenseDocType.values.map((t) {
                         return ChoiceChip(
-                          label: Text(t.label),
+                          label: Text(tr(t.label)),
                           selected: docType == t,
                           onSelected: (_) => setSheet(() => docType = t),
                         );
@@ -1119,8 +1118,8 @@ class _BusinessTripCaseDetailScreenState
                       const SizedBox(height: 12),
                       TextField(
                         controller: invoiceCtrl,
-                        decoration: const InputDecoration(
-                          labelText: 'Số hóa đơn',
+                        decoration: InputDecoration(
+                          labelText: tr('Số hóa đơn'),
                           border: OutlineInputBorder(),
                         ),
                       ),
@@ -1129,8 +1128,8 @@ class _BusinessTripCaseDetailScreenState
                     TextField(
                       controller: noteCtrl,
                       maxLines: 2,
-                      decoration: const InputDecoration(
-                        labelText: 'Ghi chú dòng',
+                      decoration: InputDecoration(
+                        labelText: tr('Ghi chú dòng'),
                         border: OutlineInputBorder(),
                       ),
                     ),
@@ -1155,7 +1154,7 @@ class _BusinessTripCaseDetailScreenState
                               height: 80,
                               color: const Color(0xFFF3F4F6),
                               alignment: Alignment.center,
-                              child: const Text('Không xem trước được ảnh'),
+                              child: Text(tr('Không xem trước được ảnh')),
                             ),
                           ),
                         ),
@@ -1171,9 +1170,9 @@ class _BusinessTripCaseDetailScreenState
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
                           : const Icon(Icons.attach_file),
-                      label: Text(attachmentUrl == null
+                      label: Text(tr(attachmentUrl == null
                           ? 'Đính kèm ảnh chứng từ'
-                          : 'Đổi ảnh: ${attachmentName ?? 'ảnh'}'),
+                          : 'Đổi ảnh: ${attachmentName ?? 'ảnh'}')),
                     ),
                     if (attachmentUrl != null)
                       TextButton.icon(
@@ -1184,7 +1183,7 @@ class _BusinessTripCaseDetailScreenState
                           title: attachmentName ?? 'Chứng từ',
                         ),
                         icon: const Icon(Icons.zoom_in, size: 18),
-                        label: const Text('Xem ảnh trong app'),
+                        label: Text(tr('Xem ảnh trong app')),
                       ),
                     const SizedBox(height: 16),
                     FilledButton(
@@ -1196,14 +1195,14 @@ class _BusinessTripCaseDetailScreenState
                         if (amount <= 0) {
                           appNotification.showError(
                             title: 'Thiếu thông tin',
-                            message: 'Số tiền phải lớn hơn 0',
+                            message: tr('Số tiền phải lớn hơn 0'),
                           );
                           return;
                         }
                         if (categoryId == null) {
                           appNotification.showError(
                             title: 'Thiếu thông tin',
-                            message: 'Chọn hạn mục chi phí',
+                            message: tr('Chọn hạn mục chi phí'),
                           );
                           return;
                         }
@@ -1233,7 +1232,7 @@ class _BusinessTripCaseDetailScreenState
                         }
                         Navigator.pop(ctx, true);
                       },
-                      child: Text(existing == null ? 'Thêm vào danh sách' : 'Lưu'),
+                      child: Text(tr(existing == null ? 'Thêm vào danh sách' : 'Lưu')),
                     ),
                   ],
                 ),
@@ -1264,7 +1263,7 @@ class _BusinessTripCaseDetailScreenState
     if (_lines.isEmpty) {
       appNotification.showError(
         title: 'Thiếu khoản chi',
-        message: 'Thêm ít nhất một khoản chi phí trước khi gửi duyệt',
+        message: tr('Thêm ít nhất một khoản chi phí trước khi gửi duyệt'),
       );
       return;
     }
@@ -1280,7 +1279,7 @@ class _BusinessTripCaseDetailScreenState
       if (res['isSuccess'] == true) {
         appNotification.showSuccess(
           title: 'Thành công',
-          message: 'Đã gửi hoạch toán công tác',
+          message: tr('Đã gửi hoạch toán công tác'),
         );
         await _reload();
       } else {
@@ -1298,21 +1297,21 @@ class _BusinessTripCaseDetailScreenState
   Widget build(BuildContext context) {
     if (_loading) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Hồ sơ công tác')),
+        appBar: AppBar(title: Text(tr('Hồ sơ công tác'))),
         body: const LoadingWidget(),
       );
     }
     final c = _case;
     if (c == null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Hồ sơ công tác')),
+        appBar: AppBar(title: Text(tr('Hồ sơ công tác'))),
         body: Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(_loadError ?? 'Không tìm thấy'),
+              Text(tr(_loadError ?? 'Không tìm thấy')),
               const SizedBox(height: 12),
-              FilledButton(onPressed: _bootstrap, child: const Text('Thử lại')),
+              FilledButton(onPressed: _bootstrap, child: Text(tr('Thử lại'))),
             ],
           ),
         ),
@@ -1329,17 +1328,17 @@ class _BusinessTripCaseDetailScreenState
     return Scaffold(
       backgroundColor: const Color(0xFFF3F4F6),
       appBar: AppBar(
-        title: Text(c['caseCode']?.toString() ?? 'Công tác'),
+        title: Text(tr(c['caseCode']?.toString() ?? 'Công tác')),
         actions: [
           if (_canEditHeader)
             IconButton(
-              tooltip: 'Sửa hồ sơ',
+              tooltip: tr('Sửa hồ sơ'),
               onPressed: _editCaseHeader,
               icon: const Icon(Icons.edit_outlined),
             ),
           if (_canCreate && _status != 8 && _status != 9)
             IconButton(
-              tooltip: 'Xóa / hủy hồ sơ',
+              tooltip: tr('Xóa / hủy hồ sơ'),
               onPressed: _deleteCase,
               icon: const Icon(Icons.delete_outline),
             ),
@@ -1383,7 +1382,7 @@ class _BusinessTripCaseDetailScreenState
               children: [
                 Expanded(
                   child: Text(
-                    c['title']?.toString() ?? '',
+                    tr(c['title']?.toString() ?? ''),
                     style: const TextStyle(
                         fontSize: 18, fontWeight: FontWeight.w700),
                   ),
@@ -1396,7 +1395,7 @@ class _BusinessTripCaseDetailScreenState
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
-                    tripStatusLabel(_status),
+                    tr(tripStatusLabel(_status)),
                     style: TextStyle(
                         color: tripStatusColor(_status),
                         fontWeight: FontWeight.w600,
@@ -1406,15 +1405,14 @@ class _BusinessTripCaseDetailScreenState
               ],
             ),
             const SizedBox(height: 8),
-            Text('NV: ${c['employeeName'] ?? '—'}'),
+            Text(tr('NV: ${c['employeeName'] ?? '—'}')),
             if ((c['destination']?.toString().isNotEmpty ?? false))
-              Text('Điểm đến: ${c['destination']}'),
+              Text(tr('${tr('Điểm đến: ')}${c['destination']}')),
             if (c['tripFromDate'] != null || c['tripToDate'] != null)
-              Text(
-                'Thời gian: ${_fmtDate(c['tripFromDate'])} → ${_fmtDate(c['tripToDate'])}',
+              Text(tr('${tr('Thời gian: ')}${_fmtDate(c['tripFromDate'])} → ${_fmtDate(c['tripToDate'])}'),
               ),
             if ((c['note']?.toString().isNotEmpty ?? false))
-              Text('Ghi chú: ${c['note']}'),
+              Text(tr('${tr('Ghi chú: ')}${c['note']}')),
           ],
         ),
       ),
@@ -1434,27 +1432,25 @@ class _BusinessTripCaseDetailScreenState
               children: [
                 const Icon(Icons.payments_outlined, color: _theme),
                 const SizedBox(width: 8),
-                const Text('Ứng công tác',
+                Text(tr('Ứng công tác'),
                     style:
                         TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
                 const Spacer(),
                 if (_status == 0 && _canCreate)
                   FilledButton.tonal(
                     onPressed: _advanceDialog,
-                    child: const Text('Tạo phiếu ứng'),
+                    child: Text(tr('Tạo phiếu ứng')),
                   ),
               ],
             ),
             const SizedBox(height: 8),
-            Text('Đã ứng: ${_currency.format(_advanceAmount)}',
+            Text(tr('Đã ứng: ${_currency.format(_advanceAmount)}'),
                 style: const TextStyle(fontSize: 15)),
             if (advance != null) ...[
-              Text(
-                  'Trạng thái: ${advanceStatusLabel(advance['status'])}'),
-              Text('Đã chi: ${advance['isPaid'] == true ? 'Có' : 'Chưa'}'),
+              Text(tr('${tr('Trạng thái: ')}${advanceStatusLabel(advance['status'])}')),
+              Text(tr('${tr('Đã chi: ')}${advance['isPaid'] == true ? 'Có' : 'Chưa'}')),
             ] else if (_status == 0)
-              Text(
-                'Chưa có phiếu ứng. Có thể tạo ứng trước, hoặc bỏ qua và hoạch toán trực tiếp.',
+              Text(tr('Chưa có phiếu ứng. Có thể tạo ứng trước, hoặc bỏ qua và hoạch toán trực tiếp.'),
                 style: TextStyle(color: Colors.grey[700], height: 1.35),
               ),
           ],
@@ -1476,8 +1472,8 @@ class _BusinessTripCaseDetailScreenState
               children: [
                 const Icon(Icons.receipt_long, color: _theme),
                 const SizedBox(width: 8),
-                const Expanded(
-                  child: Text('Hoạch toán chi phí',
+                Expanded(
+                  child: Text(tr('Hoạch toán chi phí'),
                       style:
                           TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
                 ),
@@ -1485,14 +1481,13 @@ class _BusinessTripCaseDetailScreenState
                   IconButton.filledTonal(
                     onPressed: () => _addOrEditLine(),
                     icon: const Icon(Icons.add),
-                    tooltip: 'Thêm khoản chi',
+                    tooltip: tr('Thêm khoản chi'),
                   ),
               ],
             ),
             const SizedBox(height: 8),
             if (_canEditSettlement) ...[
-              Text(
-                'Chọn loại chi phí → nhập số tiền & phân loại hóa đơn/giấy tờ',
+              Text(tr('Chọn loại chi phí → nhập số tiền & phân loại hóa đơn/giấy tờ'),
                 style: TextStyle(color: Colors.grey[700], fontSize: 13),
               ),
               const SizedBox(height: 10),
@@ -1503,7 +1498,7 @@ class _BusinessTripCaseDetailScreenState
                     await _bootstrap();
                   },
                   icon: const Icon(Icons.playlist_add),
-                  label: const Text('Khởi tạo danh mục chi phí mẫu'),
+                  label: Text(tr('Khởi tạo danh mục chi phí mẫu')),
                 )
               else
                 GridView.builder(
@@ -1557,7 +1552,7 @@ class _BusinessTripCaseDetailScreenState
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Text(
-                                  cat['name']?.toString() ?? '',
+                                  tr(cat['name']?.toString() ?? ''),
                                   maxLines: 2,
                                   overflow: TextOverflow.ellipsis,
                                   style: const TextStyle(
@@ -1578,7 +1573,7 @@ class _BusinessTripCaseDetailScreenState
                 child: TextButton.icon(
                   onPressed: () => _addOrEditLine(),
                   icon: const Icon(Icons.add, size: 18),
-                  label: const Text('Khoản khác (không theo danh mục)'),
+                  label: Text(tr('Khoản khác (không theo danh mục)')),
                 ),
               ),
               const SizedBox(height: 8),
@@ -1593,12 +1588,12 @@ class _BusinessTripCaseDetailScreenState
                   border: Border.all(color: const Color(0xFFE5E7EB)),
                 ),
                 child: Text(
-                  _case?['settlement'] == null &&
+                  tr(_case?['settlement'] == null &&
                           ((_case?['settledAmount'] as num?) ?? 0) != 0
                       ? 'Chi tiết hạn mục không còn trên hồ sơ (dữ liệu hoạch toán bị mất).\nTổng đã quyết toán: ${_currency.format(_linesTotal)}.'
                       : _canEditSettlement
                           ? 'Chưa có khoản chi.\nThêm tiền ăn, tiền xe, nhà nghỉ, vé máy bay… giống nhập hàng.'
-                          : 'Chưa có dòng hoạch toán.',
+                          : 'Chưa có dòng hoạch toán.'),
                   style: TextStyle(color: Colors.grey[700], height: 1.4),
                 ),
               )
@@ -1622,24 +1617,24 @@ class _BusinessTripCaseDetailScreenState
                     leading: CircleAvatar(
                       backgroundColor: _theme.withValues(alpha: 0.12),
                       child: Text(
-                        '${i + 1}',
+                        tr('${i + 1}'),
                         style: const TextStyle(
                             color: _theme, fontWeight: FontWeight.bold),
                       ),
                     ),
                     title: Text(
-                      l.categoryName.isEmpty ? 'Chi phí' : l.categoryName,
+                      tr(l.categoryName.isEmpty ? 'Chi phí' : l.categoryName),
                       style: const TextStyle(fontWeight: FontWeight.w600),
                     ),
                     subtitle: Text(
-                      [
+                      tr([
                         if (l.description.isNotEmpty) l.description,
                         l.docType.label,
                         _dateFmt.format(l.expenseDate),
                         if (l.note.isNotEmpty) 'Ghi chú: ${l.note}',
                         if (l.attachmentUrl != null || l.attachments.isNotEmpty)
                           'Có đính kèm',
-                      ].join(' · '),
+                      ].join(' · ')),
                       maxLines: 3,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -1647,7 +1642,7 @@ class _BusinessTripCaseDetailScreenState
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
-                          _currency.format(l.amount),
+                          tr(_currency.format(l.amount)),
                           style: const TextStyle(
                               fontWeight: FontWeight.w700, fontSize: 15),
                         ),
@@ -1672,8 +1667,7 @@ class _BusinessTripCaseDetailScreenState
             ),
             if (settlement != null) ...[
               const SizedBox(height: 8),
-              Text(
-                'Trạng thái HT: ${advanceStatusLabel(settlement['status'])}',
+              Text(tr('${tr('Trạng thái HT: ')}${advanceStatusLabel(settlement['status'])}'),
                 style: TextStyle(color: Colors.grey[700]),
               ),
               if ((settlement['rejectionReason']?.toString() ?? '')
@@ -1692,27 +1686,26 @@ class _BusinessTripCaseDetailScreenState
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        (settlement['rejectionReason']
+                        tr((settlement['rejectionReason']
                                     ?.toString()
                                     .toLowerCase()
                                     .contains('bổ sung') ==
                                 true)
                             ? 'Yêu cầu bổ sung'
-                            : 'Lý do trả về',
+                            : 'Lý do trả về'),
                         style: const TextStyle(
                             fontWeight: FontWeight.w700,
                             color: Color(0xFFC2410C)),
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        settlement['rejectionReason'].toString(),
+                        tr(settlement['rejectionReason'].toString()),
                         style: const TextStyle(
                             height: 1.35, color: Color(0xFF9A3412)),
                       ),
                       if (_canEditSettlement) ...[
                         const SizedBox(height: 8),
-                        Text(
-                          'Hãy sửa khoản chi / đính kèm rồi bấm Gửi hoạch toán lại.',
+                        Text(tr('Hãy sửa khoản chi / đính kèm rồi bấm Gửi hoạch toán lại.'),
                           style: TextStyle(
                               fontSize: 12, color: Colors.grey[700]),
                         ),
@@ -1735,7 +1728,7 @@ class _BusinessTripCaseDetailScreenState
       child: Row(
         children: [
           Text(
-            label,
+            tr(label),
             style: TextStyle(
               fontWeight: bold ? FontWeight.w700 : FontWeight.w500,
               color: color,
@@ -1744,7 +1737,7 @@ class _BusinessTripCaseDetailScreenState
           const SizedBox(width: 12),
           Expanded(
             child: Text(
-              _currency.format(amount),
+              tr(_currency.format(amount)),
               textAlign: TextAlign.right,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
@@ -1782,7 +1775,7 @@ class _BusinessTripCaseDetailScreenState
                       );
                       await _reload();
                     },
-                    child: const Text('Từ chối ứng'),
+                    child: Text(tr('Từ chối ứng')),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -1793,7 +1786,7 @@ class _BusinessTripCaseDetailScreenState
                           widget.caseId, true);
                       await _reload();
                     },
-                    child: const Text('Duyệt ứng'),
+                    child: Text(tr('Duyệt ứng')),
                   ),
                 ),
               ]),
@@ -1807,7 +1800,7 @@ class _BusinessTripCaseDetailScreenState
                   onPressed: () =>
                       _openCashVoucher(advance['cashTransactionId']?.toString()),
                   icon: const Icon(Icons.open_in_new, size: 18),
-                  label: const Text('Mở phiếu chi ứng (Thu chi)'),
+                  label: Text(tr('Mở phiếu chi ứng (Thu chi)')),
                 ),
               const SizedBox(height: 8),
               FilledButton(
@@ -1818,7 +1811,7 @@ class _BusinessTripCaseDetailScreenState
                       paymentMethod: method);
                   await _reload();
                 },
-                child: const Text('Chi ứng ngay'),
+                child: Text(tr('Chi ứng ngay')),
               ),
             ],
             if (settlement != null && settlement['status'] == 0) ...[
@@ -1827,21 +1820,21 @@ class _BusinessTripCaseDetailScreenState
                 Expanded(
                   child: OutlinedButton(
                     onPressed: _rejectSettlementDialog,
-                    child: const Text('Từ chối'),
+                    child: Text(tr('Từ chối')),
                   ),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: OutlinedButton(
                     onPressed: () => _requestSettlementSupplement(),
-                    child: const Text('Bổ sung GT'),
+                    child: Text(tr('Bổ sung GT')),
                   ),
                 ),
               ]),
               const SizedBox(height: 8),
               FilledButton(
                 onPressed: _approveSettlementWithSurplusCheck,
-                child: const Text('Duyệt hoạch toán'),
+                child: Text(tr('Duyệt hoạch toán')),
               ),
             ],
             if (settlement != null &&
@@ -1853,7 +1846,7 @@ class _BusinessTripCaseDetailScreenState
                   onPressed: () => _openCashVoucher(
                       settlement['extraCashTransactionId']?.toString()),
                   icon: const Icon(Icons.open_in_new, size: 18),
-                  label: const Text('Mở phiếu chi bù (Thu chi)'),
+                  label: Text(tr('Mở phiếu chi bù (Thu chi)')),
                 ),
               const SizedBox(height: 8),
               FilledButton(
@@ -1864,15 +1857,14 @@ class _BusinessTripCaseDetailScreenState
                       paymentMethod: method);
                   await _reload();
                 },
-                child: const Text('Chi bù ngay'),
+                child: Text(tr('Chi bù ngay')),
               ),
             ],
             if (settlement != null &&
                 settlement['settlementType'] == 3 &&
                 settlement['isExtraPaid'] != true) ...[
               const SizedBox(height: 8),
-              Text(
-                'Đang chờ thu hoàn dư ứng ${_currency.format((_balance).abs())}',
+              Text(tr('Đang chờ thu hoàn dư ứng ${_currency.format((_balance).abs())}'),
                 style: const TextStyle(
                     color: Color(0xFF16A34A), fontWeight: FontWeight.w600),
               ),
@@ -1882,7 +1874,7 @@ class _BusinessTripCaseDetailScreenState
                   onPressed: () => _openCashVoucher(
                       settlement['extraCashTransactionId']?.toString()),
                   icon: const Icon(Icons.open_in_new, size: 18),
-                  label: const Text('Mở phiếu thu hoàn (Thu chi)'),
+                  label: Text(tr('Mở phiếu thu hoàn (Thu chi)')),
                 ),
               ],
             ],
@@ -1890,8 +1882,7 @@ class _BusinessTripCaseDetailScreenState
                 settlement['settlementType'] == 2 &&
                 settlement['surplusAdvanceRequestId'] != null) ...[
               const SizedBox(height: 8),
-              Text(
-                'Đã ghi nợ ứng lương ${_currency.format((_balance).abs())} — sẽ trừ kỳ lương',
+              Text(tr('Đã ghi nợ ứng lương ${_currency.format((_balance).abs())} — sẽ trừ kỳ lương'),
                 style: TextStyle(color: Colors.grey[700], height: 1.35),
               ),
             ],
@@ -1919,8 +1910,7 @@ class _BusinessTripCaseDetailScreenState
               Row(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  Text(
-                    '${_lines.length} khoản',
+                  Text(tr('${_lines.length} khoản'),
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
@@ -1929,7 +1919,7 @@ class _BusinessTripCaseDetailScreenState
                   ),
                   const Spacer(),
                   Text(
-                    _currency.format(_linesTotal),
+                    tr(_currency.format(_linesTotal)),
                     style: const TextStyle(
                       fontWeight: FontWeight.w800,
                       fontSize: 18,
@@ -1942,9 +1932,9 @@ class _BusinessTripCaseDetailScreenState
               Align(
                 alignment: Alignment.centerRight,
                 child: Text(
-                  _balance >= 0
+                  tr(_balance >= 0
                       ? 'Thiếu ${_currency.format(_balance.abs())}'
-                      : 'Dư ${_currency.format(_balance.abs())}',
+                      : 'Dư ${_currency.format(_balance.abs())}'),
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
@@ -1967,7 +1957,7 @@ class _BusinessTripCaseDetailScreenState
                           child: CircularProgressIndicator(
                               strokeWidth: 2, color: Colors.white),
                         )
-                      : Text(isResubmit ? 'Gửi lại' : 'Gửi duyệt'),
+                      : Text(tr(isResubmit ? 'Gửi lại' : 'Gửi duyệt')),
                 ),
               ),
             ],

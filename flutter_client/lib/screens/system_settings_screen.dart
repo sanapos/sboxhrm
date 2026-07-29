@@ -7,6 +7,7 @@ import '../widgets/hrm/hrm_settings_mobile_kit.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../widgets/notification_overlay.dart';
 import '../utils/shift_records_calculator.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// Màn hình Thiết lập hệ thống
 /// - Giờ kết thúc ngày (day_end_time): mặc định 00:00:00
@@ -49,10 +50,10 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
 
   /// % giờ chuẩn trong ngày để đủ 1 công (mặc định 80). Chỉ dùng khi tắt thập phân.
   double _minWorkDayPercent = 80;
-  final _minPercentController = TextEditingController(text: '80');
+  final _minPercentController = TextEditingController(text: tr('80'));
   /// Giờ tối thiểu để tính nửa công (mặc định 1h).
   double _minHalfDayHours = 1;
-  final _minHalfDayController = TextEditingController(text: '1');
+  final _minHalfDayController = TextEditingController(text: tr('1'));
   bool _decimalWorkDayEnabled = false;
 
   // Số cấp phê duyệt đơn nghỉ phép (1, 2, 3)
@@ -153,7 +154,7 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
       debugPrint('Error loading system settings: $e');
       if (mounted) {
         appNotification.showError(
-            title: 'Lỗi', message: 'Không thể tải thiết lập hệ thống');
+            title: 'Lỗi', message: tr('Không thể tải thiết lập hệ thống'));
       }
     }
     if (mounted) setState(() => _isLoading = false);
@@ -179,7 +180,7 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
     if (parsedPercent < 1 || parsedPercent > 100) {
       appNotification.showError(
         title: 'Lỗi',
-        message: '% đủ 1 công phải từ 1 đến 100 (mặc định 80)',
+        message: tr('% đủ 1 công phải từ 1 đến 100 (mặc định 80)'),
       );
       return;
     }
@@ -189,7 +190,7 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
     if (parsedHalf < 0 || parsedHalf > 24) {
       appNotification.showError(
         title: 'Lỗi',
-        message: 'Giờ tối thiểu nửa công phải từ 0 đến 24 (mặc định 1)',
+        message: tr('Giờ tối thiểu nửa công phải từ 0 đến 24 (mặc định 1)'),
       );
       return;
     }
@@ -255,20 +256,19 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
             '❌ Save settings failed: ${failed.map((r) => r['message']).join(', ')}');
         appNotification.showError(
           title: 'Lỗi',
-          message:
-              'Không thể lưu: ${failed.first['message'] ?? 'Lỗi không xác định'}',
+          message: 'Không thể lưu: ${failed.first['message'] ?? 'Lỗi không xác định'}',
         );
       } else {
         appNotification.showSuccess(
           title: 'Thành công',
-          message: 'Đã lưu thiết lập hệ thống',
+          message: tr('Đã lưu thiết lập hệ thống'),
         );
       }
     } catch (e) {
       if (mounted) {
         appNotification.showError(
           title: 'Lỗi',
-          message: 'Không thể lưu: $e',
+          message: tr('Không thể lưu: $e'),
         );
       }
     }
@@ -308,7 +308,7 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
                         strokeWidth: 2, color: Colors.white),
                   )
                 : const Icon(Icons.save, size: 18),
-            label: const Text('Lưu thiết lập'),
+            label: Text(tr('Lưu thiết lập')),
             style: FilledButton.styleFrom(
               backgroundColor: HrmPageChrome.primaryNavy,
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
@@ -441,7 +441,7 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
                           color: HrmPageChrome.primaryNavy, size: 22),
                       const SizedBox(width: 10),
                       Text(
-                        _dayEndTimeString,
+                        tr(_dayEndTimeString),
                         style: const TextStyle(
                           fontSize: 28,
                           fontWeight: FontWeight.bold,
@@ -457,7 +457,7 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
               OutlinedButton.icon(
                 onPressed: _pickTime,
                 icon: const Icon(Icons.edit, size: 15),
-                label: const Text('Đổi giờ'),
+                label: Text(tr('Đổi giờ')),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: HrmPageChrome.primaryNavy,
                   side: const BorderSide(color: HrmPageChrome.primaryNavy),
@@ -469,7 +469,7 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
           ),
           const SizedBox(height: 14),
           // Quick presets
-          const Text('Chọn nhanh:',
+          Text(tr('Chọn nhanh:'),
               style: TextStyle(
                   color: Color(0xFF52525B),
                   fontWeight: FontWeight.w600,
@@ -511,12 +511,10 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
         children: [
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
-            title: const Text(
-              'Tính công theo thập phân',
+            title: Text(tr('Tính công theo thập phân'),
               style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
             ),
-            subtitle: const Text(
-              'Bật: làm tròn gần 0.1 / 0.2 … 1.0 theo tỷ lệ giờ — tắt ngưỡng % đủ công / nửa công cố định',
+            subtitle: Text(tr('Bật: làm tròn gần 0.1 / 0.2 … 1.0 theo tỷ lệ giờ — tắt ngưỡng % đủ công / nửa công cố định'),
               style: TextStyle(fontSize: 12),
             ),
             value: _decimalWorkDayEnabled,
@@ -531,11 +529,10 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
             enabled: _perm.canEdit('SystemSettings'),
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             decoration: InputDecoration(
-              labelText: 'Giờ tối thiểu tính nửa công / có công',
-              hintText: 'VD: 1',
-              suffixText: 'giờ',
-              helperText:
-                  'Dưới mức này (VD 0.5h) → 0 công. Mặc định 1 giờ. Áp dụng cả khi bật thập phân.',
+              labelText: tr('Giờ tối thiểu tính nửa công / có công'),
+              hintText: tr('VD: 1'),
+              suffixText: tr('giờ'),
+              helperText: tr('Dưới mức này (VD 0.5h) → 0 công. Mặc định 1 giờ. Áp dụng cả khi bật thập phân.'),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
               ),
@@ -565,9 +562,9 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    thresholdEnabled
+                    tr(thresholdEnabled
                         ? '% đủ 1 công (chế độ ngưỡng)'
-                        : '% đủ 1 công (đã tắt — đang dùng thập phân)',
+                        : '% đủ 1 công (đã tắt — đang dùng thập phân)'),
                     style: const TextStyle(
                       fontWeight: FontWeight.w600,
                       fontSize: 13,
@@ -582,12 +579,12 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
                     keyboardType:
                         const TextInputType.numberWithOptions(decimal: true),
                     decoration: InputDecoration(
-                      labelText: '% đủ 1 công',
-                      hintText: 'VD: 80',
-                      suffixText: '%',
-                      helperText: thresholdEnabled
+                      labelText: tr('% đủ 1 công'),
+                      hintText: tr('VD: 80'),
+                      suffixText: tr('%'),
+                      helperText: tr(thresholdEnabled
                           ? '≥ % giờ chuẩn NV → đủ 1 công; dưới đó (≥ min nửa công) → 0.5'
-                          : 'Không dùng khi bật thập phân',
+                          : 'Không dùng khi bật thập phân'),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
                       ),
@@ -635,7 +632,7 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
   Widget _buildMinHalfChip(String label, String value) {
     final selected = _minHalfDayController.text.trim() == value;
     return ChoiceChip(
-      label: Text(label),
+      label: Text(tr(label)),
       selected: selected,
       onSelected: _perm.canEdit('SystemSettings')
           ? (_) {
@@ -657,7 +654,7 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
   Widget _buildMinPercentChip(String label, String value) {
     final selected = _minPercentController.text.trim() == value;
     return ChoiceChip(
-      label: Text(label),
+      label: Text(tr(label)),
       selected: selected,
       onSelected: _perm.canEdit('SystemSettings')
           ? (_) {
@@ -688,8 +685,7 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Số cấp phê duyệt:',
+          Text(tr('Số cấp phê duyệt:'),
             style: TextStyle(
               color: Color(0xFF52525B),
               fontWeight: FontWeight.w600,
@@ -783,7 +779,7 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      label,
+                      tr(label),
                       style: TextStyle(
                         fontWeight:
                             isSelected ? FontWeight.w600 : FontWeight.normal,
@@ -792,7 +788,7 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
                       ),
                     ),
                     Text(
-                      desc,
+                      tr(desc),
                       style:
                           TextStyle(fontSize: 11, color: Colors.grey.shade500),
                     ),
@@ -856,13 +852,13 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(title,
+                      Text(tr(title),
                           style: const TextStyle(
                               color: Color(0xFF18181B),
                               fontWeight: FontWeight.bold,
                               fontSize: 15)),
                       const SizedBox(height: 2),
-                      Text(subtitle,
+                      Text(tr(subtitle),
                           style: const TextStyle(
                               color: Color(0xFF71717A), fontSize: 12)),
                     ],
@@ -897,7 +893,7 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              text,
+              tr(text),
               style: TextStyle(
                   color: Colors.brown.shade700, fontSize: 11, height: 1.5),
             ),
@@ -910,7 +906,7 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
   Widget _buildPresetChip(String label, int hour, int minute) {
     final isSelected = _dayEndHour == hour && _dayEndMinute == minute;
     return ActionChip(
-      label: Text(label),
+      label: Text(tr(label)),
       avatar: isSelected
           ? const Icon(Icons.check_circle, size: 14, color: HrmPageChrome.primaryNavy)
           : null,
@@ -965,8 +961,7 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
                     color: Color(0xFFD97706), size: 16),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: Text(
-                    'Đặt được lưu, nhưng chưa áp dụng vào tính toán giờ công. Sẽ được kết nối vào engine tính lương.',
+                  child: Text(tr('Đặt được lưu, nhưng chưa áp dụng vào tính toán giờ công. Sẽ được kết nối vào engine tính lương.'),
                     style: TextStyle(
                         fontSize: 11,
                         color: Colors.orange.shade800,
@@ -1015,7 +1010,7 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              opt['label'] as String,
+                              tr(opt['label'] as String),
                               style: TextStyle(
                                 fontWeight: isSelected
                                     ? FontWeight.w600
@@ -1025,7 +1020,7 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
                               ),
                             ),
                             Text(
-                              opt['desc'] as String,
+                              tr(opt['desc'] as String),
                               style: TextStyle(
                                   fontSize: 11, color: Colors.grey.shade500),
                             ),
@@ -1085,16 +1080,14 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'Cho phép chấm công bù',
+                    Text(tr('Cho phép chấm công bù'),
                       style: TextStyle(
                           fontWeight: FontWeight.w600,
                           fontSize: 13,
                           color: Color(0xFF18181B)),
                     ),
                     const SizedBox(height: 2),
-                    Text(
-                      'Nhân viên có thể yêu cầu bổ sung chấm công',
+                    Text(tr('Nhân viên có thể yêu cầu bổ sung chấm công'),
                       style:
                           TextStyle(fontSize: 11, color: Colors.grey.shade500),
                     ),
@@ -1110,16 +1103,14 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
           ),
           const Divider(height: 32),
           // Payroll cutoff day
-          const Text(
-            'Ngày chốt công hàng tháng:',
+          Text(tr('Ngày chốt công hàng tháng:'),
             style: TextStyle(
                 fontWeight: FontWeight.w600,
                 fontSize: 13,
                 color: Color(0xFF18181B)),
           ),
           const SizedBox(height: 4),
-          Text(
-            'Chấm công sẽ được chốt vào ngày này mỗi tháng',
+          Text(tr('Chấm công sẽ được chốt vào ngày này mỗi tháng'),
             style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
           ),
           const SizedBox(height: 10),
@@ -1134,8 +1125,7 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
                   border: Border.all(
                       color: const Color(0xFFD97706).withValues(alpha: 0.2)),
                 ),
-                child: Text(
-                  'Ngày $_payrollCutoffDay',
+                child: Text(tr('Ngày $_payrollCutoffDay'),
                   style: const TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
@@ -1172,7 +1162,7 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
             runSpacing: 6,
             children: [1, 15, 20, 25, 28]
                 .map((d) => ActionChip(
-                      label: Text('Ngày $d'),
+                      label: Text(tr('Ngày $d')),
                       backgroundColor: _payrollCutoffDay == d
                           ? const Color(0xFFD97706).withValues(alpha: 0.1)
                           : Colors.grey.shade100,
@@ -1218,8 +1208,7 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Số cấp phê duyệt:',
+          Text(tr('Số cấp phê duyệt:'),
             style: TextStyle(
               color: Color(0xFF52525B),
               fontWeight: FontWeight.w600,
@@ -1272,7 +1261,7 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              opt['label'] as String,
+                              tr(opt['label'] as String),
                               style: TextStyle(
                                 fontWeight: isSelected
                                     ? FontWeight.w600
@@ -1282,7 +1271,7 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
                               ),
                             ),
                             Text(
-                              opt['desc'] as String,
+                              tr(opt['desc'] as String),
                               style: TextStyle(
                                   fontSize: 11, color: Colors.grey.shade500),
                             ),

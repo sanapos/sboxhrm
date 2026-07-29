@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../utils/app_error_utils.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 class EmptyState extends StatelessWidget {
   final IconData icon;
@@ -44,7 +45,7 @@ class EmptyState extends StatelessWidget {
             ),
             const SizedBox(height: 24),
             Text(
-              title,
+              tr(title),
               style: const TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
@@ -54,7 +55,7 @@ class EmptyState extends StatelessWidget {
             if (description != null) ...[
               const SizedBox(height: 8),
               Text(
-                description!,
+                tr(description!),
                 style: TextStyle(
                   color: Colors.grey[400],
                   fontSize: 14,
@@ -67,7 +68,7 @@ class EmptyState extends StatelessWidget {
               ElevatedButton.icon(
                 onPressed: onAction,
                 icon: const Icon(Icons.add),
-                label: Text(actionLabel!),
+                label: Text(tr(actionLabel!)),
               ),
             ],
           ],
@@ -137,7 +138,7 @@ class ErrorState extends StatelessWidget {
             ),
             const SizedBox(height: 24),
             Text(
-              title,
+              tr(title),
               style: const TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
@@ -147,7 +148,7 @@ class ErrorState extends StatelessWidget {
             if (description != null) ...[
               const SizedBox(height: 8),
               Text(
-                description!,
+                tr(description!),
                 style: TextStyle(
                   color: Colors.grey[400],
                   fontSize: 14,
@@ -160,7 +161,7 @@ class ErrorState extends StatelessWidget {
               ElevatedButton.icon(
                 onPressed: onRetry,
                 icon: const Icon(Icons.refresh),
-                label: const Text('Thử lại'),
+                label: Text(tr('Thử lại')),
               ),
             ],
           ],
@@ -222,8 +223,7 @@ class NoSearchResultState extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 24),
-            const Text(
-              'Không tìm thấy kết quả',
+            Text(tr('Không tìm thấy kết quả'),
               style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
@@ -232,9 +232,9 @@ class NoSearchResultState extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              searchTerm != null
+              tr(searchTerm != null
                   ? 'Không tìm thấy kết quả cho "$searchTerm"'
-                  : 'Không có kết quả phù hợp với tiêu chí tìm kiếm',
+                  : 'Không có kết quả phù hợp với tiêu chí tìm kiếm'),
               style: TextStyle(
                 color: Colors.grey[400],
                 fontSize: 14,
@@ -246,7 +246,7 @@ class NoSearchResultState extends StatelessWidget {
               TextButton.icon(
                 onPressed: onClear,
                 icon: const Icon(Icons.clear),
-                label: const Text('Xóa bộ lọc'),
+                label: Text(tr('Xóa bộ lọc')),
               ),
             ],
           ],

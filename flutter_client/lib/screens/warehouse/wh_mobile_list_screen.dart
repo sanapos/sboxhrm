@@ -10,6 +10,7 @@ import '../../widgets/warehouse/wh_mobile_doc_service.dart';
 import '../../widgets/warehouse/wh_mobile_theme.dart';
 import 'wh_mobile_detail_screen.dart';
 import 'wh_mobile_editor_router.dart';
+import '../../l10n/app_tr.dart';
 
 /// Danh sách phiếu kho — UI mobile mới, thống nhất cho mọi loại phiếu.
 class WhMobileDocListScreen extends StatefulWidget {
@@ -120,7 +121,7 @@ class _WhMobileDocListScreenState extends State<WhMobileDocListScreen> {
               backgroundColor: _type.accentColor,
               elevation: 0,
               icon: const Icon(Icons.add_rounded, color: Colors.white),
-              label: Text(_type.createLabel,
+              label: Text(tr(_type.createLabel),
                   style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
             )
           : null,
@@ -168,7 +169,7 @@ class _WhMobileDocListScreenState extends State<WhMobileDocListScreen> {
                                 onPressed: _openCreate,
                                 style: WhMobileTheme.primaryButton(),
                                 icon: const Icon(Icons.add_rounded, size: 20),
-                                label: Text(_type.createLabel),
+                                label: Text(tr(_type.createLabel)),
                               )
                             : null,
                       )
@@ -228,7 +229,7 @@ class _FilterChip extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(right: 8),
       child: FilterChip(
-        label: Text(label),
+        label: Text(tr(label)),
         selected: selected,
         onSelected: (_) => onSelect(),
         showCheckmark: false,

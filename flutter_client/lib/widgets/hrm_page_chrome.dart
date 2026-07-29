@@ -5,6 +5,7 @@ import '../utils/navigation_notifier.dart';
 import '../utils/responsive_helper.dart';
 import 'hrm/hrm_settings_mobile_kit.dart';
 import 'pos/pos_theme.dart';
+import '../l10n/app_tr.dart';
 
 /// Shared layout tokens and helpers for HRM settings sub-pages.
 class HrmPageChrome {
@@ -36,7 +37,7 @@ class HrmPageChrome {
       automaticallyImplyLeading: false,
       leading: null,
       title: Text(
-        title,
+        tr(title),
         style: const TextStyle(
           color: textDark,
           fontWeight: FontWeight.bold,
@@ -211,7 +212,7 @@ class HrmPageHero extends StatelessWidget {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Text(
-                            title,
+                            tr(title),
                             style: TextStyle(
                               color: Colors.white,
                               fontSize: isMobile ? 18 : 20,
@@ -223,7 +224,7 @@ class HrmPageHero extends StatelessWidget {
                           if (subtitle != null) ...[
                             const SizedBox(height: 2),
                             Text(
-                              subtitle!,
+                              tr(subtitle!),
                               style: TextStyle(
                                 color: Colors.white.withValues(alpha: 0.85),
                                 fontSize: 13,
@@ -238,7 +239,7 @@ class HrmPageHero extends StatelessWidget {
                   else if (subtitle != null)
                     Expanded(
                       child: Text(
-                        subtitle!,
+                        tr(subtitle!),
                         style: TextStyle(
                           color: Colors.white.withValues(alpha: 0.9),
                           fontSize: 13,
@@ -289,7 +290,7 @@ class HrmSearchField extends StatelessWidget {
         onChanged: onChanged,
         style: const TextStyle(fontSize: 14),
         decoration: InputDecoration(
-          hintText: hintText,
+          hintText: tr(hintText),
           isDense: true,
           prefixIcon: const Icon(Icons.search,
               size: 20, color: Color(0xFF71717A)),

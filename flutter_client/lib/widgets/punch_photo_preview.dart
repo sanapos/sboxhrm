@@ -2,6 +2,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../services/api_service.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// Hiển thị ảnh chấm (khuôn mặt / hiện trường); fallback avatar nếu có.
 class PunchPhotoPreview extends StatefulWidget {
@@ -131,7 +132,7 @@ class _PunchPhotoPreviewState extends State<PunchPhotoPreview> {
       if (widget.emptyHint == null) return const SizedBox.shrink();
       return _placeholderBox(
         child: Text(
-          widget.emptyHint!,
+          tr(widget.emptyHint!),
           textAlign: TextAlign.center,
           style: const TextStyle(fontSize: 12, color: Color(0xFF71717A)),
         ),
@@ -147,8 +148,7 @@ class _PunchPhotoPreviewState extends State<PunchPhotoPreview> {
                 color: Color(0xFFA1A1AA), size: 36),
             if (!widget.compact) ...[
               const SizedBox(height: 8),
-              const Text(
-                'Không tải được ảnh',
+              Text(tr('Không tải được ảnh'),
                 style: TextStyle(fontSize: 12, color: Color(0xFF71717A)),
               ),
             ],

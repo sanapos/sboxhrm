@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../../services/api_service.dart';
 import '../../widgets/notification_overlay.dart';
 import 'system_admin_helpers.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 class KeyPromotionsTab extends StatefulWidget {
   const KeyPromotionsTab({super.key});
@@ -107,7 +108,7 @@ class KeyPromotionsTabState extends State<KeyPromotionsTab> {
           FilledButton.icon(
             onPressed: () => _showCreateEditDialog(null),
             icon: const Icon(Icons.add, size: 18),
-            label: const Text('Tạo CT mới'),
+            label: Text(tr('Tạo CT mới')),
             style: ElevatedButton.styleFrom(
               backgroundColor: AdminHelpers.primary,
               foregroundColor: Colors.white,
@@ -141,16 +142,16 @@ class KeyPromotionsTabState extends State<KeyPromotionsTab> {
           const SizedBox(width: 12),
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14), maxLines: 1, overflow: TextOverflow.ellipsis),
+              Text(tr(name), style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14), maxLines: 1, overflow: TextOverflow.ellipsis),
               const SizedBox(height: 2),
-              Text([pkg, if (endDate != null) '\u0110\u1ebfn ${endDate.day}/${endDate.month}/${endDate.year}'].join(' \u00b7 '),
+              Text(tr([pkg, if (endDate != null) '\u0110\u1ebfn ${endDate.day}/${endDate.month}/${endDate.year}'].join(' \u00b7 ')),
                 style: const TextStyle(color: Color(0xFF71717A), fontSize: 12), maxLines: 1, overflow: TextOverflow.ellipsis),
             ]),
           ),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
             decoration: BoxDecoration(color: isExpired ? Colors.red.withValues(alpha: 0.1) : isActive ? Colors.green.withValues(alpha: 0.1) : Colors.grey.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
-            child: Text(isExpired ? 'H\u1ebft h\u1ea1n' : isActive ? 'H\u0110' : 'T\u1eaft', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: isExpired ? Colors.red : isActive ? Colors.green : Colors.grey)),
+            child: Text(tr(isExpired ? 'H\u1ebft h\u1ea1n' : isActive ? 'H\u0110' : 'T\u1eaft'), style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: isExpired ? Colors.red : isActive ? Colors.green : Colors.grey)),
           ),
         ]),
       ),
@@ -186,12 +187,11 @@ class KeyPromotionsTabState extends State<KeyPromotionsTab> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(promo['name'] ?? '',
+                      Text(tr(promo['name'] ?? ''),
                           style: const TextStyle(
                               fontWeight: FontWeight.bold, fontSize: 15)),
                       const SizedBox(height: 2),
-                      Text(
-                          'Gói: ${promo['servicePackageName'] ?? 'N/A'}',
+                      Text(tr('${tr('Gói: ')}${promo['servicePackageName'] ?? 'N/A'}'),
                           style: TextStyle(
                               color: Colors.grey[600], fontSize: 13)),
                     ],
@@ -209,7 +209,7 @@ class KeyPromotionsTabState extends State<KeyPromotionsTab> {
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
-                    isExpired ? 'Hết hạn' : isActive ? 'Hoạt động' : 'Tắt',
+                    tr(isExpired ? 'Hết hạn' : isActive ? 'Hoạt động' : 'Tắt'),
                     style: TextStyle(
                       color: isExpired
                           ? Colors.red
@@ -228,11 +228,11 @@ class KeyPromotionsTabState extends State<KeyPromotionsTab> {
                     if (v == 'delete') _confirmDelete(promo);
                   },
                   itemBuilder: (_) => [
-                    const PopupMenuItem(
-                        value: 'edit', child: Text('Chỉnh sửa')),
-                    const PopupMenuItem(
+                    PopupMenuItem(
+                        value: 'edit', child: Text(tr('Chỉnh sửa'))),
+                    PopupMenuItem(
                         value: 'delete',
-                        child: Text('Xóa', style: TextStyle(color: Colors.red))),
+                        child: Text(tr('Xóa'), style: TextStyle(color: Colors.red))),
                   ],
                 ),
               ],
@@ -268,8 +268,8 @@ class KeyPromotionsTabState extends State<KeyPromotionsTab> {
       children: [
         Icon(icon, size: 14, color: Colors.grey[600]),
         const SizedBox(width: 4),
-        Text('$label: ', style: TextStyle(color: Colors.grey[600], fontSize: 13)),
-        Text(value, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+        Text(tr('$label: '), style: TextStyle(color: Colors.grey[600], fontSize: 13)),
+        Text(tr(value), style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
       ],
     );
   }
@@ -289,7 +289,7 @@ class KeyPromotionsTabState extends State<KeyPromotionsTab> {
               : Colors.grey.withValues(alpha: 0.3),
         ),
       ),
-      child: Text('$label: +$d ngày',
+      child: Text(tr('$label: +$d ngày'),
           style: TextStyle(
             color: d > 0 ? AdminHelpers.primary : Colors.grey,
             fontWeight: FontWeight.w600,
@@ -302,12 +302,12 @@ class KeyPromotionsTabState extends State<KeyPromotionsTab> {
     showDialog(
       context: context,
       builder: (ctx) => ScrollableAlertDialog(
-        title: const Text('Xác nhận xóa'),
-        content: Text('Bạn có chắc muốn xóa chương trình "${promo['name']}"?'),
+        title: Text(tr('Xác nhận xóa')),
+        content: Text(tr('${tr('Bạn có chắc muốn xóa chương trình "')}${promo['name']}"?')),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: const Text('Hủy')),
+              child: Text(tr('Hủy'))),
           TextButton(
             onPressed: () async {
               Navigator.pop(ctx);
@@ -315,11 +315,11 @@ class KeyPromotionsTabState extends State<KeyPromotionsTab> {
               if (res['isSuccess'] == true) {
                 loadData();
                 if (mounted) {
-                  NotificationOverlayManager().showSuccess(title: 'Thành công', message: 'Đã xóa chương trình');
+                  NotificationOverlayManager().showSuccess(title: 'Thành công', message: tr('Đã xóa chương trình'));
                 }
               }
             },
-            child: const Text('Xóa', style: TextStyle(color: Colors.red)),
+            child: Text(tr('Xóa'), style: TextStyle(color: Colors.red)),
           ),
         ],
       ),
@@ -328,11 +328,11 @@ class KeyPromotionsTabState extends State<KeyPromotionsTab> {
 
   void _showCreateEditDialog(Map<String, dynamic>? promo) {
     final isEdit = promo != null;
-    final nameCtrl = TextEditingController(text: promo?['name'] ?? '');
-    final bonus1Ctrl = TextEditingController(text: (promo?['bonus1Key'] ?? 0).toString());
-    final bonus2Ctrl = TextEditingController(text: (promo?['bonus2Keys'] ?? 0).toString());
-    final bonus3Ctrl = TextEditingController(text: (promo?['bonus3Keys'] ?? 0).toString());
-    final bonus4Ctrl = TextEditingController(text: (promo?['bonus4Keys'] ?? 0).toString());
+    final nameCtrl = TextEditingController(text: tr(promo?['name'] ?? ''));
+    final bonus1Ctrl = TextEditingController(text: tr((promo?['bonus1Key'] ?? 0).toString()));
+    final bonus2Ctrl = TextEditingController(text: tr((promo?['bonus2Keys'] ?? 0).toString()));
+    final bonus3Ctrl = TextEditingController(text: tr((promo?['bonus3Keys'] ?? 0).toString()));
+    final bonus4Ctrl = TextEditingController(text: tr((promo?['bonus4Keys'] ?? 0).toString()));
 
     String? selectedPackageId = promo?['servicePackageId']?.toString();
     DateTime startDate =
@@ -346,7 +346,7 @@ class KeyPromotionsTabState extends State<KeyPromotionsTab> {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDlg) => ScrollableAlertDialog(
-          title: Text(isEdit ? 'Sửa chương trình' : 'Tạo chương trình mới'),
+          title: Text(tr(isEdit ? 'Sửa chương trình' : 'Tạo chương trình mới')),
           content: SizedBox(
             width: 500,
             child: SingleChildScrollView(
@@ -355,22 +355,22 @@ class KeyPromotionsTabState extends State<KeyPromotionsTab> {
                 children: [
                   TextField(
                     controller: nameCtrl,
-                    decoration: const InputDecoration(
-                      labelText: 'Tên chương trình',
+                    decoration: InputDecoration(
+                      labelText: tr('Tên chương trình'),
                       border: OutlineInputBorder(),
                     ),
                   ),
                   const SizedBox(height: 12),
                   DropdownButtonFormField<String>(
                     initialValue: selectedPackageId,
-                    decoration: const InputDecoration(
-                      labelText: 'Gói dịch vụ',
+                    decoration: InputDecoration(
+                      labelText: tr('Gói dịch vụ'),
                       border: OutlineInputBorder(),
                     ),
                     items: _packages
                         .map((p) => DropdownMenuItem<String>(
                               value: p['id']?.toString(),
-                              child: Text(p['name'] ?? ''),
+                              child: Text(tr(p['name'] ?? '')),
                             ))
                         .toList(),
                     onChanged: (v) => setDlg(() => selectedPackageId = v),
@@ -390,12 +390,12 @@ class KeyPromotionsTabState extends State<KeyPromotionsTab> {
                             if (d != null) setDlg(() => startDate = d);
                           },
                           child: InputDecorator(
-                            decoration: const InputDecoration(
-                              labelText: 'Ngày bắt đầu',
+                            decoration: InputDecoration(
+                              labelText: tr('Ngày bắt đầu'),
                               border: OutlineInputBorder(),
                               suffixIcon: Icon(Icons.calendar_today, size: 18),
                             ),
-                            child: Text(DateFormat('dd/MM/yyyy').format(startDate)),
+                            child: Text(tr(DateFormat('dd/MM/yyyy').format(startDate))),
                           ),
                         ),
                       ),
@@ -412,21 +412,21 @@ class KeyPromotionsTabState extends State<KeyPromotionsTab> {
                             if (d != null) setDlg(() => endDate = d);
                           },
                           child: InputDecorator(
-                            decoration: const InputDecoration(
-                              labelText: 'Ngày kết thúc',
+                            decoration: InputDecoration(
+                              labelText: tr('Ngày kết thúc'),
                               border: OutlineInputBorder(),
                               suffixIcon: Icon(Icons.event, size: 18),
                             ),
-                            child: Text(DateFormat('dd/MM/yyyy').format(endDate)),
+                            child: Text(tr(DateFormat('dd/MM/yyyy').format(endDate))),
                           ),
                         ),
                       ),
                     ],
                   ),
                   const SizedBox(height: 16),
-                  const Align(
+                  Align(
                     alignment: Alignment.centerLeft,
-                    child: Text('Số ngày thưởng theo số key kích hoạt:',
+                    child: Text(tr('Số ngày thưởng theo số key kích hoạt:'),
                         style: TextStyle(fontWeight: FontWeight.w600)),
                   ),
                   const SizedBox(height: 8),
@@ -436,10 +436,10 @@ class KeyPromotionsTabState extends State<KeyPromotionsTab> {
                         child: TextField(
                           controller: bonus1Ctrl,
                           keyboardType: TextInputType.number,
-                          decoration: const InputDecoration(
-                            labelText: '1 key',
+                          decoration: InputDecoration(
+                            labelText: tr('1 key'),
                             border: OutlineInputBorder(),
-                            suffixText: 'ngày',
+                            suffixText: tr('ngày'),
                           ),
                         ),
                       ),
@@ -448,10 +448,10 @@ class KeyPromotionsTabState extends State<KeyPromotionsTab> {
                         child: TextField(
                           controller: bonus2Ctrl,
                           keyboardType: TextInputType.number,
-                          decoration: const InputDecoration(
-                            labelText: '2 keys',
+                          decoration: InputDecoration(
+                            labelText: tr('2 keys'),
                             border: OutlineInputBorder(),
-                            suffixText: 'ngày',
+                            suffixText: tr('ngày'),
                           ),
                         ),
                       ),
@@ -464,10 +464,10 @@ class KeyPromotionsTabState extends State<KeyPromotionsTab> {
                         child: TextField(
                           controller: bonus3Ctrl,
                           keyboardType: TextInputType.number,
-                          decoration: const InputDecoration(
-                            labelText: '3 keys',
+                          decoration: InputDecoration(
+                            labelText: tr('3 keys'),
                             border: OutlineInputBorder(),
-                            suffixText: 'ngày',
+                            suffixText: tr('ngày'),
                           ),
                         ),
                       ),
@@ -476,10 +476,10 @@ class KeyPromotionsTabState extends State<KeyPromotionsTab> {
                         child: TextField(
                           controller: bonus4Ctrl,
                           keyboardType: TextInputType.number,
-                          decoration: const InputDecoration(
-                            labelText: '4 keys',
+                          decoration: InputDecoration(
+                            labelText: tr('4 keys'),
                             border: OutlineInputBorder(),
-                            suffixText: 'ngày',
+                            suffixText: tr('ngày'),
                           ),
                         ),
                       ),
@@ -492,11 +492,11 @@ class KeyPromotionsTabState extends State<KeyPromotionsTab> {
           actions: [
             TextButton(
                 onPressed: () => Navigator.pop(ctx),
-                child: const Text('Hủy')),
+                child: Text(tr('Hủy'))),
             FilledButton(
               onPressed: () async {
                 if (nameCtrl.text.isEmpty || selectedPackageId == null) {
-                  NotificationOverlayManager().showWarning(title: 'Thiếu thông tin', message: 'Vui lòng nhập đầy đủ thông tin');
+                  NotificationOverlayManager().showWarning(title: 'Thiếu thông tin', message: tr('Vui lòng nhập đầy đủ thông tin'));
                   return;
                 }
                 final data = {
@@ -525,7 +525,7 @@ class KeyPromotionsTabState extends State<KeyPromotionsTab> {
                 backgroundColor: AdminHelpers.primary,
                 foregroundColor: Colors.white,
               ),
-              child: Text(isEdit ? 'Cập nhật' : 'Tạo mới'),
+              child: Text(tr(isEdit ? 'Cập nhật' : 'Tạo mới')),
             ),
           ],
         ),

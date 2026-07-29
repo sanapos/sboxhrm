@@ -13,6 +13,7 @@ import '../../../widgets/pos_barcode_scanner.dart';
 import '../../../widgets/warehouse/wh_mobile_components.dart';
 import '../../../widgets/warehouse/wh_mobile_theme.dart';
 import '../../main_layout.dart' show ScreenRefreshNotifier;
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 class WhMobilePurchaseReceiptEditor extends StatefulWidget {
   const WhMobilePurchaseReceiptEditor({super.key, this.docId});
@@ -57,7 +58,7 @@ class _Line {
 class _WhMobilePurchaseReceiptEditorState extends State<WhMobilePurchaseReceiptEditor> {
   final _api = ApiService();
   final _noteCtrl = TextEditingController();
-  final _paidCtrl = TextEditingController(text: '0');
+  final _paidCtrl = TextEditingController(text: tr('0'));
   final _moneyFmt = NumberFormat('#,##0', 'vi_VN');
 
   bool _loading = true;
@@ -161,11 +162,11 @@ class _WhMobilePurchaseReceiptEditorState extends State<WhMobilePurchaseReceiptE
 
   Future<void> _save({required bool complete}) async {
     if (_supplierId == null) {
-      NotificationOverlayManager().showWarning(title: 'NCC', message: 'Chọn nhà cung cấp');
+      NotificationOverlayManager().showWarning(title: 'NCC', message: tr('Chọn nhà cung cấp'));
       return;
     }
     if (_lines.isEmpty) {
-      NotificationOverlayManager().showWarning(title: 'Phiếu trống', message: 'Thêm hàng nhập');
+      NotificationOverlayManager().showWarning(title: 'Phiếu trống', message: tr('Thêm hàng nhập'));
       return;
     }
     setState(() => _saving = true);
@@ -245,7 +246,7 @@ class _WhMobilePurchaseReceiptEditorState extends State<WhMobilePurchaseReceiptE
                         value: _supplierId,
                         decoration: WhMobileTheme.fieldDecoration(label: 'Nhà cung cấp *'),
                         items: _suppliers
-                            .map((s) => DropdownMenuItem(value: s.id, child: Text(s.name)))
+                            .map((s) => DropdownMenuItem(value: s.id, child: Text(tr(s.name))))
                             .toList(),
                         onChanged: _readOnly ? null : (v) => setState(() => _supplierId = v),
                       ),
@@ -254,7 +255,7 @@ class _WhMobilePurchaseReceiptEditorState extends State<WhMobilePurchaseReceiptE
                         value: _paymentMethod,
                         decoration: WhMobileTheme.fieldDecoration(label: 'Thanh toán'),
                         items: _paymentMethods
-                            .map((m) => DropdownMenuItem(value: m, child: Text(m)))
+                            .map((m) => DropdownMenuItem(value: m, child: Text(tr(m))))
                             .toList(),
                         onChanged: _readOnly ? null : (v) => setState(() => _paymentMethod = v ?? 'Tiền mặt'),
                       ),
@@ -265,7 +266,7 @@ class _WhMobilePurchaseReceiptEditorState extends State<WhMobilePurchaseReceiptE
                 if (!_readOnly)
                   PosPurchaseProductSearchBar(
                     api: _api,
-                    hintText: 'Tìm hoặc quét mã hàng…',
+                    hintText: tr('Tìm hoặc quét mã hàng…'),
                     onPick: _pickProduct,
                   ),
                 const SizedBox(height: WhMobileTheme.gap),
@@ -300,11 +301,11 @@ class _WhMobilePurchaseReceiptEditorState extends State<WhMobilePurchaseReceiptE
                                 ? null
                                 : () async {
                                     final ctrl = TextEditingController(
-                                        text: l.cost.toStringAsFixed(0));
+                                        text: tr(l.cost.toStringAsFixed(0)));
                                     final v = await showDialog<String>(
                                       context: context,
                                       builder: (ctx) => AlertDialog(
-                                        title: const Text('Giá nhập'),
+                                        title: Text(tr('Giá nhập')),
                                         content: TextField(
                                           controller: ctrl,
                                           keyboardType: TextInputType.number,
@@ -313,10 +314,10 @@ class _WhMobilePurchaseReceiptEditorState extends State<WhMobilePurchaseReceiptE
                                         actions: [
                                           TextButton(
                                               onPressed: () => Navigator.pop(ctx),
-                                              child: const Text('Hủy')),
+                                              child: Text(tr('Hủy'))),
                                           FilledButton(
                                               onPressed: () => Navigator.pop(ctx, ctrl.text),
-                                              child: const Text('OK')),
+                                              child: Text(tr('OK'))),
                                         ],
                                       ),
                                     );
@@ -335,9 +336,8 @@ class _WhMobilePurchaseReceiptEditorState extends State<WhMobilePurchaseReceiptE
                               child: Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
-                                  Text('Giá nhập', style: WhMobileTheme.label),
-                                  Text(
-                                    '${_moneyFmt.format(l.cost)} đ',
+                                  Text(tr('Giá nhập'), style: WhMobileTheme.label),
+                                  Text(tr('${_moneyFmt.format(l.cost)} đ'),
                                     style: WhMobileTheme.body.copyWith(fontWeight: FontWeight.w600),
                                   ),
                                 ],
@@ -347,7 +347,7 @@ class _WhMobilePurchaseReceiptEditorState extends State<WhMobilePurchaseReceiptE
                         ],
                       ),
                       trailing: Text(
-                        _moneyFmt.format(l.qty * l.cost),
+                        tr(_moneyFmt.format(l.qty * l.cost)),
                         style: WhMobileTheme.money.copyWith(fontSize: 15),
                       ),
                     );

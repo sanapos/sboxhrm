@@ -9,6 +9,7 @@ import '../widgets/notification_overlay.dart';
 import '../widgets/pos/pos_mobile_widgets.dart';
 import '../widgets/pos/pos_theme.dart';
 import 'pos_sale_return_screen.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// Danh sách phiếu trả hàng bán.
 class PosSaleReturnListScreen extends StatefulWidget {
@@ -80,17 +81,16 @@ class _PosSaleReturnListScreenState extends State<PosSaleReturnListScreen> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Hủy phiếu trả hàng'),
-        content: Text(
-            'Hủy phiếu ${row.returnNo} trên HĐ ${row.orderNo}?\nTrừ lại kho và cập nhật đơn hàng.'),
+        title: Text(tr('Hủy phiếu trả hàng')),
+        content: Text(tr('Hủy phiếu ${row.returnNo} trên HĐ ${row.orderNo}?\nTrừ lại kho và cập nhật đơn hàng.')),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Không')),
+              child: Text(tr('Không'))),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Hủy trả'),
+            child: Text(tr('Hủy trả')),
           ),
         ],
       ),
@@ -118,8 +118,8 @@ class _PosSaleReturnListScreenState extends State<PosSaleReturnListScreen> {
     final perm = Provider.of<PermissionProvider>(context);
     final canEdit = perm.canEdit('PosSell') || perm.canEdit('PosProducts');
     if (!perm.canView('PosSell') && !perm.canView('PosProducts')) {
-      return const Scaffold(
-        body: Center(child: Text('Không có quyền xem trả hàng')),
+      return Scaffold(
+        body: Center(child: Text(tr('Không có quyền xem trả hàng'))),
       );
     }
 
@@ -129,7 +129,7 @@ class _PosSaleReturnListScreenState extends State<PosSaleReturnListScreen> {
     return Scaffold(
       backgroundColor: PosTheme.background,
       appBar: AppBar(
-        title: const Text('Danh sách trả hàng'),
+        title: Text(tr('Danh sách trả hàng')),
         backgroundColor: PosTheme.kiotBlue,
         foregroundColor: Colors.white,
         actions: [
@@ -146,7 +146,7 @@ class _PosSaleReturnListScreenState extends State<PosSaleReturnListScreen> {
         },
         backgroundColor: PosTheme.kiotBlue,
         icon: const Icon(Icons.add),
-        label: const Text('Trả hàng mới'),
+        label: Text(tr('Trả hàng mới')),
       ),
       body: Column(
         children: [
@@ -159,7 +159,7 @@ class _PosSaleReturnListScreenState extends State<PosSaleReturnListScreen> {
                     controller: _searchCtrl,
                     decoration: InputDecoration(
                       isDense: true,
-                      hintText: 'Tìm mã trả, HĐ, khách…',
+                      hintText: tr('Tìm mã trả, HĐ, khách…'),
                       prefixIcon: const Icon(Icons.search, size: 20),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
@@ -186,8 +186,7 @@ class _PosSaleReturnListScreenState extends State<PosSaleReturnListScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             child: Align(
               alignment: Alignment.centerLeft,
-              child: Text(
-                '$_total phiếu trả hàng',
+              child: Text(tr('$_total phiếu trả hàng'),
                 style: const TextStyle(
                   fontSize: 12,
                   color: PosTheme.textSecondary,
@@ -199,7 +198,7 @@ class _PosSaleReturnListScreenState extends State<PosSaleReturnListScreen> {
             child: _loading
                 ? const Center(child: CircularProgressIndicator())
                 : _items.isEmpty
-                    ? const Center(child: Text('Chưa có phiếu trả hàng'))
+                    ? Center(child: Text(tr('Chưa có phiếu trả hàng')))
                     : ListView.separated(
                         padding: const EdgeInsets.all(12),
                         itemCount: _items.length,
@@ -221,7 +220,7 @@ class _PosSaleReturnListScreenState extends State<PosSaleReturnListScreen> {
                                       children: [
                                         Expanded(
                                           child: Text(
-                                            r.returnNo,
+                                            tr(r.returnNo),
                                             style: TextStyle(
                                               fontWeight: FontWeight.w700,
                                               color: r.isVoided
@@ -242,7 +241,7 @@ class _PosSaleReturnListScreenState extends State<PosSaleReturnListScreen> {
                                               borderRadius:
                                                   BorderRadius.circular(4),
                                             ),
-                                            child: const Text('Đã hủy',
+                                            child: Text(tr('Đã hủy'),
                                                 style: TextStyle(fontSize: 10)),
                                           )
                                         else if (canEdit)
@@ -252,7 +251,7 @@ class _PosSaleReturnListScreenState extends State<PosSaleReturnListScreen> {
                                             padding: EdgeInsets.zero,
                                             constraints: const BoxConstraints(
                                                 minWidth: 32, minHeight: 32),
-                                            tooltip: 'Hủy phiếu trả',
+                                            tooltip: tr('Hủy phiếu trả'),
                                             icon: const Icon(
                                                 Icons.cancel_outlined,
                                                 size: 18,
@@ -260,7 +259,7 @@ class _PosSaleReturnListScreenState extends State<PosSaleReturnListScreen> {
                                             onPressed: () => _voidReturn(r),
                                           ),
                                         Text(
-                                          _moneyFmt.format(r.refundAmount),
+                                          tr(_moneyFmt.format(r.refundAmount)),
                                           style: TextStyle(
                                             fontWeight: FontWeight.bold,
                                             fontSize: 15,
@@ -275,14 +274,13 @@ class _PosSaleReturnListScreenState extends State<PosSaleReturnListScreen> {
                                       ],
                                     ),
                                     const SizedBox(height: 4),
-                                    Text(
-                                      'HĐ ${r.orderNo} · ${r.customerName ?? 'Khách lẻ'}',
+                                    Text(tr('${tr('HĐ ')}${r.orderNo} · ${r.customerName ?? 'Khách lẻ'}'),
                                       style: const TextStyle(fontSize: 12),
                                     ),
                                     const SizedBox(height: 2),
                                     Text(
-                                      '${r.createdAt != null ? _dateFmt.format(r.createdAt!.toLocal()) : '—'}'
-                                      '${r.refundPaymentMethod != null ? ' · ${r.refundPaymentMethod}' : ''}',
+                                      tr('${r.createdAt != null ? _dateFmt.format(r.createdAt!.toLocal()) : '—'}'
+                                      '${r.refundPaymentMethod != null ? ' · ${r.refundPaymentMethod}' : ''}'),
                                       style: const TextStyle(
                                         fontSize: 11,
                                         color: PosTheme.textSecondary,
@@ -311,7 +309,7 @@ class _PosSaleReturnListScreenState extends State<PosSaleReturnListScreen> {
                           },
                     icon: const Icon(Icons.chevron_left),
                   ),
-                  Text('Trang $_page / $pages'),
+                  Text(tr('Trang $_page / $pages')),
                   IconButton(
                     onPressed: _page >= pages
                         ? null

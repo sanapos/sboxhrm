@@ -22,6 +22,7 @@ import '../utils/shift_records_calculator.dart';
 import '../utils/attendance_correction_privilege.dart';
 import '../utils/vietnamese_font.dart';
 import '../utils/salary_profile_load_utils.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// M\u00e0n h\u00ecnh t\u1ed5ng h\u1ee3p ch\u1ea5m c\u00f4ng theo ca \u2014 wrapper cho [AttendanceByShiftTab].
 class AttendanceByShiftScreen extends StatefulWidget {
@@ -290,8 +291,7 @@ class _AttendanceByShiftScreenState extends State<AttendanceByShiftScreen> {
         if (attLoad?.truncated == true && mounted) {
           appNotification.showWarning(
             title: 'Dữ liệu có thể chưa đủ',
-            message:
-                'Đã tải ${attendances.length} log. Thu hẹp khoảng ngày nếu thiếu ngày gần đây.',
+            message: tr('Đã tải ${attendances.length} log. Thu hẹp khoảng ngày nếu thiếu ngày gần đây.'),
           );
         }
       }
@@ -339,14 +339,14 @@ class _AttendanceByShiftScreenState extends State<AttendanceByShiftScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'T\u1ed5ng h\u1ee3p ch\u1ea5m c\u00f4ng theo ca',
+                        tr('T\u1ed5ng h\u1ee3p ch\u1ea5m c\u00f4ng theo ca'),
                         style: vietnameseTextStyle(TextStyle(
                             fontSize: isMobile ? 16 : 20,
                             fontWeight: FontWeight.bold,
                             color: Colors.white)),
                       ),
                       Text(
-                        'T\u1ed5ng h\u1ee3p ch\u1ea5m c\u00f4ng theo ca \u00b7 ${_attendances.length} b\u1ea3n ghi',
+                        tr('T\u1ed5ng h\u1ee3p ch\u1ea5m c\u00f4ng theo ca \u00b7 ${_attendances.length} b\u1ea3n ghi'),
                         style: vietnameseTextStyle(TextStyle(
                             fontSize: 12,
                             color: Colors.white.withValues(alpha: 0.8))),
@@ -372,14 +372,14 @@ class _AttendanceByShiftScreenState extends State<AttendanceByShiftScreen> {
                           child: Row(children: [
                             const Icon(Icons.table_chart_outlined, size: 18),
                             const SizedBox(width: 8),
-                            Text('Xu\u1ea5t Excel', style: vietnameseTextStyle())
+                            Text(tr('Xu\u1ea5t Excel'), style: vietnameseTextStyle())
                           ])),
                       PopupMenuItem(
                           value: 'png',
                           child: Row(children: [
                             const Icon(Icons.image_outlined, size: 18),
                             const SizedBox(width: 8),
-                            Text('Xu\u1ea5t PNG', style: vietnameseTextStyle())
+                            Text(tr('Xu\u1ea5t PNG'), style: vietnameseTextStyle())
                           ])),
                     ],
                   )
@@ -412,8 +412,8 @@ class _AttendanceByShiftScreenState extends State<AttendanceByShiftScreen> {
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          'Ch\u01b0a c\u00f3 b\u1ea3ng l\u01b0\u01a1ng c\u1ea5u h\u00ecnh \u2014 h\u1ec7 s\u1ed1 ca/l\u01b0\u01a1ng c\u00f3 th\u1ec3 kh\u00f4ng ch\u00ednh x\u00e1c. '
-                          'V\u00e0o Thi\u1ebft l\u1eadp l\u01b0\u01a1ng \u0111\u1ec3 c\u1ea5u h\u00ecnh.',
+                          tr('Ch\u01b0a c\u00f3 b\u1ea3ng l\u01b0\u01a1ng c\u1ea5u h\u00ecnh \u2014 h\u1ec7 s\u1ed1 ca/l\u01b0\u01a1ng c\u00f3 th\u1ec3 kh\u00f4ng ch\u00ednh x\u00e1c. '
+                          'V\u00e0o Thi\u1ebft l\u1eadp l\u01b0\u01a1ng \u0111\u1ec3 c\u1ea5u h\u00ecnh.'),
                           style: vietnameseTextStyle(TextStyle(
                               fontSize: 12, color: Colors.blue.shade900)),
                         ),
@@ -454,12 +454,12 @@ class _AttendanceByShiftScreenState extends State<AttendanceByShiftScreen> {
                           items: [
                             DropdownMenuItem<String?>(
                                 value: null,
-                                child: Text('T\u1ea5t c\u1ea3 chi nh\u00e1nh',
+                                child: Text(tr('T\u1ea5t c\u1ea3 chi nh\u00e1nh'),
                                     style: vietnameseTextStyle(
                                         const TextStyle(fontSize: 13)))),
                             ..._branchFilter.branches.map((b) => DropdownMenuItem<String?>(
                                 value: b['id']?.toString(),
-                                child: Text(b['name']?.toString() ?? '',
+                                child: Text(tr(b['name']?.toString() ?? ''),
                                     overflow: TextOverflow.ellipsis,
                                     style: const TextStyle(fontSize: 13)))),
                           ],
@@ -558,7 +558,7 @@ class _AttendanceByShiftScreenState extends State<AttendanceByShiftScreen> {
                                 children: [
                                   const CircularProgressIndicator(),
                                   const SizedBox(height: 12),
-                                  Text('Đang tải dữ liệu…',
+                                  Text(tr('Đang tải dữ liệu…'),
                                       style: vietnameseTextStyle(
                                           const TextStyle(fontSize: 13))),
                                 ],
@@ -680,7 +680,7 @@ class _AttendanceByShiftScreenState extends State<AttendanceByShiftScreen> {
             children: [
               Icon(icon, size: 16, color: Colors.white),
               const SizedBox(width: 6),
-              Text(label,
+              Text(tr(label),
                   style: vietnameseTextStyle(const TextStyle(
                       fontSize: 12,
                       color: Colors.white,

@@ -6,6 +6,7 @@ import '../utils/responsive_helper.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../widgets/hrm_fab_clearance.dart';
 import '../widgets/shift_swap_panel.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// Màn hình đổi ca làm việc (danh sách + tạo yêu cầu).
 class ShiftSwapScreen extends StatefulWidget {
@@ -65,16 +66,16 @@ class _ShiftSwapScreenState extends State<ShiftSwapScreen> {
                             color: Colors.white, size: 24),
                       ),
                       const SizedBox(width: 14),
-                      const Expanded(
+                      Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('Đổi ca làm việc',
+                            Text(tr('Đổi ca làm việc'),
                                 style: TextStyle(
                                     color: Colors.white,
                                     fontSize: 20,
                                     fontWeight: FontWeight.bold)),
-                            Text('Gửi yêu cầu · Phản hồi · Quản lý duyệt',
+                            Text(tr('Gửi yêu cầu · Phản hồi · Quản lý duyệt'),
                                 style: TextStyle(
                                     color: Colors.white70, fontSize: 13)),
                           ],
@@ -102,7 +103,7 @@ class _ShiftSwapScreenState extends State<ShiftSwapScreen> {
                   onPressed: () => _panelKey.currentState?.showCreateDialog(),
                   backgroundColor: HrmPageChrome.primaryNavy,
                   icon: const Icon(Icons.add),
-                  label: const Text('Yêu cầu đổi ca'),
+                  label: Text(tr('Yêu cầu đổi ca')),
                 )
               : null,
     );

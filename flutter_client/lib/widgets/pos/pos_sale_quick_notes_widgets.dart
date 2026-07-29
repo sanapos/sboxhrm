@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'pos_theme.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 const _kiotBlue = PosTheme.kiotBlue;
 
@@ -29,7 +30,7 @@ class PosSaleQuickNotesListEditor extends StatelessWidget {
                   child: TextFormField(
                     initialValue: e.value,
                     decoration: InputDecoration(
-                      hintText: 'VD: Ít đường, Nóng, Mang về…',
+                      hintText: tr('VD: Ít đường, Nóng, Mang về…'),
                       isDense: true,
                       filled: true,
                       fillColor: Colors.white,
@@ -50,7 +51,7 @@ class PosSaleQuickNotesListEditor extends StatelessWidget {
                   ),
                 ),
                 IconButton(
-                  tooltip: 'Xóa',
+                  tooltip: tr('Xóa'),
                   icon: const Icon(Icons.close, size: 18, color: Colors.red),
                   onPressed: () {
                     final next = List<String>.from(notes)..removeAt(e.key);
@@ -64,15 +65,14 @@ class PosSaleQuickNotesListEditor extends StatelessWidget {
         OutlinedButton.icon(
           onPressed: () => onChanged([...notes, '']),
           icon: const Icon(Icons.add, size: 18),
-          label: const Text('Thêm ghi chú nhanh'),
+          label: Text(tr('Thêm ghi chú nhanh')),
           style: OutlinedButton.styleFrom(
             foregroundColor: _kiotBlue,
             side: const BorderSide(color: _kiotBlue),
           ),
         ),
         const SizedBox(height: 6),
-        const Text(
-          'Ghi chú này hiển thị dạng chip khi bán hàng — có thể chọn nhiều mục.',
+        Text(tr('Ghi chú này hiển thị dạng chip khi bán hàng — có thể chọn nhiều mục.'),
           style: TextStyle(fontSize: 11, color: PosTheme.textSecondary),
         ),
       ],
@@ -103,8 +103,7 @@ class PosLineQuickNotesPicker extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         if (quickNotes.isNotEmpty) ...[
-          const Text(
-            'Ghi chú nhanh',
+          Text(tr('Ghi chú nhanh'),
             style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 6),
@@ -114,7 +113,7 @@ class PosLineQuickNotesPicker extends StatelessWidget {
             children: quickNotes.map((note) {
               final active = selected.contains(note);
               return FilterChip(
-                label: Text(note, style: const TextStyle(fontSize: 12)),
+                label: Text(tr(note), style: const TextStyle(fontSize: 12)),
                 selected: active,
                 showCheckmark: true,
                 selectedColor: PosTheme.kiotBlueLight,
@@ -140,9 +139,9 @@ class PosLineQuickNotesPicker extends StatelessWidget {
           controller: extraController,
           maxLines: 2,
           decoration: InputDecoration(
-            hintText: quickNotes.isEmpty
+            hintText: tr(quickNotes.isEmpty
                 ? 'Ghi chú dòng hàng'
-                : 'Ghi chú khác (tùy chọn)',
+                : 'Ghi chú khác (tùy chọn)'),
             isDense: true,
             filled: true,
             fillColor: Colors.white,

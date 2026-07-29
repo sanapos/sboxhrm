@@ -8,6 +8,7 @@ import 'pos_printer_transport.dart';
 import 'pos_table_label.dart';
 import 'pos_thermal_bitmap.dart';
 import 'pos_thermal_printer_settings.dart';
+import '../l10n/app_tr.dart';
 
 /// Layout hóa đơn theo khổ giấy — cột vừa khổ, không dư khoảng trống.
 class _SunmiReceiptLayout {
@@ -188,12 +189,12 @@ class PosSunmiNativePrint {
       await SunmiPrinter.printRow(
         cols: [
           SunmiColumn(
-            text: 'Tên hàng',
+            text: tr('Tên hàng'),
             width: 22,
             style: SunmiTextStyle(fontSize: layout.bodySize, bold: true),
           ),
           SunmiColumn(
-            text: 'SL',
+            text: tr('SL'),
             width: 8,
             style: SunmiTextStyle(
               fontSize: layout.bodySize,
@@ -212,12 +213,12 @@ class PosSunmiNativePrint {
         await SunmiPrinter.printRow(
           cols: [
             SunmiColumn(
-              text: '${i + 1}. ${l.name}',
+              text: tr('${i + 1}. ${l.name}'),
               width: 22,
               style: SunmiTextStyle(fontSize: layout.bodySize, bold: true),
             ),
             SunmiColumn(
-              text: right,
+              text: tr(right),
               width: 8,
               style: SunmiTextStyle(
                 fontSize: layout.bodySize,
@@ -378,12 +379,12 @@ class PosSunmiNativePrint {
           await SunmiPrinter.printRow(
             cols: [
               SunmiColumn(
-                text: '  SL ${p.qty}',
+                text: tr('  SL ${p.qty}'),
                 width: layout.itemLeft,
                 style: SunmiTextStyle(fontSize: layout.smallSize, bold: true),
               ),
               SunmiColumn(
-                text: p.amount,
+                text: tr(p.amount),
                 width: layout.itemRight,
                 style: SunmiTextStyle(
                   fontSize: layout.smallSize,
@@ -462,7 +463,7 @@ class PosSunmiNativePrint {
             await SunmiPrinter.printRow(
               cols: [
                 SunmiColumn(
-                  text: pair.left,
+                  text: tr(pair.left),
                   width: layout.itemLeft,
                   style: SunmiTextStyle(
                     fontSize: pair.fontSize.round(),
@@ -470,7 +471,7 @@ class PosSunmiNativePrint {
                   ),
                 ),
                 SunmiColumn(
-                  text: pair.right,
+                  text: tr(pair.right),
                   width: layout.itemRight,
                   style: SunmiTextStyle(
                     fontSize: pair.fontSize.round(),
@@ -520,12 +521,12 @@ class PosSunmiNativePrint {
       await SunmiPrinter.printRow(
         cols: [
           SunmiColumn(
-            text: 'SL x Giá',
+            text: tr('SL x Giá'),
             width: layout.itemLeft,
             style: SunmiTextStyle(fontSize: layout.smallSize, bold: true),
           ),
           SunmiColumn(
-            text: 'Thành tiền',
+            text: tr('Thành tiền'),
             width: layout.itemRight,
             style: SunmiTextStyle(
               fontSize: layout.smallSize,
@@ -666,12 +667,12 @@ class PosSunmiNativePrint {
         SunmiPrinter.printRow(
           cols: [
             SunmiColumn(
-              text: name,
+              text: tr(name),
               width: nameW,
               style: SunmiTextStyle(fontSize: size, bold: bold),
             ),
             SunmiColumn(
-              text: price,
+              text: tr(price),
               width: priceW,
               style: SunmiTextStyle(
                 fontSize: size,
@@ -680,7 +681,7 @@ class PosSunmiNativePrint {
               ),
             ),
             SunmiColumn(
-              text: qty,
+              text: tr(qty),
               width: qtyW,
               style: SunmiTextStyle(
                 fontSize: size,
@@ -689,7 +690,7 @@ class PosSunmiNativePrint {
               ),
             ),
             SunmiColumn(
-              text: total,
+              text: tr(total),
               width: totalW,
               style: SunmiTextStyle(
                 fontSize: size,
@@ -864,7 +865,7 @@ class PosSunmiNativePrint {
       SunmiPrinter.printRow(
         cols: [
           SunmiColumn(
-            text: left,
+            text: tr(left),
             width: layout.colLeft,
             style: SunmiTextStyle(
               fontSize: bold ? layout.totalSize : layout.bodySize,
@@ -872,7 +873,7 @@ class PosSunmiNativePrint {
             ),
           ),
           SunmiColumn(
-            text: right,
+            text: tr(right),
             width: layout.colRight,
             style: SunmiTextStyle(
               fontSize: bold ? layout.totalSize : layout.bodySize,

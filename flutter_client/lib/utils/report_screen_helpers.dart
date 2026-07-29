@@ -12,6 +12,8 @@ import 'excel_report_builder.dart';
 import 'excel_bytes_utils.dart';
 import 'excel_download_helper.dart';
 import 'file_saver.dart' as file_saver;
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
+import 'package:zkteco_flutter_client/l10n/app_ui_locale.dart';
 
 /// Khoảng ngày theo preset (dùng chung cho màn báo cáo).
 class ReportDateRangePresets {
@@ -94,7 +96,7 @@ class ReportDateRangeFilterBar extends StatelessWidget {
       firstDate: DateTime(2020),
       lastDate: DateTime.now().add(const Duration(days: 365)),
       initialDateRange: DateTimeRange(start: from, end: to),
-      locale: const Locale('vi'),
+      locale: appUiLocale(),
     );
     if (picked != null) {
       onChanged(picked.start, picked.end, 'custom');
@@ -115,7 +117,7 @@ class ReportDateRangeFilterBar extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(right: 6),
       child: ChoiceChip(
-        label: Text(label,
+        label: Text(tr(label),
             style: vietnameseTextStyle(const TextStyle(fontSize: 12))),
         selected: selected,
         onSelected: (_) => _applyPreset(context, key),
@@ -159,9 +161,9 @@ class ReportDateRangeFilterBar extends StatelessWidget {
                     color: isCustom ? Colors.white : const Color(0xFF6B7280),
                   ),
                   label: Text(
-                    isCustom
+                    tr(isCustom
                         ? rangeText
-                        : ReportDateRangePresets.presetLabel('custom'),
+                        : ReportDateRangePresets.presetLabel('custom')),
                     style: TextStyle(
                       fontSize: 12,
                       color: isCustom ? Colors.white : const Color(0xFF18181B),
@@ -200,7 +202,7 @@ class ReportDateRangeFilterBar extends StatelessWidget {
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        rangeText,
+                        tr(rangeText),
                         style: vietnameseTextStyle(const TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
@@ -213,7 +215,7 @@ class ReportDateRangeFilterBar extends StatelessWidget {
                     if (!isCustom) ...[
                       const SizedBox(width: 6),
                       Text(
-                        ReportDateRangePresets.presetLabel(preset),
+                        tr(ReportDateRangePresets.presetLabel(preset)),
                         style: const TextStyle(
                           fontSize: 11,
                           color: Color(0xFF9CA3AF),
@@ -312,7 +314,7 @@ class ReportEmptyState extends StatelessWidget {
           children: [
             Icon(icon, size: 56, color: Colors.grey.shade300),
             const SizedBox(height: 12),
-            Text(title,
+            Text(tr(title),
                 style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
@@ -320,7 +322,7 @@ class ReportEmptyState extends StatelessWidget {
                 textAlign: TextAlign.center),
             if (subtitle != null) ...[
               const SizedBox(height: 6),
-              Text(subtitle!,
+              Text(tr(subtitle!),
                   style: TextStyle(fontSize: 13, color: Colors.grey.shade500),
                   textAlign: TextAlign.center),
             ],
@@ -347,7 +349,7 @@ class ClientExcelExport {
   }) async {
     if (rows.isEmpty) {
       NotificationOverlayManager().showError(
-          title: 'Thông báo', message: 'Không có dữ liệu để xuất');
+          title: 'Thông báo', message: tr('Không có dữ liệu để xuất'));
       return false;
     }
     try {
@@ -391,7 +393,7 @@ class ClientExcelExport {
         if (context.mounted) {
           NotificationOverlayManager().showError(
             title: 'Lỗi',
-            message: 'Không tạo được file Excel hợp lệ.',
+            message: tr('Không tạo được file Excel hợp lệ.'),
           );
         }
         return false;
@@ -399,13 +401,13 @@ class ClientExcelExport {
       await download.saveBytes(bytes, fn);
       if (context.mounted) {
         NotificationOverlayManager()
-            .showSuccess(title: 'Xuất Excel', message: 'Đã lưu vào Tải về/SBOX HRM: $fn');
+            .showSuccess(title: 'Xuất Excel', message: tr('Đã lưu vào Tải về/SBOX HRM: $fn'));
       }
       return true;
     } catch (e) {
       if (context.mounted) {
         NotificationOverlayManager()
-            .showError(title: 'Lỗi', message: 'Không thể xuất Excel: $e');
+            .showError(title: 'Lỗi', message: tr('Không thể xuất Excel: $e'));
       }
       return false;
     }

@@ -2,11 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_html/flutter_html.dart';
 
 import '../../models/pos_print_template.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// Xem trước HTML mẫu in trên mobile/desktop (không cần web).
 Widget buildPosHtmlPreview(String htmlDocument) {
   if (htmlDocument.trim().isEmpty) {
-    return const Center(child: Text('Chưa có nội dung'));
+    return Center(child: Text(tr('Chưa có nội dung')));
   }
   return LayoutBuilder(
     builder: (context, constraints) {

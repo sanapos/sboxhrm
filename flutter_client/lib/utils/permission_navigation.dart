@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../providers/permission_provider.dart';
 import 'permission_modules.dart';
 import 'store_role_helper.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// Điều hướng an toàn theo quyền — dùng chung nav, thông báo, dashboard CTA.
 class PermissionNavigation {
@@ -147,7 +148,7 @@ class PermissionNavigation {
   static void showDenied(BuildContext context, String moduleCode) {
     final name = label(moduleCode);
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Bạn không có quyền truy cập $name')),
+      SnackBar(content: Text(tr('Bạn không có quyền truy cập $name'))),
     );
   }
 }

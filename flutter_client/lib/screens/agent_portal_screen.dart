@@ -6,6 +6,7 @@ import '../providers/auth_provider.dart';
 import '../services/api_service.dart';
 import '../utils/web_route_parser.dart';
 import 'agent_license_keys_screen.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// Portal riêng cho đại lý (Agent) tại /admin.
 class AgentPortalScreen extends StatefulWidget {
@@ -106,16 +107,16 @@ class _AgentPortalScreenState extends State<AgentPortalScreen>
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Đăng xuất?'),
-        content: const Text('Bạn có chắc muốn đăng xuất khỏi cổng đại lý?'),
+        title: Text(tr('Đăng xuất?')),
+        content: Text(tr('Bạn có chắc muốn đăng xuất khỏi cổng đại lý?')),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Huỷ'),
+            child: Text(tr('Huỷ')),
           ),
           FilledButton(
             onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Đăng xuất'),
+            child: Text(tr('Đăng xuất')),
           ),
         ],
       ),
@@ -125,9 +126,9 @@ class _AgentPortalScreenState extends State<AgentPortalScreen>
   }
 
   void _copyLink(String link) {
-    Clipboard.setData(ClipboardData(text: link));
+    Clipboard.setData(ClipboardData(text: tr(link)));
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Đã sao chép link')),
+      SnackBar(content: Text(tr('Đã sao chép link'))),
     );
   }
 
@@ -166,8 +167,7 @@ class _AgentPortalScreenState extends State<AgentPortalScreen>
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text(
-                                'Cổng đại lý',
+                              Text(tr('Cổng đại lý'),
                                 style: TextStyle(
                                   color: Colors.white,
                                   fontSize: 20,
@@ -175,7 +175,7 @@ class _AgentPortalScreenState extends State<AgentPortalScreen>
                                 ),
                               ),
                               Text(
-                                agentName,
+                                tr(agentName),
                                 style: const TextStyle(
                                     color: Colors.white70, fontSize: 13),
                                 maxLines: 1,
@@ -188,7 +188,7 @@ class _AgentPortalScreenState extends State<AgentPortalScreen>
                           onPressed: () => _handleLogout(context),
                           icon: const Icon(Icons.logout,
                               color: Colors.white, size: 16),
-                          label: const Text('Đăng xuất',
+                          label: Text(tr('Đăng xuất'),
                               style: TextStyle(color: Colors.white)),
                         ),
                       ],
@@ -217,11 +217,11 @@ class _AgentPortalScreenState extends State<AgentPortalScreen>
                     unselectedLabelColor: Colors.white60,
                     isScrollable: true,
                     tabAlignment: TabAlignment.start,
-                    tabs: const [
-                      Tab(text: 'Tổng quan'),
-                      Tab(text: 'Gian hàng'),
-                      Tab(text: 'Thiết bị'),
-                      Tab(text: 'License'),
+                    tabs: [
+                      Tab(text: tr('Tổng quan')),
+                      Tab(text: tr('Gian hàng')),
+                      Tab(text: tr('Thiết bị')),
+                      Tab(text: tr('License')),
                     ],
                   ),
                 ],
@@ -232,7 +232,7 @@ class _AgentPortalScreenState extends State<AgentPortalScreen>
             child: _loading
                 ? const Center(child: CircularProgressIndicator())
                 : _error != null
-                    ? Center(child: Text('Lỗi: $_error'))
+                    ? Center(child: Text(tr('Lỗi: $_error')))
                     : TabBarView(
                         controller: _tabs,
                         children: [
@@ -256,7 +256,7 @@ class _AgentPortalScreenState extends State<AgentPortalScreen>
         borderRadius: BorderRadius.circular(8),
       ),
       child: Text(
-        '$label: $value',
+        tr('$label: $value'),
         style: const TextStyle(color: Colors.white, fontSize: 12),
       ),
     );
@@ -274,13 +274,12 @@ class _AgentPortalScreenState extends State<AgentPortalScreen>
         physics: const AlwaysScrollableScrollPhysics(),
         children: [
           if (dash != null) ...[
-            Text(
-              'Xin chào, ${dash['agentName'] ?? ''}',
+            Text(tr('${tr('Xin chào, ')}${dash['agentName'] ?? ''}'),
               style: const TextStyle(
                   fontSize: 18, fontWeight: FontWeight.w700, color: _navy),
             ),
             if (dash['agentCode'] != null)
-              Text('Mã đại lý: ${dash['agentCode']}',
+              Text(tr('${tr('Mã đại lý: ')}${dash['agentCode']}'),
                   style: const TextStyle(
                       fontSize: 13, color: Color(0xFF64748B))),
             const SizedBox(height: 16),
@@ -343,8 +342,7 @@ class _AgentPortalScreenState extends State<AgentPortalScreen>
                       color: _accent, size: 22),
                   const SizedBox(width: 10),
                   Expanded(
-                    child: Text(
-                      'Có ${_intVal(dash['storesExpiringSoon'])} cửa hàng sắp hết hạn license — liên hệ khách hàng gia hạn sớm.',
+                    child: Text(tr('${tr('Có ')}${_intVal(dash['storesExpiringSoon'])} cửa hàng sắp hết hạn license — liên hệ khách hàng gia hạn sớm.'),
                       style: const TextStyle(fontSize: 13, color: _accent),
                     ),
                   ),
@@ -359,16 +357,15 @@ class _AgentPortalScreenState extends State<AgentPortalScreen>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Row(children: [
+                  Row(children: [
                     Icon(Icons.link, color: _accent, size: 20),
                     SizedBox(width: 8),
-                    Text('Link giới thiệu đăng ký cửa hàng',
+                    Text(tr('Link giới thiệu đăng ký cửa hàng'),
                         style: TextStyle(
                             fontSize: 16, fontWeight: FontWeight.w600)),
                   ]),
                   const SizedBox(height: 8),
-                  const Text(
-                    'Gửi link cho khách hàng — cửa hàng đăng ký qua link sẽ tự thuộc quyền quản lý của bạn.',
+                  Text(tr('Gửi link cho khách hàng — cửa hàng đăng ký qua link sẽ tự thuộc quyền quản lý của bạn.'),
                     style: TextStyle(fontSize: 13, color: Color(0xFF64748B)),
                   ),
                   const SizedBox(height: 12),
@@ -380,7 +377,7 @@ class _AgentPortalScreenState extends State<AgentPortalScreen>
                         color: const Color(0xFFF1F5F9),
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: SelectableText(link,
+                      child: SelectableText(tr(link),
                           style: const TextStyle(
                               fontFamily: 'monospace', fontSize: 12)),
                     ),
@@ -388,7 +385,7 @@ class _AgentPortalScreenState extends State<AgentPortalScreen>
                     FilledButton.icon(
                       onPressed: () => _copyLink(link),
                       icon: const Icon(Icons.copy, size: 18),
-                      label: const Text('Sao chép link'),
+                      label: Text(tr('Sao chép link')),
                       style: FilledButton.styleFrom(backgroundColor: _accent),
                     ),
                   ],
@@ -403,13 +400,12 @@ class _AgentPortalScreenState extends State<AgentPortalScreen>
               color: const Color(0xFFE0F2FE),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: const Row(children: [
+            child: Row(children: [
               Icon(Icons.visibility_outlined,
                   size: 18, color: Color(0xFF0369A1)),
               SizedBox(width: 8),
               Expanded(
-                child: Text(
-                  'Chế độ xem — đại lý theo dõi cửa hàng, thiết bị và license. Thao tác quản trị do SuperAdmin thực hiện.',
+                child: Text(tr('Chế độ xem — đại lý theo dõi cửa hàng, thiết bị và license. Thao tác quản trị do SuperAdmin thực hiện.'),
                   style: TextStyle(fontSize: 12, color: Color(0xFF0369A1)),
                 ),
               ),
@@ -453,15 +449,15 @@ class _AgentPortalScreenState extends State<AgentPortalScreen>
                 child: Icon(icon, color: color, size: 20),
               ),
               const Spacer(),
-              Text(value,
+              Text(tr(value),
                   style: TextStyle(
                       fontSize: 24,
                       fontWeight: FontWeight.bold,
                       color: color)),
-              Text(title,
+              Text(tr(title),
                   style: const TextStyle(
                       fontSize: 13, fontWeight: FontWeight.w600)),
-              Text(subtitle,
+              Text(tr(subtitle),
                   style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis),
@@ -483,7 +479,7 @@ class _AgentPortalScreenState extends State<AgentPortalScreen>
               TextField(
                 controller: _deviceSearchCtrl,
                 decoration: InputDecoration(
-                  hintText: 'Tìm serial, tên máy, cửa hàng...',
+                  hintText: tr('Tìm serial, tên máy, cửa hàng...'),
                   prefixIcon: const Icon(Icons.search, size: 20),
                   isDense: true,
                   border: OutlineInputBorder(
@@ -501,7 +497,7 @@ class _AgentPortalScreenState extends State<AgentPortalScreen>
                 child: Row(
                   children: [
                     FilterChip(
-                      label: const Text('Tất cả'),
+                      label: Text(tr('Tất cả')),
                       selected: _deviceOnlineFilter == null,
                       onSelected: (_) {
                         setState(() => _deviceOnlineFilter = null);
@@ -510,7 +506,7 @@ class _AgentPortalScreenState extends State<AgentPortalScreen>
                     ),
                     const SizedBox(width: 6),
                     FilterChip(
-                      label: const Text('Online'),
+                      label: Text(tr('Online')),
                       selected: _deviceOnlineFilter == true,
                       onSelected: (_) {
                         setState(() => _deviceOnlineFilter = true);
@@ -519,7 +515,7 @@ class _AgentPortalScreenState extends State<AgentPortalScreen>
                     ),
                     const SizedBox(width: 6),
                     FilterChip(
-                      label: const Text('Offline'),
+                      label: Text(tr('Offline')),
                       selected: _deviceOnlineFilter == false,
                       onSelected: (_) {
                         setState(() => _deviceOnlineFilter = false);
@@ -531,16 +527,16 @@ class _AgentPortalScreenState extends State<AgentPortalScreen>
                       DropdownButtonHideUnderline(
                         child: DropdownButton<String?>(
                           value: _deviceStoreFilter,
-                          hint: const Text('Cửa hàng'),
+                          hint: Text(tr('Cửa hàng')),
                           items: [
-                            const DropdownMenuItem<String?>(
+                            DropdownMenuItem<String?>(
                               value: null,
-                              child: Text('Tất cả CH'),
+                              child: Text(tr('Tất cả CH')),
                             ),
                             ..._stores.map((s) => DropdownMenuItem<String?>(
                                   value: s['id']?.toString(),
                                   child: Text(
-                                    s['name']?.toString() ?? '',
+                                    tr(s['name']?.toString() ?? ''),
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                 )),
@@ -566,11 +562,10 @@ class _AgentPortalScreenState extends State<AgentPortalScreen>
                   child: _devices.isEmpty
                       ? ListView(
                           physics: const AlwaysScrollableScrollPhysics(),
-                          children: const [
+                          children: [
                             SizedBox(height: 80),
                             Center(
-                              child: Text(
-                                'Chưa có thiết bị tại cửa hàng thuộc đại lý',
+                              child: Text(tr('Chưa có thiết bị tại cửa hàng thuộc đại lý'),
                                 style: TextStyle(color: Color(0xFF64748B)),
                               ),
                             ),
@@ -614,18 +609,18 @@ class _AgentPortalScreenState extends State<AgentPortalScreen>
           ),
         ),
         title: Text(
-          d['name']?.toString() ?? d['serialNumber']?.toString() ?? 'Thiết bị',
+          tr(d['name']?.toString() ?? d['serialNumber']?.toString() ?? 'Thiết bị'),
           style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
         ),
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'SN: ${d['serialNumber'] ?? '—'}',
+              tr('SN: ${d['serialNumber'] ?? '—'}'),
               style: const TextStyle(fontSize: 12, fontFamily: 'monospace'),
             ),
             Text(
-              '${d['storeName'] ?? '—'} · Sync: $lastLabel',
+              tr('${d['storeName'] ?? '—'} · Sync: $lastLabel'),
               style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
             ),
           ],
@@ -639,7 +634,7 @@ class _AgentPortalScreenState extends State<AgentPortalScreen>
             borderRadius: BorderRadius.circular(8),
           ),
           child: Text(
-            online ? 'Online' : 'Offline',
+            tr(online ? 'Online' : 'Offline'),
             style: TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.w600,
@@ -661,7 +656,7 @@ class _AgentPortalScreenState extends State<AgentPortalScreen>
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text(s['name']?.toString() ?? 'Gian hàng'),
+        title: Text(tr(s['name']?.toString() ?? 'Gian hàng')),
         content: SingleChildScrollView(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -684,7 +679,7 @@ class _AgentPortalScreenState extends State<AgentPortalScreen>
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Đóng'),
+            child: Text(tr('Đóng')),
           ),
         ],
       ),
@@ -702,12 +697,12 @@ class _AgentPortalScreenState extends State<AgentPortalScreen>
         children: [
           SizedBox(
             width: 90,
-            child: Text(label,
+            child: Text(tr(label),
                 style: const TextStyle(
                     fontWeight: FontWeight.w600, fontSize: 13)),
           ),
           Expanded(
-            child: Text(value.toString(),
+            child: Text(tr(value.toString()),
                 style: const TextStyle(fontSize: 13)),
           ),
         ],
@@ -721,10 +716,10 @@ class _AgentPortalScreenState extends State<AgentPortalScreen>
         onRefresh: _loadAll,
         child: ListView(
           physics: const AlwaysScrollableScrollPhysics(),
-          children: const [
+          children: [
             SizedBox(height: 120),
             Center(
-              child: Text('Chưa có gian hàng nào thuộc đại lý',
+              child: Text(tr('Chưa có gian hàng nào thuộc đại lý'),
                   style: TextStyle(color: Color(0xFF64748B))),
             ),
           ],
@@ -751,13 +746,12 @@ class _AgentPortalScreenState extends State<AgentPortalScreen>
                     color: locked ? Colors.red : const Color(0xFF0891B2),
                     size: 20),
               ),
-              title: Text(s['name']?.toString() ?? ''),
-              subtitle: Text(
-                'Mã: ${s['code'] ?? ''} · Gói: ${s['packageName'] ?? '—'}',
+              title: Text(tr(s['name']?.toString() ?? '')),
+              subtitle: Text(tr('${tr('Mã: ')}${s['code'] ?? ''} · Gói: ${s['packageName'] ?? '—'}'),
               ),
               trailing: Chip(
                 label: Text(
-                  locked ? 'Khóa' : (active ? 'Hoạt động' : 'Ngừng'),
+                  tr(locked ? 'Khóa' : (active ? 'Hoạt động' : 'Ngừng')),
                   style: const TextStyle(fontSize: 11),
                 ),
                 backgroundColor: locked

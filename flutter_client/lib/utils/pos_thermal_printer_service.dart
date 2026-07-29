@@ -25,6 +25,7 @@ import 'pos_table_label.dart';
 import 'pos_sunmi_native_print.dart';
 
 import 'pos_thermal_printer_settings.dart';
+import '../l10n/app_tr.dart';
 
 
 
@@ -875,7 +876,7 @@ class _EscPosBuilder {
   }) {
     _imageLines.add(
       PosReceiptImageLine(
-        text: text,
+        text: tr(text),
         bold: bold,
         center: _centered,
         fontSize: fontSize ?? _bodyFontSize,

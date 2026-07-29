@@ -22,6 +22,7 @@ import '../utils/attendance_correction_privilege.dart';
 import '../screens/main_layout.dart' show NavigationNotifier;
 import '../widgets/hrm_pushed_screen_shell.dart';
 import 'mobile_attendance_approval_screen.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 class AttendanceApprovalScreen extends StatefulWidget {
   final String? highlightId;
@@ -219,7 +220,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
           _totalCount = 0;
         });
         appNotification.showError(
-            title: 'Lỗi', message: 'Không thể tải dữ liệu');
+            title: 'Lỗi', message: tr('Không thể tải dữ liệu'));
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -320,7 +321,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
     final requestId = (req['id'] ?? req['Id'] ?? '').toString();
     if (requestId.isEmpty) {
       appNotification.showError(
-          title: 'Lỗi', message: 'Không tìm thấy mã yêu cầu');
+          title: 'Lỗi', message: tr('Không tìm thấy mã yêu cầu'));
       return;
     }
     final canFine = Provider.of<PermissionProvider>(context, listen: false)
@@ -331,23 +332,23 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
     final choice = await showDialog<String>(
       context: context,
       builder: (ctx) => ScrollableAlertDialog(
-        title: const Text('Duyệt yêu cầu'),
+        title: Text(tr('Duyệt yêu cầu')),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                  'Nhân viên: ${req['employeeName'] ?? ''} (${req['employeeCode'] ?? ''})'),
+                  tr('Nhân viên: ${req['employeeName'] ?? ''} (${req['employeeCode'] ?? ''})')),
               const SizedBox(height: 4),
-              Text('Loại: ${_getActionLabel(req['action'])}'),
+              Text(tr('Loại: ${_getActionLabel(req['action'])}')),
               const SizedBox(height: 4),
-              Text('Lý do: ${req['reason'] ?? ''}'),
+              Text(tr('Lý do: ${req['reason'] ?? ''}')),
               const SizedBox(height: 12),
               TextField(
                 controller: noteController,
-                decoration: const InputDecoration(
-                  labelText: 'Ghi chú (tùy chọn)',
+                decoration: InputDecoration(
+                  labelText: tr('Ghi chú (tùy chọn)'),
                   border: OutlineInputBorder(),
                 ),
                 maxLines: 2,
@@ -355,8 +356,8 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
               if (canFine) ...[
                 const SizedBox(height: 10),
                 Text(
-                  'Chọn "Duyệt và phạt" nếu nhân viên quên chấm công và bạn '
-                  'muốn tạo thêm phiếu phạt theo mức phạt trong Thiết lập phạt.',
+                  tr('Chọn "Duyệt và phạt" nếu nhân viên quên chấm công và bạn '
+                  'muốn tạo thêm phiếu phạt theo mức phạt trong Thiết lập phạt.'),
                   style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
                 ),
               ],
@@ -366,13 +367,13 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Hủy'),
+            child: Text(tr('Hủy')),
           ),
           if (canFine)
             OutlinedButton.icon(
               onPressed: () => Navigator.pop(ctx, 'approveAndFine'),
               icon: const Icon(Icons.gavel, size: 16, color: Colors.orange),
-              label: const Text('Duyệt và phạt',
+              label: Text(tr('Duyệt và phạt'),
                   style: TextStyle(color: Colors.orange)),
               style: OutlinedButton.styleFrom(
                   side: const BorderSide(color: Colors.orange)),
@@ -380,7 +381,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
           FilledButton.icon(
             onPressed: () => Navigator.pop(ctx, 'approve'),
             icon: const Icon(Icons.check),
-            label: const Text('Duyệt'),
+            label: Text(tr('Duyệt')),
             style: FilledButton.styleFrom(backgroundColor: Colors.green),
           ),
         ],
@@ -405,7 +406,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
 
     if (choice != 'approveAndFine') {
       appNotification.showSuccess(
-          title: 'Thành công', message: 'Đã duyệt yêu cầu');
+          title: 'Thành công', message: tr('Đã duyệt yêu cầu'));
       _loadData();
       return;
     }
@@ -440,8 +441,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
       if (employeeId == null || employeeId.isEmpty) {
         appNotification.showWarning(
             title: 'Không tạo được phiếu phạt',
-            message:
-                'Không xác định được hồ sơ nhân viên để tạo phiếu phạt');
+            message: tr('Không xác định được hồ sơ nhân viên để tạo phiếu phạt'));
         return false;
       }
 
@@ -453,8 +453,8 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
       if (amount <= 0) {
         appNotification.showWarning(
             title: 'Không tạo được phiếu phạt',
-            message: 'Mức phạt "Quên chấm công" chưa được cấu hình (0đ). '
-                'Vui lòng vào Thiết lập phạt để cài đặt.');
+            message: tr(
+                'Mức phạt "Quên chấm công" chưa được cấu hình (0đ). Vui lòng vào Thiết lập phạt để cài đặt.'));
         return false;
       }
 
@@ -500,28 +500,28 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
     final requestId = (req['id'] ?? req['Id'] ?? '').toString();
     if (requestId.isEmpty) {
       appNotification.showError(
-          title: 'Lỗi', message: 'Không tìm thấy mã yêu cầu');
+          title: 'Lỗi', message: tr('Không tìm thấy mã yêu cầu'));
       return;
     }
     final noteController = TextEditingController();
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => ScrollableAlertDialog(
-        title: const Text('Từ chối yêu cầu'),
+        title: Text(tr('Từ chối yêu cầu')),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                  'Nhân viên: ${req['employeeName'] ?? ''} (${req['employeeCode'] ?? ''})'),
+                  tr('Nhân viên: ${req['employeeName'] ?? ''} (${req['employeeCode'] ?? ''})')),
               const SizedBox(height: 4),
-              Text('Loại: ${_getActionLabel(req['action'])}'),
+              Text(tr('Loại: ${_getActionLabel(req['action'])}')),
               const SizedBox(height: 12),
               TextField(
                 controller: noteController,
-                decoration: const InputDecoration(
-                  labelText: 'Lý do từ chối *',
+                decoration: InputDecoration(
+                  labelText: tr('Lý do từ chối *'),
                   border: OutlineInputBorder(),
                 ),
                 maxLines: 2,
@@ -535,7 +535,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
             onConfirm: () {
               if (noteController.text.trim().isEmpty) {
                 appNotification.showWarning(
-                    title: 'Cảnh báo', message: 'Vui lòng nhập lý do từ chối');
+                    title: 'Cảnh báo', message: tr('Vui lòng nhập lý do từ chối'));
                 return;
               }
               Navigator.pop(ctx, true);
@@ -560,7 +560,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
     noteController.dispose();
     if (result['isSuccess'] == true) {
       appNotification.showSuccess(
-          title: 'Thành công', message: 'Đã từ chối yêu cầu');
+          title: 'Thành công', message: tr('Đã từ chối yêu cầu'));
       _loadData();
     } else {
       appNotification.showError(
@@ -572,9 +572,9 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => ScrollableAlertDialog(
-        title: const Text('Hoàn duyệt'),
+        title: Text(tr('Hoàn duyệt')),
         content: Text(
-            'Bạn có chắc muốn hoàn duyệt yêu cầu của ${req['employeeName'] ?? ''}?\n\nThay đổi chấm công đã áp dụng sẽ được hoàn tác.'),
+            tr('Bạn có chắc muốn hoàn duyệt yêu cầu của ${req['employeeName'] ?? ''}?\n\nThay đổi chấm công đã áp dụng sẽ được hoàn tác.')),
         actions: [
           AppDialogActions(
             onCancel: () => Navigator.pop(ctx, false),
@@ -592,7 +592,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
         req['id']?.toString() ?? '');
     if (result['isSuccess'] == true) {
       appNotification.showSuccess(
-          title: 'Thành công', message: 'Đã hoàn duyệt yêu cầu');
+          title: 'Thành công', message: tr('Đã hoàn duyệt yêu cầu'));
       _loadData();
     } else {
       appNotification.showError(
@@ -605,15 +605,15 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
     if (status == 1) {
       appNotification.showWarning(
           title: 'Không thể xóa',
-          message: 'Yêu cầu đã duyệt không thể xóa. Hãy hoãn duyệt trước.');
+          message: tr('Yêu cầu đã duyệt không thể xóa. Hãy hoãn duyệt trước.'));
       return;
     }
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => ScrollableAlertDialog(
-        title: const Text('Xóa yêu cầu'),
+        title: Text(tr('Xóa yêu cầu')),
         content: Text(
-            'Bạn có chắc muốn xóa yêu cầu của ${req['employeeName'] ?? ''}?'),
+            tr('Bạn có chắc muốn xóa yêu cầu của ${req['employeeName'] ?? ''}?')),
         actions: [
           AppDialogActions.delete(
             onCancel: () => Navigator.pop(ctx, false),
@@ -627,7 +627,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
     final result = await _apiService.deleteAttendanceCorrection(req['id']);
     if (result['isSuccess'] == true) {
       appNotification.showSuccess(
-          title: 'Thành công', message: 'Đã xóa yêu cầu');
+          title: 'Thành công', message: tr('Đã xóa yêu cầu'));
       _loadData();
     } else {
       appNotification.showError(
@@ -838,8 +838,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
           children: [
             const Icon(Icons.account_tree, size: 14, color: Colors.blueGrey),
             const SizedBox(width: 4),
-            Text(
-              'Tiến trình duyệt ($currentStep/$totalLevels)',
+            Text(tr('Tiến trình duyệt ($currentStep/$totalLevels)'),
               style: const TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
@@ -869,27 +868,27 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
                             fontSize: 11, color: Colors.black87),
                         children: [
                           TextSpan(
-                            text: record['stepName'] ??
-                                'Bước ${record['stepOrder'] ?? '?'}',
+                            text: tr(record['stepName'] ??
+                                'Bước ${record['stepOrder'] ?? '?'}'),
                             style: TextStyle(
                                 fontWeight: FontWeight.w600, color: color),
                           ),
-                          const TextSpan(text: ': '),
+                          TextSpan(text: tr(': ')),
                           TextSpan(
-                            text: stepStatusInt == 0
+                            text: tr(stepStatusInt == 0
                                 ? (record['assignedUserName'] ??
                                     'Chưa xác định')
                                 : (record['actualUserName'] ??
                                     record['assignedUserName'] ??
-                                    '--'),
+                                    '--')),
                           ),
                           if (record['note'] != null &&
                               record['note'].toString().isNotEmpty) ...[
                             TextSpan(
-                                text: ' - ',
+                                text: tr(' - '),
                                 style: TextStyle(color: Colors.grey[500])),
                             TextSpan(
-                                text: record['note'],
+                                text: tr(record['note']),
                                 style: TextStyle(
                                     color: Colors.grey[600],
                                     fontStyle: FontStyle.italic)),
@@ -900,7 +899,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
                   ),
                   if (record['actionDate'] != null)
                     Text(
-                      _formatDateTime(record['actionDate']),
+                      tr(_formatDateTime(record['actionDate'])),
                       style: TextStyle(fontSize: 10, color: Colors.grey[500]),
                     ),
                 ],
@@ -974,10 +973,10 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(req['employeeName'] ?? '',
+                        Text(tr(req['employeeName'] ?? ''),
                             style: const TextStyle(
                                 fontSize: 16, fontWeight: FontWeight.bold)),
-                        Text(req['employeeCode'] ?? '',
+                        Text(tr(req['employeeCode'] ?? ''),
                             style: TextStyle(
                                 fontSize: 13, color: Colors.grey[600])),
                       ],
@@ -991,7 +990,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
                           _getStatusColor(req['status']).withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: Text(_getStatusLabel(req['status']),
+                    child: Text(tr(_getStatusLabel(req['status'])),
                         style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.bold,
@@ -1013,7 +1012,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
               // Approval progress section
               if (totalLevels > 1 || records.isNotEmpty) ...[
                 const Divider(height: 24),
-                const Text('Tiến trình duyệt đa cấp',
+                Text(tr('Tiến trình duyệt đa cấp'),
                     style:
                         TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 12),
@@ -1037,7 +1036,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
                           _rejectRequest(req);
                         },
                         icon: const Icon(Icons.close, size: 18),
-                        label: const Text('Từ chối'),
+                        label: Text(tr('Từ chối')),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: Colors.red,
                           side: const BorderSide(color: Colors.red),
@@ -1053,7 +1052,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
                           _approveRequest(req);
                         },
                         icon: const Icon(Icons.check, size: 18),
-                        label: const Text('Duyệt'),
+                        label: Text(tr('Duyệt')),
                         style: FilledButton.styleFrom(
                           backgroundColor: Colors.green,
                           padding: const EdgeInsets.symmetric(vertical: 12),
@@ -1078,10 +1077,10 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
         children: [
           SizedBox(
             width: 120,
-            child: Text(label,
+            child: Text(tr(label),
                 style: TextStyle(fontSize: 13, color: Colors.grey[600])),
           ),
-          Expanded(child: Text(value, style: const TextStyle(fontSize: 13))),
+          Expanded(child: Text(tr(value), style: const TextStyle(fontSize: 13))),
         ],
       ),
     );
@@ -1089,7 +1088,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
 
   Widget _buildApprovalTimeline(List records, int requestStatus) {
     if (records.isEmpty) {
-      return const Text('Chưa có dữ liệu duyệt',
+      return Text(tr('Chưa có dữ liệu duyệt'),
           style: TextStyle(fontSize: 12, color: Colors.grey));
     }
 
@@ -1123,8 +1122,8 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
               Row(
                 children: [
                   Text(
-                    record['stepName'] ??
-                        'Bước ${record['stepOrder'] ?? idx + 1}',
+                    tr(record['stepName'] ??
+                        'Bước ${record['stepOrder'] ?? idx + 1}'),
                     style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
@@ -1139,7 +1138,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
-                      _getApprovalStatusLabel(stepStatusInt),
+                      tr(_getApprovalStatusLabel(stepStatusInt)),
                       style: TextStyle(
                           fontSize: 10,
                           fontWeight: FontWeight.w600,
@@ -1150,9 +1149,9 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
               ),
               const SizedBox(height: 4),
               Text(
-                stepStatusInt == 0
+                tr(stepStatusInt == 0
                     ? 'Người duyệt: ${record['assignedUserName'] ?? 'Chưa xác định'}'
-                    : 'Người duyệt: ${record['actualUserName'] ?? record['assignedUserName'] ?? '--'}',
+                    : 'Người duyệt: ${record['actualUserName'] ?? record['assignedUserName'] ?? '--'}'),
                 style: TextStyle(fontSize: 12, color: Colors.grey[700]),
               ),
               if (record['note'] != null &&
@@ -1160,7 +1159,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
                 Padding(
                   padding: const EdgeInsets.only(top: 2),
                   child: Text(
-                    'Ghi chú: ${record['note']}',
+                    tr('Ghi chú: ${record['note']}'),
                     style: TextStyle(
                         fontSize: 11,
                         color: Colors.grey[600],
@@ -1171,7 +1170,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
                 Padding(
                   padding: const EdgeInsets.only(top: 2),
                   child: Text(
-                    _formatDateTime(record['actionDate']),
+                    tr(_formatDateTime(record['actionDate'])),
                     style: TextStyle(fontSize: 11, color: Colors.grey[500]),
                   ),
                 ),
@@ -1188,7 +1187,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
     final statusInt = _parseStatus(req['status']);
 
     if (totalLevels <= 1) {
-      return Text(statusInt == 0 ? 'Đơn cấp' : '--',
+      return Text(tr(statusInt == 0 ? 'Đơn cấp' : '--'),
           style: TextStyle(fontSize: 11, color: Colors.grey[500]));
     }
 
@@ -1267,16 +1266,16 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
               unselectedLabelStyle: vietnameseTextStyle(const TextStyle(
                 fontSize: 14,
               )),
-              tabs: const [
+              tabs: [
                 Tab(
                   height: 48,
                   icon: Icon(Icons.fact_check_outlined, size: 18),
-                  text: 'Duyệt chấm công',
+                  text: tr('Duyệt chấm công'),
                 ),
                 Tab(
                   height: 48,
                   icon: Icon(Icons.how_to_reg_outlined, size: 18),
-                  text: 'Chấm công Mobile',
+                  text: tr('Chấm công Mobile'),
                 ),
               ],
             ),
@@ -1353,7 +1352,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
               color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Text('$_totalCount',
+            child: Text(tr('$_totalCount'),
                 style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.bold,
@@ -1371,23 +1370,23 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
               itemBuilder: (context) => [
                 if (Provider.of<PermissionProvider>(context, listen: false)
                     .canExport('AttendanceApproval'))
-                  const PopupMenuItem(
+                  PopupMenuItem(
                       value: 'excel',
                       child: Row(children: [
                         Icon(Icons.table_chart_outlined,
                             size: 18, color: Colors.green),
                         SizedBox(width: 8),
-                        Text('Xuất Excel')
+                        Text(tr('Xuất Excel'))
                       ])),
                 if (Provider.of<PermissionProvider>(context, listen: false)
                     .canExport('AttendanceApproval'))
-                  const PopupMenuItem(
+                  PopupMenuItem(
                       value: 'png',
                       child: Row(children: [
                         Icon(Icons.image_outlined,
                             size: 18, color: Colors.blue),
                         SizedBox(width: 8),
-                        Text('Xuất PNG')
+                        Text(tr('Xuất PNG'))
                       ])),
               ],
             ),
@@ -1420,7 +1419,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
           children: [
             Icon(icon, size: 16, color: color),
             const SizedBox(width: 4),
-            Text(label,
+            Text(tr(label),
                 style: TextStyle(
                     fontSize: 12, color: color, fontWeight: FontWeight.w600)),
           ],
@@ -1437,7 +1436,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
       child: IconButton(
         onPressed: onPressed,
         icon: Icon(icon, size: 18, color: color),
-        tooltip: tooltip,
+        tooltip: tr(tooltip),
         padding: EdgeInsets.zero,
         constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
         splashRadius: 18,
@@ -1456,7 +1455,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
         const SizedBox(height: 6),
       ],
       desktopBody: _isLoading
-          ? const LoadingWidget(message: 'Đang tải dữ liệu...')
+          ? LoadingWidget(message: tr('Đang tải dữ liệu...'))
           : _filteredRequests.isEmpty
               ? const EmptyState(
                   icon: Icons.fact_check_outlined,
@@ -1476,7 +1475,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
     if (_isLoading) {
       return [
         HrmScrollSlivers.fillRemaining(
-            child: const LoadingWidget(message: 'Đang tải dữ liệu...')),
+            child: LoadingWidget(message: tr('Đang tải dữ liệu...'))),
       ];
     }
     if (_filteredRequests.isEmpty) {
@@ -1543,7 +1542,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
                 ),
                 child: Center(
                   child: Text(
-                    tab['label'] as String,
+                    tr(tab['label'] as String),
                     style: vietnameseTextStyle(TextStyle(
                       fontSize: 13,
                       fontWeight:
@@ -1583,15 +1582,15 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
           if (_branches.isNotEmpty) _buildBranchChip(),
           _buildDropdown<String>(
             value: _selectedDatePreset,
-            items: const [
-              DropdownMenuItem(value: 'all', child: Text('Tất cả')),
-              DropdownMenuItem(value: 'today', child: Text('Hôm nay')),
-              DropdownMenuItem(value: 'yesterday', child: Text('Hôm qua')),
-              DropdownMenuItem(value: 'this_week', child: Text('Tuần này')),
-              DropdownMenuItem(value: 'last_week', child: Text('Tuần trước')),
-              DropdownMenuItem(value: 'this_month', child: Text('Tháng này')),
-              DropdownMenuItem(value: 'last_month', child: Text('Tháng trước')),
-              DropdownMenuItem(value: 'custom', child: Text('Tùy chọn')),
+            items: [
+              DropdownMenuItem(value: 'all', child: Text(tr('Tất cả'))),
+              DropdownMenuItem(value: 'today', child: Text(tr('Hôm nay'))),
+              DropdownMenuItem(value: 'yesterday', child: Text(tr('Hôm qua'))),
+              DropdownMenuItem(value: 'this_week', child: Text(tr('Tuần này'))),
+              DropdownMenuItem(value: 'last_week', child: Text(tr('Tuần trước'))),
+              DropdownMenuItem(value: 'this_month', child: Text(tr('Tháng này'))),
+              DropdownMenuItem(value: 'last_month', child: Text(tr('Tháng trước'))),
+              DropdownMenuItem(value: 'custom', child: Text(tr('Tùy chọn'))),
             ],
             onChanged: (val) {
               if (val == 'custom') {
@@ -1612,7 +1611,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: Text(
-                  '${DateFormat('dd/MM').format(_fromDate!)} - ${DateFormat('dd/MM').format(_toDate!)}',
+                  tr('${DateFormat('dd/MM').format(_fromDate!)} - ${DateFormat('dd/MM').format(_toDate!)}'),
                   style: const TextStyle(fontSize: 12),
                 ),
               ),
@@ -1620,11 +1619,11 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
           _buildEmployeeFilter(),
           _buildDropdown<int>(
             value: _actionFilter,
-            items: const [
-              DropdownMenuItem(value: -1, child: Text('Tất cả loại')),
-              DropdownMenuItem(value: 0, child: Text('Thêm mới')),
-              DropdownMenuItem(value: 1, child: Text('Chỉnh sửa')),
-              DropdownMenuItem(value: 2, child: Text('Xóa')),
+            items: [
+              DropdownMenuItem(value: -1, child: Text(tr('Tất cả loại'))),
+              DropdownMenuItem(value: 0, child: Text(tr('Thêm mới'))),
+              DropdownMenuItem(value: 1, child: Text(tr('Chỉnh sửa'))),
+              DropdownMenuItem(value: 2, child: Text(tr('Xóa'))),
             ],
             onChanged: (val) {
               if (val != null) {
@@ -1637,8 +1636,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
             },
             width: 130,
           ),
-          Text(
-            '$_totalCount yêu cầu',
+          Text(tr('$_totalCount yêu cầu'),
             style: vietnameseTextStyle(
               TextStyle(fontSize: 12, color: Colors.grey[600]),
             ),
@@ -1672,13 +1670,13 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
               icon: const Icon(Icons.keyboard_arrow_down,
                   size: 16, color: Color(0xFF9CA3AF)),
               items: [
-                const DropdownMenuItem<String?>(
+                DropdownMenuItem<String?>(
                     value: null,
-                    child: Text('Tất cả chi nhánh',
+                    child: Text(tr('Tất cả chi nhánh'),
                         style: TextStyle(fontSize: 12))),
                 ..._branches.map((b) => DropdownMenuItem<String?>(
                     value: b['id']?.toString(),
-                    child: Text(b['name']?.toString() ?? '',
+                    child: Text(tr(b['name']?.toString() ?? ''),
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(fontSize: 12)))),
               ],
@@ -1726,9 +1724,9 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
             const SizedBox(width: 6),
             Flexible(
               child: Text(
-                selectedCount == 0
+                tr(selectedCount == 0
                     ? 'Tất cả nhân viên'
-                    : 'Nhân viên ($selectedCount)',
+                    : 'Nhân viên ($selectedCount)'),
                 style: TextStyle(
                   fontSize: 12,
                   color: selectedCount > 0
@@ -1771,11 +1769,11 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
               children: [
                 const Icon(Icons.people, size: 20),
                 const SizedBox(width: 8),
-                const Text('Chọn nhân viên', style: TextStyle(fontSize: 16)),
+                Text(tr('Chọn nhân viên'), style: TextStyle(fontSize: 16)),
                 const Spacer(),
                 TextButton(
                   onPressed: () => setDialogState(() => tempSelected.clear()),
-                  child: const Text('Bỏ chọn tất cả',
+                  child: Text(tr('Bỏ chọn tất cả'),
                       style: TextStyle(fontSize: 12)),
                 ),
               ],
@@ -1787,7 +1785,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
                 children: [
                   TextField(
                     decoration: InputDecoration(
-                      hintText: 'Tìm kiếm nhân viên...',
+                      hintText: tr('Tìm kiếm nhân viên...'),
                       prefixIcon: const Icon(Icons.search, size: 18),
                       isDense: true,
                       contentPadding: const EdgeInsets.symmetric(
@@ -1815,8 +1813,8 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
                           dense: true,
                           value: isSelected,
                           title:
-                              Text(name, style: const TextStyle(fontSize: 13)),
-                          subtitle: Text(code,
+                              Text(tr(name), style: const TextStyle(fontSize: 13)),
+                          subtitle: Text(tr(code),
                               style: TextStyle(
                                   fontSize: 11, color: Colors.grey[600])),
                           onChanged: (val) {
@@ -1928,27 +1926,27 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
                     columns: [
                       DataColumn(
                           label: Expanded(
-                              child: Text('STT',
+                              child: Text(tr('STT'),
                                   textAlign: TextAlign.center,
                                   style: _tableHeaderStyle()))),
                       DataColumn(
                           label: Expanded(
-                              child: Text('Tên nhân viên',
+                              child: Text(tr('Tên nhân viên'),
                                   textAlign: TextAlign.center,
                                   style: _tableHeaderStyle()))),
                       DataColumn(
                           label: Expanded(
-                              child: Text('Loại',
+                              child: Text(tr('Loại'),
                                   textAlign: TextAlign.center,
                                   style: _tableHeaderStyle()))),
                       DataColumn(
                           label: Expanded(
-                              child: Text('Trạng thái',
+                              child: Text(tr('Trạng thái'),
                                   textAlign: TextAlign.center,
                                   style: _tableHeaderStyle()))),
                       DataColumn(
                           label: Expanded(
-                              child: Text('Ngày mới',
+                              child: Text(tr('Ngày mới'),
                                   textAlign: TextAlign.center,
                                   style: _tableHeaderStyle())),
                           onSort: (_, asc) {
@@ -1960,27 +1958,27 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
                           }),
                       DataColumn(
                           label: Expanded(
-                              child: Text('Giờ mới',
+                              child: Text(tr('Giờ mới'),
                                   textAlign: TextAlign.center,
                                   style: _tableHeaderStyle()))),
                       DataColumn(
                           label: Expanded(
-                              child: Text('Ngày cũ',
+                              child: Text(tr('Ngày cũ'),
                                   textAlign: TextAlign.center,
                                   style: _tableHeaderStyle()))),
                       DataColumn(
                           label: Expanded(
-                              child: Text('Giờ cũ',
+                              child: Text(tr('Giờ cũ'),
                                   textAlign: TextAlign.center,
                                   style: _tableHeaderStyle()))),
                       DataColumn(
                           label: Expanded(
-                              child: Text('Lý do',
+                              child: Text(tr('Lý do'),
                                   textAlign: TextAlign.center,
                                   style: _tableHeaderStyle()))),
                       DataColumn(
                           label: Expanded(
-                              child: Text('Ngày tạo',
+                              child: Text(tr('Ngày tạo'),
                                   textAlign: TextAlign.center,
                                   style: _tableHeaderStyle())),
                           onSort: (_, asc) {
@@ -1992,12 +1990,12 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
                           }),
                       DataColumn(
                           label: Expanded(
-                              child: Text('Người duyệt',
+                              child: Text(tr('Người duyệt'),
                                   textAlign: TextAlign.center,
                                   style: _tableHeaderStyle()))),
                       DataColumn(
                           label: Expanded(
-                              child: Text('Ngày duyệt',
+                              child: Text(tr('Ngày duyệt'),
                                   textAlign: TextAlign.center,
                                   style: _tableHeaderStyle())),
                           onSort: (_, asc) {
@@ -2009,17 +2007,17 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
                           }),
                       DataColumn(
                           label: Expanded(
-                              child: Text('Ghi chú duyệt',
+                              child: Text(tr('Ghi chú duyệt'),
                                   textAlign: TextAlign.center,
                                   style: _tableHeaderStyle()))),
                       DataColumn(
                           label: Expanded(
-                              child: Text('Tiến trình',
+                              child: Text(tr('Tiến trình'),
                                   textAlign: TextAlign.center,
                                   style: _tableHeaderStyle()))),
                       DataColumn(
                           label: Expanded(
-                              child: Text('Hành động',
+                              child: Text(tr('Hành động'),
                                   textAlign: TextAlign.center,
                                   style: _tableHeaderStyle()))),
                     ],
@@ -2032,18 +2030,18 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
                       return DataRow(
                         cells: [
                           DataCell(Center(
-                              child: Text('${startIndex + idx + 1}',
+                              child: Text(tr('${startIndex + idx + 1}'),
                                   style: _tableCellStyle()))),
                           DataCell(Center(
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(req['employeeName'] ?? '',
+                                Text(tr(req['employeeName'] ?? ''),
                                     style: vietnameseTextStyle(const TextStyle(
                                         fontSize: 12,
                                         fontWeight: FontWeight.w500))),
-                                Text(req['employeeCode'] ?? '',
+                                Text(tr(req['employeeCode'] ?? ''),
                                     style: TextStyle(
                                         fontSize: 11, color: Colors.grey[600])),
                               ],
@@ -2059,7 +2057,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
                                 borderRadius: BorderRadius.circular(4),
                               ),
                               child: Text(
-                                _getActionLabel(req['action']),
+                                tr(_getActionLabel(req['action'])),
                                 style: vietnameseTextStyle(TextStyle(
                                   fontSize: 11,
                                   fontWeight: FontWeight.bold,
@@ -2078,7 +2076,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
                                 borderRadius: BorderRadius.circular(12),
                               ),
                               child: Text(
-                                _getStatusLabel(status),
+                                tr(_getStatusLabel(status)),
                                 style: vietnameseTextStyle(TextStyle(
                                   fontSize: 11,
                                   fontWeight: FontWeight.bold,
@@ -2088,39 +2086,39 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
                             ),
                           )),
                           DataCell(Center(
-                              child: Text(_formatDate(req['newDate']),
+                              child: Text(tr(_formatDate(req['newDate'])),
                                   style: _tableCellStyle()))),
                           DataCell(Center(
-                              child: Text(_formatTime(req['newTime']),
+                              child: Text(tr(_formatTime(req['newTime'])),
                                   style: _tableCellStyle()))),
                           DataCell(Center(
-                              child: Text(_formatDate(req['oldDate']),
+                              child: Text(tr(_formatDate(req['oldDate'])),
                                   style: _tableCellStyle()))),
                           DataCell(Center(
-                              child: Text(_formatTime(req['oldTime']),
+                              child: Text(tr(_formatTime(req['oldTime'])),
                                   style: _tableCellStyle()))),
                           DataCell(Center(
                             child: ConstrainedBox(
                               constraints: const BoxConstraints(maxWidth: 150),
-                              child: Text(req['reason'] ?? '',
+                              child: Text(tr(req['reason'] ?? ''),
                                   style: const TextStyle(fontSize: 12),
                                   overflow: TextOverflow.ellipsis,
                                   maxLines: 2),
                             ),
                           )),
                           DataCell(Center(
-                              child: Text(_formatDateTime(req['createdAt']),
+                              child: Text(tr(_formatDateTime(req['createdAt'])),
                                   style: _tableCellStyle()))),
                           DataCell(Center(
-                              child: Text(req['approvedByName'] ?? '--',
+                              child: Text(tr(req['approvedByName'] ?? '--'),
                                   style: _tableCellStyle()))),
                           DataCell(Center(
-                              child: Text(_formatDateTime(req['approvedDate']),
+                              child: Text(tr(_formatDateTime(req['approvedDate'])),
                                   style: _tableCellStyle()))),
                           DataCell(Center(
                             child: ConstrainedBox(
                               constraints: const BoxConstraints(maxWidth: 120),
-                              child: Text(req['approverNote'] ?? '--',
+                              child: Text(tr(req['approverNote'] ?? '--'),
                                   style: const TextStyle(fontSize: 12),
                                   overflow: TextOverflow.ellipsis),
                             ),
@@ -2189,17 +2187,17 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
                   child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(req['employeeName'] ?? '',
+                        Text(tr(req['employeeName'] ?? ''),
                             style: const TextStyle(
                                 fontWeight: FontWeight.w600, fontSize: 14),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis),
                         const SizedBox(height: 2),
                         Text(
-                          [
+                          tr([
                             req['employeeCode'] ?? '',
                             '${_formatDate(req['oldDate'])} → ${_formatDate(req['newDate'])}',
-                          ].where((s) => s.isNotEmpty).join(' • '),
+                          ].where((s) => s.isNotEmpty).join(' • ')),
                           style: const TextStyle(
                               color: Color(0xFF71717A), fontSize: 12),
                           maxLines: 1,
@@ -2214,7 +2212,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
                       color: _getStatusColor(req['status'])
                           .withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(8)),
-                  child: Text(_getStatusLabel(req['status']),
+                  child: Text(tr(_getStatusLabel(req['status'])),
                       style: TextStyle(
                           fontSize: 10,
                           fontWeight: FontWeight.w600,
@@ -2233,7 +2231,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
                       child: OutlinedButton.icon(
                         onPressed: () => _rejectRequest(req),
                         icon: const Icon(Icons.close, size: 16),
-                        label: const Text('Từ chối',
+                        label: Text(tr('Từ chối'),
                             style: TextStyle(fontSize: 12)),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: Colors.red,
@@ -2249,7 +2247,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
                         onPressed: () => _approveRequest(req),
                         icon: const Icon(Icons.check, size: 16),
                         label:
-                            const Text('Duyệt', style: TextStyle(fontSize: 12)),
+                            Text(tr('Duyệt'), style: TextStyle(fontSize: 12)),
                         style: FilledButton.styleFrom(
                           backgroundColor: Colors.green,
                           padding: const EdgeInsets.symmetric(vertical: 8),
@@ -2285,7 +2283,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
               .canApprove('AttendanceApproval'))
             _buildActionBtn(
               icon: Icons.check_circle_outline,
-              tooltip: 'Duyệt',
+              tooltip: tr('Duyệt'),
               color: Colors.green,
               onTap: () => _approveRequest(req),
             ),
@@ -2294,7 +2292,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
               .canApprove('AttendanceApproval'))
             _buildActionBtn(
               icon: Icons.cancel_outlined,
-              tooltip: 'Từ chối',
+              tooltip: tr('Từ chối'),
               color: Colors.red,
               onTap: () => _rejectRequest(req),
             ),
@@ -2305,7 +2303,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
                 .canApprove('AttendanceApproval'))
           _buildActionBtn(
             icon: Icons.undo,
-            tooltip: 'Hoàn duyệt',
+            tooltip: tr('Hoàn duyệt'),
             color: Colors.orange,
             onTap: () => _undoApproval(req),
           ),
@@ -2316,7 +2314,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
           const SizedBox(width: 4),
           _buildActionBtn(
             icon: Icons.delete_outline,
-            tooltip: 'Xóa',
+            tooltip: tr('Xóa'),
             color: Colors.red[300]!,
             onTap: () => _deleteRequest(req),
           ),
@@ -2381,7 +2379,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
             border: Border.all(color: Colors.grey[300]!),
             borderRadius: BorderRadius.circular(4),
           ),
-          child: Text('$_currentPage / $totalPages',
+          child: Text(tr('$_currentPage / $totalPages'),
               style: TextStyle(fontSize: 12, color: Colors.grey[800])),
         ),
         IconButton(
@@ -2412,15 +2410,13 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
     final infoRow = Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(
-          'Hiển thị $start-$end / $_totalCount',
+        Text(tr('Hiển thị $start-$end / $_totalCount'),
           style: vietnameseTextStyle(
             TextStyle(fontSize: 12, color: Colors.grey[700]),
           ),
         ),
         const SizedBox(width: 8),
-        Text(
-          'Số dòng:',
+        Text(tr('Số dòng:'),
           style: vietnameseTextStyle(
             TextStyle(fontSize: 12, color: Colors.grey[600]),
           ),
@@ -2441,7 +2437,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
               const TextStyle(fontSize: 12, color: Colors.black87),
             ),
             items: _pageSizeOptions
-                .map((s) => DropdownMenuItem(value: s, child: Text('$s')))
+                .map((s) => DropdownMenuItem(value: s, child: Text(tr('$s'))))
                 .toList(),
             onChanged: (val) {
               if (val != null) {
@@ -2530,11 +2526,11 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
             'duyet_cham_cong_${DateFormat('yyyyMMdd_HHmmss').format(DateTime.now())}.xlsx',
             'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
         appNotification.showSuccess(
-            title: 'Thành công', message: 'Đã xuất file Excel');
+            title: 'Thành công', message: tr('Đã xuất file Excel'));
       }
     } catch (e) {
       appNotification.showError(
-          title: 'Lỗi', message: 'Không thể xuất Excel: $e');
+          title: 'Lỗi', message: tr('Không thể xuất Excel: $e'));
     } finally {
       if (mounted) setState(() => _isExporting = false);
     }
@@ -2648,7 +2644,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
         await file_saver.saveAndOpenDataUrl(canvas,
             'duyet_cham_cong_${DateFormat('yyyyMMdd_HHmmss').format(DateTime.now())}.png');
         appNotification.showSuccess(
-            title: 'Thành công', message: 'Đã xuất file PNG');
+            title: 'Thành công', message: tr('Đã xuất file PNG'));
       } else {
         // Mobile fallback: use async renderer
         final pngBytes = await web_canvas.renderToPngBytes(
@@ -2712,15 +2708,15 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
           await file_saver.saveAndOpenFileBytes(
               pngBytes, fileName, 'image/png');
           appNotification.showSuccess(
-              title: 'Thành công', message: 'Đã xuất file PNG');
+              title: 'Thành công', message: tr('Đã xuất file PNG'));
         } else {
           appNotification.showError(
-              title: 'Lỗi', message: 'Không thể xuất PNG');
+              title: 'Lỗi', message: tr('Không thể xuất PNG'));
         }
       }
     } catch (e) {
       appNotification.showError(
-          title: 'Lỗi', message: 'Không thể xuất PNG: $e');
+          title: 'Lỗi', message: tr('Không thể xuất PNG: $e'));
     } finally {
       if (mounted) setState(() => _isExporting = false);
     }

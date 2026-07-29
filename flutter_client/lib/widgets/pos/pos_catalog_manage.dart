@@ -5,6 +5,7 @@ import '../../services/api_service.dart';
 import '../../utils/pos_category_tree.dart';
 import '../notification_overlay.dart';
 import 'pos_theme.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 enum PosCatalogKind { category, brand, location, supplier }
 
@@ -151,7 +152,7 @@ class _PosCatalogManageDialogState extends State<_PosCatalogManageDialog> {
   }
 
   Future<void> _editItem(PosCatalogItem item) async {
-    final nameCtrl = TextEditingController(text: item.name);
+    final nameCtrl = TextEditingController(text: tr(item.name));
     String? parentId = item.parentId;
     final title = posCatalogKindTitleCap(widget.kind);
 
@@ -170,7 +171,7 @@ class _PosCatalogManageDialogState extends State<_PosCatalogManageDialog> {
               : const <PosCatalogItem>[];
 
           return AlertDialog(
-            title: Text('Sửa $title'),
+            title: Text(tr('Sửa $title')),
             content: SizedBox(
               width: 360,
               child: Column(
@@ -192,14 +193,14 @@ class _PosCatalogManageDialogState extends State<_PosCatalogManageDialog> {
                         label: 'Nhóm cha (tuỳ chọn)',
                       ),
                       items: [
-                        const DropdownMenuItem(
+                        DropdownMenuItem(
                           value: null,
-                          child: Text('— Không —'),
+                          child: Text(tr('— Không —')),
                         ),
                         ...parentOptions.map(
                           (c) => DropdownMenuItem(
                             value: c.id,
-                            child: Text(c.name),
+                            child: Text(tr(c.name)),
                           ),
                         ),
                       ],
@@ -212,12 +213,12 @@ class _PosCatalogManageDialogState extends State<_PosCatalogManageDialog> {
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(dlgCtx, false),
-                child: const Text('Hủy'),
+                child: Text(tr('Hủy')),
               ),
               FilledButton(
                 style: PosTheme.filledButtonStyle,
                 onPressed: () => Navigator.pop(dlgCtx, true),
-                child: const Text('Lưu'),
+                child: Text(tr('Lưu')),
               ),
             ],
           );
@@ -231,7 +232,7 @@ class _PosCatalogManageDialogState extends State<_PosCatalogManageDialog> {
     if (name.isEmpty) {
       NotificationOverlayManager().showError(
         title: 'Lỗi',
-        message: 'Tên không được để trống',
+        message: tr('Tên không được để trống'),
       );
       return;
     }
@@ -251,7 +252,7 @@ class _PosCatalogManageDialogState extends State<_PosCatalogManageDialog> {
       setState(() => _items = refreshed);
       NotificationOverlayManager().showSuccess(
         title: 'Đã lưu',
-        message: 'Cập nhật $title thành công',
+        message: tr('Cập nhật $title thành công'),
       );
     } else {
       NotificationOverlayManager().showError(
@@ -266,22 +267,22 @@ class _PosCatalogManageDialogState extends State<_PosCatalogManageDialog> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (dlgCtx) => AlertDialog(
-        title: Text('Xóa $title?'),
+        title: Text(tr('Xóa $title?')),
         content: Text(
-          item.productCount > 0
+          tr(item.productCount > 0
               ? '"${item.name}" đang có ${item.productCount} hàng hóa. Không thể xóa khi còn hàng đang dùng.'
-              : 'Bạn có chắc muốn xóa "${item.name}"?',
+              : 'Bạn có chắc muốn xóa "${item.name}"?'),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dlgCtx, false),
-            child: const Text('Đóng'),
+            child: Text(tr('Đóng')),
           ),
           if (item.productCount == 0 && widget.canDelete)
             FilledButton(
               style: FilledButton.styleFrom(backgroundColor: Colors.red),
               onPressed: () => Navigator.pop(dlgCtx, true),
-              child: const Text('Xóa'),
+              child: Text(tr('Xóa')),
             ),
         ],
       ),
@@ -299,7 +300,7 @@ class _PosCatalogManageDialogState extends State<_PosCatalogManageDialog> {
       setState(() => _items = refreshed);
       NotificationOverlayManager().showSuccess(
         title: 'Đã xóa',
-        message: 'Xóa $title thành công',
+        message: tr('Xóa $title thành công'),
       );
     } else {
       NotificationOverlayManager().showError(
@@ -315,14 +316,14 @@ class _PosCatalogManageDialogState extends State<_PosCatalogManageDialog> {
     final rows = _rows;
 
     return AlertDialog(
-      title: Text('Quản lý $title'),
+      title: Text(tr('Quản lý $title')),
       content: SizedBox(
         width: 420,
         height: 420,
         child: _busy
             ? const Center(child: CircularProgressIndicator())
             : rows.isEmpty
-                ? const Center(child: Text('Chưa có dữ liệu'))
+                ? Center(child: Text(tr('Chưa có dữ liệu')))
                 : ListView.separated(
                     itemCount: rows.length,
                     separatorBuilder: (_, __) => const Divider(height: 1),
@@ -336,13 +337,12 @@ class _PosCatalogManageDialogState extends State<_PosCatalogManageDialog> {
                           right: 4,
                         ),
                         title: Text(
-                          item.name,
+                          tr(item.name),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                         ),
                         subtitle: item.productCount > 0
-                            ? Text(
-                                '${item.productCount} hàng hóa',
+                            ? Text(tr('${item.productCount} hàng hóa'),
                                 style: const TextStyle(fontSize: 11),
                               )
                             : null,
@@ -351,13 +351,13 @@ class _PosCatalogManageDialogState extends State<_PosCatalogManageDialog> {
                           children: [
                             if (widget.canEdit)
                               IconButton(
-                                tooltip: 'Sửa',
+                                tooltip: tr('Sửa'),
                                 icon: const Icon(Icons.edit_outlined, size: 20),
                                 onPressed: () => _editItem(item),
                               ),
                             if (widget.canDelete)
                               IconButton(
-                                tooltip: 'Xóa',
+                                tooltip: tr('Xóa'),
                                 icon: Icon(
                                   Icons.delete_outline,
                                   size: 20,
@@ -378,7 +378,7 @@ class _PosCatalogManageDialogState extends State<_PosCatalogManageDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('Đóng'),
+          child: Text(tr('Đóng')),
         ),
       ],
     );

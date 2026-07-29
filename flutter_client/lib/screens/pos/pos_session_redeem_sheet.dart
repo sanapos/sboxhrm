@@ -4,6 +4,7 @@ import '../../models/pos_sell_industry.dart';
 import '../../services/api_service.dart';
 import '../../widgets/notification_overlay.dart';
 import '../../widgets/pos/pos_theme.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// Sheet trừ buổi gói gym / liệu trình.
 Future<bool?> showPosSessionRedeemSheet(
@@ -122,16 +123,14 @@ class _PosSessionRedeemSheetState extends State<_PosSessionRedeemSheet> {
               ),
             ),
             const SizedBox(height: 12),
-            Text(
-              'Trừ buổi — ${widget.customerName}',
+            Text(tr('Trừ buổi — ${widget.customerName}'),
               style: const TextStyle(
                 fontSize: 17,
                 fontWeight: FontWeight.w700,
               ),
             ),
             const SizedBox(height: 4),
-            Text(
-              'Chọn gói còn buổi để trừ 1 lần',
+            Text(tr('Chọn gói còn buổi để trừ 1 lần'),
               style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
             ),
             const SizedBox(height: 12),
@@ -145,16 +144,15 @@ class _PosSessionRedeemSheetState extends State<_PosSessionRedeemSheet> {
                 padding: const EdgeInsets.symmetric(vertical: 24),
                 child: Column(
                   children: [
-                    Text(_error!, textAlign: TextAlign.center),
-                    TextButton(onPressed: _load, child: const Text('Thử lại')),
+                    Text(tr(_error!), textAlign: TextAlign.center),
+                    TextButton(onPressed: _load, child: Text(tr('Thử lại'))),
                   ],
                 ),
               )
             else if (_balances.isEmpty)
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 28),
-                child: Text(
-                  'Khách chưa có gói buổi còn lại.\nBán gói (session pack) rồi thanh toán để cộng buổi.',
+                child: Text(tr('Khách chưa có gói buổi còn lại.\nBán gói (session pack) rồi thanh toán để cộng buổi.'),
                   textAlign: TextAlign.center,
                   style: TextStyle(color: Colors.grey.shade700, height: 1.4),
                 ),
@@ -175,16 +173,15 @@ class _PosSessionRedeemSheetState extends State<_PosSessionRedeemSheet> {
                       borderRadius: BorderRadius.circular(10),
                       child: ListTile(
                         title: Text(
-                          b.packageName,
+                          tr(b.packageName),
                           style: const TextStyle(fontWeight: FontWeight.w600),
                         ),
-                        subtitle: Text(
-                          'Còn ${b.remainingSessions}/${b.totalSessions} buổi'
-                          '${b.expiresAt != null ? ' · HSD ${b.expiresAt!.toLocal().toString().substring(0, 10)}' : ''}',
+                        subtitle: Text(tr('${tr('Còn ')}${b.remainingSessions}/${b.totalSessions} buổi'
+                          '${b.expiresAt != null ? ' · HSD ${b.expiresAt!.toLocal().toString().substring(0, 10)}' : ''}'),
                         ),
                         trailing: FilledButton(
                           onPressed: _redeeming ? null : () => _redeem(b),
-                          child: const Text('Trừ 1'),
+                          child: Text(tr('Trừ 1')),
                         ),
                       ),
                     );

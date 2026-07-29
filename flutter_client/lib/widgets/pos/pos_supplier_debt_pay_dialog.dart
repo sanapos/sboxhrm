@@ -5,6 +5,7 @@ import '../../models/pos_purchase.dart';
 import '../../services/api_service.dart';
 import '../notification_overlay.dart';
 import 'pos_theme.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// Thu công nợ NCC trên phiếu nhập đã hoàn tất.
 Future<bool?> showPosSupplierDebtPayDialog(
@@ -72,13 +73,13 @@ class _PosSupplierDebtPayDialogState extends State<PosSupplierDebtPayDialog> {
     final amount = _parseAmount();
     if (amount <= 0) {
       NotificationOverlayManager()
-          .showError(title: 'Lỗi', message: 'Nhập số tiền thanh toán');
+          .showError(title: 'Lỗi', message: tr('Nhập số tiền thanh toán'));
       return;
     }
     if (amount > _balanceDue + 0.001) {
       NotificationOverlayManager().showError(
         title: 'Lỗi',
-        message: 'Vượt công nợ phiếu (${_moneyFmt.format(_balanceDue)} đ)',
+        message: tr('Vượt công nợ phiếu (${_moneyFmt.format(_balanceDue)} đ)'),
       );
       return;
     }
@@ -94,8 +95,7 @@ class _PosSupplierDebtPayDialogState extends State<PosSupplierDebtPayDialog> {
     if (res['isSuccess'] == true) {
       NotificationOverlayManager().showSuccess(
         title: 'Đã thanh toán NCC',
-        message:
-            '${_moneyFmt.format(amount)} đ — ${widget.receipt.receiptNo}',
+        message: tr('${_moneyFmt.format(amount)} đ — ${widget.receipt.receiptNo}'),
       );
       Navigator.pop(context, true);
     } else {
@@ -109,29 +109,27 @@ class _PosSupplierDebtPayDialogState extends State<PosSupplierDebtPayDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Thanh toán công nợ NCC'),
+      title: Text(tr('Thanh toán công nợ NCC')),
       content: SizedBox(
         width: 360,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(
-              'Phiếu ${widget.receipt.receiptNo}'
-              '${widget.receipt.supplierName != null ? ' · ${widget.receipt.supplierName}' : ''}',
+            Text(tr('${tr('Phiếu ')}${widget.receipt.receiptNo}'
+              '${widget.receipt.supplierName != null ? ' · ${widget.receipt.supplierName}' : ''}'),
               style: const TextStyle(fontSize: 13, color: PosTheme.textSecondary),
             ),
             const SizedBox(height: 4),
-            Text(
-              'Còn nợ: ${_moneyFmt.format(_balanceDue)} đ',
+            Text(tr('Còn nợ: ${_moneyFmt.format(_balanceDue)} đ'),
               style: const TextStyle(fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 12),
             TextField(
               controller: _amountCtrl,
               keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: 'Số tiền',
+              decoration: InputDecoration(
+                labelText: tr('Số tiền'),
                 border: OutlineInputBorder(),
                 isDense: true,
               ),
@@ -139,21 +137,21 @@ class _PosSupplierDebtPayDialogState extends State<PosSupplierDebtPayDialog> {
             const SizedBox(height: 10),
             DropdownButtonFormField<String>(
               value: _method,
-              decoration: const InputDecoration(
-                labelText: 'Hình thức',
+              decoration: InputDecoration(
+                labelText: tr('Hình thức'),
                 border: OutlineInputBorder(),
                 isDense: true,
               ),
               items: _methods
-                  .map((m) => DropdownMenuItem(value: m, child: Text(m)))
+                  .map((m) => DropdownMenuItem(value: m, child: Text(tr(m))))
                   .toList(),
               onChanged: (v) => setState(() => _method = v ?? 'Tiền mặt'),
             ),
             const SizedBox(height: 10),
             TextField(
               controller: _noteCtrl,
-              decoration: const InputDecoration(
-                labelText: 'Ghi chú',
+              decoration: InputDecoration(
+                labelText: tr('Ghi chú'),
                 border: OutlineInputBorder(),
                 isDense: true,
               ),
@@ -164,7 +162,7 @@ class _PosSupplierDebtPayDialogState extends State<PosSupplierDebtPayDialog> {
       actions: [
         TextButton(
           onPressed: _saving ? null : () => Navigator.pop(context),
-          child: const Text('Hủy'),
+          child: Text(tr('Hủy')),
         ),
         FilledButton(
           onPressed: _saving ? null : _submit,
@@ -174,7 +172,7 @@ class _PosSupplierDebtPayDialogState extends State<PosSupplierDebtPayDialog> {
                   height: 18,
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
-              : const Text('Thanh toán'),
+              : Text(tr('Thanh toán')),
         ),
       ],
     );

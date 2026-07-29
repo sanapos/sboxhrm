@@ -7,6 +7,7 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 
 import '../models/pos_purchase.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 import 'pos_pdf_fonts.dart';
 import '../widgets/pos/pos_pdf_iframe_stub.dart'
     if (dart.library.js_interop) '../widgets/pos/pos_pdf_iframe_web.dart';
@@ -208,7 +209,7 @@ Future<void> showPosPurchaseReceiptPrintDialog(
                   child: Row(
                     children: [
                       Expanded(
-                        child: Text(title,
+                        child: Text(tr(title),
                             style: const TextStyle(
                                 fontSize: 16, fontWeight: FontWeight.w600)),
                       ),
@@ -223,13 +224,13 @@ Future<void> showPosPurchaseReceiptPrintDialog(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: Row(
                     children: [
-                      const Text('Số bản in:', style: TextStyle(fontSize: 13)),
+                      Text(tr('Số bản in:'), style: TextStyle(fontSize: 13)),
                       const SizedBox(width: 8),
                       DropdownButton<int>(
                         value: copies,
                         items: List.generate(
                           10,
-                          (i) => DropdownMenuItem(value: i + 1, child: Text('${i + 1}')),
+                          (i) => DropdownMenuItem(value: i + 1, child: Text(tr('${i + 1}'))),
                         ),
                         onChanged: (v) async {
                           if (v == null) return;
@@ -248,7 +249,7 @@ Future<void> showPosPurchaseReceiptPrintDialog(
                                 );
                               },
                         icon: const Icon(Icons.print, size: 18),
-                        label: const Text('In trực tiếp'),
+                        label: Text(tr('In trực tiếp')),
                       ),
                       const SizedBox(width: 8),
                       FilledButton.icon(
@@ -262,7 +263,7 @@ Future<void> showPosPurchaseReceiptPrintDialog(
                               },
                         style: FilledButton.styleFrom(backgroundColor: _blue),
                         icon: const Icon(Icons.download, size: 18),
-                        label: const Text('Xuất PDF'),
+                        label: Text(tr('Xuất PDF')),
                       ),
                     ],
                   ),
@@ -272,9 +273,9 @@ Future<void> showPosPurchaseReceiptPrintDialog(
                   child: loading
                       ? const Center(child: CircularProgressIndicator())
                       : error != null
-                          ? Center(child: Text('Lỗi: $error'))
+                          ? Center(child: Text(tr('Lỗi: $error')))
                           : bytes == null
-                              ? const Center(child: Text('Không tạo được PDF'))
+                              ? Center(child: Text(tr('Không tạo được PDF')))
                               : Padding(
                                   padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
                                   child: buildPosPdfPreview(bytes!),

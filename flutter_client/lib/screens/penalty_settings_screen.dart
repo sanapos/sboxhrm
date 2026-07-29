@@ -8,6 +8,7 @@ import '../widgets/loading_widget.dart';
 import '../widgets/hrm/hrm_settings_mobile_kit.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../widgets/notification_overlay.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 class PenaltySettingsScreen extends StatefulWidget {
   const PenaltySettingsScreen({super.key});
@@ -106,7 +107,7 @@ class _PenaltySettingsScreenState extends State<PenaltySettingsScreen> {
       if (mounted) {
         appNotification.showError(
           title: 'Lỗi',
-          message: 'Không thể tải thiết lập phạt, đang dùng giá trị mặc định',
+          message: tr('Không thể tải thiết lập phạt, đang dùng giá trị mặc định'),
         );
       }
     } finally {
@@ -192,7 +193,7 @@ class _PenaltySettingsScreenState extends State<PenaltySettingsScreen> {
       if (response['isSuccess'] == true) {
         appNotification.showSuccess(
           title: 'Thành công',
-          message: 'Đã lưu thiết lập phạt',
+          message: tr('Đã lưu thiết lập phạt'),
         );
       } else {
         appNotification.showError(
@@ -205,7 +206,7 @@ class _PenaltySettingsScreenState extends State<PenaltySettingsScreen> {
       if (mounted) {
         appNotification.showError(
           title: 'Lỗi',
-          message: 'Không thể lưu thiết lập: $e',
+          message: tr('Không thể lưu thiết lập: $e'),
         );
       }
     } finally {
@@ -244,8 +245,7 @@ class _PenaltySettingsScreenState extends State<PenaltySettingsScreen> {
               backgroundColor: Colors.white,
               elevation: 0,
               automaticallyImplyLeading: false,
-              title: const Text(
-                'Thiết lập Phạt',
+              title: Text(tr('Thiết lập Phạt'),
                 style: TextStyle(
                   color: Color(0xFF18181B),
                   fontWeight: FontWeight.bold,
@@ -375,7 +375,7 @@ class _PenaltySettingsScreenState extends State<PenaltySettingsScreen> {
                 ),
               )
             : const Icon(Icons.save, size: 18),
-        label: Text(_isSaving ? 'Đang lưu...' : 'Lưu thiết lập'),
+        label: Text(tr(_isSaving ? 'Đang lưu...' : 'Lưu thiết lập')),
         style: FilledButton.styleFrom(
           backgroundColor: HrmPageChrome.primaryNavy,
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
@@ -402,8 +402,7 @@ class _PenaltySettingsScreenState extends State<PenaltySettingsScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               if (!HrmPageChrome.isEmbedded)
-                const Text(
-                  'Thiết lập Phạt',
+                Text(tr('Thiết lập Phạt'),
                   style: TextStyle(
                     color: _navy,
                     fontSize: 20,
@@ -411,8 +410,7 @@ class _PenaltySettingsScreenState extends State<PenaltySettingsScreen> {
                   ),
                 ),
               if (!HrmPageChrome.isEmbedded) const SizedBox(height: 4),
-              const Text(
-                'Cấu hình mức phạt đi trễ, về sớm, tái phạm và các vi phạm khác',
+              Text(tr('Cấu hình mức phạt đi trễ, về sớm, tái phạm và các vi phạm khác'),
                 maxLines: 3,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(color: _muted, fontSize: 14, height: 1.45),
@@ -493,7 +491,7 @@ class _PenaltySettingsScreenState extends State<PenaltySettingsScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  title,
+                  tr(title),
                   style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
@@ -502,7 +500,7 @@ class _PenaltySettingsScreenState extends State<PenaltySettingsScreen> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  subtitle,
+                  tr(subtitle),
                   style: const TextStyle(fontSize: 12, color: _muted, height: 1.35),
                 ),
               ],
@@ -721,8 +719,7 @@ class _PenaltySettingsScreenState extends State<PenaltySettingsScreen> {
                   color: color.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: Text(
-                  'MỨC $level',
+                child: Text(tr('MỨC $level'),
                   style: TextStyle(
                     color: color,
                     fontSize: 11,
@@ -776,7 +773,7 @@ class _PenaltySettingsScreenState extends State<PenaltySettingsScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      title,
+                      tr(title),
                       style: const TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
@@ -785,7 +782,7 @@ class _PenaltySettingsScreenState extends State<PenaltySettingsScreen> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      description,
+                      tr(description),
                       style: const TextStyle(fontSize: 12, color: _muted, height: 1.35),
                     ),
                   ],
@@ -819,7 +816,7 @@ class _PenaltySettingsScreenState extends State<PenaltySettingsScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          label,
+          tr(label),
           style: const TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w600,
@@ -839,7 +836,7 @@ class _PenaltySettingsScreenState extends State<PenaltySettingsScreen> {
             fontSize: 15,
           ),
           decoration: InputDecoration(
-            hintText: hint,
+            hintText: trN(hint),
             hintStyle: const TextStyle(color: Color(0xFFA1A1AA), fontSize: 14),
             contentPadding:
                 const EdgeInsets.symmetric(horizontal: 14, vertical: 12),

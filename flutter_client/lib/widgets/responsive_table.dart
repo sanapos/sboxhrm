@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../utils/responsive_helper.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// A column definition for ResponsiveTable
 class ResponsiveColumn {
@@ -72,7 +73,7 @@ class ResponsiveTable extends StatelessWidget {
                 children: [
                   const Icon(Icons.inbox_outlined, size: 48, color: Color(0xFFA1A1AA)),
                   const SizedBox(height: 12),
-                  Text(emptyMessage, style: const TextStyle(color: Color(0xFFA1A1AA))),
+                  Text(tr(emptyMessage), style: const TextStyle(color: Color(0xFFA1A1AA))),
                 ],
               ),
             ),
@@ -124,7 +125,7 @@ class ResponsiveTable extends StatelessWidget {
                     child: primaryCol.cellBuilder != null
                         ? primaryCol.cellBuilder!(row, index)
                         : Text(
-                            '${row[primaryCol.fieldKey] ?? ''}',
+                            tr('${row[primaryCol.fieldKey] ?? ''}'),
                             style: const TextStyle(
                               fontWeight: FontWeight.w600,
                               fontSize: 15,
@@ -150,7 +151,7 @@ class ResponsiveTable extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            col.label,
+                            tr(col.label),
                             style: const TextStyle(
                               fontSize: 11,
                               color: Color(0xFFA1A1AA),
@@ -161,7 +162,7 @@ class ResponsiveTable extends StatelessWidget {
                           col.cellBuilder != null
                               ? col.cellBuilder!(row, index)
                               : Text(
-                                  '${row[col.fieldKey] ?? '—'}',
+                                  tr('${row[col.fieldKey] ?? '—'}'),
                                   style: const TextStyle(fontSize: 13),
                                 ),
                         ],
@@ -192,7 +193,7 @@ class ResponsiveTable extends StatelessWidget {
           columns: columns
               .map((col) => DataColumn(
                     label: Text(
-                      col.label,
+                      tr(col.label),
                       style: const TextStyle(
                         fontWeight: FontWeight.w600,
                         fontSize: 13,
@@ -218,7 +219,7 @@ class ResponsiveTable extends StatelessWidget {
                 return DataCell(
                   col.cellBuilder != null
                       ? col.cellBuilder!(row, index)
-                      : Text('${row[col.fieldKey] ?? ''}'),
+                      : Text(tr('${row[col.fieldKey] ?? ''}')),
                 );
               }).toList(),
             );
@@ -254,7 +255,7 @@ class MobileFilterBar extends StatelessWidget {
             controller: controller,
             onChanged: onChanged,
             decoration: InputDecoration(
-              hintText: hintText,
+              hintText: tr(hintText),
               prefixIcon: const Icon(Icons.search, size: 20),
               isDense: true,
               contentPadding: const EdgeInsets.symmetric(vertical: 10),

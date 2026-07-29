@@ -8,6 +8,7 @@ import '../../widgets/pos/pos_customer_debt_collect_dialog.dart';
 import '../../widgets/pos/pos_customer_form_dialog.dart';
 import '../../widgets/pos/pos_mobile_widgets.dart';
 import '../../widgets/pos/pos_theme.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 class PosCustomersScreen extends StatefulWidget {
   const PosCustomersScreen({super.key});
@@ -122,7 +123,7 @@ class _PosCustomersScreenState extends State<PosCustomersScreen> {
             child: Row(
               children: [
                 FilterChip(
-                  label: const Text('Còn nợ'),
+                  label: Text(tr('Còn nợ')),
                   selected: _debtOnly,
                   onSelected: (v) {
                     setState(() => _debtOnly = v);
@@ -130,8 +131,7 @@ class _PosCustomersScreenState extends State<PosCustomersScreen> {
                   },
                 ),
                 const Spacer(),
-                Text(
-                  'Tổng nợ: ${_moneyFmt.format(_sumDebt)} đ',
+                Text(tr('Tổng nợ: ${_moneyFmt.format(_sumDebt)} đ'),
                   style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
                 ),
               ],
@@ -144,9 +144,9 @@ class _PosCustomersScreenState extends State<PosCustomersScreen> {
                     onRefresh: _load,
                     child: _items.isEmpty
                         ? ListView(
-                            children: const [
+                            children: [
                               SizedBox(height: 80),
-                              Center(child: Text('Chưa có khách hàng')),
+                              Center(child: Text(tr('Chưa có khách hàng'))),
                             ],
                           )
                         : ListView.separated(
@@ -168,9 +168,9 @@ class _PosCustomersScreenState extends State<PosCustomersScreen> {
                                         CircleAvatar(
                                           backgroundColor: PosTheme.kiotBlueLight,
                                           child: Text(
-                                            c.name.isNotEmpty
+                                            tr(c.name.isNotEmpty
                                                 ? c.name[0].toUpperCase()
-                                                : 'K',
+                                                : 'K'),
                                             style: const TextStyle(
                                               color: PosTheme.kiotBlue,
                                               fontWeight: FontWeight.bold,
@@ -182,11 +182,11 @@ class _PosCustomersScreenState extends State<PosCustomersScreen> {
                                           child: Column(
                                             crossAxisAlignment: CrossAxisAlignment.start,
                                             children: [
-                                              Text(c.name,
+                                              Text(tr(c.name),
                                                   style: const TextStyle(
                                                       fontWeight: FontWeight.w600)),
                                               if (c.phone != null && c.phone!.isNotEmpty)
-                                                Text(c.phone!,
+                                                Text(tr(c.phone!),
                                                     style: const TextStyle(
                                                         fontSize: 12,
                                                         color: PosTheme.textSecondary)),
@@ -197,8 +197,7 @@ class _PosCustomersScreenState extends State<PosCustomersScreen> {
                                           crossAxisAlignment: CrossAxisAlignment.end,
                                           children: [
                                             if (c.currentDebt > 0)
-                                              Text(
-                                                'Nợ ${_moneyFmt.format(c.currentDebt)}',
+                                              Text(tr('Nợ ${_moneyFmt.format(c.currentDebt)}'),
                                                 style: const TextStyle(
                                                   color: Colors.red,
                                                   fontWeight: FontWeight.w600,
@@ -206,8 +205,7 @@ class _PosCustomersScreenState extends State<PosCustomersScreen> {
                                                 ),
                                               ),
                                             if (c.pointBalance > 0)
-                                              Text(
-                                                '${_moneyFmt.format(c.pointBalance)} điểm',
+                                              Text(tr('${_moneyFmt.format(c.pointBalance)} điểm'),
                                                 style: const TextStyle(
                                                   fontSize: 11,
                                                   color: PosTheme.kiotBlue,
@@ -309,7 +307,7 @@ class _PosCustomerDetailScreenState extends State<_PosCustomerDetailScreen> {
     return Scaffold(
       backgroundColor: PosTheme.background,
       appBar: AppBar(
-        title: Text(_customer.name),
+        title: Text(tr(_customer.name)),
         actions: [
           IconButton(onPressed: _edit, icon: const Icon(Icons.edit_outlined)),
         ],
@@ -318,7 +316,7 @@ class _PosCustomerDetailScreenState extends State<_PosCustomerDetailScreen> {
           ? FloatingActionButton.extended(
               onPressed: _collectDebt,
               icon: const Icon(Icons.payments_outlined),
-              label: const Text('Thu nợ'),
+              label: Text(tr('Thu nợ')),
             )
           : null,
       body: _loading
@@ -342,11 +340,11 @@ class _PosCustomerDetailScreenState extends State<_PosCustomerDetailScreen> {
                   ),
                 ),
                 const SizedBox(height: 12),
-                const Text('Lịch sử thu nợ',
+                Text(tr('Lịch sử thu nợ'),
                     style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
                 const SizedBox(height: 8),
                 if (_payments.isEmpty)
-                  const Text('Chưa có phiếu thu', style: TextStyle(color: PosTheme.textSecondary))
+                  Text(tr('Chưa có phiếu thu'), style: TextStyle(color: PosTheme.textSecondary))
                 else
                   ..._payments.map((p) => _historyTile(
                         title: p['paymentNo']?.toString() ?? '—',
@@ -355,11 +353,11 @@ class _PosCustomerDetailScreenState extends State<_PosCustomerDetailScreen> {
                         positive: true,
                       )),
                 const SizedBox(height: 16),
-                const Text('Đơn bán gần đây',
+                Text(tr('Đơn bán gần đây'),
                     style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
                 const SizedBox(height: 8),
                 if (_orders.isEmpty)
-                  const Text('Chưa có đơn', style: TextStyle(color: PosTheme.textSecondary))
+                  Text(tr('Chưa có đơn'), style: TextStyle(color: PosTheme.textSecondary))
                 else
                   ..._orders.map((o) {
                     final total = (o['total'] is num) ? (o['total'] as num).toDouble() : 0.0;
@@ -383,11 +381,11 @@ class _PosCustomerDetailScreenState extends State<_PosCustomerDetailScreen> {
         children: [
           SizedBox(
             width: 90,
-            child: Text(label, style: const TextStyle(color: PosTheme.textSecondary, fontSize: 13)),
+            child: Text(tr(label), style: const TextStyle(color: PosTheme.textSecondary, fontSize: 13)),
           ),
           Expanded(
             child: Text(
-              value,
+              tr(value),
               style: TextStyle(
                 fontWeight: highlight ? FontWeight.bold : FontWeight.w500,
                 color: highlight ? Colors.red : null,
@@ -415,13 +413,13 @@ class _PosCustomerDetailScreenState extends State<_PosCustomerDetailScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
-                Text(subtitle, style: const TextStyle(fontSize: 12, color: PosTheme.textSecondary)),
+                Text(tr(title), style: const TextStyle(fontWeight: FontWeight.w600)),
+                Text(tr(subtitle), style: const TextStyle(fontSize: 12, color: PosTheme.textSecondary)),
               ],
             ),
           ),
           Text(
-            '${positive ? '+' : ''}${_moneyFmt.format(amount)}',
+            tr('${positive ? '+' : ''}${_moneyFmt.format(amount)}'),
             style: TextStyle(
               fontWeight: FontWeight.bold,
               color: positive ? Colors.green : Colors.orange,

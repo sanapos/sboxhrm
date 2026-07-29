@@ -4,6 +4,8 @@ import 'package:intl/intl.dart';
 import '../../services/api_service.dart';
 import '../../widgets/admin/admin_mobile_widgets.dart';
 import 'system_admin_helpers.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
+import 'package:zkteco_flutter_client/l10n/app_ui_locale.dart';
 
 class DashboardTab extends StatefulWidget {
   final bool agentMode;
@@ -161,7 +163,7 @@ class DashboardTabState extends State<DashboardTab> {
       firstDate: DateTime(2020),
       lastDate: DateTime.now(),
       initialDateRange: DateTimeRange(start: _fromDate, end: _toDate),
-      locale: const Locale('vi'),
+      locale: appUiLocale(),
       builder: (context, child) => Theme(
         data: Theme.of(context).copyWith(
           colorScheme: const ColorScheme.light(
@@ -202,13 +204,13 @@ class DashboardTabState extends State<DashboardTab> {
           child: Column(mainAxisSize: MainAxisSize.min, children: [
         Icon(Icons.shield, size: 80, color: Colors.grey[300]),
         const SizedBox(height: 16),
-        Text('Không thể tải dữ liệu dashboard',
+        Text(tr('Không thể tải dữ liệu dashboard'),
             style: TextStyle(color: Colors.grey[500])),
         const SizedBox(height: 12),
         FilledButton.icon(
             onPressed: loadData,
             icon: const Icon(Icons.refresh, size: 18),
-            label: const Text('Thử lại')),
+            label: Text(tr('Thử lại'))),
       ]));
     }
     return RefreshIndicator(
@@ -227,7 +229,7 @@ class DashboardTabState extends State<DashboardTab> {
                   child: Row(children: [
                     Icon(Icons.touch_app, size: 16, color: Colors.grey[400]),
                     const SizedBox(width: 6),
-                    Text('Nhấn vào thẻ số liệu để xem chi tiết',
+                    Text(tr('Nhấn vào thẻ số liệu để xem chi tiết'),
                         style: TextStyle(
                             color: Colors.grey[500],
                             fontSize: 12,
@@ -328,7 +330,7 @@ class DashboardTabState extends State<DashboardTab> {
             const Icon(Icons.date_range,
                 color: AdminHelpers.primary, size: 20),
             const SizedBox(width: 10),
-            Text('Báo cáo: ',
+            Text(tr('Báo cáo: '),
                 style: TextStyle(
                     fontWeight: FontWeight.w600,
                     fontSize: 14,
@@ -361,7 +363,7 @@ class DashboardTabState extends State<DashboardTab> {
                                 ? Colors.white
                                 : AdminHelpers.primary),
                         label: Text(
-                          chipData[i].label,
+                          tr(chipData[i].label),
                           style: TextStyle(
                             fontSize: 12,
                             color: _selectedPeriod == 'custom'
@@ -425,7 +427,7 @@ class DashboardTabState extends State<DashboardTab> {
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    label,
+                    tr(label),
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight:
@@ -448,7 +450,7 @@ class DashboardTabState extends State<DashboardTab> {
   Widget _periodChip(String label, String period) {
     final selected = _selectedPeriod == period;
     return ChoiceChip(
-      label: Text(label, style: TextStyle(fontSize: 12,
+      label: Text(tr(label), style: TextStyle(fontSize: 12,
           color: selected ? Colors.white : Colors.grey[700])),
       selected: selected,
       selectedColor: AdminHelpers.primary,
@@ -471,7 +473,7 @@ class DashboardTabState extends State<DashboardTab> {
             const Icon(Icons.insights,
                 color: AdminHelpers.primary, size: 20),
             const SizedBox(width: 8),
-            Text('Thống kê theo khoảng thời gian',
+            Text(tr('Thống kê theo khoảng thời gian'),
                 style: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 15,
@@ -483,7 +485,7 @@ class DashboardTabState extends State<DashboardTab> {
                 color: AdminHelpers.primary.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(20),
               ),
-              child: Text(_periodLabel,
+              child: Text(tr(_periodLabel),
                   style: const TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
@@ -580,12 +582,12 @@ class DashboardTabState extends State<DashboardTab> {
                 child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('$count',
+                      Text(tr('$count'),
                           style: TextStyle(
                               fontSize: 24,
                               fontWeight: FontWeight.bold,
                               color: color)),
-                      Text(label,
+                      Text(tr(label),
                           style: TextStyle(
                               color: Colors.grey[600], fontSize: 12)),
                     ]),
@@ -701,16 +703,16 @@ class DashboardTabState extends State<DashboardTab> {
                 child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(value,
+                      Text(tr(value),
                           style: TextStyle(
                               fontSize: 22,
                               fontWeight: FontWeight.bold,
                               color: color)),
-                      Text(label,
+                      Text(tr(label),
                           style:
                               TextStyle(color: Colors.grey[600], fontSize: 12)),
                       if (sub != null)
-                        Text(sub,
+                        Text(tr(sub),
                             style: TextStyle(
                                 color: Colors.grey[500], fontSize: 11)),
                     ]),
@@ -736,7 +738,7 @@ class DashboardTabState extends State<DashboardTab> {
             const Icon(Icons.monitor_heart,
                 color: AdminHelpers.primary, size: 20),
             const SizedBox(width: 8),
-            Text('System Health',
+            Text(tr('System Health'),
                 style: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 16,
@@ -761,7 +763,7 @@ class DashboardTabState extends State<DashboardTab> {
                         ? AdminHelpers.success
                         : Colors.orange),
                 const SizedBox(width: 4),
-                Text(_health?['status'] ?? 'N/A',
+                Text(tr(_health?['status'] ?? 'N/A'),
                     style: TextStyle(
                         color: _health?['status'] == 'Healthy'
                             ? AdminHelpers.success
@@ -786,10 +788,10 @@ class DashboardTabState extends State<DashboardTab> {
                             : Colors.orange),
                     const SizedBox(width: 8),
                     Expanded(
-                        child: Text(c['name'] ?? '',
+                        child: Text(tr(c['name'] ?? ''),
                             style: TextStyle(
                                 color: Colors.grey[700], fontSize: 13))),
-                    Text(c['status'] ?? '',
+                    Text(tr(c['status'] ?? ''),
                         style: TextStyle(
                             color: c['status'] == 'Healthy'
                                 ? AdminHelpers.success
@@ -809,7 +811,7 @@ class DashboardTabState extends State<DashboardTab> {
                       ? AdminHelpers.success
                       : Colors.orange),
               const SizedBox(width: 8),
-              Text('Trạng thái: ${_health?['status'] ?? 'N/A'}',
+              Text(tr('${tr('Trạng thái: ')}${_health?['status'] ?? 'N/A'}'),
                   style: TextStyle(color: Colors.grey[700])),
             ]),
         ],
@@ -836,7 +838,7 @@ class DashboardTabState extends State<DashboardTab> {
             const Icon(Icons.bar_chart,
                 color: AdminHelpers.info, size: 20),
             const SizedBox(width: 8),
-            Text('Tình trạng thiết bị',
+            Text(tr('Tình trạng thiết bị'),
                 style: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 16,
@@ -850,10 +852,10 @@ class DashboardTabState extends State<DashboardTab> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('Online: $onlineDevices / $totalDevices',
+                  Text(tr('Online: $onlineDevices / $totalDevices'),
                       style: TextStyle(
                           fontSize: 13, color: Colors.grey[700])),
-                  Text('${(onlineRatio * 100).toStringAsFixed(0)}%',
+                  Text(tr('${(onlineRatio * 100).toStringAsFixed(0)}%'),
                       style: const TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.bold,
@@ -892,7 +894,7 @@ class DashboardTabState extends State<DashboardTab> {
           decoration: BoxDecoration(
               color: color, borderRadius: BorderRadius.circular(3))),
       const SizedBox(width: 6),
-      Text(label, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+      Text(tr(label), style: TextStyle(fontSize: 12, color: Colors.grey[600])),
     ]);
   }
 
@@ -916,7 +918,7 @@ class DashboardTabState extends State<DashboardTab> {
             const Icon(Icons.analytics,
                 color: AdminHelpers.primary, size: 20),
             const SizedBox(width: 8),
-            Text('Tổng quan nhanh',
+            Text(tr('Tổng quan nhanh'),
                 style: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 16,
@@ -926,7 +928,7 @@ class DashboardTabState extends State<DashboardTab> {
               onPressed: widget.onNavigateToStores,
               icon: const Icon(Icons.store, size: 16),
               label:
-                  const Text('Xem tất cả', style: TextStyle(fontSize: 12)),
+                  Text(tr('Xem tất cả'), style: TextStyle(fontSize: 12)),
             ),
           ]),
           const SizedBox(height: 16),
@@ -945,7 +947,7 @@ class DashboardTabState extends State<DashboardTab> {
             const SizedBox(height: 16),
             const Divider(),
             const SizedBox(height: 8),
-            Text('Cửa hàng gần đây',
+            Text(tr('Cửa hàng gần đây'),
                 style: TextStyle(
                     fontWeight: FontWeight.w600,
                     fontSize: 13,
@@ -978,7 +980,7 @@ class DashboardTabState extends State<DashboardTab> {
                     ),
                     const SizedBox(width: 10),
                     Expanded(
-                        child: Text(name.toString(),
+                        child: Text(tr(name.toString()),
                             style: const TextStyle(
                                 fontWeight: FontWeight.w500,
                                 fontSize: 13))),
@@ -1005,7 +1007,7 @@ class DashboardTabState extends State<DashboardTab> {
     return Row(mainAxisSize: MainAxisSize.min, children: [
       Icon(icon, size: 12, color: Colors.grey[500]),
       const SizedBox(width: 3),
-      Text(value, style: TextStyle(fontSize: 11, color: Colors.grey[600])),
+      Text(tr(value), style: TextStyle(fontSize: 11, color: Colors.grey[600])),
     ]);
   }
 
@@ -1024,7 +1026,7 @@ class DashboardTabState extends State<DashboardTab> {
             const Icon(Icons.notifications_active,
                 color: AdminHelpers.warning, size: 20),
             const SizedBox(width: 8),
-            Text('Thông báo hoạt động',
+            Text(tr('Thông báo hoạt động'),
                 style: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 15,
@@ -1037,7 +1039,7 @@ class DashboardTabState extends State<DashboardTab> {
                 color: AdminHelpers.warning.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(20),
               ),
-              child: Text('${activities.length} mục',
+              child: Text(tr('${activities.length} mục'),
                   style: const TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
@@ -1085,7 +1087,7 @@ class DashboardTabState extends State<DashboardTab> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(desc,
+                        Text(tr(desc),
                             style: const TextStyle(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w500),
@@ -1094,7 +1096,7 @@ class DashboardTabState extends State<DashboardTab> {
                         if (storeName != null && !isStore)
                           Padding(
                             padding: const EdgeInsets.only(top: 2),
-                            child: Text('Cửa hàng: $storeName',
+                            child: Text(tr('Cửa hàng: $storeName'),
                                 style: TextStyle(
                                     fontSize: 11,
                                     color: Colors.grey[500])),
@@ -1103,7 +1105,7 @@ class DashboardTabState extends State<DashboardTab> {
                     ),
                   ),
                   if (timeStr.isNotEmpty)
-                    Text(timeStr,
+                    Text(tr(timeStr),
                         style: TextStyle(
                             fontSize: 11,
                             color: Colors.grey[500])),
@@ -1135,9 +1137,9 @@ class DashboardTabState extends State<DashboardTab> {
           child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Chấm công hôm nay',
+          Text(tr('Chấm công hôm nay'),
               style: TextStyle(fontSize: 16)),
-          Text('Tổng: $total lượt',
+          Text(tr('Tổng: $total lượt'),
               style:
                   TextStyle(fontSize: 12, color: Colors.grey[600])),
         ],
@@ -1149,7 +1151,7 @@ class DashboardTabState extends State<DashboardTab> {
         return SizedBox(
           height: height ?? 100,
           child: Center(
-            child: Text('Chưa có dữ liệu chấm công hôm nay',
+            child: Text(tr('Chưa có dữ liệu chấm công hôm nay'),
                 style: TextStyle(color: Colors.grey[500])),
           ),
         );
@@ -1187,7 +1189,7 @@ class DashboardTabState extends State<DashboardTab> {
                 ),
                 const SizedBox(width: 10),
                 Expanded(
-                    child: Text(name.toString(),
+                    child: Text(tr(name.toString()),
                         style: const TextStyle(
                             fontWeight: FontWeight.w500,
                             fontSize: 13))),
@@ -1198,7 +1200,7 @@ class DashboardTabState extends State<DashboardTab> {
                       color: AdminHelpers.primary
                           .withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(8)),
-                  child: Text('$count lượt',
+                  child: Text(tr('$count lượt'),
                       style: const TextStyle(
                           color: AdminHelpers.primary,
                           fontWeight: FontWeight.bold,
@@ -1225,7 +1227,7 @@ class DashboardTabState extends State<DashboardTab> {
                   icon: const Icon(Icons.close),
                   onPressed: () => Navigator.pop(ctx),
                 ),
-                title: const Text('Chấm công hôm nay'),
+                title: Text(tr('Chấm công hôm nay')),
               ),
               body: Padding(
                 padding: const EdgeInsets.all(16),
@@ -1262,7 +1264,7 @@ class DashboardTabState extends State<DashboardTab> {
           actions: [
             TextButton(
                 onPressed: () => Navigator.pop(ctx),
-                child: const Text('Đóng')),
+                child: Text(tr('Đóng'))),
           ],
         ),
       );

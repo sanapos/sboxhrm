@@ -10,6 +10,7 @@ import '../models/meal.dart';
 import '../services/api_service.dart';
 import '../widgets/notification_overlay.dart';
 import '../widgets/employee_search_picker.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// Tab đăng ký suất ăn (NV) + tổng hợp đăng ký (quản lý) + chấm QR.
 class MealRegistrationTab extends StatefulWidget {
@@ -129,7 +130,7 @@ class _MealRegistrationTabState extends State<MealRegistrationTab> {
   void _showQrSheet() {
     if (!widget.canCreate) {
       NotificationOverlayManager().showError(
-          title: 'Quyền', message: 'Bạn không có quyền chấm cơm');
+          title: 'Quyền', message: tr('Bạn không có quyền chấm cơm'));
       return;
     }
     showAppSheet(
@@ -154,7 +155,7 @@ class _MealRegistrationTabState extends State<MealRegistrationTab> {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDlg) => ScrollableAlertDialog(
-          title: const Text('Đăng ký ăn cho nhân viên'),
+          title: Text(tr('Đăng ký ăn cho nhân viên')),
           content: ScrollableDialogBody.wrap(
             context,
             maxWidth: 400,
@@ -162,7 +163,7 @@ class _MealRegistrationTabState extends State<MealRegistrationTab> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 EmployeePickerFormField(
-                  labelText: 'Nhân viên *',
+                  labelText: tr('Nhân viên *'),
                   candidates: EmployeePickerItem.fromMaps(
                       widget.employees.cast<Map<String, dynamic>>()),
                   pickerTitle: 'Chọn nhân viên',
@@ -184,11 +185,11 @@ class _MealRegistrationTabState extends State<MealRegistrationTab> {
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
                   value: sessionId,
-                  decoration: const InputDecoration(
-                      labelText: 'Buổi ăn', border: OutlineInputBorder()),
+                  decoration: InputDecoration(
+                      labelText: tr('Buổi ăn'), border: OutlineInputBorder()),
                   items: widget.sessions
                       .map((s) =>
-                          DropdownMenuItem(value: s.id, child: Text(s.name)))
+                          DropdownMenuItem(value: s.id, child: Text(tr(s.name))))
                       .toList(),
                   onChanged: (v) => setDlg(() => sessionId = v),
                 ),
@@ -197,7 +198,7 @@ class _MealRegistrationTabState extends State<MealRegistrationTab> {
           ),
           actions: [
             TextButton(
-                onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
+                onPressed: () => Navigator.pop(ctx), child: Text(tr('Hủy'))),
             FilledButton(
               onPressed: () async {
                 if (employeeUserId == null || sessionId == null) return;
@@ -211,7 +212,7 @@ class _MealRegistrationTabState extends State<MealRegistrationTab> {
                 if (!mounted) return;
                 if (res['isSuccess'] == true) {
                   NotificationOverlayManager()
-                      .showSuccess(title: 'OK', message: 'Đã đăng ký');
+                      .showSuccess(title: 'OK', message: tr('Đã đăng ký'));
                   _loadManagerData();
                 } else {
                   NotificationOverlayManager().showError(
@@ -219,7 +220,7 @@ class _MealRegistrationTabState extends State<MealRegistrationTab> {
                       message: res['message']?.toString() ?? 'Thất bại');
                 }
               },
-              child: const Text('Lưu'),
+              child: Text(tr('Lưu')),
             ),
           ],
         ),
@@ -230,8 +231,8 @@ class _MealRegistrationTabState extends State<MealRegistrationTab> {
   @override
   Widget build(BuildContext context) {
     if (widget.sessions.isEmpty) {
-      return const Center(
-          child: Text('Chưa cấu hình buổi ăn (menu Cài đặt → Buổi ăn)'));
+      return Center(
+          child: Text(tr('Chưa cấu hình buổi ăn (menu Cài đặt → Buổi ăn)')));
     }
 
     return Column(
@@ -244,9 +245,9 @@ class _MealRegistrationTabState extends State<MealRegistrationTab> {
               children: [
                 Expanded(
                   child: Text(
-                    widget.canCreate
+                    tr(widget.canCreate
                         ? 'Chọn ô để đăng ký/hủy suất ăn trong tuần'
-                        : 'Xem đăng ký suất ăn (chệ xem)',
+                        : 'Xem đăng ký suất ăn (chệ xem)'),
                     style: const TextStyle(fontSize: 13),
                   ),
                 ),
@@ -254,7 +255,7 @@ class _MealRegistrationTabState extends State<MealRegistrationTab> {
                   OutlinedButton.icon(
                     onPressed: _showQrSheet,
                     icon: const Icon(Icons.qr_code_scanner, size: 18),
-                    label: const Text('Chấm QR'),
+                    label: Text(tr('Chấm QR')),
                   ),
                   const SizedBox(width: 8),
                   FilledButton.icon(
@@ -265,7 +266,7 @@ class _MealRegistrationTabState extends State<MealRegistrationTab> {
                             height: 16,
                             child: CircularProgressIndicator(strokeWidth: 2))
                         : const Icon(Icons.save, size: 18),
-                    label: const Text('Lưu tuần'),
+                    label: Text(tr('Lưu tuần')),
                   ),
                 ],
               ],
@@ -310,7 +311,7 @@ class _MealRegistrationTabState extends State<MealRegistrationTab> {
         ),
         Expanded(
           child: Text(
-            '${DateFormat('dd/MM').format(_weekStart)} – ${DateFormat('dd/MM/yyyy').format(end)}',
+            tr('${DateFormat('dd/MM').format(_weekStart)} – ${DateFormat('dd/MM/yyyy').format(end)}'),
             textAlign: TextAlign.center,
             style: const TextStyle(fontWeight: FontWeight.bold),
           ),
@@ -327,7 +328,7 @@ class _MealRegistrationTabState extends State<MealRegistrationTab> {
             setState(() => _weekStart = _monday(DateTime.now()));
             _reload();
           },
-          child: const Text('Tuần này'),
+          child: Text(tr('Tuần này')),
         ),
       ],
     );
@@ -341,8 +342,8 @@ class _MealRegistrationTabState extends State<MealRegistrationTab> {
         headingRowHeight: 40,
         dataRowMinHeight: 44,
         columns: [
-          const DataColumn(label: Text('Ngày')),
-          ...widget.sessions.map((s) => DataColumn(label: Text(s.name))),
+          DataColumn(label: Text(tr('Ngày'))),
+          ...widget.sessions.map((s) => DataColumn(label: Text(tr(s.name)))),
         ],
         rows: List.generate(7, (i) {
           final day = _weekStart.add(Duration(days: i));
@@ -350,7 +351,7 @@ class _MealRegistrationTabState extends State<MealRegistrationTab> {
               DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day));
           return DataRow(
             cells: [
-              DataCell(Text('${dayLabels[i]}\n${DateFormat('dd/MM').format(day)}',
+              DataCell(Text(tr('${dayLabels[i]}\n${DateFormat('dd/MM').format(day)}'),
                   style: TextStyle(
                       fontSize: 11,
                       color: isPast ? Colors.grey : null))),
@@ -396,18 +397,18 @@ class _MealRegistrationTabState extends State<MealRegistrationTab> {
                     }
                   },
                   child: InputDecorator(
-                    decoration: const InputDecoration(
-                        labelText: 'Ngày quản lý đăng ký',
+                    decoration: InputDecoration(
+                        labelText: tr('Ngày quản lý đăng ký'),
                         border: OutlineInputBorder(),
                         isDense: true),
-                    child: Text(DateFormat('dd/MM/yyyy').format(_managerDate)),
+                    child: Text(tr(DateFormat('dd/MM/yyyy').format(_managerDate))),
                   ),
                 ),
               ),
               const SizedBox(width: 8),
               if (widget.canCreate)
                 IconButton.filled(
-                  tooltip: 'Thêm đăng ký',
+                  tooltip: tr('Thêm đăng ký'),
                   onPressed: _showManagerAddDialog,
                   icon: const Icon(Icons.person_add),
                 ),
@@ -415,8 +416,7 @@ class _MealRegistrationTabState extends State<MealRegistrationTab> {
           ),
           if (_managerSummary != null) ...[
             const SizedBox(height: 8),
-            Text(
-              'Tổng đăng ký: ${_managerSummary!['totalRegistered'] ?? 0}',
+            Text(tr('${tr('Tổng đăng ký: ')}${_managerSummary!['totalRegistered'] ?? 0}'),
               style: const TextStyle(
                   fontWeight: FontWeight.w600, color: Color(0xFF0369A1)),
             ),
@@ -430,11 +430,11 @@ class _MealRegistrationTabState extends State<MealRegistrationTab> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('Danh sách đăng ký (quản lý)',
+        Text(tr('Danh sách đăng ký (quản lý)'),
             style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
         const SizedBox(height: 8),
         if (_managerRegs.isEmpty)
-          const Text('Chưa có đăng ký trong ngày',
+          Text(tr('Chưa có đăng ký trong ngày'),
               style: TextStyle(color: Colors.grey))
         else
           ..._managerRegs.map((r) {
@@ -446,12 +446,12 @@ class _MealRegistrationTabState extends State<MealRegistrationTab> {
             return Card(
               child: ListTile(
                 dense: true,
-                title: Text(r['employeeName']?.toString() ?? '—'),
-                subtitle: Text(session ?? sid),
+                title: Text(tr(r['employeeName']?.toString() ?? '—')),
+                subtitle: Text(tr(session ?? sid)),
                 trailing: r['registeredAt'] != null
-                    ? Text(DateFormat('HH:mm').format(
+                    ? Text(tr(DateFormat('HH:mm').format(
                         DateTime.tryParse(r['registeredAt'].toString()) ??
-                            DateTime.now()))
+                            DateTime.now())))
                     : null,
               ),
             );
@@ -516,18 +516,18 @@ class _MealQrCheckInSheetState extends State<_MealQrCheckInSheet> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text('Chấm cơm',
+          Text(tr('Chấm cơm'),
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           const SizedBox(height: 12),
           DropdownButtonFormField<String>(
             value: _sessionId ?? (widget.sessions.isNotEmpty ? widget.sessions.first.id : null),
-            decoration: const InputDecoration(
-                labelText: 'Buổi ăn (để trống = tự nhận theo giờ)',
+            decoration: InputDecoration(
+                labelText: tr('Buổi ăn (để trống = tự nhận theo giờ)'),
                 border: OutlineInputBorder()),
             items: [
-              const DropdownMenuItem(value: null, child: Text('Tự động')),
+              DropdownMenuItem(value: null, child: Text(tr('Tự động'))),
               ...widget.sessions.map((s) =>
-                  DropdownMenuItem(value: s.id, child: Text(s.name))),
+                  DropdownMenuItem(value: s.id, child: Text(tr(s.name)))),
             ],
             onChanged: (v) => setState(() => _sessionId = v),
           ),
@@ -541,14 +541,14 @@ class _MealQrCheckInSheetState extends State<_MealQrCheckInSheet> {
                     child: CircularProgressIndicator(
                         strokeWidth: 2, color: Colors.white))
                 : const Icon(Icons.restaurant),
-            label: const Text('Chấm cơm ngay'),
+            label: Text(tr('Chấm cơm ngay')),
           ),
           if (!kIsWeb) ...[
             const SizedBox(height: 12),
             OutlinedButton.icon(
               onPressed: () => setState(() => _scanning = !_scanning),
               icon: const Icon(Icons.qr_code_scanner),
-              label: Text(_scanning ? 'Ẩn camera' : 'Quét mã QR'),
+              label: Text(tr(_scanning ? 'Ẩn camera' : 'Quét mã QR')),
             ),
             if (_scanning) ...[
               const SizedBox(height: 8),

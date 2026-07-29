@@ -9,6 +9,7 @@ import '../../widgets/admin/admin_mobile_widgets.dart';
 import '../../widgets/notification_overlay.dart';
 import 'system_admin_helpers.dart';
 import '../../widgets/hrm_page_chrome.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 class StoresTab extends StatefulWidget {
   final bool agentMode;
@@ -448,7 +449,7 @@ class StoresTabState extends State<StoresTab> {
         child: DropdownButton<T>(
           isExpanded: mobile,
           value: value,
-          hint: Text(hint, style: const TextStyle(fontSize: 13)),
+          hint: Text(tr(hint), style: const TextStyle(fontSize: 13)),
           items: items,
           onChanged: onChanged,
         ),
@@ -458,7 +459,7 @@ class StoresTabState extends State<StoresTab> {
 
   DropdownMenuItem<String?> _dropItem(String? value, String label) {
     return DropdownMenuItem(
-        value: value, child: Text(label, style: const TextStyle(fontSize: 13)));
+        value: value, child: Text(tr(label), style: const TextStyle(fontSize: 13)));
   }
 
   Widget _buildPaginatedList() {
@@ -506,10 +507,10 @@ class StoresTabState extends State<StoresTab> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('Hiển thị ${startIndex + 1}-$endIndex / $totalCount', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+                Text(tr('Hiển thị ${startIndex + 1}-$endIndex / $totalCount'), style: TextStyle(fontSize: 12, color: Colors.grey[600])),
                 Row(children: [
                   IconButton(icon: const Icon(Icons.chevron_left, size: 20), onPressed: page > 1 ? () => setState(() => _currentPage--) : null, visualDensity: VisualDensity.compact),
-                  Text('$page / $totalPages', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
+                  Text(tr('$page / $totalPages'), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
                   IconButton(icon: const Icon(Icons.chevron_right, size: 20), onPressed: page < totalPages ? () => setState(() => _currentPage++) : null, visualDensity: VisualDensity.compact),
                 ]),
               ],
@@ -552,12 +553,12 @@ class StoresTabState extends State<StoresTab> {
           const SizedBox(width: 12),
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14), maxLines: 1, overflow: TextOverflow.ellipsis),
+              Text(tr(name), style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14), maxLines: 1, overflow: TextOverflow.ellipsis),
               const SizedBox(height: 2),
-              Text([if (phone.isNotEmpty) phone, AdminHelpers.licenseTypeLabel(licenseType)].join(' \u00b7 '),
+              Text(tr([if (phone.isNotEmpty) phone, AdminHelpers.licenseTypeLabel(licenseType)].join(' \u00b7 ')),
                 style: const TextStyle(color: Color(0xFF71717A), fontSize: 12), maxLines: 1, overflow: TextOverflow.ellipsis),
               Text(
-                hasAgent ? 'Đại lý: $agentName' : 'Đại lý: Chưa gán',
+                tr(hasAgent ? 'Đại lý: $agentName' : 'Đại lý: Chưa gán'),
                 style: TextStyle(
                   color: hasAgent ? const Color(0xFFEA580C) : const Color(0xFFA1A1AA),
                   fontSize: 11,
@@ -571,8 +572,8 @@ class StoresTabState extends State<StoresTab> {
               ],
               const SizedBox(height: 2),
               Text(
-                AdminHelpers.storeRenewalLabel(
-                    context, store['renewalCount'] as int? ?? 0),
+                tr(AdminHelpers.storeRenewalLabel(
+                    context, store['renewalCount'] as int? ?? 0)),
                 style: TextStyle(
                   fontSize: 11,
                   color: (store['renewalCount'] as int? ?? 0) >=
@@ -586,7 +587,7 @@ class StoresTabState extends State<StoresTab> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
             decoration: BoxDecoration(color: isLocked ? Colors.red.withValues(alpha: 0.1) : isActive ? Colors.green.withValues(alpha: 0.1) : Colors.grey.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
-            child: Text(isLocked ? 'Kh\u00f3a' : isActive ? 'H\u0110' : 'T\u1eaft', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: isLocked ? Colors.red : isActive ? Colors.green : Colors.grey)),
+            child: Text(tr(isLocked ? 'Kh\u00f3a' : isActive ? 'H\u0110' : 'T\u1eaft'), style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: isLocked ? Colors.red : isActive ? Colors.green : Colors.grey)),
           ),
           const SizedBox(width: 4),
           const Icon(Icons.chevron_right, size: 18, color: Color(0xFFA1A1AA)),
@@ -616,12 +617,12 @@ class StoresTabState extends State<StoresTab> {
           child:
               const Icon(Icons.store, color: AdminHelpers.primary, size: 20),
         ),
-        title: Text(name,
+        title: Text(tr(name),
             style: const TextStyle(fontWeight: FontWeight.w600)),
         subtitle:
             Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           if (store['phone'] != null)
-            Text(store['phone'],
+            Text(tr(store['phone']),
                 style: TextStyle(fontSize: 12, color: Colors.grey[600])),
           const SizedBox(height: 4),
           Row(children: [
@@ -683,7 +684,7 @@ class StoresTabState extends State<StoresTab> {
             IconButton(
               onPressed: () => _showStoreUsers(store),
               icon: const Icon(Icons.people, size: 20),
-              tooltip: 'Tài khoản cửa hàng',
+              tooltip: tr('Tài khoản cửa hàng'),
               color: AdminHelpers.info,
             ),
             const Icon(Icons.expand_more, size: 20),
@@ -853,7 +854,7 @@ class StoresTabState extends State<StoresTab> {
       ),
       onPressed: onTap,
       icon: Icon(icon, size: 16),
-      label: Text(label, style: const TextStyle(fontSize: 12)),
+      label: Text(tr(label), style: const TextStyle(fontSize: 12)),
     );
   }
 
@@ -974,11 +975,11 @@ class StoresTabState extends State<StoresTab> {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setLocal) => ScrollableAlertDialog(
-          title: const Row(children: [
+          title: Row(children: [
             Icon(Icons.handshake_outlined,
                 color: Color(0xFFEA580C), size: 22),
             SizedBox(width: 8),
-            Text('Gán đại lý cho cửa hàng', style: TextStyle(fontSize: 18)),
+            Text(tr('Gán đại lý cho cửa hàng'), style: TextStyle(fontSize: 18)),
           ]),
           content: SizedBox(
             width: MediaQuery.of(context).size.width < 600
@@ -988,24 +989,24 @@ class StoresTabState extends State<StoresTab> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Cửa hàng: ${store['name'] ?? ''}',
+                Text(tr('${tr('Cửa hàng: ')}${store['name'] ?? ''}'),
                     style: const TextStyle(fontWeight: FontWeight.w600)),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String?>(
                   value: selected,
                   isExpanded: true,
-                  decoration: const InputDecoration(
-                    labelText: 'Chọn đại lý',
+                  decoration: InputDecoration(
+                    labelText: tr('Chọn đại lý'),
                     prefixIcon: Icon(Icons.storefront),
                     border: OutlineInputBorder(),
                   ),
                   items: [
-                    const DropdownMenuItem<String?>(
-                        value: null, child: Text('— Không gán / Gỡ đại lý —')),
+                    DropdownMenuItem<String?>(
+                        value: null, child: Text(tr('— Không gán / Gỡ đại lý —'))),
                     ..._agents.map((a) => DropdownMenuItem<String?>(
                           value: a['id']?.toString(),
                           child: Text(
-                            '${a['name'] ?? a['code'] ?? 'Đại lý'} (${a['code'] ?? ''})',
+                            tr('${a['name'] ?? a['code'] ?? 'Đại lý'} (${a['code'] ?? ''})'),
                             overflow: TextOverflow.ellipsis,
                           ),
                         )),
@@ -1018,12 +1019,12 @@ class StoresTabState extends State<StoresTab> {
           actions: [
             TextButton(
                 onPressed: () => Navigator.pop(ctx),
-                child: const Text('Hủy')),
+                child: Text(tr('Hủy'))),
             FilledButton.icon(
               onPressed: () =>
                   Navigator.pop(ctx, {'agentId': selected}),
               icon: const Icon(Icons.save, size: 16),
-              label: const Text('Lưu'),
+              label: Text(tr('Lưu')),
               style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFFEA580C)),
             ),
@@ -1065,23 +1066,23 @@ class StoresTabState extends State<StoresTab> {
   Future<void> _editStoreName(Map<String, dynamic> store) async {
     final storeId = store['id']?.toString() ?? '';
     final currentName = store['name']?.toString() ?? '';
-    final nameCtrl = TextEditingController(text: currentName);
+    final nameCtrl = TextEditingController(text: tr(currentName));
     final descCtrl =
-        TextEditingController(text: store['description']?.toString() ?? '');
+        TextEditingController(text: tr(store['description']?.toString() ?? ''));
     final addressCtrl =
-        TextEditingController(text: store['address']?.toString() ?? '');
+        TextEditingController(text: tr(store['address']?.toString() ?? ''));
     final phoneCtrl =
-        TextEditingController(text: store['phone']?.toString() ?? '');
+        TextEditingController(text: tr(store['phone']?.toString() ?? ''));
     var selectedProvince = store['province']?.toString();
 
     final result = await showDialog<bool>(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) => ScrollableAlertDialog(
-        title: const Row(children: [
+        title: Row(children: [
           Icon(Icons.edit, color: AdminHelpers.primary, size: 22),
           SizedBox(width: 8),
-          Text('Chỉnh sửa cửa hàng', style: TextStyle(fontSize: 18)),
+          Text(tr('Chỉnh sửa cửa hàng'), style: TextStyle(fontSize: 18)),
         ]),
         content: SizedBox(
           width: MediaQuery.of(context).size.width < 600 ? MediaQuery.of(context).size.width - 32 : 400,
@@ -1101,13 +1102,13 @@ class StoresTabState extends State<StoresTab> {
                     : null,
                 isExpanded: true,
                 decoration: InputDecoration(
-                  labelText: 'Tỉnh / thành phố',
+                  labelText: tr('Tỉnh / thành phố'),
                   prefixIcon: const Icon(Icons.location_city_outlined),
                   border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(10)),
                 ),
                 items: kVietnamProvinces
-                    .map((p) => DropdownMenuItem(value: p, child: Text(p)))
+                    .map((p) => DropdownMenuItem(value: p, child: Text(tr(p))))
                     .toList(),
                 onChanged: (v) => setDialogState(() => selectedProvince = v),
               ),
@@ -1123,11 +1124,11 @@ class StoresTabState extends State<StoresTab> {
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Hủy')),
+              child: Text(tr('Hủy'))),
           FilledButton.icon(
             onPressed: () => Navigator.pop(ctx, true),
             icon: const Icon(Icons.save, size: 16),
-            label: const Text('Lưu'),
+            label: Text(tr('Lưu')),
             style: ElevatedButton.styleFrom(
                 backgroundColor: AdminHelpers.primary),
           ),
@@ -1185,7 +1186,7 @@ class StoresTabState extends State<StoresTab> {
       const Icon(Icons.store, color: AdminHelpers.primary, size: 22),
       const SizedBox(width: 8),
       Expanded(
-          child: Text(d['name'] ?? 'Chi tiết',
+          child: Text(tr(d['name'] ?? 'Chi tiết'),
               style: const TextStyle(fontSize: 18))),
     ]);
 
@@ -1276,7 +1277,7 @@ class StoresTabState extends State<StoresTab> {
                   icon: const Icon(Icons.close),
                   onPressed: () => Navigator.pop(ctx),
                 ),
-                title: Text(d['name'] ?? 'Chi tiết', overflow: TextOverflow.ellipsis),
+                title: Text(tr(d['name'] ?? 'Chi tiết'), overflow: TextOverflow.ellipsis),
               ),
               body: SingleChildScrollView(
                 padding: const EdgeInsets.all(16),
@@ -1303,7 +1304,7 @@ class StoresTabState extends State<StoresTab> {
                                 },
                                 icon: const Icon(Icons.calendar_month, size: 18),
                                 label: Text(
-                                  _extendButtonLabel(context, store),
+                                  tr(_extendButtonLabel(context, store)),
                                   overflow: TextOverflow.ellipsis,
                                 ),
                                 style: OutlinedButton.styleFrom(
@@ -1323,12 +1324,12 @@ class StoresTabState extends State<StoresTab> {
                                   icon: const Icon(Icons.handshake_outlined,
                                       size: 18),
                                   label: Text(
-                                    (store['agentId'] != null &&
+                                    tr((store['agentId'] != null &&
                                             store['agentId']
                                                 .toString()
                                                 .isNotEmpty)
                                         ? 'Đổi đại lý'
-                                        : 'Gán đại lý',
+                                        : 'Gán đại lý'),
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                   style: FilledButton.styleFrom(
@@ -1359,7 +1360,7 @@ class StoresTabState extends State<StoresTab> {
           actions: [
             TextButton(
                 onPressed: () => Navigator.pop(ctx),
-                child: const Text('Đóng')),
+                child: Text(tr('Đóng'))),
           ],
         ),
       );
@@ -1371,7 +1372,7 @@ class StoresTabState extends State<StoresTab> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const SizedBox(height: 12),
-        Text(title,
+        Text(tr(title),
             style: const TextStyle(
                 fontWeight: FontWeight.bold,
                 fontSize: 14,
@@ -1391,11 +1392,11 @@ class StoresTabState extends State<StoresTab> {
         children: [
           SizedBox(
               width: 140,
-              child: Text(label,
+              child: Text(tr(label),
                   style: TextStyle(
                       fontSize: 13, color: Colors.grey[600]))),
           Expanded(
-              child: Text(value,
+              child: Text(tr(value),
                   style: const TextStyle(
                       fontSize: 13, fontWeight: FontWeight.w500))),
         ],
@@ -1444,10 +1445,10 @@ class StoresTabState extends State<StoresTab> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => ScrollableAlertDialog(
-        title: const Row(children: [
+        title: Row(children: [
           Icon(Icons.warning_amber, color: AdminHelpers.warning, size: 24),
           SizedBox(width: 8),
-          Text('Khôi phục cài đặt gốc'),
+          Text(tr('Khôi phục cài đặt gốc')),
         ]),
         content: SizedBox(
           width: MediaQuery.of(context).size.width < 600 ? MediaQuery.of(context).size.width - 32 : 400,
@@ -1455,7 +1456,7 @@ class StoresTabState extends State<StoresTab> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Bạn sắp khôi phục cài đặt gốc cho cửa hàng "$name".'),
+              Text(tr('Bạn sắp khôi phục cài đặt gốc cho cửa hàng "$name".')),
               const SizedBox(height: 12),
               Container(
                 padding: const EdgeInsets.all(12),
@@ -1465,18 +1466,18 @@ class StoresTabState extends State<StoresTab> {
                   border: Border.all(
                       color: AdminHelpers.warning.withValues(alpha: 0.3)),
                 ),
-                child: const Column(
+                child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Thao tác này sẽ xóa:',
+                    Text(tr('Thao tác này sẽ xóa:'),
                         style: TextStyle(fontWeight: FontWeight.bold)),
                     SizedBox(height: 4),
-                    Text('• Toàn bộ dữ liệu chấm công'),
-                    Text('• Toàn bộ thiết bị và cấu hình'),
-                    Text('• Toàn bộ nhân viên'),
-                    Text('• Toàn bộ lệnh thiết bị'),
+                    Text(tr('• Toàn bộ dữ liệu chấm công')),
+                    Text(tr('• Toàn bộ thiết bị và cấu hình')),
+                    Text(tr('• Toàn bộ nhân viên')),
+                    Text(tr('• Toàn bộ lệnh thiết bị')),
                     SizedBox(height: 8),
-                    Text('Tài khoản người dùng sẽ được giữ lại.',
+                    Text(tr('Tài khoản người dùng sẽ được giữ lại.'),
                         style: TextStyle(
                             fontWeight: FontWeight.w600,
                             color: AdminHelpers.success)),
@@ -1489,11 +1490,11 @@ class StoresTabState extends State<StoresTab> {
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Hủy')),
+              child: Text(tr('Hủy'))),
           FilledButton.icon(
             onPressed: () => Navigator.pop(ctx, true),
             icon: const Icon(Icons.restart_alt, size: 16),
-            label: const Text('Xác nhận khôi phục'),
+            label: Text(tr('Xác nhận khôi phục')),
             style: ElevatedButton.styleFrom(
                 backgroundColor: AdminHelpers.warning),
           ),
@@ -1524,10 +1525,10 @@ class StoresTabState extends State<StoresTab> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => ScrollableAlertDialog(
-        title: const Row(children: [
+        title: Row(children: [
           Icon(Icons.delete_forever, color: AdminHelpers.danger, size: 24),
           SizedBox(width: 8),
-          Text('Xóa hoàn toàn cửa hàng'),
+          Text(tr('Xóa hoàn toàn cửa hàng')),
         ]),
         content: SizedBox(
           width: MediaQuery.of(context).size.width < 600 ? MediaQuery.of(context).size.width - 32 : 400,
@@ -1535,7 +1536,7 @@ class StoresTabState extends State<StoresTab> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Bạn sắp XÓA HOÀN TOÀN cửa hàng "$name".'),
+              Text(tr('Bạn sắp XÓA HOÀN TOÀN cửa hàng "$name".')),
               const SizedBox(height: 12),
               Container(
                 padding: const EdgeInsets.all(12),
@@ -1545,25 +1546,25 @@ class StoresTabState extends State<StoresTab> {
                   border: Border.all(
                       color: AdminHelpers.danger.withValues(alpha: 0.3)),
                 ),
-                child: const Column(
+                child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('⚠ CẢNH BÁO: Không thể hoàn tác!',
+                    Text(tr('⚠ CẢNH BÁO: Không thể hoàn tác!'),
                         style: TextStyle(
                             fontWeight: FontWeight.bold,
                             color: AdminHelpers.danger)),
                     SizedBox(height: 4),
-                    Text('Cửa hàng sẽ bị xóa khỏi danh sách.'),
-                    Text('Tất cả dữ liệu liên quan sẽ bị xóa:'),
+                    Text(tr('Cửa hàng sẽ bị xóa khỏi danh sách.')),
+                    Text(tr('Tất cả dữ liệu liên quan sẽ bị xóa:')),
                     SizedBox(height: 4),
-                    Text('• Toàn bộ tài khoản người dùng'),
-                    Text('• Toàn bộ dữ liệu chấm công'),
-                    Text('• Toàn bộ nhân viên & phòng ban'),
-                    Text('• Toàn bộ thiết bị & cấu hình'),
-                    Text('• Toàn bộ lương, phụ cấp, KPI'),
-                    Text('• Và tất cả dữ liệu khác'),
+                    Text(tr('• Toàn bộ tài khoản người dùng')),
+                    Text(tr('• Toàn bộ dữ liệu chấm công')),
+                    Text(tr('• Toàn bộ nhân viên & phòng ban')),
+                    Text(tr('• Toàn bộ thiết bị & cấu hình')),
+                    Text(tr('• Toàn bộ lương, phụ cấp, KPI')),
+                    Text(tr('• Và tất cả dữ liệu khác')),
                     SizedBox(height: 8),
-                    Text('Tên cửa hàng có thể được đăng ký lại.',
+                    Text(tr('Tên cửa hàng có thể được đăng ký lại.'),
                         style: TextStyle(
                             fontWeight: FontWeight.w600,
                             color: AdminHelpers.info)),
@@ -1576,11 +1577,11 @@ class StoresTabState extends State<StoresTab> {
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Hủy')),
+              child: Text(tr('Hủy'))),
           FilledButton.icon(
             onPressed: () => Navigator.pop(ctx, true),
             icon: const Icon(Icons.delete_forever, size: 16),
-            label: const Text('Xóa hoàn toàn'),
+            label: Text(tr('Xóa hoàn toàn')),
             style: ElevatedButton.styleFrom(
                 backgroundColor: AdminHelpers.danger),
           ),
@@ -1698,7 +1699,7 @@ class StoresTabState extends State<StoresTab> {
       return;
     }
 
-    final daysCtrl = TextEditingController(text: '30');
+    final daysCtrl = TextEditingController(text: tr('30'));
     var selectedPreset = 30;
     if (widget.agentMode && agentRenewalBalance > 0) {
       final affordable = kStoreExtendDayPresets
@@ -1719,7 +1720,7 @@ class StoresTabState extends State<StoresTab> {
                 color: Color(0xFF7C3AED), size: 22),
             const SizedBox(width: 8),
             Expanded(
-                child: Text('Gia hạn — $name',
+                child: Text(tr('Gia hạn — $name'),
                     style: const TextStyle(fontSize: 17))),
           ]),
           content: SizedBox(
@@ -1743,8 +1744,7 @@ class StoresTabState extends State<StoresTab> {
                           color: Color(0xFF7C3AED), size: 18),
                       const SizedBox(width: 8),
                       Expanded(
-                        child: Text(
-                          'Quỹ gia hạn còn: $agentRenewalBalance ngày',
+                        child: Text(tr('Quỹ gia hạn còn: $agentRenewalBalance ngày'),
                           style: const TextStyle(fontWeight: FontWeight.w600),
                         ),
                       ),
@@ -1752,13 +1752,13 @@ class StoresTabState extends State<StoresTab> {
                   ),
                 ],
                 Text(
-                  canBypass && renewalCount >= AdminHelpers.maxStoreRenewals
+                  tr(canBypass && renewalCount >= AdminHelpers.maxStoreRenewals
                       ? 'Đã gia hạn $renewalCount lần — Super Admin toàn quyền có thể gia hạn thêm.'
                       : allowCustomDays
                           ? 'Đã gia hạn $renewalCount/${AdminHelpers.maxStoreRenewals} lần. Chọn hoặc nhập số ngày:'
                           : widget.agentMode
                               ? 'Đã gia hạn $renewalCount/${AdminHelpers.maxStoreRenewals} lần. Đại lý chỉ chọn 7, 14, 21 hoặc 30 ngày:'
-                              : 'Đã gia hạn $renewalCount/${AdminHelpers.maxStoreRenewals} lần. Chọn 7, 14, 21 hoặc 30 ngày:',
+                              : 'Đã gia hạn $renewalCount/${AdminHelpers.maxStoreRenewals} lần. Chọn 7, 14, 21 hoặc 30 ngày:'),
                 ),
                 const SizedBox(height: 12),
                 Wrap(
@@ -1770,7 +1770,7 @@ class StoresTabState extends State<StoresTab> {
                         agentRenewalBalance > 0 &&
                         days > agentRenewalBalance;
                     return ChoiceChip(
-                      label: Text('$days ngày'),
+                      label: Text(tr('$days ngày')),
                       selected: selected,
                       onSelected: disabled
                           ? null
@@ -1802,11 +1802,11 @@ class StoresTabState extends State<StoresTab> {
           actions: [
             TextButton(
                 onPressed: () => Navigator.pop(ctx, false),
-                child: const Text('Hủy')),
+                child: Text(tr('Hủy'))),
             FilledButton.icon(
               onPressed: () => Navigator.pop(ctx, true),
               icon: const Icon(Icons.check, size: 16),
-              label: const Text('Gia hạn'),
+              label: Text(tr('Gia hạn')),
               style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF7C3AED)),
             ),
@@ -1879,10 +1879,10 @@ class StoresTabState extends State<StoresTab> {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDlgState) => ScrollableAlertDialog(
-          title: const Row(children: [
+          title: Row(children: [
             Icon(Icons.inventory_2_outlined, color: Color(0xFF0891B2), size: 22),
             SizedBox(width: 8),
-            Text('Đổi gói dịch vụ', style: TextStyle(fontSize: 18)),
+            Text(tr('Đổi gói dịch vụ'), style: TextStyle(fontSize: 18)),
           ]),
           content: SizedBox(
             width: 380,
@@ -1890,18 +1890,18 @@ class StoresTabState extends State<StoresTab> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Cửa hàng: $name',
+                Text(tr('Cửa hàng: $name'),
                     style: const TextStyle(fontWeight: FontWeight.w600)),
                 if (store['servicePackageName'] != null) ...
                   [const SizedBox(height: 4),
-                  Text('Gói hiện tại: ${store['servicePackageName']}',
+                  Text(tr('${tr('Gói hiện tại: ')}${store['servicePackageName']}'),
                       style: const TextStyle(color: Colors.grey, fontSize: 13))],
                 const SizedBox(height: 16),
                 DropdownButtonFormField<String>(
                   initialValue: selectedId,
                   isExpanded: true,
                   decoration: InputDecoration(
-                    labelText: 'Chọn gói dịch vụ',
+                    labelText: tr('Chọn gói dịch vụ'),
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                     contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                   ),
@@ -1917,9 +1917,9 @@ class StoresTabState extends State<StoresTab> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Text(pname, style: const TextStyle(fontWeight: FontWeight.w600)),
+                          Text(tr(pname), style: const TextStyle(fontWeight: FontWeight.w600)),
                           Text(
-                            'Users: $maxU | Devices: $maxD | ${dur ?? '?'} ngày',
+                            tr('Users: $maxU | Devices: $maxD | ${dur ?? '?'} ngày'),
                             style: const TextStyle(fontSize: 11, color: Colors.grey),
                           ),
                         ],
@@ -1929,8 +1929,7 @@ class StoresTabState extends State<StoresTab> {
                   onChanged: (v) => setDlgState(() => selectedId = v),
                 ),
                 const SizedBox(height: 8),
-                const Text(
-                  '⚠ Nếu store đang hết hạn, sẽ được gia hạn theo số ngày mặc định của gói mới.',
+                Text(tr('⚠ Nếu store đang hết hạn, sẽ được gia hạn theo số ngày mặc định của gói mới.'),
                   style: TextStyle(fontSize: 12, color: Colors.orange),
                 ),
               ],
@@ -1939,11 +1938,11 @@ class StoresTabState extends State<StoresTab> {
           actions: [
             TextButton(
                 onPressed: () => Navigator.pop(ctx, false),
-                child: const Text('Hủy')),
+                child: Text(tr('Hủy'))),
             FilledButton.icon(
               onPressed: selectedId == null ? null : () => Navigator.pop(ctx, true),
               icon: const Icon(Icons.check, size: 16),
-              label: const Text('Xác nhận'),
+              label: Text(tr('Xác nhận')),
               style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF0891B2)),
             ),
@@ -2030,7 +2029,7 @@ class StoresTabState extends State<StoresTab> {
             const Icon(Icons.vpn_key, color: AdminHelpers.success, size: 22),
             const SizedBox(width: 8),
             Expanded(
-                child: Text('Kích hoạt Key — $name',
+                child: Text(tr('Kích hoạt Key — $name'),
                     style: const TextStyle(fontSize: 17))),
           ]),
           content: SizedBox(
@@ -2053,16 +2052,15 @@ class StoresTabState extends State<StoresTab> {
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          '${_activatableKeysHint(store)}\n'
-                          'Chọn tối đa 4 key cùng gói dịch vụ.',
+                          tr('${_activatableKeysHint(store)}\n'
+                          'Chọn tối đa 4 key cùng gói dịch vụ.'),
                           style: const TextStyle(fontSize: 13),
                         ),
                       ),
                     ]),
                   ),
                   if (availableKeys.isNotEmpty) ...[
-                    Text(
-                      'Key khả dụng (${availableKeys.length})',
+                    Text(tr('Key khả dụng (${availableKeys.length})'),
                       style: const TextStyle(
                           fontWeight: FontWeight.w600, fontSize: 14),
                     ),
@@ -2090,7 +2088,7 @@ class StoresTabState extends State<StoresTab> {
                                       !selectedKeys.contains(code)) {
                                     NotificationOverlayManager().showWarning(
                                       title: 'Giới hạn',
-                                      message: 'Chỉ chọn tối đa 4 key',
+                                      message: tr('Chỉ chọn tối đa 4 key'),
                                     );
                                     return;
                                   }
@@ -2101,7 +2099,7 @@ class StoresTabState extends State<StoresTab> {
                               });
                             },
                             title: Text(
-                              code,
+                              tr(code),
                               style: const TextStyle(
                                 fontFamily: 'monospace',
                                 fontSize: 12,
@@ -2109,7 +2107,7 @@ class StoresTabState extends State<StoresTab> {
                               ),
                             ),
                             subtitle: Text(
-                              _licenseKeyQuickSubtitle(item),
+                              tr(_licenseKeyQuickSubtitle(item)),
                               style: const TextStyle(fontSize: 11),
                             ),
                             dense: true,
@@ -2126,7 +2124,7 @@ class StoresTabState extends State<StoresTab> {
                         runSpacing: 6,
                         children: selectedKeys
                             .map((k) => InputChip(
-                                  label: Text(k,
+                                  label: Text(tr(k),
                                       style: const TextStyle(
                                           fontFamily: 'monospace',
                                           fontSize: 11)),
@@ -2138,13 +2136,13 @@ class StoresTabState extends State<StoresTab> {
                             .toList(),
                       ),
                     ],
-                    const Padding(
+                    Padding(
                       padding: EdgeInsets.symmetric(vertical: 10),
                       child: Row(children: [
                         Expanded(child: Divider()),
                         Padding(
                           padding: EdgeInsets.symmetric(horizontal: 8),
-                          child: Text('hoặc nhập key',
+                          child: Text(tr('hoặc nhập key'),
                               style: TextStyle(
                                   fontSize: 12, color: Color(0xFF71717A))),
                         ),
@@ -2152,8 +2150,7 @@ class StoresTabState extends State<StoresTab> {
                       ]),
                     ),
                   ] else ...[
-                    Text(
-                      'Không có key sẵn trong kho — nhập key thủ công.',
+                    Text(tr('Không có key sẵn trong kho — nhập key thủ công.'),
                       style: TextStyle(fontSize: 13, color: Colors.grey[600]),
                     ),
                     const SizedBox(height: 8),
@@ -2165,7 +2162,7 @@ class StoresTabState extends State<StoresTab> {
                         child: TextField(
                           controller: keyControllers[i],
                           decoration: InputDecoration(
-                            labelText: 'Key ${i + 1}',
+                            labelText: tr('Key ${i + 1}'),
                             prefixIcon: const Icon(Icons.vpn_key, size: 18),
                             border: const OutlineInputBorder(),
                             isDense: true,
@@ -2193,7 +2190,7 @@ class StoresTabState extends State<StoresTab> {
                         previewData = null;
                       }),
                       icon: const Icon(Icons.add, size: 16),
-                      label: Text('Thêm key (${keyControllers.length}/4)'),
+                      label: Text(tr('Thêm key (${keyControllers.length}/4)')),
                     ),
                   const SizedBox(height: 8),
                   if (!widget.agentMode) ...[
@@ -2229,7 +2226,7 @@ class StoresTabState extends State<StoresTab> {
                         icon: isPreviewing
                             ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
                             : const Icon(Icons.preview, size: 16),
-                        label: const Text('Xem trước'),
+                        label: Text(tr('Xem trước')),
                       ),
                     ),
                   ],
@@ -2246,22 +2243,22 @@ class StoresTabState extends State<StoresTab> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text('Kết quả dự kiến:', style: TextStyle(fontWeight: FontWeight.bold, color: AdminHelpers.success)),
+                          Text(tr('Kết quả dự kiến:'), style: TextStyle(fontWeight: FontWeight.bold, color: AdminHelpers.success)),
                           const SizedBox(height: 6),
-                          Text('• Số key hợp lệ: ${previewData!['keyCount']}'),
-                          Text('• Tổng ngày từ key: ${previewData!['totalDays']} ngày'),
+                          Text(tr('${tr('• Số key hợp lệ: ')}${previewData!['keyCount']}')),
+                          Text(tr('${tr('• Tổng ngày từ key: ')}${previewData!['totalDays']} ngày')),
                           if ((previewData!['bonusDays'] as int? ?? 0) > 0) ...[
-                            Text('• 🎁 Ngày tặng thêm: ${previewData!['bonusDays']} ngày',
+                            Text(tr('${tr('• 🎁 Ngày tặng thêm: ')}${previewData!['bonusDays']} ngày'),
                                 style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
                             if (previewData!['promotionName'] != null)
-                              Text('  (CT: ${previewData!['promotionName']})',
+                              Text(tr('  (CT: ${previewData!['promotionName']})'),
                                   style: const TextStyle(fontSize: 12, fontStyle: FontStyle.italic)),
                           ],
                           const Divider(),
-                          Text('Tổng cộng: ${previewData!['grandTotalDays']} ngày',
+                          Text(tr('${tr('Tổng cộng: ')}${previewData!['grandTotalDays']} ngày'),
                               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
                           if (previewData!['newExpiryDate'] != null)
-                            Text('Hạn mới: ${_fmtDate(previewData!['newExpiryDate'])}',
+                            Text(tr('${tr('Hạn mới: ')}${_fmtDate(previewData!['newExpiryDate'])}'),
                                 style: const TextStyle(fontSize: 13)),
                         ],
                       ),
@@ -2274,7 +2271,7 @@ class StoresTabState extends State<StoresTab> {
           actions: [
             TextButton(
                 onPressed: () => Navigator.pop(ctx),
-                child: const Text('Hủy')),
+                child: Text(tr('Hủy'))),
             FilledButton.icon(
               onPressed: () async {
                 final manualKeys = keyControllers
@@ -2285,12 +2282,12 @@ class StoresTabState extends State<StoresTab> {
                   ...manualKeys,
                 }.toList();
                 if (keys.isEmpty) {
-                  NotificationOverlayManager().showWarning(title: 'Thiếu thông tin', message: 'Vui lòng chọn hoặc nhập ít nhất 1 key');
+                  NotificationOverlayManager().showWarning(title: 'Thiếu thông tin', message: tr('Vui lòng chọn hoặc nhập ít nhất 1 key'));
                   return;
                 }
                 if (keys.length > 4) {
                   NotificationOverlayManager().showWarning(
-                      title: 'Giới hạn', message: 'Chỉ kích hoạt tối đa 4 key');
+                      title: 'Giới hạn', message: tr('Chỉ kích hoạt tối đa 4 key'));
                   return;
                 }
                 Navigator.pop(ctx);
@@ -2333,7 +2330,7 @@ class StoresTabState extends State<StoresTab> {
                 }
               },
               icon: const Icon(Icons.check, size: 16),
-              label: const Text('Kích hoạt'),
+              label: Text(tr('Kích hoạt')),
               style: ElevatedButton.styleFrom(
                   backgroundColor: AdminHelpers.success),
             ),
@@ -2401,7 +2398,7 @@ class _StoreUsersDialogState extends State<_StoreUsersDialog> {
         const Icon(Icons.people, color: AdminHelpers.info, size: 22),
         const SizedBox(width: 8),
         Expanded(
-          child: Text('Tài khoản — ${widget.storeName}',
+          child: Text(tr('Tài khoản — ${widget.storeName}'),
               style: const TextStyle(fontSize: 17)),
         ),
         Container(
@@ -2410,7 +2407,7 @@ class _StoreUsersDialogState extends State<_StoreUsersDialog> {
             color: AdminHelpers.primary.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(12),
           ),
-          child: Text('${_users.length} tài khoản',
+          child: Text(tr('${_users.length} tài khoản'),
               style: const TextStyle(
                   fontSize: 12, color: AdminHelpers.primary)),
         ),
@@ -2429,7 +2426,7 @@ class _StoreUsersDialogState extends State<_StoreUsersDialog> {
       actions: [
         TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Đóng')),
+            child: Text(tr('Đóng'))),
       ],
     );
   }
@@ -2454,7 +2451,7 @@ class _StoreUsersDialogState extends State<_StoreUsersDialog> {
                 radius: 18,
                 backgroundColor: _roleColor(role).withValues(alpha: 0.15),
                 child:
-                    Text(fullName.isNotEmpty ? fullName[0].toUpperCase() : '?',
+                    Text(tr(fullName.isNotEmpty ? fullName[0].toUpperCase() : '?'),
                         style: TextStyle(
                           color: _roleColor(role),
                           fontWeight: FontWeight.bold,
@@ -2466,7 +2463,7 @@ class _StoreUsersDialogState extends State<_StoreUsersDialog> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(children: [
-                      Text(fullName.isNotEmpty ? fullName : email,
+                      Text(tr(fullName.isNotEmpty ? fullName : email),
                           style: const TextStyle(
                               fontWeight: FontWeight.w600, fontSize: 14)),
                       const SizedBox(width: 6),
@@ -2483,14 +2480,14 @@ class _StoreUsersDialogState extends State<_StoreUsersDialog> {
                         Icon(Icons.email, size: 12, color: Colors.grey[500]),
                         const SizedBox(width: 4),
                         Expanded(
-                          child: Text(email,
+                          child: Text(tr(email),
                               style: TextStyle(
                                   fontSize: 12, color: Colors.grey[600])),
                         ),
                         // Copy email
                         InkWell(
                           onTap: () {
-                            Clipboard.setData(ClipboardData(text: email));
+                            Clipboard.setData(ClipboardData(text: tr(email)));
                             AdminHelpers.showSuccess(context, 'Đã copy email');
                           },
                           child: Icon(Icons.copy,
@@ -2499,8 +2496,7 @@ class _StoreUsersDialogState extends State<_StoreUsersDialog> {
                       ],
                     ),
                     if (lastLogin != null)
-                      Text(
-                          'Đăng nhập cuối: ${AdminHelpers.formatDateTime(lastLogin)}',
+                      Text(tr('Đăng nhập cuối: ${AdminHelpers.formatDateTime(lastLogin)}'),
                           style:
                               TextStyle(fontSize: 11, color: Colors.grey[500])),
                   ],
@@ -2531,17 +2527,16 @@ class _StoreUsersDialogState extends State<_StoreUsersDialog> {
                         child: visiblePassword != null
                             ? (_passwordRevealed[userId] == true
                                 ? SelectableText(
-                                    visiblePassword,
+                                    tr(visiblePassword),
                                     style: const TextStyle(
                                         fontSize: 13,
                                         fontFamily: 'monospace',
                                         fontWeight: FontWeight.w600))
-                                : Text('••••••••',
+                                : Text(tr('••••••••'),
                                     style: TextStyle(
                                         fontSize: 13,
                                         color: Colors.grey[500])))
-                            : Text(
-                                'Chưa lưu (đặt lại MK để xem)',
+                            : Text(tr('Chưa lưu (đặt lại MK để xem)'),
                                 style: TextStyle(
                                     fontSize: 12, color: Colors.grey[500])),
                       ),
@@ -2565,7 +2560,7 @@ class _StoreUsersDialogState extends State<_StoreUsersDialog> {
                         InkWell(
                           onTap: () {
                             Clipboard.setData(
-                                ClipboardData(text: visiblePassword));
+                                ClipboardData(text: tr(visiblePassword)));
                             AdminHelpers.showSuccess(
                                 context, 'Đã copy mật khẩu');
                           },
@@ -2584,7 +2579,7 @@ class _StoreUsersDialogState extends State<_StoreUsersDialog> {
                         onPressed: () => _resetPassword(userId, email),
                         icon: const Icon(Icons.refresh,
                             size: 14, color: AdminHelpers.warning),
-                        label: const Text('Đặt lại MK',
+                        label: Text(tr('Đặt lại MK'),
                             style: TextStyle(
                                 fontSize: 11, color: AdminHelpers.warning)),
                       ),

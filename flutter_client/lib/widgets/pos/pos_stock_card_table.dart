@@ -5,6 +5,7 @@ import '../../utils/responsive_helper.dart';
 import '../../models/pos_product.dart';
 import 'pos_mobile_widgets.dart';
 import 'pos_theme.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// Bảng thẻ kho kiểu KiotViet: chứng từ, thời gian, loại GD, số lượng, tồn cuối.
 class PosStockCardTable extends StatelessWidget {
@@ -60,9 +61,8 @@ class PosStockCardTable extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (items.isEmpty) {
-      return const Center(
-        child: Text(
-          'Chưa có biến động tồn kho',
+      return Center(
+        child: Text(tr('Chưa có biến động tồn kho'),
           style: TextStyle(fontSize: 13, color: PosTheme.textSecondary),
         ),
       );
@@ -78,7 +78,7 @@ class PosStockCardTable extends StatelessWidget {
               child: TextButton.icon(
                 onPressed: onExport,
                 icon: const Icon(Icons.download, size: 18),
-                label: const Text('Xuất file'),
+                label: Text(tr('Xuất file')),
               ),
             ),
           ...items.map((t) => _mobileCard(t)),
@@ -107,21 +107,21 @@ class PosStockCardTable extends StatelessWidget {
                   child: TextButton.icon(
                     onPressed: onExport,
                     icon: const Icon(Icons.download, size: 18),
-                    label: const Text('Xuất file'),
+                    label: Text(tr('Xuất file')),
                   ),
                 ),
               ),
             Container(
               color: Colors.grey.shade50,
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              child: const Row(
+              child: Row(
                 children: [
-                  SizedBox(width: 100, child: Text('Chứng từ', style: headerStyle)),
-                  SizedBox(width: 120, child: Text('Thời gian', style: headerStyle)),
-                  Expanded(flex: 2, child: Text('Loại giao dịch', style: headerStyle)),
-                  SizedBox(width: 72, child: Text('Số lượng', style: headerStyle, textAlign: TextAlign.right)),
-                  SizedBox(width: 72, child: Text('Tồn cuối', style: headerStyle, textAlign: TextAlign.right)),
-                  SizedBox(width: 100, child: Text('Đối tác', style: headerStyle)),
+                  SizedBox(width: 100, child: Text(tr('Chứng từ'), style: headerStyle)),
+                  SizedBox(width: 120, child: Text(tr('Thời gian'), style: headerStyle)),
+                  Expanded(flex: 2, child: Text(tr('Loại giao dịch'), style: headerStyle)),
+                  SizedBox(width: 72, child: Text(tr('Số lượng'), style: headerStyle, textAlign: TextAlign.right)),
+                  SizedBox(width: 72, child: Text(tr('Tồn cuối'), style: headerStyle, textAlign: TextAlign.right)),
+                  SizedBox(width: 100, child: Text(tr('Đối tác'), style: headerStyle)),
                 ],
               ),
             ),
@@ -157,40 +157,40 @@ class PosStockCardTable extends StatelessWidget {
                         onTap: onDocumentTap == null
                             ? null
                             : () => onDocumentTap!(t),
-                        child: Text(doc,
+                        child: Text(tr(doc),
                             style: const TextStyle(
                                 color: PosTheme.kiotBlue,
                                 fontWeight: FontWeight.w600,
                                 fontSize: 14)),
                       )
-                    : Text('—',
+                    : Text(tr('—'),
                         style: TextStyle(
                             fontSize: 13, color: Colors.grey.shade500)),
               ),
-              Text(when,
+              Text(tr(when),
                   style: const TextStyle(
                       fontSize: 11, color: PosTheme.textSecondary)),
             ],
           ),
           const SizedBox(height: 6),
-          Text(typeLabel, style: const TextStyle(fontSize: 13)),
+          Text(tr(typeLabel), style: const TextStyle(fontSize: 13)),
           const SizedBox(height: 8),
           Row(
             children: [
               Expanded(
-                child: Text('SL: $sign${moneyFmt.format(t.qtyChange)}',
+                child: Text(tr('SL: $sign${moneyFmt.format(t.qtyChange)}'),
                     style: TextStyle(
                         fontSize: 13,
                         color: qtyColor,
                         fontWeight: FontWeight.w600)),
               ),
-              Text('Tồn: ${moneyFmt.format(t.qtyAfter)}',
+              Text(tr('Tồn: ${moneyFmt.format(t.qtyAfter)}'),
                   style: const TextStyle(fontSize: 13)),
             ],
           ),
           if (t.partnerName?.trim().isNotEmpty == true) ...[
             const SizedBox(height: 4),
-            Text(t.partnerName!,
+            Text(tr(t.partnerName!),
                 style: TextStyle(fontSize: 12, color: Colors.grey.shade700)),
           ],
         ],
@@ -222,7 +222,7 @@ class PosStockCardTable extends StatelessWidget {
                 ? InkWell(
                     onTap: onDocumentTap == null ? null : () => onDocumentTap!(t),
                     child: Text(
-                      doc,
+                      tr(doc),
                       style: const TextStyle(
                         fontSize: 12,
                         color: PosTheme.kiotBlue,
@@ -231,26 +231,26 @@ class PosStockCardTable extends StatelessWidget {
                     ),
                   )
                 : Text(
-                    '—',
+                    tr('—'),
                     style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
                   ),
           ),
           SizedBox(
             width: 120,
-            child: Text(when, style: const TextStyle(fontSize: 12)),
+            child: Text(tr(when), style: const TextStyle(fontSize: 12)),
           ),
           Expanded(
             flex: 2,
             child: Text(
-              txTypeLabel(t.transactionType,
-                  referenceNo: t.referenceNo, note: t.note),
+              tr(txTypeLabel(t.transactionType,
+                  referenceNo: t.referenceNo, note: t.note)),
               style: const TextStyle(fontSize: 12),
             ),
           ),
           SizedBox(
             width: 72,
             child: Text(
-              '$sign${moneyFmt.format(t.qtyChange)}',
+              tr('$sign${moneyFmt.format(t.qtyChange)}'),
               textAlign: TextAlign.right,
               style: TextStyle(fontSize: 12, color: qtyColor, fontWeight: FontWeight.w500),
             ),
@@ -258,7 +258,7 @@ class PosStockCardTable extends StatelessWidget {
           SizedBox(
             width: 72,
             child: Text(
-              moneyFmt.format(t.qtyAfter),
+              tr(moneyFmt.format(t.qtyAfter)),
               textAlign: TextAlign.right,
               style: const TextStyle(fontSize: 12),
             ),
@@ -266,7 +266,7 @@ class PosStockCardTable extends StatelessWidget {
           SizedBox(
             width: 100,
             child: Text(
-              t.partnerName?.trim().isNotEmpty == true ? t.partnerName! : '—',
+              tr(t.partnerName?.trim().isNotEmpty == true ? t.partnerName! : '—'),
               style: TextStyle(fontSize: 11, color: Colors.grey.shade700),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,

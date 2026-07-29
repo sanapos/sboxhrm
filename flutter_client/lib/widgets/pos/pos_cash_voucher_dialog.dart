@@ -6,6 +6,8 @@ import '../../models/cash_transaction.dart';
 import '../../services/api_service.dart';
 import '../../widgets/notification_overlay.dart';
 import 'pos_theme.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
+import 'package:zkteco_flutter_client/l10n/app_ui_locale.dart';
 
 const _kiotBlue = PosTheme.kiotBlue;
 
@@ -104,7 +106,7 @@ class _PosCashVoucherDialogState extends State<_PosCashVoucherDialog> {
       initialDate: _when,
       firstDate: DateTime(2020),
       lastDate: DateTime.now().add(const Duration(days: 365)),
-      locale: const Locale('vi', 'VN'),
+      locale: appUiLocale(),
     );
     if (date == null || !mounted) return;
     final time = await showTimePicker(context: context, initialTime: TimeOfDay.fromDateTime(_when));
@@ -116,12 +118,12 @@ class _PosCashVoucherDialogState extends State<_PosCashVoucherDialog> {
     final amount = double.tryParse(_amountCtrl.text.replaceAll(RegExp(r'[^\d]'), '')) ?? 0;
     if (amount <= 0) {
       NotificationOverlayManager()
-          .showWarning(title: _title, message: 'Nhập số tiền hợp lệ');
+          .showWarning(title: _title, message: tr('Nhập số tiền hợp lệ'));
       return;
     }
     if (_categoryId == null) {
       NotificationOverlayManager()
-          .showWarning(title: _title, message: 'Chưa có danh mục thu chi');
+          .showWarning(title: _title, message: tr('Chưa có danh mục thu chi'));
       return;
     }
 
@@ -173,7 +175,7 @@ class _PosCashVoucherDialogState extends State<_PosCashVoucherDialog> {
                     Row(
                       children: [
                         Expanded(
-                          child: Text(_title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+                          child: Text(tr(_title), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
                         ),
                         IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close)),
                       ],
@@ -182,7 +184,7 @@ class _PosCashVoucherDialogState extends State<_PosCashVoucherDialog> {
                     TextField(
                       controller: _contactCtrl,
                       decoration: InputDecoration(
-                        labelText: _isIncome ? 'Thu từ khách' : 'Chi cho',
+                        labelText: tr(_isIncome ? 'Thu từ khách' : 'Chi cho'),
                         border: const OutlineInputBorder(),
                         isDense: true,
                       ),
@@ -192,18 +194,18 @@ class _PosCashVoucherDialogState extends State<_PosCashVoucherDialog> {
                       controller: _amountCtrl,
                       keyboardType: TextInputType.number,
                       inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                      decoration: const InputDecoration(
-                        labelText: 'Số tiền',
-                        hintText: '0',
+                      decoration: InputDecoration(
+                        labelText: tr('Số tiền'),
+                        hintText: tr('0'),
                         border: OutlineInputBorder(),
                         isDense: true,
-                        suffixText: 'đ',
+                        suffixText: tr('đ'),
                       ),
                       style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      _paymentMethod == PaymentMethodType.cash ? 'Tiền mặt' : 'Chuyển khoản',
+                      tr(_paymentMethod == PaymentMethodType.cash ? 'Tiền mặt' : 'Chuyển khoản'),
                       style: const TextStyle(fontSize: 12, color: PosTheme.textSecondary),
                     ),
                     const SizedBox(height: 12),
@@ -213,12 +215,12 @@ class _PosCashVoucherDialogState extends State<_PosCashVoucherDialog> {
                           child: InkWell(
                             onTap: _pickDateTime,
                             child: InputDecorator(
-                              decoration: const InputDecoration(
-                                labelText: 'Thời gian',
+                              decoration: InputDecoration(
+                                labelText: tr('Thời gian'),
                                 border: OutlineInputBorder(),
                                 isDense: true,
                               ),
-                              child: Text(dtFmt.format(_when)),
+                              child: Text(tr(dtFmt.format(_when))),
                             ),
                           ),
                         ),
@@ -226,13 +228,13 @@ class _PosCashVoucherDialogState extends State<_PosCashVoucherDialog> {
                         Expanded(
                           child: DropdownButtonFormField<String>(
                             value: _categoryId,
-                            decoration: const InputDecoration(
-                              labelText: 'Danh mục',
+                            decoration: InputDecoration(
+                              labelText: tr('Danh mục'),
                               border: OutlineInputBorder(),
                               isDense: true,
                             ),
                             items: _categories
-                                .map((c) => DropdownMenuItem(value: c.id, child: Text(c.name)))
+                                .map((c) => DropdownMenuItem(value: c.id, child: Text(tr(c.name))))
                                 .toList(),
                             onChanged: (v) => setState(() => _categoryId = v),
                           ),
@@ -242,8 +244,8 @@ class _PosCashVoucherDialogState extends State<_PosCashVoucherDialog> {
                     const SizedBox(height: 12),
                     TextField(
                       controller: _noteCtrl,
-                      decoration: const InputDecoration(
-                        labelText: 'Ghi chú',
+                      decoration: InputDecoration(
+                        labelText: tr('Ghi chú'),
                         border: OutlineInputBorder(),
                         isDense: true,
                       ),
@@ -254,7 +256,7 @@ class _PosCashVoucherDialogState extends State<_PosCashVoucherDialog> {
                       children: [
                         OutlinedButton(
                           onPressed: _loading ? null : () => Navigator.pop(context),
-                          child: const Text('Bỏ qua'),
+                          child: Text(tr('Bỏ qua')),
                         ),
                         const SizedBox(width: 8),
                         FilledButton(
@@ -262,13 +264,13 @@ class _PosCashVoucherDialogState extends State<_PosCashVoucherDialog> {
                           onPressed: _loading ? null : () => _save(),
                           child: _loading
                               ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
-                              : Text(_isIncome ? 'Tạo phiếu thu' : 'Tạo phiếu chi'),
+                              : Text(tr(_isIncome ? 'Tạo phiếu thu' : 'Tạo phiếu chi')),
                         ),
                         const SizedBox(width: 8),
                         FilledButton(
                           style: FilledButton.styleFrom(backgroundColor: _kiotBlue),
                           onPressed: _loading ? null : () => _save(andPrint: true),
-                          child: Text(_isIncome ? 'Tạo phiếu thu & In' : 'Tạo phiếu chi & In'),
+                          child: Text(tr(_isIncome ? 'Tạo phiếu thu & In' : 'Tạo phiếu chi & In')),
                         ),
                       ],
                     ),

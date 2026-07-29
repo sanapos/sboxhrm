@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../l10n/app_tr.dart';
 
 /// Giao diện POS kiểu KiotViet (xanh lá chủ đạo).
 abstract final class PosTheme {
@@ -40,8 +41,8 @@ abstract final class PosTheme {
     Widget? suffix,
   }) =>
       InputDecoration(
-        labelText: label,
-        hintText: hint,
+        labelText: tr(label),
+        hintText: trN(hint),
         suffix: suffix,
         filled: true,
         fillColor: Colors.white,

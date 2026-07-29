@@ -16,6 +16,7 @@ import '../widgets/notification_overlay.dart';
 import 'package:provider/provider.dart';
 import '../providers/permission_provider.dart';
 import '../widgets/hrm_page_chrome.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 class KpiScreen extends StatefulWidget {
   const KpiScreen({super.key});
@@ -207,7 +208,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
           borderRadius: BorderRadius.circular(6),
           border: Border.all(color: const Color(0xFF059669).withValues(alpha: 0.25)),
         ),
-        child: const Text('Đã tính',
+        child: Text(tr('Đã tính'),
             style: TextStyle(
                 color: Color(0xFF059669),
                 fontSize: 10,
@@ -221,7 +222,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
         borderRadius: BorderRadius.circular(6),
         border: Border.all(color: const Color(0xFFE4E4E7)),
       ),
-      child: const Text('Dự kiến',
+      child: Text(tr('Dự kiến'),
           style: TextStyle(
               color: HrmPageChrome.textMuted,
               fontSize: 10,
@@ -262,19 +263,19 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                   TextStyle(fontWeight: FontWeight.w600, fontSize: isMobile ? 12 : 13),
               unselectedLabelStyle:
                   TextStyle(fontWeight: FontWeight.w500, fontSize: isMobile ? 12 : 13),
-              tabs: const [
+              tabs: [
                 Tab(
                     icon: Icon(Icons.dashboard_rounded, size: 18),
-                    text: 'Tổng quan'),
+                    text: tr('Tổng quan')),
                 Tab(
                     icon: Icon(Icons.track_changes_rounded, size: 18),
-                    text: 'Chỉ tiêu'),
+                    text: tr('Chỉ tiêu')),
                 Tab(
                     icon: Icon(Icons.account_balance_wallet_rounded, size: 18),
-                    text: 'Lương KPI'),
+                    text: tr('Lương KPI')),
                 Tab(
                     icon: Icon(Icons.settings_rounded, size: 18),
-                    text: 'Cài đặt'),
+                    text: tr('Cài đặt')),
               ],
             ),
           ),
@@ -292,7 +293,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                               valueColor: AlwaysStoppedAnimation(_accent)),
                         ),
                         const SizedBox(height: 16),
-                        Text('Đang tải dữ liệu...',
+                        Text(tr('Đang tải dữ liệu...'),
                             style: TextStyle(
                                 color: HrmPageChrome.textMuted, fontSize: 14)),
                       ],
@@ -337,8 +338,8 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
           if (!embedded && !isMobile) ...[
             Icon(Icons.trending_up_rounded, size: 20, color: _accent),
             const SizedBox(width: 8),
-            const Text(
-              'KPI',
+            Text(
+              tr('KPI'),
               style: TextStyle(
                 fontSize: 15,
                 fontWeight: FontWeight.w700,
@@ -354,7 +355,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
           ],
           IconButton(
             visualDensity: VisualDensity.compact,
-            tooltip: 'Tải lại dữ liệu',
+            tooltip: tr('Tải lại dữ liệu'),
             onPressed: _loading ? null : () => _loadData(),
             icon: const Icon(Icons.refresh_rounded,
                 size: 20, color: HrmPageChrome.textMuted),
@@ -440,7 +441,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
           if (hint.isNotEmpty) ...[
             const SizedBox(height: 8),
             Text(
-              hint,
+              tr(hint),
               style: const TextStyle(
                 fontSize: 12,
                 color: HrmPageChrome.textMuted,
@@ -462,7 +463,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                           : Icons.verified_outlined,
                   size: 18,
                 ),
-                label: Text(actionLabel!),
+                label: Text(tr(actionLabel!)),
                 style: FilledButton.styleFrom(
                   backgroundColor: _accent,
                   visualDensity: VisualDensity.compact,
@@ -500,11 +501,11 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
           if (done)
             const Icon(Icons.check_circle, size: 14, color: Color(0xFF059669))
           else
-            Text('${step + 1}',
+            Text(tr('${step + 1}'),
                 style: TextStyle(
                     fontSize: 11, fontWeight: FontWeight.w700, color: color)),
           const SizedBox(width: 5),
-          Text(label,
+          Text(tr(label),
               style: TextStyle(
                   fontSize: 11,
                   fontWeight: active ? FontWeight.w700 : FontWeight.w500,
@@ -525,8 +526,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
 
   Widget _buildPeriodSelector(bool isMobile) {
     if (_periods.isEmpty) {
-      return Text(
-        'Chưa có chu kỳ',
+      return Text(tr('Chưa có chu kỳ'),
         style: TextStyle(fontSize: isMobile ? 12 : 13, color: HrmPageChrome.textMuted),
         overflow: TextOverflow.ellipsis,
       );
@@ -547,7 +547,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
             .map((p) => DropdownMenuItem(
                   value: p['id']?.toString(),
                   child: Text(
-                    p['name'] ?? '',
+                    tr(p['name'] ?? ''),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ))
@@ -571,7 +571,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
         border: Border.all(color: color.withValues(alpha: 0.22)),
       ),
       child: Text(
-        label,
+        tr(label),
         style: TextStyle(
           fontSize: compact ? 10 : 11,
           fontWeight: FontWeight.w600,
@@ -653,7 +653,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
           OutlinedButton.icon(
             onPressed: _isExporting ? null : onExcel,
             icon: const Icon(Icons.table_chart_outlined, size: 18),
-            label: Text(excelLabel),
+            label: Text(tr(excelLabel)),
             style: OutlinedButton.styleFrom(
               visualDensity: VisualDensity.compact,
               foregroundColor: _accent,
@@ -663,7 +663,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
           OutlinedButton.icon(
             onPressed: _isExporting ? null : onPng,
             icon: const Icon(Icons.image_outlined, size: 18),
-            label: Text(_isExporting ? 'Đang xuất...' : 'Xuất PNG'),
+            label: Text(tr(_isExporting ? 'Đang xuất...' : 'Xuất PNG')),
             style: OutlinedButton.styleFrom(
               visualDensity: VisualDensity.compact,
               foregroundColor: _accent,
@@ -679,13 +679,13 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title,
+          Text(tr(title),
               style: const TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w700,
                   color: HrmPageChrome.textDark)),
           if (subtitle != null)
-            Text(subtitle,
+            Text(tr(subtitle),
                 style: const TextStyle(
                     fontSize: 11, color: HrmPageChrome.textMuted)),
         ],
@@ -724,9 +724,9 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        _hasActiveFilters
+                        tr(_hasActiveFilters
                             ? 'Bộ lọc (đang áp dụng)'
-                            : 'Bộ lọc theo chi nhánh / phòng ban',
+                            : 'Bộ lọc theo chi nhánh / phòng ban'),
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
@@ -763,7 +763,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                   _filterEmployeeId = null;
                 }),
                 icon: const Icon(Icons.clear, size: 16),
-                label: const Text('Xóa bộ lọc'),
+                label: Text(tr('Xóa bộ lọc')),
               ),
             ),
         ],
@@ -791,7 +791,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                 initialValue: _filterBranchId,
                 isExpanded: true,
                 decoration: InputDecoration(
-                  labelText: 'Chi nhánh',
+                  labelText: tr('Chi nhánh'),
                   labelStyle: TextStyle(fontSize: 12, color: Colors.grey[500]),
                   contentPadding:
                       const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -809,12 +809,12 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                   isDense: true,
                 ),
                 items: [
-                  const DropdownMenuItem(
+                  DropdownMenuItem(
                       value: null,
-                      child: Text('Tất cả', style: TextStyle(fontSize: 12))),
+                      child: Text(tr('Tất cả'), style: TextStyle(fontSize: 12))),
                   ..._branches.map((b) => DropdownMenuItem(
                       value: b['id']?.toString(),
-                      child: Text(b['name']?.toString() ?? '',
+                      child: Text(tr(b['name']?.toString() ?? ''),
                           style: const TextStyle(fontSize: 12),
                           overflow: TextOverflow.ellipsis))),
                 ],
@@ -832,7 +832,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
               initialValue: _filterDepartment,
               isExpanded: true,
               decoration: InputDecoration(
-                labelText: 'Phòng ban',
+                labelText: tr('Phòng ban'),
                 labelStyle: TextStyle(fontSize: 12, color: Colors.grey[500]),
                 contentPadding:
                     const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -850,12 +850,12 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                 isDense: true,
               ),
               items: [
-                const DropdownMenuItem(
+                DropdownMenuItem(
                     value: null,
-                    child: Text('Tất cả', style: TextStyle(fontSize: 12))),
+                    child: Text(tr('Tất cả'), style: TextStyle(fontSize: 12))),
                 ..._departments.map((d) => DropdownMenuItem(
                     value: d,
-                    child: Text(d, style: const TextStyle(fontSize: 12)))),
+                    child: Text(tr(d), style: const TextStyle(fontSize: 12)))),
               ],
               onChanged: (v) => setState(() {
                 _filterDepartment = v;
@@ -869,7 +869,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
               initialValue: _filterEmployeeId,
               isExpanded: true,
               decoration: InputDecoration(
-                labelText: 'Nhân viên',
+                labelText: tr('Nhân viên'),
                 labelStyle: TextStyle(fontSize: 12, color: Colors.grey[500]),
                 contentPadding:
                     const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -887,16 +887,16 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                 isDense: true,
               ),
               items: [
-                const DropdownMenuItem(
+                DropdownMenuItem(
                     value: null,
-                    child: Text('Tất cả', style: TextStyle(fontSize: 12))),
+                    child: Text(tr('Tất cả'), style: TextStyle(fontSize: 12))),
                 ...(_filterDepartment != null
                         ? _targets.where((t) =>
                             t['department']?.toString() == _filterDepartment)
                         : _targets)
                     .map((t) => DropdownMenuItem(
                           value: t['employeeId']?.toString(),
-                          child: Text(t['employeeName']?.toString() ?? '',
+                          child: Text(tr(t['employeeName']?.toString() ?? ''),
                               style: const TextStyle(fontSize: 12),
                               overflow: TextOverflow.ellipsis),
                         )),
@@ -919,7 +919,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                   _filterBranchId = null;
                 }),
                 icon: const Icon(Icons.clear_rounded, size: 18, color: _red),
-                tooltip: 'Xóa bộ lọc',
+                tooltip: tr('Xóa bộ lọc'),
                 constraints: const BoxConstraints(minWidth: 34, minHeight: 34),
                 padding: EdgeInsets.zero,
               ),
@@ -938,7 +938,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
           key.currentContext?.findRenderObject() as RenderRepaintBoundary?;
       if (boundary == null) {
         NotificationOverlayManager().showWarning(
-            title: 'Lỗi', message: 'Không tìm thấy nội dung để chụp');
+            title: 'Lỗi', message: tr('Không tìm thấy nội dung để chụp'));
         return;
       }
       final image = await boundary.toImage(pixelRatio: 3.0);
@@ -950,12 +950,12 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
       await file_saver.saveAndOpenFileBytes(pngBytes, fileName, 'image/png');
       if (mounted) {
         NotificationOverlayManager()
-            .showSuccess(title: 'Xuất PNG', message: 'Đã xuất ảnh: $fileName');
+            .showSuccess(title: 'Xuất PNG', message: tr('Đã xuất ảnh: $fileName'));
       }
     } catch (e) {
       if (mounted) {
         NotificationOverlayManager()
-            .showError(title: 'Lỗi', message: 'Lỗi xuất PNG: $e');
+            .showError(title: 'Lỗi', message: tr('Lỗi xuất PNG: $e'));
       }
     } finally {
       if (mounted) setState(() => _isExporting = false);
@@ -966,7 +966,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
     final data = _filteredTargets;
     if (data.isEmpty) {
       NotificationOverlayManager().showWarning(
-          title: 'Không có dữ liệu', message: 'Không có dữ liệu để xuất');
+          title: 'Không có dữ liệu', message: tr('Không có dữ liệu để xuất'));
       return;
     }
     setState(() => _isExporting = true);
@@ -1030,12 +1030,12 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
           'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
       if (mounted) {
         NotificationOverlayManager().showSuccess(
-            title: 'Xuất Excel', message: 'Đã xuất Excel: $fileName');
+            title: 'Xuất Excel', message: tr('Đã xuất Excel: $fileName'));
       }
     } catch (e) {
       if (mounted) {
         NotificationOverlayManager()
-            .showError(title: 'Lỗi', message: 'Lỗi xuất Excel: $e');
+            .showError(title: 'Lỗi', message: tr('Lỗi xuất Excel: $e'));
       }
     } finally {
       if (mounted) setState(() => _isExporting = false);
@@ -1046,7 +1046,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
     final targets = _filteredTargets;
     if (targets.isEmpty) {
       NotificationOverlayManager().showWarning(
-          title: 'Không có dữ liệu', message: 'Không có dữ liệu để xuất');
+          title: 'Không có dữ liệu', message: tr('Không có dữ liệu để xuất'));
       return;
     }
     setState(() => _isExporting = true);
@@ -1146,12 +1146,12 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
           'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
       if (mounted) {
         NotificationOverlayManager().showSuccess(
-            title: 'Xuất Excel', message: 'Đã xuất Excel: $fileName');
+            title: 'Xuất Excel', message: tr('Đã xuất Excel: $fileName'));
       }
     } catch (e) {
       if (mounted) {
         NotificationOverlayManager()
-            .showError(title: 'Lỗi', message: 'Lỗi xuất Excel: $e');
+            .showError(title: 'Lỗi', message: tr('Lỗi xuất Excel: $e'));
       }
     } finally {
       if (mounted) setState(() => _isExporting = false);
@@ -1298,9 +1298,9 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
       Icons.trending_up,
       _accent,
       child: _filteredTargets.isEmpty
-          ? const Padding(
+          ? Padding(
               padding: EdgeInsets.all(30),
-              child: Center(child: Text('Chưa có chỉ tiêu nào')))
+              child: Center(child: Text(tr('Chưa có chỉ tiêu nào'))))
           : LayoutBuilder(builder: (context, progConstraints) {
               final isNarrow = progConstraints.maxWidth < 500;
               return Column(children: [
@@ -1316,7 +1316,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                               color: _amber,
                               borderRadius: BorderRadius.circular(2))),
                       const SizedBox(width: 4),
-                      Text('Tiến độ ngày: ${dayPct.toStringAsFixed(0)}%',
+                      Text(tr('Tiến độ ngày: ${dayPct.toStringAsFixed(0)}%'),
                           style: const TextStyle(
                               fontSize: 11,
                               color: Color(0xFFD97706),
@@ -1330,7 +1330,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                               color: _red,
                               borderRadius: BorderRadius.circular(2))),
                       const SizedBox(width: 4),
-                      Text('Dưới tiến độ',
+                      Text(tr('Dưới tiến độ'),
                           style:
                               TextStyle(fontSize: 11, color: Colors.grey[500])),
                     ]),
@@ -1342,7 +1342,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                               color: _blue,
                               borderRadius: BorderRadius.circular(2))),
                       const SizedBox(width: 4),
-                      Text('Trên tiến độ',
+                      Text(tr('Trên tiến độ'),
                           style:
                               TextStyle(fontSize: 11, color: Colors.grey[500])),
                     ]),
@@ -1354,7 +1354,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                               color: _green,
                               borderRadius: BorderRadius.circular(2))),
                       const SizedBox(width: 4),
-                      Text('Vượt chỉ tiêu',
+                      Text(tr('Vượt chỉ tiêu'),
                           style:
                               TextStyle(fontSize: 11, color: Colors.grey[500])),
                     ]),
@@ -1384,12 +1384,12 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                           children: [
                             Row(children: [
                               Expanded(
-                                  child: Text(name,
+                                  child: Text(tr(name),
                                       overflow: TextOverflow.ellipsis,
                                       style: const TextStyle(
                                           fontSize: 13,
                                           fontWeight: FontWeight.w500))),
-                              Text('${pct.toStringAsFixed(0)}%',
+                              Text(tr('${pct.toStringAsFixed(0)}%'),
                                   style: TextStyle(
                                       fontWeight: FontWeight.bold,
                                       color: color,
@@ -1433,11 +1433,11 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                             ]),
                             const SizedBox(height: 2),
                             Text(
-                                '${_cur.format(actual)} / ${_cur.format(target)}',
+                                tr('${_cur.format(actual)} / ${_cur.format(target)}'),
                                 style: TextStyle(
                                     color: Colors.grey[600], fontSize: 11)),
                             if (behindSchedule)
-                              Text('Kỳ vọng: ${_cur.format(expectedValue)}',
+                              Text(tr('Kỳ vọng: ${_cur.format(expectedValue)}'),
                                   style: const TextStyle(
                                       color: Color(0xFFD97706), fontSize: 10)),
                           ]),
@@ -1449,7 +1449,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                     child: Row(children: [
                       SizedBox(
                           width: 140,
-                          child: Text(name,
+                          child: Text(tr(name),
                               overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
                                   fontSize: 13, fontWeight: FontWeight.w500))),
@@ -1498,7 +1498,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                             ),
                             child: pct > 15
                                 ? Center(
-                                    child: Text('${pct.toStringAsFixed(0)}%',
+                                    child: Text(tr('${pct.toStringAsFixed(0)}%'),
                                         style: const TextStyle(
                                             color: Colors.white,
                                             fontSize: 9,
@@ -1530,7 +1530,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                       const SizedBox(width: 8),
                       SizedBox(
                           width: 55,
-                          child: Text('${pct.toStringAsFixed(0)}%',
+                          child: Text(tr('${pct.toStringAsFixed(0)}%'),
                               textAlign: TextAlign.right,
                               style: TextStyle(
                                   fontWeight: FontWeight.w800,
@@ -1543,12 +1543,12 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                             crossAxisAlignment: CrossAxisAlignment.end,
                             children: [
                               Text(
-                                  '${_cur.format(actual)} / ${_cur.format(target)}',
+                                  tr('${_cur.format(actual)} / ${_cur.format(target)}'),
                                   textAlign: TextAlign.right,
                                   style: TextStyle(
                                       color: Colors.grey[600], fontSize: 11)),
                               if (behindSchedule)
-                                Text('Kỳ vọng: ${_cur.format(expectedValue)}',
+                                Text(tr('Kỳ vọng: ${_cur.format(expectedValue)}'),
                                     textAlign: TextAlign.right,
                                     style: const TextStyle(
                                         color: Color(0xFFD97706),
@@ -1574,9 +1574,9 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
       Icons.emoji_events,
       _amber,
       child: top.isEmpty
-          ? const Padding(
+          ? Padding(
               padding: EdgeInsets.all(20),
-              child: Center(child: Text('Chưa có dữ liệu')))
+              child: Center(child: Text(tr('Chưa có dữ liệu'))))
           : LayoutBuilder(builder: (context, constraints) {
               final isMobile = constraints.maxWidth < 500;
               return Column(
@@ -1627,7 +1627,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                           shape: BoxShape.circle,
                         ),
                         child: Center(
-                            child: Text(i < 3 ? medals[i] : '${i + 1}',
+                            child: Text(tr(i < 3 ? medals[i] : '${i + 1}'),
                                 style: TextStyle(
                                     fontSize: i < 3 ? 20 : 14,
                                     fontWeight: FontWeight.w700))),
@@ -1637,17 +1637,17 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                           child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(t['employeeName'] ?? '',
+                          Text(tr(t['employeeName'] ?? ''),
                               style: const TextStyle(
                                   fontWeight: FontWeight.w600, fontSize: 14)),
-                          Text(t['department'] ?? '',
+                          Text(tr(t['department'] ?? ''),
                               style: TextStyle(
                                   fontSize: 12, color: Colors.grey[500])),
                         ],
                       )),
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 8),
-                        child: Text('${pct.toStringAsFixed(1)}%',
+                        child: Text(tr('${pct.toStringAsFixed(1)}%'),
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
                               fontSize: 16,
@@ -1753,19 +1753,19 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
         title: Row(children: [
           Icon(icon, color: color, size: 22),
           const SizedBox(width: 8),
-          Expanded(child: Text(title, style: const TextStyle(fontSize: 16))),
+          Expanded(child: Text(tr(title), style: const TextStyle(fontSize: 16))),
         ]),
         content: SizedBox(
           width:
               math.min(400, MediaQuery.of(context).size.width - 32).toDouble(),
           child: Column(mainAxisSize: MainAxisSize.min, children: [
-            Text(content, style: const TextStyle(fontSize: 14)),
+            Text(tr(content), style: const TextStyle(fontSize: 14)),
             const SizedBox(height: 16),
             if (actionType == 'explain') ...[
               TextField(
                 maxLines: 3,
                 decoration: InputDecoration(
-                  labelText: 'Nội dung yêu cầu (tùy chọn)',
+                  labelText: tr('Nội dung yêu cầu (tùy chọn)'),
                   border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(10)),
                   isDense: true,
@@ -1776,17 +1776,15 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
               ListTile(
                 dense: true,
                 leading: const Icon(Icons.calendar_today, size: 18),
-                title: Text(
-                    'Ngày: ${DateFormat('dd/MM/yyyy').format(DateTime.now())}'),
-                subtitle: Text(
-                    'Giờ: ${DateFormat('HH:mm').format(DateTime.now().add(const Duration(hours: 1)))}'),
+                title: Text(tr('${tr('Ngày: ')}${DateFormat('dd/MM/yyyy').format(DateTime.now())}')),
+                subtitle: Text(tr('${tr('Giờ: ')}${DateFormat('HH:mm').format(DateTime.now().add(const Duration(hours: 1)))}')),
               ),
             ],
           ]),
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
+              onPressed: () => Navigator.pop(ctx), child: Text(tr('Hủy'))),
           FilledButton.icon(
             onPressed: () {
               Navigator.pop(ctx);
@@ -1799,7 +1797,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                           : 'Đã lên lịch họp với $name');
             },
             icon: Icon(icon, size: 16),
-            label: const Text('Xác nhận'),
+            label: Text(tr('Xác nhận')),
             style: FilledButton.styleFrom(backgroundColor: color),
           ),
         ],
@@ -1817,7 +1815,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
       builder: (ctx) {
         final content = Column(children: [
           Row(children: [
-            const Text('Tuần này',
+            Text(tr('Tuần này'),
                 style: TextStyle(
                     fontWeight: FontWeight.bold, fontSize: 13, color: _accent)),
             const Spacer(),
@@ -1828,7 +1826,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
               },
               icon: const Icon(Icons.add, size: 16),
               label:
-                  const Text('Yêu cầu báo cáo', style: TextStyle(fontSize: 12)),
+                  Text(tr('Yêu cầu báo cáo'), style: TextStyle(fontSize: 12)),
               style: OutlinedButton.styleFrom(foregroundColor: _accent),
             ),
           ]),
@@ -1840,10 +1838,10 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                 Icon(Icons.assignment_outlined,
                     size: 48, color: Colors.grey[300]),
                 const SizedBox(height: 12),
-                Text('Chưa có báo cáo nào',
+                Text(tr('Chưa có báo cáo nào'),
                     style: TextStyle(color: Colors.grey[500], fontSize: 14)),
                 const SizedBox(height: 8),
-                Text('Nhấn "Yêu cầu báo cáo" để gửi yêu cầu cho nhân viên.',
+                Text(tr('Nhấn "Yêu cầu báo cáo" để gửi yêu cầu cho nhân viên.'),
                     style: TextStyle(color: Colors.grey[400], fontSize: 12)),
               ]),
             ),
@@ -1854,7 +1852,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
           return Dialog.fullscreen(
             child: Scaffold(
               appBar: AppBar(
-                title: Text(dialogTitle, style: const TextStyle(fontSize: 16)),
+                title: Text(tr(dialogTitle), style: const TextStyle(fontSize: 16)),
                 leading: IconButton(
                     icon: const Icon(Icons.close),
                     onPressed: () => Navigator.pop(ctx)),
@@ -1871,7 +1869,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
             const Icon(Icons.assignment, color: _accent, size: 22),
             const SizedBox(width: 8),
             Expanded(
-                child: Text(dialogTitle, style: const TextStyle(fontSize: 16))),
+                child: Text(tr(dialogTitle), style: const TextStyle(fontSize: 16))),
           ]),
           content: SizedBox(
             width: math
@@ -1882,7 +1880,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
           ),
           actions: [
             TextButton(
-                onPressed: () => Navigator.pop(ctx), child: const Text('Đóng')),
+                onPressed: () => Navigator.pop(ctx), child: Text(tr('Đóng'))),
           ],
         );
       },
@@ -1899,7 +1897,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
     void onSubmit(BuildContext ctx) {
       Navigator.pop(ctx);
       NotificationOverlayManager().showInfo(
-          title: 'Thông báo', message: 'Đã gửi yêu cầu báo cáo cho $name');
+          title: 'Thông báo', message: tr('Đã gửi yêu cầu báo cáo cho $name'));
     }
 
     showDialog(
@@ -1922,8 +1920,8 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                       const SizedBox(width: 8),
                       Expanded(
                           child: Text(
-                        'Gửi yêu cầu báo cáo công việc hàng ngày cho nhân viên $name. '
-                        'Nhân viên sẽ nhận thông báo và cần nộp báo cáo.',
+                        tr('Gửi yêu cầu báo cáo công việc hàng ngày cho nhân viên $name. '
+                        'Nhân viên sẽ nhận thông báo và cần nộp báo cáo.'),
                         style: TextStyle(
                             color: Colors.blue.shade700, fontSize: 11),
                       )),
@@ -1934,8 +1932,8 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                 controller: contentCtrl,
                 maxLines: 3,
                 decoration: InputDecoration(
-                  labelText: 'Nội dung yêu cầu *',
-                  hintText: 'VD: Báo cáo tiến độ doanh số, khách hàng mới...',
+                  labelText: tr('Nội dung yêu cầu *'),
+                  hintText: tr('VD: Báo cáo tiến độ doanh số, khách hàng mới...'),
                   border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(10)),
                   isDense: true,
@@ -1945,7 +1943,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
               TextField(
                 controller: noteCtrl,
                 decoration: InputDecoration(
-                  labelText: 'Ghi chú (tùy chọn)',
+                  labelText: tr('Ghi chú (tùy chọn)'),
                   border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(10)),
                   isDense: true,
@@ -1957,7 +1955,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
           return Dialog.fullscreen(
             child: Scaffold(
               appBar: AppBar(
-                title: Text(dialogTitle, style: const TextStyle(fontSize: 16)),
+                title: Text(tr(dialogTitle), style: const TextStyle(fontSize: 16)),
                 leading: IconButton(
                     icon: const Icon(Icons.close),
                     onPressed: () => Navigator.pop(ctx)),
@@ -1967,7 +1965,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                     child: FilledButton(
                       onPressed: () => onSubmit(ctx),
                       style: FilledButton.styleFrom(backgroundColor: _accent),
-                      child: const Text('Gửi yêu cầu'),
+                      child: Text(tr('Gửi yêu cầu')),
                     ),
                   ),
                 ],
@@ -1981,7 +1979,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
         return ScrollableAlertDialog(
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: Text(dialogTitle, style: const TextStyle(fontSize: 16)),
+          title: Text(tr(dialogTitle), style: const TextStyle(fontSize: 16)),
           content: SizedBox(
             width: math
                 .min(500, MediaQuery.of(context).size.width - 32)
@@ -1990,11 +1988,11 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
           ),
           actions: [
             TextButton(
-                onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
+                onPressed: () => Navigator.pop(ctx), child: Text(tr('Hủy'))),
             FilledButton(
               onPressed: () => onSubmit(ctx),
               style: FilledButton.styleFrom(backgroundColor: _accent),
-              child: const Text('Gửi yêu cầu'),
+              child: Text(tr('Gửi yêu cầu')),
             ),
           ],
         );
@@ -2019,10 +2017,10 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
               tilePadding: EdgeInsets.zero,
               childrenPadding: const EdgeInsets.only(top: 8, bottom: 16),
               leading: const Icon(Icons.calendar_month_rounded, color: _accent),
-              title: Text('Chu kỳ đánh giá',
+              title: Text(tr('Chu kỳ đánh giá'),
                   style: theme.textTheme.titleMedium
                       ?.copyWith(fontWeight: FontWeight.w700)),
-              subtitle: Text('${_periods.length} chu kỳ',
+              subtitle: Text(tr('${_periods.length} chu kỳ'),
                   style: const TextStyle(
                       fontSize: 12, color: HrmPageChrome.textMuted)),
               children: [_buildPeriodsSection(theme)],
@@ -2035,13 +2033,13 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
               tilePadding: EdgeInsets.zero,
               childrenPadding: const EdgeInsets.only(top: 8, bottom: 8),
               leading: const Icon(Icons.cloud_sync_rounded, color: _accent),
-              title: Text('Google Sheet',
+              title: Text(tr('Google Sheet'),
                   style: theme.textTheme.titleMedium
                       ?.copyWith(fontWeight: FontWeight.w700)),
               subtitle: Text(
-                  _selPeriodId == null
+                  tr(_selPeriodId == null
                       ? 'Chọn chu kỳ ở header'
-                      : 'Đồng bộ doanh số tự động',
+                      : 'Đồng bộ doanh số tự động'),
                   style: const TextStyle(
                       fontSize: 12, color: HrmPageChrome.textMuted)),
               children: [
@@ -2066,7 +2064,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
           child: FilledButton.icon(
             onPressed: _showPeriodDialog,
             icon: const Icon(Icons.add_rounded, size: 18),
-            label: const Text('Tạo chu kỳ'),
+            label: Text(tr('Tạo chu kỳ')),
             style: FilledButton.styleFrom(
               backgroundColor: _accent,
               shape: RoundedRectangleBorder(
@@ -2103,20 +2101,19 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
       children: [
         Row(children: [
           Expanded(
-              child: Text(
-                  'Thiết lập kết nối Google Sheet cho chu kỳ đang chọn.',
+              child: Text(tr('Thiết lập kết nối Google Sheet cho chu kỳ đang chọn.'),
                   style: TextStyle(
                       color: HrmPageChrome.textMuted, fontSize: 13))),
           OutlinedButton.icon(
             onPressed: _showCopyGSheetConfigDialog,
             icon: const Icon(Icons.copy, size: 16),
-            label: const Text('Copy từ chu kỳ khác',
+            label: Text(tr('Copy từ chu kỳ khác'),
                 style: TextStyle(fontSize: 12)),
           ),
         ]),
         if (lastSynced != null) ...[
           const SizedBox(height: 4),
-          Text('Lần đồng bộ cuối: ${_fmtDateTime(lastSynced)}',
+          Text(tr('Lần đồng bộ cuối: ${_fmtDateTime(lastSynced)}'),
               style: const TextStyle(color: _green, fontSize: 12)),
         ],
         const SizedBox(height: 16),
@@ -2149,7 +2146,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                 color: _accent, size: 20),
           ),
           const SizedBox(width: 12),
-          Text('Chu kỳ đánh giá',
+          Text(tr('Chu kỳ đánh giá'),
               style: theme.textTheme.titleMedium
                   ?.copyWith(fontWeight: FontWeight.w700)),
           const SizedBox(width: 8),
@@ -2158,7 +2155,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
             decoration: BoxDecoration(
                 color: _accent.withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(20)),
-            child: Text('${_periods.length}',
+            child: Text(tr('${_periods.length}'),
                 style: const TextStyle(
                     color: _accent, fontWeight: FontWeight.w700, fontSize: 12)),
           ),
@@ -2166,7 +2163,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
           FilledButton.icon(
             onPressed: _showPeriodDialog,
             icon: const Icon(Icons.add_rounded, size: 18),
-            label: const Text('Tạo chu kỳ'),
+            label: Text(tr('Tạo chu kỳ')),
             style: FilledButton.styleFrom(
               backgroundColor: _accent,
               shape: RoundedRectangleBorder(
@@ -2254,7 +2251,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                 Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Row(children: [
                 Expanded(
-                    child: Text(name,
+                    child: Text(tr(name),
                         style: const TextStyle(
                             fontWeight: FontWeight.w600, fontSize: 14),
                         maxLines: 1,
@@ -2266,7 +2263,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                     decoration: BoxDecoration(
                         color: HrmPageChrome.primaryNavy,
                         borderRadius: BorderRadius.circular(6)),
-                    child: const Text('ĐANG CHỌN',
+                    child: Text(tr('ĐANG CHỌN'),
                         style: TextStyle(
                             color: Colors.white,
                             fontSize: 9,
@@ -2275,11 +2272,11 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
               ]),
               const SizedBox(height: 2),
               Text(
-                [
+                tr([
                   if (start != null)
                     '${start.day}/${start.month}/${start.year}',
                   if (end != null) '→ ${end.day}/${end.month}/${end.year}',
-                ].join(' '),
+                ].join(' ')),
                 style: const TextStyle(color: Color(0xFF71717A), fontSize: 12),
               ),
             ]),
@@ -2289,7 +2286,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
             decoration: BoxDecoration(
                 color: statusColor.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8)),
-            child: Text(statusLabel,
+            child: Text(tr(statusLabel),
                 style: TextStyle(
                     color: statusColor,
                     fontSize: 11,
@@ -2367,7 +2364,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                         decoration: BoxDecoration(
                             color: _accent.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(6)),
-                        child: const Text('ĐANG CHỌN',
+                        child: Text(tr('ĐANG CHỌN'),
                             style: TextStyle(
                                 color: _accent,
                                 fontSize: 9,
@@ -2375,7 +2372,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                                 letterSpacing: 0.5)),
                       ),
                     Expanded(
-                        child: Text(p['name'] ?? '',
+                        child: Text(tr(p['name'] ?? ''),
                             style: const TextStyle(
                                 fontWeight: FontWeight.w700, fontSize: 16))),
                   ]),
@@ -2385,7 +2382,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                         size: 13, color: Colors.grey[400]),
                     const SizedBox(width: 4),
                     Text(
-                        '${_fmtDate(p['periodStart'])} → ${_fmtDate(p['periodEnd'])}',
+                        tr('${_fmtDate(p['periodStart'])} → ${_fmtDate(p['periodEnd'])}'),
                         style:
                             TextStyle(color: Colors.grey[500], fontSize: 13)),
                   ]),
@@ -2399,7 +2396,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                 ]),
                 borderRadius: BorderRadius.circular(20),
               ),
-              child: Text(statusLabel,
+              child: Text(tr(statusLabel),
                   style: TextStyle(
                       color: statusColor,
                       fontWeight: FontWeight.w700,
@@ -2445,7 +2442,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                   _loadPeriodData();
                 },
                 icon: const Icon(Icons.visibility_rounded, size: 16),
-                label: const Text('Chọn', style: TextStyle(fontSize: 12)),
+                label: Text(tr('Chọn'), style: TextStyle(fontSize: 12)),
               ),
             if (Provider.of<PermissionProvider>(context, listen: false)
                 .canDelete('KPI'))
@@ -2483,7 +2480,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
             : null,
       ),
       const SizedBox(height: 4),
-      Text(label,
+      Text(tr(label),
           style: TextStyle(
               fontSize: 9,
               color: isActive ? _periodStatusColor(step) : Colors.grey[400],
@@ -2546,9 +2543,9 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
   void _showPeriodDialog() {
     final nameCtrl = TextEditingController();
     final yearCtrl =
-        TextEditingController(text: DateTime.now().year.toString());
+        TextEditingController(text: tr(DateTime.now().year.toString()));
     final monthCtrl =
-        TextEditingController(text: DateTime.now().month.toString());
+        TextEditingController(text: tr(DateTime.now().month.toString()));
     DateTime startDate = DateTime(DateTime.now().year, DateTime.now().month, 1);
     DateTime endDate =
         DateTime(DateTime.now().year, DateTime.now().month + 1, 0);
@@ -2590,7 +2587,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                     child: ListTile(
                   dense: true,
                   title:
-                      Text('Từ: ${DateFormat('dd/MM/yyyy').format(startDate)}'),
+                      Text(tr('${tr('Từ: ')}${DateFormat('dd/MM/yyyy').format(startDate)}')),
                   trailing: const Icon(Icons.calendar_today, size: 18),
                   onTap: () async {
                     final d = await showDatePicker(
@@ -2605,7 +2602,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                     child: ListTile(
                   dense: true,
                   title:
-                      Text('Đến: ${DateFormat('dd/MM/yyyy').format(endDate)}'),
+                      Text(tr('${tr('Đến: ')}${DateFormat('dd/MM/yyyy').format(endDate)}')),
                   trailing: const Icon(Icons.calendar_today, size: 18),
                   onTap: () async {
                     final d = await showDatePicker(
@@ -2623,7 +2620,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
           return Dialog.fullscreen(
             child: Scaffold(
               appBar: AppBar(
-                title: const Text('Tạo chu kỳ đánh giá'),
+                title: Text(tr('Tạo chu kỳ đánh giá')),
                 leading: IconButton(
                     icon: const Icon(Icons.close),
                     onPressed: () => Navigator.pop(ctx)),
@@ -2633,7 +2630,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                     child: FilledButton(
                       onPressed: onSave,
                       style: FilledButton.styleFrom(backgroundColor: _accent),
-                      child: const Text('Tạo'),
+                      child: Text(tr('Tạo')),
                     ),
                   ),
                 ],
@@ -2647,7 +2644,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
         return ScrollableAlertDialog(
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: const Text('Tạo chu kỳ đánh giá'),
+          title: Text(tr('Tạo chu kỳ đánh giá')),
           content: SizedBox(
             width: math
                 .min(450, MediaQuery.of(context).size.width - 32)
@@ -2656,11 +2653,11 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
           ),
           actions: [
             TextButton(
-                onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
+                onPressed: () => Navigator.pop(ctx), child: Text(tr('Hủy'))),
             FilledButton(
               onPressed: onSave,
               style: FilledButton.styleFrom(backgroundColor: _accent),
-              child: const Text('Tạo'),
+              child: Text(tr('Tạo')),
             ),
           ],
         );
@@ -2682,7 +2679,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
       setState(() => _loading = false);
       if (res['isSuccess'] == true) {
         NotificationOverlayManager()
-            .showSuccess(title: 'Thành công', message: 'Đã tính lương KPI');
+            .showSuccess(title: 'Thành công', message: tr('Đã tính lương KPI'));
         await _loadData(showLoading: false);
       } else {
         NotificationOverlayManager().showError(
@@ -2746,7 +2743,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                           : () => _requireOpenPeriod())
                       : null,
                   icon: const Icon(Icons.person_add_rounded, size: 18),
-                  label: const Text('Giao chỉ tiêu'),
+                  label: Text(tr('Giao chỉ tiêu')),
                   style: FilledButton.styleFrom(
                     backgroundColor: _accent,
                     visualDensity: VisualDensity.compact,
@@ -2757,7 +2754,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                       ? _showBatchUpdateDialog
                       : () => _requireOpenPeriod(),
                   icon: const Icon(Icons.edit_note_outlined, size: 18),
-                  label: const Text('Cập nhật doanh số'),
+                  label: Text(tr('Cập nhật doanh số')),
                   style: btnStyle,
                 ),
                 OutlinedButton.icon(
@@ -2765,7 +2762,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                       ? _importExcelActuals
                       : () => _requireOpenPeriod(),
                   icon: const Icon(Icons.upload_file_outlined, size: 18),
-                  label: const Text('Nhập Excel'),
+                  label: Text(tr('Nhập Excel')),
                   style: btnStyle,
                 ),
                 OutlinedButton.icon(
@@ -2773,7 +2770,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                       ? _writeTargetsToGSheet
                       : () => _requireOpenPeriod(),
                   icon: const Icon(Icons.cloud_upload_outlined, size: 18),
-                  label: const Text('Ghi Google Sheet'),
+                  label: Text(tr('Ghi Google Sheet')),
                   style: btnStyle,
                 ),
               ],
@@ -2919,7 +2916,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                                 valueColor: AlwaysStoppedAnimation(color),
                                 strokeCap: StrokeCap.round,
                               ),
-                              Text(pct.toStringAsFixed(0),
+                              Text(tr(pct.toStringAsFixed(0)),
                                   style: TextStyle(
                                       fontSize: 11,
                                       fontWeight: FontWeight.w800,
@@ -2931,7 +2928,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                               child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(t['employeeName'] ?? '',
+                              Text(tr(t['employeeName'] ?? ''),
                                   style: const TextStyle(
                                       fontWeight: FontWeight.w700,
                                       fontSize: 14)),
@@ -2947,9 +2944,9 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                                           .withValues(alpha: 0.08),
                                       borderRadius: BorderRadius.circular(4)),
                                   child: Text(
-                                      t['criteriaType'] == 0
+                                      tr(t['criteriaType'] == 0
                                           ? 'Doanh thu'
-                                          : 'Point',
+                                          : 'Point'),
                                       style: TextStyle(
                                           color: (t['criteriaType'] ?? 0) == 0
                                               ? _blue
@@ -2958,12 +2955,11 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                                           fontWeight: FontWeight.w600)),
                                 ),
                                 const SizedBox(width: 6),
-                                Text(t['department'] ?? '',
+                                Text(tr(t['department'] ?? ''),
                                     style: TextStyle(
                                         color: Colors.grey[500], fontSize: 12)),
                                 const SizedBox(width: 6),
-                                Text(
-                                    'Lương HT: ${_cur.format(t['completionSalary'] ?? 0)}',
+                                Text(tr('${tr('Lương HT: ')}${_cur.format(t['completionSalary'] ?? 0)}'),
                                     style: TextStyle(
                                         color: Colors.grey[400], fontSize: 11)),
                               ]),
@@ -2977,7 +2973,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                                   Icon(Icons.flag_rounded,
                                       size: 12, color: Colors.grey[400]),
                                   const SizedBox(width: 3),
-                                  Text(_cur.format(t['targetValue'] ?? 0),
+                                  Text(tr(_cur.format(t['targetValue'] ?? 0)),
                                       style: TextStyle(
                                           color: Colors.grey[600],
                                           fontSize: 12)),
@@ -2994,9 +2990,9 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                                     borderRadius: BorderRadius.circular(8),
                                   ),
                                   child: Text(
-                                      t['actualValue'] != null
+                                      tr(t['actualValue'] != null
                                           ? _cur.format(t['actualValue'])
-                                          : 'chưa có',
+                                          : 'chưa có'),
                                       style: TextStyle(
                                           fontWeight: FontWeight.w700,
                                           fontSize: 13,
@@ -3014,7 +3010,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                                 icon: const Icon(Icons.edit_rounded,
                                     size: 18, color: _accent),
                                 onPressed: () => _showEditTargetDialog(t),
-                                tooltip: 'Sửa chỉ tiêu',
+                                tooltip: tr('Sửa chỉ tiêu'),
                                 constraints: const BoxConstraints(
                                     minWidth: 34, minHeight: 34),
                                 padding: EdgeInsets.zero,
@@ -3028,7 +3024,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                                 onPressed: () => _deleteItem(() =>
                                     _api.deleteKpiEmployeeTarget(
                                         t['id'].toString())),
-                                tooltip: 'Xóa',
+                                tooltip: tr('Xóa'),
                                 constraints: const BoxConstraints(
                                     minWidth: 34, minHeight: 34),
                                 padding: EdgeInsets.zero,
@@ -3159,15 +3155,15 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
         break;
     }
     final dropdownItems = criteriaType == 1
-        ? const [
-            DropdownMenuItem(value: 0, child: Text('VNĐ/1 point vượt')),
-            DropdownMenuItem(value: 3, child: Text('% lương hoàn thành')),
-            DropdownMenuItem(value: 2, child: Text('Giá trị VNĐ')),
+        ? [
+            DropdownMenuItem(value: 0, child: Text(tr('VNĐ/1 point vượt'))),
+            DropdownMenuItem(value: 3, child: Text(tr('% lương hoàn thành'))),
+            DropdownMenuItem(value: 2, child: Text(tr('Giá trị VNĐ'))),
           ]
-        : const [
-            DropdownMenuItem(value: 1, child: Text('% doanh thu')),
-            DropdownMenuItem(value: 3, child: Text('% lương hoàn thành')),
-            DropdownMenuItem(value: 2, child: Text('Giá trị VNĐ')),
+        : [
+            DropdownMenuItem(value: 1, child: Text(tr('% doanh thu'))),
+            DropdownMenuItem(value: 3, child: Text(tr('% lương hoàn thành'))),
+            DropdownMenuItem(value: 2, child: Text(tr('Giá trị VNĐ'))),
           ];
     // Ensure rateType is valid for current criteriaType
     final validValues = dropdownItems.map((e) => e.value).toSet();
@@ -3177,7 +3173,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
     }
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Row(children: [
-        const Text('Bậc thưởng vượt chỉ tiêu (=100%)',
+        Text(tr('Bậc thưởng vượt chỉ tiêu (=100%)'),
             style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
         const Spacer(),
         SizedBox(
@@ -3186,8 +3182,8 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
             initialValue: validValues.contains(rateType)
                 ? rateType
                 : dropdownItems.first.value,
-            decoration: const InputDecoration(
-                labelText: 'Kiểu thưởng',
+            decoration: InputDecoration(
+                labelText: tr('Kiểu thưởng'),
                 border: OutlineInputBorder(),
                 isDense: true,
                 contentPadding:
@@ -3208,7 +3204,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                 'rateType': rateType
               })),
           icon: const Icon(Icons.add, size: 16),
-          label: const Text('Thêm bậc', style: TextStyle(fontSize: 12)),
+          label: Text(tr('Thêm bậc'), style: TextStyle(fontSize: 12)),
         ),
       ]),
       const SizedBox(height: 8),
@@ -3224,19 +3220,19 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                 borderRadius:
                     const BorderRadius.vertical(top: Radius.circular(10))),
             child: Row(children: [
-              const Expanded(
-                  child: Text('Từ %',
+              Expanded(
+                  child: Text(tr('Từ %'),
                       textAlign: TextAlign.center,
                       style: TextStyle(
                           fontWeight: FontWeight.w600, fontSize: 11))),
-              const Expanded(
-                  child: Text('Đến %',
+              Expanded(
+                  child: Text(tr('Đến %'),
                       textAlign: TextAlign.center,
                       style: TextStyle(
                           fontWeight: FontWeight.w600, fontSize: 11))),
               Expanded(
                   flex: 2,
-                  child: Text(valueHeader,
+                  child: Text(tr(valueHeader),
                       textAlign: TextAlign.center,
                       style: const TextStyle(
                           fontWeight: FontWeight.w600, fontSize: 11))),
@@ -3244,9 +3240,9 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
             ]),
           ),
           if (tiers.isEmpty)
-            const Padding(
+            Padding(
                 padding: EdgeInsets.all(12),
-                child: Text('Chưa có bậc thưởng',
+                child: Text(tr('Chưa có bậc thưởng'),
                     style: TextStyle(color: Colors.grey, fontSize: 12)))
           else
             ...tiers.asMap().entries.map((e) {
@@ -3277,11 +3273,11 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                         '${t['toPct'] == -1 ? '8' : t['toPct'] ?? 120}',
                     textAlign: TextAlign.center,
                     style: const TextStyle(fontSize: 12),
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                         border: InputBorder.none,
                         isDense: true,
                         contentPadding: EdgeInsets.symmetric(vertical: 6),
-                        hintText: '8 = -1'),
+                        hintText: tr('8 = -1')),
                     onChanged: (v) => tiers[i]['toPct'] =
                         v == '8' ? -1 : (num.tryParse(v) ?? -1),
                   )),
@@ -3296,7 +3292,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                             isDense: true,
                             contentPadding:
                                 const EdgeInsets.symmetric(vertical: 6),
-                            hintText: hintText),
+                            hintText: tr(hintText)),
                         keyboardType: TextInputType.number,
                         inputFormatters: [ThousandSeparatorFormatter()],
                         onChanged: (v) =>
@@ -3317,7 +3313,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
         ]),
       ),
       const SizedBox(height: 4),
-      Text(example,
+      Text(tr(example),
           style: TextStyle(
               color: Colors.grey[500],
               fontSize: 11,
@@ -3337,7 +3333,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
         'Số âm = phạt, số dương = thưởng. VD: Đạt 50-79% → phạt -500.000d.';
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Row(children: [
-        const Text('Thưởng/Phạt dưới 100%',
+        Text(tr('Thưởng/Phạt dưới 100%'),
             style: TextStyle(
                 fontWeight: FontWeight.w600,
                 fontSize: 13,
@@ -3351,7 +3347,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                 'rateType': 0,
               })),
           icon: const Icon(Icons.add, size: 16),
-          label: const Text('Thêm mốc', style: TextStyle(fontSize: 12)),
+          label: Text(tr('Thêm mốc'), style: TextStyle(fontSize: 12)),
         ),
       ]),
       const SizedBox(height: 8),
@@ -3366,20 +3362,20 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                 color: Colors.red.shade50,
                 borderRadius:
                     const BorderRadius.vertical(top: Radius.circular(10))),
-            child: const Row(children: [
+            child: Row(children: [
               Expanded(
-                  child: Text('Từ %',
+                  child: Text(tr('Từ %'),
                       textAlign: TextAlign.center,
                       style: TextStyle(
                           fontWeight: FontWeight.w600, fontSize: 11))),
               Expanded(
-                  child: Text('Đến %',
+                  child: Text(tr('Đến %'),
                       textAlign: TextAlign.center,
                       style: TextStyle(
                           fontWeight: FontWeight.w600, fontSize: 11))),
               Expanded(
                   flex: 2,
-                  child: Text(valueHeader,
+                  child: Text(tr(valueHeader),
                       textAlign: TextAlign.center,
                       style: TextStyle(
                           fontWeight: FontWeight.w600, fontSize: 11))),
@@ -3389,7 +3385,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
           if (tiers.isEmpty)
             Padding(
                 padding: const EdgeInsets.all(12),
-                child: Text('Chưa có mốc nào (lương tỷ lệ theo % đạt)',
+                child: Text(tr('Chưa có mốc nào (lương tỷ lệ theo % đạt)'),
                     style: TextStyle(color: Colors.grey[500], fontSize: 12)))
           else
             ...tiers.asMap().entries.map((e) {
@@ -3437,11 +3433,11 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                             color: (t['rate'] ?? 0) < 0
                                 ? Colors.red
                                 : Colors.green),
-                        decoration: const InputDecoration(
+                        decoration: InputDecoration(
                             border: InputBorder.none,
                             isDense: true,
                             contentPadding: EdgeInsets.symmetric(vertical: 6),
-                            hintText: hintText),
+                            hintText: tr(hintText)),
                         keyboardType:
                             const TextInputType.numberWithOptions(signed: true),
                         inputFormatters: [ThousandSeparatorFormatter()],
@@ -3463,7 +3459,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
         ]),
       ),
       const SizedBox(height: 4),
-      Text(example,
+      Text(tr(example),
           style: TextStyle(
               color: Colors.grey[500],
               fontSize: 11,
@@ -3525,8 +3521,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
             if (mounted) {
               NotificationOverlayManager().showSuccess(
                   title: 'Thành công',
-                  message:
-                      'Đã giao chỉ tiêu cho ${selectedEmpIds.length} nhân viên');
+                  message: tr('Đã giao chỉ tiêu cho ${selectedEmpIds.length} nhân viên'));
             }
             _loadPeriodData();
           }
@@ -3545,7 +3540,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                     padding: const EdgeInsets.all(8),
                     child: TextField(
                       decoration: InputDecoration(
-                        hintText: 'Tìm nhân viên...',
+                        hintText: tr('Tìm nhân viên...'),
                         prefixIcon: const Icon(Icons.search, size: 18),
                         border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(8)),
@@ -3555,11 +3550,11 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                           TextButton(
                               onPressed: () => ss(() => selectedEmpIds.addAll(
                                   filtered.map((e) => e['id'].toString()))),
-                              child: const Text('Tất cả',
+                              child: Text(tr('Tất cả'),
                                   style: TextStyle(fontSize: 11))),
                           TextButton(
                               onPressed: () => ss(() => selectedEmpIds.clear()),
-                              child: const Text('Bỏ chọn',
+                              child: Text(tr('Bỏ chọn'),
                                   style: TextStyle(fontSize: 11))),
                         ]),
                       ),
@@ -3579,7 +3574,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                               ? selectedEmpIds.add(id)
                               : selectedEmpIds.remove(id)),
                           title: Text(
-                              '${e['lastName'] ?? ''} ${e['firstName'] ?? ''} (${e['employeeCode'] ?? ''})',
+                              tr('${e['lastName'] ?? ''} ${e['firstName'] ?? ''} (${e['employeeCode'] ?? ''})'),
                               style: const TextStyle(fontSize: 13)),
                           dense: true,
                           controlAffinity: ListTileControlAffinity.leading,
@@ -3590,7 +3585,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                   if (selectedEmpIds.isNotEmpty)
                     Padding(
                       padding: const EdgeInsets.all(8),
-                      child: Text('Đã chọn ${selectedEmpIds.length} nhân viên',
+                      child: Text(tr('Đã chọn ${selectedEmpIds.length} nhân viên'),
                           style: const TextStyle(
                               color: _accent,
                               fontWeight: FontWeight.w600,
@@ -3602,12 +3597,12 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
               DropdownButtonFormField<int>(
                 initialValue: criteriaType,
                 decoration: InputDecoration(
-                    labelText: 'Loại chỉ tiêu',
+                    labelText: tr('Loại chỉ tiêu'),
                     border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10))),
-                items: const [
-                  DropdownMenuItem(value: 0, child: Text('Doanh thu')),
-                  DropdownMenuItem(value: 1, child: Text('Điểm số')),
+                items: [
+                  DropdownMenuItem(value: 0, child: Text(tr('Doanh thu'))),
+                  DropdownMenuItem(value: 1, child: Text(tr('Điểm số'))),
                 ],
                 onChanged: (v) => ss(() {
                   criteriaType = v ?? 0;
@@ -3656,7 +3651,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
           return Dialog.fullscreen(
             child: Scaffold(
               appBar: AppBar(
-                title: const Text('Giao chỉ tiêu cho nhân viên'),
+                title: Text(tr('Giao chỉ tiêu cho nhân viên')),
                 leading: IconButton(
                     icon: const Icon(Icons.close),
                     onPressed: () => Navigator.pop(ctx)),
@@ -3666,7 +3661,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                     child: FilledButton(
                       onPressed: selectedEmpIds.isEmpty ? null : onSave,
                       style: FilledButton.styleFrom(backgroundColor: _accent),
-                      child: Text('Giao (${selectedEmpIds.length})'),
+                      child: Text(tr('Giao (${selectedEmpIds.length})')),
                     ),
                   ),
                 ],
@@ -3680,7 +3675,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
         return ScrollableAlertDialog(
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: const Text('Giao chỉ tiêu cho nhân viên'),
+          title: Text(tr('Giao chỉ tiêu cho nhân viên')),
           content: SizedBox(
             width: math
                 .min(620, MediaQuery.of(context).size.width - 32)
@@ -3689,11 +3684,11 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
           ),
           actions: [
             TextButton(
-                onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
+                onPressed: () => Navigator.pop(ctx), child: Text(tr('Hủy'))),
             FilledButton(
               onPressed: selectedEmpIds.isEmpty ? null : onSave,
               style: FilledButton.styleFrom(backgroundColor: _accent),
-              child: Text('Giao (${selectedEmpIds.length})'),
+              child: Text(tr('Giao (${selectedEmpIds.length})')),
             ),
           ],
         );
@@ -3703,12 +3698,12 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
 
   void _showEditTargetDialog(Map<String, dynamic> t) {
     final targetCtrl =
-        TextEditingController(text: formatNumber(t['targetValue']));
+        TextEditingController(text: tr(formatNumber(t['targetValue'])));
     final actualCtrl =
-        TextEditingController(text: formatNumber(t['actualValue']));
+        TextEditingController(text: tr(formatNumber(t['actualValue'])));
     final salaryCtrl =
-        TextEditingController(text: formatNumber(t['completionSalary']));
-    final notesCtrl = TextEditingController(text: t['notes'] ?? '');
+        TextEditingController(text: tr(formatNumber(t['completionSalary'])));
+    final notesCtrl = TextEditingController(text: tr(t['notes'] ?? ''));
     final tiers = _parseTiers(t['bonusTiersJson']?.toString());
     final penaltyTiers = _parsePenaltyTiers(t['penaltyTiersJson']?.toString());
     int penaltyRateType = penaltyTiers.isNotEmpty
@@ -3783,7 +3778,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
           return Dialog.fullscreen(
             child: Scaffold(
               appBar: AppBar(
-                title: Text(dialogTitle, style: const TextStyle(fontSize: 16)),
+                title: Text(tr(dialogTitle), style: const TextStyle(fontSize: 16)),
                 leading: IconButton(
                     icon: const Icon(Icons.close),
                     onPressed: () => Navigator.pop(ctx)),
@@ -3793,7 +3788,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                     child: FilledButton(
                       onPressed: onSave,
                       style: FilledButton.styleFrom(backgroundColor: _accent),
-                      child: const Text('Cập nhật'),
+                      child: Text(tr('Cập nhật')),
                     ),
                   ),
                 ],
@@ -3807,7 +3802,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
         return ScrollableAlertDialog(
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: Text(dialogTitle),
+          title: Text(tr(dialogTitle)),
           content: SizedBox(
             width: math
                 .min(560, MediaQuery.of(context).size.width - 32)
@@ -3816,11 +3811,11 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
           ),
           actions: [
             TextButton(
-                onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
+                onPressed: () => Navigator.pop(ctx), child: Text(tr('Hủy'))),
             FilledButton(
               onPressed: onSave,
               style: FilledButton.styleFrom(backgroundColor: _accent),
-              child: const Text('Cập nhật'),
+              child: Text(tr('Cập nhật')),
             ),
           ],
         );
@@ -3832,7 +3827,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
     final controllers = <String, TextEditingController>{};
     for (final t in _targets) {
       controllers[t['id'].toString()] =
-          TextEditingController(text: formatNumber(t['actualValue']));
+          TextEditingController(text: tr(formatNumber(t['actualValue'])));
     }
     final isMobile = Responsive.isMobile(context);
 
@@ -3872,18 +3867,18 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                 ? Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                        Text(t['employeeName'] ?? '',
+                        Text(tr(t['employeeName'] ?? ''),
                             style: const TextStyle(
                                 fontSize: 13, fontWeight: FontWeight.w600)),
                         const SizedBox(height: 4),
-                        Text('Mục tiêu: ${_cur.format(t['targetValue'] ?? 0)}',
+                        Text(tr('${tr('Mục tiêu: ')}${_cur.format(t['targetValue'] ?? 0)}'),
                             style: TextStyle(
                                 fontSize: 11, color: Colors.grey[600])),
                         const SizedBox(height: 4),
                         TextField(
                           controller: controllers[id],
                           decoration: InputDecoration(
-                              labelText: 'Thực tế',
+                              labelText: tr('Thực tế'),
                               border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(8)),
                               isDense: true),
@@ -3895,18 +3890,17 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                 : Row(children: [
                     Expanded(
                         flex: 2,
-                        child: Text(t['employeeName'] ?? '',
+                        child: Text(tr(t['employeeName'] ?? ''),
                             style: const TextStyle(fontSize: 13))),
                     Expanded(
-                        child: Text(
-                            'Mục tiêu: ${_cur.format(t['targetValue'] ?? 0)}',
+                        child: Text(tr('${tr('Mục tiêu: ')}${_cur.format(t['targetValue'] ?? 0)}'),
                             style: TextStyle(
                                 fontSize: 11, color: Colors.grey[600]))),
                     Expanded(
                         child: TextField(
                       controller: controllers[id],
                       decoration: InputDecoration(
-                          labelText: 'Thực tế',
+                          labelText: tr('Thực tế'),
                           border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(8)),
                           isDense: true),
@@ -3926,7 +3920,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
           return Dialog.fullscreen(
             child: Scaffold(
               appBar: AppBar(
-                title: const Text('Cập nhật doanh số hàng loạt'),
+                title: Text(tr('Cập nhật doanh số hàng loạt')),
                 leading: IconButton(
                     icon: const Icon(Icons.close),
                     onPressed: () => Navigator.pop(ctx)),
@@ -3936,7 +3930,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                     child: FilledButton(
                       onPressed: () => onSave(ctx),
                       style: FilledButton.styleFrom(backgroundColor: _accent),
-                      child: const Text('Lưu tất cả'),
+                      child: Text(tr('Lưu tất cả')),
                     ),
                   ),
                 ],
@@ -3952,7 +3946,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
         return ScrollableAlertDialog(
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: const Text('Cập nhật doanh số hàng loạt'),
+          title: Text(tr('Cập nhật doanh số hàng loạt')),
           content: SizedBox(
             width: math
                 .min(600, MediaQuery.of(context).size.width - 32)
@@ -3962,11 +3956,11 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
           ),
           actions: [
             TextButton(
-                onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
+                onPressed: () => Navigator.pop(ctx), child: Text(tr('Hủy'))),
             FilledButton(
               onPressed: () => onSave(ctx),
               style: FilledButton.styleFrom(backgroundColor: _accent),
-              child: const Text('Lưu tất cả'),
+              child: Text(tr('Lưu tất cả')),
             ),
           ],
         );
@@ -4054,7 +4048,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                 OutlinedButton.icon(
                   onPressed: () => _calculateSalary(_selPeriodId),
                   icon: const Icon(Icons.refresh_rounded, size: 18),
-                  label: const Text('Tính lại'),
+                  label: Text(tr('Tính lại')),
                 ),
               if (_isPeriodCalculated &&
                   pendingCount > 0 &&
@@ -4069,7 +4063,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                     }
                   },
                   icon: const Icon(Icons.verified_outlined, size: 18),
-                  label: Text('Duyệt ($pendingCount)'),
+                  label: Text(tr('Duyệt ($pendingCount)')),
                   style: FilledButton.styleFrom(backgroundColor: _accent),
                 ),
               ],
@@ -4120,33 +4114,33 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                   child: DataTable(
                     headingRowColor:
                         WidgetStateProperty.all(const Color(0xFFFAFAFA)),
-                    columns: const [
-                      DataColumn(label: Text('Mã NV')),
-                      DataColumn(label: Text('Họ tên')),
-                      DataColumn(label: Text('% KPI')),
-                      DataColumn(label: Text('Lương CB')),
-                      DataColumn(label: Text('Thưởng KPI')),
-                      DataColumn(label: Text('Phụ cấp')),
-                      DataColumn(label: Text('Khấu trừ')),
-                      DataColumn(label: Text('Gross')),
-                      DataColumn(label: Text('Thực nhận')),
-                      DataColumn(label: Text('Trạng thái')),
+                    columns: [
+                      DataColumn(label: Text(tr('Mã NV'))),
+                      DataColumn(label: Text(tr('Họ tên'))),
+                      DataColumn(label: Text(tr('% KPI'))),
+                      DataColumn(label: Text(tr('Lương CB'))),
+                      DataColumn(label: Text(tr('Thưởng KPI'))),
+                      DataColumn(label: Text(tr('Phụ cấp'))),
+                      DataColumn(label: Text(tr('Khấu trừ'))),
+                      DataColumn(label: Text(tr('Gross'))),
+                      DataColumn(label: Text(tr('Thực nhận'))),
+                      DataColumn(label: Text(tr('Trạng thái'))),
                     ],
                     rows: rows.map((s) {
                       final approved = s['isApproved'] == true;
                       final score =
                           ((s['totalKpiScore'] ?? 0) as num).toDouble();
                       return DataRow(cells: [
-                        DataCell(Text(s['employeeCode']?.toString() ?? '')),
-                        DataCell(Text(s['employeeName']?.toString() ?? '')),
-                        DataCell(Text('${score.toStringAsFixed(1)}%')),
-                        DataCell(Text(_cur.format(s['baseSalary'] ?? 0))),
-                        DataCell(Text(_cur.format(s['kpiBonusAmount'] ?? 0))),
-                        DataCell(Text(_cur.format(s['allowances'] ?? 0))),
-                        DataCell(Text(_cur.format(s['deductions'] ?? 0))),
-                        DataCell(Text(_cur.format(s['grossIncome'] ?? 0),
+                        DataCell(Text(tr(s['employeeCode']?.toString() ?? ''))),
+                        DataCell(Text(tr(s['employeeName']?.toString() ?? ''))),
+                        DataCell(Text(tr('${score.toStringAsFixed(1)}%'))),
+                        DataCell(Text(tr(_cur.format(s['baseSalary'] ?? 0)))),
+                        DataCell(Text(tr(_cur.format(s['kpiBonusAmount'] ?? 0)))),
+                        DataCell(Text(tr(_cur.format(s['allowances'] ?? 0)))),
+                        DataCell(Text(tr(_cur.format(s['deductions'] ?? 0)))),
+                        DataCell(Text(tr(_cur.format(s['grossIncome'] ?? 0)),
                             style: const TextStyle(fontWeight: FontWeight.w600))),
-                        DataCell(Text(_cur.format(s['netIncome'] ?? 0),
+                        DataCell(Text(tr(_cur.format(s['netIncome'] ?? 0)),
                             style: const TextStyle(fontWeight: FontWeight.bold))),
                         DataCell(Container(
                           padding: const EdgeInsets.symmetric(
@@ -4157,7 +4151,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(
-                              approved ? 'Đã duyệt' : 'Chờ duyệt',
+                              tr(approved ? 'Đã duyệt' : 'Chờ duyệt'),
                               style: TextStyle(
                                   fontSize: 11,
                                   fontWeight: FontWeight.w600,
@@ -4187,7 +4181,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
           children: [
             Row(children: [
               Expanded(
-                  child: Text(s['employeeName']?.toString() ?? '',
+                  child: Text(tr(s['employeeName']?.toString() ?? ''),
                       style: const TextStyle(
                           fontWeight: FontWeight.w700, fontSize: 14))),
               Container(
@@ -4197,14 +4191,14 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                   color: (approved ? _green : _amber).withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: Text(approved ? 'Đã duyệt' : 'Chờ duyệt',
+                child: Text(tr(approved ? 'Đã duyệt' : 'Chờ duyệt'),
                     style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
                         color: approved ? _green : _amber)),
               ),
             ]),
-            Text(s['employeeCode']?.toString() ?? '',
+            Text(tr(s['employeeCode']?.toString() ?? ''),
                 style: const TextStyle(
                     color: HrmPageChrome.textMuted, fontSize: 12)),
             const Divider(height: 20),
@@ -4253,7 +4247,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                     ? () => _calculateSalary(_selPeriodId)
                     : () => _requireLockedPeriod(),
                 icon: const Icon(Icons.calculate_outlined, size: 18),
-                label: const Text('Tính lương KPI'),
+                label: Text(tr('Tính lương KPI')),
                 style: FilledButton.styleFrom(
                   backgroundColor: _accent,
                   visualDensity: VisualDensity.compact,
@@ -4322,52 +4316,52 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                                     color: Color(0xFF334155)),
                                 dataTextStyle: const TextStyle(fontSize: 12),
                                 columns: [
-                                  const DataColumn(
+                                  DataColumn(
                                       label: Expanded(
-                                          child: Text('STT',
+                                          child: Text(tr('STT'),
                                               textAlign: TextAlign.center))),
-                                  const DataColumn(
+                                  DataColumn(
                                       label: Expanded(
-                                          child: Text('Tên nhân viên',
+                                          child: Text(tr('Tên nhân viên'),
                                               textAlign: TextAlign.center))),
-                                  const DataColumn(
+                                  DataColumn(
                                       label: Expanded(
-                                          child: Text('Mã nhân viên',
+                                          child: Text(tr('Mã nhân viên'),
                                               textAlign: TextAlign.center))),
-                                  const DataColumn(
+                                  DataColumn(
                                       label: Expanded(
-                                          child: Text('Chỉ tiêu KPI',
+                                          child: Text(tr('Chỉ tiêu KPI'),
                                               textAlign: TextAlign.center))),
-                                  const DataColumn(
+                                  DataColumn(
                                       label: Expanded(
-                                          child: Text('KPI đạt được',
+                                          child: Text(tr('KPI đạt được'),
                                               textAlign: TextAlign.center))),
-                                  const DataColumn(
+                                  DataColumn(
                                       label: Expanded(
-                                          child: Text('Tỷ lệ hoàn thành',
+                                          child: Text(tr('Tỷ lệ hoàn thành'),
                                               textAlign: TextAlign.center))),
-                                  const DataColumn(
+                                  DataColumn(
                                       label: Expanded(
-                                          child: Text('Thưởng/Phạt',
+                                          child: Text(tr('Thưởng/Phạt'),
                                               textAlign: TextAlign.center))),
-                                  const DataColumn(
+                                  DataColumn(
                                       label: Expanded(
-                                          child: Text('Lương hoàn thành',
+                                          child: Text(tr('Lương hoàn thành'),
                                               textAlign: TextAlign.center))),
                                   // Dynamic tier columns
                                   for (int i = 0; i < maxTiers; i++) ...[
                                     DataColumn(
                                         label: Expanded(
-                                            child: Text('Bậc ${i + 1}',
+                                            child: Text(tr('Bậc ${i + 1}'),
                                                 textAlign: TextAlign.center))),
                                     DataColumn(
                                         label: Expanded(
-                                            child: Text('Thưởng bậc ${i + 1}',
+                                            child: Text(tr('Thưởng bậc ${i + 1}'),
                                                 textAlign: TextAlign.center))),
                                   ],
-                                  const DataColumn(
+                                  DataColumn(
                                       label: Expanded(
-                                          child: Text('Tổng thưởng',
+                                          child: Text(tr('Tổng thưởng'),
                                               textAlign: TextAlign.center))),
                                 ],
                                 rows: [
@@ -4412,27 +4406,27 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
 
                                     return DataRow(cells: [
                                       DataCell(Center(
-                                          child: Text('${idx + 1}',
+                                          child: Text(tr('${idx + 1}'),
                                               style: TextStyle(
                                                   color: Colors.grey[500])))),
                                       DataCell(Center(
                                           child: SizedBox(
                                         width: 130,
-                                        child: Text(t['employeeName'] ?? '',
+                                        child: Text(tr(t['employeeName'] ?? ''),
                                             style: const TextStyle(
                                                 fontWeight: FontWeight.w600),
                                             overflow: TextOverflow.ellipsis,
                                             textAlign: TextAlign.center),
                                       ))),
                                       DataCell(Center(
-                                          child: Text(t['employeeCode'] ?? '',
+                                          child: Text(tr(t['employeeCode'] ?? ''),
                                               style: TextStyle(
                                                   color: Colors.grey[600])))),
                                       DataCell(Center(
-                                          child: Text(_cur.format(tgt)))),
+                                          child: Text(tr(_cur.format(tgt))))),
                                       DataCell(Center(
                                           child: Text(
-                                              act > 0 ? _cur.format(act) : '-',
+                                              tr(act > 0 ? _cur.format(act) : '-'),
                                               style: TextStyle(
                                                   color: act > 0
                                                       ? Colors.black87
@@ -4447,14 +4441,14 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                                             borderRadius:
                                                 BorderRadius.circular(6)),
                                         child: Text(
-                                            '${pct.toStringAsFixed(1)}%',
+                                            tr('${pct.toStringAsFixed(1)}%'),
                                             style: TextStyle(
                                                 fontWeight: FontWeight.w600,
                                                 color: pctColor,
                                                 fontSize: 11)),
                                       ))),
                                       DataCell(Center(
-                                          child: Text(_cur.format(penaltyBonus),
+                                          child: Text(tr(_cur.format(penaltyBonus)),
                                               style: TextStyle(
                                                   fontWeight: FontWeight.w600,
                                                   color: penaltyBonus < 0
@@ -4463,7 +4457,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                                                           ? _green
                                                           : Colors.grey)))),
                                       DataCell(Center(
-                                          child: Text(_cur.format(salaryHT),
+                                          child: Text(tr(_cur.format(salaryHT)),
                                               style: TextStyle(
                                                   fontWeight: FontWeight.w500,
                                                   color: salaryHT > 0
@@ -4474,17 +4468,17 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                                         DataCell(Center(
                                             child: i < tierBonuses.length
                                                 ? Text(
-                                                    '${(tierBonuses[i]['fromPct'] as num).toInt()}%-${tierBonuses[i]['toPct'] == -1 ? '8' : '${(tierBonuses[i]['toPct'] as num).toInt()}%'}',
+                                                    tr('${(tierBonuses[i]['fromPct'] as num).toInt()}%-${tierBonuses[i]['toPct'] == -1 ? '8' : '${(tierBonuses[i]['toPct'] as num).toInt()}%'}'),
                                                     style: TextStyle(
                                                         fontSize: 11,
                                                         color:
                                                             Colors.grey[600]))
-                                                : const Text('-'))),
+                                                : Text(tr('-')))),
                                         DataCell(Center(
                                             child: i < tierBonuses.length
                                                 ? Text(
-                                                    _cur.format(tierBonuses[i]
-                                                        ['bonus']),
+                                                    tr(_cur.format(tierBonuses[i]
+                                                        ['bonus'])),
                                                     style: TextStyle(
                                                         color: (tierBonuses[i]
                                                                         ['bonus']
@@ -4499,10 +4493,10 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                                                             ? FontWeight.w600
                                                             : FontWeight
                                                                 .normal))
-                                                : const Text('-'))),
+                                                : Text(tr('-')))),
                                       ],
                                       DataCell(Center(
-                                          child: Text(_cur.format(totalSalary),
+                                          child: Text(tr(_cur.format(totalSalary)),
                                               style: const TextStyle(
                                                   fontWeight: FontWeight.bold,
                                                   fontSize: 13)))),
@@ -4515,8 +4509,8 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                                           Colors.grey.shade50),
                                       cells: [
                                         const DataCell(Center(child: Text(''))),
-                                        const DataCell(Center(
-                                            child: Text('TỔNG CỘNG',
+                                        DataCell(Center(
+                                            child: Text(tr('TỔNG CỘNG'),
                                                 style: TextStyle(
                                                     fontWeight: FontWeight.bold,
                                                     fontSize: 13)))),
@@ -4526,12 +4520,12 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                                         const DataCell(Center(child: Text(''))),
                                         DataCell(Center(
                                             child: Text(
-                                                _cur.format(filteredTgts.fold<
+                                                tr(_cur.format(filteredTgts.fold<
                                                         double>(
                                                     0,
                                                     (s, t) =>
                                                         s +
-                                                        _calcPenaltyBonus(t))),
+                                                        _calcPenaltyBonus(t)))),
                                                 style: TextStyle(
                                                     fontWeight: FontWeight.bold,
                                                     color: filteredTgts.fold<double>(
@@ -4545,7 +4539,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                                                         : _green)))),
                                         DataCell(Center(
                                             child: Text(
-                                                _cur.format(filteredTgts
+                                                tr(_cur.format(filteredTgts
                                                     .fold<double>(0, (s, t) {
                                                   final pct =
                                                       ((t['completionRate'] ??
@@ -4559,7 +4553,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                                                       (pct >= 100
                                                           ? cs
                                                           : cs * pct / 100);
-                                                })),
+                                                }))),
                                                 style: const TextStyle(
                                                     fontWeight:
                                                         FontWeight.bold)))),
@@ -4568,7 +4562,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                                               Center(child: Text(''))),
                                           DataCell(Center(
                                               child: Text(
-                                                  _cur.format(filteredTgts
+                                                  tr(_cur.format(filteredTgts
                                                       .fold<double>(0, (s, t) {
                                                     final bonuses =
                                                         _calcTierBonuses(t);
@@ -4579,7 +4573,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                                                                     ?.toDouble() ??
                                                                 0)
                                                             : 0);
-                                                  })),
+                                                  }))),
                                                   style: const TextStyle(
                                                       fontWeight:
                                                           FontWeight.bold,
@@ -4587,7 +4581,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                                         ],
                                         DataCell(Center(
                                             child: Text(
-                                                _cur.format(filteredTgts
+                                                tr(_cur.format(filteredTgts
                                                     .fold<double>(0, (s, t) {
                                                   final pct =
                                                       ((t['completionRate'] ??
@@ -4618,7 +4612,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                                                           salaryHT +
                                                               penBonus +
                                                               tierBonus);
-                                                })),
+                                                }))),
                                                 style: const TextStyle(
                                                     fontWeight: FontWeight.bold,
                                                     fontSize: 13)))),
@@ -4639,13 +4633,13 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                     spacing: 12,
                     runSpacing: 8,
                     children: [
-                      Text('${filteredTgts.length} dòng',
+                      Text(tr('${filteredTgts.length} dòng'),
                           style:
                               TextStyle(fontSize: 12, color: Colors.grey[600])),
                       Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Text('Hiển thị:',
+                          Text(tr('Hiển thị:'),
                               style: TextStyle(
                                   fontSize: 12, color: Colors.grey[500])),
                           const SizedBox(width: 8),
@@ -4666,7 +4660,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                                     fontSize: 13, color: Colors.grey[800]),
                                 items: _pageSizeOptions
                                     .map((s) => DropdownMenuItem(
-                                        value: s, child: Text('$s')))
+                                        value: s, child: Text(tr('$s'))))
                                     .toList(),
                                 onChanged: (v) {
                                   if (v != null) {
@@ -4704,7 +4698,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                                 color: Theme.of(context).primaryColor,
                                 borderRadius: BorderRadius.circular(8),
                               ),
-                              child: Text('$safePage / $totalPages',
+                              child: Text(tr('$safePage / $totalPages'),
                                   style: const TextStyle(
                                       fontSize: 12,
                                       fontWeight: FontWeight.w600,
@@ -4755,9 +4749,9 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
             color: _accent.withValues(alpha: 0.06),
             borderRadius: BorderRadius.circular(10)),
         child: Row(children: [
-          const Text('Tổng lương: ',
+          Text(tr('Tổng lương: '),
               style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-          Text(_cur.format(totalSalaryAll),
+          Text(tr(_cur.format(totalSalaryAll)),
               style: const TextStyle(
                   fontWeight: FontWeight.bold, fontSize: 15, color: _accent)),
         ]),
@@ -4804,7 +4798,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                 Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Row(children: [
                 Expanded(
-                    child: Text(t['employeeName'] ?? '',
+                    child: Text(tr(t['employeeName'] ?? ''),
                         style: const TextStyle(
                             fontWeight: FontWeight.w700, fontSize: 14))),
                 Container(
@@ -4817,14 +4811,14 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                     ]),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: Text('${pct.toStringAsFixed(1)}%',
+                  child: Text(tr('${pct.toStringAsFixed(1)}%'),
                       style: TextStyle(
                           fontWeight: FontWeight.w700,
                           color: pctColor,
                           fontSize: 12)),
                 ),
               ]),
-              Text(t['employeeCode'] ?? '',
+              Text(tr(t['employeeCode'] ?? ''),
                   style: TextStyle(color: Colors.grey[400], fontSize: 12)),
               const Divider(height: 24),
               _mobileInfoRow('Lương cơ bản', _cur.format(salaryHT),
@@ -4851,10 +4845,10 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                 child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text('Tổng lương',
+                      Text(tr('Tổng lương'),
                           style: TextStyle(
                               fontWeight: FontWeight.w600, fontSize: 13)),
-                      Text(_cur.format(totalSalary),
+                      Text(tr(_cur.format(totalSalary)),
                           style: const TextStyle(
                               fontWeight: FontWeight.w800,
                               fontSize: 16,
@@ -4872,8 +4866,8 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
       child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-        Text(label, style: TextStyle(color: Colors.grey[600], fontSize: 12)),
-        Text(value,
+        Text(tr(label), style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+        Text(tr(value),
             style: TextStyle(
                 fontWeight: FontWeight.w600, fontSize: 12, color: valueColor)),
       ]),
@@ -4888,14 +4882,14 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
         .toList();
     if (ids.isEmpty) {
       NotificationOverlayManager().showInfo(
-          title: 'Thông báo', message: 'Không có bảng lương nào cần duyệt');
+          title: 'Thông báo', message: tr('Không có bảng lương nào cần duyệt'));
       return false;
     }
     final res = await _api.approveKpiSalaries(ids);
     if (mounted && res['isSuccess'] == true) {
       NotificationOverlayManager().showSuccess(
           title: 'Thành công',
-          message: 'Đã duyệt ${ids.length} bảng lương');
+          message: tr('Đã duyệt ${ids.length} bảng lương'));
       await _loadPeriodData();
       return true;
     }
@@ -4915,16 +4909,16 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => ScrollableAlertDialog(
-        title: const Text('Xác nhận xóa'),
-        content: const Text('Bạn có chắc muốn xóa?'),
+        title: Text(tr('Xác nhận xóa')),
+        content: Text(tr('Bạn có chắc muốn xóa?')),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Hủy')),
+              child: Text(tr('Hủy'))),
           FilledButton(
               onPressed: () => Navigator.pop(ctx, true),
               style: FilledButton.styleFrom(backgroundColor: Colors.red),
-              child: const Text('Xóa')),
+              child: Text(tr('Xóa'))),
         ],
       ),
     );
@@ -4957,7 +4951,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                   fit: BoxFit.scaleDown,
                   alignment: Alignment.centerLeft,
                   child: Text(
-                    value,
+                    tr(value),
                     style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w700,
@@ -4966,7 +4960,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                   ),
                 ),
                 Text(
-                  label,
+                  tr(label),
                   style: const TextStyle(
                     fontSize: 11,
                     color: HrmPageChrome.textMuted,
@@ -4992,7 +4986,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
       child: Row(
         children: [
           Text(
-            value,
+            tr(value),
             style: const TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w700,
@@ -5002,7 +4996,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
           const SizedBox(width: 6),
           Expanded(
             child: Text(
-              label,
+              tr(label),
               style: const TextStyle(
                 color: HrmPageChrome.textMuted,
                 fontSize: 11,
@@ -5048,7 +5042,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
               child: Icon(icon, color: color, size: 18),
             ),
             const SizedBox(width: 10),
-            Text(title,
+            Text(tr(title),
                 style: TextStyle(
                     fontWeight: FontWeight.w700, color: color, fontSize: 15)),
           ]),
@@ -5066,7 +5060,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
         label: Row(mainAxisSize: MainAxisSize.min, children: [
           Icon(icon, size: 14, color: color),
           const SizedBox(width: 4),
-          Text(label)
+          Text(tr(label))
         ]),
         onPressed: onTap,
         backgroundColor: color.withValues(alpha: 0.08),
@@ -5091,13 +5085,13 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
         child: Icon(icon, size: 48, color: Colors.grey[300]),
       ),
       const SizedBox(height: 16),
-      Text(text,
+      Text(tr(text),
           style: TextStyle(
               color: Colors.grey[500],
               fontSize: 15,
               fontWeight: FontWeight.w500)),
       const SizedBox(height: 8),
-      Text('Bắt đầu bằng cách tạo dữ liệu mới',
+      Text(tr('Bắt đầu bằng cách tạo dữ liệu mới'),
           style: TextStyle(color: Colors.grey[400], fontSize: 12)),
     ]));
   }
@@ -5107,7 +5101,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
     return TextField(
       controller: ctrl,
       decoration: InputDecoration(
-          labelText: label,
+          labelText: tr(label),
           border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
           isDense: true),
       keyboardType: number ? TextInputType.number : TextInputType.text,
@@ -5148,24 +5142,23 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
           const Icon(Icons.table_chart, color: _accent, size: 22),
           const SizedBox(width: 8),
           Expanded(
-              child: Text('Cấu hình Google Sheet',
+              child: Text(tr('Cấu hình Google Sheet'),
                   style: theme.textTheme.titleMedium
                       ?.copyWith(fontWeight: FontWeight.bold))),
           OutlinedButton.icon(
             onPressed: () => _showCopyGSheetConfigDialog(),
             icon: const Icon(Icons.copy, size: 16),
-            label: const Text('Copy từ chu kỳ khác',
+            label: Text(tr('Copy từ chu kỳ khác'),
                 style: TextStyle(fontSize: 12)),
             style: OutlinedButton.styleFrom(foregroundColor: _accent),
           ),
         ]),
         const SizedBox(height: 6),
-        Text(
-            'Thiết lập kết nối Google Sheet. Bấm "Tạo sheet mẫu" để tạo bảng theo mã NV, sau đó đồng bộ tự động.',
+        Text(tr('Thiết lập kết nối Google Sheet. Bấm "Tạo sheet mẫu" để tạo bảng theo mã NV, sau đó đồng bộ tự động.'),
             style: TextStyle(color: Colors.grey[500], fontSize: 13)),
         if (lastSynced != null) ...[
           const SizedBox(height: 4),
-          Text('Lần đồng bộ cuối: ${_fmtDateTime(lastSynced)}',
+          Text(tr('Lần đồng bộ cuối: ${_fmtDateTime(lastSynced)}'),
               style: const TextStyle(color: _green, fontSize: 12)),
         ],
         const SizedBox(height: 20),
@@ -5212,20 +5205,19 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
         border: Border.all(color: _red.withValues(alpha: 0.3)),
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Row(children: [
+        Row(children: [
           Icon(Icons.warning_amber_rounded, color: _red, size: 20),
           SizedBox(width: 8),
           Expanded(
-              child: Text(
-            'Chưa cấu hình Google Service Account',
+              child: Text(tr('Chưa cấu hình Google Service Account'),
             style: TextStyle(
                 fontWeight: FontWeight.bold, fontSize: 14, color: _red),
           )),
         ]),
         const SizedBox(height: 8),
         Text(
-          'C?n upload file credentials.json (Google Service Account key) d? kết nối Google Sheet. '
-          'Tải file JSON key tế Google Cloud Console ? IAM ? Service Accounts ? Keys.',
+          tr('C?n upload file credentials.json (Google Service Account key) d? kết nối Google Sheet. '
+          'Tải file JSON key tế Google Cloud Console ? IAM ? Service Accounts ? Keys.'),
           style: TextStyle(color: Colors.grey[700], fontSize: 12.5),
         ),
         const SizedBox(height: 12),
@@ -5237,7 +5229,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
             : FilledButton.icon(
                 onPressed: _uploadCredentials,
                 icon: const Icon(Icons.upload_file, size: 16),
-                label: const Text('Upload credentials.json',
+                label: Text(tr('Upload credentials.json'),
                     style: TextStyle(fontSize: 12)),
                 style: FilledButton.styleFrom(backgroundColor: _accent),
               ),
@@ -5265,7 +5257,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
         Row(children: [
           Icon(Icons.link, color: hasConfig ? _green : Colors.grey, size: 18),
           const SizedBox(width: 8),
-          Text('Kết nối Google Sheet',
+          Text(tr('Kết nối Google Sheet'),
               style: TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 14,
@@ -5277,10 +5269,10 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
               decoration: BoxDecoration(
                   color: _green.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(12)),
-              child: const Row(mainAxisSize: MainAxisSize.min, children: [
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
                 Icon(Icons.check_circle, color: _green, size: 14),
                 SizedBox(width: 4),
-                Text('Đã kết nối',
+                Text(tr('Đã kết nối'),
                     style: TextStyle(
                         color: _green,
                         fontSize: 11,
@@ -5299,7 +5291,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
           FilledButton.icon(
             onPressed: () => _showEditGSheetConnectionDialog(period),
             icon: Icon(hasConfig ? Icons.edit : Icons.add, size: 16),
-            label: Text(hasConfig ? 'Sửa kết nối' : 'Thiết lập kết nối',
+            label: Text(tr(hasConfig ? 'Sửa kết nối' : 'Thiết lập kết nối'),
                 style: const TextStyle(fontSize: 12)),
             style: FilledButton.styleFrom(backgroundColor: _accent),
           ),
@@ -5307,7 +5299,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
             OutlinedButton.icon(
               onPressed: () => _testGSheetConnection(_buildGSheetUrl(sheetId)),
               icon: const Icon(Icons.wifi_tethering, size: 16),
-              label: const Text('Test kết nối', style: TextStyle(fontSize: 12)),
+              label: Text(tr('Test kết nối'), style: TextStyle(fontSize: 12)),
               style: OutlinedButton.styleFrom(foregroundColor: _blue),
             ),
             OutlinedButton.icon(
@@ -5319,7 +5311,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                       height: 14,
                       child: CircularProgressIndicator(strokeWidth: 2))
                   : const Icon(Icons.table_chart_outlined, size: 16),
-              label: Text(_creatingTemplate ? 'Đang tạo...' : 'Tạo sheet mẫu',
+              label: Text(tr(_creatingTemplate ? 'Đang tạo...' : 'Tạo sheet mẫu'),
                   style: const TextStyle(fontSize: 12)),
               style: OutlinedButton.styleFrom(foregroundColor: _green),
             ),
@@ -5333,10 +5325,10 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
     return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
       SizedBox(
           width: 50,
-          child: Text('$label:',
+          child: Text(tr('$label:'),
               style: TextStyle(color: Colors.grey[500], fontSize: 12))),
       Expanded(
-          child: Text(value,
+          child: Text(tr(value),
               style: const TextStyle(fontSize: 12),
               overflow: TextOverflow.ellipsis)),
     ]);
@@ -5377,8 +5369,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
               const Icon(Icons.people, size: 18, color: HrmPageChrome.primaryNavy),
               const SizedBox(width: 8),
               Flexible(
-                  child: Text(
-                      'Ánh xạ vị trí ô (${configured.length}/${_targets.length})',
+                  child: Text(tr('Ánh xạ vị trí ô (${configured.length}/${_targets.length})'),
                       style: const TextStyle(
                           fontWeight: FontWeight.bold, fontSize: 13),
                       overflow: TextOverflow.ellipsis)),
@@ -5388,13 +5379,13 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                 onPressed: _syncFromGoogleSheet,
                 icon: const Icon(Icons.sync, size: 16),
                 label:
-                    const Text('Đếng b? ngay', style: TextStyle(fontSize: 12)),
+                    Text(tr('Đếng b? ngay'), style: TextStyle(fontSize: 12)),
                 style: FilledButton.styleFrom(backgroundColor: _green),
               ),
               TextButton.icon(
                 onPressed: () => _showBatchEditCellDialog(),
                 icon: const Icon(Icons.edit_note, size: 16),
-                label: const Text('Sửa tất cả', style: TextStyle(fontSize: 12)),
+                label: Text(tr('Sửa tất cả'), style: TextStyle(fontSize: 12)),
                 style: TextButton.styleFrom(foregroundColor: _accent),
               ),
             ]),
@@ -5405,17 +5396,17 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           color: Colors.grey.shade50,
-          child: const Row(children: [
+          child: Row(children: [
             Expanded(
                 flex: 3,
-                child: Text('Nhân viên',
+                child: Text(tr('Nhân viên'),
                     style: TextStyle(
                         fontWeight: FontWeight.w600,
                         fontSize: 12,
                         color: Colors.grey))),
             Expanded(
                 flex: 1,
-                child: Text('Vị trí ô',
+                child: Text(tr('Vị trí ô'),
                     style: TextStyle(
                         fontWeight: FontWeight.w600,
                         fontSize: 12,
@@ -5451,13 +5442,13 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                   color: configured ? _green : Colors.grey[300]),
               const SizedBox(width: 8),
               Expanded(
-                  child: Text(t['employeeName'] ?? '',
+                  child: Text(tr(t['employeeName'] ?? ''),
                       style: const TextStyle(fontSize: 13))),
             ])),
         Expanded(
             flex: 1,
             child: Text(
-              configured ? (t['googleCellPosition'] ?? '') : '-',
+              tr(configured ? (t['googleCellPosition'] ?? '') : '-'),
               style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
@@ -5469,7 +5460,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
             child: IconButton(
               icon: const Icon(Icons.edit, size: 16, color: _accent),
               onPressed: () => _showEditSingleCellDialog(t),
-              tooltip: 'Sửa vị trí ô',
+              tooltip: tr('Sửa vị trí ô'),
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(),
             )),
@@ -5500,7 +5491,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
         Row(children: [
           Icon(Icons.schedule, color: autoSync ? _blue : Colors.grey, size: 18),
           const SizedBox(width: 8),
-          Text('Tự động đồng bộ',
+          Text(tr('Tự động đồng bộ'),
               style: TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 14,
@@ -5514,19 +5505,19 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
         ]),
         if (autoSync) ...[
           const SizedBox(height: 8),
-          Text('Các mốc giờ đồng bộ tự động:',
+          Text(tr('Các mốc giờ đồng bộ tự động:'),
               style: TextStyle(color: Colors.grey[600], fontSize: 12)),
           const SizedBox(height: 8),
           Wrap(spacing: 8, runSpacing: 8, children: [
             ...timeSlots.map((slot) => Chip(
-                  label: Text(slot, style: const TextStyle(fontSize: 12)),
+                  label: Text(tr(slot), style: const TextStyle(fontSize: 12)),
                   deleteIcon: const Icon(Icons.close, size: 14),
                   onDeleted: () => _removeTimeSlot(slot, timeSlots),
                   backgroundColor: _blue.withValues(alpha: 0.1),
                   side: BorderSide.none,
                 )),
             ActionChip(
-              label: const Text('+ Thêm giờ', style: TextStyle(fontSize: 12)),
+              label: Text(tr('+ Thêm giờ'), style: TextStyle(fontSize: 12)),
               onPressed: () => _showAddTimeSlotDialog(timeSlots),
               avatar: const Icon(Icons.add, size: 14),
               backgroundColor: Colors.grey.shade100,
@@ -5535,12 +5526,12 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
           ]),
           if (timeSlots.isEmpty) ...[
             const SizedBox(height: 4),
-            Text('Chưa có mốc giờ nào. Nhấn "+ Thêm giờ" để thiết lập.',
+            Text(tr('Chưa có mốc giờ nào. Nhấn "+ Thêm giờ" để thiết lập.'),
                 style: TextStyle(color: Colors.orange[700], fontSize: 11)),
           ],
         ] else ...[
           const SizedBox(height: 4),
-          Text('Bật để tự động đọc dữ liệu từ Google Sheet theo lịch.',
+          Text(tr('Bật để tự động đọc dữ liệu từ Google Sheet theo lịch.'),
               style: TextStyle(color: Colors.grey[500], fontSize: 12)),
         ],
       ]),
@@ -5551,9 +5542,9 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
 
   void _showEditGSheetConnectionDialog(Map<String, dynamic> period) {
     final urlCtrl = TextEditingController(
-        text: _buildGSheetUrl(period['googleSpreadsheetId']));
+        text: tr(_buildGSheetUrl(period['googleSpreadsheetId'])));
     final sheetNameCtrl =
-        TextEditingController(text: period['googleSheetName'] ?? '');
+        TextEditingController(text: tr(period['googleSheetName'] ?? ''));
     bool testing = false;
     Map<String, dynamic>? testResult;
     List<String> availableSheets = [];
@@ -5574,7 +5565,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
           if (res['isSuccess'] == true) {
             if (mounted) {
               NotificationOverlayManager().showSuccess(
-                  title: 'Thành công', message: 'Đã lưu kết nối Google Sheet');
+                  title: 'Thành công', message: tr('Đã lưu kết nối Google Sheet'));
               _loadData();
             }
           }
@@ -5595,12 +5586,12 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                                       ? sheetNameCtrl.text
                                       : null,
                               decoration: InputDecoration(
-                                  labelText: 'Chọn Sheet',
+                                  labelText: tr('Chọn Sheet'),
                                   border: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(10))),
                               items: availableSheets
                                   .map((s) => DropdownMenuItem(
-                                      value: s, child: Text(s)))
+                                      value: s, child: Text(tr(s))))
                                   .toList(),
                               onChanged: (v) {
                                 if (v != null) sheetNameCtrl.text = v;
@@ -5658,7 +5649,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                                         strokeWidth: 2))
                                 : const Icon(Icons.wifi_tethering, size: 16),
                             label: Text(
-                                testing ? 'Đang test...' : 'Test kết nối',
+                                tr(testing ? 'Đang test...' : 'Test kết nối'),
                                 style: const TextStyle(fontSize: 12)),
                           )),
                     ])
@@ -5671,13 +5662,13 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                                         ? sheetNameCtrl.text
                                         : null,
                                 decoration: InputDecoration(
-                                    labelText: 'Chọn Sheet',
+                                    labelText: tr('Chọn Sheet'),
                                     border: OutlineInputBorder(
                                         borderRadius:
                                             BorderRadius.circular(10))),
                                 items: availableSheets
                                     .map((s) => DropdownMenuItem(
-                                        value: s, child: Text(s)))
+                                        value: s, child: Text(tr(s))))
                                     .toList(),
                                 onChanged: (v) {
                                   if (v != null) sheetNameCtrl.text = v;
@@ -5731,7 +5722,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                                 child:
                                     CircularProgressIndicator(strokeWidth: 2))
                             : const Icon(Icons.wifi_tethering, size: 16),
-                        label: Text(testing ? 'Đang test...' : 'Test',
+                        label: Text(tr(testing ? 'Đang test...' : 'Test'),
                             style: const TextStyle(fontSize: 12)),
                       ),
                     ]),
@@ -5763,12 +5754,12 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          testResult!['connected'] == true
+                          tr(testResult!['connected'] == true
                               ? 'Kết nối thành công! Tìm thấy ${availableSheets.length} sheet.'
                               : (testResult!['notShared'] == true
                                   ? 'Google Sheet chưa được chia sẻ cho service account.\nVui lòng chia sẻ quyền Viewer cho: ${testResult!['serviceAccountEmail'] ?? 'email service account'}'
                                   : (testResult!['error'] ??
-                                      'Lỗi không xác định')),
+                                      'Lỗi không xác định'))),
                           style: TextStyle(
                             color: testResult!['connected'] == true
                                 ? _green
@@ -5780,8 +5771,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                             testResult!['rawError'] != null)
                           Padding(
                             padding: const EdgeInsets.only(top: 4),
-                            child: Text(
-                              'Chi tiết: ${testResult!['rawError']}',
+                            child: Text(tr('${tr('Chi tiết: ')}${testResult!['rawError']}'),
                               style: TextStyle(
                                   color: Colors.grey[600], fontSize: 10),
                               maxLines: 3,
@@ -5807,8 +5797,8 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                       const SizedBox(width: 8),
                       Expanded(
                           child: Text(
-                        'Nhập URL Google Sheet và nhấn "Test" để kiểm tra kết nối. '
-                        'Nếu chưa chia sẻ, hãy share cho service account email quyền Viewer.',
+                        tr('Nhập URL Google Sheet và nhấn "Test" để kiểm tra kết nối. '
+                        'Nếu chưa chia sẻ, hãy share cho service account email quyền Viewer.'),
                         style: TextStyle(
                             color: Colors.blue.shade700, fontSize: 11),
                       )),
@@ -5820,7 +5810,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
           return Dialog.fullscreen(
             child: Scaffold(
               appBar: AppBar(
-                title: const Text('Thiết lập kết nối Google Sheet',
+                title: Text(tr('Thiết lập kết nối Google Sheet'),
                     style: TextStyle(fontSize: 16)),
                 leading: IconButton(
                     icon: const Icon(Icons.close),
@@ -5831,7 +5821,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                     child: FilledButton(
                       onPressed: onSave,
                       style: FilledButton.styleFrom(backgroundColor: _accent),
-                      child: const Text('Lưu'),
+                      child: Text(tr('Lưu')),
                     ),
                   ),
                 ],
@@ -5845,7 +5835,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
         return ScrollableAlertDialog(
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: const Text('Thiết lập kết nối Google Sheet'),
+          title: Text(tr('Thiết lập kết nối Google Sheet')),
           content: SizedBox(
             width: math
                 .min(520, MediaQuery.of(context).size.width - 32)
@@ -5854,11 +5844,11 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
           ),
           actions: [
             TextButton(
-                onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
+                onPressed: () => Navigator.pop(ctx), child: Text(tr('Hủy'))),
             FilledButton(
               onPressed: onSave,
               style: FilledButton.styleFrom(backgroundColor: _accent),
-              child: const Text('Lưu'),
+              child: Text(tr('Lưu')),
             ),
           ],
         );
@@ -5871,7 +5861,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
   Future<void> _testGSheetConnection(String url) async {
     if (url.isEmpty) return;
     NotificationOverlayManager()
-        .showInfo(title: 'Test kết nối', message: 'Đang test kết nối...');
+        .showInfo(title: 'Test kết nối', message: tr('Đang test kết nối...'));
     final res = await _api.testKpiGSheetConnection(url);
     if (!mounted) return;
     if (res['isSuccess'] == true) {
@@ -5880,18 +5870,16 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
         final sheets = data?['sheetNames'] as List? ?? [];
         NotificationOverlayManager().showSuccess(
             title: 'Kết nối thành công',
-            message: 'Tìm thấy ${sheets.length} sheet.');
+            message: tr('Tìm thấy ${sheets.length} sheet.'));
       } else if (data?['notShared'] == true) {
         final saEmail = data?['serviceAccountEmail'] ?? '';
         NotificationOverlayManager().showWarning(
             title: 'Chưa chia sẻ',
-            message:
-                'Sheet chưa được chia sẻ cho service account. Chia sẻ quyền Viewer cho: $saEmail');
+            message: tr('Sheet chưa được chia sẻ cho service account. Chia sẻ quyền Viewer cho: $saEmail'));
       } else if (data?['credentialsMissing'] == true) {
         NotificationOverlayManager().showError(
             title: 'Thiếu credentials',
-            message:
-                'Chưa cấu hình credentials.json trên server. Liên hệ quản trị viên.');
+            message: tr('Chưa cấu hình credentials.json trên server. Liên hệ quản trị viên.'));
       } else {
         NotificationOverlayManager().showError(
             title: 'Lỗi', message: data?['error'] ?? 'Không thể kết nối');
@@ -5915,8 +5903,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
         final empCount = data?['employeeCount'] ?? 0;
         NotificationOverlayManager().showSuccess(
             title: 'Thành công',
-            message:
-                'Tạo sheet mẫu thành công! $empCount nhân viên. Sheet đã được lưu vào cấu hình.');
+            message: tr('Tạo sheet mẫu thành công! $empCount nhân viên. Sheet đã được lưu vào cấu hình.'));
         await _loadPeriodData();
         await _loadData(showLoading: false);
       } else {
@@ -5925,7 +5912,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
       }
     } catch (e) {
       if (!mounted) return;
-      NotificationOverlayManager().showError(title: 'Lỗi', message: 'Lỗi: $e');
+      NotificationOverlayManager().showError(title: 'Lỗi', message: tr('Lỗi: $e'));
     } finally {
       if (mounted) setState(() => _creatingTemplate = false);
     }
@@ -5989,7 +5976,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
         _periods.where((p) => p['id']?.toString() != _selPeriodId).toList();
     if (otherPeriods.isEmpty) {
       NotificationOverlayManager().showWarning(
-          title: 'Thông báo', message: 'Không có chu kỳ khác để copy');
+          title: 'Thông báo', message: tr('Không có chu kỳ khác để copy'));
       return;
     }
     String? selectedSourceId;
@@ -6007,7 +5994,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
             final count = res['data']?['copiedCount'] ?? 0;
             NotificationOverlayManager().showSuccess(
                 title: 'Thành công',
-                message: 'Đã copy cấu hình ($count nhân viên)');
+                message: tr('Đã copy cấu hình ($count nhân viên)'));
             _loadData();
           }
         }
@@ -6018,13 +6005,13 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
             children: [
               DropdownButtonFormField<String>(
                 decoration: InputDecoration(
-                    labelText: 'Chọn chu kỳ nguồn',
+                    labelText: tr('Chọn chu kỳ nguồn'),
                     border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10))),
                 items: otherPeriods
                     .map((p) => DropdownMenuItem(
                           value: p['id']?.toString(),
-                          child: Text(p['name'] ?? '',
+                          child: Text(tr(p['name'] ?? ''),
                               style: const TextStyle(fontSize: 13)),
                         ))
                     .toList(),
@@ -6041,8 +6028,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                       color: Colors.orange.shade700, size: 16),
                   const SizedBox(width: 8),
                   Expanded(
-                      child: Text(
-                    'Thao tác này sẽ ghi đè cấu hình hiện tại (link Sheet, tên sheet, vị trí ô nhân viên, lịch đồng bộ).',
+                      child: Text(tr('Thao tác này sẽ ghi đè cấu hình hiện tại (link Sheet, tên sheet, vị trí ô nhân viên, lịch đồng bộ).'),
                     style:
                         TextStyle(color: Colors.orange.shade700, fontSize: 11),
                   )),
@@ -6054,7 +6040,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
           return Dialog.fullscreen(
             child: Scaffold(
               appBar: AppBar(
-                title: const Text('Copy cấu hình từ chu kỳ khác',
+                title: Text(tr('Copy cấu hình từ chu kỳ khác'),
                     style: TextStyle(fontSize: 16)),
                 leading: IconButton(
                     icon: const Icon(Icons.close),
@@ -6065,7 +6051,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                     child: FilledButton(
                       onPressed: selectedSourceId == null ? null : onSave,
                       style: FilledButton.styleFrom(backgroundColor: _accent),
-                      child: const Text('Sao chép'),
+                      child: Text(tr('Sao chép')),
                     ),
                   ),
                 ],
@@ -6079,7 +6065,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
         return ScrollableAlertDialog(
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: const Text('Copy cấu hình từ chu kỳ khác'),
+          title: Text(tr('Copy cấu hình từ chu kỳ khác')),
           content: SizedBox(
             width: math
                 .min(420, MediaQuery.of(context).size.width - 32)
@@ -6088,11 +6074,11 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
           ),
           actions: [
             TextButton(
-                onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
+                onPressed: () => Navigator.pop(ctx), child: Text(tr('Hủy'))),
             FilledButton(
               onPressed: selectedSourceId == null ? null : onSave,
               style: FilledButton.styleFrom(backgroundColor: _accent),
-              child: const Text('Sao chép'),
+              child: Text(tr('Sao chép')),
             ),
           ],
         );
@@ -6107,7 +6093,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
     for (final t in _targets) {
       final empId = t['employeeId']?.toString() ?? '';
       controllers[empId] =
-          TextEditingController(text: t['googleCellPosition'] ?? '');
+          TextEditingController(text: tr(t['googleCellPosition'] ?? ''));
     }
     final isMobile = Responsive.isMobile(context);
 
@@ -6134,7 +6120,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
       if (ctx.mounted) Navigator.pop(ctx);
       if (res['isSuccess'] == true && mounted) {
         NotificationOverlayManager()
-            .showSuccess(title: 'Thành công', message: 'Đã lưu vị trí ô');
+            .showSuccess(title: 'Thành công', message: tr('Đã lưu vị trí ô'));
         _loadPeriodData();
       }
     }
@@ -6154,8 +6140,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                 Icon(Icons.info_outline, color: Colors.blue.shade700, size: 16),
                 const SizedBox(width: 8),
                 Expanded(
-                    child: Text(
-                  'Nhập vị trí ô chứa doanh số/point của nhân viên trên Google Sheet (VD: B5, C10, D3).',
+                    child: Text(tr('Nhập vị trí ô chứa doanh số/point của nhân viên trên Google Sheet (VD: B5, C10, D3).'),
                   style: TextStyle(color: Colors.blue.shade700, fontSize: 11),
                 )),
               ]),
@@ -6169,7 +6154,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                     ? Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                            Text(t['employeeName'] ?? '',
+                            Text(tr(t['employeeName'] ?? ''),
                                 style: const TextStyle(
                                     fontSize: 13, fontWeight: FontWeight.w500)),
                             const SizedBox(height: 4),
@@ -6181,7 +6166,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                                 style: const TextStyle(
                                     fontSize: 13, fontFamily: 'monospace'),
                                 decoration: InputDecoration(
-                                  hintText: 'VD: B5',
+                                  hintText: tr('VD: B5'),
                                   hintStyle: TextStyle(
                                       color: Colors.grey[400], fontSize: 12),
                                   contentPadding:
@@ -6195,7 +6180,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                     : Row(children: [
                         Expanded(
                             flex: 3,
-                            child: Text(t['employeeName'] ?? '',
+                            child: Text(tr(t['employeeName'] ?? ''),
                                 style: const TextStyle(fontSize: 13))),
                         Expanded(
                             flex: 1,
@@ -6207,7 +6192,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                                 style: const TextStyle(
                                     fontSize: 13, fontFamily: 'monospace'),
                                 decoration: InputDecoration(
-                                  hintText: 'VD: B5',
+                                  hintText: tr('VD: B5'),
                                   hintStyle: TextStyle(
                                       color: Colors.grey[400], fontSize: 12),
                                   contentPadding:
@@ -6230,7 +6215,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
           return Dialog.fullscreen(
             child: Scaffold(
               appBar: AppBar(
-                title: const Text('Thiết lập vị trí ô',
+                title: Text(tr('Thiết lập vị trí ô'),
                     style: TextStyle(fontSize: 16)),
                 leading: IconButton(
                     icon: const Icon(Icons.close),
@@ -6241,7 +6226,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                     child: FilledButton(
                       onPressed: () => onSave(ctx),
                       style: FilledButton.styleFrom(backgroundColor: _accent),
-                      child: const Text('Lưu tất cả'),
+                      child: Text(tr('Lưu tất cả')),
                     ),
                   ),
                 ],
@@ -6255,7 +6240,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
         return ScrollableAlertDialog(
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: const Text('Thiết lập vị trí ô cho tất cả nhân viên'),
+          title: Text(tr('Thiết lập vị trí ô cho tất cả nhân viên')),
           content: SizedBox(
             width: math
                 .min(500, MediaQuery.of(context).size.width - 32)
@@ -6265,11 +6250,11 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
           ),
           actions: [
             TextButton(
-                onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
+                onPressed: () => Navigator.pop(ctx), child: Text(tr('Hủy'))),
             FilledButton(
               onPressed: () => onSave(ctx),
               style: FilledButton.styleFrom(backgroundColor: _accent),
-              child: const Text('Lưu tất cả'),
+              child: Text(tr('Lưu tất cả')),
             ),
           ],
         );
@@ -6281,27 +6266,26 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
 
   void _showEditSingleCellDialog(Map<String, dynamic> target) {
     final cellCtrl =
-        TextEditingController(text: target['googleCellPosition'] ?? '');
+        TextEditingController(text: tr(target['googleCellPosition'] ?? ''));
 
     showDialog(
       context: context,
       builder: (ctx) => ScrollableAlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Text('Vị trí ô: ${target['employeeName'] ?? ''}',
+        title: Text(tr('${tr('Vị trí ô: ')}${target['employeeName'] ?? ''}'),
             style: const TextStyle(fontSize: 16)),
         content: SizedBox(
           width: 300,
           child: Column(mainAxisSize: MainAxisSize.min, children: [
             _field(cellCtrl, 'Vị trí ô (VD: B5, C10)'),
             const SizedBox(height: 8),
-            Text(
-                'Nhập vị trí ô trên Google Sheet chứa giá trị doanh số / point.',
+            Text(tr('Nhập vị trí ô trên Google Sheet chứa giá trị doanh số / point.'),
                 style: TextStyle(color: Colors.grey[500], fontSize: 11)),
           ]),
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
+              onPressed: () => Navigator.pop(ctx), child: Text(tr('Hủy'))),
           FilledButton(
             onPressed: () async {
               final empId = target['employeeId']?.toString() ?? '';
@@ -6323,12 +6307,12 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
               if (ctx.mounted) Navigator.pop(ctx);
               if (res['isSuccess'] == true && mounted) {
                 NotificationOverlayManager().showSuccess(
-                    title: 'Thành công', message: 'Đã lưu vị trí ô');
+                    title: 'Thành công', message: tr('Đã lưu vị trí ô'));
                 _loadPeriodData();
               }
             },
             style: FilledButton.styleFrom(backgroundColor: _accent),
-            child: const Text('Lưu'),
+            child: Text(tr('Lưu')),
           ),
         ],
       ),
@@ -6378,7 +6362,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
           builder: (ctx, ss) => ScrollableAlertDialog(
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16)),
-                title: const Text('Thêm mốc giờ đồng bộ',
+                title: Text(tr('Thêm mốc giờ đồng bộ'),
                     style: TextStyle(fontSize: 16)),
                 content: SizedBox(
                   width: 300,
@@ -6390,19 +6374,19 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                           child: DropdownButtonFormField<int>(
                             initialValue: selectedHour,
                             decoration: InputDecoration(
-                                labelText: 'Giờ',
+                                labelText: tr('Giờ'),
                                 border: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(10))),
                             items: List.generate(
                                 24,
                                 (i) => DropdownMenuItem(
                                     value: i,
-                                    child: Text(i.toString().padLeft(2, '0')))),
+                                    child: Text(tr(i.toString().padLeft(2, '0'))))),
                             onChanged: (v) => ss(() => selectedHour = v ?? 8),
                           )),
-                      const Padding(
+                      Padding(
                           padding: EdgeInsets.symmetric(horizontal: 8),
-                          child: Text(':',
+                          child: Text(tr(':'),
                               style: TextStyle(
                                   fontSize: 20, fontWeight: FontWeight.bold))),
                       SizedBox(
@@ -6410,20 +6394,20 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                           child: DropdownButtonFormField<int>(
                             initialValue: selectedMinute,
                             decoration: InputDecoration(
-                                labelText: 'Phút',
+                                labelText: tr('Phút'),
                                 border: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(10))),
                             items: [0, 15, 30, 45]
                                 .map((m) => DropdownMenuItem(
                                     value: m,
-                                    child: Text(m.toString().padLeft(2, '0'))))
+                                    child: Text(tr(m.toString().padLeft(2, '0')))))
                                 .toList(),
                             onChanged: (v) => ss(() => selectedMinute = v ?? 0),
                           )),
                     ]),
                     const SizedBox(height: 12),
                     if (currentSlots.isNotEmpty) ...[
-                      Text('Đã thiết lập: ${currentSlots.join(", ")}',
+                      Text(tr('Đã thiết lập: ${currentSlots.join(", ")}'),
                           style:
                               TextStyle(color: Colors.grey[500], fontSize: 11)),
                     ],
@@ -6432,7 +6416,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                 actions: [
                   TextButton(
                       onPressed: () => Navigator.pop(ctx),
-                      child: const Text('Hủy')),
+                      child: Text(tr('Hủy'))),
                   FilledButton(
                     onPressed: () async {
                       final slot =
@@ -6440,7 +6424,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                       if (currentSlots.contains(slot)) {
                         NotificationOverlayManager().showWarning(
                             title: 'Trùng lặp',
-                            message: 'Mốc $slot đã tồn tại');
+                            message: tr('Mốc $slot đã tồn tại'));
                         return;
                       }
                       final updated = [...currentSlots, slot]..sort();
@@ -6461,7 +6445,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                       if (res['isSuccess'] == true && mounted) _loadData();
                     },
                     style: FilledButton.styleFrom(backgroundColor: _accent),
-                    child: const Text('Thêm'),
+                    child: Text(tr('Thêm')),
                   ),
                 ],
               )),
@@ -6498,7 +6482,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
         if (mounted) {
           NotificationOverlayManager().showWarning(
               title: 'Thiếu dữ liệu',
-              message: 'File không có dữ liệu (cần ít nhất 2 dòng)');
+              message: tr('File không có dữ liệu (cần ít nhất 2 dòng)'));
         }
         return;
       }
@@ -6523,7 +6507,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
         if (mounted) {
           NotificationOverlayManager().showWarning(
               title: 'Không hợp lệ',
-              message: 'Không tìm thấy dữ liệu hợp lệ trong file');
+              message: tr('Không tìm thấy dữ liệu hợp lệ trong file'));
         }
         return;
       }
@@ -6536,7 +6520,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
           final count = res['data']?['updatedCount'] ?? 0;
           NotificationOverlayManager().showSuccess(
               title: 'Import thành công',
-              message: 'Đã cập nhật doanh số cho $count nhân viên');
+              message: tr('Đã cập nhật doanh số cho $count nhân viên'));
           _loadPeriodData();
         } else {
           NotificationOverlayManager().showError(
@@ -6547,7 +6531,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
     } catch (e) {
       if (mounted) {
         NotificationOverlayManager()
-            .showError(title: 'Lỗi', message: 'Lỗi import: $e');
+            .showError(title: 'Lỗi', message: tr('Lỗi import: $e'));
       }
     }
   }
@@ -6561,14 +6545,14 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
           decoration: BoxDecoration(
               color: Colors.white, borderRadius: BorderRadius.circular(4)),
-          child: Text(col,
+          child: Text(tr(col),
               style: TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 12,
                   color: Colors.blue.shade800)),
         ),
         const SizedBox(width: 8),
-        Text(desc, style: TextStyle(fontSize: 12, color: Colors.blue.shade700)),
+        Text(tr(desc), style: TextStyle(fontSize: 12, color: Colors.blue.shade700)),
       ]),
     );
   }
@@ -6586,16 +6570,16 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
         );
         if (mounted) {
           NotificationOverlayManager()
-              .showSuccess(title: 'Thành công', message: 'Đã tải file mẫu');
+              .showSuccess(title: 'Thành công', message: tr('Đã tải file mẫu'));
         }
       } else if (mounted) {
         NotificationOverlayManager()
-            .showError(title: 'Lỗi', message: 'Không thể tải file mẫu');
+            .showError(title: 'Lỗi', message: tr('Không thể tải file mẫu'));
       }
     } catch (e) {
       if (mounted) {
         NotificationOverlayManager()
-            .showError(title: 'Lỗi', message: 'Lỗi: $e');
+            .showError(title: 'Lỗi', message: tr('Lỗi: $e'));
       }
     }
   }
@@ -6613,8 +6597,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
           final errMsg = errors.isNotEmpty ? '\n${errors.join('\n')}' : '';
           NotificationOverlayManager().showSuccess(
               title: 'Ghi chỉ tiêu',
-              message:
-                  'Đã ghi chỉ tiêu cho $count/$total nhân viên vào cột D Google Sheet$errMsg');
+              message: tr('Đã ghi chỉ tiêu cho $count/$total nhân viên vào cột D Google Sheet$errMsg'));
         } else {
           NotificationOverlayManager()
               .showError(title: 'Lỗi', message: 'Lỗi: ${res['message'] ?? ''}');
@@ -6623,7 +6606,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
     } catch (e) {
       if (mounted) {
         NotificationOverlayManager()
-            .showError(title: 'Lỗi', message: 'Lỗi ghi chỉ tiêu: $e');
+            .showError(title: 'Lỗi', message: tr('Lỗi ghi chỉ tiêu: $e'));
       }
     }
     if (mounted) setState(() => _loading = false);
@@ -6641,8 +6624,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
           final errMsg = errors.isNotEmpty ? '\n${errors.join('\n')}' : '';
           NotificationOverlayManager().showSuccess(
               title: 'Đồng bộ',
-              message:
-                  'Đã đồng bộ doanh số cho $count nhân viên từ Google Sheet$errMsg');
+              message: tr('Đã đồng bộ doanh số cho $count nhân viên từ Google Sheet$errMsg'));
           _loadPeriodData();
         } else {
           NotificationOverlayManager()
@@ -6652,7 +6634,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
     } catch (e) {
       if (mounted) {
         NotificationOverlayManager()
-            .showError(title: 'Lỗi', message: 'Lỗi đồng bộ: $e');
+            .showError(title: 'Lỗi', message: tr('Lỗi đồng bộ: $e'));
       }
     }
     if (mounted) setState(() => _loading = false);

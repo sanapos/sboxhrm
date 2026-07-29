@@ -4,6 +4,7 @@ import '../../models/pos_product.dart';
 import '../../services/api_service.dart';
 import '../../utils/paged_load_utils.dart';
 import 'pos_theme.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// Chọn hàng thành phần combo — tìm kiếm + phân trang API.
 class PosComboComponentPicker extends StatefulWidget {
@@ -89,7 +90,7 @@ class _PosComboComponentPickerState extends State<PosComboComponentPicker> {
     final dialogWidth = width < 520 ? width * 0.94 : 480.0;
 
     return AlertDialog(
-      title: const Text('Chọn hàng thành phần'),
+      title: Text(tr('Chọn hàng thành phần')),
       content: SizedBox(
         width: dialogWidth,
         height: 420,
@@ -99,7 +100,7 @@ class _PosComboComponentPickerState extends State<PosComboComponentPicker> {
             TextField(
               controller: _searchCtrl,
               decoration: InputDecoration(
-                hintText: 'Tìm mã, tên, mã vạch…',
+                hintText: tr('Tìm mã, tên, mã vạch…'),
                 prefixIcon: const Icon(Icons.search, size: 20),
                 isDense: true,
                 border: OutlineInputBorder(
@@ -115,7 +116,7 @@ class _PosComboComponentPickerState extends State<PosComboComponentPicker> {
               child: TextButton.icon(
                 onPressed: _loading ? null : () => _load(_searchCtrl.text),
                 icon: const Icon(Icons.search, size: 18),
-                label: const Text('Tìm'),
+                label: Text(tr('Tìm')),
               ),
             ),
             Expanded(
@@ -124,9 +125,9 @@ class _PosComboComponentPickerState extends State<PosComboComponentPicker> {
                   : _items.isEmpty
                       ? Center(
                           child: Text(
-                            _query.isEmpty
+                            tr(_query.isEmpty
                                 ? 'Không có hàng hóa'
-                                : 'Không tìm thấy "$_query"',
+                                : 'Không tìm thấy "$_query"'),
                             style: TextStyle(color: Colors.grey.shade600),
                           ),
                         )
@@ -138,12 +139,11 @@ class _PosComboComponentPickerState extends State<PosComboComponentPicker> {
                             return ListTile(
                               dense: true,
                               title: Text(
-                                p.name,
+                                tr(p.name),
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
                               ),
-                              subtitle: Text(
-                                '${p.productCode} · Tồn: ${p.onHandQty}',
+                              subtitle: Text(tr('${p.productCode} · Tồn: ${p.onHandQty}'),
                                 style: const TextStyle(fontSize: 12),
                               ),
                               onTap: () => Navigator.pop(context, p),
@@ -157,7 +157,7 @@ class _PosComboComponentPickerState extends State<PosComboComponentPicker> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('Đóng'),
+          child: Text(tr('Đóng')),
         ),
       ],
     );
@@ -166,11 +166,11 @@ class _PosComboComponentPickerState extends State<PosComboComponentPicker> {
 
 /// Dialog nhập số lượng sau khi chọn thành phần.
 Future<double?> showComboComponentQtyDialog(BuildContext context) async {
-  final qtyCtrl = TextEditingController(text: '1');
+  final qtyCtrl = TextEditingController(text: tr('1'));
   final ok = await showDialog<bool>(
     context: context,
     builder: (ctx) => AlertDialog(
-      title: const Text('Số lượng thành phần'),
+      title: Text(tr('Số lượng thành phần')),
       content: TextField(
         controller: qtyCtrl,
         keyboardType: const TextInputType.numberWithOptions(decimal: true),
@@ -178,11 +178,11 @@ Future<double?> showComboComponentQtyDialog(BuildContext context) async {
         autofocus: true,
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Hủy')),
+        TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Hủy'))),
         FilledButton(
           style: PosTheme.filledButtonStyle,
           onPressed: () => Navigator.pop(ctx, true),
-          child: const Text('Thêm'),
+          child: Text(tr('Thêm')),
         ),
       ],
     ),

@@ -1,6 +1,8 @@
 ﻿import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../l10n/app_locale.dart';
+import '../l10n/app_tr.dart';
 import '../utils/vietnamese_font.dart';
 
 /// Hệ thống typography chuẩn cho tiếng Việt
@@ -137,6 +139,8 @@ class ThemeProvider extends ChangeNotifier {
     _isDarkMode = prefs.getBool('isDarkMode') ?? false;
     final langCode = prefs.getString('languageCode') ?? 'vi';
     _locale = Locale(langCode);
+    AppLocale.setLanguageCode(langCode);
+    trResetCache();
     notifyListeners();
   }
 
@@ -149,6 +153,8 @@ class ThemeProvider extends ChangeNotifier {
 
   Future<void> setLocale(Locale locale) async {
     _locale = locale;
+    AppLocale.setLanguageCode(locale.languageCode);
+    trResetCache();
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('languageCode', locale.languageCode);

@@ -8,8 +8,9 @@ import '../providers/permission_provider.dart';
 import '../services/api_service.dart';
 import '../widgets/leave_request_form.dart';
 import '../widgets/notification_overlay.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
-/// Menu khi bấm ô **Vắng** (không phép): tạo đơn nghỉ hoặc ghi nhận nghỉ không phép.
+  /// Menu khi bấm ô **Vắng** (không phép): thêm công, tạo đơn nghỉ hoặc phạt nghỉ không phép.
 class AbsenceDayActions {
   AbsenceDayActions._();
 
@@ -55,6 +56,8 @@ class AbsenceDayActions {
     required DateTime date,
     List<dynamic>? employees,
     VoidCallback? onCompleted,
+    /// Mở dialog thêm chấm công thủ công (tổng hợp / theo ca).
+    VoidCallback? onAddWork,
   }) async {
     final choice = await showModalBottomSheet<String>(
       context: context,
@@ -67,32 +70,39 @@ class AbsenceDayActions {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                employeeName,
+                tr(employeeName),
                 style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
                 ),
               ),
               Text(
-                'Mã: $employeeCode · ${DateFormat('dd/MM/yyyy').format(date)}',
+                tr('Mã: $employeeCode · ${DateFormat('dd/MM/yyyy').format(date)}'),
                 style: TextStyle(fontSize: 13, color: Colors.grey[600]),
               ),
               const SizedBox(height: 8),
-              const Text(
-                'Ngày vắng (chưa có phép duyệt). Chọn xử lý:',
+              Text(tr('Ngày vắng (chưa có phép duyệt). Chọn xử lý:'),
                 style: TextStyle(fontSize: 13),
               ),
               const SizedBox(height: 12),
+              if (onAddWork != null)
+                ListTile(
+                  leading:
+                      const Icon(Icons.add_circle, color: Color(0xFF2563EB)),
+                  title: Text(tr('Thêm công')),
+                  subtitle: Text(tr('Bổ sung giờ vào/ra thủ công')),
+                  onTap: () => Navigator.pop(ctx, 'addWork'),
+                ),
               ListTile(
                 leading: const Icon(Icons.beach_access, color: Color(0xFF0891B2)),
-                title: const Text('Tạo phiếu nghỉ phép'),
-                subtitle: const Text('Bổ sung đơn nghỉ cho ngày này'),
+                title: Text(tr('Tạo phiếu nghỉ phép')),
+                subtitle: Text(tr('Bổ sung đơn nghỉ cho ngày này')),
                 onTap: () => Navigator.pop(ctx, 'leave'),
               ),
               ListTile(
                 leading: const Icon(Icons.gavel, color: Color(0xFFDC2626)),
-                title: const Text('Nghỉ không phép'),
-                subtitle: const Text('Tạo phiếu phạt nghỉ không phép'),
+                title: Text(tr('Nghỉ không phép')),
+                subtitle: Text(tr('Tạo phiếu phạt nghỉ không phép')),
                 onTap: () => Navigator.pop(ctx, 'unauthorized'),
               ),
             ],
@@ -102,6 +112,11 @@ class AbsenceDayActions {
     );
 
     if (!context.mounted || choice == null) return;
+
+    if (choice == 'addWork') {
+      onAddWork?.call();
+      return;
+    }
 
     List<dynamic> empList = employees ?? [];
     if (empList.isEmpty) {
@@ -155,7 +170,7 @@ class AbsenceDayActions {
     if (hrEmployeeId == null || hrEmployeeId.isEmpty) {
       NotificationOverlayManager().showError(
         title: 'Lỗi',
-        message: 'Không tìm thấy nhân viên trên hệ thống HR',
+        message: tr('Không tìm thấy nhân viên trên hệ thống HR'),
       );
       return;
     }
@@ -212,7 +227,7 @@ class AbsenceDayActions {
     if (hrEmployeeId == null || hrEmployeeId.isEmpty) {
       NotificationOverlayManager().showError(
         title: 'Lỗi',
-        message: 'Không tìm thấy nhân viên để tạo phiếu phạt',
+        message: tr('Không tìm thấy nhân viên để tạo phiếu phạt'),
       );
       return;
     }
@@ -229,27 +244,27 @@ class AbsenceDayActions {
     } catch (_) {}
 
     final amountCtrl =
-        TextEditingController(text: defaultAmount.toStringAsFixed(0));
+        TextEditingController(text: tr(defaultAmount.toStringAsFixed(0)));
     final descCtrl = TextEditingController(
       text:
-          'Nghỉ không phép — ${DateFormat('dd/MM/yyyy').format(date)} ($employeeName)',
+          tr('Nghỉ không phép — ${DateFormat('dd/MM/yyyy').format(date)} ($employeeName)'),
     );
 
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => ScrollableAlertDialog(
-        title: const Text('Nghỉ không phép'),
+        title: Text(tr('Nghỉ không phép')),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('$employeeName · ${DateFormat('dd/MM/yyyy').format(date)}'),
+            Text(tr('$employeeName · ${DateFormat('dd/MM/yyyy').format(date)}')),
             const SizedBox(height: 12),
             TextField(
               controller: amountCtrl,
               keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: 'Số tiền phạt',
+              decoration: InputDecoration(
+                labelText: tr('Số tiền phạt'),
                 border: OutlineInputBorder(),
               ),
             ),
@@ -257,8 +272,8 @@ class AbsenceDayActions {
             TextField(
               controller: descCtrl,
               maxLines: 2,
-              decoration: const InputDecoration(
-                labelText: 'Ghi chú',
+              decoration: InputDecoration(
+                labelText: tr('Ghi chú'),
                 border: OutlineInputBorder(),
               ),
             ),
@@ -267,11 +282,11 @@ class AbsenceDayActions {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Hủy'),
+            child: Text(tr('Hủy')),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Tạo phiếu phạt'),
+            child: Text(tr('Tạo phiếu phạt')),
           ),
         ],
       ),
@@ -293,7 +308,7 @@ class AbsenceDayActions {
     if (amount == null || amount <= 0) {
       NotificationOverlayManager().showError(
         title: 'Lỗi',
-        message: 'Số tiền phạt không hợp lệ',
+        message: tr('Số tiền phạt không hợp lệ'),
       );
       return;
     }
@@ -312,7 +327,7 @@ class AbsenceDayActions {
     if (result['isSuccess'] == true) {
       NotificationOverlayManager().showSuccess(
         title: 'Thành công',
-        message: 'Đã ghi nhận nghỉ không phép',
+        message: tr('Đã ghi nhận nghỉ không phép'),
       );
       onCompleted?.call();
     } else {

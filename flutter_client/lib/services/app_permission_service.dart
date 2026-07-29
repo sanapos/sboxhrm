@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// Xin quyền thiết yếu lần đầu mở app + kiểm tra camera (Samsung hay báo sai).
 class AppPermissionService {
@@ -77,23 +78,23 @@ class AppPermissionService {
       context: context,
       barrierDismissible: false,
       builder: (ctx) => AlertDialog(
-        title: const Text('Cấp quyền cho SBOX HRM'),
-        content: const Text(
-          'Ứng dụng cần các quyền sau để hoạt động đúng:\n\n'
+        title: Text(tr('Cấp quyền cho SBOX HRM')),
+        content: Text(
+          tr('Ứng dụng cần các quyền sau để hoạt động đúng:\n\n'
           '• Camera — đăng ký khuôn mặt, chấm công\n'
           '• Vị trí — xác nhận địa điểm chấm công\n'
           '• Thông báo — nhận duyệt đăng ký, chấm công\n\n'
-          'Nhấn «Cấp quyền» để hệ thống hiện hộp thoại quyền.',
+          'Nhấn «Cấp quyền» để hệ thống hiện hộp thoại quyền.'),
           style: TextStyle(height: 1.45),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Để sau'),
+            child: Text(tr('Để sau')),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Cấp quyền'),
+            child: Text(tr('Cấp quyền')),
           ),
         ],
       ),

@@ -4,6 +4,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import '../utils/platform_geolocation.dart';
 import 'notification_overlay.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// A dialog widget that lets the user pick a location on an OpenStreetMap.
 /// Returns the selected [LatLng] or null if cancelled.
@@ -83,9 +84,9 @@ class _MapLocationPickerState extends State<MapLocationPicker> {
             ? '${(accuracy / 1000).toStringAsFixed(1)} km'
             : '${accuracy.round()} m';
         if (accuracy > 1000) {
-          NotificationOverlayManager().showWarning(title: 'Độ chính xác thấp', message: 'Độ chính xác: ~$accText\nNhấn vào bản đồ để chỉnh lại vị trí chính xác');
+          NotificationOverlayManager().showWarning(title: 'Độ chính xác thấp', message: tr('Độ chính xác: ~$accText\nNhấn vào bản đồ để chỉnh lại vị trí chính xác'));
         } else {
-          NotificationOverlayManager().showSuccess(title: 'Vị trí', message: 'Độ chính xác: ~$accText');
+          NotificationOverlayManager().showSuccess(title: 'Vị trí', message: tr('Độ chính xác: ~$accText'));
         }
       }
     } catch (e) {
@@ -256,7 +257,7 @@ class _MapLocationPickerState extends State<MapLocationPicker> {
               ],
             ),
             child: Text(
-              '${_selectedLocation.latitude.toStringAsFixed(6)}, ${_selectedLocation.longitude.toStringAsFixed(6)}',
+              tr('${_selectedLocation.latitude.toStringAsFixed(6)}, ${_selectedLocation.longitude.toStringAsFixed(6)}'),
               style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: Color(0xFF18181B)),
             ),
           ),
@@ -279,14 +280,13 @@ class _MapLocationPickerState extends State<MapLocationPicker> {
                   ),
                 ],
               ),
-              child: const Row(
+              child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(Icons.touch_app, size: 16, color: Color(0xFF1E3A5F)),
                   SizedBox(width: 6),
                   Flexible(
-                    child: Text(
-                      'Nhấn vào bản đồ để chọn vị trí chấm công',
+                    child: Text(tr('Nhấn vào bản đồ để chọn vị trí chấm công'),
                       style: TextStyle(fontSize: 12, color: Color(0xFF1E3A5F)),
                     ),
                   ),
@@ -305,7 +305,7 @@ class _MapLocationPickerState extends State<MapLocationPicker> {
           height: double.infinity,
           child: Scaffold(
             appBar: AppBar(
-              title: Text(widget.title ?? (widget.readOnly ? 'Xem vị trí' : 'Chọn vị trí trên bản đồ')),
+              title: Text(tr(widget.title ?? (widget.readOnly ? 'Xem vị trí' : 'Chọn vị trí trên bản đồ'))),
               leading: IconButton(
                 icon: const Icon(Icons.close),
                 onPressed: () => Navigator.pop(context, null),
@@ -321,13 +321,13 @@ class _MapLocationPickerState extends State<MapLocationPicker> {
                       children: [
                         TextButton(
                           onPressed: () => Navigator.pop(context, null),
-                          child: const Text('Hủy', style: TextStyle(color: Color(0xFF71717A))),
+                          child: Text(tr('Hủy'), style: TextStyle(color: Color(0xFF71717A))),
                         ),
                         const SizedBox(width: 12),
                         ElevatedButton.icon(
                           onPressed: () => Navigator.pop(context, _selectedLocation),
                           icon: const Icon(Icons.check, size: 18),
-                          label: const Text('Xác nhận vị trí'),
+                          label: Text(tr('Xác nhận vị trí')),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFF1E3A5F),
                             foregroundColor: Colors.white,
@@ -352,7 +352,7 @@ class _MapLocationPickerState extends State<MapLocationPicker> {
           ),
           const SizedBox(width: 12),
           Text(
-            widget.title ?? (widget.readOnly ? 'Xem vị trí' : 'Chọn vị trí trên bản đồ'),
+            tr(widget.title ?? (widget.readOnly ? 'Xem vị trí' : 'Chọn vị trí trên bản đồ')),
             style: const TextStyle(color: Color(0xFF18181B), fontSize: 18),
           ),
           const Spacer(),
@@ -374,18 +374,18 @@ class _MapLocationPickerState extends State<MapLocationPicker> {
           ? [
               TextButton(
                 onPressed: () => Navigator.pop(context, null),
-                child: const Text('Đóng'),
+                child: Text(tr('Đóng')),
               ),
             ]
           : [
               TextButton(
                 onPressed: () => Navigator.pop(context, null),
-                child: const Text('Hủy', style: TextStyle(color: Color(0xFF71717A))),
+                child: Text(tr('Hủy'), style: TextStyle(color: Color(0xFF71717A))),
               ),
               ElevatedButton.icon(
                 onPressed: () => Navigator.pop(context, _selectedLocation),
                 icon: const Icon(Icons.check, size: 18),
-                label: const Text('Xác nhận vị trí'),
+                label: Text(tr('Xác nhận vị trí')),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF1E3A5F),
                   foregroundColor: Colors.white,

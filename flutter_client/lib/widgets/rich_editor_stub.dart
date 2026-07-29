@@ -2,6 +2,7 @@
 // Uses a simple TextFormField for HTML content editing.
 
 import 'package:flutter/material.dart';
+import '../l10n/app_tr.dart';
 
 // ══════════════════════════════════════════════════════════
 // Controller
@@ -51,7 +52,7 @@ class RichEditor extends StatelessWidget {
     return TextFormField(
       controller: controller.textEditingController,
       decoration: InputDecoration(
-        hintText: placeholder ?? 'Nhập nội dung HTML...',
+        hintText: tr(placeholder ?? 'Nhập nội dung HTML...'),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
         alignLabelWithHint: true,
       ),
@@ -86,7 +87,7 @@ class HtmlContentView extends StatelessWidget {
         .replaceAll('&gt;', '>')
         .trim();
     return SelectableText(
-      text,
+      tr(text),
       style: const TextStyle(fontSize: 15, height: 1.7),
     );
   }

@@ -11,6 +11,8 @@ import '../../utils/store_role_helper.dart';
 import '../../widgets/hrm_page_chrome.dart';
 import '../../widgets/pos/pos_hub_scope.dart';
 import '../../widgets/pos/pos_theme.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
+import 'package:zkteco_flutter_client/l10n/app_ui_locale.dart';
 
 const _kiotBlue = PosTheme.kiotBlue;
 final _money = NumberFormat('#,##0', 'vi_VN');
@@ -138,7 +140,7 @@ class _PosEndOfDayScreenState extends State<PosEndOfDayScreen> {
         start: _time.customFrom ?? now,
         end: _time.customTo ?? now,
       ),
-      locale: const Locale('vi', 'VN'),
+      locale: appUiLocale(),
       helpText: 'Chọn khoảng thời gian',
     );
     if (picked == null || !mounted) return;
@@ -174,10 +176,10 @@ class _PosEndOfDayScreenState extends State<PosEndOfDayScreen> {
               backgroundColor: _kiotBlue,
               foregroundColor: Colors.white,
               automaticallyImplyLeading: pushed,
-              title: const Text('Tổng kết cuối ngày'),
+              title: Text(tr('Tổng kết cuối ngày')),
               actions: [
                 IconButton(
-                  tooltip: 'Tải lại',
+                  tooltip: tr('Tải lại'),
                   onPressed: _loading ? null : _loadReport,
                   icon: const Icon(Icons.refresh),
                 ),
@@ -211,20 +213,20 @@ class _PosEndOfDayScreenState extends State<PosEndOfDayScreen> {
                 width: 220,
                 child: DropdownButtonFormField<String?>(
                   value: _selectedStaffKey,
-                  decoration: const InputDecoration(
-                    labelText: 'Nhân viên',
+                  decoration: InputDecoration(
+                    labelText: tr('Nhân viên'),
                     isDense: true,
                     border: OutlineInputBorder(),
                     contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                   ),
                   items: [
-                    const DropdownMenuItem<String?>(
+                    DropdownMenuItem<String?>(
                       value: null,
-                      child: Text('Tất cả nhân viên'),
+                      child: Text(tr('Tất cả nhân viên')),
                     ),
                     ..._staff.map((s) => DropdownMenuItem<String?>(
                           value: _staffKey(s),
-                          child: Text(s.displayName, overflow: TextOverflow.ellipsis),
+                          child: Text(tr(s.displayName), overflow: TextOverflow.ellipsis),
                         )),
                   ],
                   onChanged: _loading
@@ -239,17 +241,17 @@ class _PosEndOfDayScreenState extends State<PosEndOfDayScreen> {
                 width: 160,
                 child: DropdownButtonFormField<String>(
                   value: _filterBy,
-                  decoration: const InputDecoration(
-                    labelText: 'Lọc theo',
+                  decoration: InputDecoration(
+                    labelText: tr('Lọc theo'),
                     isDense: true,
                     border: OutlineInputBorder(),
                     contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                   ),
-                  items: const [
-                    DropdownMenuItem(value: 'soldBy', child: Text('Người bán')),
+                  items: [
+                    DropdownMenuItem(value: 'soldBy', child: Text(tr('Người bán'))),
                     DropdownMenuItem(
-                        value: 'soldByEmployee', child: Text('NV (hồ sơ)')),
-                    DropdownMenuItem(value: 'createdBy', child: Text('Người tạo')),
+                        value: 'soldByEmployee', child: Text(tr('NV (hồ sơ)'))),
+                    DropdownMenuItem(value: 'createdBy', child: Text(tr('Người tạo'))),
                   ],
                   onChanged: _loading
                       ? null
@@ -269,24 +271,24 @@ class _PosEndOfDayScreenState extends State<PosEndOfDayScreen> {
               width: 150,
               child: DropdownButtonFormField<PosEndOfDayPrintFormat>(
                 value: _format,
-                decoration: const InputDecoration(
-                  labelText: 'Mẫu in',
+                decoration: InputDecoration(
+                  labelText: tr('Mẫu in'),
                   isDense: true,
                   border: OutlineInputBorder(),
                   contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                 ),
-                items: const [
+                items: [
                   DropdownMenuItem(
                     value: PosEndOfDayPrintFormat.bill58,
-                    child: Text('Bill K58'),
+                    child: Text(tr('Bill K58')),
                   ),
                   DropdownMenuItem(
                     value: PosEndOfDayPrintFormat.bill80,
-                    child: Text('Bill K80'),
+                    child: Text(tr('Bill K80')),
                   ),
                   DropdownMenuItem(
                     value: PosEndOfDayPrintFormat.a4,
-                    child: Text('Khổ A4'),
+                    child: Text(tr('Khổ A4')),
                   ),
                 ],
                 onChanged: _loading
@@ -313,16 +315,16 @@ class _PosEndOfDayScreenState extends State<PosEndOfDayScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(_error!, style: const TextStyle(color: Colors.red)),
+            Text(tr(_error!), style: const TextStyle(color: Colors.red)),
             const SizedBox(height: 12),
-            FilledButton(onPressed: _loadReport, child: const Text('Thử lại')),
+            FilledButton(onPressed: _loadReport, child: Text(tr('Thử lại'))),
           ],
         ),
       );
     }
     final r = _report;
     if (r == null) {
-      return const Center(child: Text('Không có dữ liệu'));
+      return Center(child: Text(tr('Không có dữ liệu')));
     }
 
     return SingleChildScrollView(
@@ -359,7 +361,7 @@ class _PosEndOfDayScreenState extends State<PosEndOfDayScreen> {
     Widget section(String title) => Padding(
           padding: const EdgeInsets.only(top: 10, bottom: 4),
           child: Text(
-            title,
+            tr(title),
             textAlign: TextAlign.center,
             style: const TextStyle(
               fontSize: 11,
@@ -386,27 +388,26 @@ class _PosEndOfDayScreenState extends State<PosEndOfDayScreen> {
               children: [
                 if (r.storeName != null && r.storeName!.trim().isNotEmpty)
                   Text(
-                    r.storeName!.trim(),
+                    tr(r.storeName!.trim()),
                     textAlign: TextAlign.center,
                     style: const TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w800,
                     ),
                   ),
-                const Text(
-                  'TỔNG KẾT CUỐI NGÀY',
+                Text(tr('TỔNG KẾT CUỐI NGÀY'),
                   textAlign: TextAlign.center,
                   style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
                 ),
                 Text(
-                  'Bill ${k58 ? 'K58' : 'K80'}',
+                  tr('Bill ${k58 ? 'K58' : 'K80'}'),
                   textAlign: TextAlign.center,
                   style: const TextStyle(fontSize: 11, color: PosTheme.textSecondary),
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'NV: $staff\n'
-                  '${_dt(r.from)} – ${_dt(r.to)}',
+                  tr('NV: $staff\n'
+                  '${_dt(r.from)} – ${_dt(r.to)}'),
                   textAlign: TextAlign.center,
                   style: const TextStyle(fontSize: 11, color: PosTheme.textSecondary, height: 1.35),
                 ),
@@ -457,8 +458,7 @@ class _PosEndOfDayScreenState extends State<PosEndOfDayScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const Text(
-          'BÁO CÁO CUỐI NGÀY VỀ BÁN HÀNG',
+        Text(tr('BÁO CÁO CUỐI NGÀY VỀ BÁN HÀNG'),
           textAlign: TextAlign.center,
           style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
         ),
@@ -468,27 +468,27 @@ class _PosEndOfDayScreenState extends State<PosEndOfDayScreen> {
         _summaryLine('', 'Thực thu', _fmt(r.actualReceived), bold: true),
         if (r.transactions.isNotEmpty) ...[
           const SizedBox(height: 16),
-          const Text('Chi tiết giao dịch', style: TextStyle(fontWeight: FontWeight.w600)),
+          Text(tr('Chi tiết giao dịch'), style: TextStyle(fontWeight: FontWeight.w600)),
           const SizedBox(height: 8),
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: DataTable(
               headingRowHeight: 36,
               dataRowMinHeight: 32,
-              columns: const [
-                DataColumn(label: Text('Mã GD')),
-                DataColumn(label: Text('Thời gian')),
-                DataColumn(label: Text('SL'), numeric: true),
-                DataColumn(label: Text('Doanh thu'), numeric: true),
-                DataColumn(label: Text('Thực thu'), numeric: true),
+              columns: [
+                DataColumn(label: Text(tr('Mã GD'))),
+                DataColumn(label: Text(tr('Thời gian'))),
+                DataColumn(label: Text(tr('SL')), numeric: true),
+                DataColumn(label: Text(tr('Doanh thu')), numeric: true),
+                DataColumn(label: Text(tr('Thực thu')), numeric: true),
               ],
               rows: r.transactions
                   .map((t) => DataRow(cells: [
-                        DataCell(Text(t.orderNo)),
-                        DataCell(Text(_dt(t.createdAt))),
-                        DataCell(Text(_qty(t.qty))),
-                        DataCell(Text(_fmt(t.revenue))),
-                        DataCell(Text(_fmt(t.actualReceived))),
+                        DataCell(Text(tr(t.orderNo))),
+                        DataCell(Text(tr(_dt(t.createdAt)))),
+                        DataCell(Text(tr(_qty(t.qty)))),
+                        DataCell(Text(tr(_fmt(t.revenue)))),
+                        DataCell(Text(tr(_fmt(t.actualReceived)))),
                       ]))
                   .toList(),
             ),
@@ -496,7 +496,7 @@ class _PosEndOfDayScreenState extends State<PosEndOfDayScreen> {
         ],
         if (_showProductDetail && r.products.isNotEmpty) ...[
           const SizedBox(height: 12),
-          const Text('Hàng hóa bán ra', style: TextStyle(fontWeight: FontWeight.w600)),
+          Text(tr('Hàng hóa bán ra'), style: TextStyle(fontWeight: FontWeight.w600)),
           const SizedBox(height: 8),
           ...r.products.map((p) => _summaryLine(
                 '',
@@ -522,12 +522,12 @@ class _PosEndOfDayScreenState extends State<PosEndOfDayScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (idx.isNotEmpty)
-            SizedBox(width: 22, child: Text(idx, style: const TextStyle(fontSize: 12)))
+            SizedBox(width: 22, child: Text(tr(idx), style: const TextStyle(fontSize: 12)))
           else if (!indent)
             const SizedBox(width: 22),
           Expanded(
             child: Text(
-              label,
+              tr(label),
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: bold ? FontWeight.bold : FontWeight.normal,
@@ -535,7 +535,7 @@ class _PosEndOfDayScreenState extends State<PosEndOfDayScreen> {
             ),
           ),
           Text(
-            value,
+            tr(value),
             style: TextStyle(
               fontSize: 13,
               fontWeight: bold ? FontWeight.bold : FontWeight.w500,
@@ -569,7 +569,7 @@ class _PosEndOfDayScreenState extends State<PosEndOfDayScreen> {
                     _presetChip('7 ngày', PosKiotTimePreset.last7Days),
                     TextButton(
                       onPressed: _pickCustomRange,
-                      child: const Text('Khác'),
+                      child: Text(tr('Khác')),
                     ),
                   ],
                 ),
@@ -587,19 +587,19 @@ class _PosEndOfDayScreenState extends State<PosEndOfDayScreen> {
                             await _loadReport();
                           },
                   ),
-                  const Expanded(
-                    child: Text('Chi tiết hàng bán', style: TextStyle(fontSize: 12)),
+                  Expanded(
+                    child: Text(tr('Chi tiết hàng bán'), style: TextStyle(fontSize: 12)),
                   ),
                   OutlinedButton(
                     onPressed: () => Navigator.pop(context),
-                    child: const Text('Thoát'),
+                    child: Text(tr('Thoát')),
                   ),
                   const SizedBox(width: 8),
                   FilledButton.icon(
                     style: FilledButton.styleFrom(backgroundColor: _kiotBlue),
                     onPressed: _report == null || _loading ? null : _print,
                     icon: const Icon(Icons.print, size: 18),
-                    label: const Text('In'),
+                    label: Text(tr('In')),
                   ),
                 ],
               ),
@@ -618,7 +618,7 @@ class _PosEndOfDayScreenState extends State<PosEndOfDayScreen> {
         backgroundColor: active ? PosTheme.kiotBlueLight : null,
       ),
       onPressed: _loading ? null : () => _applyPreset(preset),
-      child: Text(label, style: TextStyle(fontWeight: active ? FontWeight.w600 : null)),
+      child: Text(tr(label), style: TextStyle(fontWeight: active ? FontWeight.w600 : null)),
     );
   }
 

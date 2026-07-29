@@ -8,6 +8,7 @@ import '../services/mobile_quick_actions_prefs.dart';
 import '../utils/mobile_quick_actions_catalog.dart';
 import '../utils/permission_navigation.dart';
 import '../widgets/hrm_page_chrome.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// Sheet tùy chỉnh lưới truy cập nhanh trong tab «Thêm».
 class MobileQuickActionsConfigSheet extends StatefulWidget {
@@ -106,8 +107,7 @@ class _MobileQuickActionsConfigSheetState
           children: [
             Padding(
               padding: const EdgeInsets.all(16),
-              child: Text(
-                'Ô ${index + 1} — chọn chức năng',
+              child: Text(tr('Ô ${index + 1} — chọn chức năng'),
                 style:
                     const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
               ),
@@ -119,7 +119,7 @@ class _MobileQuickActionsConfigSheetState
                   for (final opt in options)
                     ListTile(
                       leading: Icon(opt.icon),
-                      title: Text(opt.label),
+                      title: Text(tr(opt.label)),
                       selected: opt.moduleCode == current,
                       onTap: () => Navigator.pop(ctx, opt.moduleCode),
                     ),
@@ -145,12 +145,12 @@ class _MobileQuickActionsConfigSheetState
     if (ok) {
       Navigator.pop(context);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Đã lưu truy cập nhanh')),
+        SnackBar(content: Text(tr('Đã lưu truy cập nhanh'))),
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Không lưu được — thử lại sau'),
+        SnackBar(
+          content: Text(tr('Không lưu được — thử lại sau')),
           backgroundColor: Color(0xFFDC2626),
         ),
       );
@@ -171,9 +171,8 @@ class _MobileQuickActionsConfigSheetState
               children: [
                 const Icon(Icons.apps_rounded, color: HrmPageChrome.primaryNavy),
                 const SizedBox(width: 8),
-                const Expanded(
-                  child: Text(
-                    'Tùy chỉnh truy cập nhanh',
+                Expanded(
+                  child: Text(tr('Tùy chỉnh truy cập nhanh'),
                     style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
                   ),
                 ),
@@ -186,8 +185,7 @@ class _MobileQuickActionsConfigSheetState
           ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Text(
-              '9 ô trong tab «Thêm» — kéo đổi thứ tự, chạm để đổi chức năng.',
+            child: Text(tr('9 ô trong tab «Thêm» — kéo đổi thứ tự, chạm để đổi chức năng.'),
               style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
             ),
           ),
@@ -213,16 +211,16 @@ class _MobileQuickActionsConfigSheetState
                       backgroundColor:
                           HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
                       child: Text(
-                        '${index + 1}',
+                        tr('${index + 1}'),
                         style: const TextStyle(
                           fontWeight: FontWeight.w700,
                           color: HrmPageChrome.primaryNavy,
                         ),
                       ),
                     ),
-                    title: Text(_labelFor(code)),
+                    title: Text(tr(_labelFor(code))),
                     subtitle: code.isNotEmpty
-                        ? Text(code, style: const TextStyle(fontSize: 11))
+                        ? Text(tr(code), style: const TextStyle(fontSize: 11))
                         : null,
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,
@@ -230,7 +228,7 @@ class _MobileQuickActionsConfigSheetState
                         if (def != null)
                           Icon(def.icon, size: 20, color: Colors.grey.shade600),
                         IconButton(
-                          tooltip: 'Đổi chức năng',
+                          tooltip: tr('Đổi chức năng'),
                           icon: const Icon(Icons.swap_horiz, size: 20),
                           onPressed: () => _pickSlot(index),
                         ),
@@ -260,7 +258,7 @@ class _MobileQuickActionsConfigSheetState
                             );
                             _padToNine();
                           }),
-                  child: const Text('Mặc định'),
+                  child: Text(tr('Mặc định')),
                 ),
                 const Spacer(),
                 FilledButton(
@@ -271,7 +269,7 @@ class _MobileQuickActionsConfigSheetState
                           height: 20,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : const Text('Lưu'),
+                      : Text(tr('Lưu')),
                 ),
               ],
             ),

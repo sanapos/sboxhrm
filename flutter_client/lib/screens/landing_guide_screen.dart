@@ -11,6 +11,7 @@ import '../utils/landing_public_url.dart';
 import '../utils/landing_usage_guide.dart';
 import '../widgets/landing_product_image.dart';
 import '../widgets/landing_youtube_player.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// Trang hướng dẫn sử dụng — mở từ thanh công cụ landing, không nhúng trong trang chủ.
 class LandingGuideScreen extends StatefulWidget {
@@ -76,8 +77,7 @@ class _LandingGuideScreenState extends State<LandingGuideScreen> {
           backgroundColor: const Color(0xFF0A0F1E),
           foregroundColor: Colors.white,
           elevation: 0,
-          title: const Text(
-            'Hướng dẫn sử dụng',
+          title: Text(tr('Hướng dẫn sử dụng'),
             style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17),
           ),
           leading: IconButton(
@@ -253,7 +253,7 @@ class _LandingGuidePanelState extends State<LandingGuidePanel> {
               ),
             ),
             child: Text(
-              label,
+              tr(label),
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: selected ? Colors.white : Colors.white60,
@@ -319,7 +319,7 @@ class _LandingGuidePanelState extends State<LandingGuidePanel> {
                           ),
                           child: Center(
                             child: Text(
-                              '${i + 1}',
+                              tr('${i + 1}'),
                               style: TextStyle(
                                 color: active ? Colors.white : Colors.white54,
                                 fontWeight: FontWeight.w900,
@@ -331,7 +331,7 @@ class _LandingGuidePanelState extends State<LandingGuidePanel> {
                         const SizedBox(width: 12),
                         Expanded(
                           child: Text(
-                            s.title,
+                            tr(s.title),
                             style: TextStyle(
                               color: active ? Colors.white : Colors.white60,
                               fontWeight:
@@ -379,8 +379,7 @@ class _LandingGuidePanelState extends State<LandingGuidePanel> {
             Icon(Icons.touch_app_rounded,
                 size: 40, color: Colors.white.withValues(alpha: 0.35)),
             const SizedBox(height: 16),
-            Text(
-              'Chọn một bước bên ${mobile ? 'trên' : 'trái'} để xem hướng dẫn chi tiết',
+            Text(tr('${tr('Chọn một bước bên ')}${mobile ? 'trên' : 'trái'} để xem hướng dẫn chi tiết'),
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: Colors.white.withValues(alpha: 0.55),
@@ -433,7 +432,7 @@ class _LandingGuidePanelState extends State<LandingGuidePanel> {
                           color: open ? s.accent : Colors.white12,
                           shape: BoxShape.circle),
                       child: Center(
-                          child: Text('${i + 1}',
+                          child: Text(tr('${i + 1}'),
                               style: const TextStyle(
                                   color: Colors.white,
                                   fontWeight: FontWeight.w900,
@@ -441,7 +440,7 @@ class _LandingGuidePanelState extends State<LandingGuidePanel> {
                     ),
                     const SizedBox(width: 12),
                     Expanded(
-                        child: Text(s.title,
+                        child: Text(tr(s.title),
                             style: TextStyle(
                                 color: Colors.white,
                                 fontWeight:
@@ -492,11 +491,11 @@ class _GuideStepDetail extends StatelessWidget {
       section: sectionKey,
       stepId: step.id,
     );
-    await Clipboard.setData(ClipboardData(text: link));
+    await Clipboard.setData(ClipboardData(text: tr(link)));
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Đã copy link hướng dẫn — gửi cho khách hàng'),
+        SnackBar(
+          content: Text(tr('Đã copy link hướng dẫn — gửi cho khách hàng')),
           duration: Duration(seconds: 2),
         ),
       );
@@ -554,7 +553,7 @@ class _GuideStepDetail extends StatelessWidget {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  shareLink,
+                  tr(shareLink),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
@@ -568,7 +567,7 @@ class _GuideStepDetail extends StatelessWidget {
               TextButton.icon(
                 onPressed: () => _copyShareLink(context),
                 icon: const Icon(Icons.copy_rounded, size: 16),
-                label: const Text('Copy link'),
+                label: Text(tr('Copy link')),
                 style: TextButton.styleFrom(
                   foregroundColor: step.accent,
                   padding:
@@ -580,7 +579,7 @@ class _GuideStepDetail extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 16),
-        Text(step.desc,
+        Text(tr(step.desc),
             style: const TextStyle(
                 color: Colors.white70, fontSize: 14, height: 1.65)),
         if (step.imageUrls.isNotEmpty) ...[
@@ -657,7 +656,7 @@ class _GuideStepDetail extends StatelessWidget {
                 ),
                 const SizedBox(width: 10),
                 Expanded(
-                    child: Text(b,
+                    child: Text(tr(b),
                         style: const TextStyle(
                             color: Colors.white70, fontSize: 13, height: 1.5))),
               ]),
@@ -676,7 +675,7 @@ class _GuideStepDetail extends StatelessWidget {
                   color: step.accent, size: 16),
               const SizedBox(width: 8),
               Expanded(
-                  child: Text(step.tip,
+                  child: Text(tr(step.tip),
                       style: TextStyle(
                           color: step.accent, fontSize: 12.5, height: 1.5))),
             ]),
@@ -718,7 +717,7 @@ class _GuideVideoPlayerDialog extends StatelessWidget {
               Row(
                 children: [
                   Expanded(
-                    child: Text(title,
+                    child: Text(tr(title),
                         style: const TextStyle(
                             color: Colors.white,
                             fontSize: 18,
@@ -748,7 +747,7 @@ class _GuideVideoPlayerDialog extends StatelessWidget {
                   }
                 },
                 icon: const Icon(Icons.open_in_new_rounded, size: 18),
-                label: const Text('Xem trên YouTube'),
+                label: Text(tr('Xem trên YouTube')),
               ),
             ],
           ),
@@ -770,7 +769,7 @@ class _GuideSectionBadge extends StatelessWidget {
         color: Colors.white.withValues(alpha: 0.10),
         borderRadius: BorderRadius.circular(100),
       ),
-      child: Text(label,
+      child: Text(tr(label),
           style: const TextStyle(
               color: Colors.white70,
               fontSize: 12,
@@ -786,7 +785,7 @@ class _GuideSectionTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Text(text,
+    return Text(tr(text),
         textAlign: TextAlign.center,
         style: const TextStyle(
             fontSize: 28,
@@ -802,7 +801,7 @@ class _GuideSectionSubtext extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Text(text,
+    return Text(tr(text),
         textAlign: TextAlign.center,
         style: const TextStyle(
             color: Colors.white54, fontSize: 15, height: 1.5));

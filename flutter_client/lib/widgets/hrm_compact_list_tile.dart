@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../l10n/app_tr.dart';
 
 /// Gợi ý thống nhất cho danh sách compact trong Thiết lập HRM.
 const String kHrmTapToViewHint = 'Chạm để xem chi tiết';
@@ -7,7 +8,7 @@ const Color kHrmTapHintColor = Color(0xFF1E3A5F);
 
 Widget hrmListTapHint([String text = kHrmTapToViewHint]) {
   return Text(
-    text,
+    tr(text),
     style: const TextStyle(
       fontSize: 11,
       fontWeight: FontWeight.w500,
@@ -49,7 +50,7 @@ class HrmCompactListTile extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  title,
+                  tr(title),
                   style: const TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
@@ -61,7 +62,7 @@ class HrmCompactListTile extends StatelessWidget {
                 if (subtitle.isNotEmpty) ...[
                   const SizedBox(height: 2),
                   Text(
-                    subtitle,
+                    tr(subtitle),
                     style: const TextStyle(fontSize: 12, color: Color(0xFF71717A)),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,

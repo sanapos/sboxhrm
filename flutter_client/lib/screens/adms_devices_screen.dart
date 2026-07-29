@@ -12,6 +12,7 @@ import '../widgets/app_button.dart';
 import 'main_layout.dart' show ScreenRefreshNotifier;
 import '../utils/device_setup_guide.dart';
 import '../widgets/hrm_page_chrome.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 enum DeviceFilter {
   all,
@@ -337,7 +338,7 @@ class _AdmsDevicesScreenState extends State<AdmsDevicesScreen> {
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
-        title: const Text('Máy Chấm Công ADMS',
+        title: Text(tr('Máy Chấm Công ADMS'),
             style: TextStyle(
                 color: Color(0xFF18181B), fontWeight: FontWeight.bold),
             overflow: TextOverflow.ellipsis,
@@ -356,7 +357,7 @@ class _AdmsDevicesScreenState extends State<AdmsDevicesScreen> {
               children: [
                 const Icon(Icons.wifi, color: Colors.green, size: 16),
                 const SizedBox(width: 4),
-                Text('$onlineCount',
+                Text(tr('$onlineCount'),
                     style: const TextStyle(
                         color: Colors.green, fontWeight: FontWeight.bold)),
               ],
@@ -375,7 +376,7 @@ class _AdmsDevicesScreenState extends State<AdmsDevicesScreen> {
                 children: [
                   const Icon(Icons.wifi_find, color: Colors.orange, size: 16),
                   const SizedBox(width: 4),
-                  Text('$neverConnectedCount',
+                  Text(tr('$neverConnectedCount'),
                       style: const TextStyle(
                           color: Colors.orange, fontWeight: FontWeight.bold)),
                 ],
@@ -393,7 +394,7 @@ class _AdmsDevicesScreenState extends State<AdmsDevicesScreen> {
               children: [
                 const Icon(Icons.wifi_off, color: Colors.red, size: 16),
                 const SizedBox(width: 4),
-                Text('$offlineCount',
+                Text(tr('$offlineCount'),
                     style: const TextStyle(
                         color: Colors.red, fontWeight: FontWeight.bold)),
               ],
@@ -422,7 +423,7 @@ class _AdmsDevicesScreenState extends State<AdmsDevicesScreen> {
                 onChanged: _onSearchChanged,
                 style: const TextStyle(color: Color(0xFF18181B)),
                 decoration: InputDecoration(
-                  hintText: 'Tìm kiếm theo SN, tên, IP, vị trí...',
+                  hintText: tr('Tìm kiếm theo SN, tên, IP, vị trí...'),
                   hintStyle: const TextStyle(color: Color(0xFFA1A1AA)),
                   prefixIcon:
                       const Icon(Icons.search, color: Color(0xFFA1A1AA)),
@@ -481,7 +482,7 @@ class _AdmsDevicesScreenState extends State<AdmsDevicesScreen> {
                                 : _getFilterColor(filter),
                           ),
                           const SizedBox(width: 6),
-                          Text(_getFilterLabel(filter)),
+                          Text(tr(_getFilterLabel(filter))),
                           const SizedBox(width: 4),
                           Container(
                             padding: const EdgeInsets.symmetric(
@@ -494,7 +495,7 @@ class _AdmsDevicesScreenState extends State<AdmsDevicesScreen> {
                               borderRadius: BorderRadius.circular(10),
                             ),
                             child: Text(
-                              '$count',
+                              tr('$count'),
                               style: TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.bold,
@@ -601,11 +602,11 @@ class _AdmsDevicesScreenState extends State<AdmsDevicesScreen> {
         Icon(icon, color: color, size: 20),
         const SizedBox(height: 4),
         Text(
-          '$count',
+          tr('$count'),
           style: TextStyle(
               color: color, fontWeight: FontWeight.bold, fontSize: 16),
         ),
-        Text(label,
+        Text(tr(label),
             style: const TextStyle(color: Color(0xFF71717A), fontSize: 11)),
       ],
     );
@@ -619,16 +620,16 @@ class _AdmsDevicesScreenState extends State<AdmsDevicesScreen> {
           Icon(Icons.devices_other, size: 80, color: Colors.grey.shade400),
           const SizedBox(height: 16),
           Text(
-            _searchQuery.isNotEmpty
+            tr(_searchQuery.isNotEmpty
                 ? 'Không tìm thấy thiết bị'
-                : 'Chưa có thiết bị nào kết nối',
+                : 'Chưa có thiết bị nào kết nối'),
             style: const TextStyle(color: Color(0xFF71717A), fontSize: 18),
           ),
           const SizedBox(height: 8),
           Text(
-            _searchQuery.isNotEmpty
+            tr(_searchQuery.isNotEmpty
                 ? 'Thử tìm kiếm với từ khóa khác'
-                : DeviceSetupGuide.emptyStateHint,
+                : DeviceSetupGuide.emptyStateHint),
             textAlign: TextAlign.center,
             style: const TextStyle(color: Color(0xFFA1A1AA), fontSize: 14),
           ),
@@ -689,20 +690,20 @@ class _AdmsDevicesScreenState extends State<AdmsDevicesScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(device.deviceName,
+                  Text(tr(device.deviceName),
                       style: const TextStyle(
                           fontSize: 14, fontWeight: FontWeight.w600),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis),
                   const SizedBox(height: 2),
                   Text(
-                    [
+                    tr([
                       device.serialNumber,
                       if (device.ipAddress != null) device.ipAddress!,
                       if (device.location != null &&
                           device.location!.isNotEmpty)
                         device.location!,
-                    ].join(' · '),
+                    ].join(' · ')),
                     style: TextStyle(fontSize: 12, color: Colors.grey[500]),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -716,7 +717,7 @@ class _AdmsDevicesScreenState extends State<AdmsDevicesScreen> {
               decoration: BoxDecoration(
                   color: statusColor.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(4)),
-              child: Text(statusText,
+              child: Text(tr(statusText),
                   style: TextStyle(
                       color: statusColor,
                       fontSize: 10,
@@ -811,7 +812,7 @@ class _AdmsDevicesScreenState extends State<AdmsDevicesScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              device.deviceName,
+                              tr(device.deviceName),
                               style: const TextStyle(
                                 color: Color(0xFF18181B),
                                 fontSize: 20,
@@ -827,7 +828,7 @@ class _AdmsDevicesScreenState extends State<AdmsDevicesScreen> {
                                 borderRadius: BorderRadius.circular(10),
                               ),
                               child: Text(
-                                detailLabel,
+                                tr(detailLabel),
                                 style: TextStyle(
                                   color: detailColor,
                                   fontSize: 12,
@@ -908,7 +909,7 @@ class _AdmsDevicesScreenState extends State<AdmsDevicesScreen> {
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            noteText,
+                            tr(noteText),
                             style: TextStyle(color: noteColor, fontSize: 13),
                           ),
                         ),
@@ -929,9 +930,8 @@ class _AdmsDevicesScreenState extends State<AdmsDevicesScreen> {
                       final confirm = await showDialog<bool>(
                             context: this.context,
                             builder: (ctx) => ScrollableAlertDialog(
-                              title: const Text('Xóa thiết bị'),
-                              content: Text(
-                                  'Bạn có chắc muốn xóa thiết bị "${device.deviceName}" (SN: ${device.serialNumber}) khỏi hệ thống?\n\nHành động này không thể hoàn tác.'),
+                              title: Text(tr('Xóa thiết bị')),
+                              content: Text(tr('Bạn có chắc muốn xóa thiết bị "${device.deviceName}" (SN: ${device.serialNumber}) khỏi hệ thống?\n\nHành động này không thể hoàn tác.')),
                               actions: [
                                 AppDialogActions.delete(
                                   onCancel: () => Navigator.pop(ctx, false),
@@ -948,18 +948,18 @@ class _AdmsDevicesScreenState extends State<AdmsDevicesScreen> {
                           if (mounted) {
                             NotificationOverlayManager().showSuccess(
                                 title: 'Thành công',
-                                message: 'Đã xóa thiết bị');
+                                message: tr('Đã xóa thiết bị'));
                           }
                         } catch (e) {
                           if (mounted) {
                             NotificationOverlayManager().showError(
-                                title: 'Lỗi', message: 'Lỗi xóa thiết bị: $e');
+                                title: 'Lỗi', message: tr('Lỗi xóa thiết bị: $e'));
                           }
                         }
                       }
                     },
                     icon: const Icon(Icons.delete_outline, color: Colors.red),
-                    label: const Text('Xóa thiết bị khỏi hệ thống',
+                    label: Text(tr('Xóa thiết bị khỏi hệ thống'),
                         style: TextStyle(color: Colors.red)),
                     style: OutlinedButton.styleFrom(
                       side: const BorderSide(color: Colors.red),
@@ -996,11 +996,11 @@ class _AdmsDevicesScreenState extends State<AdmsDevicesScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(label,
+                Text(tr(label),
                     style: const TextStyle(
                         color: Color(0xFF71717A), fontSize: 12)),
                 const SizedBox(height: 2),
-                Text(value,
+                Text(tr(value),
                     style: const TextStyle(
                         color: Color(0xFF18181B), fontSize: 14)),
               ],

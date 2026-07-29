@@ -39,6 +39,7 @@ import 'pos/pos_sell_industry_settings_screen.dart';
 import 'pos/pos_store_settings_hub_screen.dart';
 import 'pos/pos_printer_settings_hub_screen.dart';
 import 'pos/pos_resource_floor_screen.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 class SettingsHubScreen extends StatefulWidget {
   const SettingsHubScreen({super.key});
@@ -402,14 +403,14 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  user?.fullName ?? 'Thiết lập HRM',
+                  tr(user?.fullName ?? 'Thiết lập HRM'),
                   style: const TextStyle(
                     fontSize: 17,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
                 Text(
-                  subtitle,
+                  tr(subtitle),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
@@ -422,7 +423,7 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
           ),
           if (_canCustomizeSidebar())
             IconButton(
-              tooltip: 'Tùy chỉnh menu',
+              tooltip: tr('Tùy chỉnh menu'),
               onPressed:
                   _sidebarConfigLoading ? null : _openSidebarConfigDialog,
               icon: const Icon(Icons.dashboard_customize_outlined,
@@ -489,9 +490,8 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
                       color: HrmPageChrome.primaryNavy, size: 18),
                 ),
                 const SizedBox(width: 10),
-                const Expanded(
-                  child: Text(
-                    'Thiết lập HRM',
+                Expanded(
+                  child: Text(tr('Thiết lập HRM'),
                     style: TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w700,
@@ -501,7 +501,7 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
                 ),
                 if (canCustomize)
                   IconButton(
-                    tooltip: 'Tùy chỉnh menu',
+                    tooltip: tr('Tùy chỉnh menu'),
                     onPressed:
                         _sidebarConfigLoading ? null : _openSidebarConfigDialog,
                     icon: const Icon(Icons.dashboard_customize_outlined, size: 20),
@@ -521,7 +521,7 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
                         Padding(
                           padding: const EdgeInsets.fromLTRB(8, 8, 8, 6),
                           child: Text(
-                            g.title.toUpperCase(),
+                            tr(g.title.toUpperCase()),
                             style: TextStyle(
                               fontSize: 10,
                               fontWeight: FontWeight.w700,
@@ -571,7 +571,7 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    item.label,
+                    tr(item.label),
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight:
@@ -644,15 +644,14 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
                   decoration: BoxDecoration(
                       color: Colors.white.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(999)),
-                  child: const Text('HRM Settings Center',
+                  child: Text(tr('HRM Settings Center'),
                       style: TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.w600,
                           fontSize: 12)),
                 ),
                 const SizedBox(height: 14),
-                const Text(
-                  'Trung tâm thiết lập hệ thống HRM',
+                Text(tr('Trung tâm thiết lập hệ thống HRM'),
                   style: TextStyle(
                       color: Colors.white,
                       fontSize: 22,
@@ -660,8 +659,7 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
                       height: 1.2),
                 ),
                 const SizedBox(height: 8),
-                Text(
-                  'Quản lý toàn bộ cấu hình ca làm việc, chính sách lương, quản trị hệ thống và tích hợp.',
+                Text(tr('Quản lý toàn bộ cấu hình ca làm việc, chính sách lương, quản trị hệ thống và tích hợp.'),
                   style: TextStyle(
                       color: Colors.white.withValues(alpha: 0.8),
                       fontSize: 13,
@@ -705,13 +703,13 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
         children: [
           Icon(icon, color: Colors.white, size: 18),
           const SizedBox(height: 8),
-          Text(count,
+          Text(tr(count),
               style: const TextStyle(
                   color: Colors.white,
                   fontSize: 20,
                   fontWeight: FontWeight.w700)),
           const SizedBox(height: 2),
-          Text(label,
+          Text(tr(label),
               style: TextStyle(
                   color: Colors.white.withValues(alpha: 0.7), fontSize: 11)),
         ],
@@ -739,13 +737,13 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
               child: Icon(icon, color: accent, size: 18),
             ),
             const SizedBox(width: 12),
-            Text(title,
+            Text(tr(title),
                 style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
                     color: _textDark)),
             const Spacer(),
-            Text('${items.length} mục',
+            Text(tr('${items.length} mục'),
                 style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
@@ -796,13 +794,13 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(item.label,
+                      Text(tr(item.label),
                           style: const TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
                               color: _textDark)),
                       const SizedBox(height: 3),
-                      Text(item.desc,
+                      Text(tr(item.desc),
                           style: const TextStyle(
                               fontSize: 11, color: _textMuted, height: 1.3),
                           maxLines: 2,
@@ -836,7 +834,7 @@ class _SettingsAccessDeniedScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: const Color(0xFFFAFAFA),
       appBar: AppBar(
-        title: const Text('Thiet lap HRM'),
+        title: Text(tr('Thiet lap HRM')),
         backgroundColor: Colors.white,
         foregroundColor: const Color(0xFF18181B),
         elevation: 0,
@@ -850,13 +848,13 @@ class _SettingsAccessDeniedScreen extends StatelessWidget {
               const Icon(Icons.lock_outline_rounded,
                   size: 56, color: Color(0xFF94A3B8)),
               const SizedBox(height: 12),
-              Text(title,
+              Text(tr(title),
                   style: const TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.w700,
                       color: Color(0xFF0F172A))),
               const SizedBox(height: 8),
-              Text(message,
+              Text(tr(message),
                   textAlign: TextAlign.center,
                   style:
                       const TextStyle(fontSize: 14, color: Color(0xFF64748B))),

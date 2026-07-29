@@ -5,6 +5,7 @@ import '../../providers/auth_provider.dart';
 import '../../providers/permission_provider.dart';
 import '../../widgets/notification_overlay.dart';
 import '../../widgets/hrm_page_chrome.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// Quyền thao tác trên màn Quản trị hệ thống (module `SystemAdmin`).
 extension SystemAdminPermissionContext on BuildContext {
@@ -133,7 +134,7 @@ class AdminHelpers {
       child: Column(mainAxisSize: MainAxisSize.min, children: [
         Icon(icon, size: 80, color: Colors.grey[300]),
         const SizedBox(height: 16),
-        Text(msg, style: TextStyle(color: Colors.grey[500], fontSize: 16)),
+        Text(tr(msg), style: TextStyle(color: Colors.grey[500], fontSize: 16)),
       ]),
     );
   }
@@ -144,7 +145,7 @@ class AdminHelpers {
       decoration: BoxDecoration(
           color: color.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(8)),
-      child: Text(label,
+      child: Text(tr(label),
           style: TextStyle(
               color: color, fontSize: 11, fontWeight: FontWeight.w600)),
     );
@@ -157,7 +158,7 @@ class AdminHelpers {
         Icon(icon, size: 14, color: Colors.grey[500]),
         const SizedBox(width: 8),
         Expanded(
-            child: Text(text,
+            child: Text(tr(text),
                 style: TextStyle(fontSize: 12, color: Colors.grey[700]))),
       ]),
     );
@@ -174,7 +175,7 @@ class AdminHelpers {
       controller: ctrl,
       readOnly: readOnly,
       decoration: InputDecoration(
-        labelText: label,
+        labelText: tr(label),
         prefixIcon: Icon(icon, size: 20),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
         contentPadding:
@@ -190,7 +191,7 @@ class AdminHelpers {
     return showDialog<String>(
       context: context,
       builder: (ctx) => ScrollableAlertDialog(
-        title: Text(title),
+        title: Text(tr(title)),
         content: SingleChildScrollView(
           child: _PasswordDialogField(controller: ctrl, label: label,
               icon: Icons.lock),
@@ -198,10 +199,10 @@ class AdminHelpers {
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, null),
-              child: const Text('Hủy')),
+              child: Text(tr('Hủy'))),
           FilledButton(
               onPressed: () => Navigator.pop(ctx, ctrl.text),
-              child: const Text('OK')),
+              child: Text(tr('OK'))),
         ],
       ),
     );
@@ -326,12 +327,12 @@ class AdminHelpers {
     return showDialog<String>(
       context: context,
       builder: (ctx) => ScrollableAlertDialog(
-        title: Text(title),
+        title: Text(tr(title)),
         content: SingleChildScrollView(
           child: TextField(
             controller: ctrl,
             decoration: InputDecoration(
-                labelText: label,
+                labelText: tr(label),
                 border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10))),
           ),
@@ -339,10 +340,10 @@ class AdminHelpers {
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, null),
-              child: const Text('Hủy')),
+              child: Text(tr('Hủy'))),
           FilledButton(
               onPressed: () => Navigator.pop(ctx, ctrl.text),
-              child: const Text('OK')),
+              child: Text(tr('OK'))),
         ],
       ),
     );
@@ -353,16 +354,16 @@ class AdminHelpers {
     return showDialog<bool>(
       context: context,
       builder: (ctx) => ScrollableAlertDialog(
-        title: Text(title),
-        content: Text(content),
+        title: Text(tr(title)),
+        content: Text(tr(content)),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Hủy')),
+              child: Text(tr('Hủy'))),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Xác nhận'),
+            child: Text(tr('Xác nhận')),
           ),
         ],
       ),
@@ -489,7 +490,7 @@ class AdminHelpers {
         onChanged: (_) => onChanged(),
         style: const TextStyle(fontSize: 13),
         decoration: InputDecoration(
-          hintText: hint,
+          hintText: tr(hint),
           hintStyle: TextStyle(color: Colors.grey[400], fontSize: 13),
           prefixIcon:
               Icon(Icons.search, size: 18, color: Colors.grey[400]),
@@ -534,11 +535,11 @@ class AdminHelpers {
           color: color.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(10)),
       child: Row(mainAxisSize: MainAxisSize.min, children: [
-        Text('$count',
+        Text(tr('$count'),
             style: TextStyle(
                 color: color, fontWeight: FontWeight.bold, fontSize: 14)),
         const SizedBox(width: 4),
-        Text(label, style: TextStyle(color: color, fontSize: 12)),
+        Text(tr(label), style: TextStyle(color: color, fontSize: 12)),
       ]),
     );
   }
@@ -569,14 +570,14 @@ class _PasswordDialogFieldState extends State<_PasswordDialogField> {
       controller: widget.controller,
       obscureText: _obscure,
       decoration: InputDecoration(
-        labelText: widget.label,
+        labelText: tr(widget.label),
         prefixIcon: Icon(widget.icon, size: 20),
         suffixIcon: IconButton(
           icon: Icon(
             _obscure ? Icons.visibility_off : Icons.visibility,
             size: 20,
           ),
-          tooltip: _obscure ? 'Hiện mật khẩu' : 'Ẩn mật khẩu',
+          tooltip: tr(_obscure ? 'Hiện mật khẩu' : 'Ẩn mật khẩu'),
           onPressed: () => setState(() => _obscure = !_obscure),
         ),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),

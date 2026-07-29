@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../l10n/app_tr.dart';
 
 /// Chiều rộng cột tên NV cố định (bảng chấm công ngang).
 double attendanceFrozenEmployeeColWidth(BuildContext context) =>
@@ -32,7 +33,7 @@ class AttendanceFrozenEmployeeNameCell extends StatelessWidget {
           message: name,
           waitDuration: const Duration(milliseconds: 350),
           child: Text(
-            name,
+            tr(name),
             style: const TextStyle(
               fontSize: 10,
               fontWeight: FontWeight.w600,
@@ -46,7 +47,7 @@ class AttendanceFrozenEmployeeNameCell extends StatelessWidget {
         if (showCode && code != null && code!.isNotEmpty) ...[
           const SizedBox(height: 1),
           Text(
-            code!,
+            tr(code!),
             style: const TextStyle(fontSize: 9, color: Color(0xFF71717A)),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
@@ -55,7 +56,7 @@ class AttendanceFrozenEmployeeNameCell extends StatelessWidget {
         if (subtext != null && subtext!.isNotEmpty) ...[
           const SizedBox(height: 1),
           Text(
-            subtext!,
+            tr(subtext!),
             style: TextStyle(
               fontSize: 9,
               color: subtextColor,

@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../../services/api_service.dart';
 import '../../widgets/admin/admin_mobile_widgets.dart';
 import 'system_admin_helpers.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 class UsersTab extends StatefulWidget {
   final bool agentMode;
@@ -322,7 +323,7 @@ class UsersTabState extends State<UsersTab> {
         FilledButton.icon(
           onPressed: _showCreateSuperAdminDialog,
           icon: const Icon(Icons.person_add, size: 18),
-          label: const Text('Tạo SuperAdmin'),
+          label: Text(tr('Tạo SuperAdmin')),
           style: ElevatedButton.styleFrom(
               backgroundColor: AdminHelpers.primaryDark,
               foregroundColor: Colors.white),
@@ -357,7 +358,7 @@ class UsersTabState extends State<UsersTab> {
         child: DropdownButton<T>(
           isExpanded: mobile,
           value: value,
-          hint: Text(hint, style: const TextStyle(fontSize: 13)),
+          hint: Text(tr(hint), style: const TextStyle(fontSize: 13)),
           items: items,
           onChanged: onChanged,
         ),
@@ -368,7 +369,7 @@ class UsersTabState extends State<UsersTab> {
   DropdownMenuItem<String?> _dropItem(String? value, String label) {
     return DropdownMenuItem(
         value: value,
-        child: Text(label, style: const TextStyle(fontSize: 13)));
+        child: Text(tr(label), style: const TextStyle(fontSize: 13)));
   }
 
   // ═══════════════════════ STORE GROUP ═══════════════════════
@@ -415,19 +416,19 @@ class UsersTabState extends State<UsersTab> {
             ),
           ),
           title: Row(children: [
-            Text(storeName,
+            Text(tr(storeName),
                 style: const TextStyle(
                     fontWeight: FontWeight.bold, fontSize: 15)),
             if (storeCode.isNotEmpty) ...[
               const SizedBox(width: 8),
-              Text('($storeCode)',
+              Text(tr('($storeCode)'),
                   style: TextStyle(fontSize: 12, color: Colors.grey[500])),
             ],
           ]),
           subtitle: Text(
-              isNoStore
+              tr(isNoStore
                   ? '${users.length} tài khoản'
-                  : '${users.length} tài khoản · Đại lý: ${agentName.isNotEmpty ? agentName : "Chưa gán"}',
+                  : '${users.length} tài khoản · Đại lý: ${agentName.isNotEmpty ? agentName : "Chưa gán"}'),
               style: TextStyle(fontSize: 12, color: Colors.grey[600])),
           children: [
             const Divider(height: 24),
@@ -470,21 +471,21 @@ class UsersTabState extends State<UsersTab> {
           CircleAvatar(
             radius: 18,
             backgroundColor: _roleColor(role).withValues(alpha: 0.15),
-            child: Text(fullName.isNotEmpty ? fullName[0].toUpperCase() : '?', style: TextStyle(color: _roleColor(role), fontWeight: FontWeight.bold, fontSize: 14)),
+            child: Text(tr(fullName.isNotEmpty ? fullName[0].toUpperCase() : '?'), style: TextStyle(color: _roleColor(role), fontWeight: FontWeight.bold, fontSize: 14)),
           ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(fullName.isNotEmpty ? fullName : email, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14), maxLines: 1, overflow: TextOverflow.ellipsis),
+              Text(tr(fullName.isNotEmpty ? fullName : email), style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14), maxLines: 1, overflow: TextOverflow.ellipsis),
               const SizedBox(height: 2),
-              Text([email, role].join(' \u00b7 '), style: const TextStyle(color: Color(0xFF71717A), fontSize: 12), maxLines: 1, overflow: TextOverflow.ellipsis),
+              Text(tr([email, role].join(' \u00b7 ')), style: const TextStyle(color: Color(0xFF71717A), fontSize: 12), maxLines: 1, overflow: TextOverflow.ellipsis),
             ]),
           ),
           if (!isActive)
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
               decoration: BoxDecoration(color: Colors.red.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
-              child: const Text('T\u1eaft', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Colors.red)),
+              child: Text(tr('T\u1eaft'), style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Colors.red)),
             ),
           const SizedBox(width: 4),
           const Icon(Icons.chevron_right, size: 18, color: Color(0xFFA1A1AA)),
@@ -520,9 +521,9 @@ class UsersTabState extends State<UsersTab> {
                 radius: 18,
                 backgroundColor: _roleColor(role).withValues(alpha: 0.15),
                 child: Text(
-                    fullName.isNotEmpty
+                    tr(fullName.isNotEmpty
                         ? fullName[0].toUpperCase()
-                        : '?',
+                        : '?'),
                     style: TextStyle(
                       color: _roleColor(role),
                       fontWeight: FontWeight.bold,
@@ -536,7 +537,7 @@ class UsersTabState extends State<UsersTab> {
                     Row(children: [
                       Flexible(
                         child: Text(
-                            fullName.isNotEmpty ? fullName : email,
+                            tr(fullName.isNotEmpty ? fullName : email),
                             style: const TextStyle(
                                 fontWeight: FontWeight.w600,
                                 fontSize: 14)),
@@ -555,7 +556,7 @@ class UsersTabState extends State<UsersTab> {
                           size: 12, color: Colors.grey[500]),
                       const SizedBox(width: 4),
                       Expanded(
-                        child: Text(email,
+                        child: Text(tr(email),
                             style: TextStyle(
                                 fontSize: 12,
                                 color: Colors.grey[600])),
@@ -563,7 +564,7 @@ class UsersTabState extends State<UsersTab> {
                       InkWell(
                         onTap: () {
                           Clipboard.setData(
-                              ClipboardData(text: email));
+                              ClipboardData(text: tr(email)));
                           AdminHelpers.showSuccess(
                               context, 'Đã copy email');
                         },
@@ -572,8 +573,7 @@ class UsersTabState extends State<UsersTab> {
                       ),
                     ]),
                     if (lastLogin != null)
-                      Text(
-                          'Đăng nhập cuối: ${AdminHelpers.formatDateTime(lastLogin)}',
+                      Text(tr('Đăng nhập cuối: ${AdminHelpers.formatDateTime(lastLogin)}'),
                           style: TextStyle(
                               fontSize: 11,
                               color: Colors.grey[500])),
@@ -605,17 +605,16 @@ class UsersTabState extends State<UsersTab> {
                       child: visiblePassword != null
                           ? (_passwordRevealed[userId] == true
                               ? SelectableText(
-                                  visiblePassword,
+                                  tr(visiblePassword),
                                   style: const TextStyle(
                                       fontSize: 13,
                                       fontFamily: 'monospace',
                                       fontWeight: FontWeight.w600))
-                              : Text('••••••••',
+                              : Text(tr('••••••••'),
                                   style: TextStyle(
                                       fontSize: 13,
                                       color: Colors.grey[500])))
-                          : Text(
-                              'Chưa lưu (đặt lại MK để xem)',
+                          : Text(tr('Chưa lưu (đặt lại MK để xem)'),
                               style: TextStyle(
                                   fontSize: 12, color: Colors.grey[500])),
                     ),
@@ -623,9 +622,8 @@ class UsersTabState extends State<UsersTab> {
                       onTap: () {
                         if (visiblePassword == null) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text(
-                                  'Mật khẩu chưa được lưu. Bấm "Đặt lại MK" để thiết lập và xem.'),
+                            SnackBar(
+                              content: Text(tr('Mật khẩu chưa được lưu. Bấm "Đặt lại MK" để thiết lập và xem.')),
                               duration: Duration(seconds: 4),
                             ),
                           );
@@ -652,7 +650,7 @@ class UsersTabState extends State<UsersTab> {
                       InkWell(
                         onTap: () {
                           Clipboard.setData(ClipboardData(
-                              text: visiblePassword));
+                              text: tr(visiblePassword)));
                           AdminHelpers.showSuccess(
                               context, 'Đã copy mật khẩu');
                         },
@@ -713,7 +711,7 @@ class UsersTabState extends State<UsersTab> {
       ),
       onPressed: onTap,
       icon: Icon(icon, size: 14),
-      label: Text(label, style: const TextStyle(fontSize: 11)),
+      label: Text(tr(label), style: const TextStyle(fontSize: 11)),
     );
   }
 
@@ -774,17 +772,17 @@ class UsersTabState extends State<UsersTab> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => ScrollableAlertDialog(
-        title: const Text('Xác nhận xóa tài khoản'),
-        content: Text('Bạn có chắc muốn xóa tài khoản "$email"?\n\nHành động này không thể hoàn tác.'),
+        title: Text(tr('Xác nhận xóa tài khoản')),
+        content: Text(tr('Bạn có chắc muốn xóa tài khoản "$email"?\n\nHành động này không thể hoàn tác.')),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Hủy'),
+            child: Text(tr('Hủy')),
           ),
           FilledButton(
             style: ElevatedButton.styleFrom(backgroundColor: AdminHelpers.danger),
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Xóa', style: TextStyle(color: Colors.white)),
+            child: Text(tr('Xóa'), style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -830,7 +828,7 @@ class UsersTabState extends State<UsersTab> {
                 color: AdminHelpers.info, size: 22),
             const SizedBox(width: 8),
             Expanded(
-                child: Text('Đổi quyền — $name',
+                child: Text(tr('Đổi quyền — $name'),
                     style: const TextStyle(fontSize: 17))),
           ]),
           content: SizedBox(
@@ -869,17 +867,17 @@ class UsersTabState extends State<UsersTab> {
                           : Colors.grey,
                       size: 20,
                     ),
-                    title: Text(opt.display,
+                    title: Text(tr(opt.display),
                         style: TextStyle(
                           fontWeight: FontWeight.w600,
                           color: _roleColor(role),
                         )),
-                    subtitle: Text(opt.description,
+                    subtitle: Text(tr(opt.description),
                         style: TextStyle(
                             fontSize: 11, color: Colors.grey[600])),
                     trailing: currentRole == role
-                        ? const Chip(
-                            label: Text('Hiện tại',
+                        ? Chip(
+                            label: Text(tr('Hiện tại'),
                                 style: TextStyle(fontSize: 10)),
                             visualDensity: VisualDensity.compact,
                           )
@@ -892,13 +890,13 @@ class UsersTabState extends State<UsersTab> {
           actions: [
             TextButton(
                 onPressed: () => Navigator.pop(ctx),
-                child: const Text('Hủy')),
+                child: Text(tr('Hủy'))),
             FilledButton.icon(
               onPressed: selectedRole != currentRole
                   ? () => Navigator.pop(ctx, selectedRole)
                   : null,
               icon: const Icon(Icons.check, size: 16),
-              label: const Text('Lưu'),
+              label: Text(tr('Lưu')),
               style: ElevatedButton.styleFrom(
                   backgroundColor: AdminHelpers.primary),
             ),
@@ -954,18 +952,18 @@ class UsersTabState extends State<UsersTab> {
   // ═══════════════════════ EDIT USER INFO ═══════════════════════
   void _showEditUserDialog(Map<String, dynamic> user) {
     final fullNameCtrl =
-        TextEditingController(text: user['fullName']?.toString() ?? '');
+        TextEditingController(text: tr(user['fullName']?.toString() ?? ''));
     final emailCtrl =
-        TextEditingController(text: user['email']?.toString() ?? '');
+        TextEditingController(text: tr(user['email']?.toString() ?? ''));
     final passwordCtrl = TextEditingController();
 
     showDialog(
       context: context,
       builder: (ctx) => ScrollableAlertDialog(
-        title: const Row(children: [
+        title: Row(children: [
           Icon(Icons.edit, color: AdminHelpers.primary, size: 22),
           SizedBox(width: 8),
-          Text('Cập nhật thông tin', style: TextStyle(fontSize: 17)),
+          Text(tr('Cập nhật thông tin'), style: TextStyle(fontSize: 17)),
         ]),
         content: SizedBox(
           width: MediaQuery.of(context).size.width < 600 ? MediaQuery.of(context).size.width - 32 : 420,
@@ -986,7 +984,7 @@ class UsersTabState extends State<UsersTab> {
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: const Text('Hủy')),
+              child: Text(tr('Hủy'))),
           FilledButton(
             onPressed: () async {
               final res = widget.agentMode
@@ -1016,7 +1014,7 @@ class UsersTabState extends State<UsersTab> {
                 if (mounted) AdminHelpers.showApiError(context, res);
               }
             },
-            child: const Text('Lưu'),
+            child: Text(tr('Lưu')),
           ),
         ],
       ),
@@ -1038,11 +1036,11 @@ class UsersTabState extends State<UsersTab> {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setSt) => ScrollableAlertDialog(
-        title: const Row(children: [
+        title: Row(children: [
           Icon(Icons.person_add,
               color: AdminHelpers.primaryDark, size: 22),
           SizedBox(width: 8),
-          Text('Tạo SuperAdmin', style: TextStyle(fontSize: 17)),
+          Text(tr('Tạo SuperAdmin'), style: TextStyle(fontSize: 17)),
         ]),
         content: SizedBox(
           width: MediaQuery.of(context).size.width < 600 ? MediaQuery.of(context).size.width - 32 : 420,
@@ -1061,7 +1059,7 @@ class UsersTabState extends State<UsersTab> {
         actions: [
           TextButton(
               onPressed: saving ? null : () => Navigator.pop(ctx),
-              child: const Text('Hủy')),
+              child: Text(tr('Hủy'))),
           FilledButton(
             onPressed: saving ? null : () async {
               if (emailCtrl.text.trim().isEmpty ||
@@ -1097,7 +1095,7 @@ class UsersTabState extends State<UsersTab> {
                 foregroundColor: Colors.white),
             child: saving
                 ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                : const Text('Tạo'),
+                : Text(tr('Tạo')),
           ),
         ],
       ),

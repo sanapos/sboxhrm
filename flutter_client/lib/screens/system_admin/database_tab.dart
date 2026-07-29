@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import '../../services/api_service.dart';
 import 'system_admin_helpers.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 class DatabaseTab extends StatefulWidget {
   final List<Map<String, dynamic>> stores;
@@ -84,7 +85,7 @@ class DatabaseTabState extends State<DatabaseTab> {
                   color: AdminHelpers.primary, size: 20),
             ),
             const SizedBox(width: 12),
-            Text('Thông tin Database',
+            Text(tr('Thông tin Database'),
                 style: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 16,
@@ -108,7 +109,7 @@ class DatabaseTabState extends State<DatabaseTab> {
             const SizedBox(height: 16),
             const Divider(),
             const SizedBox(height: 12),
-            Text('Dữ liệu theo bảng',
+            Text(tr('Dữ liệu theo bảng'),
                 style: TextStyle(
                     fontWeight: FontWeight.w600,
                     fontSize: 14,
@@ -133,8 +134,8 @@ class DatabaseTabState extends State<DatabaseTab> {
                   Icons.history),
             ]),
           ] else
-            const Center(
-                child: Text('Đang tải...',
+            Center(
+                child: Text(tr('Đang tải...'),
                     style: TextStyle(color: Colors.grey))),
         ],
       ),
@@ -151,10 +152,10 @@ class DatabaseTabState extends State<DatabaseTab> {
           child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(label,
+                Text(tr(label),
                     style:
                         TextStyle(fontSize: 11, color: Colors.grey[500])),
-                Text(value,
+                Text(tr(value),
                     style: const TextStyle(
                         fontSize: 13, fontWeight: FontWeight.w600),
                     overflow: TextOverflow.ellipsis),
@@ -177,10 +178,10 @@ class DatabaseTabState extends State<DatabaseTab> {
         Icon(icon, size: 16, color: AdminHelpers.primary),
         const SizedBox(width: 8),
         Expanded(
-            child: Text(label,
+            child: Text(tr(label),
                 style:
                     TextStyle(fontSize: 11, color: Colors.grey[600]))),
-        Text('${count ?? 0}',
+        Text(tr('${count ?? 0}'),
             style: const TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.bold,
@@ -207,7 +208,7 @@ class DatabaseTabState extends State<DatabaseTab> {
                   color: AdminHelpers.success, size: 20),
             ),
             const SizedBox(width: 12),
-            Text('Sao lưu dữ liệu',
+            Text(tr('Sao lưu dữ liệu'),
                 style: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 16,
@@ -226,7 +227,7 @@ class DatabaseTabState extends State<DatabaseTab> {
                           strokeWidth: 2, color: Colors.white))
                   : const Icon(Icons.cloud_upload, size: 18),
               label: Text(
-                  _isBackingUp ? 'Đang backup...' : 'Backup toàn bộ DB'),
+                  tr(_isBackingUp ? 'Đang backup...' : 'Backup toàn bộ DB')),
               style: ElevatedButton.styleFrom(
                   backgroundColor: AdminHelpers.success,
                   foregroundColor: Colors.white,
@@ -237,7 +238,7 @@ class DatabaseTabState extends State<DatabaseTab> {
               OutlinedButton.icon(
                 onPressed: _isBackingUp ? null : _showBackupStoreDialog,
                 icon: const Icon(Icons.store, size: 18),
-                label: const Text('Backup theo cửa hàng'),
+                label: Text(tr('Backup theo cửa hàng')),
                 style: OutlinedButton.styleFrom(
                     foregroundColor: AdminHelpers.success,
                     padding: const EdgeInsets.symmetric(
@@ -260,7 +261,7 @@ class DatabaseTabState extends State<DatabaseTab> {
             const Icon(Icons.folder,
                 color: AdminHelpers.primary, size: 20),
             const SizedBox(width: 8),
-            Text('File backup (${_backupFiles.length})',
+            Text(tr('File backup (${_backupFiles.length})'),
                 style: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 15,
@@ -272,7 +273,7 @@ class DatabaseTabState extends State<DatabaseTab> {
             Padding(
               padding: const EdgeInsets.all(20),
               child: Center(
-                  child: Text('Chưa có file backup',
+                  child: Text(tr('Chưa có file backup'),
                       style: TextStyle(color: Colors.grey[500]))),
             )
           else
@@ -300,13 +301,13 @@ class DatabaseTabState extends State<DatabaseTab> {
                       child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(f['fileName'] ?? '',
+                            Text(tr(f['fileName'] ?? ''),
                                 style: const TextStyle(
                                     fontFamily: 'monospace',
                                     fontSize: 12,
                                     fontWeight: FontWeight.w600)),
                             Text(
-                                '${f['sizeMB'] ?? 0} MB — ${AdminHelpers.formatDateTime(f['createdAt'])}',
+                                tr('${f['sizeMB'] ?? 0} MB — ${AdminHelpers.formatDateTime(f['createdAt'])}'),
                                 style: TextStyle(
                                     fontSize: 11,
                                     color: Colors.grey[500])),
@@ -322,7 +323,7 @@ class DatabaseTabState extends State<DatabaseTab> {
                       IconButton(
                         icon: const Icon(Icons.restore,
                             size: 18, color: AdminHelpers.warning),
-                        tooltip: 'Restore',
+                        tooltip: tr('Restore'),
                         onPressed: () =>
                             _showRestoreDialog(f['fileName']),
                       ),
@@ -330,7 +331,7 @@ class DatabaseTabState extends State<DatabaseTab> {
                       IconButton(
                         icon: Icon(Icons.delete_outline,
                             size: 18, color: Colors.red[300]),
-                        tooltip: 'Xóa',
+                        tooltip: tr('Xóa'),
                         onPressed: () =>
                             _deleteBackupFile(f['fileName']),
                       ),
@@ -359,15 +360,14 @@ class DatabaseTabState extends State<DatabaseTab> {
                   color: Colors.red, size: 20),
             ),
             const SizedBox(width: 12),
-            Text('Vùng nguy hiểm',
+            Text(tr('Vùng nguy hiểm'),
                 style: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 16,
                     color: Colors.red[700])),
           ]),
           const SizedBox(height: 12),
-          Text(
-              'Các thao tác dưới đây không thể hoàn tác. Hãy chắc chắn đã sao lưu dữ liệu trước khi thực hiện.',
+          Text(tr('Các thao tác dưới đây không thể hoàn tác. Hãy chắc chắn đã sao lưu dữ liệu trước khi thực hiện.'),
               style:
                   TextStyle(fontSize: 13, color: Colors.grey[600])),
           const SizedBox(height: 16),
@@ -376,7 +376,7 @@ class DatabaseTabState extends State<DatabaseTab> {
               OutlinedButton.icon(
                 onPressed: _showDeleteStoreDataDialog,
                 icon: const Icon(Icons.delete_sweep, size: 18),
-                label: const Text('Xóa dữ liệu cửa hàng'),
+                label: Text(tr('Xóa dữ liệu cửa hàng')),
                 style: OutlinedButton.styleFrom(
                     foregroundColor: Colors.red,
                     side: const BorderSide(color: Colors.red),
@@ -386,7 +386,7 @@ class DatabaseTabState extends State<DatabaseTab> {
               OutlinedButton.icon(
                 onPressed: _showPurgeAllDialog,
                 icon: const Icon(Icons.delete_forever, size: 18),
-                label: const Text('Xóa dữ liệu vận hành'),
+                label: Text(tr('Xóa dữ liệu vận hành')),
                 style: OutlinedButton.styleFrom(
                     foregroundColor: Colors.red,
                     side: const BorderSide(color: Colors.red),
@@ -423,22 +423,22 @@ class DatabaseTabState extends State<DatabaseTab> {
     showDialog(
       context: context,
       builder: (ctx) => ScrollableAlertDialog(
-        title: const Text('Backup dữ liệu cửa hàng'),
+        title: Text(tr('Backup dữ liệu cửa hàng')),
         content: SizedBox(
           width: 400,
           child: widget.stores.isEmpty
-              ? const Text('Chưa có cửa hàng nào')
+              ? Text(tr('Chưa có cửa hàng nào'))
               : Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Text('Chọn cửa hàng cần backup:',
+                    Text(tr('Chọn cửa hàng cần backup:'),
                         style: TextStyle(fontSize: 13)),
                     const SizedBox(height: 12),
                     ...widget.stores.take(20).map((s) => ListTile(
                           leading: const Icon(Icons.store,
                               color: AdminHelpers.primary),
-                          title: Text(s['name'] ?? 'N/A'),
-                          subtitle: Text(s['code'] ?? '',
+                          title: Text(tr(s['name'] ?? 'N/A')),
+                          subtitle: Text(tr(s['code'] ?? ''),
                               style: const TextStyle(fontSize: 12)),
                           onTap: () async {
                             Navigator.pop(ctx);
@@ -466,7 +466,7 @@ class DatabaseTabState extends State<DatabaseTab> {
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: const Text('Đóng'))
+              child: Text(tr('Đóng')))
         ],
       ),
     );
@@ -480,7 +480,7 @@ class DatabaseTabState extends State<DatabaseTab> {
         title: Row(children: [
           Icon(Icons.warning_amber, color: Colors.orange[700]),
           const SizedBox(width: 8),
-          const Text('Restore Database'),
+          Text(tr('Restore Database')),
         ]),
         content: SizedBox(
           width: 420,
@@ -491,17 +491,16 @@ class DatabaseTabState extends State<DatabaseTab> {
               decoration: BoxDecoration(
                   color: Colors.orange.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8)),
-              child: const Row(children: [
+              child: Row(children: [
                 Icon(Icons.warning, color: Colors.orange, size: 20),
                 SizedBox(width: 8),
                 Expanded(
-                    child: Text(
-                        'Thao tác này sẽ GHI ĐÈ toàn bộ dữ liệu hiện tại bằng dữ liệu từ file backup. Không thể hoàn tác!',
+                    child: Text(tr('Thao tác này sẽ GHI ĐÈ toàn bộ dữ liệu hiện tại bằng dữ liệu từ file backup. Không thể hoàn tác!'),
                         style: TextStyle(fontSize: 13))),
               ]),
             ),
             const SizedBox(height: 12),
-            Text('File: $fileName',
+            Text(tr('File: $fileName'),
                 style: const TextStyle(
                     fontFamily: 'monospace',
                     fontSize: 12,
@@ -511,7 +510,7 @@ class DatabaseTabState extends State<DatabaseTab> {
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: const Text('Hủy')),
+              child: Text(tr('Hủy'))),
           FilledButton(
             onPressed: () async {
               Navigator.pop(ctx);
@@ -531,7 +530,7 @@ class DatabaseTabState extends State<DatabaseTab> {
             },
             style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.orange),
-            child: const Text('Xác nhận Restore'),
+            child: Text(tr('Xác nhận Restore')),
           ),
         ],
       ),
@@ -552,15 +551,15 @@ class DatabaseTabState extends State<DatabaseTab> {
     showDialog(
       context: context,
       builder: (ctx) => ScrollableAlertDialog(
-        title: const Row(children: [
+        title: Row(children: [
           Icon(Icons.delete_sweep, color: Colors.red),
           SizedBox(width: 8),
-          Text('Xóa dữ liệu cửa hàng'),
+          Text(tr('Xóa dữ liệu cửa hàng')),
         ]),
         content: SizedBox(
           width: 400,
           child: widget.stores.isEmpty
-              ? const Text('Chưa có cửa hàng nào')
+              ? Text(tr('Chưa có cửa hàng nào'))
               : Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -569,13 +568,12 @@ class DatabaseTabState extends State<DatabaseTab> {
                       decoration: BoxDecoration(
                           color: Colors.red.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(8)),
-                      child: const Row(children: [
+                      child: Row(children: [
                         Icon(Icons.warning,
                             color: Colors.red, size: 20),
                         SizedBox(width: 8),
                         Expanded(
-                            child: Text(
-                                'Sẽ xóa: chấm công, lệnh máy, nhân sự máy, thiết bị, nhân viên của cửa hàng được chọn.',
+                            child: Text(tr('Sẽ xóa: chấm công, lệnh máy, nhân sự máy, thiết bị, nhân viên của cửa hàng được chọn.'),
                                 style: TextStyle(fontSize: 13))),
                       ]),
                     ),
@@ -583,8 +581,8 @@ class DatabaseTabState extends State<DatabaseTab> {
                     ...widget.stores.take(20).map((s) => ListTile(
                           leading: const Icon(Icons.store,
                               color: Colors.red),
-                          title: Text(s['name'] ?? 'N/A'),
-                          subtitle: Text(s['code'] ?? '',
+                          title: Text(tr(s['name'] ?? 'N/A')),
+                          subtitle: Text(tr(s['code'] ?? ''),
                               style: const TextStyle(fontSize: 12)),
                           onTap: () async {
                             Navigator.pop(ctx);
@@ -617,7 +615,7 @@ class DatabaseTabState extends State<DatabaseTab> {
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: const Text('Đóng'))
+              child: Text(tr('Đóng')))
         ],
       ),
     );
@@ -631,7 +629,7 @@ class DatabaseTabState extends State<DatabaseTab> {
         title: Row(children: [
           const Icon(Icons.delete_forever, color: Colors.red),
           const SizedBox(width: 8),
-          Text('Xóa dữ liệu vận hành',
+          Text(tr('Xóa dữ liệu vận hành'),
               style: TextStyle(color: Colors.red[700])),
         ]),
         content: SizedBox(
@@ -643,33 +641,30 @@ class DatabaseTabState extends State<DatabaseTab> {
               decoration: BoxDecoration(
                   color: Colors.red.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8)),
-              child: const Column(children: [
+              child: Column(children: [
                 Row(children: [
                   Icon(Icons.warning, color: Colors.red, size: 24),
                   SizedBox(width: 8),
                   Expanded(
-                      child: Text(
-                          'CẢNH BÁO: Thao tác này sẽ xóa dữ liệu chấm công, lệnh máy, nhân sự máy, vân tay, khuôn mặt, thiết bị, nhân viên trên toàn hệ thống!',
+                      child: Text(tr('CẢNH BÁO: Thao tác này sẽ xóa dữ liệu chấm công, lệnh máy, nhân sự máy, vân tay, khuôn mặt, thiết bị, nhân viên trên toàn hệ thống!'),
                           style: TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.w600,
                               color: Colors.red))),
                 ]),
                 SizedBox(height: 8),
-                Text(
-                    'GIỮ NGUYÊN: cửa hàng, tài khoản người dùng, license key, cài đặt. Thao tác KHÔNG THỂ HOÀN TÁC.',
+                Text(tr('GIỮ NGUYÊN: cửa hàng, tài khoản người dùng, license key, cài đặt. Thao tác KHÔNG THỂ HOÀN TÁC.'),
                     style: TextStyle(fontSize: 12)),
               ]),
             ),
             const SizedBox(height: 16),
-            const Text(
-                'Nhập "CONFIRM_DELETE_ALL" để xác nhận:',
+            Text(tr('Nhập "CONFIRM_DELETE_ALL" để xác nhận:'),
                 style: TextStyle(fontSize: 13)),
             const SizedBox(height: 8),
             TextField(
               controller: confirmCtrl,
               decoration: InputDecoration(
-                hintText: 'CONFIRM_DELETE_ALL',
+                hintText: tr('CONFIRM_DELETE_ALL'),
                 border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10)),
                 prefixIcon:
@@ -681,7 +676,7 @@ class DatabaseTabState extends State<DatabaseTab> {
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: const Text('Hủy')),
+              child: Text(tr('Hủy'))),
           FilledButton(
             onPressed: () async {
               if (confirmCtrl.text != 'CONFIRM_DELETE_ALL') {
@@ -705,7 +700,7 @@ class DatabaseTabState extends State<DatabaseTab> {
             },
             style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.red),
-            child: const Text('XÓA DỮ LIỆU'),
+            child: Text(tr('XÓA DỮ LIỆU')),
           ),
         ],
       ),

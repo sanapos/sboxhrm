@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../utils/responsive_helper.dart';
 import 'pos_theme.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// Bố cục POS desktop/tablet — 2 hoặc 3 cột, tái dùng builder từ [PosSellScreen].
 ///
@@ -130,7 +131,7 @@ class PosSellDesktopFloorHint extends StatelessWidget {
                   size: 56, color: PosTheme.kiotBlue.withValues(alpha: 0.7)),
               const SizedBox(height: 16),
               Text(
-                title,
+                tr(title),
                 textAlign: TextAlign.center,
                 style: const TextStyle(
                   fontSize: 18,
@@ -139,8 +140,7 @@ class PosSellDesktopFloorHint extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 8),
-              const Text(
-                'Sau khi chọn bàn, cột này hiện giỏ hàng và thanh toán.',
+              Text(tr('Sau khi chọn bàn, cột này hiện giỏ hàng và thanh toán.'),
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 13, color: PosTheme.textSecondary),
               ),

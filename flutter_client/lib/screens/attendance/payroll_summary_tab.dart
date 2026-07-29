@@ -34,6 +34,8 @@ import '../../utils/standard_work_days_utils.dart';
 import '../../models/mobile_attendance.dart';
 import '../../utils/mobile_attendance_vertical_layout.dart';
 import '../main_layout.dart' show NavigationNotifier;
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
+import 'package:zkteco_flutter_client/l10n/app_ui_locale.dart';
 
 // ═══════════════════════════════════════════════════════════════
 //  PayrollColumn – định nghĩa 1 cột bảng lương
@@ -1936,18 +1938,16 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
     final choice = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Chốt lương'),
+        title: Text(tr('Chốt lương')),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Kỳ: ${DateFormat('dd/MM/yyyy').format(_fromDate)} — '
-              '${DateFormat('dd/MM/yyyy').format(_toDate)}',
+            Text(tr('${tr('Kỳ: ')}${DateFormat('dd/MM/yyyy').format(_fromDate)} — '
+              '${DateFormat('dd/MM/yyyy').format(_toDate)}'),
             ),
             const SizedBox(height: 8),
-            const Text(
-              'Sau khi chốt, hệ thống tạo phiếu lương tại menu Phiếu lương.',
+            Text(tr('Sau khi chốt, hệ thống tạo phiếu lương tại menu Phiếu lương.'),
               style: TextStyle(fontSize: 13, color: Colors.black54),
             ),
           ],
@@ -1955,16 +1955,16 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Hủy'),
+            child: Text(tr('Hủy')),
           ),
           if (hasSelection)
             FilledButton(
               onPressed: () => Navigator.pop(ctx, 'selected'),
-              child: Text('Chốt $selectedCount NV đã chọn'),
+              child: Text(tr('Chốt $selectedCount NV đã chọn')),
             ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, 'all'),
-            child: Text('Chốt tất cả ($allCount NV)'),
+            child: Text(tr('Chốt tất cả ($allCount NV)')),
           ),
         ],
       ),
@@ -1977,7 +1977,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
     if (rows.isEmpty) {
       appNotification.showWarning(
         title: 'Chốt lương',
-        message: 'Không có nhân viên để chốt lương',
+        message: tr('Không có nhân viên để chốt lương'),
       );
       return;
     }
@@ -1985,19 +1985,18 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Xác nhận chốt lương'),
-        content: Text(
-          'Tạo phiếu lương cho ${rows.length} nhân viên?\n'
-          'Phiếu đã tồn tại cùng kỳ sẽ được cập nhật.',
+        title: Text(tr('Xác nhận chốt lương')),
+        content: Text(tr('${tr('Tạo phiếu lương cho ')}${rows.length} nhân viên?\n'
+          'Phiếu đã tồn tại cùng kỳ sẽ được cập nhật.'),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Hủy'),
+            child: Text(tr('Hủy')),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Chốt lương'),
+            child: Text(tr('Chốt lương')),
           ),
         ],
       ),
@@ -2053,7 +2052,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
       if (items.isEmpty) {
         appNotification.showWarning(
           title: 'Chốt lương',
-          message: 'Không có NV hợp lệ (thiếu hồ sơ hoặc bảng lương)',
+          message: tr('Không có NV hợp lệ (thiếu hồ sơ hoặc bảng lương)'),
         );
         return;
       }
@@ -2108,7 +2107,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
       if (mounted) {
         appNotification.showError(
           title: 'Chốt lương',
-          message: 'Lỗi: $e',
+          message: tr('Lỗi: $e'),
         );
       }
     } finally {
@@ -2127,7 +2126,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
               child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
             )
           : const Icon(Icons.lock_outline, size: 18),
-      label: Text(_isFinalizing ? 'Đang chốt...' : 'Chốt lương'),
+      label: Text(tr(_isFinalizing ? 'Đang chốt...' : 'Chốt lương')),
       style: FilledButton.styleFrom(
         backgroundColor: const Color(0xFF059669),
         foregroundColor: Colors.white,
@@ -2163,8 +2162,8 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
               children: [
                 const Icon(Icons.view_column, color: Colors.blue),
                 const SizedBox(width: 8),
-                const Expanded(
-                    child: Text('Chọn & sắp xếp cột',
+                Expanded(
+                    child: Text(tr('Chọn & sắp xếp cột'),
                         style: TextStyle(fontSize: 16))),
                 TextButton(
                   onPressed: () {
@@ -2179,7 +2178,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
                           .toList();
                     });
                   },
-                  child: const Text('Mặc định', style: TextStyle(fontSize: 12)),
+                  child: Text(tr('Mặc định'), style: TextStyle(fontSize: 12)),
                 ),
               ],
             ),
@@ -2194,7 +2193,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
                   // Frozen columns (not reorderable)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 4, left: 4),
-                    child: Text('Cột cố định (không thể di chuyển)',
+                    child: Text(tr('Cột cố định (không thể di chuyển)'),
                         style: TextStyle(
                             fontSize: 11, color: Colors.grey.shade500)),
                   ),
@@ -2213,7 +2212,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
                                   size: 14, color: Colors.grey.shade400),
                               const SizedBox(width: 8),
                               Expanded(
-                                  child: Text(col.label,
+                                  child: Text(tr(col.label),
                                       style: const TextStyle(
                                           fontSize: 13, color: Colors.grey))),
                             ],
@@ -2223,7 +2222,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
                   const Divider(height: 12),
                   Padding(
                     padding: const EdgeInsets.only(bottom: 4, left: 4),
-                    child: Text('Kéo để sắp xếp thứ tự cột',
+                    child: Text(tr('Kéo để sắp xếp thứ tự cột'),
                         style: TextStyle(
                             fontSize: 11, color: Colors.grey.shade500)),
                   ),
@@ -2274,7 +2273,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
                                   setDialogState(() => col.visible = v ?? true),
                               visualDensity: VisualDensity.compact,
                             ),
-                            title: Text(col.label,
+                            title: Text(tr(col.label),
                                 style: const TextStyle(fontSize: 13)),
                             trailing: ReorderableDragStartListener(
                               index: i,
@@ -2296,7 +2295,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(ctx),
-                child: const Text('Hủy'),
+                child: Text(tr('Hủy')),
               ),
               FilledButton(
                 onPressed: () {
@@ -2312,7 +2311,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
                   setState(() {});
                   Navigator.pop(ctx);
                 },
-                child: const Text('Áp dụng'),
+                child: Text(tr('Áp dụng')),
               ),
             ],
           );
@@ -2419,7 +2418,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
         row: row,
         colStart: start,
         colEnd: end,
-        text: _payrollFooterSignatureLabels[i],
+        text: tr(_payrollFooterSignatureLabels[i]),
         style: sigTitleStyle,
       );
     }
@@ -2434,7 +2433,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
         row: row,
         colStart: start,
         colEnd: end,
-        text: '(Ký, ghi rõ họ tên)',
+        text: tr('(Ký, ghi rõ họ tên)'),
         style: sigHintStyle,
       );
     }
@@ -2445,7 +2444,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
       final data = _buildPayrollData();
       if (data.isEmpty) {
         appNotification.showError(
-            title: 'Lỗi', message: 'Không có dữ liệu để xuất');
+            title: 'Lỗi', message: tr('Không có dữ liệu để xuất'));
         return;
       }
 
@@ -2471,7 +2470,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
         row: row,
         colStart: 0,
         colEnd: lastCol,
-        text: 'BẢNG TỔNG HỢP LƯƠNG',
+        text: tr('BẢNG TỔNG HỢP LƯƠNG'),
         style: ExcelReportBuilder.titleStyle(),
       );
       row++;
@@ -2481,7 +2480,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
         colStart: 0,
         colEnd: lastCol,
         text:
-            'Kỳ lương: ${DateFormat('dd/MM/yyyy').format(_fromDate)} – ${DateFormat('dd/MM/yyyy').format(_toDate)}',
+            tr('Kỳ lương: ${DateFormat('dd/MM/yyyy').format(_fromDate)} – ${DateFormat('dd/MM/yyyy').format(_toDate)}'),
         style: _excelCenterStyle(fontSize: 12),
       );
       row++;
@@ -2491,7 +2490,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
         colStart: 0,
         colEnd: lastCol,
         text:
-            'Xuất lúc: ${DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now())}  |  ${data.length} nhân viên',
+            tr('Xuất lúc: ${DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now())}  |  ${data.length} nhân viên'),
         style: _excelCenterStyle(fontSize: 10, italic: true),
       );
       row += 2;
@@ -2581,11 +2580,11 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
             'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
         appNotification.showSuccess(
             title: 'Xuất Excel',
-            message: 'Đã lưu vào Tải về/SBOX HRM: $fn');
+            message: tr('Đã lưu vào Tải về/SBOX HRM: $fn'));
       }
     } catch (e) {
       appNotification.showError(
-          title: 'Lỗi', message: 'Không thể xuất Excel: $e');
+          title: 'Lỗi', message: tr('Không thể xuất Excel: $e'));
     }
   }
 
@@ -2690,8 +2689,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
     y += titleH;
     ctx.fillStyle = '#334155';
     ctx.font = '12px Arial, sans-serif';
-    ctx.fillText(
-      'Kỳ lương: ${DateFormat('dd/MM/yyyy').format(_fromDate)} – ${DateFormat('dd/MM/yyyy').format(_toDate)}',
+    ctx.fillText('${tr('Kỳ lương: ')}${DateFormat('dd/MM/yyyy').format(_fromDate)} – ${DateFormat('dd/MM/yyyy').format(_toDate)}',
       width / 2,
       y + 16,
     );
@@ -2793,7 +2791,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
       final data = _buildPayrollData();
       if (data.isEmpty) {
         appNotification.showError(
-            title: 'Lỗi', message: 'Không có dữ liệu để xuất');
+            title: 'Lỗi', message: tr('Không có dữ liệu để xuất'));
         return;
       }
 
@@ -2873,15 +2871,15 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
               pngBytes, fileName, 'image/png');
         } else {
           appNotification.showError(
-              title: 'Lỗi', message: 'Không thể xuất PNG');
+              title: 'Lỗi', message: tr('Không thể xuất PNG'));
           return;
         }
       }
       appNotification.showSuccess(
           title: 'Xuất PNG',
-          message: 'Đã lưu vào Ảnh/SBOX HRM: $fileName');
+          message: tr('Đã lưu vào Ảnh/SBOX HRM: $fileName'));
     } catch (e) {
-      appNotification.showError(title: 'Lỗi', message: 'Không thể xuất PNG: $e');
+      appNotification.showError(title: 'Lỗi', message: tr('Không thể xuất PNG: $e'));
     }
   }
 
@@ -2945,7 +2943,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
       initialDate: initial,
       firstDate: DateTime(2020),
       lastDate: DateTime.now().add(const Duration(days: 365)),
-      locale: const Locale('vi', 'VN'),
+      locale: appUiLocale(),
     );
     if (picked != null) {
       setState(() {
@@ -2973,9 +2971,9 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
         CircleAvatar(
           backgroundColor: Colors.blue.shade100,
           child: Text(
-            (row['name'] as String).isNotEmpty
+            tr((row['name'] as String).isNotEmpty
                 ? (row['name'] as String)[0].toUpperCase()
-                : '?',
+                : '?'),
             style: TextStyle(
                 color: Colors.blue.shade700, fontWeight: FontWeight.bold),
           ),
@@ -2985,8 +2983,8 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(row['name'] ?? '', style: const TextStyle(fontSize: 16)),
-              Text('${row['code']} • ${row['department']}',
+              Text(tr(row['name'] ?? ''), style: const TextStyle(fontSize: 16)),
+              Text(tr('${row['code']} • ${row['department']}'),
                   style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
             ],
           ),
@@ -3075,9 +3073,9 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('THỰC NHẬN',
+              Text(tr('THỰC NHẬN'),
                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-              Text(_fmtCurrency(row['netSalary']),
+              Text(tr(_fmtCurrency(row['netSalary'])),
                   style: TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 18,
@@ -3102,7 +3100,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
                   icon: const Icon(Icons.close),
                   onPressed: () => Navigator.pop(ctx),
                 ),
-                title: Text(row['name'] ?? 'Chi tiết',
+                title: Text(tr(row['name'] ?? 'Chi tiết'),
                     overflow: TextOverflow.ellipsis),
               ),
               body: SingleChildScrollView(
@@ -3133,7 +3131,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
           ),
           actions: [
             TextButton(
-                onPressed: () => Navigator.pop(ctx), child: const Text('Đóng')),
+                onPressed: () => Navigator.pop(ctx), child: Text(tr('Đóng'))),
           ],
         ),
       );
@@ -3146,7 +3144,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
       children: [
         Padding(
           padding: const EdgeInsets.only(top: 12, bottom: 4),
-          child: Text(title,
+          child: Text(tr(title),
               style: TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 13,
@@ -3164,9 +3162,9 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label,
+          Text(tr(label),
               style: TextStyle(fontSize: 13, color: Colors.grey.shade700)),
-          Text(value,
+          Text(tr(value),
               style: TextStyle(
                   fontSize: 13, fontWeight: FontWeight.w500, color: color)),
         ],
@@ -3190,13 +3188,13 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Center(
+      return Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             CircularProgressIndicator(),
             SizedBox(height: 12),
-            Text('Đang tính toán lương...',
+            Text(tr('Đang tính toán lương...'),
                 style: TextStyle(color: Colors.grey)),
           ],
         ),
@@ -3239,7 +3237,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
                     Icon(Icons.analytics_outlined,
                         size: 16, color: Colors.blue.shade700),
                     const SizedBox(width: 6),
-                    Text('Tổng quan',
+                    Text(tr('Tổng quan'),
                         style: TextStyle(
                             fontWeight: FontWeight.w600,
                             fontSize: 13,
@@ -3276,12 +3274,11 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
                 Icon(Icons.account_balance_wallet_outlined,
                     size: 64, color: Colors.grey.shade300),
                 const SizedBox(height: 12),
-                Text('Không có dữ liệu lương',
+                Text(tr('Không có dữ liệu lương'),
                     style: TextStyle(
                         color: Colors.grey.shade500, fontSize: 15)),
                 const SizedBox(height: 4),
-                Text(
-                    'Hãy kiểm tra khoảng thời gian hoặc bộ lọc nhân viên',
+                Text(tr('Hãy kiểm tra khoảng thời gian hoặc bộ lọc nhân viên'),
                     style: TextStyle(
                         color: Colors.grey.shade400, fontSize: 12)),
               ],
@@ -3406,9 +3403,9 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
               children: [
                 const Icon(Icons.people, color: Colors.blue, size: 20),
                 const SizedBox(width: 8),
-                const Expanded(
+                Expanded(
                     child:
-                        Text('Chọn nhân viên', style: TextStyle(fontSize: 16))),
+                        Text(tr('Chọn nhân viên'), style: TextStyle(fontSize: 16))),
                 TextButton(
                   onPressed: () {
                     setDialogState(() {
@@ -3422,9 +3419,9 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
                     });
                   },
                   child: Text(
-                    tempSelected.length == pool.length
+                    tr(tempSelected.length == pool.length
                         ? 'Bỏ chọn tất cả'
-                        : 'Chọn tất cả',
+                        : 'Chọn tất cả'),
                     style: const TextStyle(fontSize: 12),
                   ),
                 ),
@@ -3439,7 +3436,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
                 children: [
                   TextField(
                     decoration: InputDecoration(
-                      hintText: 'Tìm nhân viên...',
+                      hintText: tr('Tìm nhân viên...'),
                       prefixIcon: const Icon(Icons.search, size: 18),
                       isDense: true,
                       contentPadding: const EdgeInsets.symmetric(
@@ -3469,10 +3466,10 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
                               }
                             });
                           },
-                          title: Text(emp.fullName,
+                          title: Text(tr(emp.fullName),
                               style: const TextStyle(fontSize: 13)),
                           subtitle: Text(
-                            '${emp.employeeCode} • ${emp.department ?? ''}',
+                            tr('${emp.employeeCode} • ${emp.department ?? ''}'),
                             style: TextStyle(
                                 fontSize: 11, color: Colors.grey.shade600),
                           ),
@@ -3482,9 +3479,9 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
                                 ? Colors.blue.shade100
                                 : Colors.grey.shade200,
                             child: Text(
-                              emp.fullName.isNotEmpty
+                              tr(emp.fullName.isNotEmpty
                                   ? emp.fullName[0].toUpperCase()
-                                  : '?',
+                                  : '?'),
                               style: TextStyle(
                                 fontSize: 12,
                                 color: isSelected
@@ -3500,9 +3497,9 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
                   Padding(
                     padding: const EdgeInsets.only(top: 8),
                     child: Text(
-                      tempSelected.isEmpty
+                      tr(tempSelected.isEmpty
                           ? 'Hiển thị tất cả nhân viên (${pool.length})'
-                          : 'Đã chọn ${tempSelected.length}/${pool.length} nhân viên',
+                          : 'Đã chọn ${tempSelected.length}/${pool.length} nhân viên'),
                       style:
                           TextStyle(fontSize: 12, color: Colors.grey.shade600),
                     ),
@@ -3513,7 +3510,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(ctx),
-                child: const Text('Hủy'),
+                child: Text(tr('Hủy')),
               ),
               FilledButton(
                 onPressed: () {
@@ -3524,7 +3521,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
                   });
                   Navigator.pop(ctx);
                 },
-                child: const Text('Áp dụng'),
+                child: Text(tr('Áp dụng')),
               ),
             ],
           );
@@ -3570,7 +3567,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
             const SizedBox(width: 6),
             Expanded(
               child: Text(
-                _periodLabel(_selectedPeriod),
+                tr(_periodLabel(_selectedPeriod)),
                 style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
@@ -3604,9 +3601,9 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
                 const SizedBox(width: 6),
                 // full format for desktop, compact for mobile
                 Text(
-                  isMobile
+                  tr(isMobile
                       ? DateFormat('dd/MM/yy').format(date)
-                      : DateFormat('dd/MM/yyyy').format(date),
+                      : DateFormat('dd/MM/yyyy').format(date)),
                   style: const TextStyle(fontSize: 13),
                 ),
               ],
@@ -3617,7 +3614,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
     final fromDate = _datePill(_fromDate, true);
 
     final dateSep =
-        Text('—', style: TextStyle(color: Colors.grey.shade400, fontSize: 13));
+        Text(tr('—'), style: TextStyle(color: Colors.grey.shade400, fontSize: 13));
 
     final toDate = _datePill(_toDate, false);
 
@@ -3650,9 +3647,9 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
             const SizedBox(width: 6),
             Expanded(
               child: Text(
-                _selectedEmployeeIds.isEmpty
+                tr(_selectedEmployeeIds.isEmpty
                     ? 'Tất cả NV ($poolCount)'
-                    : '${_selectedEmployeeIds.length} NV đã chọn',
+                    : '${_selectedEmployeeIds.length} NV đã chọn'),
                 style: TextStyle(
                   fontSize: 13,
                   color: _selectedEmployeeIds.isNotEmpty
@@ -3720,9 +3717,8 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
               Icon(Icons.business_outlined,
                   size: 14, color: Colors.grey.shade600),
               const SizedBox(width: 6),
-              const Expanded(
-                child: Text(
-                  'Phòng ban',
+              Expanded(
+                child: Text(tr('Phòng ban'),
                   style: TextStyle(fontSize: 13),
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -3737,8 +3733,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
                     color: Theme.of(context).primaryColor),
                 const SizedBox(width: 6),
                 Expanded(
-                  child: Text(
-                    'Phòng ban',
+                  child: Text(tr('Phòng ban'),
                     style: TextStyle(
                       fontSize: 13,
                       color: Theme.of(context).primaryColor,
@@ -3757,7 +3752,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text(
-                      d,
+                      tr(d),
                       style: TextStyle(
                         fontSize: 13,
                         color: Theme.of(context).primaryColor,
@@ -3773,13 +3768,13 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
           items: [
             DropdownMenuItem<String?>(
               value: null,
-              child: Text(_l10n.allDepartments,
+              child: Text(tr(_l10n.allDepartments),
                   style: const TextStyle(fontSize: 13)),
             ),
             ..._availableDepartments().map(
               (d) => DropdownMenuItem<String?>(
                 value: d,
-                child: Text(d,
+                child: Text(tr(d),
                     style: const TextStyle(fontSize: 13),
                     overflow: TextOverflow.ellipsis),
               ),
@@ -3802,7 +3797,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
       child: TextField(
         controller: _searchController,
         decoration: InputDecoration(
-          hintText: 'Tìm nhanh...',
+          hintText: tr('Tìm nhanh...'),
           hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 13),
           prefixIcon: Icon(Icons.search, size: 16, color: Colors.grey.shade400),
           filled: true,
@@ -3841,7 +3836,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
         borderRadius: BorderRadius.circular(20),
       ),
       child: Text(
-        '${_buildPayrollData().length} NV',
+        tr('${_buildPayrollData().length} NV'),
         style: const TextStyle(
             fontSize: 12,
             color: HrmPageChrome.primaryNavy,
@@ -3912,12 +3907,11 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
           onExpansionChanged: (v) => setState(() => _payrollFiltersExpanded = v),
           tilePadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
           childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-          title: const Text(
-            'Bộ lọc',
+          title: Text(tr('Bộ lọc'),
             style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
           ),
           subtitle: Text(
-            _payrollFilterSummary(),
+            tr(_payrollFilterSummary()),
             style: TextStyle(fontSize: 12, color: Colors.grey[600]),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
@@ -3943,7 +3937,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
               children: [
                 TextButton(
                   onPressed: _resetPayrollFilters,
-                  child: const Text('Xóa lọc'),
+                  child: Text(tr('Xóa lọc')),
                 ),
                 const Spacer(),
                 if (_canFinalizePayroll()) _buildFinalizeButton(),
@@ -3967,7 +3961,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
                   ? Colors.blue
                   : Colors.grey.shade600),
           const SizedBox(width: 8),
-          Text(label,
+          Text(tr(label),
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: _selectedPeriod == value
@@ -4125,8 +4119,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(
-                  '${item.label} (tổng toàn công ty)',
+                Text(tr('${item.label} (tổng toàn công ty)'),
                   style: TextStyle(
                     color: Colors.white.withValues(alpha: 0.9),
                     fontSize: 12,
@@ -4139,7 +4132,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
                   fit: BoxFit.scaleDown,
                   alignment: Alignment.centerLeft,
                   child: Text(
-                    '${item.value} ₫',
+                    tr('${item.value} ₫'),
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 26,
@@ -4188,7 +4181,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  item.label,
+                  tr(item.label),
                   style: TextStyle(
                     fontSize: 11,
                     color: Colors.grey.shade600,
@@ -4203,7 +4196,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
                   fit: BoxFit.scaleDown,
                   alignment: Alignment.centerLeft,
                   child: Text(
-                    item.value,
+                    tr(item.value),
                     style: TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.bold,
@@ -4247,7 +4240,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(item.label,
+                Text(tr(item.label),
                     style: TextStyle(
                         fontSize: 10,
                         color: item.color.withValues(alpha: 0.7),
@@ -4258,7 +4251,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
                 FittedBox(
                   fit: BoxFit.scaleDown,
                   alignment: Alignment.centerLeft,
-                  child: Text(item.value,
+                  child: Text(tr(item.value),
                       style: TextStyle(
                           fontSize: highlight ? 15 : 12,
                           fontWeight: FontWeight.bold,
@@ -4297,7 +4290,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text('$totalRows dòng',
+            Text(tr('$totalRows dòng'),
                 style: const TextStyle(
                     fontSize: 12,
                     color: HrmPageChrome.primaryNavy,
@@ -4313,7 +4306,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
                         })),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 8),
-                  child: Text('$_currentPage / $totalPages',
+                  child: Text(tr('$_currentPage / $totalPages'),
                       style: const TextStyle(
                           fontSize: 12, fontWeight: FontWeight.w600)),
                 ),
@@ -4349,14 +4342,14 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
               color: HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(20),
             ),
-            child: Text('$totalRows dòng',
+            child: Text(tr('$totalRows dòng'),
                 style: const TextStyle(
                     fontSize: 12,
                     color: HrmPageChrome.primaryNavy,
                     fontWeight: FontWeight.w600)),
           ),
           const SizedBox(width: 16),
-          Text('Hiển thị',
+          Text(tr('Hiển thị'),
               style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
           const SizedBox(width: 6),
           PopupMenuButton<int>(
@@ -4370,7 +4363,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
                 .map((n) => PopupMenuItem(
                       value: n,
                       height: 36,
-                      child: Text('$n',
+                      child: Text(tr('$n'),
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: n == _rowsPerPage
@@ -4391,7 +4384,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text('$_rowsPerPage',
+                  Text(tr('$_rowsPerPage'),
                       style:
                           const TextStyle(fontSize: 12, color: Colors.black87)),
                   const SizedBox(width: 4),
@@ -4401,19 +4394,19 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
               ),
             ),
           ),
-          Text(' / trang',
+          Text(tr(' / trang'),
               style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
           if (onOpenFullscreen != null) ...[
             const SizedBox(width: 8),
             Tooltip(
-              message: 'Xem toàn màn hình',
+              message: tr('Xem toàn màn hình'),
               child: Material(
                 color: const Color(0xFFEFF6FF),
                 borderRadius: BorderRadius.circular(8),
                 child: InkWell(
                   onTap: onOpenFullscreen,
                   borderRadius: BorderRadius.circular(8),
-                  child: const Padding(
+                  child: Padding(
                     padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
@@ -4421,8 +4414,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
                         Icon(Icons.fullscreen,
                             size: 18, color: Color(0xFF2563EB)),
                         SizedBox(width: 6),
-                        Text(
-                          'Toàn màn hình',
+                        Text(tr('Toàn màn hình'),
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
@@ -4490,7 +4482,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
       if (p == -1) {
         return Padding(
           padding: const EdgeInsets.symmetric(horizontal: 2),
-          child: Text('...',
+          child: Text(tr('...'),
               style: TextStyle(fontSize: 12, color: Colors.grey.shade400)),
         );
       }
@@ -4510,7 +4502,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
             child: Container(
               constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
               alignment: Alignment.center,
-              child: Text('$p',
+              child: Text(tr('$p'),
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
@@ -4602,7 +4594,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
                 bottom: BorderSide(color: Color(0xFFE4E4E7), width: 0.5)),
           ),
           child: Text(
-            _formatCellValue(key, row, index),
+            tr(_formatCellValue(key, row, index)),
             style: TextStyle(
               fontSize: 12,
               fontWeight: key == 'netSalary'
@@ -4640,7 +4632,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
             mainAxisSize: MainAxisSize.min,
             children: [
               Flexible(
-                child: Text(col.label,
+                child: Text(tr(col.label),
                     style: const TextStyle(
                         fontWeight: FontWeight.w600,
                         fontSize: 11,
@@ -5020,7 +5012,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
   }
 
   Widget _payrollHeaderText(String text) => Text(
-        text,
+        tr(text),
         textAlign: TextAlign.center,
         style: const TextStyle(
           fontSize: 11,
@@ -5067,7 +5059,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
             : _formatCellValue(col.key, row, index);
         return _payrollTableCell(
           Text(
-            cellText,
+            tr(cellText),
             textAlign:
                 _isPayrollLeftAlignKey(col.key) ? TextAlign.left : TextAlign.center,
             style: TextStyle(
@@ -5137,7 +5129,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
         final text = _payrollTotalCellText(col, allData);
         return _payrollTableCell(
           Text(
-            text,
+            tr(text),
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 12,
@@ -5217,10 +5209,10 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
         child: Scaffold(
           backgroundColor: const Color(0xFFFAFAFA),
           appBar: AppBar(
-            title: const Text('Bảng tổng hợp lương',
+            title: Text(tr('Bảng tổng hợp lương'),
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
             leading: IconButton(
-              tooltip: 'Thoát chế độ toàn màn hình',
+              tooltip: tr('Thoát chế độ toàn màn hình'),
               icon: const Icon(Icons.fullscreen_exit),
               onPressed: () => Navigator.pop(dialogCtx),
             ),
@@ -5228,7 +5220,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
               TextButton.icon(
                 onPressed: () => Navigator.pop(dialogCtx),
                 icon: const Icon(Icons.close, size: 18),
-                label: const Text('Thoát'),
+                label: Text(tr('Thoát')),
               ),
             ],
           ),
@@ -5292,7 +5284,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
                   border: Border(top: BorderSide(color: Color(0xFFE4E4E7))),
                 ),
                 child: Text(
-                  '${allData.length} nhân viên · Kỳ ${DateFormat('dd/MM/yyyy').format(_fromDate)} – ${DateFormat('dd/MM/yyyy').format(_toDate)}',
+                  tr('${allData.length} nhân viên · Kỳ ${DateFormat('dd/MM/yyyy').format(_fromDate)} – ${DateFormat('dd/MM/yyyy').format(_toDate)}'),
                   style:
                       TextStyle(fontSize: 12, color: Colors.grey.shade600),
                 ),
@@ -5315,7 +5307,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
           children: [
             Icon(Icons.table_chart, size: 56, color: Colors.grey.shade200),
             const SizedBox(height: 12),
-            Text('Không có dữ liệu',
+            Text(tr('Không có dữ liệu'),
                 style: TextStyle(color: Colors.grey.shade500)),
           ],
         ),
@@ -5338,7 +5330,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
           child: TextButton.icon(
             onPressed: () => _showEmployeeDetail(row),
             icon: const Icon(Icons.open_in_new, size: 16),
-            label: const Text('Xem chi tiết đầy đủ'),
+            label: Text(tr('Xem chi tiết đầy đủ')),
           ),
         );
       }
@@ -5374,7 +5366,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
                         Expanded(
                           flex: 11,
                           child: Text(
-                            detailRows[i].key.label,
+                            tr(detailRows[i].key.label),
                             style: TextStyle(
                               fontSize: 12,
                               color: Colors.grey.shade700,
@@ -5385,7 +5377,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
                         Expanded(
                           flex: 9,
                           child: Text(
-                            detailRows[i].value,
+                            tr(detailRows[i].value),
                             textAlign: TextAlign.right,
                             style: TextStyle(
                               fontSize: 13,
@@ -5412,7 +5404,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
             child: TextButton.icon(
               onPressed: () => _showEmployeeDetail(row),
               icon: const Icon(Icons.open_in_new, size: 16),
-              label: const Text('Xem chi tiết đầy đủ'),
+              label: Text(tr('Xem chi tiết đầy đủ')),
             ),
           ),
         ],
@@ -5439,7 +5431,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
             radius: 16,
             backgroundColor: Colors.blue.shade50,
             child: Text(
-              '${globalIndex + 1}',
+              tr('${globalIndex + 1}'),
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.bold,
@@ -5448,18 +5440,18 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
             ),
           ),
           title: Text(
-            row['name']?.toString() ?? '',
+            tr(row['name']?.toString() ?? ''),
             style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
           ),
           subtitle: subtitle.isEmpty
               ? null
-              : Text(subtitle, style: const TextStyle(fontSize: 12)),
+              : Text(tr(subtitle), style: const TextStyle(fontSize: 12)),
           trailing: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Text(
-                _fmtCurrency(row['netSalary']),
+                tr(_fmtCurrency(row['netSalary'])),
                 style: const TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 14,
@@ -5467,8 +5459,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
                 ),
               ),
               if ((_toDouble(row['travelHours'])) > 0)
-                Text(
-                  'Đi đường: ${(_toDouble(row['travelHours'])).toStringAsFixed(1)}h',
+                Text(tr('${tr('Đi đường: ')}${(_toDouble(row['travelHours'])).toStringAsFixed(1)}h'),
                   style: TextStyle(
                     fontSize: 10,
                     fontWeight: FontWeight.w600,
@@ -5516,14 +5507,13 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
             padding: const EdgeInsets.fromLTRB(14, 12, 14, 4),
             child: Row(
               children: [
-                const Expanded(
-                  child: Text(
-                    'Bảng lương',
+                Expanded(
+                  child: Text(tr('Bảng lương'),
                     style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
                   ),
                 ),
                 Text(
-                  '${data.length} NV',
+                  tr('${data.length} NV'),
                   style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
                 ),
               ],
@@ -5544,14 +5534,13 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
             ),
             child: Row(
               children: [
-                const Expanded(
-                  child: Text(
-                    'TỔNG THỰC NHẬN',
+                Expanded(
+                  child: Text(tr('TỔNG THỰC NHẬN'),
                     style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                   ),
                 ),
                 Text(
-                  _fmtCurrency(totalNet),
+                  tr(_fmtCurrency(totalNet)),
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 15,
@@ -5575,7 +5564,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
           children: [
             Icon(Icons.table_chart, size: 56, color: Colors.grey.shade200),
             const SizedBox(height: 12),
-            Text('Không có dữ liệu',
+            Text(tr('Không có dữ liệu'),
                 style: TextStyle(color: Colors.grey.shade500)),
           ],
         ),
@@ -5704,11 +5693,10 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
   Widget _buildVerticalPayrollTable(List<Map<String, dynamic>> data) {
     final cols = _mobileVerticalPayrollColumns();
     if (cols.isEmpty) {
-      return const Center(
+      return Center(
         child: Padding(
           padding: EdgeInsets.all(20),
-          child: Text(
-            'Chưa có cột dữ liệu hiển thị.\nVui lòng bật thêm cột trong cài đặt bảng lương.',
+          child: Text(tr('Chưa có cột dữ liệu hiển thị.\nVui lòng bật thêm cột trong cài đặt bảng lương.'),
             textAlign: TextAlign.center,
             style: TextStyle(fontSize: 12, color: Color(0xFF71717A)),
           ),

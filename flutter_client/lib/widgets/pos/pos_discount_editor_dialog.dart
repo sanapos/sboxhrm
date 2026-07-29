@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import 'pos_theme.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 const kPosDiscountPresets = [5, 10, 15, 20, 25, 30, 50, 75, 100];
 
@@ -83,13 +84,13 @@ Future<PosDiscountEditResult?> showPosDiscountEditorDialog({
   bool initialIsPercent = false,
 }) async {
   final ctrl = TextEditingController(
-    text: initialInput == 0
+    text: tr(initialInput == 0
         ? ''
         : (initialIsPercent
             ? (initialInput % 1 == 0
                 ? initialInput.toStringAsFixed(0)
                 : initialInput.toStringAsFixed(2))
-            : NumberFormat('#,##0', 'vi_VN').format(initialInput)),
+            : NumberFormat('#,##0', 'vi_VN').format(initialInput))),
   );
   var isPercent = initialIsPercent;
   final moneyFmt = NumberFormat('#,##0', 'vi_VN');
@@ -108,7 +109,7 @@ Future<PosDiscountEditResult?> showPosDiscountEditorDialog({
       builder: (ctx, setDlg) {
         final preview = computeAmount(ctrl.text);
         return AlertDialog(
-          title: Text(title),
+          title: Text(tr(title)),
           content: SizedBox(
             width: 360,
             child: Column(
@@ -126,8 +127,7 @@ Future<PosDiscountEditResult?> showPosDiscountEditorDialog({
                           isPercent = false;
                         })),
                     const Spacer(),
-                    Text(
-                      'Tối đa: ${moneyFmt.format(baseAmount)}',
+                    Text(tr('Tối đa: ${moneyFmt.format(baseAmount)}'),
                       style: const TextStyle(fontSize: 11, color: PosTheme.textSecondary),
                     ),
                   ],
@@ -138,9 +138,9 @@ Future<PosDiscountEditResult?> showPosDiscountEditorDialog({
                   autofocus: true,
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
                   decoration: InputDecoration(
-                    labelText: isPercent ? 'Phần trăm (%)' : 'Số tiền (đ)',
+                    labelText: tr(isPercent ? 'Phần trăm (%)' : 'Số tiền (đ)'),
                     border: const OutlineInputBorder(),
-                    suffixText: isPercent ? '%' : 'đ',
+                    suffixText: tr(isPercent ? '%' : 'đ'),
                   ),
                   onChanged: (_) => setDlg(() {}),
                 ),
@@ -163,8 +163,7 @@ Future<PosDiscountEditResult?> showPosDiscountEditorDialog({
                   ),
                 if (preview > 0) ...[
                   const SizedBox(height: 10),
-                  Text(
-                    'Chiết khấu: -${moneyFmt.format(preview)}',
+                  Text(tr('Chiết khấu: -${moneyFmt.format(preview)}'),
                     textAlign: TextAlign.right,
                     style: TextStyle(fontSize: 13, color: Colors.red.shade700),
                   ),
@@ -173,7 +172,7 @@ Future<PosDiscountEditResult?> showPosDiscountEditorDialog({
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Huỷ')),
+            TextButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('Huỷ'))),
             FilledButton(
               onPressed: () {
                 final raw = ctrl.text.replaceAll(',', '').replaceAll('%', '');
@@ -188,7 +187,7 @@ Future<PosDiscountEditResult?> showPosDiscountEditorDialog({
                 );
               },
               style: FilledButton.styleFrom(backgroundColor: _kiotBlue),
-              child: const Text('Áp dụng'),
+              child: Text(tr('Áp dụng')),
             ),
           ],
         );
@@ -256,12 +255,12 @@ class _PosDiscountEditorBodyState extends State<_PosDiscountEditorBody> {
     super.initState();
     isPercent = widget.initialIsPercent;
     ctrl = TextEditingController(
-      text: widget.initialInput == 0
+      text: tr(widget.initialInput == 0
           ? ''
           : (widget.initialIsPercent
               ? widget.initialInput.toStringAsFixed(
                   widget.initialInput % 1 == 0 ? 0 : 2)
-              : moneyFmt.format(widget.initialInput)),
+              : moneyFmt.format(widget.initialInput))),
     );
   }
 
@@ -288,7 +287,7 @@ class _PosDiscountEditorBodyState extends State<_PosDiscountEditorBody> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(widget.title,
+          Text(tr(widget.title),
               style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
           const SizedBox(height: 12),
           Row(
@@ -300,8 +299,7 @@ class _PosDiscountEditorBodyState extends State<_PosDiscountEditorBody> {
               const SizedBox(width: 6),
               _modeChip('đ', false, isPercent, () => setState(() => isPercent = false)),
               const Spacer(),
-              Text(
-                'Tối đa: ${moneyFmt.format(widget.baseAmount)}',
+              Text(tr('Tối đa: ${moneyFmt.format(widget.baseAmount)}'),
                 style: const TextStyle(fontSize: 11, color: PosTheme.textSecondary),
               ),
             ],
@@ -312,9 +310,9 @@ class _PosDiscountEditorBodyState extends State<_PosDiscountEditorBody> {
             autofocus: true,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             decoration: InputDecoration(
-              labelText: isPercent ? 'Phần trăm (%)' : 'Số tiền (đ)',
+              labelText: tr(isPercent ? 'Phần trăm (%)' : 'Số tiền (đ)'),
               border: const OutlineInputBorder(),
-              suffixText: isPercent ? '%' : 'đ',
+              suffixText: tr(isPercent ? '%' : 'đ'),
             ),
             onChanged: (_) => setState(() {}),
           ),
@@ -337,8 +335,7 @@ class _PosDiscountEditorBodyState extends State<_PosDiscountEditorBody> {
             ),
           if (preview > 0) ...[
             const SizedBox(height: 10),
-            Text(
-              'Chiết khấu: -${moneyFmt.format(preview)}',
+            Text(tr('Chiết khấu: -${moneyFmt.format(preview)}'),
               textAlign: TextAlign.right,
               style: TextStyle(fontSize: 13, color: Colors.red.shade700),
             ),
@@ -347,7 +344,7 @@ class _PosDiscountEditorBodyState extends State<_PosDiscountEditorBody> {
           Row(
             children: [
               Expanded(
-                child: OutlinedButton(onPressed: widget.onCancel, child: const Text('Huỷ')),
+                child: OutlinedButton(onPressed: widget.onCancel, child: Text(tr('Huỷ'))),
               ),
               const SizedBox(width: 10),
               Expanded(
@@ -362,7 +359,7 @@ class _PosDiscountEditorBodyState extends State<_PosDiscountEditorBody> {
                     ));
                   },
                   style: FilledButton.styleFrom(backgroundColor: _kiotBlue),
-                  child: const Text('Áp dụng'),
+                  child: Text(tr('Áp dụng')),
                 ),
               ),
             ],
@@ -386,7 +383,7 @@ Widget _modeChip(String label, bool value, bool selected, VoidCallback onTap) {
         border: Border.all(color: active ? _kiotBlue : PosTheme.border),
       ),
       child: Text(
-        label,
+        tr(label),
         style: TextStyle(
           fontSize: 12,
           fontWeight: FontWeight.w600,
@@ -493,7 +490,7 @@ Widget _discountChip(String label, VoidCallback onTap) {
           border: Border.all(color: _kiotBlue.withValues(alpha: 0.25)),
         ),
         child: Text(
-          label,
+          tr(label),
           textAlign: TextAlign.center,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,

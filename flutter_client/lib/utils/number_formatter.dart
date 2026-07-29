@@ -1,5 +1,6 @@
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
+import '../l10n/app_tr.dart';
 
 /// Formatter phân tách hàng nghìn khi nhập số (VD: 1.000.000)
 class ThousandSeparatorFormatter extends TextInputFormatter {
@@ -12,14 +13,14 @@ class ThousandSeparatorFormatter extends TextInputFormatter {
     final digitsOnly = newValue.text.replaceAll(RegExp(r'[^\d]'), '');
     if (digitsOnly.isEmpty) {
       return isNegative
-          ? newValue.copyWith(text: '-', selection: const TextSelection.collapsed(offset: 1))
+          ? newValue.copyWith(text: tr('-'), selection: const TextSelection.collapsed(offset: 1))
           : const TextEditingValue();
     }
     final number = int.tryParse(digitsOnly);
     if (number == null) return newValue;
     final formatted = '${isNegative ? '-' : ''}${_fmt.format(number)}';
     return TextEditingValue(
-      text: formatted,
+      text: tr(formatted),
       selection: TextSelection.collapsed(offset: formatted.length),
     );
   }

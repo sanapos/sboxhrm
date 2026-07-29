@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// Loại hiển thị ô không có chấm công (phân tích chéo).
 enum AbsenceCellKind {
@@ -158,9 +159,8 @@ class AttendanceLeaveLookup {
   }) {
     switch (kind) {
       case AbsenceCellKind.holiday:
-        return const Center(
-          child: Text(
-            'Lễ',
+        return Center(
+          child: Text(tr('Lễ'),
             style: TextStyle(
               fontSize: 10,
               fontWeight: FontWeight.w600,
@@ -169,9 +169,8 @@ class AttendanceLeaveLookup {
           ),
         );
       case AbsenceCellKind.weeklyOff:
-        return const Center(
-          child: Text(
-            'Nghỉ',
+        return Center(
+          child: Text(tr('Nghỉ'),
             style: TextStyle(
               fontSize: 10,
               fontWeight: FontWeight.w600,
@@ -180,9 +179,8 @@ class AttendanceLeaveLookup {
           ),
         );
       case AbsenceCellKind.approvedLeave:
-        return const Center(
-          child: Text(
-            'Phép',
+        return Center(
+          child: Text(tr('Phép'),
             style: TextStyle(
               fontSize: 10,
               fontWeight: FontWeight.w600,
@@ -191,9 +189,8 @@ class AttendanceLeaveLookup {
           ),
         );
       case AbsenceCellKind.pendingLeave:
-        return const Center(
-          child: Text(
-            'Chờ phép',
+        return Center(
+          child: Text(tr('Chờ phép'),
             style: TextStyle(
               fontSize: 10,
               fontWeight: FontWeight.w600,
@@ -202,9 +199,8 @@ class AttendanceLeaveLookup {
           ),
         );
       case AbsenceCellKind.unpaidAbsent:
-        final label = const Center(
-          child: Text(
-            'Vắng',
+        final label = Center(
+          child: Text(tr('Vắng'),
             style: TextStyle(
               fontSize: 10,
               fontWeight: FontWeight.w600,

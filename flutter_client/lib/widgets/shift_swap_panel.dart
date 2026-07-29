@@ -10,6 +10,7 @@ import '../utils/navigation_notifier.dart';
 import '../utils/responsive_helper.dart';
 import 'hrm_page_chrome.dart';
 import 'shift_swap_ui.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 enum _SwapListMode { all, respond, approve }
 
@@ -112,7 +113,7 @@ class ShiftSwapPanelState extends State<ShiftSwapPanel>
                 return Align(
                   alignment: Alignment.centerRight,
                   child: IconButton.filledTonal(
-                    tooltip: 'Quy trình đổi ca',
+                    tooltip: tr('Quy trình đổi ca'),
                     icon: const Icon(Icons.info_outline, size: 20),
                     onPressed: () => _showFlowDialog(context),
                   ),
@@ -132,9 +133,9 @@ class ShiftSwapPanelState extends State<ShiftSwapPanel>
           indicatorColor: HrmPageChrome.primaryNavy,
           isScrollable: true,
           tabs: [
-            Tab(text: 'Tất cả (${_all.length})'),
-            Tab(text: 'Cần phản hồi (${_forMe.length})'),
-            Tab(text: 'Chờ QL duyệt (${_pendingApproval.length})'),
+            Tab(text: tr('Tất cả (${_all.length})')),
+            Tab(text: tr('Cần phản hồi (${_forMe.length})')),
+            Tab(text: tr('Chờ QL duyệt (${_pendingApproval.length})')),
           ],
         ),
         Expanded(
@@ -157,18 +158,18 @@ class ShiftSwapPanelState extends State<ShiftSwapPanel>
     showDialog<void>(
       context: context,
       builder: (ctx) => ScrollableAlertDialog(
-        title: const Text('Hướng dẫn đổi ca'),
-        content: const SingleChildScrollView(
+        title: Text(tr('Hướng dẫn đổi ca')),
+        content: SingleChildScrollView(
           child: Text(
-            '1. Tạo yêu cầu: chọn ca của bạn, đồng nghiệp và ca/ngày muốn đổi.\n\n'
+            tr('1. Tạo yêu cầu: chọn ca của bạn, đồng nghiệp và ca/ngày muốn đổi.\n\n'
             '2. Đồng nghiệp vào tab「Cần phản hồi」để Đồng ý hoặc Từ chối.\n\n'
             '3. Quản lý vào tab「Chờ QL duyệt」(hoặc mục Duyệt lịch → Đổi ca) để phê duyệt.\n\n'
             '4. Khi đã duyệt, lịch làm việc của hai người được hoán đổi tự động.\n\n'
-            'Lưu ý: Chỉ đổi được ca đã được xếp/duyệt trên lịch làm việc.',
+            'Lưu ý: Chỉ đổi được ca đã được xếp/duyệt trên lịch làm việc.'),
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Đóng')),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('Đóng'))),
         ],
       ),
     );
@@ -183,16 +184,15 @@ class ShiftSwapPanelState extends State<ShiftSwapPanel>
             Icon(Icons.swap_horiz, size: 56, color: Colors.grey[300]),
             const SizedBox(height: 12),
             Text(
-              mode == _SwapListMode.respond
+              tr(mode == _SwapListMode.respond
                   ? 'Không có yêu cầu cần bạn phản hồi'
                   : mode == _SwapListMode.approve
                       ? 'Không có yêu cầu chờ quản lý duyệt'
-                      : 'Chưa có yêu cầu đổi ca',
+                      : 'Chưa có yêu cầu đổi ca'),
               style: TextStyle(color: Colors.grey[600]),
             ),
             const SizedBox(height: 8),
-            Text(
-              'Bấm + Yêu cầu đổi ca để tạo mới',
+            Text(tr('Bấm + Yêu cầu đổi ca để tạo mới'),
               style: TextStyle(fontSize: 12, color: Colors.grey[500]),
             ),
           ],
@@ -227,7 +227,7 @@ class ShiftSwapPanelState extends State<ShiftSwapPanel>
                 children: [
                   Expanded(
                     child: Text(
-                      '${swap['requesterName'] ?? '—'} ↔ ${swap['targetName'] ?? '—'}',
+                      tr('${swap['requesterName'] ?? '—'} ↔ ${swap['targetName'] ?? '—'}'),
                       style: const TextStyle(
                           fontWeight: FontWeight.w700, fontSize: 14),
                     ),
@@ -239,7 +239,7 @@ class ShiftSwapPanelState extends State<ShiftSwapPanel>
                       color: shiftSwapStatusColor(status).withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(6),
                     ),
-                    child: Text(shiftSwapStatusText(status),
+                    child: Text(tr(shiftSwapStatusText(status)),
                         style: TextStyle(
                             fontSize: 10,
                             fontWeight: FontWeight.w600,
@@ -249,12 +249,12 @@ class ShiftSwapPanelState extends State<ShiftSwapPanel>
               ),
               const SizedBox(height: 6),
               Text(
-                '${swap['requesterShiftName'] ?? ''} ${formatSwapDate(swap['requesterDate'])}'
-                '  →  ${swap['targetShiftName'] ?? ''} ${formatSwapDate(swap['targetDate'])}',
+                tr('${swap['requesterShiftName'] ?? ''} ${formatSwapDate(swap['requesterDate'])}'
+                '  →  ${swap['targetShiftName'] ?? ''} ${formatSwapDate(swap['targetDate'])}'),
                 style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
               ),
               const SizedBox(height: 4),
-              const Text('Bấm để xem chi tiết',
+              Text(tr('Bấm để xem chi tiết'),
                   style: TextStyle(fontSize: 10, color: Color(0xFF94A3B8))),
               if (mode != _SwapListMode.all) ...[
                 const SizedBox(height: 10),
@@ -265,7 +265,7 @@ class ShiftSwapPanelState extends State<ShiftSwapPanel>
                       TextButton.icon(
                         onPressed: () => _respond(swap['id'], false),
                         icon: const Icon(Icons.close, size: 16),
-                        label: const Text('Từ chối'),
+                        label: Text(tr('Từ chối')),
                         style: TextButton.styleFrom(
                             foregroundColor: const Color(0xFFEF4444)),
                       ),
@@ -273,7 +273,7 @@ class ShiftSwapPanelState extends State<ShiftSwapPanel>
                       FilledButton.icon(
                         onPressed: () => _respond(swap['id'], true),
                         icon: const Icon(Icons.check, size: 16),
-                        label: const Text('Đồng ý'),
+                        label: Text(tr('Đồng ý')),
                         style: FilledButton.styleFrom(
                             backgroundColor: HrmPageChrome.primaryNavy),
                       ),
@@ -282,7 +282,7 @@ class ShiftSwapPanelState extends State<ShiftSwapPanel>
                       TextButton.icon(
                         onPressed: () => _approve(swap['id'], false),
                         icon: const Icon(Icons.close, size: 16),
-                        label: const Text('Từ chối'),
+                        label: Text(tr('Từ chối')),
                         style: TextButton.styleFrom(
                             foregroundColor: const Color(0xFFEF4444)),
                       ),
@@ -290,7 +290,7 @@ class ShiftSwapPanelState extends State<ShiftSwapPanel>
                       FilledButton.icon(
                         onPressed: () => _approve(swap['id'], true),
                         icon: const Icon(Icons.verified, size: 16),
-                        label: const Text('Duyệt'),
+                        label: Text(tr('Duyệt')),
                         style: FilledButton.styleFrom(
                             backgroundColor: const Color(0xFF16A34A)),
                       ),
@@ -367,11 +367,11 @@ class ShiftSwapPanelState extends State<ShiftSwapPanel>
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDlg) => ScrollableAlertDialog(
-          title: const Row(
+          title: Row(
             children: [
               Icon(Icons.swap_horiz, color: HrmPageChrome.primaryNavy),
               SizedBox(width: 8),
-              Expanded(child: Text('Yêu cầu đổi ca')),
+              Expanded(child: Text(tr('Yêu cầu đổi ca'))),
             ],
           ),
           content: SizedBox(
@@ -381,24 +381,24 @@ class ShiftSwapPanelState extends State<ShiftSwapPanel>
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const Text(
-                    'Chọn ca bạn muốn nhường, đồng nghiệp và ca/ngày muốn nhận. '
-                    'Sau khi gửi, đồng nghiệp phải đồng ý rồi quản lý mới duyệt.',
+                  Text(
+                    tr('Chọn ca bạn muốn nhường, đồng nghiệp và ca/ngày muốn nhận. '
+                    'Sau khi gửi, đồng nghiệp phải đồng ý rồi quản lý mới duyệt.'),
                     style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
                   ),
                   const SizedBox(height: 12),
                   DropdownButtonFormField<String>(
                     value: requesterShiftId,
                     isExpanded: true,
-                    decoration: const InputDecoration(
-                      labelText: 'Ca của bạn *',
+                    decoration: InputDecoration(
+                      labelText: tr('Ca của bạn *'),
                       border: OutlineInputBorder(),
                       isDense: true,
                     ),
                     items: _shifts
                         .map((s) => DropdownMenuItem(
                               value: s.id,
-                              child: Text(s.name, overflow: TextOverflow.ellipsis),
+                              child: Text(tr(s.name), overflow: TextOverflow.ellipsis),
                             ))
                         .toList(),
                     onChanged: (v) => setDlg(() {
@@ -409,9 +409,9 @@ class ShiftSwapPanelState extends State<ShiftSwapPanel>
                   const SizedBox(height: 10),
                   ListTile(
                     contentPadding: EdgeInsets.zero,
-                    title: const Text('Ngày ca của bạn',
+                    title: Text(tr('Ngày ca của bạn'),
                         style: TextStyle(fontSize: 13)),
-                    subtitle: Text(DateFormat('dd/MM/yyyy').format(requesterDate)),
+                    subtitle: Text(tr(DateFormat('dd/MM/yyyy').format(requesterDate))),
                     trailing: const Icon(Icons.calendar_today, size: 18),
                     onTap: () async {
                       final d = await showDatePicker(
@@ -427,8 +427,8 @@ class ShiftSwapPanelState extends State<ShiftSwapPanel>
                   DropdownButtonFormField<String>(
                     value: targetUserId,
                     isExpanded: true,
-                    decoration: const InputDecoration(
-                      labelText: 'Đồng nghiệp muốn đổi *',
+                    decoration: InputDecoration(
+                      labelText: tr('Đồng nghiệp muốn đổi *'),
                       border: OutlineInputBorder(),
                       isDense: true,
                     ),
@@ -436,7 +436,7 @@ class ShiftSwapPanelState extends State<ShiftSwapPanel>
                         .map((c) => DropdownMenuItem(
                               value: c['userId']?.toString(),
                               child: Text(
-                                '${c['fullName']} (${c['employeeCode']})',
+                                tr('${c['fullName']} (${c['employeeCode']})'),
                                 overflow: TextOverflow.ellipsis,
                               ),
                             ))
@@ -447,15 +447,15 @@ class ShiftSwapPanelState extends State<ShiftSwapPanel>
                   DropdownButtonFormField<String>(
                     value: targetShiftId,
                     isExpanded: true,
-                    decoration: const InputDecoration(
-                      labelText: 'Ca muốn nhận *',
+                    decoration: InputDecoration(
+                      labelText: tr('Ca muốn nhận *'),
                       border: OutlineInputBorder(),
                       isDense: true,
                     ),
                     items: _shifts
                         .map((s) => DropdownMenuItem(
                               value: s.id,
-                              child: Text(s.name, overflow: TextOverflow.ellipsis),
+                              child: Text(tr(s.name), overflow: TextOverflow.ellipsis),
                             ))
                         .toList(),
                     onChanged: (v) => setDlg(() => targetShiftId = v),
@@ -463,9 +463,9 @@ class ShiftSwapPanelState extends State<ShiftSwapPanel>
                   const SizedBox(height: 10),
                   ListTile(
                     contentPadding: EdgeInsets.zero,
-                    title: const Text('Ngày ca muốn nhận',
+                    title: Text(tr('Ngày ca muốn nhận'),
                         style: TextStyle(fontSize: 13)),
-                    subtitle: Text(DateFormat('dd/MM/yyyy').format(targetDate)),
+                    subtitle: Text(tr(DateFormat('dd/MM/yyyy').format(targetDate))),
                     trailing: const Icon(Icons.calendar_today, size: 18),
                     onTap: () async {
                       final d = await showDatePicker(
@@ -480,8 +480,8 @@ class ShiftSwapPanelState extends State<ShiftSwapPanel>
                   const SizedBox(height: 10),
                   TextField(
                     controller: reasonCtrl,
-                    decoration: const InputDecoration(
-                      labelText: 'Lý do (tùy chọn)',
+                    decoration: InputDecoration(
+                      labelText: tr('Lý do (tùy chọn)'),
                       border: OutlineInputBorder(),
                       isDense: true,
                     ),
@@ -492,7 +492,7 @@ class ShiftSwapPanelState extends State<ShiftSwapPanel>
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
+            TextButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('Hủy'))),
             FilledButton.icon(
               onPressed: targetUserId == null ||
                       requesterShiftId == null ||
@@ -512,8 +512,7 @@ class ShiftSwapPanelState extends State<ShiftSwapPanel>
                       if (result['isSuccess'] == true) {
                         appNotification.showSuccess(
                             title: 'Đã gửi',
-                            message:
-                                'Yêu cầu đã gửi tới đồng nghiệp. Họ cần đồng ý trước khi QL duyệt.');
+                            message: tr('Yêu cầu đã gửi tới đồng nghiệp. Họ cần đồng ý trước khi QL duyệt.'));
                         _load();
                       } else {
                         appNotification.showError(
@@ -523,7 +522,7 @@ class ShiftSwapPanelState extends State<ShiftSwapPanel>
                       }
                     },
               icon: const Icon(Icons.send, size: 16),
-              label: const Text('Gửi yêu cầu'),
+              label: Text(tr('Gửi yêu cầu')),
             ),
           ],
         ),

@@ -37,6 +37,7 @@ import 'pos/pos_product_editor_page.dart';
 import 'pos/pos_topping_groups_screen.dart';
 import '../widgets/pos_barcode_scanner.dart';
 import 'main_layout.dart' show ScreenRefreshNotifier;
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// Danh sách hàng hóa — giao diện kiểu KiotViet.
 class PosProductsScreen extends StatefulWidget {
@@ -304,7 +305,7 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
     if (!perm.canEdit('PosProducts')) {
       NotificationOverlayManager().showError(
         title: 'Lỗi',
-        message: 'Bạn không có quyền sửa hàng hóa',
+        message: tr('Bạn không có quyền sửa hàng hóa'),
       );
       return;
     }
@@ -333,7 +334,7 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
     if (!perm.canCreate('PosProducts')) {
       NotificationOverlayManager().showError(
         title: 'Lỗi',
-        message: 'Bạn không có quyền thêm hàng hóa',
+        message: tr('Bạn không có quyền thêm hàng hóa'),
       );
       return;
     }
@@ -360,14 +361,14 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Xóa hàng hóa'),
-        content: Text('Xóa «${p.name}»?'),
+        title: Text(tr('Xóa hàng hóa')),
+        content: Text(tr('Xóa «${p.name}»?')),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Hủy')),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Hủy'))),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Xóa'),
+            child: Text(tr('Xóa')),
           ),
         ],
       ),
@@ -384,7 +385,7 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
       });
       NotificationOverlayManager().showSuccess(
         title: 'Thành công',
-        message: 'Đã xóa hàng hóa',
+        message: tr('Đã xóa hàng hóa'),
       );
       ScreenRefreshNotifier.refreshPosAfterStockChange();
       await _loadProducts();
@@ -427,7 +428,7 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
     if (!perm.canEdit('PosProducts')) {
       NotificationOverlayManager().showError(
         title: 'Lỗi',
-        message: 'Bạn không có quyền sửa hàng hóa',
+        message: tr('Bạn không có quyền sửa hàng hóa'),
       );
       return;
     }
@@ -458,11 +459,11 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
 
   Future<void> _quickEditPrice(PosProduct p) async {
     final ctrl = TextEditingController(
-        text: NumberFormat('#,###', 'vi_VN').format(p.basePrice.round()));
+        text: tr(NumberFormat('#,###', 'vi_VN').format(p.basePrice.round())));
     final val = await showDialog<double>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text('Sửa giá bán — ${p.name}'),
+        title: Text(tr('Sửa giá bán — ${p.name}')),
         content: TextField(
           controller: ctrl,
           keyboardType: TextInputType.number,
@@ -471,12 +472,12 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
           decoration: PosTheme.inputDecoration(label: 'Giá bán'),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('Hủy'))),
           FilledButton(
             onPressed: () => Navigator.pop(
                 ctx, parseFormattedNumber(ctrl.text)?.toDouble()),
             style: PosTheme.filledButtonStyle,
-            child: const Text('Lưu'),
+            child: Text(tr('Lưu')),
           ),
         ],
       ),
@@ -493,11 +494,11 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
 
   Future<void> _quickEditStock(PosProduct p) async {
     final ctrl =
-        TextEditingController(text: p.onHandQty.toStringAsFixed(0));
+        TextEditingController(text: tr(p.onHandQty.toStringAsFixed(0)));
     final val = await showDialog<double>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text('Sửa tồn kho — ${p.name}'),
+        title: Text(tr('Sửa tồn kho — ${p.name}')),
         content: TextField(
           controller: ctrl,
           keyboardType: TextInputType.number,
@@ -505,12 +506,12 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
           decoration: PosTheme.inputDecoration(label: 'Tồn kho'),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('Hủy'))),
           FilledButton(
             onPressed: () => Navigator.pop(
                 ctx, double.tryParse(ctrl.text.replaceAll(',', ''))),
             style: PosTheme.filledButtonStyle,
-            child: const Text('Lưu'),
+            child: Text(tr('Lưu')),
           ),
         ],
       ),
@@ -541,11 +542,11 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
 
   Future<void> _quickEditVariantPrice(PosProduct p, PosProductVariant v) async {
     final ctrl = TextEditingController(
-        text: NumberFormat('#,###', 'vi_VN').format(v.basePrice.round()));
+        text: tr(NumberFormat('#,###', 'vi_VN').format(v.basePrice.round())));
     final val = await showDialog<double>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text('Sửa giá bán — ${v.name}'),
+        title: Text(tr('Sửa giá bán — ${v.name}')),
         content: TextField(
           controller: ctrl,
           keyboardType: TextInputType.number,
@@ -554,12 +555,12 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
           decoration: PosTheme.inputDecoration(label: 'Giá bán'),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('Hủy'))),
           FilledButton(
             onPressed: () => Navigator.pop(
                 ctx, parseFormattedNumber(ctrl.text)?.toDouble()),
             style: PosTheme.filledButtonStyle,
-            child: const Text('Lưu'),
+            child: Text(tr('Lưu')),
           ),
         ],
       ),
@@ -581,11 +582,11 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
   }
 
   Future<void> _quickEditVariantStock(PosProduct p, PosProductVariant v) async {
-    final ctrl = TextEditingController(text: v.onHandQty.toStringAsFixed(0));
+    final ctrl = TextEditingController(text: tr(v.onHandQty.toStringAsFixed(0)));
     final val = await showDialog<double>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text('Sửa tồn kho — ${v.name}'),
+        title: Text(tr('Sửa tồn kho — ${v.name}')),
         content: TextField(
           controller: ctrl,
           keyboardType: TextInputType.number,
@@ -593,12 +594,12 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
           decoration: PosTheme.inputDecoration(label: 'Tồn kho'),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('Hủy'))),
           FilledButton(
             onPressed: () => Navigator.pop(
                 ctx, double.tryParse(ctrl.text.replaceAll(',', ''))),
             style: PosTheme.filledButtonStyle,
-            child: const Text('Lưu'),
+            child: Text(tr('Lưu')),
           ),
         ],
       ),
@@ -624,14 +625,14 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Xóa hàng cùng loại'),
-        content: Text('Xóa «${v.name}» (${v.skuCode})?'),
+        title: Text(tr('Xóa hàng cùng loại')),
+        content: Text(tr('Xóa «${v.name}» (${v.skuCode})?')),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Hủy')),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Hủy'))),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Xóa'),
+            child: Text(tr('Xóa')),
           ),
         ],
       ),
@@ -654,7 +655,7 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
       if (mounted) setState(() {});
       NotificationOverlayManager().showSuccess(
         title: 'Thành công',
-        message: 'Đã xóa hàng cùng loại',
+        message: tr('Đã xóa hàng cùng loại'),
       );
       ScreenRefreshNotifier.refreshPosAfterStockChange();
     } else {
@@ -682,7 +683,7 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
           'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         );
         NotificationOverlayManager().showSuccess(
-            title: 'Xuất file', message: 'Đã xuất Excel hàng hóa');
+            title: 'Xuất file', message: tr('Đã xuất Excel hàng hóa'));
       }
     } finally {
       if (mounted) setState(() => _isExporting = false);
@@ -705,8 +706,7 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
       final data = res['data'] as Map<String, dynamic>?;
       NotificationOverlayManager().showSuccess(
         title: 'Import thành công',
-        message:
-            'Tạo mới: ${data?['created'] ?? 0}, Cập nhật: ${data?['updated'] ?? 0}',
+        message: 'Tạo mới: ${data?['created'] ?? 0}, Cập nhật: ${data?['updated'] ?? 0}',
       );
       await _loadAll();
       setState(() {});
@@ -732,18 +732,18 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
     final name = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Thêm nhóm hàng'),
+        title: Text(tr('Thêm nhóm hàng')),
         content: TextField(
           controller: ctrl,
           autofocus: true,
           decoration: PosTheme.inputDecoration(label: 'Tên nhóm'),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('Hủy'))),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
             style: PosTheme.filledButtonStyle,
-            child: const Text('Lưu'),
+            child: Text(tr('Lưu')),
           ),
         ],
       ),
@@ -767,7 +767,7 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
     if (!canEdit && !canDelete) {
       NotificationOverlayManager().showError(
         title: 'Lỗi',
-        message: 'Bạn không có quyền quản lý danh mục',
+        message: tr('Bạn không có quyền quản lý danh mục'),
       );
       return;
     }
@@ -844,7 +844,7 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDlg) => AlertDialog(
-          title: const Text('Hiển thị cột'),
+          title: Text(tr('Hiển thị cột')),
           content: SizedBox(
             width: 320,
             child: SingleChildScrollView(
@@ -855,7 +855,7 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
                     .map((c) => CheckboxListTile(
                           dense: true,
                           activeColor: PosTheme.kiotBlue,
-                          title: Text(c.label, style: const TextStyle(fontSize: 13)),
+                          title: Text(tr(c.label), style: const TextStyle(fontSize: 13)),
                           value: _visibleColumns.contains(c),
                           onChanged: (v) {
                             setDlg(() {
@@ -880,12 +880,12 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
                 savePosProductVisibleColumns(_visibleColumns);
                 Navigator.pop(ctx);
               },
-              child: const Text('Mặc định'),
+              child: Text(tr('Mặc định')),
             ),
             FilledButton(
               onPressed: () => Navigator.pop(ctx),
               style: FilledButton.styleFrom(backgroundColor: PosTheme.kiotBlue),
-              child: const Text('Xong'),
+              child: Text(tr('Xong')),
             ),
           ],
         ),
@@ -937,7 +937,7 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
           if (mobile && !inHub) _buildMobileStockSummary(),
           Expanded(
             child: _loading
-                ? const LoadingWidget(message: 'Đang tải hàng hóa…')
+                ? LoadingWidget(message: tr('Đang tải hàng hóa…'))
                 : Row(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
@@ -1072,13 +1072,12 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
                   Row(
                     children: [
                       IconButton(
-                        tooltip: 'Bộ lọc',
+                        tooltip: tr('Bộ lọc'),
                         onPressed: () => _openMobileFilters(perm),
                         icon: const Icon(Icons.filter_list),
                       ),
-                      const Expanded(
-                        child: Text(
-                          'Hàng hóa',
+                      Expanded(
+                        child: Text(tr('Hàng hóa'),
                           style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.w600,
@@ -1111,28 +1110,28 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
                         },
                         itemBuilder: (_) => [
                           if (perm.canCreate('PosProducts')) ...[
-                            const PopupMenuItem(
-                                value: 'create_goods', child: Text('Tạo hàng hóa')),
-                            const PopupMenuItem(
-                                value: 'create_service', child: Text('Tạo dịch vụ')),
-                            const PopupMenuItem(
-                                value: 'create_combo', child: Text('Tạo combo')),
+                            PopupMenuItem(
+                                value: 'create_goods', child: Text(tr('Tạo hàng hóa'))),
+                            PopupMenuItem(
+                                value: 'create_service', child: Text(tr('Tạo dịch vụ'))),
+                            PopupMenuItem(
+                                value: 'create_combo', child: Text(tr('Tạo combo'))),
                           ],
-                          const PopupMenuItem(
+                          PopupMenuItem(
                               value: 'topping_groups',
-                              child: Text('Nhóm topping')),
-                          const PopupMenuItem(
-                              value: 'columns', child: Text('Hiển thị cột')),
-                          const PopupMenuItem(
-                              value: 'scan', child: Text('Quét mã vạch')),
+                              child: Text(tr('Nhóm topping'))),
+                          PopupMenuItem(
+                              value: 'columns', child: Text(tr('Hiển thị cột'))),
+                          PopupMenuItem(
+                              value: 'scan', child: Text(tr('Quét mã vạch'))),
                           if (perm.canExport('PosProducts'))
-                            const PopupMenuItem(
-                                value: 'export', child: Text('Xuất file')),
+                            PopupMenuItem(
+                                value: 'export', child: Text(tr('Xuất file'))),
                           if (perm.canCreate('PosProducts'))
-                            const PopupMenuItem(
-                                value: 'import', child: Text('Import file')),
-                          const PopupMenuItem(
-                              value: 'refresh', child: Text('Làm mới')),
+                            PopupMenuItem(
+                                value: 'import', child: Text(tr('Import file'))),
+                          PopupMenuItem(
+                              value: 'refresh', child: Text(tr('Làm mới'))),
                         ],
                         icon: const Icon(Icons.more_vert),
                       ),
@@ -1142,7 +1141,7 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
                   TextField(
                     controller: _searchCtrl,
                     decoration: InputDecoration(
-                      hintText: 'Theo mã, tên hàng',
+                      hintText: tr('Theo mã, tên hàng'),
                       isDense: true,
                       prefixIcon: const Icon(Icons.search, size: 20),
                       suffixIcon: PosBarcodeScanIcon(
@@ -1171,7 +1170,7 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
                         backgroundColor: PosTheme.kiotBlue,
                         padding: const EdgeInsets.symmetric(vertical: 12),
                       ),
-                      label: const Text('Tạo mới'),
+                      label: Text(tr('Tạo mới')),
                     ),
                   ],
                 ],
@@ -1180,12 +1179,11 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
           children: [
             if (!wide)
               IconButton(
-                tooltip: 'Bộ lọc',
+                tooltip: tr('Bộ lọc'),
                 onPressed: () => _openMobileFilters(perm),
                 icon: const Icon(Icons.filter_list),
               ),
-            const Text(
-              'Hàng hóa',
+            Text(tr('Hàng hóa'),
               style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.w600,
@@ -1199,7 +1197,7 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
                 child: TextField(
                   controller: _searchCtrl,
                   decoration: InputDecoration(
-                    hintText: 'Theo mã, tên hàng',
+                    hintText: tr('Theo mã, tên hàng'),
                     isDense: true,
                     prefixIcon: const Icon(Icons.search, size: 20),
                     filled: true,
@@ -1235,21 +1233,21 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
                       color: PosTheme.kiotBlue,
                       borderRadius: BorderRadius.circular(4),
                     ),
-                    child: const Row(
+                    child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(Icons.add, color: Colors.white, size: 18),
                         SizedBox(width: 6),
-                        Text('Tạo mới',
+                        Text(tr('Tạo mới'),
                             style: TextStyle(color: Colors.white, fontSize: 14)),
                         Icon(Icons.arrow_drop_down, color: Colors.white, size: 20),
                       ],
                     ),
                   ),
-                  itemBuilder: (_) => const [
-                    PopupMenuItem(value: 'goods', child: Text('Hàng hóa')),
-                    PopupMenuItem(value: 'service', child: Text('Dịch vụ')),
-                    PopupMenuItem(value: 'combo', child: Text('Combo / Đóng gói')),
+                  itemBuilder: (_) => [
+                    PopupMenuItem(value: 'goods', child: Text(tr('Hàng hóa'))),
+                    PopupMenuItem(value: 'service', child: Text(tr('Dịch vụ'))),
+                    PopupMenuItem(value: 'combo', child: Text(tr('Combo / Đóng gói'))),
                   ],
                 ),
               ),
@@ -1257,7 +1255,7 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
               OutlinedButton.icon(
                 onPressed: () => _importExcel(perm),
                 icon: const Icon(Icons.upload_file, size: 18),
-                label: const Text('Import file'),
+                label: Text(tr('Import file')),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: PosTheme.textPrimary,
                   side: const BorderSide(color: PosTheme.border),
@@ -1268,7 +1266,7 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
               OutlinedButton.icon(
                 onPressed: _isExporting ? null : () => _exportExcel(perm),
                 icon: const Icon(Icons.download, size: 18),
-                label: Text(_isExporting ? 'Đang xuất…' : 'Xuất file'),
+                label: Text(tr(_isExporting ? 'Đang xuất…' : 'Xuất file')),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: PosTheme.textPrimary,
                   side: const BorderSide(color: PosTheme.border),
@@ -1276,17 +1274,17 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
               ),
             ],
             IconButton(
-              tooltip: 'Hiển thị cột',
+              tooltip: tr('Hiển thị cột'),
               onPressed: _showColumnPicker,
               icon: const Icon(Icons.view_column_outlined),
             ),
             IconButton(
-              tooltip: 'Quét mã vạch',
+              tooltip: tr('Quét mã vạch'),
               onPressed: _scanSearch,
               icon: const Icon(Icons.qr_code_scanner),
             ),
             IconButton(
-              tooltip: 'Làm mới',
+              tooltip: tr('Làm mới'),
               onPressed: _loadAll,
               icon: const Icon(Icons.refresh),
             ),
@@ -1303,18 +1301,18 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         child: Row(
           children: [
-            Text('Đã chọn ${_selectedIds.length}',
+            Text(tr('Đã chọn ${_selectedIds.length}'),
                 style: const TextStyle(fontWeight: FontWeight.w600)),
             const Spacer(),
             TextButton(
               onPressed: () => setState(() => _selectedIds.clear()),
-              child: const Text('Bỏ chọn'),
+              child: Text(tr('Bỏ chọn')),
             ),
             const SizedBox(width: 8),
             FilledButton.icon(
               onPressed: _batchPrintLabels,
               icon: const Icon(Icons.qr_code, size: 18),
-              label: const Text('In tem mã vạch'),
+              label: Text(tr('In tem mã vạch')),
               style: FilledButton.styleFrom(backgroundColor: PosTheme.kiotBlue),
             ),
           ],
@@ -1354,7 +1352,7 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
     return Padding(
       padding: const EdgeInsets.only(right: 6),
       child: ActionChip(
-        label: Text(label, style: const TextStyle(fontSize: 12)),
+        label: Text(tr(label), style: const TextStyle(fontSize: 12)),
         onPressed: onTap,
         visualDensity: VisualDensity.compact,
       ),
@@ -1366,24 +1364,24 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
     showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Tìm hàng hoá'),
+        title: Text(tr('Tìm hàng hoá')),
         content: TextField(
           controller: _searchCtrl,
           autofocus: true,
-          decoration: const InputDecoration(hintText: 'Mã, tên hàng…'),
+          decoration: InputDecoration(hintText: tr('Mã, tên hàng…')),
           onSubmitted: (_) {
             Navigator.pop(ctx);
             _reloadProducts();
           },
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Đóng')),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('Đóng'))),
           FilledButton(
             onPressed: () {
               Navigator.pop(ctx);
               _reloadProducts();
             },
-            child: const Text('Tìm'),
+            child: Text(tr('Tìm')),
           ),
         ],
       ),
@@ -1398,7 +1396,7 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
-              title: const Text('Giá bán'),
+              title: Text(tr('Giá bán')),
               trailing: _sortBy == PosProductSortBy.price
                   ? Icon(Icons.check, color: PosTheme.kiotBlue)
                   : null,
@@ -1409,7 +1407,7 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
               },
             ),
             ListTile(
-              title: const Text('Tên hàng'),
+              title: Text(tr('Tên hàng')),
               trailing: _sortBy == PosProductSortBy.name
                   ? Icon(Icons.check, color: PosTheme.kiotBlue)
                   : null,
@@ -1420,7 +1418,7 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
               },
             ),
             ListTile(
-              title: const Text('Tồn kho'),
+              title: Text(tr('Tồn kho')),
               trailing: _sortBy == PosProductSortBy.stock
                   ? Icon(Icons.check, color: PosTheme.kiotBlue)
                   : null,
@@ -1447,7 +1445,7 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
             if (inHub) ...[
               ListTile(
                 leading: const Icon(Icons.filter_list),
-                title: Text('Bộ lọc${_activeMobileFilterCount > 0 ? ' ($_activeMobileFilterCount)' : ''}'),
+                title: Text(tr('${tr('Bộ lọc')}${_activeMobileFilterCount > 0 ? ' ($_activeMobileFilterCount)' : ''}')),
                 onTap: () {
                   Navigator.pop(ctx);
                   _openMobileFilters(perm);
@@ -1455,7 +1453,7 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
               ),
               ListTile(
                 leading: const Icon(Icons.import_export),
-                title: const Text('Sắp xếp'),
+                title: Text(tr('Sắp xếp')),
                 onTap: () {
                   Navigator.pop(ctx);
                   _showSortSheet();
@@ -1463,7 +1461,7 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
               ),
               ListTile(
                 leading: const Icon(Icons.refresh),
-                title: const Text('Làm mới'),
+                title: Text(tr('Làm mới')),
                 onTap: () {
                   Navigator.pop(ctx);
                   _reloadProducts();
@@ -1474,7 +1472,7 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
             if (perm.canCreate('PosProducts')) ...[
               ListTile(
                 leading: const Icon(Icons.inventory_2_outlined),
-                title: const Text('Tạo hàng hoá'),
+                title: Text(tr('Tạo hàng hoá')),
                 onTap: () {
                   Navigator.pop(ctx);
                   _onCreateType('goods');
@@ -1482,7 +1480,7 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
               ),
               ListTile(
                 leading: const Icon(Icons.handyman_outlined),
-                title: const Text('Tạo dịch vụ'),
+                title: Text(tr('Tạo dịch vụ')),
                 onTap: () {
                   Navigator.pop(ctx);
                   _onCreateType('service');
@@ -1490,7 +1488,7 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
               ),
               ListTile(
                 leading: const Icon(Icons.layers_outlined),
-                title: const Text('Tạo combo / đóng gói'),
+                title: Text(tr('Tạo combo / đóng gói')),
                 onTap: () {
                   Navigator.pop(ctx);
                   _onCreateType('combo');
@@ -1499,7 +1497,7 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
             ],
             ListTile(
               leading: const Icon(Icons.qr_code_scanner),
-              title: const Text('Quét mã vạch'),
+              title: Text(tr('Quét mã vạch')),
               onTap: () {
                 Navigator.pop(ctx);
                 _scanSearch();
@@ -1507,7 +1505,7 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
             ),
             ListTile(
               leading: const Icon(Icons.refresh),
-              title: const Text('Làm mới'),
+              title: Text(tr('Làm mới')),
               onTap: () {
                 Navigator.pop(ctx);
                 _loadAll();
@@ -1525,11 +1523,11 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
       padding: const EdgeInsets.fromLTRB(14, 8, 14, 10),
       child: Row(
         children: [
-          const Text('Tổng tồn',
+          Text(tr('Tổng tồn'),
               style: TextStyle(fontSize: 13, color: PosTheme.textSecondary)),
           const Spacer(),
           Text(
-            _moneyFmt.format(_totalOnHand),
+            tr(_moneyFmt.format(_totalOnHand)),
             style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
           ),
         ],
@@ -1655,11 +1653,11 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
         spacing: 6,
         children: [
           ...chips.map((c) => Chip(
-                label: Text(c, style: const TextStyle(fontSize: 12)),
+                label: Text(tr(c), style: const TextStyle(fontSize: 12)),
                 visualDensity: VisualDensity.compact,
               )),
           ActionChip(
-            label: const Text('Đổi bộ lọc', style: TextStyle(fontSize: 12)),
+            label: Text(tr('Đổi bộ lọc'), style: TextStyle(fontSize: 12)),
             onPressed: () => _openMobileFilters(perm),
           ),
         ],
@@ -1684,8 +1682,7 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-            child: Text(
-              '$_total mặt hàng · Tồn kho: ${_moneyFmt.format(_totalOnHand)}',
+            child: Text(tr('$_total mặt hàng · Tồn kho: ${_moneyFmt.format(_totalOnHand)}'),
               style: const TextStyle(fontSize: 12, color: PosTheme.textSecondary),
             ),
           ),
@@ -1820,7 +1817,7 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            p.name,
+                            tr(p.name),
                             style: const TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w600,
@@ -1828,8 +1825,7 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                           ),
-                          Text(
-                            '${activeView.displayCode} · ${_moneyFmt.format(activeView.basePrice)} đ',
+                          Text(tr('${activeView.displayCode} · ${_moneyFmt.format(activeView.basePrice)} đ'),
                             style: const TextStyle(
                               fontSize: 13,
                               color: PosTheme.textSecondary,
@@ -1844,7 +1840,7 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
               const Divider(height: 1),
               ListTile(
                 leading: const Icon(Icons.visibility_outlined),
-                title: const Text('Xem chi tiết'),
+                title: Text(tr('Xem chi tiết')),
                 onTap: () {
                   Navigator.pop(ctx);
                   Navigator.of(context).push(
@@ -1857,7 +1853,7 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
               if (canEdit)
                 ListTile(
                   leading: const Icon(Icons.edit_outlined),
-                  title: const Text('Sửa hàng hóa'),
+                  title: Text(tr('Sửa hàng hóa')),
                   onTap: () {
                     Navigator.pop(ctx);
                     _openEdit(p);
@@ -1865,7 +1861,7 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
                 ),
               ListTile(
                 leading: const Icon(Icons.print_outlined),
-                title: const Text('In nhãn mã vạch'),
+                title: Text(tr('In nhãn mã vạch')),
                 onTap: () {
                   Navigator.pop(ctx);
                   _printLabel(p);
@@ -1874,7 +1870,7 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
               if (canCreate || canEdit)
                 ListTile(
                   leading: const Icon(Icons.more_horiz),
-                  title: const Text('Thao tác khác'),
+                  title: Text(tr('Thao tác khác')),
                   onTap: () {
                     Navigator.pop(ctx);
                     _showMobileProductMoreActions(p, perm);
@@ -1900,7 +1896,7 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
             if (canCreate)
               ListTile(
                 leading: const Icon(Icons.copy_outlined),
-                title: const Text('Sao chép hàng hóa'),
+                title: Text(tr('Sao chép hàng hóa')),
                 onTap: () {
                   Navigator.pop(ctx);
                   _copyProduct(p);
@@ -1909,7 +1905,7 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
             if (canEdit)
               ListTile(
                 leading: const Icon(Icons.delete_outline, color: Colors.red),
-                title: const Text('Xóa hàng hóa', style: TextStyle(color: Colors.red)),
+                title: Text(tr('Xóa hàng hóa'), style: TextStyle(color: Colors.red)),
                 onTap: () {
                   Navigator.pop(ctx);
                   _deleteProduct(p);
@@ -1998,14 +1994,14 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
                 }
               }),
             ),
-            title: Text(p.name, maxLines: 2, overflow: TextOverflow.ellipsis),
+            title: Text(tr(p.name), maxLines: 2, overflow: TextOverflow.ellipsis),
             subtitle: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  hasVariants
+                  tr(hasVariants
                       ? '($displayCount) ${activeView.displayCode}'
-                      : activeView.displayCode,
+                      : activeView.displayCode),
                   style: const TextStyle(fontSize: 11),
                 ),
                 const SizedBox(height: 4),
@@ -2046,7 +2042,7 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
                         }
                       : null,
                   child: Text(
-                    _moneyFmt.format(activeView.basePrice),
+                    tr(_moneyFmt.format(activeView.basePrice)),
                     style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
                 ),
@@ -2061,8 +2057,7 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
                             }
                           }
                         : null,
-                    child: Text(
-                      'Tồn: ${_moneyFmt.format(activeView.onHandQty)}',
+                    child: Text(tr('Tồn: ${_moneyFmt.format(activeView.onHandQty)}'),
                       style: TextStyle(
                         fontSize: 11,
                         color: activeView.onHandQty <= 0
@@ -2120,7 +2115,7 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
                   child: TextButton.icon(
                     onPressed: () => _addSameTypeProduct(p),
                     icon: const Icon(Icons.add, size: 16),
-                    label: const Text('Thêm hàng cùng loại'),
+                    label: Text(tr('Thêm hàng cùng loại')),
                   ),
                 ),
               ),
@@ -2139,8 +2134,7 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
       ),
       child: Row(
         children: [
-          Text(
-            'Tổng: $_total · Tồn: ${_moneyFmt.format(_totalOnHand)}',
+          Text(tr('Tổng: $_total · Tồn: ${_moneyFmt.format(_totalOnHand)}'),
             style: const TextStyle(fontSize: 12, color: PosTheme.textSecondary),
           ),
           const Spacer(),
@@ -2154,7 +2148,7 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
                   : null,
               icon: const Icon(Icons.chevron_left),
             ),
-            Text('Trang $_page / $_totalPages'),
+            Text(tr('Trang $_page / $_totalPages')),
             IconButton(
               onPressed: _page < _totalPages
                   ? () async {

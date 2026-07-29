@@ -5,6 +5,7 @@ import '../providers/permission_provider.dart';
 import '../services/api_service.dart';
 import 'cash_report_helpers.dart';
 import 'salary_profile_load_utils.dart';
+import '../l10n/app_tr.dart';
 
 /// Admin/manager xem nhiều NV; nhân viên chỉ xem dữ liệu cá nhân.
 bool isTeamReportView({required String? role}) => !isEmployeeUserRole(role);
@@ -322,7 +323,7 @@ Widget reportLoadErrorBanner(String? message) {
         const SizedBox(width: 8),
         Expanded(
           child: Text(
-            message,
+            tr(message),
             style: const TextStyle(fontSize: 13, color: Color(0xFF991B1B)),
           ),
         ),

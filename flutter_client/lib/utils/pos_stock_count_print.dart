@@ -9,6 +9,7 @@ import '../models/pos_stock_count.dart';
 import '../widgets/pos/pos_stock_count_helpers.dart';
 import 'pos_pdf_fonts.dart';
 import 'pos_purchase_receipt_print.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// PDF phiếu kiểm kho kiểu KiotViet (A4 ngang, font tiếng Việt).
 Future<Uint8List> buildPosStockCountPdfBytes({
@@ -42,24 +43,22 @@ Future<Uint8List> buildPosStockCountPdfBytes({
   pw.Widget pageContent() => pw.Column(
         crossAxisAlignment: pw.CrossAxisAlignment.start,
         children: [
-          pw.Center(child: pw.Text('PHIẾU KIỂM KHO', style: bold20)),
+          pw.Center(child: pw.Text(tr('PHIẾU KIỂM KHO'), style: bold20)),
           pw.SizedBox(height: 10),
           pw.Row(
             mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
             children: [
-              pw.Text('Mã phiếu: ${count.countNo}', style: body10),
-              pw.Text('Trạng thái: ${stockCountStatusLabel(count.status)}', style: body10),
+              pw.Text(tr('Mã phiếu: ${count.countNo}'), style: body10),
+              pw.Text(tr('Trạng thái: ${stockCountStatusLabel(count.status)}'), style: body10),
             ],
           ),
           pw.SizedBox(height: 6),
           if (branchName != null && branchName.isNotEmpty)
-            pw.Text('Chi nhánh kiểm: $branchName', style: body10),
-          pw.Text(
-              'Người tạo: ${count.createdBy ?? '—'} · Ngày tạo: ${dateFmt.format(created)}',
+            pw.Text(tr('Chi nhánh kiểm: $branchName'), style: body10),
+          pw.Text('${tr('Người tạo: ')}${count.createdBy ?? '—'} · Ngày tạo: ${dateFmt.format(created)}',
               style: body10),
           if (balanced != null)
-            pw.Text(
-                'Người cân bằng: ${count.balancedBy ?? '—'} · Ngày cân bằng: ${dateFmt.format(balanced)}',
+            pw.Text('${tr('Người cân bằng: ')}${count.balancedBy ?? '—'} · Ngày cân bằng: ${dateFmt.format(balanced)}',
                 style: body10),
           pw.SizedBox(height: 12),
           pw.TableHelper.fromTextArray(
@@ -105,7 +104,7 @@ Future<Uint8List> buildPosStockCountPdfBytes({
                     ? pw.Column(
                         crossAxisAlignment: pw.CrossAxisAlignment.start,
                         children: [
-                          pw.Text('Ghi chú:', style: bold10),
+                          pw.Text(tr('Ghi chú:'), style: bold10),
                           pw.Text(count.note!, style: body10),
                         ],
                       )
@@ -114,17 +113,13 @@ Future<Uint8List> buildPosStockCountPdfBytes({
               pw.Column(
                 crossAxisAlignment: pw.CrossAxisAlignment.end,
                 children: [
-                  pw.Text(
-                      'Tổng thực tế (${qtyFmt.format(count.totalActualQty)}): ${money.format(count.totalActualValue)}',
+                  pw.Text(tr('Tổng thực tế (${qtyFmt.format(count.totalActualQty)}): ${money.format(count.totalActualValue)}'),
                       style: body10),
-                  pw.Text(
-                      'Tổng lệch tăng (${qtyFmt.format(count.qtyIncrease)}): ${money.format(increaseValue)}',
+                  pw.Text(tr('Tổng lệch tăng (${qtyFmt.format(count.qtyIncrease)}): ${money.format(increaseValue)}'),
                       style: body10),
-                  pw.Text(
-                      'Tổng lệch giảm (${qtyFmt.format(count.qtyDecrease)}): ${money.format(decreaseValue)}',
+                  pw.Text(tr('Tổng lệch giảm (${qtyFmt.format(count.qtyDecrease)}): ${money.format(decreaseValue)}'),
                       style: body10),
-                  pw.Text(
-                      'Tổng chênh lệch (${qtyFmt.format(count.totalDiffQty)}): ${money.format(count.totalDiffValue)}',
+                  pw.Text(tr('Tổng chênh lệch (${qtyFmt.format(count.totalDiffQty)}): ${money.format(count.totalDiffValue)}'),
                       style: bold10),
                 ],
               ),

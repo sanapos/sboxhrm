@@ -7,6 +7,7 @@ import 'package:permission_handler/permission_handler.dart';
 import '../services/app_permission_service.dart';
 import '../utils/site_photo_watermark.dart';
 import '../widgets/hrm_page_chrome.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// Chụp ảnh hiện trường bằng camera sau; trả về base64 JPEG (có watermark).
 class SitePhotoCaptureScreen extends StatefulWidget {
@@ -138,7 +139,7 @@ class _SitePhotoCaptureScreenState extends State<SitePhotoCaptureScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Chụp ảnh thất bại: $e')),
+          SnackBar(content: Text(tr('Chụp ảnh thất bại: $e'))),
         );
       }
     } finally {
@@ -155,9 +156,9 @@ class _SitePhotoCaptureScreenState extends State<SitePhotoCaptureScreen> {
         appBar: AppBar(
           backgroundColor: HrmPageChrome.primaryNavy,
           foregroundColor: Colors.white,
-          title: Text(widget.mandatory
+          title: Text(tr(widget.mandatory
               ? 'Ảnh hiện trường (bắt buộc)'
-              : 'Ảnh hiện trường'),
+              : 'Ảnh hiện trường')),
           automaticallyImplyLeading: !widget.mandatory,
           leading: widget.mandatory
               ? null
@@ -191,7 +192,7 @@ class _SitePhotoCaptureScreenState extends State<SitePhotoCaptureScreen> {
               ),
               const SizedBox(height: 16),
               Text(
-                _error!,
+                tr(_error!),
                 textAlign: TextAlign.center,
                 style: const TextStyle(color: Colors.white70, fontSize: 15),
               ),
@@ -202,7 +203,7 @@ class _SitePhotoCaptureScreenState extends State<SitePhotoCaptureScreen> {
                 child: FilledButton.icon(
                   onPressed: _retryCamera,
                   icon: const Icon(Icons.refresh),
-                  label: const Text('Thử lại mở camera'),
+                  label: Text(tr('Thử lại mở camera')),
                   style: FilledButton.styleFrom(
                     backgroundColor: HrmPageChrome.primaryNavy,
                   ),
@@ -212,8 +213,7 @@ class _SitePhotoCaptureScreenState extends State<SitePhotoCaptureScreen> {
                 const SizedBox(height: 12),
                 TextButton(
                   onPressed: openAppSettings,
-                  child: const Text(
-                    'Mở Cài đặt quyền',
+                  child: Text(tr('Mở Cài đặt quyền'),
                     style: TextStyle(color: Colors.white70),
                   ),
                 ),
@@ -225,9 +225,8 @@ class _SitePhotoCaptureScreenState extends State<SitePhotoCaptureScreen> {
     }
     final ctrl = _controller;
     if (ctrl == null || !ctrl.value.isInitialized) {
-      return const Center(
-        child: Text(
-          'Camera chưa sẵn sàng',
+      return Center(
+        child: Text(tr('Camera chưa sẵn sàng'),
           style: TextStyle(color: Colors.white70),
         ),
       );
@@ -251,7 +250,7 @@ class _SitePhotoCaptureScreenState extends State<SitePhotoCaptureScreen> {
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Text(
-                    _overlayHint(),
+                    tr(_overlayHint()),
                     style: const TextStyle(color: Colors.white, fontSize: 12),
                   ),
                 ),
@@ -278,7 +277,7 @@ class _SitePhotoCaptureScreenState extends State<SitePhotoCaptureScreen> {
                         ),
                       )
                     : const Icon(Icons.camera_alt),
-                label: Text(_capturing ? 'Đang chụp…' : 'Chụp ảnh hiện trường'),
+                label: Text(tr(_capturing ? 'Đang chụp…' : 'Chụp ảnh hiện trường')),
                 style: FilledButton.styleFrom(
                   backgroundColor: HrmPageChrome.primaryNavy,
                 ),

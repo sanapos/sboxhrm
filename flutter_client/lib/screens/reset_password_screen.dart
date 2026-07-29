@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 class ResetPasswordScreen extends StatefulWidget {
   final String email;
@@ -107,16 +108,14 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                     const SizedBox(height: 24),
 
                     // Title
-                    Text(
-                      'Đặt lại mật khẩu',
+                    Text(tr('Đặt lại mật khẩu'),
                       style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                             fontWeight: FontWeight.bold,
                           ),
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 8),
-                    Text(
-                      'Nhập mật khẩu mới cho tài khoản ${widget.email}',
+                    Text(tr('Nhập mật khẩu mới cho tài khoản ${widget.email}'),
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                             color: Colors.grey,
                           ),
@@ -140,7 +139,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(
-                                _errorMessage!,
+                                tr(_errorMessage!),
                                 style: const TextStyle(color: Colors.red, fontSize: 14),
                               ),
                             ),
@@ -164,7 +163,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(
-                                _successMessage!,
+                                tr(_successMessage!),
                                 style: const TextStyle(color: Colors.green, fontSize: 14),
                               ),
                             ),
@@ -177,7 +176,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                       controller: _newPasswordController,
                       obscureText: _obscureNewPassword,
                       decoration: InputDecoration(
-                        labelText: 'Mật khẩu mới *',
+                        labelText: tr('Mật khẩu mới *'),
                         prefixIcon: const Icon(Icons.lock),
                         suffixIcon: IconButton(
                           icon: Icon(_obscureNewPassword ? Icons.visibility_off : Icons.visibility),
@@ -204,7 +203,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                       controller: _confirmPasswordController,
                       obscureText: _obscureConfirmPassword,
                       decoration: InputDecoration(
-                        labelText: 'Xác nhận mật khẩu *',
+                        labelText: tr('Xác nhận mật khẩu *'),
                         prefixIcon: const Icon(Icons.lock_outline),
                         suffixIcon: IconButton(
                           icon: Icon(_obscureConfirmPassword ? Icons.visibility_off : Icons.visibility),
@@ -240,8 +239,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                                   color: Colors.white,
                                 ),
                               )
-                            : const Text(
-                                'Đặt lại mật khẩu',
+                            : Text(tr('Đặt lại mật khẩu'),
                                 style: TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.w600,
@@ -255,7 +253,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                     TextButton.icon(
                       onPressed: () => Navigator.of(context).popUntil((route) => route.isFirst),
                       icon: const Icon(Icons.arrow_back, size: 18),
-                      label: const Text('Quay lại đăng nhập'),
+                      label: Text(tr('Quay lại đăng nhập')),
                     ),
                   ],
                 ),

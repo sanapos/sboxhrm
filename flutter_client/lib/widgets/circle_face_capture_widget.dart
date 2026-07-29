@@ -10,6 +10,7 @@ import 'package:flutter/services.dart';
 import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../services/app_permission_service.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// iphone-style circular face registration with ML Kit face detection.
 /// Only captures when a face is detected AND matches the required direction.
@@ -1043,7 +1044,7 @@ class _CircleFaceCaptureWidgetState extends State<CircleFaceCaptureWidget>
                         const SizedBox(width: 8),
                         Flexible(
                           child: Text(
-                            _faceHint.isEmpty ? '...' : _faceHint,
+                            tr(_faceHint.isEmpty ? '...' : _faceHint),
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 14,
@@ -1100,7 +1101,7 @@ class _CircleFaceCaptureWidgetState extends State<CircleFaceCaptureWidget>
                           color: Colors.white54, size: 48),
                       const SizedBox(height: 16),
                       Text(
-                        _cameraError!,
+                        tr(_cameraError!),
                         style: const TextStyle(color: Colors.white, fontSize: 16),
                         textAlign: TextAlign.center,
                       ),
@@ -1114,7 +1115,7 @@ class _CircleFaceCaptureWidgetState extends State<CircleFaceCaptureWidget>
                               backgroundColor: Colors.white24,
                               foregroundColor: Colors.white,
                             ),
-                            child: const Text('Thử lại'),
+                            child: Text(tr('Thử lại')),
                           ),
                           const SizedBox(width: 12),
                           ElevatedButton(
@@ -1123,7 +1124,7 @@ class _CircleFaceCaptureWidgetState extends State<CircleFaceCaptureWidget>
                               backgroundColor: Colors.white24,
                               foregroundColor: Colors.white,
                             ),
-                            child: const Text('Mở Cài đặt'),
+                            child: Text(tr('Mở Cài đặt')),
                           ),
                         ],
                       ),
@@ -1134,14 +1135,13 @@ class _CircleFaceCaptureWidgetState extends State<CircleFaceCaptureWidget>
 
             // 9. Loading indicator
             if (!_isCameraReady && _cameraError == null)
-              const Center(
+              Center(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     CircularProgressIndicator(color: Colors.white),
                     SizedBox(height: 16),
-                    Text(
-                      'Đang mở camera...',
+                    Text(tr('Đang mở camera...'),
                       style: TextStyle(color: Colors.white70, fontSize: 16),
                     ),
                   ],
@@ -1193,8 +1193,7 @@ class _CircleFaceCaptureWidgetState extends State<CircleFaceCaptureWidget>
           const SizedBox(height: 20),
 
           if (_allDone)
-            const Text(
-              'Đăng ký khuôn mặt hoàn tất!',
+            Text(tr('Đăng ký khuôn mặt hoàn tất!'),
               style: TextStyle(
                 color: Color(0xFF22C55E),
                 fontSize: 22,
@@ -1209,7 +1208,7 @@ class _CircleFaceCaptureWidgetState extends State<CircleFaceCaptureWidget>
                 const SizedBox(width: 10),
                 Flexible(
                   child: Text(
-                    step.instruction,
+                    tr(step.instruction),
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 18,
@@ -1220,8 +1219,7 @@ class _CircleFaceCaptureWidgetState extends State<CircleFaceCaptureWidget>
               ],
             ),
             const SizedBox(height: 10),
-            Text(
-              'Bước ${_currentStep + 1} / ${_steps.length}',
+            Text(tr('Bước ${_currentStep + 1} / ${_steps.length}'),
               style: const TextStyle(color: Colors.white54, fontSize: 14),
             ),
           ],
@@ -1230,8 +1228,7 @@ class _CircleFaceCaptureWidgetState extends State<CircleFaceCaptureWidget>
           if (!_allDone)
             TextButton(
               onPressed: widget.onCancel,
-              child: const Text(
-                'Huỷ bỏ',
+              child: Text(tr('Huỷ bỏ'),
                 style: TextStyle(color: Colors.white54, fontSize: 16),
               ),
             ),

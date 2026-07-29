@@ -3,6 +3,7 @@ import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import 'package:intl/intl.dart';
 import '../../services/api_service.dart';
 import 'system_admin_helpers.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// SuperAdmin – tab "Thông báo / Broadcast" (Phase 1).
 class AnnouncementsTab extends StatefulWidget {
@@ -88,7 +89,7 @@ class AnnouncementsTabState extends State<AnnouncementsTab> {
           Row(
             children: [
               Expanded(
-                child: Text('Thông báo hệ thống (${announcements.length})',
+                child: Text(tr('Thông báo hệ thống (${announcements.length})'),
                     style: const TextStyle(
                         fontSize: 18, fontWeight: FontWeight.bold)),
               ),
@@ -103,7 +104,7 @@ class AnnouncementsTabState extends State<AnnouncementsTab> {
                       foregroundColor: Colors.white),
                   onPressed: () => _openCreateDialog(),
                   icon: const Icon(Icons.add),
-                  label: const Text('Tạo thông báo'),
+                  label: Text(tr('Tạo thông báo')),
                 ),
             ],
           ),
@@ -126,7 +127,7 @@ class AnnouncementsTabState extends State<AnnouncementsTab> {
             Container(
               padding: const EdgeInsets.all(12),
               color: Colors.red[50],
-              child: Text(_error!, style: const TextStyle(color: Colors.red)),
+              child: Text(tr(_error!), style: const TextStyle(color: Colors.red)),
             ),
           Expanded(
             child: _loading
@@ -149,7 +150,7 @@ class AnnouncementsTabState extends State<AnnouncementsTab> {
       {required int kind, required int severity, String? licenseStatus}) {
     return ActionChip(
       avatar: Icon(icon, size: 18, color: color),
-      label: Text(label),
+      label: Text(tr(label)),
       onPressed: () => _openCreateDialog(
           presetKind: kind,
           presetSeverity: severity,
@@ -181,7 +182,7 @@ class AnnouncementsTabState extends State<AnnouncementsTab> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(a['title']?.toString() ?? '',
+                    Text(tr(a['title']?.toString() ?? ''),
                         style: const TextStyle(
                             fontWeight: FontWeight.bold, fontSize: 15)),
                     const SizedBox(height: 2),
@@ -210,46 +211,46 @@ class AnnouncementsTabState extends State<AnnouncementsTab> {
                   onSelected: (v) => _onAction(v, a),
                   itemBuilder: (_) => [
                     if (context.systemAdminCanEdit && status != 3 && status != 4)
-                      const PopupMenuItem(
-                          value: 'send', child: Text('📤 Gửi ngay')),
-                    const PopupMenuItem(
-                        value: 'stats', child: Text('📊 Thống kê')),
+                      PopupMenuItem(
+                          value: 'send', child: Text(tr('📤 Gửi ngay'))),
+                    PopupMenuItem(
+                        value: 'stats', child: Text(tr('📊 Thống kê'))),
                     if (context.systemAdminCanEdit) ...[
-                      const PopupMenuItem(
-                          value: 'resend', child: Text('🔁 Gửi lại lỗi')),
-                      const PopupMenuItem(
-                          value: 'cancel', child: Text('🚫 Huỷ')),
+                      PopupMenuItem(
+                          value: 'resend', child: Text(tr('🔁 Gửi lại lỗi'))),
+                      PopupMenuItem(
+                          value: 'cancel', child: Text(tr('🚫 Huỷ'))),
                     ],
                     if (context.systemAdminCanDelete)
-                      const PopupMenuItem(
+                      PopupMenuItem(
                           value: 'delete',
-                          child: Text('🗑️ Xoá',
+                          child: Text(tr('🗑️ Xoá'),
                               style: TextStyle(color: Colors.red))),
                   ],
                 ),
             ]),
             const SizedBox(height: 8),
-            Text(a['content']?.toString() ?? '',
+            Text(tr(a['content']?.toString() ?? ''),
                 maxLines: 3, overflow: TextOverflow.ellipsis),
             const SizedBox(height: 8),
             Row(children: [
               Icon(Icons.people, size: 14, color: Colors.grey[600]),
               const SizedBox(width: 4),
-              Text('${a['recipientCount'] ?? 0} người nhận',
+              Text(tr('${a['recipientCount'] ?? 0} người nhận'),
                   style: TextStyle(fontSize: 12, color: Colors.grey[700])),
               const SizedBox(width: 12),
               const Icon(Icons.check_circle, size: 14, color: AdminHelpers.success),
               const SizedBox(width: 4),
-              Text('${a['deliveredCount'] ?? 0} đã gửi',
+              Text(tr('${a['deliveredCount'] ?? 0} đã gửi'),
                   style: TextStyle(fontSize: 12, color: Colors.grey[700])),
               const SizedBox(width: 12),
               Icon(Icons.visibility, size: 14, color: Colors.grey[600]),
               const SizedBox(width: 4),
-              Text('${a['seenCount'] ?? 0} xem',
+              Text(tr('${a['seenCount'] ?? 0} xem'),
                   style: TextStyle(fontSize: 12, color: Colors.grey[700])),
               const Spacer(),
               if (a['createdAt'] != null)
-                Text(_df.format(DateTime.parse(a['createdAt']).toLocal()),
+                Text(tr(_df.format(DateTime.parse(a['createdAt']).toLocal())),
                     style: TextStyle(fontSize: 11, color: Colors.grey[500])),
             ]),
           ],
@@ -275,19 +276,18 @@ class AnnouncementsTabState extends State<AnnouncementsTab> {
         final ok = await showDialog<bool>(
                 context: context,
                 builder: (dlgCtx) => ScrollableAlertDialog(
-                      title: const Text('Xoá thông báo?'),
-                      content: const Text(
-                          'Hành động không thể hoàn tác. Bạn có chắc?'),
+                      title: Text(tr('Xoá thông báo?')),
+                      content: Text(tr('Hành động không thể hoàn tác. Bạn có chắc?')),
                       actions: [
                         TextButton(
                             onPressed: () => Navigator.pop(dlgCtx, false),
-                            child: const Text('Huỷ')),
+                            child: Text(tr('Huỷ'))),
                         FilledButton(
                             style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.red,
                                 foregroundColor: Colors.white),
                             onPressed: () => Navigator.pop(dlgCtx, true),
-                            child: const Text('Xoá')),
+                            child: Text(tr('Xoá'))),
                       ],
                     )) ??
             false;
@@ -302,9 +302,9 @@ class AnnouncementsTabState extends State<AnnouncementsTab> {
     }
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(res['isSuccess'] == true
+        content: Text(tr(res['isSuccess'] == true
             ? 'Thành công'
-            : (res['message']?.toString() ?? 'Lỗi'))));
+            : (res['message']?.toString() ?? 'Lỗi')))));
     _load();
   }
 
@@ -315,9 +315,9 @@ class AnnouncementsTabState extends State<AnnouncementsTab> {
     showDialog(
       context: context,
       builder: (_) => ScrollableAlertDialog(
-        title: const Text('Thống kê delivery'),
+        title: Text(tr('Thống kê delivery')),
         content: data == null
-            ? const Text('Không có dữ liệu')
+            ? Text(tr('Không có dữ liệu'))
             : SizedBox(
                 width: 320,
                 child: Column(
@@ -337,7 +337,7 @@ class AnnouncementsTabState extends State<AnnouncementsTab> {
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Đóng')),
+              child: Text(tr('Đóng'))),
         ],
       ),
     );
@@ -346,8 +346,8 @@ class AnnouncementsTabState extends State<AnnouncementsTab> {
   Widget _statRow(String label, dynamic value) => Padding(
         padding: const EdgeInsets.symmetric(vertical: 4),
         child: Row(children: [
-          Expanded(child: Text(label)),
-          Text('$value', style: const TextStyle(fontWeight: FontWeight.bold)),
+          Expanded(child: Text(tr(label))),
+          Text(tr('$value'), style: const TextStyle(fontWeight: FontWeight.bold)),
         ]),
       );
 
@@ -419,8 +419,8 @@ class _CreateAnnouncementDialogState extends State<_CreateAnnouncementDialog> {
     _licenseStatus = widget.presetLicenseStatus;
     if (_licenseStatus != null) _audienceMode = 'license';
 
-    _title = TextEditingController(text: _defaultTitle());
-    _content = TextEditingController(text: _defaultContent());
+    _title = TextEditingController(text: tr(_defaultTitle()));
+    _content = TextEditingController(text: tr(_defaultContent()));
     _previewAudience();
   }
 
@@ -478,8 +478,8 @@ class _CreateAnnouncementDialogState extends State<_CreateAnnouncementDialog> {
 
   Future<void> _submit() async {
     if (_title.text.trim().isEmpty || _content.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Tiêu đề và nội dung không được trống')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(tr('Tiêu đề và nội dung không được trống'))));
       return;
     }
     setState(() => _loading = true);
@@ -504,16 +504,16 @@ class _CreateAnnouncementDialogState extends State<_CreateAnnouncementDialog> {
     setState(() => _loading = false);
     Navigator.pop(context);
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(res['isSuccess'] == true
+        content: Text(tr(res['isSuccess'] == true
             ? (_sendNow ? 'Đã gửi thông báo' : 'Đã lưu thông báo')
-            : (res['message']?.toString() ?? 'Lỗi'))));
+            : (res['message']?.toString() ?? 'Lỗi')))));
     widget.onCreated();
   }
 
   @override
   Widget build(BuildContext context) {
     return ScrollableAlertDialog(
-      title: const Text('Tạo thông báo hệ thống'),
+      title: Text(tr('Tạo thông báo hệ thống')),
       content: SizedBox(
         width: 560,
         child: SingleChildScrollView(
@@ -523,13 +523,13 @@ class _CreateAnnouncementDialogState extends State<_CreateAnnouncementDialog> {
             children: [
               DropdownButtonFormField<int>(
                 initialValue: _kind,
-                decoration: const InputDecoration(labelText: 'Loại'),
-                items: const [
-                  DropdownMenuItem(value: 0, child: Text('Tin chung')),
-                  DropdownMenuItem(value: 1, child: Text('Bảo trì')),
-                  DropdownMenuItem(value: 2, child: Text('Nâng cấp')),
-                  DropdownMenuItem(value: 3, child: Text('Gia hạn')),
-                  DropdownMenuItem(value: 4, child: Text('Marketing')),
+                decoration: InputDecoration(labelText: tr('Loại')),
+                items: [
+                  DropdownMenuItem(value: 0, child: Text(tr('Tin chung'))),
+                  DropdownMenuItem(value: 1, child: Text(tr('Bảo trì'))),
+                  DropdownMenuItem(value: 2, child: Text(tr('Nâng cấp'))),
+                  DropdownMenuItem(value: 3, child: Text(tr('Gia hạn'))),
+                  DropdownMenuItem(value: 4, child: Text(tr('Marketing'))),
                 ],
                 onChanged: (v) => setState(() {
                   _kind = v ?? 0;
@@ -540,64 +540,64 @@ class _CreateAnnouncementDialogState extends State<_CreateAnnouncementDialog> {
               const SizedBox(height: 8),
               DropdownButtonFormField<int>(
                 initialValue: _severity,
-                decoration: const InputDecoration(labelText: 'Mức độ'),
-                items: const [
-                  DropdownMenuItem(value: 0, child: Text('Thông tin')),
-                  DropdownMenuItem(value: 1, child: Text('Thành công')),
-                  DropdownMenuItem(value: 2, child: Text('Cảnh báo')),
-                  DropdownMenuItem(value: 3, child: Text('Nghiêm trọng')),
+                decoration: InputDecoration(labelText: tr('Mức độ')),
+                items: [
+                  DropdownMenuItem(value: 0, child: Text(tr('Thông tin'))),
+                  DropdownMenuItem(value: 1, child: Text(tr('Thành công'))),
+                  DropdownMenuItem(value: 2, child: Text(tr('Cảnh báo'))),
+                  DropdownMenuItem(value: 3, child: Text(tr('Nghiêm trọng'))),
                 ],
                 onChanged: (v) => setState(() => _severity = v ?? 0),
               ),
               const SizedBox(height: 8),
               TextField(
                 controller: _title,
-                decoration: const InputDecoration(labelText: 'Tiêu đề *'),
+                decoration: InputDecoration(labelText: tr('Tiêu đề *')),
               ),
               const SizedBox(height: 8),
               TextField(
                 controller: _content,
                 maxLines: 4,
-                decoration: const InputDecoration(
-                    labelText: 'Nội dung *', alignLabelWithHint: true),
+                decoration: InputDecoration(
+                    labelText: tr('Nội dung *'), alignLabelWithHint: true),
               ),
               const SizedBox(height: 8),
               Row(children: [
                 Expanded(
                     child: TextField(
                   controller: _actionUrl,
-                  decoration: const InputDecoration(
-                      labelText: 'URL hành động (tuỳ chọn)'),
+                  decoration: InputDecoration(
+                      labelText: tr('URL hành động (tuỳ chọn)')),
                 )),
                 const SizedBox(width: 8),
                 Expanded(
                     child: TextField(
                   controller: _actionLabel,
                   decoration:
-                      const InputDecoration(labelText: 'Nhãn nút hành động'),
+                      InputDecoration(labelText: tr('Nhãn nút hành động')),
                 )),
               ]),
               const Divider(height: 24),
-              const Text('Kênh phát',
+              Text(tr('Kênh phát'),
                   style: TextStyle(fontWeight: FontWeight.bold)),
               Wrap(children: [
                 FilterChip(
-                    label: const Text('Trong ứng dụng'),
+                    label: Text(tr('Trong ứng dụng')),
                     selected: _channelInApp,
                     onSelected: (v) => setState(() => _channelInApp = v)),
                 const SizedBox(width: 6),
                 FilterChip(
-                    label: const Text('Banner'),
+                    label: Text(tr('Banner')),
                     selected: _channelBanner,
                     onSelected: (v) => setState(() => _channelBanner = v)),
                 const SizedBox(width: 6),
                 FilterChip(
-                    label: const Text('Email (P3)'),
+                    label: Text(tr('Email (P3)')),
                     selected: _channelEmail,
                     onSelected: (v) => setState(() => _channelEmail = v)),
               ]),
               const Divider(height: 24),
-              const Text('Đối tượng nhận',
+              Text(tr('Đối tượng nhận'),
                   style: TextStyle(fontWeight: FontWeight.bold)),
               RadioGroup<String>(
                 groupValue: _audienceMode,
@@ -610,14 +610,14 @@ class _CreateAnnouncementDialogState extends State<_CreateAnnouncementDialog> {
                 },
                 child: Column(
                   children: [
-                    const RadioListTile<String>(
+                    RadioListTile<String>(
                         dense: true,
                         value: 'all',
-                        title: Text('Tất cả người dùng')),
-                    const RadioListTile<String>(
+                        title: Text(tr('Tất cả người dùng'))),
+                    RadioListTile<String>(
                         dense: true,
                         value: 'role',
-                        title: Text('Theo vai trò')),
+                        title: Text(tr('Theo vai trò'))),
                     if (_audienceMode == 'role')
                       Wrap(
                         spacing: 6,
@@ -631,7 +631,7 @@ class _CreateAnnouncementDialogState extends State<_CreateAnnouncementDialog> {
                         ].map((r) {
                           final sel = _selectedRoles.contains(r);
                           return FilterChip(
-                            label: Text(r),
+                            label: Text(tr(r)),
                             selected: sel,
                             onSelected: (v) {
                               setState(() {
@@ -646,24 +646,24 @@ class _CreateAnnouncementDialogState extends State<_CreateAnnouncementDialog> {
                           );
                         }).toList(),
                       ),
-                    const RadioListTile<String>(
+                    RadioListTile<String>(
                         dense: true,
                         value: 'license',
-                        title: Text('Theo trạng thái license')),
+                        title: Text(tr('Theo trạng thái license'))),
                   ],
                 ),
               ),
               if (_audienceMode == 'license')
                 DropdownButtonFormField<String>(
                   initialValue: _licenseStatus ?? 'expiring_soon',
-                  items: const [
+                  items: [
                     DropdownMenuItem(
                         value: 'expiring_soon',
-                        child: Text('Sắp hết hạn (≤30 ngày)')),
+                        child: Text(tr('Sắp hết hạn (≤30 ngày)'))),
                     DropdownMenuItem(
-                        value: 'expired', child: Text('Đã hết hạn')),
+                        value: 'expired', child: Text(tr('Đã hết hạn'))),
                     DropdownMenuItem(
-                        value: 'active', child: Text('Đang hoạt động')),
+                        value: 'active', child: Text(tr('Đang hoạt động'))),
                   ],
                   onChanged: (v) {
                     setState(() => _licenseStatus = v);
@@ -681,33 +681,33 @@ class _CreateAnnouncementDialogState extends State<_CreateAnnouncementDialog> {
                   const Icon(Icons.people, size: 18),
                   const SizedBox(width: 6),
                   Expanded(
-                      child: Text('Số người nhận dự kiến: $_previewCount')),
+                      child: Text(tr('Số người nhận dự kiến: $_previewCount'))),
                   TextButton(
                       onPressed: _previewAudience,
-                      child: const Text('Tính lại')),
+                      child: Text(tr('Tính lại'))),
                 ]),
               ),
               const Divider(height: 24),
               SwitchListTile(
                   dense: true,
-                  title: const Text('Yêu cầu xác nhận đã đọc (popup chặn)'),
+                  title: Text(tr('Yêu cầu xác nhận đã đọc (popup chặn)')),
                   value: _requireAck,
                   onChanged: (v) => setState(() => _requireAck = v)),
               SwitchListTile(
                   dense: true,
-                  title: const Text('Cho phép user ẩn banner'),
+                  title: Text(tr('Cho phép user ẩn banner')),
                   value: _allowDismiss,
                   onChanged: (v) => setState(() => _allowDismiss = v)),
               SwitchListTile(
                   dense: true,
-                  title: const Text('Gửi ngay'),
+                  title: Text(tr('Gửi ngay')),
                   value: _sendNow,
                   onChanged: (v) => setState(() => _sendNow = v)),
               ListTile(
                 contentPadding: EdgeInsets.zero,
-                title: Text(_expiresAt == null
+                title: Text(tr(_expiresAt == null
                     ? 'Không đặt hạn hiển thị banner'
-                    : 'Hết hiệu lực: ${DateFormat('dd/MM/yyyy HH:mm').format(_expiresAt!.toLocal())}'),
+                    : 'Hết hiệu lực: ${DateFormat('dd/MM/yyyy HH:mm').format(_expiresAt!.toLocal())}')),
                 trailing: TextButton(
                   onPressed: () async {
                     final d = await showDatePicker(
@@ -722,7 +722,7 @@ class _CreateAnnouncementDialogState extends State<_CreateAnnouncementDialog> {
                           d.add(const Duration(hours: 23, minutes: 59)));
                     }
                   },
-                  child: const Text('Chọn'),
+                  child: Text(tr('Chọn')),
                 ),
               ),
             ],
@@ -732,17 +732,17 @@ class _CreateAnnouncementDialogState extends State<_CreateAnnouncementDialog> {
       actions: [
         TextButton(
             onPressed: _loading ? null : () => Navigator.pop(context),
-            child: const Text('Huỷ')),
+            child: Text(tr('Huỷ'))),
         FilledButton(
           style: ElevatedButton.styleFrom(
               backgroundColor: AdminHelpers.primary,
               foregroundColor: Colors.white),
           onPressed: _loading ? null : _submit,
-          child: Text(_loading
+          child: Text(tr(_loading
               ? 'Đang xử lý...'
               : _sendNow
                   ? 'Gửi'
-                  : 'Lưu nháp'),
+                  : 'Lưu nháp')),
         ),
       ],
     );

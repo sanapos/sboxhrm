@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../utils/responsive_helper.dart';
 import 'app_button.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// Helper mở dialog responsive: full-screen trên mobile, dialog trên desktop.
 ///
@@ -86,7 +87,7 @@ class AppResponsiveDialog {
               leading: IconButton(
                 icon: const Icon(Icons.close),
                 onPressed: () => Navigator.pop(ctx),
-                tooltip: 'Đóng',
+                tooltip: tr('Đóng'),
               ),
               title: Row(
                 children: [
@@ -96,7 +97,7 @@ class AppResponsiveDialog {
                   ],
                   Expanded(
                     child: Text(
-                      title,
+                      tr(title),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
@@ -163,12 +164,12 @@ class AppResponsiveDialog {
               const SizedBox(width: 10),
             ],
             Expanded(
-              child: Text(title, overflow: TextOverflow.ellipsis),
+              child: Text(tr(title), overflow: TextOverflow.ellipsis),
             ),
             IconButton(
               icon: const Icon(Icons.close, size: 20),
               onPressed: () => Navigator.pop(ctx),
-              tooltip: 'Đóng',
+              tooltip: tr('Đóng'),
               splashRadius: 18,
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
@@ -215,7 +216,7 @@ class AppResponsiveDialog {
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(
-            message ?? 'Bạn có chắc chắn muốn xóa "$itemName"?',
+            tr(message ?? 'Bạn có chắc chắn muốn xóa "$itemName"?'),
             style: const TextStyle(fontSize: 14, height: 1.5),
           ),
           const SizedBox(height: 8),
@@ -226,13 +227,12 @@ class AppResponsiveDialog {
               borderRadius: BorderRadius.circular(8),
               border: Border.all(color: const Color(0xFFFECACA)),
             ),
-            child: const Row(
+            child: Row(
               children: [
                 Icon(Icons.info_outline, size: 16, color: Color(0xFFEF4444)),
                 SizedBox(width: 8),
                 Expanded(
-                  child: Text(
-                    'Hành động này không thể hoàn tác.',
+                  child: Text(tr('Hành động này không thể hoàn tác.'),
                     style: TextStyle(
                       fontSize: 13,
                       color: Color(0xFFDC2626),

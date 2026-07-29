@@ -6,6 +6,7 @@ import '../../services/api_service.dart';
 import '../../utils/pos_stock_receipt_print.dart';
 import 'pos_stock_card_table.dart';
 import 'pos_theme.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// Chi tiết chứng từ thẻ kho (phiếu nhập / điều chỉnh / bán).
 Future<void> showPosStockDocumentSheet(
@@ -149,7 +150,7 @@ class _PosStockDocumentSheetState extends State<_PosStockDocumentSheet> {
           ),
           const SizedBox(height: 16),
           Text(
-            doc,
+            tr(doc),
             style: const TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w700,
@@ -157,8 +158,8 @@ class _PosStockDocumentSheetState extends State<_PosStockDocumentSheet> {
             ),
           ),
           const SizedBox(height: 4),
-          Text(typeLabel, style: const TextStyle(fontSize: 14)),
-          Text(when, style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+          Text(tr(typeLabel), style: const TextStyle(fontSize: 14)),
+          Text(tr(when), style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
           const Divider(height: 24),
           _row('Mã hàng', t.productCode),
           _row('Tên hàng', t.productName),
@@ -182,7 +183,7 @@ class _PosStockDocumentSheetState extends State<_PosStockDocumentSheet> {
           ],
           if (_receipt != null) ...[
             const SizedBox(height: 20),
-            const Text('Chi tiết phiếu nhập',
+            Text(tr('Chi tiết phiếu nhập'),
                 style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
             const SizedBox(height: 8),
             if (_receipt!.supplierName != null)
@@ -194,10 +195,10 @@ class _PosStockDocumentSheetState extends State<_PosStockDocumentSheet> {
                   child: Row(
                     children: [
                       Expanded(
-                        child: Text('${l.productCode} · ${l.productName}',
+                        child: Text(tr('${l.productCode} · ${l.productName}'),
                             style: const TextStyle(fontSize: 12)),
                       ),
-                      Text('${widget.moneyFmt.format(l.qty)} × ${widget.moneyFmt.format(l.costPrice)}',
+                      Text(tr('${widget.moneyFmt.format(l.qty)} × ${widget.moneyFmt.format(l.costPrice)}'),
                           style: const TextStyle(fontSize: 12)),
                     ],
                   ),
@@ -206,12 +207,12 @@ class _PosStockDocumentSheetState extends State<_PosStockDocumentSheet> {
             OutlinedButton.icon(
               onPressed: () => printPosStockReceipt(_receipt!),
               icon: const Icon(Icons.print, size: 18),
-              label: const Text('In phiếu nhập'),
+              label: Text(tr('In phiếu nhập')),
             ),
           ],
           if (_issue != null) ...[
             const SizedBox(height: 20),
-            const Text('Chi tiết phiếu xuất',
+            Text(tr('Chi tiết phiếu xuất'),
                 style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
             const SizedBox(height: 8),
             if ((_issue!['reason'] ?? _issue!['Reason']) != null)
@@ -226,10 +227,10 @@ class _PosStockDocumentSheetState extends State<_PosStockDocumentSheet> {
                         children: [
                           Expanded(
                             child: Text(
-                                '${l['productCode'] ?? l['ProductCode']} · ${l['productName'] ?? l['ProductName']}',
+                                tr('${l['productCode'] ?? l['ProductCode']} · ${l['productName'] ?? l['ProductName']}'),
                                 style: const TextStyle(fontSize: 12)),
                           ),
-                          Text(widget.moneyFmt.format(l['qty'] ?? l['Qty'] ?? 0),
+                          Text(tr(widget.moneyFmt.format(l['qty'] ?? l['Qty'] ?? 0)),
                               style: const TextStyle(fontSize: 12)),
                         ],
                       ),
@@ -237,7 +238,7 @@ class _PosStockDocumentSheetState extends State<_PosStockDocumentSheet> {
           ],
           if (_count != null) ...[
             const SizedBox(height: 20),
-            const Text('Chi tiết kiểm kê',
+            Text(tr('Chi tiết kiểm kê'),
                 style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
             const SizedBox(height: 8),
             _row('Tên phiếu', (_count!['name'] ?? _count!['Name'] ?? '').toString()),
@@ -245,7 +246,7 @@ class _PosStockDocumentSheetState extends State<_PosStockDocumentSheet> {
           ],
           if (_sale != null) ...[
             const SizedBox(height: 20),
-            const Text('Chi tiết đơn bán',
+            Text(tr('Chi tiết đơn bán'),
                 style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
             const SizedBox(height: 8),
             _row('Mã đơn', (_sale!['orderNo'] ?? _sale!['OrderNo'] ?? '').toString()),
@@ -261,11 +262,11 @@ class _PosStockDocumentSheetState extends State<_PosStockDocumentSheet> {
                         children: [
                           Expanded(
                             child: Text(
-                                '${l['productName'] ?? l['ProductName']}',
+                                tr('${l['productName'] ?? l['ProductName']}'),
                                 style: const TextStyle(fontSize: 12)),
                           ),
                           Text(
-                              '${widget.moneyFmt.format(l['qty'] ?? l['Qty'] ?? 0)} × ${widget.moneyFmt.format(l['unitPrice'] ?? l['UnitPrice'] ?? 0)}',
+                              tr('${widget.moneyFmt.format(l['qty'] ?? l['Qty'] ?? 0)} × ${widget.moneyFmt.format(l['unitPrice'] ?? l['UnitPrice'] ?? 0)}'),
                               style: const TextStyle(fontSize: 12)),
                         ],
                       ),
@@ -273,7 +274,7 @@ class _PosStockDocumentSheetState extends State<_PosStockDocumentSheet> {
           ],
           if (_purchaseReturn != null) ...[
             const SizedBox(height: 20),
-            const Text('Chi tiết trả hàng NCC',
+            Text(tr('Chi tiết trả hàng NCC'),
                 style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
             const SizedBox(height: 8),
             _row('Mã phiếu',
@@ -293,10 +294,10 @@ class _PosStockDocumentSheetState extends State<_PosStockDocumentSheet> {
                         children: [
                           Expanded(
                             child: Text(
-                                '${l['productCode'] ?? l['ProductCode']} · ${l['productName'] ?? l['ProductName']}',
+                                tr('${l['productCode'] ?? l['ProductCode']} · ${l['productName'] ?? l['ProductName']}'),
                                 style: const TextStyle(fontSize: 12)),
                           ),
-                          Text(widget.moneyFmt.format(l['qty'] ?? l['Qty'] ?? 0),
+                          Text(tr(widget.moneyFmt.format(l['qty'] ?? l['Qty'] ?? 0)),
                               style: const TextStyle(fontSize: 12)),
                         ],
                       ),
@@ -315,10 +316,10 @@ class _PosStockDocumentSheetState extends State<_PosStockDocumentSheet> {
         children: [
           SizedBox(
             width: 100,
-            child: Text(label,
+            child: Text(tr(label),
                 style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
           ),
-          Expanded(child: Text(value, style: const TextStyle(fontSize: 13))),
+          Expanded(child: Text(tr(value), style: const TextStyle(fontSize: 13))),
         ],
       ),
     );

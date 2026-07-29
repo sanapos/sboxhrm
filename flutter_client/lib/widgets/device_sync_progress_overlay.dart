@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import 'device_sync_types.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 export 'device_sync_types.dart';
 export 'device_sync_progress_dialog.dart';
@@ -282,7 +283,7 @@ class DeviceSyncProgressManager {
       });
       return DeviceSyncProgressResult(
         success: false,
-        message: 'Thiết bị "$name" đang offline.',
+        message: tr('Thiết bị "$name" đang offline.'),
       );
     }
 
@@ -720,7 +721,7 @@ class _SyncJobCard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          job.title,
+                          tr(job.title),
                           style: const TextStyle(
                             fontWeight: FontWeight.w700,
                             fontSize: 13,
@@ -728,7 +729,7 @@ class _SyncJobCard extends StatelessWidget {
                         ),
                         if (job.devices.length == 1)
                           Text(
-                            job.currentDevice.deviceName,
+                            tr(job.currentDevice.deviceName),
                             style: TextStyle(
                               fontSize: 11,
                               color: Colors.grey.shade600,
@@ -736,8 +737,7 @@ class _SyncJobCard extends StatelessWidget {
                             overflow: TextOverflow.ellipsis,
                           )
                         else
-                          Text(
-                            'Máy ${job.deviceIndex + 1}/${job.devices.length}: ${job.currentDevice.deviceName}',
+                          Text(tr('Máy ${job.deviceIndex + 1}/${job.devices.length}: ${job.currentDevice.deviceName}'),
                             style: TextStyle(
                               fontSize: 11,
                               color: Colors.grey.shade600,
@@ -756,7 +756,7 @@ class _SyncJobCard extends StatelessWidget {
                       size: 20,
                     ),
                     onPressed: () => mgr.toggleCollapsed(job.id),
-                    tooltip: job.collapsed ? 'Mở rộng' : 'Thu gọn',
+                    tooltip: tr(job.collapsed ? 'Mở rộng' : 'Thu gọn'),
                   ),
                   if (!job.isRunning)
                     IconButton(
@@ -786,7 +786,7 @@ class _SyncJobCard extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 6, 12, 8),
               child: Text(
-                job.statusMessage,
+                tr(job.statusMessage),
                 style: TextStyle(
                   fontSize: 11,
                   color: Colors.grey.shade800,
@@ -848,7 +848,7 @@ class _SyncJobCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(6),
       ),
       child: Text(
-        '$label: $value',
+        tr('$label: $value'),
         style: TextStyle(
           fontSize: 10,
           fontWeight: FontWeight.w600,

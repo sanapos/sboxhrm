@@ -18,6 +18,7 @@ import '../widgets/shift_swap_panel.dart';
 import '../widgets/shift_swap_ui.dart';
 import 'main_layout.dart';
 import '../utils/staffing_quota_utils.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 // =====================================================
 // DUYỆT LỊCH LÀM VIỆC
@@ -514,7 +515,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                 child: Row(mainAxisSize: MainAxisSize.min, children: [
                   const Icon(Icons.pending_actions, size: 16),
                   const SizedBox(width: 4),
-                  const Text('Chờ duyệt'),
+                  Text(tr('Chờ duyệt')),
                   if (_getPendingCount() > 0) ...[
                     const SizedBox(width: 4),
                     Container(
@@ -523,7 +524,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                       decoration: BoxDecoration(
                           color: const Color(0xFFF59E0B),
                           borderRadius: BorderRadius.circular(8)),
-                      child: Text('${_getPendingCount()}',
+                      child: Text(tr('${_getPendingCount()}'),
                           style: const TextStyle(
                               fontSize: 9,
                               color: Colors.white,
@@ -532,20 +533,20 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                   ],
                 ]),
               ),
-              const Tab(
+              Tab(
                 height: 44,
                 child: Row(mainAxisSize: MainAxisSize.min, children: [
                   Icon(Icons.grid_view, size: 16),
                   SizedBox(width: 4),
-                  Text('Lưới ca'),
+                  Text(tr('Lưới ca')),
                 ]),
               ),
-              const Tab(
+              Tab(
                 height: 44,
                 child: Row(mainAxisSize: MainAxisSize.min, children: [
                   Icon(Icons.people, size: 16),
                   SizedBox(width: 4),
-                  Text('Phân bổ'),
+                  Text(tr('Phân bổ')),
                 ]),
               ),
               Tab(
@@ -553,7 +554,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                 child: Row(mainAxisSize: MainAxisSize.min, children: [
                   const Icon(Icons.swap_horiz, size: 16),
                   const SizedBox(width: 4),
-                  const Text('Đổi ca'),
+                  Text(tr('Đổi ca')),
                   if (_swapPendingCount > 0) ...[
                     const SizedBox(width: 4),
                     Container(
@@ -562,7 +563,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                       decoration: BoxDecoration(
                           color: const Color(0xFF8B5CF6),
                           borderRadius: BorderRadius.circular(8)),
-                      child: Text('$_swapPendingCount',
+                      child: Text(tr('$_swapPendingCount'),
                           style: const TextStyle(
                               fontSize: 9,
                               color: Colors.white,
@@ -609,7 +610,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
               },
               backgroundColor: HrmPageChrome.primaryNavy,
               icon: const Icon(Icons.add),
-              label: const Text('Yêu cầu đổi ca'),
+              label: Text(tr('Yêu cầu đổi ca')),
             )
           : null,
     );
@@ -638,7 +639,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                     child: OutlinedButton.icon(
                   onPressed: _previousWeek,
                   icon: const Icon(Icons.chevron_left, size: 18),
-                  label: const Text('Trước', style: TextStyle(fontSize: 12)),
+                  label: Text(tr('Trước'), style: TextStyle(fontSize: 12)),
                   style: OutlinedButton.styleFrom(
                       foregroundColor: const Color(0xFF71717A),
                       side: const BorderSide(color: Color(0xFFE4E4E7)),
@@ -650,7 +651,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                     child: FilledButton.icon(
                   onPressed: _goToThisWeek,
                   icon: const Icon(Icons.today, size: 16),
-                  label: const Text('Tuần này', style: TextStyle(fontSize: 12)),
+                  label: Text(tr('Tuần này'), style: TextStyle(fontSize: 12)),
                   style: ElevatedButton.styleFrom(
                       backgroundColor: HrmPageChrome.primaryNavy,
                       foregroundColor: Colors.white,
@@ -661,7 +662,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                 Expanded(
                     child: OutlinedButton.icon(
                   onPressed: _nextWeek,
-                  icon: const Text('Sau', style: TextStyle(fontSize: 12)),
+                  icon: Text(tr('Sau'), style: TextStyle(fontSize: 12)),
                   label: const Icon(Icons.chevron_right, size: 18),
                   style: OutlinedButton.styleFrom(
                       foregroundColor: const Color(0xFF71717A),
@@ -679,8 +680,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                   decoration: BoxDecoration(
                       color: const Color(0xFFFFFBEB),
                       borderRadius: BorderRadius.circular(8)),
-                  child: Text(
-                    'Tuần $weekNumber (${dateFormat.format(_selectedWeekStart)} - ${dateFormat.format(weekEnd)})',
+                  child: Text(tr('Tuần $weekNumber (${dateFormat.format(_selectedWeekStart)} - ${dateFormat.format(weekEnd)})'),
                     style: const TextStyle(
                         color: Color(0xFF18181B),
                         fontWeight: FontWeight.w600,
@@ -720,13 +720,13 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                             icon: const Icon(Icons.keyboard_arrow_down,
                                 size: 18, color: Color(0xFF9CA3AF)),
                             items: [
-                              const DropdownMenuItem<String?>(
+                              DropdownMenuItem<String?>(
                                   value: null,
-                                  child: Text('T\u1ea5t c\u1ea3 chi nh\u00e1nh',
+                                  child: Text(tr('T\u1ea5t c\u1ea3 chi nh\u00e1nh'),
                                       style: TextStyle(fontSize: 13))),
                               ..._branches.map((b) => DropdownMenuItem<String?>(
                                   value: b['id']?.toString(),
-                                  child: Text(b['name']?.toString() ?? '',
+                                  child: Text(tr(b['name']?.toString() ?? ''),
                                       overflow: TextOverflow.ellipsis,
                                       style: const TextStyle(fontSize: 13)))),
                             ],
@@ -758,7 +758,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                   OutlinedButton.icon(
                     onPressed: _previousWeek,
                     icon: const Icon(Icons.chevron_left, size: 18),
-                    label: const Text('Tuần trước'),
+                    label: Text(tr('Tuần trước')),
                     style: OutlinedButton.styleFrom(
                         foregroundColor: const Color(0xFF71717A),
                         side: const BorderSide(color: Color(0xFFE4E4E7)),
@@ -768,7 +768,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                   FilledButton.icon(
                     onPressed: _goToThisWeek,
                     icon: const Icon(Icons.today, size: 18),
-                    label: const Text('Tuần này'),
+                    label: Text(tr('Tuần này')),
                     style: ElevatedButton.styleFrom(
                         backgroundColor: HrmPageChrome.primaryNavy,
                         foregroundColor: Colors.white,
@@ -777,7 +777,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                   ),
                   OutlinedButton.icon(
                     onPressed: _nextWeek,
-                    icon: const Text('Tuần sau'),
+                    icon: Text(tr('Tuần sau')),
                     label: const Icon(Icons.chevron_right, size: 18),
                     style: OutlinedButton.styleFrom(
                         foregroundColor: const Color(0xFF71717A),
@@ -791,8 +791,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                     decoration: BoxDecoration(
                         color: const Color(0xFFFFFBEB),
                         borderRadius: BorderRadius.circular(8)),
-                    child: Text(
-                      'Tuần $weekNumber (${dateFormat.format(_selectedWeekStart)} - ${dateFormat.format(weekEnd)})',
+                    child: Text(tr('Tuần $weekNumber (${dateFormat.format(_selectedWeekStart)} - ${dateFormat.format(weekEnd)})'),
                       style: const TextStyle(
                           color: Color(0xFF18181B),
                           fontWeight: FontWeight.w600,
@@ -828,15 +827,15 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                                 icon: const Icon(Icons.keyboard_arrow_down,
                                     size: 16, color: Color(0xFF9CA3AF)),
                                 items: [
-                                  const DropdownMenuItem<String?>(
+                                  DropdownMenuItem<String?>(
                                       value: null,
-                                      child: Text('T\u1ea5t c\u1ea3 CN',
+                                      child: Text(tr('T\u1ea5t c\u1ea3 CN'),
                                           style: TextStyle(fontSize: 12))),
                                   ..._branches.map((b) =>
                                       DropdownMenuItem<String?>(
                                           value: b['id']?.toString(),
                                           child: Text(
-                                              b['name']?.toString() ?? '',
+                                              tr(b['name']?.toString() ?? ''),
                                               overflow: TextOverflow.ellipsis,
                                               style: const TextStyle(
                                                   fontSize: 12)))),
@@ -883,13 +882,13 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
             const Icon(Icons.filter_list, size: 18, color: Color(0xFFF59E0B)),
         isDense: true,
       ),
-      hint: const Text('Tất cả', style: TextStyle(fontSize: 13)),
+      hint: Text(tr('Tất cả'), style: TextStyle(fontSize: 13)),
       style: const TextStyle(color: Color(0xFF18181B), fontSize: 13),
-      items: const [
-        DropdownMenuItem<String>(value: null, child: Text('Tất cả')),
-        DropdownMenuItem<String>(value: 'Pending', child: Text('Chờ duyệt')),
-        DropdownMenuItem<String>(value: 'Approved', child: Text('Đã duyệt')),
-        DropdownMenuItem<String>(value: 'Rejected', child: Text('Từ chối')),
+      items: [
+        DropdownMenuItem<String>(value: null, child: Text(tr('Tất cả'))),
+        DropdownMenuItem<String>(value: 'Pending', child: Text(tr('Chờ duyệt'))),
+        DropdownMenuItem<String>(value: 'Approved', child: Text(tr('Đã duyệt'))),
+        DropdownMenuItem<String>(value: 'Rejected', child: Text(tr('Từ chối'))),
       ],
       onChanged: (value) {
         setState(() => _selectedStatusFilter = value);
@@ -945,16 +944,14 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  '${pending.length} đăng ký chờ duyệt',
+                Text(tr('${pending.length} đăng ký chờ duyệt'),
                   style: const TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 14,
                     color: Color(0xFF92400E),
                   ),
                 ),
-                Text(
-                  'Tuần ${_getWeekNumber(_selectedWeekStart)} · ${DateFormat('dd/MM').format(_selectedWeekStart)} – ${DateFormat('dd/MM').format(_selectedWeekStart.add(const Duration(days: 6)))}',
+                Text(tr('${tr('Tuần ')}${_getWeekNumber(_selectedWeekStart)} · ${DateFormat('dd/MM').format(_selectedWeekStart)} – ${DateFormat('dd/MM').format(_selectedWeekStart.add(const Duration(days: 6)))}'),
                   style: const TextStyle(fontSize: 11, color: Color(0xFFB45309)),
                 ),
               ],
@@ -964,7 +961,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
             FilledButton.icon(
               onPressed: () => _approveAllForShift(pending),
               icon: const Icon(Icons.done_all, size: 16),
-              label: const Text('Duyệt tất cả'),
+              label: Text(tr('Duyệt tất cả')),
               style: FilledButton.styleFrom(
                 backgroundColor: HrmPageChrome.primaryNavy,
                 foregroundColor: Colors.white,
@@ -997,7 +994,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
             children: [
               Expanded(
                 child: Text(
-                  _pendingDateGroupLabel(date),
+                  tr(_pendingDateGroupLabel(date)),
                   style: const TextStyle(
                     fontWeight: FontWeight.w700,
                     fontSize: 13,
@@ -1013,7 +1010,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
-                  '${regs.length}',
+                  tr('${regs.length}'),
                   style: const TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 12,
@@ -1032,7 +1029,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                     minimumSize: Size.zero,
                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   ),
-                  child: const Text('Duyệt nhóm', style: TextStyle(fontSize: 12)),
+                  child: Text(tr('Duyệt nhóm'), style: TextStyle(fontSize: 12)),
                 ),
               ],
             ],
@@ -1074,9 +1071,9 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
               radius: 20,
               backgroundColor: HrmPageChrome.primaryNavy,
               child: Text(
-                employee.firstName.isNotEmpty
+                tr(employee.firstName.isNotEmpty
                     ? employee.firstName[0].toUpperCase()
-                    : '?',
+                    : '?'),
                 style: const TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.bold,
@@ -1090,7 +1087,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    employee.fullName,
+                    tr(employee.fullName),
                     style: const TextStyle(
                       fontWeight: FontWeight.w700,
                       fontSize: 14,
@@ -1116,7 +1113,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                   if (reg.note != null && reg.note!.trim().isNotEmpty) ...[
                     const SizedBox(height: 6),
                     Text(
-                      reg.note!.trim(),
+                      tr(reg.note!.trim()),
                       style: const TextStyle(
                         fontSize: 12,
                         color: Color(0xFF71717A),
@@ -1130,7 +1127,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                       employee.department!.isNotEmpty) ...[
                     const SizedBox(height: 4),
                     Text(
-                      employee.department!,
+                      tr(employee.department!),
                       style: const TextStyle(
                         fontSize: 11,
                         color: Color(0xFFA1A1AA),
@@ -1147,14 +1144,14 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                   _pendingActionBtn(
                     icon: Icons.check_rounded,
                     color: const Color(0xFF22C55E),
-                    tooltip: 'Duyệt',
+                    tooltip: tr('Duyệt'),
                     onTap: () => _approveRegistration(reg.id),
                   ),
                   const SizedBox(height: 6),
                   _pendingActionBtn(
                     icon: Icons.close_rounded,
                     color: const Color(0xFFEF4444),
-                    tooltip: 'Từ chối',
+                    tooltip: tr('Từ chối'),
                     onTap: () => _rejectRegistration(reg.id),
                   ),
                 ],
@@ -1180,7 +1177,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
           Icon(icon, size: 12, color: c),
           const SizedBox(width: 4),
           Text(
-            label,
+            tr(label),
             style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: c),
           ),
         ],
@@ -1256,8 +1253,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                           size: 18, color: Color(0xFFD97706)),
                       const SizedBox(width: 10),
                       Expanded(
-                        child: Text(
-                          '$pendingCount đăng ký chờ duyệt — chuyển sang tab Chờ duyệt để xử lý nhanh',
+                        child: Text(tr('$pendingCount đăng ký chờ duyệt — chuyển sang tab Chờ duyệt để xử lý nhanh'),
                           style: const TextStyle(
                             fontSize: 12,
                             color: Color(0xFF92400E),
@@ -1341,7 +1337,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
             child: const Icon(Icons.schedule, color: Colors.white, size: 18),
           ),
           title: Text(
-            shift.name,
+            tr(shift.name),
             style: const TextStyle(
               fontWeight: FontWeight.bold,
               fontSize: 15,
@@ -1356,7 +1352,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 Text(
-                  '${_formatTime(shift.startTime)} – ${_formatTime(shift.endTime)}',
+                  tr('${_formatTime(shift.startTime)} – ${_formatTime(shift.endTime)}'),
                   style: const TextStyle(fontSize: 12, color: Color(0xFF71717A)),
                 ),
                 if (allPending.isNotEmpty)
@@ -1426,7 +1422,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
               ListTile(
                 leading: const Icon(Icons.done_all,
                     color: HrmPageChrome.primaryNavy),
-                title: const Text('Duyệt tất cả ca này'),
+                title: Text(tr('Duyệt tất cả ca này')),
                 onTap: () {
                   Navigator.pop(ctx);
                   _approveAllForShift(allPending);
@@ -1435,7 +1431,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
               ListTile(
                 leading:
                     const Icon(Icons.close, color: Color(0xFFEF4444)),
-                title: const Text('Từ chối tất cả'),
+                title: Text(tr('Từ chối tất cả')),
                 onTap: () {
                   Navigator.pop(ctx);
                   _rejectAllForShift(allPending);
@@ -1445,7 +1441,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
             if (_canApprove && allProcessed.isNotEmpty)
               ListTile(
                 leading: const Icon(Icons.undo, color: Color(0xFFF59E0B)),
-                title: const Text('Hoàn duyệt tất cả'),
+                title: Text(tr('Hoàn duyệt tất cả')),
                 onTap: () {
                   Navigator.pop(ctx);
                   _undoAllApprovals(allProcessed);
@@ -1455,7 +1451,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
               ListTile(
                 leading: const Icon(Icons.delete_outline,
                     color: Color(0xFFEF4444)),
-                title: const Text('Xóa tất cả đăng ký'),
+                title: Text(tr('Xóa tất cả đăng ký')),
                 onTap: () {
                   Navigator.pop(ctx);
                   _deleteAllRegistrations(allForShift);
@@ -1500,8 +1496,8 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                   const Icon(Icons.beach_access, color: Colors.white, size: 18),
             ),
             const SizedBox(width: 10),
-            const Expanded(
-                child: Text('Đăng ký nghỉ phép',
+            Expanded(
+                child: Text(tr('Đăng ký nghỉ phép'),
                     style:
                         TextStyle(fontWeight: FontWeight.bold, fontSize: 14))),
             if (pending.isNotEmpty && _canApprove) ...[
@@ -1573,7 +1569,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                 ),
               ),
               child: Column(mainAxisSize: MainAxisSize.min, children: [
-                Text(dayLabels[i],
+                Text(tr(dayLabels[i]),
                     style: TextStyle(
                       fontSize: 10,
                       fontWeight: FontWeight.bold,
@@ -1583,7 +1579,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                               ? const Color(0xFFEF4444)
                               : const Color(0xFF71717A),
                     )),
-                Text(dateFormat.format(day),
+                Text(tr(dateFormat.format(day)),
                     style: TextStyle(
                         fontSize: 9,
                         color: isToday
@@ -1591,9 +1587,9 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                             : const Color(0xFFA1A1AA))),
                 const SizedBox(height: 4),
                 Text(
-                  quota != null && maxForDay > 0
+                  tr(quota != null && maxForDay > 0
                       ? '$total/$maxForDay'
-                      : '$scheduled',
+                      : '$scheduled'),
                   style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.bold,
@@ -1616,7 +1612,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                 if (pending > 0)
                   Padding(
                     padding: const EdgeInsets.only(top: 2),
-                    child: Text('+$pending',
+                    child: Text(tr('+$pending'),
                         style: const TextStyle(
                             fontSize: 9,
                             fontWeight: FontWeight.bold,
@@ -1684,7 +1680,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                   const Border(bottom: BorderSide(color: Color(0xFFF4F4F5))),
             ),
             child: Row(children: [
-              Text('${dayNames[i]} ${dateFormat.format(day)}',
+              Text(tr('${dayNames[i]} ${dateFormat.format(day)}'),
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
@@ -1711,7 +1707,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                     decoration: BoxDecoration(
                         color: HrmPageChrome.primaryNavy,
                         borderRadius: BorderRadius.circular(6)),
-                    child: const Text('Duyệt',
+                    child: Text(tr('Duyệt'),
                         style: TextStyle(
                             color: Colors.white,
                             fontSize: 11,
@@ -1732,8 +1728,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                     size: 14, color: Color(0xFFEF4444)),
                 const SizedBox(width: 6),
                 Expanded(
-                    child: Text(
-                  'Nếu duyệt hết: $projected/$maxEmp → vượt ${projected - maxEmp} người',
+                    child: Text(tr('Nếu duyệt hết: $projected/$maxEmp → vượt ${projected - maxEmp} người'),
                   style: const TextStyle(
                       fontSize: 11,
                       color: Color(0xFFEF4444),
@@ -1763,7 +1758,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
         borderRadius: BorderRadius.circular(6),
         border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
-      child: Text('$count/$maxForDay',
+      child: Text(tr('$count/$maxForDay'),
           style: TextStyle(
               fontSize: 11, fontWeight: FontWeight.bold, color: color)),
     );
@@ -1803,9 +1798,9 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
           radius: 14,
           backgroundColor: HrmPageChrome.primaryNavy,
           child: Text(
-            employee.firstName.isNotEmpty
+            tr(employee.firstName.isNotEmpty
                 ? employee.firstName[0].toUpperCase()
-                : '?',
+                : '?'),
             style: const TextStyle(
                 color: Colors.white, fontWeight: FontWeight.bold, fontSize: 10),
           ),
@@ -1814,24 +1809,24 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
         Expanded(
             child:
                 Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(employee.fullName,
+          Text(tr(employee.fullName),
               style: const TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
                   color: Color(0xFF18181B))),
           Row(children: [
-            Text(employee.employeeCode,
+            Text(tr(employee.employeeCode),
                 style: const TextStyle(fontSize: 11, color: Color(0xFFA1A1AA))),
             if (reg.isDayOff) ...[
               const SizedBox(width: 6),
-              Text('• $dateStr',
+              Text(tr('• $dateStr'),
                   style:
                       const TextStyle(fontSize: 11, color: Color(0xFF71717A))),
             ],
             if (reg.note != null && reg.note!.isNotEmpty) ...[
               const SizedBox(width: 6),
               Flexible(
-                  child: Text('• ${reg.note}',
+                  child: Text(tr('• ${reg.note}'),
                       style: const TextStyle(
                           fontSize: 11,
                           color: Color(0xFFA1A1AA),
@@ -1866,7 +1861,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
               child: Row(mainAxisSize: MainAxisSize.min, children: [
                 Icon(statusIcon, size: 12, color: statusText),
                 const SizedBox(width: 3),
-                Text(statusLabel,
+                Text(tr(statusLabel),
                     style: TextStyle(
                         fontSize: 10,
                         fontWeight: FontWeight.w600,
@@ -1966,7 +1961,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                   child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Text(dayNames[i],
+                        Text(tr(dayNames[i]),
                             style: TextStyle(
                                 fontSize: 10,
                                 fontWeight: FontWeight.bold,
@@ -1975,7 +1970,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                                     : isSunday
                                         ? const Color(0xFFEF4444)
                                         : const Color(0xFF71717A))),
-                        Text(dateFormat.format(day),
+                        Text(tr(dateFormat.format(day)),
                             style: TextStyle(
                                 fontSize: 9,
                                 color: isToday
@@ -1991,9 +1986,9 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: Text(
-                            quota != null && maxForDay > 0
+                            tr(quota != null && maxForDay > 0
                                 ? '$total/$maxForDay'
-                                : '$scheduled',
+                                : '$scheduled'),
                             style: TextStyle(
                                 fontSize: 10,
                                 fontWeight: FontWeight.bold,
@@ -2001,7 +1996,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                           ),
                         ),
                         if (pending > 0)
-                          Text('+$pending chờ',
+                          Text(tr('+$pending chờ'),
                               style: const TextStyle(
                                   fontSize: 8,
                                   color: Color(0xFFF59E0B),
@@ -2028,7 +2023,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                               decoration: BoxDecoration(
                                   color: HrmPageChrome.primaryNavy,
                                   borderRadius: BorderRadius.circular(4)),
-                              child: Text('Duyệt $pending',
+                              child: Text(tr('Duyệt $pending'),
                                   style: const TextStyle(
                                       color: Colors.white,
                                       fontSize: 8,
@@ -2072,19 +2067,19 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                       const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
                   child: Column(mainAxisSize: MainAxisSize.min, children: [
                     if (approvedCount > 0)
-                      Text('$approvedCount✓',
+                      Text(tr('$approvedCount✓'),
                           style: const TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.bold,
                               color: Color(0xFF22C55E))),
                     if (pendingCount > 0)
-                      Text('$pendingCount⏳',
+                      Text(tr('$pendingCount⏳'),
                           style: const TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.bold,
                               color: Color(0xFFF59E0B))),
                     if (approvedCount == 0 && pendingCount == 0)
-                      const Text('-',
+                      Text(tr('-'),
                           style: TextStyle(
                               fontSize: 11, color: Color(0xFFA1A1AA))),
                   ]),
@@ -2101,7 +2096,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
     return TableCell(
         child: Container(
       padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
-      child: Text(text,
+      child: Text(tr(text),
           textAlign: TextAlign.center,
           style: const TextStyle(
               fontSize: 11,
@@ -2120,9 +2115,9 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
               radius: 14,
               backgroundColor: HrmPageChrome.primaryNavy,
               child: Text(
-                  employee.firstName.isNotEmpty
+                  tr(employee.firstName.isNotEmpty
                       ? employee.firstName[0].toUpperCase()
-                      : '?',
+                      : '?'),
                   style: const TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
@@ -2132,13 +2127,13 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
               child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                Text(employee.fullName,
+                Text(tr(employee.fullName),
                     style: const TextStyle(
                         color: Color(0xFF18181B),
                         fontWeight: FontWeight.w600,
                         fontSize: 12),
                     overflow: TextOverflow.ellipsis),
-                Text(employee.employeeCode,
+                Text(tr(employee.employeeCode),
                     style: const TextStyle(
                         color: Color(0xFFA1A1AA), fontSize: 10)),
               ])),
@@ -2189,7 +2184,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                 children: [
                     if (_canApprove) ...[
                       Tooltip(
-                          message: 'Duyệt',
+                          message: tr('Duyệt'),
                           child: InkWell(
                               onTap: () => _approveRegistration(reg.id),
                               borderRadius: BorderRadius.circular(4),
@@ -2202,7 +2197,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                                       color: Colors.white, size: 14)))),
                       const SizedBox(width: 4),
                       Tooltip(
-                          message: 'Từ chối',
+                          message: tr('Từ chối'),
                           child: InkWell(
                               onTap: () => _rejectRegistration(reg.id),
                               borderRadius: BorderRadius.circular(4),
@@ -2217,7 +2212,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                     if (_canDelete) ...[
                       const SizedBox(width: 4),
                       Tooltip(
-                          message: 'Xóa',
+                          message: tr('Xóa'),
                           child: InkWell(
                               onTap: () => _deleteRegistration(reg.id),
                               borderRadius: BorderRadius.circular(4),
@@ -2240,7 +2235,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                     if (_canApprove) ...[
                       const SizedBox(width: 4),
                       Tooltip(
-                          message: 'Hoàn duyệt',
+                          message: tr('Hoàn duyệt'),
                           child: InkWell(
                               onTap: () => _undoRegistrationApproval(reg.id),
                               borderRadius: BorderRadius.circular(4),
@@ -2255,7 +2250,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                     if (_canDelete) ...[
                       const SizedBox(width: 3),
                       Tooltip(
-                          message: 'Xóa',
+                          message: tr('Xóa'),
                           child: InkWell(
                               onTap: () => _deleteRegistration(reg.id),
                               borderRadius: BorderRadius.circular(4),
@@ -2372,20 +2367,19 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                 child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                  Text('Chưa đăng ký lịch (${unregistered.length})',
+                  Text(tr('Chưa đăng ký lịch (${unregistered.length})'),
                       style: const TextStyle(
                           fontWeight: FontWeight.w700,
                           fontSize: 14,
                           color: Color(0xFFEF4444))),
-                  Text(
-                      'Tuần ${dateFormat.format(_selectedWeekStart)} - ${dateFormat.format(weekEnd)}',
+                  Text(tr('Tuần ${dateFormat.format(_selectedWeekStart)} - ${dateFormat.format(weekEnd)}'),
                       style: const TextStyle(
                           fontSize: 11, color: Color(0xFF71717A))),
                 ])),
             FilledButton.icon(
               onPressed: () => _sendReminderToAll(unregistered),
               icon: const Icon(Icons.notifications_active, size: 16),
-              label: Text(isMobile ? 'Nhắc tất cả' : 'Gửi nhắc nhở tất cả',
+              label: Text(tr(isMobile ? 'Nhắc tất cả' : 'Gửi nhắc nhở tất cả'),
                   style: const TextStyle(fontSize: 12)),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFFEF4444),
@@ -2427,7 +2421,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
             radius: 12,
             backgroundColor: const Color(0xFFEF4444).withValues(alpha: 0.15),
             child: Text(
-              emp.firstName.isNotEmpty ? emp.firstName[0].toUpperCase() : '?',
+              tr(emp.firstName.isNotEmpty ? emp.firstName[0].toUpperCase() : '?'),
               style: const TextStyle(
                   color: Color(0xFFEF4444),
                   fontWeight: FontWeight.bold,
@@ -2435,7 +2429,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
             ),
           ),
           const SizedBox(width: 6),
-          Text(emp.fullName,
+          Text(tr(emp.fullName),
               style: const TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w500,
@@ -2472,8 +2466,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
           final count = result['data'] ?? employees.length;
           appNotification.showSuccess(
               title: 'Đã gửi nhắc nhở',
-              message:
-                  'Đã gửi thông báo đến $count nhân viên yêu cầu đăng ký lịch');
+              message: tr('Đã gửi thông báo đến $count nhân viên yêu cầu đăng ký lịch'));
         } else {
           appNotification.showError(
               title: 'Lỗi',
@@ -2507,7 +2500,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
       if (mounted) {
         if (result['isSuccess'] == true) {
           appNotification.showSuccess(
-              title: 'Đã gửi', message: 'Đã gửi nhắc nhở đến ${emp.fullName}');
+              title: 'Đã gửi', message: tr('Đã gửi nhắc nhở đến ${emp.fullName}'));
         } else {
           appNotification.showError(
               title: 'Lỗi',
@@ -2581,18 +2574,17 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                 ? Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                        Text(
-                            '📊 Trung bình: ${avgScheduled.toStringAsFixed(1)} ca/nhân viên',
+                        Text(tr('📊 Trung bình: ${avgScheduled.toStringAsFixed(1)} ca/nhân viên'),
                             style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 12,
                                 fontWeight: FontWeight.w600)),
                         const SizedBox(height: 4),
-                        Text('⬆ Nhiều nhất: $empMax ($maxScheduled ca)',
+                        Text(tr('⬆ Nhiều nhất: $empMax ($maxScheduled ca)'),
                             style: TextStyle(
                                 color: Colors.white.withValues(alpha: 0.85),
                                 fontSize: 11)),
-                        Text('⬇ Ít nhất: $empMin ($minScheduled ca)',
+                        Text(tr('⬇ Ít nhất: $empMin ($minScheduled ca)'),
                             style: TextStyle(
                                 color: Colors.white.withValues(alpha: 0.85),
                                 fontSize: 11)),
@@ -2606,8 +2598,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                                   color: const Color(0xFFEF4444)
                                       .withValues(alpha: 0.3),
                                   borderRadius: BorderRadius.circular(6)),
-                              child: const Text(
-                                  '⚠ Chênh lệch lớn - cần cân bằng lại phân ca',
+                              child: Text(tr('⚠ Chênh lệch lớn - cần cân bằng lại phân ca'),
                                   style: TextStyle(
                                       color: Colors.white,
                                       fontSize: 11,
@@ -2618,18 +2609,18 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                 : Row(children: [
                     Expanded(
                         child: Text(
-                            '📊 TB: ${avgScheduled.toStringAsFixed(1)} ca/NV',
+                            tr('📊 TB: ${avgScheduled.toStringAsFixed(1)} ca/NV'),
                             style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 12,
                                 fontWeight: FontWeight.w600))),
                     Expanded(
-                        child: Text('⬆ Nhiều nhất: $empMax ($maxScheduled ca)',
+                        child: Text(tr('⬆ Nhiều nhất: $empMax ($maxScheduled ca)'),
                             style: TextStyle(
                                 color: Colors.white.withValues(alpha: 0.85),
                                 fontSize: 11))),
                     Expanded(
-                        child: Text('⬇ Ít nhất: $empMin ($minScheduled ca)',
+                        child: Text(tr('⬇ Ít nhất: $empMin ($minScheduled ca)'),
                             style: TextStyle(
                                 color: Colors.white.withValues(alpha: 0.85),
                                 fontSize: 11))),
@@ -2641,7 +2632,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                             color:
                                 const Color(0xFFEF4444).withValues(alpha: 0.3),
                             borderRadius: BorderRadius.circular(6)),
-                        child: const Text('⚠ Mất cân bằng',
+                        child: Text(tr('⚠ Mất cân bằng'),
                             style: TextStyle(
                                 color: Colors.white,
                                 fontSize: 11,
@@ -2657,10 +2648,10 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
   Widget _statBox(String label, String value, Color valueColor) {
     return Expanded(
         child: Column(children: [
-      Text(value,
+      Text(tr(value),
           style: TextStyle(
               color: valueColor, fontSize: 20, fontWeight: FontWeight.bold)),
-      Text(label,
+      Text(tr(label),
           style: TextStyle(
               color: Colors.white.withValues(alpha: 0.7), fontSize: 11)),
     ]));
@@ -2732,7 +2723,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
             radius: 18,
             backgroundColor: HrmPageChrome.primaryNavy,
             child: Text(
-                emp.firstName.isNotEmpty ? emp.firstName[0].toUpperCase() : '?',
+                tr(emp.firstName.isNotEmpty ? emp.firstName[0].toUpperCase() : '?'),
                 style: const TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.bold,
@@ -2743,12 +2734,12 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
               child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                Text(emp.fullName,
+                Text(tr(emp.fullName),
                     style: const TextStyle(
                         fontWeight: FontWeight.w600,
                         fontSize: 14,
                         color: Color(0xFF18181B))),
-                Text(emp.employeeCode,
+                Text(tr(emp.employeeCode),
                     style: const TextStyle(
                         fontSize: 11, color: Color(0xFFA1A1AA))),
               ])),
@@ -2760,7 +2751,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                   : HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: Text('${summary.scheduledShifts} ca',
+            child: Text(tr('${summary.scheduledShifts} ca'),
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
@@ -2804,7 +2795,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
         if (warningText != null)
           Padding(
             padding: const EdgeInsets.only(top: 6),
-            child: Text(warningText,
+            child: Text(tr(warningText),
                 style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
@@ -2820,7 +2811,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
       decoration: BoxDecoration(
           color: color.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(6)),
-      child: Text(text,
+      child: Text(tr(text),
           style: TextStyle(
               fontSize: 10, fontWeight: FontWeight.w600, color: color)),
     );
@@ -2854,42 +2845,42 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
           headingRowColor: WidgetStateProperty.all(const Color(0xFFF1F5F9)),
           dataRowColor: WidgetStateProperty.all(Colors.white),
           border: TableBorder.all(color: const Color(0xFFF4F4F5), width: 1),
-          columns: const [
+          columns: [
             DataColumn(
-                label: Text('NHÂN VIÊN',
+                label: Text(tr('NHÂN VIÊN'),
                     style:
                         TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
             DataColumn(
-                label: Text('CA ĐÃ XẾP',
+                label: Text(tr('CA ĐÃ XẾP'),
                     style:
                         TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                 numeric: true),
             DataColumn(
-                label: Text('PHÂN BỔ',
+                label: Text(tr('PHÂN BỔ'),
                     style:
                         TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
             DataColumn(
-                label: Text('TỔNG ĐK',
+                label: Text(tr('TỔNG ĐK'),
                     style:
                         TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                 numeric: true),
             DataColumn(
-                label: Text('DUYỆT',
+                label: Text(tr('DUYỆT'),
                     style:
                         TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                 numeric: true),
             DataColumn(
-                label: Text('CHỜ',
+                label: Text(tr('CHỜ'),
                     style:
                         TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                 numeric: true),
             DataColumn(
-                label: Text('TỪ CHỐI',
+                label: Text(tr('TỪ CHỐI'),
                     style:
                         TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                 numeric: true),
             DataColumn(
-                label: Text('TRẠNG THÁI',
+                label: Text(tr('TRẠNG THÁI'),
                     style:
                         TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
           ],
@@ -2935,9 +2926,9 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                       radius: 14,
                       backgroundColor: HrmPageChrome.primaryNavy,
                       child: Text(
-                          emp.firstName.isNotEmpty
+                          tr(emp.firstName.isNotEmpty
                               ? emp.firstName[0].toUpperCase()
-                              : '?',
+                              : '?'),
                           style: const TextStyle(
                               color: Colors.white,
                               fontWeight: FontWeight.bold,
@@ -2947,15 +2938,15 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Text(emp.fullName,
+                        Text(tr(emp.fullName),
                             style: const TextStyle(
                                 fontWeight: FontWeight.w600, fontSize: 12)),
-                        Text(emp.employeeCode,
+                        Text(tr(emp.employeeCode),
                             style: const TextStyle(
                                 color: Color(0xFFA1A1AA), fontSize: 10)),
                       ]),
                 ])),
-                DataCell(Text('${s.scheduledShifts}',
+                DataCell(Text(tr('${s.scheduledShifts}'),
                     style: TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 14,
@@ -2972,14 +2963,14 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                             valueColor: AlwaysStoppedAnimation(barColor),
                           )),
                     ))),
-                DataCell(Text('${s.totalRegistered}',
+                DataCell(Text(tr('${s.totalRegistered}'),
                     style: const TextStyle(fontSize: 13))),
-                DataCell(Text('${s.approved}',
+                DataCell(Text(tr('${s.approved}'),
                     style: const TextStyle(
                         fontSize: 13,
                         color: Color(0xFF22C55E),
                         fontWeight: FontWeight.w600))),
-                DataCell(Text('${s.pending}',
+                DataCell(Text(tr('${s.pending}'),
                     style: TextStyle(
                         fontSize: 13,
                         color: s.pending > 0
@@ -2988,13 +2979,13 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                         fontWeight: s.pending > 0
                             ? FontWeight.w600
                             : FontWeight.normal))),
-                DataCell(Text('${s.rejected}',
+                DataCell(Text(tr('${s.rejected}'),
                     style: TextStyle(
                         fontSize: 13,
                         color: s.rejected > 0
                             ? const Color(0xFFEF4444)
                             : const Color(0xFFA1A1AA)))),
-                DataCell(Text(statusText,
+                DataCell(Text(tr(statusText),
                     style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
@@ -3031,7 +3022,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
       return FilledButton.icon(
         onPressed: onTap,
         icon: Icon(icon, size: 14),
-        label: Text(label, style: const TextStyle(fontSize: 11)),
+        label: Text(tr(label), style: const TextStyle(fontSize: 11)),
         style: ElevatedButton.styleFrom(
           backgroundColor: color,
           foregroundColor: Colors.white,
@@ -3043,7 +3034,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
     return OutlinedButton.icon(
       onPressed: onTap,
       icon: Icon(icon, size: 14),
-      label: Text(label, style: const TextStyle(fontSize: 11)),
+      label: Text(tr(label), style: const TextStyle(fontSize: 11)),
       style: OutlinedButton.styleFrom(
         foregroundColor: color,
         side: BorderSide(color: color),
@@ -3059,7 +3050,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
       decoration: BoxDecoration(
           color: color.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(12)),
-      child: Text(label,
+      child: Text(tr(label),
           style: TextStyle(
               color: color, fontWeight: FontWeight.bold, fontSize: 11)),
     );
@@ -3104,18 +3095,18 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
       context: context,
       builder: (context) => ScrollableAlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Từ chối đăng ký',
+        title: Text(tr('Từ chối đăng ký'),
             style: TextStyle(
                 color: Color(0xFF18181B), fontWeight: FontWeight.bold)),
         content: SingleChildScrollView(
             child: Column(mainAxisSize: MainAxisSize.min, children: [
-          const Text('Bạn có chắc chắn muốn từ chối đăng ký này?'),
+          Text(tr('Bạn có chắc chắn muốn từ chối đăng ký này?')),
           const SizedBox(height: 12),
           TextField(
               controller: reasonController,
               decoration: InputDecoration(
-                labelText: 'Lý do từ chối',
-                hintText: 'Nhập lý do...',
+                labelText: tr('Lý do từ chối'),
+                hintText: tr('Nhập lý do...'),
                 border:
                     OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
               ),
@@ -3124,13 +3115,13 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(context, false),
-              child: const Text('Hủy',
+              child: Text(tr('Hủy'),
                   style: TextStyle(color: Color(0xFF71717A)))),
           FilledButton(
               onPressed: () => Navigator.pop(context, true),
               style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFFEF4444)),
-              child: const Text('Từ chối')),
+              child: Text(tr('Từ chối'))),
         ],
       ),
     );
@@ -3152,7 +3143,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
           setState(() => _mergeRegistrationUpdate(data));
         }
         appNotification.showWarning(
-            title: 'Từ chối đăng ký', message: 'Đã từ chối đăng ký');
+            title: 'Từ chối đăng ký', message: tr('Đã từ chối đăng ký'));
         await _loadSchedules();
         await _loadRegistrations();
       } else {
@@ -3175,7 +3166,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
           setState(() => _mergeRegistrationUpdate(data));
         }
         appNotification.showSuccess(
-            title: 'Hoàn duyệt', message: 'Đã hoàn duyệt đăng ký');
+            title: 'Hoàn duyệt', message: tr('Đã hoàn duyệt đăng ký'));
         await _loadSchedules();
         await _loadRegistrations();
       } else {
@@ -3200,7 +3191,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
       if (mounted) {
         if (result['isSuccess'] == true) {
           appNotification.showSuccess(
-              title: 'Xóa đăng ký', message: 'Đã xóa đăng ký thành công');
+              title: 'Xóa đăng ký', message: tr('Đã xóa đăng ký thành công'));
         } else {
           appNotification.showError(
               title: 'Lỗi',
@@ -3244,7 +3235,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
       setState(() {});
       if (fail == 0) {
         appNotification.showSuccess(
-            title: 'Duyệt hàng loạt', message: 'Đã duyệt $ok đăng ký');
+            title: 'Duyệt hàng loạt', message: tr('Đã duyệt $ok đăng ký'));
       } else if (ok == 0) {
         appNotification.showError(
             title: 'Duyệt hàng loạt thất bại',
@@ -3252,7 +3243,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
       } else {
         appNotification.showWarning(
             title: 'Duyệt một phần',
-            message: 'Thành công $ok, thất bại $fail');
+            message: tr('Thành công $ok, thất bại $fail'));
       }
       await _loadSchedules();
       await _loadRegistrations();
@@ -3292,7 +3283,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
       setState(() {});
       if (fail == 0) {
         appNotification.showWarning(
-            title: 'Từ chối hàng loạt', message: 'Đã từ chối $ok đăng ký');
+            title: 'Từ chối hàng loạt', message: tr('Đã từ chối $ok đăng ký'));
       } else if (ok == 0) {
         appNotification.showError(
             title: 'Từ chối hàng loạt thất bại',
@@ -3300,7 +3291,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
       } else {
         appNotification.showWarning(
             title: 'Từ chối một phần',
-            message: 'Thành công $ok, thất bại $fail');
+            message: tr('Thành công $ok, thất bại $fail'));
       }
       await _loadSchedules();
       await _loadRegistrations();
@@ -3326,7 +3317,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
       if (mounted) {
         appNotification.showSuccess(
             title: 'Hoàn duyệt hàng loạt',
-            message: 'Đã hoàn duyệt ${regs.length} đăng ký');
+            message: tr('Đã hoàn duyệt ${regs.length} đăng ký'));
       }
       await _loadSchedules();
       await _loadRegistrations();
@@ -3351,7 +3342,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
       }
       if (mounted) {
         appNotification.showSuccess(
-            title: 'Xóa hàng loạt', message: 'Đã xóa ${regs.length} đăng ký');
+            title: 'Xóa hàng loạt', message: tr('Đã xóa ${regs.length} đăng ký'));
       }
       await _loadSchedules();
       await _loadRegistrations();
@@ -3369,19 +3360,19 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
       context: context,
       builder: (context) => ScrollableAlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Text(title,
+        title: Text(tr(title),
             style: const TextStyle(
                 color: Color(0xFF18181B), fontWeight: FontWeight.bold)),
-        content: Text(content),
+        content: Text(tr(content)),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(context, false),
-              child: const Text('Hủy',
+              child: Text(tr('Hủy'),
                   style: TextStyle(color: Color(0xFF71717A)))),
           FilledButton(
               onPressed: () => Navigator.pop(context, true),
               style: ElevatedButton.styleFrom(backgroundColor: confirmColor),
-              child: Text(confirmText)),
+              child: Text(tr(confirmText))),
         ],
       ),
     );

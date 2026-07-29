@@ -1,5 +1,6 @@
 import 'dart:ui' as ui;
 import 'package:flutter/painting.dart';
+import '../l10n/app_tr.dart';
 
 /// Mobile implementation using Flutter's dart:ui Canvas.
 /// Provides an adapter that emulates HTML Canvas2D API methods.
@@ -84,7 +85,7 @@ class _MobileCanvasAdapter {
     final useBeVietnam = _font.contains('BeVietnamPro');
     final tp = TextPainter(
       text: TextSpan(
-        text: text.toString(),
+        text: tr(text.toString()),
         style: TextStyle(
           color: _parseColor(_fillStyle),
           fontSize: fontSize,

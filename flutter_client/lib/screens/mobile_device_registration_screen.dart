@@ -17,6 +17,7 @@ import '../widgets/hrm_page_chrome.dart';
 import '../widgets/notification_overlay.dart';
 import '../services/signalr_service.dart';
 import 'main_layout.dart' show ScreenRefreshNotifier;
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 class MobileDeviceRegistrationScreen extends StatefulWidget {
   const MobileDeviceRegistrationScreen({super.key});
@@ -245,9 +246,9 @@ class _MobileDeviceRegistrationScreenState
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Chọn các chi nhánh/vị trí bạn sẽ chấm công. '
-            'Sau khi được duyệt, hệ thống tự gán bạn vào các vị trí này.',
+          Text(
+            tr('Chọn các chi nhánh/vị trí bạn sẽ chấm công. '
+            'Sau khi được duyệt, hệ thống tự gán bạn vào các vị trí này.'),
             style: TextStyle(
               color: Color(0xFF71717A),
               fontSize: 13,
@@ -267,20 +268,19 @@ class _MobileDeviceRegistrationScreenState
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  _locationsError!,
+                  tr(_locationsError!),
                   style: const TextStyle(color: Color(0xFFEF4444), fontSize: 13),
                 ),
                 const SizedBox(height: 8),
                 OutlinedButton.icon(
                   onPressed: () => _loadRegistrationLocations(),
                   icon: const Icon(Icons.refresh, size: 18),
-                  label: const Text('Tải lại'),
+                  label: Text(tr('Tải lại')),
                 ),
               ],
             )
           else if (_registrationLocations.isEmpty)
-            const Text(
-              'Chưa có vị trí chấm công active. Liên hệ quản trị thiết lập tab Vị trí.',
+            Text(tr('Chưa có vị trí chấm công active. Liên hệ quản trị thiết lập tab Vị trí.'),
               style: TextStyle(color: Color(0xFFF59E0B), fontSize: 13),
             )
           else
@@ -319,7 +319,7 @@ class _MobileDeviceRegistrationScreenState
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  name,
+                                  tr(name),
                                   style: const TextStyle(
                                     fontSize: 14,
                                     fontWeight: FontWeight.w600,
@@ -328,7 +328,7 @@ class _MobileDeviceRegistrationScreenState
                                 ),
                                 if (address != null && address.isNotEmpty)
                                   Text(
-                                    address,
+                                    tr(address),
                                     style: const TextStyle(
                                       fontSize: 12,
                                       color: Color(0xFF71717A),
@@ -524,8 +524,7 @@ class _MobileDeviceRegistrationScreenState
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Xem trước ${_capturedImages.length}/5 ảnh trước khi gửi',
+        Text(tr('Xem trước ${_capturedImages.length}/5 ảnh trước khi gửi'),
           style: const TextStyle(
             fontSize: 13,
             fontWeight: FontWeight.w600,
@@ -565,7 +564,7 @@ class _MobileDeviceRegistrationScreenState
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        label,
+                        tr(label),
                         style: const TextStyle(
                             fontSize: 10, color: Color(0xFF71717A)),
                       ),
@@ -766,8 +765,7 @@ class _MobileDeviceRegistrationScreenState
         backgroundColor: Colors.white,
         elevation: 0,
         automaticallyImplyLeading: false,
-        title: const Text(
-          'Đăng ký chấm công Mobile',
+        title: Text(tr('Đăng ký chấm công Mobile'),
           style: TextStyle(
             color: Color(0xFF18181B),
             fontWeight: FontWeight.bold,
@@ -825,13 +823,12 @@ class _MobileDeviceRegistrationScreenState
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Row(
+                Row(
                   children: [
                     Icon(Icons.phone_android, color: Colors.white, size: 28),
                     SizedBox(width: 12),
                     Expanded(
-                      child: Text(
-                        'Đăng ký thiết bị',
+                      child: Text(tr('Đăng ký thiết bị'),
                         style: TextStyle(
                           color: Colors.white,
                           fontSize: 20,
@@ -843,8 +840,8 @@ class _MobileDeviceRegistrationScreenState
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  'Đăng ký điện thoại và khuôn mặt để sử dụng chấm công mobile. '
-                  'Mỗi tài khoản chỉ được đăng ký 1 thiết bị.',
+                  tr('Đăng ký điện thoại và khuôn mặt để sử dụng chấm công mobile. '
+                  'Mỗi tài khoản chỉ được đăng ký 1 thiết bị.'),
                   style: TextStyle(
                     color: Colors.white.withValues(alpha: 0.85),
                     fontSize: 14,
@@ -892,8 +889,7 @@ class _MobileDeviceRegistrationScreenState
             child: Column(
               children: [
                 if (_capturedImages.isEmpty) ...[
-                  const Text(
-                    'Hệ thống sẽ chụp 5 góc khuôn mặt: Thẳng, Trái, Phải, Trên, Dưới',
+                  Text(tr('Hệ thống sẽ chụp 5 góc khuôn mặt: Thẳng, Trái, Phải, Trên, Dưới'),
                     style: TextStyle(
                       color: Color(0xFF71717A),
                       fontSize: 13,
@@ -908,8 +904,7 @@ class _MobileDeviceRegistrationScreenState
                           color: Color(0xFF22C55E), size: 20),
                       const SizedBox(width: 8),
                       Expanded(
-                        child: Text(
-                          'Đã chụp ${_capturedImages.length} ảnh khuôn mặt',
+                        child: Text(tr('Đã chụp ${_capturedImages.length} ảnh khuôn mặt'),
                           style: const TextStyle(
                             color: Color(0xFF22C55E),
                             fontWeight: FontWeight.w600,
@@ -930,7 +925,7 @@ class _MobileDeviceRegistrationScreenState
                         ? Icons.camera_alt
                         : Icons.refresh),
                     label: Text(
-                        _capturedImages.isEmpty ? 'Bắt đầu chụp' : 'Chụp lại'),
+                        tr(_capturedImages.isEmpty ? 'Bắt đầu chụp' : 'Chụp lại')),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: HrmPageChrome.primaryNavy,
                       padding: const EdgeInsets.symmetric(vertical: 14),
@@ -966,7 +961,7 @@ class _MobileDeviceRegistrationScreenState
                     )
                   : const Icon(Icons.send),
               label: Text(
-                _isSubmitting ? 'Đang gửi...' : 'Gửi yêu cầu đăng ký',
+                tr(_isSubmitting ? 'Đang gửi...' : 'Gửi yêu cầu đăng ký'),
                 style: const TextStyle(
                     fontSize: 16, fontWeight: FontWeight.w600),
               ),
@@ -986,15 +981,15 @@ class _MobileDeviceRegistrationScreenState
               color: const Color(0xFFFEF3C7),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: const Row(
+            child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Icon(Icons.info_outline, color: Color(0xFFF59E0B), size: 20),
                 SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    'Sau khi gửi yêu cầu, quản lý sẽ duyệt đăng ký. '
-                    'Khi được duyệt, chức năng chấm công mobile sẽ hiển thị.',
+                    tr('Sau khi gửi yêu cầu, quản lý sẽ duyệt đăng ký. '
+                    'Khi được duyệt, chức năng chấm công mobile sẽ hiển thị.'),
                     style: TextStyle(
                       fontSize: 13,
                       color: Color(0xFF92400E),
@@ -1054,7 +1049,7 @@ class _MobileDeviceRegistrationScreenState
                   child: isCompleted
                       ? const Icon(Icons.check, color: Colors.white, size: 20)
                       : Text(
-                          '$step',
+                          tr('$step'),
                           style: const TextStyle(
                             color: Colors.white,
                             fontWeight: FontWeight.bold,
@@ -1068,7 +1063,7 @@ class _MobileDeviceRegistrationScreenState
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      title,
+                      tr(title),
                       style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
@@ -1076,7 +1071,7 @@ class _MobileDeviceRegistrationScreenState
                       ),
                     ),
                     Text(
-                      subtitle,
+                      tr(subtitle),
                       style: const TextStyle(
                         fontSize: 12,
                         color: Color(0xFF71717A),
@@ -1108,13 +1103,13 @@ class _MobileDeviceRegistrationScreenState
           const SizedBox(width: 8),
           SizedBox(
             width: 100,
-            child: Text(label,
+            child: Text(tr(label),
                 style: const TextStyle(
                     fontSize: 13, color: Color(0xFF71717A))),
           ),
           Expanded(
             child: Text(
-              value,
+              tr(value),
               style: const TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w500,
@@ -1151,8 +1146,7 @@ class _MobileDeviceRegistrationScreenState
                   size: 64, color: Color(0xFFF59E0B)),
             ),
             const SizedBox(height: 32),
-            const Text(
-              'Đang chờ duyệt',
+            Text(tr('Đang chờ duyệt'),
               style: TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
@@ -1160,9 +1154,8 @@ class _MobileDeviceRegistrationScreenState
               ),
             ),
             const SizedBox(height: 12),
-            Text(
-              'Thiết bị "${_registeredDeviceName ?? ''}" đã được đăng ký.\n'
-              'Vui lòng chờ quản lý duyệt yêu cầu.',
+            Text(tr('${tr('Thiết bị "')}${_registeredDeviceName ?? ''}" đã được đăng ký.\n'
+              'Vui lòng chờ quản lý duyệt yêu cầu.'),
               textAlign: TextAlign.center,
               style: const TextStyle(
                 color: Color(0xFF71717A),
@@ -1172,8 +1165,7 @@ class _MobileDeviceRegistrationScreenState
             ),
             if (_registeredAt != null) ...[
               const SizedBox(height: 8),
-              Text(
-                'Đăng ký lúc: ${_registeredAt!.day}/${_registeredAt!.month}/${_registeredAt!.year}',
+              Text(tr('Đăng ký lúc: ${_registeredAt!.day}/${_registeredAt!.month}/${_registeredAt!.year}'),
                 style: const TextStyle(
                   color: Color(0xFFA1A1AA),
                   fontSize: 13,
@@ -1184,7 +1176,7 @@ class _MobileDeviceRegistrationScreenState
             OutlinedButton.icon(
               onPressed: _checkRegistrationStatus,
               icon: const Icon(Icons.refresh),
-              label: const Text('Kiểm tra lại'),
+              label: Text(tr('Kiểm tra lại')),
               style: OutlinedButton.styleFrom(
                 foregroundColor: HrmPageChrome.primaryNavy,
                 padding: const EdgeInsets.symmetric(
@@ -1224,8 +1216,7 @@ class _MobileDeviceRegistrationScreenState
                   size: 64, color: Color(0xFF22C55E)),
             ),
             const SizedBox(height: 32),
-            const Text(
-              'Đã được duyệt!',
+            Text(tr('Đã được duyệt!'),
               style: TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
@@ -1233,9 +1224,8 @@ class _MobileDeviceRegistrationScreenState
               ),
             ),
             const SizedBox(height: 12),
-            Text(
-              'Thiết bị "${_registeredDeviceName ?? ''}" đã được duyệt.\n'
-              'Bạn có thể sử dụng chấm công mobile.',
+            Text(tr('${tr('Thiết bị "')}${_registeredDeviceName ?? ''}" đã được duyệt.\n'
+              'Bạn có thể sử dụng chấm công mobile.'),
               textAlign: TextAlign.center,
               style: const TextStyle(
                 color: Color(0xFF71717A),
@@ -1247,8 +1237,7 @@ class _MobileDeviceRegistrationScreenState
             const Icon(Icons.phone_android,
                 size: 28, color: HrmPageChrome.primaryNavy),
             const SizedBox(height: 8),
-            const Text(
-              'Mở "Chấm công Mobile" trong menu để bắt đầu',
+            Text(tr('Mở "Chấm công Mobile" trong menu để bắt đầu'),
               style: TextStyle(
                 color: HrmPageChrome.primaryNavy,
                 fontWeight: FontWeight.w600,
@@ -1280,13 +1269,12 @@ class _MobileDeviceRegistrationScreenState
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Row(
+                Row(
                   children: [
                     Icon(Icons.warning_amber_rounded, color: Colors.white, size: 28),
                     SizedBox(width: 12),
                     Expanded(
-                      child: Text(
-                        'Đã đăng ký trên thiết bị khác',
+                      child: Text(tr('Đã đăng ký trên thiết bị khác'),
                         style: TextStyle(
                           color: Colors.white,
                           fontSize: 18,
@@ -1297,8 +1285,7 @@ class _MobileDeviceRegistrationScreenState
                   ],
                 ),
                 const SizedBox(height: 12),
-                Text(
-                  'Tài khoản của bạn đã đăng ký chấm công trên thiết bị:',
+                Text(tr('Tài khoản của bạn đã đăng ký chấm công trên thiết bị:'),
                   style: TextStyle(
                     color: Colors.white.withValues(alpha: 0.9),
                     fontSize: 14,
@@ -1322,7 +1309,7 @@ class _MobileDeviceRegistrationScreenState
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
-                              _existingDeviceName ?? 'Không rõ',
+                              tr(_existingDeviceName ?? 'Không rõ'),
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontWeight: FontWeight.bold,
@@ -1337,7 +1324,7 @@ class _MobileDeviceRegistrationScreenState
                         Padding(
                           padding: const EdgeInsets.only(left: 28),
                           child: Text(
-                            _existingDeviceModel!,
+                            tr(_existingDeviceModel!),
                             style: TextStyle(
                               color: Colors.white.withValues(alpha: 0.8),
                               fontSize: 13,
@@ -1349,8 +1336,7 @@ class _MobileDeviceRegistrationScreenState
                         const SizedBox(height: 4),
                         Padding(
                           padding: const EdgeInsets.only(left: 28),
-                          child: Text(
-                            'Đăng ký: ${_registeredAt!.day}/${_registeredAt!.month}/${_registeredAt!.year}',
+                          child: Text(tr('Đăng ký: ${_registeredAt!.day}/${_registeredAt!.month}/${_registeredAt!.year}'),
                             style: TextStyle(
                               color: Colors.white.withValues(alpha: 0.7),
                               fontSize: 12,
@@ -1385,13 +1371,12 @@ class _MobileDeviceRegistrationScreenState
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Row(
+                Row(
                   children: [
                     Icon(Icons.swap_horiz, color: Color(0xFF2563EB), size: 24),
                     SizedBox(width: 10),
                     Expanded(
-                      child: Text(
-                        'Yêu cầu đổi sang thiết bị này',
+                      child: Text(tr('Yêu cầu đổi sang thiết bị này'),
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
@@ -1402,9 +1387,9 @@ class _MobileDeviceRegistrationScreenState
                   ],
                 ),
                 const SizedBox(height: 8),
-                const Text(
-                  'Gửi yêu cầu đổi máy để chuyển chấm công sang thiết bị hiện tại. '
-                  'Sau khi được duyệt, thiết bị cũ và khuôn mặt cũ sẽ bị xóa.',
+                Text(
+                  tr('Gửi yêu cầu đổi máy để chuyển chấm công sang thiết bị hiện tại. '
+                  'Sau khi được duyệt, thiết bị cũ và khuôn mặt cũ sẽ bị xóa.'),
                   style: TextStyle(
                     color: Color(0xFF71717A),
                     fontSize: 13,
@@ -1425,8 +1410,8 @@ class _MobileDeviceRegistrationScreenState
                 // Reason input
                 TextField(
                   decoration: InputDecoration(
-                    labelText: 'Lý do đổi máy (tùy chọn)',
-                    hintText: 'VD: Máy cũ bị hỏng, đổi máy mới...',
+                    labelText: tr('Lý do đổi máy (tùy chọn)'),
+                    hintText: tr('VD: Máy cũ bị hỏng, đổi máy mới...'),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
@@ -1444,7 +1429,7 @@ class _MobileDeviceRegistrationScreenState
                     child: OutlinedButton.icon(
                       onPressed: _openFaceCapture,
                       icon: const Icon(Icons.camera_alt),
-                      label: const Text('Chụp khuôn mặt mới'),
+                      label: Text(tr('Chụp khuôn mặt mới')),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: HrmPageChrome.primaryNavy,
                         padding: const EdgeInsets.symmetric(vertical: 14),
@@ -1461,8 +1446,7 @@ class _MobileDeviceRegistrationScreenState
                       const Icon(Icons.check_circle, color: Color(0xFF22C55E), size: 20),
                       const SizedBox(width: 8),
                       Expanded(
-                        child: Text(
-                          'Đã chụp ${_capturedImages.length} ảnh khuôn mặt',
+                        child: Text(tr('Đã chụp ${_capturedImages.length} ảnh khuôn mặt'),
                           style: const TextStyle(
                             color: Color(0xFF22C55E),
                             fontWeight: FontWeight.w600,
@@ -1471,7 +1455,7 @@ class _MobileDeviceRegistrationScreenState
                       ),
                       TextButton(
                         onPressed: _openFaceCapture,
-                        child: const Text('Chụp lại'),
+                        child: Text(tr('Chụp lại')),
                       ),
                     ],
                   ),
@@ -1500,7 +1484,7 @@ class _MobileDeviceRegistrationScreenState
                           )
                         : const Icon(Icons.send),
                     label: Text(
-                      _isSubmitting ? 'Đang gửi...' : 'Gửi yêu cầu đổi máy',
+                      tr(_isSubmitting ? 'Đang gửi...' : 'Gửi yêu cầu đổi máy'),
                       style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                     ),
                     style: FilledButton.styleFrom(
@@ -1522,15 +1506,15 @@ class _MobileDeviceRegistrationScreenState
               color: const Color(0xFFFEF3C7),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: const Row(
+            child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Icon(Icons.info_outline, color: Color(0xFFF59E0B), size: 20),
                 SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    'Sau khi gửi yêu cầu, quản lý sẽ duyệt và thiết bị cũ + khuôn mặt cũ sẽ bị xóa. '
-                    'Thiết bị mới sẽ được tự động kích hoạt.',
+                    tr('Sau khi gửi yêu cầu, quản lý sẽ duyệt và thiết bị cũ + khuôn mặt cũ sẽ bị xóa. '
+                    'Thiết bị mới sẽ được tự động kích hoạt.'),
                     style: TextStyle(
                       fontSize: 13,
                       color: Color(0xFF92400E),
@@ -1570,8 +1554,7 @@ class _MobileDeviceRegistrationScreenState
                   size: 64, color: Color(0xFF2563EB)),
             ),
             const SizedBox(height: 32),
-            const Text(
-              'Đang chờ duyệt đổi máy',
+            Text(tr('Đang chờ duyệt đổi máy'),
               style: TextStyle(
                 fontSize: 22,
                 fontWeight: FontWeight.bold,
@@ -1579,8 +1562,7 @@ class _MobileDeviceRegistrationScreenState
               ),
             ),
             const SizedBox(height: 12),
-            Text(
-              'Yêu cầu đổi sang "${_registeredDeviceName ?? 'thiết bị mới'}" đang chờ quản lý duyệt.',
+            Text(tr('${tr('Yêu cầu đổi sang "')}${_registeredDeviceName ?? 'thiết bị mới'}" đang chờ quản lý duyệt.'),
               textAlign: TextAlign.center,
               style: const TextStyle(
                 color: Color(0xFF71717A),
@@ -1590,8 +1572,7 @@ class _MobileDeviceRegistrationScreenState
             ),
             if (_existingDeviceName != null) ...[
               const SizedBox(height: 8),
-              Text(
-                'Thiết bị hiện tại: $_existingDeviceName',
+              Text(tr('Thiết bị hiện tại: $_existingDeviceName'),
                 style: const TextStyle(
                   color: Color(0xFFA1A1AA),
                   fontSize: 13,
@@ -1602,7 +1583,7 @@ class _MobileDeviceRegistrationScreenState
             OutlinedButton.icon(
               onPressed: _checkRegistrationStatus,
               icon: const Icon(Icons.refresh),
-              label: const Text('Kiểm tra lại'),
+              label: Text(tr('Kiểm tra lại')),
               style: OutlinedButton.styleFrom(
                 foregroundColor: const Color(0xFF2563EB),
                 padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
@@ -1627,7 +1608,7 @@ class _MobileDeviceRegistrationScreenState
             const Icon(Icons.error_outline, size: 64, color: Color(0xFFEF4444)),
             const SizedBox(height: 16),
             Text(
-              _errorMessage ?? 'Đã xảy ra lỗi',
+              tr(_errorMessage ?? 'Đã xảy ra lỗi'),
               textAlign: TextAlign.center,
               style: const TextStyle(
                 color: Color(0xFF71717A),
@@ -1638,7 +1619,7 @@ class _MobileDeviceRegistrationScreenState
             FilledButton.icon(
               onPressed: _checkRegistrationStatus,
               icon: const Icon(Icons.refresh),
-              label: const Text('Thử lại'),
+              label: Text(tr('Thử lại')),
               style: FilledButton.styleFrom(
                 backgroundColor: HrmPageChrome.primaryNavy,
               ),

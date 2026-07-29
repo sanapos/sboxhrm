@@ -17,6 +17,7 @@ import 'pos_store_printer_mapper.dart';
 import 'pos_sunmi_native_print.dart';
 import 'pos_thermal_printer_service.dart';
 import 'pos_thermal_printer_settings.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 enum PosEndOfDayPrintFormat {
   /// Bill nhiệt 58mm (Sunmi V2s / K58).
@@ -436,15 +437,14 @@ Future<Uint8List> buildPosEndOfDayPdfBytes(
             crossAxisAlignment: pw.CrossAxisAlignment.stretch,
             children: [
               pw.Center(
-                child: pw.Text(
-                  'BÁO CÁO CUỐI NGÀY VỀ BÁN HÀNG',
+                child: pw.Text(tr('BÁO CÁO CUỐI NGÀY VỀ BÁN HÀNG'),
                   style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold),
                 ),
               ),
               pw.SizedBox(height: 8),
               if (r.storeName != null && r.storeName!.isNotEmpty)
                 pw.Center(child: pw.Text(r.storeName!, style: const pw.TextStyle(fontSize: 10))),
-              pw.Center(child: pw.Text('Nhân viên: $staff', style: const pw.TextStyle(fontSize: 9))),
+              pw.Center(child: pw.Text(tr('Nhân viên: $staff'), style: const pw.TextStyle(fontSize: 9))),
               pw.Center(
                 child: pw.Text('${_dt(r.from)} - ${_dt(r.to)}',
                     style: const pw.TextStyle(fontSize: 9)),
@@ -456,7 +456,7 @@ Future<Uint8List> buildPosEndOfDayPdfBytes(
               pair('Thực thu', _money(r.actualReceived), bold: true),
               if (showProductDetail && r.products.isNotEmpty) ...[
                 pw.SizedBox(height: 10),
-                pw.Text('Hàng hóa bán ra',
+                pw.Text(tr('Hàng hóa bán ra'),
                     style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold)),
                 ...r.products.take(40).map(
                       (p) => pair(p.productName, '${_qty(p.qty)} · ${_money(p.revenue)}'),
@@ -464,7 +464,7 @@ Future<Uint8List> buildPosEndOfDayPdfBytes(
               ],
               pw.Spacer(),
               pw.Center(
-                child: pw.Text('In lúc ${_dt(r.generatedAt)} · SBOX POS',
+                child: pw.Text(tr('In lúc ${_dt(r.generatedAt)} · SBOX POS'),
                     style: const pw.TextStyle(fontSize: 8)),
               ),
             ],
@@ -483,8 +483,7 @@ Future<Uint8List> buildPosEndOfDayPdfBytes(
                 ),
               ),
             pw.Center(
-              child: pw.Text(
-                'TỔNG KẾT CUỐI NGÀY',
+              child: pw.Text(tr('TỔNG KẾT CUỐI NGÀY'),
                 style: pw.TextStyle(fontSize: fs + 2, fontWeight: pw.FontWeight.bold),
               ),
             ),
@@ -496,8 +495,8 @@ Future<Uint8List> buildPosEndOfDayPdfBytes(
             ),
             pw.SizedBox(height: 4),
             pw.Text('NV: $staff', style: pw.TextStyle(fontSize: fs)),
-            pw.Text('Từ: ${_dtShort(r.from)}', style: pw.TextStyle(fontSize: fs - 0.5)),
-            pw.Text('Đến: ${_dtShort(r.to)}', style: pw.TextStyle(fontSize: fs - 0.5)),
+            pw.Text(tr('Từ: ${_dtShort(r.from)}'), style: pw.TextStyle(fontSize: fs - 0.5)),
+            pw.Text(tr('Đến: ${_dtShort(r.to)}'), style: pw.TextStyle(fontSize: fs - 0.5)),
             pw.Divider(thickness: 0.6),
             section('BÁN HÀNG'),
             ...layout.salesRows().map((e) => pair(e.left, e.right, bold: e.bold)),
@@ -524,8 +523,7 @@ Future<Uint8List> buildPosEndOfDayPdfBytes(
             ],
             pw.SizedBox(height: 8),
             pw.Center(
-              child: pw.Text(
-                'In lúc ${_dt(r.generatedAt)} · SBOX POS',
+              child: pw.Text(tr('In lúc ${_dt(r.generatedAt)} · SBOX POS'),
                 style: pw.TextStyle(fontSize: fs - 1),
               ),
             ),
@@ -612,7 +610,7 @@ Future<void> printPosEndOfDayReport(
       if (printed) {
         NotificationOverlayManager().showSuccess(
           title: 'In cuối ngày',
-          message: 'Máy in cục bộ · ${format.label}',
+          message: tr('Máy in cục bộ · ${format.label}'),
         );
         return;
       }
@@ -665,10 +663,10 @@ Future<void> printPosEndOfDayReport(
   await showDialog<void>(
     context: context,
     builder: (ctx) => AlertDialog(
-      title: Text('In tổng kết · ${format.label}'),
-      content: const Text('Chọn cách in hoặc xuất PDF.'),
+      title: Text(tr('In tổng kết · ${format.label}')),
+      content: Text(tr('Chọn cách in hoặc xuất PDF.')),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Đóng')),
+        TextButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('Đóng'))),
         OutlinedButton(
           onPressed: () async {
             Navigator.pop(ctx);
@@ -677,14 +675,14 @@ Future<void> printPosEndOfDayReport(
               name: title,
             );
           },
-          child: const Text('In'),
+          child: Text(tr('In')),
         ),
         FilledButton(
           onPressed: () async {
             Navigator.pop(ctx);
             await Printing.sharePdf(bytes: bytes, filename: '$title.pdf');
           },
-          child: const Text('Xuất PDF'),
+          child: Text(tr('Xuất PDF')),
         ),
       ],
     ),

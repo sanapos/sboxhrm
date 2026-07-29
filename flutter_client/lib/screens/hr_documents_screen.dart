@@ -9,6 +9,7 @@ import '../widgets/notification_overlay.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../widgets/hrm_fab_clearance.dart';
 import '../utils/responsive_helper.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 class HrDocumentsScreen extends StatefulWidget {
   final String? highlightId;
@@ -175,7 +176,7 @@ class _HrDocumentsScreenState extends State<HrDocumentsScreen>
               ? FloatingActionButton.extended(
                   onPressed: () => _showDocumentDialog(),
                   icon: const Icon(Icons.note_add),
-                  label: const Text('Thêm tài liệu'),
+                  label: Text(tr('Thêm tài liệu')),
                   backgroundColor: HrmPageChrome.primaryNavy,
                 )
               : null,
@@ -202,16 +203,16 @@ class _HrDocumentsScreenState extends State<HrDocumentsScreen>
                     color: Colors.white, size: 24),
               ),
               const SizedBox(width: 16),
-              const Expanded(
+              Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Hồ sơ nhân sự',
+                    Text(tr('Hồ sơ nhân sự'),
                         style: TextStyle(
                             color: Colors.white,
                             fontSize: 22,
                             fontWeight: FontWeight.bold)),
-                    Text('Hợp đồng, bằng cấp, giấy phép',
+                    Text(tr('Hợp đồng, bằng cấp, giấy phép'),
                         style: TextStyle(color: Colors.white70, fontSize: 14)),
                   ],
                 ),
@@ -227,7 +228,7 @@ class _HrDocumentsScreenState extends State<HrDocumentsScreen>
                     const Icon(Icons.warning_amber,
                         color: Color(0xFFD97706), size: 16),
                     const SizedBox(width: 4),
-                    Text('${_expiringDocs.length} sắp hết hạn',
+                    Text(tr('${_expiringDocs.length} sắp hết hạn'),
                         style: const TextStyle(
                             color: Color(0xFFD97706),
                             fontWeight: FontWeight.w600,
@@ -244,8 +245,8 @@ class _HrDocumentsScreenState extends State<HrDocumentsScreen>
             labelColor: Colors.white,
             unselectedLabelColor: Colors.white60,
             tabs: [
-              Tab(text: 'Tất cả (${_documents.length})'),
-              Tab(text: 'Sắp hết hạn (${_expiringDocs.length})'),
+              Tab(text: tr('Tất cả (${_documents.length})')),
+              Tab(text: tr('Sắp hết hạn (${_expiringDocs.length})')),
             ],
           ),
         ],
@@ -259,7 +260,7 @@ class _HrDocumentsScreenState extends State<HrDocumentsScreen>
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           Icon(Icons.folder_open, size: 80, color: Colors.grey[300]),
           const SizedBox(height: 16),
-          Text('Chưa có tài liệu',
+          Text(tr('Chưa có tài liệu'),
               style: TextStyle(color: Colors.grey[500], fontSize: 16)),
         ]),
       );
@@ -308,8 +309,7 @@ class _HrDocumentsScreenState extends State<HrDocumentsScreen>
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  'Hiển thị ${startIndex + 1}-$endIndex / $totalCount',
+                Text(tr('Hiển thị ${startIndex + 1}-$endIndex / $totalCount'),
                   style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                 ),
                 Row(
@@ -321,7 +321,7 @@ class _HrDocumentsScreenState extends State<HrDocumentsScreen>
                           : null,
                       visualDensity: VisualDensity.compact,
                     ),
-                    Text('$page / $totalPages',
+                    Text(tr('$page / $totalPages'),
                         style: const TextStyle(
                             fontSize: 12, fontWeight: FontWeight.w500)),
                     IconButton(
@@ -346,7 +346,7 @@ class _HrDocumentsScreenState extends State<HrDocumentsScreen>
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           Icon(Icons.verified, size: 80, color: Colors.green[200]),
           const SizedBox(height: 16),
-          Text('Không có tài liệu sắp hết hạn',
+          Text(tr('Không có tài liệu sắp hết hạn'),
               style: TextStyle(color: Colors.grey[500], fontSize: 16)),
         ]),
       );
@@ -398,8 +398,7 @@ class _HrDocumentsScreenState extends State<HrDocumentsScreen>
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  'Hiển thị ${startIndex + 1}-$endIndex / $totalCount',
+                Text(tr('Hiển thị ${startIndex + 1}-$endIndex / $totalCount'),
                   style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                 ),
                 Row(
@@ -411,7 +410,7 @@ class _HrDocumentsScreenState extends State<HrDocumentsScreen>
                           : null,
                       visualDensity: VisualDensity.compact,
                     ),
-                    Text('$page / $totalPages',
+                    Text(tr('$page / $totalPages'),
                         style: const TextStyle(
                             fontSize: 12, fontWeight: FontWeight.w500)),
                     IconButton(
@@ -455,21 +454,21 @@ class _HrDocumentsScreenState extends State<HrDocumentsScreen>
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                      doc['title'] ??
+                      tr(doc['title'] ??
                           doc['name'] ??
                           doc['documentName'] ??
-                          'Tài liệu',
+                          'Tài liệu'),
                       style: const TextStyle(
                           fontWeight: FontWeight.w600, fontSize: 14),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis),
                   const SizedBox(height: 2),
                   Text(
-                    [
+                    tr([
                       _getDocTypeLabel(type),
                       if (doc['employeeName'] != null) doc['employeeName'],
                       if (expDate != null) 'Hết hạn: ${_formatDate(expDate)}',
-                    ].join(' · '),
+                    ].join(' · ')),
                     style: TextStyle(
                         fontSize: 12,
                         color: showWarning
@@ -493,21 +492,21 @@ class _HrDocumentsScreenState extends State<HrDocumentsScreen>
                 itemBuilder: (_) => [
                   if (Provider.of<PermissionProvider>(context, listen: false)
                       .canEdit('HrDocument'))
-                    const PopupMenuItem(
+                    PopupMenuItem(
                         value: 'edit',
                         child: Row(children: [
                           Icon(Icons.edit, size: 16),
                           SizedBox(width: 8),
-                          Text('Sửa')
+                          Text(tr('Sửa'))
                         ])),
                   if (Provider.of<PermissionProvider>(context, listen: false)
                       .canDelete('HrDocument'))
-                    const PopupMenuItem(
+                    PopupMenuItem(
                         value: 'delete',
                         child: Row(children: [
                           Icon(Icons.delete, size: 16, color: Colors.red),
                           SizedBox(width: 8),
-                          Text('Xóa', style: TextStyle(color: Colors.red))
+                          Text(tr('Xóa'), style: TextStyle(color: Colors.red))
                         ])),
                 ],
                 onSelected: (v) {
@@ -554,13 +553,13 @@ class _HrDocumentsScreenState extends State<HrDocumentsScreen>
   void _showDocumentDialog({Map<String, dynamic>? doc}) {
     final isEdit = doc != null;
     final nameCtrl = TextEditingController(
-        text: doc?['title'] ?? doc?['name'] ?? doc?['documentName'] ?? '');
+        text: tr(doc?['title'] ?? doc?['name'] ?? doc?['documentName'] ?? ''));
     final typeCtrl =
-        TextEditingController(text: doc?['documentType'] ?? doc?['type'] ?? '');
+        TextEditingController(text: tr(doc?['documentType'] ?? doc?['type'] ?? ''));
     final numberCtrl = TextEditingController(
-        text: doc?['documentNumber'] ?? doc?['number'] ?? '');
+        text: tr(doc?['documentNumber'] ?? doc?['number'] ?? ''));
     final noteCtrl =
-        TextEditingController(text: doc?['notes'] ?? doc?['description'] ?? '');
+        TextEditingController(text: tr(doc?['notes'] ?? doc?['description'] ?? ''));
 
     AppResponsiveDialog.show(
       context: context,
@@ -571,7 +570,7 @@ class _HrDocumentsScreenState extends State<HrDocumentsScreen>
         TextField(
             controller: nameCtrl,
             decoration: InputDecoration(
-                labelText: 'Tên tài liệu *',
+                labelText: tr('Tên tài liệu *'),
                 prefixIcon: const Icon(Icons.description, size: 20),
                 border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10)))),
@@ -579,16 +578,16 @@ class _HrDocumentsScreenState extends State<HrDocumentsScreen>
         DropdownButtonFormField<String>(
           initialValue: typeCtrl.text.isNotEmpty ? typeCtrl.text : null,
           decoration: InputDecoration(
-              labelText: 'Loại',
+              labelText: tr('Loại'),
               prefixIcon: const Icon(Icons.category, size: 20),
               border:
                   OutlineInputBorder(borderRadius: BorderRadius.circular(10))),
-          items: const [
-            DropdownMenuItem(value: 'contract', child: Text('Hợp đồng')),
-            DropdownMenuItem(value: 'certificate', child: Text('Bằng cấp')),
-            DropdownMenuItem(value: 'id_card', child: Text('CMND/CCCD')),
-            DropdownMenuItem(value: 'insurance', child: Text('Bảo hiểm')),
-            DropdownMenuItem(value: 'license', child: Text('Giấy phép')),
+          items: [
+            DropdownMenuItem(value: 'contract', child: Text(tr('Hợp đồng'))),
+            DropdownMenuItem(value: 'certificate', child: Text(tr('Bằng cấp'))),
+            DropdownMenuItem(value: 'id_card', child: Text(tr('CMND/CCCD'))),
+            DropdownMenuItem(value: 'insurance', child: Text(tr('Bảo hiểm'))),
+            DropdownMenuItem(value: 'license', child: Text(tr('Giấy phép'))),
           ],
           onChanged: (v) => typeCtrl.text = v ?? '',
         ),
@@ -596,7 +595,7 @@ class _HrDocumentsScreenState extends State<HrDocumentsScreen>
         TextField(
             controller: numberCtrl,
             decoration: InputDecoration(
-                labelText: 'Số tài liệu',
+                labelText: tr('Số tài liệu'),
                 prefixIcon: const Icon(Icons.tag, size: 20),
                 border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10)))),
@@ -605,7 +604,7 @@ class _HrDocumentsScreenState extends State<HrDocumentsScreen>
           controller: noteCtrl,
           maxLines: 3,
           decoration: InputDecoration(
-              labelText: 'Ghi chú',
+              labelText: tr('Ghi chú'),
               prefixIcon: const Icon(Icons.notes, size: 20),
               border:
                   OutlineInputBorder(borderRadius: BorderRadius.circular(10))),
@@ -617,7 +616,7 @@ class _HrDocumentsScreenState extends State<HrDocumentsScreen>
           if (nameCtrl.text.trim().isEmpty) {
             appNotification.showWarning(
                 title: 'Thiếu thông tin',
-                message: 'Vui lòng nhập tên tài liệu');
+                message: tr('Vui lòng nhập tên tài liệu'));
             return;
           }
           final data = {
@@ -644,7 +643,7 @@ class _HrDocumentsScreenState extends State<HrDocumentsScreen>
           } catch (e) {
             if (context.mounted) {
               appNotification.showError(
-                  title: 'Lỗi', message: 'Không thể lưu tài liệu: $e');
+                  title: 'Lỗi', message: tr('Không thể lưu tài liệu: $e'));
             }
           }
         },

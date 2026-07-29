@@ -5,6 +5,7 @@ import '../../services/api_service.dart';
 import '../../utils/pos_sell_store_settings.dart';
 import 'pos_bank_account_form_dialog.dart';
 import 'pos_theme.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 const _kiotBlue = PosTheme.kiotBlue;
 
@@ -25,9 +26,9 @@ Future<PosSellStoreSettings?> showPosSellStoreSettingsDialog(
 
   if (!context.mounted) return null;
 
-  final nameCtrl = TextEditingController(text: initial.storeName);
-  final addressCtrl = TextEditingController(text: initial.address);
-  final phoneCtrl = TextEditingController(text: initial.phone);
+  final nameCtrl = TextEditingController(text: tr(initial.storeName));
+  final addressCtrl = TextEditingController(text: tr(initial.address));
+  final phoneCtrl = TextEditingController(text: tr(initial.phone));
   var taxMode = initial.taxMode;
   var vatRate = initial.defaultVatRate;
   var vietQrBankId = initial.vietQrBankAccountId;
@@ -54,7 +55,7 @@ Future<PosSellStoreSettings?> showPosSellStoreSettingsDialog(
     context: context,
     builder: (ctx) => StatefulBuilder(
       builder: (ctx, setDlg) => AlertDialog(
-        title: const Text('Thiết lập cửa hàng'),
+        title: Text(tr('Thiết lập cửa hàng')),
         content: SizedBox(
           width: 420,
           child: SingleChildScrollView(
@@ -64,8 +65,8 @@ Future<PosSellStoreSettings?> showPosSellStoreSettingsDialog(
               children: [
                 TextField(
                   controller: nameCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Tên cửa hàng',
+                  decoration: InputDecoration(
+                    labelText: tr('Tên cửa hàng'),
                     border: OutlineInputBorder(),
                   ),
                   textCapitalization: TextCapitalization.words,
@@ -73,8 +74,8 @@ Future<PosSellStoreSettings?> showPosSellStoreSettingsDialog(
                 const SizedBox(height: 10),
                 TextField(
                   controller: addressCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Địa chỉ',
+                  decoration: InputDecoration(
+                    labelText: tr('Địa chỉ'),
                     border: OutlineInputBorder(),
                   ),
                   maxLines: 2,
@@ -83,20 +84,18 @@ Future<PosSellStoreSettings?> showPosSellStoreSettingsDialog(
                 TextField(
                   controller: phoneCtrl,
                   keyboardType: TextInputType.phone,
-                  decoration: const InputDecoration(
-                    labelText: 'Số điện thoại',
+                  decoration: InputDecoration(
+                    labelText: tr('Số điện thoại'),
                     border: OutlineInputBorder(),
                   ),
                 ),
                 const SizedBox(height: 14),
-                const Text(
-                  'Tài khoản VietQR',
+                Text(tr('Tài khoản VietQR'),
                   style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
                 ),
                 const SizedBox(height: 6),
                 if (accounts.isEmpty)
-                  Text(
-                    'Chưa có tài khoản ngân hàng. Thêm tài khoản để tạo mã QR thanh toán.',
+                  Text(tr('Chưa có tài khoản ngân hàng. Thêm tài khoản để tạo mã QR thanh toán.'),
                     style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
                   )
                 else
@@ -107,8 +106,8 @@ Future<PosSellStoreSettings?> showPosSellStoreSettingsDialog(
                             .map((a) => a.id)
                             .firstOrNull ??
                         accounts.first.id,
-                    decoration: const InputDecoration(
-                      labelText: 'Tài khoản nhận tiền',
+                    decoration: InputDecoration(
+                      labelText: tr('Tài khoản nhận tiền'),
                       border: OutlineInputBorder(),
                     ),
                     items: accounts
@@ -116,8 +115,8 @@ Future<PosSellStoreSettings?> showPosSellStoreSettingsDialog(
                           (a) => DropdownMenuItem(
                             value: a.id,
                             child: Text(
-                              '${a.bankShortName ?? a.bankName} · ${a.accountNumber}'
-                              '${a.isDefault ? ' (Mặc định)' : ''}',
+                              tr('${a.bankShortName ?? a.bankName} · ${a.accountNumber}'
+                              '${a.isDefault ? ' (Mặc định)' : ''}'),
                               style: const TextStyle(fontSize: 13),
                             ),
                           ),
@@ -134,7 +133,7 @@ Future<PosSellStoreSettings?> showPosSellStoreSettingsDialog(
                         if (ok) await reloadAccounts(setDlg);
                       },
                       icon: const Icon(Icons.add, size: 18),
-                      label: const Text('Thêm tài khoản'),
+                      label: Text(tr('Thêm tài khoản')),
                     ),
                     if (accounts.isNotEmpty) ...[
                       const SizedBox(width: 4),
@@ -150,24 +149,22 @@ Future<PosSellStoreSettings?> showPosSellStoreSettingsDialog(
                           );
                           if (ok) await reloadAccounts(setDlg);
                         },
-                        child: const Text('Sửa'),
+                        child: Text(tr('Sửa')),
                       ),
                     ],
                   ],
                 ),
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
-                  title: const Text('Hiện mã VietQR khi thanh toán'),
-                  subtitle: const Text(
-                    'Tạo QR động theo tổng tiền trên điện thoại',
+                  title: Text(tr('Hiện mã VietQR khi thanh toán')),
+                  subtitle: Text(tr('Tạo QR động theo tổng tiền trên điện thoại'),
                     style: TextStyle(fontSize: 11),
                   ),
                   value: showVietQr,
                   onChanged: (v) => setDlg(() => showVietQr = v),
                 ),
                 const Divider(height: 20),
-                const Text(
-                  'Cách tính thuế VAT',
+                Text(tr('Cách tính thuế VAT'),
                   style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
                 ),
                 const SizedBox(height: 6),
@@ -177,7 +174,7 @@ Future<PosSellStoreSettings?> showPosSellStoreSettingsDialog(
                     groupValue: taxMode,
                     dense: true,
                     contentPadding: EdgeInsets.zero,
-                    title: Text(m.label, style: const TextStyle(fontSize: 13)),
+                    title: Text(tr(m.label), style: const TextStyle(fontSize: 13)),
                     onChanged: (v) {
                       if (v != null) setDlg(() => taxMode = v);
                     },
@@ -188,18 +185,18 @@ Future<PosSellStoreSettings?> showPosSellStoreSettingsDialog(
                   DropdownButtonFormField<double>(
                     value: vatRate,
                     decoration: InputDecoration(
-                      labelText: 'Thuế suất VAT (%)',
+                      labelText: tr('Thuế suất VAT (%)'),
                       border: const OutlineInputBorder(),
-                      helperText: taxMode == PosSellTaxMode.includedInPrice
+                      helperText: tr(taxMode == PosSellTaxMode.includedInPrice
                           ? 'Giá bán đã gồm VAT — chỉ tách hiển thị trên hóa đơn'
-                          : 'VAT cộng thêm trên tổng tiền hàng sau chiết khấu',
+                          : 'VAT cộng thêm trên tổng tiền hàng sau chiết khấu'),
                       helperMaxLines: 2,
                     ),
-                    items: const [
-                      DropdownMenuItem(value: 0, child: Text('0%')),
-                      DropdownMenuItem(value: 5, child: Text('5%')),
-                      DropdownMenuItem(value: 8, child: Text('8%')),
-                      DropdownMenuItem(value: 10, child: Text('10%')),
+                    items: [
+                      DropdownMenuItem(value: 0, child: Text(tr('0%'))),
+                      DropdownMenuItem(value: 5, child: Text(tr('5%'))),
+                      DropdownMenuItem(value: 8, child: Text(tr('8%'))),
+                      DropdownMenuItem(value: 10, child: Text(tr('10%'))),
                     ],
                     onChanged: (v) {
                       if (v != null) setDlg(() => vatRate = v);
@@ -207,14 +204,12 @@ Future<PosSellStoreSettings?> showPosSellStoreSettingsDialog(
                   ),
                 ] else ...[
                   const SizedBox(height: 6),
-                  Text(
-                    'Thuế suất được thiết lập riêng trên từng hàng hóa (mục Giá bán).',
+                  Text(tr('Thuế suất được thiết lập riêng trên từng hàng hóa (mục Giá bán).'),
                     style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
                   ),
                 ],
                 const SizedBox(height: 8),
-                const Text(
-                  'In mã VietQR trên hóa đơn: bật trong Thiết lập máy in.',
+                Text(tr('In mã VietQR trên hóa đơn: bật trong Thiết lập máy in.'),
                   style: TextStyle(fontSize: 11, color: PosTheme.textSecondary),
                 ),
               ],
@@ -222,7 +217,7 @@ Future<PosSellStoreSettings?> showPosSellStoreSettingsDialog(
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Huỷ')),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('Huỷ'))),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: _kiotBlue),
             onPressed: () {
@@ -239,7 +234,7 @@ Future<PosSellStoreSettings?> showPosSellStoreSettingsDialog(
                 ),
               );
             },
-            child: const Text('Lưu'),
+            child: Text(tr('Lưu')),
           ),
         ],
       ),

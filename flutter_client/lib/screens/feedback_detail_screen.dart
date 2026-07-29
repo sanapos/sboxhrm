@@ -11,6 +11,7 @@ import '../utils/image_source_picker.dart';
 import '../widgets/auth_cached_image.dart';
 import '../widgets/notification_overlay.dart';
 import '../widgets/hrm_page_chrome.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 class FeedbackDetailScreen extends StatefulWidget {
   final String feedbackId;
@@ -200,7 +201,7 @@ class _FeedbackDetailScreenState extends State<FeedbackDetailScreen> {
     if (_isLoading) {
       return Scaffold(
         appBar: AppBar(
-          title: const Text('Phản ánh'),
+          title: Text(tr('Phản ánh')),
           backgroundColor: _primary,
           foregroundColor: Colors.white,
         ),
@@ -211,11 +212,11 @@ class _FeedbackDetailScreenState extends State<FeedbackDetailScreen> {
     if (_feedback == null) {
       return Scaffold(
         appBar: AppBar(
-          title: const Text('Phản ánh'),
+          title: Text(tr('Phản ánh')),
           backgroundColor: _primary,
           foregroundColor: Colors.white,
         ),
-        body: const Center(child: Text('Không tìm thấy phản ánh')),
+        body: Center(child: Text(tr('Không tìm thấy phản ánh'))),
       );
     }
 
@@ -228,7 +229,7 @@ class _FeedbackDetailScreenState extends State<FeedbackDetailScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          fb['title'] ?? 'Phản ánh',
+          tr(fb['title'] ?? 'Phản ánh'),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
@@ -237,7 +238,7 @@ class _FeedbackDetailScreenState extends State<FeedbackDetailScreen> {
         actions: [
           if (canManageStatus)
             PopupMenuButton<String>(
-              tooltip: 'Đổi trạng thái',
+              tooltip: tr('Đổi trạng thái'),
               child: Container(
                 margin: const EdgeInsets.only(right: 4),
                 padding:
@@ -252,7 +253,7 @@ class _FeedbackDetailScreenState extends State<FeedbackDetailScreen> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      _statusLabels[status] ?? status,
+                      tr(_statusLabels[status] ?? status),
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
@@ -274,7 +275,7 @@ class _FeedbackDetailScreenState extends State<FeedbackDetailScreen> {
                                 size: 10,
                                 color: _statusColors[e.key] ?? Colors.grey),
                             const SizedBox(width: 8),
-                            Text(e.value),
+                            Text(tr(e.value)),
                             if (e.key == status) ...[
                               const Spacer(),
                               const Icon(Icons.check, size: 16),
@@ -295,7 +296,7 @@ class _FeedbackDetailScreenState extends State<FeedbackDetailScreen> {
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Text(
-                _statusLabels[status] ?? status,
+                tr(_statusLabels[status] ?? status),
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
@@ -372,11 +373,11 @@ class _FeedbackDetailScreenState extends State<FeedbackDetailScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      isAnonymous ? 'Ẩn danh' : (senderName ?? 'Nhân viên'),
+                      tr(isAnonymous ? 'Ẩn danh' : (senderName ?? 'Nhân viên')),
                       style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
                     ),
                     Text(
-                      '${_categoryLabels[category] ?? category} • ${DateFormat('dd/MM/yyyy HH:mm').format(createdAt)}',
+                      tr('${_categoryLabels[category] ?? category} • ${DateFormat('dd/MM/yyyy HH:mm').format(createdAt)}'),
                       style: TextStyle(fontSize: 11, color: Colors.grey[500]),
                     ),
                   ],
@@ -387,7 +388,7 @@ class _FeedbackDetailScreenState extends State<FeedbackDetailScreen> {
           const SizedBox(height: 10),
           // Title
           Text(
-            fb['title'] ?? '',
+            tr(fb['title'] ?? ''),
             style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: 6),
@@ -424,8 +425,7 @@ class _FeedbackDetailScreenState extends State<FeedbackDetailScreen> {
               children: [
                 const Icon(Icons.reply, size: 14, color: Color(0xFF059669)),
                 const SizedBox(width: 4),
-                Text(
-                  'Phản hồi (cũ)',
+                Text(tr('Phản hồi (cũ)'),
                   style: TextStyle(fontSize: 11, color: Colors.grey[500], fontWeight: FontWeight.w600),
                 ),
               ],
@@ -469,7 +469,7 @@ class _FeedbackDetailScreenState extends State<FeedbackDetailScreen> {
           crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
           children: [
             Text(
-              isMe ? 'Bạn' : (senderName ?? 'Người phản hồi'),
+              tr(isMe ? 'Bạn' : (senderName ?? 'Người phản hồi')),
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
@@ -487,7 +487,7 @@ class _FeedbackDetailScreenState extends State<FeedbackDetailScreen> {
             // Time
             const SizedBox(height: 4),
             Text(
-              DateFormat('HH:mm dd/MM').format(createdAt),
+              tr(DateFormat('HH:mm dd/MM').format(createdAt)),
               style: TextStyle(fontSize: 10, color: Colors.grey[400]),
             ),
           ],
@@ -505,7 +505,7 @@ class _FeedbackDetailScreenState extends State<FeedbackDetailScreen> {
 
     final matches = urlRegex.allMatches(text).toList();
     if (matches.isEmpty) {
-      return Text(text, style: const TextStyle(fontSize: 14, height: 1.4));
+      return Text(tr(text), style: const TextStyle(fontSize: 14, height: 1.4));
     }
 
     final spans = <InlineSpan>[];
@@ -513,7 +513,7 @@ class _FeedbackDetailScreenState extends State<FeedbackDetailScreen> {
     for (final match in matches) {
       if (match.start > lastEnd) {
         spans.add(TextSpan(
-          text: text.substring(lastEnd, match.start),
+          text: tr(text.substring(lastEnd, match.start)),
           style: const TextStyle(fontSize: 14, height: 1.4, color: Colors.black87),
         ));
       }
@@ -522,7 +522,7 @@ class _FeedbackDetailScreenState extends State<FeedbackDetailScreen> {
         child: GestureDetector(
           onTap: () => _launchUrl(url),
           child: Text(
-            url,
+            tr(url),
             style: const TextStyle(
               fontSize: 14, height: 1.4,
               color: Color(0xFF3B82F6),
@@ -535,7 +535,7 @@ class _FeedbackDetailScreenState extends State<FeedbackDetailScreen> {
     }
     if (lastEnd < text.length) {
       spans.add(TextSpan(
-        text: text.substring(lastEnd),
+        text: tr(text.substring(lastEnd)),
         style: const TextStyle(fontSize: 14, height: 1.4, color: Colors.black87),
       ));
     }
@@ -627,7 +627,7 @@ class _FeedbackDetailScreenState extends State<FeedbackDetailScreen> {
                     left: 0,
                     right: 0,
                     child: Text(
-                      '${currentPage + 1}/${urls.length}',
+                      tr('${currentPage + 1}/${urls.length}'),
                       textAlign: TextAlign.center,
                       style: const TextStyle(
                         color: Colors.white70,
@@ -658,7 +658,7 @@ class _FeedbackDetailScreenState extends State<FeedbackDetailScreen> {
     final end = sel.end >= 0 ? sel.end : text.length;
     final newText = text.replaceRange(start, end, emoji);
     _replyCtl.value = TextEditingValue(
-      text: newText,
+      text: tr(newText),
       selection: TextSelection.collapsed(offset: start + emoji.length),
     );
     setState(() => _showEmojiPicker = false);
@@ -682,7 +682,7 @@ class _FeedbackDetailScreenState extends State<FeedbackDetailScreen> {
                         borderRadius: BorderRadius.circular(8),
                         child: Padding(
                           padding: const EdgeInsets.all(6),
-                          child: Text(e, style: const TextStyle(fontSize: 22)),
+                          child: Text(tr(e), style: const TextStyle(fontSize: 22)),
                         ),
                       ))
                   .toList(),
@@ -718,19 +718,19 @@ class _FeedbackDetailScreenState extends State<FeedbackDetailScreen> {
                     ? null
                     : () => setState(
                         () => _showEmojiPicker = !_showEmojiPicker),
-                tooltip: 'Biểu tượng cảm xúc',
+                tooltip: tr('Biểu tượng cảm xúc'),
               ),
               IconButton(
                 icon: const Icon(Icons.image_outlined,
                     color: Color(0xFF64748B)),
                 onPressed: _isSending ? null : _pickAndUploadImage,
-                tooltip: 'Gửi hình ảnh',
+                tooltip: tr('Gửi hình ảnh'),
               ),
               Expanded(
                 child: TextField(
                   controller: _replyCtl,
                   decoration: InputDecoration(
-                    hintText: 'Nhập phản hồi...',
+                    hintText: tr('Nhập phản hồi...'),
                     hintStyle: TextStyle(color: Colors.grey[400]),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(24),

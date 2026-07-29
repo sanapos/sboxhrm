@@ -5,6 +5,7 @@ import '../../services/api_service.dart';
 import '../../widgets/admin/admin_mobile_widgets.dart';
 import '../../widgets/notification_overlay.dart';
 import 'system_admin_helpers.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 class AgentProfileTab extends StatefulWidget {
   final ValueChanged<Map<String, dynamic>>? onProfileLoaded;
@@ -85,10 +86,10 @@ class AgentProfileTabState extends State<AgentProfileTab> {
   }
 
   void _copyLink(String link) {
-    Clipboard.setData(ClipboardData(text: link));
+    Clipboard.setData(ClipboardData(text: tr(link)));
     NotificationOverlayManager().showSuccess(
       title: 'Sao chép',
-      message: 'Đã sao chép link giới thiệu',
+      message: tr('Đã sao chép link giới thiệu'),
     );
   }
 
@@ -113,21 +114,21 @@ class AgentProfileTabState extends State<AgentProfileTab> {
             if (current.isEmpty) {
               NotificationOverlayManager().showWarning(
                 title: 'Thiếu thông tin',
-                message: 'Vui lòng nhập mật khẩu hiện tại',
+                message: tr('Vui lòng nhập mật khẩu hiện tại'),
               );
               return;
             }
             if (newPassword.length < 6) {
               NotificationOverlayManager().showWarning(
                 title: 'Mật khẩu quá ngắn',
-                message: 'Mật khẩu mới phải có ít nhất 6 ký tự',
+                message: tr('Mật khẩu mới phải có ít nhất 6 ký tự'),
               );
               return;
             }
             if (newPassword != confirm) {
               NotificationOverlayManager().showWarning(
                 title: 'Không khớp',
-                message: 'Mật khẩu xác nhận không khớp',
+                message: tr('Mật khẩu xác nhận không khớp'),
               );
               return;
             }
@@ -143,7 +144,7 @@ class AgentProfileTabState extends State<AgentProfileTab> {
                 Navigator.pop(ctx);
                 NotificationOverlayManager().showSuccess(
                   title: 'Thành công',
-                  message: 'Đã đổi mật khẩu',
+                  message: tr('Đã đổi mật khẩu'),
                 );
               } else {
                 NotificationOverlayManager().showError(
@@ -157,7 +158,7 @@ class AgentProfileTabState extends State<AgentProfileTab> {
           }
 
           return ScrollableAlertDialog(
-            title: const Text('Đổi mật khẩu'),
+            title: Text(tr('Đổi mật khẩu')),
             content: SizedBox(
               width: 360,
               child: Column(
@@ -191,7 +192,7 @@ class AgentProfileTabState extends State<AgentProfileTab> {
             actions: [
               TextButton(
                 onPressed: isSaving ? null : () => Navigator.pop(ctx),
-                child: const Text('Hủy'),
+                child: Text(tr('Hủy')),
               ),
               FilledButton(
                 onPressed: isSaving ? null : submit,
@@ -201,7 +202,7 @@ class AgentProfileTabState extends State<AgentProfileTab> {
                         height: 18,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : const Text('Lưu'),
+                    : Text(tr('Lưu')),
               ),
             ],
           );
@@ -220,7 +221,7 @@ class AgentProfileTabState extends State<AgentProfileTab> {
       controller: controller,
       obscureText: obscure,
       decoration: InputDecoration(
-        labelText: label,
+        labelText: tr(label),
         border: const OutlineInputBorder(),
         suffixIcon: IconButton(
           icon: Icon(obscure ? Icons.visibility : Icons.visibility_off),
@@ -242,12 +243,12 @@ class AgentProfileTabState extends State<AgentProfileTab> {
           children: [
             Icon(Icons.support_agent, size: 64, color: Colors.grey[300]),
             const SizedBox(height: 12),
-            const Text('Không tải được hồ sơ đại lý'),
+            Text(tr('Không tải được hồ sơ đại lý')),
             const SizedBox(height: 12),
             FilledButton.icon(
               onPressed: loadProfile,
               icon: const Icon(Icons.refresh, size: 18),
-              label: const Text('Thử lại'),
+              label: Text(tr('Thử lại')),
             ),
           ],
         ),
@@ -282,7 +283,7 @@ class AgentProfileTabState extends State<AgentProfileTab> {
             controller: _addressCtrl,
             maxLines: 2,
             decoration: InputDecoration(
-              labelText: 'Địa chỉ',
+              labelText: tr('Địa chỉ'),
               prefixIcon: const Icon(Icons.location_on_outlined, size: 20),
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
             ),
@@ -292,7 +293,7 @@ class AgentProfileTabState extends State<AgentProfileTab> {
             controller: _descCtrl,
             maxLines: 4,
             decoration: InputDecoration(
-              labelText: 'Giới thiệu về đại lý',
+              labelText: tr('Giới thiệu về đại lý'),
               prefixIcon: const Icon(Icons.info_outline, size: 20),
               alignLabelWithHint: true,
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
@@ -311,14 +312,13 @@ class AgentProfileTabState extends State<AgentProfileTab> {
                           strokeWidth: 2, color: Colors.white),
                     )
                   : const Icon(Icons.save_outlined),
-              label: const Text('Lưu thông tin'),
+              label: Text(tr('Lưu thông tin')),
             ),
           ),
           const SizedBox(height: 24),
           _sectionTitle('Link giới thiệu cửa hàng'),
           const SizedBox(height: 8),
-          Text(
-            'Gửi link này cho khách hàng đăng ký cửa hàng dưới mã đại lý của bạn.',
+          Text(tr('Gửi link này cho khách hàng đăng ký cửa hàng dưới mã đại lý của bạn.'),
             style: TextStyle(fontSize: 13, color: Colors.grey[600]),
           ),
           const SizedBox(height: 10),
@@ -329,7 +329,7 @@ class AgentProfileTabState extends State<AgentProfileTab> {
           OutlinedButton.icon(
             onPressed: _showChangePasswordDialog,
             icon: const Icon(Icons.lock_outline),
-            label: const Text('Đổi mật khẩu đăng nhập'),
+            label: Text(tr('Đổi mật khẩu đăng nhập')),
           ),
         ],
       ),
@@ -356,15 +356,14 @@ class AgentProfileTabState extends State<AgentProfileTab> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  p['name']?.toString() ?? 'Đại lý',
+                  tr(p['name']?.toString() ?? 'Đại lý'),
                   style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
                 const SizedBox(height: 4),
-                Text(
-                  'Mã đại lý: ${p['code'] ?? '—'}',
+                Text(tr('${tr('Mã đại lý: ')}${p['code'] ?? '—'}'),
                   style: TextStyle(color: Colors.grey[600], fontSize: 13),
                 ),
               ],
@@ -413,10 +412,10 @@ class AgentProfileTabState extends State<AgentProfileTab> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(value,
+          Text(tr(value),
               style: const TextStyle(
                   fontWeight: FontWeight.bold, fontSize: 16)),
-          Text(label, style: TextStyle(fontSize: 11, color: Colors.grey[600])),
+          Text(tr(label), style: TextStyle(fontSize: 11, color: Colors.grey[600])),
         ],
       ),
     );
@@ -424,7 +423,7 @@ class AgentProfileTabState extends State<AgentProfileTab> {
 
   Widget _sectionTitle(String title) {
     return Text(
-      title,
+      tr(title),
       style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
     );
   }
@@ -446,10 +445,10 @@ class AgentProfileTabState extends State<AgentProfileTab> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(label,
+                Text(tr(label),
                     style: TextStyle(fontSize: 11, color: Colors.grey[500])),
                 const SizedBox(height: 2),
-                Text(value, style: const TextStyle(fontSize: 14)),
+                Text(tr(value), style: const TextStyle(fontSize: 14)),
               ],
             ),
           ),
@@ -470,14 +469,14 @@ class AgentProfileTabState extends State<AgentProfileTab> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          SelectableText(link, style: const TextStyle(fontSize: 12)),
+          SelectableText(tr(link), style: const TextStyle(fontSize: 12)),
           const SizedBox(height: 8),
           Align(
             alignment: Alignment.centerRight,
             child: TextButton.icon(
               onPressed: () => _copyLink(link),
               icon: const Icon(Icons.copy, size: 16),
-              label: const Text('Sao chép link'),
+              label: Text(tr('Sao chép link')),
             ),
           ),
         ],

@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../../services/api_service.dart';
 import 'system_admin_helpers.dart';
 import '../../widgets/hrm_page_chrome.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// SuperAdmin – Tab quản lý nội dung: Điều khoản, Chính sách, Trợ giúp + Báo lỗi
 class ContentPagesTab extends StatefulWidget {
@@ -36,13 +37,13 @@ class ContentPagesTabState extends State<ContentPagesTab>
           color: AdminHelpers.bgLight,
           child: TabBar(
             controller: _sub,
-            tabs: const [
+            tabs: [
               Tab(
                   icon: Icon(Icons.description_outlined),
-                  text: 'Nội dung trang'),
+                  text: tr('Nội dung trang')),
               Tab(
                   icon: Icon(Icons.bug_report_outlined),
-                  text: 'Báo lỗi & Góp ý'),
+                  text: tr('Báo lỗi & Góp ý')),
             ],
             labelColor: AdminHelpers.primary,
             unselectedLabelColor: Colors.grey,
@@ -130,8 +131,8 @@ class _PagesSubTabState extends State<_PagesSubTab> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(children: [
-            const Expanded(
-                child: Text('Nội dung ứng dụng',
+            Expanded(
+                child: Text(tr('Nội dung ứng dụng'),
                     style:
                         TextStyle(fontSize: 18, fontWeight: FontWeight.bold))),
             IconButton(
@@ -157,12 +158,12 @@ class _PagesSubTabState extends State<_PagesSubTab> {
                     backgroundColor: color.withValues(alpha: 0.12),
                     child: Icon(icon, color: color),
                   ),
-                  title: Text(pt['label'] as String,
+                  title: Text(tr(pt['label'] as String),
                       style: const TextStyle(fontWeight: FontWeight.w600)),
                   subtitle: updatedAt != null
-                      ? Text('Cập nhật: $updatedAt',
+                      ? Text(tr('Cập nhật: $updatedAt'),
                           style: const TextStyle(fontSize: 12))
-                      : const Text('Chưa có nội dung',
+                      : Text(tr('Chưa có nội dung'),
                           style: TextStyle(fontSize: 12, color: Colors.orange)),
                   trailing: FilledButton.icon(
                     style: ElevatedButton.styleFrom(
@@ -171,7 +172,7 @@ class _PagesSubTabState extends State<_PagesSubTab> {
                         padding: const EdgeInsets.symmetric(
                             horizontal: 12, vertical: 6)),
                     icon: const Icon(Icons.edit, size: 16),
-                    label: const Text('Chỉnh sửa'),
+                    label: Text(tr('Chỉnh sửa')),
                     onPressed: () => _openEditor(pt, page),
                   ),
                 ),
@@ -184,9 +185,9 @@ class _PagesSubTabState extends State<_PagesSubTab> {
 
   void _openEditor(Map<String, dynamic> pt, Map<String, dynamic>? page) {
     final titleCtrl = TextEditingController(
-        text: page?['title'] as String? ?? pt['label'] as String);
+        text: tr(page?['title'] as String? ?? pt['label'] as String));
     final contentCtrl =
-        TextEditingController(text: page?['content'] as String? ?? '');
+        TextEditingController(text: tr(page?['content'] as String? ?? ''));
 
     showDialog(
       context: context,
@@ -245,13 +246,13 @@ class _PageEditorDialogState extends State<_PageEditorDialog> {
       Navigator.pop(context);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-            content: Text('Đã lưu ${widget.label}'),
+            content: Text(tr('Đã lưu ${widget.label}')),
             backgroundColor: Colors.green),
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-            content: Text('Lỗi: ${res['message']}'),
+            content: Text(tr('${tr('Lỗi: ')}${res['message']}')),
             backgroundColor: Colors.red),
       );
     }
@@ -269,7 +270,7 @@ class _PageEditorDialogState extends State<_PageEditorDialog> {
             Icon(Icons.edit_document, color: widget.color),
             const SizedBox(width: 8),
             Expanded(
-                child: Text('Chỉnh sửa: ${widget.label}',
+                child: Text(tr('Chỉnh sửa: ${widget.label}'),
                     style: const TextStyle(
                         fontSize: 18, fontWeight: FontWeight.bold))),
             IconButton(
@@ -279,11 +280,11 @@ class _PageEditorDialogState extends State<_PageEditorDialog> {
           const Divider(height: 24),
           TextFormField(
             controller: widget.titleCtrl,
-            decoration: const InputDecoration(
-                labelText: 'Tiêu đề', border: OutlineInputBorder()),
+            decoration: InputDecoration(
+                labelText: tr('Tiêu đề'), border: OutlineInputBorder()),
           ),
           const SizedBox(height: 16),
-          const Text('Nội dung (Markdown hỗ trợ)',
+          Text(tr('Nội dung (Markdown hỗ trợ)'),
               style: TextStyle(fontWeight: FontWeight.w600)),
           const SizedBox(height: 8),
           SizedBox(
@@ -292,9 +293,9 @@ class _PageEditorDialogState extends State<_PageEditorDialog> {
               controller: widget.contentCtrl,
               expands: true,
               maxLines: null,
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                   border: OutlineInputBorder(),
-                  hintText: '# Tiêu đề\n\n## Mục 1\n\nNội dung ở đây...'),
+                  hintText: tr('# Tiêu đề\n\n## Mục 1\n\nNội dung ở đây...')),
               style: const TextStyle(fontFamily: 'monospace', fontSize: 13),
             ),
           ),
@@ -302,7 +303,7 @@ class _PageEditorDialogState extends State<_PageEditorDialog> {
           Row(mainAxisAlignment: MainAxisAlignment.end, children: [
             TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: const Text('Huỷ')),
+                child: Text(tr('Huỷ'))),
             const SizedBox(width: 12),
             FilledButton.icon(
               style: ElevatedButton.styleFrom(
@@ -315,7 +316,7 @@ class _PageEditorDialogState extends State<_PageEditorDialog> {
                       child: CircularProgressIndicator(
                           strokeWidth: 2, color: Colors.white))
                   : const Icon(Icons.save),
-              label: const Text('Lưu'),
+              label: Text(tr('Lưu')),
             ),
           ]),
         ],
@@ -385,7 +386,7 @@ class _BugReportsSubTabState extends State<_BugReportsSubTab> {
         children: [
           Row(children: [
             Expanded(
-                child: Text('Báo lỗi & Góp ý ($_total)',
+                child: Text(tr('Báo lỗi & Góp ý ($_total)'),
                     style: const TextStyle(
                         fontSize: 18, fontWeight: FontWeight.bold))),
             IconButton(
@@ -459,10 +460,10 @@ class _BugReportsSubTabState extends State<_BugReportsSubTab> {
           const SizedBox(height: 12),
           if (_loading) const Center(child: CircularProgressIndicator()),
           if (!_loading && _items.isEmpty)
-            const Center(
+            Center(
                 child: Padding(
                     padding: EdgeInsets.all(32),
-                    child: Text('Chưa có báo cáo nào',
+                    child: Text(tr('Chưa có báo cáo nào'),
                         style: TextStyle(color: Colors.grey)))),
           if (!_loading && _items.isNotEmpty)
             Expanded(
@@ -481,7 +482,7 @@ class _BugReportsSubTabState extends State<_BugReportsSubTab> {
       Padding(
         padding: const EdgeInsets.only(right: 6),
         child: FilterChip(
-          label: Text(label),
+          label: Text(tr(label)),
           selected: sel,
           onSelected: (_) => onTap(),
           selectedColor: AdminHelpers.primary.withValues(alpha: 0.15),
@@ -523,7 +524,7 @@ class _BugReportsSubTabState extends State<_BugReportsSubTab> {
       ),
       title: Row(children: [
         Expanded(
-            child: Text(r['title'] as String? ?? '',
+            child: Text(tr(r['title'] as String? ?? ''),
                 style: const TextStyle(fontWeight: FontWeight.w600),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis)),
@@ -533,7 +534,7 @@ class _BugReportsSubTabState extends State<_BugReportsSubTab> {
             color: statusColor.withValues(alpha: 0.12),
             borderRadius: BorderRadius.circular(10),
           ),
-          child: Text(status,
+          child: Text(tr(status),
               style: TextStyle(
                   fontSize: 11,
                   color: statusColor,
@@ -541,7 +542,7 @@ class _BugReportsSubTabState extends State<_BugReportsSubTab> {
         ),
       ]),
       subtitle: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(r['content'] as String? ?? '',
+        Text(tr(r['content'] as String? ?? ''),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(fontSize: 12)),
@@ -549,28 +550,28 @@ class _BugReportsSubTabState extends State<_BugReportsSubTab> {
         Row(children: [
           Icon(Icons.person_outline, size: 12, color: Colors.grey[500]),
           const SizedBox(width: 3),
-          Text(r['userName'] as String? ?? 'Ẩn danh',
+          Text(tr(r['userName'] as String? ?? 'Ẩn danh'),
               style: TextStyle(fontSize: 11, color: Colors.grey[500])),
           if (r['storeName'] != null) ...[
             const SizedBox(width: 6),
             Icon(Icons.store_outlined, size: 12, color: Colors.grey[500]),
             const SizedBox(width: 3),
-            Text(r['storeName'] as String,
+            Text(tr(r['storeName'] as String),
                 style: TextStyle(fontSize: 11, color: Colors.grey[500])),
           ],
           const Spacer(),
           if (dt != null)
-            Text(_df.format(dt),
+            Text(tr(_df.format(dt)),
                 style: TextStyle(fontSize: 11, color: Colors.grey[500])),
         ]),
       ]),
       trailing: PopupMenuButton<String>(
         icon: const Icon(Icons.more_vert),
         onSelected: (v) => _updateStatus(r['id'] as String, v),
-        itemBuilder: (_) => const [
-          PopupMenuItem(value: 'InProgress', child: Text('Đang xử lý')),
-          PopupMenuItem(value: 'Resolved', child: Text('Đã giải quyết')),
-          PopupMenuItem(value: 'Closed', child: Text('Đóng')),
+        itemBuilder: (_) => [
+          PopupMenuItem(value: 'InProgress', child: Text(tr('Đang xử lý'))),
+          PopupMenuItem(value: 'Resolved', child: Text(tr('Đã giải quyết'))),
+          PopupMenuItem(value: 'Closed', child: Text(tr('Đóng'))),
         ],
       ),
       onTap: () => _showDetail(r),
@@ -581,7 +582,7 @@ class _BugReportsSubTabState extends State<_BugReportsSubTab> {
     showDialog(
       context: context,
       builder: (_) => ScrollableAlertDialog(
-        title: Text(r['title'] as String? ?? ''),
+        title: Text(tr(r['title'] as String? ?? '')),
         content: SingleChildScrollView(
           child:
               Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -592,7 +593,7 @@ class _BugReportsSubTabState extends State<_BugReportsSubTab> {
             if (r['appVersion'] != null) _detRow('Phiên bản', r['appVersion']),
             if (r['deviceInfo'] != null) _detRow('Thiết bị', r['deviceInfo']),
             const Divider(),
-            const Text('Nội dung:',
+            Text(tr('Nội dung:'),
                 style: TextStyle(fontWeight: FontWeight.w600)),
             const SizedBox(height: 4),
             Container(
@@ -602,7 +603,7 @@ class _BugReportsSubTabState extends State<_BugReportsSubTab> {
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(color: Colors.grey[200]!),
               ),
-              child: Text(r['content'] as String? ?? ''),
+              child: Text(tr(r['content'] as String? ?? '')),
             ),
             if (r['adminNote'] != null && r['adminNote'] != '') ...[
               const Divider(),
@@ -613,7 +614,7 @@ class _BugReportsSubTabState extends State<_BugReportsSubTab> {
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Đóng')),
+              child: Text(tr('Đóng'))),
         ],
       ),
     );
@@ -624,10 +625,10 @@ class _BugReportsSubTabState extends State<_BugReportsSubTab> {
         child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
           SizedBox(
               width: 90,
-              child: Text('$label:',
+              child: Text(tr('$label:'),
                   style: const TextStyle(
                       fontWeight: FontWeight.w600, fontSize: 13))),
-          Expanded(child: Text(value, style: const TextStyle(fontSize: 13))),
+          Expanded(child: Text(tr(value), style: const TextStyle(fontSize: 13))),
         ]),
       );
 
@@ -638,8 +639,8 @@ class _BugReportsSubTabState extends State<_BugReportsSubTab> {
       await _load();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content: Text('Cập nhật trạng thái thành công'),
+          SnackBar(
+              content: Text(tr('Cập nhật trạng thái thành công')),
               backgroundColor: Colors.green),
         );
       }

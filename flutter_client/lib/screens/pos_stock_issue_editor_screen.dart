@@ -21,6 +21,7 @@ import '../widgets/pos/pos_stock_issue_helpers.dart';
 import '../widgets/pos/pos_theme.dart';
 import '../widgets/pos_barcode_scanner.dart';
 import '../screens/main_layout.dart' show ScreenRefreshNotifier;
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 const _blue = Color(0xFF2563EB);
 
@@ -44,10 +45,10 @@ class _IssueLine {
     double qty = 0,
     double costPrice = 0,
   })  : qtyCtrl = TextEditingController(
-            text: qty == qty.roundToDouble()
+            text: tr(qty == qty.roundToDouble()
                 ? qty.toStringAsFixed(0)
-                : qty.toStringAsFixed(2)),
-        costCtrl = TextEditingController(text: costPrice.toStringAsFixed(0));
+                : qty.toStringAsFixed(2))),
+        costCtrl = TextEditingController(text: tr(costPrice.toStringAsFixed(0)));
 
   double get qty => double.tryParse(qtyCtrl.text.replaceAll(',', '')) ?? 0;
   double get costPrice => double.tryParse(costCtrl.text.replaceAll(',', '')) ?? 0;
@@ -282,19 +283,18 @@ class _PosStockIssueEditorScreenState extends State<PosStockIssueEditorScreen> {
     final action = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Thoát phiếu tạm'),
-        content: Text(
-          'Phiếu $_issueNo chưa có hàng. Xóa phiếu tạm hay giữ lại trong danh sách?',
+        title: Text(tr('Thoát phiếu tạm')),
+        content: Text(tr('Phiếu $_issueNo chưa có hàng. Xóa phiếu tạm hay giữ lại trong danh sách?'),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, 'keep'),
-            child: const Text('Giữ lại'),
+            child: Text(tr('Giữ lại')),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, 'delete'),
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Xóa phiếu'),
+            child: Text(tr('Xóa phiếu')),
           ),
         ],
       ),
@@ -367,7 +367,7 @@ class _PosStockIssueEditorScreenState extends State<PosStockIssueEditorScreen> {
     final key = '${pick.product.id}:${pick.variantId ?? 'base'}';
     if (_lines.any((l) => '${l.productId}:${l.variantId ?? 'base'}' == key)) {
       NotificationOverlayManager()
-          .showWarning(title: 'Trùng', message: 'Hàng đã có trong phiếu');
+          .showWarning(title: 'Trùng', message: tr('Hàng đã có trong phiếu'));
       return;
     }
 
@@ -468,7 +468,7 @@ class _PosStockIssueEditorScreenState extends State<PosStockIssueEditorScreen> {
     if (_lines.isEmpty && (_issueId == null || _issueId!.isEmpty)) {
       NotificationOverlayManager().showWarning(
           title: 'Phiếu trống',
-          message: 'Thêm ít nhất một dòng hàng trước khi lưu');
+          message: tr('Thêm ít nhất một dòng hàng trước khi lưu'));
       return;
     }
     setState(() => _saving = true);
@@ -484,26 +484,26 @@ class _PosStockIssueEditorScreenState extends State<PosStockIssueEditorScreen> {
   Future<void> _complete() async {
     if (_lines.isEmpty) {
       NotificationOverlayManager().showWarning(
-          title: 'Phiếu trống', message: 'Thêm ít nhất một dòng hàng');
+          title: 'Phiếu trống', message: tr('Thêm ít nhất một dòng hàng'));
       return;
     }
     if (_lines.every((l) => l.qty <= 0)) {
       NotificationOverlayManager().showWarning(
-          title: 'Số lượng', message: 'Nhập số lượng xuất > 0 cho ít nhất một dòng');
+          title: 'Số lượng', message: tr('Nhập số lượng xuất > 0 cho ít nhất một dòng'));
       return;
     }
 
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text(_config.completeDialogTitle),
-        content: Text(_config.completeDialogMessage),
+        title: Text(tr(_config.completeDialogTitle)),
+        content: Text(tr(_config.completeDialogMessage)),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Hủy')),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Hủy'))),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: FilledButton.styleFrom(backgroundColor: _blue),
-            child: const Text('Xác nhận'),
+            child: Text(tr('Xác nhận')),
           ),
         ],
       ),
@@ -547,14 +547,14 @@ class _PosStockIssueEditorScreenState extends State<PosStockIssueEditorScreen> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Xóa phiếu'),
-        content: Text('Xóa hẳn phiếu $_issueNo?'),
+        title: Text(tr('Xóa phiếu')),
+        content: Text(tr('Xóa hẳn phiếu $_issueNo?')),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Không')),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Không'))),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Xóa'),
+            child: Text(tr('Xóa')),
           ),
         ],
       ),
@@ -582,14 +582,14 @@ class _PosStockIssueEditorScreenState extends State<PosStockIssueEditorScreen> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text(_config.voidDialogTitle),
-        content: Text(_config.voidDialogMessage),
+        title: Text(tr(_config.voidDialogTitle)),
+        content: Text(tr(_config.voidDialogMessage)),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Không')),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Không'))),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Hủy phiếu'),
+            child: Text(tr('Hủy phiếu')),
           ),
         ],
       ),
@@ -620,7 +620,7 @@ class _PosStockIssueEditorScreenState extends State<PosStockIssueEditorScreen> {
 
   Widget _qtyCell(_IssueLine l) {
     if (_readOnly) {
-      return Text(_fmtQty(l.qty), style: const TextStyle(fontSize: 13));
+      return Text(tr(_fmtQty(l.qty)), style: const TextStyle(fontSize: 13));
     }
     return Row(
       children: [
@@ -657,18 +657,18 @@ class _PosStockIssueEditorScreenState extends State<PosStockIssueEditorScreen> {
 
   Widget _costCell(_IssueLine l) {
     if (_readOnly) {
-      return Text('${_moneyFmt.format(l.costPrice)} đ',
+      return Text(tr('${_moneyFmt.format(l.costPrice)} đ'),
           style: const TextStyle(fontSize: 13));
     }
     return TextField(
       controller: l.costCtrl,
       keyboardType: TextInputType.number,
       textAlign: TextAlign.right,
-      decoration: const InputDecoration(
+      decoration: InputDecoration(
         isDense: true,
         border: OutlineInputBorder(),
         contentPadding: EdgeInsets.symmetric(horizontal: 6, vertical: 8),
-        suffixText: 'đ',
+        suffixText: tr('đ'),
       ),
       onChanged: (_) => _onLineFieldChanged(),
     );
@@ -682,7 +682,7 @@ class _PosStockIssueEditorScreenState extends State<PosStockIssueEditorScreen> {
           flex: flex,
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
-            child: Text(label,
+            child: Text(tr(label),
                 style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
           ),
         );
@@ -719,8 +719,7 @@ class _PosStockIssueEditorScreenState extends State<PosStockIssueEditorScreen> {
         Expanded(
           child: _lines.isEmpty
               ? Center(
-                  child: Text(
-                    'Chưa có hàng trong phiếu',
+                  child: Text(tr('Chưa có hàng trong phiếu'),
                     style: TextStyle(color: Colors.grey.shade600),
                   ),
                 )
@@ -734,21 +733,21 @@ class _PosStockIssueEditorScreenState extends State<PosStockIssueEditorScreen> {
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
-                          dataCell(Text('${i + 1}', style: const TextStyle(fontSize: 13)), 1),
+                          dataCell(Text(tr('${i + 1}'), style: const TextStyle(fontSize: 13)), 1),
                           dataCell(
-                              Text(l.productCode,
+                              Text(tr(l.productCode),
                                   style: const TextStyle(fontSize: 13, color: _blue)),
                               2),
                           dataCell(
-                              Text(l.productName,
+                              Text(tr(l.productName),
                                   style: const TextStyle(
                                       fontSize: 13, fontWeight: FontWeight.w500)),
                               4),
-                          dataCell(Text(l.unitName, style: const TextStyle(fontSize: 13)), 1),
+                          dataCell(Text(tr(l.unitName), style: const TextStyle(fontSize: 13)), 1),
                           dataCell(_qtyCell(l), 3),
                           dataCell(_costCell(l), 2),
                           dataCell(
-                              Text('${_moneyFmt.format(l.lineTotal)} đ',
+                              Text(tr('${_moneyFmt.format(l.lineTotal)} đ'),
                                   style: const TextStyle(fontSize: 13)),
                               2),
                           if (!_readOnly)
@@ -779,7 +778,7 @@ class _PosStockIssueEditorScreenState extends State<PosStockIssueEditorScreen> {
             children: [
               Icon(Icons.inventory_2_outlined, size: 48, color: Colors.grey.shade400),
               const SizedBox(height: 12),
-              Text('Chưa có hàng trong phiếu',
+              Text(tr('Chưa có hàng trong phiếu'),
                   style: TextStyle(color: Colors.grey.shade600)),
             ],
           ),
@@ -799,15 +798,14 @@ class _PosStockIssueEditorScreenState extends State<PosStockIssueEditorScreen> {
           name: l.productName,
           onRemove: _readOnly ? null : () => _removeLine(l),
           fields: [
-            Text('ĐVT: ${l.unitName}',
+            Text(tr('ĐVT: ${l.unitName}'),
                 style: const TextStyle(fontSize: 13)),
             const SizedBox(height: 8),
             _qtyCell(l),
             const SizedBox(height: 8),
             _costCell(l),
             const SizedBox(height: 6),
-            Text(
-              'Thành tiền: ${_moneyFmt.format(l.lineTotal)} đ',
+            Text(tr('Thành tiền: ${_moneyFmt.format(l.lineTotal)} đ'),
               style: const TextStyle(fontWeight: FontWeight.w600),
             ),
           ],
@@ -827,18 +825,18 @@ class _PosStockIssueEditorScreenState extends State<PosStockIssueEditorScreen> {
               child: PosPurchaseProductSearchBar(
                 api: _api,
                 readOnly: _readOnly,
-                hintText: 'Tìm hàng hóa (F3)',
+                hintText: tr('Tìm hàng hóa (F3)'),
                 onPick: _onPickProduct,
               ),
             )
           else
             Expanded(
-              child: Text('Chi tiết phiếu ${_config.title}',
+              child: Text(tr('Chi tiết phiếu ${_config.title}'),
                   style: const TextStyle(
                       fontSize: 15, fontWeight: FontWeight.w600)),
             ),
           IconButton(
-            tooltip: 'Quét mã vạch',
+            tooltip: tr('Quét mã vạch'),
             icon: const Icon(Icons.qr_code_scanner_outlined),
             onPressed: _readOnly ? null : _scanBarcode,
           ),
@@ -873,7 +871,7 @@ class _PosStockIssueEditorScreenState extends State<PosStockIssueEditorScreen> {
                 : null,
             decoration: PosTheme.inputDecoration(label: 'Loại xuất'),
             items: kInternalUseCategories
-                .map((c) => DropdownMenuItem(value: c, child: Text(c)))
+                .map((c) => DropdownMenuItem(value: c, child: Text(tr(c))))
                 .toList(),
             onChanged:
                 _readOnly ? null : (v) => setState(() => _categoryName = v),
@@ -901,32 +899,32 @@ class _PosStockIssueEditorScreenState extends State<PosStockIssueEditorScreen> {
           FilledButton(
             onPressed: _saving ? null : _complete,
             style: FilledButton.styleFrom(backgroundColor: _blue),
-            child: Text(_saving ? '…' : _config.completeActionLabel),
+            child: Text(tr(_saving ? '…' : _config.completeActionLabel)),
           ),
           const SizedBox(height: 8),
           OutlinedButton(
             onPressed: _saving ? null : _saveDraft,
-            child: Text(_saving ? '…' : 'Lưu tạm (chưa trừ kho)'),
+            child: Text(tr(_saving ? '…' : 'Lưu tạm (chưa trừ kho)')),
           ),
           const SizedBox(height: 8),
           OutlinedButton.icon(
             onPressed: _saving ? null : _deleteDraft,
             icon: const Icon(Icons.delete_outline, size: 18),
-            label: const Text('Xóa phiếu'),
+            label: Text(tr('Xóa phiếu')),
           ),
         ] else if (_status == 'Cancelled') ...[
           const SizedBox(height: 16),
           OutlinedButton.icon(
             onPressed: _saving ? null : _deleteDraft,
             icon: const Icon(Icons.delete_outline, size: 18),
-            label: const Text('Xóa phiếu'),
+            label: Text(tr('Xóa phiếu')),
           ),
         ] else if (_status == 'Completed') ...[
           const SizedBox(height: 16),
           OutlinedButton.icon(
             onPressed: _saving ? null : _voidCompleted,
             icon: const Icon(Icons.cancel_outlined, size: 18),
-            label: const Text('Hủy phiếu'),
+            label: Text(tr('Hủy phiếu')),
           ),
         ],
       ],
@@ -940,13 +938,13 @@ class _PosStockIssueEditorScreenState extends State<PosStockIssueEditorScreen> {
         FilledButton(
           onPressed: _saving ? null : _complete,
           style: FilledButton.styleFrom(backgroundColor: _blue),
-          child: Text(_saving ? '…' : _config.completeActionLabel),
+          child: Text(tr(_saving ? '…' : _config.completeActionLabel)),
         ),
         PopupMenuButton<String>(
           enabled: !_saving,
           itemBuilder: (ctx) => [
-            const PopupMenuItem(value: 'draft', child: Text('Lưu tạm (chưa trừ kho)')),
-            const PopupMenuItem(value: 'delete', child: Text('Xóa phiếu')),
+            PopupMenuItem(value: 'draft', child: Text(tr('Lưu tạm (chưa trừ kho)'))),
+            PopupMenuItem(value: 'delete', child: Text(tr('Xóa phiếu'))),
           ],
           onSelected: (v) {
             if (v == 'draft') _saveDraft();
@@ -966,7 +964,7 @@ class _PosStockIssueEditorScreenState extends State<PosStockIssueEditorScreen> {
     final perm = Provider.of<PermissionProvider>(context);
     if (!perm.canEdit(_config.moduleCode)) {
       return Scaffold(
-          body: Center(child: Text('Không có quyền ${_config.title}')));
+          body: Center(child: Text(tr('Không có quyền ${_config.title}'))));
     }
 
     final body = _loading
@@ -1030,9 +1028,9 @@ class _PosStockIssueEditorScreenState extends State<PosStockIssueEditorScreen> {
                 children: [
                   Icon(_config.icon, color: _blue, size: 22),
                   const SizedBox(width: 8),
-                  Text(_issueId == null
+                  Text(tr(_issueId == null
                       ? _config.title
-                      : '${_config.title} · $_issueNo'),
+                      : '${_config.title} · $_issueNo')),
                 ],
               ),
             ),
@@ -1049,8 +1047,8 @@ class _PosStockIssueEditorScreenState extends State<PosStockIssueEditorScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: const TextStyle(fontSize: 13, color: PosTheme.textSecondary)),
-          Text(value,
+          Text(tr(label), style: const TextStyle(fontSize: 13, color: PosTheme.textSecondary)),
+          Text(tr(value),
               style: TextStyle(
                   fontWeight: bold ? FontWeight.bold : FontWeight.w500,
                   fontSize: bold ? 15 : 13)),

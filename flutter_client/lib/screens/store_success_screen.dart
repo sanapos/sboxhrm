@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import '../services/api_service.dart';
 import '../utils/file_saver.dart' as file_saver;
 import '../widgets/notification_overlay.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 class StoreSuccessScreen extends StatefulWidget {
   final String storeName;
@@ -116,7 +117,7 @@ class _StoreSuccessScreenState extends State<StoreSuccessScreen>
       );
     } catch (e) {
       if (mounted) {
-        NotificationOverlayManager().showError(title: 'Lỗi', message: 'Không thể tải ảnh: $e');
+        NotificationOverlayManager().showError(title: 'Lỗi', message: tr('Không thể tải ảnh: $e'));
       }
     } finally {
       if (mounted) setState(() => _isDownloading = false);
@@ -136,7 +137,7 @@ class _StoreSuccessScreenState extends State<StoreSuccessScreen>
             _seedDone = true;
             _isSeeding = false;
           });
-          NotificationOverlayManager().showSuccess(title: 'Thành công', message: 'Đã cài dữ liệu mẫu thành công!');
+          NotificationOverlayManager().showSuccess(title: 'Thành công', message: tr('Đã cài dữ liệu mẫu thành công!'));
         } else {
           setState(() {
             _seedError = result['message'] ?? 'Lỗi không xác định';
@@ -155,8 +156,8 @@ class _StoreSuccessScreenState extends State<StoreSuccessScreen>
   }
 
   void _copyToClipboard(String text, String label) {
-    Clipboard.setData(ClipboardData(text: text));
-    NotificationOverlayManager().showSuccess(title: 'Sao chép', message: 'Đã sao chép $label');
+    Clipboard.setData(ClipboardData(text: tr(text)));
+    NotificationOverlayManager().showSuccess(title: 'Sao chép', message: tr('Đã sao chép $label'));
   }
 
   @override
@@ -272,8 +273,7 @@ class _StoreSuccessScreenState extends State<StoreSuccessScreen>
                         },
                         child: Column(
                           children: [
-                            const Text(
-                              'Đăng ký thành công!',
+                            Text(tr('Đăng ký thành công!'),
                               style: TextStyle(
                                 fontSize: 28,
                                 fontWeight: FontWeight.w800,
@@ -282,8 +282,7 @@ class _StoreSuccessScreenState extends State<StoreSuccessScreen>
                               ),
                             ),
                             const SizedBox(height: 8),
-                            Text(
-                              'Lưu thông tin bên dưới để đăng nhập hệ thống',
+                            Text(tr('Lưu thông tin bên dưới để đăng nhập hệ thống'),
                               style: TextStyle(
                                 color: Colors.grey[400],
                                 fontSize: 14,
@@ -347,14 +346,13 @@ class _StoreSuccessScreenState extends State<StoreSuccessScreen>
                                           color: const Color(0xFF4CAF50).withValues(alpha: 0.3),
                                         ),
                                       ),
-                                      child: const Row(
+                                      child: Row(
                                         mainAxisAlignment: MainAxisAlignment.center,
                                         children: [
                                           Icon(Icons.check_circle_rounded,
                                               color: Color(0xFF4CAF50), size: 20),
                                           SizedBox(width: 8),
-                                          Text(
-                                            'Đã cài dữ liệu mẫu',
+                                          Text(tr('Đã cài dữ liệu mẫu'),
                                             style: TextStyle(
                                               color: Color(0xFF4CAF50),
                                               fontSize: 14,
@@ -377,9 +375,9 @@ class _StoreSuccessScreenState extends State<StoreSuccessScreen>
                                           : const Icon(Icons.dataset_rounded,
                                               size: 20),
                                       label: Text(
-                                        _isSeeding
+                                        tr(_isSeeding
                                             ? 'Đang cài dữ liệu mẫu...'
-                                            : 'Cài dữ liệu mẫu (10 NV, 15 ngày)',
+                                            : 'Cài dữ liệu mẫu (10 NV, 15 ngày)'),
                                         style: const TextStyle(fontSize: 14),
                                       ),
                                       style: OutlinedButton.styleFrom(
@@ -410,7 +408,7 @@ class _StoreSuccessScreenState extends State<StoreSuccessScreen>
                                   ),
                                 ),
                                 child: Text(
-                                  _seedError!,
+                                  tr(_seedError!),
                                   style: const TextStyle(
                                     color: Colors.redAccent,
                                     fontSize: 12,
@@ -436,8 +434,7 @@ class _StoreSuccessScreenState extends State<StoreSuccessScreen>
                                       )
                                     : const Icon(Icons.download_rounded,
                                         size: 20),
-                                label: const Text(
-                                  'Tải ảnh thông tin (PNG)',
+                                label: Text(tr('Tải ảnh thông tin (PNG)'),
                                   style: TextStyle(fontSize: 14),
                                 ),
                                 style: OutlinedButton.styleFrom(
@@ -459,8 +456,7 @@ class _StoreSuccessScreenState extends State<StoreSuccessScreen>
                               height: 54,
                               child: FilledButton.icon(
                                 icon: const Icon(Icons.login_rounded, size: 20),
-                                label: const Text(
-                                  'Đăng nhập ngay',
+                                label: Text(tr('Đăng nhập ngay'),
                                   style: TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.w600,
@@ -587,7 +583,7 @@ class _StoreInfoCardState extends State<_StoreInfoCard> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'SBOX HRM',
+                        tr('SBOX HRM'),
                         style: TextStyle(
                           color: Colors.white.withValues(alpha: 0.6),
                           fontSize: 10,
@@ -597,7 +593,7 @@ class _StoreInfoCardState extends State<_StoreInfoCard> {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        widget.storeName,
+                        tr(widget.storeName),
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 20,
@@ -645,8 +641,7 @@ class _StoreInfoCardState extends State<_StoreInfoCard> {
                               size: 14,
                               color: Colors.blue.shade300),
                           const SizedBox(width: 6),
-                          Text(
-                            'MÃ CỬA HÀNG',
+                          Text(tr('MÃ CỬA HÀNG'),
                             style: TextStyle(
                               color: Colors.blue.shade300,
                               fontSize: 11,
@@ -661,7 +656,7 @@ class _StoreInfoCardState extends State<_StoreInfoCard> {
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Text(
-                            widget.storeCode,
+                            tr(widget.storeCode),
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 30,
@@ -771,9 +766,8 @@ class _StoreInfoCardState extends State<_StoreInfoCard> {
                             color: Color(0xFFFFB74D), size: 14),
                       ),
                       const SizedBox(width: 10),
-                      const Expanded(
-                        child: Text(
-                          'Bạn cần nhập MÃ CỬA HÀNG mỗi lần đăng nhập.\nHãy chụp ảnh hoặc tải PNG để lưu lại!',
+                      Expanded(
+                        child: Text(tr('Bạn cần nhập MÃ CỬA HÀNG mỗi lần đăng nhập.\nHãy chụp ảnh hoặc tải PNG để lưu lại!'),
                           style: TextStyle(
                             fontSize: 12,
                             color: Color(0xFFFFB74D),
@@ -802,8 +796,7 @@ class _StoreInfoCardState extends State<_StoreInfoCard> {
                 Icon(Icons.verified_rounded,
                     size: 13, color: Colors.blue.shade400),
                 const SizedBox(width: 6),
-                Text(
-                  'SBOX HRM  •  Quản lý nhân sự thời gian thực',
+                Text(tr('SBOX HRM  •  Quản lý nhân sự thời gian thực'),
                   style: TextStyle(
                     color: Colors.grey[600],
                     fontSize: 11,
@@ -862,7 +855,7 @@ class _InfoTile extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  label,
+                  tr(label),
                   style: TextStyle(
                     color: Colors.grey[500],
                     fontSize: 11,
@@ -871,7 +864,7 @@ class _InfoTile extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  value,
+                  tr(value),
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 15,

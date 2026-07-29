@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'hrm_page_chrome.dart';
+import '../l10n/app_tr.dart';
 
 /// Toolbar tìm kiếm + nút thao tác trên mobile (không để trống + không ẩn sau filter).
 class HrmMobileSearchRow extends StatelessWidget {
@@ -80,7 +81,7 @@ class HrmSearchField extends StatelessWidget {
       onChanged: onChanged,
       style: const TextStyle(fontSize: 13, color: HrmPageChrome.textDark),
       decoration: InputDecoration(
-        hintText: hintText,
+        hintText: tr(hintText),
         hintStyle: const TextStyle(fontSize: 13, color: HrmPageChrome.textMuted),
         prefixIcon: const Icon(Icons.search, size: 20, color: HrmPageChrome.textMuted),
         suffixIcon: showClear

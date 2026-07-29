@@ -5,6 +5,7 @@ import '../../utils/report_screen_helpers.dart';
 import '../../utils/responsive_helper.dart';
 import '../../utils/vietnamese_font.dart';
 import '../hrm_page_chrome.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// Một chỉ số KPI trên báo cáo.
 class ReportKpiItem {
@@ -62,12 +63,12 @@ class ReportKpiGrid extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Text(k.label,
+                      Text(tr(k.label),
                           style: vietnameseTextStyle(TextStyle(
                               fontSize: 10, color: Colors.grey.shade700)),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis),
-                      Text(k.value,
+                      Text(tr(k.value),
                           style: vietnameseTextStyle(TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.bold,
@@ -115,11 +116,11 @@ class ReportScreenShell extends StatelessWidget {
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(title,
+            Text(tr(title),
                 style: vietnameseTextStyle(const TextStyle(
                     fontSize: 17, fontWeight: FontWeight.bold))),
             if (subtitle != null)
-              Text(subtitle!,
+              Text(tr(subtitle!),
                   style: vietnameseTextStyle(const TextStyle(
                       fontSize: 11, fontWeight: FontWeight.normal))),
           ],
@@ -140,7 +141,7 @@ class ReportScreenShell extends StatelessWidget {
           if (canExport && onExport != null)
             IconButton(
               icon: const Icon(Icons.file_download_outlined),
-              tooltip: 'Xuất Excel',
+              tooltip: tr('Xuất Excel'),
               onPressed: onExport,
             ),
           IconButton(icon: const Icon(Icons.refresh), onPressed: onRefresh),
@@ -180,7 +181,7 @@ class ReportViewModeTabs extends StatelessWidget {
           for (var i = 0; i < items.length; i++)
             ButtonSegment(
               value: i,
-              label: Text(items[i].label,
+              label: Text(tr(items[i].label),
                   style: vietnameseTextStyle(const TextStyle(fontSize: 12))),
               icon: Icon(items[i].icon, size: 16),
             ),
@@ -249,21 +250,21 @@ class ReportTimelineCard extends StatelessWidget {
                   Row(
                     children: [
                       Expanded(
-                        child: Text(title,
+                        child: Text(tr(title),
                             style: vietnameseTextStyle(const TextStyle(
                                 fontSize: 14, fontWeight: FontWeight.w600)),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis),
                       ),
                       if (trailing != null)
-                        Text(trailing!,
+                        Text(tr(trailing!),
                             style: vietnameseTextStyle(TextStyle(
                                 fontSize: 11, color: Colors.grey.shade600))),
                     ],
                   ),
                   if (amount != null) ...[
                     const SizedBox(height: 4),
-                    Text(amount!,
+                    Text(tr(amount!),
                         style: vietnameseTextStyle(TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.bold,
@@ -271,7 +272,7 @@ class ReportTimelineCard extends StatelessWidget {
                   ],
                   if (subtitle != null && subtitle!.isNotEmpty) ...[
                     const SizedBox(height: 4),
-                    Text(subtitle!,
+                    Text(tr(subtitle!),
                         style: vietnameseTextStyle(TextStyle(
                             fontSize: 12, color: Colors.grey.shade700)),
                         maxLines: 3,
@@ -299,7 +300,7 @@ Widget _statusChip(String label, Color color) {
       borderRadius: BorderRadius.circular(20),
       border: Border.all(color: color.withValues(alpha: 0.35)),
     ),
-    child: Text(label,
+    child: Text(tr(label),
         style: vietnameseTextStyle(TextStyle(
             fontSize: 11, fontWeight: FontWeight.w600, color: color))),
   );
@@ -344,7 +345,7 @@ class ReportEmployeeSummaryCard extends StatelessWidget {
                 radius: 18,
                 backgroundColor: accentColor.withValues(alpha: 0.12),
                 child: Text(
-                  name.isNotEmpty ? name[0].toUpperCase() : '?',
+                  tr(name.isNotEmpty ? name[0].toUpperCase() : '?'),
                   style: vietnameseTextStyle(TextStyle(
                       color: accentColor, fontWeight: FontWeight.bold)),
                 ),
@@ -354,13 +355,13 @@ class ReportEmployeeSummaryCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(name,
+                    Text(tr(name),
                         style: vietnameseTextStyle(const TextStyle(
                             fontSize: 14, fontWeight: FontWeight.w600)),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis),
                     if (meta != null)
-                      Text(meta!,
+                      Text(tr(meta!),
                           style: vietnameseTextStyle(TextStyle(
                               fontSize: 11, color: Colors.grey.shade600))),
                   ],
@@ -369,13 +370,13 @@ class ReportEmployeeSummaryCard extends StatelessWidget {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  Text(primaryValue,
+                  Text(tr(primaryValue),
                       style: vietnameseTextStyle(TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.bold,
                           color: accentColor))),
                   if (secondaryValue != null)
-                    Text(secondaryValue!,
+                    Text(tr(secondaryValue!),
                         style: vietnameseTextStyle(TextStyle(
                             fontSize: 11, color: Colors.grey.shade600))),
                 ],
@@ -477,12 +478,11 @@ class _ReportFilterSectionState extends State<ReportFilterSection> {
           onExpansionChanged: (v) => setState(() => _expanded = v),
           tilePadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
           childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-          title: const Text(
-            'Bộ lọc',
+          title: Text(tr('Bộ lọc'),
             style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
           ),
           subtitle: Text(
-            _filterSummary(),
+            tr(_filterSummary()),
             style: TextStyle(fontSize: 12, color: Colors.grey[600]),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
@@ -518,14 +518,14 @@ class _ReportFilterSectionState extends State<ReportFilterSection> {
                   TextButton.icon(
                     onPressed: widget.onClearFilters,
                     icon: const Icon(Icons.filter_alt_off, size: 15),
-                    label: Text('Xóa lọc',
+                    label: Text(tr('Xóa lọc'),
                         style:
                             vietnameseTextStyle(const TextStyle(fontSize: 12))),
                   ),
                 const Spacer(),
                 FilledButton.icon(
                   icon: const Icon(Icons.search, size: 16),
-                  label: Text('Áp dụng',
+                  label: Text(tr('Áp dụng'),
                       style: vietnameseTextStyle(const TextStyle(fontSize: 13))),
                   style: FilledButton.styleFrom(
                     backgroundColor: HrmPageChrome.primaryNavy,
@@ -556,17 +556,17 @@ class _ReportFilterSectionState extends State<ReportFilterSection> {
           value: widget.selectedBranchId,
           isExpanded: true,
           isDense: true,
-          hint: Text('Tất cả chi nhánh',
+          hint: Text(tr('Tất cả chi nhánh'),
               style: vietnameseTextStyle(
                   const TextStyle(fontSize: 13, color: Color(0xFF6B7280)))),
           style: vietnameseTextStyle(
               const TextStyle(fontSize: 13, color: Color(0xFF111827))),
           items: [
-            const DropdownMenuItem<String?>(
-                value: null, child: Text('Tất cả chi nhánh')),
+            DropdownMenuItem<String?>(
+                value: null, child: Text(tr('Tất cả chi nhánh'))),
             ...widget.branchFilter!.branches.map((b) => DropdownMenuItem<String?>(
                   value: b['id']?.toString(),
-                  child: Text(b['name']?.toString() ?? '',
+                  child: Text(tr(b['name']?.toString() ?? ''),
                       overflow: TextOverflow.ellipsis),
                 )),
           ],
@@ -598,7 +598,7 @@ class _ReportFilterSectionState extends State<ReportFilterSection> {
             focusNode: node,
             style: vietnameseTextStyle(const TextStyle(fontSize: 13)),
             decoration: InputDecoration(
-              hintText: 'Tìm nhân viên...',
+              hintText: tr('Tìm nhân viên...'),
               hintStyle: vietnameseTextStyle(
                   const TextStyle(fontSize: 12, color: Color(0xFF9CA3AF))),
               prefixIcon: const Icon(Icons.person_search_outlined,
@@ -650,8 +650,7 @@ class ReportPaginationBar extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       child: Row(
         children: [
-          Text(
-            'Trang $page/$totalPages | $totalCount bản ghi',
+          Text(tr('Trang $page/$totalPages | $totalCount bản ghi'),
             style: vietnameseTextStyle(
                 TextStyle(fontSize: 12, color: Colors.grey.shade700)),
           ),
@@ -699,7 +698,7 @@ class ReportPersonalInsightBanner extends StatelessWidget {
           Icon(icon, color: color, size: 20),
           const SizedBox(width: 10),
           Expanded(
-            child: Text(message,
+            child: Text(tr(message),
                 style: vietnameseTextStyle(TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w500,

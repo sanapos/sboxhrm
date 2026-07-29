@@ -23,6 +23,7 @@ import '../utils/attendance_correction_dates.dart';
 import '../utils/report_screen_helpers.dart';
 import '../utils/salary_profile_load_utils.dart';
 import '../utils/shift_records_calculator.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// Màn hình tổng hợp chấm công - standalone wrapper cho AttendanceSummaryTab
 /// Tự load dữ liệu (attendances + devices) và nhúng AttendanceSummaryTab
@@ -379,16 +380,14 @@ class _AttendanceSummaryScreenState extends State<AttendanceSummaryScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        'Tổng hợp chấm công',
+                      Text(tr('Tổng hợp chấm công'),
                         style: vietnameseTextStyle(TextStyle(
                             fontSize: Responsive.isMobile(context) ? 16 : 20,
                             fontWeight: FontWeight.bold,
                             color: Colors.white)),
                       ),
                       if (!Responsive.isMobile(context))
-                        Text(
-                          'Tổng hợp dữ liệu chấm công theo nhân viên và ngày · ${_attendances.length} bản ghi',
+                        Text(tr('Tổng hợp dữ liệu chấm công theo nhân viên và ngày · ${_attendances.length} bản ghi'),
                           style: vietnameseTextStyle(TextStyle(
                               fontSize: 12,
                               color: Colors.white.withValues(alpha: 0.8))),
@@ -420,7 +419,7 @@ class _AttendanceSummaryScreenState extends State<AttendanceSummaryScreen> {
                           child: Row(children: [
                             const Icon(Icons.table_chart_outlined, size: 18),
                             const SizedBox(width: 10),
-                            Text('Xuất Excel',
+                            Text(tr('Xuất Excel'),
                                 style: vietnameseTextStyle()),
                           ])),
                       PopupMenuItem(
@@ -428,7 +427,7 @@ class _AttendanceSummaryScreenState extends State<AttendanceSummaryScreen> {
                           child: Row(children: [
                             const Icon(Icons.image_outlined, size: 18),
                             const SizedBox(width: 10),
-                            Text('Xuất PNG', style: vietnameseTextStyle()),
+                            Text(tr('Xuất PNG'), style: vietnameseTextStyle()),
                           ])),
                     ],
                   )
@@ -461,8 +460,8 @@ class _AttendanceSummaryScreenState extends State<AttendanceSummaryScreen> {
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          'Chưa có bảng lương cấu hình — hệ số ngày lễ/nghỉ trong tổng hợp có thể không chính xác. '
-                          'Vào Thiết lập lương để cấu hình.',
+                          tr('Chưa có bảng lương cấu hình — hệ số ngày lễ/nghỉ trong tổng hợp có thể không chính xác. '
+                          'Vào Thiết lập lương để cấu hình.'),
                           style: TextStyle(
                               fontSize: 12, color: Colors.blue.shade900),
                         ),
@@ -501,13 +500,13 @@ class _AttendanceSummaryScreenState extends State<AttendanceSummaryScreen> {
                           icon: const Icon(Icons.keyboard_arrow_down,
                               size: 18, color: Color(0xFF9CA3AF)),
                           items: [
-                            const DropdownMenuItem<String?>(
+                            DropdownMenuItem<String?>(
                                 value: null,
-                                child: Text('T\u1ea5t c\u1ea3 chi nh\u00e1nh',
+                                child: Text(tr('T\u1ea5t c\u1ea3 chi nh\u00e1nh'),
                                     style: TextStyle(fontSize: 13))),
                             ..._branchFilter.branches.map((b) => DropdownMenuItem<String?>(
                                 value: b['id']?.toString(),
-                                child: Text(b['name']?.toString() ?? '',
+                                child: Text(tr(b['name']?.toString() ?? ''),
                                     overflow: TextOverflow.ellipsis,
                                     style: const TextStyle(fontSize: 13)))),
                           ],
@@ -548,9 +547,9 @@ class _AttendanceSummaryScreenState extends State<AttendanceSummaryScreen> {
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        _attendanceExpectedCount != null
+                        tr(_attendanceExpectedCount != null
                             ? 'Chỉ tải được ${_attendances.length} / ${_attendanceExpectedCount!} log chấm công — báo cáo có thể thiếu ngày cuối tháng.'
-                            : 'Log chấm công có thể chưa đủ — kéo xuống để tải lại.',
+                            : 'Log chấm công có thể chưa đủ — kéo xuống để tải lại.'),
                         style: TextStyle(
                           fontSize: 12,
                           color: Colors.orange.shade900,
@@ -560,7 +559,7 @@ class _AttendanceSummaryScreenState extends State<AttendanceSummaryScreen> {
                     ),
                     TextButton(
                       onPressed: _loadData,
-                      child: const Text('Tải lại'),
+                      child: Text(tr('Tải lại')),
                     ),
                   ],
                 ),
@@ -601,7 +600,7 @@ class _AttendanceSummaryScreenState extends State<AttendanceSummaryScreen> {
                           const CircularProgressIndicator(),
                           const SizedBox(height: 16),
                           Text(
-                            _loadMessage,
+                            tr(_loadMessage),
                             textAlign: TextAlign.center,
                             style: vietnameseTextStyle(const TextStyle(
                               fontSize: 13,
@@ -706,8 +705,7 @@ class _AttendanceSummaryScreenState extends State<AttendanceSummaryScreen> {
         if (mounted) {
           NotificationOverlayManager().showError(
             title: 'Lỗi',
-            message:
-                'Không xác định được bản ghi chấm công. Vui lòng tải lại dữ liệu.',
+            message: tr('Không xác định được bản ghi chấm công. Vui lòng tải lại dữ liệu.'),
           );
         }
         return;
@@ -718,8 +716,7 @@ class _AttendanceSummaryScreenState extends State<AttendanceSummaryScreen> {
         if (mounted) {
           NotificationOverlayManager().showError(
             title: 'Lỗi',
-            message:
-                'Không xác định được giờ chấm công cần xóa. Vui lòng tải lại dữ liệu.',
+            message: tr('Không xác định được giờ chấm công cần xóa. Vui lòng tải lại dữ liệu.'),
           );
         }
         return;
@@ -794,7 +791,7 @@ class _AttendanceSummaryScreenState extends State<AttendanceSummaryScreen> {
       debugPrint('Error creating correction request: $e');
       if (mounted) {
         NotificationOverlayManager()
-            .showError(title: 'Lỗi', message: 'Lỗi: $e');
+            .showError(title: 'Lỗi', message: tr('Lỗi: $e'));
       }
     }
   }

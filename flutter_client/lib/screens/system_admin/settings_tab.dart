@@ -7,6 +7,7 @@ import '../../services/api_service.dart';
 import '../../providers/auth_provider.dart';
 import '../../utils/responsive_helper.dart';
 import 'system_admin_helpers.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 class SettingsTab extends StatefulWidget {
   const SettingsTab({super.key});
@@ -151,15 +152,15 @@ class SettingsTabState extends State<SettingsTab> {
                       child: DropdownButton<String?>(
                         value: _groupFilter,
                         isExpanded: true,
-                        hint: const Text('Nhóm', style: TextStyle(fontSize: 13)),
+                        hint: Text(tr('Nhóm'), style: TextStyle(fontSize: 13)),
                         items: [
-                          const DropdownMenuItem(
+                          DropdownMenuItem(
                               value: null,
-                              child: Text('Tất cả nhóm',
+                              child: Text(tr('Tất cả nhóm'),
                                   style: TextStyle(fontSize: 13))),
                           ...allGroups.map((g) => DropdownMenuItem(
                               value: g.toLowerCase(),
-                              child: Text(g, style: const TextStyle(fontSize: 13)))),
+                              child: Text(tr(g), style: const TextStyle(fontSize: 13)))),
                         ],
                         onChanged: (v) {
                           setState(() => _groupFilter = v);
@@ -182,7 +183,7 @@ class SettingsTabState extends State<SettingsTab> {
                     }
                   },
                   icon: const Icon(Icons.auto_fix_high, size: 18),
-                  label: const Text('Khởi tạo', style: TextStyle(fontSize: 12)),
+                  label: Text(tr('Khởi tạo'), style: TextStyle(fontSize: 12)),
                   style: ElevatedButton.styleFrom(
                       backgroundColor: AdminHelpers.primary,
                       foregroundColor: Colors.white,
@@ -209,15 +210,15 @@ class SettingsTabState extends State<SettingsTab> {
               child: DropdownButtonHideUnderline(
                 child: DropdownButton<String?>(
                   value: _groupFilter,
-                  hint: const Text('Nhóm', style: TextStyle(fontSize: 13)),
+                  hint: Text(tr('Nhóm'), style: TextStyle(fontSize: 13)),
                   items: [
-                    const DropdownMenuItem(
+                    DropdownMenuItem(
                         value: null,
-                        child: Text('Tất cả nhóm',
+                        child: Text(tr('Tất cả nhóm'),
                             style: TextStyle(fontSize: 13))),
                     ...allGroups.map((g) => DropdownMenuItem(
                         value: g.toLowerCase(),
-                        child: Text(g, style: const TextStyle(fontSize: 13)))),
+                        child: Text(tr(g), style: const TextStyle(fontSize: 13)))),
                   ],
                   onChanged: (v) {
                     setState(() => _groupFilter = v);
@@ -239,7 +240,7 @@ class SettingsTabState extends State<SettingsTab> {
                 }
               },
               icon: const Icon(Icons.auto_fix_high, size: 18),
-              label: const Text('Khởi tạo mặc định'),
+              label: Text(tr('Khởi tạo mặc định')),
               style: ElevatedButton.styleFrom(
                   backgroundColor: AdminHelpers.primary,
                   foregroundColor: Colors.white),
@@ -285,9 +286,9 @@ class SettingsTabState extends State<SettingsTab> {
           child: const Icon(Icons.settings,
               color: AdminHelpers.primary, size: 18),
         ),
-        title: Text(group,
+        title: Text(tr(group),
             style: const TextStyle(fontWeight: FontWeight.w600)),
-        subtitle: Text('${settings.length} cấu hình',
+        subtitle: Text(tr('${settings.length} cấu hình'),
             style: TextStyle(fontSize: 12, color: Colors.grey[600])),
         children: settings.map(_buildSettingRow).toList(),
       ),
@@ -317,7 +318,7 @@ class SettingsTabState extends State<SettingsTab> {
                 children: [
                   Row(children: [
                     Expanded(
-                      child: Text(setting['key']?.toString() ?? 'N/A',
+                      child: Text(tr(setting['key']?.toString() ?? 'N/A'),
                           style: const TextStyle(
                               fontWeight: FontWeight.w600, fontSize: 13)),
                     ),
@@ -329,13 +330,13 @@ class SettingsTabState extends State<SettingsTab> {
                   ]),
                   if (description != null && description.isNotEmpty) ...[
                     const SizedBox(height: 4),
-                    Text(description,
+                    Text(tr(description),
                         style: TextStyle(
                             fontSize: 12, color: Colors.grey[600])),
                   ],
                   const SizedBox(height: 8),
                   Text(
-                    value.isEmpty ? 'Chưa có giá trị' : value,
+                    tr(value.isEmpty ? 'Chưa có giá trị' : value),
                     style: TextStyle(
                         fontSize: 12,
                         color: value.isEmpty
@@ -346,9 +347,9 @@ class SettingsTabState extends State<SettingsTab> {
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    setting['lastModified'] != null
+                    tr(setting['lastModified'] != null
                         ? 'Cập nhật: ${AdminHelpers.formatDateTime(setting['lastModified'])}'
-                        : 'Chưa cập nhật',
+                        : 'Chưa cập nhật'),
                     style:
                         TextStyle(fontSize: 11, color: Colors.grey[500]),
                   ),
@@ -358,7 +359,7 @@ class SettingsTabState extends State<SettingsTab> {
           IconButton(
             onPressed: () => _showEditSettingDialog(setting),
             icon: const Icon(Icons.edit_outlined, size: 18),
-            tooltip: 'Sửa cấu hình',
+            tooltip: tr('Sửa cấu hình'),
           ),
         ],
       ),
@@ -367,20 +368,20 @@ class SettingsTabState extends State<SettingsTab> {
 
   void _showEditSettingDialog(Map<String, dynamic> setting) {
     final valueCtrl =
-        TextEditingController(text: setting['value']?.toString() ?? '');
+        TextEditingController(text: tr(setting['value']?.toString() ?? ''));
     final descriptionCtrl =
-        TextEditingController(text: setting['description']?.toString() ?? '');
+        TextEditingController(text: tr(setting['description']?.toString() ?? ''));
     final groupCtrl = TextEditingController(
-        text: setting['group']?.toString() ?? 'General');
+        text: tr(setting['group']?.toString() ?? 'General'));
     final displayOrderCtrl = TextEditingController(
-        text: (setting['displayOrder'] ?? 0).toString());
+        text: tr((setting['displayOrder'] ?? 0).toString()));
     bool isPublic = setting['isPublic'] == true;
     String dataType = setting['dataType']?.toString() ?? 'text';
 
     showDialog(
       context: context,
       builder: (ctx) => ScrollableAlertDialog(
-        title: Text('Cập nhật ${setting['key']}'),
+        title: Text(tr('${tr('Cập nhật ')}${setting['key']}')),
         content: SizedBox(
           width: 460,
           child: StatefulBuilder(
@@ -393,7 +394,7 @@ class SettingsTabState extends State<SettingsTab> {
                 DropdownButtonFormField<String>(
                   initialValue: dataType,
                   decoration: InputDecoration(
-                      labelText: 'Kiểu dữ liệu',
+                      labelText: tr('Kiểu dữ liệu'),
                       border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(10))),
                   items: const [
@@ -405,7 +406,7 @@ class SettingsTabState extends State<SettingsTab> {
                     'image'
                   ]
                       .map((item) => DropdownMenuItem(
-                          value: item, child: Text(item)))
+                          value: item, child: Text(tr(item))))
                       .toList(),
                   onChanged: (value) =>
                       setSt(() => dataType = value ?? dataType),
@@ -418,7 +419,7 @@ class SettingsTabState extends State<SettingsTab> {
                   controller: descriptionCtrl,
                   maxLines: 2,
                   decoration: InputDecoration(
-                    labelText: 'Mô tả',
+                    labelText: tr('Mô tả'),
                     prefixIcon: const Icon(Icons.notes, size: 20),
                     border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10)),
@@ -429,7 +430,7 @@ class SettingsTabState extends State<SettingsTab> {
                   controller: valueCtrl,
                   maxLines: dataType == 'textarea' ? 5 : 2,
                   decoration: InputDecoration(
-                    labelText: 'Giá trị',
+                    labelText: tr('Giá trị'),
                     prefixIcon: const Icon(Icons.tune, size: 20),
                     border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10)),
@@ -438,7 +439,7 @@ class SettingsTabState extends State<SettingsTab> {
                 const SizedBox(height: 12),
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
-                  title: const Text('Cho phép public'),
+                  title: Text(tr('Cho phép public')),
                   value: isPublic,
                   onChanged: (value) =>
                       setSt(() => isPublic = value),
@@ -450,7 +451,7 @@ class SettingsTabState extends State<SettingsTab> {
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: const Text('Hủy')),
+              child: Text(tr('Hủy'))),
           FilledButton(
             onPressed: () async {
               final res = await _apiService.upsertAppSetting(
@@ -477,7 +478,7 @@ class SettingsTabState extends State<SettingsTab> {
                 if (mounted) AdminHelpers.showApiError(context, res);
               }
             },
-            child: const Text('Lưu'),
+            child: Text(tr('Lưu')),
           ),
         ],
       ),

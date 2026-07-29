@@ -5,6 +5,7 @@ import '../providers/auth_provider.dart';
 import '../services/api_service.dart';
 import '../utils/api_datetime.dart';
 import '../widgets/hrm_page_chrome.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 class PayslipScreen extends StatefulWidget {
   const PayslipScreen({super.key});
@@ -248,8 +249,7 @@ class _PayslipScreenState extends State<PayslipScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'Phiếu lương ($count)',
+                Text(tr('Phiếu lương ($count)'),
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 22,
@@ -257,9 +257,9 @@ class _PayslipScreenState extends State<PayslipScreen> {
                   ),
                 ),
                 Text(
-                  _isManager
+                  tr(_isManager
                       ? 'Danh sách phiếu lương đã chốt'
-                      : 'Phiếu lương của bạn',
+                      : 'Phiếu lương của bạn'),
                   style: const TextStyle(color: Colors.white70, fontSize: 13),
                 ),
               ],
@@ -268,7 +268,7 @@ class _PayslipScreenState extends State<PayslipScreen> {
           IconButton(
             onPressed: _isLoading ? null : _loadData,
             icon: const Icon(Icons.refresh, color: Colors.white),
-            tooltip: 'Tải lại',
+            tooltip: tr('Tải lại'),
           ),
         ],
       ),
@@ -282,14 +282,12 @@ class _PayslipScreenState extends State<PayslipScreen> {
         children: [
           Icon(Icons.receipt_long, size: 72, color: Colors.grey[300]),
           const SizedBox(height: 16),
-          Text(
-            'Chưa có phiếu lương',
+          Text(tr('Chưa có phiếu lương'),
             style: TextStyle(color: Colors.grey[500], fontSize: 16),
           ),
           if (_isManager) ...[
             const SizedBox(height: 8),
-            Text(
-              'Chốt lương tại Tổng hợp lương để tạo phiếu',
+            Text(tr('Chốt lương tại Tổng hợp lương để tạo phiếu'),
               style: TextStyle(color: Colors.grey[400], fontSize: 13),
             ),
           ],
@@ -304,12 +302,11 @@ class _PayslipScreenState extends State<PayslipScreen> {
       child: ExpansionTile(
         initiallyExpanded: _filtersExpanded,
         onExpansionChanged: (v) => setState(() => _filtersExpanded = v),
-        title: const Text(
-          'Bộ lọc',
+        title: Text(tr('Bộ lọc'),
           style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
         ),
         subtitle: Text(
-          _filterSummary(),
+          tr(_filterSummary()),
           style: TextStyle(fontSize: 12, color: Colors.grey[600]),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
@@ -317,7 +314,7 @@ class _PayslipScreenState extends State<PayslipScreen> {
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            TextButton(onPressed: _resetFilters, child: const Text('Xóa lọc')),
+            TextButton(onPressed: _resetFilters, child: Text(tr('Xóa lọc'))),
             Icon(
               _filtersExpanded ? Icons.expand_less : Icons.expand_more,
               color: Colors.grey[600],
@@ -345,7 +342,7 @@ class _PayslipScreenState extends State<PayslipScreen> {
                         child: FilledButton.icon(
                           onPressed: _isLoading ? null : _loadData,
                           icon: const Icon(Icons.search, size: 18),
-                          label: const Text('Áp dụng bộ lọc'),
+                          label: Text(tr('Áp dụng bộ lọc')),
                         ),
                       ),
                     ],
@@ -364,7 +361,7 @@ class _PayslipScreenState extends State<PayslipScreen> {
                       FilledButton.icon(
                         onPressed: _isLoading ? null : _loadData,
                         icon: const Icon(Icons.search, size: 18),
-                        label: const Text('Áp dụng'),
+                        label: Text(tr('Áp dụng')),
                       ),
                     ],
                   ),
@@ -402,13 +399,13 @@ class _PayslipScreenState extends State<PayslipScreen> {
             value: _filterYear,
             decoration: _filterDecoration('Năm'),
             items: [
-              const DropdownMenuItem<int?>(
+              DropdownMenuItem<int?>(
                 value: null,
-                child: Text('Tất cả năm'),
+                child: Text(tr('Tất cả năm')),
               ),
               ...List.generate(6, (i) {
                 final y = DateTime.now().year - 3 + i;
-                return DropdownMenuItem(value: y, child: Text('$y'));
+                return DropdownMenuItem(value: y, child: Text(tr('$y')));
               }),
             ],
             onChanged: (v) => setState(() => _filterYear = v),
@@ -421,12 +418,12 @@ class _PayslipScreenState extends State<PayslipScreen> {
             value: _filterMonth,
             decoration: _filterDecoration('Tháng'),
             items: [
-              const DropdownMenuItem(value: null, child: Text('Tất cả tháng')),
+              DropdownMenuItem(value: null, child: Text(tr('Tất cả tháng'))),
               ...List.generate(
                 12,
                 (i) => DropdownMenuItem(
                   value: i + 1,
-                  child: Text('Tháng ${i + 1}'),
+                  child: Text(tr('Tháng ${i + 1}')),
                 ),
               ),
             ],
@@ -448,14 +445,14 @@ class _PayslipScreenState extends State<PayslipScreen> {
         isExpanded: true,
         decoration: _filterDecoration('Nhân viên'),
         items: [
-          const DropdownMenuItem(value: null, child: Text('Tất cả nhân viên')),
+          DropdownMenuItem(value: null, child: Text(tr('Tất cả nhân viên'))),
           ...withUser.map((e) {
             final uid = e['applicationUserId']?.toString() ?? '';
             final name =
                 '${e['lastName'] ?? ''} ${e['firstName'] ?? ''}'.trim();
             final code = e['employeeCode']?.toString() ?? '';
             final label = name.isNotEmpty ? '$name ($code)' : code;
-            return DropdownMenuItem(value: uid, child: Text(label));
+            return DropdownMenuItem(value: uid, child: Text(tr(label)));
           }),
         ],
         onChanged: (v) => setState(() => _filterEmployeeUserId = v),
@@ -473,9 +470,9 @@ class _PayslipScreenState extends State<PayslipScreen> {
         isExpanded: true,
         decoration: _filterDecoration('Phòng ban'),
         items: [
-          const DropdownMenuItem(value: null, child: Text('Tất cả phòng ban')),
+          DropdownMenuItem(value: null, child: Text(tr('Tất cả phòng ban'))),
           ..._departments.map(
-            (d) => DropdownMenuItem(value: d, child: Text(d)),
+            (d) => DropdownMenuItem(value: d, child: Text(tr(d))),
           ),
         ],
         onChanged: (v) => setState(() => _filterDepartment = v),
@@ -488,9 +485,9 @@ class _PayslipScreenState extends State<PayslipScreen> {
       mainAxisSize: MainAxisSize.min,
       children: [
         _dateChip('Từ ngày', _filterFromDate, () => _pickDate(isFrom: true)),
-        const Padding(
+        Padding(
           padding: EdgeInsets.symmetric(horizontal: 6),
-          child: Text('—'),
+          child: Text(tr('—')),
         ),
         _dateChip('Đến ngày', _filterToDate, () => _pickDate(isFrom: false)),
       ],
@@ -513,9 +510,9 @@ class _PayslipScreenState extends State<PayslipScreen> {
             Icon(Icons.calendar_today, size: 14, color: Colors.grey[600]),
             const SizedBox(width: 6),
             Text(
-              date != null
+              tr(date != null
                   ? DateFormat('dd/MM/yyyy').format(date)
-                  : label,
+                  : label),
               style: const TextStyle(fontSize: 13),
             ),
           ],
@@ -526,7 +523,7 @@ class _PayslipScreenState extends State<PayslipScreen> {
 
   InputDecoration _filterDecoration(String label) {
     return InputDecoration(
-      labelText: label,
+      labelText: tr(label),
       isDense: true,
       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
@@ -601,7 +598,7 @@ class _PayslipScreenState extends State<PayslipScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              empName.isNotEmpty ? empName : 'Nhân viên',
+                              tr(empName.isNotEmpty ? empName : 'Nhân viên'),
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 15,
@@ -612,10 +609,10 @@ class _PayslipScreenState extends State<PayslipScreen> {
                             if (code.isNotEmpty || dept.isNotEmpty) ...[
                               const SizedBox(height: 4),
                               Text(
-                                [
+                                tr([
                                   if (code.isNotEmpty) code,
                                   if (dept.isNotEmpty) dept,
-                                ].join(' · '),
+                                ].join(' · ')),
                                 style: const TextStyle(
                                   color: Colors.white70,
                                   fontSize: 12,
@@ -624,8 +621,7 @@ class _PayslipScreenState extends State<PayslipScreen> {
                             ],
                             if (monthDisplay.isNotEmpty) ...[
                               const SizedBox(height: 2),
-                              Text(
-                                'Kỳ $monthDisplay',
+                              Text(tr('Kỳ $monthDisplay'),
                                 style: const TextStyle(
                                   color: Colors.white70,
                                   fontSize: 12,
@@ -636,7 +632,7 @@ class _PayslipScreenState extends State<PayslipScreen> {
                                 periodEnd.isNotEmpty) ...[
                               const SizedBox(height: 2),
                               Text(
-                                '$periodStart — $periodEnd',
+                                tr('$periodStart — $periodEnd'),
                                 style: const TextStyle(
                                   color: Colors.white70,
                                   fontSize: 12,
@@ -668,7 +664,7 @@ class _PayslipScreenState extends State<PayslipScreen> {
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
                           Text(
-                            _formatCurrency(p['netSalary'] ?? 0),
+                            tr(_formatCurrency(p['netSalary'] ?? 0)),
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 16,
@@ -731,8 +727,7 @@ class _PayslipScreenState extends State<PayslipScreen> {
                     const SizedBox(height: 12),
                     Align(
                       alignment: Alignment.centerLeft,
-                      child: Text(
-                        'Phiếu chi: ${p['cashTransactionCode']}',
+                      child: Text(tr('${tr('Phiếu chi: ')}${p['cashTransactionCode']}'),
                         style:
                             TextStyle(fontSize: 12, color: Colors.grey[600]),
                       ),
@@ -743,7 +738,7 @@ class _PayslipScreenState extends State<PayslipScreen> {
                     Align(
                       alignment: Alignment.centerLeft,
                       child: Text(
-                        p['notes'].toString(),
+                        tr(p['notes'].toString()),
                         style:
                             TextStyle(fontSize: 12, color: Colors.grey[600]),
                       ),
@@ -753,7 +748,7 @@ class _PayslipScreenState extends State<PayslipScreen> {
                   OutlinedButton.icon(
                     onPressed: () => _showAttendanceSnapshot(p),
                     icon: const Icon(Icons.fact_check_outlined, size: 18),
-                    label: const Text('Xem bảng chấm công kỳ lương'),
+                    label: Text(tr('Xem bảng chấm công kỳ lương')),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: HrmPageChrome.primaryNavy,
                       side: BorderSide(
@@ -777,7 +772,7 @@ class _PayslipScreenState extends State<PayslipScreen> {
         borderRadius: BorderRadius.circular(6),
       ),
       child: Text(
-        label,
+        tr(label),
         style: const TextStyle(
           color: Colors.white,
           fontSize: 10,
@@ -809,7 +804,7 @@ class _PayslipScreenState extends State<PayslipScreen> {
                 Icon(icon, color: color, size: 18),
                 const SizedBox(width: 6),
                 Text(
-                  title,
+                  tr(title),
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                     color: color,
@@ -837,9 +832,9 @@ class _PayslipScreenState extends State<PayslipScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: TextStyle(color: Colors.grey[700], fontSize: 13)),
+          Text(tr(label), style: TextStyle(color: Colors.grey[700], fontSize: 13)),
           Text(
-            _formatCurrency(value ?? 0),
+            tr(_formatCurrency(value ?? 0)),
             style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
           ),
         ],
@@ -854,7 +849,7 @@ class _PayslipScreenState extends State<PayslipScreen> {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (ctx) => const AlertDialog(
+      builder: (ctx) => AlertDialog(
         content: Row(
           children: [
             SizedBox(
@@ -862,7 +857,7 @@ class _PayslipScreenState extends State<PayslipScreen> {
                 height: 24,
                 child: CircularProgressIndicator(strokeWidth: 2)),
             SizedBox(width: 16),
-            Expanded(child: Text('Đang tải bảng chấm công...')),
+            Expanded(child: Text(tr('Đang tải bảng chấm công...'))),
           ],
         ),
       ),
@@ -910,8 +905,7 @@ class _PayslipScreenState extends State<PayslipScreen> {
                         color: HrmPageChrome.primaryNavy),
                     const SizedBox(width: 10),
                     Expanded(
-                      child: Text(
-                        'Chấm công kỳ lương ${payslip['month']}/${payslip['year']}',
+                      child: Text(tr('${tr('Chấm công kỳ lương ')}${payslip['month']}/${payslip['year']}'),
                         style: const TextStyle(
                             fontSize: 16, fontWeight: FontWeight.bold),
                       ),
@@ -930,8 +924,8 @@ class _PayslipScreenState extends State<PayslipScreen> {
                         padding: const EdgeInsets.all(24),
                         child: Center(
                           child: Text(
-                            errorMessage ??
-                                'Phiếu lương này chưa có bản chấm công (chốt trước khi cập nhật tính năng).',
+                            tr(errorMessage ??
+                                'Phiếu lương này chưa có bản chấm công (chốt trước khi cập nhật tính năng).'),
                             textAlign: TextAlign.center,
                             style: TextStyle(color: Colors.grey[700]),
                           ),
@@ -992,21 +986,19 @@ class _PayslipScreenState extends State<PayslipScreen> {
             ),
           ),
         const SizedBox(height: 12),
-        Text(
-          'Chi tiết theo ngày (${daily.length})',
+        Text(tr('Chi tiết theo ngày (${daily.length})'),
           style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
         ),
         const SizedBox(height: 8),
         if (daily.isEmpty)
-          Text('Không có dòng chấm công',
+          Text(tr('Không có dòng chấm công'),
               style: TextStyle(color: Colors.grey[600], fontSize: 13))
         else
           ...daily.map((d) => _dailySnapshotTile(d)),
         if (data['attendanceLogs'] is List &&
             (data['attendanceLogs'] as List).isNotEmpty) ...[
           const SizedBox(height: 16),
-          Text(
-            'Log chấm công gốc (${(data['attendanceLogs'] as List).length})',
+          Text(tr('${tr('Log chấm công gốc (')}${(data['attendanceLogs'] as List).length})'),
             style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
           ),
           const SizedBox(height: 8),
@@ -1024,13 +1016,13 @@ class _PayslipScreenState extends State<PayslipScreen> {
                 color: HrmPageChrome.primaryNavy,
               ),
               title: Text(
-                time != null
+                tr(time != null
                     ? DateFormat('dd/MM/yyyy HH:mm').format(time.toLocal())
-                    : log['time']?.toString() ?? '',
+                    : log['time']?.toString() ?? ''),
                 style: const TextStyle(fontSize: 13),
               ),
               subtitle: Text(
-                '${log['stateLabel'] ?? ''} • ${log['deviceName'] ?? ''}',
+                tr('${log['stateLabel'] ?? ''} • ${log['deviceName'] ?? ''}'),
                 style: const TextStyle(fontSize: 11),
               ),
             );
@@ -1045,8 +1037,8 @@ class _PayslipScreenState extends State<PayslipScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(label, style: TextStyle(fontSize: 11, color: Colors.grey[600])),
-        Text(value,
+        Text(tr(label), style: TextStyle(fontSize: 11, color: Colors.grey[600])),
+        Text(tr(value),
             style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
       ],
     );
@@ -1070,15 +1062,15 @@ class _PayslipScreenState extends State<PayslipScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  DateFormat('dd/MM/yyyy').format(
+                  tr(DateFormat('dd/MM/yyyy').format(
                     DateTime.tryParse(d['date']?.toString() ?? '') ??
                         DateTime.now(),
-                  ),
+                  )),
                   style: const TextStyle(
                       fontWeight: FontWeight.w600, fontSize: 13),
                 ),
                 if (shifts.isNotEmpty)
-                  Text(shifts,
+                  Text(tr(shifts),
                       style:
                           TextStyle(fontSize: 11, color: Colors.grey[600])),
               ],
@@ -1086,13 +1078,13 @@ class _PayslipScreenState extends State<PayslipScreen> {
           ),
           Expanded(
             child: Text(
-              '${d['checkIn'] ?? '--'} → ${d['checkOut'] ?? '--'}',
+              tr('${d['checkIn'] ?? '--'} → ${d['checkOut'] ?? '--'}'),
               style: const TextStyle(fontSize: 12),
             ),
           ),
           Expanded(
             child: Text(
-              '${(d['workHours'] as num?)?.toStringAsFixed(1) ?? '0'}h • ${d['status'] ?? ''}',
+              tr('${(d['workHours'] as num?)?.toStringAsFixed(1) ?? '0'}h • ${d['status'] ?? ''}'),
               style: const TextStyle(fontSize: 11),
               textAlign: TextAlign.end,
             ),

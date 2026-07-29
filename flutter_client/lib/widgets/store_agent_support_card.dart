@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// Thẻ hiển thị thông tin liên hệ đại lý hỗ trợ (Zalo / SĐT / email).
 class StoreAgentSupportCard extends StatelessWidget {
@@ -88,8 +89,7 @@ class StoreAgentSupportCard extends StatelessWidget {
                   color: Color(0xFFD46B08), size: 20),
               const SizedBox(width: 8),
               Expanded(
-                child: Text(
-                  'Đại lý hỗ trợ: $codeLabel',
+                child: Text(tr('Đại lý hỗ trợ: $codeLabel'),
                   style: const TextStyle(
                     fontWeight: FontWeight.w700,
                     fontSize: 13,
@@ -101,12 +101,12 @@ class StoreAgentSupportCard extends StatelessWidget {
           ),
           if (!compact && address != null && address!.isNotEmpty) ...[
             const SizedBox(height: 6),
-            Text(address!,
+            Text(tr(address!),
                 style: const TextStyle(fontSize: 12, color: Color(0xFF8C5A12))),
           ],
           if (!compact && email != null && email!.isNotEmpty) ...[
             const SizedBox(height: 4),
-            Text(email!,
+            Text(tr(email!),
                 style: const TextStyle(fontSize: 12, color: Color(0xFF8C5A12))),
           ],
           if (hasPhone || hasZalo) ...[
@@ -119,7 +119,7 @@ class StoreAgentSupportCard extends StatelessWidget {
                   OutlinedButton.icon(
                     onPressed: _openTel,
                     icon: const Icon(Icons.phone_rounded, size: 16),
-                    label: Text(phone!),
+                    label: Text(tr(phone!)),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: const Color(0xFFAD4E00),
                       visualDensity: VisualDensity.compact,
@@ -131,7 +131,7 @@ class StoreAgentSupportCard extends StatelessWidget {
                     onPressed: _openZalo,
                     icon: const Icon(Icons.chat_rounded, size: 16),
                     label: Text(
-                        compact ? 'Chat Zalo' : 'Zalo hỗ trợ: ${phone ?? ''}'),
+                        tr(compact ? 'Chat Zalo' : 'Zalo hỗ trợ: ${phone ?? ''}')),
                     style: FilledButton.styleFrom(
                       backgroundColor: const Color(0xFF0068FF),
                       foregroundColor: Colors.white,

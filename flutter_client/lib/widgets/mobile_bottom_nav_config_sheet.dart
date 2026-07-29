@@ -5,6 +5,7 @@ import '../services/mobile_bottom_nav_prefs.dart';
 import '../utils/mobile_bottom_nav_catalog.dart';
 import '../widgets/hrm_page_chrome.dart';
 import 'mobile_quick_actions_config_sheet.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// Sheet tùy chỉnh 5 ô cố định — kéo thả thứ tự, đổi chức năng từng ô.
 class MobileBottomNavConfigSheet extends StatefulWidget {
@@ -100,15 +101,14 @@ class _MobileBottomNavConfigSheetState extends State<MobileBottomNavConfigSheet>
           children: [
             Padding(
               padding: const EdgeInsets.all(16),
-              child: Text(
-                'Ô ${index + 1} — chọn chức năng',
+              child: Text(tr('Ô ${index + 1} — chọn chức năng'),
                 style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
               ),
             ),
             for (final opt in options)
               ListTile(
                 leading: Icon(opt.icon),
-                title: Text(opt.label),
+                title: Text(tr(opt.label)),
                 selected: opt.id == current,
                 onTap: () => Navigator.pop(ctx, opt.id),
               ),
@@ -136,12 +136,12 @@ class _MobileBottomNavConfigSheetState extends State<MobileBottomNavConfigSheet>
     if (okMain && okPos) {
       Navigator.pop(context);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Đã lưu bố cục thanh công cụ')),
+        SnackBar(content: Text(tr('Đã lưu bố cục thanh công cụ'))),
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Không lưu được — thử lại sau'),
+        SnackBar(
+          content: Text(tr('Không lưu được — thử lại sau')),
           backgroundColor: Color(0xFFDC2626),
         ),
       );
@@ -172,9 +172,8 @@ class _MobileBottomNavConfigSheetState extends State<MobileBottomNavConfigSheet>
               children: [
                 const Icon(Icons.tune_rounded, color: HrmPageChrome.primaryNavy),
                 const SizedBox(width: 8),
-                const Expanded(
-                  child: Text(
-                    'Tùy chỉnh thanh công cụ',
+                Expanded(
+                  child: Text(tr('Tùy chỉnh thanh công cụ'),
                     style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
                   ),
                 ),
@@ -188,8 +187,8 @@ class _MobileBottomNavConfigSheetState extends State<MobileBottomNavConfigSheet>
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: Text(
-              '5 vị trí cố định — kéo để đổi thứ tự, chạm để đổi chức năng.\n'
-              'Mặc định: Trang chủ · Tổng quan · Chấm công · Công việc · Thêm.',
+              tr('5 vị trí cố định — kéo để đổi thứ tự, chạm để đổi chức năng.\n'
+              'Mặc định: Trang chủ · Tổng quan · Chấm công · Công việc · Thêm.'),
               style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
             ),
           ),
@@ -201,16 +200,16 @@ class _MobileBottomNavConfigSheetState extends State<MobileBottomNavConfigSheet>
                 MobileQuickActionsConfigSheet.show(context);
               },
               icon: const Icon(Icons.apps_outlined, size: 18),
-              label: const Text('Tùy chỉnh truy cập nhanh (tab Thêm)'),
+              label: Text(tr('Tùy chỉnh truy cập nhanh (tab Thêm)')),
             ),
           ),
           const SizedBox(height: 8),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: SegmentedButton<int>(
-              segments: const [
-                ButtonSegment(value: 0, label: Text('Thanh app')),
-                ButtonSegment(value: 1, label: Text('Thanh POS')),
+              segments: [
+                ButtonSegment(value: 0, label: Text(tr('Thanh app'))),
+                ButtonSegment(value: 1, label: Text(tr('Thanh POS'))),
               ],
               selected: {_page},
               onSelectionChanged: (s) => setState(() => _page = s.first),
@@ -238,17 +237,16 @@ class _MobileBottomNavConfigSheetState extends State<MobileBottomNavConfigSheet>
                     leading: CircleAvatar(
                       backgroundColor: HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
                       child: Text(
-                        '${index + 1}',
+                        tr('${index + 1}'),
                         style: const TextStyle(
                           fontWeight: FontWeight.w700,
                           color: HrmPageChrome.primaryNavy,
                         ),
                       ),
                     ),
-                    title: Text(_labelFor(id)),
+                    title: Text(tr(_labelFor(id))),
                     subtitle: index == 2
-                        ? const Text(
-                            'Vị trí giữa — nút nổi (Chấm công)',
+                        ? Text(tr('Vị trí giữa — nút nổi (Chấm công)'),
                             style: TextStyle(fontSize: 11),
                           )
                         : null,
@@ -256,7 +254,7 @@ class _MobileBottomNavConfigSheetState extends State<MobileBottomNavConfigSheet>
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         IconButton(
-                          tooltip: 'Đổi chức năng',
+                          tooltip: tr('Đổi chức năng'),
                           icon: const Icon(Icons.swap_horiz, size: 20),
                           onPressed: () => _pickSlot(index),
                         ),
@@ -278,7 +276,7 @@ class _MobileBottomNavConfigSheetState extends State<MobileBottomNavConfigSheet>
               children: [
                 TextButton(
                   onPressed: _saving ? null : _resetCurrent,
-                  child: const Text('Mặc định'),
+                  child: Text(tr('Mặc định')),
                 ),
                 const Spacer(),
                 FilledButton(
@@ -289,7 +287,7 @@ class _MobileBottomNavConfigSheetState extends State<MobileBottomNavConfigSheet>
                           height: 20,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : const Text('Lưu'),
+                      : Text(tr('Lưu')),
                 ),
               ],
             ),

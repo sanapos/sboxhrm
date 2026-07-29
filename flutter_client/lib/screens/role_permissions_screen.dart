@@ -13,6 +13,7 @@ import '../widgets/hrm/hrm_settings_mobile_kit.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../widgets/loading_widget.dart';
 import '../widgets/notification_overlay.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 class RolePermissionsScreen extends StatefulWidget {
   const RolePermissionsScreen({super.key});
 
@@ -869,14 +870,13 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
       await _apiService.saveRolePermissions(_selectedRolePermissions!);
       appNotification.showSuccess(
         title: 'Thành công',
-        message:
-            'Đã lưu phân quyền cho ${_selectedRolePermissions!['roleDisplayName']}',
+        message: 'Đã lưu phân quyền cho ${_selectedRolePermissions!['roleDisplayName']}',
       );
       _loadData(); // Reload to update permission count
     } catch (e) {
       appNotification.showError(
         title: 'Lỗi',
-        message: 'Không thể lưu phân quyền: $e',
+        message: tr('Không thể lưu phân quyền: $e'),
       );
     } finally {
       setState(() => _isSaving = false);
@@ -1019,7 +1019,7 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
       ),
       child: Row(
         children: [
-          const Text('Lọc nhóm:',
+          Text(tr('Lọc nhóm:'),
               style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
@@ -1031,7 +1031,7 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
               child: Row(
                 children: [
                   FilterChip(
-                    label: const Text('Tất cả'),
+                    label: Text(tr('Tất cả')),
                     selected: _filterGroupId == null,
                     onSelected: (_) => setState(() => _filterGroupId = null),
                   ),
@@ -1041,7 +1041,7 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
                       padding: const EdgeInsets.only(right: 6),
                       child: FilterChip(
                         avatar: Icon(g.icon, size: 16, color: g.color),
-                        label: Text(g.title),
+                        label: Text(tr(g.title)),
                         selected: _filterGroupId == g.id,
                         onSelected: (_) =>
                             setState(() => _filterGroupId = g.id),
@@ -1096,7 +1096,7 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    perm['moduleDisplayName'] ?? perm['module'],
+                    tr(perm['moduleDisplayName'] ?? perm['module']),
                     style: const TextStyle(fontWeight: FontWeight.w500),
                   ),
                 ),
@@ -1181,43 +1181,43 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title,
+                Text(tr(title),
                     style: TextStyle(
                         fontWeight: FontWeight.w700,
                         fontSize: 14,
                         color: color)),
                 if (desc.isNotEmpty)
-                  Text(desc,
+                  Text(tr(desc),
                       style: const TextStyle(
                           fontSize: 11, color: Color(0xFF71717A))),
               ],
             ),
           ),
-          Text('$enabledCount/${items.length}',
+          Text(tr('$enabledCount/${items.length}'),
               style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
                   color: color)),
           const SizedBox(width: 8),
           PopupMenuButton<PermissionBundleLevel>(
-            tooltip: 'Áp dụng cho cả nhóm',
+            tooltip: tr('Áp dụng cho cả nhóm'),
             icon: Icon(Icons.more_vert, size: 20, color: color),
             onSelected: (level) {
               if (g != null) _applyGroup(g.id, level);
             },
             itemBuilder: (_) => [
-              const PopupMenuItem(
+              PopupMenuItem(
                   value: PermissionBundleLevel.viewOnly,
-                  child: Text('Nhóm: Chỉ xem')),
-              const PopupMenuItem(
+                  child: Text(tr('Nhóm: Chỉ xem'))),
+              PopupMenuItem(
                   value: PermissionBundleLevel.operate,
-                  child: Text('Nhóm: Vận hành')),
-              const PopupMenuItem(
+                  child: Text(tr('Nhóm: Vận hành'))),
+              PopupMenuItem(
                   value: PermissionBundleLevel.full,
-                  child: Text('Nhóm: Toàn quyền')),
-              const PopupMenuItem(
+                  child: Text(tr('Nhóm: Toàn quyền'))),
+              PopupMenuItem(
                   value: PermissionBundleLevel.none,
-                  child: Text('Nhóm: Tắt hết')),
+                  child: Text(tr('Nhóm: Tắt hết'))),
             ],
           ),
         ],
@@ -1258,7 +1258,7 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
             : const EdgeInsets.symmetric(horizontal: 40, vertical: 24),
         shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(isMobile ? 0 : 16)),
-        title: const Text('Thêm chức danh mới'),
+        title: Text(tr('Thêm chức danh mới')),
         content: SizedBox(
           width: isMobile ? double.infinity : null,
           child: Column(
@@ -1266,18 +1266,18 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
             children: [
               TextField(
                 controller: nameController,
-                decoration: const InputDecoration(
-                  labelText: 'Mã chức danh',
-                  hintText: 'VD: HRManager, HRSettings...',
+                decoration: InputDecoration(
+                  labelText: tr('Mã chức danh'),
+                  hintText: tr('VD: HRManager, HRSettings...'),
                   border: OutlineInputBorder(),
                 ),
               ),
               const SizedBox(height: 16),
               TextField(
                 controller: displayNameController,
-                decoration: const InputDecoration(
-                  labelText: 'Tên hiển thị',
-                  hintText: 'VD: HR tổng quan, HR thiết lập...',
+                decoration: InputDecoration(
+                  labelText: tr('Tên hiển thị'),
+                  hintText: tr('VD: HR tổng quan, HR thiết lập...'),
                   border: OutlineInputBorder(),
                 ),
               ),
@@ -1287,7 +1287,7 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Hủy'),
+            child: Text(tr('Hủy')),
           ),
           FilledButton(
             onPressed: () async {
@@ -1295,7 +1295,7 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
                   displayNameController.text.isEmpty) {
                 appNotification.showWarning(
                     title: 'Cảnh báo',
-                    message: 'Vui lòng nhập đầy đủ thông tin');
+                    message: tr('Vui lòng nhập đầy đủ thông tin'));
                 return;
               }
 
@@ -1305,7 +1305,7 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
               if (exists) {
                 appNotification.showWarning(
                     title: 'Cảnh báo',
-                    message: 'Chức danh "${nameController.text}" đã tồn tại');
+                    message: tr('Chức danh "${nameController.text}" đã tồn tại'));
                 return;
               }
 
@@ -1356,8 +1356,7 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
                 _selectRole(nameController.text);
                 appNotification.showSuccess(
                     title: 'Thành công',
-                    message:
-                        'Đã tạo chức danh "${displayNameController.text}"');
+                    message: tr('Đã tạo chức danh "${displayNameController.text}"'));
               } else {
                 appNotification.showError(
                     title: 'Lỗi',
@@ -1367,7 +1366,7 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
             style: FilledButton.styleFrom(
               backgroundColor: HrmPageChrome.primaryNavy,
             ),
-            child: const Text('Thêm'),
+            child: Text(tr('Thêm')),
           ),
         ],
       ),
@@ -1389,7 +1388,7 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
     if (defaultRoles.contains(roleName)) {
       appNotification.showWarning(
         title: 'Không thể xóa',
-        message: 'Không thể xóa chức danh mặc định của hệ thống',
+        message: tr('Không thể xóa chức danh mặc định của hệ thống'),
       );
       return;
     }
@@ -1397,19 +1396,18 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => ScrollableAlertDialog(
-        title: const Text('Xác nhận xóa'),
-        content: Text(
-            'Bạn có chắc muốn xóa chức danh "$roleName" và tất cả quyền liên quan?'),
+        title: Text(tr('Xác nhận xóa')),
+        content: Text(tr('Bạn có chắc muốn xóa chức danh "$roleName" và tất cả quyền liên quan?')),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Hủy'),
+            child: Text(tr('Hủy')),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
             style: FilledButton.styleFrom(
                 backgroundColor: const Color(0xFFEF4444)),
-            child: const Text('Xóa'),
+            child: Text(tr('Xóa')),
           ),
         ],
       ),
@@ -1422,7 +1420,7 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
       if (result['isSuccess'] == true) {
         appNotification.showSuccess(
           title: 'Thành công',
-          message: 'Đã xóa chức danh "$roleName"',
+          message: tr('Đã xóa chức danh "$roleName"'),
         );
         setState(() {
           _roles.removeWhere((r) => r['roleName'] == roleName);
@@ -1440,7 +1438,7 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
     } catch (e) {
       appNotification.showError(
         title: 'Lỗi',
-        message: 'Không thể xóa chức danh: $e',
+        message: tr('Không thể xóa chức danh: $e'),
       );
     }
   }
@@ -1459,7 +1457,7 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
                       child: CircularProgressIndicator(
                           strokeWidth: 2, color: Colors.white))
                   : const Icon(Icons.save, size: 18),
-              label: Text(_isSaving ? 'Đang lưu...' : 'Lưu thay đổi'),
+              label: Text(tr(_isSaving ? 'Đang lưu...' : 'Lưu thay đổi')),
               style: FilledButton.styleFrom(
                 backgroundColor: HrmPageChrome.primaryNavy,
                 padding:
@@ -1513,21 +1511,19 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
                                       color: HrmPageChrome.primaryNavy, size: 20),
                                 ),
                                 const SizedBox(width: 12),
-                                const Expanded(
+                                Expanded(
                                   child: Column(
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
                                     children: [
-                                      Text(
-                                        'Chức danh',
+                                      Text(tr('Chức danh'),
                                         style: TextStyle(
                                           fontWeight: FontWeight.bold,
                                           fontSize: 15,
                                           color: Color(0xFF18181B),
                                         ),
                                       ),
-                                      Text(
-                                        'Chọn để phân quyền',
+                                      Text(tr('Chọn để phân quyền'),
                                         style: TextStyle(
                                           fontSize: 12,
                                           color: Color(0xFF71717A),
@@ -1541,7 +1537,7 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
                                     onPressed: _showAddRoleDialog,
                                     icon: const Icon(Icons.add_circle,
                                         color: HrmPageChrome.primaryNavy),
-                                    tooltip: 'Thêm chức danh',
+                                    tooltip: tr('Thêm chức danh'),
                                   ),
                               ],
                             ),
@@ -1565,9 +1561,8 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
                     // Right content - Permissions table
                     Expanded(
                       child: _selectedRolePermissions == null
-                          ? const Center(
-                              child: Text(
-                                'Chọn một chức danh để xem và chỉnh sửa quyền',
+                          ? Center(
+                              child: Text(tr('Chọn một chức danh để xem và chỉnh sửa quyền'),
                                 style: TextStyle(color: Color(0xFF71717A)),
                               ),
                             )
@@ -1640,16 +1635,16 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
                       color: HrmPageChrome.primaryNavy, size: 20),
                 ),
                 const SizedBox(width: 12),
-                const Expanded(
+                Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Chức danh',
+                      Text(tr('Chức danh'),
                           style: TextStyle(
                               fontWeight: FontWeight.bold,
                               fontSize: 15,
                               color: Color(0xFF18181B))),
-                      Text('Chọn để phân quyền',
+                      Text(tr('Chọn để phân quyền'),
                           style: TextStyle(
                               fontSize: 12, color: Color(0xFF71717A))),
                     ],
@@ -1660,7 +1655,7 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
                     onPressed: _showAddRoleDialog,
                     icon: const Icon(Icons.add_circle,
                         color: HrmPageChrome.primaryNavy),
-                    tooltip: 'Thêm chức danh',
+                    tooltip: tr('Thêm chức danh'),
                   ),
               ],
             ),
@@ -1704,7 +1699,7 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
               if (!HrmPageChrome.isEmbedded) const SizedBox(width: 4),
               Expanded(
                 child: Text(
-                  _selectedRolePermissions!['roleDisplayName'] ?? '',
+                  tr(_selectedRolePermissions!['roleDisplayName'] ?? ''),
                   style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
@@ -1715,7 +1710,7 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
               TextButton.icon(
                 onPressed: _selectAllPermissions,
                 icon: const Icon(Icons.check_box, size: 16),
-                label: const Text('Tất cả', style: TextStyle(fontSize: 12)),
+                label: Text(tr('Tất cả'), style: TextStyle(fontSize: 12)),
                 style: TextButton.styleFrom(
                   foregroundColor: HrmPageChrome.primaryNavy,
                   padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -1724,7 +1719,7 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
               TextButton.icon(
                 onPressed: _deselectAllPermissions,
                 icon: const Icon(Icons.check_box_outline_blank, size: 16),
-                label: const Text('Bỏ', style: TextStyle(fontSize: 12)),
+                label: Text(tr('Bỏ'), style: TextStyle(fontSize: 12)),
                 style: TextButton.styleFrom(
                   foregroundColor: const Color(0xFFEF4444),
                   padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -1831,8 +1826,8 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
                                       const SizedBox(width: 10),
                                       Expanded(
                                         child: Text(
-                                          perm['moduleDisplayName'] ??
-                                              perm['module'],
+                                          tr(perm['moduleDisplayName'] ??
+                                              perm['module']),
                                           style: const TextStyle(
                                               fontWeight: FontWeight.w600,
                                               fontSize: 14),
@@ -1841,7 +1836,7 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
                                       Row(
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
-                                          Text(allChecked ? 'Toàn quyền' : '',
+                                          Text(tr(allChecked ? 'Toàn quyền' : ''),
                                               style: const TextStyle(
                                                   fontSize: 11,
                                                   color: Color(0xFF71717A))),
@@ -1948,7 +1943,7 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
                   : const Color(0xFFA1A1AA),
             ),
             const SizedBox(width: 4),
-            Text(label,
+            Text(tr(label),
                 style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w500,
@@ -1986,8 +1981,8 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
       iconColor: _getRoleColor(roleName),
       onTap: () => _selectRole(roleName),
       menuItems: canDelete
-          ? const [
-              PopupMenuItem(value: 'delete', child: Text('Xóa chức danh')),
+          ? [
+              PopupMenuItem(value: 'delete', child: Text(tr('Xóa chức danh'))),
             ]
           : null,
       onMenuSelected: canDelete ? (_) => _deleteRole(roleName) : null,
@@ -2038,15 +2033,14 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
           ),
         ),
         title: Text(
-          role['roleDisplayName'] ?? role['roleName'],
+          tr(role['roleDisplayName'] ?? role['roleName']),
           style: TextStyle(
             fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
             color:
                 isSelected ? HrmPageChrome.primaryNavy : const Color(0xFF18181B),
           ),
         ),
-        subtitle: Text(
-          '$permCount module được cấp quyền',
+        subtitle: Text(tr('$permCount module được cấp quyền'),
           style: const TextStyle(fontSize: 12, color: Color(0xFF71717A)),
         ),
         trailing: Row(
@@ -2060,7 +2054,7 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
                 onPressed: () => _deleteRole(role['roleName']),
                 icon: const Icon(Icons.delete_outline, size: 18),
                 color: const Color(0xFFEF4444),
-                tooltip: 'Xóa chức danh',
+                tooltip: tr('Xóa chức danh'),
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
               ),
@@ -2105,16 +2099,14 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'Phân quyền cho: ${_selectedRolePermissions!['roleDisplayName']}',
+                    Text(tr('${tr('Phân quyền cho: ')}${_selectedRolePermissions!['roleDisplayName']}'),
                       style: const TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
                         color: Color(0xFF18181B),
                       ),
                     ),
-                    Text(
-                      'Chọn từng chức năng theo nhóm — lưu khi bấm "Lưu thay đổi"',
+                    Text(tr('Chọn từng chức năng theo nhóm — lưu khi bấm "Lưu thay đổi"'),
                       style: TextStyle(
                         fontSize: 13,
                         color: Colors.grey[600],
@@ -2132,7 +2124,7 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
                     OutlinedButton.icon(
                       onPressed: _selectAllPermissions,
                       icon: const Icon(Icons.check_box, size: 18),
-                      label: const Text('Chọn tất cả'),
+                      label: Text(tr('Chọn tất cả')),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: HrmPageChrome.primaryNavy,
                         side: const BorderSide(color: HrmPageChrome.primaryNavy),
@@ -2143,7 +2135,7 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
                     OutlinedButton.icon(
                       onPressed: _deselectAllPermissions,
                       icon: const Icon(Icons.check_box_outline_blank, size: 18),
-                      label: const Text('Bỏ tất cả'),
+                      label: Text(tr('Bỏ tất cả')),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: const Color(0xFFEF4444),
                         side: const BorderSide(color: Color(0xFFEF4444)),
@@ -2184,8 +2176,7 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
                       children: [
                         SizedBox(
                           width: 200,
-                          child: Text(
-                            '${_visiblePermissions().length} chức năng',
+                          child: Text(tr('${_visiblePermissions().length} chức năng'),
                             style: const TextStyle(
                                 fontWeight: FontWeight.bold,
                                 color: Color(0xFF52525B)),
@@ -2197,9 +2188,9 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
                         _buildHeaderCheckbox('Xóa', 'canDelete'),
                         _buildHeaderCheckbox('Xuất Excel', 'canExport'),
                         _buildHeaderCheckbox('Phê duyệt', 'canApprove'),
-                        const SizedBox(
+                        SizedBox(
                             width: 90,
-                            child: Text('Toàn quyền',
+                            child: Text(tr('Toàn quyền'),
                                 textAlign: TextAlign.center,
                                 style: TextStyle(
                                     fontWeight: FontWeight.bold,
@@ -2236,7 +2227,7 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
           children: [
             Flexible(
               child: Text(
-                label,
+                tr(label),
                 style: const TextStyle(
                     fontWeight: FontWeight.bold,
                     color: Color(0xFF52525B),
@@ -2265,7 +2256,7 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
                     : null,
                 activeColor: _getPermissionColor(permissionType),
               )
-            : const Text('—',
+            : Text(tr('—'),
                 style: TextStyle(fontSize: 18, color: Color(0xFFD4D4D8))),
       ),
     );

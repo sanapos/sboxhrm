@@ -22,6 +22,8 @@ import '../widgets/leave_request_form.dart';
 import '../features/leave/leave_catalog.dart';
 import '../utils/navigation_notifier.dart';
 import '../utils/vietnamese_font.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
+import 'package:zkteco_flutter_client/l10n/app_ui_locale.dart';
 class LeaveScreen extends StatefulWidget {
   final String? highlightId;
   const LeaveScreen({super.key, this.highlightId});
@@ -537,7 +539,7 @@ class _LeaveScreenState extends State<LeaveScreen>
                 Icon(Icons.analytics_outlined,
                     size: 16, color: Colors.blue.shade700),
                 const SizedBox(width: 6),
-                Text('Tổng quan & bộ lọc',
+                Text(tr('Tổng quan & bộ lọc'),
                     style: TextStyle(
                         fontWeight: FontWeight.w600,
                         fontSize: 13,
@@ -575,21 +577,21 @@ class _LeaveScreenState extends State<LeaveScreen>
       tabs: [
         Tab(
             icon: const Icon(Icons.person_outline_rounded, size: 20),
-            text: _l10n.myRequests),
+            text: tr(_l10n.myRequests)),
         if (_isManager) ...[
           Tab(
             icon: Badge(
-              label: Text('${_pendingLeaves.length}',
+              label: Text(tr('${_pendingLeaves.length}'),
                   style: const TextStyle(fontSize: 10)),
               isLabelVisible: _pendingLeaves.isNotEmpty,
               backgroundColor: Colors.red,
               child: const Icon(Icons.pending_actions_rounded, size: 20),
             ),
-            text: _l10n.pending,
+            text: tr(_l10n.pending),
           ),
           Tab(
               icon: const Icon(Icons.list_alt_rounded, size: 20),
-              text: _l10n.all),
+              text: tr(_l10n.all)),
         ],
       ],
     );
@@ -635,7 +637,7 @@ class _LeaveScreenState extends State<LeaveScreen>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  _l10n.leaveManagement,
+                  tr(_l10n.leaveManagement),
                   style: TextStyle(
                       fontSize: isMobile ? 16 : 20,
                       fontWeight: FontWeight.bold,
@@ -643,7 +645,7 @@ class _LeaveScreenState extends State<LeaveScreen>
                 ),
                 if (!isMobile)
                   Text(
-                    _l10n.leaveSubtitle,
+                    tr(_l10n.leaveSubtitle),
                     style: TextStyle(
                         fontSize: 12,
                         color: Colors.white.withValues(alpha: 0.8)),
@@ -651,8 +653,7 @@ class _LeaveScreenState extends State<LeaveScreen>
                 if (_myAnnualLeaveBalance != null)
                   Padding(
                     padding: const EdgeInsets.only(top: 4),
-                    child: Text(
-                      'Phép năm còn: ${_myAnnualLeaveBalance!.toStringAsFixed(_myAnnualLeaveBalance!.truncateToDouble() == _myAnnualLeaveBalance ? 0 : 1)} ngày',
+                    child: Text(tr('Phép năm còn: ${_myAnnualLeaveBalance!.toStringAsFixed(_myAnnualLeaveBalance!.truncateToDouble() == _myAnnualLeaveBalance ? 0 : 1)} ngày'),
                       style: TextStyle(
                         fontSize: isMobile ? 11 : 12,
                         fontWeight: FontWeight.w600,
@@ -666,7 +667,7 @@ class _LeaveScreenState extends State<LeaveScreen>
           IconButton(
             onPressed: _showLeaveLegalGuide,
             icon: const Icon(Icons.menu_book_rounded, color: Colors.white),
-            tooltip: 'Quy định nghỉ phép',
+            tooltip: tr('Quy định nghỉ phép'),
           ),
           const SizedBox(width: 4),
           Material(
@@ -686,7 +687,7 @@ class _LeaveScreenState extends State<LeaveScreen>
                         size: isMobile ? 18 : 20, color: Colors.white),
                     if (!isMobile) ...[
                       const SizedBox(width: 6),
-                      Text(_l10n.createRequest,
+                      Text(tr(_l10n.createRequest),
                           style: const TextStyle(
                               color: Colors.white,
                               fontWeight: FontWeight.w600,
@@ -780,21 +781,21 @@ class _LeaveScreenState extends State<LeaveScreen>
         tabs: [
           Tab(
               icon: const Icon(Icons.person_outline_rounded, size: 20),
-              text: _l10n.myRequests),
+              text: tr(_l10n.myRequests)),
           if (_isManager) ...[
             Tab(
               icon: Badge(
-                label: Text('${_pendingLeaves.length}',
+                label: Text(tr('${_pendingLeaves.length}'),
                     style: const TextStyle(fontSize: 10)),
                 isLabelVisible: _pendingLeaves.isNotEmpty,
                 backgroundColor: Colors.red,
                 child: const Icon(Icons.pending_actions_rounded, size: 20),
               ),
-              text: _l10n.pending,
+              text: tr(_l10n.pending),
             ),
             Tab(
                 icon: const Icon(Icons.list_alt_rounded, size: 20),
-                text: _l10n.all),
+                text: tr(_l10n.all)),
           ],
         ],
       ),
@@ -854,7 +855,7 @@ class _LeaveScreenState extends State<LeaveScreen>
           firstDate: DateTime(2024),
           lastDate: DateTime(2030),
           initialDateRange: _filterDateRange,
-          locale: const Locale('vi'),
+          locale: appUiLocale(),
         );
         if (picked != null) {
           range = DateTimeRange(
@@ -977,13 +978,13 @@ class _LeaveScreenState extends State<LeaveScreen>
           children: [
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-              child: Text(title,
+              child: Text(tr(title),
                   style: const TextStyle(
                       fontSize: 16, fontWeight: FontWeight.w700)),
             ),
             ...options.map(
               (o) => ListTile(
-                title: Text(o.label, style: const TextStyle(fontSize: 15)),
+                title: Text(tr(o.label), style: const TextStyle(fontSize: 15)),
                 onTap: () {
                   Navigator.pop(ctx);
                   o.onPick();
@@ -1028,7 +1029,7 @@ class _LeaveScreenState extends State<LeaveScreen>
                     padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
                     child: TextField(
                       decoration: InputDecoration(
-                        hintText: _l10n.searchEmployee,
+                        hintText: tr(_l10n.searchEmployee),
                         prefixIcon: const Icon(Icons.search, size: 20),
                         border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(10)),
@@ -1042,7 +1043,7 @@ class _LeaveScreenState extends State<LeaveScreen>
                       controller: scroll,
                       children: [
                         ListTile(
-                          title: const Text('Tất cả nhân viên'),
+                          title: Text(tr('Tất cả nhân viên')),
                           onTap: () => Navigator.pop(ctx, ''),
                         ),
                         ...list.map((emp) {
@@ -1050,9 +1051,9 @@ class _LeaveScreenState extends State<LeaveScreen>
                               '${emp['lastName'] ?? ''} ${emp['firstName'] ?? ''}'
                                   .trim();
                           return ListTile(
-                            title: Text(name),
+                            title: Text(tr(name)),
                             subtitle: Text(
-                                emp['employeeCode']?.toString() ?? '',
+                                tr(emp['employeeCode']?.toString() ?? ''),
                                 style: const TextStyle(fontSize: 12)),
                             onTap: () => Navigator.pop(ctx, name),
                           );
@@ -1115,7 +1116,7 @@ class _LeaveScreenState extends State<LeaveScreen>
                   const SizedBox(width: 5),
                   Expanded(
                     child: Text(
-                      title,
+                      tr(title),
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
@@ -1131,7 +1132,7 @@ class _LeaveScreenState extends State<LeaveScreen>
               ),
               const SizedBox(height: 6),
               Text(
-                value,
+                tr(value),
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w700,
@@ -1326,23 +1327,23 @@ class _LeaveScreenState extends State<LeaveScreen>
             Icon(Icons.event_busy_outlined, size: 72, color: Colors.grey[300]),
             const SizedBox(height: 16),
             Text(
-              showApprovalActions
+              tr(showApprovalActions
                   ? _l10n.noPendingRequests
-                  : _l10n.noLeaveRequests,
+                  : _l10n.noLeaveRequests),
               style: TextStyle(
                   fontSize: 16,
                   color: Colors.grey[500],
                   fontWeight: FontWeight.w500),
             ),
             const SizedBox(height: 8),
-            Text('Các đơn nghỉ phép sẽ hiển thị tại đây',
+            Text(tr('Các đơn nghỉ phép sẽ hiển thị tại đây'),
                 style: TextStyle(fontSize: 13, color: Colors.grey[400])),
             if (isMyLeaves) ...[
               const SizedBox(height: 20),
               FilledButton.icon(
                 onPressed: () => _showLeaveFormDialog(),
                 icon: const Icon(Icons.add_rounded),
-                label: Text(_l10n.createNewRequest),
+                label: Text(tr(_l10n.createNewRequest)),
                 style: FilledButton.styleFrom(
                   backgroundColor: Theme.of(context).primaryColor,
                   foregroundColor: Colors.white,
@@ -1467,31 +1468,31 @@ class _LeaveScreenState extends State<LeaveScreen>
                           dataRowMinHeight: 48,
                           dataRowMaxHeight: 60,
                           columns: [
-                            const DataColumn(
-                                label:
-                                    Text('STT', textAlign: TextAlign.center)),
-                            DataColumn(label: Text(_l10n.employee)),
-                            DataColumn(label: Text(_l10n.leaveType)),
                             DataColumn(
-                                label: Text(_l10n.leaveDays),
+                                label:
+                                    Text(tr('STT'), textAlign: TextAlign.center)),
+                            DataColumn(label: Text(tr(_l10n.employee))),
+                            DataColumn(label: Text(tr(_l10n.leaveType))),
+                            DataColumn(
+                                label: Text(tr(_l10n.leaveDays)),
                                 onSort: (_, asc) => setState(() {
                                       _sortColumn = 'startDate';
                                       _sortAscending = asc;
                                       _currentPage = 1;
                                     })),
-                            DataColumn(label: Text(_l10n.shiftLabel)),
-                            DataColumn(label: Text(_l10n.halfShift)),
-                            const DataColumn(label: Text('NV thay ca')),
-                            DataColumn(label: Text(_l10n.reason)),
-                            DataColumn(label: Text(_l10n.status)),
+                            DataColumn(label: Text(tr(_l10n.shiftLabel))),
+                            DataColumn(label: Text(tr(_l10n.halfShift))),
+                            DataColumn(label: Text(tr('NV thay ca'))),
+                            DataColumn(label: Text(tr(_l10n.reason))),
+                            DataColumn(label: Text(tr(_l10n.status))),
                             DataColumn(
-                                label: Text(_l10n.createdAt),
+                                label: Text(tr(_l10n.createdAt)),
                                 onSort: (_, asc) => setState(() {
                                       _sortColumn = 'createdAt';
                                       _sortAscending = asc;
                                       _currentPage = 1;
                                     })),
-                            const DataColumn(label: Text('Thao tác')),
+                            DataColumn(label: Text(tr('Thao tác'))),
                           ],
                           rows: List.generate(pageLeaves.length, (index) {
                             final leave = pageLeaves[index]
@@ -1549,12 +1550,12 @@ class _LeaveScreenState extends State<LeaveScreen>
                                   isAllTab: isAllTab),
                               cells: [
                                 DataCell(
-                                    Center(child: Text('${globalIdx + 1}'))),
+                                    Center(child: Text(tr('${globalIdx + 1}')))),
                                 DataCell(Center(
                                   child: ConstrainedBox(
                                     constraints:
                                         const BoxConstraints(maxWidth: 130),
-                                    child: Text(empName,
+                                    child: Text(tr(empName),
                                         overflow: TextOverflow.ellipsis),
                                   ),
                                 )),
@@ -1567,7 +1568,7 @@ class _LeaveScreenState extends State<LeaveScreen>
                                           typeInfo.color.withValues(alpha: 0.1),
                                       borderRadius: BorderRadius.circular(6),
                                     ),
-                                    child: Text(typeInfo.label,
+                                    child: Text(tr(typeInfo.label),
                                         style: TextStyle(
                                             fontSize: 11,
                                             fontWeight: FontWeight.w600,
@@ -1575,13 +1576,13 @@ class _LeaveScreenState extends State<LeaveScreen>
                                   ),
                                 )),
                                 DataCell(Center(
-                                    child: Text(dateDisplay,
+                                    child: Text(tr(dateDisplay),
                                         style: const TextStyle(fontSize: 12)))),
                                 DataCell(Center(
                                     child: Text(
-                                        displayShift.isNotEmpty
+                                        tr(displayShift.isNotEmpty
                                             ? displayShift
-                                            : '-',
+                                            : '-'),
                                         style: const TextStyle(fontSize: 12)))),
                                 DataCell(Center(
                                     child: isHalfShift
@@ -1593,22 +1594,22 @@ class _LeaveScreenState extends State<LeaveScreen>
                                                     .withValues(alpha: 0.1),
                                                 borderRadius:
                                                     BorderRadius.circular(4)),
-                                            child: const Text('½',
+                                            child: Text(tr('½'),
                                                 style: TextStyle(
                                                     fontSize: 11,
                                                     color: Colors.purple,
                                                     fontWeight:
                                                         FontWeight.w600)),
                                           )
-                                        : const Text('-'))),
+                                        : Text(tr('-')))),
                                 DataCell(Center(
                                   child: ConstrainedBox(
                                     constraints:
                                         const BoxConstraints(maxWidth: 120),
                                     child: Text(
-                                        replacementName.isNotEmpty
+                                        tr(replacementName.isNotEmpty
                                             ? replacementName
-                                            : '-',
+                                            : '-'),
                                         overflow: TextOverflow.ellipsis,
                                         style: const TextStyle(fontSize: 12)),
                                   ),
@@ -1620,7 +1621,7 @@ class _LeaveScreenState extends State<LeaveScreen>
                                     child: Tooltip(
                                       message: reason,
                                       child: Text(
-                                          reason.isNotEmpty ? reason : '-',
+                                          tr(reason.isNotEmpty ? reason : '-'),
                                           overflow: TextOverflow.ellipsis,
                                           style: const TextStyle(fontSize: 12)),
                                     ),
@@ -1646,7 +1647,7 @@ class _LeaveScreenState extends State<LeaveScreen>
                                                 size: 12,
                                                 color: statusInfo.color),
                                             const SizedBox(width: 4),
-                                            Text(statusInfo.label,
+                                            Text(tr(statusInfo.label),
                                                 style: TextStyle(
                                                     fontSize: 11,
                                                     fontWeight: FontWeight.w600,
@@ -1660,7 +1661,7 @@ class _LeaveScreenState extends State<LeaveScreen>
                                           padding:
                                               const EdgeInsets.only(top: 2),
                                           child: Text(
-                                            '${leave['currentApprovalStep'] ?? 0}/${leave['totalApprovalLevels']} cấp',
+                                            tr('${leave['currentApprovalStep'] ?? 0}/${leave['totalApprovalLevels']} cấp'),
                                             style: TextStyle(
                                                 fontSize: 10,
                                                 color: Colors.grey.shade600),
@@ -1671,12 +1672,12 @@ class _LeaveScreenState extends State<LeaveScreen>
                                 )),
                                 DataCell(Center(
                                     child: Text(
-                                        createdAt != null
+                                        tr(createdAt != null
                                             ? formatApiDateTime(
                                                 createdAt,
                                                 pattern: 'dd/MM/yyyy',
                                               )
-                                            : '-',
+                                            : '-'),
                                         style: const TextStyle(fontSize: 12)))),
                                 DataCell(Center(
                                   child: Row(
@@ -1727,8 +1728,7 @@ class _LeaveScreenState extends State<LeaveScreen>
         final infoRow = Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(
-              'Hiển thị ${startIndex + 1}-$endIndex / $totalItems',
+            Text(tr('Hiển thị ${startIndex + 1}-$endIndex / $totalItems'),
               style: TextStyle(
                   fontSize: 13,
                   color: Colors.grey[600],
@@ -1736,7 +1736,7 @@ class _LeaveScreenState extends State<LeaveScreen>
             ),
             Row(
               children: [
-                Text('Hiển thị:',
+                Text(tr('Hiển thị:'),
                     style: TextStyle(fontSize: 12, color: Colors.grey[500])),
                 const SizedBox(width: 8),
                 Container(
@@ -1754,7 +1754,7 @@ class _LeaveScreenState extends State<LeaveScreen>
                       style: TextStyle(fontSize: 13, color: Colors.grey[800]),
                       items: _pageSizeOptions
                           .map((size) => DropdownMenuItem(
-                              value: size, child: Text('$size')))
+                              value: size, child: Text(tr('$size'))))
                           .toList(),
                       onChanged: (v) {
                         if (v != null) {
@@ -1786,7 +1786,7 @@ class _LeaveScreenState extends State<LeaveScreen>
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Text(
-                '$_currentPage / $totalPages',
+                tr('$_currentPage / $totalPages'),
                 style: const TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
@@ -1852,7 +1852,7 @@ class _LeaveScreenState extends State<LeaveScreen>
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                '${startIndex + 1}-$endIndex / $totalItems',
+                tr('${startIndex + 1}-$endIndex / $totalItems'),
                 style: TextStyle(
                     fontSize: 12,
                     color: Colors.grey[600],
@@ -1871,7 +1871,7 @@ class _LeaveScreenState extends State<LeaveScreen>
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
-                      '$_currentPage / $totalPages',
+                      tr('$_currentPage / $totalPages'),
                       style: const TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
@@ -1921,7 +1921,7 @@ class _LeaveScreenState extends State<LeaveScreen>
         borderRadius: BorderRadius.circular(6),
       ),
       child: Text(
-        statusInfo.label,
+        tr(statusInfo.label),
         style: TextStyle(
           color: statusInfo.color,
           fontSize: 11,
@@ -1984,7 +1984,7 @@ class _LeaveScreenState extends State<LeaveScreen>
                     children: [
                       Expanded(
                         child: Text(
-                          line1Title,
+                          tr(line1Title),
                           style: const TextStyle(
                             fontWeight: FontWeight.w700,
                             fontSize: 15,
@@ -2002,7 +2002,7 @@ class _LeaveScreenState extends State<LeaveScreen>
                   const SizedBox(height: 6),
                   // Dòng 2 — loại nghỉ
                   Text(
-                    typeInfo.label,
+                    tr(typeInfo.label),
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
@@ -2025,7 +2025,7 @@ class _LeaveScreenState extends State<LeaveScreen>
                       const SizedBox(width: 6),
                       Expanded(
                         child: Text(
-                          dateLine,
+                          tr(dateLine),
                           style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w500,
@@ -2040,8 +2040,7 @@ class _LeaveScreenState extends State<LeaveScreen>
                   ),
                   if (approvalLevels > 1) ...[
                     const SizedBox(height: 4),
-                    Text(
-                      'Duyệt $approvalStep/$approvalLevels cấp',
+                    Text(tr('Duyệt $approvalStep/$approvalLevels cấp'),
                       style: TextStyle(
                         fontSize: 11,
                         color: Colors.grey[600],
@@ -2381,7 +2380,7 @@ class _LeaveScreenState extends State<LeaveScreen>
                 const Icon(Icons.linear_scale_rounded,
                     size: 18, color: Colors.blueGrey),
                 const SizedBox(width: 8),
-                Text('Tiến trình duyệt: $currentStep/$totalLevels cấp',
+                Text(tr('Tiến trình duyệt: $currentStep/$totalLevels cấp'),
                     style: const TextStyle(
                         fontSize: 13, fontWeight: FontWeight.w600)),
               ],
@@ -2403,7 +2402,7 @@ class _LeaveScreenState extends State<LeaveScreen>
             const SizedBox(height: 12),
           ],
           // Timeline
-          const Text('Lịch sử phê duyệt',
+          Text(tr('Lịch sử phê duyệt'),
               style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
           const SizedBox(height: 8),
           ...approvalRecords.asMap().entries.map((entry) {
@@ -2447,24 +2446,24 @@ class _LeaveScreenState extends State<LeaveScreen>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(stepName,
+                  Text(tr(stepName),
                       style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
                           color: dotColor)),
                   if (assignedUser.isNotEmpty)
-                    Text('Phân công: $assignedUser',
+                    Text(tr('Phân công: $assignedUser'),
                         style: TextStyle(
                             fontSize: 12, color: Colors.grey.shade600)),
                   if (actualUser.isNotEmpty && stepStatus != 0)
-                    Text('Thực hiện: $actualUser',
+                    Text(tr('Thực hiện: $actualUser'),
                         style: TextStyle(
                             fontSize: 12, color: Colors.grey.shade600)),
                   if (stepStatus != 0)
                     Text(
-                      _approvalStepStatusLabel(stepStatus is int
+                      tr(_approvalStepStatusLabel(stepStatus is int
                           ? stepStatus
-                          : int.tryParse('$stepStatus') ?? 0),
+                          : int.tryParse('$stepStatus') ?? 0)),
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
@@ -2473,13 +2472,13 @@ class _LeaveScreenState extends State<LeaveScreen>
                     ),
                   if (actionDate != null)
                     Text(
-                        formatApiDateTime(actionDate),
+                        tr(formatApiDateTime(actionDate)),
                         style: TextStyle(
                             fontSize: 11, color: Colors.grey.shade500)),
                   if (note.isNotEmpty)
                     Padding(
                       padding: const EdgeInsets.only(top: 2),
-                      child: Text('"$note"',
+                      child: Text(tr('"$note"'),
                           style: TextStyle(
                               fontSize: 12,
                               fontStyle: FontStyle.italic,
@@ -2503,7 +2502,7 @@ class _LeaveScreenState extends State<LeaveScreen>
           return Dialog.fullscreen(
             child: Scaffold(
               appBar: AppBar(
-                title: const Text('Chi tiết đơn nghỉ phép'),
+                title: Text(tr('Chi tiết đơn nghỉ phép')),
                 leading: IconButton(
                   icon: const Icon(Icons.close),
                   onPressed: () => Navigator.pop(context),
@@ -2528,7 +2527,7 @@ class _LeaveScreenState extends State<LeaveScreen>
                           Icon(statusInfo.icon,
                               size: 16, color: statusInfo.color),
                           const SizedBox(width: 6),
-                          Text(statusInfo.label,
+                          Text(tr(statusInfo.label),
                               style: TextStyle(
                                   color: statusInfo.color,
                                   fontSize: 13,
@@ -2581,13 +2580,13 @@ class _LeaveScreenState extends State<LeaveScreen>
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text('Chi tiết đơn nghỉ phép',
+                            Text(tr('Chi tiết đơn nghỉ phép'),
                                 style: TextStyle(
                                     color: Colors.white,
                                     fontSize: 16,
                                     fontWeight: FontWeight.bold)),
                             const SizedBox(height: 2),
-                            Text(leave['employeeName'] ?? 'N/A',
+                            Text(tr(leave['employeeName'] ?? 'N/A'),
                                 style: const TextStyle(
                                     color: Colors.white70, fontSize: 13)),
                           ],
@@ -2606,7 +2605,7 @@ class _LeaveScreenState extends State<LeaveScreen>
                             Icon(statusInfo.icon,
                                 size: 14, color: Colors.white),
                             const SizedBox(width: 4),
-                            Text(statusInfo.label,
+                            Text(tr(statusInfo.label),
                                 style: const TextStyle(
                                     color: Colors.white,
                                     fontSize: 12,
@@ -2644,7 +2643,7 @@ class _LeaveScreenState extends State<LeaveScreen>
                       const Spacer(),
                       TextButton(
                           onPressed: () => Navigator.pop(context),
-                          child: const Text('Đóng')),
+                          child: Text(tr('Đóng'))),
                     ],
                   ),
                 ),
@@ -2670,10 +2669,10 @@ class _LeaveScreenState extends State<LeaveScreen>
           const SizedBox(width: 10),
           SizedBox(
               width: 100,
-              child: Text(label,
+              child: Text(tr(label),
                   style: TextStyle(fontSize: 13, color: Colors.grey.shade500))),
           Expanded(
-            child: Text(value,
+            child: Text(tr(value),
                 style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w500,
@@ -2689,7 +2688,7 @@ class _LeaveScreenState extends State<LeaveScreen>
       children: [
         Padding(
           padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
-          child: Text(label,
+          child: Text(tr(label),
               style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
@@ -2697,7 +2696,7 @@ class _LeaveScreenState extends State<LeaveScreen>
         ),
         Padding(
           padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
-          child: Text(value,
+          child: Text(tr(value),
               style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w500,
@@ -2714,22 +2713,22 @@ class _LeaveScreenState extends State<LeaveScreen>
     showDialog<void>(
       context: context,
       builder: (ctx) => ScrollableAlertDialog(
-        title: const Text('Nghỉ phép theo pháp luật'),
-        content: const SingleChildScrollView(
+        title: Text(tr('Nghỉ phép theo pháp luật')),
+        content: SingleChildScrollView(
           child: Text(
-            '1. Doanh nghiệp trả lương\n'
+            tr('1. Doanh nghiệp trả lương\n'
             '   Phép năm, lễ, việc riêng có lương, nghỉ bù, ốm dùng phép năm.\n\n'
             '2. Không hưởng lương\n'
             '   Việc riêng không lương, nghỉ dài hạn không lương.\n\n'
             '3. BHXH & đặc biệt\n'
             '   Ốm hưởng BHXH (cần giấy nghỉ), thai sản DN + đối soát BHXH.\n\n'
             'Mỗi ngày nghỉ chỉ một chế độ — không vừa lương DN vừa trợ cấp BHXH.\n'
-            'Ca nghỉ: theo Thiết lập luong. Người thay ca: cùng phòng ban.',
+            'Ca nghỉ: theo Thiết lập luong. Người thay ca: cùng phòng ban.'),
             style: TextStyle(fontSize: 14, height: 1.45),
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Đóng')),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('Đóng'))),
         ],
       ),
     );
@@ -2833,22 +2832,21 @@ class _LeaveScreenState extends State<LeaveScreen>
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setLocal) => ScrollableAlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: const Row(
+          title: Row(
             children: [
               Icon(Icons.check_circle_rounded, color: Color(0xFF16A34A)),
               SizedBox(width: 8),
-              Text('Duyệt đơn nghỉ phép'),
+              Text(tr('Duyệt đơn nghỉ phép')),
             ],
           ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Xác nhận duyệt đơn này?'),
+              Text(tr('Xác nhận duyệt đơn này?')),
               if (willDeductAnnual && balanceRemaining != null) ...[
                 const SizedBox(height: 10),
-                Text(
-                  'Sẽ trừ $daysNeeded ngày phép năm. Còn lại: $balanceRemaining ngày.',
+                Text(tr('Sẽ trừ $daysNeeded ngày phép năm. Còn lại: $balanceRemaining ngày.'),
                   style: TextStyle(
                     fontSize: 13,
                     color: daysNeeded > balanceRemaining
@@ -2862,12 +2860,10 @@ class _LeaveScreenState extends State<LeaveScreen>
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,
                 value: countAsWork,
-                title: const Text(
-                  'Phép duyệt nhưng vẫn tính công',
+                title: Text(tr('Phép duyệt nhưng vẫn tính công'),
                   style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
                 ),
-                subtitle: const Text(
-                  'Không ghi "Phép" trên bảng chấm công',
+                subtitle: Text(tr('Không ghi "Phép" trên bảng chấm công'),
                   style: TextStyle(fontSize: 12),
                 ),
                 onChanged: (v) => setLocal(() => countAsWork = v),
@@ -2877,11 +2873,11 @@ class _LeaveScreenState extends State<LeaveScreen>
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Hủy'),
+              child: Text(tr('Hủy')),
             ),
             FilledButton(
               onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('Duyệt'),
+              child: Text(tr('Duyệt')),
             ),
           ],
         ),
@@ -2905,21 +2901,21 @@ class _LeaveScreenState extends State<LeaveScreen>
         title: Row(children: [
           Icon(Icons.cancel_rounded, color: Colors.red[400]),
           const SizedBox(width: 8),
-          const Text('Từ chối đơn nghỉ phép')
+          Text(tr('Từ chối đơn nghỉ phép'))
         ]),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Vui lòng nhập lý do từ chối:'),
+              Text(tr('Vui lòng nhập lý do từ chối:')),
               const SizedBox(height: 12),
               TextField(
                 controller: reasonController,
                 maxLines: 3,
                 autofocus: true,
                 decoration: InputDecoration(
-                    hintText: 'Lý do từ chối...',
+                    hintText: tr('Lý do từ chối...'),
                     border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12))),
               ),
@@ -2933,7 +2929,7 @@ class _LeaveScreenState extends State<LeaveScreen>
               if (reasonController.text.trim().isEmpty) {
                 NotificationOverlayManager().showWarning(
                     title: 'Thiếu thông tin',
-                    message: 'Vui lòng nhập lý do từ chối');
+                    message: tr('Vui lòng nhập lý do từ chối'));
                 return;
               }
               Navigator.pop(ctx, true);
@@ -2972,9 +2968,9 @@ class _LeaveScreenState extends State<LeaveScreen>
         title: Row(children: [
           Icon(icon, color: iconColor),
           const SizedBox(width: 8),
-          Text(title)
+          Text(tr(title))
         ]),
-        content: Text(content),
+        content: Text(tr(content)),
         actions: [
           AppDialogActions(
             onCancel: () => Navigator.pop(ctx, false),
@@ -3108,7 +3104,7 @@ class _ActionBtn extends StatelessWidget {
           children: [
             Icon(icon, size: 15, color: color),
             const SizedBox(width: 4),
-            Text(label,
+            Text(tr(label),
                 style: TextStyle(
                     fontSize: 12, color: color, fontWeight: FontWeight.w600)),
           ],

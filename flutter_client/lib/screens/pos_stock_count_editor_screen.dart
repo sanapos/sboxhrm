@@ -19,6 +19,7 @@ import '../widgets/pos/pos_stock_count_helpers.dart';
 import '../widgets/pos/pos_theme.dart';
 import '../widgets/pos_barcode_scanner.dart';
 import '../screens/main_layout.dart' show ScreenRefreshNotifier;
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 const _blue = Color(0xFF2563EB);
 
@@ -46,7 +47,7 @@ class _CountLine {
     this.costPrice = 0,
     double? countedQty,
   }) : countedCtrl = TextEditingController(
-          text: countedQty != null ? _formatQty(countedQty) : '',
+          text: tr(countedQty != null ? _formatQty(countedQty) : ''),
         );
 
   static String _formatQty(double v) =>
@@ -206,7 +207,7 @@ class _PosStockCountEditorScreenState extends State<PosStockCountEditorScreen> {
     final key = '${pick.product.id}:${pick.variantId ?? 'base'}';
     if (_lines.any((l) => '${l.productId}:${l.variantId ?? 'base'}' == key)) {
       NotificationOverlayManager()
-          .showWarning(title: 'Trùng', message: 'Hàng đã có trong phiếu');
+          .showWarning(title: 'Trùng', message: tr('Hàng đã có trong phiếu'));
       return;
     }
 
@@ -294,7 +295,7 @@ class _PosStockCountEditorScreenState extends State<PosStockCountEditorScreen> {
   Future<void> _saveDraft() async {
     if (_lines.isEmpty && (_countId == null || _countId!.isEmpty)) {
       NotificationOverlayManager().showWarning(
-          title: 'Phiếu trống', message: 'Thêm ít nhất một dòng hàng trước khi lưu');
+          title: 'Phiếu trống', message: tr('Thêm ít nhất một dòng hàng trước khi lưu'));
       return;
     }
     setState(() => _saving = true);
@@ -310,7 +311,7 @@ class _PosStockCountEditorScreenState extends State<PosStockCountEditorScreen> {
   Future<void> _complete() async {
     if (_lines.isEmpty) {
       NotificationOverlayManager().showWarning(
-          title: 'Phiếu trống', message: 'Thêm ít nhất một dòng hàng');
+          title: 'Phiếu trống', message: tr('Thêm ít nhất một dòng hàng'));
       return;
     }
     final unchecked = _lines.where((l) => l.isUnchecked).length;
@@ -318,15 +319,14 @@ class _PosStockCountEditorScreenState extends State<PosStockCountEditorScreen> {
       final ok = await showDialog<bool>(
         context: context,
         builder: (ctx) => AlertDialog(
-          title: const Text('Cân bằng kho'),
-          content: Text(
-              'Còn $unchecked dòng chưa nhập SL thực tế. Tiếp tục cân bằng kho?'),
+          title: Text(tr('Cân bằng kho')),
+          content: Text(tr('Còn $unchecked dòng chưa nhập SL thực tế. Tiếp tục cân bằng kho?')),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Hủy')),
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Hủy'))),
             FilledButton(
               onPressed: () => Navigator.pop(ctx, true),
               style: FilledButton.styleFrom(backgroundColor: _blue),
-              child: const Text('Tiếp tục'),
+              child: Text(tr('Tiếp tục')),
             ),
           ],
         ),
@@ -373,7 +373,7 @@ class _PosStockCountEditorScreenState extends State<PosStockCountEditorScreen> {
     if (!mounted) return;
     if (res['isSuccess'] != true || res['data'] == null) {
       NotificationOverlayManager().showError(
-          title: 'Lỗi', message: 'Không tải được phiếu để in');
+          title: 'Lỗi', message: tr('Không tải được phiếu để in'));
       return;
     }
     final count = PosStockCount.fromJson(res['data'] as Map<String, dynamic>);
@@ -393,14 +393,14 @@ class _PosStockCountEditorScreenState extends State<PosStockCountEditorScreen> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Xóa phiếu'),
-        content: Text('Xóa hẳn phiếu $_countNo?'),
+        title: Text(tr('Xóa phiếu')),
+        content: Text(tr('Xóa hẳn phiếu $_countNo?')),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Không')),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Không'))),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Xóa'),
+            child: Text(tr('Xóa')),
           ),
         ],
       ),
@@ -427,14 +427,14 @@ class _PosStockCountEditorScreenState extends State<PosStockCountEditorScreen> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Hủy phiếu kiểm kê'),
-        content: Text('Hủy phiếu $_countNo và hoàn tồn kho về trước khi cân bằng?'),
+        title: Text(tr('Hủy phiếu kiểm kê')),
+        content: Text(tr('Hủy phiếu $_countNo và hoàn tồn kho về trước khi cân bằng?')),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Không')),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Không'))),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Hủy phiếu'),
+            child: Text(tr('Hủy phiếu')),
           ),
         ],
       ),
@@ -477,7 +477,7 @@ class _PosStockCountEditorScreenState extends State<PosStockCountEditorScreen> {
           backgroundColor: active ? _blue.withValues(alpha: 0.08) : null,
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         ),
-        child: Text(label,
+        child: Text(tr(label),
             style: TextStyle(
                 fontSize: 12, fontWeight: active ? FontWeight.w600 : FontWeight.normal)),
       ),
@@ -487,7 +487,7 @@ class _PosStockCountEditorScreenState extends State<PosStockCountEditorScreen> {
   Widget _countedCell(_CountLine l) {
     if (_readOnly) {
       return Text(
-          l.countedQty != null ? _fmtQty(l.countedQty!) : '—',
+          tr(l.countedQty != null ? _fmtQty(l.countedQty!) : '—'),
           style: const TextStyle(fontSize: 13));
     }
     return Row(
@@ -504,11 +504,11 @@ class _PosStockCountEditorScreenState extends State<PosStockCountEditorScreen> {
             controller: l.countedCtrl,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             textAlign: TextAlign.center,
-            decoration: const InputDecoration(
+            decoration: InputDecoration(
               isDense: true,
               border: OutlineInputBorder(),
               contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 8),
-              hintText: '—',
+              hintText: tr('—'),
             ),
             onChanged: (_) => setState(() {}),
           ),
@@ -531,7 +531,7 @@ class _PosStockCountEditorScreenState extends State<PosStockCountEditorScreen> {
           flex: flex,
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
-            child: Text(label,
+            child: Text(tr(label),
                 style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
           ),
         );
@@ -585,7 +585,7 @@ class _PosStockCountEditorScreenState extends State<PosStockCountEditorScreen> {
           child: visible.isEmpty
               ? Center(
                   child: Text(
-                    _lines.isEmpty ? 'Chưa có hàng trong phiếu' : 'Không có dòng phù hợp bộ lọc',
+                    tr(_lines.isEmpty ? 'Chưa có hàng trong phiếu' : 'Không có dòng phù hợp bộ lọc'),
                     style: TextStyle(color: Colors.grey.shade600),
                   ),
                 )
@@ -607,34 +607,34 @@ class _PosStockCountEditorScreenState extends State<PosStockCountEditorScreen> {
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
-                          dataCell(Text('$idx', style: const TextStyle(fontSize: 13)), 1),
+                          dataCell(Text(tr('$idx'), style: const TextStyle(fontSize: 13)), 1),
                           dataCell(
-                              Text(l.productCode,
+                              Text(tr(l.productCode),
                                   style: const TextStyle(fontSize: 13, color: _blue)),
                               2),
                           dataCell(
-                              Text(l.productName,
+                              Text(tr(l.productName),
                                   style: const TextStyle(
                                       fontSize: 13, fontWeight: FontWeight.w500)),
                               4),
-                          dataCell(Text(l.unitName, style: const TextStyle(fontSize: 13)), 1),
+                          dataCell(Text(tr(l.unitName), style: const TextStyle(fontSize: 13)), 1),
                           dataCell(
-                              Text(_fmtQty(l.systemQty),
+                              Text(tr(_fmtQty(l.systemQty)),
                                   style: const TextStyle(fontSize: 13)),
                               2),
                           dataCell(_countedCell(l), 3),
                           dataCell(
                               Text(
-                                  l.countedQty != null
+                                  tr(l.countedQty != null
                                       ? '${l.diffQty >= 0 ? '+' : ''}${_fmtQty(l.diffQty)}'
-                                      : '—',
+                                      : '—'),
                                   style: TextStyle(fontSize: 13, color: diffColor)),
                               2),
                           dataCell(
                               Text(
-                                  l.countedQty != null
+                                  tr(l.countedQty != null
                                       ? '${_moneyFmt.format(l.diffValue)} đ'
-                                      : '—',
+                                      : '—'),
                                   style: TextStyle(fontSize: 13, color: diffColor)),
                               2),
                           if (!_readOnly)
@@ -659,7 +659,7 @@ class _PosStockCountEditorScreenState extends State<PosStockCountEditorScreen> {
   Widget build(BuildContext context) {
     final perm = Provider.of<PermissionProvider>(context);
     if (!perm.canEdit('PosProducts')) {
-      return const Scaffold(body: Center(child: Text('Không có quyền kiểm kê kho')));
+      return Scaffold(body: Center(child: Text(tr('Không có quyền kiểm kê kho'))));
     }
 
     return Shortcuts(
@@ -678,13 +678,13 @@ class _PosStockCountEditorScreenState extends State<PosStockCountEditorScreen> {
               children: [
                 const Icon(Icons.inventory_outlined, color: _blue, size: 22),
                 const SizedBox(width: 8),
-                Text(_countId == null ? 'Kiểm kê kho' : 'Kiểm kê · $_countNo'),
+                Text(tr(_countId == null ? 'Kiểm kê kho' : 'Kiểm kê · $_countNo')),
               ],
             ),
             actions: [
               if (_countId != null && _lines.isNotEmpty)
                 IconButton(
-                  tooltip: 'In phiếu',
+                  tooltip: tr('In phiếu'),
                   icon: const Icon(Icons.print_outlined),
                   onPressed: _printCount,
                 ),
@@ -709,18 +709,18 @@ class _PosStockCountEditorScreenState extends State<PosStockCountEditorScreen> {
                                     child: PosPurchaseProductSearchBar(
                                       api: _api,
                                       readOnly: _readOnly,
-                                      hintText: 'Tìm hàng hóa (F3)',
+                                      hintText: tr('Tìm hàng hóa (F3)'),
                                       onPick: _onPickProduct,
                                     ),
                                   )
                                 else
-                                  const Expanded(
-                                    child: Text('Chi tiết phiếu kiểm kê',
+                                  Expanded(
+                                    child: Text(tr('Chi tiết phiếu kiểm kê'),
                                         style: TextStyle(
                                             fontSize: 15, fontWeight: FontWeight.w600)),
                                   ),
                                 IconButton(
-                                  tooltip: 'Quét mã vạch',
+                                  tooltip: tr('Quét mã vạch'),
                                   icon: const Icon(Icons.qr_code_scanner_outlined),
                                   onPressed: _readOnly ? null : _scanBarcode,
                                 ),
@@ -736,7 +736,7 @@ class _PosStockCountEditorScreenState extends State<PosStockCountEditorScreen> {
                                         Icon(Icons.inventory_outlined,
                                             size: 48, color: Colors.grey.shade400),
                                         const SizedBox(height: 12),
-                                        Text('Phiếu không có dòng hàng',
+                                        Text(tr('Phiếu không có dòng hàng'),
                                             style: TextStyle(color: Colors.grey.shade600)),
                                       ],
                                     ),
@@ -785,33 +785,33 @@ class _PosStockCountEditorScreenState extends State<PosStockCountEditorScreen> {
                               const SizedBox(height: 16),
                               OutlinedButton(
                                 onPressed: _saving ? null : _saveDraft,
-                                child: Text(_saving ? '…' : 'Lưu tạm'),
+                                child: Text(tr(_saving ? '…' : 'Lưu tạm')),
                               ),
                               const SizedBox(height: 8),
                               FilledButton(
                                 onPressed: _saving ? null : _complete,
                                 style: FilledButton.styleFrom(backgroundColor: _blue),
-                                child: Text(_saving ? '…' : 'Hoàn thành'),
+                                child: Text(tr(_saving ? '…' : 'Hoàn thành')),
                               ),
                               const SizedBox(height: 8),
                               OutlinedButton.icon(
                                 onPressed: _saving ? null : _deleteDraft,
                                 icon: const Icon(Icons.delete_outline, size: 18),
-                                label: const Text('Xóa phiếu'),
+                                label: Text(tr('Xóa phiếu')),
                               ),
                             ] else if (_status == 'Cancelled') ...[
                               const SizedBox(height: 16),
                               OutlinedButton.icon(
                                 onPressed: _saving ? null : _deleteDraft,
                                 icon: const Icon(Icons.delete_outline, size: 18),
-                                label: const Text('Xóa phiếu'),
+                                label: Text(tr('Xóa phiếu')),
                               ),
                             ] else if (_status == 'Completed') ...[
                               const SizedBox(height: 16),
                               OutlinedButton.icon(
                                 onPressed: _saving ? null : _voidCompleted,
                                 icon: const Icon(Icons.cancel_outlined, size: 18),
-                                label: const Text('Hủy phiếu'),
+                                label: Text(tr('Hủy phiếu')),
                               ),
                             ],
                           ],
@@ -831,8 +831,8 @@ class _PosStockCountEditorScreenState extends State<PosStockCountEditorScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: const TextStyle(fontSize: 13, color: PosTheme.textSecondary)),
-          Text(value,
+          Text(tr(label), style: const TextStyle(fontSize: 13, color: PosTheme.textSecondary)),
+          Text(tr(value),
               style: TextStyle(
                   fontWeight: bold ? FontWeight.bold : FontWeight.w500,
                   fontSize: bold ? 15 : 13)),

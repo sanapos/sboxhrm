@@ -21,6 +21,7 @@ import 'pos_store_printer_mapper.dart';
 import 'pos_sunmi_native_print.dart';
 import 'pos_thermal_printer_service.dart';
 import 'pos_thermal_printer_settings.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// Điều phối in cloud qua Máy in cửa hàng + Print Agent.
 /// In LAN/BT cục bộ: dùng [dispatchLocalEscPos] (Thiết lập máy in nhiệt).
@@ -567,7 +568,7 @@ class PosPrintOrchestrator {
     if (showFeedback) {
       NotificationOverlayManager().showError(
         title: 'In thất bại',
-        message: 'Không in được trên ${printer.name}',
+        message: tr('Không in được trên ${printer.name}'),
       );
     }
     return false;
@@ -665,8 +666,7 @@ class PosPrintOrchestrator {
     if (showFeedback) {
       NotificationOverlayManager().showError(
         title: 'Không có Print Agent',
-        message:
-            '${printer.name} chưa có Agent online. Mở app trên máy gắn máy in này → Bật Agent.',
+        message: tr('${printer.name} chưa có Agent online. Mở app trên máy gắn máy in này → Bật Agent.'),
       );
     }
     unawaited(_api.failPosPrintJob(
@@ -906,7 +906,7 @@ class PosPrintOrchestrator {
     if (showFeedback) {
       NotificationOverlayManager().showError(
         title: 'In thất bại',
-        message: 'Không in được trên ${printer.name}',
+        message: tr('Không in được trên ${printer.name}'),
       );
     }
     return false;
@@ -1059,7 +1059,7 @@ class PosPrintOrchestrator {
     if (showFeedback) {
       NotificationOverlayManager().showError(
         title: 'In thất bại',
-        message: 'Không kết nối được ${printer.name}',
+        message: tr('Không kết nối được ${printer.name}'),
       );
     }
     return false;
@@ -1098,7 +1098,7 @@ class PosPrintOrchestrator {
         if (showFeedback) {
           NotificationOverlayManager().showError(
             title: 'In thất bại',
-            message: 'Không kết nối được máy in cục bộ',
+            message: tr('Không kết nối được máy in cục bộ'),
           );
         }
         return false;
@@ -1107,7 +1107,7 @@ class PosPrintOrchestrator {
     if (showFeedback) {
       NotificationOverlayManager().showSuccess(
         title: successTitle ?? 'In thành công',
-        message: 'Máy in cục bộ (cùng mạng)',
+        message: tr('Máy in cục bộ (cùng mạng)'),
       );
     }
     return true;
@@ -1290,7 +1290,7 @@ class PosPrintOrchestrator {
       if (showFeedback) {
         NotificationOverlayManager().showError(
           title: 'Test thất bại',
-          message: 'Chưa cấu hình in cloud / Print Agent',
+          message: tr('Chưa cấu hình in cloud / Print Agent'),
         );
       }
       return false;
@@ -1357,8 +1357,7 @@ class PosPrintOrchestrator {
       if (showFeedback) {
         NotificationOverlayManager().showError(
           title: 'Không có Print Agent',
-          message:
-              'Sunmi chưa đăng ký Agent lên server. Mở app Sunmi → Bật Agent + chọn chip ${printer.name}.',
+          message: tr('Sunmi chưa đăng ký Agent lên server. Mở app Sunmi → Bật Agent + chọn chip ${printer.name}.'),
         );
       }
       unawaited(_api.failPosPrintJob(
@@ -1434,7 +1433,7 @@ class PosPrintOrchestrator {
         if (showFeedback) {
           NotificationOverlayManager().showError(
             title: 'Test cloud thất bại',
-            message: 'Không in được trên Sunmi',
+            message: tr('Không in được trên Sunmi'),
           );
         }
         return false;

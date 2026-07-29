@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../screens/system_admin/system_admin_helpers.dart';
 import '../../utils/responsive_helper.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// Super Admin dùng layout mobile (drawer + thẻ + filter sheet).
 bool adminUseMobileLayout(BuildContext context) =>
@@ -37,12 +38,12 @@ Future<void> showAdminFilterSheet(
             padding: const EdgeInsets.fromLTRB(16, 12, 8, 8),
             child: Row(
               children: [
-                Text(title,
+                Text(tr(title),
                     style: const TextStyle(
                         fontSize: 17, fontWeight: FontWeight.w600)),
                 const Spacer(),
                 if (onClear != null)
-                  TextButton(onPressed: onClear, child: const Text('Xóa lọc')),
+                  TextButton(onPressed: onClear, child: Text(tr('Xóa lọc'))),
                 IconButton(
                   onPressed: () => Navigator.pop(ctx),
                   icon: const Icon(Icons.close),
@@ -74,7 +75,7 @@ Future<void> showAdminFilterSheet(
                       backgroundColor: AdminHelpers.primary,
                       padding: const EdgeInsets.symmetric(vertical: 14),
                     ),
-                    child: const Text('Áp dụng'),
+                    child: Text(tr('Áp dụng')),
                   ),
                 ),
               ),
@@ -142,7 +143,7 @@ class AdminMobileListToolbar extends StatelessWidget {
                 IconButton(
                   onPressed: onRefresh,
                   icon: const Icon(Icons.refresh, size: 22),
-                  tooltip: 'Tải lại',
+                  tooltip: tr('Tải lại'),
                   visualDensity: VisualDensity.compact,
                 ),
               ],
@@ -159,7 +160,7 @@ class AdminMobileListToolbar extends StatelessWidget {
                     FilledButton.icon(
                       onPressed: onCreate,
                       icon: const Icon(Icons.add, size: 18),
-                      label: Text(createLabel ?? 'Tạo mới'),
+                      label: Text(tr(createLabel ?? 'Tạo mới')),
                       style: FilledButton.styleFrom(
                         backgroundColor: AdminHelpers.primary,
                         foregroundColor: Colors.white,
@@ -220,7 +221,7 @@ class _FilterButton extends StatelessWidget {
                     color: AdminHelpers.primary,
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: Text('$count',
+                  child: Text(tr('$count'),
                       style: const TextStyle(
                           color: Colors.white,
                           fontSize: 11,
@@ -272,7 +273,7 @@ class AdminMobileFilterDropdown<T> extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label,
+          Text(tr(label),
               style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
@@ -340,12 +341,12 @@ Future<void> showAdminActionSheet(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title,
+                Text(tr(title),
                     style: const TextStyle(
                         fontSize: 17, fontWeight: FontWeight.w700)),
                 if (subtitle != null && subtitle.isNotEmpty) ...[
                   const SizedBox(height: 4),
-                  Text(subtitle,
+                  Text(tr(subtitle),
                       style: TextStyle(
                           fontSize: 13, color: Colors.grey.shade600)),
                 ],
@@ -359,7 +360,7 @@ Future<void> showAdminActionSheet(
                         : (a.color ?? const Color(0xFF0F172A)),
                     size: 22),
                 title: Text(
-                  a.label,
+                  tr(a.label),
                   style: TextStyle(
                     color: a.destructive ? Colors.red : null,
                     fontWeight: FontWeight.w500,
@@ -451,12 +452,12 @@ class AdminMobileDrawer extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text('Quản trị hệ thống',
+                          Text(tr('Quản trị hệ thống'),
                               style: TextStyle(
                                   color: Colors.white,
                                   fontSize: 18,
                                   fontWeight: FontWeight.bold)),
-                          Text(roleLabel,
+                          Text(tr(roleLabel),
                               style: const TextStyle(
                                   color: Colors.white70, fontSize: 13)),
                         ],
@@ -486,7 +487,7 @@ class AdminMobileDrawer extends StatelessWidget {
                           size: 14,
                         ),
                         const SizedBox(width: 6),
-                        Text(healthStatus!,
+                        Text(tr(healthStatus!),
                             style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 12,
@@ -506,7 +507,7 @@ class AdminMobileDrawer extends StatelessWidget {
                   Padding(
                     padding:
                         const EdgeInsets.fromLTRB(16, 12, 16, 4),
-                    child: Text(group.key.toUpperCase(),
+                    child: Text(tr(group.key.toUpperCase()),
                         style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w700,
@@ -525,7 +526,7 @@ class AdminMobileDrawer extends StatelessWidget {
                           color: selected
                               ? AdminHelpers.primary
                               : Colors.grey[700]),
-                      title: Text(item.label,
+                      title: Text(tr(item.label),
                           style: TextStyle(
                               fontWeight: selected
                                   ? FontWeight.w600
@@ -543,7 +544,7 @@ class AdminMobileDrawer extends StatelessWidget {
                                     : Colors.grey.shade200,
                                 borderRadius: BorderRadius.circular(12),
                               ),
-                              child: Text('${item.count}',
+                              child: Text(tr('${item.count}'),
                                   style: TextStyle(
                                       fontSize: 11,
                                       fontWeight: FontWeight.bold,
@@ -567,7 +568,7 @@ class AdminMobileDrawer extends StatelessWidget {
               top: false,
               child: ListTile(
                 leading: const Icon(Icons.logout, color: AdminHelpers.danger),
-                title: const Text('Đăng xuất',
+                title: Text(tr('Đăng xuất'),
                     style: TextStyle(color: AdminHelpers.danger)),
                 onTap: onLogout,
               ),

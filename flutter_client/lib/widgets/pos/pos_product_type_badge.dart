@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../models/pos_product.dart';
 import 'pos_theme.dart';
+import '../../l10n/app_tr.dart';
 
 class PosProductTypeBadge extends StatelessWidget {
   const PosProductTypeBadge({super.key, required this.type, this.compact = false});
@@ -32,7 +33,7 @@ class PosProductTypeBadge extends StatelessWidget {
           Icon(icon, size: compact ? 12 : 14, color: color),
           const SizedBox(width: 4),
           Text(
-            posProductTypeLabel(type),
+            tr(posProductTypeLabel(type)),
             style: TextStyle(
               fontSize: compact ? 10 : 11,
               fontWeight: FontWeight.w600,
@@ -74,7 +75,7 @@ class PosSellingStatusBadge extends StatelessWidget {
         borderRadius: BorderRadius.circular(6),
       ),
       child: Text(
-        label,
+        tr(label),
         style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: fg),
       ),
     );

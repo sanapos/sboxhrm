@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// Nút quét mã vạch / QR bằng camera — dùng làm suffix ô nhập hoặc IconButton riêng.
 class PosBarcodeScanIcon extends StatelessWidget {
@@ -29,7 +30,7 @@ class PosBarcodeScanIcon extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return IconButton(
-      tooltip: 'Quét mã vạch / QR',
+      tooltip: tr('Quét mã vạch / QR'),
       icon: Icon(
         outlined ? Icons.qr_code_scanner_outlined : Icons.qr_code_scanner,
         size: iconSize,
@@ -201,12 +202,11 @@ class _BarcodeScannerSheetState extends State<_BarcodeScannerSheet> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(title,
+                      Text(tr(title),
                           style: const TextStyle(
                               fontSize: 16, fontWeight: FontWeight.bold)),
                       if (widget.continuous)
-                        Text(
-                          'Đã quét: $_scanCount',
+                        Text(tr('Đã quét: $_scanCount'),
                           style: const TextStyle(
                             fontSize: 12,
                             color: Colors.grey,
@@ -216,7 +216,7 @@ class _BarcodeScannerSheetState extends State<_BarcodeScannerSheet> {
                   ),
                 ),
                 IconButton(
-                  tooltip: _torchOn ? 'Tắt đèn' : 'Bật đèn',
+                  tooltip: tr(_torchOn ? 'Tắt đèn' : 'Bật đèn'),
                   onPressed: _toggleTorch,
                   icon: Icon(
                     _torchOn ? Icons.flash_on : Icons.flash_off_outlined,
@@ -226,7 +226,7 @@ class _BarcodeScannerSheetState extends State<_BarcodeScannerSheet> {
                 if (widget.continuous)
                   TextButton(
                     onPressed: () => Navigator.pop(context),
-                    child: const Text('Xong'),
+                    child: Text(tr('Xong')),
                   )
                 else
                   IconButton(
@@ -275,9 +275,9 @@ class _BarcodeScannerSheetState extends State<_BarcodeScannerSheet> {
           Padding(
             padding: const EdgeInsets.all(16),
             child: Text(
-              widget.continuous
+              tr(widget.continuous
                   ? 'Đưa mã vào tâm khung — chạm màn hình để lấy nét. Ưu tiên quét cứng Sunmi nếu có.'
-                  : 'Đưa mã vào tâm khung · chạm màn hình để lấy nét nhanh hơn',
+                  : 'Đưa mã vào tâm khung · chạm màn hình để lấy nét nhanh hơn'),
               textAlign: TextAlign.center,
               style: const TextStyle(color: Colors.grey),
             ),

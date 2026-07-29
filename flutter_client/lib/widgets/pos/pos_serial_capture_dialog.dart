@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../../models/pos_product.dart';
 import 'pos_theme.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 class PosSerialLineInput {
   PosSerialLineInput({
@@ -106,7 +107,7 @@ class _PosSerialCaptureDialogState extends State<_PosSerialCaptureDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Nhập seri máy'),
+      title: Text(tr('Nhập seri máy')),
       content: SizedBox(
         width: 480,
         child: SingleChildScrollView(
@@ -114,13 +115,12 @@ class _PosSerialCaptureDialogState extends State<_PosSerialCaptureDialog> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Text(
-                'Các mặt hàng bắt buộc seri — nhập đủ theo số lượng bán.',
+              Text(tr('Các mặt hàng bắt buộc seri — nhập đủ theo số lượng bán.'),
                 style: TextStyle(fontSize: 12, color: PosTheme.textSecondary),
               ),
               if (_error != null) ...[
                 const SizedBox(height: 8),
-                Text(_error!, style: const TextStyle(color: Colors.red, fontSize: 12)),
+                Text(tr(_error!), style: const TextStyle(color: Colors.red, fontSize: 12)),
               ],
               const SizedBox(height: 12),
               ...widget.inputs.map(_lineBlock),
@@ -131,11 +131,11 @@ class _PosSerialCaptureDialogState extends State<_PosSerialCaptureDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Huỷ'),
+          child: Text(tr('Huỷ')),
         ),
         FilledButton(
           onPressed: _submit,
-          child: const Text('Xác nhận'),
+          child: Text(tr('Xác nhận')),
         ),
       ],
     );
@@ -148,7 +148,7 @@ class _PosSerialCaptureDialogState extends State<_PosSerialCaptureDialog> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            '${line.productName} × ${line.qty}',
+            tr('${line.productName} × ${line.qty}'),
             style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
           ),
           const SizedBox(height: 8),
@@ -159,7 +159,7 @@ class _PosSerialCaptureDialogState extends State<_PosSerialCaptureDialog> {
                 children: [
                   SizedBox(
                     width: 28,
-                    child: Text('${i + 1}.', style: const TextStyle(fontSize: 12)),
+                    child: Text(tr('${i + 1}.'), style: const TextStyle(fontSize: 12)),
                   ),
                   Expanded(
                     flex: 3,

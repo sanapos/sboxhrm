@@ -25,6 +25,7 @@ import '../widgets/pos/pos_barcode_keyboard_scope.dart';
 import '../widgets/pos_barcode_scanner.dart';
 import 'main_layout.dart' show ScreenRefreshNotifier;
 import 'pos/pos_product_editor_page.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 const _blue = Color(0xFF2563EB);
 
@@ -94,11 +95,11 @@ class _EditorLine {
     this.expiryDate,
     String? lineNote,
     String? lotNo,
-  })  : qtyCtrl = TextEditingController(text: qty.toStringAsFixed(0)),
-        costCtrl = TextEditingController(text: cost.toStringAsFixed(0)),
-        discountCtrl = TextEditingController(text: discount.toStringAsFixed(0)),
-        lineNoteCtrl = TextEditingController(text: lineNote ?? ''),
-        lotNoCtrl = TextEditingController(text: lotNo ?? '');
+  })  : qtyCtrl = TextEditingController(text: tr(qty.toStringAsFixed(0))),
+        costCtrl = TextEditingController(text: tr(cost.toStringAsFixed(0))),
+        discountCtrl = TextEditingController(text: tr(discount.toStringAsFixed(0))),
+        lineNoteCtrl = TextEditingController(text: tr(lineNote ?? '')),
+        lotNoCtrl = TextEditingController(text: tr(lotNo ?? ''));
 
   String get lineKey => '$productId:${variantId ?? 'base'}';
 
@@ -187,8 +188,8 @@ class _PosPurchaseReceiptEditorScreenState
   final _receiptNoCtrl = TextEditingController();
   final _noteCtrl = TextEditingController();
   final _invoiceCtrl = TextEditingController();
-  final _discountCtrl = TextEditingController(text: '0');
-  final _paidCtrl = TextEditingController(text: '0');
+  final _discountCtrl = TextEditingController(text: tr('0'));
+  final _paidCtrl = TextEditingController(text: tr('0'));
   final _moneyFmt = NumberFormat('#,##0', 'vi_VN');
   String _paymentMethod = 'Tiền mặt';
   bool _discountIsPercent = false;
@@ -348,13 +349,13 @@ class _PosPurchaseReceiptEditorScreenState
 
   Future<void> _openDiscountEditor() async {
     if (_readOnly) return;
-    final ctrl = TextEditingController(text: _discountCtrl.text);
+    final ctrl = TextEditingController(text: tr(_discountCtrl.text));
     var isPercent = _discountIsPercent;
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDlg) => AlertDialog(
-          title: const Text('Giảm giá phiếu'),
+          title: Text(tr('Giảm giá phiếu')),
           content: SizedBox(
             width: 280,
             child: Column(
@@ -366,15 +367,15 @@ class _PosPurchaseReceiptEditorScreenState
                   autofocus: true,
                   keyboardType: TextInputType.number,
                   decoration: InputDecoration(
-                    labelText: isPercent ? 'Phần trăm (%)' : 'Số tiền (VNĐ)',
+                    labelText: tr(isPercent ? 'Phần trăm (%)' : 'Số tiền (VNĐ)'),
                     border: const OutlineInputBorder(),
                   ),
                 ),
                 const SizedBox(height: 12),
                 SegmentedButton<bool>(
-                  segments: const [
-                    ButtonSegment(value: false, label: Text('VNĐ')),
-                    ButtonSegment(value: true, label: Text('%')),
+                  segments: [
+                    ButtonSegment(value: false, label: Text(tr('VNĐ'))),
+                    ButtonSegment(value: true, label: Text(tr('%'))),
                   ],
                   selected: {isPercent},
                   onSelectionChanged: (s) => setDlg(() => isPercent = s.first),
@@ -383,11 +384,11 @@ class _PosPurchaseReceiptEditorScreenState
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Huỷ')),
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Huỷ'))),
             FilledButton(
               onPressed: () => Navigator.pop(ctx, true),
               style: FilledButton.styleFrom(backgroundColor: _blue),
-              child: const Text('Áp dụng'),
+              child: Text(tr('Áp dụng')),
             ),
           ],
         ),
@@ -407,7 +408,7 @@ class _PosPurchaseReceiptEditorScreenState
     if (_readOnly) {
       return InputDecorator(
         decoration: PosTheme.inputDecoration(label: 'Giảm giá phiếu'),
-        child: Text('$display $suffix'),
+        child: Text(tr('$display $suffix')),
       );
     }
     return InkWell(
@@ -423,7 +424,7 @@ class _PosPurchaseReceiptEditorScreenState
               borderRadius: BorderRadius.circular(6),
             ),
             child: Text(
-              suffix,
+              tr(suffix),
               style: const TextStyle(
                 color: _blue,
                 fontWeight: FontWeight.w600,
@@ -433,7 +434,7 @@ class _PosPurchaseReceiptEditorScreenState
           ),
         ),
         child: Text(
-          display,
+          tr(display),
           style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
         ),
       ),
@@ -441,25 +442,25 @@ class _PosPurchaseReceiptEditorScreenState
   }
 
   Future<void> _editLineNote(_EditorLine line) async {
-    final ctrl = TextEditingController(text: line.lineNoteCtrl.text);
+    final ctrl = TextEditingController(text: tr(line.lineNoteCtrl.text));
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Ghi chú dòng hàng'),
+        title: Text(tr('Ghi chú dòng hàng')),
         content: TextField(
           controller: ctrl,
           maxLines: 3,
-          decoration: const InputDecoration(
-            hintText: 'Nhập ghi chú cho sản phẩm…',
+          decoration: InputDecoration(
+            hintText: tr('Nhập ghi chú cho sản phẩm…'),
             border: OutlineInputBorder(),
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Huỷ')),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Huỷ'))),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: FilledButton.styleFrom(backgroundColor: _blue),
-            child: const Text('Lưu'),
+            child: Text(tr('Lưu')),
           ),
         ],
       ),
@@ -503,7 +504,7 @@ class _PosPurchaseReceiptEditorScreenState
       ScreenRefreshNotifier.refreshPosSellProductGrid();
       NotificationOverlayManager().showSuccess(
         title: 'Đã thêm hàng hóa',
-        message: 'Quét mã hoặc tìm tên để thêm vào phiếu',
+        message: tr('Quét mã hoặc tìm tên để thêm vào phiếu'),
       );
     }
   }
@@ -513,7 +514,7 @@ class _PosPurchaseReceiptEditorScreenState
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDlg) => AlertDialog(
-          title: const Text('Tùy chọn hiển thị'),
+          title: Text(tr('Tùy chọn hiển thị')),
           content: SizedBox(
             width: 280,
             child: SingleChildScrollView(
@@ -523,7 +524,7 @@ class _PosPurchaseReceiptEditorScreenState
                   return CheckboxListTile(
                     dense: true,
                     activeColor: _blue,
-                    title: Text(c.label, style: const TextStyle(fontSize: 13)),
+                    title: Text(tr(c.label), style: const TextStyle(fontSize: 13)),
                     value: _visibleColumns.contains(c),
                     onChanged: (v) {
                       setDlg(() {
@@ -546,12 +547,12 @@ class _PosPurchaseReceiptEditorScreenState
                 setState(() => _visibleColumns = _defaultPurchaseColumns());
                 Navigator.pop(ctx);
               },
-              child: const Text('Mặc định'),
+              child: Text(tr('Mặc định')),
             ),
             FilledButton(
               onPressed: () => Navigator.pop(ctx),
               style: FilledButton.styleFrom(backgroundColor: _blue),
-              child: const Text('Xong'),
+              child: Text(tr('Xong')),
             ),
           ],
         ),
@@ -618,7 +619,7 @@ class _PosPurchaseReceiptEditorScreenState
 
   Widget _qtyCell(_EditorLine l) {
     if (_readOnly) {
-      return Text(l.qtyCtrl.text, style: const TextStyle(fontSize: 13));
+      return Text(tr(l.qtyCtrl.text), style: const TextStyle(fontSize: 13));
     }
     return Row(
       children: [
@@ -660,7 +661,7 @@ class _PosPurchaseReceiptEditorScreenState
           : l.vatRate <= 0
               ? '—'
               : '${l.vatRate.toStringAsFixed(0)}%';
-      return Text(label, style: const TextStyle(fontSize: 13));
+      return Text(tr(label), style: const TextStyle(fontSize: 13));
     }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -671,11 +672,11 @@ class _PosPurchaseReceiptEditorScreenState
             isDense: true,
             isExpanded: true,
             items: [
-              const DropdownMenuItem(value: 'kct', child: Text('KCT')),
+              DropdownMenuItem(value: 'kct', child: Text(tr('KCT'))),
               ..._EditorLine.vatOptions.map(
                 (r) => DropdownMenuItem(
                   value: r.toStringAsFixed(0),
-                  child: Text(r <= 0 ? '0%' : '${r.toStringAsFixed(0)}%'),
+                  child: Text(tr(r <= 0 ? '0%' : '${r.toStringAsFixed(0)}%')),
                 ),
               ),
             ],
@@ -698,7 +699,7 @@ class _PosPurchaseReceiptEditorScreenState
             dense: true,
             contentPadding: EdgeInsets.zero,
             visualDensity: VisualDensity.compact,
-            title: const Text('Đã bao gồm thuế', style: TextStyle(fontSize: 11)),
+            title: Text(tr('Đã bao gồm thuế'), style: TextStyle(fontSize: 11)),
             value: l.costIncludesVat,
             activeColor: _blue,
             onChanged: (v) => setState(() => l.costIncludesVat = v == true),
@@ -746,7 +747,7 @@ class _PosPurchaseReceiptEditorScreenState
       }
       line.dispose();
       NotificationOverlayManager()
-          .showWarning(title: 'Trùng', message: 'Hàng đã có trong phiếu');
+          .showWarning(title: 'Trùng', message: tr('Hàng đã có trong phiếu'));
       return;
     }
     await _loadVariantsForLine(line);
@@ -837,8 +838,8 @@ class _PosPurchaseReceiptEditorScreenState
           TextField(
             controller: l.lotNoCtrl,
             readOnly: _readOnly,
-            decoration: const InputDecoration(
-              labelText: 'Mã lô',
+            decoration: InputDecoration(
+              labelText: tr('Mã lô'),
               isDense: true,
               border: OutlineInputBorder(),
             ),
@@ -851,9 +852,9 @@ class _PosPurchaseReceiptEditorScreenState
                   onPressed: _readOnly ? null : () => _pickLineDate(l, expiry: false),
                   icon: const Icon(Icons.calendar_today, size: 14),
                   label: Text(
-                    l.manufactureDate != null
+                    tr(l.manufactureDate != null
                         ? 'NSX: ${dateFmt.format(l.manufactureDate!)}'
-                        : 'NSX',
+                        : 'NSX'),
                     style: const TextStyle(fontSize: 12),
                   ),
                 ),
@@ -864,9 +865,9 @@ class _PosPurchaseReceiptEditorScreenState
                   onPressed: _readOnly ? null : () => _pickLineDate(l, expiry: true),
                   icon: Icon(Icons.event, size: 14, color: l.trackExpiry ? Colors.orange : null),
                   label: Text(
-                    l.expiryDate != null
+                    tr(l.expiryDate != null
                         ? 'HSD: ${dateFmt.format(l.expiryDate!)}'
-                        : l.trackExpiry ? 'HSD *' : 'HSD',
+                        : l.trackExpiry ? 'HSD *' : 'HSD'),
                     style: TextStyle(
                       fontSize: 12,
                       color: l.trackExpiry && l.expiryDate == null ? Colors.orange.shade800 : null,
@@ -884,7 +885,7 @@ class _PosPurchaseReceiptEditorScreenState
   Future<void> _save({required bool complete}) async {
     if (_lines.isEmpty) {
       NotificationOverlayManager()
-          .showWarning(title: 'Phiếu trống', message: 'Thêm ít nhất một dòng hàng');
+          .showWarning(title: 'Phiếu trống', message: tr('Thêm ít nhất một dòng hàng'));
       return;
     }
     if (complete) {
@@ -977,14 +978,14 @@ class _PosPurchaseReceiptEditorScreenState
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Xóa phiếu'),
-        content: Text('Xóa hẳn phiếu $_receiptNo?'),
+        title: Text(tr('Xóa phiếu')),
+        content: Text(tr('Xóa hẳn phiếu $_receiptNo?')),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Không')),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Không'))),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Xóa'),
+            child: Text(tr('Xóa')),
           ),
         ],
       ),
@@ -1012,14 +1013,14 @@ class _PosPurchaseReceiptEditorScreenState
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Hủy phiếu nhập'),
-        content: Text('Hủy phiếu $_receiptNo và trừ lại hàng đã nhập kho?'),
+        title: Text(tr('Hủy phiếu nhập')),
+        content: Text(tr('Hủy phiếu $_receiptNo và trừ lại hàng đã nhập kho?')),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Không')),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Không'))),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Hủy phiếu'),
+            child: Text(tr('Hủy phiếu')),
           ),
         ],
       ),
@@ -1068,23 +1069,23 @@ class _PosPurchaseReceiptEditorScreenState
               ),
             )
           else
-            const Expanded(
-              child: Text('Chi tiết phiếu nhập hàng',
+            Expanded(
+              child: Text(tr('Chi tiết phiếu nhập hàng'),
                   style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
             ),
           IconButton(
-            tooltip: 'Quét mã vạch',
+            tooltip: tr('Quét mã vạch'),
             icon: const Icon(Icons.qr_code_scanner_outlined),
             onPressed: _readOnly ? null : _scanBarcode,
           ),
           if (!posUseMobileList(context)) ...[
             IconButton(
-              tooltip: 'Tùy chọn hiển thị',
+              tooltip: tr('Tùy chọn hiển thị'),
               icon: const Icon(Icons.visibility_outlined),
               onPressed: _showColumnPicker,
             ),
             IconButton(
-              tooltip: 'Lệnh in',
+              tooltip: tr('Lệnh in'),
               icon: const Icon(Icons.print_outlined),
               onPressed: _lines.isEmpty ? null : _printReceipt,
             ),
@@ -1100,8 +1101,8 @@ class _PosPurchaseReceiptEditorScreenState
       children: [
         ListTile(
           contentPadding: EdgeInsets.zero,
-          title: const Text('Ngày nhập', style: TextStyle(fontSize: 12)),
-          subtitle: Text(DateFormat('dd/MM/yyyy HH:mm').format(_importDate)),
+          title: Text(tr('Ngày nhập'), style: TextStyle(fontSize: 12)),
+          subtitle: Text(tr(DateFormat('dd/MM/yyyy HH:mm').format(_importDate))),
           trailing: _readOnly
               ? null
               : IconButton(
@@ -1125,11 +1126,11 @@ class _PosPurchaseReceiptEditorScreenState
                 value: _supplierId,
                 decoration: PosTheme.inputDecoration(label: 'Nhà cung cấp'),
                 items: [
-                  const DropdownMenuItem(
-                      value: null, child: Text('— Chọn NCC —')),
+                  DropdownMenuItem(
+                      value: null, child: Text(tr('— Chọn NCC —'))),
                   ..._suppliers.map((s) => DropdownMenuItem(
                         value: s.id,
-                        child: Text('${s.supplierCode} · ${s.name}',
+                        child: Text(tr('${s.supplierCode} · ${s.name}'),
                             overflow: TextOverflow.ellipsis),
                       )),
                 ],
@@ -1140,7 +1141,7 @@ class _PosPurchaseReceiptEditorScreenState
             if (!_readOnly) ...[
               const SizedBox(width: 8),
               IconButton(
-                tooltip: 'Thêm NCC',
+                tooltip: tr('Thêm NCC'),
                 onPressed: _openAddSupplier,
                 icon: const Icon(Icons.add_business, color: _blue),
               ),
@@ -1183,7 +1184,7 @@ class _PosPurchaseReceiptEditorScreenState
           value: _paymentMethod,
           decoration: PosTheme.inputDecoration(label: 'Phương thức thanh toán'),
           items: _paymentMethods
-              .map((m) => DropdownMenuItem(value: m, child: Text(m)))
+              .map((m) => DropdownMenuItem(value: m, child: Text(tr(m))))
               .toList(),
           onChanged: _readOnly
               ? null
@@ -1237,7 +1238,7 @@ class _PosPurchaseReceiptEditorScreenState
                   side: const BorderSide(color: _blue),
                   padding: const EdgeInsets.symmetric(vertical: 12),
                 ),
-                child: Text(_saving ? 'Đang lưu…' : 'Lưu tạm'),
+                child: Text(tr(_saving ? 'Đang lưu…' : 'Lưu tạm')),
               ),
             ),
             const SizedBox(width: 8),
@@ -1248,13 +1249,13 @@ class _PosPurchaseReceiptEditorScreenState
                   backgroundColor: _blue,
                   padding: const EdgeInsets.symmetric(vertical: 12),
                 ),
-                child: Text(_saving ? 'Đang lưu…' : 'Hoàn thành'),
+                child: Text(tr(_saving ? 'Đang lưu…' : 'Hoàn thành')),
               ),
             ),
             if (_receiptId != null) ...[
               const SizedBox(width: 4),
               IconButton(
-                tooltip: 'Xóa phiếu',
+                tooltip: tr('Xóa phiếu'),
                 onPressed: _saving ? null : _deleteDraft,
                 icon: const Icon(Icons.delete_outline, color: Colors.red),
               ),
@@ -1280,7 +1281,7 @@ class _PosPurchaseReceiptEditorScreenState
         child: OutlinedButton.icon(
           onPressed: _saving ? null : _voidCompleted,
           icon: const Icon(Icons.cancel_outlined, size: 18),
-          label: const Text('Hủy phiếu'),
+          label: Text(tr('Hủy phiếu')),
         ),
       );
     }
@@ -1301,7 +1302,7 @@ class _PosPurchaseReceiptEditorScreenState
         child: OutlinedButton.icon(
           onPressed: _saving ? null : _deleteDraft,
           icon: const Icon(Icons.delete_outline, size: 18),
-          label: const Text('Xóa phiếu'),
+          label: Text(tr('Xóa phiếu')),
         ),
       );
     }
@@ -1337,16 +1338,15 @@ class _PosPurchaseReceiptEditorScreenState
               controller: l.costCtrl,
               readOnly: _readOnly,
               keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: 'Giá nhập',
+              decoration: InputDecoration(
+                labelText: tr('Giá nhập'),
                 isDense: true,
                 border: OutlineInputBorder(),
               ),
               onChanged: (_) => setState(() {}),
             ),
             const SizedBox(height: 6),
-            Text(
-              'Thành tiền: ${_moneyFmt.format(l.lineTotal)} đ',
+            Text(tr('Thành tiền: ${_moneyFmt.format(l.lineTotal)} đ'),
               style: const TextStyle(fontWeight: FontWeight.w600),
             ),
             _buildLotExpiryFields(l),
@@ -1361,7 +1361,7 @@ class _PosPurchaseReceiptEditorScreenState
     final perm = Provider.of<PermissionProvider>(context);
     final actionBar = _buildReceiptActionBar(perm);
     if (!perm.canEdit('PosProducts')) {
-      return const Scaffold(body: Center(child: Text('Không có quyền nhập hàng')));
+      return Scaffold(body: Center(child: Text(tr('Không có quyền nhập hàng'))));
     }
 
     return PosBarcodeKeyboardScope(
@@ -1377,7 +1377,7 @@ class _PosPurchaseReceiptEditorScreenState
                 children: [
                   const Icon(Icons.shopping_cart_outlined, color: _blue, size: 22),
                   const SizedBox(width: 8),
-                  Text(_receiptId == null ? 'Nhập hàng' : 'Nhập hàng · $_receiptNo'),
+                  Text(tr(_receiptId == null ? 'Nhập hàng' : 'Nhập hàng · $_receiptNo')),
                 ],
               ),
               bottom: _loading
@@ -1400,9 +1400,9 @@ class _PosPurchaseReceiptEditorScreenState
                         lines: ColoredBox(
                           color: Colors.white,
                           child: _lines.isEmpty
-                              ? const SizedBox(
+                              ? SizedBox(
                                   height: 200,
-                                  child: Center(child: Text('Chưa có hàng trong phiếu')),
+                                  child: Center(child: Text(tr('Chưa có hàng trong phiếu'))),
                                 )
                               : _buildFullWidthLinesTable(),
                         ),
@@ -1433,24 +1433,24 @@ class _PosPurchaseReceiptEditorScreenState
                                       ),
                                     )
                                   else
-                                    const Expanded(
-                                      child: Text('Chi tiết phiếu nhập hàng',
+                                    Expanded(
+                                      child: Text(tr('Chi tiết phiếu nhập hàng'),
                                           style: TextStyle(
                                               fontSize: 15, fontWeight: FontWeight.w600)),
                                     ),
                                   const SizedBox(width: 4),
                                   IconButton(
-                                    tooltip: 'Quét mã vạch',
+                                    tooltip: tr('Quét mã vạch'),
                                     icon: const Icon(Icons.qr_code_scanner_outlined),
                                     onPressed: _readOnly ? null : _scanBarcode,
                                   ),
                                   IconButton(
-                                    tooltip: 'Tùy chọn hiển thị',
+                                    tooltip: tr('Tùy chọn hiển thị'),
                                     icon: const Icon(Icons.visibility_outlined),
                                     onPressed: _showColumnPicker,
                                   ),
                                   IconButton(
-                                    tooltip: 'Lệnh in',
+                                    tooltip: tr('Lệnh in'),
                                     icon: const Icon(Icons.print_outlined),
                                     onPressed: _lines.isEmpty ? null : _printReceipt,
                                   ),
@@ -1466,10 +1466,10 @@ class _PosPurchaseReceiptEditorScreenState
                                           Icon(Icons.inventory_2_outlined,
                                               size: 48, color: Colors.grey.shade400),
                                           const SizedBox(height: 12),
-                                          Text('Chưa có hàng trong phiếu',
+                                          Text(tr('Chưa có hàng trong phiếu'),
                                               style: TextStyle(color: Colors.grey.shade600)),
                                           const SizedBox(height: 8),
-                                          Text('Tìm theo mã, tên hoặc quét mã vạch (F3)',
+                                          Text(tr('Tìm theo mã, tên hoặc quét mã vạch (F3)'),
                                               style: TextStyle(
                                                   fontSize: 12, color: Colors.grey.shade500)),
                                         ],
@@ -1513,8 +1513,8 @@ class _PosPurchaseReceiptEditorScreenState
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: TextStyle(fontSize: 13, color: PosTheme.textSecondary)),
-          Text(value,
+          Text(tr(label), style: TextStyle(fontSize: 13, color: PosTheme.textSecondary)),
+          Text(tr(value),
               style: TextStyle(
                   fontWeight: bold ? FontWeight.bold : FontWeight.w500,
                   color: color,
@@ -1539,7 +1539,7 @@ class _PosPurchaseReceiptEditorScreenState
   Widget _unitCell(_EditorLine l) {
     final views = l.unitViews;
     if (_readOnly || views.length <= 1) {
-      return Text(l.unitName, style: const TextStyle(fontSize: 13));
+      return Text(tr(l.unitName), style: const TextStyle(fontSize: 13));
     }
     return DropdownButtonHideUnderline(
       child: DropdownButton<String?>(
@@ -1549,7 +1549,7 @@ class _PosPurchaseReceiptEditorScreenState
         items: views
             .map((v) => DropdownMenuItem<String?>(
                   value: v.variantId,
-                  child: Text(v.label, style: const TextStyle(fontSize: 13)),
+                  child: Text(tr(v.label), style: const TextStyle(fontSize: 13)),
                 ))
             .toList(),
         onChanged: (vid) {
@@ -1577,7 +1577,7 @@ class _PosPurchaseReceiptEditorScreenState
           flex: flex,
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
-            child: Text(label,
+            child: Text(tr(label),
                 style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
           ),
         );
@@ -1625,17 +1625,17 @@ class _PosPurchaseReceiptEditorScreenState
                       switch (c) {
                         case _PurchaseLineColumn.stt:
                           return dataCell(
-                              Text('${i + 1}', style: const TextStyle(fontSize: 13)), flex);
+                              Text(tr('${i + 1}'), style: const TextStyle(fontSize: 13)), flex);
                         case _PurchaseLineColumn.code:
                           return dataCell(
-                              Text(l.productCode, style: const TextStyle(fontSize: 13)), flex);
+                              Text(tr(l.productCode), style: const TextStyle(fontSize: 13)), flex);
                         case _PurchaseLineColumn.name:
                           return dataCell(
                             Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Text(l.productName,
+                                Text(tr(l.productName),
                                     style: const TextStyle(
                                         fontSize: 13, fontWeight: FontWeight.w500)),
                                 if (!_readOnly)
@@ -1651,9 +1651,9 @@ class _PosPurchaseReceiptEditorScreenState
                                           const SizedBox(width: 4),
                                           Flexible(
                                             child: Text(
-                                              l.lineNoteCtrl.text.isEmpty
+                                              tr(l.lineNoteCtrl.text.isEmpty
                                                   ? 'Ghi chú…'
-                                                  : l.lineNoteCtrl.text,
+                                                  : l.lineNoteCtrl.text),
                                               style: TextStyle(
                                                 fontSize: 11,
                                                 color: l.lineNoteCtrl.text.isEmpty
@@ -1672,7 +1672,7 @@ class _PosPurchaseReceiptEditorScreenState
                                   Padding(
                                     padding: const EdgeInsets.only(top: 2),
                                     child: Text(
-                                      l.lineNoteCtrl.text,
+                                      tr(l.lineNoteCtrl.text),
                                       style: TextStyle(
                                           fontSize: 11, color: Colors.grey.shade600),
                                       maxLines: 2,
@@ -1724,7 +1724,7 @@ class _PosPurchaseReceiptEditorScreenState
                           return dataCell(_vatCell(l), flex);
                         case _PurchaseLineColumn.total:
                           return dataCell(
-                            Text(_moneyFmt.format(l.lineTotal),
+                            Text(tr(_moneyFmt.format(l.lineTotal)),
                                 style: const TextStyle(
                                     fontSize: 13, fontWeight: FontWeight.w600)),
                             flex,

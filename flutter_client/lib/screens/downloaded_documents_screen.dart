@@ -13,6 +13,7 @@ import '../widgets/safe_layout_widgets.dart';
 import '../widgets/notification_overlay.dart';
 import '../widgets/app_scroll_safe.dart';
 import '../widgets/hrm_mini_stat_chip.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 const _theme = Color(0xFF7C3AED);
 
@@ -93,7 +94,7 @@ class _DownloadedDocumentsScreenState extends State<DownloadedDocumentsScreen> {
     if (kIsWeb) {
       NotificationOverlayManager().showWarning(
         title: 'Mở tệp',
-        message: 'Trên web vui lòng mở từ thư mục Tải về trình duyệt.',
+        message: tr('Trên web vui lòng mở từ thư mục Tải về trình duyệt.'),
       );
       return;
     }
@@ -110,20 +111,20 @@ class _DownloadedDocumentsScreenState extends State<DownloadedDocumentsScreen> {
     if (kIsWeb) return;
     await Share.shareXFiles(
       [XFile(doc.localPath, mimeType: doc.mimeType)],
-      text: doc.displayName,
+      text: tr(doc.displayName),
     );
   }
 
   Future<void> _rename(DownloadedDocument doc) async {
-    final ctrl = TextEditingController(text: doc.displayName);
+    final ctrl = TextEditingController(text: tr(doc.displayName));
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => ScrollableAlertDialog(
-        title: const Text('Đổi tên tệp'),
+        title: Text(tr('Đổi tên tệp')),
         content: TextField(
           controller: ctrl,
-          decoration: const InputDecoration(
-            labelText: 'Tên hiển thị',
+          decoration: InputDecoration(
+            labelText: tr('Tên hiển thị'),
             border: OutlineInputBorder(),
           ),
           autofocus: true,
@@ -131,10 +132,10 @@ class _DownloadedDocumentsScreenState extends State<DownloadedDocumentsScreen> {
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Hủy')),
+              child: Text(tr('Hủy'))),
           FilledButton(
               onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('Lưu')),
+              child: Text(tr('Lưu'))),
         ],
       ),
     );
@@ -145,10 +146,10 @@ class _DownloadedDocumentsScreenState extends State<DownloadedDocumentsScreen> {
     if (success) {
       setState(() {});
       NotificationOverlayManager()
-          .showSuccess(title: 'Đã đổi tên', message: 'Cập nhật thành công');
+          .showSuccess(title: 'Đã đổi tên', message: tr('Cập nhật thành công'));
     } else {
       NotificationOverlayManager()
-          .showError(title: 'Lỗi', message: 'Không đổi được tên');
+          .showError(title: 'Lỗi', message: tr('Không đổi được tên'));
     }
   }
 
@@ -156,16 +157,16 @@ class _DownloadedDocumentsScreenState extends State<DownloadedDocumentsScreen> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => ScrollableAlertDialog(
-        title: const Text('Xóa tệp'),
-        content: Text('Xóa "${doc.displayName}" khỏi danh sách quản lý?'),
+        title: Text(tr('Xóa tệp')),
+        content: Text(tr('Xóa "${doc.displayName}" khỏi danh sách quản lý?')),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Hủy')),
+              child: Text(tr('Hủy'))),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Xóa'),
+            child: Text(tr('Xóa')),
           ),
         ],
       ),
@@ -212,11 +213,10 @@ class _DownloadedDocumentsScreenState extends State<DownloadedDocumentsScreen> {
                     onRefresh: _reload,
                     child: list.isEmpty
                         ? ListView(
-                            children: const [
+                            children: [
                               SizedBox(height: 120),
                               Center(
-                                child: Text(
-                                  'Chưa có tệp tải xuống.\nXuất Excel/ảnh từ báo cáo sẽ hiện tại đây.',
+                                child: Text(tr('Chưa có tệp tải xuống.\nXuất Excel/ảnh từ báo cáo sẽ hiện tại đây.'),
                                   textAlign: TextAlign.center,
                                   style: TextStyle(color: Color(0xFF71717A)),
                                 ),
@@ -257,16 +257,14 @@ class _DownloadedDocumentsScreenState extends State<DownloadedDocumentsScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'Quản lý tài liệu tải xuống',
+                Text(tr('Quản lý tài liệu tải xuống'),
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: isMobile ? 17 : 20,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                Text(
-                  'Chỉ trên thiết bị này · Excel, PNG — mở, chia sẻ, xóa',
+                Text(tr('Chỉ trên thiết bị này · Excel, PNG — mở, chia sẻ, xóa'),
                   style: TextStyle(
                     color: Colors.white.withValues(alpha: 0.85),
                     fontSize: isMobile ? 11 : 12,
@@ -278,7 +276,7 @@ class _DownloadedDocumentsScreenState extends State<DownloadedDocumentsScreen> {
           IconButton(
             onPressed: _reload,
             icon: const Icon(Icons.sync_rounded, color: Colors.white),
-            tooltip: 'Quét lại thư mục SBOX HRM',
+            tooltip: tr('Quét lại thư mục SBOX HRM'),
           ),
         ],
       ),
@@ -311,13 +309,13 @@ class _DownloadedDocumentsScreenState extends State<DownloadedDocumentsScreen> {
                 Icon(Icons.analytics_outlined,
                     size: 16, color: Colors.blue.shade700),
                 const SizedBox(width: 6),
-                Text('Tổng quan & bộ lọc',
+                Text(tr('Tổng quan & bộ lọc'),
                     style: TextStyle(
                         fontWeight: FontWeight.w600,
                         fontSize: 13,
                         color: Colors.blue.shade700)),
                 const Spacer(),
-                Text('$visibleCount/$total',
+                Text(tr('$visibleCount/$total'),
                     style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
@@ -447,13 +445,13 @@ class _DownloadedDocumentsScreenState extends State<DownloadedDocumentsScreen> {
                 children: [
                   Icon(icon, size: 14, color: active ? _theme : Colors.grey),
                   const SizedBox(width: 4),
-                  Text(title,
+                  Text(tr(title),
                       style: const TextStyle(fontSize: 10, color: Color(0xFF71717A))),
                 ],
               ),
               const SizedBox(height: 4),
               Text(
-                value,
+                tr(value),
                 maxLines: 2,
                 overflow: TextOverflow.visible,
                 softWrap: true,
@@ -480,7 +478,7 @@ class _DownloadedDocumentsScreenState extends State<DownloadedDocumentsScreen> {
           mainAxisSize: MainAxisSize.min,
           children: cats
               .map((c) => ListTile(
-                    title: Text(c),
+                    title: Text(tr(c)),
                     onTap: () {
                       Navigator.pop(ctx);
                       setState(() => _category = c);
@@ -501,19 +499,19 @@ class _DownloadedDocumentsScreenState extends State<DownloadedDocumentsScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
-                title: const Text('Tất cả'),
+                title: Text(tr('Tất cả')),
                 onTap: () {
                   Navigator.pop(ctx);
                   setState(() => _fileType = 'all');
                 }),
             ListTile(
-                title: const Text('Excel (.xlsx)'),
+                title: Text(tr('Excel (.xlsx)')),
                 onTap: () {
                   Navigator.pop(ctx);
                   setState(() => _fileType = 'excel');
                 }),
             ListTile(
-                title: const Text('Ảnh PNG/JPG'),
+                title: Text(tr('Ảnh PNG/JPG')),
                 onTap: () {
                   Navigator.pop(ctx);
                   setState(() => _fileType = 'image');
@@ -533,25 +531,25 @@ class _DownloadedDocumentsScreenState extends State<DownloadedDocumentsScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
-                title: const Text('Tất cả'),
+                title: Text(tr('Tất cả')),
                 onTap: () {
                   Navigator.pop(ctx);
                   _applyDatePreset('all');
                 }),
             ListTile(
-                title: const Text('Hôm nay'),
+                title: Text(tr('Hôm nay')),
                 onTap: () {
                   Navigator.pop(ctx);
                   _applyDatePreset('today');
                 }),
             ListTile(
-                title: const Text('Tuần này'),
+                title: Text(tr('Tuần này')),
                 onTap: () {
                   Navigator.pop(ctx);
                   _applyDatePreset('week');
                 }),
             ListTile(
-                title: const Text('Tháng này'),
+                title: Text(tr('Tháng này')),
                 onTap: () {
                   Navigator.pop(ctx);
                   _applyDatePreset('month');
@@ -563,7 +561,7 @@ class _DownloadedDocumentsScreenState extends State<DownloadedDocumentsScreen> {
   }
 
   Future<void> _pickSearch() async {
-    final ctrl = TextEditingController(text: _searchCtrl.text);
+    final ctrl = TextEditingController(text: tr(_searchCtrl.text));
     await showAppSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -580,8 +578,8 @@ class _DownloadedDocumentsScreenState extends State<DownloadedDocumentsScreen> {
             TextField(
               controller: ctrl,
               autofocus: true,
-              decoration: const InputDecoration(
-                labelText: 'Tìm tên tệp / nhóm',
+              decoration: InputDecoration(
+                labelText: tr('Tìm tên tệp / nhóm'),
                 border: OutlineInputBorder(),
               ),
               onSubmitted: (v) {
@@ -597,7 +595,7 @@ class _DownloadedDocumentsScreenState extends State<DownloadedDocumentsScreen> {
                 Navigator.pop(ctx);
                 setState(() {});
               },
-              child: const Text('Áp dụng'),
+              child: Text(tr('Áp dụng')),
             ),
           ],
         ),
@@ -637,7 +635,7 @@ class _DownloadedDocumentsScreenState extends State<DownloadedDocumentsScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      doc.displayName,
+                      tr(doc.displayName),
                       style: const TextStyle(
                         fontWeight: FontWeight.w700,
                         fontSize: 14,
@@ -647,7 +645,7 @@ class _DownloadedDocumentsScreenState extends State<DownloadedDocumentsScreen> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      '${doc.category} · ${_fmt.format(doc.downloadedAt)} · ${_formatSize(doc.sizeBytes)}',
+                      tr('${doc.category} · ${_fmt.format(doc.downloadedAt)} · ${_formatSize(doc.sizeBytes)}'),
                       style: const TextStyle(
                         fontSize: 12,
                         color: Color(0xFF71717A),
@@ -664,44 +662,44 @@ class _DownloadedDocumentsScreenState extends State<DownloadedDocumentsScreen> {
                   if (v == 'delete') _delete(doc);
                 },
                 itemBuilder: (_) => [
-                  const PopupMenuItem(
+                  PopupMenuItem(
                     value: 'open',
                     child: Row(
                       children: [
                         Icon(Icons.open_in_new, size: 20),
                         SizedBox(width: 10),
-                        Text('Mở xem'),
+                        Text(tr('Mở xem')),
                       ],
                     ),
                   ),
-                  const PopupMenuItem(
+                  PopupMenuItem(
                     value: 'share',
                     child: Row(
                       children: [
                         Icon(Icons.share_rounded, size: 20),
                         SizedBox(width: 10),
-                        Text('Chia sẻ'),
+                        Text(tr('Chia sẻ')),
                       ],
                     ),
                   ),
-                  const PopupMenuItem(
+                  PopupMenuItem(
                     value: 'rename',
                     child: Row(
                       children: [
                         Icon(Icons.drive_file_rename_outline, size: 20),
                         SizedBox(width: 10),
-                        Text('Đổi tên'),
+                        Text(tr('Đổi tên')),
                       ],
                     ),
                   ),
-                  const PopupMenuItem(
+                  PopupMenuItem(
                     value: 'delete',
                     child: Row(
                       children: [
                         Icon(Icons.delete_outline,
                             size: 20, color: Colors.red),
                         SizedBox(width: 10),
-                        Text('Xóa', style: TextStyle(color: Colors.red)),
+                        Text(tr('Xóa'), style: TextStyle(color: Colors.red)),
                       ],
                     ),
                   ),

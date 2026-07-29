@@ -5,6 +5,7 @@ import '../../services/api_service.dart';
 import '../../widgets/admin/admin_mobile_widgets.dart';
 import '../../widgets/device_sync_progress_overlay.dart';
 import 'system_admin_helpers.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 class DevicesTab extends StatefulWidget {
   final List<Map<String, dynamic>> stores;
@@ -287,7 +288,7 @@ class DevicesTabState extends State<DevicesTab> {
           child: const Icon(Icons.support_agent,
               color: AdminHelpers.primary, size: 20),
         ),
-        title: Text(agentGroup.label,
+        title: Text(tr(agentGroup.label),
             style: const TextStyle(fontWeight: FontWeight.w700)),
         subtitle: Row(children: [
           AdminHelpers.statusChip(
@@ -394,21 +395,21 @@ class DevicesTabState extends State<DevicesTab> {
               child: DropdownButton<String>(
                 isExpanded: true,
                 value: _agentFilter,
-                hint: const Text('Tất cả đại lý',
+                hint: Text(tr('Tất cả đại lý'),
                     style: TextStyle(fontSize: 13)),
                 items: [
-                  const DropdownMenuItem<String>(
+                  DropdownMenuItem<String>(
                       value: null,
-                      child: Text('Tất cả đại lý',
+                      child: Text(tr('Tất cả đại lý'),
                           style: TextStyle(fontSize: 13))),
-                  const DropdownMenuItem<String>(
+                  DropdownMenuItem<String>(
                       value: '__none__',
-                      child: Text('Chưa có đại lý',
+                      child: Text(tr('Chưa có đại lý'),
                           style: TextStyle(fontSize: 13))),
                   ..._agents.map((a) => DropdownMenuItem(
                         value: a['id']?.toString(),
                         child: Text(
-                          '${a['name'] ?? a['code'] ?? 'Đại lý'} (${a['code'] ?? ''})',
+                          tr('${a['name'] ?? a['code'] ?? 'Đại lý'} (${a['code'] ?? ''})'),
                           style: const TextStyle(fontSize: 13),
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -435,14 +436,14 @@ class DevicesTabState extends State<DevicesTab> {
         child: DropdownButton<String>(
           isExpanded: true,
           value: _storeFilter,
-          hint: const Text('Tất cả cửa hàng', style: TextStyle(fontSize: 13)),
+          hint: Text(tr('Tất cả cửa hàng'), style: TextStyle(fontSize: 13)),
           items: [
-            const DropdownMenuItem<String>(
+            DropdownMenuItem<String>(
                 value: null,
-                child: Text('Tất cả cửa hàng', style: TextStyle(fontSize: 13))),
+                child: Text(tr('Tất cả cửa hàng'), style: TextStyle(fontSize: 13))),
             ..._storesSource.map((s) => DropdownMenuItem(
                   value: s['id']?.toString(),
-                  child: Text(s['name'] ?? 'N/A',
+                  child: Text(tr(s['name'] ?? 'N/A'),
                       style: const TextStyle(fontSize: 13)),
                 )),
           ],
@@ -466,20 +467,20 @@ class DevicesTabState extends State<DevicesTab> {
         child: DropdownButton<String?>(
           isExpanded: fullWidth,
           value: _statusFilter,
-          hint: const Text('Tất cả', style: TextStyle(fontSize: 13)),
-          items: const [
+          hint: Text(tr('Tất cả'), style: TextStyle(fontSize: 13)),
+          items: [
             DropdownMenuItem(
                 value: null,
-                child: Text('Tất cả', style: TextStyle(fontSize: 13))),
+                child: Text(tr('Tất cả'), style: TextStyle(fontSize: 13))),
             DropdownMenuItem(
                 value: 'online',
-                child: Text('Online', style: TextStyle(fontSize: 13))),
+                child: Text(tr('Online'), style: TextStyle(fontSize: 13))),
             DropdownMenuItem(
                 value: 'offline',
-                child: Text('Offline', style: TextStyle(fontSize: 13))),
+                child: Text(tr('Offline'), style: TextStyle(fontSize: 13))),
             DropdownMenuItem(
                 value: 'unassigned',
-                child: Text('Chưa gán', style: TextStyle(fontSize: 13))),
+                child: Text(tr('Chưa gán'), style: TextStyle(fontSize: 13))),
           ],
           onChanged: (v) {
             setState(() => _statusFilter = v);
@@ -537,7 +538,7 @@ class DevicesTabState extends State<DevicesTab> {
               color: isUnclaimed ? AdminHelpers.warning : AdminHelpers.info,
               size: 20),
         ),
-        title: Text(storeName,
+        title: Text(tr(storeName),
             style: const TextStyle(fontWeight: FontWeight.w600)),
         subtitle: Row(children: [
           AdminHelpers.statusChip(
@@ -588,16 +589,16 @@ class DevicesTabState extends State<DevicesTab> {
           const SizedBox(width: 12),
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(displayName, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14), maxLines: 1, overflow: TextOverflow.ellipsis),
+              Text(tr(displayName), style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14), maxLines: 1, overflow: TextOverflow.ellipsis),
               const SizedBox(height: 2),
-              Text([serialNumber, if (device['ipAddress'] != null) device['ipAddress']].where((s) => s.toString().isNotEmpty).join(' \u00b7 '),
+              Text(tr([serialNumber, if (device['ipAddress'] != null) device['ipAddress']].where((s) => s.toString().isNotEmpty).join(' \u00b7 ')),
                 style: const TextStyle(color: Color(0xFF71717A), fontSize: 12, fontFamily: 'monospace'), maxLines: 1, overflow: TextOverflow.ellipsis),
             ]),
           ),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
             decoration: BoxDecoration(color: isOnline ? Colors.green.withValues(alpha: 0.1) : Colors.red.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
-            child: Text(isOnline ? 'Online' : 'Offline', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: isOnline ? Colors.green : Colors.red)),
+            child: Text(tr(isOnline ? 'Online' : 'Offline'), style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: isOnline ? Colors.green : Colors.red)),
           ),
         ]),
       ),
@@ -638,13 +639,13 @@ class DevicesTabState extends State<DevicesTab> {
                 : null,
           ),
         ),
-        title: Text(displayName,
+        title: Text(tr(displayName),
             style: const TextStyle(
                 fontWeight: FontWeight.w600, fontSize: 13)),
         subtitle: Row(children: [
           Icon(Icons.tag, size: 12, color: Colors.grey[500]),
           const SizedBox(width: 4),
-          Text(serialNumber,
+          Text(tr(serialNumber),
               style: TextStyle(
                   fontSize: 11,
                   color: Colors.grey[600],
@@ -653,7 +654,7 @@ class DevicesTabState extends State<DevicesTab> {
             const SizedBox(width: 10),
             Icon(Icons.lan, size: 12, color: Colors.grey[500]),
             const SizedBox(width: 4),
-            Text(device['ipAddress'],
+            Text(tr(device['ipAddress']),
                 style: TextStyle(
                     fontSize: 11,
                     color: Colors.grey[500],
@@ -766,7 +767,7 @@ class DevicesTabState extends State<DevicesTab> {
       ),
       onPressed: onTap,
       icon: Icon(icon, size: 14),
-      label: Text(label, style: const TextStyle(fontSize: 11)),
+      label: Text(tr(label), style: const TextStyle(fontSize: 11)),
     );
   }
 
@@ -818,7 +819,7 @@ class DevicesTabState extends State<DevicesTab> {
             const Icon(Icons.swap_horiz, color: AdminHelpers.info, size: 22),
             const SizedBox(width: 8),
             Expanded(
-                child: Text('Chuyển "$name"',
+                child: Text(tr('Chuyển "$name"'),
                     style: const TextStyle(fontSize: 17))),
           ]),
           content: SizedBox(
@@ -831,13 +832,13 @@ class DevicesTabState extends State<DevicesTab> {
                   Padding(
                     padding: const EdgeInsets.only(bottom: 12),
                     child: Row(children: [
-                      const Text('Đang ở: ',
+                      Text(tr('Đang ở: '),
                           style: TextStyle(color: Colors.grey)),
                       AdminHelpers.statusChip(
                           device['storeName'], AdminHelpers.info),
                     ]),
                   ),
-                const Text('Chọn cửa hàng đích:',
+                Text(tr('Chọn cửa hàng đích:'),
                     style:
                         TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
                 const SizedBox(height: 8),
@@ -869,13 +870,13 @@ class DevicesTabState extends State<DevicesTab> {
                                   ? AdminHelpers.primary
                                   : Colors.grey,
                               size: 20),
-                          title: Text(store['name'] ?? 'N/A',
+                          title: Text(tr(store['name'] ?? 'N/A'),
                               style: TextStyle(
                                   fontSize: 14,
                                   fontWeight: isSelected
                                       ? FontWeight.w600
                                       : FontWeight.normal)),
-                          subtitle: Text(store['code'] ?? '',
+                          subtitle: Text(tr(store['code'] ?? ''),
                               style: const TextStyle(fontSize: 11)),
                           trailing: isSelected
                               ? const Icon(Icons.check_circle,
@@ -896,13 +897,13 @@ class DevicesTabState extends State<DevicesTab> {
           actions: [
             TextButton(
                 onPressed: () => Navigator.pop(ctx),
-                child: const Text('Hủy')),
+                child: Text(tr('Hủy'))),
             FilledButton.icon(
               onPressed: selectedStoreId == null
                   ? null
                   : () => Navigator.pop(ctx, selectedStoreId),
               icon: const Icon(Icons.swap_horiz, size: 16),
-              label: const Text('Chuyển'),
+              label: Text(tr('Chuyển')),
               style: ElevatedButton.styleFrom(
                   backgroundColor: AdminHelpers.info),
             ),
@@ -957,11 +958,11 @@ class DevicesTabState extends State<DevicesTab> {
     final result = await showDialog<int>(
       context: context,
       builder: (ctx) => ScrollableAlertDialog(
-        title: const Row(children: [
+        title: Row(children: [
           Icon(Icons.cleaning_services,
               color: AdminHelpers.danger, size: 22),
           SizedBox(width: 8),
-          Text('Xóa dữ liệu thiết bị', style: TextStyle(fontSize: 17)),
+          Text(tr('Xóa dữ liệu thiết bị'), style: TextStyle(fontSize: 17)),
         ]),
         content: SizedBox(
           width: MediaQuery.of(context).size.width < 600 ? MediaQuery.of(context).size.width - 32 : 380,
@@ -969,7 +970,7 @@ class DevicesTabState extends State<DevicesTab> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Thiết bị: $name',
+              Text(tr('Thiết bị: $name'),
                   style: const TextStyle(fontWeight: FontWeight.w600)),
               const SizedBox(height: 12),
               _clearOption(
@@ -988,7 +989,7 @@ class DevicesTabState extends State<DevicesTab> {
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: const Text('Hủy')),
+              child: Text(tr('Hủy'))),
         ],
       ),
     );
@@ -1021,13 +1022,13 @@ class DevicesTabState extends State<DevicesTab> {
         leading: Icon(icon,
             color: danger ? AdminHelpers.danger : AdminHelpers.warning,
             size: 20),
-        title: Text(title,
+        title: Text(tr(title),
             style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
                 color: danger ? AdminHelpers.danger : null)),
         subtitle:
-            desc != null ? Text(desc, style: const TextStyle(fontSize: 11)) : null,
+            desc != null ? Text(tr(desc), style: const TextStyle(fontSize: 11)) : null,
         onTap: () => Navigator.pop(ctx, cmdType),
       ),
     );
@@ -1050,7 +1051,7 @@ class DevicesTabState extends State<DevicesTab> {
               color: AdminHelpers.success, size: 22),
           const SizedBox(width: 8),
           Expanded(
-              child: Text('Thêm user - $name',
+              child: Text(tr('Thêm user - $name'),
                   style: const TextStyle(fontSize: 16))),
         ]),
         content: SizedBox(
@@ -1072,7 +1073,7 @@ class DevicesTabState extends State<DevicesTab> {
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Hủy')),
+              child: Text(tr('Hủy'))),
           FilledButton.icon(
             onPressed: () {
               if (pinCtrl.text.trim().isEmpty) {
@@ -1082,7 +1083,7 @@ class DevicesTabState extends State<DevicesTab> {
               Navigator.pop(ctx, true);
             },
             icon: const Icon(Icons.person_add, size: 16),
-            label: const Text('Thêm'),
+            label: Text(tr('Thêm')),
             style: ElevatedButton.styleFrom(
                 backgroundColor: AdminHelpers.success),
           ),

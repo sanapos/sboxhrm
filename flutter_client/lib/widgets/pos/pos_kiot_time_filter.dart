@@ -3,6 +3,8 @@ import 'package:intl/intl.dart';
 
 import '../../utils/pos_kiot_time_range.dart';
 import 'pos_theme.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
+import 'package:zkteco_flutter_client/l10n/app_ui_locale.dart';
 
 const _blue = Color(0xFF2563EB);
 
@@ -45,7 +47,7 @@ class PosKiotTimeFilter extends StatelessWidget {
       firstDate: DateTime(2020),
       lastDate: now.add(const Duration(days: 365)),
       initialDateRange: initial,
-      locale: const Locale('vi', 'VN'),
+      locale: appUiLocale(),
       helpText: 'Chọn khoảng thời gian',
     );
     if (picked == null) return;
@@ -78,7 +80,7 @@ class PosKiotTimeFilter extends StatelessWidget {
                 ),
                 Expanded(
                   child: Text(
-                    state.isCustom ? 'Chọn khoảng' : state.displayLabel,
+                    tr(state.isCustom ? 'Chọn khoảng' : state.displayLabel),
                     style: TextStyle(
                       fontSize: dense ? 13 : 14,
                       fontWeight:
@@ -108,8 +110,8 @@ class PosKiotTimeFilter extends StatelessWidget {
                   visualDensity: VisualDensity.compact,
                   onChanged: (_) => _pickCustomRange(context),
                 ),
-                const Expanded(
-                  child: Text('Tùy chỉnh', style: TextStyle(fontSize: 13)),
+                Expanded(
+                  child: Text(tr('Tùy chỉnh'), style: TextStyle(fontSize: 13)),
                 ),
                 Icon(Icons.calendar_today_outlined,
                     size: 16, color: Colors.grey.shade600),
@@ -120,7 +122,7 @@ class PosKiotTimeFilter extends StatelessWidget {
         if (state.isCustom || state.preset != PosKiotTimePreset.allTime) ...[
           const SizedBox(height: 4),
           Text(
-            _rangeHint(state),
+            tr(_rangeHint(state)),
             style: const TextStyle(fontSize: 11, color: PosTheme.textSecondary),
           ),
         ],
@@ -131,7 +133,7 @@ class PosKiotTimeFilter extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text(title!,
+        Text(tr(title!),
             style: const TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
@@ -175,7 +177,7 @@ class _PosKiotTimePresetDialog extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  const Text('Chọn thời gian',
+                  Text(tr('Chọn thời gian'),
                       style:
                           TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                   const Spacer(),
@@ -211,7 +213,7 @@ class _PosKiotTimePresetDialog extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(group.title,
+          Text(tr(group.title),
               style: const TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
@@ -231,7 +233,7 @@ class _PosKiotTimePresetDialog extends StatelessWidget {
                     padding:
                         const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
                     child: Text(
-                      p.label,
+                      tr(p.label),
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 11,

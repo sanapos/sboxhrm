@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../models/dashboard.dart';
 import '../services/api_service.dart';
 import '../widgets/notification_overlay.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 class GoogleSheetsScreen extends StatefulWidget {
   const GoogleSheetsScreen({super.key});
@@ -18,7 +19,7 @@ class _GoogleSheetsScreenState extends State<GoogleSheetsScreen> {
 
   final _spreadsheetIdController = TextEditingController();
   final _credentialsPathController =
-      TextEditingController(text: 'credentials.json');
+      TextEditingController(text: tr('credentials.json'));
 
   bool _isConnected = false;
   bool _isLoading = false;
@@ -211,16 +212,15 @@ class _GoogleSheetsScreenState extends State<GoogleSheetsScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'Google Sheets',
+              Text(
+                tr('Google Sheets'),
                 style: TextStyle(
                   fontSize: 24,
                   fontWeight: FontWeight.bold,
                 ),
               ),
               const SizedBox(height: 4),
-              Text(
-                'Đồng bộ dữ liệu chấm công realtime lên Google Sheets',
+              Text(tr('Đồng bộ dữ liệu chấm công realtime lên Google Sheets'),
                 style: TextStyle(color: Colors.grey[400]),
               ),
             ],
@@ -254,7 +254,7 @@ class _GoogleSheetsScreenState extends State<GoogleSheetsScreen> {
           ),
           const SizedBox(width: 8),
           Text(
-            _isConnected ? 'Đã kết nối' : 'Chưa kết nối',
+            tr(_isConnected ? 'Đã kết nối' : 'Chưa kết nối'),
             style: TextStyle(
               color: _isConnected ? Colors.green : Colors.red,
               fontWeight: FontWeight.w600,
@@ -286,19 +286,17 @@ class _GoogleSheetsScreenState extends State<GoogleSheetsScreen> {
                   ),
                 ),
                 const SizedBox(width: 12),
-                const Column(
+                Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'Cấu hình Google Sheets',
+                    Text(tr('Cấu hình Google Sheets'),
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
                     SizedBox(height: 2),
-                    Text(
-                      'Nhập thông tin để kết nối với Google Sheets của bạn',
+                    Text(tr('Nhập thông tin để kết nối với Google Sheets của bạn'),
                       style: TextStyle(
                         fontSize: 12,
                         color: Colors.grey,
@@ -314,25 +312,24 @@ class _GoogleSheetsScreenState extends State<GoogleSheetsScreen> {
             TextField(
               controller: _spreadsheetIdController,
               decoration: InputDecoration(
-                labelText: 'Spreadsheet ID',
-                hintText: '1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms',
+                labelText: tr('Spreadsheet ID'),
+                hintText: tr('1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms'),
                 prefixIcon: const Icon(Icons.link),
                 suffixIcon: IconButton(
                   icon: const Icon(Icons.copy),
                   onPressed: () {
                     if (_spreadsheetIdController.text.isNotEmpty) {
                       Clipboard.setData(
-                          ClipboardData(text: _spreadsheetIdController.text));
+                          ClipboardData(text: tr(_spreadsheetIdController.text)));
                       _showSnackBar('Đã sao chép Spreadsheet ID');
                     }
                   },
-                  tooltip: 'Sao chép',
+                  tooltip: tr('Sao chép'),
                 ),
               ),
             ),
             const SizedBox(height: 8),
-            Text(
-              'ID lấy từ URL: docs.google.com/spreadsheets/d/ID_HERE/edit',
+            Text(tr('ID lấy từ URL: docs.google.com/spreadsheets/d/ID_HERE/edit'),
               style: TextStyle(fontSize: 12, color: Colors.grey[600]),
             ),
             const SizedBox(height: 16),
@@ -340,9 +337,9 @@ class _GoogleSheetsScreenState extends State<GoogleSheetsScreen> {
             // Credentials Path
             TextField(
               controller: _credentialsPathController,
-              decoration: const InputDecoration(
-                labelText: 'Đường dẫn Credentials',
-                hintText: 'credentials.json',
+              decoration: InputDecoration(
+                labelText: tr('Đường dẫn Credentials'),
+                hintText: tr('credentials.json'),
                 prefixIcon: Icon(Icons.folder),
               ),
             ),
@@ -364,7 +361,7 @@ class _GoogleSheetsScreenState extends State<GoogleSheetsScreen> {
                             ),
                           )
                         : const Icon(Icons.upload),
-                    label: const Text('Khởi tạo'),
+                    label: Text(tr('Khởi tạo')),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -381,7 +378,7 @@ class _GoogleSheetsScreenState extends State<GoogleSheetsScreen> {
                             ),
                           )
                         : const Icon(Icons.refresh),
-                    label: const Text('Kiểm tra kết nối'),
+                    label: Text(tr('Kiểm tra kết nối')),
                   ),
                 ),
               ],
@@ -467,7 +464,7 @@ class _GoogleSheetsScreenState extends State<GoogleSheetsScreen> {
             ),
             const SizedBox(height: 12),
             Text(
-              title,
+              tr(title),
               style: const TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
@@ -488,7 +485,7 @@ class _GoogleSheetsScreenState extends State<GoogleSheetsScreen> {
                                 color: Colors.white,
                               ),
                             )
-                          : Text(buttonText),
+                          : Text(tr(buttonText)),
                     )
                   : OutlinedButton(
                       onPressed: onPressed,
@@ -502,7 +499,7 @@ class _GoogleSheetsScreenState extends State<GoogleSheetsScreen> {
                               ),
                             )
                           : Text(
-                              buttonText,
+                              tr(buttonText),
                               style: const TextStyle(fontSize: 13),
                             ),
                     ),
@@ -536,7 +533,7 @@ class _GoogleSheetsScreenState extends State<GoogleSheetsScreen> {
             ),
             const SizedBox(height: 12),
             Text(
-              title,
+              tr(title),
               style: const TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
@@ -559,7 +556,7 @@ class _GoogleSheetsScreenState extends State<GoogleSheetsScreen> {
                     const Icon(Icons.date_range, size: 16, color: Color(0xFF71717A)),
                     const SizedBox(width: 8),
                     Text(
-                      DateFormat('dd/MM/yyyy').format(_syncDate),
+                      tr(DateFormat('dd/MM/yyyy').format(_syncDate)),
                       style: const TextStyle(color: Color(0xFF18181B), fontSize: 13),
                     ),
                   ],
@@ -581,7 +578,7 @@ class _GoogleSheetsScreenState extends State<GoogleSheetsScreen> {
                         ),
                       )
                     : Text(
-                        buttonText,
+                        tr(buttonText),
                         style: const TextStyle(fontSize: 13),
                       ),
               ),
@@ -613,8 +610,7 @@ class _GoogleSheetsScreenState extends State<GoogleSheetsScreen> {
                   ),
                 ),
                 const SizedBox(width: 12),
-                const Text(
-                  'Kết quả đồng bộ gần nhất',
+                Text(tr('Kết quả đồng bộ gần nhất'),
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
@@ -684,7 +680,7 @@ class _GoogleSheetsScreenState extends State<GoogleSheetsScreen> {
               ),
               const SizedBox(width: 8),
               Text(
-                count.toString(),
+                tr(count.toString()),
                 style: TextStyle(
                   fontSize: 24,
                   fontWeight: FontWeight.bold,
@@ -695,7 +691,7 @@ class _GoogleSheetsScreenState extends State<GoogleSheetsScreen> {
           ),
           const SizedBox(height: 4),
           Text(
-            label,
+            tr(label),
             style: const TextStyle(
               fontSize: 13,
               color: Color(0xFF71717A),
@@ -727,8 +723,7 @@ class _GoogleSheetsScreenState extends State<GoogleSheetsScreen> {
                   ),
                 ),
                 const SizedBox(width: 12),
-                const Text(
-                  'Hướng dẫn cài đặt',
+                Text(tr('Hướng dẫn cài đặt'),
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
@@ -800,7 +795,7 @@ class _GoogleSheetsScreenState extends State<GoogleSheetsScreen> {
               ),
               child: Center(
                 child: Text(
-                  stepNumber.toString(),
+                  tr(stepNumber.toString()),
                   style: const TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.bold,
@@ -811,7 +806,7 @@ class _GoogleSheetsScreenState extends State<GoogleSheetsScreen> {
             const SizedBox(width: 12),
             Expanded(
               child: Text(
-                title,
+                tr(title),
                 style: const TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w600,
@@ -832,7 +827,7 @@ class _GoogleSheetsScreenState extends State<GoogleSheetsScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      '${entry.key + 1}. ',
+                      tr('${entry.key + 1}. '),
                       style: TextStyle(
                         color: Colors.grey[500],
                         fontSize: 13,
@@ -840,7 +835,7 @@ class _GoogleSheetsScreenState extends State<GoogleSheetsScreen> {
                     ),
                     Expanded(
                       child: Text(
-                        entry.value,
+                        tr(entry.value),
                         style: TextStyle(
                           color: Colors.grey[400],
                           fontSize: 13,

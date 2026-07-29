@@ -22,6 +22,7 @@ import '../utils/navigation_notifier.dart';
 import '../utils/store_role_helper.dart';
 import '../utils/permission_navigation.dart';
 import 'task/task_assignment_tab.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 // ==========================================================================
 // QUẢN LÝ CÔNG VIỆC - Task Management
@@ -268,11 +269,11 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => ScrollableAlertDialog(
-        title: const Text('Từ chối nhận việc'),
+        title: Text(tr('Từ chối nhận việc')),
         content: TextField(
           controller: reasonCtrl,
-          decoration: const InputDecoration(
-            labelText: 'Lý do',
+          decoration: InputDecoration(
+            labelText: tr('Lý do'),
             border: OutlineInputBorder(),
           ),
           maxLines: 3,
@@ -280,10 +281,10 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Hủy')),
+              child: Text(tr('Hủy'))),
           FilledButton(
               onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('Xác nhận')),
+              child: Text(tr('Xác nhận'))),
         ],
       ),
     );
@@ -686,7 +687,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                 padding: const EdgeInsets.all(4),
                 decoration: const BoxDecoration(
                     color: Colors.white, shape: BoxShape.circle),
-                child: Text('$badge',
+                child: Text(tr('$badge'),
                     style: const TextStyle(
                         fontSize: 9,
                         fontWeight: FontWeight.bold,
@@ -747,7 +748,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('$count',
+              Text(tr('$count'),
                   style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.bold,
@@ -755,7 +756,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                           ? Colors.white
                           : (lightStyle ? idleLabelColor : Colors.white))),
               const SizedBox(width: 4),
-              Text(label,
+              Text(tr(label),
                   style: TextStyle(
                       fontSize: 11,
                       color: selected
@@ -808,14 +809,14 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text('Công việc',
+                            Text(tr('Công việc'),
                                 style: TextStyle(
                                     fontSize: 17,
                                     fontWeight: FontWeight.bold,
                                     color: PosTheme.textPrimary)),
                             if (_total > 0)
                               Text(
-                                  '$_total công việc${_isMyTasks ? ' của tôi' : ''}',
+                                  tr('$_total công việc${_isMyTasks ? ' của tôi' : ''}'),
                                   style: const TextStyle(
                                       fontSize: 12,
                                       color: PosTheme.textSecondary)),
@@ -823,7 +824,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                         ),
                       ),
                       if (_selectMode && _sel.isNotEmpty) ...[
-                        Text('${_sel.length}',
+                        Text(tr('${_sel.length}'),
                             style: const TextStyle(
                                 color: PosTheme.kiotBlue,
                                 fontWeight: FontWeight.bold,
@@ -923,11 +924,11 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                 labelStyle: const TextStyle(
                     fontSize: 12, fontWeight: FontWeight.w600),
                 unselectedLabelStyle: const TextStyle(fontSize: 12),
-                tabs: const [
-                  Tab(height: 36, text: 'Danh sách'),
-                  Tab(height: 36, text: 'Kanban'),
-                  Tab(height: 36, text: 'Tổng kết'),
-                  Tab(height: 36, text: 'Phân công'),
+                tabs: [
+                  Tab(height: 36, text: tr('Danh sách')),
+                  Tab(height: 36, text: tr('Kanban')),
+                  Tab(height: 36, text: tr('Tổng kết')),
+                  Tab(height: 36, text: tr('Phân công')),
                 ],
               ),
             ),
@@ -983,20 +984,20 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(isMobile ? 'Công việc' : 'Quản lý Công việc',
+                          Text(tr(isMobile ? 'Công việc' : 'Quản lý Công việc'),
                               style: TextStyle(
                                   fontSize: isMobile ? 16 : 20,
                                   fontWeight: FontWeight.bold,
                                   color: Colors.white)),
                           if (!isMobile)
-                            Text('Theo dõi & phân công công việc',
+                            Text(tr('Theo dõi & phân công công việc'),
                                 style: TextStyle(
                                     fontSize: 13,
                                     color:
                                         Colors.white.withValues(alpha: 0.8))),
                           if (isMobile && _total > 0)
                             Text(
-                                '$_total công việc${_isMyTasks ? ' của tôi' : ''}',
+                                tr('$_total công việc${_isMyTasks ? ' của tôi' : ''}'),
                                 style: TextStyle(
                                     fontSize: 11,
                                     color:
@@ -1005,7 +1006,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                       ),
                     ),
                     if (_selectMode && _sel.isNotEmpty) ...[
-                      Text('${_sel.length}',
+                      Text(tr('${_sel.length}'),
                           style: const TextStyle(
                               color: Colors.white,
                               fontWeight: FontWeight.bold,
@@ -1096,24 +1097,24 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
               Tab(
                 height: isMobile ? 36 : null,
                 icon: isMobile ? null : const Icon(Icons.view_list_rounded),
-                text: 'Danh sách',
+                text: tr('Danh sách'),
               ),
               Tab(
                 height: isMobile ? 36 : null,
                 icon: isMobile ? null : const Icon(Icons.view_kanban_rounded),
-                text: 'Kanban',
+                text: tr('Kanban'),
               ),
               Tab(
                 height: isMobile ? 36 : null,
                 icon: isMobile ? null : const Icon(Icons.analytics_rounded),
-                text: 'Tổng kết',
+                text: tr('Tổng kết'),
               ),
               Tab(
                 height: isMobile ? 36 : null,
                 icon: isMobile
                     ? null
                     : const Icon(Icons.assignment_ind_outlined),
-                text: 'Phân công',
+                text: tr('Phân công'),
               ),
             ],
           ),
@@ -1154,13 +1155,13 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                                   size: 48, color: Colors.grey[400]),
                             ),
                             const SizedBox(height: 16),
-                            Text('Chưa có công việc nào',
+                            Text(tr('Chưa có công việc nào'),
                                 style: TextStyle(
                                     color: Colors.grey[600],
                                     fontSize: 16,
                                     fontWeight: FontWeight.w500)),
                             const SizedBox(height: 4),
-                            Text('Nhấn nút + để tạo công việc mới',
+                            Text(tr('Nhấn nút + để tạo công việc mới'),
                                 style: TextStyle(
                                     color: Colors.grey[400], fontSize: 13)),
                           ])),
@@ -1204,7 +1205,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
   Widget _buildSearchField({bool compact = false}) {
     return TextField(
       decoration: InputDecoration(
-        hintText: 'Tìm kiếm công việc...',
+        hintText: tr('Tìm kiếm công việc...'),
         prefixIcon: const Icon(Icons.search, size: 20),
         isDense: compact,
         border: OutlineInputBorder(
@@ -1239,7 +1240,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
       child: Row(
         children: [
           FilterChip(
-            label: Text('Của tôi',
+            label: Text(tr('Của tôi'),
                 style: TextStyle(
                     fontSize: 12,
                     color: _isMyTasks ? Colors.white : _taskPrimary)),
@@ -1260,7 +1261,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
           ),
           const SizedBox(width: 6),
           FilterChip(
-            label: Text('Quá hạn',
+            label: Text(tr('Quá hạn'),
                 style: TextStyle(
                     fontSize: 12,
                     color: _isOverdueFilter ? Colors.white : const Color(0xFFEF4444))),
@@ -1323,7 +1324,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
               onPressed: _clearFilters,
               icon: const Icon(Icons.clear_all,
                   size: 16, color: Color(0xFFEF4444)),
-              label: const Text('Xóa bộ lọc',
+              label: Text(tr('Xóa bộ lọc'),
                   style: TextStyle(color: Color(0xFFEF4444), fontSize: 12)),
             ),
         ],
@@ -1402,7 +1403,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
       icon: Icon(Icons.date_range,
           size: 16,
           color: _fromDate != null ? _taskPrimary : const Color(0xFFA1A1AA)),
-      label: Text(label,
+      label: Text(tr(label),
           style: TextStyle(
               fontSize: 12,
               color: _fromDate != null
@@ -1420,7 +1421,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
 
   Widget _chip(String label, bool selected, VoidCallback onTap) {
     return FilterChip(
-      label: Text(label,
+      label: Text(tr(label),
           style: TextStyle(
               fontSize: 12,
               color: selected ? Colors.white : const Color(0xFF71717A))),
@@ -1484,7 +1485,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
         context: context,
         builder: (_) => ListView(shrinkWrap: true, children: [
           ListTile(
-            title: const Text('Tất cả chi nhánh'),
+            title: Text(tr('Tất cả chi nhánh')),
             leading: const Icon(Icons.all_inclusive),
             onTap: () {
               Navigator.pop(context);
@@ -1492,7 +1493,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
             },
           ),
           ..._branches.map((b) => ListTile(
-                title: Text(b['name']?.toString() ?? ''),
+                title: Text(tr(b['name']?.toString() ?? '')),
                 leading: const Icon(Icons.account_tree_outlined),
                 selected: _filterBranchId == b['id']?.toString(),
                 onTap: () {
@@ -1505,7 +1506,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
       child: Chip(
         avatar: Icon(Icons.account_tree_outlined,
             size: 16, color: selected ? Colors.white : const Color(0xFF71717A)),
-        label: Text(branchName,
+        label: Text(tr(branchName),
             style: TextStyle(
                 fontSize: 12,
                 color: selected ? Colors.white : const Color(0xFF71717A))),
@@ -1526,7 +1527,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
               shrinkWrap: true,
               children: [
                 ListTile(
-                    title: const Text('Tất cả'),
+                    title: Text(tr('Tất cả')),
                     leading: const Icon(Icons.all_inclusive),
                     onTap: () {
                       setState(() => _assigneeFilter = null);
@@ -1537,12 +1538,12 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                         ? _employees.where((e) => e.branchId == _filterBranchId)
                         : _employees.cast<Employee>())
                     .map((e) => ListTile(
-                          title: Text(e.fullName),
-                          subtitle: Text(e.employeeCode),
+                          title: Text(tr(e.fullName)),
+                          subtitle: Text(tr(e.employeeCode)),
                           leading: CircleAvatar(
                               backgroundColor: HrmPageChrome.primaryNavy,
                               child: Text(
-                                  e.firstName.isNotEmpty ? e.firstName[0] : '?',
+                                  tr(e.firstName.isNotEmpty ? e.firstName[0] : '?'),
                                   style: const TextStyle(color: Colors.white))),
                           selected: _assigneeFilter == e.id,
                           onTap: () {
@@ -1568,18 +1569,18 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
         builder: (_) => Column(mainAxisSize: MainAxisSize.min, children: [
               Padding(
                   padding: const EdgeInsets.all(16),
-                  child: Text(title,
+                  child: Text(tr(title),
                       style: const TextStyle(
                           fontWeight: FontWeight.bold, fontSize: 16))),
               ListTile(
-                  title: const Text('Tất cả'),
+                  title: Text(tr('Tất cả')),
                   leading: const Icon(Icons.all_inclusive),
                   onTap: () {
                     onSelect(null);
                     Navigator.pop(context);
                   }),
               ...values.map((v) => ListTile(
-                    title: Text(label(v)),
+                    title: Text(tr(label(v))),
                     leading: Icon(icon(v), color: color(v)),
                     selected: current == v,
                     selectedTileColor: color(v).withValues(alpha: 0.08),
@@ -1668,7 +1669,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                   Row(
                     children: [
                       Expanded(
-                        child: Text(t.title,
+                        child: Text(tr(t.title),
                             style: const TextStyle(
                                 fontWeight: FontWeight.w600,
                                 fontSize: 14,
@@ -1683,7 +1684,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                   const SizedBox(height: 4),
                   Row(
                     children: [
-                      Text(t.taskCode,
+                      Text(tr(t.taskCode),
                           style: TextStyle(
                               fontSize: 11,
                               color: _taskPrimary.withValues(alpha: 0.8))),
@@ -1693,7 +1694,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                         const Spacer(),
                         if (t.hasSubTasks)
                           Text(
-                              '${t.completedSubTaskCount}/${t.subTaskCount}',
+                              tr('${t.completedSubTaskCount}/${t.subTaskCount}'),
                               style: const TextStyle(
                                   fontSize: 10, color: Color(0xFFA1A1AA))),
                         if (t.hasComments) ...[
@@ -1703,7 +1704,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                             children: [
                               const Icon(Icons.chat_bubble_outline,
                                   size: 11, color: Color(0xFFA1A1AA)),
-                              Text('${t.commentCount}',
+                              Text(tr('${t.commentCount}'),
                                   style: const TextStyle(
                                       fontSize: 10,
                                       color: Color(0xFFA1A1AA))),
@@ -1735,7 +1736,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                             size: 13, color: Colors.grey[500]),
                         const SizedBox(width: 3),
                         Flexible(
-                          child: Text(t.assigneeName!,
+                          child: Text(tr(t.assigneeName!),
                               style: const TextStyle(
                                   color: Color(0xFF71717A), fontSize: 11),
                               maxLines: 1,
@@ -1747,7 +1748,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                         Icon(deadlineInfo['icon'] as IconData,
                             size: 12, color: deadlineInfo['color'] as Color),
                         const SizedBox(width: 2),
-                        Text(deadlineInfo['text'] as String,
+                        Text(tr(deadlineInfo['text'] as String),
                             style: TextStyle(
                                 fontSize: 10,
                                 color: deadlineInfo['color'] as Color,
@@ -1780,7 +1781,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
         child: Row(mainAxisSize: MainAxisSize.min, children: [
           Icon(icon, size: 14, color: color),
           const SizedBox(width: 4),
-          Text(label,
+          Text(tr(label),
               style: TextStyle(
                   fontSize: 11, fontWeight: FontWeight.w600, color: color)),
         ]),
@@ -1829,12 +1830,12 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                   child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                    Text(t.taskCode,
+                    Text(tr(t.taskCode),
                         style: const TextStyle(
                             fontSize: 12,
                             color: HrmPageChrome.primaryNavy,
                             fontWeight: FontWeight.w600)),
-                    Text(t.title,
+                    Text(tr(t.title),
                         style: const TextStyle(
                             fontSize: 14, fontWeight: FontWeight.w600),
                         maxLines: 1,
@@ -1846,7 +1847,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
           const Divider(height: 1),
           ListTile(
             leading: const Icon(Icons.visibility, color: HrmPageChrome.primaryNavy),
-            title: const Text('Xem chi tiết'),
+            title: Text(tr('Xem chi tiết')),
             dense: true,
             onTap: () {
               Navigator.pop(ctx);
@@ -1856,7 +1857,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
           if (canEdit)
             ListTile(
               leading: const Icon(Icons.edit, color: HrmPageChrome.primaryNavy),
-              title: const Text('Chỉnh sửa'),
+              title: Text(tr('Chỉnh sửa')),
               dense: true,
               onTap: () {
                 Navigator.pop(ctx);
@@ -1866,7 +1867,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
           if (canProgress)
           ListTile(
             leading: const Icon(Icons.trending_up, color: HrmPageChrome.primaryNavy),
-            title: const Text('Cập nhật tiến độ'),
+            title: Text(tr('Cập nhật tiến độ')),
             dense: true,
             onTap: () {
               Navigator.pop(ctx);
@@ -1876,7 +1877,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
           if (canStatus)
           ListTile(
             leading: const Icon(Icons.swap_horiz, color: HrmPageChrome.primaryNavy),
-            title: const Text('Đổi trạng thái'),
+            title: Text(tr('Đổi trạng thái')),
             dense: true,
             onTap: () {
               Navigator.pop(ctx);
@@ -1887,7 +1888,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
           ListTile(
             leading: const Icon(Icons.notifications_active,
                 color: Color(0xFFF59E0B)),
-            title: const Text('Đốc thúc'),
+            title: Text(tr('Đốc thúc')),
             dense: true,
             onTap: () {
               Navigator.pop(ctx);
@@ -1897,7 +1898,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
           if (canEvaluate)
           ListTile(
             leading: const Icon(Icons.star_rate, color: Color(0xFFF59E0B)),
-            title: const Text('Đánh giá'),
+            title: Text(tr('Đánh giá')),
             dense: true,
             onTap: () {
               Navigator.pop(ctx);
@@ -1909,7 +1910,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
               leading:
                   const Icon(Icons.delete_outline, color: Color(0xFFEF4444)),
               title:
-                  const Text('Xóa', style: TextStyle(color: Color(0xFFEF4444))),
+                  Text(tr('Xóa'), style: TextStyle(color: Color(0xFFEF4444))),
               dense: true,
               onTap: () {
                 Navigator.pop(ctx);
@@ -1937,15 +1938,15 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                 color: const Color(0xFFE4E4E7),
                 borderRadius: BorderRadius.circular(2)),
           ),
-          const Padding(
+          Padding(
               padding: EdgeInsets.all(16),
-              child: Text('Đổi trạng thái',
+              child: Text(tr('Đổi trạng thái'),
                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16))),
           ...WorkTaskStatus.values
               .where((s) => s != WorkTaskStatus.cancelled)
               .map((s) => ListTile(
                     leading: Icon(_statusIcon(s), color: _statusColor(s)),
-                    title: Text(getTaskStatusLabel(s)),
+                    title: Text(tr(getTaskStatusLabel(s))),
                     selected: t.status == s,
                     selectedTileColor: _statusColor(s).withValues(alpha: 0.08),
                     trailing: t.status == s
@@ -2081,7 +2082,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                   Icon(_taskTypeIcon(t.taskType),
                       size: 15, color: _taskTypeColor(t.taskType)),
                   const SizedBox(width: 5),
-                  Text(t.taskCode,
+                  Text(tr(t.taskCode),
                       style: const TextStyle(
                           color: HrmPageChrome.primaryNavy,
                           fontWeight: FontWeight.w600,
@@ -2093,14 +2094,14 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                 ],
               ),
               const SizedBox(height: 6),
-              Text(t.title,
+              Text(tr(t.title),
                   style: const TextStyle(
                       fontWeight: FontWeight.w600,
                       fontSize: 14,
                       color: Color(0xFF18181B))),
               if (t.description != null && t.description!.isNotEmpty) ...[
                 const SizedBox(height: 3),
-                Text(t.description!,
+                Text(tr(t.description!),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
@@ -2120,7 +2121,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                             AlwaysStoppedAnimation(_progressColor(t.progress))),
                   )),
                   const SizedBox(width: 8),
-                  Text('${t.progress}%',
+                  Text(tr('${t.progress}%'),
                       style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
@@ -2134,11 +2135,11 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                     CircleAvatar(
                         radius: 10,
                         backgroundColor: HrmPageChrome.primaryNavy,
-                        child: Text(t.assigneeName![0],
+                        child: Text(tr(t.assigneeName![0]),
                             style: const TextStyle(
                                 fontSize: 9, color: Colors.white))),
                     const SizedBox(width: 4),
-                    Text(t.assigneeName!,
+                    Text(tr(t.assigneeName!),
                         style: const TextStyle(
                             color: Color(0xFF71717A), fontSize: 11)),
                     const SizedBox(width: 12),
@@ -2149,7 +2150,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                         color:
                             t.isOverdue ? Colors.red : const Color(0xFFA1A1AA)),
                     const SizedBox(width: 3),
-                    Text(DateFormat('dd/MM/yyyy').format(t.dueDate!),
+                    Text(tr(DateFormat('dd/MM/yyyy').format(t.dueDate!)),
                         style: TextStyle(
                             fontSize: 11,
                             color: t.isOverdue
@@ -2165,7 +2166,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                     const Icon(Icons.access_time,
                         size: 13, color: Color(0xFFA1A1AA)),
                     const SizedBox(width: 3),
-                    Text('${t.actualHours ?? 0}/${t.estimatedHours}h',
+                    Text(tr('${t.actualHours ?? 0}/${t.estimatedHours}h'),
                         style: const TextStyle(
                             fontSize: 11, color: Color(0xFFA1A1AA))),
                     const SizedBox(width: 8),
@@ -2173,7 +2174,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                   if (t.hasSubTasks) ...[
                     const Icon(Icons.checklist,
                         size: 13, color: Color(0xFFA1A1AA)),
-                    Text(' ${t.completedSubTaskCount}/${t.subTaskCount}',
+                    Text(tr(' ${t.completedSubTaskCount}/${t.subTaskCount}'),
                         style: const TextStyle(
                             fontSize: 11, color: Color(0xFFA1A1AA))),
                     const SizedBox(width: 6),
@@ -2181,7 +2182,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                   if (t.hasComments) ...[
                     const Icon(Icons.chat_bubble_outline,
                         size: 13, color: Color(0xFFA1A1AA)),
-                    Text(' ${t.commentCount}',
+                    Text(tr(' ${t.commentCount}'),
                         style: const TextStyle(
                             fontSize: 11, color: Color(0xFFA1A1AA))),
                   ],
@@ -2213,8 +2214,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
           decoration: BoxDecoration(
               color: const Color(0xFFF1F5F9),
               borderRadius: BorderRadius.circular(8)),
-          child: Text(
-              'Hiển thị ${(_page - 1) * _pageSize + 1}-${(_page * _pageSize).clamp(0, _total)} / $_total',
+          child: Text(tr('Hiển thị ${(_page - 1) * _pageSize + 1}-${(_page * _pageSize).clamp(0, _total)} / $_total'),
               style:
                   const TextStyle(fontWeight: FontWeight.w500, fontSize: 13)),
         ),
@@ -2279,7 +2279,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
               Icon(_statusIcon(col.status),
                   color: _statusColor(col.status), size: 20),
               const SizedBox(width: 8),
-              Text(getTaskStatusLabel(col.status),
+              Text(tr(getTaskStatusLabel(col.status)),
                   style: TextStyle(
                       fontWeight: FontWeight.bold,
                       color: _statusColor(col.status))),
@@ -2289,7 +2289,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                 decoration: BoxDecoration(
                     color: _statusColor(col.status),
                     borderRadius: BorderRadius.circular(10)),
-                child: Text('${col.taskCount}',
+                child: Text(tr('${col.taskCount}'),
                     style: const TextStyle(
                         color: Colors.white,
                         fontSize: 12,
@@ -2326,7 +2326,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
               Icon(_statusIcon(col.status),
                   color: _statusColor(col.status), size: 20),
               const SizedBox(width: 8),
-              Text(getTaskStatusLabel(col.status),
+              Text(tr(getTaskStatusLabel(col.status)),
                   style: TextStyle(
                       fontWeight: FontWeight.bold,
                       color: _statusColor(col.status))),
@@ -2336,7 +2336,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                 decoration: BoxDecoration(
                     color: _statusColor(col.status),
                     borderRadius: BorderRadius.circular(10)),
-                child: Text('${col.taskCount}',
+                child: Text(tr('${col.taskCount}'),
                     style: const TextStyle(
                         color: Colors.white,
                         fontSize: 12,
@@ -2397,7 +2397,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
           child:
               Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Row(children: [
-              Text(t.taskCode,
+              Text(tr(t.taskCode),
                   style: const TextStyle(
                       color: HrmPageChrome.primaryNavy,
                       fontSize: 10,
@@ -2406,7 +2406,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
               _priorityBadge(t.priority),
             ]),
             const SizedBox(height: 4),
-            Text(t.title,
+            Text(tr(t.title),
                 style:
                     const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
                 maxLines: 2,
@@ -2428,12 +2428,12 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                 CircleAvatar(
                     radius: 10,
                     backgroundColor: HrmPageChrome.primaryNavy,
-                    child: Text(t.assigneeName![0],
+                    child: Text(tr(t.assigneeName![0]),
                         style:
                             const TextStyle(fontSize: 9, color: Colors.white))),
               const Spacer(),
               if (t.dueDate != null)
-                Text(DateFormat('dd/MM').format(t.dueDate!),
+                Text(tr(DateFormat('dd/MM').format(t.dueDate!)),
                     style: TextStyle(
                         fontSize: 10,
                         color: t.isOverdue
@@ -2512,15 +2512,14 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                             valueColor: const AlwaysStoppedAnimation(
                                 HrmPageChrome.primaryNavy)))),
                 const SizedBox(width: 12),
-                Text('${s.completionRate.toStringAsFixed(1)}%',
+                Text(tr('${s.completionRate.toStringAsFixed(1)}%'),
                     style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 20,
                         color: HrmPageChrome.primaryNavy)),
               ]),
               const SizedBox(height: 8),
-              Text(
-                  'Tiến độ trung bình: ${s.averageProgress.toStringAsFixed(1)}%',
+              Text(tr('Tiến độ trung bình: ${s.averageProgress.toStringAsFixed(1)}%'),
                   style: const TextStyle(color: Color(0xFFA1A1AA))),
             ])),
         const SizedBox(height: 12),
@@ -2573,7 +2572,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                             CircleAvatar(
                                 radius: 18,
                                 backgroundColor: HrmPageChrome.primaryNavy,
-                                child: Text(a.employeeName?[0] ?? '?',
+                                child: Text(tr(a.employeeName?[0] ?? '?'),
                                     style: const TextStyle(
                                         color: Colors.white,
                                         fontWeight: FontWeight.w600))),
@@ -2583,7 +2582,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
                                     children: [
-                                  Text(a.employeeName ?? 'Unknown',
+                                  Text(tr(a.employeeName ?? 'Unknown'),
                                       style: const TextStyle(
                                           fontWeight: FontWeight.w600,
                                           color: Color(0xFF18181B))),
@@ -2620,7 +2619,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                                       HrmPageChrome.primaryNavy),
                                 ),
                                 Text(
-                                    '${a.totalTasks > 0 ? (a.completedTasks / a.totalTasks * 100).round() : 0}%',
+                                    tr('${a.totalTasks > 0 ? (a.completedTasks / a.totalTasks * 100).round() : 0}%'),
                                     style: const TextStyle(
                                         fontSize: 10,
                                         fontWeight: FontWeight.bold)),
@@ -2656,10 +2655,10 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
           child: Icon(icon, color: c, size: 16),
         ),
         const SizedBox(height: 4),
-        Text('$value',
+        Text(tr('$value'),
             style:
                 TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: c)),
-        Text(title,
+        Text(tr(title),
             style: const TextStyle(color: Color(0xFFA1A1AA), fontSize: 10),
             maxLines: 1,
             overflow: TextOverflow.ellipsis),
@@ -2687,7 +2686,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
         Row(children: [
           Icon(icon, size: 18, color: HrmPageChrome.primaryNavy),
           const SizedBox(width: 6),
-          Text(title,
+          Text(tr(title),
               style: const TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 14,
@@ -2707,7 +2706,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
       child: Row(children: [
         SizedBox(
             width: 100,
-            child: Text(label,
+            child: Text(tr(label),
                 style:
                     const TextStyle(fontSize: 12, color: Color(0xFF71717A)))),
         Expanded(
@@ -2721,7 +2720,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
         const SizedBox(width: 8),
         SizedBox(
             width: 50,
-            child: Text('$count (${(pct * 100).round()}%)',
+            child: Text(tr('$count (${(pct * 100).round()}%)'),
                 style:
                     const TextStyle(fontSize: 11, color: Color(0xFF71717A)))),
       ]),
@@ -2736,7 +2735,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
       decoration: BoxDecoration(
           color: c.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(4)),
-      child: Text('$label: $value',
+      child: Text(tr('$label: $value'),
           style:
               TextStyle(fontSize: 10, color: c, fontWeight: FontWeight.w500)),
     );
@@ -2782,7 +2781,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                         decoration: BoxDecoration(
                             color: Colors.white.withValues(alpha: 0.15),
                             borderRadius: BorderRadius.circular(6)),
-                        child: Text(t.taskCode,
+                        child: Text(tr(t.taskCode),
                             style: const TextStyle(
                                 color: Colors.white,
                                 fontWeight: FontWeight.w600,
@@ -2795,25 +2794,25 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                         IconButton(
                             icon: const Icon(Icons.edit,
                                 size: 20, color: Colors.white70),
-                            tooltip: 'Chỉnh sửa',
+                            tooltip: tr('Chỉnh sửa'),
                             onPressed: () => _showEditDialog(t)),
                       if (canManage)
                         IconButton(
                             icon: const Icon(Icons.notifications_active,
                                 size: 20, color: Color(0xFFF59E0B)),
-                            tooltip: 'Đốc thúc',
+                            tooltip: tr('Đốc thúc'),
                             onPressed: () => _showReminderDialog(t)),
                       if (canManage)
                         IconButton(
                             icon: const Icon(Icons.star_rate,
                                 size: 20, color: Color(0xFFF59E0B)),
-                            tooltip: 'Đánh giá',
+                            tooltip: tr('Đánh giá'),
                             onPressed: () => _showEvaluationDialog(t)),
                       if (canDelete)
                         IconButton(
                             icon: const Icon(Icons.delete_outline,
                                 size: 20, color: Color(0xFFFF8A80)),
-                            tooltip: 'Xóa',
+                            tooltip: tr('Xóa'),
                             onPressed: () => _confirmDeleteTask(t)),
                       if (!isMobile)
                         IconButton(
@@ -2828,7 +2827,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(t.title,
+                        Text(tr(t.title),
                             style: const TextStyle(
                                 fontSize: 17,
                                 fontWeight: FontWeight.bold,
@@ -2842,13 +2841,13 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                                 radius: 11,
                                 backgroundColor:
                                     Colors.white.withValues(alpha: 0.2),
-                                child: Text(t.assigneeName![0],
+                                child: Text(tr(t.assigneeName![0]),
                                     style: const TextStyle(
                                         fontSize: 9,
                                         color: Colors.white,
                                         fontWeight: FontWeight.w600))),
                             const SizedBox(width: 6),
-                            Text(t.assigneeName!,
+                            Text(tr(t.assigneeName!),
                                 style: const TextStyle(
                                     color: Colors.white70, fontSize: 12)),
                             const SizedBox(width: 12),
@@ -2857,7 +2856,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                             Icon(deadlineInfo['icon'] as IconData,
                                 size: 14, color: Colors.white70),
                             const SizedBox(width: 4),
-                            Text(deadlineInfo['text'] as String,
+                            Text(tr(deadlineInfo['text'] as String),
                                 style: const TextStyle(
                                     color: Colors.white70,
                                     fontSize: 12,
@@ -2888,13 +2887,12 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        const Row(children: [
+                        Row(children: [
                           Icon(Icons.assignment_late,
                               color: Color(0xFFD97706), size: 22),
                           SizedBox(width: 8),
                           Expanded(
-                            child: Text(
-                              'Bạn được giao việc — vui lòng xác nhận hoặc từ chối',
+                            child: Text(tr('Bạn được giao việc — vui lòng xác nhận hoặc từ chối'),
                               style: TextStyle(
                                   fontWeight: FontWeight.w600, fontSize: 13),
                             ),
@@ -2907,7 +2905,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                               onPressed: () => _acceptTask(t),
                               icon: const Icon(Icons.check_circle_outline,
                                   size: 18),
-                              label: const Text('Xác nhận nhận việc'),
+                              label: Text(tr('Xác nhận nhận việc')),
                               style: FilledButton.styleFrom(
                                 backgroundColor: HrmPageChrome.primaryNavy,
                               ),
@@ -2919,7 +2917,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                               onPressed: () => _acceptTask(t, startNow: true),
                               icon: const Icon(Icons.play_arrow_rounded,
                                   size: 18),
-                              label: const Text('Nhận & bắt đầu'),
+                              label: Text(tr('Nhận & bắt đầu')),
                               style: FilledButton.styleFrom(
                                 backgroundColor: _taskPrimary,
                               ),
@@ -2932,7 +2930,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                           child: OutlinedButton.icon(
                             onPressed: () => _rejectTask(t),
                             icon: const Icon(Icons.close, size: 18),
-                            label: const Text('Từ chối'),
+                            label: Text(tr('Từ chối')),
                             style: OutlinedButton.styleFrom(
                               foregroundColor: Colors.red,
                               side: const BorderSide(color: Colors.red),
@@ -2955,7 +2953,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                           .map((s) {
                         final active = t.status == s;
                         return ChoiceChip(
-                          label: Text(getTaskStatusLabel(s),
+                          label: Text(tr(getTaskStatusLabel(s)),
                               style: TextStyle(
                                   fontSize: 11,
                                   color:
@@ -2985,11 +2983,11 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                         const Icon(Icons.trending_up,
                             size: 16, color: HrmPageChrome.primaryNavy),
                         const SizedBox(width: 6),
-                        const Text('Tiến độ',
+                        Text(tr('Tiến độ'),
                             style: TextStyle(
                                 fontWeight: FontWeight.w600, fontSize: 13)),
                         const Spacer(),
-                        Text('${t.progress}%',
+                        Text(tr('${t.progress}%'),
                             style: TextStyle(
                                 fontWeight: FontWeight.bold,
                                 fontSize: 16,
@@ -3060,9 +3058,9 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                           onPressed: () => _updateProgress(t.id, t.progress),
                           icon: const Icon(Icons.upload, size: 14),
                           label: Text(
-                              canManage
+                              tr(canManage
                                   ? 'Cập nhật tiến độ (ghi chú & hình ảnh)'
-                                  : 'Báo cáo tiến độ (ghi chú & hình ảnh)',
+                                  : 'Báo cáo tiến độ (ghi chú & hình ảnh)'),
                               style: const TextStyle(fontSize: 11)),
                           style: OutlinedButton.styleFrom(
                             foregroundColor: HrmPageChrome.primaryNavy,
@@ -3077,10 +3075,9 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                   ),
                 )
                 else if (needsAccept)
-                  const Padding(
+                  Padding(
                     padding: EdgeInsets.only(bottom: 12),
-                    child: Text(
-                      'Sau khi xác nhận nhận việc, bạn có thể cập nhật tiến độ và báo cáo.',
+                    child: Text(tr('Sau khi xác nhận nhận việc, bạn có thể cập nhật tiến độ và báo cáo.'),
                       style: TextStyle(fontSize: 12, color: Color(0xFF71717A)),
                     ),
                   ),
@@ -3089,7 +3086,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                 if (t.description != null && t.description!.isNotEmpty) ...[
                   _detailLabel('Mô tả'),
                   const SizedBox(height: 4),
-                  Text(t.description!,
+                  Text(tr(t.description!),
                       style: const TextStyle(
                           color: Color(0xFF71717A), fontSize: 13)),
                   const SizedBox(height: 12),
@@ -3156,7 +3153,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                               color: st.status == WorkTaskStatus.completed
                                   ? const Color(0xFF22C55E)
                                   : const Color(0xFFA1A1AA)),
-                          title: Text(st.title,
+                          title: Text(tr(st.title),
                               style: TextStyle(
                                   fontSize: 12,
                                   fontWeight: FontWeight.w500,
@@ -3170,7 +3167,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                           trailing:
                               Row(mainAxisSize: MainAxisSize.min, children: [
                             if (st.assigneeName != null)
-                              Text(st.assigneeName!,
+                              Text(tr(st.assigneeName!),
                                   style: const TextStyle(
                                       fontSize: 10, color: Color(0xFFA1A1AA))),
                             const SizedBox(width: 4),
@@ -3203,7 +3200,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                                 HrmPageChrome.primaryNavy)),
                       )),
                       const SizedBox(width: 8),
-                      Text('${t.completedSubTaskCount}/${t.subTaskCount}',
+                      Text(tr('${t.completedSubTaskCount}/${t.subTaskCount}'),
                           style: const TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w600,
@@ -3221,7 +3218,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                       runSpacing: 4,
                       children: t.tagList
                           .map((tag) => Chip(
-                                label: Text(tag,
+                                label: Text(tr(tag),
                                     style: const TextStyle(fontSize: 10)),
                                 labelPadding:
                                     const EdgeInsets.symmetric(horizontal: 4),
@@ -3265,7 +3262,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
               onPressed: () => _showEvaluationDialog(t),
               icon: const Icon(Icons.star_rate,
                   size: 14, color: Color(0xFFF59E0B)),
-              label: const Text('Đánh giá',
+              label: Text(tr('Đánh giá'),
                   style: TextStyle(fontSize: 11, color: Color(0xFFF59E0B))),
               style: TextButton.styleFrom(
                   padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -3287,9 +3284,9 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
               const SizedBox(width: 8),
               Expanded(
                   child: Text(
-                      canEvaluate
+                      tr(canEvaluate
                           ? 'Chưa có đánh giá — nhấn "Đánh giá" để chấm điểm (1-5 sao)'
-                          : 'Chưa có đánh giá cho công việc này',
+                          : 'Chưa có đánh giá cho công việc này'),
                       style: const TextStyle(
                           fontSize: 12, color: Color(0xFF92400E)))),
             ]),
@@ -3310,25 +3307,24 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                     Row(children: [
                       Expanded(
                         child: Text(
-                          e.evaluatorName ?? 'Người đánh giá',
+                          tr(e.evaluatorName ?? 'Người đánh giá'),
                           style: const TextStyle(
                               fontWeight: FontWeight.w600, fontSize: 13),
                         ),
                       ),
                       Text(
-                        DateFormat('dd/MM/yyyy HH:mm').format(e.createdAt),
+                        tr(DateFormat('dd/MM/yyyy HH:mm').format(e.createdAt)),
                         style: const TextStyle(
                             fontSize: 11, color: Color(0xFF71717A)),
                       ),
                     ]),
                     const SizedBox(height: 8),
-                    Text(
-                      'Chất lượng ${e.qualityScore}/5 · Tiến độ ${e.timelinessScore}/5 · Tổng ${e.overallScore}/5',
+                    Text(tr('Chất lượng ${e.qualityScore}/5 · Tiến độ ${e.timelinessScore}/5 · Tổng ${e.overallScore}/5'),
                       style: const TextStyle(fontSize: 12),
                     ),
                     if (e.comment != null && e.comment!.isNotEmpty) ...[
                       const SizedBox(height: 6),
-                      Text(e.comment!,
+                      Text(tr(e.comment!),
                           style: const TextStyle(
                               fontSize: 12, color: Color(0xFF52525B))),
                     ],
@@ -3354,8 +3350,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
           _detailLabel('Hoạt động & bình luận'),
         ]),
         const SizedBox(height: 6),
-        Text(
-          'Báo cáo tiến độ và trao đổi trong một dòng thời gian',
+        Text(tr('Báo cáo tiến độ và trao đổi trong một dòng thời gian'),
           style: TextStyle(fontSize: 11, color: Colors.grey[500]),
         ),
         const SizedBox(height: 8),
@@ -3364,7 +3359,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
             child: TextField(
               controller: _commentCtrl,
               decoration: InputDecoration(
-                hintText: 'Viết bình luận...',
+                hintText: tr('Viết bình luận...'),
                 hintStyle: const TextStyle(fontSize: 13),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
@@ -3393,11 +3388,10 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
         ]),
         const SizedBox(height: 10),
         if (sorted.isEmpty)
-          const Padding(
+          Padding(
             padding: EdgeInsets.symmetric(vertical: 12),
             child: Center(
-              child: Text(
-                'Chưa có hoạt động nào',
+              child: Text(tr('Chưa có hoạt động nào'),
                 style: TextStyle(color: Color(0xFFA1A1AA), fontSize: 13),
               ),
             ),
@@ -3436,7 +3430,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
-                  isProgress ? 'Báo cáo tiến độ' : 'Bình luận',
+                  tr(isProgress ? 'Báo cáo tiến độ' : 'Bình luận'),
                   style: TextStyle(
                     fontSize: 10,
                     fontWeight: FontWeight.w600,
@@ -3447,7 +3441,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
               const Spacer(),
               if (isProgress && c.progressSnapshot != null)
                 Text(
-                  '${c.progressSnapshot}%',
+                  tr('${c.progressSnapshot}%'),
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.bold,
@@ -3458,12 +3452,12 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
           ),
           const SizedBox(height: 6),
           Text(
-            '${c.userName ?? 'Hệ thống'} • ${DateFormat('dd/MM/yyyy HH:mm').format(c.createdAt)}',
+            tr('${c.userName ?? 'Hệ thống'} • ${DateFormat('dd/MM/yyyy HH:mm').format(c.createdAt)}'),
             style: const TextStyle(fontSize: 11, color: Color(0xFFA1A1AA)),
           ),
           if (c.content.isNotEmpty) ...[
             const SizedBox(height: 6),
-            Text(c.content,
+            Text(tr(c.content),
                 style: const TextStyle(fontSize: 13, color: Color(0xFF18181B))),
           ],
           if (images.isNotEmpty) ...[
@@ -3493,7 +3487,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                   padding: const EdgeInsets.only(top: 4),
                   child: InkWell(
                     onTap: () => _launchUrl(url),
-                    child: Text(url,
+                    child: Text(tr(url),
                         style: const TextStyle(
                             fontSize: 11,
                             color: HrmPageChrome.primaryNavy,
@@ -3517,16 +3511,15 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
     return ExpansionTile(
       tilePadding: EdgeInsets.zero,
       title: _detailLabel('Nhật ký hệ thống'),
-      subtitle: const Text(
-        'Giao việc, đổi trạng thái, đánh giá...',
+      subtitle: Text(tr('Giao việc, đổi trạng thái, đánh giá...'),
         style: TextStyle(fontSize: 11, color: Color(0xFFA1A1AA)),
       ),
       initiallyExpanded: false,
       children: auditItems.isEmpty
           ? [
-              const Padding(
+              Padding(
                 padding: EdgeInsets.all(8),
-                child: Text('Chưa có thay đổi hệ thống',
+                child: Text(tr('Chưa có thay đổi hệ thống'),
                     style: TextStyle(color: Color(0xFFA1A1AA), fontSize: 12)),
               )
             ]
@@ -3537,11 +3530,11 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                     leading: Icon(_historyIcon(h.changeType),
                         size: 16, color: HrmPageChrome.primaryNavy),
                     title: Text(
-                      _historyLabel(h),
+                      tr(_historyLabel(h)),
                       style: const TextStyle(fontSize: 12),
                     ),
                     subtitle: Text(
-                      '${h.userName ?? 'Hệ thống'} • ${DateFormat('dd/MM/yyyy HH:mm').format(h.createdAt)}',
+                      tr('${h.userName ?? 'Hệ thống'} • ${DateFormat('dd/MM/yyyy HH:mm').format(h.createdAt)}'),
                       style: const TextStyle(
                           fontSize: 10, color: Color(0xFFA1A1AA)),
                     ),
@@ -3604,14 +3597,14 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
           color: Colors.white.withValues(alpha: 0.15),
           borderRadius: BorderRadius.circular(12),
         ),
-        child: Text(getTaskStatusLabel(s),
+        child: Text(tr(getTaskStatusLabel(s)),
             style: const TextStyle(
                 color: Colors.white,
                 fontSize: 10,
                 fontWeight: FontWeight.w600)),
       );
 
-  Widget _detailLabel(String text) => Text(text,
+  Widget _detailLabel(String text) => Text(tr(text),
       style: const TextStyle(
           fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF18181B)));
 
@@ -3621,10 +3614,10 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
       child: Row(children: [
         Icon(icon, size: 16, color: color ?? const Color(0xFFA1A1AA)),
         const SizedBox(width: 8),
-        Text('$label: ',
+        Text(tr('$label: '),
             style: const TextStyle(color: Color(0xFFA1A1AA), fontSize: 12)),
         Expanded(
-            child: Text(value,
+            child: Text(tr(value),
                 style: TextStyle(
                     fontWeight: FontWeight.w500,
                     fontSize: 12,
@@ -3642,7 +3635,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-              content: Text('Không thể mở link: $e'),
+              content: Text(tr('Không thể mở link: $e')),
               backgroundColor: Colors.red),
         );
       }
@@ -3657,7 +3650,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
           mainAxisSize: MainAxisSize.min,
           children: [
             AppBar(
-              title: const Text('Hình ảnh', style: TextStyle(fontSize: 14)),
+              title: Text(tr('Hình ảnh'), style: TextStyle(fontSize: 14)),
               automaticallyImplyLeading: false,
               actions: [
                 IconButton(
@@ -3729,7 +3722,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                         items: TaskType.values
                             .map((t) => DropdownMenuItem(
                                 value: t,
-                                child: Text(getTaskTypeLabel(t),
+                                child: Text(tr(getTaskTypeLabel(t)),
                                     style: const TextStyle(fontSize: 13))))
                             .toList(),
                         onChanged: (v) => ss(() => type = v!),
@@ -3746,7 +3739,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                                   Icon(Icons.flag,
                                       size: 14, color: _priorityColor(p)),
                                   const SizedBox(width: 4),
-                                  Text(getPriorityLabel(p),
+                                  Text(tr(getPriorityLabel(p)),
                                       style: const TextStyle(fontSize: 13))
                                 ])))
                             .toList(),
@@ -3772,7 +3765,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                                     .firstOrNull;
                                 final name = emp?.fullName ?? id;
                                 return Chip(
-                                  label: Text(name,
+                                  label: Text(tr(name),
                                       style: const TextStyle(fontSize: 12)),
                                   deleteIcon: const Icon(Icons.close, size: 14),
                                   onDeleted: () =>
@@ -3794,9 +3787,8 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                             onTap: () async {
                               if (_employees.isEmpty) {
                                 ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                      content: Text(
-                                          'Đang tải danh sách nhân viên, vui lòng thử lại...')),
+                                  SnackBar(
+                                      content: Text(tr('Đang tải danh sách nhân viên, vui lòng thử lại...'))),
                                 );
                                 return;
                               }
@@ -3822,9 +3814,9 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                                         .withValues(alpha: 0.7)),
                                 const SizedBox(width: 6),
                                 Text(
-                                  selectedAssigneeIds.isEmpty
+                                  tr(selectedAssigneeIds.isEmpty
                                       ? 'Chọn người thực hiện...'
-                                      : 'Thêm người...',
+                                      : 'Thêm người...'),
                                   style: TextStyle(
                                       fontSize: 13,
                                       color: HrmPageChrome.primaryNavy
@@ -3862,8 +3854,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                             const Icon(Icons.access_time,
                                 size: 14, color: HrmPageChrome.primaryNavy),
                             const SizedBox(width: 4),
-                            Text(
-                              'Thời gian: ${_formatDuration(dueDate!.difference(startDate!))}',
+                            Text(tr('Thời gian: ${_formatDuration(dueDate!.difference(startDate!))}'),
                               style: const TextStyle(
                                   fontSize: 12,
                                   color: HrmPageChrome.primaryNavy,
@@ -3920,7 +3911,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                       height: 18,
                       child: CircularProgressIndicator(
                           strokeWidth: 2, color: Colors.white))
-                  : const Text('Tạo');
+                  : Text(tr('Tạo'));
               if (isMobile) {
                 return Dialog(
                   insetPadding: EdgeInsets.zero,
@@ -3929,7 +3920,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                     height: double.infinity,
                     child: Scaffold(
                       appBar: AppBar(
-                        title: const Text('Tạo công việc mới'),
+                        title: Text(tr('Tạo công việc mới')),
                         leading: IconButton(
                             icon: const Icon(Icons.close),
                             onPressed: () => Navigator.pop(ctx)),
@@ -3952,7 +3943,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                                     height: 18,
                                     child: CircularProgressIndicator(
                                         strokeWidth: 2, color: Colors.white))
-                                : const Text('Tạo công việc',
+                                : Text(tr('Tạo công việc'),
                                     style: TextStyle(
                                         fontSize: 15,
                                         fontWeight: FontWeight.w600)),
@@ -3966,10 +3957,10 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
               return ScrollableAlertDialog(
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16)),
-                title: const Row(children: [
+                title: Row(children: [
                   Icon(Icons.add_task, color: HrmPageChrome.primaryNavy),
                   SizedBox(width: 8),
-                  Text('Tạo công việc mới', style: TextStyle(fontSize: 18)),
+                  Text(tr('Tạo công việc mới'), style: TextStyle(fontSize: 18)),
                 ]),
                 content: SizedBox(
                     width: MediaQuery.of(ctx).size.width < 600
@@ -3994,12 +3985,12 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
 
   // --- Chỉnh sửa công việc ---
   void _showEditDialog(WorkTask task) {
-    final titleCtrl = TextEditingController(text: task.title);
-    final descCtrl = TextEditingController(text: task.description ?? '');
+    final titleCtrl = TextEditingController(text: tr(task.title));
+    final descCtrl = TextEditingController(text: tr(task.description ?? ''));
     final hoursCtrl =
-        TextEditingController(text: task.estimatedHours?.toString() ?? '');
+        TextEditingController(text: tr(task.estimatedHours?.toString() ?? ''));
     final actualCtrl =
-        TextEditingController(text: task.actualHours?.toString() ?? '');
+        TextEditingController(text: tr(task.actualHours?.toString() ?? ''));
     var type = task.taskType;
     var priority = task.priority;
     // Build initial selectedAssigneeIds from assignees list or single assigneeId
@@ -4043,7 +4034,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                               items: TaskType.values
                                   .map((t) => DropdownMenuItem(
                                       value: t,
-                                      child: Text(getTaskTypeLabel(t),
+                                      child: Text(tr(getTaskTypeLabel(t)),
                                           style:
                                               const TextStyle(fontSize: 13))))
                                   .toList(),
@@ -4060,7 +4051,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                                         Icon(Icons.flag,
                                             size: 14, color: _priorityColor(p)),
                                         const SizedBox(width: 4),
-                                        Text(getPriorityLabel(p),
+                                        Text(tr(getPriorityLabel(p)),
                                             style:
                                                 const TextStyle(fontSize: 13))
                                       ])))
@@ -4086,7 +4077,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                                     .firstOrNull;
                                 final name = emp?.fullName ?? id;
                                 return Chip(
-                                  label: Text(name,
+                                  label: Text(tr(name),
                                       style: const TextStyle(fontSize: 12)),
                                   deleteIcon: const Icon(Icons.close, size: 14),
                                   onDeleted: () =>
@@ -4105,9 +4096,8 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                             onTap: () async {
                               if (_employees.isEmpty) {
                                 ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                      content: Text(
-                                          'Đang tải danh sách nhân viên, vui lòng thử lại...')),
+                                  SnackBar(
+                                      content: Text(tr('Đang tải danh sách nhân viên, vui lòng thử lại...'))),
                                 );
                                 return;
                               }
@@ -4133,9 +4123,9 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                                         .withValues(alpha: 0.7)),
                                 const SizedBox(width: 6),
                                 Text(
-                                  selectedAssigneeIds.isEmpty
+                                  tr(selectedAssigneeIds.isEmpty
                                       ? 'Chọn người thực hiện...'
-                                      : 'Thêm người...',
+                                      : 'Thêm người...'),
                                   style: TextStyle(
                                       fontSize: 13,
                                       color: HrmPageChrome.primaryNavy
@@ -4173,8 +4163,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                             const Icon(Icons.access_time,
                                 size: 14, color: HrmPageChrome.primaryNavy),
                             const SizedBox(width: 4),
-                            Text(
-                              'Thời gian: ${_formatDuration(dueDate!.difference(startDate!))}',
+                            Text(tr('Thời gian: ${_formatDuration(dueDate!.difference(startDate!))}'),
                               style: const TextStyle(
                                   fontSize: 12,
                                   color: HrmPageChrome.primaryNavy,
@@ -4242,7 +4231,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                       height: 18,
                       child: CircularProgressIndicator(
                           strokeWidth: 2, color: Colors.white))
-                  : const Text('Lưu');
+                  : Text(tr('Lưu'));
               if (isMobile) {
                 return Dialog(
                   insetPadding: EdgeInsets.zero,
@@ -4251,7 +4240,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                     height: double.infinity,
                     child: Scaffold(
                       appBar: AppBar(
-                        title: Text('Sửa: ${task.taskCode}'),
+                        title: Text(tr('Sửa: ${task.taskCode}')),
                         leading: IconButton(
                             icon: const Icon(Icons.close),
                             onPressed: () => Navigator.pop(ctx)),
@@ -4274,7 +4263,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                                     height: 18,
                                     child: CircularProgressIndicator(
                                         strokeWidth: 2, color: Colors.white))
-                                : const Text('Lưu thay đổi',
+                                : Text(tr('Lưu thay đổi'),
                                     style: TextStyle(
                                         fontSize: 15,
                                         fontWeight: FontWeight.w600)),
@@ -4292,7 +4281,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                   const Icon(Icons.edit, color: HrmPageChrome.primaryNavy),
                   const SizedBox(width: 8),
                   Expanded(
-                      child: Text('Sửa: ${task.taskCode}',
+                      child: Text(tr('Sửa: ${task.taskCode}'),
                           style: const TextStyle(fontSize: 16))),
                 ]),
                 content: SizedBox(
@@ -4343,7 +4332,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                             size: 16, color: Color(0xFFF59E0B)),
                         const SizedBox(width: 8),
                         Expanded(
-                            child: Text('${task.taskCode} - ${task.title}',
+                            child: Text(tr('${task.taskCode} - ${task.title}'),
                                 style: const TextStyle(
                                     fontSize: 12, fontWeight: FontWeight.w500),
                                 maxLines: 2,
@@ -4357,7 +4346,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                       items: _employees
                           .map((e) => DropdownMenuItem(
                               value: e.id,
-                              child: Text(e.fullName,
+                              child: Text(tr(e.fullName),
                                   style: const TextStyle(fontSize: 13))))
                           .toList(),
                       onChanged: (v) => ss(() => recipientId = v),
@@ -4366,9 +4355,9 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                     _dialogField(msgCtrl, 'Nội dung đốc thúc *', Icons.message,
                         maxLines: 3),
                     const SizedBox(height: 12),
-                    const Align(
+                    Align(
                         alignment: Alignment.centerLeft,
-                        child: Text('Mức độ khẩn:',
+                        child: Text(tr('Mức độ khẩn:'),
                             style: TextStyle(
                                 fontSize: 12, color: Color(0xFF71717A)))),
                     const SizedBox(height: 6),
@@ -4437,7 +4426,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                     height: double.infinity,
                     child: Scaffold(
                       appBar: AppBar(
-                        title: const Text('Đốc thúc công việc'),
+                        title: Text(tr('Đốc thúc công việc')),
                         leading: IconButton(
                             icon: const Icon(Icons.close),
                             onPressed: () => Navigator.pop(ctx)),
@@ -4455,7 +4444,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                                     child: CircularProgressIndicator(
                                         strokeWidth: 2, color: Colors.white))
                                 : const Icon(Icons.send, size: 16),
-                            label: const Text('Gửi đốc thúc',
+                            label: Text(tr('Gửi đốc thúc'),
                                 style: TextStyle(
                                     fontSize: 15, fontWeight: FontWeight.w600)),
                             style: FilledButton.styleFrom(
@@ -4474,10 +4463,10 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
               return ScrollableAlertDialog(
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16)),
-                title: const Row(children: [
+                title: Row(children: [
                   Icon(Icons.notifications_active, color: Color(0xFFF59E0B)),
                   SizedBox(width: 8),
-                  Text('Đốc thúc công việc', style: TextStyle(fontSize: 16)),
+                  Text(tr('Đốc thúc công việc'), style: TextStyle(fontSize: 16)),
                 ]),
                 content: SizedBox(
                     width: MediaQuery.of(ctx).size.width < 600
@@ -4503,7 +4492,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
       Color c, ValueChanged<int> onTap) {
     final active = current == level;
     return ChoiceChip(
-      label: Text(label,
+      label: Text(tr(label),
           style: TextStyle(fontSize: 11, color: active ? Colors.white : c)),
       selected: active,
       selectedColor: c,
@@ -4538,7 +4527,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                             size: 16, color: HrmPageChrome.primaryNavy),
                         const SizedBox(width: 8),
                         Expanded(
-                            child: Text('${task.taskCode} - ${task.title}',
+                            child: Text(tr('${task.taskCode} - ${task.title}'),
                                 style: const TextStyle(
                                     fontSize: 12,
                                     fontWeight: FontWeight.w500))),
@@ -4594,7 +4583,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                     height: double.infinity,
                     child: Scaffold(
                       appBar: AppBar(
-                        title: const Text('Đánh giá công việc'),
+                        title: Text(tr('Đánh giá công việc')),
                         leading: IconButton(
                             icon: const Icon(Icons.close),
                             onPressed: () => Navigator.pop(ctx)),
@@ -4612,7 +4601,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                                     child: CircularProgressIndicator(
                                         strokeWidth: 2, color: Colors.white))
                                 : const Icon(Icons.check, size: 16),
-                            label: const Text('Lưu đánh giá',
+                            label: Text(tr('Lưu đánh giá'),
                                 style: TextStyle(
                                     fontSize: 15, fontWeight: FontWeight.w600)),
                             style: FilledButton.styleFrom(
@@ -4631,10 +4620,10 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
               return ScrollableAlertDialog(
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16)),
-                title: const Row(children: [
+                title: Row(children: [
                   Icon(Icons.star_rate, color: Color(0xFFF59E0B)),
                   SizedBox(width: 8),
-                  Text('Đánh giá công việc', style: TextStyle(fontSize: 16)),
+                  Text(tr('Đánh giá công việc'), style: TextStyle(fontSize: 16)),
                 ]),
                 content: SizedBox(
                     width: MediaQuery.of(ctx).size.width < 600
@@ -4659,7 +4648,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
     return Row(children: [
       SizedBox(
           width: 150,
-          child: Text(label,
+          child: Text(tr(label),
               style: const TextStyle(fontSize: 12, color: Color(0xFF71717A)))),
       const Spacer(),
       ...List.generate(
@@ -4688,7 +4677,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
       keyboardType: keyboardType,
       style: const TextStyle(fontSize: 13),
       decoration: InputDecoration(
-        labelText: label,
+        labelText: tr(label),
         labelStyle: const TextStyle(fontSize: 13),
         prefixIcon: Icon(icon, size: 18),
         border: OutlineInputBorder(
@@ -4706,7 +4695,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
   }
 
   InputDecoration _dropDecor(String label) => InputDecoration(
-        labelText: label,
+        labelText: tr(label),
         labelStyle: const TextStyle(fontSize: 13),
         border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(10),
@@ -4744,9 +4733,9 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
       child: InputDecorator(
         decoration: _dropDecor(label),
         child: Text(
-            value != null
+            tr(value != null
                 ? DateFormat('dd/MM/yyyy HH:mm').format(value)
-                : 'Chọn ngày giờ',
+                : 'Chọn ngày giờ'),
             style: TextStyle(
                 fontSize: 13,
                 color: value != null
@@ -4838,11 +4827,11 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
         shrinkWrap: !isMobile,
         children: _employees
             .map((e) => ListTile(
-                  title: Text(e.fullName),
-                  subtitle: Text(e.employeeCode),
+                  title: Text(tr(e.fullName)),
+                  subtitle: Text(tr(e.employeeCode)),
                   leading: CircleAvatar(
                       backgroundColor: HrmPageChrome.primaryNavy,
-                      child: Text(e.firstName.isNotEmpty ? e.firstName[0] : '?',
+                      child: Text(tr(e.firstName.isNotEmpty ? e.firstName[0] : '?'),
                           style: const TextStyle(color: Colors.white))),
                   onTap: () async {
                     Navigator.pop(context);
@@ -4872,7 +4861,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                 height: double.infinity,
                 child: Scaffold(
                   appBar: AppBar(
-                    title: const Text('Giao việc hàng loạt'),
+                    title: Text(tr('Giao việc hàng loạt')),
                     leading: IconButton(
                         icon: const Icon(Icons.close),
                         onPressed: () => Navigator.pop(ctx)),
@@ -4885,7 +4874,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
           return ScrollableAlertDialog(
             shape:
                 RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            title: const Text('Giao việc hàng loạt'),
+            title: Text(tr('Giao việc hàng loạt')),
             content: SizedBox(
                 width: MediaQuery.of(ctx).size.width < 600
                     ? MediaQuery.of(ctx).size.width - 64
@@ -4904,9 +4893,8 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
         builder: (ctx) => ScrollableAlertDialog(
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16)),
-              title: const Text('Xác nhận xóa'),
-              content: Text(
-                  'Bạn có chắc muốn xóa ${_sel.length} công việc đã chọn?'),
+              title: Text(tr('Xác nhận xóa')),
+              content: Text(tr('Bạn có chắc muốn xóa ${_sel.length} công việc đã chọn?')),
               actions: [
                 AppDialogActions.delete(
                   onConfirm: () async {
@@ -4951,7 +4939,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
             color: _statusColor(s).withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(12),
             border: Border.all(color: _statusColor(s).withValues(alpha: 0.3))),
-        child: Text(getTaskStatusLabel(s),
+        child: Text(tr(getTaskStatusLabel(s)),
             style: TextStyle(
                 color: _statusColor(s),
                 fontSize: 10,
@@ -5037,13 +5025,12 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
         builder: (ctx) => ScrollableAlertDialog(
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16)),
-              title: const Row(children: [
+              title: Row(children: [
                 Icon(Icons.warning_amber, color: Color(0xFFEF4444)),
                 SizedBox(width: 8),
-                Text('Xác nhận xóa', style: TextStyle(fontSize: 16)),
+                Text(tr('Xác nhận xóa'), style: TextStyle(fontSize: 16)),
               ]),
-              content: Text(
-                  'Bạn có chắc muốn xóa công việc "${task.title}" (${task.taskCode})?'),
+              content: Text(tr('Bạn có chắc muốn xóa công việc "${task.title}" (${task.taskCode})?')),
               actions: [
                 AppDialogActions.delete(
                   onConfirm: () async {
@@ -5111,7 +5098,7 @@ class _MultiAssigneePickerPageState extends State<_MultiAssigneePickerPage> {
           child: TextField(
             onChanged: (v) => setState(() => _search = v),
             decoration: InputDecoration(
-              hintText: 'Tìm nhân viên...',
+              hintText: tr('Tìm nhân viên...'),
               prefixIcon: const Icon(Icons.search, size: 18),
               border:
                   OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
@@ -5135,7 +5122,7 @@ class _MultiAssigneePickerPageState extends State<_MultiAssigneePickerPage> {
                     .firstOrNull;
                 final name = emp?.fullName ?? 'Unknown';
                 return Chip(
-                  label: Text(name, style: const TextStyle(fontSize: 11)),
+                  label: Text(tr(name), style: const TextStyle(fontSize: 11)),
                   deleteIcon: const Icon(Icons.close, size: 12),
                   onDeleted: () => setState(() => _selected.remove(id)),
                   materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -5162,9 +5149,9 @@ class _MultiAssigneePickerPageState extends State<_MultiAssigneePickerPage> {
                     }
                   });
                 },
-                title: Text(emp.fullName, style: const TextStyle(fontSize: 13)),
+                title: Text(tr(emp.fullName), style: const TextStyle(fontSize: 13)),
                 subtitle: emp.department != null
-                    ? Text(emp.department!,
+                    ? Text(tr(emp.department!),
                         style: const TextStyle(
                             fontSize: 11, color: Color(0xFF64748B)))
                     : null,
@@ -5172,9 +5159,9 @@ class _MultiAssigneePickerPageState extends State<_MultiAssigneePickerPage> {
                   radius: 16,
                   backgroundColor: HrmPageChrome.primaryNavy,
                   child: Text(
-                    emp.fullName.isNotEmpty
+                    tr(emp.fullName.isNotEmpty
                         ? emp.fullName[0].toUpperCase()
-                        : '?',
+                        : '?'),
                     style: const TextStyle(color: Colors.white, fontSize: 12),
                   ),
                 ),
@@ -5190,9 +5177,9 @@ class _MultiAssigneePickerPageState extends State<_MultiAssigneePickerPage> {
     return Scaffold(
       appBar: AppBar(
         title: Row(children: [
-          const Text('Chọn người thực hiện', style: TextStyle(fontSize: 16)),
+          Text(tr('Chọn người thực hiện'), style: TextStyle(fontSize: 16)),
           const Spacer(),
-          Text('${_selected.length} đã chọn',
+          Text(tr('${_selected.length} đã chọn'),
               style: const TextStyle(fontSize: 12, color: Color(0xFF64748B))),
         ]),
         leading: IconButton(
@@ -5211,7 +5198,7 @@ class _MultiAssigneePickerPageState extends State<_MultiAssigneePickerPage> {
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12)),
             ),
-            child: Text('Xác nhận (${_selected.length})',
+            child: Text(tr('Xác nhận (${_selected.length})'),
                 style:
                     const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
           ),
@@ -5260,7 +5247,7 @@ class _ProgressUpdatePageState extends State<_ProgressUpdatePage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-              content: Text('Lỗi chọn ảnh: $e'), backgroundColor: Colors.red),
+              content: Text(tr('Lỗi chọn ảnh: $e')), backgroundColor: Colors.red),
         );
       }
     }
@@ -5297,8 +5284,7 @@ class _ProgressUpdatePageState extends State<_ProgressUpdatePage> {
             if (mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                    content: Text(
-                        'Lỗi tải ảnh ${i + 1}: ${r['message'] ?? 'Unknown'}'),
+                    content: Text(tr('${tr('Lỗi tải ảnh ')}${i + 1}: ${r['message'] ?? 'Unknown'}')),
                     backgroundColor: Colors.orange),
               );
             }
@@ -5307,7 +5293,7 @@ class _ProgressUpdatePageState extends State<_ProgressUpdatePage> {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                  content: Text('Lỗi tải ảnh ${i + 1}: $e'),
+                  content: Text(tr('Lỗi tải ảnh ${i + 1}: $e')),
                   backgroundColor: Colors.red),
             );
           }
@@ -5341,7 +5327,7 @@ class _ProgressUpdatePageState extends State<_ProgressUpdatePage> {
         leading: IconButton(
             icon: const Icon(Icons.close),
             onPressed: () => Navigator.pop(context)),
-        title: const Text('Cập nhật tiến độ',
+        title: Text(tr('Cập nhật tiến độ'),
             style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
       ),
       body: SingleChildScrollView(
@@ -5367,10 +5353,10 @@ class _ProgressUpdatePageState extends State<_ProgressUpdatePage> {
                     const Icon(Icons.trending_up,
                         size: 20, color: HrmPageChrome.primaryNavy),
                     const SizedBox(width: 8),
-                    const Text('Tiến độ: ',
+                    Text(tr('Tiến độ: '),
                         style: TextStyle(
                             fontSize: 14, fontWeight: FontWeight.w500)),
-                    Text('${_sliderVal.toInt()}%',
+                    Text(tr('${_sliderVal.toInt()}%'),
                         style: const TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.bold,
@@ -5390,7 +5376,7 @@ class _ProgressUpdatePageState extends State<_ProgressUpdatePage> {
                     spacing: 8,
                     children: [0, 25, 50, 75, 100]
                         .map((v) => ActionChip(
-                              label: Text('$v%',
+                              label: Text(tr('$v%'),
                                   style: const TextStyle(fontSize: 12)),
                               backgroundColor: _sliderVal.toInt() == v
                                   ? HrmPageChrome.primaryNavy
@@ -5414,8 +5400,8 @@ class _ProgressUpdatePageState extends State<_ProgressUpdatePage> {
               maxLines: 4,
               style: const TextStyle(fontSize: 14),
               decoration: InputDecoration(
-                labelText: 'Ghi chú tiến độ',
-                hintText: 'Mô tả công việc đã hoàn thành...',
+                labelText: tr('Ghi chú tiến độ'),
+                hintText: tr('Mô tả công việc đã hoàn thành...'),
                 prefixIcon: const Padding(
                     padding: EdgeInsets.only(bottom: 50),
                     child: Icon(Icons.notes, size: 20)),
@@ -5447,7 +5433,7 @@ class _ProgressUpdatePageState extends State<_ProgressUpdatePage> {
                     const Icon(Icons.photo_library,
                         size: 18, color: HrmPageChrome.primaryNavy),
                     const SizedBox(width: 8),
-                    const Text('Hình ảnh',
+                    Text(tr('Hình ảnh'),
                         style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
@@ -5456,7 +5442,7 @@ class _ProgressUpdatePageState extends State<_ProgressUpdatePage> {
                     OutlinedButton.icon(
                       onPressed: _saving ? null : _pickImages,
                       icon: const Icon(Icons.add_photo_alternate, size: 16),
-                      label: const Text('Thêm ảnh',
+                      label: Text(tr('Thêm ảnh'),
                           style: TextStyle(fontSize: 12)),
                       style: OutlinedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(
@@ -5509,7 +5495,7 @@ class _ProgressUpdatePageState extends State<_ProgressUpdatePage> {
                           Icon(Icons.add_photo_alternate,
                               size: 40, color: Colors.grey[300]),
                           const SizedBox(height: 4),
-                          Text('Chưa có hình ảnh',
+                          Text(tr('Chưa có hình ảnh'),
                               style: TextStyle(
                                   fontSize: 12, color: Colors.grey[400])),
                         ]),
@@ -5525,8 +5511,8 @@ class _ProgressUpdatePageState extends State<_ProgressUpdatePage> {
               maxLines: 2,
               style: const TextStyle(fontSize: 14),
               decoration: InputDecoration(
-                labelText: 'Link tài liệu (mỗi dòng 1 link)',
-                hintText: 'https://docs.google.com/...',
+                labelText: tr('Link tài liệu (mỗi dòng 1 link)'),
+                hintText: tr('https://docs.google.com/...'),
                 prefixIcon: const Icon(Icons.link, size: 20),
                 border:
                     OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
@@ -5554,7 +5540,7 @@ class _ProgressUpdatePageState extends State<_ProgressUpdatePage> {
                         height: 18,
                         child: CircularProgressIndicator(strokeWidth: 2)),
                     const SizedBox(width: 10),
-                    Text(_statusText,
+                    Text(tr(_statusText),
                         style: const TextStyle(
                             fontSize: 13, color: HrmPageChrome.primaryNavy)),
                   ]),
@@ -5568,7 +5554,7 @@ class _ProgressUpdatePageState extends State<_ProgressUpdatePage> {
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12)),
                     ),
-                    child: const Text('Hủy'),
+                    child: Text(tr('Hủy')),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -5583,7 +5569,7 @@ class _ProgressUpdatePageState extends State<_ProgressUpdatePage> {
                             child: CircularProgressIndicator(
                                 strokeWidth: 2, color: Colors.white))
                         : const Icon(Icons.check, size: 18),
-                    label: Text(_saving ? 'Đang gửi...' : 'Cập nhật tiến độ'),
+                    label: Text(tr(_saving ? 'Đang gửi...' : 'Cập nhật tiến độ')),
                     style: FilledButton.styleFrom(
                       backgroundColor: HrmPageChrome.primaryNavy,
                       minimumSize: const Size(0, 50),

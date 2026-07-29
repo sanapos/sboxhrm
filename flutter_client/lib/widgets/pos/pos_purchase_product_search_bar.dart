@@ -13,6 +13,7 @@ import '../../widgets/pos_barcode_scanner.dart';
 import 'pos_product_image.dart';
 import 'pos_product_unit_view.dart';
 import 'pos_theme.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 const _blue = Color(0xFF2563EB);
 
@@ -337,7 +338,7 @@ class PosPurchaseProductSearchBarState extends State<PosPurchaseProductSearchBar
     if (pick == null) {
       NotificationOverlayManager().showWarning(
         title: 'Không tìm thấy sản phẩm',
-        message: 'Không có hàng hóa với mã "$q"',
+        message: tr('Không có hàng hóa với mã "$q"'),
       );
       return;
     }
@@ -401,9 +402,9 @@ class PosPurchaseProductSearchBarState extends State<PosPurchaseProductSearchBar
                     ? Padding(
                         padding: const EdgeInsets.all(16),
                         child: Text(
-                          _ctrl.text.trim().isEmpty
+                          tr(_ctrl.text.trim().isEmpty
                               ? 'Nhập mã hoặc tên hàng hóa'
-                              : 'Không tìm thấy hàng phù hợp',
+                              : 'Không tìm thấy hàng phù hợp'),
                           style: const TextStyle(
                               fontSize: 13, color: PosTheme.textSecondary),
                         ),
@@ -450,7 +451,7 @@ class PosPurchaseProductSearchBarState extends State<PosPurchaseProductSearchBar
             controller: _ctrl,
             focusNode: _focus,
             decoration: InputDecoration(
-              hintText: widget.hintText,
+              hintText: tr(widget.hintText),
               hintStyle: TextStyle(color: Colors.grey.shade500, fontSize: 14),
               prefixIcon: widget.compactSellMobile
                   ? null
@@ -496,14 +497,14 @@ class PosPurchaseProductSearchBarState extends State<PosPurchaseProductSearchBar
                           },
                         ),
                         IconButton(
-                          tooltip: 'Chọn từ danh sách',
+                          tooltip: tr('Chọn từ danh sách'),
                           icon: Icon(Icons.grid_view_rounded,
                               size: 20, color: Colors.grey.shade600),
                           onPressed: _openBrowseSheet,
                         ),
                         if (widget.onAddProduct != null)
                           IconButton(
-                            tooltip: 'Thêm hàng hóa mới',
+                            tooltip: tr('Thêm hàng hóa mới'),
                             icon: const Icon(Icons.add, color: _blue, size: 22),
                             onPressed: widget.onAddProduct,
                           ),
@@ -565,12 +566,12 @@ class _SuggestionTile extends StatelessWidget {
                       ),
                       children: [
                         TextSpan(
-                          text: p.name,
+                          text: tr(p.name),
                           style: const TextStyle(fontWeight: FontWeight.w600),
                         ),
                         if (suggestion.unitLabel.isNotEmpty)
                           TextSpan(
-                            text: ' ${suggestion.unitLabel}',
+                            text: tr(' ${suggestion.unitLabel}'),
                             style: const TextStyle(
                               color: _blue,
                               fontWeight: FontWeight.w500,
@@ -587,14 +588,13 @@ class _SuggestionTile extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              suggestion.displayCode,
+                              tr(suggestion.displayCode),
                               style: const TextStyle(
                                 fontSize: 12,
                                 color: PosTheme.textSecondary,
                               ),
                             ),
-                            Text(
-                              'Tồn: ${moneyFmt.format(suggestion.onHandQty)}',
+                            Text(tr('Tồn: ${moneyFmt.format(suggestion.onHandQty)}'),
                               style: const TextStyle(
                                 fontSize: 12,
                                 color: PosTheme.textSecondary,
@@ -606,8 +606,7 @@ class _SuggestionTile extends StatelessWidget {
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
-                          Text(
-                            'Giá: ${moneyFmt.format(price)}',
+                          Text(tr('Giá: ${moneyFmt.format(price)}'),
                             style: TextStyle(
                               fontSize: 12,
                               color: sellMode ? _blue : PosTheme.textSecondary,
@@ -615,8 +614,7 @@ class _SuggestionTile extends StatelessWidget {
                                   sellMode ? FontWeight.w600 : FontWeight.normal,
                             ),
                           ),
-                          Text(
-                            'Khách đặt: 0',
+                          Text(tr('Khách đặt: 0'),
                             style: TextStyle(
                               fontSize: 12,
                               color: Colors.grey.shade500,
@@ -802,7 +800,7 @@ class _BrowseProductsSheetState extends State<_BrowseProductsSheet> {
                 ),
               ),
               child: Text(
-                label,
+                tr(label),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
@@ -834,7 +832,7 @@ class _BrowseProductsSheetState extends State<_BrowseProductsSheet> {
               ),
             ),
             child: Text(
-              label,
+              tr(label),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
@@ -868,8 +866,8 @@ class _BrowseProductsSheetState extends State<_BrowseProductsSheet> {
               padding: const EdgeInsets.fromLTRB(16, 16, 8, 8),
               child: Row(
                 children: [
-                  const Expanded(
-                    child: Text('Chọn hàng hóa',
+                  Expanded(
+                    child: Text(tr('Chọn hàng hóa'),
                         style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
                   ),
                   IconButton(
@@ -886,7 +884,7 @@ class _BrowseProductsSheetState extends State<_BrowseProductsSheet> {
                   final searchField = TextField(
                     controller: _search,
                     decoration: InputDecoration(
-                      hintText: 'Tìm mã, tên hàng hóa…',
+                      hintText: tr('Tìm mã, tên hàng hóa…'),
                       prefixIcon: const Icon(Icons.search, size: 20),
                       suffixIcon: PosBarcodeScanIcon(
                         controller: _search,
@@ -949,8 +947,7 @@ class _BrowseProductsSheetState extends State<_BrowseProductsSheet> {
                   ? const Center(child: CircularProgressIndicator())
                   : _items.isEmpty
                       ? Center(
-                          child: Text(
-                            'Không có hàng hóa',
+                          child: Text(tr('Không có hàng hóa'),
                             style: TextStyle(
                               fontSize: 13,
                               color: Colors.grey.shade600,

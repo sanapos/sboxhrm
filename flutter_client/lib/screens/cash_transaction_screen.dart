@@ -19,6 +19,7 @@ import '../utils/navigation_notifier.dart';
 import '../widgets/app_button.dart';
 import '../widgets/hrm_responsive_list_layout.dart';
 import '../widgets/app_scroll_safe.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 class CashTransactionScreen extends StatefulWidget {
   const CashTransactionScreen({super.key});
@@ -190,7 +191,7 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
     } else {
       appNotification.showSuccess(
         title: 'Thu chi',
-        message: 'Đã mở màn Thu chi — lọc phiếu chờ để tìm chứng từ công tác',
+        message: tr('Đã mở màn Thu chi — lọc phiếu chờ để tìm chứng từ công tác'),
       );
     }
   }
@@ -418,7 +419,7 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
     if (_bankAccounts.isEmpty) {
       appNotification.showWarning(
         title: 'Cảnh báo',
-        message: 'Vui lòng thêm tài khoản ngân hàng trước',
+        message: tr('Vui lòng thêm tài khoản ngân hàng trước'),
       );
       return;
     }
@@ -436,9 +437,8 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => ScrollableAlertDialog(
-        title: const Text('Xác nhận xóa'),
-        content: Text(
-            'Bạn có chắc muốn xóa giao dịch "${transaction.transactionCode}"?'),
+        title: Text(tr('Xác nhận xóa')),
+        content: Text(tr('Bạn có chắc muốn xóa giao dịch "${transaction.transactionCode}"?')),
         actions: [
           AppDialogActions.delete(
             onCancel: () => Navigator.pop(context, false),
@@ -453,7 +453,7 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
       if (result['isSuccess'] == true && mounted) {
         appNotification.showSuccess(
           title: 'Thành công',
-          message: 'Đã xóa giao dịch',
+          message: tr('Đã xóa giao dịch'),
         );
         _loadTransactions();
         _loadSummary();
@@ -467,17 +467,17 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
     return Scaffold(
       backgroundColor: HrmPageChrome.background,
       appBar: AppBar(
-        title: const Text('Quản lý Thu Chi', overflow: TextOverflow.ellipsis, maxLines: 1),
+        title: Text(tr('Quản lý Thu Chi'), overflow: TextOverflow.ellipsis, maxLines: 1),
         actions: [
           IconButton(
             icon: const Icon(Icons.category_outlined),
             onPressed: () => _showCategoryManagement(),
-            tooltip: 'Danh mục',
+            tooltip: tr('Danh mục'),
           ),
           IconButton(
             icon: const Icon(Icons.account_balance_outlined),
             onPressed: () => _showBankAccountManagement(),
-            tooltip: 'Tài khoản',
+            tooltip: tr('Tài khoản'),
           ),
         ],
       ),
@@ -493,7 +493,7 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
                   ? _showFundTransferForm()
                   : _showTransactionForm(),
               icon: Icon(_viewMode == 'transfers' ? Icons.swap_horiz : Icons.add),
-              label: Text(_viewMode == 'transfers' ? 'Chuyển quỹ' : 'Thu/Chi'),
+              label: Text(tr(_viewMode == 'transfers' ? 'Chuyển quỹ' : 'Thu/Chi')),
               backgroundColor: Theme.of(context).primaryColor,
               foregroundColor: Colors.white,
             )
@@ -521,8 +521,8 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
                 children: [
                   const Icon(Icons.category),
                   const SizedBox(width: 8),
-                  const Expanded(
-                    child: Text('Danh mục thu chi',
+                  Expanded(
+                    child: Text(tr('Danh mục thu chi'),
                       style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                   ),
                   if (Provider.of<PermissionProvider>(context, listen: false)
@@ -530,7 +530,7 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
                     IconButton(
                       icon: const Icon(Icons.add_circle_outline),
                       onPressed: () => _openCategoryFormFromSheet(),
-                      tooltip: 'Thêm danh mục',
+                      tooltip: tr('Thêm danh mục'),
                     ),
                   IconButton(
                     icon: const Icon(Icons.close),
@@ -542,7 +542,7 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
             const Divider(height: 24),
             Expanded(
               child: _categories.isEmpty
-                  ? const Center(child: Text('Chưa có danh mục'))
+                  ? Center(child: Text(tr('Chưa có danh mục')))
                   : ListView(
                       controller: scrollController,
                       padding: const EdgeInsets.all(16),
@@ -583,8 +583,8 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
                 children: [
                   const Icon(Icons.account_balance),
                   const SizedBox(width: 8),
-                  const Expanded(
-                    child: Text('Tài khoản ngân hàng',
+                  Expanded(
+                    child: Text(tr('Tài khoản ngân hàng'),
                       style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                   ),
                   if (Provider.of<PermissionProvider>(context, listen: false)
@@ -592,7 +592,7 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
                     IconButton(
                       icon: const Icon(Icons.add_circle_outline),
                       onPressed: () => _openBankAccountFormFromSheet(),
-                      tooltip: 'Thêm tài khoản',
+                      tooltip: tr('Thêm tài khoản'),
                     ),
                   IconButton(
                     icon: const Icon(Icons.close),
@@ -604,7 +604,7 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
             const Divider(height: 24),
             Expanded(
               child: _bankAccounts.isEmpty
-                  ? const Center(child: Text('Chưa có tài khoản'))
+                  ? Center(child: Text(tr('Chưa có tài khoản')))
                   : ListView(
                       controller: scrollController,
                       padding: const EdgeInsets.all(16),
@@ -643,7 +643,7 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
       }
 
       if (data.isEmpty) {
-        appNotification.showError(title: 'Lỗi', message: 'Không có dữ liệu để xuất');
+        appNotification.showError(title: 'Lỗi', message: tr('Không có dữ liệu để xuất'));
         return;
       }
 
@@ -724,10 +724,10 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
       if (bytes != null) {
         final blob = bytes;
         await file_saver.saveFileBytes(blob, 'thu_chi_${DateFormat('yyyyMMdd_HHmmss').format(DateTime.now())}.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-        appNotification.showSuccess(title: 'Thành công', message: 'Đã xuất file Excel (${data.length} phiếu)');
+        appNotification.showSuccess(title: 'Thành công', message: tr('Đã xuất file Excel (${data.length} phiếu)'));
       }
     } catch (e) {
-      appNotification.showError(title: 'Lỗi', message: 'Không thể xuất Excel: $e');
+      appNotification.showError(title: 'Lỗi', message: tr('Không thể xuất Excel: $e'));
     }
   }
 
@@ -754,15 +754,15 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
     return Padding(
       padding: EdgeInsets.fromLTRB(isMobile ? 12 : 16, 8, isMobile ? 12 : 16, 0),
       child: SegmentedButton<String>(
-        segments: const [
+        segments: [
           ButtonSegment(
             value: 'transactions',
-            label: Text('Thu / Chi'),
+            label: Text(tr('Thu / Chi')),
             icon: Icon(Icons.receipt_long, size: 18),
           ),
           ButtonSegment(
             value: 'transfers',
-            label: Text('Chuyển quỹ'),
+            label: Text(tr('Chuyển quỹ')),
             icon: Icon(Icons.swap_horiz, size: 18),
           ),
         ],
@@ -797,20 +797,20 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
       initialValue: _datePreset,
       isExpanded: true,
       decoration: InputDecoration(
-        labelText: 'Thời gian',
+        labelText: tr('Thời gian'),
         isDense: true,
         prefixIcon: const Icon(Icons.calendar_today, size: 16),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
         contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       ),
-      items: const [
-        DropdownMenuItem(value: 'today', child: Text('Hôm nay')),
-        DropdownMenuItem(value: 'yesterday', child: Text('Hôm qua')),
-        DropdownMenuItem(value: 'thisWeek', child: Text('Tuần này')),
-        DropdownMenuItem(value: 'lastWeek', child: Text('Tuần trước')),
-        DropdownMenuItem(value: 'thisMonth', child: Text('Tháng này')),
-        DropdownMenuItem(value: 'lastMonth', child: Text('Tháng trước')),
-        DropdownMenuItem(value: 'custom', child: Text('Tùy chọn...')),
+      items: [
+        DropdownMenuItem(value: 'today', child: Text(tr('Hôm nay'))),
+        DropdownMenuItem(value: 'yesterday', child: Text(tr('Hôm qua'))),
+        DropdownMenuItem(value: 'thisWeek', child: Text(tr('Tuần này'))),
+        DropdownMenuItem(value: 'lastWeek', child: Text(tr('Tuần trước'))),
+        DropdownMenuItem(value: 'thisMonth', child: Text(tr('Tháng này'))),
+        DropdownMenuItem(value: 'lastMonth', child: Text(tr('Tháng trước'))),
+        DropdownMenuItem(value: 'custom', child: Text(tr('Tùy chọn...'))),
       ],
       onChanged: (v) async {
         if (v == null) return;
@@ -845,7 +845,7 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
           FilledButton.icon(
             onPressed: _showFundTransferForm,
             icon: const Icon(Icons.swap_horiz, size: 18),
-            label: const Text('Chuyển quỹ'),
+            label: Text(tr('Chuyển quỹ')),
             style: FilledButton.styleFrom(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             ),
@@ -893,7 +893,7 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
             children: [
               Icon(Icons.account_balance_wallet, size: 16, color: Colors.blue.shade700),
               const SizedBox(width: 6),
-              Text('Số dư quỹ',
+              Text(tr('Số dư quỹ'),
                   style: TextStyle(
                       fontWeight: FontWeight.w600,
                       fontSize: 13,
@@ -930,14 +930,14 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Text(
-            balance.isCash ? 'Tiền mặt' : (balance.bankShortName ?? balance.label),
+            tr(balance.isCash ? 'Tiền mặt' : (balance.bankShortName ?? balance.label)),
             style: TextStyle(fontSize: 11, color: color.shade700, fontWeight: FontWeight.w500),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
           const SizedBox(height: 4),
           Text(
-            _currencyFormat.format(balance.balance),
+            tr(_currencyFormat.format(balance.balance)),
             style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: color.shade800),
           ),
         ],
@@ -1024,7 +1024,7 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Text(
-                    transfer.transferCode,
+                    tr(transfer.transferCode),
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
@@ -1034,14 +1034,14 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
                 ),
                 const Spacer(),
                 Text(
-                  DateFormat('dd/MM/yyyy').format(transfer.transferDate),
+                  tr(DateFormat('dd/MM/yyyy').format(transfer.transferDate)),
                   style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
                 ),
                 if (canDelete) ...[
                   const SizedBox(width: 4),
                   IconButton(
                     icon: Icon(Icons.delete_outline, size: 18, color: Colors.red.shade400),
-                    tooltip: 'Xóa',
+                    tooltip: tr('Xóa'),
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
                     onPressed: () => _deleteFundTransfer(transfer),
@@ -1054,7 +1054,7 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
               children: [
                 Expanded(
                   child: Text(
-                    transfer.fromFundLabel,
+                    tr(transfer.fromFundLabel),
                     style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
@@ -1066,7 +1066,7 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
                 ),
                 Expanded(
                   child: Text(
-                    transfer.toFundLabel,
+                    tr(transfer.toFundLabel),
                     style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
@@ -1077,7 +1077,7 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              _currencyFormat.format(transfer.amount),
+              tr(_currencyFormat.format(transfer.amount)),
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
@@ -1087,14 +1087,13 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
             if (transfer.description.isNotEmpty) ...[
               const SizedBox(height: 6),
               Text(
-                transfer.description,
+                tr(transfer.description),
                 style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
               ),
             ],
             if (transfer.createdByUserName.isNotEmpty) ...[
               const SizedBox(height: 6),
-              Text(
-                'Tạo bởi: ${transfer.createdByUserName}',
+              Text(tr('Tạo bởi: ${transfer.createdByUserName}'),
                 style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
               ),
             ],
@@ -1124,14 +1123,14 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Xóa phiếu chuyển quỹ'),
-        content: Text('Xóa phiếu ${transfer.transferCode}? Số dư quỹ sẽ được cập nhật lại.'),
+        title: Text(tr('Xóa phiếu chuyển quỹ')),
+        content: Text(tr('Xóa phiếu ${transfer.transferCode}? Số dư quỹ sẽ được cập nhật lại.')),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Hủy')),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Hủy'))),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Xóa'),
+            child: Text(tr('Xóa')),
           ),
         ],
       ),
@@ -1140,7 +1139,7 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
 
     final result = await _apiService.deleteFundTransfer(transfer.id);
     if (result['isSuccess'] == true && mounted) {
-      appNotification.showSuccess(title: 'Thành công', message: 'Đã xóa phiếu chuyển quỹ');
+      appNotification.showSuccess(title: 'Thành công', message: tr('Đã xóa phiếu chuyển quỹ'));
       _loadFundTransfers();
       _loadFundBalances();
     } else if (mounted) {
@@ -1170,7 +1169,7 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
                     Icon(Icons.analytics_outlined,
                         size: 16, color: Colors.blue.shade700),
                     const SizedBox(width: 6),
-                    Text('Tổng quan',
+                    Text(tr('Tổng quan'),
                         style: TextStyle(
                             fontWeight: FontWeight.w600,
                             fontSize: 13,
@@ -1241,20 +1240,20 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
       initialValue: _datePreset,
       isExpanded: true,
       decoration: InputDecoration(
-        labelText: 'Thời gian',
+        labelText: tr('Thời gian'),
         isDense: true,
         prefixIcon: const Icon(Icons.calendar_today, size: 16),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
         contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       ),
-      items: const [
-        DropdownMenuItem(value: 'today', child: Text('Hôm nay')),
-        DropdownMenuItem(value: 'yesterday', child: Text('Hôm qua')),
-        DropdownMenuItem(value: 'thisWeek', child: Text('Tuần này')),
-        DropdownMenuItem(value: 'lastWeek', child: Text('Tuần trước')),
-        DropdownMenuItem(value: 'thisMonth', child: Text('Tháng này')),
-        DropdownMenuItem(value: 'lastMonth', child: Text('Tháng trước')),
-        DropdownMenuItem(value: 'custom', child: Text('Tùy chọn...')),
+      items: [
+        DropdownMenuItem(value: 'today', child: Text(tr('Hôm nay'))),
+        DropdownMenuItem(value: 'yesterday', child: Text(tr('Hôm qua'))),
+        DropdownMenuItem(value: 'thisWeek', child: Text(tr('Tuần này'))),
+        DropdownMenuItem(value: 'lastWeek', child: Text(tr('Tuần trước'))),
+        DropdownMenuItem(value: 'thisMonth', child: Text(tr('Tháng này'))),
+        DropdownMenuItem(value: 'lastMonth', child: Text(tr('Tháng trước'))),
+        DropdownMenuItem(value: 'custom', child: Text(tr('Tùy chọn...'))),
       ],
       onChanged: (v) async {
         if (v == null) return;
@@ -1286,15 +1285,15 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
       initialValue: _typeFilter,
       isExpanded: true,
       decoration: InputDecoration(
-        labelText: 'Loại',
+        labelText: tr('Loại'),
         isDense: true,
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
         contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       ),
       items: [
-        const DropdownMenuItem(value: null, child: Text('Tất cả')),
+        DropdownMenuItem(value: null, child: Text(tr('Tất cả'))),
         ...CashTransactionType.values
-            .map((t) => DropdownMenuItem(value: t, child: Text(t.label))),
+            .map((t) => DropdownMenuItem(value: t, child: Text(tr(t.label)))),
       ],
       onChanged: (v) {
         setState(() {
@@ -1309,15 +1308,15 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
       initialValue: _statusFilter,
       isExpanded: true,
       decoration: InputDecoration(
-        labelText: 'Trạng thái',
+        labelText: tr('Trạng thái'),
         isDense: true,
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
         contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       ),
       items: [
-        const DropdownMenuItem(value: null, child: Text('Tất cả')),
+        DropdownMenuItem(value: null, child: Text(tr('Tất cả'))),
         ...CashTransactionStatus.values
-            .map((s) => DropdownMenuItem(value: s, child: Text(s.label))),
+            .map((s) => DropdownMenuItem(value: s, child: Text(tr(s.label)))),
       ],
       onChanged: (v) {
         setState(() => _statusFilter = v);
@@ -1329,17 +1328,17 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
       initialValue: _categoryFilter,
       isExpanded: true,
       decoration: InputDecoration(
-        labelText: 'Danh mục',
+        labelText: tr('Danh mục'),
         isDense: true,
         prefixIcon: const Icon(Icons.category, size: 16),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
         contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       ),
       items: [
-        const DropdownMenuItem(value: null, child: Text('Tất cả')),
+        DropdownMenuItem(value: null, child: Text(tr('Tất cả'))),
         ..._categories
             .where((c) => _typeFilter == null || c.type == _typeFilter)
-            .map((c) => DropdownMenuItem(value: c.id, child: Text(c.name))),
+            .map((c) => DropdownMenuItem(value: c.id, child: Text(tr(c.name)))),
       ],
       onChanged: (v) {
         setState(() => _categoryFilter = v);
@@ -1350,7 +1349,7 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
     final clearBtn = hasFilters
         ? IconButton(
             icon: const Icon(Icons.clear_all, size: 20),
-            tooltip: 'Xóa lọc',
+            tooltip: tr('Xóa lọc'),
             onPressed: () {
               setState(() {
                 _datePreset = 'thisMonth';
@@ -1371,7 +1370,7 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
         if (Provider.of<PermissionProvider>(context, listen: false).canExport('CashTransaction'))
         IconButton(
           icon: Icon(Icons.file_download, size: 20, color: Colors.green.shade700),
-          tooltip: 'Xuất Excel',
+          tooltip: tr('Xuất Excel'),
           onPressed: _exportCashTransactionsExcel,
         ),
         if (Provider.of<PermissionProvider>(context, listen: false).canCreate('CashTransaction'))
@@ -1382,7 +1381,7 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
               ? _showFundTransferForm()
               : _showTransactionForm(),
           icon: Icon(_viewMode == 'transfers' ? Icons.swap_horiz : Icons.add, size: 18),
-          label: Text(_viewMode == 'transfers' ? 'Chuyển quỹ' : 'Thu/Chi'),
+          label: Text(tr(_viewMode == 'transfers' ? 'Chuyển quỹ' : 'Thu/Chi')),
           style: FilledButton.styleFrom(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
           ),
@@ -1458,14 +1457,14 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
             Row(children: [
               Icon(Icons.arrow_downward, color: Colors.green.shade700, size: 16),
               const SizedBox(width: 6),
-              Text('Thu', style: TextStyle(
+              Text(tr('Thu'), style: TextStyle(
                 color: Colors.green.shade700, fontWeight: FontWeight.w600, fontSize: 13)),
             ]),
             const SizedBox(height: 4),
-            Text(_currencyFormat.format(s.totalIncome),
+            Text(tr(_currencyFormat.format(s.totalIncome)),
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold,
                 color: Colors.green.shade700)),
-            Text('${s.incomeTransactions} giao dịch', style: TextStyle(
+            Text(tr('${s.incomeTransactions} giao dịch'), style: TextStyle(
               color: Colors.green.shade400, fontSize: 11)),
           ],
         ),
@@ -1482,14 +1481,14 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
             Row(children: [
               Icon(Icons.arrow_upward, color: Colors.red.shade700, size: 16),
               const SizedBox(width: 6),
-              Text('Chi', style: TextStyle(
+              Text(tr('Chi'), style: TextStyle(
                 color: Colors.red.shade700, fontWeight: FontWeight.w600, fontSize: 13)),
             ]),
             const SizedBox(height: 4),
-            Text(_currencyFormat.format(s.totalExpense),
+            Text(tr(_currencyFormat.format(s.totalExpense)),
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold,
                 color: Colors.red.shade700)),
-            Text('${s.expenseTransactions} giao dịch', style: TextStyle(
+            Text(tr('${s.expenseTransactions} giao dịch'), style: TextStyle(
               color: Colors.red.shade400, fontSize: 11)),
           ],
         ),
@@ -1507,15 +1506,15 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
               Icon(s.balance >= 0 ? Icons.trending_up : Icons.trending_down,
                 color: s.balance >= 0 ? Colors.blue.shade700 : Colors.orange.shade700, size: 16),
               const SizedBox(width: 6),
-              Text('Số dư', style: TextStyle(
+              Text(tr('Số dư'), style: TextStyle(
                 color: s.balance >= 0 ? Colors.blue.shade700 : Colors.orange.shade700,
                 fontWeight: FontWeight.w600, fontSize: 13)),
             ]),
             const SizedBox(height: 4),
-            Text(_currencyFormat.format(s.balance),
+            Text(tr(_currencyFormat.format(s.balance)),
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold,
                 color: s.balance >= 0 ? Colors.blue.shade700 : Colors.orange.shade700)),
-            Text(_datePresetLabel, style: TextStyle(
+            Text(tr(_datePresetLabel), style: TextStyle(
               color: Colors.grey.shade400, fontSize: 11)),
           ],
         ),
@@ -1538,19 +1537,19 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
               Row(children: [
                 Icon(Icons.hourglass_top, color: Colors.teal.shade700, size: 16),
                 const SizedBox(width: 6),
-                Text('Chờ thu',
+                Text(tr('Chờ thu'),
                     style: TextStyle(
                         color: Colors.teal.shade700,
                         fontWeight: FontWeight.w600,
                         fontSize: 13)),
               ]),
               const SizedBox(height: 4),
-              Text(_currencyFormat.format(s.pendingIncomeAmount),
+              Text(tr(_currencyFormat.format(s.pendingIncomeAmount)),
                   style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
                       color: Colors.teal.shade700)),
-              Text('${s.pendingIncomeCount} phiếu',
+              Text(tr('${s.pendingIncomeCount} phiếu'),
                   style: TextStyle(color: Colors.teal.shade400, fontSize: 11)),
             ],
           ),
@@ -1575,19 +1574,19 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
                 Icon(Icons.payments_outlined,
                     color: Colors.amber.shade800, size: 16),
                 const SizedBox(width: 6),
-                Text('Chờ chi',
+                Text(tr('Chờ chi'),
                     style: TextStyle(
                         color: Colors.amber.shade800,
                         fontWeight: FontWeight.w600,
                         fontSize: 13)),
               ]),
               const SizedBox(height: 4),
-              Text(_currencyFormat.format(s.pendingExpenseAmount),
+              Text(tr(_currencyFormat.format(s.pendingExpenseAmount)),
                   style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
                       color: Colors.amber.shade800)),
-              Text('${s.pendingExpenseCount} phiếu',
+              Text(tr('${s.pendingExpenseCount} phiếu'),
                   style:
                       TextStyle(color: Colors.amber.shade600, fontSize: 11)),
             ],
@@ -1645,7 +1644,7 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
           children: [
             completedRow,
             const SizedBox(height: 8),
-            Text('Phiếu chờ thanh toán',
+            Text(tr('Phiếu chờ thanh toán'),
                 style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
@@ -1675,7 +1674,7 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
           final storeAccounts = _bankAccounts.where((a) => a.isActive).toList();
 
           return ScrollableAlertDialog(
-            title: Text(dialogTitle),
+            title: Text(tr(dialogTitle)),
             content: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1690,11 +1689,11 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(transaction.description,
+                      Text(tr(transaction.description),
                           style: const TextStyle(fontWeight: FontWeight.w600)),
                       const SizedBox(height: 6),
                       Text(
-                        _currencyFormat.format(transaction.amount),
+                        tr(_currencyFormat.format(transaction.amount)),
                         style: TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.bold,
@@ -1704,7 +1703,7 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                const Text('Phương thức thanh toán',
+                Text(tr('Phương thức thanh toán'),
                     style:
                         TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
                 const SizedBox(height: 8),
@@ -1719,7 +1718,7 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
                             children: [
                               Icon(_getPaymentMethodIcon(method), size: 18),
                               const SizedBox(width: 8),
-                              Text(method.label),
+                              Text(tr(method.label)),
                             ],
                           ),
                           // ignore: deprecated_member_use
@@ -1735,15 +1734,15 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
                   const SizedBox(height: 8),
                   DropdownButtonFormField<String>(
                     initialValue: selectedBankAccountId,
-                    decoration: const InputDecoration(
-                      labelText: 'Tài khoản ngân hàng',
+                    decoration: InputDecoration(
+                      labelText: tr('Tài khoản ngân hàng'),
                       border: OutlineInputBorder(),
                       isDense: true,
                     ),
                     items: storeAccounts
                         .map((a) => DropdownMenuItem(
                               value: a.id,
-                              child: Text('${a.bankName} - ${a.accountNumber}'),
+                              child: Text(tr('${a.bankName} - ${a.accountNumber}')),
                             ))
                         .toList(),
                     onChanged: (v) =>
@@ -1760,8 +1759,8 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
                       (selectedBankAccountId == null ||
                           selectedBankAccountId!.isEmpty)) {
                     ScaffoldMessenger.of(ctx).showSnackBar(
-                      const SnackBar(
-                          content: Text('Vui lòng chọn tài khoản ngân hàng')),
+                      SnackBar(
+                          content: Text(tr('Vui lòng chọn tài khoản ngân hàng'))),
                     );
                     return;
                   }
@@ -1791,7 +1790,7 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
     if (result['isSuccess'] == true && mounted) {
       appNotification.showSuccess(
         title: 'Thành công',
-        message: 'Đã $actionLabel: ${transaction.transactionCode}',
+        message: tr('Đã $actionLabel: ${transaction.transactionCode}'),
       );
       _loadTransactions();
       _loadInlineSummary();
@@ -1824,7 +1823,7 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
                 child: Text(
-                  transaction.description,
+                  tr(transaction.description),
                   style: const TextStyle(
                       fontWeight: FontWeight.w600, fontSize: 15),
                 ),
@@ -1835,7 +1834,7 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
                     isIncome ? Icons.savings : Icons.payment,
                     color: Colors.green,
                   ),
-                  title: Text(isIncome ? 'Thu tiền' : 'Thanh toán'),
+                  title: Text(tr(isIncome ? 'Thu tiền' : 'Thanh toán')),
                   onTap: () {
                     Navigator.pop(ctx);
                     _showPayTransactionDialog(transaction);
@@ -1844,7 +1843,7 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
               if (perms.canEdit('CashTransaction'))
                 ListTile(
                   leading: const Icon(Icons.edit, color: Colors.blue),
-                  title: const Text('Sửa'),
+                  title: Text(tr('Sửa')),
                   onTap: () {
                     Navigator.pop(ctx);
                     _showTransactionForm(transaction);
@@ -1853,7 +1852,7 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
               if (canPay)
                 ListTile(
                   leading: const Icon(Icons.cancel, color: Colors.orange),
-                  title: const Text('Hủy'),
+                  title: Text(tr('Hủy')),
                   onTap: () {
                     Navigator.pop(ctx);
                     _updateTransactionStatus(
@@ -1864,7 +1863,7 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
                   transaction.paymentMethod == PaymentMethodType.bankTransfer)
                 ListTile(
                   leading: const Icon(Icons.qr_code_2, color: Colors.purple),
-                  title: const Text('VietQR'),
+                  title: Text(tr('VietQR')),
                   onTap: () {
                     Navigator.pop(ctx);
                     _showVietQRDialog(transaction);
@@ -1873,7 +1872,7 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
               if (perms.canDelete('CashTransaction'))
                 ListTile(
                   leading: Icon(Icons.delete, color: Colors.red.shade700),
-                  title: Text('Xóa',
+                  title: Text(tr('Xóa'),
                       style: TextStyle(color: Colors.red.shade700)),
                   onTap: () {
                     Navigator.pop(ctx);
@@ -1892,9 +1891,8 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => ScrollableAlertDialog(
-        title: const Text('Xác nhận'),
-        content: Text(
-            'Bạn có chắc muốn chuyển trạng thái giao dịch sang "${newStatus.label}"?'),
+        title: Text(tr('Xác nhận')),
+        content: Text(tr('Bạn có chắc muốn chuyển trạng thái giao dịch sang "${newStatus.label}"?')),
         actions: [
           AppDialogActions(
             onCancel: () => Navigator.pop(ctx, false),
@@ -1917,7 +1915,7 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
     if (result['isSuccess'] == true && mounted) {
       appNotification.showSuccess(
         title: 'Thành công',
-        message: 'Đã cập nhật: ${newStatus.label}',
+        message: tr('Đã cập nhật: ${newStatus.label}'),
       );
       _loadTransactions();
       _loadInlineSummary();
@@ -1989,12 +1987,12 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
         spacing: 12,
         runSpacing: 8,
         children: [
-          Text('Hiển thị $start-$end / $_totalTransactions',
+          Text(tr('Hiển thị $start-$end / $_totalTransactions'),
               style: TextStyle(fontSize: 13, color: Colors.grey.shade600)),
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('Hiển thị:', style: TextStyle(fontSize: 12, color: Colors.grey[500])),
+              Text(tr('Hiển thị:'), style: TextStyle(fontSize: 12, color: Colors.grey[500])),
               const SizedBox(width: 8),
               Container(
                 height: 34,
@@ -2009,7 +2007,7 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
                     value: _pageSize,
                     isDense: true,
                     style: TextStyle(fontSize: 13, color: Colors.grey[800]),
-                    items: _pageSizeOptions.map((s) => DropdownMenuItem(value: s, child: Text('$s'))).toList(),
+                    items: _pageSizeOptions.map((s) => DropdownMenuItem(value: s, child: Text(tr('$s')))).toList(),
                     onChanged: (v) {
                       if (v != null) {
                         setState(() { _pageSize = v; _currentPage = 1; });
@@ -2037,7 +2035,7 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
                   color: Theme.of(context).primaryColor,
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: Text('$_currentPage / $totalPages',
+                child: Text(tr('$_currentPage / $totalPages'),
                     style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.white)),
               ),
               IconButton(
@@ -2071,10 +2069,10 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
           const SizedBox(width: 12),
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(transaction.description, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14), maxLines: 1, overflow: TextOverflow.ellipsis),
+              Text(tr(transaction.description), style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14), maxLines: 1, overflow: TextOverflow.ellipsis),
               const SizedBox(height: 2),
               Text(
-                [transaction.transactionCode, transaction.categoryName, DateFormat('dd/MM/yyyy').format(transaction.transactionDate)].join(' · '),
+                tr([transaction.transactionCode, transaction.categoryName, DateFormat('dd/MM/yyyy').format(transaction.transactionDate)].join(' · ')),
                 style: const TextStyle(color: Color(0xFF71717A), fontSize: 12),
                 maxLines: 1, overflow: TextOverflow.ellipsis,
               ),
@@ -2085,7 +2083,7 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
             ]),
           ),
           Text(
-            '${isIncome ? '+' : '-'}${formatter.format(transaction.amount)} đ',
+            tr('${isIncome ? '+' : '-'}${formatter.format(transaction.amount)} đ'),
             style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: color),
           ),
         ]),
@@ -2124,7 +2122,7 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        transaction.description,
+                        tr(transaction.description),
                         style: const TextStyle(
                           fontWeight: FontWeight.w600,
                           fontSize: 15,
@@ -2134,7 +2132,7 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        '${transaction.transactionCode} • ${transaction.categoryName}',
+                        tr('${transaction.transactionCode} • ${transaction.categoryName}'),
                         style: TextStyle(
                           color: Colors.grey[600],
                           fontSize: 12,
@@ -2147,7 +2145,7 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Text(
-                      '${isIncome ? '+' : '-'}${_currencyFormat.format(transaction.amount)}',
+                      tr('${isIncome ? '+' : '-'}${_currencyFormat.format(transaction.amount)}'),
                       style: TextStyle(
                         color: color,
                         fontWeight: FontWeight.bold,
@@ -2155,7 +2153,7 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
                       ),
                     ),
                     Text(
-                      _dateFormat.format(transaction.transactionDate),
+                      tr(_dateFormat.format(transaction.transactionDate)),
                       style: TextStyle(
                         color: Colors.grey[600],
                         fontSize: 12,
@@ -2251,7 +2249,7 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
     }
 
     return Chip(
-      label: Text(status.label),
+      label: Text(tr(status.label)),
       backgroundColor: color.withAlpha(30),
       labelStyle: TextStyle(color: color, fontSize: 11),
       padding: EdgeInsets.zero,
@@ -2266,7 +2264,7 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
         _getPaymentMethodIcon(method),
         size: 14,
       ),
-      label: Text(method.label),
+      label: Text(tr(method.label)),
       backgroundColor: Colors.grey.withAlpha(30),
       labelStyle: const TextStyle(fontSize: 11),
       padding: EdgeInsets.zero,
@@ -2327,7 +2325,7 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
             Icon(Icons.circle, color: color, size: 12),
             const SizedBox(width: 8),
             Text(
-              '$title (${categories.length})',
+              tr('$title (${categories.length})'),
               style: const TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
@@ -2347,18 +2345,18 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
       context: context,
       useRootNavigator: true,
       builder: (ctx) => AlertDialog(
-        title: Text(isSystem ? 'Ẩn danh mục' : 'Xóa danh mục'),
-        content: Text(isSystem
+        title: Text(tr(isSystem ? 'Ẩn danh mục' : 'Xóa danh mục')),
+        content: Text(tr(isSystem
             ? 'Danh mục hệ thống "${category.name}" sẽ được ẩn khỏi danh sách (không xóa hẳn).'
-            : 'Xóa danh mục "${category.name}"?'),
+            : 'Xóa danh mục "${category.name}"?')),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Hủy'),
+            child: Text(tr('Hủy')),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: Text(isSystem ? 'Ẩn' : 'Xóa'),
+            child: Text(tr(isSystem ? 'Ẩn' : 'Xóa')),
           ),
         ],
       ),
@@ -2401,10 +2399,10 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
             size: 20,
           ),
         ),
-        title: Text(category.name),
+        title: Text(tr(category.name)),
         subtitle: category.description != null
             ? Text(
-                category.description!,
+                tr(category.description!),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               )
@@ -2413,8 +2411,8 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             if (category.isSystem)
-              const Chip(
-                label: Text('Hệ thống'),
+              Chip(
+                label: Text(tr('Hệ thống')),
                 visualDensity: VisualDensity.compact,
                 padding: EdgeInsets.zero,
               ),
@@ -2422,13 +2420,13 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
               IconButton(
                 icon: const Icon(Icons.edit, size: 18),
                 onPressed: () => _openCategoryFormFromSheet(category),
-                tooltip: 'Sửa',
+                tooltip: tr('Sửa'),
               ),
             if (canDelete)
               IconButton(
                 icon: const Icon(Icons.delete_outline, size: 18, color: Colors.red),
                 onPressed: () => _deleteCategory(category),
-                tooltip: category.isSystem ? 'Ẩn' : 'Xóa',
+                tooltip: tr(category.isSystem ? 'Ẩn' : 'Xóa'),
               ),
           ],
         ),
@@ -2536,10 +2534,10 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
           const SizedBox(width: 12),
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(account.accountName, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14), maxLines: 1, overflow: TextOverflow.ellipsis),
+              Text(tr(account.accountName), style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14), maxLines: 1, overflow: TextOverflow.ellipsis),
               const SizedBox(height: 2),
               Text(
-                [account.bankName, account.accountNumber].join(' · '),
+                tr([account.bankName, account.accountNumber].join(' · ')),
                 style: const TextStyle(color: Color(0xFF71717A), fontSize: 12),
                 maxLines: 1, overflow: TextOverflow.ellipsis,
               ),
@@ -2548,7 +2546,7 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
           if (account.isDefault) Container(
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
             decoration: BoxDecoration(color: Colors.green.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
-            child: const Text('Mặc định', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Colors.green)),
+            child: Text(tr('Mặc định'), style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Colors.green)),
           ),
           const SizedBox(width: 4),
           const Icon(Icons.chevron_right, size: 18, color: Color(0xFFA1A1AA)),
@@ -2581,15 +2579,15 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
               : const Icon(Icons.account_balance, color: Colors.blue),
         ),
         title: Text(
-          account.accountName,
+          tr(account.accountName),
           style: const TextStyle(fontWeight: FontWeight.w600),
         ),
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(account.bankName),
+            Text(tr(account.bankName)),
             Text(
-              account.accountNumber,
+              tr(account.accountNumber),
               style: const TextStyle(fontFamily: 'monospace'),
             ),
           ],
@@ -2599,8 +2597,8 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             if (account.isDefault)
-              const Chip(
-                label: Text('Mặc định'),
+              Chip(
+                label: Text(tr('Mặc định')),
                 backgroundColor: Colors.green,
                 labelStyle: TextStyle(color: Colors.white, fontSize: 11),
                 visualDensity: VisualDensity.compact,
@@ -2609,37 +2607,37 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
             PopupMenuButton(
               itemBuilder: (context) => [
                 if (Provider.of<PermissionProvider>(context, listen: false).canEdit('CashTransaction'))
-                const PopupMenuItem(
+                PopupMenuItem(
                   value: 'edit',
                   child: ListTile(
                     leading: Icon(Icons.edit),
-                    title: Text('Sửa'),
+                    title: Text(tr('Sửa')),
                     contentPadding: EdgeInsets.zero,
                   ),
                 ),
                 if (!account.isDefault)
-                  const PopupMenuItem(
+                  PopupMenuItem(
                     value: 'default',
                     child: ListTile(
                       leading: Icon(Icons.star),
-                      title: Text('Đặt mặc định'),
+                      title: Text(tr('Đặt mặc định')),
                       contentPadding: EdgeInsets.zero,
                     ),
                   ),
-                const PopupMenuItem(
+                PopupMenuItem(
                   value: 'qr',
                   child: ListTile(
                     leading: Icon(Icons.qr_code_2),
-                    title: Text('Xem QR'),
+                    title: Text(tr('Xem QR')),
                     contentPadding: EdgeInsets.zero,
                   ),
                 ),
                 if (Provider.of<PermissionProvider>(context, listen: false).canDelete('CashTransaction'))
-                const PopupMenuItem(
+                PopupMenuItem(
                   value: 'delete',
                   child: ListTile(
                     leading: Icon(Icons.delete, color: Colors.red),
-                    title: Text('Xóa', style: TextStyle(color: Colors.red)),
+                    title: Text(tr('Xóa'), style: TextStyle(color: Colors.red)),
                     contentPadding: EdgeInsets.zero,
                   ),
                 ),
@@ -2675,8 +2673,8 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => ScrollableAlertDialog(
-        title: const Text('Xác nhận xóa'),
-        content: Text('Bạn có chắc muốn xóa tài khoản "${account.accountName}"?'),
+        title: Text(tr('Xác nhận xóa')),
+        content: Text(tr('Bạn có chắc muốn xóa tài khoản "${account.accountName}"?')),
         actions: [
           AppDialogActions.delete(
             onCancel: () => Navigator.pop(context, false),
@@ -2691,7 +2689,7 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
       if (result['isSuccess'] == true && mounted) {
         appNotification.showSuccess(
           title: 'Thành công',
-          message: 'Đã xóa tài khoản',
+          message: tr('Đã xóa tài khoản'),
         );
         _loadBankAccounts();
       }
@@ -2702,7 +2700,7 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
     showDialog(
       context: context,
       builder: (context) => ScrollableAlertDialog(
-        title: Text(account.accountName),
+        title: Text(tr(account.accountName)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -2718,16 +2716,16 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
             ),
             const SizedBox(height: 16),
             Text(
-              account.bankName,
+              tr(account.bankName),
               style: const TextStyle(fontWeight: FontWeight.bold),
             ),
-            Text(account.accountNumber),
+            Text(tr(account.accountNumber)),
           ],
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Đóng'),
+            child: Text(tr('Đóng')),
           ),
         ],
       ),
@@ -2781,8 +2779,7 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
 
           // Income by category
           if (_summary!.incomeByCategory.isNotEmpty) ...[
-            const Text(
-              'Thu nhập theo danh mục',
+            Text(tr('Thu nhập theo danh mục'),
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
@@ -2792,8 +2789,7 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
 
           // Expense by category
           if (_summary!.expenseByCategory.isNotEmpty) ...[
-            const Text(
-              'Chi phí theo danh mục',
+            Text(tr('Chi phí theo danh mục'),
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
@@ -2822,7 +2818,7 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
                 Icon(icon, color: color, size: 20),
                 const SizedBox(width: 8),
                 Text(
-                  title,
+                  tr(title),
                   style: TextStyle(
                     color: Colors.grey[600],
                     fontSize: 14,
@@ -2832,7 +2828,7 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              _currencyFormat.format(amount),
+              tr(_currencyFormat.format(amount)),
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
@@ -2841,7 +2837,7 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
             ),
             const SizedBox(height: 4),
             Text(
-              subtitle,
+              tr(subtitle),
               style: TextStyle(
                 color: Colors.grey[500],
                 fontSize: 12,
@@ -2863,21 +2859,21 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
           valueColor: AlwaysStoppedAnimation(color),
           strokeWidth: 3,
         ),
-        title: Text(category.categoryName),
-        subtitle: Text('${category.count} giao dịch'),
+        title: Text(tr(category.categoryName)),
+        subtitle: Text(tr('${category.count} giao dịch')),
         trailing: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
             Text(
-              _currencyFormat.format(category.amount),
+              tr(_currencyFormat.format(category.amount)),
               style: TextStyle(
                 fontWeight: FontWeight.bold,
                 color: color,
               ),
             ),
             Text(
-              '${category.percentage.toStringAsFixed(1)}%',
+              tr('${category.percentage.toStringAsFixed(1)}%'),
               style: TextStyle(
                 color: Colors.grey[600],
                 fontSize: 12,
@@ -2996,13 +2992,13 @@ class _TransactionFormDialogState extends State<_TransactionFormDialog> {
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
     if (_categoryId == null) {
-      appNotification.showWarning(title: 'Thiếu thông tin', message: 'Vui lòng chọn danh mục');
+      appNotification.showWarning(title: 'Thiếu thông tin', message: tr('Vui lòng chọn danh mục'));
       return;
     }
     if (_needsBankAccount(_paymentMethod) && _bankAccountId == null) {
       appNotification.showWarning(
         title: 'Thiếu thông tin',
-        message: 'Vui lòng chọn tài khoản ngân hàng',
+        message: tr('Vui lòng chọn tài khoản ngân hàng'),
       );
       return;
     }
@@ -3060,7 +3056,7 @@ class _TransactionFormDialogState extends State<_TransactionFormDialog> {
                   segments: CashTransactionType.values
                       .map((t) => ButtonSegment(
                             value: t,
-                            label: Text(t.label),
+                            label: Text(tr(t.label)),
                             icon: Icon(
                               t == CashTransactionType.income
                                   ? Icons.arrow_downward
@@ -3081,13 +3077,13 @@ class _TransactionFormDialogState extends State<_TransactionFormDialog> {
 
                 // Category dropdown
                 DropdownButtonFormField<String>(
-                  decoration: const InputDecoration(
-                    labelText: 'Danh mục *',
+                  decoration: InputDecoration(
+                    labelText: tr('Danh mục *'),
                     prefixIcon: Icon(Icons.category),
                   ),
                   initialValue: _categoryId,
                   items: _filteredCategories
-                      .map((c) => DropdownMenuItem(value: c.id, child: Text(c.name)))
+                      .map((c) => DropdownMenuItem(value: c.id, child: Text(tr(c.name))))
                       .toList(),
                   onChanged: (v) => setState(() => _categoryId = v),
                   validator: (v) => v == null ? 'Chọn danh mục' : null,
@@ -3097,10 +3093,10 @@ class _TransactionFormDialogState extends State<_TransactionFormDialog> {
                 // Amount
                 TextFormField(
                   controller: _amountController,
-                  decoration: const InputDecoration(
-                    labelText: 'Số tiền *',
+                  decoration: InputDecoration(
+                    labelText: tr('Số tiền *'),
                     prefixIcon: Icon(Icons.attach_money),
-                    suffixText: 'đ',
+                    suffixText: tr('đ'),
                   ),
                   keyboardType: TextInputType.number,
                   inputFormatters: [
@@ -3119,8 +3115,8 @@ class _TransactionFormDialogState extends State<_TransactionFormDialog> {
                 // Description
                 TextFormField(
                   controller: _descriptionController,
-                  decoration: const InputDecoration(
-                    labelText: 'Mô tả *',
+                  decoration: InputDecoration(
+                    labelText: tr('Mô tả *'),
                     prefixIcon: Icon(Icons.description),
                   ),
                   maxLines: 2,
@@ -3132,8 +3128,8 @@ class _TransactionFormDialogState extends State<_TransactionFormDialog> {
                 ListTile(
                   contentPadding: EdgeInsets.zero,
                   leading: const Icon(Icons.calendar_today),
-                  title: const Text('Ngày giao dịch'),
-                  subtitle: Text(DateFormat('dd/MM/yyyy').format(_transactionDate)),
+                  title: Text(tr('Ngày giao dịch')),
+                  subtitle: Text(tr(DateFormat('dd/MM/yyyy').format(_transactionDate))),
                   onTap: () async {
                     final date = await showDatePicker(
                       context: context,
@@ -3148,13 +3144,13 @@ class _TransactionFormDialogState extends State<_TransactionFormDialog> {
 
                 // Payment method
                 DropdownButtonFormField<PaymentMethodType>(
-                  decoration: const InputDecoration(
-                    labelText: 'Phương thức thanh toán',
+                  decoration: InputDecoration(
+                    labelText: tr('Phương thức thanh toán'),
                     prefixIcon: Icon(Icons.payment),
                   ),
                   initialValue: _paymentMethod,
                   items: PaymentMethodType.values
-                      .map((m) => DropdownMenuItem(value: m, child: Text(m.label)))
+                      .map((m) => DropdownMenuItem(value: m, child: Text(tr(m.label))))
                       .toList(),
                   onChanged: (v) {
                     if (v != null) _onPaymentMethodChanged(v);
@@ -3165,8 +3161,8 @@ class _TransactionFormDialogState extends State<_TransactionFormDialog> {
                 // Bank account (if bank transfer or VietQR)
                 if (_needsBankAccount(_paymentMethod)) ...[
                   DropdownButtonFormField<String>(
-                    decoration: const InputDecoration(
-                      labelText: 'Tài khoản ngân hàng *',
+                    decoration: InputDecoration(
+                      labelText: tr('Tài khoản ngân hàng *'),
                       prefixIcon: Icon(Icons.account_balance),
                     ),
                     initialValue: _bankAccountId,
@@ -3174,8 +3170,8 @@ class _TransactionFormDialogState extends State<_TransactionFormDialog> {
                         .map((a) => DropdownMenuItem(
                               value: a.id,
                               child: Text(
-                                '${a.bankShortName ?? a.bankName} - ${a.accountNumber}'
-                                '${a.isDefault ? ' (Mặc định)' : ''}',
+                                tr('${a.bankShortName ?? a.bankName} - ${a.accountNumber}'
+                                '${a.isDefault ? ' (Mặc định)' : ''}'),
                               ),
                             ))
                         .toList(),
@@ -3187,21 +3183,21 @@ class _TransactionFormDialogState extends State<_TransactionFormDialog> {
 
                 // Contact info
                 ExpansionTile(
-                  title: const Text('Thông tin liên hệ'),
+                  title: Text(tr('Thông tin liên hệ')),
                   tilePadding: EdgeInsets.zero,
                   children: [
                     TextFormField(
                       controller: _contactNameController,
-                      decoration: const InputDecoration(
-                        labelText: 'Tên liên hệ',
+                      decoration: InputDecoration(
+                        labelText: tr('Tên liên hệ'),
                         prefixIcon: Icon(Icons.person),
                       ),
                     ),
                     const SizedBox(height: 8),
                     TextFormField(
                       controller: _contactPhoneController,
-                      decoration: const InputDecoration(
-                        labelText: 'Số điện thoại',
+                      decoration: InputDecoration(
+                        labelText: tr('Số điện thoại'),
                         prefixIcon: Icon(Icons.phone),
                       ),
                       keyboardType: TextInputType.phone,
@@ -3209,8 +3205,8 @@ class _TransactionFormDialogState extends State<_TransactionFormDialog> {
                     const SizedBox(height: 8),
                     TextFormField(
                       controller: _noteController,
-                      decoration: const InputDecoration(
-                        labelText: 'Ghi chú nội bộ',
+                      decoration: InputDecoration(
+                        labelText: tr('Ghi chú nội bộ'),
                         prefixIcon: Icon(Icons.note),
                       ),
                       maxLines: 2,
@@ -3222,7 +3218,7 @@ class _TransactionFormDialogState extends State<_TransactionFormDialog> {
                 // Is paid
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
-                  title: const Text('Đã thanh toán'),
+                  title: Text(tr('Đã thanh toán')),
                   value: _isPaid,
                   onChanged: (v) => setState(() => _isPaid = v),
                 ),
@@ -3234,7 +3230,7 @@ class _TransactionFormDialogState extends State<_TransactionFormDialog> {
       return Dialog.fullscreen(
         child: Scaffold(
           appBar: AppBar(
-            title: Text(dialogTitle),
+            title: Text(tr(dialogTitle)),
             leading: IconButton(
               icon: const Icon(Icons.close),
               onPressed: () => Navigator.pop(context),
@@ -3246,7 +3242,7 @@ class _TransactionFormDialogState extends State<_TransactionFormDialog> {
                   onPressed: _isLoading ? null : _save,
                   child: _isLoading
                       ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                      : Text(widget.transaction == null ? 'Tạo' : 'Lưu'),
+                      : Text(tr(widget.transaction == null ? 'Tạo' : 'Lưu')),
                 ),
               ),
             ],
@@ -3260,7 +3256,7 @@ class _TransactionFormDialogState extends State<_TransactionFormDialog> {
     }
 
     return ScrollableAlertDialog(
-      title: Text(dialogTitle),
+      title: Text(tr(dialogTitle)),
       content: SizedBox(
         width: 400,
         child: SingleChildScrollView(child: formBody),
@@ -3289,7 +3285,7 @@ class _ThousandsSeparatorInputFormatter extends TextInputFormatter {
 
     final formatted = NumberFormat('#,###', 'vi_VN').format(number);
     return TextEditingValue(
-      text: formatted,
+      text: tr(formatted),
       selection: TextSelection.collapsed(offset: formatted.length),
     );
   }
@@ -3417,15 +3413,15 @@ class _CategoryFormDialogState extends State<_CategoryFormDialog> {
       context: context,
       useRootNavigator: true,
       builder: (ctx) => AlertDialog(
-        title: Text(isSystem ? 'Ẩn danh mục' : 'Xóa danh mục'),
-        content: Text(isSystem
+        title: Text(tr(isSystem ? 'Ẩn danh mục' : 'Xóa danh mục')),
+        content: Text(tr(isSystem
             ? 'Danh mục hệ thống sẽ được ẩn khỏi danh sách.'
-            : 'Xóa danh mục "${category.name}"?'),
+            : 'Xóa danh mục "${category.name}"?')),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Hủy')),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Hủy'))),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: Text(isSystem ? 'Ẩn' : 'Xóa'),
+            child: Text(tr(isSystem ? 'Ẩn' : 'Xóa')),
           ),
         ],
       ),
@@ -3470,15 +3466,14 @@ class _CategoryFormDialogState extends State<_CategoryFormDialog> {
           if (isSystem)
             Padding(
               padding: const EdgeInsets.only(bottom: 12),
-              child: Text(
-                'Danh mục hệ thống: có thể đổi tên/mô tả/biểu tượng. Xóa sẽ ẩn khỏi danh sách.',
+              child: Text(tr('Danh mục hệ thống: có thể đổi tên/mô tả/biểu tượng. Xóa sẽ ẩn khỏi danh sách.'),
                 style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
               ),
             ),
           if (!isEdit)
             SegmentedButton<CashTransactionType>(
                 segments: CashTransactionType.values
-                    .map((t) => ButtonSegment(value: t, label: Text(t.label)))
+                    .map((t) => ButtonSegment(value: t, label: Text(tr(t.label))))
                     .toList(),
                 selected: {_type},
                 onSelectionChanged: (v) => setState(() => _type = v.first),
@@ -3487,8 +3482,8 @@ class _CategoryFormDialogState extends State<_CategoryFormDialog> {
 
               TextFormField(
                 controller: _nameController,
-                decoration: const InputDecoration(
-                  labelText: 'Tên danh mục *',
+                decoration: InputDecoration(
+                  labelText: tr('Tên danh mục *'),
                   prefixIcon: Icon(Icons.label),
                 ),
                 validator: (v) => v?.isEmpty ?? true ? 'Nhập tên danh mục' : null,
@@ -3497,17 +3492,17 @@ class _CategoryFormDialogState extends State<_CategoryFormDialog> {
 
               TextFormField(
                 controller: _descriptionController,
-                decoration: const InputDecoration(
-                  labelText: 'Mô tả',
+                decoration: InputDecoration(
+                  labelText: tr('Mô tả'),
                   prefixIcon: Icon(Icons.description),
                 ),
               ),
               const SizedBox(height: 16),
 
               // Icon selector
-              const Align(
+              Align(
                 alignment: Alignment.centerLeft,
-                child: Text('Biểu tượng:'),
+                child: Text(tr('Biểu tượng:')),
               ),
               const SizedBox(height: 8),
               Wrap(
@@ -3542,7 +3537,7 @@ class _CategoryFormDialogState extends State<_CategoryFormDialog> {
       return Dialog.fullscreen(
         child: Scaffold(
           appBar: AppBar(
-            title: Text(dialogTitle),
+            title: Text(tr(dialogTitle)),
             leading: IconButton(
               icon: const Icon(Icons.close),
               onPressed: () => Navigator.pop(context),
@@ -3552,7 +3547,7 @@ class _CategoryFormDialogState extends State<_CategoryFormDialog> {
                 TextButton(
                   onPressed: _isLoading ? null : _delete,
                   child: Text(
-                    isSystem ? 'Ẩn' : 'Xóa',
+                    tr(isSystem ? 'Ẩn' : 'Xóa'),
                     style: const TextStyle(color: Colors.red),
                   ),
                 ),
@@ -3562,7 +3557,7 @@ class _CategoryFormDialogState extends State<_CategoryFormDialog> {
                   onPressed: _isLoading ? null : _save,
                   child: _isLoading
                       ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                      : Text(widget.category == null ? 'Tạo' : 'Lưu'),
+                      : Text(tr(widget.category == null ? 'Tạo' : 'Lưu')),
                 ),
               ),
             ],
@@ -3576,7 +3571,7 @@ class _CategoryFormDialogState extends State<_CategoryFormDialog> {
     }
 
     return ScrollableAlertDialog(
-      title: Text(dialogTitle),
+      title: Text(tr(dialogTitle)),
       content: SizedBox(
         width: 350,
         child: SingleChildScrollView(child: formBody),
@@ -3586,7 +3581,7 @@ class _CategoryFormDialogState extends State<_CategoryFormDialog> {
           TextButton(
             onPressed: _isLoading ? null : _delete,
             child: Text(
-              isSystem ? 'Ẩn' : 'Xóa',
+              tr(isSystem ? 'Ẩn' : 'Xóa'),
               style: const TextStyle(color: Colors.red),
             ),
           ),
@@ -3656,7 +3651,7 @@ class _BankAccountFormDialogState extends State<_BankAccountFormDialog> {
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
     if (_selectedBankCode == null) {
-      appNotification.showWarning(title: 'Thiếu thông tin', message: 'Vui lòng chọn ngân hàng');
+      appNotification.showWarning(title: 'Thiếu thông tin', message: tr('Vui lòng chọn ngân hàng'));
       return;
     }
 
@@ -3708,8 +3703,8 @@ class _BankAccountFormDialogState extends State<_BankAccountFormDialog> {
         children: [
           // Bank selector
           DropdownButtonFormField<String>(
-                decoration: const InputDecoration(
-                  labelText: 'Ngân hàng *',
+                decoration: InputDecoration(
+                  labelText: tr('Ngân hàng *'),
                   prefixIcon: Icon(Icons.account_balance),
                 ),
                 initialValue: _selectedBankCode,
@@ -3726,7 +3721,7 @@ class _BankAccountFormDialogState extends State<_BankAccountFormDialog> {
                                   errorWidget: (_, __, ___) => const Icon(Icons.account_balance),
                                 ),
                               const SizedBox(width: 8),
-                              Expanded(child: Text(b.shortName)),
+                              Expanded(child: Text(tr(b.shortName))),
                             ],
                           ),
                         ))
@@ -3738,8 +3733,8 @@ class _BankAccountFormDialogState extends State<_BankAccountFormDialog> {
 
               TextFormField(
                 controller: _accountNameController,
-                decoration: const InputDecoration(
-                  labelText: 'Tên chủ tài khoản *',
+                decoration: InputDecoration(
+                  labelText: tr('Tên chủ tài khoản *'),
                   prefixIcon: Icon(Icons.person),
                 ),
                 textCapitalization: TextCapitalization.characters,
@@ -3749,8 +3744,8 @@ class _BankAccountFormDialogState extends State<_BankAccountFormDialog> {
 
               TextFormField(
                 controller: _accountNumberController,
-                decoration: const InputDecoration(
-                  labelText: 'Số tài khoản *',
+                decoration: InputDecoration(
+                  labelText: tr('Số tài khoản *'),
                   prefixIcon: Icon(Icons.numbers),
                 ),
                 keyboardType: TextInputType.number,
@@ -3765,8 +3760,8 @@ class _BankAccountFormDialogState extends State<_BankAccountFormDialog> {
 
               TextFormField(
                 controller: _noteController,
-                decoration: const InputDecoration(
-                  labelText: 'Ghi chú',
+                decoration: InputDecoration(
+                  labelText: tr('Ghi chú'),
                   prefixIcon: Icon(Icons.note),
                 ),
               ),
@@ -3774,8 +3769,8 @@ class _BankAccountFormDialogState extends State<_BankAccountFormDialog> {
 
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,
-                title: const Text('Tài khoản mặc định'),
-                subtitle: const Text('Sử dụng khi tạo mã VietQR'),
+                title: Text(tr('Tài khoản mặc định')),
+                subtitle: Text(tr('Sử dụng khi tạo mã VietQR')),
                 value: _isDefault,
                 onChanged: (v) => setState(() => _isDefault = v),
               ),
@@ -3787,7 +3782,7 @@ class _BankAccountFormDialogState extends State<_BankAccountFormDialog> {
       return Dialog.fullscreen(
         child: Scaffold(
           appBar: AppBar(
-            title: Text(dialogTitle),
+            title: Text(tr(dialogTitle)),
             leading: IconButton(
               icon: const Icon(Icons.close),
               onPressed: () => Navigator.pop(context),
@@ -3799,7 +3794,7 @@ class _BankAccountFormDialogState extends State<_BankAccountFormDialog> {
                   onPressed: _isLoading ? null : _save,
                   child: _isLoading
                       ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                      : Text(widget.account == null ? 'Tạo' : 'Lưu'),
+                      : Text(tr(widget.account == null ? 'Tạo' : 'Lưu')),
                 ),
               ),
             ],
@@ -3813,7 +3808,7 @@ class _BankAccountFormDialogState extends State<_BankAccountFormDialog> {
     }
 
     return ScrollableAlertDialog(
-      title: Text(dialogTitle),
+      title: Text(tr(dialogTitle)),
       content: SizedBox(
         width: 400,
         child: SingleChildScrollView(child: formBody),
@@ -3881,8 +3876,8 @@ class _VietQRDialogState extends State<_VietQRDialog> {
                 .map((a) => DropdownMenuItem(
                       value: a.id,
                       child: Text(
-                        '${a.bankShortName ?? a.bankName} - ${a.accountNumber}'
-                        '${a.isDefault ? ' (Mặc định)' : ''}',
+                        tr('${a.bankShortName ?? a.bankName} - ${a.accountNumber}'
+                        '${a.isDefault ? ' (Mặc định)' : ''}'),
                       ),
                     ))
                 .toList(),
@@ -3914,7 +3909,7 @@ class _VietQRDialogState extends State<_VietQRDialog> {
                   height: 250,
                   child: Center(child: CircularProgressIndicator()),
                 ),
-                errorWidget: (_, __, ___) => const SizedBox(
+                errorWidget: (_, __, ___) => SizedBox(
                   width: 250,
                   height: 250,
                   child: Center(
@@ -3923,7 +3918,7 @@ class _VietQRDialogState extends State<_VietQRDialog> {
                       children: [
                         Icon(Icons.error, size: 48, color: Colors.red),
                         SizedBox(height: 8),
-                        Text('Không thể tải mã QR'),
+                        Text(tr('Không thể tải mã QR')),
                       ],
                     ),
                   ),
@@ -3934,7 +3929,7 @@ class _VietQRDialogState extends State<_VietQRDialog> {
 
           // Transaction info
           Text(
-            currencyFormat.format(widget.transaction.amount),
+            tr(currencyFormat.format(widget.transaction.amount)),
             style: const TextStyle(
               fontSize: 24,
               fontWeight: FontWeight.bold,
@@ -3943,7 +3938,7 @@ class _VietQRDialogState extends State<_VietQRDialog> {
           ),
           const SizedBox(height: 4),
           Text(
-            widget.transaction.transactionCode,
+            tr(widget.transaction.transactionCode),
             style: TextStyle(
               color: Colors.grey[600],
               fontFamily: 'monospace',
@@ -3951,12 +3946,12 @@ class _VietQRDialogState extends State<_VietQRDialog> {
           ),
           const SizedBox(height: 8),
           Text(
-            _selectedAccount.accountName,
+            tr(_selectedAccount.accountName),
             style: const TextStyle(fontWeight: FontWeight.w600),
           ),
-          Text(_selectedAccount.bankName),
+          Text(tr(_selectedAccount.bankName)),
           Text(
-            _selectedAccount.accountNumber,
+            tr(_selectedAccount.accountNumber),
             style: const TextStyle(fontFamily: 'monospace'),
           ),
         ],
@@ -3966,7 +3961,7 @@ class _VietQRDialogState extends State<_VietQRDialog> {
       return Dialog.fullscreen(
         child: Scaffold(
           appBar: AppBar(
-            title: const Text('Thanh toán VietQR'),
+            title: Text(tr('Thanh toán VietQR')),
             leading: IconButton(
               icon: const Icon(Icons.close),
               onPressed: () => Navigator.pop(context),
@@ -3981,12 +3976,12 @@ class _VietQRDialogState extends State<_VietQRDialog> {
     }
 
     return ScrollableAlertDialog(
-      title: const Text('Thanh toán VietQR'),
+      title: Text(tr('Thanh toán VietQR')),
       content: content,
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('Đóng'),
+          child: Text(tr('Đóng')),
         ),
       ],
     );
@@ -4024,10 +4019,10 @@ class _FundTransferFormDialogState extends State<_FundTransferFormDialog> {
 
   List<DropdownMenuItem<String>> get _fundOptions {
     final items = <DropdownMenuItem<String>>[
-      const DropdownMenuItem(value: _cashFundKey, child: Text('Tiền mặt')),
+      DropdownMenuItem(value: _cashFundKey, child: Text(tr('Tiền mặt'))),
       ...widget.bankAccounts.map((a) {
         final label = '${a.bankShortName ?? a.bankName} - ${a.accountNumber}';
-        return DropdownMenuItem(value: a.id, child: Text(label, overflow: TextOverflow.ellipsis));
+        return DropdownMenuItem(value: a.id, child: Text(tr(label), overflow: TextOverflow.ellipsis));
       }),
     ];
     return items;
@@ -4079,13 +4074,13 @@ class _FundTransferFormDialogState extends State<_FundTransferFormDialog> {
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
     if (_fromFund == _toFund) {
-      appNotification.showError(title: 'Lỗi', message: 'Quỹ nguồn và quỹ đích phải khác nhau');
+      appNotification.showError(title: 'Lỗi', message: tr('Quỹ nguồn và quỹ đích phải khác nhau'));
       return;
     }
 
     final amount = double.tryParse(_amountController.text.replaceAll('.', '')) ?? 0;
     if (amount <= 0) {
-      appNotification.showError(title: 'Lỗi', message: 'Số tiền phải lớn hơn 0');
+      appNotification.showError(title: 'Lỗi', message: tr('Số tiền phải lớn hơn 0'));
       return;
     }
 
@@ -4106,7 +4101,7 @@ class _FundTransferFormDialogState extends State<_FundTransferFormDialog> {
     if (result['isSuccess'] == true && mounted) {
       Navigator.pop(context);
       widget.onSaved();
-      appNotification.showSuccess(title: 'Thành công', message: 'Đã tạo phiếu chuyển quỹ');
+      appNotification.showSuccess(title: 'Thành công', message: tr('Đã tạo phiếu chuyển quỹ'));
     } else if (mounted) {
       appNotification.showError(title: 'Lỗi', message: result['message'] ?? 'Có lỗi xảy ra');
     }
@@ -4127,8 +4122,8 @@ class _FundTransferFormDialogState extends State<_FundTransferFormDialog> {
           DropdownButtonFormField<String>(
             initialValue: _fromFund,
             decoration: InputDecoration(
-              labelText: 'Quỹ nguồn',
-              helperText: fromHint,
+              labelText: tr('Quỹ nguồn'),
+              helperText: trN(fromHint),
               border: const OutlineInputBorder(),
             ),
             items: _fundOptions,
@@ -4140,8 +4135,8 @@ class _FundTransferFormDialogState extends State<_FundTransferFormDialog> {
           DropdownButtonFormField<String>(
             initialValue: _toFund.isEmpty ? null : _toFund,
             decoration: InputDecoration(
-              labelText: 'Quỹ đích',
-              helperText: toHint,
+              labelText: tr('Quỹ đích'),
+              helperText: trN(toHint),
               border: const OutlineInputBorder(),
             ),
             items: _fundOptions,
@@ -4153,10 +4148,10 @@ class _FundTransferFormDialogState extends State<_FundTransferFormDialog> {
           const SizedBox(height: 12),
           TextFormField(
             controller: _amountController,
-            decoration: const InputDecoration(
-              labelText: 'Số tiền',
+            decoration: InputDecoration(
+              labelText: tr('Số tiền'),
               border: OutlineInputBorder(),
-              suffixText: 'đ',
+              suffixText: tr('đ'),
             ),
             keyboardType: TextInputType.number,
             inputFormatters: [_ThousandsSeparatorInputFormatter()],
@@ -4170,19 +4165,19 @@ class _FundTransferFormDialogState extends State<_FundTransferFormDialog> {
           InkWell(
             onTap: _pickDate,
             child: InputDecorator(
-              decoration: const InputDecoration(
-                labelText: 'Ngày chuyển',
+              decoration: InputDecoration(
+                labelText: tr('Ngày chuyển'),
                 border: OutlineInputBorder(),
                 suffixIcon: Icon(Icons.calendar_today),
               ),
-              child: Text(DateFormat('dd/MM/yyyy').format(_transferDate)),
+              child: Text(tr(DateFormat('dd/MM/yyyy').format(_transferDate))),
             ),
           ),
           const SizedBox(height: 12),
           TextFormField(
             controller: _descriptionController,
-            decoration: const InputDecoration(
-              labelText: 'Nội dung',
+            decoration: InputDecoration(
+              labelText: tr('Nội dung'),
               border: OutlineInputBorder(),
             ),
             maxLines: 2,
@@ -4190,8 +4185,8 @@ class _FundTransferFormDialogState extends State<_FundTransferFormDialog> {
           const SizedBox(height: 12),
           TextFormField(
             controller: _noteController,
-            decoration: const InputDecoration(
-              labelText: 'Ghi chú nội bộ',
+            decoration: InputDecoration(
+              labelText: tr('Ghi chú nội bộ'),
               border: OutlineInputBorder(),
             ),
             maxLines: 2,
@@ -4204,7 +4199,7 @@ class _FundTransferFormDialogState extends State<_FundTransferFormDialog> {
       return Dialog.fullscreen(
         child: Scaffold(
           appBar: AppBar(
-            title: const Text('Chuyển quỹ'),
+            title: Text(tr('Chuyển quỹ')),
             leading: IconButton(
               icon: const Icon(Icons.close),
               onPressed: () => Navigator.pop(context),
@@ -4220,7 +4215,7 @@ class _FundTransferFormDialogState extends State<_FundTransferFormDialog> {
                           height: 18,
                           child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                         )
-                      : const Text('Tạo'),
+                      : Text(tr('Tạo')),
                 ),
               ),
             ],
@@ -4231,7 +4226,7 @@ class _FundTransferFormDialogState extends State<_FundTransferFormDialog> {
     }
 
     return ScrollableAlertDialog(
-      title: const Text('Chuyển quỹ'),
+      title: Text(tr('Chuyển quỹ')),
       content: SizedBox(width: 420, child: SingleChildScrollView(child: formBody)),
       actions: [
         AppDialogActions(
@@ -4269,7 +4264,7 @@ class _ActionBtn extends StatelessWidget {
           children: [
             Icon(icon, size: 15, color: color),
             const SizedBox(width: 4),
-            Text(label, style: TextStyle(fontSize: 12, color: color, fontWeight: FontWeight.w600)),
+            Text(tr(label), style: TextStyle(fontSize: 12, color: color, fontWeight: FontWeight.w600)),
           ],
         ),
       ),

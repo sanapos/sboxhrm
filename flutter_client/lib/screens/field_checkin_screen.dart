@@ -10,6 +10,7 @@ import '../providers/auth_provider.dart';
 import '../services/api_service.dart';
 import '../utils/store_role_helper.dart';
 import '../widgets/hrm_page_chrome.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 Map<String, dynamic>? _findActiveFieldCheckin(List<dynamic>? checkins) {
   if (checkins == null) return null;
@@ -184,8 +185,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen> {
                   ),
                 ),
               ),
-              Text(
-                '${group.length} nhân viên cùng vị trí',
+              Text(tr('${group.length} nhân viên cùng vị trí'),
                 style: const TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 14,
@@ -346,7 +346,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen> {
           child: Column(
             children: [
               Text(
-                value,
+                tr(value),
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
@@ -355,7 +355,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen> {
               ),
               const SizedBox(height: 2),
               Text(
-                label,
+                tr(label),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 textAlign: TextAlign.center,
@@ -392,7 +392,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen> {
             controller: _searchController,
             onChanged: (v) => setState(() => _searchQuery = v),
             decoration: InputDecoration(
-              hintText: 'Tìm tên, mã NV, phòng ban…',
+              hintText: tr('Tìm tên, mã NV, phòng ban…'),
               prefixIcon: const Icon(Icons.search, size: 20),
               suffixIcon: _searchQuery.isNotEmpty
                   ? IconButton(
@@ -422,7 +422,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen> {
             child: Row(
               children: [
                 FilterChip(
-                  label: Text('Tất cả (${_employees.length})'),
+                  label: Text(tr('Tất cả (${_employees.length})')),
                   selected: _statusFilter == _StaffMapFilter.all,
                   onSelected: (_) =>
                       setState(() => _statusFilter = _StaffMapFilter.all),
@@ -430,7 +430,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen> {
                 ),
                 const SizedBox(width: 6),
                 FilterChip(
-                  label: Text('Trực tuyến ($_onlineCount)'),
+                  label: Text(tr('Trực tuyến ($_onlineCount)')),
                   selected: _statusFilter == _StaffMapFilter.online,
                   onSelected: (_) =>
                       setState(() => _statusFilter = _StaffMapFilter.online),
@@ -439,7 +439,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen> {
                 ),
                 const SizedBox(width: 6),
                 FilterChip(
-                  label: Text('Ngoại tuyến ($_offlineCount)'),
+                  label: Text(tr('Ngoại tuyến ($_offlineCount)')),
                   selected: _statusFilter == _StaffMapFilter.offline,
                   onSelected: (_) =>
                       setState(() => _statusFilter = _StaffMapFilter.offline),
@@ -477,7 +477,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen> {
           ),
           const SizedBox(width: 4),
           Text(
-            online ? 'Trực tuyến' : 'Ngoại tuyến',
+            tr(online ? 'Trực tuyến' : 'Ngoại tuyến'),
             style: TextStyle(
               fontSize: 10,
               fontWeight: FontWeight.w600,
@@ -504,7 +504,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen> {
           ),
           const SizedBox(width: 8),
           Text(
-            title,
+            tr(title),
             style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.bold,
@@ -847,7 +847,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen> {
           ),
           alignment: Alignment.center,
           child: Text(
-            '${group.length}',
+            tr('${group.length}'),
             style: const TextStyle(
               color: Colors.white,
               fontWeight: FontWeight.bold,
@@ -927,7 +927,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen> {
                     ),
                   Flexible(
                     child: Text(
-                      name,
+                      tr(name),
                       maxLines: compact ? 1 : 2,
                       overflow: TextOverflow.ellipsis,
                       textAlign: TextAlign.center,
@@ -942,7 +942,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen> {
                 ],
               ),
               Text(
-                duration,
+                tr(duration),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 textAlign: TextAlign.center,
@@ -1016,14 +1016,14 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen> {
           radius: 16,
           backgroundColor: color.withValues(alpha: 0.15),
           child: Text(
-            name.isNotEmpty ? name[0].toUpperCase() : '?',
+            tr(name.isNotEmpty ? name[0].toUpperCase() : '?'),
             style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 12),
           ),
         ),
         title: Row(
           children: [
             Expanded(
-              child: Text(name,
+              child: Text(tr(name),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
@@ -1033,12 +1033,12 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen> {
           ],
         ),
         subtitle: Text(
-          [
+          tr([
             if (dept.isNotEmpty) dept,
             durationLabel,
             if (online && hasLocation)
               'Nguồn: ${_sourceLabel(emp['locationSource']?.toString())}',
-          ].join(' • '),
+          ].join(' • ')),
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
           style: TextStyle(
@@ -1077,7 +1077,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen> {
                 radius: 20,
                 backgroundColor: color.withValues(alpha: 0.15),
                 child: Text(
-                  name.isNotEmpty ? name[0].toUpperCase() : '?',
+                  tr(name.isNotEmpty ? name[0].toUpperCase() : '?'),
                   style: TextStyle(
                     color: color,
                     fontWeight: FontWeight.bold,
@@ -1093,7 +1093,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen> {
                       children: [
                         Expanded(
                           child: Text(
-                            name,
+                            tr(name),
                             style: const TextStyle(
                               fontWeight: FontWeight.w600,
                               fontSize: 14,
@@ -1115,7 +1115,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen> {
                       ],
                     ),
                     if (dept.isNotEmpty)
-                      Text(dept,
+                      Text(tr(dept),
                           style: TextStyle(
                               fontSize: 11, color: Colors.grey[600])),
                     const SizedBox(height: 4),
@@ -1131,7 +1131,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen> {
                         const SizedBox(width: 4),
                         Expanded(
                           child: Text(
-                            _locationDurationLabel(emp),
+                            tr(_locationDurationLabel(emp)),
                             style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w500,
@@ -1145,16 +1145,14 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen> {
                     ),
                     if (hasLocation) ...[
                       const SizedBox(height: 2),
-                      Text(
-                        'Nguồn: ${_sourceLabel(emp['locationSource']?.toString())}',
+                      Text(tr('${tr('Nguồn: ')}${_sourceLabel(emp['locationSource']?.toString())}'),
                         style: TextStyle(
                             fontSize: 10, color: Colors.grey[500]),
                       ),
                     ],
                     if (isSelected && journeys.isNotEmpty) ...[
                       const SizedBox(height: 6),
-                      Text(
-                        'Hành trình: ${journeys.length} ngày • ${totalKm.toStringAsFixed(1)} km',
+                      Text(tr('Hành trình: ${journeys.length} ngày • ${totalKm.toStringAsFixed(1)} km'),
                         style: TextStyle(
                           fontSize: 11,
                           color: color,
@@ -1183,8 +1181,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen> {
         color: Colors.white.withValues(alpha: 0.92),
         borderRadius: BorderRadius.circular(8),
       ),
-      child: Text(
-        'Tổng ${_employees.length} • Trực tuyến $_onlineCount • Ngoại tuyến $_offlineCount • $_onMapCount trên bản đồ',
+      child: Text(tr('Tổng ${_employees.length} • Trực tuyến $_onlineCount • Ngoại tuyến $_offlineCount • $_onMapCount trên bản đồ'),
         style: TextStyle(fontSize: 10, color: Colors.grey[700]),
       ),
     );
@@ -1254,7 +1251,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    name,
+                    tr(name),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
@@ -1263,7 +1260,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen> {
                     ),
                   ),
                   Text(
-                    _locationDurationLabel(emp),
+                    tr(_locationDurationLabel(emp)),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(fontSize: 11, color: Colors.grey[600]),
@@ -1282,11 +1279,13 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen> {
     final count = _filteredEmployees.length;
     return Badge(
       isLabelVisible: count > 0,
-      label: Text('$count', style: const TextStyle(fontSize: 10)),
+      label: Text(tr('$count'), style: const TextStyle(fontSize: 10)),
       backgroundColor: const Color(0xFF38A169),
       child: _buildMapControlButton(
         icon: Icons.people_outline,
-        tooltip: 'Danh sách nhân viên${count > 0 ? ' ($count)' : ''}',
+        tooltip: tr(count > 0
+            ? tr('Danh sách nhân viên') + ' ($count)'
+            : tr('Danh sách nhân viên')),
         onPressed: _showEmployeeListPanel,
       ),
     );
@@ -1315,15 +1314,13 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        'Bản đồ nhân sự (${_filteredEmployees.length}/${_employees.length})',
+                      Text(tr('Bản đồ nhân sự (${_filteredEmployees.length}/${_employees.length})'),
                         style: const TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 13,
                         ),
                       ),
-                      Text(
-                        'Trực tuyến ${_filteredOnline.length} • Ngoại tuyến ${_filteredOffline.length} • ${_lastRefreshLabel()}',
+                      Text(tr('Trực tuyến ${_filteredOnline.length} • Ngoại tuyến ${_filteredOffline.length} • ${_lastRefreshLabel()}'),
                         style: TextStyle(
                           fontSize: 11,
                           color: Colors.grey.shade600,
@@ -1341,7 +1338,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen> {
                     Icons.keyboard_arrow_down,
                     color: Colors.grey[600],
                   ),
-                  tooltip: 'Đóng danh sách',
+                  tooltip: tr('Đóng danh sách'),
                   onPressed: _collapseEmployeeList,
                 ),
               ],
@@ -1360,8 +1357,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen> {
           child: Center(
             child: Padding(
               padding: const EdgeInsets.all(16),
-              child: Text(
-                'Chưa có nhân viên được bật chấm ngoài CT.\nNV bật chấm ngoài CT sẽ tự gửi vị trí khi mở app (trực tuyến ≤10 phút).',
+              child: Text(tr('Chưa có nhân viên được bật chấm ngoài CT.\nNV bật chấm ngoài CT sẽ tự gửi vị trí khi mở app (trực tuyến ≤10 phút).'),
                 textAlign: TextAlign.center,
                 style: TextStyle(color: Colors.grey[500], fontSize: 13),
               ),
@@ -1377,8 +1373,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen> {
           child: Center(
             child: Padding(
               padding: const EdgeInsets.all(16),
-              child: Text(
-                'Không có nhân viên phù hợp bộ lọc.',
+              child: Text(tr('Không có nhân viên phù hợp bộ lọc.'),
                 textAlign: TextAlign.center,
                 style: TextStyle(color: Colors.grey[500], fontSize: 13),
               ),
@@ -1511,14 +1506,14 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen> {
             children: [
               _buildMapControlButton(
                 icon: fullscreen ? Icons.fullscreen_exit : Icons.fullscreen,
-                tooltip: fullscreen ? 'Thu nhỏ bản đồ' : 'Toàn màn hình',
+                tooltip: tr(fullscreen ? 'Thu nhỏ bản đồ' : 'Toàn màn hình'),
                 onPressed: _toggleMapFullscreen,
               ),
               if (_onMapCount > 0) ...[
                 const SizedBox(height: 8),
                 _buildMapControlButton(
                   icon: Icons.fit_screen,
-                  tooltip: 'Hiển thị tất cả NV trực tuyến',
+                  tooltip: tr('Hiển thị tất cả NV trực tuyến'),
                   onPressed: _zoomToAllOnline,
                 ),
               ],
@@ -1526,7 +1521,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen> {
                 const SizedBox(height: 8),
                 _buildMapControlButton(
                   icon: Icons.my_location,
-                  tooltip: 'Zoom vị trí NV đang chọn',
+                  tooltip: tr('Zoom vị trí NV đang chọn'),
                   onPressed: () {
                     final emp = _selectedEmployee();
                     if (emp != null) _zoomToEmployee(emp);
@@ -1543,13 +1538,13 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen> {
             children: [
               _buildMapControlButton(
                 icon: Icons.add,
-                tooltip: 'Phóng to',
+                tooltip: tr('Phóng to'),
                 onPressed: () => _mapZoomBy(1),
               ),
               const SizedBox(height: 8),
               _buildMapControlButton(
                 icon: Icons.remove,
-                tooltip: 'Thu nhỏ',
+                tooltip: tr('Thu nhỏ'),
                 onPressed: () => _mapZoomBy(-1),
               ),
             ],
@@ -1629,7 +1624,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen> {
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            '${DateFormat('dd/MM').format(_rangeFrom)} – ${DateFormat('dd/MM/yyyy').format(_rangeTo)}',
+                            tr('${DateFormat('dd/MM').format(_rangeFrom)} – ${DateFormat('dd/MM/yyyy').format(_rangeTo)}'),
                             style: const TextStyle(fontSize: 13),
                           ),
                         ),
@@ -1646,7 +1641,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen> {
                     _journeysByEmployee.clear();
                     _routeColorByEmployee.clear();
                   }),
-                  child: const Text('Bỏ chọn'),
+                  child: Text(tr('Bỏ chọn')),
                 ),
             ],
           ),
@@ -1666,7 +1661,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen> {
                 return Chip(
                   avatar: CircleAvatar(radius: 6, backgroundColor: color),
                   label: Text(
-                    emp['employeeName']?.toString() ?? id,
+                    tr(emp['employeeName']?.toString() ?? id),
                     style: const TextStyle(fontSize: 11),
                   ),
                   onDeleted: () {
@@ -1712,14 +1707,14 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      _featureTitle,
+                      tr(_featureTitle),
                       style: const TextStyle(
                           fontWeight: FontWeight.bold, fontSize: 17),
                     ),
                     Text(
-                      _silentRefreshing
+                      tr(_silentRefreshing
                           ? 'Đang làm mới…'
-                          : 'Cập nhật: ${_lastRefreshLabel()} • Tự động 30s',
+                          : 'Cập nhật: ${_lastRefreshLabel()} • Tự động 30s'),
                       style: TextStyle(
                         fontSize: 11,
                         color: Colors.white.withValues(alpha: 0.85),
@@ -1732,7 +1727,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen> {
                   if (_canTrack)
                     IconButton(
                       icon: const Icon(Icons.refresh),
-                      tooltip: 'Làm mới',
+                      tooltip: tr('Làm mới'),
                       onPressed: () => _loadEmployees(),
                     ),
                 ],
@@ -1748,8 +1743,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen> {
                       Icon(Icons.map_outlined,
                           size: 64, color: Colors.grey[300]),
                       const SizedBox(height: 16),
-                      Text(
-                        'Bản đồ nhân sự dành cho quản lý',
+                      Text(tr('Bản đồ nhân sự dành cho quản lý'),
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 15,

@@ -4,6 +4,7 @@ import '../../models/pos_purchase.dart';
 import '../../services/api_service.dart';
 import '../notification_overlay.dart';
 import 'pos_theme.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 const _blue = Color(0xFF2563EB);
 
@@ -45,17 +46,17 @@ class _PosSupplierFormDialogState extends State<PosSupplierFormDialog> {
   void initState() {
     super.initState();
     final s = widget.supplier;
-    _nameCtrl = TextEditingController(text: s?.name ?? '');
-    _codeCtrl = TextEditingController(text: s?.supplierCode ?? '');
-    _phoneCtrl = TextEditingController(text: s?.phone ?? '');
-    _emailCtrl = TextEditingController(text: s?.email ?? '');
-    _addressCtrl = TextEditingController(text: s?.address ?? '');
-    _provinceCtrl = TextEditingController(text: s?.province ?? '');
-    _wardCtrl = TextEditingController(text: s?.ward ?? '');
-    _companyCtrl = TextEditingController(text: s?.companyName ?? '');
-    _taxCtrl = TextEditingController(text: s?.taxCode ?? '');
-    _identityCtrl = TextEditingController(text: s?.identityNo ?? '');
-    _noteCtrl = TextEditingController(text: s?.note ?? '');
+    _nameCtrl = TextEditingController(text: tr(s?.name ?? ''));
+    _codeCtrl = TextEditingController(text: tr(s?.supplierCode ?? ''));
+    _phoneCtrl = TextEditingController(text: tr(s?.phone ?? ''));
+    _emailCtrl = TextEditingController(text: tr(s?.email ?? ''));
+    _addressCtrl = TextEditingController(text: tr(s?.address ?? ''));
+    _provinceCtrl = TextEditingController(text: tr(s?.province ?? ''));
+    _wardCtrl = TextEditingController(text: tr(s?.ward ?? ''));
+    _companyCtrl = TextEditingController(text: tr(s?.companyName ?? ''));
+    _taxCtrl = TextEditingController(text: tr(s?.taxCode ?? ''));
+    _identityCtrl = TextEditingController(text: tr(s?.identityNo ?? ''));
+    _noteCtrl = TextEditingController(text: tr(s?.note ?? ''));
     _groupId = s?.groupId;
   }
 
@@ -125,7 +126,7 @@ class _PosSupplierFormDialogState extends State<PosSupplierFormDialog> {
               ),
               child: Row(
                 children: [
-                  Text(_isEdit ? 'Sửa nhà cung cấp' : 'Thêm nhà cung cấp',
+                  Text(tr(_isEdit ? 'Sửa nhà cung cấp' : 'Thêm nhà cung cấp'),
                       style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                   const Spacer(),
                   IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close)),
@@ -176,7 +177,7 @@ class _PosSupplierFormDialogState extends State<PosSupplierFormDialog> {
                         ],
                       ),
                       const SizedBox(height: 16),
-                      const Text('Địa chỉ',
+                      Text(tr('Địa chỉ'),
                           style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
                       const SizedBox(height: 8),
                       TextFormField(
@@ -206,14 +207,14 @@ class _PosSupplierFormDialogState extends State<PosSupplierFormDialog> {
                         value: _groupId,
                         decoration: PosTheme.inputDecoration(label: 'Nhóm NCC'),
                         items: [
-                          const DropdownMenuItem(value: null, child: Text('— Không chọn —')),
+                          DropdownMenuItem(value: null, child: Text(tr('— Không chọn —'))),
                           ...widget.groups.map((g) =>
-                              DropdownMenuItem(value: g.id, child: Text(g.name))),
+                              DropdownMenuItem(value: g.id, child: Text(tr(g.name)))),
                         ],
                         onChanged: (v) => setState(() => _groupId = v),
                       ),
                       const SizedBox(height: 16),
-                      const Text('Thông tin thuế',
+                      Text(tr('Thông tin thuế'),
                           style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
                       const SizedBox(height: 8),
                       TextFormField(
@@ -257,12 +258,12 @@ class _PosSupplierFormDialogState extends State<PosSupplierFormDialog> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  TextButton(onPressed: () => Navigator.pop(context), child: const Text('Hủy')),
+                  TextButton(onPressed: () => Navigator.pop(context), child: Text(tr('Hủy'))),
                   const SizedBox(width: 8),
                   FilledButton(
                     onPressed: _saving ? null : _save,
                     style: FilledButton.styleFrom(backgroundColor: _blue),
-                    child: Text(_saving ? 'Đang lưu…' : 'Lưu'),
+                    child: Text(tr(_saving ? 'Đang lưu…' : 'Lưu')),
                   ),
                 ],
               ),

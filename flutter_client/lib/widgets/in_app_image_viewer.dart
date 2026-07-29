@@ -3,6 +3,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../services/api_service.dart';
 import 'auth_cached_image.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 bool isLikelyImageUrl(String url) {
   final raw = url.trim().toLowerCase();
@@ -65,13 +66,13 @@ Future<void> showInAppImageViewer(
                           placeholder: (_, __) => const Center(
                             child: CircularProgressIndicator(color: Colors.white),
                           ),
-                          errorWidget: (_, __, ___) => const Column(
+                          errorWidget: (_, __, ___) => Column(
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Icon(Icons.broken_image,
                                   color: Colors.white54, size: 64),
                               SizedBox(height: 8),
-                              Text('Không tải được ảnh',
+                              Text(tr('Không tải được ảnh'),
                                   style: TextStyle(color: Colors.white54)),
                             ],
                           ),
@@ -92,9 +93,9 @@ Future<void> showInAppImageViewer(
                         ),
                         Expanded(
                           child: Text(
-                            cleaned.length > 1
+                            tr(cleaned.length > 1
                                 ? '$title (${current + 1}/${cleaned.length})'
-                                : title,
+                                : title),
                             style: const TextStyle(
                               color: Colors.white,
                               fontWeight: FontWeight.w600,
@@ -151,7 +152,7 @@ Future<void> openAttachmentInApp(
   } catch (_) {
     if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Không mở được tệp đính kèm')),
+      SnackBar(content: Text(tr('Không mở được tệp đính kèm'))),
     );
   }
 }

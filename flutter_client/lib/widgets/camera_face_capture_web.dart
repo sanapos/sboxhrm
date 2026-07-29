@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'dart:ui_web' as ui_web;
 
 import 'package:flutter/material.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 class CameraFaceCaptureResult {
   final List<String> base64Images;
@@ -262,7 +263,7 @@ class _CameraFaceCaptureState extends State<CameraFaceCapture>
                 children: [
                   const Icon(Icons.person, color: Colors.white70, size: 18),
                   const SizedBox(width: 8),
-                  Text(widget.employeeName!,
+                  Text(tr(widget.employeeName!),
                       style: const TextStyle(
                           color: Colors.white, fontWeight: FontWeight.w600)),
                 ],
@@ -270,8 +271,7 @@ class _CameraFaceCaptureState extends State<CameraFaceCapture>
             ),
           const Spacer(),
           _pill(
-            child: Text(
-              'Ảnh ${_capturedImages.length}/${widget.requiredPhotos}',
+            child: Text(tr('Ảnh ${_capturedImages.length}/${widget.requiredPhotos}'),
               style: const TextStyle(
                   color: Colors.white, fontWeight: FontWeight.w600),
             ),
@@ -312,13 +312,13 @@ class _CameraFaceCaptureState extends State<CameraFaceCapture>
     if (_isCameraError) return _buildCameraError();
 
     if (!_isCameraReady) {
-      return const Center(
+      return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             CircularProgressIndicator(color: Colors.white),
             SizedBox(height: 16),
-            Text('Đang mở camera...',
+            Text(tr('Đang mở camera...'),
                 style: TextStyle(color: Colors.white70, fontSize: 16)),
           ],
         ),
@@ -356,7 +356,7 @@ class _CameraFaceCaptureState extends State<CameraFaceCapture>
             ),
             child: Center(
               child: Text(
-                '$_countdown',
+                tr('$_countdown'),
                 style: const TextStyle(
                     color: Colors.white,
                     fontSize: 48,
@@ -413,7 +413,7 @@ class _CameraFaceCaptureState extends State<CameraFaceCapture>
                         Icon(step.icon, color: Colors.white, size: 16),
                         const SizedBox(width: 6),
                         Text(
-                          step.instruction,
+                          tr(step.instruction),
                           style: const TextStyle(
                               color: Colors.white,
                               fontSize: 12,
@@ -443,7 +443,7 @@ class _CameraFaceCaptureState extends State<CameraFaceCapture>
                 color: Colors.red.shade300, size: 64),
             const SizedBox(height: 16),
             Text(
-              _errorMessage,
+              tr(_errorMessage),
               style: const TextStyle(color: Colors.white70, fontSize: 16),
               textAlign: TextAlign.center,
             ),
@@ -457,7 +457,7 @@ class _CameraFaceCaptureState extends State<CameraFaceCapture>
                 _initCamera();
               },
               icon: const Icon(Icons.refresh),
-              label: const Text('Thử lại'),
+              label: Text(tr('Thử lại')),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF1E3A5F),
                 foregroundColor: Colors.white,
@@ -502,16 +502,14 @@ class _CameraFaceCaptureState extends State<CameraFaceCapture>
             },
           ),
           const SizedBox(height: 24),
-          const Text(
-            'Chụp ảnh hoàn tất!',
+          Text(tr('Chụp ảnh hoàn tất!'),
             style: TextStyle(
                 color: Colors.white,
                 fontSize: 22,
                 fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 8),
-          Text(
-            '${_capturedImages.length} ảnh đã được chụp thành công',
+          Text(tr('${_capturedImages.length} ảnh đã được chụp thành công'),
             style: const TextStyle(color: Colors.white70, fontSize: 16),
           ),
           const SizedBox(height: 32),
@@ -564,8 +562,7 @@ class _CameraFaceCaptureState extends State<CameraFaceCapture>
               bottom: 2,
               left: 0,
               right: 0,
-              child: Text(
-                'Ảnh ${index + 1}',
+              child: Text(tr('Ảnh ${index + 1}'),
                 textAlign: TextAlign.center,
                 style: const TextStyle(
                   color: Colors.white,
@@ -675,7 +672,7 @@ class _CameraFaceCaptureState extends State<CameraFaceCapture>
         ),
         const SizedBox(height: 8),
         Text(
-          _isCapturing ? 'Đang chụp...' : 'Nhấn để chụp',
+          tr(_isCapturing ? 'Đang chụp...' : 'Nhấn để chụp'),
           style: TextStyle(
               color: Colors.white.withValues(alpha: 0.6), fontSize: 13),
         ),
@@ -690,7 +687,7 @@ class _CameraFaceCaptureState extends State<CameraFaceCapture>
           child: OutlinedButton.icon(
             onPressed: _resetAll,
             icon: const Icon(Icons.refresh, color: Colors.white70),
-            label: const Text('Chụp lại',
+            label: Text(tr('Chụp lại'),
                 style: TextStyle(color: Colors.white70)),
             style: OutlinedButton.styleFrom(
               padding: const EdgeInsets.symmetric(vertical: 16),
@@ -706,7 +703,7 @@ class _CameraFaceCaptureState extends State<CameraFaceCapture>
           child: ElevatedButton.icon(
             onPressed: _confirmAndReturn,
             icon: const Icon(Icons.check),
-            label: const Text('Xác nhận & Đăng ký'),
+            label: Text(tr('Xác nhận & Đăng ký')),
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF1E3A5F),
               foregroundColor: Colors.white,

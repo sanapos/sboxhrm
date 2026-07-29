@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'hrm/hrm_settings_mobile_kit.dart';
+import '../l10n/app_tr.dart';
 
 /// Một mục thống kê nhanh dùng cho [HrmStatBar].
 class HrmStatItem {
@@ -141,7 +142,7 @@ class HrmMiniStatChip extends StatelessWidget {
             Icon(icon, color: color, size: 16),
             const SizedBox(height: 4),
             Text(
-              value,
+              tr(value),
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.bold,
@@ -153,7 +154,7 @@ class HrmMiniStatChip extends StatelessWidget {
             ),
             const SizedBox(height: 2),
             Text(
-              label,
+              tr(label),
               style: TextStyle(
                 fontSize: 10,
                 height: 1.15,
@@ -217,7 +218,7 @@ class HrmStatSummaryCard extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            value,
+            tr(value),
             style: TextStyle(
               color: color,
               fontSize: valueFontSize,
@@ -229,7 +230,7 @@ class HrmStatSummaryCard extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            label,
+            tr(label),
             style: const TextStyle(
               color: Color(0xFF71717A),
               fontSize: 11,

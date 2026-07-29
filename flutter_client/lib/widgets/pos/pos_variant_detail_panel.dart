@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 
 import '../../models/pos_product.dart';
 import 'pos_theme.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// Chi tiết một hàng cùng loại (biến thể) — kiểu KiotViet khi bấm vào dòng con.
 class PosVariantDetailPanel extends StatelessWidget {
@@ -67,7 +68,7 @@ class PosVariantDetailPanel extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  variant.name,
+                  tr(variant.name),
                   style: const TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
@@ -101,7 +102,7 @@ class PosVariantDetailPanel extends StatelessWidget {
                                 borderRadius: BorderRadius.circular(4),
                               ),
                               child: Text(
-                                '${e.key}: ${e.value}',
+                                tr('${e.key}: ${e.value}'),
                                 style: const TextStyle(
                                   fontSize: 11,
                                   color: PosTheme.kiotBlue,
@@ -126,7 +127,7 @@ class PosVariantDetailPanel extends StatelessWidget {
                       const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 ),
                 icon: const Icon(Icons.edit, size: 16),
-                label: const Text('Chỉnh sửa'),
+                label: Text(tr('Chỉnh sửa')),
               ),
               if (canDelete && onDelete != null) ...[
                 const SizedBox(height: 6),
@@ -139,7 +140,7 @@ class PosVariantDetailPanel extends StatelessWidget {
                         const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   ),
                   icon: const Icon(Icons.delete_outline, size: 16),
-                  label: const Text('Xóa loại'),
+                  label: Text(tr('Xóa loại')),
                 ),
               ],
             ],
@@ -165,10 +166,10 @@ class PosVariantDetailPanel extends StatelessWidget {
         style: const TextStyle(fontSize: 12, color: PosTheme.textPrimary),
         children: [
           TextSpan(
-            text: '$label: ',
+            text: tr('$label: '),
             style: const TextStyle(color: PosTheme.textSecondary),
           ),
-          TextSpan(text: value),
+          TextSpan(text: tr(value)),
         ],
       ),
     );

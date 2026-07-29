@@ -17,6 +17,7 @@ import '../../utils/responsive_helper.dart';
 import '../hrm_page_chrome.dart';
 import '../notification_overlay.dart';
 import 'pos_theme.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 const _blue = PosTheme.kiotBlue;
 
@@ -52,10 +53,10 @@ class _PosSellMobilePrintSettingsScreenState
   bool _isSunmi = false;
 
   final _lanHostCtrl = TextEditingController();
-  final _lanPortCtrl = TextEditingController(text: '9100');
+  final _lanPortCtrl = TextEditingController(text: tr('9100'));
   final _usbNameCtrl = TextEditingController();
   final _labelLanHostCtrl = TextEditingController();
-  final _labelLanPortCtrl = TextEditingController(text: '9100');
+  final _labelLanPortCtrl = TextEditingController(text: tr('9100'));
 
   @override
   void initState() {
@@ -174,15 +175,15 @@ class _PosSellMobilePrintSettingsScreenState
           children: [
             Padding(
               padding: const EdgeInsets.all(16),
-              child: Text(title,
+              child: Text(tr(title),
                   style: const TextStyle(
                       fontSize: 17, fontWeight: FontWeight.w600)),
             ),
             ...templates.map(
               (t) => ListTile(
-                title: Text(t.name),
+                title: Text(tr(t.name)),
                 subtitle: Text(
-                  PosPrintPaperSizes.labels[t.paperSize] ?? t.paperSize,
+                  tr(PosPrintPaperSizes.labels[t.paperSize] ?? t.paperSize),
                 ),
                 trailing: selectedId == t.id
                     ? const Icon(Icons.check, color: _blue)
@@ -216,7 +217,7 @@ class _PosSellMobilePrintSettingsScreenState
     await _label.save();
     if (!mounted) return;
     NotificationOverlayManager()
-        .showSuccess(title: 'Đã lưu', message: 'Thiết lập in đã được cập nhật');
+        .showSuccess(title: 'Đã lưu', message: tr('Thiết lập in đã được cập nhật'));
     Navigator.pop(context, (_print, _thermal));
   }
 
@@ -234,11 +235,11 @@ class _PosSellMobilePrintSettingsScreenState
     setState(() => _testing = false);
     if (ok) {
       NotificationOverlayManager()
-          .showSuccess(title: 'In thử', message: 'Đã gửi lệnh in thử');
+          .showSuccess(title: 'In thử', message: tr('Đã gửi lệnh in thử'));
     } else {
       NotificationOverlayManager().showError(
         title: 'In thử thất bại',
-        message: 'Kiểm tra kết nối máy in và quyền Bluetooth/USB',
+        message: tr('Kiểm tra kết nối máy in và quyền Bluetooth/USB'),
       );
     }
   }
@@ -256,11 +257,11 @@ class _PosSellMobilePrintSettingsScreenState
     setState(() => _testingLabel = false);
     if (ok) {
       NotificationOverlayManager()
-          .showSuccess(title: 'In thử tem', message: 'Đã gửi tem mẫu');
+          .showSuccess(title: 'In thử tem', message: tr('Đã gửi tem mẫu'));
     } else {
       NotificationOverlayManager().showError(
         title: 'In thử tem thất bại',
-        message: 'Kiểm tra kết nối và khổ giấy tem',
+        message: tr('Kiểm tra kết nối và khổ giấy tem'),
       );
     }
   }
@@ -285,13 +286,13 @@ class _PosSellMobilePrintSettingsScreenState
       appBar: embedded
           ? null
           : AppBar(
-              title: const Text('Thiết lập in'),
+              title: Text(tr('Thiết lập in')),
               backgroundColor: Colors.white,
               foregroundColor: PosTheme.textPrimary,
               elevation: 0,
               actions: [
                 IconButton(
-                  tooltip: 'Máy in cửa hàng',
+                  tooltip: tr('Máy in cửa hàng'),
                   onPressed: () {
                     Navigator.of(context).push(
                       MaterialPageRoute<void>(
@@ -303,7 +304,7 @@ class _PosSellMobilePrintSettingsScreenState
                 ),
                 TextButton(
                   onPressed: _loading ? null : _save,
-                  child: const Text('Lưu',
+                  child: Text(tr('Lưu'),
                       style: TextStyle(fontWeight: FontWeight.bold)),
                 ),
               ],
@@ -323,12 +324,12 @@ class _PosSellMobilePrintSettingsScreenState
                           );
                         },
                         icon: const Icon(Icons.print_outlined, size: 18),
-                        label: const Text('Máy in cửa hàng'),
+                        label: Text(tr('Máy in cửa hàng')),
                       ),
                       const Spacer(),
                       FilledButton(
                         onPressed: _loading ? null : _save,
-                        child: const Text('Lưu'),
+                        child: Text(tr('Lưu')),
                       ),
                     ],
                   ),
@@ -337,22 +338,21 @@ class _PosSellMobilePrintSettingsScreenState
                 _sectionTitle('Hóa đơn'),
                 _card([
                   SwitchListTile(
-                    title: const Text('Tự động in sau thanh toán'),
+                    title: Text(tr('Tự động in sau thanh toán')),
                     value: _print.autoPrint,
                     activeThumbColor: _blue,
                     onChanged: (v) => setState(() => _print = _print.copyWith(autoPrint: v)),
                   ),
                   SwitchListTile(
-                    title: const Text('Gộp hàng cùng loại khi in'),
+                    title: Text(tr('Gộp hàng cùng loại khi in')),
                     value: _print.mergeSameItems,
                     activeThumbColor: _blue,
                     onChanged: (v) =>
                         setState(() => _print = _print.copyWith(mergeSameItems: v)),
                   ),
                   SwitchListTile(
-                    title: const Text('In mã VietQR trên hóa đơn'),
-                    subtitle: const Text(
-                      'In QR tổng tiền đơn (cần thiết lập tài khoản NH)',
+                    title: Text(tr('In mã VietQR trên hóa đơn')),
+                    subtitle: Text(tr('In QR tổng tiền đơn (cần thiết lập tài khoản NH)'),
                       style: TextStyle(fontSize: 11),
                     ),
                     value: _print.printVietQrOnReceipt,
@@ -362,12 +362,12 @@ class _PosSellMobilePrintSettingsScreenState
                     ),
                   ),
                   ListTile(
-                    title: const Text('Số bản in (liên)'),
+                    title: Text(tr('Số bản in (liên)')),
                     trailing: DropdownButton<int>(
                       value: _print.copies.clamp(1, 10),
                       items: List.generate(
                         10,
-                        (i) => DropdownMenuItem(value: i + 1, child: Text('${i + 1}')),
+                        (i) => DropdownMenuItem(value: i + 1, child: Text(tr('${i + 1}'))),
                       ),
                       onChanged: (v) {
                         if (v == null) return;
@@ -376,15 +376,15 @@ class _PosSellMobilePrintSettingsScreenState
                     ),
                   ),
                   ListTile(
-                    title: const Text('Mẫu in hóa đơn'),
+                    title: Text(tr('Mẫu in hóa đơn')),
                     subtitle: Text(
-                      _templates.isEmpty
+                      tr(_templates.isEmpty
                           ? 'Chưa có mẫu'
                           : _templates
                                   .where((t) => t.id == _resolveTemplateId())
                                   .firstOrNull
                                   ?.name ??
-                              'Mặc định',
+                              'Mặc định'),
                     ),
                     trailing: const Icon(Icons.chevron_right),
                     onTap: _templates.isEmpty
@@ -399,19 +399,19 @@ class _PosSellMobilePrintSettingsScreenState
                                 child: Column(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    const Padding(
+                                    Padding(
                                       padding: EdgeInsets.all(16),
-                                      child: Text('Chọn mẫu in',
+                                      child: Text(tr('Chọn mẫu in'),
                                           style: TextStyle(
                                               fontSize: 17,
                                               fontWeight: FontWeight.w600)),
                                     ),
                                     ..._templates.map(
                                       (t) => ListTile(
-                                        title: Text(t.name),
+                                        title: Text(tr(t.name)),
                                         subtitle: Text(
-                                          PosPrintPaperSizes.labels[t.paperSize] ??
-                                              t.paperSize,
+                                          tr(PosPrintPaperSizes.labels[t.paperSize] ??
+                                              t.paperSize),
                                         ),
                                         trailing: _resolveTemplateId() == t.id
                                             ? const Icon(Icons.check, color: _blue)
@@ -431,8 +431,8 @@ class _PosSellMobilePrintSettingsScreenState
                   ),
                   ListTile(
                     leading: const Icon(Icons.design_services_outlined, color: _blue),
-                    title: const Text('Thiết kế mẫu in (K58/K80/A5/A4)'),
-                    subtitle: const Text('Mở trình soạn mẫu tối ưu mobile'),
+                    title: Text(tr('Thiết kế mẫu in (K58/K80/A5/A4)')),
+                    subtitle: Text(tr('Mở trình soạn mẫu tối ưu mobile')),
                     trailing: const Icon(Icons.chevron_right),
                     onTap: () => _openTemplateEditor(),
                   ),
@@ -440,16 +440,15 @@ class _PosSellMobilePrintSettingsScreenState
                 const SizedBox(height: 16),
                 _sectionTitle('Tem dán ly (trà sữa)'),
                 _card([
-                  const Padding(
+                  Padding(
                     padding: EdgeInsets.fromLTRB(16, 12, 16, 4),
-                    child: Text(
-                      'In tem: tên món, topping, SL, giờ, bàn — in 1 lần như báo bếp (máy nhiệt/Sunmi).',
+                    child: Text(tr('In tem: tên món, topping, SL, giờ, bàn — in 1 lần như báo bếp (máy nhiệt/Sunmi).'),
                       style: TextStyle(fontSize: 12, color: Colors.black54),
                     ),
                   ),
                   ...PosCupLabelPrintMode.values.map(
                     (mode) => RadioListTile<PosCupLabelPrintMode>(
-                      title: Text(mode.label),
+                      title: Text(tr(mode.label)),
                       value: mode,
                       groupValue: _print.cupLabelPrintMode,
                       activeColor: _blue,
@@ -466,7 +465,7 @@ class _PosSellMobilePrintSettingsScreenState
                 _card([
                   ...PosWarehousePrintMode.values.map(
                     (mode) => RadioListTile<PosWarehousePrintMode>(
-                      title: Text(mode.label),
+                      title: Text(tr(mode.label)),
                       value: mode,
                       groupValue: _print.warehousePrintMode,
                       activeColor: _blue,
@@ -478,16 +477,16 @@ class _PosSellMobilePrintSettingsScreenState
                     ),
                   ),
                   ListTile(
-                    title: const Text('Mẫu in phiếu xuất kho'),
+                    title: Text(tr('Mẫu in phiếu xuất kho')),
                     subtitle: Text(
-                      _warehouseTemplates.isEmpty
+                      tr(_warehouseTemplates.isEmpty
                           ? 'Chưa có mẫu'
                           : _warehouseTemplates
                                   .where((t) =>
                                       t.id == _resolveWarehouseTemplateId())
                                   .firstOrNull
                                   ?.name ??
-                              'Mặc định',
+                              'Mặc định'),
                     ),
                     trailing: const Icon(Icons.chevron_right),
                     onTap: _warehouseTemplates.isEmpty
@@ -507,8 +506,8 @@ class _PosSellMobilePrintSettingsScreenState
                   ListTile(
                     leading:
                         const Icon(Icons.design_services_outlined, color: _blue),
-                    title: const Text('Thiết kế mẫu phiếu xuất kho'),
-                    subtitle: const Text('K58/K80/A5/A4 — loại Phiếu xuất kho'),
+                    title: Text(tr('Thiết kế mẫu phiếu xuất kho')),
+                    subtitle: Text(tr('K58/K80/A5/A4 — loại Phiếu xuất kho')),
                     trailing: const Icon(Icons.chevron_right),
                     onTap: () => _openTemplateEditor(
                       documentType: PosPrintDocumentTypes.stockIssue,
@@ -519,10 +518,10 @@ class _PosSellMobilePrintSettingsScreenState
                 _sectionTitle('Máy in nhiệt'),
                 _card([
                   SwitchListTile(
-                    title: const Text('Dùng máy in nhiệt (cục bộ)'),
-                    subtitle: const Text(
-                      'In trực tiếp trên thiết bị này (cùng mạng LAN). '
-                      'In từ xa: dùng Máy in cửa hàng + Print Agent.',
+                    title: Text(tr('Dùng máy in nhiệt (cục bộ)')),
+                    subtitle: Text(
+                      tr('In trực tiếp trên thiết bị này (cùng mạng LAN). '
+                      'In từ xa: dùng Máy in cửa hàng + Print Agent.'),
                       style: TextStyle(fontSize: 11),
                     ),
                     value: _thermal.enabled,
@@ -534,16 +533,16 @@ class _PosSellMobilePrintSettingsScreenState
                     padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
                     child: DropdownButtonFormField<String>(
                       value: _thermal.printerBrand.key,
-                      decoration: const InputDecoration(
-                        labelText: 'Hãng máy in',
+                      decoration: InputDecoration(
+                        labelText: tr('Hãng máy in'),
                         border: OutlineInputBorder(),
                         isDense: true,
-                        helperText: 'Zywell: in ảnh tiếng Việt chuẩn',
+                        helperText: tr('Zywell: in ảnh tiếng Việt chuẩn'),
                       ),
                       items: PosThermalPrinterBrand.values
                           .map((b) => DropdownMenuItem(
                                 value: b.key,
-                                child: Text(b.label),
+                                child: Text(tr(b.label)),
                               ))
                           .toList(),
                       onChanged: (v) {
@@ -558,16 +557,16 @@ class _PosSellMobilePrintSettingsScreenState
                     padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
                     child: DropdownButtonFormField<String>(
                       value: _thermal.textMode.key,
-                      decoration: const InputDecoration(
-                        labelText: 'Chế độ in chữ',
+                      decoration: InputDecoration(
+                        labelText: tr('Chế độ in chữ'),
                         border: OutlineInputBorder(),
                         isDense: true,
-                        helperText: 'Tự động: Zywell → in ảnh có dấu',
+                        helperText: tr('Tự động: Zywell → in ảnh có dấu'),
                       ),
                       items: PosThermalTextMode.values
                           .map((m) => DropdownMenuItem(
                                 value: m.key,
-                                child: Text(m.label),
+                                child: Text(tr(m.label)),
                               ))
                           .toList(),
                       onChanged: (v) {
@@ -582,14 +581,14 @@ class _PosSellMobilePrintSettingsScreenState
                     padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
                     child: DropdownButtonFormField<String>(
                       value: _thermal.paperSize,
-                      decoration: const InputDecoration(
-                        labelText: 'Khổ giấy',
+                      decoration: InputDecoration(
+                        labelText: tr('Khổ giấy'),
                         border: OutlineInputBorder(),
                         isDense: true,
                       ),
-                      items: const [
-                        DropdownMenuItem(value: 'K58', child: Text('K58 (58mm)')),
-                        DropdownMenuItem(value: 'K80', child: Text('K80 (80mm)')),
+                      items: [
+                        DropdownMenuItem(value: 'K58', child: Text(tr('K58 (58mm)'))),
+                        DropdownMenuItem(value: 'K80', child: Text(tr('K80 (80mm)'))),
                       ],
                       onChanged: (v) {
                         if (v == null) return;
@@ -607,7 +606,7 @@ class _PosSellMobilePrintSettingsScreenState
                         }
                         final selected = _thermal.connectionType == t;
                         return ChoiceChip(
-                          label: Text(t.label),
+                          label: Text(tr(t.label)),
                           selected: selected,
                           selectedColor: PosTheme.kiotBlueLight,
                           onSelected: (_) => setState(
@@ -629,11 +628,11 @@ class _PosSellMobilePrintSettingsScreenState
                       PosThermalConnectionType.bluetooth) ...[
                     const Divider(height: 1),
                     ListTile(
-                      title: const Text('Máy in Bluetooth đã ghép'),
+                      title: Text(tr('Máy in Bluetooth đã ghép')),
                       subtitle: Text(
-                        _thermal.bluetoothName?.isNotEmpty == true
+                        tr(_thermal.bluetoothName?.isNotEmpty == true
                             ? '${_thermal.bluetoothName} (${_thermal.bluetoothAddress})'
-                            : 'Chưa chọn',
+                            : 'Chưa chọn'),
                       ),
                       trailing: const Icon(Icons.chevron_right),
                       onTap: () async {
@@ -643,7 +642,7 @@ class _PosSellMobilePrintSettingsScreenState
                         if (_btDevices.isEmpty) {
                           NotificationOverlayManager().showWarning(
                             title: 'Không có máy in',
-                            message: 'Ghép máy in Bluetooth trong Cài đặt Android trước',
+                            message: tr('Ghép máy in Bluetooth trong Cài đặt Android trước'),
                           );
                           return;
                         }
@@ -653,16 +652,16 @@ class _PosSellMobilePrintSettingsScreenState
                             child: Column(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                const Padding(
+                                Padding(
                                   padding: EdgeInsets.all(16),
-                                  child: Text('Chọn máy in Bluetooth',
+                                  child: Text(tr('Chọn máy in Bluetooth'),
                                       style: TextStyle(
                                           fontSize: 17, fontWeight: FontWeight.w600)),
                                 ),
                                 ..._btDevices.map(
                                   (d) => ListTile(
-                                    title: Text(d['name'] ?? 'Máy in'),
-                                    subtitle: Text(d['address'] ?? ''),
+                                    title: Text(tr(d['name'] ?? 'Máy in')),
+                                    subtitle: Text(tr(d['address'] ?? '')),
                                     onTap: () {
                                       setState(() {
                                         _thermal = _thermal.copyWith(
@@ -686,9 +685,9 @@ class _PosSellMobilePrintSettingsScreenState
                       padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
                       child: TextField(
                         controller: _lanHostCtrl,
-                        decoration: const InputDecoration(
-                          labelText: 'IP máy in (LAN/WiFi)',
-                          hintText: '192.168.1.100',
+                        decoration: InputDecoration(
+                          labelText: tr('IP máy in (LAN/WiFi)'),
+                          hintText: tr('192.168.1.100'),
                           border: OutlineInputBorder(),
                           isDense: true,
                         ),
@@ -699,8 +698,8 @@ class _PosSellMobilePrintSettingsScreenState
                       child: TextField(
                         controller: _lanPortCtrl,
                         keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(
-                          labelText: 'Cổng (mặc định 9100)',
+                        decoration: InputDecoration(
+                          labelText: tr('Cổng (mặc định 9100)'),
                           border: OutlineInputBorder(),
                           isDense: true,
                         ),
@@ -712,10 +711,9 @@ class _PosSellMobilePrintSettingsScreenState
                       padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
                       child: TextField(
                         controller: _usbNameCtrl,
-                        decoration: const InputDecoration(
-                          labelText: 'Tên thiết bị USB (tùy chọn)',
-                          helperText:
-                              'Sunmi: dùng chế độ Sunmi. USB OTG: ưu tiên máy ESC/POS hỗ trợ LAN/BT.',
+                        decoration: InputDecoration(
+                          labelText: tr('Tên thiết bị USB (tùy chọn)'),
+                          helperText: tr('Sunmi: dùng chế độ Sunmi. USB OTG: ưu tiên máy ESC/POS hỗ trợ LAN/BT.'),
                           border: OutlineInputBorder(),
                           isDense: true,
                         ),
@@ -724,11 +722,11 @@ class _PosSellMobilePrintSettingsScreenState
                   if (_thermal.connectionType == PosThermalConnectionType.sunmi)
                     ListTile(
                       leading: const Icon(Icons.print, color: _blue),
-                      title: const Text('Máy in tích hợp Sunmi'),
+                      title: Text(tr('Máy in tích hợp Sunmi')),
                       subtitle: Text(
-                        _isSunmi
+                        tr(_isSunmi
                             ? 'Đã nhận thiết bị Sunmi — bấm Lưu rồi In thử'
-                            : 'Không nhận được máy in nội bộ trên thiết bị này',
+                            : 'Không nhận được máy in nội bộ trên thiết bị này'),
                       ),
                       trailing: TextButton(
                         onPressed: _testing
@@ -740,26 +738,24 @@ class _PosSellMobilePrintSettingsScreenState
                                 if (ok) {
                                   NotificationOverlayManager().showSuccess(
                                     title: 'Đã kết nối máy in Sunmi',
-                                    message: 'Sẵn sàng in thử',
+                                    message: tr('Sẵn sàng in thử'),
                                   );
                                 } else {
                                   NotificationOverlayManager().showError(
                                     title: 'Không kết nối được',
-                                    message:
-                                        'Kiểm tra máy in nội bộ Sunmi / giấy in',
+                                    message: tr('Kiểm tra máy in nội bộ Sunmi / giấy in'),
                                   );
                                 }
                               },
-                        child: const Text('Kết nối lại'),
+                        child: Text(tr('Kết nối lại')),
                       ),
                     ),
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
                     child: Row(
                       children: [
-                        const Expanded(
-                          child: Text(
-                            'Dòng trống trước cắt',
+                        Expanded(
+                          child: Text(tr('Dòng trống trước cắt'),
                             style: TextStyle(fontSize: 14),
                           ),
                         ),
@@ -769,7 +765,7 @@ class _PosSellMobilePrintSettingsScreenState
                             20,
                             (i) => DropdownMenuItem(
                               value: i + 5,
-                              child: Text('${i + 5} dòng'),
+                              child: Text(tr('${i + 5} dòng')),
                             ),
                           ),
                           onChanged: (v) {
@@ -781,18 +777,17 @@ class _PosSellMobilePrintSettingsScreenState
                       ],
                     ),
                   ),
-                  const Padding(
+                  Padding(
                     padding: EdgeInsets.fromLTRB(16, 0, 16, 4),
-                    child: Text(
-                      'Khuyến nghị Sunmi: 14–18 dòng — đẩy hết chữ khỏi đầu in trước khi cắt/xé.',
+                    child: Text(tr('Khuyến nghị Sunmi: 14–18 dòng — đẩy hết chữ khỏi đầu in trước khi cắt/xé.'),
                       style: TextStyle(fontSize: 12, color: PosTheme.textSecondary),
                     ),
                   ),
                   SwitchListTile(
-                    title: const Text('Cắt một phần (partial)'),
-                    subtitle: const Text(
-                      'Áp dụng máy nhiệt LAN/BT (ESC/POS). Sunmi dùng cutPaper; '
-                      'máy không có dao cắt chỉ đẩy giấy để xé tay.',
+                    title: Text(tr('Cắt một phần (partial)')),
+                    subtitle: Text(
+                      tr('Áp dụng máy nhiệt LAN/BT (ESC/POS). Sunmi dùng cutPaper; '
+                      'máy không có dao cắt chỉ đẩy giấy để xé tay.'),
                     ),
                     value: _thermal.partialCut,
                     activeThumbColor: _blue,
@@ -810,7 +805,7 @@ class _PosSellMobilePrintSettingsScreenState
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
                           : const Icon(Icons.print_outlined),
-                      label: const Text('In thử'),
+                      label: Text(tr('In thử')),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: _blue,
                         side: const BorderSide(color: _blue),
@@ -824,9 +819,8 @@ class _PosSellMobilePrintSettingsScreenState
                 _sectionTitle('Máy in tem nhãn'),
                 _card([
                   SwitchListTile(
-                    title: const Text('Dùng máy in tem (cục bộ)'),
-                    subtitle: const Text(
-                      'Dự phòng — khuyến nghị thêm máy tem trong Máy in cửa hàng',
+                    title: Text(tr('Dùng máy in tem (cục bộ)')),
+                    subtitle: Text(tr('Dự phòng — khuyến nghị thêm máy tem trong Máy in cửa hàng'),
                       style: TextStyle(fontSize: 11),
                     ),
                     value: _label.enabled,
@@ -838,8 +832,8 @@ class _PosSellMobilePrintSettingsScreenState
                     padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
                     child: DropdownButtonFormField<String>(
                       value: _label.templateId,
-                      decoration: const InputDecoration(
-                        labelText: 'Khổ giấy tem mặc định',
+                      decoration: InputDecoration(
+                        labelText: tr('Khổ giấy tem mặc định'),
                         border: OutlineInputBorder(),
                         isDense: true,
                       ),
@@ -847,7 +841,7 @@ class _PosSellMobilePrintSettingsScreenState
                           .map((t) => DropdownMenuItem(
                                 value: t.id,
                                 child: Text(
-                                  '${t.sizeLabel} — ${t.name}',
+                                  tr('${t.sizeLabel} — ${t.name}'),
                                   style: const TextStyle(fontSize: 12),
                                   overflow: TextOverflow.ellipsis,
                                 ),
@@ -863,15 +857,15 @@ class _PosSellMobilePrintSettingsScreenState
                     padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
                     child: DropdownButtonFormField<String>(
                       value: _label.protocol.key,
-                      decoration: const InputDecoration(
-                        labelText: 'Giao thức',
+                      decoration: InputDecoration(
+                        labelText: tr('Giao thức'),
                         border: OutlineInputBorder(),
                         isDense: true,
                       ),
                       items: PosLabelPrinterProtocol.values
                           .map((p) => DropdownMenuItem(
                                 value: p.key,
-                                child: Text(p.label),
+                                child: Text(tr(p.label)),
                               ))
                           .toList(),
                       onChanged: (v) {
@@ -892,7 +886,7 @@ class _PosSellMobilePrintSettingsScreenState
                         }
                         final selected = _label.connectionType == t;
                         return ChoiceChip(
-                          label: Text(t.label),
+                          label: Text(tr(t.label)),
                           selected: selected,
                           selectedColor: PosTheme.kiotBlueLight,
                           onSelected: (_) => setState(
@@ -904,11 +898,11 @@ class _PosSellMobilePrintSettingsScreenState
                   ),
                   if (_label.connectionType == PosThermalConnectionType.bluetooth)
                     ListTile(
-                      title: const Text('Máy in tem Bluetooth'),
+                      title: Text(tr('Máy in tem Bluetooth')),
                       subtitle: Text(
-                        _label.bluetoothName?.isNotEmpty == true
+                        tr(_label.bluetoothName?.isNotEmpty == true
                             ? '${_label.bluetoothName} (${_label.bluetoothAddress})'
-                            : 'Chưa chọn',
+                            : 'Chưa chọn'),
                       ),
                       trailing: const Icon(Icons.chevron_right),
                       onTap: () async {
@@ -918,7 +912,7 @@ class _PosSellMobilePrintSettingsScreenState
                         if (_labelBtDevices.isEmpty) {
                           NotificationOverlayManager().showWarning(
                             title: 'Không có máy in',
-                            message: 'Ghép máy in Bluetooth trong Cài đặt Android',
+                            message: tr('Ghép máy in Bluetooth trong Cài đặt Android'),
                           );
                           return;
                         }
@@ -928,16 +922,16 @@ class _PosSellMobilePrintSettingsScreenState
                             child: Column(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                const Padding(
+                                Padding(
                                   padding: EdgeInsets.all(16),
-                                  child: Text('Chọn máy in tem',
+                                  child: Text(tr('Chọn máy in tem'),
                                       style: TextStyle(
                                           fontSize: 17, fontWeight: FontWeight.w600)),
                                 ),
                                 ..._labelBtDevices.map(
                                   (d) => ListTile(
-                                    title: Text(d['name'] ?? 'Máy in'),
-                                    subtitle: Text(d['address'] ?? ''),
+                                    title: Text(tr(d['name'] ?? 'Máy in')),
+                                    subtitle: Text(tr(d['address'] ?? '')),
                                     onTap: () {
                                       setState(() {
                                         _label = _label.copyWith(
@@ -960,9 +954,9 @@ class _PosSellMobilePrintSettingsScreenState
                       padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
                       child: TextField(
                         controller: _labelLanHostCtrl,
-                        decoration: const InputDecoration(
-                          labelText: 'IP máy in tem',
-                          hintText: '192.168.1.100',
+                        decoration: InputDecoration(
+                          labelText: tr('IP máy in tem'),
+                          hintText: tr('192.168.1.100'),
                           border: OutlineInputBorder(),
                           isDense: true,
                         ),
@@ -973,8 +967,8 @@ class _PosSellMobilePrintSettingsScreenState
                       child: TextField(
                         controller: _labelLanPortCtrl,
                         keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(
-                          labelText: 'Cổng (9100)',
+                        decoration: InputDecoration(
+                          labelText: tr('Cổng (9100)'),
                           border: OutlineInputBorder(),
                           isDense: true,
                         ),
@@ -992,7 +986,7 @@ class _PosSellMobilePrintSettingsScreenState
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
                           : const Icon(Icons.label_outline),
-                      label: const Text('In thử tem'),
+                      label: Text(tr('In thử tem')),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: _blue,
                         side: const BorderSide(color: _blue),
@@ -1010,7 +1004,7 @@ class _PosSellMobilePrintSettingsScreenState
   Widget _sectionTitle(String text) => Padding(
         padding: const EdgeInsets.only(left: 4, bottom: 8),
         child: Text(
-          text,
+          tr(text),
           style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: _blue),
         ),
       );

@@ -4,6 +4,7 @@ import '../providers/auth_provider.dart';
 import '../providers/permission_provider.dart';
 import '../utils/permission_navigation.dart';
 import '../utils/store_role_helper.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// Chặn hiển thị màn hình khi user không có quyền xem module.
 class ModuleRouteGuard extends StatelessWidget {
@@ -52,8 +53,7 @@ class _AccessDeniedBody extends StatelessWidget {
           children: [
             Icon(Icons.lock_outline, size: 56, color: Colors.grey.shade400),
             const SizedBox(height: 16),
-            Text(
-              'Bạn không có quyền truy cập',
+            Text(tr('Bạn không có quyền truy cập'),
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
@@ -63,7 +63,7 @@ class _AccessDeniedBody extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              'Module: $name',
+              tr('Module: $name'),
               style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
               textAlign: TextAlign.center,
             ),

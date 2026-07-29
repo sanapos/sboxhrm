@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// Chuẩn hóa trạng thái phiếu POS từ API (enum string, số, hoặc lowercase).
 String normalizePosDocStatus(dynamic raw, {String fallback = 'Draft'}) {
@@ -99,8 +100,7 @@ Widget? posDocStatusBanner(String status, {String completedLabel = 'Hoàn thành
           Icon(Icons.edit_note, size: 18, color: Colors.orange.shade800),
           const SizedBox(width: 8),
           Expanded(
-            child: Text(
-              'Phiếu tạm — chưa ảnh hưởng tồn kho',
+            child: Text(tr('Phiếu tạm — chưa ảnh hưởng tồn kho'),
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
@@ -125,8 +125,7 @@ Widget? posDocStatusBanner(String status, {String completedLabel = 'Hoàn thành
           Icon(Icons.fact_check_outlined, size: 18, color: Colors.blue.shade800),
           const SizedBox(width: 8),
           Expanded(
-            child: Text(
-              'Đang kiểm kê — chưa cân bằng kho',
+            child: Text(tr('Đang kiểm kê — chưa cân bằng kho'),
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
@@ -151,8 +150,7 @@ Widget? posDocStatusBanner(String status, {String completedLabel = 'Hoàn thành
           Icon(Icons.cancel_outlined, size: 18, color: Colors.red.shade800),
           const SizedBox(width: 8),
           Expanded(
-            child: Text(
-              'Phiếu đã hủy · ${posDocStatusLabel(status, completedLabel: completedLabel)}',
+            child: Text(tr('Phiếu đã hủy · ${posDocStatusLabel(status, completedLabel: completedLabel)}'),
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
@@ -195,7 +193,7 @@ Widget posDocStatusChip(String status, {String completedLabel = 'Hoàn thành'})
           const SizedBox(width: 3),
         ],
         Text(
-          label,
+          tr(label),
           style: TextStyle(
             fontSize: 11,
             color: color is MaterialColor ? color.shade700 : color,

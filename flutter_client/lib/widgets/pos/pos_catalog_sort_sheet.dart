@@ -5,6 +5,7 @@ import '../../services/api_service.dart';
 import '../../utils/pos_category_tree.dart';
 import '../notification_overlay.dart';
 import 'pos_theme.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// Sheet kéo thả thứ tự nhóm hàng + sản phẩm (giống sắp nhóm bàn).
 Future<bool> showPosCatalogSortSheet({
@@ -115,7 +116,7 @@ class _PosCatalogSortSheetState extends State<_PosCatalogSortSheet>
     if (res['isSuccess'] == true) {
       NotificationOverlayManager().showSuccess(
         title: 'Đã sắp nhóm hàng',
-        message: '${items.length} nhóm',
+        message: tr('${items.length} nhóm'),
       );
       Navigator.pop(context, true);
     } else {
@@ -130,7 +131,7 @@ class _PosCatalogSortSheetState extends State<_PosCatalogSortSheet>
     if (_productRows.isEmpty) {
       NotificationOverlayManager().showWarning(
         title: 'Trống',
-        message: 'Chọn nhóm có sản phẩm để sắp xếp',
+        message: tr('Chọn nhóm có sản phẩm để sắp xếp'),
       );
       return;
     }
@@ -163,19 +164,19 @@ class _PosCatalogSortSheetState extends State<_PosCatalogSortSheet>
       height: h,
       child: Column(
         children: [
-          const ListTile(
-            title: Text('Sắp xếp menu bán',
+          ListTile(
+            title: Text(tr('Sắp xếp menu bán'),
                 style: TextStyle(fontWeight: FontWeight.w700)),
-            subtitle: Text('Kéo để đổi vị trí · Lưu để áp dụng'),
+            subtitle: Text(tr('Kéo để đổi vị trí · Lưu để áp dụng')),
           ),
           TabBar(
             controller: _tabs,
             labelColor: PosTheme.kiotBlue,
             unselectedLabelColor: PosTheme.textSecondary,
             indicatorColor: PosTheme.kiotBlue,
-            tabs: const [
-              Tab(text: 'Nhóm hàng'),
-              Tab(text: 'Sản phẩm'),
+            tabs: [
+              Tab(text: tr('Nhóm hàng')),
+              Tab(text: tr('Sản phẩm')),
             ],
           ),
           Expanded(
@@ -194,7 +195,7 @@ class _PosCatalogSortSheetState extends State<_PosCatalogSortSheet>
                 TextButton(
                   onPressed:
                       _saving ? null : () => Navigator.pop(context, false),
-                  child: const Text('Đóng'),
+                  child: Text(tr('Đóng')),
                 ),
                 const Spacer(),
                 FilledButton(
@@ -214,9 +215,9 @@ class _PosCatalogSortSheetState extends State<_PosCatalogSortSheet>
                           child: CircularProgressIndicator(
                               strokeWidth: 2, color: Colors.white),
                         )
-                      : Text(_tabs.index == 0
+                      : Text(tr(_tabs.index == 0
                           ? 'Lưu thứ tự nhóm'
-                          : 'Lưu thứ tự SP'),
+                          : 'Lưu thứ tự SP')),
                 ),
               ],
             ),
@@ -228,7 +229,7 @@ class _PosCatalogSortSheetState extends State<_PosCatalogSortSheet>
 
   Widget _buildCategoryTab() {
     if (_catRows.isEmpty) {
-      return const Center(child: Text('Chưa có nhóm hàng'));
+      return Center(child: Text(tr('Chưa có nhóm hàng')));
     }
     return ReorderableListView.builder(
       padding: const EdgeInsets.symmetric(vertical: 8),
@@ -247,13 +248,13 @@ class _PosCatalogSortSheetState extends State<_PosCatalogSortSheet>
           leading: const Icon(Icons.drag_handle),
           title: Padding(
             padding: EdgeInsets.only(left: row.depth * 16.0),
-            child: Text(row.item.name,
+            child: Text(tr(row.item.name),
                 style: const TextStyle(fontWeight: FontWeight.w600)),
           ),
           subtitle: row.depth > 0
               ? Padding(
                   padding: EdgeInsets.only(left: row.depth * 16.0),
-                  child: const Text('Nhóm con',
+                  child: Text(tr('Nhóm con'),
                       style: TextStyle(fontSize: 11)),
                 )
               : null,
@@ -269,20 +270,20 @@ class _PosCatalogSortSheetState extends State<_PosCatalogSortSheet>
           padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
           child: DropdownButtonFormField<String?>(
             value: _productCategoryId,
-            decoration: const InputDecoration(
-              labelText: 'Lọc theo nhóm',
+            decoration: InputDecoration(
+              labelText: tr('Lọc theo nhóm'),
               border: OutlineInputBorder(),
               isDense: true,
             ),
             items: [
-              const DropdownMenuItem<String?>(
+              DropdownMenuItem<String?>(
                 value: null,
-                child: Text('Tất cả'),
+                child: Text(tr('Tất cả')),
               ),
               for (final c in widget.categories)
                 DropdownMenuItem<String?>(
                   value: c.id,
-                  child: Text(c.name),
+                  child: Text(tr(c.name)),
                 ),
             ],
             onChanged: (v) {
@@ -295,7 +296,7 @@ class _PosCatalogSortSheetState extends State<_PosCatalogSortSheet>
         ),
         Expanded(
           child: _productRows.isEmpty
-              ? const Center(child: Text('Không có sản phẩm trong nhóm này'))
+              ? Center(child: Text(tr('Không có sản phẩm trong nhóm này')))
               : ReorderableListView.builder(
                   padding: const EdgeInsets.symmetric(vertical: 4),
                   itemCount: _productRows.length,
@@ -311,11 +312,11 @@ class _PosCatalogSortSheetState extends State<_PosCatalogSortSheet>
                     return ListTile(
                       key: ValueKey(p.id),
                       leading: const Icon(Icons.drag_handle),
-                      title: Text(p.name,
+                      title: Text(tr(p.name),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(fontWeight: FontWeight.w600)),
-                      subtitle: Text(p.productCode,
+                      subtitle: Text(tr(p.productCode),
                           style: const TextStyle(fontSize: 11)),
                       trailing: p.isFavorite
                           ? const Icon(Icons.star,

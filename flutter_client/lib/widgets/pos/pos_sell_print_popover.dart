@@ -7,6 +7,7 @@ import '../../utils/navigation_notifier.dart';
 import '../../screens/settings_hub_screen.dart';
 import '../../utils/pos_sell_print_settings.dart';
 import 'pos_theme.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 Future<List<PosPrintTemplate>> _loadSaleInvoiceTemplates(ApiService api) =>
     loadPosPrintTemplates(api, PosPrintDocumentTypes.saleInvoice);
@@ -109,7 +110,7 @@ Future<PosSellPrintSettings?> showPosSellPrintPopover(
                             ),
                           ),
                           const SizedBox(height: 12),
-                          const Text('Số bản in (Liên)',
+                          Text(tr('Số bản in (Liên)'),
                               style: TextStyle(fontSize: 13, color: PosTheme.textSecondary)),
                           const SizedBox(height: 6),
                           DropdownButtonFormField<int>(
@@ -122,7 +123,7 @@ Future<PosSellPrintSettings?> showPosSellPrintPopover(
                             ),
                             items: List.generate(
                               10,
-                              (i) => DropdownMenuItem(value: i + 1, child: Text('${i + 1}')),
+                              (i) => DropdownMenuItem(value: i + 1, child: Text(tr('${i + 1}'))),
                             ),
                             onChanged: (v) {
                               if (v == null) return;
@@ -130,7 +131,7 @@ Future<PosSellPrintSettings?> showPosSellPrintPopover(
                             },
                           ),
                           const SizedBox(height: 12),
-                          const Text('Tem dán ly (trà sữa)',
+                          Text(tr('Tem dán ly (trà sữa)'),
                               style: TextStyle(fontSize: 13, color: PosTheme.textSecondary)),
                           const SizedBox(height: 6),
                           DropdownButtonFormField<PosCupLabelPrintMode>(
@@ -145,7 +146,7 @@ Future<PosSellPrintSettings?> showPosSellPrintPopover(
                                 .map(
                                   (m) => DropdownMenuItem(
                                     value: m,
-                                    child: Text(m.label, overflow: TextOverflow.ellipsis),
+                                    child: Text(tr(m.label), overflow: TextOverflow.ellipsis),
                                   ),
                                 )
                                 .toList(),
@@ -157,7 +158,7 @@ Future<PosSellPrintSettings?> showPosSellPrintPopover(
                             },
                           ),
                           const SizedBox(height: 12),
-                          const Text('Phiếu báo xuất kho',
+                          Text(tr('Phiếu báo xuất kho'),
                               style: TextStyle(fontSize: 13, color: PosTheme.textSecondary)),
                           const SizedBox(height: 6),
                           DropdownButtonFormField<PosWarehousePrintMode>(
@@ -172,7 +173,7 @@ Future<PosSellPrintSettings?> showPosSellPrintPopover(
                                 .map(
                                   (m) => DropdownMenuItem(
                                     value: m,
-                                    child: Text(m.label, overflow: TextOverflow.ellipsis),
+                                    child: Text(tr(m.label), overflow: TextOverflow.ellipsis),
                                   ),
                                 )
                                 .toList(),
@@ -184,7 +185,7 @@ Future<PosSellPrintSettings?> showPosSellPrintPopover(
                             },
                           ),
                           const SizedBox(height: 12),
-                          const Text('Mẫu in phiếu xuất kho',
+                          Text(tr('Mẫu in phiếu xuất kho'),
                               style: TextStyle(fontSize: 13, color: PosTheme.textSecondary)),
                           const SizedBox(height: 6),
                           DropdownButtonFormField<String>(
@@ -196,14 +197,14 @@ Future<PosSellPrintSettings?> showPosSellPrintPopover(
                               border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
                             ),
                             hint: warehouseTemplates.isEmpty
-                                ? const Text('Chưa có mẫu')
-                                : const Text('Chọn mẫu in'),
+                                ? Text(tr('Chưa có mẫu'))
+                                : Text(tr('Chọn mẫu in')),
                             items: warehouseTemplates
                                 .map(
                                   (t) => DropdownMenuItem(
                                     value: t.id,
                                     child: Text(
-                                      '${t.name} (${PosPrintPaperSizes.labels[t.paperSize] ?? t.paperSize})',
+                                      tr('${t.name} (${PosPrintPaperSizes.labels[t.paperSize] ?? t.paperSize})'),
                                       overflow: TextOverflow.ellipsis,
                                     ),
                                   ),
@@ -218,7 +219,7 @@ Future<PosSellPrintSettings?> showPosSellPrintPopover(
                                   },
                           ),
                           const SizedBox(height: 12),
-                          const Text('Mẫu in hóa đơn',
+                          Text(tr('Mẫu in hóa đơn'),
                               style: TextStyle(fontSize: 13, color: PosTheme.textSecondary)),
                           const SizedBox(height: 6),
                           DropdownButtonFormField<String>(
@@ -230,14 +231,14 @@ Future<PosSellPrintSettings?> showPosSellPrintPopover(
                               border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
                             ),
                             hint: templates.isEmpty
-                                ? const Text('Chưa có mẫu in')
-                                : const Text('Chọn mẫu in'),
+                                ? Text(tr('Chưa có mẫu in'))
+                                : Text(tr('Chọn mẫu in')),
                             items: templates
                                 .map(
                                   (t) => DropdownMenuItem(
                                     value: t.id,
                                     child: Text(
-                                      '${t.name} (${PosPrintPaperSizes.labels[t.paperSize] ?? t.paperSize})',
+                                      tr('${t.name} (${PosPrintPaperSizes.labels[t.paperSize] ?? t.paperSize})'),
                                       overflow: TextOverflow.ellipsis,
                                     ),
                                   ),
@@ -251,15 +252,13 @@ Future<PosSellPrintSettings?> showPosSellPrintPopover(
                           ),
                           if (templates.isEmpty) ...[
                             const SizedBox(height: 6),
-                            const Text(
-                              'Chưa có mẫu in — hệ thống sẽ tạo sẵn K58, K80, A5, A4 khi bạn mở lại.',
+                            Text(tr('Chưa có mẫu in — hệ thống sẽ tạo sẵn K58, K80, A5, A4 khi bạn mở lại.'),
                               style: TextStyle(fontSize: 11, color: PosTheme.textSecondary),
                             ),
                           ],
                           if (selected != null) ...[
                             const SizedBox(height: 4),
-                            Text(
-                              'Khổ: ${PosPrintPaperSizes.labels[selected.paperSize] ?? selected.paperSize}',
+                            Text(tr('Khổ: ${PosPrintPaperSizes.labels[selected.paperSize] ?? selected.paperSize}'),
                               style: const TextStyle(fontSize: 11, color: PosTheme.textSecondary),
                             ),
                           ],
@@ -275,7 +274,7 @@ Future<PosSellPrintSettings?> showPosSellPrintPopover(
                               side: BorderSide(color: PosTheme.kiotBlue),
                               padding: const EdgeInsets.symmetric(vertical: 10),
                             ),
-                            child: const Text('Thiết lập mẫu in…',
+                            child: Text(tr('Thiết lập mẫu in…'),
                                 style: TextStyle(fontWeight: FontWeight.w600)),
                           ),
                           const SizedBox(height: 14),
@@ -284,7 +283,7 @@ Future<PosSellPrintSettings?> showPosSellPrintPopover(
                               Expanded(
                                 child: OutlinedButton(
                                   onPressed: () => Navigator.pop(ctx),
-                                  child: const Text('Bỏ qua'),
+                                  child: Text(tr('Bỏ qua')),
                                 ),
                               ),
                               const SizedBox(width: 8),
@@ -295,7 +294,7 @@ Future<PosSellPrintSettings?> showPosSellPrintPopover(
                                     await settings.save();
                                     if (ctx.mounted) Navigator.pop(ctx, settings);
                                   },
-                                  child: const Text('Xong'),
+                                  child: Text(tr('Xong')),
                                 ),
                               ),
                             ],
@@ -317,7 +316,7 @@ Future<PosSellPrintSettings?> showPosSellPrintPopover(
 Widget _toggleRow(String label, bool value, ValueChanged<bool> onChanged) {
   return Row(
     children: [
-      Expanded(child: Text(label, style: const TextStyle(fontSize: 13))),
+      Expanded(child: Text(tr(label), style: const TextStyle(fontSize: 13))),
       Switch(
         value: value,
         activeThumbColor: PosTheme.kiotBlue,

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// Loại thao tác chấm công (thêm / sửa / xóa) — dùng cho gợi ý và mẫu ghi chú.
 enum AttendanceCorrectionReasonKind { add, edit, delete }
@@ -97,14 +98,14 @@ class _AttendanceCorrectionReasonFieldState
           children: [
             Expanded(
               child: Text(
-                '$_fieldLabel *',
+                tr('$_fieldLabel *'),
                 style: const TextStyle(fontWeight: FontWeight.w500),
               ),
             ),
             TextButton.icon(
               onPressed: _applyTemplate,
               icon: const Icon(Icons.description_outlined, size: 18),
-              label: const Text('Điền mẫu'),
+              label: Text(tr('Điền mẫu')),
               style: TextButton.styleFrom(
                 visualDensity: VisualDensity.compact,
                 padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -113,8 +114,7 @@ class _AttendanceCorrectionReasonFieldState
           ],
         ),
         const SizedBox(height: 6),
-        Text(
-          'Chọn gợi ý hoặc chỉnh sửa nội dung bên dưới',
+        Text(tr('Chọn gợi ý hoặc chỉnh sửa nội dung bên dưới'),
           style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
         ),
         const SizedBox(height: 8),
@@ -123,7 +123,7 @@ class _AttendanceCorrectionReasonFieldState
           runSpacing: 6,
           children: suggestions.map((s) {
             return ActionChip(
-              label: Text(s, style: const TextStyle(fontSize: 12)),
+              label: Text(tr(s), style: const TextStyle(fontSize: 12)),
               visualDensity: VisualDensity.compact,
               onPressed: () => _applySuggestion(s),
             );
@@ -141,7 +141,7 @@ class _AttendanceCorrectionReasonFieldState
           textInputAction: TextInputAction.done,
           scrollPadding: const EdgeInsets.only(bottom: 120),
           decoration: InputDecoration(
-            hintText: 'Nhập lý do hoặc chọn gợi ý phía trên',
+            hintText: tr('Nhập lý do hoặc chọn gợi ý phía trên'),
             border: const OutlineInputBorder(),
             prefixIcon: const Icon(Icons.note_alt_outlined),
             suffixIcon: widget.controller.text.isNotEmpty

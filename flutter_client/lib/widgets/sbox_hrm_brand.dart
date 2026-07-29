@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'pos/pos_theme.dart';
+import '../l10n/app_tr.dart';
 
 /// Logo vector SBOX HRM — sắc nét, không phụ thuộc PNG nhỏ bị scale mờ.
 class SboxHrmBrandMark extends StatelessWidget {
@@ -72,7 +73,7 @@ class SboxHrmBrandMark extends StatelessWidget {
                   ),
                   SizedBox(height: logoSize * 0.03),
                   Text(
-                    'SBOX',
+                    tr('SBOX'),
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: logoSize * 0.15,
@@ -88,7 +89,7 @@ class SboxHrmBrandMark extends StatelessWidget {
         ),
         SizedBox(height: logoSize * 0.26),
         Text(
-          'SBOX HRM',
+          tr('SBOX HRM'),
           style: TextStyle(
             color: titleColor,
             fontSize: logoSize * 0.26,
@@ -101,7 +102,7 @@ class SboxHrmBrandMark extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 24),
             child: Text(
-              slogan,
+              tr(slogan),
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: subtitleColor,

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../models/pos_product.dart';
 import '../../utils/pos_category_tree.dart';
 import 'pos_theme.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 class PosCategoryTreePanel extends StatelessWidget {
   const PosCategoryTreePanel({
@@ -32,15 +33,14 @@ class PosCategoryTreePanel extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(12, 12, 8, 8),
             child: Row(
               children: [
-                const Expanded(
-                  child: Text(
-                    'Nhóm hàng',
+                Expanded(
+                  child: Text(tr('Nhóm hàng'),
                     style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                   ),
                 ),
                 if (onAddCategory != null)
                   IconButton(
-                    tooltip: 'Thêm nhóm',
+                    tooltip: tr('Thêm nhóm'),
                     icon: const Icon(Icons.add, size: 20),
                     onPressed: onAddCategory,
                     color: PosTheme.primary,
@@ -107,7 +107,7 @@ class PosCategoryTreePanel extends StatelessWidget {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  label,
+                  tr(label),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
@@ -118,7 +118,7 @@ class PosCategoryTreePanel extends StatelessWidget {
                 ),
               ),
               Text(
-                '$count',
+                tr('$count'),
                 style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
               ),
             ],

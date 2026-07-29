@@ -9,6 +9,7 @@ import '../utils/api_datetime.dart';
 import '../widgets/notification_overlay.dart';
 import '../widgets/app_scroll_safe.dart';
 import '../widgets/hrm_page_chrome.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 class ShiftRegistrationScreen extends StatefulWidget {
   const ShiftRegistrationScreen({super.key});
@@ -217,13 +218,13 @@ class _ShiftRegistrationScreenState extends State<ShiftRegistrationScreen> {
                           icon: const Icon(Icons.keyboard_arrow_down,
                               size: 18, color: Color(0xFF9CA3AF)),
                           items: [
-                            const DropdownMenuItem<String?>(
+                            DropdownMenuItem<String?>(
                                 value: null,
-                                child: Text('T\u1ea5t c\u1ea3 chi nh\u00e1nh',
+                                child: Text(tr('T\u1ea5t c\u1ea3 chi nh\u00e1nh'),
                                     style: TextStyle(fontSize: 13))),
                             ..._branches.map((b) => DropdownMenuItem<String?>(
                                 value: b['id']?.toString(),
-                                child: Text(b['name']?.toString() ?? '',
+                                child: Text(tr(b['name']?.toString() ?? ''),
                                     overflow: TextOverflow.ellipsis,
                                     style: const TextStyle(fontSize: 13)))),
                           ],
@@ -276,15 +277,15 @@ class _ShiftRegistrationScreenState extends State<ShiftRegistrationScreen> {
                 color: Colors.white, size: 24),
           ),
           const SizedBox(width: 16),
-          const Expanded(
+          Expanded(
             child:
                 Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text('Lịch ca làm việc',
+              Text(tr('Lịch ca làm việc'),
                   style: TextStyle(
                       color: Colors.white,
                       fontSize: 22,
                       fontWeight: FontWeight.bold)),
-              Text('Phân ca và phê duyệt theo tuần',
+              Text(tr('Phân ca và phê duyệt theo tuần'),
                   style: TextStyle(color: Colors.white70, fontSize: 14)),
             ]),
           ),
@@ -305,19 +306,19 @@ class _ShiftRegistrationScreenState extends State<ShiftRegistrationScreen> {
           IconButton(
               onPressed: () => _changeWeek(-1),
               icon: const Icon(Icons.chevron_left),
-              tooltip: 'Tuần trước'),
+              tooltip: tr('Tuần trước')),
           Expanded(
               child: InkWell(
                   onTap: _goToToday,
-                  child: Text(label,
+                  child: Text(tr(label),
                       textAlign: TextAlign.center,
                       style: const TextStyle(
                           fontSize: 16, fontWeight: FontWeight.w600)))),
-          TextButton(onPressed: _goToToday, child: const Text('Hôm nay')),
+          TextButton(onPressed: _goToToday, child: Text(tr('Hôm nay'))),
           IconButton(
               onPressed: () => _changeWeek(1),
               icon: const Icon(Icons.chevron_right),
-              tooltip: 'Tuần sau'),
+              tooltip: tr('Tuần sau')),
         ],
       ),
     );
@@ -334,11 +335,11 @@ class _ShiftRegistrationScreenState extends State<ShiftRegistrationScreen> {
             const Icon(Icons.pending_actions,
                 color: Color(0xFFF59E0B), size: 20),
             const SizedBox(width: 8),
-            Text('Có $count yêu cầu đăng ký ca chờ duyệt',
+            Text(tr('Có $count yêu cầu đăng ký ca chờ duyệt'),
                 style: const TextStyle(
                     color: Color(0xFF92400E), fontWeight: FontWeight.w500)),
             const Spacer(),
-            const Text('Xem →',
+            Text(tr('Xem →'),
                 style: TextStyle(
                     color: Color(0xFFF59E0B), fontWeight: FontWeight.w600)),
           ],
@@ -352,10 +353,10 @@ class _ShiftRegistrationScreenState extends State<ShiftRegistrationScreen> {
       child: Column(mainAxisSize: MainAxisSize.min, children: [
         Icon(Icons.event_busy, size: 64, color: Colors.grey[300]),
         const SizedBox(height: 16),
-        Text('Chưa có ca làm việc nào',
+        Text(tr('Chưa có ca làm việc nào'),
             style: TextStyle(color: Colors.grey[500], fontSize: 16)),
         const SizedBox(height: 8),
-        Text('Vui lòng tạo ca trong phần Cài đặt ca',
+        Text(tr('Vui lòng tạo ca trong phần Cài đặt ca'),
             style: TextStyle(color: Colors.grey[400], fontSize: 14)),
       ]),
     );
@@ -416,10 +417,10 @@ class _ShiftRegistrationScreenState extends State<ShiftRegistrationScreen> {
         Expanded(
           child:
               Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(title,
+            Text(tr(title),
                 style: TextStyle(
                     fontWeight: FontWeight.bold, fontSize: 15, color: color)),
-            Text(subtitle,
+            Text(tr(subtitle),
                 style: TextStyle(color: Colors.grey[500], fontSize: 12)),
           ]),
         ),
@@ -473,11 +474,11 @@ class _ShiftRegistrationScreenState extends State<ShiftRegistrationScreen> {
         padding: const EdgeInsets.all(8),
         decoration: const BoxDecoration(color: Color(0xFFF0F9FF)),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(shiftName,
+          Text(tr(shiftName),
               style:
                   const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
           const SizedBox(height: 2),
-          Text('$startTime - $endTime',
+          Text(tr('$startTime - $endTime'),
               style: TextStyle(color: Colors.grey[600], fontSize: 11)),
         ]),
       )),
@@ -564,7 +565,7 @@ class _ShiftRegistrationScreenState extends State<ShiftRegistrationScreen> {
                         Icon(Icons.person_add,
                             size: 16, color: Colors.grey[400]),
                         const SizedBox(width: 6),
-                        Text('Thêm nhân viên...',
+                        Text(tr('Thêm nhân viên...'),
                             style: TextStyle(
                                 color: Colors.grey[500],
                                 fontSize: 12,
@@ -593,7 +594,7 @@ class _ShiftRegistrationScreenState extends State<ShiftRegistrationScreen> {
                   icon: const Icon(Icons.chevron_left),
                   onPressed:
                       safePage > 1 ? () => setState(() => _empPage--) : null),
-              Text('Trang $safePage / $totalPages (${emps.length} nhân viên)',
+              Text(tr('Trang $safePage / $totalPages (${emps.length} nhân viên)'),
                   style: const TextStyle(fontSize: 13)),
               IconButton(
                   icon: const Icon(Icons.chevron_right),
@@ -620,11 +621,11 @@ class _ShiftRegistrationScreenState extends State<ShiftRegistrationScreen> {
         padding: const EdgeInsets.all(8),
         decoration: const BoxDecoration(color: Color(0xFFF5F3FF)),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(name.toString(),
+          Text(tr(name.toString()),
               style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
               overflow: TextOverflow.ellipsis),
           if (code.toString().isNotEmpty)
-            Text(code.toString(),
+            Text(tr(code.toString()),
                 style: TextStyle(color: Colors.grey[500], fontSize: 11)),
         ]),
       )),
@@ -666,7 +667,7 @@ class _ShiftRegistrationScreenState extends State<ShiftRegistrationScreen> {
     return TableCell(
         child: Container(
       padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-      child: Text(text,
+      child: Text(tr(text),
           style: const TextStyle(
               color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
           textAlign: TextAlign.center),
@@ -682,12 +683,12 @@ class _ShiftRegistrationScreenState extends State<ShiftRegistrationScreen> {
           ? BoxDecoration(color: Colors.white.withValues(alpha: 0.15))
           : null,
       child: Column(children: [
-        Text(dayName,
+        Text(tr(dayName),
             style: TextStyle(
                 color: isToday ? Colors.yellow : Colors.white,
                 fontWeight: FontWeight.bold,
                 fontSize: 13)),
-        Text(DateFormat('dd/MM').format(date),
+        Text(tr(DateFormat('dd/MM').format(date)),
             style: TextStyle(
                 color: isToday ? Colors.yellow.shade200 : Colors.white70,
                 fontSize: 11)),
@@ -716,7 +717,7 @@ class _ShiftRegistrationScreenState extends State<ShiftRegistrationScreen> {
           const SizedBox(width: 2)
         ],
         Flexible(
-            child: Text(short,
+            child: Text(tr(short),
                 style: TextStyle(
                     fontSize: 11, color: color, fontWeight: FontWeight.w500),
                 overflow: TextOverflow.ellipsis)),
@@ -760,10 +761,10 @@ class _ShiftRegistrationScreenState extends State<ShiftRegistrationScreen> {
                   child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                    Text(shiftName,
+                    Text(tr(shiftName),
                         style: const TextStyle(
                             fontSize: 18, fontWeight: FontWeight.bold)),
-                    Text(dateStr,
+                    Text(tr(dateStr),
                         style:
                             TextStyle(color: Colors.grey[600], fontSize: 14)),
                   ])),
@@ -774,7 +775,7 @@ class _ShiftRegistrationScreenState extends State<ShiftRegistrationScreen> {
                     _showAssignEmployeeDialog(shift, date);
                   },
                   icon: const Icon(Icons.person_add, size: 18),
-                  label: const Text('Thêm NV'),
+                  label: Text(tr('Thêm NV')),
                   style: FilledButton.styleFrom(
                       backgroundColor: const Color(0xFF0891B2)),
                 ),
@@ -787,7 +788,7 @@ class _ShiftRegistrationScreenState extends State<ShiftRegistrationScreen> {
                   padding: const EdgeInsets.all(16),
                   children: [
                 if (employees.isNotEmpty) ...[
-                  const Text('Nhân viên đã phân ca',
+                  Text(tr('Nhân viên đã phân ca'),
                       style:
                           TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
                   const SizedBox(height: 8),
@@ -795,7 +796,7 @@ class _ShiftRegistrationScreenState extends State<ShiftRegistrationScreen> {
                   const SizedBox(height: 16),
                 ],
                 if (pending.isNotEmpty) ...[
-                  const Text('Yêu cầu chờ duyệt',
+                  Text(tr('Yêu cầu chờ duyệt'),
                       style: TextStyle(
                           fontWeight: FontWeight.w600,
                           fontSize: 14,
@@ -810,7 +811,7 @@ class _ShiftRegistrationScreenState extends State<ShiftRegistrationScreen> {
                         Icon(Icons.person_off,
                             size: 48, color: Colors.grey[300]),
                         const SizedBox(height: 8),
-                        Text('Chưa có nhân viên nào',
+                        Text(tr('Chưa có nhân viên nào'),
                             style: TextStyle(color: Colors.grey[500])),
                       ])),
               ])),
@@ -852,10 +853,10 @@ class _ShiftRegistrationScreenState extends State<ShiftRegistrationScreen> {
                   child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                    Text(empName.toString(),
+                    Text(tr(empName.toString()),
                         style: const TextStyle(
                             fontSize: 18, fontWeight: FontWeight.bold)),
-                    Text(dateStr,
+                    Text(tr(dateStr),
                         style:
                             TextStyle(color: Colors.grey[600], fontSize: 14)),
                   ])),
@@ -866,7 +867,7 @@ class _ShiftRegistrationScreenState extends State<ShiftRegistrationScreen> {
                     _showAssignShiftDialog(emp, date);
                   },
                   icon: const Icon(Icons.work_history, size: 18),
-                  label: const Text('Thêm ca'),
+                  label: Text(tr('Thêm ca')),
                   style: FilledButton.styleFrom(
                       backgroundColor: HrmPageChrome.primaryNavy),
                 ),
@@ -879,7 +880,7 @@ class _ShiftRegistrationScreenState extends State<ShiftRegistrationScreen> {
                   padding: const EdgeInsets.all(16),
                   children: [
                 if (shifts.isNotEmpty) ...[
-                  const Text('Ca đã phân',
+                  Text(tr('Ca đã phân'),
                       style:
                           TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
                   const SizedBox(height: 8),
@@ -896,11 +897,11 @@ class _ShiftRegistrationScreenState extends State<ShiftRegistrationScreen> {
                             child: const Icon(Icons.work,
                                 color: HrmPageChrome.primaryNavy, size: 18),
                           ),
-                          title: Text(ws['shiftName'] ?? 'N/A',
+                          title: Text(tr(ws['shiftName'] ?? 'N/A'),
                               style:
                                   const TextStyle(fontWeight: FontWeight.w500)),
                           subtitle: Text(
-                              '${_fmtTime(ws['shiftStartTime'])} - ${_fmtTime(ws['shiftEndTime'])}',
+                              tr('${_fmtTime(ws['shiftStartTime'])} - ${_fmtTime(ws['shiftEndTime'])}'),
                               style: TextStyle(
                                   color: Colors.grey[500], fontSize: 12)),
                           trailing: _perm.canDelete('WorkSchedule')
@@ -919,7 +920,7 @@ class _ShiftRegistrationScreenState extends State<ShiftRegistrationScreen> {
                       child: Column(children: [
                         Icon(Icons.work_off, size: 48, color: Colors.grey[300]),
                         const SizedBox(height: 8),
-                        Text('Chưa có ca nào',
+                        Text(tr('Chưa có ca nào'),
                             style: TextStyle(color: Colors.grey[500])),
                       ])),
               ])),
@@ -940,13 +941,13 @@ class _ShiftRegistrationScreenState extends State<ShiftRegistrationScreen> {
       child: ListTile(
         leading: CircleAvatar(
           backgroundColor: HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
-          child: Text((ws['employeeName'] ?? '?')[0].toUpperCase(),
+          child: Text(tr((ws['employeeName'] ?? '?')[0].toUpperCase()),
               style: const TextStyle(
                   color: HrmPageChrome.primaryNavy, fontWeight: FontWeight.bold)),
         ),
-        title: Text(ws['employeeName'] ?? 'N/A',
+        title: Text(tr(ws['employeeName'] ?? 'N/A'),
             style: const TextStyle(fontWeight: FontWeight.w500)),
-        subtitle: Text(ws['employeeCode'] ?? '',
+        subtitle: Text(tr(ws['employeeCode'] ?? ''),
             style: TextStyle(color: Colors.grey[500], fontSize: 12)),
         trailing: _perm.canDelete('WorkSchedule')
             ? IconButton(
@@ -969,13 +970,13 @@ class _ShiftRegistrationScreenState extends State<ShiftRegistrationScreen> {
       child: ListTile(
         leading: CircleAvatar(
           backgroundColor: const Color(0xFFF59E0B).withValues(alpha: 0.15),
-          child: Text((reg['employeeName'] ?? '?')[0].toUpperCase(),
+          child: Text(tr((reg['employeeName'] ?? '?')[0].toUpperCase()),
               style: const TextStyle(
                   color: Color(0xFFF59E0B), fontWeight: FontWeight.bold)),
         ),
-        title: Text(reg['employeeName'] ?? 'N/A',
+        title: Text(tr(reg['employeeName'] ?? 'N/A'),
             style: const TextStyle(fontWeight: FontWeight.w500)),
-        subtitle: Text(reg['note'] ?? '',
+        subtitle: Text(tr(reg['note'] ?? ''),
             style: TextStyle(color: Colors.grey[600], fontSize: 12)),
         trailing: (_perm.canApprove('WorkSchedule') ||
                 _perm.canDelete('WorkSchedule'))
@@ -1034,8 +1035,8 @@ class _ShiftRegistrationScreenState extends State<ShiftRegistrationScreen> {
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title:
               Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('Thêm NV vào $shiftName'),
-            Text(DateFormat('dd/MM/yyyy').format(date),
+            Text(tr('Thêm NV vào $shiftName')),
+            Text(tr(DateFormat('dd/MM/yyyy').format(date)),
                 style: TextStyle(fontSize: 14, color: Colors.grey[600])),
           ]),
           content: SizedBox(
@@ -1047,7 +1048,7 @@ class _ShiftRegistrationScreenState extends State<ShiftRegistrationScreen> {
                 TextField(
                     controller: searchCtrl,
                     decoration: InputDecoration(
-                        hintText: 'Tìm nhân viên...',
+                        hintText: tr('Tìm nhân viên...'),
                         prefixIcon: const Icon(Icons.search),
                         border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(10)),
@@ -1056,7 +1057,7 @@ class _ShiftRegistrationScreenState extends State<ShiftRegistrationScreen> {
                 const SizedBox(height: 12),
                 Expanded(
                     child: filtered.isEmpty
-                        ? const Center(child: Text('Không tìm thấy'))
+                        ? Center(child: Text(tr('Không tìm thấy')))
                         : ListView.builder(
                             itemCount: filtered.length,
                             itemBuilder: (ctx, i) {
@@ -1075,24 +1076,24 @@ class _ShiftRegistrationScreenState extends State<ShiftRegistrationScreen> {
                                       : const Color(0xFF0891B2)
                                           .withValues(alpha: 0.1),
                                   child: Text(
-                                      name.toString().isNotEmpty
+                                      tr(name.toString().isNotEmpty
                                           ? name.toString()[0].toUpperCase()
-                                          : '?',
+                                          : '?'),
                                       style: TextStyle(
                                           color: done
                                               ? Colors.grey
                                               : const Color(0xFF0891B2),
                                           fontWeight: FontWeight.bold)),
                                 ),
-                                title: Text(name.toString(),
+                                title: Text(tr(name.toString()),
                                     style: TextStyle(
                                         color: done ? Colors.grey : null)),
-                                subtitle: Text(code.toString(),
+                                subtitle: Text(tr(code.toString()),
                                     style: TextStyle(
                                         fontSize: 12, color: Colors.grey[500])),
                                 trailing: done
-                                    ? const Chip(
-                                        label: Text('Đã phân',
+                                    ? Chip(
+                                        label: Text(tr('Đã phân'),
                                             style: TextStyle(fontSize: 11)),
                                         backgroundColor: Color(0xFFE5E7EB))
                                     : const Icon(Icons.add_circle_outline,
@@ -1110,7 +1111,7 @@ class _ShiftRegistrationScreenState extends State<ShiftRegistrationScreen> {
               ])),
           actions: [
             TextButton(
-                onPressed: () => Navigator.pop(ctx), child: const Text('Đóng'))
+                onPressed: () => Navigator.pop(ctx), child: Text(tr('Đóng')))
           ],
         );
       }),
@@ -1130,15 +1131,15 @@ class _ShiftRegistrationScreenState extends State<ShiftRegistrationScreen> {
       builder: (ctx) => ScrollableAlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('Chọn ca cho $empName'),
-          Text(DateFormat('dd/MM/yyyy').format(date),
+          Text(tr('Chọn ca cho $empName')),
+          Text(tr(DateFormat('dd/MM/yyyy').format(date)),
               style: TextStyle(fontSize: 14, color: Colors.grey[600])),
         ]),
         content: SizedBox(
           width: 400,
           height: 300,
           child: _shifts.isEmpty
-              ? const Center(child: Text('Chưa có ca nào'))
+              ? Center(child: Text(tr('Chưa có ca nào')))
               : ListView.builder(
                   itemCount: _shifts.length,
                   itemBuilder: (ctx, i) {
@@ -1157,16 +1158,16 @@ class _ShiftRegistrationScreenState extends State<ShiftRegistrationScreen> {
                             color: done ? Colors.grey : HrmPageChrome.primaryNavy,
                             size: 18),
                       ),
-                      title: Text(sName.toString(),
+                      title: Text(tr(sName.toString()),
                           style: TextStyle(
                               color: done ? Colors.grey : null,
                               fontWeight: FontWeight.w500)),
-                      subtitle: Text(sTime,
+                      subtitle: Text(tr(sTime),
                           style:
                               TextStyle(fontSize: 12, color: Colors.grey[500])),
                       trailing: done
-                          ? const Chip(
-                              label: Text('Đã phân',
+                          ? Chip(
+                              label: Text(tr('Đã phân'),
                                   style: TextStyle(fontSize: 11)),
                               backgroundColor: Color(0xFFE5E7EB))
                           : const Icon(Icons.add_circle_outline,
@@ -1183,7 +1184,7 @@ class _ShiftRegistrationScreenState extends State<ShiftRegistrationScreen> {
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx), child: const Text('Đóng'))
+              onPressed: () => Navigator.pop(ctx), child: Text(tr('Đóng')))
         ],
       ),
     );
@@ -1226,7 +1227,7 @@ class _ShiftRegistrationScreenState extends State<ShiftRegistrationScreen> {
         return ScrollableAlertDialog(
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: const Text('Chọn nhân viên'),
+          title: Text(tr('Chọn nhân viên')),
           content: SizedBox(
               width: math
                   .min(400, MediaQuery.of(context).size.width - 32)
@@ -1236,7 +1237,7 @@ class _ShiftRegistrationScreenState extends State<ShiftRegistrationScreen> {
                 TextField(
                     controller: searchCtrl,
                     decoration: InputDecoration(
-                        hintText: 'Tìm nhân viên...',
+                        hintText: tr('Tìm nhân viên...'),
                         prefixIcon: const Icon(Icons.search),
                         border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(10)),
@@ -1245,7 +1246,7 @@ class _ShiftRegistrationScreenState extends State<ShiftRegistrationScreen> {
                 const SizedBox(height: 12),
                 Expanded(
                     child: filtered.isEmpty
-                        ? const Center(child: Text('Không tìm thấy'))
+                        ? Center(child: Text(tr('Không tìm thấy')))
                         : ListView.builder(
                             itemCount: filtered.length,
                             itemBuilder: (ctx, i) {
@@ -1258,15 +1259,15 @@ class _ShiftRegistrationScreenState extends State<ShiftRegistrationScreen> {
                                   backgroundColor: HrmPageChrome.primaryNavy
                                       .withValues(alpha: 0.1),
                                   child: Text(
-                                      name.toString().isNotEmpty
+                                      tr(name.toString().isNotEmpty
                                           ? name.toString()[0].toUpperCase()
-                                          : '?',
+                                          : '?'),
                                       style: const TextStyle(
                                           color: HrmPageChrome.primaryNavy,
                                           fontWeight: FontWeight.bold)),
                                 ),
-                                title: Text(name.toString()),
-                                subtitle: Text(code.toString(),
+                                title: Text(tr(name.toString())),
+                                subtitle: Text(tr(code.toString()),
                                     style: TextStyle(
                                         fontSize: 12, color: Colors.grey[500])),
                                 onTap: () {
@@ -1279,7 +1280,7 @@ class _ShiftRegistrationScreenState extends State<ShiftRegistrationScreen> {
               ])),
           actions: [
             TextButton(
-                onPressed: () => Navigator.pop(ctx), child: const Text('Đóng'))
+                onPressed: () => Navigator.pop(ctx), child: Text(tr('Đóng')))
           ],
         );
       }),
@@ -1303,7 +1304,7 @@ class _ShiftRegistrationScreenState extends State<ShiftRegistrationScreen> {
       if (mounted) {
         if (result['isSuccess'] == true) {
           NotificationOverlayManager().showSuccess(
-              title: 'Thành công', message: 'Đã phân ca thành công');
+              title: 'Thành công', message: tr('Đã phân ca thành công'));
         } else {
           NotificationOverlayManager().showError(
               title: 'Lỗi', message: result['message'] ?? 'Lỗi phân ca');
@@ -1313,7 +1314,7 @@ class _ShiftRegistrationScreenState extends State<ShiftRegistrationScreen> {
     } catch (e) {
       if (mounted) {
         NotificationOverlayManager()
-            .showError(title: 'Lỗi', message: 'Lỗi: $e');
+            .showError(title: 'Lỗi', message: tr('Lỗi: $e'));
       }
     }
   }
@@ -1323,16 +1324,16 @@ class _ShiftRegistrationScreenState extends State<ShiftRegistrationScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => ScrollableAlertDialog(
-        title: const Text('Xóa phân ca'),
-        content: const Text('Bạn có chắc muốn xóa phân ca này?'),
+        title: Text(tr('Xóa phân ca')),
+        content: Text(tr('Bạn có chắc muốn xóa phân ca này?')),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Hủy')),
+              child: Text(tr('Hủy'))),
           FilledButton(
               onPressed: () => Navigator.pop(ctx, true),
               style: FilledButton.styleFrom(backgroundColor: Colors.red),
-              child: const Text('Xóa')),
+              child: Text(tr('Xóa'))),
         ],
       ),
     );
@@ -1341,14 +1342,14 @@ class _ShiftRegistrationScreenState extends State<ShiftRegistrationScreen> {
       await _apiService.deleteWorkSchedule(id);
       if (mounted) {
         NotificationOverlayManager()
-            .showSuccess(title: 'Thành công', message: 'Đã xóa phân ca');
+            .showSuccess(title: 'Thành công', message: tr('Đã xóa phân ca'));
       }
       if (mounted) Navigator.of(context).pop();
       _loadData();
     } catch (e) {
       if (mounted) {
         NotificationOverlayManager()
-            .showError(title: 'Lỗi', message: 'Lỗi: $e');
+            .showError(title: 'Lỗi', message: tr('Lỗi: $e'));
       }
     }
   }
@@ -1361,7 +1362,7 @@ class _ShiftRegistrationScreenState extends State<ShiftRegistrationScreen> {
       if (mounted) {
         if (result['isSuccess'] == true) {
           NotificationOverlayManager()
-              .showSuccess(title: 'Thành công', message: 'Đã duyệt');
+              .showSuccess(title: 'Thành công', message: tr('Đã duyệt'));
         } else {
           NotificationOverlayManager()
               .showError(title: 'Lỗi', message: result['message'] ?? 'Lỗi');
@@ -1372,7 +1373,7 @@ class _ShiftRegistrationScreenState extends State<ShiftRegistrationScreen> {
     } catch (e) {
       if (mounted) {
         NotificationOverlayManager()
-            .showError(title: 'Lỗi', message: 'Lỗi: $e');
+            .showError(title: 'Lỗi', message: tr('Lỗi: $e'));
       }
     }
   }
@@ -1383,22 +1384,22 @@ class _ShiftRegistrationScreenState extends State<ShiftRegistrationScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => ScrollableAlertDialog(
-        title: const Text('Từ chối đăng ký'),
+        title: Text(tr('Từ chối đăng ký')),
         content: SingleChildScrollView(
             child: TextField(
                 controller: reasonCtrl,
                 decoration: InputDecoration(
-                    labelText: 'Lý do từ chối',
+                    labelText: tr('Lý do từ chối'),
                     border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10))))),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Hủy')),
+              child: Text(tr('Hủy'))),
           FilledButton(
               onPressed: () => Navigator.pop(ctx, true),
               style: FilledButton.styleFrom(backgroundColor: Colors.red),
-              child: const Text('Từ chối')),
+              child: Text(tr('Từ chối'))),
         ],
       ),
     );
@@ -1409,7 +1410,7 @@ class _ShiftRegistrationScreenState extends State<ShiftRegistrationScreen> {
       if (mounted) {
         if (result['isSuccess'] == true) {
           NotificationOverlayManager()
-              .showWarning(title: 'Từ chối', message: 'Đã từ chối');
+              .showWarning(title: 'Từ chối', message: tr('Đã từ chối'));
         } else {
           NotificationOverlayManager()
               .showError(title: 'Lỗi', message: result['message'] ?? 'Lỗi');
@@ -1420,7 +1421,7 @@ class _ShiftRegistrationScreenState extends State<ShiftRegistrationScreen> {
     } catch (e) {
       if (mounted) {
         NotificationOverlayManager()
-            .showError(title: 'Lỗi', message: 'Lỗi: $e');
+            .showError(title: 'Lỗi', message: tr('Lỗi: $e'));
       }
     }
   }
@@ -1452,7 +1453,7 @@ class _ShiftRegistrationScreenState extends State<ShiftRegistrationScreen> {
             child: Row(children: [
               const Icon(Icons.pending_actions, color: Color(0xFFF59E0B)),
               const SizedBox(width: 8),
-              Text('Yêu cầu chờ duyệt (${pending.length})',
+              Text(tr('Yêu cầu chờ duyệt (${pending.length})'),
                   style: const TextStyle(
                       fontSize: 18, fontWeight: FontWeight.bold)),
             ]),
@@ -1460,7 +1461,7 @@ class _ShiftRegistrationScreenState extends State<ShiftRegistrationScreen> {
           const Divider(height: 24),
           Expanded(
             child: pending.isEmpty
-                ? const Center(child: Text('Không có yêu cầu chờ duyệt'))
+                ? Center(child: Text(tr('Không có yêu cầu chờ duyệt')))
                 : ListView.builder(
                     controller: scrollCtrl,
                     padding: const EdgeInsets.all(16),
@@ -1477,11 +1478,11 @@ class _ShiftRegistrationScreenState extends State<ShiftRegistrationScreen> {
                                   .withValues(alpha: 0.15),
                               child: const Icon(Icons.person,
                                   color: Color(0xFFF59E0B), size: 20)),
-                          title: Text(r['employeeName'] ?? 'N/A',
+                          title: Text(tr(r['employeeName'] ?? 'N/A'),
                               style:
                                   const TextStyle(fontWeight: FontWeight.w500)),
                           subtitle: Text(
-                              '${r['shiftName'] ?? ''} - ${_fmtDate(r['date'])}',
+                              tr('${r['shiftName'] ?? ''} - ${_fmtDate(r['date'])}'),
                               style: TextStyle(
                                   color: Colors.grey[600], fontSize: 12)),
                           trailing: (_perm.canApprove('WorkSchedule') ||

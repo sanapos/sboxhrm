@@ -14,6 +14,8 @@ import '../widgets/notification_overlay.dart';
 import '../widgets/app_scroll_safe.dart';
 import 'package:provider/provider.dart';
 import '../providers/permission_provider.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
+import 'package:zkteco_flutter_client/l10n/app_ui_locale.dart';
 
 class ProductionOutputScreen extends StatefulWidget {
   const ProductionOutputScreen({super.key});
@@ -129,7 +131,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
       debugPrint('Load product data error: $e');
       if (mounted) {
         NotificationOverlayManager()
-            .showError(title: 'Lỗi', message: 'Không thể tải dữ liệu sản phẩm');
+            .showError(title: 'Lỗi', message: tr('Không thể tải dữ liệu sản phẩm'));
       }
     }
     _loadEntries();
@@ -158,7 +160,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
       debugPrint('Load entries error: $e');
       if (mounted) {
         NotificationOverlayManager().showError(
-            title: 'Lỗi', message: 'Không thể tải dữ liệu sản lượng');
+            title: 'Lỗi', message: tr('Không thể tải dữ liệu sản lượng'));
       }
     }
     setState(() => _isLoading = false);
@@ -180,7 +182,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
       debugPrint('Load summary error: $e');
       if (mounted) {
         NotificationOverlayManager().showError(
-            title: 'Lỗi', message: 'Không thể tải tổng hợp sản lượng');
+            title: 'Lỗi', message: tr('Không thể tải tổng hợp sản lượng'));
       }
     }
     setState(() => _isLoading = false);
@@ -201,14 +203,14 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                 if (_items.isEmpty) {
                   NotificationOverlayManager().showError(
                     title: 'Chưa có sản phẩm',
-                    message: 'Vui lòng thêm sản phẩm trước khi nhập sản lượng',
+                    message: tr('Vui lòng thêm sản phẩm trước khi nhập sản lượng'),
                   );
                   return;
                 }
                 _showAddEntryDialog();
               },
               icon: const Icon(Icons.add, size: 18),
-              label: const Text('Nhập SL'),
+              label: Text(tr('Nhập SL')),
               backgroundColor: primary,
               foregroundColor: Colors.white,
               elevation: 4,
@@ -252,14 +254,13 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('Sản lượng',
+                          Text(tr('Sản lượng'),
                               style: TextStyle(
                                   fontSize: isMobile ? 16 : 20,
                                   fontWeight: FontWeight.bold,
                                   color: Colors.white)),
                           if (!isMobile)
-                            Text(
-                              'Quản lý sản lượng nhân viên',
+                            Text(tr('Quản lý sản lượng nhân viên'),
                               style: TextStyle(
                                   fontSize: 13,
                                   color: Colors.white.withValues(alpha: 0.8)),
@@ -288,9 +289,9 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                       labelColor: primary,
                       unselectedLabelColor: const Color(0xFF71717A),
                       indicatorColor: primary,
-                      tabs: const [
-                        Tab(text: 'Chi tiết'),
-                        Tab(text: 'Tổng hợp'),
+                      tabs: [
+                        Tab(text: tr('Chi tiết')),
+                        Tab(text: tr('Tổng hợp')),
                       ],
                     ),
                   ),
@@ -420,7 +421,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
             ),
             ListTile(
               leading: const Icon(Icons.table_chart, color: Color(0xFF059669)),
-              title: const Text('Import từ Excel'),
+              title: Text(tr('Import từ Excel')),
               onTap: () {
                 Navigator.pop(ctx);
                 _showExcelImportDialog();
@@ -429,7 +430,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
             ListTile(
               leading:
                   const Icon(Icons.cloud_download, color: Color(0xFF1A73E8)),
-              title: const Text('Đồng bộ Google Sheet'),
+              title: Text(tr('Đồng bộ Google Sheet')),
               onTap: () {
                 Navigator.pop(ctx);
                 _showGSheetSyncDialog();
@@ -452,27 +453,27 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
     Widget buildActions({bool compact = false}) {
       final importBtn = compact
           ? IconButton(
-              tooltip: 'Import dữ liệu',
+              tooltip: tr('Import dữ liệu'),
               onPressed: () => _showMobileImportMenu(context),
               icon: const Icon(Icons.file_upload_outlined, size: 20),
               style: IconButton.styleFrom(foregroundColor: primary),
             )
           : PopupMenuButton<String>(
-              tooltip: 'Import dữ liệu',
+              tooltip: tr('Import dữ liệu'),
               icon: const Icon(Icons.file_upload_outlined, size: 18),
               padding: EdgeInsets.zero,
               onSelected: (v) {
                 if (v == 'excel') _showExcelImportDialog();
                 if (v == 'gsheet') _showGSheetSyncDialog();
               },
-              itemBuilder: (ctx) => const [
+              itemBuilder: (ctx) => [
                 PopupMenuItem(
                     value: 'excel',
                     child: Row(children: [
                       Icon(Icons.table_chart,
                           size: 18, color: Color(0xFF059669)),
                       SizedBox(width: 8),
-                      Text('Import từ Excel'),
+                      Text(tr('Import từ Excel')),
                     ])),
                 PopupMenuItem(
                     value: 'gsheet',
@@ -480,7 +481,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                       Icon(Icons.cloud_download,
                           size: 18, color: Color(0xFF1A73E8)),
                       SizedBox(width: 8),
-                      Text('Đồng bộ Google Sheet'),
+                      Text(tr('Đồng bộ Google Sheet')),
                     ])),
               ],
             );
@@ -491,7 +492,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
           if (canExport)
             compact
                 ? IconButton(
-                    tooltip: 'Xuất Excel',
+                    tooltip: tr('Xuất Excel'),
                     onPressed: _isExporting ? null : _exportExcel,
                     icon: _isExporting
                         ? const SizedBox(
@@ -509,7 +510,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                             height: 16,
                             child: CircularProgressIndicator(strokeWidth: 2))
                         : const Icon(Icons.file_download_outlined, size: 16),
-                    label: Text(_isExporting ? 'Đang xuất...' : 'Xuất Excel',
+                    label: Text(tr(_isExporting ? 'Đang xuất...' : 'Xuất Excel'),
                         style: const TextStyle(fontSize: 13)),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: primary,
@@ -522,7 +523,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
           if (canCreate) ...[
             compact
                 ? IconButton(
-                    tooltip: 'Thêm sản phẩm',
+                    tooltip: tr('Thêm sản phẩm'),
                     onPressed: _showAddProductDialog,
                     icon: const Icon(Icons.inventory_2_outlined, size: 20),
                     style: IconButton.styleFrom(foregroundColor: primary),
@@ -530,7 +531,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                 : OutlinedButton.icon(
                     onPressed: _showAddProductDialog,
                     icon: const Icon(Icons.inventory_2_outlined, size: 16),
-                    label: const Text('Thêm SP',
+                    label: Text(tr('Thêm SP'),
                         style: TextStyle(fontSize: 13)),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: primary,
@@ -545,15 +546,14 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                   if (_items.isEmpty) {
                     NotificationOverlayManager().showError(
                       title: 'Chưa có sản phẩm',
-                      message:
-                          'Vui lòng thêm sản phẩm trước khi nhập sản lượng',
+                      message: tr('Vui lòng thêm sản phẩm trước khi nhập sản lượng'),
                     );
                     return;
                   }
                   _showAddEntryDialog();
                 },
                 icon: const Icon(Icons.add, size: 16),
-                label: const Text('Nhập SL',
+                label: Text(tr('Nhập SL'),
                     style: TextStyle(fontSize: 13)),
                 style: FilledButton.styleFrom(
                   backgroundColor: primary,
@@ -579,12 +579,12 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
             onPressed: _showFilterSheet,
             icon: Badge(
               isLabelVisible: _activeFilterCount > 0,
-              label: Text('$_activeFilterCount',
+              label: Text(tr('$_activeFilterCount'),
                   style: const TextStyle(fontSize: 10)),
               child: const Icon(Icons.tune, size: 16),
             ),
             label: Text(
-              _activeFilterCount > 0 ? 'Lọc ($_activeFilterCount)' : 'Lọc',
+              tr(_activeFilterCount > 0 ? 'Lọc ($_activeFilterCount)' : 'Lọc'),
               style: const TextStyle(fontSize: 12),
             ),
             style: OutlinedButton.styleFrom(
@@ -600,8 +600,8 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                 label: 'Nhân viên',
                 value: _filterEmployeeId,
                 items: [
-                  const DropdownMenuItem<String?>(
-                      value: null, child: Text('Tất cả NV')),
+                  DropdownMenuItem<String?>(
+                      value: null, child: Text(tr('Tất cả NV'))),
                   ..._filterableEmployees.map((e) {
                     final name =
                         '${e['lastName'] ?? ''} ${e['firstName'] ?? ''}'
@@ -609,7 +609,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                     return DropdownMenuItem<String?>(
                       value: e['id']?.toString(),
                       child:
-                          Text(name, overflow: TextOverflow.ellipsis),
+                          Text(tr(name), overflow: TextOverflow.ellipsis),
                     );
                   }),
                 ],
@@ -625,11 +625,11 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                 label: 'Nhóm',
                 value: _filterGroupId,
                 items: [
-                  const DropdownMenuItem<String?>(
-                      value: null, child: Text('Tất cả')),
+                  DropdownMenuItem<String?>(
+                      value: null, child: Text(tr('Tất cả'))),
                   ..._groups.map((g) => DropdownMenuItem<String?>(
                         value: g['id']?.toString(),
-                        child: Text(g['name']?.toString() ?? '',
+                        child: Text(tr(g['name']?.toString() ?? ''),
                             overflow: TextOverflow.ellipsis),
                       )),
                 ],
@@ -652,11 +652,11 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                 label: 'Sản phẩm',
                 value: _filterItemId,
                 items: [
-                  const DropdownMenuItem<String?>(
-                      value: null, child: Text('Tất cả')),
+                  DropdownMenuItem<String?>(
+                      value: null, child: Text(tr('Tất cả'))),
                   ..._filterableItems.map((i) => DropdownMenuItem<String?>(
                         value: i['id']?.toString(),
-                        child: Text(i['name']?.toString() ?? '',
+                        child: Text(tr(i['name']?.toString() ?? ''),
                             overflow: TextOverflow.ellipsis),
                       )),
                 ],
@@ -673,11 +673,11 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                   label: 'Chi nhánh',
                   value: _filterBranchId,
                   items: [
-                    const DropdownMenuItem<String?>(
-                        value: null, child: Text('Tất cả')),
+                    DropdownMenuItem<String?>(
+                        value: null, child: Text(tr('Tất cả'))),
                     ..._branches.map((b) => DropdownMenuItem<String?>(
                           value: b['id']?.toString(),
-                          child: Text(b['name']?.toString() ?? '',
+                          child: Text(tr(b['name']?.toString() ?? ''),
                               overflow: TextOverflow.ellipsis),
                         )),
                   ],
@@ -692,7 +692,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
           ],
           if (_hasActiveFilters)
             IconButton(
-              tooltip: 'Xóa bộ lọc',
+              tooltip: tr('Xóa bộ lọc'),
               onPressed: _clearFilters,
               icon: const Icon(Icons.filter_alt_off, size: 18),
               visualDensity: VisualDensity.compact,
@@ -733,7 +733,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
 
   InputDecoration _toolbarFieldDecoration(String label) {
     return InputDecoration(
-      labelText: label,
+      labelText: tr(label),
       isDense: true,
       filled: true,
       fillColor: Colors.white,
@@ -765,28 +765,28 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
       icon: const Icon(Icons.arrow_drop_down, color: Color(0xFF6B7280)),
       decoration: _toolbarFieldDecoration('Kỳ'),
       style: _toolbarFieldText,
-      items: const [
+      items: [
         DropdownMenuItem(
             value: 'today',
-            child: Text('Hôm nay', style: _toolbarFieldText)),
+            child: Text(tr('Hôm nay'), style: _toolbarFieldText)),
         DropdownMenuItem(
             value: 'yesterday',
-            child: Text('Hôm qua', style: _toolbarFieldText)),
+            child: Text(tr('Hôm qua'), style: _toolbarFieldText)),
         DropdownMenuItem(
             value: 'this_week',
-            child: Text('Tuần này', style: _toolbarFieldText)),
+            child: Text(tr('Tuần này'), style: _toolbarFieldText)),
         DropdownMenuItem(
             value: 'last_week',
-            child: Text('Tuần trước', style: _toolbarFieldText)),
+            child: Text(tr('Tuần trước'), style: _toolbarFieldText)),
         DropdownMenuItem(
             value: 'this_month',
-            child: Text('Tháng này', style: _toolbarFieldText)),
+            child: Text(tr('Tháng này'), style: _toolbarFieldText)),
         DropdownMenuItem(
             value: 'last_month',
-            child: Text('Tháng trước', style: _toolbarFieldText)),
+            child: Text(tr('Tháng trước'), style: _toolbarFieldText)),
         DropdownMenuItem(
             value: 'custom',
-            child: Text('Tùy chọn', style: _toolbarFieldText)),
+            child: Text(tr('Tùy chọn'), style: _toolbarFieldText)),
       ],
       onChanged: (v) async {
         if (v == null) return;
@@ -796,7 +796,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
             firstDate: DateTime(2020),
             lastDate: DateTime.now().add(const Duration(days: 365)),
             initialDateRange: DateTimeRange(start: _fromDate, end: _toDate),
-            locale: const Locale('vi'),
+            locale: appUiLocale(),
           );
           if (picked != null) {
             setState(() {
@@ -828,7 +828,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
           firstDate: DateTime(2020),
           lastDate: DateTime.now().add(const Duration(days: 365)),
           initialDateRange: DateTimeRange(start: _fromDate, end: _toDate),
-          locale: const Locale('vi'),
+          locale: appUiLocale(),
         );
         if (picked != null) {
           setState(() {
@@ -855,7 +855,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                 size: 14, color: Color(0xFF6B7280)),
             const SizedBox(width: 6),
             Text(
-              '${fmt.format(_fromDate)} – ${fmt.format(_toDate)}',
+              tr('${fmt.format(_fromDate)} – ${fmt.format(_toDate)}'),
               style: const TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
@@ -887,7 +887,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
       final raw = res['data'];
       if (raw is! List || raw.isEmpty) {
         NotificationOverlayManager().showError(
-            title: 'Thông báo', message: 'Không có dữ liệu để xuất');
+            title: 'Thông báo', message: tr('Không có dữ liệu để xuất'));
         return;
       }
       final fmt = DateFormat('dd/MM/yyyy');
@@ -943,7 +943,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
       );
     } catch (e) {
       NotificationOverlayManager().showError(
-          title: 'Lỗi', message: 'Không thể xuất Excel: $e');
+          title: 'Lỗi', message: tr('Không thể xuất Excel: $e'));
     } finally {
       if (mounted) setState(() => _isExporting = false);
     }
@@ -1006,7 +1006,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
               children: [
                 Row(
                   children: [
-                    const Text('Bộ lọc',
+                    Text(tr('Bộ lọc'),
                         style: TextStyle(
                             fontSize: 16, fontWeight: FontWeight.w600)),
                     const Spacer(),
@@ -1021,7 +1021,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                           itemId = null;
                           branchId = null;
                         }),
-                        child: const Text('Xóa tất cả',
+                        child: Text(tr('Xóa tất cả'),
                             style: TextStyle(color: Color(0xFFEF4444))),
                       ),
                   ],
@@ -1032,17 +1032,17 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                     key: ValueKey('sheet-branch-$branchId'),
                     initialValue: branchId,
                     isExpanded: true,
-                    decoration: const InputDecoration(
-                      labelText: 'Chi nhánh',
+                    decoration: InputDecoration(
+                      labelText: tr('Chi nhánh'),
                       border: OutlineInputBorder(),
                       isDense: true,
                     ),
                     items: [
-                      const DropdownMenuItem<String?>(
-                          value: null, child: Text('Tất cả chi nhánh')),
+                      DropdownMenuItem<String?>(
+                          value: null, child: Text(tr('Tất cả chi nhánh'))),
                       ..._branches.map((b) => DropdownMenuItem<String?>(
                             value: b['id']?.toString(),
-                            child: Text(b['name']?.toString() ?? ''),
+                            child: Text(tr(b['name']?.toString() ?? '')),
                           )),
                     ],
                     onChanged: (v) => setSheet(() {
@@ -1056,21 +1056,21 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                   key: ValueKey('sheet-emp-$employeeId'),
                   initialValue: employeeId,
                   isExpanded: true,
-                  decoration: const InputDecoration(
-                    labelText: 'Nhân viên',
+                  decoration: InputDecoration(
+                    labelText: tr('Nhân viên'),
                     border: OutlineInputBorder(),
                     isDense: true,
                   ),
                   items: [
-                    const DropdownMenuItem<String?>(
-                        value: null, child: Text('Tất cả nhân viên')),
+                    DropdownMenuItem<String?>(
+                        value: null, child: Text(tr('Tất cả nhân viên'))),
                     ...sheetEmployees.map((e) {
                       final name =
                           '${e['lastName'] ?? ''} ${e['firstName'] ?? ''}'
                               .trim();
                       return DropdownMenuItem<String?>(
                         value: e['id']?.toString(),
-                        child: Text(name),
+                        child: Text(tr(name)),
                       );
                     }),
                   ],
@@ -1081,17 +1081,17 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                   key: ValueKey('sheet-group-$groupId'),
                   initialValue: groupId,
                   isExpanded: true,
-                  decoration: const InputDecoration(
-                    labelText: 'Nhóm sản phẩm',
+                  decoration: InputDecoration(
+                    labelText: tr('Nhóm sản phẩm'),
                     border: OutlineInputBorder(),
                     isDense: true,
                   ),
                   items: [
-                    const DropdownMenuItem<String?>(
-                        value: null, child: Text('Tất cả nhóm')),
+                    DropdownMenuItem<String?>(
+                        value: null, child: Text(tr('Tất cả nhóm'))),
                     ..._groups.map((g) => DropdownMenuItem<String?>(
                           value: g['id']?.toString(),
-                          child: Text(g['name']?.toString() ?? ''),
+                          child: Text(tr(g['name']?.toString() ?? '')),
                         )),
                   ],
                   onChanged: (v) => setSheet(() {
@@ -1112,17 +1112,17 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                   key: ValueKey('sheet-item-$itemId'),
                   initialValue: itemId,
                   isExpanded: true,
-                  decoration: const InputDecoration(
-                    labelText: 'Sản phẩm',
+                  decoration: InputDecoration(
+                    labelText: tr('Sản phẩm'),
                     border: OutlineInputBorder(),
                     isDense: true,
                   ),
                   items: [
-                    const DropdownMenuItem<String?>(
-                        value: null, child: Text('Tất cả sản phẩm')),
+                    DropdownMenuItem<String?>(
+                        value: null, child: Text(tr('Tất cả sản phẩm'))),
                     ...sheetItems.map((i) => DropdownMenuItem<String?>(
                           value: i['id']?.toString(),
-                          child: Text(i['name']?.toString() ?? ''),
+                          child: Text(tr(i['name']?.toString() ?? '')),
                         )),
                   ],
                   onChanged: (v) => setSheet(() => itemId = v),
@@ -1140,7 +1140,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                     _reloadCurrentTab();
                   },
                   icon: const Icon(Icons.check, size: 18),
-                  label: const Text('Áp dụng'),
+                  label: Text(tr('Áp dụng')),
                   style: FilledButton.styleFrom(
                     backgroundColor: const Color(0xFF059669),
                     minimumSize: const Size(double.infinity, 44),
@@ -1180,20 +1180,20 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
 
     final codeCtl = TextEditingController();
     final nameCtl = TextEditingController();
-    final unitCtl = TextEditingController(text: 'cái');
-    final priceCtl = TextEditingController(text: '0');
+    final unitCtl = TextEditingController(text: tr('cái'));
+    final priceCtl = TextEditingController(text: tr('0'));
     String? selectedGroupId = _filterGroupId ?? _groups.first['id']?.toString();
 
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDlg) => ScrollableAlertDialog(
-          title: const Row(
+          title: Row(
             children: [
               Icon(Icons.inventory_2_outlined,
                   size: 22, color: Color(0xFF059669)),
               SizedBox(width: 8),
-              Text('Thêm sản phẩm'),
+              Text(tr('Thêm sản phẩm')),
             ],
           ),
           content: SizedBox(
@@ -1204,15 +1204,15 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                 DropdownButtonFormField<String>(
                   key: ValueKey('add-prod-group-$selectedGroupId'),
                   initialValue: selectedGroupId,
-                  decoration: const InputDecoration(
-                    labelText: 'Nhóm sản phẩm *',
+                  decoration: InputDecoration(
+                    labelText: tr('Nhóm sản phẩm *'),
                     border: OutlineInputBorder(),
                     isDense: true,
                   ),
                   items: _groups
                       .map((g) => DropdownMenuItem(
                             value: g['id']?.toString(),
-                            child: Text(g['name']?.toString() ?? ''),
+                            child: Text(tr(g['name']?.toString() ?? '')),
                           ))
                       .toList(),
                   onChanged: (v) => setDlg(() => selectedGroupId = v),
@@ -1223,8 +1223,8 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                     Expanded(
                       child: TextField(
                         controller: codeCtl,
-                        decoration: const InputDecoration(
-                          labelText: 'Mã SP *',
+                        decoration: InputDecoration(
+                          labelText: tr('Mã SP *'),
                           border: OutlineInputBorder(),
                           isDense: true,
                         ),
@@ -1235,8 +1235,8 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                       flex: 2,
                       child: TextField(
                         controller: nameCtl,
-                        decoration: const InputDecoration(
-                          labelText: 'Tên sản phẩm *',
+                        decoration: InputDecoration(
+                          labelText: tr('Tên sản phẩm *'),
                           border: OutlineInputBorder(),
                           isDense: true,
                         ),
@@ -1250,8 +1250,8 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                     Expanded(
                       child: TextField(
                         controller: unitCtl,
-                        decoration: const InputDecoration(
-                          labelText: 'Đơn vị',
+                        decoration: InputDecoration(
+                          labelText: tr('Đơn vị'),
                           border: OutlineInputBorder(),
                           isDense: true,
                         ),
@@ -1262,11 +1262,11 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                       child: TextField(
                         controller: priceCtl,
                         keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(
-                          labelText: 'Đơn giá',
+                        decoration: InputDecoration(
+                          labelText: tr('Đơn giá'),
                           border: OutlineInputBorder(),
                           isDense: true,
-                          suffixText: 'đ',
+                          suffixText: tr('đ'),
                         ),
                       ),
                     ),
@@ -1278,11 +1278,11 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
           actions: [
             TextButton(
               onPressed: () => _showQuickAddGroupDialog(),
-              child: const Text('Thêm nhóm mới'),
+              child: Text(tr('Thêm nhóm mới')),
             ),
             const Spacer(),
             TextButton(
-                onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
+                onPressed: () => Navigator.pop(ctx), child: Text(tr('Hủy'))),
             FilledButton(
               onPressed: () async {
                 if (codeCtl.text.trim().isEmpty ||
@@ -1290,7 +1290,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                     selectedGroupId == null) {
                   NotificationOverlayManager().showError(
                     title: 'Thiếu thông tin',
-                    message: 'Vui lòng nhập mã, tên và chọn nhóm sản phẩm',
+                    message: tr('Vui lòng nhập mã, tên và chọn nhóm sản phẩm'),
                   );
                   return;
                 }
@@ -1314,7 +1314,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                 if (res['isSuccess'] == true) {
                   NotificationOverlayManager().showSuccess(
                     title: 'Thành công',
-                    message: 'Đã thêm sản phẩm "${nameCtl.text.trim()}"',
+                    message: tr('Đã thêm sản phẩm "${nameCtl.text.trim()}"'),
                   );
                   await _reloadProductCatalog();
                 } else {
@@ -1326,7 +1326,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
               },
               style: FilledButton.styleFrom(
                   backgroundColor: const Color(0xFF059669)),
-              child: const Text('Thêm'),
+              child: Text(tr('Thêm')),
             ),
           ],
         ),
@@ -1339,13 +1339,13 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
     showDialog(
       context: context,
       builder: (ctx) => ScrollableAlertDialog(
-        title: const Text('Thêm nhóm sản phẩm'),
+        title: Text(tr('Thêm nhóm sản phẩm')),
         content: SizedBox(
           width: 360,
           child: TextField(
             controller: nameCtl,
-            decoration: const InputDecoration(
-              labelText: 'Tên nhóm *',
+            decoration: InputDecoration(
+              labelText: tr('Tên nhóm *'),
               border: OutlineInputBorder(),
             ),
             autofocus: true,
@@ -1353,7 +1353,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
+              onPressed: () => Navigator.pop(ctx), child: Text(tr('Hủy'))),
           FilledButton(
             onPressed: () async {
               if (nameCtl.text.trim().isEmpty) return;
@@ -1365,7 +1365,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
               if (res['isSuccess'] == true) {
                 NotificationOverlayManager().showSuccess(
                   title: 'Thành công',
-                  message: 'Đã thêm nhóm "${nameCtl.text.trim()}"',
+                  message: tr('Đã thêm nhóm "${nameCtl.text.trim()}"'),
                 );
                 await _reloadProductCatalog();
                 if (andThenAddProduct && mounted) _showAddProductDialog();
@@ -1378,7 +1378,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
             },
             style:
                 FilledButton.styleFrom(backgroundColor: const Color(0xFF059669)),
-            child: const Text('Thêm'),
+            child: Text(tr('Thêm')),
           ),
         ],
       ),
@@ -1415,7 +1415,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                     Icon(Icons.inbox_outlined,
                         size: 64, color: Colors.grey[300]),
                     const SizedBox(height: 16),
-                    Text('Chưa có dữ liệu sản lượng',
+                    Text(tr('Chưa có dữ liệu sản lượng'),
                         style: TextStyle(color: Colors.grey[500])),
                   ],
                 ),
@@ -1455,39 +1455,39 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                 headingRowColor:
                     WidgetStateProperty.all(const Color(0xFFF8FAFC)),
                 columnSpacing: 20,
-                columns: const [
+                columns: [
                   DataColumn(
-                      label: Text('STT',
+                      label: Text(tr('STT'),
                           style: TextStyle(fontWeight: FontWeight.w600))),
                   DataColumn(
-                      label: Text('Ngày',
+                      label: Text(tr('Ngày'),
                           style: TextStyle(fontWeight: FontWeight.w600))),
                   DataColumn(
-                      label: Text('Nhân viên',
+                      label: Text(tr('Nhân viên'),
                           style: TextStyle(fontWeight: FontWeight.w600))),
                   DataColumn(
-                      label: Text('Mã NV',
+                      label: Text(tr('Mã NV'),
                           style: TextStyle(fontWeight: FontWeight.w600))),
                   DataColumn(
-                      label: Text('Nhóm SP',
+                      label: Text(tr('Nhóm SP'),
                           style: TextStyle(fontWeight: FontWeight.w600))),
                   DataColumn(
-                      label: Text('Sản phẩm',
+                      label: Text(tr('Sản phẩm'),
                           style: TextStyle(fontWeight: FontWeight.w600))),
                   DataColumn(
-                      label: Text('Số lượng',
+                      label: Text(tr('Số lượng'),
                           style: TextStyle(fontWeight: FontWeight.w600)),
                       numeric: true),
                   DataColumn(
-                      label: Text('Đơn giá',
+                      label: Text(tr('Đơn giá'),
                           style: TextStyle(fontWeight: FontWeight.w600)),
                       numeric: true),
                   DataColumn(
-                      label: Text('Thành tiền',
+                      label: Text(tr('Thành tiền'),
                           style: TextStyle(fontWeight: FontWeight.w600)),
                       numeric: true),
                   DataColumn(
-                      label: Text('Ghi chú',
+                      label: Text(tr('Ghi chú'),
                           style: TextStyle(fontWeight: FontWeight.w600))),
                   DataColumn(
                       label: Text('',
@@ -1498,20 +1498,20 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                   final entry = e.value;
                   final workDate = DateTime.tryParse(entry['workDate'] ?? '');
                   return DataRow(cells: [
-                    DataCell(Text('${(_page - 1) * _pageSize + i + 1}')),
-                    DataCell(Text(workDate != null
+                    DataCell(Text(tr('${(_page - 1) * _pageSize + i + 1}'))),
+                    DataCell(Text(tr(workDate != null
                         ? DateFormat('dd/MM/yyyy').format(workDate)
-                        : '')),
-                    DataCell(Text(entry['employeeName'] ?? '')),
-                    DataCell(Text(entry['employeeCode'] ?? '')),
-                    DataCell(Text(entry['productGroupName'] ?? '')),
-                    DataCell(Text(entry['productItemName'] ?? '')),
-                    DataCell(Text('${entry['quantity'] ?? 0}')),
-                    DataCell(Text(_currencyFormat
-                        .format(_toDouble(entry['unitPrice'])))),
-                    DataCell(Text(_currencyFormat
-                        .format(_toDouble(entry['amount'])))),
-                    DataCell(Text(entry['note'] ?? '',
+                        : ''))),
+                    DataCell(Text(tr(entry['employeeName'] ?? ''))),
+                    DataCell(Text(tr(entry['employeeCode'] ?? ''))),
+                    DataCell(Text(tr(entry['productGroupName'] ?? ''))),
+                    DataCell(Text(tr(entry['productItemName'] ?? ''))),
+                    DataCell(Text(tr('${entry['quantity'] ?? 0}'))),
+                    DataCell(Text(tr(_currencyFormat
+                        .format(_toDouble(entry['unitPrice']))))),
+                    DataCell(Text(tr(_currencyFormat
+                        .format(_toDouble(entry['amount']))))),
+                    DataCell(Text(tr(entry['note'] ?? ''),
                         overflow: TextOverflow.ellipsis)),
                     DataCell(Row(
                       mainAxisSize: MainAxisSize.min,
@@ -1589,7 +1589,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                     radius: 18,
                     backgroundColor: primary.withValues(alpha: 0.1),
                     child: Text(
-                      _avatarLetter(entry['employeeName']),
+                      tr(_avatarLetter(entry['employeeName'])),
                       style: const TextStyle(
                           color: primary,
                           fontWeight: FontWeight.bold,
@@ -1602,7 +1602,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          entry['employeeName'] ?? '',
+                          tr(entry['employeeName'] ?? ''),
                           style: const TextStyle(
                               fontWeight: FontWeight.w600, fontSize: 14),
                           maxLines: 1,
@@ -1610,7 +1610,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          '${entry['employeeCode'] ?? ''} · ${workDate != null ? DateFormat('dd/MM/yyyy').format(workDate) : ''}',
+                          tr('${entry['employeeCode'] ?? ''} · ${workDate != null ? DateFormat('dd/MM/yyyy').format(workDate) : ''}'),
                           style: const TextStyle(
                               color: Color(0xFF71717A), fontSize: 12),
                         ),
@@ -1620,15 +1620,14 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
-                      Text(
-                        '${_currencyFormat.format(amount)} đ',
+                      Text(tr('${_currencyFormat.format(amount)} đ'),
                         style: const TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.bold,
                             color: primary),
                       ),
                       Text(
-                        'SL: ${entry['quantity'] ?? 0}',
+                        tr('SL: ${entry['quantity'] ?? 0}'),
                         style: const TextStyle(
                             fontSize: 12, color: Color(0xFF71717A)),
                       ),
@@ -1644,7 +1643,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          entry['productItemName'] ?? '',
+                          tr(entry['productItemName'] ?? ''),
                           style: const TextStyle(
                               fontSize: 13, fontWeight: FontWeight.w500),
                           maxLines: 1,
@@ -1652,15 +1651,14 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                         ),
                         if (entry['productGroupName'] != null)
                           Text(
-                            entry['productGroupName'],
+                            tr(entry['productGroupName']),
                             style: const TextStyle(
                                 fontSize: 11, color: Color(0xFF94A3B8)),
                           ),
                       ],
                     ),
                   ),
-                  Text(
-                    'ĐG: ${_currencyFormat.format(_toDouble(entry['unitPrice']))}',
+                  Text(tr('${tr('ĐG: ')}${_currencyFormat.format(_toDouble(entry['unitPrice']))}'),
                     style:
                         const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
                   ),
@@ -1670,7 +1668,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                   entry['note'].toString().isNotEmpty) ...[
                 const SizedBox(height: 6),
                 Text(
-                  entry['note'],
+                  tr(entry['note']),
                   style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
@@ -1734,7 +1732,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                   }
                 : null,
           ),
-          Text('Trang $_page / ${(_total / _pageSize).ceil()}',
+          Text(tr('Trang $_page / ${(_total / _pageSize).ceil()}'),
               style: const TextStyle(fontSize: 13)),
           IconButton(
             icon: const Icon(Icons.chevron_right),
@@ -1770,7 +1768,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                     Icon(Icons.analytics_outlined,
                         size: 64, color: Colors.grey[300]),
                     const SizedBox(height: 16),
-                    Text('Chưa có dữ liệu tổng hợp',
+                    Text(tr('Chưa có dữ liệu tổng hợp'),
                         style: TextStyle(color: Colors.grey[500])),
                   ],
                 ),
@@ -1808,7 +1806,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                         backgroundColor:
                             const Color(0xFF059669).withValues(alpha: 0.1),
                         child: Text(
-                          '${e.key + 1}',
+                          tr('${e.key + 1}'),
                           style: const TextStyle(
                               color: Color(0xFF059669),
                               fontWeight: FontWeight.w700),
@@ -1819,11 +1817,10 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(summary['employeeName'] ?? '',
+                            Text(tr(summary['employeeName'] ?? ''),
                                 style: const TextStyle(
                                     fontWeight: FontWeight.w600, fontSize: 15)),
-                            Text(
-                              'Mã: ${summary['employeeCode'] ?? ''}',
+                            Text(tr('${tr('Mã: ')}${summary['employeeCode'] ?? ''}'),
                               style: const TextStyle(
                                   fontSize: 12, color: Color(0xFF71717A)),
                             ),
@@ -1834,14 +1831,13 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
                           Text(
-                            '${_currencyFormat.format(_toDouble(summary['totalAmount']))} đ',
+                            tr('${_currencyFormat.format(_toDouble(summary['totalAmount']))} đ'),
                             style: const TextStyle(
                                 fontWeight: FontWeight.w700,
                                 fontSize: 16,
                                 color: Color(0xFF059669)),
                           ),
-                          Text(
-                            'Tổng SL: ${summary['totalQuantity'] ?? 0}',
+                          Text(tr('${tr('Tổng SL: ')}${summary['totalQuantity'] ?? 0}'),
                             style: const TextStyle(
                                 fontSize: 12, color: Color(0xFF71717A)),
                           ),
@@ -1857,14 +1853,14 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                             children: [
                               Expanded(
                                   child: Text(
-                                      '${item['groupName'] ?? ''} > ${item['productName'] ?? ''}',
+                                      tr('${item['groupName'] ?? ''} > ${item['productName'] ?? ''}'),
                                       style: const TextStyle(fontSize: 13))),
-                              Text('SL: ${item['quantity'] ?? 0}',
+                              Text(tr('SL: ${item['quantity'] ?? 0}'),
                                   style: const TextStyle(
                                       fontSize: 13, color: Color(0xFF64748B))),
                               const SizedBox(width: 16),
                               Text(
-                                '${_currencyFormat.format(_toDouble(item['amount']))} đ',
+                                tr('${_currencyFormat.format(_toDouble(item['amount']))} đ'),
                                 style: const TextStyle(
                                     fontSize: 13,
                                     fontWeight: FontWeight.w600,
@@ -1903,8 +1899,8 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
           if (isMobile) ...[
             DropdownButtonFormField<String>(
               initialValue: selEmployeeId,
-              decoration: const InputDecoration(
-                  labelText: 'Nhân viên *',
+              decoration: InputDecoration(
+                  labelText: tr('Nhân viên *'),
                   border: OutlineInputBorder(),
                   isDense: true),
               items: _employees.map((e) {
@@ -1912,7 +1908,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                     '${e['lastName'] ?? ''} ${e['firstName'] ?? ''}'.trim();
                 return DropdownMenuItem(
                     value: e['id']?.toString(),
-                    child: Text('$name (${e['employeeCode'] ?? ''})'));
+                    child: Text(tr('$name (${e['employeeCode'] ?? ''})')));
               }).toList(),
               onChanged: (v) => setDlgState(() => selEmployeeId = v),
             ),
@@ -1928,11 +1924,11 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                 if (picked != null) setDlgState(() => workDate = picked);
               },
               child: InputDecorator(
-                decoration: const InputDecoration(
-                    labelText: 'Ngày *',
+                decoration: InputDecoration(
+                    labelText: tr('Ngày *'),
                     border: OutlineInputBorder(),
                     isDense: true),
-                child: Text(DateFormat('dd/MM/yyyy').format(workDate),
+                child: Text(tr(DateFormat('dd/MM/yyyy').format(workDate)),
                     style: const TextStyle(fontSize: 14)),
               ),
             ),
@@ -1943,8 +1939,8 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                   flex: 3,
                   child: DropdownButtonFormField<String>(
                     initialValue: selEmployeeId,
-                    decoration: const InputDecoration(
-                        labelText: 'Nhân viên *',
+                    decoration: InputDecoration(
+                        labelText: tr('Nhân viên *'),
                         border: OutlineInputBorder(),
                         isDense: true),
                     items: _employees.map((e) {
@@ -1953,7 +1949,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                               .trim();
                       return DropdownMenuItem(
                           value: e['id']?.toString(),
-                          child: Text('$name (${e['employeeCode'] ?? ''})'));
+                          child: Text(tr('$name (${e['employeeCode'] ?? ''})')));
                     }).toList(),
                     onChanged: (v) => setDlgState(() => selEmployeeId = v),
                   ),
@@ -1974,11 +1970,11 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                       }
                     },
                     child: InputDecorator(
-                      decoration: const InputDecoration(
-                          labelText: 'Ngày *',
+                      decoration: InputDecoration(
+                          labelText: tr('Ngày *'),
                           border: OutlineInputBorder(),
                           isDense: true),
-                      child: Text(DateFormat('dd/MM/yyyy').format(workDate),
+                      child: Text(tr(DateFormat('dd/MM/yyyy').format(workDate)),
                           style: const TextStyle(fontSize: 14)),
                     ),
                   ),
@@ -1989,7 +1985,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
           // Header
           Row(
             children: [
-              const Text('Danh sách sản phẩm',
+              Text(tr('Danh sách sản phẩm'),
                   style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
               const Spacer(),
               TextButton.icon(
@@ -1997,7 +1993,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                   setDlgState(() => lines.add(_BatchLine()));
                 },
                 icon: const Icon(Icons.add, size: 16),
-                label: const Text('Thêm dòng'),
+                label: Text(tr('Thêm dòng')),
               ),
             ],
           ),
@@ -2022,8 +2018,8 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                         Expanded(
                           child: DropdownButtonFormField<String>(
                             initialValue: line.productItemId,
-                            decoration: const InputDecoration(
-                                hintText: 'Chọn sản phẩm',
+                            decoration: InputDecoration(
+                                hintText: tr('Chọn sản phẩm'),
                                 border: OutlineInputBorder(),
                                 isDense: true,
                                 contentPadding: EdgeInsets.symmetric(
@@ -2035,7 +2031,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                                   '';
                               return DropdownMenuItem(
                                   value: item['id']?.toString(),
-                                  child: Text('${item['name']} ($gn)',
+                                  child: Text(tr('${item['name']} ($gn)'),
                                       overflow: TextOverflow.ellipsis,
                                       style: const TextStyle(fontSize: 13)));
                             }).toList(),
@@ -2060,8 +2056,8 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                         Expanded(
                           child: TextField(
                             controller: line.qtyCtl,
-                            decoration: const InputDecoration(
-                                hintText: 'Số lượng',
+                            decoration: InputDecoration(
+                                hintText: tr('Số lượng'),
                                 border: OutlineInputBorder(),
                                 isDense: true,
                                 contentPadding: EdgeInsets.symmetric(
@@ -2074,8 +2070,8 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                         Expanded(
                           child: TextField(
                             controller: line.noteCtl,
-                            decoration: const InputDecoration(
-                                hintText: 'Ghi chú',
+                            decoration: InputDecoration(
+                                hintText: tr('Ghi chú'),
                                 border: OutlineInputBorder(),
                                 isDense: true,
                                 contentPadding: EdgeInsets.symmetric(
@@ -2098,8 +2094,8 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                     flex: 4,
                     child: DropdownButtonFormField<String>(
                       initialValue: line.productItemId,
-                      decoration: const InputDecoration(
-                          hintText: 'Chọn SP',
+                      decoration: InputDecoration(
+                          hintText: tr('Chọn SP'),
                           border: OutlineInputBorder(),
                           isDense: true,
                           contentPadding: EdgeInsets.symmetric(
@@ -2110,7 +2106,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                             item['productGroupName'] ?? item['groupName'] ?? '';
                         return DropdownMenuItem(
                             value: item['id']?.toString(),
-                            child: Text('${item['name']} ($gn)',
+                            child: Text(tr('${item['name']} ($gn)'),
                                 overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(fontSize: 13)));
                       }).toList(),
@@ -2123,8 +2119,8 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                     flex: 2,
                     child: TextField(
                       controller: line.qtyCtl,
-                      decoration: const InputDecoration(
-                          hintText: 'SL',
+                      decoration: InputDecoration(
+                          hintText: tr('SL'),
                           border: OutlineInputBorder(),
                           isDense: true,
                           contentPadding: EdgeInsets.symmetric(
@@ -2138,8 +2134,8 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                     flex: 3,
                     child: TextField(
                       controller: line.noteCtl,
-                      decoration: const InputDecoration(
-                          hintText: 'Ghi chú',
+                      decoration: InputDecoration(
+                          hintText: tr('Ghi chú'),
                           border: OutlineInputBorder(),
                           isDense: true,
                           contentPadding: EdgeInsets.symmetric(
@@ -2186,7 +2182,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
         });
         if (res['isSuccess'] == true) {
           appNotification.showSuccess(
-              title: 'Thành công', message: 'Đã thêm sản lượng');
+              title: 'Thành công', message: tr('Đã thêm sản lượng'));
           _reloadCurrentTab();
         } else {
           appNotification.showError(
@@ -2206,7 +2202,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
         if (res['isSuccess'] == true) {
           appNotification.showSuccess(
               title: 'Thành công',
-              message: 'Đã thêm ${entries.length} sản phẩm');
+              message: tr('Đã thêm ${entries.length} sản phẩm'));
           _reloadCurrentTab();
         } else {
           appNotification.showError(
@@ -2223,7 +2219,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
             return Dialog.fullscreen(
               child: Scaffold(
                 appBar: AppBar(
-                  title: const Text('Nhập sản lượng'),
+                  title: Text(tr('Nhập sản lượng')),
                   leading: IconButton(
                     icon: const Icon(Icons.close),
                     onPressed: () => Navigator.pop(ctx),
@@ -2235,7 +2231,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                       onPressed: onSubmit,
                       style:
                           TextButton.styleFrom(foregroundColor: Colors.white),
-                      child: const Text('Lưu'),
+                      child: Text(tr('Lưu')),
                     ),
                   ],
                 ),
@@ -2247,7 +2243,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
             );
           }
           return ScrollableAlertDialog(
-            title: const Text('Nhập sản lượng'),
+            title: Text(tr('Nhập sản lượng')),
             content: SizedBox(
               width: 600,
               child: SingleChildScrollView(
@@ -2257,10 +2253,10 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
             actions: [
               TextButton(
                   onPressed: () => Navigator.pop(ctx),
-                  child: const Text('Hủy')),
+                  child: Text(tr('Hủy'))),
               FilledButton(
                 onPressed: onSubmit,
-                child: const Text('Lưu'),
+                child: Text(tr('Lưu')),
               ),
             ],
           );
@@ -2275,8 +2271,8 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
     String? selItemId = entry['productItemId']?.toString();
     DateTime workDate =
         DateTime.tryParse(entry['workDate'] ?? '') ?? DateTime.now();
-    final qtyCtl = TextEditingController(text: '${entry['quantity'] ?? ''}');
-    final noteCtl = TextEditingController(text: entry['note'] ?? '');
+    final qtyCtl = TextEditingController(text: tr('${entry['quantity'] ?? ''}'));
+    final noteCtl = TextEditingController(text: tr(entry['note'] ?? ''));
 
     if (selEmployeeId != null &&
         !_employees.any((e) => e['id']?.toString() == selEmployeeId)) {
@@ -2293,28 +2289,28 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
         children: [
           DropdownButtonFormField<String>(
             initialValue: selEmployeeId,
-            decoration: const InputDecoration(
-                labelText: 'Nhân viên *', border: OutlineInputBorder()),
+            decoration: InputDecoration(
+                labelText: tr('Nhân viên *'), border: OutlineInputBorder()),
             items: _employees.map((e) {
               final name =
                   '${e['lastName'] ?? ''} ${e['firstName'] ?? ''}'.trim();
               return DropdownMenuItem(
                   value: e['id']?.toString(),
-                  child: Text('$name (${e['employeeCode'] ?? ''})'));
+                  child: Text(tr('$name (${e['employeeCode'] ?? ''})')));
             }).toList(),
             onChanged: (v) => setDlgState(() => selEmployeeId = v),
           ),
           const SizedBox(height: 12),
           DropdownButtonFormField<String>(
             initialValue: selItemId,
-            decoration: const InputDecoration(
-                labelText: 'Sản phẩm *', border: OutlineInputBorder()),
+            decoration: InputDecoration(
+                labelText: tr('Sản phẩm *'), border: OutlineInputBorder()),
             items: _items.map((item) {
               final groupName =
                   item['productGroupName'] ?? item['groupName'] ?? '';
               return DropdownMenuItem(
                   value: item['id']?.toString(),
-                  child: Text('${item['name']} ($groupName)'));
+                  child: Text(tr('${item['name']} ($groupName)')));
             }).toList(),
             onChanged: (v) => setDlgState(() => selItemId = v),
           ),
@@ -2330,23 +2326,23 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
               if (picked != null) setDlgState(() => workDate = picked);
             },
             child: InputDecorator(
-              decoration: const InputDecoration(
-                  labelText: 'Ngày làm việc *', border: OutlineInputBorder()),
-              child: Text(DateFormat('dd/MM/yyyy').format(workDate)),
+              decoration: InputDecoration(
+                  labelText: tr('Ngày làm việc *'), border: OutlineInputBorder()),
+              child: Text(tr(DateFormat('dd/MM/yyyy').format(workDate))),
             ),
           ),
           const SizedBox(height: 12),
           TextField(
             controller: qtyCtl,
-            decoration: const InputDecoration(
-                labelText: 'Số lượng *', border: OutlineInputBorder()),
+            decoration: InputDecoration(
+                labelText: tr('Số lượng *'), border: OutlineInputBorder()),
             keyboardType: TextInputType.number,
           ),
           const SizedBox(height: 12),
           TextField(
             controller: noteCtl,
-            decoration: const InputDecoration(
-                labelText: 'Ghi chú', border: OutlineInputBorder()),
+            decoration: InputDecoration(
+                labelText: tr('Ghi chú'), border: OutlineInputBorder()),
           ),
         ],
       );
@@ -2369,7 +2365,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
       });
       if (res['isSuccess'] == true) {
         appNotification.showSuccess(
-            title: 'Thành công', message: 'Đã cập nhật');
+            title: 'Thành công', message: tr('Đã cập nhật'));
         _reloadCurrentTab();
       } else {
         appNotification.showError(
@@ -2385,7 +2381,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
             return Dialog.fullscreen(
               child: Scaffold(
                 appBar: AppBar(
-                  title: const Text('Sửa sản lượng'),
+                  title: Text(tr('Sửa sản lượng')),
                   leading: IconButton(
                     icon: const Icon(Icons.close),
                     onPressed: () => Navigator.pop(ctx),
@@ -2397,7 +2393,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                       onPressed: onSubmit,
                       style:
                           TextButton.styleFrom(foregroundColor: Colors.white),
-                      child: const Text('Lưu'),
+                      child: Text(tr('Lưu')),
                     ),
                   ],
                 ),
@@ -2409,7 +2405,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
             );
           }
           return ScrollableAlertDialog(
-            title: const Text('Sửa sản lượng'),
+            title: Text(tr('Sửa sản lượng')),
             content: SizedBox(
               width: 450,
               child: buildForm(setDlgState),
@@ -2417,10 +2413,10 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
             actions: [
               TextButton(
                   onPressed: () => Navigator.pop(ctx),
-                  child: const Text('Hủy')),
+                  child: Text(tr('Hủy'))),
               FilledButton(
                 onPressed: onSubmit,
-                child: const Text('Lưu'),
+                child: Text(tr('Lưu')),
               ),
             ],
           );
@@ -2480,11 +2476,11 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
             'mau_san_lương.xlsx',
             'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
         appNotification.showSuccess(
-            title: 'Thành công', message: 'Đã tải file mẫu');
+            title: 'Thành công', message: tr('Đã tải file mẫu'));
       }
     } catch (e) {
       appNotification.showError(
-          title: 'Lỗi', message: 'Không thể tạo file mẫu: $e');
+          title: 'Lỗi', message: tr('Không thể tạo file mẫu: $e'));
     }
   }
 
@@ -2513,8 +2509,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
               final errors = List<String>.from(data?['errors'] ?? []);
               appNotification.showSuccess(
                   title: 'Import thành công',
-                  message:
-                      'Đã tạo $created bản ghi${errors.isNotEmpty ? '\n${errors.length} lỗi' : ''}');
+                  message: 'Đã tạo $created bản ghi${errors.isNotEmpty ? '\n${errors.length} lỗi' : ''}');
               _reloadCurrentTab();
             } else {
               appNotification.showError(
@@ -2534,24 +2529,23 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: const Color(0xFFBBF7D0)),
                 ),
-                child: const Column(
+                child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Định dạng Excel:',
+                    Text(tr('Định dạng Excel:'),
                         style: TextStyle(
                             fontWeight: FontWeight.w600, fontSize: 13)),
                     SizedBox(height: 4),
-                    Text(
-                        '• Cột A: Ngày (dd/MM/yyyy) — nếu không có sẽ dùng ngày mặc định',
+                    Text(tr('• Cột A: Ngày (dd/MM/yyyy) — nếu không có sẽ dùng ngày mặc định'),
                         style: TextStyle(fontSize: 12)),
-                    Text('• Cột B: Mã nhân viên',
+                    Text(tr('• Cột B: Mã nhân viên'),
                         style: TextStyle(fontSize: 12)),
-                    Text('• Cột C: Mã sản phẩm',
+                    Text(tr('• Cột C: Mã sản phẩm'),
                         style: TextStyle(fontSize: 12)),
-                    Text('• Cột D: Số lượng', style: TextStyle(fontSize: 12)),
-                    Text('• Cột E: Ghi chú (tùy chọn)',
+                    Text(tr('• Cột D: Số lượng'), style: TextStyle(fontSize: 12)),
+                    Text(tr('• Cột E: Ghi chú (tùy chọn)'),
                         style: TextStyle(fontSize: 12)),
-                    Text('• Dòng 1 là tiêu đề (bỏ qua)',
+                    Text(tr('• Dòng 1 là tiêu đề (bỏ qua)'),
                         style: TextStyle(fontSize: 12)),
                   ],
                 ),
@@ -2563,7 +2557,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                   OutlinedButton.icon(
                     onPressed: _downloadSampleExcel,
                     icon: const Icon(Icons.download, size: 16),
-                    label: const Text('Tải file mẫu',
+                    label: Text(tr('Tải file mẫu'),
                         style: TextStyle(fontSize: 13)),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: const Color(0xFF059669),
@@ -2585,12 +2579,12 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                         }
                       },
                       child: InputDecorator(
-                        decoration: const InputDecoration(
-                            labelText: 'Ngày mặc định (khi cột Ngày trống)',
+                        decoration: InputDecoration(
+                            labelText: tr('Ngày mặc định (khi cột Ngày trống)'),
                             border: OutlineInputBorder(),
                             isDense: true),
                         child:
-                            Text(DateFormat('dd/MM/yyyy').format(defaultDate)),
+                            Text(tr(DateFormat('dd/MM/yyyy').format(defaultDate))),
                       ),
                     ),
                   ),
@@ -2702,12 +2696,12 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                     } catch (e) {
                       appNotification.showError(
                           title: 'Lỗi',
-                          message: 'Không đọc được file Excel: $e');
+                          message: tr('Không đọc được file Excel: $e'));
                     }
                   },
                   icon: const Icon(Icons.upload_file),
                   label: Text(
-                      isParsed ? 'Chọn file khác' : 'Chọn file Excel (.xlsx)'),
+                      tr(isParsed ? 'Chọn file khác' : 'Chọn file Excel (.xlsx)')),
                 ),
               ),
               // Preview
@@ -2715,7 +2709,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                 const SizedBox(height: 12),
                 Row(
                   children: [
-                    Text('Xem trước: ${previewRows.length} dòng hợp lệ',
+                    Text(tr('Xem trước: ${previewRows.length} dòng hợp lệ'),
                         style: const TextStyle(
                             fontWeight: FontWeight.w600, fontSize: 13)),
                     if (hasDateColumn) ...[
@@ -2727,7 +2721,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                           color: const Color(0xFF059669).withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(4),
                         ),
-                        child: const Text('Có cột Ngày',
+                        child: Text(tr('Có cột Ngày'),
                             style: TextStyle(
                                 fontSize: 11,
                                 color: Color(0xFF059669),
@@ -2749,28 +2743,28 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                         columnSpacing: 16,
                         columns: [
                           if (hasDateColumn)
-                            const DataColumn(
-                                label: Text('Ngày',
+                            DataColumn(
+                                label: Text(tr('Ngày'),
                                     style: TextStyle(
                                         fontSize: 12,
                                         fontWeight: FontWeight.w600))),
-                          const DataColumn(
-                              label: Text('Mã NV',
+                          DataColumn(
+                              label: Text(tr('Mã NV'),
                                   style: TextStyle(
                                       fontSize: 12,
                                       fontWeight: FontWeight.w600))),
-                          const DataColumn(
-                              label: Text('Mã SP',
+                          DataColumn(
+                              label: Text(tr('Mã SP'),
                                   style: TextStyle(
                                       fontSize: 12,
                                       fontWeight: FontWeight.w600))),
-                          const DataColumn(
-                              label: Text('SL',
+                          DataColumn(
+                              label: Text(tr('SL'),
                                   style: TextStyle(
                                       fontSize: 12,
                                       fontWeight: FontWeight.w600))),
-                          const DataColumn(
-                              label: Text('Ghi chú',
+                          DataColumn(
+                              label: Text(tr('Ghi chú'),
                                   style: TextStyle(
                                       fontSize: 12,
                                       fontWeight: FontWeight.w600))),
@@ -2779,15 +2773,15 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                             .take(10)
                             .map((r) => DataRow(cells: [
                                   if (hasDateColumn)
-                                    DataCell(Text('${r['workDate'] ?? ''}',
+                                    DataCell(Text(tr('${r['workDate'] ?? ''}'),
                                         style: const TextStyle(fontSize: 12))),
-                                  DataCell(Text('${r['employeeCode']}',
+                                  DataCell(Text(tr('${r['employeeCode']}'),
                                       style: const TextStyle(fontSize: 12))),
-                                  DataCell(Text('${r['productCode']}',
+                                  DataCell(Text(tr('${r['productCode']}'),
                                       style: const TextStyle(fontSize: 12))),
-                                  DataCell(Text('${r['quantity']}',
+                                  DataCell(Text(tr('${r['quantity']}'),
                                       style: const TextStyle(fontSize: 12))),
-                                  DataCell(Text('${r['note'] ?? ''}',
+                                  DataCell(Text(tr('${r['note'] ?? ''}'),
                                       style: const TextStyle(fontSize: 12))),
                                 ]))
                             .toList(),
@@ -2796,7 +2790,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                   ),
                 ),
                 if (previewRows.length > 10)
-                  Text('... và ${previewRows.length - 10} dòng nữa',
+                  Text(tr('... và ${previewRows.length - 10} dòng nữa'),
                       style: const TextStyle(
                           fontSize: 12, color: Color(0xFF71717A))),
               ],
@@ -2807,7 +2801,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
             return Dialog.fullscreen(
               child: Scaffold(
                 appBar: AppBar(
-                  title: const Text('Import từ Excel'),
+                  title: Text(tr('Import từ Excel')),
                   leading: IconButton(
                       icon: const Icon(Icons.close),
                       onPressed: () => Navigator.pop(ctx)),
@@ -2819,7 +2813,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                           !isParsed || previewRows.isEmpty ? null : onImport,
                       style:
                           TextButton.styleFrom(foregroundColor: Colors.white),
-                      child: const Text('Import'),
+                      child: Text(tr('Import')),
                     ),
                   ],
                 ),
@@ -2832,11 +2826,11 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
           }
 
           return ScrollableAlertDialog(
-            title: const Row(
+            title: Row(
               children: [
                 Icon(Icons.table_chart, color: Color(0xFF059669), size: 24),
                 SizedBox(width: 8),
-                Text('Import từ Excel'),
+                Text(tr('Import từ Excel')),
               ],
             ),
             content: SizedBox(
@@ -2846,10 +2840,10 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
             actions: [
               TextButton(
                   onPressed: () => Navigator.pop(ctx),
-                  child: const Text('Hủy')),
+                  child: Text(tr('Hủy'))),
               FilledButton(
                 onPressed: !isParsed || previewRows.isEmpty ? null : onImport,
-                child: const Text('Import'),
+                child: Text(tr('Import')),
               ),
             ],
           );
@@ -2948,8 +2942,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
               final errors = List<String>.from(data?['errors'] ?? []);
               appNotification.showSuccess(
                   title: 'Đồng bộ thành công',
-                  message:
-                      'Đã tạo $created bản ghi từ ${tabs.length} sheet${errors.isNotEmpty ? ' (${errors.length} lỗi)' : ''}');
+                  message: 'Đã tạo $created bản ghi từ ${tabs.length} sheet${errors.isNotEmpty ? ' (${errors.length} lỗi)' : ''}');
               _reloadCurrentTab();
             } else {
               appNotification.showError(
@@ -2973,22 +2966,20 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: const Color(0xFFBFDBFE)),
                 ),
-                child: const Column(
+                child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Định dạng Google Sheet:',
+                    Text(tr('Định dạng Google Sheet:'),
                         style: TextStyle(
                             fontWeight: FontWeight.w600, fontSize: 13)),
                     SizedBox(height: 4),
-                    Text('• Cột đầu tiên: Mã nhân viên',
+                    Text(tr('• Cột đầu tiên: Mã nhân viên'),
                         style: TextStyle(fontSize: 12)),
-                    Text(
-                        '• Các cột tiếp theo: Tên hoặc mã sản phẩm → giá trị = số lượng',
+                    Text(tr('• Các cột tiếp theo: Tên hoặc mã sản phẩm → giá trị = số lượng'),
                         style: TextStyle(fontSize: 12)),
-                    Text(
-                        '• Mỗi tab sheet = 1 ngày (đặt tên tab theo ngày dd-MM-yyyy để tự nhận)',
+                    Text(tr('• Mỗi tab sheet = 1 ngày (đặt tên tab theo ngày dd-MM-yyyy để tự nhận)'),
                         style: TextStyle(fontSize: 12)),
-                    Text('• Chọn nhiều tab để đồng bộ nhiều ngày cùng lúc',
+                    Text(tr('• Chọn nhiều tab để đồng bộ nhiều ngày cùng lúc'),
                         style: TextStyle(fontSize: 12)),
                   ],
                 ),
@@ -2998,8 +2989,8 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
               TextField(
                 controller: urlCtl,
                 decoration: InputDecoration(
-                  labelText: 'URL Google Sheet *',
-                  hintText: 'https://docs.google.com/spreadsheets/d/...',
+                  labelText: tr('URL Google Sheet *'),
+                  hintText: tr('https://docs.google.com/spreadsheets/d/...'),
                   border: const OutlineInputBorder(),
                   isDense: true,
                   suffixIcon: isTesting
@@ -3011,7 +3002,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                               child: CircularProgressIndicator(strokeWidth: 2)))
                       : IconButton(
                           icon: const Icon(Icons.link, size: 20),
-                          tooltip: 'Kiểm tra kết nối',
+                          tooltip: tr('Kiểm tra kết nối'),
                           onPressed: () async {
                             if (urlCtl.text.trim().isEmpty) return;
                             setDlgState(() {
@@ -3063,7 +3054,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                     const Icon(Icons.check_circle,
                         color: Color(0xFF059669), size: 16),
                     const SizedBox(width: 4),
-                    Text('Đã kết nối (${sheetNames.length} sheets)',
+                    Text(tr('Đã kết nối (${sheetNames.length} sheets)'),
                         style: const TextStyle(
                             fontSize: 12, color: Color(0xFF059669))),
                     const Spacer(),
@@ -3075,7 +3066,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                           }
                         });
                       },
-                      child: const Text('Chọn tất cả',
+                      child: Text(tr('Chọn tất cả'),
                           style: TextStyle(fontSize: 12)),
                     ),
                   ],
@@ -3115,7 +3106,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(name,
+                                  Text(tr(name),
                                       style: TextStyle(
                                         fontSize: 13,
                                         fontWeight: FontWeight.w500,
@@ -3124,7 +3115,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                                             : const Color(0xFF94A3B8),
                                       )),
                                   if (isDateName)
-                                    const Text('Tự nhận ngày từ tên tab',
+                                    Text(tr('Tự nhận ngày từ tên tab'),
                                         style: TextStyle(
                                             fontSize: 10,
                                             color: Color(0xFF059669))),
@@ -3171,7 +3162,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                                               : const Color(0xFFCBD5E1)),
                                       const SizedBox(width: 4),
                                       Text(
-                                        DateFormat('dd/MM/yyyy').format(date),
+                                        tr(DateFormat('dd/MM/yyyy').format(date)),
                                         style: TextStyle(
                                           fontSize: 12,
                                           color: isSelected
@@ -3198,7 +3189,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
             return Dialog.fullscreen(
               child: Scaffold(
                 appBar: AppBar(
-                  title: const Text('Đồng bộ Google Sheet'),
+                  title: Text(tr('Đồng bộ Google Sheet')),
                   leading: IconButton(
                       icon: const Icon(Icons.close),
                       onPressed: () => Navigator.pop(ctx)),
@@ -3215,7 +3206,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                               height: 20,
                               child: CircularProgressIndicator(
                                   strokeWidth: 2, color: Colors.white))
-                          : const Text('Đồng bộ'),
+                          : Text(tr('Đồng bộ')),
                     ),
                   ],
                 ),
@@ -3228,11 +3219,11 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
           }
 
           return ScrollableAlertDialog(
-            title: const Row(
+            title: Row(
               children: [
                 Icon(Icons.cloud_download, color: Color(0xFF1A73E8), size: 24),
                 SizedBox(width: 8),
-                Text('Đồng bộ Google Sheet'),
+                Text(tr('Đồng bộ Google Sheet')),
               ],
             ),
             content: SizedBox(
@@ -3242,7 +3233,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
             actions: [
               TextButton(
                   onPressed: () => Navigator.pop(ctx),
-                  child: const Text('Hủy')),
+                  child: Text(tr('Hủy'))),
               FilledButton(
                 onPressed: syncEnabled ? onSync : null,
                 child: isSyncing
@@ -3251,7 +3242,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                         height: 20,
                         child: CircularProgressIndicator(
                             strokeWidth: 2, color: Colors.white))
-                    : const Text('Đồng bộ'),
+                    : Text(tr('Đồng bộ')),
               ),
             ],
           );
@@ -3264,16 +3255,16 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => ScrollableAlertDialog(
-        title: const Text('Xác nhận xóa'),
-        content: const Text('Xóa bản ghi sản lượng này?'),
+        title: Text(tr('Xác nhận xóa')),
+        content: Text(tr('Xóa bản ghi sản lượng này?')),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Hủy')),
+              child: Text(tr('Hủy'))),
           FilledButton(
               onPressed: () => Navigator.pop(ctx, true),
               style: FilledButton.styleFrom(backgroundColor: Colors.red),
-              child: const Text('Xóa')),
+              child: Text(tr('Xóa'))),
         ],
       ),
     );
@@ -3281,7 +3272,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
       final res =
           await _apiService.deleteProductionEntry(entry['id'].toString());
       if (res['isSuccess'] == true) {
-        appNotification.showSuccess(title: 'Thành công', message: 'Đã xóa');
+        appNotification.showSuccess(title: 'Thành công', message: tr('Đã xóa'));
         _reloadCurrentTab();
       } else {
         appNotification.showError(

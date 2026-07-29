@@ -12,6 +12,8 @@ import '../../utils/responsive_helper.dart';
 import '../../widgets/notification_overlay.dart';
 import '../../widgets/pos/pos_theme.dart';
 import 'pos_kitchen_void_list_screen.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
+import 'package:zkteco_flutter_client/l10n/app_ui_locale.dart';
 
 /// Kết quả chọn bàn/phòng từ sơ đồ.
 typedef PosFloorSelectCallback = void Function(Map<String, dynamic> result);
@@ -430,25 +432,25 @@ class _PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
         final choice = await showDialog<String>(
           context: context,
           builder: (ctx) => AlertDialog(
-            title: Text(r.name),
+            title: Text(tr(r.name)),
             content: Text(
-              r.lineCount > 0
+              tr(r.lineCount > 0
                   ? 'Bàn có đơn tạm (${r.lineCount} món) — không ai đang sửa.\n'
                       'Bấm «Lấy quyền» để tiếp tục.'
-                  : 'Bàn đã mở nhưng tạm rời — bấm «Lấy quyền» để chọn món.',
+                  : 'Bàn đã mở nhưng tạm rời — bấm «Lấy quyền» để chọn món.'),
             ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(ctx),
-                child: const Text('Đóng'),
+                child: Text(tr('Đóng')),
               ),
               TextButton(
                 onPressed: () => Navigator.pop(ctx, 'view'),
-                child: const Text('Chỉ xem'),
+                child: Text(tr('Chỉ xem')),
               ),
               FilledButton(
                 onPressed: () => Navigator.pop(ctx, 'take'),
-                child: const Text('Lấy quyền'),
+                child: Text(tr('Lấy quyền')),
               ),
             ],
           ),
@@ -476,25 +478,25 @@ class _PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
         final choice = await showDialog<String>(
           context: context,
           builder: (ctx) => AlertDialog(
-            title: Text(r.name),
-            content: const Text(
-              'Bàn đã mở nhưng chưa gọi món.\n'
-              'Bạn muốn vào chọn món hay trả bàn về trống?',
+            title: Text(tr(r.name)),
+            content: Text(
+              tr('Bàn đã mở nhưng chưa gọi món.\n'
+              'Bạn muốn vào chọn món hay trả bàn về trống?'),
             ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(ctx),
-                child: const Text('Đóng'),
+                child: Text(tr('Đóng')),
               ),
               TextButton(
                 onPressed: () => Navigator.pop(ctx, 'free'),
                 style:
                     TextButton.styleFrom(foregroundColor: Colors.red.shade700),
-                child: const Text('Trả về trống'),
+                child: Text(tr('Trả về trống')),
               ),
               FilledButton(
                 onPressed: () => Navigator.pop(ctx, 'open'),
-                child: const Text('Vào chọn món'),
+                child: Text(tr('Vào chọn món')),
               ),
             ],
           ),
@@ -562,17 +564,17 @@ class _PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
 
   Future<int?> _promptGuestCount(PosServiceResourceDto r) async {
     final maxGuests = r.capacity > 0 ? r.capacity : 99;
-    final ctrl = TextEditingController(text: '2');
+    final ctrl = TextEditingController(text: tr('2'));
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text('Mở ${r.name}'),
+        title: Text(tr('Mở ${r.name}')),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
-              r.capacity > 0 ? 'Số khách (tối đa $maxGuests)' : 'Số khách',
+              tr(r.capacity > 0 ? 'Số khách (tối đa $maxGuests)' : 'Số khách'),
               style: const TextStyle(fontSize: 13, color: PosTheme.textSecondary),
             ),
             const SizedBox(height: 8),
@@ -580,16 +582,16 @@ class _PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
               controller: ctrl,
               keyboardType: TextInputType.number,
               autofocus: true,
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 border: OutlineInputBorder(),
-                hintText: 'VD: 4',
+                hintText: tr('VD: 4'),
               ),
             ),
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Huỷ')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Mở bàn')),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Huỷ'))),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(tr('Mở bàn'))),
         ],
       ),
     );
@@ -643,10 +645,10 @@ class _PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
           children: [
             ListTile(
               title: Text(
-                formatPosTableLabel(areaName: r.areaName, tableName: r.name),
+                tr(formatPosTableLabel(areaName: r.areaName, tableName: r.name)),
                 style: const TextStyle(fontWeight: FontWeight.w700),
               ),
-              subtitle: Text([
+              subtitle: Text(tr([
                 r.reservationCustomerName ?? 'Khách đặt',
                 if ((r.reservationPhone ?? '').isNotEmpty) r.reservationPhone!,
                 if (r.reservationGuestCount > 0)
@@ -655,18 +657,18 @@ class _PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                   'Đến ${DateFormat('dd/MM HH:mm').format(r.reservationReservedUntil!.toLocal())}',
                 if (r.reservationPreOrderCount > 0)
                   '${r.reservationPreOrderCount} món đặt trước',
-              ].join(' · ')),
+              ].join(' · '))),
             ),
             const Divider(height: 1),
             ListTile(
               leading: const Icon(Icons.login, color: PosTheme.kiotBlue),
-              title: const Text('Khách đến — nhận bàn'),
-              subtitle: const Text('Mở bàn + đưa món đặt trước vào đơn'),
+              title: Text(tr('Khách đến — nhận bàn')),
+              subtitle: Text(tr('Mở bàn + đưa món đặt trước vào đơn')),
               onTap: () => Navigator.pop(ctx, 'seat'),
             ),
             ListTile(
               leading: const Icon(Icons.cancel_outlined, color: Colors.red),
-              title: const Text('Hủy đặt bàn'),
+              title: Text(tr('Hủy đặt bàn')),
               onTap: () => Navigator.pop(ctx, 'cancel'),
             ),
             const SizedBox(height: 8),
@@ -723,7 +725,7 @@ class _PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
   Future<void> _showReserveDialog(PosServiceResourceDto r) async {
     final nameCtrl = TextEditingController();
     final phoneCtrl = TextEditingController();
-    final guestCtrl = TextEditingController(text: '2');
+    final guestCtrl = TextEditingController(text: tr('2'));
     final noteCtrl = TextEditingController();
     final preItems = <Map<String, dynamic>>[];
     // Mặc định: hôm nay, giờ hiện tại làm tròn +1 giờ.
@@ -738,7 +740,7 @@ class _PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setLocal) => AlertDialog(
-          title: Text('Đặt bàn — $tableLabel'),
+          title: Text(tr('Đặt bàn — $tableLabel')),
           content: SizedBox(
             width: 400,
             child: SingleChildScrollView(
@@ -747,8 +749,8 @@ class _PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                 children: [
                   TextField(
                     controller: nameCtrl,
-                    decoration: const InputDecoration(
-                      labelText: 'Tên khách *',
+                    decoration: InputDecoration(
+                      labelText: tr('Tên khách *'),
                       border: OutlineInputBorder(),
                     ),
                     textCapitalization: TextCapitalization.words,
@@ -756,8 +758,8 @@ class _PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                   const SizedBox(height: 10),
                   TextField(
                     controller: phoneCtrl,
-                    decoration: const InputDecoration(
-                      labelText: 'SĐT',
+                    decoration: InputDecoration(
+                      labelText: tr('SĐT'),
                       border: OutlineInputBorder(),
                     ),
                     keyboardType: TextInputType.phone,
@@ -765,8 +767,8 @@ class _PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                   const SizedBox(height: 10),
                   TextField(
                     controller: guestCtrl,
-                    decoration: const InputDecoration(
-                      labelText: 'Số khách',
+                    decoration: InputDecoration(
+                      labelText: tr('Số khách'),
                       border: OutlineInputBorder(),
                     ),
                     keyboardType: TextInputType.number,
@@ -782,7 +784,7 @@ class _PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                               initialDate: arriveDate,
                               firstDate: DateTime(now.year, now.month, now.day),
                               lastDate: now.add(const Duration(days: 365)),
-                              locale: const Locale('vi'),
+                              locale: appUiLocale(),
                             );
                             if (d != null) {
                               setLocal(() => arriveDate =
@@ -791,7 +793,7 @@ class _PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                           },
                           icon: const Icon(Icons.calendar_today, size: 18),
                           label: Text(
-                            DateFormat('dd/MM/yyyy').format(arriveDate),
+                            tr(DateFormat('dd/MM/yyyy').format(arriveDate)),
                           ),
                         ),
                       ),
@@ -813,18 +815,17 @@ class _PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                           },
                           icon: const Icon(Icons.access_time, size: 18),
                           label: Text(
-                            '${arriveTime.hour.toString().padLeft(2, '0')}:'
-                            '${arriveTime.minute.toString().padLeft(2, '0')}',
+                            tr('${arriveTime.hour.toString().padLeft(2, '0')}:'
+                            '${arriveTime.minute.toString().padLeft(2, '0')}'),
                           ),
                         ),
                       ),
                     ],
                   ),
                   const SizedBox(height: 4),
-                  const Align(
+                  Align(
                     alignment: Alignment.centerLeft,
-                    child: Text(
-                      'Ngày / giờ khách đến',
+                    child: Text(tr('Ngày / giờ khách đến'),
                       style: TextStyle(
                           fontSize: 12, color: PosTheme.textSecondary),
                     ),
@@ -832,8 +833,8 @@ class _PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                   const SizedBox(height: 10),
                   TextField(
                     controller: noteCtrl,
-                    decoration: const InputDecoration(
-                      labelText: 'Ghi chú',
+                    decoration: InputDecoration(
+                      labelText: tr('Ghi chú'),
                       border: OutlineInputBorder(),
                     ),
                     maxLines: 2,
@@ -841,8 +842,8 @@ class _PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                   const SizedBox(height: 12),
                   Row(
                     children: [
-                      const Expanded(
-                        child: Text('Món đặt trước',
+                      Expanded(
+                        child: Text(tr('Món đặt trước'),
                             style: TextStyle(fontWeight: FontWeight.w600)),
                       ),
                       TextButton.icon(
@@ -852,15 +853,14 @@ class _PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                           setLocal(() => preItems.add(item));
                         },
                         icon: const Icon(Icons.add, size: 18),
-                        label: const Text('Chọn từ menu'),
+                        label: Text(tr('Chọn từ menu')),
                       ),
                     ],
                   ),
                   if (preItems.isEmpty)
-                    const Align(
+                    Align(
                       alignment: Alignment.centerLeft,
-                      child: Text(
-                        'Chưa chọn món (có thể thêm sau khi nhận bàn)',
+                      child: Text(tr('Chưa chọn món (có thể thêm sau khi nhận bàn)'),
                         style: TextStyle(
                             fontSize: 12, color: PosTheme.textSecondary),
                       ),
@@ -873,8 +873,8 @@ class _PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                       return ListTile(
                         dense: true,
                         contentPadding: EdgeInsets.zero,
-                        title: Text('${it['name']}'),
-                        subtitle: Text('SL: ${qty % 1 == 0 ? qty.toInt() : qty}'),
+                        title: Text(tr('${it['name']}')),
+                        subtitle: Text(tr('SL: ${qty % 1 == 0 ? qty.toInt() : qty}')),
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
@@ -916,10 +916,10 @@ class _PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
           actions: [
             TextButton(
                 onPressed: () => Navigator.pop(ctx, false),
-                child: const Text('Hủy')),
+                child: Text(tr('Hủy'))),
             FilledButton(
                 onPressed: () => Navigator.pop(ctx, true),
-                child: const Text('Lưu đặt bàn')),
+                child: Text(tr('Lưu đặt bàn'))),
           ],
         ),
       ),
@@ -929,7 +929,7 @@ class _PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
     if (name.isEmpty) {
       NotificationOverlayManager().showWarning(
         title: 'Thiếu tên khách',
-        message: 'Nhập tên khách đặt bàn',
+        message: tr('Nhập tên khách đặt bàn'),
       );
       return;
     }
@@ -1049,9 +1049,9 @@ class _PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const Padding(
+                    Padding(
                       padding: EdgeInsets.fromLTRB(16, 14, 16, 8),
-                      child: Text('Chọn món từ menu',
+                      child: Text(tr('Chọn món từ menu'),
                           style: TextStyle(
                               fontSize: 16, fontWeight: FontWeight.w700)),
                     ),
@@ -1059,8 +1059,8 @@ class _PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                       padding: const EdgeInsets.symmetric(horizontal: 12),
                       child: TextField(
                         controller: searchCtrl,
-                        decoration: const InputDecoration(
-                          hintText: 'Tìm món…',
+                        decoration: InputDecoration(
+                          hintText: tr('Tìm món…'),
                           prefixIcon: Icon(Icons.search),
                           border: OutlineInputBorder(),
                           isDense: true,
@@ -1087,7 +1087,7 @@ class _PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                             Padding(
                               padding: const EdgeInsets.only(right: 8),
                               child: FilterChip(
-                                label: const Text('Tất cả'),
+                                label: Text(tr('Tất cả')),
                                 selected: categoryId == null,
                                 onSelected: (_) {
                                   setLocal(() => categoryId = null);
@@ -1105,7 +1105,7 @@ class _PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                               return Padding(
                                 padding: const EdgeInsets.only(right: 8),
                                 child: FilterChip(
-                                  label: Text(name),
+                                  label: Text(tr(name)),
                                   selected: categoryId == id,
                                   onSelected: (_) {
                                     setLocal(() => categoryId = id);
@@ -1123,10 +1123,10 @@ class _PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                       child: loading
                           ? const Center(child: CircularProgressIndicator())
                           : err != null
-                              ? Center(child: Text(err!))
+                              ? Center(child: Text(tr(err!)))
                               : hits.isEmpty
-                                  ? const Center(
-                                      child: Text('Không có món trong menu'))
+                                  ? Center(
+                                      child: Text(tr('Không có món trong menu')))
                                   : ListView.builder(
                                       itemCount: hits.length,
                                       itemBuilder: (_, i) {
@@ -1145,10 +1145,10 @@ class _PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                                                 '')
                                             .toString();
                                         return ListTile(
-                                          title: Text(name),
+                                          title: Text(tr(name)),
                                           subtitle: Text(
-                                              '${_moneyFmt.format(price)}đ'
-                                              '${unit.isEmpty ? '' : ' / $unit'}'),
+                                              tr('${_moneyFmt.format(price)}đ'
+                                              '${unit.isEmpty ? '' : ' / $unit'}')),
                                           onTap: () {
                                             if (id.isEmpty) return;
                                             Navigator.pop(ctx, {
@@ -1167,7 +1167,7 @@ class _PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                       padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
                       child: TextButton(
                         onPressed: () => Navigator.pop(ctx),
-                        child: const Text('Đóng'),
+                        child: Text(tr('Đóng')),
                       ),
                     ),
                   ],
@@ -1193,73 +1193,73 @@ class _PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
           children: [
             ListTile(
               title: Text(
-                formatPosTableLabel(areaName: r.areaName, tableName: r.name),
+                tr(formatPosTableLabel(areaName: r.areaName, tableName: r.name)),
                 style: const TextStyle(fontWeight: FontWeight.w700),
               ),
-              subtitle: Text([
+              subtitle: Text(tr([
                 if (r.guestCount > 0) '${r.guestCount} khách',
                 if (r.elapsedLabel.isNotEmpty) r.elapsedLabel,
                 if (r.subtotal > 0) '${_moneyFmt.format(r.subtotal)}đ',
                 if (r.lineCount > 0) '${r.lineCount} món',
-              ].join(' · ')),
+              ].join(' · '))),
             ),
             const Divider(height: 1),
             ListTile(
               leading: const Icon(Icons.restaurant_menu),
-              title: const Text('Vào chọn món / dịch vụ'),
+              title: Text(tr('Vào chọn món / dịch vụ')),
               onTap: () => Navigator.pop(ctx, 'open'),
             ),
             if (_isWaitingTable(r))
               ListTile(
                 leading: Icon(Icons.event_seat_outlined,
                     color: Colors.red.shade700),
-                title: const Text('Trả về bàn trống'),
-                subtitle: const Text('Đóng phiên — bàn chưa gọi món'),
+                title: Text(tr('Trả về bàn trống')),
+                subtitle: Text(tr('Đóng phiên — bàn chưa gọi món')),
                 onTap: () => Navigator.pop(ctx, 'free'),
               ),
             if (_isFnB || r.pendingKitchenCount > 0)
               ListTile(
                 leading: const Icon(Icons.soup_kitchen_outlined),
                 title: Text(
-                  r.pendingKitchenCount > 0
+                  tr(r.pendingKitchenCount > 0
                       ? 'Báo chế biến (${r.pendingKitchenCount} món)'
-                      : 'Báo chế biến',
+                      : 'Báo chế biến'),
                 ),
                 onTap: () => Navigator.pop(ctx, 'kitchen'),
               ),
             ListTile(
               leading: const Icon(Icons.swap_horiz),
-              title: const Text('Chuyển bàn'),
+              title: Text(tr('Chuyển bàn')),
               onTap: () => Navigator.pop(ctx, 'transfer'),
             ),
             ListTile(
               leading: const Icon(Icons.call_split),
-              title: const Text('Tách bàn'),
-              subtitle: const Text('Chọn món chuyển sang bàn trống'),
+              title: Text(tr('Tách bàn')),
+              subtitle: Text(tr('Chọn món chuyển sang bàn trống')),
               onTap: () => Navigator.pop(ctx, 'split'),
             ),
             ListTile(
               leading: const Icon(Icons.merge_type),
-              title: const Text('Gộp bàn vào đây'),
+              title: Text(tr('Gộp bàn vào đây')),
               onTap: () => Navigator.pop(ctx, 'merge'),
             ),
             if (_isHourly) ...[
               if (r.isPaused)
                 ListTile(
                   leading: const Icon(Icons.play_arrow),
-                  title: const Text('Tiếp tục tính giờ'),
+                  title: Text(tr('Tiếp tục tính giờ')),
                   onTap: () => Navigator.pop(ctx, 'resume'),
                 )
               else
                 ListTile(
                   leading: const Icon(Icons.pause),
-                  title: const Text('Tạm dừng tính giờ'),
+                  title: Text(tr('Tạm dừng tính giờ')),
                   onTap: () => Navigator.pop(ctx, 'pause'),
                 ),
             ],
             ListTile(
               leading: const Icon(Icons.people_outline),
-              title: const Text('Số khách'),
+              title: Text(tr('Số khách')),
               onTap: () => Navigator.pop(ctx, 'guests'),
             ),
             ListTile(
@@ -1269,14 +1269,14 @@ class _PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                     : Icons.request_quote_outlined,
               ),
               title: Text(
-                  r.isBillRequested ? 'Huỷ tạm tính' : 'Tạm tính'),
+                  tr(r.isBillRequested ? 'Huỷ tạm tính' : 'Tạm tính')),
               onTap: () => Navigator.pop(ctx, 'bill'),
             ),
             if (widget.manageMode)
               ListTile(
                 leading:
                     const Icon(Icons.stop_circle_outlined, color: Colors.red),
-                title: const Text('Đóng phiên (giữ đơn)'),
+                title: Text(tr('Đóng phiên (giữ đơn)')),
                 onTap: () => Navigator.pop(ctx, 'close'),
               ),
             const SizedBox(height: 8),
@@ -1427,7 +1427,7 @@ class _PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
     if (free.isEmpty) {
       NotificationOverlayManager().showWarning(
         title: 'Không có bàn trống',
-        message: 'Tất cả bàn đang dùng hoặc đang mở phiên',
+        message: tr('Tất cả bàn đang dùng hoặc đang mở phiên'),
       );
       return null;
     }
@@ -1465,7 +1465,7 @@ class _PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                   children: [
                     Padding(
                       padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                      child: Text(title,
+                      child: Text(tr(title),
                           style: const TextStyle(
                               fontSize: 16, fontWeight: FontWeight.w600)),
                     ),
@@ -1479,7 +1479,7 @@ class _PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                             Padding(
                               padding: const EdgeInsets.only(right: 8),
                               child: FilterChip(
-                                label: Text('Tất cả (${free.length})'),
+                                label: Text(tr('Tất cả (${free.length})')),
                                 selected: areaFilter == null,
                                 onSelected: (_) =>
                                     setLocal(() => areaFilter = null),
@@ -1491,7 +1491,7 @@ class _PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                               return Padding(
                                 padding: const EdgeInsets.only(right: 8),
                                 child: FilterChip(
-                                  label: Text('${a.name} ($n)'),
+                                  label: Text(tr('${a.name} ($n)')),
                                   selected: areaFilter == a.id,
                                   onSelected: (_) =>
                                       setLocal(() => areaFilter = a.id),
@@ -1504,16 +1504,16 @@ class _PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                     const Divider(height: 1),
                     Expanded(
                       child: filtered.isEmpty
-                          ? const Center(
-                              child: Text('Không có bàn trống trong nhóm này'))
+                          ? Center(
+                              child: Text(tr('Không có bàn trống trong nhóm này')))
                           : ListView.builder(
                               itemCount: filtered.length,
                               itemBuilder: (_, i) {
                                 final t = filtered[i];
                                 return ListTile(
-                                  title: Text(t.name),
+                                  title: Text(tr(t.name)),
                                   subtitle:
-                                      Text('${t.code} · ${t.areaName}'),
+                                      Text(tr('${t.code} · ${t.areaName}')),
                                   onTap: () => Navigator.pop(ctx, t),
                                 );
                               },
@@ -1534,7 +1534,7 @@ class _PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
     if (sid == null || sid.isEmpty) {
       NotificationOverlayManager().showWarning(
         title: 'Không chuyển được',
-        message: 'Bàn chưa có phiên mở',
+        message: tr('Bàn chưa có phiên mở'),
       );
       return;
     }
@@ -1640,7 +1640,7 @@ class _PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
     if (sid == null || sid.isEmpty || oid == null || oid.isEmpty) {
       NotificationOverlayManager().showWarning(
         title: 'Không tách được',
-        message: 'Bàn chưa có phiên / đơn',
+        message: tr('Bàn chưa có phiên / đơn'),
       );
       return;
     }
@@ -1650,7 +1650,7 @@ class _PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
     if (orderRes['isSuccess'] != true || orderRes['data'] is! Map) {
       NotificationOverlayManager().showError(
         title: 'Lỗi',
-        message: 'Không tải được đơn để tách',
+        message: tr('Không tải được đơn để tách'),
       );
       return;
     }
@@ -1663,7 +1663,7 @@ class _PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
     if (lines.length < 2) {
       NotificationOverlayManager().showWarning(
         title: 'Không tách được',
-        message: 'Cần ít nhất 2 dòng món',
+        message: tr('Cần ít nhất 2 dòng món'),
       );
       return;
     }
@@ -1673,7 +1673,7 @@ class _PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setLocal) => AlertDialog(
-          title: const Text('Chọn món tách bàn'),
+          title: Text(tr('Chọn món tách bàn')),
           content: SizedBox(
             width: 360,
             child: ListView(
@@ -1684,8 +1684,8 @@ class _PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                 final qty = (l['qty'] ?? l['Qty'] as num?)?.toDouble() ?? 0;
                 return CheckboxListTile(
                   value: selected.contains(id),
-                  title: Text(name),
-                  subtitle: Text('SL $qty'),
+                  title: Text(tr(name)),
+                  subtitle: Text(tr('SL $qty')),
                   onChanged: (v) => setLocal(() {
                     if (v == true) {
                       selected.add(id);
@@ -1700,10 +1700,10 @@ class _PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
           actions: [
             TextButton(
                 onPressed: () => Navigator.pop(ctx, false),
-                child: const Text('Huỷ')),
+                child: Text(tr('Huỷ'))),
             FilledButton(
                 onPressed: () => Navigator.pop(ctx, true),
-                child: const Text('Tiếp')),
+                child: Text(tr('Tiếp'))),
           ],
         ),
       ),
@@ -1756,7 +1756,7 @@ class _PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
     if (sid == null || sid.isEmpty) {
       NotificationOverlayManager().showWarning(
         title: 'Không gộp được',
-        message: 'Bàn đích chưa có phiên mở',
+        message: tr('Bàn đích chưa có phiên mở'),
       );
       return;
     }
@@ -1771,7 +1771,7 @@ class _PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
     if (others.isEmpty) {
       NotificationOverlayManager().showWarning(
         title: 'Không có bàn khác',
-        message: 'Cần bàn đang dùng để gộp vào đây',
+        message: tr('Cần bàn đang dùng để gộp vào đây'),
       );
       return;
     }
@@ -1785,9 +1785,9 @@ class _PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
             height: h,
             child: Column(
               children: [
-                const Padding(
+                Padding(
                   padding: EdgeInsets.all(16),
-                  child: Text('Gộp bàn nào vào đây?',
+                  child: Text(tr('Gộp bàn nào vào đây?'),
                       style: TextStyle(fontWeight: FontWeight.w600)),
                 ),
                 const Divider(height: 1),
@@ -1795,9 +1795,8 @@ class _PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                   child: ListView(
                     children: others
                         .map((t) => ListTile(
-                              title: Text(t.name),
-                              subtitle: Text(
-                                  '${_moneyFmt.format(t.subtotal)}đ · ${t.lineCount} món'),
+                              title: Text(tr(t.name)),
+                              subtitle: Text(tr('${_moneyFmt.format(t.subtotal)}đ · ${t.lineCount} món')),
                               onTap: () => Navigator.pop(ctx, t),
                             ))
                         .toList(),
@@ -1929,11 +1928,11 @@ class _PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
   Future<void> _setGuests(PosServiceResourceDto r) async {
     final sid = r.openSessionId;
     if (sid == null) return;
-    final ctrl = TextEditingController(text: '${r.guestCount > 0 ? r.guestCount : 1}');
+    final ctrl = TextEditingController(text: tr('${r.guestCount > 0 ? r.guestCount : 1}'));
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Số khách'),
+        title: Text(tr('Số khách')),
         content: TextField(
           controller: ctrl,
           keyboardType: TextInputType.number,
@@ -1943,10 +1942,10 @@ class _PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Huỷ')),
+              child: Text(tr('Huỷ'))),
           FilledButton(
               onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('Lưu')),
+              child: Text(tr('Lưu'))),
         ],
       ),
     );
@@ -1969,17 +1968,16 @@ class _PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text('Đóng ${r.name}?'),
-        content: const Text(
-          'Đóng phiên sẽ dừng tính giờ. Đơn Draft vẫn giữ để thanh toán.',
+        title: Text(tr('Đóng ${r.name}?')),
+        content: Text(tr('Đóng phiên sẽ dừng tính giờ. Đơn Draft vẫn giữ để thanh toán.'),
         ),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Huỷ')),
+              child: Text(tr('Huỷ'))),
           FilledButton(
               onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('Đóng phiên')),
+              child: Text(tr('Đóng phiên'))),
         ],
       ),
     );
@@ -2088,26 +2086,26 @@ class _PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
 
   Future<void> _showAreaEditor({PosServiceAreaDto? existing}) async {
     final isEdit = existing != null;
-    final nameCtrl = TextEditingController(text: existing?.name ?? '');
+    final nameCtrl = TextEditingController(text: tr(existing?.name ?? ''));
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text(isEdit ? 'Sửa tên nhóm' : 'Thêm khu vực'),
+        title: Text(tr(isEdit ? 'Sửa tên nhóm' : 'Thêm khu vực')),
         content: TextField(
           controller: nameCtrl,
           autofocus: true,
-          decoration: const InputDecoration(
-            labelText: 'Tên khu (Tầng 1, Khu A…)',
+          decoration: InputDecoration(
+            labelText: tr('Tên khu (Tầng 1, Khu A…)'),
             border: OutlineInputBorder(),
           ),
         ),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Huỷ')),
+              child: Text(tr('Huỷ'))),
           FilledButton(
               onPressed: () => Navigator.pop(ctx, true),
-              child: Text(isEdit ? 'Lưu' : 'Thêm')),
+              child: Text(tr(isEdit ? 'Lưu' : 'Thêm'))),
         ],
       ),
     );
@@ -2144,22 +2142,22 @@ class _PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Xóa nhóm / khu vực?'),
+        title: Text(tr('Xóa nhóm / khu vực?')),
         content: Text(
-          tableCount > 0
+          tr(tableCount > 0
               ? 'Xóa «${a.name}» và $tableCount bàn/ghế/phòng trong nhóm?\n'
                   'Bàn đang dùng sẽ chặn xóa.'
               : 'Xóa «${a.name}»?\n'
-                  'Các bàn trống trong nhóm (nếu có) cũng sẽ bị xóa.',
+                  'Các bàn trống trong nhóm (nếu có) cũng sẽ bị xóa.'),
         ),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Huỷ')),
+              child: Text(tr('Huỷ'))),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Xóa'),
+            child: Text(tr('Xóa')),
           ),
         ],
       ),
@@ -2205,10 +2203,10 @@ class _PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                 height: MediaQuery.sizeOf(ctx).height * 0.55,
                 child: Column(
                   children: [
-                    const ListTile(
-                      title: Text('Nhóm / khu vực',
+                    ListTile(
+                      title: Text(tr('Nhóm / khu vực'),
                           style: TextStyle(fontWeight: FontWeight.w700)),
-                      subtitle: Text('Kéo để sắp xếp · chạm Sửa để đổi tên'),
+                      subtitle: Text(tr('Kéo để sắp xếp · chạm Sửa để đổi tên')),
                     ),
                     const Divider(height: 1),
                     Expanded(
@@ -2226,12 +2224,12 @@ class _PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                           return ListTile(
                             key: ValueKey(a.id),
                             leading: const Icon(Icons.drag_handle),
-                            title: Text(a.name),
+                            title: Text(tr(a.name)),
                             trailing: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 IconButton(
-                                  tooltip: 'Đổi tên',
+                                  tooltip: tr('Đổi tên'),
                                   icon: const Icon(Icons.edit_outlined),
                                   onPressed: () async {
                                     Navigator.pop(ctx);
@@ -2239,7 +2237,7 @@ class _PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                                   },
                                 ),
                                 IconButton(
-                                  tooltip: 'Xóa',
+                                  tooltip: tr('Xóa'),
                                   icon: const Icon(Icons.delete_outline,
                                       color: Colors.red),
                                   onPressed: () async {
@@ -2263,7 +2261,7 @@ class _PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                               await _addArea();
                             },
                             icon: const Icon(Icons.add),
-                            label: const Text('Thêm'),
+                            label: Text(tr('Thêm')),
                           ),
                           const Spacer(),
                           FilledButton(
@@ -2293,7 +2291,7 @@ class _PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                                 );
                               }
                             },
-                            child: const Text('Lưu thứ tự'),
+                            child: Text(tr('Lưu thứ tự')),
                           ),
                         ],
                       ),
@@ -2319,19 +2317,19 @@ class _PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
-              title: Text(r.name,
+              title: Text(tr(r.name),
                   style: const TextStyle(fontWeight: FontWeight.w700)),
-              subtitle: Text('${r.code} · ${r.areaName} · ${r.resourceKind.label}'),
+              subtitle: Text(tr('${r.code} · ${r.areaName} · ${r.resourceKind.label}')),
             ),
             const Divider(height: 1),
             ListTile(
               leading: const Icon(Icons.edit_outlined),
-              title: const Text('Sửa bàn / phòng'),
+              title: Text(tr('Sửa bàn / phòng')),
               onTap: () => Navigator.pop(ctx, 'edit'),
             ),
             ListTile(
               leading: const Icon(Icons.delete_outline, color: Colors.red),
-              title: const Text('Xóa bàn / phòng'),
+              title: Text(tr('Xóa bàn / phòng')),
               onTap: () => Navigator.pop(ctx, 'delete'),
             ),
             const SizedBox(height: 8),
@@ -2351,25 +2349,24 @@ class _PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
     if (r.isOccupied || r.isHolding) {
       NotificationOverlayManager().showWarning(
         title: 'Không xóa được',
-        message: 'Bàn đang có phiên — đóng / thanh toán trước',
+        message: tr('Bàn đang có phiên — đóng / thanh toán trước'),
       );
       return;
     }
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Xóa bàn / phòng?'),
-        content: Text(
-          'Xóa «${r.name}» (${r.code})?\nKhông thể hoàn tác.',
+        title: Text(tr('Xóa bàn / phòng?')),
+        content: Text(tr('Xóa «${r.name}» (${r.code})?\nKhông thể hoàn tác.'),
         ),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Huỷ')),
+              child: Text(tr('Huỷ'))),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Xóa'),
+            child: Text(tr('Xóa')),
           ),
         ],
       ),
@@ -2398,7 +2395,7 @@ class _PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
     if (_areas.isEmpty) {
       NotificationOverlayManager().showWarning(
         title: 'Thiếu khu vực',
-        message: 'Thêm khu vực trước khi tạo bàn/ghế/phòng',
+        message: tr('Thêm khu vực trước khi tạo bàn/ghế/phòng'),
       );
       return;
     }
@@ -2415,38 +2412,38 @@ class _PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
         };
     var capacity = existing?.capacity ?? 4;
     var isActive = existing?.isActive ?? true;
-    final codeCtrl = TextEditingController(text: existing?.code ?? '');
-    final nameCtrl = TextEditingController(text: existing?.name ?? '');
+    final codeCtrl = TextEditingController(text: tr(existing?.code ?? ''));
+    final nameCtrl = TextEditingController(text: tr(existing?.name ?? ''));
     final capacityCtrl =
-        TextEditingController(text: capacity.toString());
+        TextEditingController(text: tr(capacity.toString()));
 
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setLocal) => AlertDialog(
-          title: Text(isEdit ? 'Sửa bàn / phòng' : 'Thêm bàn / ghế / phòng'),
+          title: Text(tr(isEdit ? 'Sửa bàn / phòng' : 'Thêm bàn / ghế / phòng')),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 DropdownButtonFormField<String>(
                   value: areaId,
-                  decoration: const InputDecoration(
-                    labelText: 'Khu vực',
+                  decoration: InputDecoration(
+                    labelText: tr('Khu vực'),
                     border: OutlineInputBorder(),
                     isDense: true,
                   ),
                   items: _areas
                       .map((a) =>
-                          DropdownMenuItem(value: a.id, child: Text(a.name)))
+                          DropdownMenuItem(value: a.id, child: Text(tr(a.name))))
                       .toList(),
                   onChanged: (v) => setLocal(() => areaId = v ?? areaId),
                 ),
                 const SizedBox(height: 10),
                 DropdownButtonFormField<PosResourceKind>(
                   value: kind,
-                  decoration: const InputDecoration(
-                    labelText: 'Loại',
+                  decoration: InputDecoration(
+                    labelText: tr('Loại'),
                     border: OutlineInputBorder(),
                     isDense: true,
                   ),
@@ -2469,7 +2466,7 @@ class _PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                                   size: 20,
                                 ),
                                 const SizedBox(width: 8),
-                                Text(k.label),
+                                Text(tr(k.label)),
                               ],
                             ),
                           ))
@@ -2479,8 +2476,8 @@ class _PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                 const SizedBox(height: 10),
                 TextField(
                   controller: codeCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Mã (B01, P02…)',
+                  decoration: InputDecoration(
+                    labelText: tr('Mã (B01, P02…)'),
                     border: OutlineInputBorder(),
                     isDense: true,
                   ),
@@ -2488,8 +2485,8 @@ class _PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                 const SizedBox(height: 10),
                 TextField(
                   controller: nameCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Tên hiển thị',
+                  decoration: InputDecoration(
+                    labelText: tr('Tên hiển thị'),
                     border: OutlineInputBorder(),
                     isDense: true,
                   ),
@@ -2498,15 +2495,15 @@ class _PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                 TextField(
                   controller: capacityCtrl,
                   keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    labelText: 'Sức chứa (số khách)',
+                  decoration: InputDecoration(
+                    labelText: tr('Sức chứa (số khách)'),
                     border: OutlineInputBorder(),
                     isDense: true,
                   ),
                 ),
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
-                  title: const Text('Đang hoạt động'),
+                  title: Text(tr('Đang hoạt động')),
                   value: isActive,
                   onChanged: (v) => setLocal(() => isActive = v),
                 ),
@@ -2516,10 +2513,10 @@ class _PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
           actions: [
             TextButton(
                 onPressed: () => Navigator.pop(ctx, false),
-                child: const Text('Huỷ')),
+                child: Text(tr('Huỷ'))),
             FilledButton(
                 onPressed: () => Navigator.pop(ctx, true),
-                child: Text(isEdit ? 'Lưu' : 'Thêm')),
+                child: Text(tr(isEdit ? 'Lưu' : 'Thêm'))),
           ],
         ),
       ),
@@ -2530,7 +2527,7 @@ class _PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
     if (code.isEmpty) {
       NotificationOverlayManager().showWarning(
         title: 'Thiếu mã',
-        message: 'Nhập mã bàn / phòng',
+        message: tr('Nhập mã bàn / phòng'),
       );
       return;
     }
@@ -2609,7 +2606,7 @@ class _PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
     if (res['isSuccess'] == true && (saved == null || saved > 0)) {
       NotificationOverlayManager().showSuccess(
         title: 'Đã lưu sơ đồ',
-        message: '${saved ?? items.length} ô',
+        message: tr('${saved ?? items.length} ô'),
       );
       setState(() {
         _layoutEdit = false;
@@ -2702,7 +2699,7 @@ class _PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
         const SizedBox(width: 3),
         Expanded(
           child: Text(
-            text,
+            tr(text),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
@@ -2720,8 +2717,7 @@ class _PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
   Widget _buildTileCenter(PosServiceResourceDto r, Color accent) {
     if (r.isFree) {
       return Center(
-        child: Text(
-          'Trống',
+        child: Text(tr('Trống'),
           style: TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.w600,
@@ -2742,7 +2738,7 @@ class _PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                 Icon(Icons.person_outline, size: 18, color: accent),
                 const SizedBox(height: 2),
                 Text(
-                  guests,
+                  tr(guests),
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
@@ -2754,8 +2750,7 @@ class _PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
           ),
           Expanded(
             flex: 2,
-            child: Text(
-              'Bàn chờ',
+            child: Text(tr('Bàn chờ'),
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 13,
@@ -2780,7 +2775,7 @@ class _PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
             Icon(Icons.event_seat_outlined, size: 22, color: accent),
             const SizedBox(height: 4),
             Text(
-              meta ?? 'Đặt bàn',
+              tr(meta ?? 'Đặt bàn'),
               textAlign: TextAlign.center,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
@@ -2798,7 +2793,7 @@ class _PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
           children: [
             Icon(Icons.pause_circle_outline, size: 22, color: accent),
             const SizedBox(height: 2),
-            Text('Tạm dừng', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: accent)),
+            Text(tr('Tạm dừng'), style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: accent)),
           ],
         ),
       );
@@ -2811,7 +2806,7 @@ class _PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
           children: [
             Icon(Icons.phonelink_lock, size: 22, color: accent),
             const SizedBox(height: 2),
-            Text('Máy khác', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: accent)),
+            Text(tr('Máy khác'), style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: accent)),
           ],
         ),
       );
@@ -2825,7 +2820,7 @@ class _PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
           Icon(Icons.schedule_rounded, size: 22, color: accent),
           const SizedBox(height: 2),
           Text(
-            time,
+            tr(time),
             style: TextStyle(
               fontSize: 15,
               fontWeight: FontWeight.w800,
@@ -2998,7 +2993,7 @@ class _PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
         children: [
           Expanded(
             child: Text(
-              name,
+              tr(name),
               style: const TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w700,
@@ -3006,8 +3001,7 @@ class _PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
               ),
             ),
           ),
-          Text(
-            '${_moneyFmt.format(money)}đ · $open/$total bàn',
+          Text(tr('${_moneyFmt.format(money)}đ · $open/$total bàn'),
             style: const TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w600,
@@ -3104,10 +3098,10 @@ class _PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(_error!, textAlign: TextAlign.center),
+                    Text(tr(_error!), textAlign: TextAlign.center),
                     const SizedBox(height: 12),
                     FilledButton(
-                        onPressed: _reload, child: const Text('Thử lại')),
+                        onPressed: _reload, child: Text(tr('Thử lại'))),
                   ],
                 ),
               )
@@ -3150,7 +3144,7 @@ class _PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                             const SizedBox(width: 4),
                             ActionChip(
                               avatar: const Icon(Icons.tune, size: 18),
-                              label: const Text('Sắp nhóm',
+                              label: Text(tr('Sắp nhóm'),
                                   style: TextStyle(
                                       fontWeight: FontWeight.w600,
                                       fontSize: 14)),
@@ -3175,8 +3169,7 @@ class _PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                                 size: 16, color: Color(0xFF166534)),
                             const SizedBox(width: 6),
                             Expanded(
-                              child: Text(
-                                'Máy này đang giữ: ${_tablesHeldByMe.map((e) => e.name).join(', ')}',
+                              child: Text(tr('${tr('Máy này đang giữ')}: ${_tablesHeldByMe.map((e) => e.name).join(', ')}'),
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(
@@ -3211,19 +3204,17 @@ class _PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                       ),
                     ),
                   if (_layoutEdit)
-                    const Padding(
+                    Padding(
                       padding: EdgeInsets.fromLTRB(12, 0, 12, 4),
-                      child: Text(
-                        'Kéo bàn — thả ra dính ô (cách nhau 16px), rồi Lưu.',
+                      child: Text(tr('Kéo bàn — thả ra dính ô (cách nhau 16px), rồi Lưu.'),
                         style: TextStyle(
                             fontSize: 12, color: PosTheme.textSecondary),
                       ),
                     )
                   else if (widget.manageMode)
-                    const Padding(
+                    Padding(
                       padding: EdgeInsets.fromLTRB(12, 0, 12, 4),
-                      child: Text(
-                        'Chạm bàn → Sửa/Xóa · giữ nhóm → đổi tên · «Sắp nhóm» để kéo thứ tự.',
+                      child: Text(tr('Chạm bàn → Sửa/Xóa · giữ nhóm → đổi tên · «Sắp nhóm» để kéo thứ tự.'),
                         style: TextStyle(
                             fontSize: 12, color: PosTheme.textSecondary),
                       ),
@@ -3234,9 +3225,9 @@ class _PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                             child: Padding(
                               padding: const EdgeInsets.all(24),
                               child: Text(
-                                widget.manageMode
+                                tr(widget.manageMode
                                     ? 'Chưa có bàn/phòng.\nThêm khu vực rồi thêm bàn.'
-                                    : 'Chưa có bàn/phòng.\nVào Nhiều hơn → Quản lý bàn/phòng để thiết lập.',
+                                    : 'Chưa có bàn/phòng.\nVào Nhiều hơn → Quản lý bàn/phòng để thiết lập.'),
                                 textAlign: TextAlign.center,
                                 style: const TextStyle(
                                     color: PosTheme.textSecondary),
@@ -3267,10 +3258,10 @@ class _PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
           ? AppBar(
               // Bán hàng: chỉ tổng tạm tính (không hiện số bàn).
               title: widget.manageMode
-                  ? const Text('Quản lý bàn / phòng')
+                  ? Text(tr('Quản lý bàn / phòng'))
                   : totalLabel != null
                       ? Text(
-                          totalLabel,
+                          tr(totalLabel),
                           style: const TextStyle(
                             fontWeight: FontWeight.w700,
                             fontSize: 16,
@@ -3283,7 +3274,7 @@ class _PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
               elevation: 0.5,
               leading: widget.onHome != null
                   ? IconButton(
-                      tooltip: 'Về trang chủ',
+                      tooltip: tr('Về trang chủ'),
                       icon: const Icon(Icons.home_outlined),
                       onPressed: widget.onHome,
                     )
@@ -3291,7 +3282,7 @@ class _PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
               actions: [
                 if (widget.manageMode) ...[
                   IconButton(
-                    tooltip: 'Phiếu hủy bếp',
+                    tooltip: tr('Phiếu hủy bếp'),
                     onPressed: () {
                       Navigator.of(context).push(
                         MaterialPageRoute(
@@ -3302,7 +3293,7 @@ class _PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                     icon: const Icon(Icons.cancel_presentation_outlined),
                   ),
                   IconButton(
-                    tooltip: _layoutEdit ? 'Lưu vị trí' : 'Sắp xếp sơ đồ',
+                    tooltip: tr(_layoutEdit ? 'Lưu vị trí' : 'Sắp xếp sơ đồ'),
                     onPressed: () async {
                       if (_layoutEdit) {
                         await _saveLayoutPositions();
@@ -3315,18 +3306,18 @@ class _PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                         : Icons.dashboard_customize_outlined),
                   ),
                   IconButton(
-                    tooltip: 'Quản lý nhóm',
+                    tooltip: tr('Quản lý nhóm'),
                     onPressed: () => unawaited(_manageAreas()),
                     icon: const Icon(Icons.layers_outlined),
                   ),
                   IconButton(
-                    tooltip: 'Thêm bàn',
+                    tooltip: tr('Thêm bàn'),
                     onPressed: _addResource,
                     icon: const Icon(Icons.add),
                   ),
                 ],
                 IconButton(
-                  tooltip: 'Tải lại',
+                  tooltip: tr('Tải lại'),
                   onPressed: _reload,
                   icon: const Icon(Icons.refresh),
                 ),
@@ -3484,12 +3475,11 @@ class _PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
               ),
             ),
           ),
-          const Positioned(
+          Positioned(
             left: 12,
             right: 12,
             top: 6,
-            child: Text(
-              'Chạm kéo bàn · kéo nền trống để xem thêm · thả ra dính ô',
+            child: Text(tr('Chạm kéo bàn · kéo nền trống để xem thêm · thả ra dính ô'),
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 12,
@@ -3504,7 +3494,7 @@ class _PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
             child: FilledButton.icon(
               onPressed: _saveLayoutPositions,
               icon: const Icon(Icons.save),
-              label: const Text('Lưu vị trí'),
+              label: Text(tr('Lưu vị trí')),
             ),
           ),
         ],
@@ -3565,7 +3555,7 @@ class _PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
               const SizedBox(width: 3),
               Expanded(
                 child: Text(
-                  r.name,
+                  tr(r.name),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
@@ -3583,7 +3573,7 @@ class _PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
             const SizedBox(height: 2),
             _tileMiniRow(
               icon: Icons.payments_outlined,
-              text: '${_moneyFmt.format(r.subtotal)}đ',
+              text: tr('${_moneyFmt.format(r.subtotal)}đ'),
               color: accent,
               iconSize: 13,
               fontSize: 11,
@@ -3594,7 +3584,7 @@ class _PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
             const SizedBox(height: 1),
             _tileMiniRow(
               icon: Icons.soup_kitchen_outlined,
-              text: '${r.pendingKitchenCount} bếp',
+              text: tr('${r.pendingKitchenCount} bếp'),
               color: const Color(0xFFB45309),
               iconSize: 12,
               fontSize: 10,
@@ -3607,7 +3597,7 @@ class _PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                 Icon(Icons.person_outline, size: 12, color: accent.withValues(alpha: 0.85)),
                 const SizedBox(width: 2),
                 Text(
-                  guestText,
+                  tr(guestText),
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
@@ -3618,7 +3608,7 @@ class _PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                 const Spacer(),
               const Spacer(),
               Text(
-                r.code,
+                tr(r.code),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(fontSize: 9, color: PosTheme.textSecondary),
@@ -3730,7 +3720,7 @@ class _LegendDot extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 4),
-        Text(label,
+        Text(tr(label),
             style: const TextStyle(fontSize: 10, color: PosTheme.textSecondary)),
       ],
     );
@@ -3767,7 +3757,7 @@ class _AreaChip extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
           alignment: Alignment.center,
           child: Text(
-            label,
+            tr(label),
             style: TextStyle(
               color: fg,
               fontWeight: FontWeight.w700,

@@ -7,6 +7,7 @@ import '../../widgets/notification_overlay.dart';
 import '../../widgets/pos/pos_mobile_widgets.dart';
 import '../../widgets/pos/pos_theme.dart';
 import 'pos_price_list_detail_screen.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// Danh sách bảng giá POS.
 class PosPriceListsScreen extends StatefulWidget {
@@ -67,7 +68,7 @@ class _PosPriceListsScreenState extends State<PosPriceListsScreen> {
       await _load();
       NotificationOverlayManager().showSuccess(
         title: 'Đã tạo',
-        message: 'Bảng giá mới',
+        message: tr('Bảng giá mới'),
       );
     } else {
       NotificationOverlayManager().showError(
@@ -97,7 +98,7 @@ class _PosPriceListsScreenState extends State<PosPriceListsScreen> {
   }
 
   Future<Map<String, dynamic>?> _showPriceListEditor({PosPriceList? existing}) async {
-    final nameCtrl = TextEditingController(text: existing?.name ?? '');
+    final nameCtrl = TextEditingController(text: tr(existing?.name ?? ''));
     var isDefault = existing?.isDefault ?? false;
     DateTime? validFrom = existing?.validFrom;
     DateTime? validTo = existing?.validTo;
@@ -106,7 +107,7 @@ class _PosPriceListsScreenState extends State<PosPriceListsScreen> {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setLocal) => AlertDialog(
-          title: Text(existing == null ? 'Thêm bảng giá' : 'Cài bảng giá'),
+          title: Text(tr(existing == null ? 'Thêm bảng giá' : 'Cài bảng giá')),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -114,8 +115,8 @@ class _PosPriceListsScreenState extends State<PosPriceListsScreen> {
               children: [
                 TextField(
                   controller: nameCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Tên bảng giá',
+                  decoration: InputDecoration(
+                    labelText: tr('Tên bảng giá'),
                     border: OutlineInputBorder(),
                   ),
                   autofocus: existing == null,
@@ -123,16 +124,14 @@ class _PosPriceListsScreenState extends State<PosPriceListsScreen> {
                 const SizedBox(height: 12),
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
-                  title: const Text('Mặc định khi bán'),
-                  subtitle: const Text(
-                    'Hóa đơn trong khoảng ngày dưới sẽ dùng bảng này',
+                  title: Text(tr('Mặc định khi bán')),
+                  subtitle: Text(tr('Hóa đơn trong khoảng ngày dưới sẽ dùng bảng này'),
                   ),
                   value: isDefault,
                   onChanged: (v) => setLocal(() => isDefault = v),
                 ),
                 const SizedBox(height: 4),
-                Text(
-                  'Áp dụng từ ngày → đến ngày (để trống = mọi ngày)',
+                Text(tr('Áp dụng từ ngày → đến ngày (để trống = mọi ngày)'),
                   style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
                 ),
                 const SizedBox(height: 8),
@@ -152,15 +151,15 @@ class _PosPriceListsScreenState extends State<PosPriceListsScreen> {
                           }
                         },
                         child: Text(
-                          validFrom == null
+                          tr(validFrom == null
                               ? 'Từ ngày'
-                              : _dateFmt.format(validFrom!),
+                              : _dateFmt.format(validFrom!)),
                         ),
                       ),
                     ),
-                    const Padding(
+                    Padding(
                       padding: EdgeInsets.symmetric(horizontal: 6),
-                      child: Text('→'),
+                      child: Text(tr('→')),
                     ),
                     Expanded(
                       child: OutlinedButton(
@@ -176,9 +175,9 @@ class _PosPriceListsScreenState extends State<PosPriceListsScreen> {
                           }
                         },
                         child: Text(
-                          validTo == null
+                          tr(validTo == null
                               ? 'Đến ngày'
-                              : _dateFmt.format(validTo!),
+                              : _dateFmt.format(validTo!)),
                         ),
                       ),
                     ),
@@ -190,7 +189,7 @@ class _PosPriceListsScreenState extends State<PosPriceListsScreen> {
                       validFrom = null;
                       validTo = null;
                     }),
-                    child: const Text('Xóa khoảng ngày'),
+                    child: Text(tr('Xóa khoảng ngày')),
                   ),
               ],
             ),
@@ -198,11 +197,11 @@ class _PosPriceListsScreenState extends State<PosPriceListsScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Huỷ'),
+              child: Text(tr('Huỷ')),
             ),
             FilledButton(
               onPressed: () => Navigator.pop(ctx, true),
-              child: Text(existing == null ? 'Tạo' : 'Lưu'),
+              child: Text(tr(existing == null ? 'Tạo' : 'Lưu')),
             ),
           ],
         ),
@@ -289,15 +288,15 @@ class _PosPriceListsScreenState extends State<PosPriceListsScreen> {
                                           CrossAxisAlignment.start,
                                       children: [
                                         Text(
-                                          pl.name,
+                                          tr(pl.name),
                                           style: const TextStyle(
                                             fontWeight: FontWeight.w600,
                                             fontSize: 16,
                                           ),
                                         ),
                                         Text(
-                                          '${pl.itemCount} mức giá'
-                                          '${range.isNotEmpty ? ' · $range' : ''}',
+                                          tr('${pl.itemCount} mức giá'
+                                          '${range.isNotEmpty ? ' · $range' : ''}'),
                                           style: const TextStyle(
                                             color: PosTheme.textSecondary,
                                             fontSize: 13,
@@ -307,7 +306,7 @@ class _PosPriceListsScreenState extends State<PosPriceListsScreen> {
                                     ),
                                   ),
                                   IconButton(
-                                    tooltip: 'Cài mặc định / ngày',
+                                    tooltip: tr('Cài mặc định / ngày'),
                                     onPressed: () => _editList(pl),
                                     icon: const Icon(
                                       Icons.settings_outlined,

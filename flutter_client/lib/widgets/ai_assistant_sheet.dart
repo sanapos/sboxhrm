@@ -16,6 +16,7 @@ import '../utils/landing_guide_url.dart';
 import '../utils/landing_usage_guide.dart';
 import '../utils/navigation_notifier.dart';
 import 'notification_overlay.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 class _ChatMsg {
   final String role; // 'user' | 'assistant'
@@ -90,12 +91,12 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
       context: context,
       barrierDismissible: false,
       builder: (ctx) => ScrollableAlertDialog(
-        title: const Text('Trợ lý AI – Thông tin quyền riêng tư'),
-        content: const Text(
-          'Khi sử dụng trợ lý AI, nội dung câu hỏi và dữ liệu nhân sự liên quan (ca làm việc, phép, chấm công) '
+        title: Text(tr('Trợ lý AI – Thông tin quyền riêng tư')),
+        content: Text(
+          tr('Khi sử dụng trợ lý AI, nội dung câu hỏi và dữ liệu nhân sự liên quan (ca làm việc, phép, chấm công) '
           'sẽ được gửi đến máy chủ của chúng tôi và xử lý bằng Google Gemini AI để tạo phản hồi.\n\n'
           'Dữ liệu sinh trắc học (khuôn mặt, vân tay) không được gửi đến AI.\n\n'
-          'Bạn đồng ý để tiếp tục sử dụng tính năng này không?',
+          'Bạn đồng ý để tiếp tục sử dụng tính năng này không?'),
         ),
         actions: [
           TextButton(
@@ -103,7 +104,7 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
               Navigator.of(ctx).pop();
               if (mounted) Navigator.of(context).pop(); // close sheet
             },
-            child: const Text('Không đồng ý'),
+            child: Text(tr('Không đồng ý')),
           ),
           ElevatedButton(
             onPressed: () async {
@@ -112,7 +113,7 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
               if (mounted) setState(() => _consentGiven = true);
               if (ctx.mounted) Navigator.of(ctx).pop();
             },
-            child: const Text('Đồng ý'),
+            child: Text(tr('Đồng ý')),
           ),
         ],
       ),
@@ -168,7 +169,7 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
     if (!_sttReady) {
       NotificationOverlayManager().showWarning(
           title: 'Micro chưa sẵn sàng',
-          message: 'Vui lòng cấp quyền micro và thử lại');
+          message: tr('Vui lòng cấp quyền micro và thử lại'));
       await _initStt();
       return;
     }
@@ -577,7 +578,7 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
         default:
           NotificationOverlayManager().showInfo(
             title: 'Thông báo',
-            message: 'Loại phiếu "$type" chưa hỗ trợ tạo từ trợ lý.',
+            message: tr('Loại phiếu "$type" chưa hỗ trợ tạo từ trợ lý.'),
           );
       }
     } catch (e) {
@@ -776,20 +777,20 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
           ),
           const Icon(Icons.auto_awesome, color: Color(0xFF8B5CF6)),
           const SizedBox(width: 8),
-          const Expanded(
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Trợ lý ảo HRM',
+                Text(tr('Trợ lý ảo HRM'),
                     style:
                         TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-                Text('Hỗ trợ nghỉ phép, lịch làm, chấm công, lương',
+                Text(tr('Hỗ trợ nghỉ phép, lịch làm, chấm công, lương'),
                     style: TextStyle(fontSize: 11, color: Colors.grey)),
               ],
             ),
           ),
           IconButton(
-            tooltip: _ttsEnabled ? 'Tắt đọc' : 'Bật đọc',
+            tooltip: tr(_ttsEnabled ? 'Tắt đọc' : 'Bật đọc'),
             onPressed: () async {
               if (_ttsEnabled && _ttsSpeaking) await _tts.stop();
               setState(() => _ttsEnabled = !_ttsEnabled);
@@ -799,7 +800,7 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
                 : Icons.volume_off_rounded),
           ),
           IconButton(
-            tooltip: 'Đóng',
+            tooltip: tr('Đóng'),
             onPressed: () => Navigator.of(context).pop(),
             icon: const Icon(Icons.close),
           ),
@@ -841,7 +842,7 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
         mainAxisSize: MainAxisSize.min,
         children: [
           SelectableText(
-            m.content,
+            tr(m.content),
             style: TextStyle(
               color: isUser ? Colors.white : const Color(0xFF18181B),
               fontSize: 14,
@@ -865,7 +866,7 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
                   return ActionChip(
                     avatar:
                         Icon(li.$2, size: 16, color: const Color(0xFF8B5CF6)),
-                    label: Text(li.$1,
+                    label: Text(tr(li.$1),
                         style: const TextStyle(
                             fontSize: 12,
                             color: Color(0xFF8B5CF6),
@@ -895,7 +896,7 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
                   return ActionChip(
                     avatar: const Icon(Icons.check_circle_outline_rounded,
                         size: 16, color: Color(0xFF059669)),
-                    label: Text(label,
+                    label: Text(tr(label),
                         style: const TextStyle(
                             fontSize: 12,
                             color: Color(0xFF059669),
@@ -917,7 +918,7 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
                 return ActionChip(
                   avatar: const Icon(Icons.menu_book_rounded,
                       size: 16, color: Color(0xFF0369A1)),
-                  label: Text(_guideLabel(g),
+                  label: Text(tr(_guideLabel(g)),
                       style: const TextStyle(
                           fontSize: 12,
                           color: Color(0xFF0369A1),
@@ -948,7 +949,7 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
           color: const Color(0xFFF3F4F6),
           borderRadius: BorderRadius.circular(14),
         ),
-        child: const Row(
+        child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             SizedBox(
@@ -957,7 +958,7 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
               child: CircularProgressIndicator(strokeWidth: 2),
             ),
             SizedBox(width: 10),
-            Text('Đang suy nghĩ...',
+            Text(tr('Đang suy nghĩ...'),
                 style: TextStyle(color: Colors.grey, fontSize: 13)),
           ],
         ),
@@ -978,7 +979,7 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
             IconButton(
-              tooltip: _isListening ? 'Dừng ghi âm' : 'Nói',
+              tooltip: tr(_isListening ? 'Dừng ghi âm' : 'Nói'),
               onPressed: _toggleListening,
               icon: Icon(
                 _isListening ? Icons.mic : Icons.mic_none_rounded,
@@ -993,9 +994,9 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
                 textInputAction: TextInputAction.send,
                 onSubmitted: (_) => _send(),
                 decoration: InputDecoration(
-                  hintText: _isListening
+                  hintText: tr(_isListening
                       ? 'Đang nghe...'
-                      : 'Hỏi trợ lý (VD: "Còn bao nhiêu phép?")',
+                      : 'Hỏi trợ lý (VD: "Còn bao nhiêu phép?")'),
                   filled: true,
                   fillColor: const Color(0xFFF9FAFB),
                   border: OutlineInputBorder(

@@ -11,6 +11,7 @@ import 'pos_product_image.dart';
 import 'pos_stock_card_table.dart';
 import 'pos_stock_document_sheet.dart';
 import 'pos_theme.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// Chi tiết hàng hóa mở rộng inline — giao diện kiểu KiotViet.
 class PosProductExpansionPanel extends StatefulWidget {
@@ -163,7 +164,7 @@ class _PosProductExpansionPanelState extends State<PosProductExpansionPanel> {
                       ),
                     ),
                     child: Text(
-                      _tabs[i],
+                      tr(_tabs[i]),
                       style: TextStyle(
                         fontSize: 13,
                         fontWeight: active ? FontWeight.w600 : FontWeight.normal,
@@ -231,7 +232,7 @@ class _PosProductExpansionPanelState extends State<PosProductExpansionPanel> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  displayName,
+                  tr(displayName),
                   style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
@@ -240,8 +241,7 @@ class _PosProductExpansionPanelState extends State<PosProductExpansionPanel> {
                 ),
                 if (_p.categoryPath != null && _p.categoryPath!.isNotEmpty) ...[
                   const SizedBox(height: 4),
-                  Text(
-                    'Nhóm hàng: ${_p.categoryPath}',
+                  Text(tr('Nhóm hàng: ${_p.categoryPath}'),
                     style: const TextStyle(
                       fontSize: 12,
                       color: PosTheme.textSecondary,
@@ -314,7 +314,7 @@ class _PosProductExpansionPanelState extends State<PosProductExpansionPanel> {
         borderRadius: BorderRadius.circular(4),
       ),
       child: Text(
-        text,
+        tr(text),
         style: TextStyle(
           fontSize: 11,
           color: color ?? PosTheme.textSecondary,
@@ -331,10 +331,10 @@ class _PosProductExpansionPanelState extends State<PosProductExpansionPanel> {
           style: const TextStyle(fontSize: 12, color: PosTheme.textPrimary),
           children: [
             TextSpan(
-              text: '$label: ',
+              text: tr('$label: '),
               style: const TextStyle(color: PosTheme.textSecondary),
             ),
-            TextSpan(text: value),
+            TextSpan(text: tr(value)),
           ],
         ),
       ),
@@ -345,7 +345,7 @@ class _PosProductExpansionPanelState extends State<PosProductExpansionPanel> {
     return InkWell(
       onTap: onTap,
       child: Text(
-        label,
+        tr(label),
         style: const TextStyle(
           fontSize: 12,
           color: PosTheme.kiotBlue,
@@ -361,11 +361,10 @@ class _PosProductExpansionPanelState extends State<PosProductExpansionPanel> {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
       child: desc == null || desc.isEmpty
-          ? const Text(
-              'Chưa có mô tả',
+          ? Text(tr('Chưa có mô tả'),
               style: TextStyle(fontSize: 13, color: PosTheme.textSecondary),
             )
-          : Text(desc, style: const TextStyle(fontSize: 13)),
+          : Text(tr(desc), style: const TextStyle(fontSize: 13)),
     );
   }
 
@@ -384,7 +383,7 @@ class _PosProductExpansionPanelState extends State<PosProductExpansionPanel> {
           'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         );
         NotificationOverlayManager()
-            .showSuccess(title: 'Xuất file', message: 'Đã xuất thẻ kho');
+            .showSuccess(title: 'Xuất file', message: tr('Đã xuất thẻ kho'));
       }
     } finally {
       if (mounted) setState(() => _exportingStock = false);
@@ -410,9 +409,8 @@ class _PosProductExpansionPanelState extends State<PosProductExpansionPanel> {
     final v = widget.focusVariant;
     final stock = v?.onHandQty ?? _p.onHandQty;
     if (_p.productType == PosProductType.service) {
-      return const Center(
-        child: Text(
-          'Dịch vụ không quản lý tồn kho',
+      return Center(
+        child: Text(tr('Dịch vụ không quản lý tồn kho'),
           style: TextStyle(fontSize: 13, color: PosTheme.textSecondary),
         ),
       );
@@ -456,13 +454,13 @@ class _PosProductExpansionPanelState extends State<PosProductExpansionPanel> {
             TextButton.icon(
               onPressed: widget.onDelete,
               icon: Icon(Icons.delete_outline, size: 18, color: Colors.red.shade700),
-              label: Text('Xóa', style: TextStyle(color: Colors.red.shade700)),
+              label: Text(tr('Xóa'), style: TextStyle(color: Colors.red.shade700)),
             ),
           if (widget.canCreate)
             TextButton.icon(
               onPressed: widget.onCopy,
               icon: const Icon(Icons.copy, size: 18),
-              label: const Text('Sao chép'),
+              label: Text(tr('Sao chép')),
             ),
           const Spacer(),
           if (widget.canEdit)
@@ -474,7 +472,7 @@ class _PosProductExpansionPanelState extends State<PosProductExpansionPanel> {
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               ),
               icon: const Icon(Icons.edit, size: 16),
-              label: const Text('Chỉnh sửa'),
+              label: Text(tr('Chỉnh sửa')),
             ),
           const SizedBox(width: 8),
           OutlinedButton.icon(
@@ -484,7 +482,7 @@ class _PosProductExpansionPanelState extends State<PosProductExpansionPanel> {
               side: const BorderSide(color: PosTheme.border),
             ),
             icon: const Icon(Icons.print_outlined, size: 16),
-            label: const Text('In tem mã'),
+            label: Text(tr('In tem mã')),
           ),
           IconButton(
             onPressed: () {},

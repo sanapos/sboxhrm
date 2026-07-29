@@ -5,6 +5,7 @@ import '../../services/api_service.dart';
 import '../../utils/pos_kiot_time_range.dart';
 import '../../widgets/pos/pos_theme.dart';
 import '../../widgets/pos/reports/pos_report_widgets.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// Phân tích tình hình kinh doanh — KPI, so sánh kỳ, kênh bán, nhóm hàng.
 class PosBusinessAnalysisScreen extends StatefulWidget {
@@ -65,18 +66,17 @@ class _PosBusinessAnalysisScreenState extends State<PosBusinessAnalysisScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: const TextStyle(fontSize: 12, color: PosTheme.textSecondary)),
+          Text(tr(label), style: const TextStyle(fontSize: 12, color: PosTheme.textSecondary)),
           const SizedBox(height: 6),
           Text(
-            money ? _moneyFmt.format(value) : '${value.toStringAsFixed(0)}${suffix ?? ''}',
+            tr(money ? _moneyFmt.format(value) : '${value.toStringAsFixed(0)}${suffix ?? ''}'),
             style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 4),
           Row(
             children: [
               Icon(up ? Icons.arrow_upward : Icons.arrow_downward, size: 14, color: changeColor),
-              Text(
-                '${_pctFmt.format(changePct.abs())}% so với kỳ trước',
+              Text(tr('${_pctFmt.format(changePct.abs())}% so với kỳ trước'),
                 style: TextStyle(fontSize: 11, color: changeColor),
               ),
             ],

@@ -11,6 +11,7 @@ import '../widgets/empty_state.dart';
 import '../widgets/notification_overlay.dart';
 import '../utils/responsive_helper.dart';
 import '../widgets/hrm_responsive_list_layout.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 class DirectManagerScreen extends StatefulWidget {
   const DirectManagerScreen({super.key});
@@ -72,7 +73,7 @@ class _DirectManagerScreenState extends State<DirectManagerScreen> {
       debugPrint('Error loading managers: $e');
       if (mounted) {
         setState(() => _isLoading = false);
-        appNotification.showError(title: 'Lỗi', message: 'Không thể tải danh sách quản lý');
+        appNotification.showError(title: 'Lỗi', message: tr('Không thể tải danh sách quản lý'));
       }
     }
   }
@@ -239,7 +240,7 @@ class _DirectManagerScreenState extends State<DirectManagerScreen> {
                   Icon(Icons.analytics_outlined,
                       size: 16, color: Colors.blue.shade700),
                   const SizedBox(width: 6),
-                  Text('Tổng quan',
+                  Text(tr('Tổng quan'),
                       style: TextStyle(
                           fontWeight: FontWeight.w600,
                           fontSize: 13,
@@ -331,7 +332,7 @@ class _DirectManagerScreenState extends State<DirectManagerScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text('Hiển thị ${startIndex + 1}-$endIndex / $totalCount',
+          Text(tr('Hiển thị ${startIndex + 1}-$endIndex / $totalCount'),
               style: TextStyle(fontSize: 12, color: Colors.grey[600])),
           Row(children: [
             IconButton(
@@ -339,7 +340,7 @@ class _DirectManagerScreenState extends State<DirectManagerScreen> {
                 onPressed:
                     page > 1 ? () => setState(() => _currentPage--) : null,
                 visualDensity: VisualDensity.compact),
-            Text('$page / $totalPages',
+            Text(tr('$page / $totalPages'),
                 style:
                     const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
             IconButton(
@@ -404,14 +405,13 @@ class _DirectManagerScreenState extends State<DirectManagerScreen> {
               spacing: 12,
               runSpacing: 8,
               children: [
-                Text(
-                  'Hiển thị ${startIndex + 1}-$endIndex / $totalCount',
+                Text(tr('Hiển thị ${startIndex + 1}-$endIndex / $totalCount'),
                   style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                 ),
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text('Hiển thị:', style: TextStyle(fontSize: 12, color: Colors.grey[500])),
+                    Text(tr('Hiển thị:'), style: TextStyle(fontSize: 12, color: Colors.grey[500])),
                     const SizedBox(width: 8),
                     Container(
                       height: 34,
@@ -426,7 +426,7 @@ class _DirectManagerScreenState extends State<DirectManagerScreen> {
                           value: _pageSize,
                           isDense: true,
                           style: TextStyle(fontSize: 13, color: Colors.grey[800]),
-                          items: _pageSizeOptions.map((s) => DropdownMenuItem(value: s, child: Text('$s'))).toList(),
+                          items: _pageSizeOptions.map((s) => DropdownMenuItem(value: s, child: Text(tr('$s')))).toList(),
                           onChanged: (v) {
                             if (v != null) setState(() { _pageSize = v; _currentPage = 1; });
                           },
@@ -449,7 +449,7 @@ class _DirectManagerScreenState extends State<DirectManagerScreen> {
                         color: Theme.of(context).primaryColor,
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: Text('$page / $totalPages',
+                      child: Text(tr('$page / $totalPages'),
                           style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white)),
                     ),
                     IconButton(
@@ -475,15 +475,13 @@ class _DirectManagerScreenState extends State<DirectManagerScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'Quản lý trực tiếp',
+              Text(tr('Quản lý trực tiếp'),
                 style: TextStyle(
                   fontSize: isMobile ? 18 : 22,
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              Text(
-                'Danh sách nhân sự có chức vụ quản lý',
+              Text(tr('Danh sách nhân sự có chức vụ quản lý'),
                 style: TextStyle(fontSize: 13, color: Colors.grey[600]),
               ),
             ],
@@ -494,7 +492,7 @@ class _DirectManagerScreenState extends State<DirectManagerScreen> {
           IconButton(
             onPressed: _showPositionSettings,
             icon: const Icon(Icons.tune),
-            tooltip: 'Thiết lập chức vụ',
+            tooltip: tr('Thiết lập chức vụ'),
           ),
       ],
     );
@@ -556,7 +554,7 @@ class _DirectManagerScreenState extends State<DirectManagerScreen> {
           Icon(icon, size: 14, color: color),
           const SizedBox(width: 6),
           Text(
-            label,
+            tr(label),
             style: TextStyle(fontSize: 12, color: color, fontWeight: FontWeight.w500),
           ),
           const SizedBox(width: 4),
@@ -567,7 +565,7 @@ class _DirectManagerScreenState extends State<DirectManagerScreen> {
               borderRadius: BorderRadius.circular(10),
             ),
             child: Text(
-              '$count',
+              tr('$count'),
               style: const TextStyle(
                 color: Colors.white,
                 fontSize: 11,
@@ -594,7 +592,7 @@ class _DirectManagerScreenState extends State<DirectManagerScreen> {
               _applyFilters();
             }),
             decoration: InputDecoration(
-              hintText: 'Tìm theo tên, mã NV, SĐT...',
+              hintText: tr('Tìm theo tên, mã NV, SĐT...'),
               prefixIcon: const Icon(Icons.search, size: 20),
               isDense: true,
               contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -609,13 +607,13 @@ class _DirectManagerScreenState extends State<DirectManagerScreen> {
             initialValue: _filterDepartment,
             isExpanded: true,
             decoration: InputDecoration(
-              labelText: 'Phòng ban',
+              labelText: tr('Phòng ban'),
               isDense: true,
               contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
             ),
             items: _departments
-                .map((d) => DropdownMenuItem(value: d, child: Text(d, overflow: TextOverflow.ellipsis)))
+                .map((d) => DropdownMenuItem(value: d, child: Text(tr(d), overflow: TextOverflow.ellipsis)))
                 .toList(),
             onChanged: (v) => setState(() {
               _filterDepartment = v!;
@@ -630,13 +628,13 @@ class _DirectManagerScreenState extends State<DirectManagerScreen> {
             initialValue: _filterPosition,
             isExpanded: true,
             decoration: InputDecoration(
-              labelText: 'Chức vụ',
+              labelText: tr('Chức vụ'),
               isDense: true,
               contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
             ),
             items: _positions
-                .map((p) => DropdownMenuItem(value: p, child: Text(p, overflow: TextOverflow.ellipsis)))
+                .map((p) => DropdownMenuItem(value: p, child: Text(tr(p), overflow: TextOverflow.ellipsis)))
                 .toList(),
             onChanged: (v) => setState(() {
               _filterPosition = v!;
@@ -664,7 +662,7 @@ class _DirectManagerScreenState extends State<DirectManagerScreen> {
                   : null,
               onBackgroundImageError: manager.avatarUrl != null && manager.avatarUrl!.isNotEmpty ? (_, __) {} : null,
               child: manager.avatarUrl == null || manager.avatarUrl!.isEmpty
-                  ? Text(manager.fullName.isNotEmpty ? manager.fullName[0].toUpperCase() : '?', style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 16))
+                  ? Text(tr(manager.fullName.isNotEmpty ? manager.fullName[0].toUpperCase() : '?'), style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 16))
                   : null,
             ),
             const SizedBox(width: 12),
@@ -672,14 +670,14 @@ class _DirectManagerScreenState extends State<DirectManagerScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(manager.fullName, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600), maxLines: 1, overflow: TextOverflow.ellipsis),
+                  Text(tr(manager.fullName), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600), maxLines: 1, overflow: TextOverflow.ellipsis),
                   const SizedBox(height: 2),
                   Text(
-                    [
+                    tr([
                       manager.employeeCode,
                       if (manager.department != null) manager.department!,
                       if (manager.position != null) manager.position!,
-                    ].join(' · '),
+                    ].join(' · ')),
                     style: TextStyle(fontSize: 12, color: Colors.grey[500]),
                     maxLines: 1, overflow: TextOverflow.ellipsis,
                   ),
@@ -719,10 +717,10 @@ class _DirectManagerScreenState extends State<DirectManagerScreen> {
       if (await canLaunchUrl(uri)) {
         await launchUrl(uri);
       } else {
-        appNotification.showError(title: 'Lỗi', message: 'Không thể gọi điện tới $phone');
+        appNotification.showError(title: 'Lỗi', message: tr('Không thể gọi điện tới $phone'));
       }
     } catch (e) {
-      appNotification.showError(title: 'Lỗi', message: 'Không thể gọi điện tới $phone');
+      appNotification.showError(title: 'Lỗi', message: tr('Không thể gọi điện tới $phone'));
     }
   }
 
@@ -732,10 +730,10 @@ class _DirectManagerScreenState extends State<DirectManagerScreen> {
       if (await canLaunchUrl(uri)) {
         await launchUrl(uri);
       } else {
-        appNotification.showError(title: 'Lỗi', message: 'Không thể gửi email tới $email');
+        appNotification.showError(title: 'Lỗi', message: tr('Không thể gửi email tới $email'));
       }
     } catch (e) {
-      appNotification.showError(title: 'Lỗi', message: 'Không thể gửi email tới $email');
+      appNotification.showError(title: 'Lỗi', message: tr('Không thể gửi email tới $email'));
     }
   }
 
@@ -759,7 +757,7 @@ class _DirectManagerScreenState extends State<DirectManagerScreen> {
                   TextButton.icon(
                     onPressed: () => setDialogState(() => tempExcluded.clear()),
                     icon: const Icon(Icons.select_all, size: 16),
-                    label: const Text('Chọn tất cả', style: TextStyle(fontSize: 12)),
+                    label: Text(tr('Chọn tất cả'), style: TextStyle(fontSize: 12)),
                   ),
                   const SizedBox(width: 8),
                   TextButton.icon(
@@ -768,7 +766,7 @@ class _DirectManagerScreenState extends State<DirectManagerScreen> {
                       tempExcluded.addAll(_allPositions);
                     }),
                     icon: const Icon(Icons.deselect, size: 16),
-                    label: const Text('Bỏ chọn tất cả', style: TextStyle(fontSize: 12)),
+                    label: Text(tr('Bỏ chọn tất cả'), style: TextStyle(fontSize: 12)),
                   ),
                 ],
               ),
@@ -777,7 +775,7 @@ class _DirectManagerScreenState extends State<DirectManagerScreen> {
             final positionList = _allPositions.isEmpty
                 ? Padding(
                     padding: const EdgeInsets.all(32),
-                    child: Text('Chưa có dữ liệu chức vụ', style: TextStyle(color: Colors.grey[500])),
+                    child: Text(tr('Chưa có dữ liệu chức vụ'), style: TextStyle(color: Colors.grey[500])),
                   )
                 : ListView.builder(
                     shrinkWrap: !isMobile,
@@ -798,8 +796,8 @@ class _DirectManagerScreenState extends State<DirectManagerScreen> {
                           decoration: BoxDecoration(color: color.withValues(alpha: 0.1), shape: BoxShape.circle),
                           child: Icon(_positionIcon(pos), size: 18, color: color),
                         ),
-                        title: Text(pos, style: const TextStyle(fontSize: 14)),
-                        subtitle: Text('$count nhân viên', style: TextStyle(fontSize: 12, color: Colors.grey[500])),
+                        title: Text(tr(pos), style: const TextStyle(fontSize: 14)),
+                        subtitle: Text(tr('$count nhân viên'), style: TextStyle(fontSize: 12, color: Colors.grey[500])),
                         dense: true,
                         activeColor: Colors.blue[700],
                         controlAffinity: ListTileControlAffinity.trailing,
@@ -830,10 +828,10 @@ class _DirectManagerScreenState extends State<DirectManagerScreen> {
                   child: Scaffold(
                     appBar: AppBar(
                       leading: IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(ctx)),
-                      title: const Row(children: [
+                      title: Row(children: [
                         Icon(Icons.tune, size: 20, color: Colors.blue),
                         SizedBox(width: 10),
-                        Expanded(child: Text('Thiết lập chức vụ')),
+                        Expanded(child: Text(tr('Thiết lập chức vụ'))),
                       ]),
                       elevation: 0.5,
                     ),
@@ -879,9 +877,9 @@ class _DirectManagerScreenState extends State<DirectManagerScreen> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text('Thiết lập chức vụ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Colors.blue[800])),
+                                Text(tr('Thiết lập chức vụ'), style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Colors.blue[800])),
                                 const SizedBox(height: 2),
-                                Text('Chọn chức vụ hiển thị trong danh sách', style: TextStyle(fontSize: 12, color: Colors.blue[600])),
+                                Text(tr('Chọn chức vụ hiển thị trong danh sách'), style: TextStyle(fontSize: 12, color: Colors.blue[600])),
                               ],
                             ),
                           ),
@@ -934,14 +932,14 @@ class _DirectManagerScreenState extends State<DirectManagerScreen> {
                 onBackgroundImageError: manager.avatarUrl != null && manager.avatarUrl!.isNotEmpty ? (_, __) {} : null,
                 child: manager.avatarUrl == null || manager.avatarUrl!.isEmpty
                     ? Text(
-                        manager.fullName.isNotEmpty ? manager.fullName[0].toUpperCase() : '?',
+                        tr(manager.fullName.isNotEmpty ? manager.fullName[0].toUpperCase() : '?'),
                         style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 28),
                       )
                     : null,
               ),
             ),
             const SizedBox(height: 12),
-            Text(manager.fullName, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
+            Text(tr(manager.fullName), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
             const SizedBox(height: 6),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
@@ -955,7 +953,7 @@ class _DirectManagerScreenState extends State<DirectManagerScreen> {
                 children: [
                   Icon(_positionIcon(manager.position), size: 14, color: color),
                   const SizedBox(width: 6),
-                  Text(manager.position ?? '', style: TextStyle(color: color, fontWeight: FontWeight.w600, fontSize: 13)),
+                  Text(tr(manager.position ?? ''), style: TextStyle(color: color, fontWeight: FontWeight.w600, fontSize: 13)),
                 ],
               ),
             ),
@@ -982,7 +980,7 @@ class _DirectManagerScreenState extends State<DirectManagerScreen> {
                 child: OutlinedButton.icon(
                   onPressed: () => _makePhoneCall(manager.phone!),
                   icon: const Icon(Icons.phone, size: 18),
-                  label: const Text('Gọi điện', style: TextStyle(fontSize: 13)),
+                  label: Text(tr('Gọi điện'), style: TextStyle(fontSize: 13)),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: Colors.green[700],
                     side: BorderSide(color: Colors.green[300]!),
@@ -997,7 +995,7 @@ class _DirectManagerScreenState extends State<DirectManagerScreen> {
                 child: OutlinedButton.icon(
                   onPressed: () => _sendEmail(manager.email!),
                   icon: const Icon(Icons.email, size: 18),
-                  label: const Text('Gửi email', style: TextStyle(fontSize: 13)),
+                  label: Text(tr('Gửi email'), style: TextStyle(fontSize: 13)),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: Colors.blue[700],
                     side: BorderSide(color: Colors.blue[300]!),
@@ -1018,7 +1016,7 @@ class _DirectManagerScreenState extends State<DirectManagerScreen> {
               child: Scaffold(
                 appBar: AppBar(
                   leading: IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(ctx)),
-                  title: Text(manager.fullName, overflow: TextOverflow.ellipsis),
+                  title: Text(tr(manager.fullName), overflow: TextOverflow.ellipsis),
                   elevation: 0.5,
                 ),
                 body: SingleChildScrollView(
@@ -1097,7 +1095,7 @@ class _DirectManagerScreenState extends State<DirectManagerScreen> {
                   padding: const EdgeInsets.only(bottom: 12, right: 16, top: 4),
                   child: Align(
                     alignment: Alignment.centerRight,
-                    child: TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Đóng')),
+                    child: TextButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('Đóng'))),
                   ),
                 ),
               ],
@@ -1118,13 +1116,13 @@ class _DirectManagerScreenState extends State<DirectManagerScreen> {
           SizedBox(
             width: 110,
             child: Text(
-              label,
+              tr(label),
               style: TextStyle(fontSize: 13, color: Colors.grey[600]),
             ),
           ),
           Expanded(
             child: Text(
-              value,
+              tr(value),
               style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
             ),
           ),

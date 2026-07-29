@@ -3,6 +3,7 @@ import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import 'package:intl/intl.dart';
 import '../../services/api_service.dart';
 import 'system_admin_helpers.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// SuperAdmin – tab "Marketing" (Phase 3): templates + campaigns đa kênh.
 class MarketingTab extends StatefulWidget {
@@ -80,8 +81,8 @@ class MarketingTabState extends State<MarketingTab>
                 unselectedLabelColor: Colors.grey,
                 indicatorColor: AdminHelpers.primary,
                 tabs: [
-                  Tab(text: 'Mẫu (${templates.length})'),
-                  Tab(text: 'Chiến dịch (${campaigns.length})'),
+                  Tab(text: tr('Mẫu (${templates.length})')),
+                  Tab(text: tr('Chiến dịch (${campaigns.length})')),
                 ],
               ),
             ),
@@ -120,7 +121,7 @@ class MarketingTabState extends State<MarketingTab>
                 foregroundColor: Colors.white),
             onPressed: _openCreateTemplate,
             icon: const Icon(Icons.add),
-            label: const Text('Thêm mẫu'),
+            label: Text(tr('Thêm mẫu')),
           ),
         ),
         const SizedBox(height: 8),
@@ -160,7 +161,7 @@ class MarketingTabState extends State<MarketingTab>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(t['title']?.toString() ?? '',
+                    Text(tr(t['title']?.toString() ?? ''),
                         style: const TextStyle(
                             fontWeight: FontWeight.bold, fontSize: 15)),
                     const SizedBox(height: 2),
@@ -179,21 +180,21 @@ class MarketingTabState extends State<MarketingTab>
               ),
               PopupMenuButton<String>(
                 onSelected: (v) => _onTemplateAction(v, t),
-                itemBuilder: (_) => const [
-                  PopupMenuItem(value: 'edit', child: Text('✏️ Sửa')),
+                itemBuilder: (_) => [
+                  PopupMenuItem(value: 'edit', child: Text(tr('✏️ Sửa'))),
                   PopupMenuItem(
                       value: 'delete',
-                      child: Text('🗑️ Xoá',
+                      child: Text(tr('🗑️ Xoá'),
                           style: TextStyle(color: Colors.red))),
                 ],
               ),
             ]),
             const SizedBox(height: 8),
-            Text(t['body']?.toString() ?? '',
+            Text(tr(t['body']?.toString() ?? ''),
                 maxLines: 3, overflow: TextOverflow.ellipsis),
             if ((t['variables'] as List?)?.isNotEmpty == true) ...[
               const SizedBox(height: 6),
-              Text('Biến: ${(t['variables'] as List).join(", ")}',
+              Text(tr('${tr('Biến: ')}${(t['variables'] as List).join(", ")}'),
                   style:
                       TextStyle(fontSize: 11, color: Colors.grey[600])),
             ],
@@ -239,16 +240,16 @@ class MarketingTabState extends State<MarketingTab>
   }
 
   Future<void> _openCreateTemplate({Map<String, dynamic>? initial}) async {
-    final code = TextEditingController(text: initial?['code']?.toString() ?? '');
+    final code = TextEditingController(text: tr(initial?['code']?.toString() ?? ''));
     final title =
-        TextEditingController(text: initial?['title']?.toString() ?? '');
+        TextEditingController(text: tr(initial?['title']?.toString() ?? ''));
     final body =
-        TextEditingController(text: initial?['body']?.toString() ?? '');
+        TextEditingController(text: tr(initial?['body']?.toString() ?? ''));
     final vars = TextEditingController(
-        text: ((initial?['variables'] as List?) ?? const [])
-            .join(', '));
+        text: tr(((initial?['variables'] as List?) ?? const [])
+            .join(', ')));
     final locale = TextEditingController(
-        text: initial?['locale']?.toString() ?? 'vi-VN');
+        text: tr(initial?['locale']?.toString() ?? 'vi-VN'));
     int channels = AdminHelpers.parseEnumInt(
             initial?['channels'], AdminHelpers.notificationChannelMap) |
         (initial == null ? (chInApp | chBanner) : 0);
@@ -259,7 +260,7 @@ class MarketingTabState extends State<MarketingTab>
       context: context,
       builder: (_) => StatefulBuilder(
         builder: (ctx, setSt) => ScrollableAlertDialog(
-          title: Text(initial == null ? 'Tạo mẫu mới' : 'Sửa mẫu'),
+          title: Text(tr(initial == null ? 'Tạo mẫu mới' : 'Sửa mẫu')),
           content: SizedBox(
             width: 520,
             child: SingleChildScrollView(
@@ -272,8 +273,8 @@ class MarketingTabState extends State<MarketingTab>
                 TextField(
                   controller: body,
                   maxLines: 5,
-                  decoration: const InputDecoration(
-                      labelText: 'Nội dung (hỗ trợ {variable})',
+                  decoration: InputDecoration(
+                      labelText: tr('Nội dung (hỗ trợ {variable})'),
                       border: OutlineInputBorder()),
                 ),
                 const SizedBox(height: 8),
@@ -285,7 +286,7 @@ class MarketingTabState extends State<MarketingTab>
                 _channelSelector(channels, (v) => setSt(() => channels = v)),
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
-                  title: const Text('Đang bật'),
+                  title: Text(tr('Đang bật')),
                   value: isActive,
                   onChanged: (v) => setSt(() => isActive = v),
                 ),
@@ -295,10 +296,10 @@ class MarketingTabState extends State<MarketingTab>
           actions: [
             TextButton(
                 onPressed: () => Navigator.pop(ctx, false),
-                child: const Text('Huỷ')),
+                child: Text(tr('Huỷ'))),
             FilledButton(
                 onPressed: () => Navigator.pop(ctx, true),
-                child: const Text('Lưu')),
+                child: Text(tr('Lưu'))),
           ],
         ),
       ),
@@ -339,7 +340,7 @@ class MarketingTabState extends State<MarketingTab>
                 foregroundColor: Colors.white),
             onPressed: _openCreateCampaign,
             icon: const Icon(Icons.campaign),
-            label: const Text('Tạo chiến dịch'),
+            label: Text(tr('Tạo chiến dịch')),
           ),
         ),
         const SizedBox(height: 8),
@@ -391,7 +392,7 @@ class MarketingTabState extends State<MarketingTab>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(c['name']?.toString() ?? '',
+                    Text(tr(c['name']?.toString() ?? ''),
                         style: const TextStyle(
                             fontWeight: FontWeight.bold, fontSize: 15)),
                     const SizedBox(height: 2),
@@ -408,18 +409,18 @@ class MarketingTabState extends State<MarketingTab>
                 itemBuilder: (_) {
                   final items = <PopupMenuEntry<String>>[];
                   if (status == 0 || status == 1) {
-                    items.add(const PopupMenuItem(
-                        value: 'launch', child: Text('🚀 Phóng ngay')));
+                    items.add(PopupMenuItem(
+                        value: 'launch', child: Text(tr('🚀 Phóng ngay'))));
                   }
                   if (status == 0 ||
                       status == 1 ||
                       status == 2) {
-                    items.add(const PopupMenuItem(
-                        value: 'cancel', child: Text('🛑 Huỷ')));
+                    items.add(PopupMenuItem(
+                        value: 'cancel', child: Text(tr('🛑 Huỷ'))));
                   }
-                  items.add(const PopupMenuItem(
+                  items.add(PopupMenuItem(
                       value: 'delete',
-                      child: Text('🗑️ Xoá',
+                      child: Text(tr('🗑️ Xoá'),
                           style: TextStyle(color: Colors.red))));
                   return items;
                 },
@@ -427,27 +428,26 @@ class MarketingTabState extends State<MarketingTab>
             ]),
             if ((c['description'] as String?)?.isNotEmpty == true) ...[
               const SizedBox(height: 8),
-              Text(c['description']!.toString(),
+              Text(tr(c['description']!.toString()),
                   maxLines: 2, overflow: TextOverflow.ellipsis),
             ],
             const SizedBox(height: 8),
             Row(children: [
               Icon(Icons.people, size: 14, color: Colors.grey[600]),
               const SizedBox(width: 4),
-              Text(
-                  'Người nhận: ${c['recipientCount'] ?? 0}'
-                  ' • Đã gửi: ${c['deliveredCount'] ?? 0}',
+              Text(tr('${tr('Người nhận: ')}${c['recipientCount'] ?? 0}'
+                  ' • Đã gửi: ${c['deliveredCount'] ?? 0}'),
                   style:
                       TextStyle(fontSize: 12, color: Colors.grey[700])),
               const Spacer(),
               if (schedule != null)
-                Text('Lịch: ${_df.format(schedule)}',
+                Text(tr('Lịch: ${_df.format(schedule)}'),
                     style: TextStyle(
                         fontSize: 11, color: Colors.grey[600])),
               if (launched != null)
                 Padding(
                   padding: const EdgeInsets.only(left: 8),
-                  child: Text('Phóng: ${_df.format(launched)}',
+                  child: Text(tr('Phóng: ${_df.format(launched)}'),
                       style: TextStyle(
                           fontSize: 11, color: Colors.grey[600])),
                 ),
@@ -501,7 +501,7 @@ class MarketingTabState extends State<MarketingTab>
       context: context,
       builder: (_) => StatefulBuilder(
         builder: (ctx, setSt) => ScrollableAlertDialog(
-          title: const Text('Tạo chiến dịch marketing'),
+          title: Text(tr('Tạo chiến dịch marketing')),
           content: SizedBox(
             width: 560,
             child: SingleChildScrollView(
@@ -514,16 +514,16 @@ class MarketingTabState extends State<MarketingTab>
                 DropdownButtonFormField<String?>(
                   initialValue: templateId,
                   isExpanded: true,
-                  decoration: const InputDecoration(
-                      labelText: 'Mẫu (tuỳ chọn)',
+                  decoration: InputDecoration(
+                      labelText: tr('Mẫu (tuỳ chọn)'),
                       border: OutlineInputBorder()),
                   items: [
-                    const DropdownMenuItem<String?>(
-                        value: null, child: Text('— Không dùng mẫu —')),
+                    DropdownMenuItem<String?>(
+                        value: null, child: Text(tr('— Không dùng mẫu —'))),
                     ...templates.map((t) => DropdownMenuItem<String?>(
                           value: t['id'] as String,
                           child: Text(
-                              '${t['code']} — ${t['title']}',
+                              tr('${t['code']} — ${t['title']}'),
                               overflow: TextOverflow.ellipsis),
                         )),
                   ],
@@ -536,8 +536,8 @@ class MarketingTabState extends State<MarketingTab>
                 TextField(
                   controller: customBody,
                   maxLines: 4,
-                  decoration: const InputDecoration(
-                      labelText: 'Nội dung tuỳ biến (override, hỗ trợ {var})',
+                  decoration: InputDecoration(
+                      labelText: tr('Nội dung tuỳ biến (override, hỗ trợ {var})'),
                       border: OutlineInputBorder()),
                 ),
                 const SizedBox(height: 8),
@@ -546,13 +546,13 @@ class MarketingTabState extends State<MarketingTab>
                 const SizedBox(height: 12),
                 _channelSelector(channels, (v) => setSt(() => channels = v)),
                 const Divider(),
-                const Align(
+                Align(
                     alignment: Alignment.centerLeft,
-                    child: Text('Đối tượng nhận',
+                    child: Text(tr('Đối tượng nhận'),
                         style: TextStyle(fontWeight: FontWeight.bold))),
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
-                  title: const Text('Toàn bộ người dùng'),
+                  title: Text(tr('Toàn bộ người dùng')),
                   value: allUsers,
                   onChanged: (v) => setSt(() => allUsers = v),
                 ),
@@ -563,7 +563,7 @@ class MarketingTabState extends State<MarketingTab>
                 const Divider(),
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
-                  title: const Text('Phóng ngay sau khi tạo'),
+                  title: Text(tr('Phóng ngay sau khi tạo')),
                   value: launchNow,
                   onChanged: (v) => setSt(() {
                     launchNow = v;
@@ -574,9 +574,9 @@ class MarketingTabState extends State<MarketingTab>
                   ListTile(
                     contentPadding: EdgeInsets.zero,
                     leading: const Icon(Icons.schedule),
-                    title: Text(scheduleAt == null
+                    title: Text(tr(scheduleAt == null
                         ? 'Lịch gửi (tuỳ chọn)'
-                        : _df.format(scheduleAt!)),
+                        : _df.format(scheduleAt!))),
                     trailing: const Icon(Icons.edit),
                     onTap: () async {
                       final d = await showDatePicker(
@@ -602,10 +602,10 @@ class MarketingTabState extends State<MarketingTab>
           actions: [
             TextButton(
                 onPressed: () => Navigator.pop(ctx, false),
-                child: const Text('Huỷ')),
+                child: Text(tr('Huỷ'))),
             FilledButton(
                 onPressed: () => Navigator.pop(ctx, true),
-                child: const Text('Lưu')),
+                child: Text(tr('Lưu'))),
           ],
         ),
       ),
@@ -658,7 +658,7 @@ class MarketingTabState extends State<MarketingTab>
 
   Widget _channelSelector(int value, ValueChanged<int> onChanged) {
     Widget cb(String label, int flag) => FilterChip(
-          label: Text(label),
+          label: Text(tr(label)),
           selected: value & flag != 0,
           onSelected: (sel) =>
               onChanged(sel ? (value | flag) : (value & ~flag)),
@@ -679,18 +679,18 @@ class MarketingTabState extends State<MarketingTab>
     final ok = await showDialog<bool>(
       context: context,
       builder: (_) => ScrollableAlertDialog(
-        title: const Text('Xác nhận'),
-        content: Text(msg),
+        title: Text(tr('Xác nhận')),
+        content: Text(tr(msg)),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(context, false),
-              child: const Text('Huỷ')),
+              child: Text(tr('Huỷ'))),
           FilledButton(
               style: ElevatedButton.styleFrom(
                   backgroundColor: AdminHelpers.danger,
                   foregroundColor: Colors.white),
               onPressed: () => Navigator.pop(context, true),
-              child: const Text('OK')),
+              child: Text(tr('OK'))),
         ],
       ),
     );
@@ -703,7 +703,7 @@ class MarketingTabState extends State<MarketingTab>
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       backgroundColor: ok ? AdminHelpers.success : AdminHelpers.danger,
       content: Text(
-          res['message']?.toString() ?? (ok ? 'Thành công' : 'Thất bại')),
+          tr(res['message']?.toString() ?? (ok ? 'Thành công' : 'Thất bại'))),
     ));
   }
 }

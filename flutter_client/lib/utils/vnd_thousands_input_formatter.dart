@@ -1,5 +1,6 @@
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
+import '../l10n/app_tr.dart';
 
 /// Nhập số tiền VND — hiển thị phân tách hàng nghìn (1.000.000).
 class VndThousandsInputFormatter extends TextInputFormatter {
@@ -35,7 +36,7 @@ class VndThousandsInputFormatter extends TextInputFormatter {
       }
       final text = buf.toString();
       return TextEditingValue(
-        text: text,
+        text: tr(text),
         selection: TextSelection.collapsed(offset: text.length),
       );
     }
@@ -51,7 +52,7 @@ class VndThousandsInputFormatter extends TextInputFormatter {
     if (number == null) return oldValue;
     final formatted = _fmt.format(number);
     return TextEditingValue(
-      text: formatted,
+      text: tr(formatted),
       selection: TextSelection.collapsed(offset: formatted.length),
     );
   }

@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'dart:js_interop';
-import 'dart:js_util' as js_util;
+import 'dart:js_interop_unsafe';
 import 'dart:typed_data';
 
 import 'package:web/web.dart' as web;
@@ -39,12 +39,12 @@ Future<String?> saveFileBytes(
 bool _tryMsSaveOrOpenBlob(Uint8List bytes, String safeName, String mimeType) {
   try {
     final navigator = web.window.navigator as JSObject;
-    if (!js_util.hasProperty(navigator, 'msSaveOrOpenBlob')) return false;
+    if (navigator.getProperty('msSaveOrOpenBlob'.toJS) == null) return false;
     final blob = web.Blob(
       [bytes.toJS].toJS,
       web.BlobPropertyBag(type: mimeType),
     );
-    js_util.callMethod(navigator, 'msSaveOrOpenBlob', [blob, safeName]);
+    navigator.callMethod('msSaveOrOpenBlob'.toJS, blob, safeName.toJS);
     return true;
   } catch (_) {
     return false;

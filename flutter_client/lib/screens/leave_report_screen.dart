@@ -9,6 +9,7 @@ import '../utils/api_datetime.dart';
 import '../utils/report_access_utils.dart';
 import '../utils/report_screen_helpers.dart';
 import '../widgets/reports/hrm_report_widgets.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 const _theme = Color(0xFF0284C7);
 
@@ -474,15 +475,15 @@ class _LeaveReportScreenState extends State<LeaveReportScreen> {
         child: DropdownButton<int?>(
           value: _statusFilter,
           isExpanded: true,
-          hint: const Text('Trạng thái',
+          hint: Text(tr('Trạng thái'),
               style: TextStyle(fontSize: 12, color: Color(0xFF6B7280))),
           style: const TextStyle(fontSize: 12, color: Color(0xFF111827)),
-          items: const [
-            DropdownMenuItem(value: null, child: Text('Tất cả')),
-            DropdownMenuItem(value: 0, child: Text('Chờ duyệt')),
-            DropdownMenuItem(value: 1, child: Text('Đã duyệt')),
-            DropdownMenuItem(value: 2, child: Text('Từ chối')),
-            DropdownMenuItem(value: 3, child: Text('Đã hủy')),
+          items: [
+            DropdownMenuItem(value: null, child: Text(tr('Tất cả'))),
+            DropdownMenuItem(value: 0, child: Text(tr('Chờ duyệt'))),
+            DropdownMenuItem(value: 1, child: Text(tr('Đã duyệt'))),
+            DropdownMenuItem(value: 2, child: Text(tr('Từ chối'))),
+            DropdownMenuItem(value: 3, child: Text(tr('Đã hủy'))),
           ],
           onChanged: (v) => setState(() => _statusFilter = v),
         ),

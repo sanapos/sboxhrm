@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../utils/pos_doc_status.dart';
 import 'pos_theme.dart';
+import '../../l10n/app_tr.dart';
 
 
 
@@ -67,7 +68,7 @@ Widget purchaseFilterSection(String title, Widget content) => Column(
 
       children: [
 
-        Text(title,
+        Text(tr(title),
 
             style: const TextStyle(
 

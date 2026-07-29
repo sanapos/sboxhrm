@@ -5,6 +5,7 @@ import '../../services/api_service.dart';
 import '../../services/pos_product_printer_service.dart';
 import '../../widgets/notification_overlay.dart';
 import '../../widgets/pos/pos_theme.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// Danh sách máy in → chọn máy in → gán sản phẩm (tất cả / theo nhóm / từng SP).
 class PosProductPrinterAssignmentScreen extends StatefulWidget {
@@ -70,7 +71,7 @@ class _PosProductPrinterAssignmentScreenState
     return Scaffold(
       backgroundColor: PosTheme.background,
       appBar: AppBar(
-        title: const Text('Gán sản phẩm cho máy in'),
+        title: Text(tr('Gán sản phẩm cho máy in')),
         backgroundColor: PosTheme.kiotBlue,
         foregroundColor: Colors.white,
         actions: [
@@ -80,7 +81,7 @@ class _PosProductPrinterAssignmentScreenState
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _printers.isEmpty
-              ? const Center(child: Text('Chưa có máy in. Thêm máy in trước.'))
+              ? Center(child: Text(tr('Chưa có máy in. Thêm máy in trước.')))
               : ListView.separated(
                   padding: const EdgeInsets.all(12),
                   itemCount: _printers.length,
@@ -93,9 +94,8 @@ class _PosProductPrinterAssignmentScreenState
                           backgroundColor: PosTheme.kiotBlue.withValues(alpha: 0.12),
                           child: const Icon(Icons.print, color: PosTheme.kiotBlue, size: 22),
                         ),
-                        title: Text(p.name, style: const TextStyle(fontWeight: FontWeight.w600)),
-                        subtitle: Text(
-                          '${p.productCount} sản phẩm',
+                        title: Text(tr(p.name), style: const TextStyle(fontWeight: FontWeight.w600)),
+                        subtitle: Text(tr('${p.productCount} sản phẩm'),
                           style: const TextStyle(fontSize: 12),
                         ),
                         trailing: const Icon(Icons.chevron_right),
@@ -200,11 +200,11 @@ class _PosPrinterManageProductsScreenState extends State<PosPrinterManageProduct
     final yes = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Bỏ khỏi máy in?'),
-        content: Text('${p.name}\n(${p.productCode})'),
+        title: Text(tr('Bỏ khỏi máy in?')),
+        content: Text(tr('${p.name}\n(${p.productCode})')),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Hủy')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Bỏ')),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Hủy'))),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(tr('Bỏ'))),
         ],
       ),
     );
@@ -236,7 +236,7 @@ class _PosPrinterManageProductsScreenState extends State<PosPrinterManageProduct
     return Scaffold(
       backgroundColor: PosTheme.background,
       appBar: AppBar(
-        title: Text(widget.printerName, overflow: TextOverflow.ellipsis),
+        title: Text(tr(widget.printerName), overflow: TextOverflow.ellipsis),
         backgroundColor: PosTheme.kiotBlue,
         foregroundColor: Colors.white,
         actions: [
@@ -257,7 +257,7 @@ class _PosPrinterManageProductsScreenState extends State<PosPrinterManageProduct
         onPressed: _busy ? null : _addProducts,
         backgroundColor: PosTheme.kiotBlue,
         icon: const Icon(Icons.add),
-        label: const Text('Thêm sản phẩm'),
+        label: Text(tr('Thêm sản phẩm')),
       ),
       body: Column(
         children: [
@@ -270,7 +270,7 @@ class _PosPrinterManageProductsScreenState extends State<PosPrinterManageProduct
                     controller: _searchCtrl,
                     decoration: InputDecoration(
                       isDense: true,
-                      hintText: 'Tìm trong danh sách đã gán…',
+                      hintText: tr('Tìm trong danh sách đã gán…'),
                       prefixIcon: const Icon(Icons.search, size: 20),
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                     ),
@@ -296,8 +296,7 @@ class _PosPrinterManageProductsScreenState extends State<PosPrinterManageProduct
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
             child: Align(
               alignment: Alignment.centerLeft,
-              child: Text(
-                '$_total sản phẩm đang in trên máy này',
+              child: Text(tr('$_total sản phẩm đang in trên máy này'),
                 style: const TextStyle(fontSize: 12, color: PosTheme.textSecondary),
               ),
             ),
@@ -306,7 +305,7 @@ class _PosPrinterManageProductsScreenState extends State<PosPrinterManageProduct
             child: _loading
                 ? const Center(child: CircularProgressIndicator())
                 : _assigned.isEmpty
-                    ? const Center(child: Text('Chưa có sản phẩm.\nBấm "Thêm sản phẩm".'))
+                    ? Center(child: Text(tr('Chưa có sản phẩm.\nBấm "Thêm sản phẩm".')))
                     : ListView.separated(
                         padding: const EdgeInsets.fromLTRB(12, 4, 12, 80),
                         itemCount: _assigned.length,
@@ -315,9 +314,9 @@ class _PosPrinterManageProductsScreenState extends State<PosPrinterManageProduct
                           final p = _assigned[i];
                           return Card(
                             child: ListTile(
-                              title: Text(p.name, maxLines: 2, overflow: TextOverflow.ellipsis),
+                              title: Text(tr(p.name), maxLines: 2, overflow: TextOverflow.ellipsis),
                               subtitle: Text(
-                                '${p.productCode}${p.categoryName != null ? ' · ${p.categoryName}' : ''}',
+                                tr('${p.productCode}${p.categoryName != null ? ' · ${p.categoryName}' : ''}'),
                                 style: const TextStyle(fontSize: 11),
                               ),
                               trailing: IconButton(
@@ -345,7 +344,7 @@ class _PosPrinterManageProductsScreenState extends State<PosPrinterManageProduct
                           },
                     icon: const Icon(Icons.chevron_left),
                   ),
-                  Text('Trang $_page / $totalPages'),
+                  Text(tr('Trang $_page / $totalPages')),
                   IconButton(
                     onPressed: _loading || _page >= totalPages
                         ? null
@@ -449,7 +448,7 @@ class _AddProductsSheetState extends State<_AddProductsSheet> {
         _selectedCategoryIds.isEmpty) {
       NotificationOverlayManager().showError(
         title: 'Chưa chọn',
-        message: 'Chọn sản phẩm, nhóm hàng hoặc "Tất cả"',
+        message: tr('Chọn sản phẩm, nhóm hàng hoặc "Tất cả"'),
       );
       return;
     }
@@ -515,9 +514,8 @@ class _AddProductsSheetState extends State<_AddProductsSheet> {
               padding: const EdgeInsets.fromLTRB(16, 12, 8, 8),
               child: Row(
                 children: [
-                  const Expanded(
-                    child: Text(
-                      'Thêm sản phẩm vào máy in',
+                  Expanded(
+                    child: Text(tr('Thêm sản phẩm vào máy in'),
                       style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                     ),
                   ),
@@ -535,7 +533,7 @@ class _AddProductsSheetState extends State<_AddProductsSheet> {
                 runSpacing: 8,
                 children: [
                   FilterChip(
-                    label: const Text('Tất cả sản phẩm'),
+                    label: Text(tr('Tất cả sản phẩm')),
                     selected: _selectAll,
                     onSelected: _saving
                         ? null
@@ -551,12 +549,11 @@ class _AddProductsSheetState extends State<_AddProductsSheet> {
               ),
             ),
             if (_categories.isNotEmpty) ...[
-              const Padding(
+              Padding(
                 padding: EdgeInsets.fromLTRB(16, 12, 16, 4),
                 child: Align(
                   alignment: Alignment.centerLeft,
-                  child: Text(
-                    'Theo nhóm hàng',
+                  child: Text(tr('Theo nhóm hàng'),
                     style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
                   ),
                 ),
@@ -572,7 +569,7 @@ class _AddProductsSheetState extends State<_AddProductsSheet> {
                     final c = _categories[i];
                     final sel = _selectedCategoryIds.contains(c.id);
                     return FilterChip(
-                      label: Text('${c.name} (${c.productCount})'),
+                      label: Text(tr('${c.name} (${c.productCount})')),
                       selected: sel,
                       onSelected: _saving || _selectAll
                           ? null
@@ -594,7 +591,7 @@ class _AddProductsSheetState extends State<_AddProductsSheet> {
                 controller: _searchCtrl,
                 decoration: InputDecoration(
                   isDense: true,
-                  hintText: 'Tìm mã, tên hàng…',
+                  hintText: tr('Tìm mã, tên hàng…'),
                   prefixIcon: const Icon(Icons.search, size: 20),
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                 ),
@@ -629,7 +626,7 @@ class _AddProductsSheetState extends State<_AddProductsSheet> {
                                         },
                                   icon: const Icon(Icons.chevron_left),
                                 ),
-                                Text('$_page / $totalPages'),
+                                Text(tr('$_page / $totalPages')),
                                 IconButton(
                                   onPressed: _page >= totalPages
                                       ? null
@@ -661,9 +658,9 @@ class _AddProductsSheetState extends State<_AddProductsSheet> {
                                       _selectedProductIds.remove(p.id);
                                     }
                                   }),
-                          title: Text(p.name, maxLines: 2, overflow: TextOverflow.ellipsis),
+                          title: Text(tr(p.name), maxLines: 2, overflow: TextOverflow.ellipsis),
                           subtitle: Text(
-                            p.productCode,
+                            tr(p.productCode),
                             style: const TextStyle(fontSize: 11),
                           ),
                           dense: true,
@@ -694,9 +691,9 @@ class _AddProductsSheetState extends State<_AddProductsSheet> {
                             ),
                           )
                         : Text(
-                            _selectAll
+                            tr(_selectAll
                                 ? 'Gán tất cả ($_productTotal SP)'
-                                : 'Gán ${_selectionEstimate > 0 ? _selectionEstimate : ''} sản phẩm',
+                                : 'Gán ${_selectionEstimate > 0 ? _selectionEstimate : ''} sản phẩm'),
                           ),
                   ),
                 ),

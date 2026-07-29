@@ -6,6 +6,7 @@ import '../../services/api_service.dart';
 import '../../widgets/notification_overlay.dart';
 import '../../widgets/pos/pos_theme.dart';
 import '../main_layout.dart' show ScreenRefreshNotifier;
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// Cài đặt giao diện bán hàng theo ngành.
 class PosSellIndustrySettingsScreen extends StatefulWidget {
@@ -77,7 +78,7 @@ class _PosSellIndustrySettingsScreenState
       if (!quiet) {
         NotificationOverlayManager().showSuccess(
           title: 'Đã lưu',
-          message: 'Hồ sơ ngành: ${_settings!.sellProfile.label}',
+          message: tr('Hồ sơ ngành: ${_settings!.sellProfile.label}'),
         );
       }
     } else {
@@ -118,9 +119,9 @@ class _PosSellIndustrySettingsScreenState
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(_error!, style: const TextStyle(color: Colors.red)),
+                    Text(tr(_error!), style: const TextStyle(color: Colors.red)),
                     const SizedBox(height: 12),
-                    FilledButton(onPressed: _load, child: const Text('Thử lại')),
+                    FilledButton(onPressed: _load, child: Text(tr('Thử lại'))),
                   ],
                 ),
               )
@@ -138,9 +139,8 @@ class _PosSellIndustrySettingsScreenState
                 padding: const EdgeInsets.fromLTRB(16, 12, 12, 8),
                 child: Row(
                   children: [
-                    const Expanded(
-                      child: Text(
-                        'Ngành hàng & bán hàng',
+                    Expanded(
+                      child: Text(tr('Ngành hàng & bán hàng'),
                         style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.w700,
@@ -155,7 +155,7 @@ class _PosSellIndustrySettingsScreenState
                       )
                     else
                       IconButton(
-                        tooltip: 'Tải lại',
+                        tooltip: tr('Tải lại'),
                         onPressed: _load,
                         icon: const Icon(Icons.refresh),
                       ),
@@ -173,7 +173,7 @@ class _PosSellIndustrySettingsScreenState
     return Scaffold(
       backgroundColor: PosTheme.background,
       appBar: AppBar(
-        title: const Text('Ngành hàng & bán hàng'),
+        title: Text(tr('Ngành hàng & bán hàng')),
         backgroundColor: PosTheme.kiotBlue,
         foregroundColor: Colors.white,
         actions: [
@@ -193,7 +193,7 @@ class _PosSellIndustrySettingsScreenState
             )
           else
             IconButton(
-              tooltip: 'Tải lại',
+              tooltip: tr('Tải lại'),
               onPressed: _load,
               icon: const Icon(Icons.refresh),
             ),
@@ -208,8 +208,7 @@ class _PosSellIndustrySettingsScreenState
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        const Text(
-          'Hồ sơ ngành',
+        Text(tr('Hồ sơ ngành'),
           style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
         ),
         const SizedBox(height: 8),
@@ -220,19 +219,18 @@ class _PosSellIndustrySettingsScreenState
             isDense: true,
           ),
           items: PosSellProfile.values
-              .map((p) => DropdownMenuItem(value: p, child: Text(p.label)))
+              .map((p) => DropdownMenuItem(value: p, child: Text(tr(p.label))))
               .toList(),
           onChanged: _saving ? null : _onProfileChanged,
         ),
         const SizedBox(height: 8),
         Text(
-          'Đổi ngành sẽ lưu ngay và bật sẵn bàn/ghế, tính giờ hoặc gói buổi. '
-          'Chỉnh công tắc bên dưới cũng tự lưu.',
+          tr('Đổi ngành sẽ lưu ngay và bật sẵn bàn/ghế, tính giờ hoặc gói buổi. '
+          'Chỉnh công tắc bên dưới cũng tự lưu.'),
           style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
         ),
         const Divider(height: 28),
-        const Text(
-          'Chế độ bán mặc định',
+        Text(tr('Chế độ bán mặc định'),
           style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
         ),
         const SizedBox(height: 8),
@@ -244,10 +242,10 @@ class _PosSellIndustrySettingsScreenState
             border: OutlineInputBorder(),
             isDense: true,
           ),
-          items: const [
-            DropdownMenuItem(value: 'quick', child: Text('Bán nhanh')),
-            DropdownMenuItem(value: 'normal', child: Text('Bán thường')),
-            DropdownMenuItem(value: 'delivery', child: Text('Giao hàng')),
+          items: [
+            DropdownMenuItem(value: 'quick', child: Text(tr('Bán nhanh'))),
+            DropdownMenuItem(value: 'normal', child: Text(tr('Bán thường'))),
+            DropdownMenuItem(value: 'delivery', child: Text(tr('Giao hàng'))),
           ],
           onChanged: _saving
               ? null
@@ -259,8 +257,8 @@ class _PosSellIndustrySettingsScreenState
         const Divider(height: 28),
         SwitchListTile(
           contentPadding: EdgeInsets.zero,
-          title: const Text('Sơ đồ bàn / ghế / phòng'),
-          subtitle: const Text('F&B, salon, karaoke'),
+          title: Text(tr('Sơ đồ bàn / ghế / phòng')),
+          subtitle: Text(tr('F&B, salon, karaoke')),
           value: s.showFloorPlan,
           onChanged: _saving
               ? null
@@ -268,7 +266,7 @@ class _PosSellIndustrySettingsScreenState
         ),
         SwitchListTile(
           contentPadding: EdgeInsets.zero,
-          title: const Text('Bật tài nguyên phục vụ'),
+          title: Text(tr('Bật tài nguyên phục vụ')),
           value: s.enableResources,
           onChanged: _saving
               ? null
@@ -277,7 +275,7 @@ class _PosSellIndustrySettingsScreenState
         ),
         SwitchListTile(
           contentPadding: EdgeInsets.zero,
-          title: const Text('Bắt buộc chọn bàn/phòng khi bán'),
+          title: Text(tr('Bắt buộc chọn bàn/phòng khi bán')),
           value: s.requireResourceOnSale,
           onChanged: _saving
               ? null
@@ -286,7 +284,7 @@ class _PosSellIndustrySettingsScreenState
         ),
         SwitchListTile(
           contentPadding: EdgeInsets.zero,
-          title: const Text('Dịch vụ tính theo giờ/phút'),
+          title: Text(tr('Dịch vụ tính theo giờ/phút')),
           value: s.enableHourlyBilling,
           onChanged: _saving
               ? null
@@ -295,8 +293,8 @@ class _PosSellIndustrySettingsScreenState
         ),
         SwitchListTile(
           contentPadding: EdgeInsets.zero,
-          title: const Text('Gói buổi (Gym)'),
-          subtitle: const Text('Mua gói cộng buổi, check-in trừ buổi'),
+          title: Text(tr('Gói buổi (Gym)')),
+          subtitle: Text(tr('Mua gói cộng buổi, check-in trừ buổi')),
           value: s.enableSessionPacks,
           onChanged: _saving
               ? null
@@ -305,9 +303,8 @@ class _PosSellIndustrySettingsScreenState
         ),
         SwitchListTile(
           contentPadding: EdgeInsets.zero,
-          title: const Text('Cho phép tạm tính'),
-          subtitle: const Text(
-              'Hiện nút Tạm tính khi thanh toán — in hóa đơn tạm (F&B)'),
+          title: Text(tr('Cho phép tạm tính')),
+          subtitle: Text(tr('Hiện nút Tạm tính khi thanh toán — in hóa đơn tạm (F&B)')),
           value: s.allowProvisionalBill,
           onChanged: _saving
               ? null
@@ -315,13 +312,11 @@ class _PosSellIndustrySettingsScreenState
                   (cur) => cur.copyWith(allowProvisionalBill: v)),
         ),
         const Divider(height: 28),
-        const Text(
-          'Màn hình phụ (khách)',
+        Text(tr('Màn hình phụ (khách)'),
           style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
         ),
         const SizedBox(height: 4),
-        Text(
-          'Chỉ máy có 2 màn (display phụ). Ảnh/video | hóa đơn. Không media → SBOX HRM.',
+        Text(tr('Chỉ máy có 2 màn (display phụ). Ảnh/video | hóa đơn. Không media → SBOX HRM.'),
           style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
         ),
         const SizedBox(height: 8),
@@ -344,7 +339,7 @@ class _PosSellIndustrySettingsScreenState
     return [
       SwitchListTile(
         contentPadding: EdgeInsets.zero,
-        title: const Text('Bật màn hình phụ'),
+        title: Text(tr('Bật màn hình phụ')),
         value: cd.enabled,
         onChanged: _saving
             ? null
@@ -352,8 +347,8 @@ class _PosSellIndustrySettingsScreenState
       ),
       SwitchListTile(
         contentPadding: EdgeInsets.zero,
-        title: const Text('Tự mở khi vào bán hàng'),
-        subtitle: const Text('Android: display phụ / Presentation · Web: popup'),
+        title: Text(tr('Tự mở khi vào bán hàng')),
+        subtitle: Text(tr('Android: display phụ / Presentation · Web: popup')),
         value: cd.autoOpenOnPos,
         onChanged: _saving || !cd.enabled
             ? null
@@ -361,7 +356,7 @@ class _PosSellIndustrySettingsScreenState
       ),
       SwitchListTile(
         contentPadding: EdgeInsets.zero,
-        title: const Text('Chiếu ảnh sản phẩm khi chờ'),
+        title: Text(tr('Chiếu ảnh sản phẩm khi chờ')),
         value: cd.useProductImages,
         onChanged: _saving || !cd.enabled
             ? null
@@ -369,19 +364,19 @@ class _PosSellIndustrySettingsScreenState
       ),
       ListTile(
         contentPadding: EdgeInsets.zero,
-        title: const Text('Thời gian đổi ảnh/video'),
+        title: Text(tr('Thời gian đổi ảnh/video')),
         trailing: DropdownButton<int>(
           value: const {3, 5, 8, 10, 15, 20, 30}.contains(cd.idleSeconds)
               ? cd.idleSeconds
               : 8,
-          items: const [
-            DropdownMenuItem(value: 3, child: Text('3 giây')),
-            DropdownMenuItem(value: 5, child: Text('5 giây')),
-            DropdownMenuItem(value: 8, child: Text('8 giây')),
-            DropdownMenuItem(value: 10, child: Text('10 giây')),
-            DropdownMenuItem(value: 15, child: Text('15 giây')),
-            DropdownMenuItem(value: 20, child: Text('20 giây')),
-            DropdownMenuItem(value: 30, child: Text('30 giây')),
+          items: [
+            DropdownMenuItem(value: 3, child: Text(tr('3 giây'))),
+            DropdownMenuItem(value: 5, child: Text(tr('5 giây'))),
+            DropdownMenuItem(value: 8, child: Text(tr('8 giây'))),
+            DropdownMenuItem(value: 10, child: Text(tr('10 giây'))),
+            DropdownMenuItem(value: 15, child: Text(tr('15 giây'))),
+            DropdownMenuItem(value: 20, child: Text(tr('20 giây'))),
+            DropdownMenuItem(value: 30, child: Text(tr('30 giây'))),
           ],
           onChanged: _saving || !cd.enabled
               ? null
@@ -393,11 +388,11 @@ class _PosSellIndustrySettingsScreenState
       ),
       ListTile(
         contentPadding: EdgeInsets.zero,
-        title: const Text('URL video giới thiệu'),
+        title: Text(tr('URL video giới thiệu')),
         subtitle: Text(
-          cd.promoVideoUrls.isEmpty
+          tr(cd.promoVideoUrls.isEmpty
               ? 'Chưa có — nhấn để thêm (mỗi dòng một URL)'
-              : '${cd.promoVideoUrls.length} video',
+              : '${cd.promoVideoUrls.length} video'),
           style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
         ),
         trailing: const Icon(Icons.edit_outlined, size: 20),
@@ -413,18 +408,18 @@ class _PosSellIndustrySettingsScreenState
     Future<void> Function(CustomerDisplayConfig Function(CustomerDisplayConfig))
         patchCd,
   ) async {
-    final ctrl = TextEditingController(text: cd.promoVideoUrls.join('\n'));
+    final ctrl = TextEditingController(text: tr(cd.promoVideoUrls.join('\n')));
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('URL video promo'),
+        title: Text(tr('URL video promo')),
         content: SizedBox(
           width: 420,
           child: TextField(
             controller: ctrl,
             maxLines: 6,
-            decoration: const InputDecoration(
-              hintText: 'https://...\nmỗi dòng một URL',
+            decoration: InputDecoration(
+              hintText: tr('https://...\nmỗi dòng một URL'),
               border: OutlineInputBorder(),
             ),
           ),
@@ -432,11 +427,11 @@ class _PosSellIndustrySettingsScreenState
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Hủy'),
+            child: Text(tr('Hủy')),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Lưu'),
+            child: Text(tr('Lưu')),
           ),
         ],
       ),

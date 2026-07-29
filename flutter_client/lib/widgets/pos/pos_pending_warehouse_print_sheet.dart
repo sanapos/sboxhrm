@@ -5,6 +5,7 @@ import '../../utils/pos_kitchen_print.dart';
 import '../../utils/pos_pending_print_store.dart';
 import '../../utils/pos_sale_order_print.dart';
 import '../pos/pos_theme.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// Bottom sheet phiếu in treo (HD / kho / bếp / tem) — thử lại / bỏ qua.
 Future<void> showPendingWarehousePrintSheet({
@@ -233,12 +234,12 @@ class _PendingWarehousePrintSheetBodyState
     final picked = await showDialog<PosStorePrinter>(
       context: context,
       builder: (dlgCtx) => SimpleDialog(
-        title: const Text('Chọn máy in'),
+        title: Text(tr('Chọn máy in')),
         children: widget.printers
             .map(
               (p) => SimpleDialogOption(
                 onPressed: () => Navigator.pop(dlgCtx, p),
-                child: Text(p.name),
+                child: Text(tr(p.name)),
               ),
             )
             .toList(),
@@ -271,8 +272,7 @@ class _PendingWarehousePrintSheetBodyState
                         color: Colors.orange.shade800),
                     const SizedBox(width: 8),
                     Expanded(
-                      child: Text(
-                        'Phiếu chưa in ($_totalCount)',
+                      child: Text(tr('Phiếu chưa in ($_totalCount)'),
                         style: const TextStyle(
                           fontSize: 17,
                           fontWeight: FontWeight.w700,
@@ -291,7 +291,7 @@ class _PendingWarehousePrintSheetBodyState
                           });
                           if (mounted) Navigator.pop(context);
                         },
-                        child: const Text('Bỏ qua hết'),
+                        child: Text(tr('Bỏ qua hết')),
                       ),
                   ],
                 ),
@@ -300,7 +300,7 @@ class _PendingWarehousePrintSheetBodyState
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: Text(
-                    _statusMessage!,
+                    tr(_statusMessage!),
                     style:
                         TextStyle(color: Colors.orange.shade900, fontSize: 13),
                   ),
@@ -310,10 +310,9 @@ class _PendingWarehousePrintSheetBodyState
                 padding: const EdgeInsets.fromLTRB(12, 8, 12, 16),
                 children: [
                   if (_localKitchenJobs.isNotEmpty) ...[
-                    const Padding(
+                    Padding(
                       padding: EdgeInsets.only(bottom: 6, left: 4),
-                      child: Text(
-                        'Phiếu bếp / hủy',
+                      child: Text(tr('Phiếu bếp / hủy'),
                         style: TextStyle(
                           fontWeight: FontWeight.w700,
                           fontSize: 13,
@@ -327,10 +326,9 @@ class _PendingWarehousePrintSheetBodyState
                     ],
                   ],
                   if (_localCupJobs.isNotEmpty) ...[
-                    const Padding(
+                    Padding(
                       padding: EdgeInsets.only(bottom: 6, left: 4, top: 4),
-                      child: Text(
-                        'Tem dán ly',
+                      child: Text(tr('Tem dán ly'),
                         style: TextStyle(
                           fontWeight: FontWeight.w700,
                           fontSize: 13,
@@ -344,10 +342,9 @@ class _PendingWarehousePrintSheetBodyState
                     ],
                   ],
                   if (_localSaleJobs.isNotEmpty) ...[
-                    const Padding(
+                    Padding(
                       padding: EdgeInsets.only(bottom: 6, left: 4, top: 4),
-                      child: Text(
-                        'Hóa đơn bán',
+                      child: Text(tr('Hóa đơn bán'),
                         style: TextStyle(
                           fontWeight: FontWeight.w700,
                           fontSize: 13,
@@ -361,10 +358,9 @@ class _PendingWarehousePrintSheetBodyState
                     ],
                   ],
                   if (_localJobs.isNotEmpty) ...[
-                    const Padding(
+                    Padding(
                       padding: EdgeInsets.only(bottom: 6, left: 4, top: 4),
-                      child: Text(
-                        'Phiếu xuất kho',
+                      child: Text(tr('Phiếu xuất kho'),
                         style: TextStyle(
                           fontWeight: FontWeight.w700,
                           fontSize: 13,
@@ -401,13 +397,13 @@ class _PendingWarehousePrintSheetBodyState
               children: [
                 Expanded(
                   child: Text(
-                    '${job.title} · ${job.tableName}',
+                    tr('${job.title} · ${job.tableName}'),
                     style: const TextStyle(fontWeight: FontWeight.w600),
                   ),
                 ),
                 IconButton(
                   visualDensity: VisualDensity.compact,
-                  tooltip: 'Bỏ qua',
+                  tooltip: tr('Bỏ qua'),
                   onPressed: busy
                       ? null
                       : () {
@@ -422,9 +418,9 @@ class _PendingWarehousePrintSheetBodyState
                 ),
               ],
             ),
-            Text(job.lineSummary, style: const TextStyle(fontSize: 13)),
+            Text(tr(job.lineSummary), style: const TextStyle(fontSize: 13)),
             Text(
-              job.errorMessage ?? 'In phiếu bếp thất bại',
+              tr(job.errorMessage ?? 'In phiếu bếp thất bại'),
               style: TextStyle(fontSize: 12, color: Colors.red.shade700),
             ),
             const SizedBox(height: 8),
@@ -441,7 +437,7 @@ class _PendingWarehousePrintSheetBodyState
                 child: OutlinedButton.icon(
                   onPressed: () => _retryKitchen(job),
                   icon: const Icon(Icons.refresh, size: 16),
-                  label: const Text('In lại phiếu bếp'),
+                  label: Text(tr('In lại phiếu bếp')),
                 ),
               ),
           ],
@@ -464,14 +460,14 @@ class _PendingWarehousePrintSheetBodyState
               children: [
                 Expanded(
                   child: Text(
-                    'Tem ly × ${job.tickets.length}'
-                    '${(job.tableLabel ?? '').isNotEmpty ? ' · ${job.tableLabel}' : ''}',
+                    tr('Tem ly × ${job.tickets.length}'
+                    '${(job.tableLabel ?? '').isNotEmpty ? ' · ${job.tableLabel}' : ''}'),
                     style: const TextStyle(fontWeight: FontWeight.w600),
                   ),
                 ),
                 IconButton(
                   visualDensity: VisualDensity.compact,
-                  tooltip: 'Bỏ qua',
+                  tooltip: tr('Bỏ qua'),
                   onPressed: busy
                       ? null
                       : () {
@@ -486,9 +482,9 @@ class _PendingWarehousePrintSheetBodyState
                 ),
               ],
             ),
-            Text(job.lineSummary, style: const TextStyle(fontSize: 13)),
+            Text(tr(job.lineSummary), style: const TextStyle(fontSize: 13)),
             Text(
-              job.errorMessage ?? 'In tem ly thất bại',
+              tr(job.errorMessage ?? 'In tem ly thất bại'),
               style: TextStyle(fontSize: 12, color: Colors.red.shade700),
             ),
             const SizedBox(height: 8),
@@ -505,7 +501,7 @@ class _PendingWarehousePrintSheetBodyState
                 child: OutlinedButton.icon(
                   onPressed: () => _retryCup(job),
                   icon: const Icon(Icons.refresh, size: 16),
-                  label: const Text('In lại tem'),
+                  label: Text(tr('In lại tem')),
                 ),
               ),
           ],
@@ -528,13 +524,13 @@ class _PendingWarehousePrintSheetBodyState
               children: [
                 Expanded(
                   child: Text(
-                    job.orderLabel,
+                    tr(job.orderLabel),
                     style: const TextStyle(fontWeight: FontWeight.w600),
                   ),
                 ),
                 IconButton(
                   visualDensity: VisualDensity.compact,
-                  tooltip: 'Bỏ qua',
+                  tooltip: tr('Bỏ qua'),
                   onPressed: busy
                       ? null
                       : () {
@@ -549,9 +545,9 @@ class _PendingWarehousePrintSheetBodyState
                 ),
               ],
             ),
-            Text(job.lineSummary, style: const TextStyle(fontSize: 13)),
+            Text(tr(job.lineSummary), style: const TextStyle(fontSize: 13)),
             Text(
-              job.errorMessage ?? 'In hóa đơn thất bại',
+              tr(job.errorMessage ?? 'In hóa đơn thất bại'),
               style: TextStyle(fontSize: 12, color: Colors.red.shade700),
             ),
             const SizedBox(height: 8),
@@ -568,7 +564,7 @@ class _PendingWarehousePrintSheetBodyState
                 child: OutlinedButton.icon(
                   onPressed: () => _retrySale(job),
                   icon: const Icon(Icons.refresh, size: 16),
-                  label: const Text('In lại hóa đơn'),
+                  label: Text(tr('In lại hóa đơn')),
                 ),
               ),
           ],
@@ -591,13 +587,13 @@ class _PendingWarehousePrintSheetBodyState
               children: [
                 Expanded(
                   child: Text(
-                    job.orderLabel,
+                    tr(job.orderLabel),
                     style: const TextStyle(fontWeight: FontWeight.w600),
                   ),
                 ),
                 IconButton(
                   visualDensity: VisualDensity.compact,
-                  tooltip: 'Bỏ qua',
+                  tooltip: tr('Bỏ qua'),
                   onPressed: busy
                       ? null
                       : () {
@@ -612,17 +608,16 @@ class _PendingWarehousePrintSheetBodyState
                 ),
               ],
             ),
-            Text(job.lineSummary, style: const TextStyle(fontSize: 13)),
+            Text(tr(job.lineSummary), style: const TextStyle(fontSize: 13)),
             if (job.printerName.isNotEmpty)
-              Text(
-                'Máy in: ${job.printerName}',
+              Text(tr('Máy in: ${job.printerName}'),
                 style: const TextStyle(
                   fontSize: 12,
                   color: PosTheme.textSecondary,
                 ),
               ),
             Text(
-              job.errorMessage ?? job.reason.label,
+              tr(job.errorMessage ?? job.reason.label),
               style: TextStyle(fontSize: 12, color: Colors.red.shade700),
             ),
             const SizedBox(height: 8),
@@ -646,12 +641,12 @@ class _PendingWarehousePrintSheetBodyState
                         WarehouseSlipPrintMethod.assigned,
                       ),
                       icon: const Icon(Icons.refresh, size: 16),
-                      label: const Text('In lại'),
+                      label: Text(tr('In lại')),
                     ),
                   OutlinedButton.icon(
                     onPressed: () => _pickPrinterAndRetry(job),
                     icon: const Icon(Icons.print_outlined, size: 16),
-                    label: const Text('Máy khác'),
+                    label: Text(tr('Máy khác')),
                   ),
                   OutlinedButton.icon(
                     onPressed: () => _retry(
@@ -659,7 +654,7 @@ class _PendingWarehousePrintSheetBodyState
                       WarehouseSlipPrintMethod.localThermal,
                     ),
                     icon: const Icon(Icons.settings_ethernet, size: 16),
-                    label: const Text('In cục bộ'),
+                    label: Text(tr('In cục bộ')),
                   ),
                   OutlinedButton.icon(
                     onPressed: () => _retry(
@@ -667,7 +662,7 @@ class _PendingWarehousePrintSheetBodyState
                       WarehouseSlipPrintMethod.htmlPreview,
                     ),
                     icon: const Icon(Icons.description_outlined, size: 16),
-                    label: const Text('HTML'),
+                    label: Text(tr('HTML')),
                   ),
                 ],
               ),
@@ -700,9 +695,9 @@ class PosPendingPrintIconButton extends StatelessWidget {
       children: [
         IconButton(
           visualDensity: VisualDensity.compact,
-          tooltip: pendingCount > 0
+          tooltip: tr(pendingCount > 0
               ? 'Phiếu chưa in ($pendingCount)'
-              : 'Phiếu in treo',
+              : 'Phiếu in treo'),
           icon: Icon(
             pendingCount > 0
                 ? Icons.print_disabled_outlined
@@ -725,7 +720,7 @@ class PosPendingPrintIconButton extends StatelessWidget {
               ),
               constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
               child: Text(
-                pendingCount > 99 ? '99+' : '$pendingCount',
+                tr(pendingCount > 99 ? '99+' : '$pendingCount'),
                 textAlign: TextAlign.center,
                 style: const TextStyle(
                   color: Colors.white,

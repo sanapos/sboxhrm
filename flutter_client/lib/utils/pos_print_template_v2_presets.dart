@@ -1,5 +1,6 @@
 import '../models/pos_print_template.dart';
 import '../models/pos_print_template_v2.dart';
+import '../l10n/app_tr.dart';
 
 /// Preset mẫu in V2 theo loại phiếu + khổ + máy in.
 abstract final class PosPrintTemplateV2Presets {
@@ -106,7 +107,7 @@ abstract final class PosPrintTemplateV2Presets {
         ),
         PosPrintBlock(
           type: PosPrintBlockType.text,
-          text: '{Gio}',
+          text: tr('{Gio}'),
           style: PosPrintTextStyle(fontSize: smallSize),
         ),
         PosPrintBlock(
@@ -142,7 +143,7 @@ abstract final class PosPrintTemplateV2Presets {
         ),
         PosPrintBlock(
           type: PosPrintBlockType.text,
-          text: 'Cảm ơn quý khách!',
+          text: tr('Cảm ơn quý khách!'),
           style: PosPrintTextStyle(fontSize: smallSize, bold: true, align: PosPrintTextAlign.center),
         ),
         PosPrintBlock(
@@ -176,12 +177,12 @@ abstract final class PosPrintTemplateV2Presets {
           ),
           PosPrintBlock(
             type: PosPrintBlockType.text,
-            text: isCancel ? '*** PHIẾU HỦY ***' : '*** BÁO CHẾ BIẾN ***',
+            text: tr(isCancel ? '*** PHIẾU HỦY ***' : '*** BÁO CHẾ BIẾN ***'),
             style: PosPrintTextStyle(fontSize: titleSize - 2, bold: true, align: PosPrintTextAlign.center),
           ),
           PosPrintBlock(
             type: PosPrintBlockType.text,
-            text: 'Mã HĐ: {Ma_Don_Hang}',
+            text: tr('Mã HĐ: {Ma_Don_Hang}'),
             style: PosPrintTextStyle(fontSize: bodySize, bold: true),
           ),
           PosPrintBlock(
@@ -191,7 +192,7 @@ abstract final class PosPrintTemplateV2Presets {
           ),
           PosPrintBlock(
             type: PosPrintBlockType.text,
-            text: 'Ngày: {Ngay} {Gio}',
+            text: tr('Ngày: {Ngay} {Gio}'),
             style: PosPrintTextStyle(fontSize: bodySize, bold: true),
           ),
           const PosPrintBlock(type: PosPrintBlockType.divider, divider: PosPrintDividerStyle.equals),

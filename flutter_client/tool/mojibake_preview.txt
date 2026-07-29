@@ -1,0 +1,244 @@
+=== src\ZKTecoADMS.Api\Controllers\AssetsController.cs
+  45
+    - AssetType.Electronics => "Thiáº¿t bá»‹ Ä‘iá»‡n tá»­",
+    + AssetType.Electronics => "Thiết bị điện tử",
+  46
+    - AssetType.Furniture => "Ná»™i tháº¥t",
+    + AssetType.Furniture => "Nội thất",
+  47
+    - AssetType.Vehicle => "PhÆ°Æ¡ng tiá»‡n",
+    + AssetType.Vehicle => "Phương tiện",
+=== src\ZKTecoADMS.Api\Controllers\BankAccountsController.cs
+  22
+    - /// Láº¥y danh sÃ¡ch tÃ i khoáº£n ngÃ¢n hÃ ng
+    + /// Lấy danh sách tài khoản ngân hàng
+  31
+    - // Láº¥y danh sÃ¡ch bank accounts liÃªn káº¿t qua transactions
+    + // Lấy danh sách bank accounts liên kết qua transactions
+  58
+    - /// Láº¥y chi tiáº¿t tÃ i khoáº£n ngÃ¢n hÃ ng
+    + /// Lấy chi tiết tài khoản ngân hàng
+=== src\ZKTecoADMS.Api\Controllers\BiometricController.cs
+  15
+    - /// Controller quáº£n lÃ½ sinh tráº¯c há»c (vÃ¢n tay, khuÃ´n máº·t) giá»¯a cÃ¡c thiáº¿t bá»‹.
+    + /// Controller quản lý sinh trắc học (vân tay, khuôn mặt) giữa các thiết bị.
+  16
+    - /// Há»— trá»£ xem, thá»‘ng kÃª vÃ  sao chÃ©p dá»¯ liá»‡u sinh tráº¯c giá»¯a cÃ¡c mÃ¡y cháº¥m cÃ´ng.
+    + /// Hỗ trợ xem, thống kê và sao chép dữ liệu sinh trắc giữa các máy chấm công.
+  29
+    - /// Láº¥y danh sÃ¡ch dá»¯ liá»‡u sinh tráº¯c há»c cá»§a má»™t thiáº¿t bá»‹
+    + /// Lấy danh sách dữ liệu sinh trắc học của một thiết bị
+=== src\ZKTecoADMS.Api\Controllers\BranchController.cs
+  16
+    - /// API Controller quáº£n lÃ½ chi nhÃ¡nh
+    + /// API Controller quản lý chi nhánh
+  28
+    - // Láº¤Y DANH SÃCH
+    + // LẤY DANH SÁCH
+  32
+    - /// Láº¥y danh sÃ¡ch chi nhÃ¡nh (flat list)
+    + /// Lấy danh sách chi nhánh (flat list)
+=== src\ZKTecoADMS.Api\Controllers\CommunicationController.cs
+  214
+    - return StatusCode(500, AppResponse<object>.Fail("Lá»—i khi láº¥y danh sÃ¡ch bÃ i truyá»n thÃ´ng"));
+    + return StatusCode(500, AppResponse<object>.Fail("Lỗi khi lấy danh sách bài truyền thông"));
+  324
+    - return StatusCode(500, AppResponse<object>.Fail("Lá»—i khi láº¥y bÃ i truyá»n thÃ´ng"));
+    + return StatusCode(500, AppResponse<object>.Fail("Lỗi khi lấy bài truyền thông"));
+  388
+    - "BÃ i truyá»n thÃ´ng má»›i",
+    + "Bài truyền thông mới",
+=== src\ZKTecoADMS.Api\Controllers\ContentCategoriesController.cs
+  24
+    - /// Láº¥y danh sÃ¡ch thÆ° má»¥c theo loáº¡i ná»™i dung
+    + /// Lấy danh sách thư mục theo loại nội dung
+  67
+    - return StatusCode(500, AppResponse<object>.Fail("Lá»—i khi láº¥y danh sÃ¡ch thÆ° má»¥c"));
+    + return StatusCode(500, AppResponse<object>.Fail("Lỗi khi lấy danh sách thư mục"));
+  72
+    - /// Táº¡o thÆ° má»¥c má»›i
+    + /// Tạo thư mục mới
+=== src\ZKTecoADMS.Api\Controllers\DepartmentPermissionsController.cs
+  22
+    - /// Láº¥y cÃ¢y phÃ²ng ban kÃ¨m thÃ´ng tin quyá»n
+    + /// Lấy cây phòng ban kèm thông tin quyền
+  50
+    - // Láº¥y tÃªn manager
+    + // Lấy tên manager
+  83
+    - /// Láº¥y quyá»n phÃ²ng ban theo user
+    + /// Lấy quyền phòng ban theo user
+=== src\ZKTecoADMS.Api\Controllers\DepartmentsController.cs
+  24
+    - /// Láº¥y danh sÃ¡ch phÃ²ng ban cÃ³ phÃ¢n trang
+    + /// Lấy danh sách phòng ban có phân trang
+  40
+    - /// Láº¥y cÃ¢y phÃ²ng ban (tree view)
+    + /// Lấy cây phòng ban (tree view)
+  54
+    - /// Láº¥y danh sÃ¡ch phÃ²ng ban cho dropdown
+    + /// Lấy danh sách phòng ban cho dropdown
+=== src\ZKTecoADMS.Api\Controllers\DeviceUsersController.cs
+  86
+    - /// Láº¥y danh sÃ¡ch vÃ¢n tay Ä‘Ã£ Ä‘Äƒng kÃ½ cho device user
+    + /// Lấy danh sách vân tay đã đăng ký cho device user
+  111
+    - return Ok(AppResponse<IEnumerable<FingerprintDto>>.Fail($"Lá»—i láº¥y vÃ¢n tay: {ex.Message}"));
+    + return Ok(AppResponse<IEnumerable<FingerprintDto>>.Fail($"Lỗi lấy vân tay: {ex.Message}"));
+  116
+    - /// Láº¥y danh sÃ¡ch khuÃ´n máº·t Ä‘Ã£ Ä‘Äƒng kÃ½ cho device user
+    + /// Lấy danh sách khuôn mặt đã đăng ký cho device user
+=== src\ZKTecoADMS.Api\Controllers\DevicesController.cs
+  84
+    - return Ok(AppResponse<DeviceDto>.Error($"Lá»—i thÃªm thiáº¿t bá»‹: {ex.Message}"));
+    + return Ok(AppResponse<DeviceDto>.Error($"Lỗi thêm thiết bị: {ex.Message}"));
+  98
+    - return Ok(AppResponse<Guid>.Error("KhÃ´ng tÃ¬m tháº¥y thiáº¿t bá»‹"));
+    + return Ok(AppResponse<Guid>.Error("Không tìm thấy thiết bị"));
+  100
+    - return Ok(AppResponse<Guid>.Error("Báº¡n khÃ´ng cÃ³ quyá»n xÃ³a thiáº¿t bá»‹ nÃ y"));
+    + return Ok(AppResponse<Guid>.Error("Bạn không có quyền xóa thiết bị này"));
+=== src\ZKTecoADMS.Api\Controllers\FieldCheckInController.cs
+  75
+    - /// NÃ©n áº£nh: resize max 1024px, JPEG quality 65%
+    + /// Nén ảnh: resize max 1024px, JPEG quality 65%
+  91
+    - // ==================== FIELD LOCATIONS (Ã„ÂIÃ¡Â»â€šM BÃƒÂN KHÃƒÂCH HÃƒâ‚¬NG) ====================
+    + // ==================== FIELD LOCATIONS (ĐIỂM BÁN KHÁCH HÀNG) ====================
+  94
+    - /// LÃ¡ÂºÂ¥y danh sÃƒÂ¡ch tÃ¡ÂºÂ¥t cÃ¡ÂºÂ£ Ã„â€˜iÃ¡Â»Æ’m bÃƒÂ¡n (nhÃƒÂ¢n viÃƒÂªn + manager Ã„â€˜Ã¡Â»Âu xem Ã„â€˜Ã†Â°Ã¡Â»Â£c)
+    + /// Lấy danh sách tất cả điểm bán (nhân viên + manager đều xem được)
+=== src\ZKTecoADMS.Api\Controllers\GoogleSheetsController.cs
+  14
+    - /// API Controller Ä‘á»ƒ quáº£n lÃ½ Google Sheets Integration
+    + /// API Controller để quản lý Google Sheets Integration
+  42
+    - /// Kiá»ƒm tra káº¿t ná»‘i Google Sheets
+    + /// Kiểm tra kết nối Google Sheets
+  53
+    - return Ok(AppResponse<bool>.Fail("KhÃ´ng thá»ƒ káº¿t ná»‘i Google Sheets"));
+    + return Ok(AppResponse<bool>.Fail("Không thể kết nối Google Sheets"));
+=== src\ZKTecoADMS.Api\Controllers\HolidaysController.cs
+  186
+    - public string Category { get; set; } = "NgÃ y nghá»‰ chÃ­nh thá»©c";
+    + public string Category { get; set; } = "Ngày nghỉ chính thức";
+  198
+    - public string Category { get; set; } = "NgÃ y nghá»‰ chÃ­nh thá»©c";
+    + public string Category { get; set; } = "Ngày nghỉ chính thức";
+  210
+    - public string Category { get; set; } = "NgÃ y nghá»‰ chÃ­nh thá»©c";
+    + public string Category { get; set; } = "Ngày nghỉ chính thức";
+=== src\ZKTecoADMS.Api\Controllers\HrDocumentsController.cs
+  21
+    - /// Láº¥y danh sÃ¡ch tÃ i liá»‡u HR
+    + /// Lấy danh sách tài liệu HR
+  49
+    - /// Láº¥y danh sÃ¡ch tÃ i liá»‡u sáº¯p háº¿t háº¡n
+    + /// Lấy danh sách tài liệu sắp hết hạn
+  63
+    - /// Táº¡o tÃ i liá»‡u má»›i
+    + /// Tạo tài liệu mới
+=== src\ZKTecoADMS.Api\Controllers\KpiController.cs
+  20
+    - /// API Controller quáº£n lÃ½ KPI Salary - TÃ­nh lÆ°Æ¡ng theo KPI káº¿t ná»‘i Google Sheet
+    + /// API Controller quản lý KPI Salary - Tính lương theo KPI kết nối Google Sheet
+  42
+    - /// Láº¥y danh sÃ¡ch cáº¥u hÃ¬nh KPI
+    + /// Lấy danh sách cấu hình KPI
+  79
+    - /// Táº¡o cáº¥u hÃ¬nh KPI má»›i
+    + /// Tạo cấu hình KPI mới
+=== src\ZKTecoADMS.Api\Controllers\MobileAttendanceController.cs
+  6595
+    - // Äá»“ng bá»™ vÃ o báº£ng cháº¥m cÃ´ng chÃ­nh náº¿u auto_approved
+    + // Đồng bộ vào bảng chấm công chính nếu auto_approved
+  6649
+    - // Gá»­i thÃ´ng bÃ¡o cho quáº£n lÃ½ náº¿u báº£n ghi cáº§n duyá»‡t
+    + // Gửi thông báo cho quản lý nếu bản ghi cần duyệt
+  7567
+    - // Äá»“ng bá»™ vÃ o báº£ng cháº¥m cÃ´ng chÃ­nh khi Ä‘Æ°á»£c duyá»‡t
+    + // Đồng bộ vào bảng chấm công chính khi được duyệt
+=== src\ZKTecoADMS.Api\Controllers\NotificationPreferencesController.cs
+  20
+    - /// Láº¥y danh sÃ¡ch nhÃ³m thÃ´ng bÃ¡o
+    + /// Lấy danh sách nhóm thông báo
+  47
+    - /// Láº¥y thiáº¿t láº­p nháº­n thÃ´ng bÃ¡o cá»§a user hiá»‡n táº¡i
+    + /// Lấy thiết lập nhận thông báo của user hiện tại
+  82
+    - /// Cáº­p nháº­t thiáº¿t láº­p nháº­n thÃ´ng bÃ¡o
+    + /// Cập nhật thiết lập nhận thông báo
+=== src\ZKTecoADMS.Api\Controllers\OrgChartController.cs
+  15
+    - /// API Controller quáº£n lÃ½ sÆ¡ Ä‘á»“ tá»• chá»©c & luá»“ng duyá»‡t
+    + /// API Controller quản lý sơ đồ tổ chức & luồng duyệt
+  28
+    - // CHá»¨C Vá»¤ (OrgPosition) CRUD
+    + // CHỨC VỤ (OrgPosition) CRUD
+  32
+    - /// Láº¥y danh sÃ¡ch chá»©c vá»¥
+    + /// Lấy danh sách chức vụ
+=== src\ZKTecoADMS.Api\Controllers\PenaltyTicketsController.cs
+  399
+    - // 00:00â€“07:00 VN that would point at the wrong month/year.
+    + // 00:00–07:00 VN that would point at the wrong month/year.
+  402
+    - // Base query â€” todos os filtros comuns
+    + // Base query — todos os filtros comuns
+=== src\ZKTecoADMS.Api\Controllers\PermissionManagementController.cs
+  17
+    - /// Controller Ä‘á»ƒ quáº£n lÃ½ phÃ¢n quyá»n theo role
+    + /// Controller để quản lý phân quyền theo role
+  32
+    - /// Láº¥y táº¥t cáº£ permissions cá»§a má»™t role
+    + /// Lấy tất cả permissions của một role
+  49
+    - // Táº¡o permissions máº·c Ä‘á»‹nh náº¿u chÆ°a cÃ³
+    + // Tạo permissions mặc định nếu chưa có
+=== src\ZKTecoADMS.Api\Controllers\ProductionController.cs
+  111
+    - if (group == null) return NotFound(AppResponse<ProductGroupDto>.Fail("KhÃ´ng tÃ¬m tháº¥y nhÃ³m sáº£n pháº©m"));
+    + if (group == null) return NotFound(AppResponse<ProductGroupDto>.Fail("Không tìm thấy nhóm sản phẩm"));
+  132
+    - if (group == null) return NotFound(AppResponse<bool>.Fail("KhÃ´ng tÃ¬m tháº¥y nhÃ³m sáº£n pháº©m"));
+    + if (group == null) return NotFound(AppResponse<bool>.Fail("Không tìm thấy nhóm sản phẩm"));
+  226
+    - if (item == null) return NotFound(AppResponse<ProductItemDto>.Fail("KhÃ´ng tÃ¬m tháº¥y sáº£n pháº©m"));
+    + if (item == null) return NotFound(AppResponse<ProductItemDto>.Fail("Không tìm thấy sản phẩm"));
+=== src\ZKTecoADMS.Api\Controllers\ReportsController.cs
+  26
+    - // Typed projection for ShiftTemplate used by daily report â€” using a named record
+    + // Typed projection for ShiftTemplate used by daily report — using a named record
+  131
+    - // Get attendances for the date (filter by Device.StoreId) â€” use Select projection.
+    + // Get attendances for the date (filter by Device.StoreId) — use Select projection.
+  180
+    - // Load active salary profile (Benefit) for each employee â€” used as a
+    + // Load active salary profile (Benefit) for each employee — used as a
+=== src\ZKTecoADMS.Api\Controllers\SettingsController.cs
+  377
+    - // App Settings (Thiáº¿t láº­p há»‡ thá»‘ng)
+    + // App Settings (Thiết lập hệ thống)
+  457
+    - /// Láº¥y danh sÃ¡ch module Ä‘Æ°á»£c phÃ©p cá»§a cá»­a hÃ ng hiá»‡n táº¡i (dá»±a trÃªn gÃ³i dá»‹ch vá»¥)
+    + /// Lấy danh sách module được phép của cửa hàng hiện tại (dựa trên gói dịch vụ)
+=== src\ZKTecoADMS.Api\Controllers\TasksController.cs
+  86
+    - /// Láº¥y danh sÃ¡ch cÃ´ng viá»‡c
+    + /// Lấy danh sách công việc
+  286
+    - /// Láº¥y cÃ´ng viá»‡c cá»§a tÃ´i
+    + /// Lấy công việc của tôi
+  385
+    - /// Láº¥y chi tiáº¿t cÃ´ng viá»‡c
+    + /// Lấy chi tiết công việc
+=== src\ZKTecoADMS.Api\Controllers\UserManagementController.cs
+  20
+    - /// Controller Ä‘á»ƒ quáº£n lÃ½ ngÆ°á»i dÃ¹ng trong cá»­a hÃ ng
+    + /// Controller để quản lý người dùng trong cửa hàng
+  34
+    - /// Láº¥y danh sÃ¡ch táº¥t cáº£ users trong cá»­a hÃ ng (cÃ³ phÃ¢n trang)
+    + /// Lấy danh sách tất cả users trong cửa hàng (có phân trang)
+  126
+    - /// Láº¥y thÃ´ng tin chi tiáº¿t user theo ID
+    + /// Lấy thông tin chi tiết user theo ID

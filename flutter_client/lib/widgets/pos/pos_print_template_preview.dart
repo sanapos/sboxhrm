@@ -4,6 +4,7 @@ import '../../models/pos_print_template.dart';
 import '../../models/pos_print_template_v2.dart';
 import '../../utils/pos_print_template_compiler.dart';
 import '../../utils/pos_print_template_renderer.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// Xem trước mẫu in V2 — render Flutter native (khớp layout in nhiệt).
 Widget buildPosPrintTemplatePreview(PosPrintTemplateV2 template) {
@@ -14,7 +15,7 @@ Widget buildPosPrintTemplatePreview(PosPrintTemplateV2 template) {
     vietQrImageUrl: 'sample',
   );
   if (output.steps.isEmpty) {
-    return const Center(child: Text('Chưa có nội dung'));
+    return Center(child: Text(tr('Chưa có nội dung')));
   }
 
   final paperPx = _paperPreviewWidthPx(template.paperSize);
@@ -94,7 +95,7 @@ class _PreviewLine extends StatelessWidget {
       return Padding(
         padding: const EdgeInsets.symmetric(vertical: 4),
         child: Text(
-          line.text,
+          tr(line.text),
           maxLines: 1,
           overflow: TextOverflow.clip,
           style: TextStyle(
@@ -121,7 +122,7 @@ class _PreviewLine extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 1),
       child: Text(
-        line.text,
+        tr(line.text),
         textAlign: align,
         style: TextStyle(
           fontSize: _previewFontSize(line.fontSize, paperPx),
@@ -153,9 +154,9 @@ class _PreviewPair extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(child: Text(pair.left, style: style)),
+          Expanded(child: Text(tr(pair.left), style: style)),
           const SizedBox(width: 6),
-          Text(pair.right, style: style, textAlign: TextAlign.right),
+          Text(tr(pair.right), style: style, textAlign: TextAlign.right),
         ],
       ),
     );
@@ -181,7 +182,7 @@ class _PreviewQr extends StatelessWidget {
       child: Column(
         children: [
           if (qr.title != null && qr.title!.trim().isNotEmpty)
-            Text(qr.title!.trim(), textAlign: TextAlign.center, style: captionStyle),
+            Text(tr(qr.title!.trim()), textAlign: TextAlign.center, style: captionStyle),
           Container(
             width: size,
             height: size,
@@ -193,10 +194,9 @@ class _PreviewQr extends StatelessWidget {
             child: const Icon(Icons.qr_code_2, size: 48, color: Colors.black54),
           ),
           if (qr.caption.trim().isNotEmpty)
-            Text(qr.caption.trim(), textAlign: TextAlign.center, style: captionStyle),
+            Text(tr(qr.caption.trim()), textAlign: TextAlign.center, style: captionStyle),
           if (qr.amountText != null && qr.amountText!.trim().isNotEmpty)
-            Text(
-              '${qr.amountText!.trim()} đ',
+            Text(tr('${qr.amountText!.trim()} đ'),
               textAlign: TextAlign.center,
               style: captionStyle.copyWith(fontWeight: FontWeight.w700),
             ),

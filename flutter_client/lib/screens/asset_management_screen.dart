@@ -20,6 +20,7 @@ import '../widgets/hrm_mini_stat_chip.dart';
 import 'package:provider/provider.dart';
 import '../providers/permission_provider.dart';
 import '../widgets/hrm_page_chrome.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 class AssetManagementScreen extends StatefulWidget {
   const AssetManagementScreen({super.key});
@@ -275,14 +276,14 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
       context: context,
       builder: (ctx) => ScrollableAlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
-        content: Text(message),
+        title: Text(tr(title), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+        content: Text(tr(message)),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Đóng', style: TextStyle(color: Color(0xFF71717A)))),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Đóng'), style: TextStyle(color: Color(0xFF71717A)))),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: ElevatedButton.styleFrom(backgroundColor: confirmColor, foregroundColor: Colors.white),
-            child: Text(confirmText),
+            child: Text(tr(confirmText)),
           ),
         ],
       ),
@@ -424,7 +425,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                     Icon(tab.$1, size: isMobile ? 16 : 18, color: isActive ? HrmPageChrome.primaryNavy : const Color(0xFF71717A)),
                     const SizedBox(width: 6),
                     Text(
-                      tab.$2,
+                      tr(tab.$2),
                       style: TextStyle(
                         fontSize: isMobile ? 12 : 14,
                         fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
@@ -490,7 +491,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                   Icon(Icons.analytics_outlined,
                       size: 16, color: Colors.blue.shade700),
                   const SizedBox(width: 6),
-                  Text('Tổng quan',
+                  Text(tr('Tổng quan'),
                       style: TextStyle(
                           fontWeight: FontWeight.w600,
                           fontSize: 13,
@@ -560,16 +561,16 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('Kiểm kê hàng hóa', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: Color(0xFF18181B))),
+                      Text(tr('Kiểm kê hàng hóa'), style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: Color(0xFF18181B))),
                       if (totalInventories > 0)
-                        Text('$totalInventories đợt · $totalChecked/$totalAssets đã kiểm', style: const TextStyle(fontSize: 11, color: Color(0xFF71717A))),
+                        Text(tr('$totalInventories đợt · $totalChecked/$totalAssets đã kiểm'), style: const TextStyle(fontSize: 11, color: Color(0xFF71717A))),
                     ],
                   ),
                 ),
                 FilledButton.icon(
                   onPressed: () => _showInventoryDialog(),
                   icon: const Icon(Icons.add, size: 16),
-                  label: const Text('Tạo mới', style: TextStyle(fontSize: 13)),
+                  label: Text(tr('Tạo mới'), style: TextStyle(fontSize: 13)),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: HrmPageChrome.primaryNavy, foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
@@ -645,8 +646,8 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
           children: [
             Icon(icon, size: 18, color: color),
             const SizedBox(height: 4),
-            Text(value, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: color)),
-            Text(label, style: TextStyle(fontSize: 9, color: color.withValues(alpha: 0.7), fontWeight: FontWeight.w500)),
+            Text(tr(value), style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: color)),
+            Text(tr(label), style: TextStyle(fontSize: 9, color: color.withValues(alpha: 0.7), fontWeight: FontWeight.w500)),
           ],
         ),
       ),
@@ -658,12 +659,12 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
       children: [
         Icon(icon, size: 14, color: color),
         const SizedBox(width: 6),
-        Text(title, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: color)),
+        Text(tr(title), style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: color)),
         const SizedBox(width: 6),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
           decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
-          child: Text('$count', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: color)),
+          child: Text(tr('$count'), style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: color)),
         ),
       ],
     );
@@ -702,7 +703,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                   child: FilledButton.icon(
                     onPressed: () => _showStockDialog(isStockIn: true),
                     icon: const Icon(Icons.add_box, size: 20),
-                    label: const Text('Nhập kho'),
+                    label: Text(tr('Nhập kho')),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF059669), foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 14),
@@ -715,7 +716,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                   child: FilledButton.icon(
                     onPressed: () => _showStockDialog(isStockIn: false),
                     icon: const Icon(Icons.outbox, size: 20),
-                    label: const Text('Xuất kho'),
+                    label: Text(tr('Xuất kho')),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFFEF4444), foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 14),
@@ -740,11 +741,11 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Row(
+                  Row(
                     children: [
                       Icon(Icons.warning_amber, size: 18, color: Color(0xFFD97706)),
                       SizedBox(width: 6),
-                      Text('Sản phẩm sắp hết', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFFD97706))),
+                      Text(tr('Sản phẩm sắp hết'), style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFFD97706))),
                     ],
                   ),
                   const SizedBox(height: 8),
@@ -752,11 +753,11 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                     padding: const EdgeInsets.only(bottom: 4),
                     child: Row(
                       children: [
-                        Expanded(child: Text(item.assetName ?? item.assetCode ?? "SP", style: const TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis)),
+                        Expanded(child: Text(tr(item.assetName ?? item.assetCode ?? "SP"), style: const TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis)),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                           decoration: BoxDecoration(color: const Color(0xFFFEE2E2), borderRadius: BorderRadius.circular(4)),
-                          child: Text('Còn ${item.quantity} ${item.unit ?? ""}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFFEF4444))),
+                          child: Text(tr('Còn ${item.quantity} ${item.unit ?? ""}'), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFFEF4444))),
                         ),
                       ],
                     ),
@@ -780,17 +781,17 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: Color(0xFFE4E4E7)))),
-                    child: const Row(
+                    child: Row(
                       children: [
-                        Expanded(flex: 3, child: Text('Sản phẩm', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF64748B)))),
-                        Expanded(flex: 1, child: Text('Tồn', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF64748B)), textAlign: TextAlign.center)),
-                        Expanded(flex: 1, child: Text('ĐVT', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF64748B)), textAlign: TextAlign.center)),
+                        Expanded(flex: 3, child: Text(tr('Sản phẩm'), style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF64748B)))),
+                        Expanded(flex: 1, child: Text(tr('Tồn'), style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF64748B)), textAlign: TextAlign.center)),
+                        Expanded(flex: 1, child: Text(tr('ĐVT'), style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF64748B)), textAlign: TextAlign.center)),
                       ],
                     ),
                   ),
                   Expanded(
                     child: _assets.isEmpty
-                        ? const Center(child: Text('Chưa có sản phẩm', style: TextStyle(color: Color(0xFFA1A1AA))))
+                        ? Center(child: Text(tr('Chưa có sản phẩm'), style: TextStyle(color: Color(0xFFA1A1AA))))
                         : ListView.builder(
                             padding: EdgeInsets.zero,
                             itemCount: _assets.length,
@@ -808,8 +809,8 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                                         child: Column(
                                           crossAxisAlignment: CrossAxisAlignment.start,
                                           children: [
-                                            Text(asset.name, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600), maxLines: 1, overflow: TextOverflow.ellipsis),
-                                            Text(asset.assetCode, style: const TextStyle(fontSize: 11, color: Color(0xFF71717A))),
+                                            Text(tr(asset.name), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600), maxLines: 1, overflow: TextOverflow.ellipsis),
+                                            Text(tr(asset.assetCode), style: const TextStyle(fontSize: 11, color: Color(0xFF71717A))),
                                           ],
                                         ),
                                       ),
@@ -822,7 +823,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                                             borderRadius: BorderRadius.circular(6),
                                           ),
                                           child: Text(
-                                            '${asset.quantity}',
+                                            tr('${asset.quantity}'),
                                             style: TextStyle(
                                               fontSize: 13, fontWeight: FontWeight.bold,
                                               color: asset.quantity <= 5 ? const Color(0xFFEF4444) : const Color(0xFF059669),
@@ -833,7 +834,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                                       ),
                                       Expanded(
                                         flex: 1,
-                                        child: Text(asset.unit, style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)), textAlign: TextAlign.center),
+                                        child: Text(tr(asset.unit), style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)), textAlign: TextAlign.center),
                                       ),
                                     ],
                                   ),
@@ -875,8 +876,8 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(value, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: color)),
-                Text(label, style: const TextStyle(fontSize: 11, color: Color(0xFF71717A))),
+                Text(tr(value), style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: color)),
+                Text(tr(label), style: const TextStyle(fontSize: 11, color: Color(0xFF71717A))),
               ],
             ),
           ),
@@ -902,7 +903,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
               children: [
                 Icon(isStockIn ? Icons.add_box : Icons.outbox, color: isStockIn ? const Color(0xFF059669) : const Color(0xFFEF4444)),
                 const SizedBox(width: 8),
-                Text(isStockIn ? 'Nhập kho' : 'Xuất kho'),
+                Text(tr(isStockIn ? 'Nhập kho' : 'Xuất kho')),
               ],
             ),
             content: SingleChildScrollView(
@@ -915,13 +916,13 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                     DropdownButtonFormField<String>(
                       initialValue: selectedAssetId,
                       decoration: InputDecoration(
-                        labelText: 'Sản phẩm *',
+                        labelText: tr('Sản phẩm *'),
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                         isDense: true,
                       ),
                       items: _assets.map((a) => DropdownMenuItem(
                         value: a.id,
-                        child: Text('${a.name} (Tồn: ${a.quantity})', style: const TextStyle(fontSize: 13), overflow: TextOverflow.ellipsis),
+                        child: Text(tr('${a.name} (Tồn: ${a.quantity})'), style: const TextStyle(fontSize: 13), overflow: TextOverflow.ellipsis),
                       )).toList(),
                       onChanged: (v) => setDialogState(() => selectedAssetId = v),
                     ),
@@ -931,7 +932,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                       controller: qtyCtrl,
                       keyboardType: TextInputType.number,
                       decoration: InputDecoration(
-                        labelText: 'Số lượng *',
+                        labelText: tr('Số lượng *'),
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                         isDense: true,
                       ),
@@ -941,8 +942,8 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                     TextField(
                       controller: reasonCtrl,
                       decoration: InputDecoration(
-                        labelText: 'Lý do *',
-                        hintText: isStockIn ? 'VD: Nhập hàng mới, bổ sung...' : 'VD: Bán hàng, hỏng, mất...',
+                        labelText: tr('Lý do *'),
+                        hintText: tr(isStockIn ? 'VD: Nhập hàng mới, bổ sung...' : 'VD: Bán hàng, hỏng, mất...'),
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                         isDense: true,
                       ),
@@ -952,8 +953,8 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                     TextField(
                       controller: refCtrl,
                       decoration: InputDecoration(
-                        labelText: 'Mã phiếu (tuỳ chọn)',
-                        hintText: 'VD: PN-001, PX-002...',
+                        labelText: tr('Mã phiếu (tuỳ chọn)'),
+                        hintText: tr('VD: PN-001, PX-002...'),
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                         isDense: true,
                       ),
@@ -964,7 +965,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                       controller: notesCtrl,
                       maxLines: 2,
                       decoration: InputDecoration(
-                        labelText: 'Ghi chú',
+                        labelText: tr('Ghi chú'),
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                         isDense: true,
                       ),
@@ -974,16 +975,16 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
               ),
             ),
             actions: [
-              TextButton(onPressed: () => Navigator.pop(context), child: const Text('Hủy', style: TextStyle(color: Color(0xFF71717A)))),
+              TextButton(onPressed: () => Navigator.pop(context), child: Text(tr('Hủy'), style: TextStyle(color: Color(0xFF71717A)))),
               FilledButton(
                 onPressed: isSubmitting ? null : () async {
                   if (selectedAssetId == null || qtyCtrl.text.isEmpty || reasonCtrl.text.isEmpty) {
-                    NotificationOverlayManager().showWarning(title: 'Thiếu thông tin', message: 'Vui lòng điền đầy đủ SP, SL và lý do');
+                    NotificationOverlayManager().showWarning(title: 'Thiếu thông tin', message: tr('Vui lòng điền đầy đủ SP, SL và lý do'));
                     return;
                   }
                   final qty = int.tryParse(qtyCtrl.text);
                   if (qty == null || qty <= 0) {
-                    NotificationOverlayManager().showWarning(title: 'Lỗi', message: 'Số lượng phải là số > 0');
+                    NotificationOverlayManager().showWarning(title: 'Lỗi', message: tr('Số lượng phải là số > 0'));
                     return;
                   }
                   setDialogState(() => isSubmitting = true);
@@ -1007,7 +1008,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                 ),
                 child: isSubmitting
                     ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                    : Text(isStockIn ? 'Nhập kho' : 'Xuất kho'),
+                    : Text(tr(isStockIn ? 'Nhập kho' : 'Xuất kho')),
               ),
             ],
           );
@@ -1029,7 +1030,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
           children: [
             const Icon(Icons.inventory_2, color: HrmPageChrome.primaryNavy, size: 22),
             const SizedBox(width: 8),
-            Expanded(child: Text(asset.name, style: const TextStyle(fontSize: 16), overflow: TextOverflow.ellipsis)),
+            Expanded(child: Text(tr(asset.name), style: const TextStyle(fontSize: 16), overflow: TextOverflow.ellipsis)),
           ],
         ),
         content: SizedBox(
@@ -1052,7 +1053,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                         _showStockDialog(isStockIn: true);
                       },
                       icon: const Icon(Icons.add_box, size: 18, color: Color(0xFF059669)),
-                      label: const Text('Nhập', style: TextStyle(color: Color(0xFF059669))),
+                      label: Text(tr('Nhập'), style: TextStyle(color: Color(0xFF059669))),
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -1063,7 +1064,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                         _showStockDialog(isStockIn: false);
                       },
                       icon: const Icon(Icons.outbox, size: 18, color: Color(0xFFEF4444)),
-                      label: const Text('Xuất', style: TextStyle(color: Color(0xFFEF4444))),
+                      label: Text(tr('Xuất'), style: TextStyle(color: Color(0xFFEF4444))),
                     ),
                   ),
                 ],
@@ -1071,7 +1072,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
             ],
           ),
         ),
-        actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Đóng'))],
+        actions: [TextButton(onPressed: () => Navigator.pop(context), child: Text(tr('Đóng')))],
       ),
     );
   }
@@ -1081,8 +1082,8 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
         children: [
-          SizedBox(width: 100, child: Text(label, style: const TextStyle(fontSize: 13, color: Color(0xFF71717A)))),
-          Expanded(child: Text(value, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600), textAlign: TextAlign.right)),
+          SizedBox(width: 100, child: Text(tr(label), style: const TextStyle(fontSize: 13, color: Color(0xFF71717A)))),
+          Expanded(child: Text(tr(value), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600), textAlign: TextAlign.right)),
         ],
       ),
     );
@@ -1102,17 +1103,17 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
               children: [
                 const Icon(Icons.history, size: 20, color: HrmPageChrome.primaryNavy),
                 const SizedBox(width: 8),
-                const Text('Lịch sử giao dịch', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+                Text(tr('Lịch sử giao dịch'), style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
                 const Spacer(),
                 PopupMenuButton<int?>(
                   onSelected: (type) {
                     _loadStockTransactions(typeFilter: type);
                   },
                   itemBuilder: (context) => [
-                    const PopupMenuItem(value: null, child: Text('Tất cả')),
-                    const PopupMenuItem(value: 0, child: Text('Nhập kho')),
-                    const PopupMenuItem(value: 1, child: Text('Xuất kho')),
-                    const PopupMenuItem(value: 2, child: Text('Điều chỉnh')),
+                    PopupMenuItem(value: null, child: Text(tr('Tất cả'))),
+                    PopupMenuItem(value: 0, child: Text(tr('Nhập kho'))),
+                    PopupMenuItem(value: 1, child: Text(tr('Xuất kho'))),
+                    PopupMenuItem(value: 2, child: Text(tr('Điều chỉnh'))),
                   ],
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -1120,12 +1121,12 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                       border: Border.all(color: const Color(0xFFE4E4E7)),
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: const Row(
+                    child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(Icons.filter_list, size: 16, color: Color(0xFF64748B)),
                         SizedBox(width: 4),
-                        Text('Lọc', style: TextStyle(fontSize: 13, color: Color(0xFF64748B))),
+                        Text(tr('Lọc'), style: TextStyle(fontSize: 13, color: Color(0xFF64748B))),
                       ],
                     ),
                   ),
@@ -1171,11 +1172,11 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                                 children: [
                                   Row(
                                     children: [
-                                      Expanded(child: Text(tx.assetName ?? tx.assetCode ?? 'SP', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600), overflow: TextOverflow.ellipsis)),
+                                      Expanded(child: Text(tr(tx.assetName ?? tx.assetCode ?? 'SP'), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600), overflow: TextOverflow.ellipsis)),
                                       Container(
                                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                                         decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(6)),
-                                        child: Text('$sign${tx.quantity.abs()}', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: color)),
+                                        child: Text(tr('$sign${tx.quantity.abs()}'), style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: color)),
                                       ),
                                     ],
                                   ),
@@ -1185,23 +1186,23 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                                       Container(
                                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
                                         decoration: BoxDecoration(color: color.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(4)),
-                                        child: Text(typeLabel, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: color)),
+                                        child: Text(tr(typeLabel), style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: color)),
                                       ),
                                       const SizedBox(width: 6),
-                                      Text('Tồn: ${tx.balanceAfter}', style: const TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+                                      Text(tr('Tồn: ${tx.balanceAfter}'), style: const TextStyle(fontSize: 11, color: Color(0xFF64748B))),
                                       const Spacer(),
-                                      Text(DateFormat('dd/MM HH:mm').format(tx.transactionDate), style: const TextStyle(fontSize: 11, color: Color(0xFFA1A1AA))),
+                                      Text(tr(DateFormat('dd/MM HH:mm').format(tx.transactionDate)), style: const TextStyle(fontSize: 11, color: Color(0xFFA1A1AA))),
                                     ],
                                   ),
                                   if (tx.reason != null && tx.reason!.isNotEmpty)
                                     Padding(
                                       padding: const EdgeInsets.only(top: 4),
-                                      child: Text(tx.reason!, style: const TextStyle(fontSize: 11, color: Color(0xFF71717A)), maxLines: 1, overflow: TextOverflow.ellipsis),
+                                      child: Text(tr(tx.reason!), style: const TextStyle(fontSize: 11, color: Color(0xFF71717A)), maxLines: 1, overflow: TextOverflow.ellipsis),
                                     ),
                                   if (tx.performedByName != null)
                                     Padding(
                                       padding: const EdgeInsets.only(top: 2),
-                                      child: Text('Bởi: ${tx.performedByName}', style: const TextStyle(fontSize: 10, color: Color(0xFFA1A1AA))),
+                                      child: Text(tr('Bởi: ${tx.performedByName}'), style: const TextStyle(fontSize: 10, color: Color(0xFFA1A1AA))),
                                     ),
                                 ],
                               ),
@@ -1238,15 +1239,14 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
           const Icon(Icons.inventory_2, color: HrmPageChrome.primaryNavy, size: 28),
           const SizedBox(width: 12),
           Expanded(
-            child: Text(
-              'Quản lý Tài sản',
+            child: Text(tr('Quản lý Tài sản'),
               style: TextStyle(fontSize: isMobile ? 16 : 22, fontWeight: FontWeight.bold, color: const Color(0xFF18181B)),
             ),
           ),
           if (isMobile) ...[
             PopupMenuButton<String>(
               icon: const Icon(Icons.more_vert, color: HrmPageChrome.primaryNavy),
-              tooltip: 'Thêm',
+              tooltip: tr('Thêm'),
               onSelected: (v) {
                 if (v == 'transfers') {
                   setState(() { _showTransfers = true; _showCategories = false; _showInventories = false; });
@@ -1258,22 +1258,22 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                   if (_inventories.isEmpty) _loadInventories();
                 }
               },
-              itemBuilder: (_) => const [
-                PopupMenuItem(value: 'transfers', child: Row(children: [Icon(Icons.swap_horiz, size: 18), SizedBox(width: 8), Text('Chuyển giao')])),
-                PopupMenuItem(value: 'categories', child: Row(children: [Icon(Icons.category, size: 18), SizedBox(width: 8), Text('Danh mục')])),
-                PopupMenuItem(value: 'inventories', child: Row(children: [Icon(Icons.checklist, size: 18), SizedBox(width: 8), Text('Kiểm kê')])),
+              itemBuilder: (_) => [
+                PopupMenuItem(value: 'transfers', child: Row(children: [Icon(Icons.swap_horiz, size: 18), SizedBox(width: 8), Text(tr('Chuyển giao'))])),
+                PopupMenuItem(value: 'categories', child: Row(children: [Icon(Icons.category, size: 18), SizedBox(width: 8), Text(tr('Danh mục'))])),
+                PopupMenuItem(value: 'inventories', child: Row(children: [Icon(Icons.checklist, size: 18), SizedBox(width: 8), Text(tr('Kiểm kê'))])),
               ],
             ),
             IconButton(
               onPressed: _showQrScanDialog,
               icon: const Icon(Icons.qr_code_scanner, color: HrmPageChrome.primaryNavy),
-              tooltip: 'Quét QR tài sản',
+              tooltip: tr('Quét QR tài sản'),
             ),
             if (Provider.of<PermissionProvider>(context, listen: false).canCreate('Asset'))
             IconButton(
               onPressed: () => _showAssetDialog(),
               icon: const Icon(Icons.add, color: HrmPageChrome.primaryNavy, size: 22),
-              tooltip: 'Thêm tài sản',
+              tooltip: tr('Thêm tài sản'),
             ),
           ] else ...[
           // Action buttons for less-used features
@@ -1307,7 +1307,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
           FilledButton.icon(
             onPressed: _showQrScanDialog,
             icon: const Icon(Icons.qr_code_scanner, size: 18),
-            label: const Text('Quét QR'),
+            label: Text(tr('Quét QR')),
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF059669),
               foregroundColor: Colors.white,
@@ -1320,7 +1320,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
           FilledButton.icon(
             onPressed: () => _showAssetDialog(),
             icon: const Icon(Icons.add, size: 18),
-            label: const Text('Thêm tài sản'),
+            label: Text(tr('Thêm tài sản')),
             style: ElevatedButton.styleFrom(
               backgroundColor: HrmPageChrome.primaryNavy,
               foregroundColor: Colors.white,
@@ -1348,7 +1348,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
             children: [
               Icon(icon, size: 18, color: isActive ? HrmPageChrome.primaryNavy : const Color(0xFF71717A)),
               const SizedBox(width: 6),
-              Text(label, style: TextStyle(
+              Text(tr(label), style: TextStyle(
                 fontSize: 13,
                 fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
                 color: isActive ? HrmPageChrome.primaryNavy : const Color(0xFF71717A),
@@ -1392,10 +1392,10 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('Tổng giá trị', style: TextStyle(fontSize: 11, color: Color(0xFFA1A1AA))),
+                      Text(tr('Tổng giá trị'), style: TextStyle(fontSize: 11, color: Color(0xFFA1A1AA))),
                       const SizedBox(height: 2),
                       Text(
-                        _currencyFormat.format(stats?.totalPurchaseValue ?? 0),
+                        tr(_currencyFormat.format(stats?.totalPurchaseValue ?? 0)),
                         style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF18181B)),
                       ),
                     ],
@@ -1413,8 +1413,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                         children: [
                           const Icon(Icons.warning_amber, size: 14, color: Color(0xFFF59E0B)),
                           const SizedBox(width: 4),
-                          Text(
-                            '${stats!.warrantyExpiringSoon} sắp hết BH',
+                          Text(tr('${stats!.warrantyExpiringSoon} sắp hết BH'),
                             style: const TextStyle(fontSize: 11, color: Color(0xFFB45309), fontWeight: FontWeight.w500),
                           ),
                         ],
@@ -1446,10 +1445,10 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
-                      const Text('Tổng giá trị', style: TextStyle(fontSize: 11, color: Color(0xFFA1A1AA))),
+                      Text(tr('Tổng giá trị'), style: TextStyle(fontSize: 11, color: Color(0xFFA1A1AA))),
                       const SizedBox(height: 2),
                       Text(
-                        _currencyFormat.format(stats?.totalPurchaseValue ?? 0),
+                        tr(_currencyFormat.format(stats?.totalPurchaseValue ?? 0)),
                         style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF18181B)),
                       ),
                     ],
@@ -1466,8 +1465,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                         children: [
                           const Icon(Icons.warning_amber, size: 14, color: Color(0xFFF59E0B)),
                           const SizedBox(width: 4),
-                          Text(
-                            '${stats!.warrantyExpiringSoon} sắp hết BH',
+                          Text(tr('${stats!.warrantyExpiringSoon} sắp hết BH'),
                             style: const TextStyle(fontSize: 11, color: Color(0xFFB45309), fontWeight: FontWeight.w500),
                           ),
                         ],
@@ -1502,7 +1500,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
         onSubmitted: _onSearch,
         style: const TextStyle(fontSize: 14),
         decoration: InputDecoration(
-          hintText: 'Tìm kiếm tài sản...',
+          hintText: tr('Tìm kiếm tài sản...'),
           hintStyle: const TextStyle(color: Color(0xFFA1A1AA), fontSize: 13),
           prefixIcon: const Icon(Icons.search, size: 20, color: Color(0xFFA1A1AA)),
           suffixIcon: _searchQuery != null
@@ -1539,7 +1537,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
             children: [
               Icon(Icons.filter_list, size: 18, color: _hasActiveFilters ? HrmPageChrome.primaryNavy : const Color(0xFF71717A)),
               const SizedBox(width: 6),
-              Text('Bộ lọc', style: TextStyle(
+              Text(tr('Bộ lọc'), style: TextStyle(
                 fontSize: 13,
                 color: _hasActiveFilters ? HrmPageChrome.primaryNavy : const Color(0xFF71717A),
               )),
@@ -1558,7 +1556,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
     final clearBtn = _hasActiveFilters
         ? TextButton(
             onPressed: _clearFilters,
-            child: const Text('Xóa lọc', style: TextStyle(fontSize: 13, color: Color(0xFFEF4444))),
+            child: Text(tr('Xóa lọc'), style: TextStyle(fontSize: 13, color: Color(0xFFEF4444))),
           )
         : const SizedBox.shrink();
     final selectedInfo = _selectedAssetIds.isNotEmpty
@@ -1571,7 +1569,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text('${_selectedAssetIds.length} đã chọn', style: const TextStyle(color: HrmPageChrome.primaryNavy, fontWeight: FontWeight.w500, fontSize: 13)),
+                Text(tr('${_selectedAssetIds.length} đã chọn'), style: const TextStyle(color: HrmPageChrome.primaryNavy, fontWeight: FontWeight.w500, fontSize: 13)),
                 const SizedBox(width: 8),
                 InkWell(
                   onTap: () => setState(() => _selectedAssetIds.clear()),
@@ -1629,7 +1627,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
           _buildFilterDropdown<AssetStatus>(
             label: 'Trạng thái',
             value: _statusFilter,
-            items: AssetStatus.values.map((s) => DropdownMenuItem(value: s, child: Text(getAssetStatusLabel(s), style: const TextStyle(fontSize: 13)))).toList(),
+            items: AssetStatus.values.map((s) => DropdownMenuItem(value: s, child: Text(tr(getAssetStatusLabel(s)), style: const TextStyle(fontSize: 13)))).toList(),
             onChanged: (v) {
               setState(() { _statusFilter = v; _currentPage = 1; });
               _loadAssets();
@@ -1639,7 +1637,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
           _buildFilterDropdown<AssetType>(
             label: 'Loại tài sản',
             value: _typeFilter,
-            items: AssetType.values.map((t) => DropdownMenuItem(value: t, child: Text(getAssetTypeLabel(t), style: const TextStyle(fontSize: 13)))).toList(),
+            items: AssetType.values.map((t) => DropdownMenuItem(value: t, child: Text(tr(getAssetTypeLabel(t)), style: const TextStyle(fontSize: 13)))).toList(),
             onChanged: (v) {
               setState(() { _typeFilter = v; _currentPage = 1; });
               _loadAssets();
@@ -1649,7 +1647,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
           _buildFilterDropdown<String>(
             label: 'Danh mục',
             value: _categoryFilter,
-            items: _categories.map((c) => DropdownMenuItem(value: c.id, child: Text(c.name, style: const TextStyle(fontSize: 13)))).toList(),
+            items: _categories.map((c) => DropdownMenuItem(value: c.id, child: Text(tr(c.name), style: const TextStyle(fontSize: 13)))).toList(),
             onChanged: (v) {
               setState(() { _categoryFilter = v; _currentPage = 1; });
               _loadAssets();
@@ -1676,9 +1674,9 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
       child: DropdownButtonHideUnderline(
         child: DropdownButton<T>(
           value: value,
-          hint: Text(label, style: const TextStyle(fontSize: 13, color: Color(0xFFA1A1AA))),
+          hint: Text(tr(label), style: const TextStyle(fontSize: 13, color: Color(0xFFA1A1AA))),
           items: [
-            DropdownMenuItem<T>(value: null, child: Text('Tất cả $label', style: const TextStyle(fontSize: 13))),
+            DropdownMenuItem<T>(value: null, child: Text(tr('Tất cả $label'), style: const TextStyle(fontSize: 13))),
             ...items,
           ],
           onChanged: onChanged,
@@ -1742,7 +1740,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                     children: [
                       Expanded(
                         child: Text(
-                          asset.name,
+                          tr(asset.name),
                           style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: Color(0xFF18181B)),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
@@ -1758,7 +1756,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                       Icon(Icons.qr_code_2, size: 14, color: Colors.grey[500]),
                       const SizedBox(width: 4),
                       Text(
-                        asset.assetCode,
+                        tr(asset.assetCode),
                         style: const TextStyle(fontSize: 12, color: HrmPageChrome.primaryNavy, fontWeight: FontWeight.w500),
                       ),
                       const SizedBox(width: 10),
@@ -1784,7 +1782,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                           const SizedBox(width: 3),
                           Flexible(
                             child: Text(
-                              asset.currentAssigneeName!,
+                              tr(asset.currentAssigneeName!),
                               style: TextStyle(fontSize: 11, color: Colors.grey[600]),
                               overflow: TextOverflow.ellipsis,
                             ),
@@ -1805,15 +1803,15 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                               color: HrmPageChrome.primaryNavy.withValues(alpha: 0.08),
                               borderRadius: BorderRadius.circular(4),
                             ),
-                            child: Text(getAssetTypeLabel(asset.assetType), style: const TextStyle(fontSize: 10, color: HrmPageChrome.primaryNavy, fontWeight: FontWeight.w500)),
+                            child: Text(tr(getAssetTypeLabel(asset.assetType)), style: const TextStyle(fontSize: 10, color: HrmPageChrome.primaryNavy, fontWeight: FontWeight.w500)),
                           ),
                           if (asset.brand != null) ...[
                             const SizedBox(width: 6),
-                            Text(asset.brand!, style: TextStyle(fontSize: 11, color: Colors.grey[600])),
+                            Text(tr(asset.brand!), style: TextStyle(fontSize: 11, color: Colors.grey[600])),
                           ],
                           if (asset.model != null) ...[
                             const SizedBox(width: 4),
-                            Text('· ${asset.model}', style: TextStyle(fontSize: 11, color: Colors.grey[500])),
+                            Text(tr('· ${asset.model}'), style: TextStyle(fontSize: 11, color: Colors.grey[500])),
                           ],
                         ],
                       ),
@@ -1833,7 +1831,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
       children: [
         Icon(icon, size: 13, color: Colors.grey[600]),
         const SizedBox(width: 4),
-        Text(text, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Colors.grey[800])),
+        Text(tr(text), style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Colors.grey[800])),
       ],
     );
   }
@@ -1846,14 +1844,14 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
       columnSpacing: 16,
       horizontalMargin: 16,
       showCheckboxColumn: true,
-      columns: const [
-        DataColumn(label: Expanded(child: Text('MÃ TÀI SẢN', textAlign: TextAlign.center))),
-        DataColumn(label: Expanded(child: Text('TÊN TÀI SẢN', textAlign: TextAlign.center))),
-        DataColumn(label: Expanded(child: Text('LOẠI', textAlign: TextAlign.center))),
-        DataColumn(label: Expanded(child: Text('TRẠNG THÁI', textAlign: TextAlign.center))),
-        DataColumn(label: Expanded(child: Text('NGƯỜI DÙNG', textAlign: TextAlign.center))),
-        DataColumn(label: Expanded(child: Text('GIÁ TRỊ', textAlign: TextAlign.center))),
-        DataColumn(label: Expanded(child: Text('SỐ LƯỢNG', textAlign: TextAlign.center))),
+      columns: [
+        DataColumn(label: Expanded(child: Text(tr('MÃ TÀI SẢN'), textAlign: TextAlign.center))),
+        DataColumn(label: Expanded(child: Text(tr('TÊN TÀI SẢN'), textAlign: TextAlign.center))),
+        DataColumn(label: Expanded(child: Text(tr('LOẠI'), textAlign: TextAlign.center))),
+        DataColumn(label: Expanded(child: Text(tr('TRẠNG THÁI'), textAlign: TextAlign.center))),
+        DataColumn(label: Expanded(child: Text(tr('NGƯỜI DÙNG'), textAlign: TextAlign.center))),
+        DataColumn(label: Expanded(child: Text(tr('GIÁ TRỊ'), textAlign: TextAlign.center))),
+        DataColumn(label: Expanded(child: Text(tr('SỐ LƯỢNG'), textAlign: TextAlign.center))),
         DataColumn(label: Expanded(child: Text('', textAlign: TextAlign.center))),
       ],
       rows: _assets.map((asset) => _buildAssetRow(asset)).toList(),
@@ -1878,7 +1876,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
         DataCell(Center(
           child: InkWell(
             onTap: () => _showAssetDetail(asset),
-            child: Text(asset.assetCode, style: const TextStyle(color: HrmPageChrome.primaryNavy, fontWeight: FontWeight.w600, fontSize: 13)),
+            child: Text(tr(asset.assetCode), style: const TextStyle(color: HrmPageChrome.primaryNavy, fontWeight: FontWeight.w600, fontSize: 13)),
           ),
         )),
         // Name + serial
@@ -1889,15 +1887,15 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Text(asset.name, style: const TextStyle(fontWeight: FontWeight.w500), overflow: TextOverflow.ellipsis),
+                Text(tr(asset.name), style: const TextStyle(fontWeight: FontWeight.w500), overflow: TextOverflow.ellipsis),
                 if (asset.serialNumber != null)
-                  Text('S/N: ${asset.serialNumber}', style: const TextStyle(fontSize: 11, color: Color(0xFFA1A1AA))),
+                  Text(tr('S/N: ${asset.serialNumber}'), style: const TextStyle(fontSize: 11, color: Color(0xFFA1A1AA))),
               ],
             ),
           ),
         )),
         // Type
-        DataCell(Center(child: Text(getAssetTypeLabel(asset.assetType), style: const TextStyle(fontSize: 12)))),
+        DataCell(Center(child: Text(tr(getAssetTypeLabel(asset.assetType)), style: const TextStyle(fontSize: 12)))),
         // Status
         DataCell(Center(child: _buildStatusBadge(asset.status))),
         // Assignee
@@ -1910,20 +1908,20 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                       radius: 12,
                       backgroundColor: HrmPageChrome.primaryNavy.withValues(alpha: 0.15),
                       child: Text(
-                        asset.currentAssigneeName![0].toUpperCase(),
+                        tr(asset.currentAssigneeName![0].toUpperCase()),
                         style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: HrmPageChrome.primaryNavy),
                       ),
                     ),
                     const SizedBox(width: 6),
-                    Flexible(child: Text(asset.currentAssigneeName!, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12))),
+                    Flexible(child: Text(tr(asset.currentAssigneeName!), overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12))),
                   ],
                 )
-              : const Text('—', style: TextStyle(color: Color(0xFFCBD5E1))),
+              : Text(tr('—'), style: TextStyle(color: Color(0xFFCBD5E1))),
         )),
         // Price
-        DataCell(Center(child: Text(_currencyFormat.format(asset.purchasePrice), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)))),
+        DataCell(Center(child: Text(tr(_currencyFormat.format(asset.purchasePrice)), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)))),
         // Quantity
-        DataCell(Center(child: Text('${asset.quantity}', style: const TextStyle(fontSize: 12)))),
+        DataCell(Center(child: Text(tr('${asset.quantity}'), style: const TextStyle(fontSize: 12)))),
         // Actions
         DataCell(Center(child: _buildRowActions(asset))),
       ],
@@ -1939,7 +1937,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
         borderRadius: BorderRadius.circular(6),
       ),
       child: Text(
-        getAssetStatusLabel(status),
+        tr(getAssetStatusLabel(status)),
         style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w600),
       ),
     );
@@ -1951,7 +1949,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
       children: [
         if (asset.warrantyExpiringSoon)
           Tooltip(
-            message: 'Sắp hết bảo hành',
+            message: tr('Sắp hết bảo hành'),
             child: Container(
               margin: const EdgeInsets.only(right: 4),
               padding: const EdgeInsets.all(2),
@@ -1997,7 +1995,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
         children: [
           Icon(icon, size: 18, color: color),
           const SizedBox(width: 10),
-          Text(label, style: TextStyle(fontSize: 13, color: color)),
+          Text(tr(label), style: TextStyle(fontSize: 13, color: color)),
         ],
       ),
     );
@@ -2019,14 +2017,13 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
         spacing: 12,
         runSpacing: 8,
         children: [
-          Text(
-            'Hiển thị $start-$end / $_totalAssets',
+          Text(tr('Hiển thị $start-$end / $_totalAssets'),
             style: const TextStyle(fontSize: 12, color: Color(0xFFA1A1AA)),
           ),
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('Hiển thị:', style: TextStyle(fontSize: 12, color: Colors.grey[500])),
+              Text(tr('Hiển thị:'), style: TextStyle(fontSize: 12, color: Colors.grey[500])),
               const SizedBox(width: 8),
               Container(
                 height: 34,
@@ -2041,7 +2038,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                     value: _pageSize,
                     isDense: true,
                     style: TextStyle(fontSize: 13, color: Colors.grey[800]),
-                    items: _pageSizeOptions.map((s) => DropdownMenuItem(value: s, child: Text('$s'))).toList(),
+                    items: _pageSizeOptions.map((s) => DropdownMenuItem(value: s, child: Text(tr('$s')))).toList(),
                     onChanged: (v) {
                       if (v != null) {
                         setState(() { _pageSize = v; _currentPage = 1; });
@@ -2061,7 +2058,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                 _loadAssets();
               }),
               const SizedBox(width: 8),
-              Text('$_currentPage / $totalPages', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+              Text(tr('$_currentPage / $totalPages'), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
               const SizedBox(width: 8),
               _buildPageButton(Icons.chevron_right, _currentPage < totalPages, () {
                 setState(() => _currentPage++);
@@ -2106,7 +2103,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
           _buildPanelHeader('Lịch sử chuyển giao', Icons.swap_horiz, () => setState(() => _showTransfers = false)),
           Expanded(
             child: _transfers.isEmpty
-                ? const Center(child: Text('Chưa có dữ liệu', style: TextStyle(color: Color(0xFFA1A1AA))))
+                ? Center(child: Text(tr('Chưa có dữ liệu'), style: TextStyle(color: Color(0xFFA1A1AA))))
                 : ListView.builder(
                     padding: const EdgeInsets.all(12),
                     itemCount: _transfers.length,
@@ -2131,12 +2128,12 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
             action: IconButton(
               icon: const Icon(Icons.add, size: 20, color: HrmPageChrome.primaryNavy),
               onPressed: () => _showCategoryDialog(),
-              tooltip: 'Thêm danh mục',
+              tooltip: tr('Thêm danh mục'),
             ),
           ),
           Expanded(
             child: _categories.isEmpty
-                ? const Center(child: Text('Chưa có danh mục', style: TextStyle(color: Color(0xFFA1A1AA))))
+                ? Center(child: Text(tr('Chưa có danh mục'), style: TextStyle(color: Color(0xFFA1A1AA))))
                 : ListView.builder(
                     padding: const EdgeInsets.all(12),
                     itemCount: _categories.length,
@@ -2161,12 +2158,12 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
             action: IconButton(
               icon: const Icon(Icons.add, size: 20, color: HrmPageChrome.primaryNavy),
               onPressed: () => _showInventoryDialog(),
-              tooltip: 'Tạo đợt kiểm kê',
+              tooltip: tr('Tạo đợt kiểm kê'),
             ),
           ),
           Expanded(
             child: _inventories.isEmpty
-                ? const Center(child: Text('Chưa có đợt kiểm kê', style: TextStyle(color: Color(0xFFA1A1AA))))
+                ? Center(child: Text(tr('Chưa có đợt kiểm kê'), style: TextStyle(color: Color(0xFFA1A1AA))))
                 : ListView.builder(
                     padding: const EdgeInsets.all(12),
                     itemCount: _inventories.length,
@@ -2188,7 +2185,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
         children: [
           Icon(icon, size: 20, color: HrmPageChrome.primaryNavy),
           const SizedBox(width: 8),
-          Text(title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: Color(0xFF18181B))),
+          Text(tr(title), style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: Color(0xFF18181B))),
           const Spacer(),
           if (action != null) action,
           IconButton(icon: const Icon(Icons.close, size: 18), onPressed: onClose, color: const Color(0xFFA1A1AA)),
@@ -2219,7 +2216,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: Text(transfer.assetName ?? 'Tài sản', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13), overflow: TextOverflow.ellipsis),
+                child: Text(tr(transfer.assetName ?? 'Tài sản'), style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13), overflow: TextOverflow.ellipsis),
               ),
               if (!transfer.isConfirmed)
                 InkWell(
@@ -2230,7 +2227,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                       color: HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(6),
                     ),
-                    child: const Text('Xác nhận', style: TextStyle(fontSize: 11, color: HrmPageChrome.primaryNavy, fontWeight: FontWeight.w600)),
+                    child: Text(tr('Xác nhận'), style: TextStyle(fontSize: 11, color: HrmPageChrome.primaryNavy, fontWeight: FontWeight.w600)),
                   ),
                 )
               else
@@ -2240,9 +2237,9 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
           const SizedBox(height: 6),
           Row(
             children: [
-              Text(getTransferTypeLabel(transfer.transferType), style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.w500)),
+              Text(tr(getTransferTypeLabel(transfer.transferType)), style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.w500)),
               const Spacer(),
-              Text(DateFormat('dd/MM/yyyy').format(transfer.transferDate), style: const TextStyle(fontSize: 11, color: Color(0xFFA1A1AA))),
+              Text(tr(DateFormat('dd/MM/yyyy').format(transfer.transferDate)), style: const TextStyle(fontSize: 11, color: Color(0xFFA1A1AA))),
             ],
           ),
           if (transfer.fromUserName != null || transfer.toUserName != null)
@@ -2250,10 +2247,10 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
               padding: const EdgeInsets.only(top: 4),
               child: Row(
                 children: [
-                  if (transfer.fromUserName != null) Text(transfer.fromUserName!, style: const TextStyle(fontSize: 11, color: Color(0xFF71717A))),
+                  if (transfer.fromUserName != null) Text(tr(transfer.fromUserName!), style: const TextStyle(fontSize: 11, color: Color(0xFF71717A))),
                   if (transfer.fromUserName != null && transfer.toUserName != null)
                     const Padding(padding: EdgeInsets.symmetric(horizontal: 4), child: Icon(Icons.arrow_forward, size: 12, color: Color(0xFFCBD5E1))),
-                  if (transfer.toUserName != null) Text(transfer.toUserName!, style: const TextStyle(fontSize: 11, color: Color(0xFF71717A))),
+                  if (transfer.toUserName != null) Text(tr(transfer.toUserName!), style: const TextStyle(fontSize: 11, color: Color(0xFF71717A))),
                 ],
               ),
             ),
@@ -2281,8 +2278,8 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(category.name, style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13)),
-                    Text('${category.categoryCode} • ${category.assetCount} TS', style: const TextStyle(fontSize: 11, color: Color(0xFFA1A1AA))),
+                    Text(tr(category.name), style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13)),
+                    Text(tr('${category.categoryCode} • ${category.assetCount} TS'), style: const TextStyle(fontSize: 11, color: Color(0xFFA1A1AA))),
                   ],
                 ),
               ),
@@ -2290,7 +2287,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(4)),
-                  child: const Text('Ẩn', style: TextStyle(fontSize: 10, color: Color(0xFFA1A1AA))),
+                  child: Text(tr('Ẩn'), style: TextStyle(fontSize: 10, color: Color(0xFFA1A1AA))),
                 ),
               PopupMenuButton<String>(
                 icon: const Icon(Icons.more_vert, size: 16, color: Color(0xFFA1A1AA)),
@@ -2369,17 +2366,17 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(inventory.name, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: Color(0xFF18181B)), maxLines: 1, overflow: TextOverflow.ellipsis),
+                            Text(tr(inventory.name), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: Color(0xFF18181B)), maxLines: 1, overflow: TextOverflow.ellipsis),
                             const SizedBox(height: 2),
                             Row(
                               children: [
                                 Icon(Icons.tag, size: 11, color: Colors.grey.shade400),
                                 const SizedBox(width: 3),
-                                Text(inventory.inventoryCode, style: TextStyle(fontSize: 11, color: Colors.grey.shade500, fontWeight: FontWeight.w500)),
+                                Text(tr(inventory.inventoryCode), style: TextStyle(fontSize: 11, color: Colors.grey.shade500, fontWeight: FontWeight.w500)),
                                 const SizedBox(width: 10),
                                 Icon(Icons.calendar_today_outlined, size: 11, color: Colors.grey.shade400),
                                 const SizedBox(width: 3),
-                                Text(dateStr, style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
+                                Text(tr(dateStr), style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
                               ],
                             ),
                           ],
@@ -2391,11 +2388,11 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                         constraints: const BoxConstraints(),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                         itemBuilder: (context) => [
-                          const PopupMenuItem(value: 'detail', child: Row(children: [Icon(Icons.open_in_new, size: 16, color: Color(0xFF3B82F6)), SizedBox(width: 8), Text('Xem chi tiết')])),
+                          PopupMenuItem(value: 'detail', child: Row(children: [Icon(Icons.open_in_new, size: 16, color: Color(0xFF3B82F6)), SizedBox(width: 8), Text(tr('Xem chi tiết'))])),
                           if (isInProgress)
-                            const PopupMenuItem(value: 'cancel', child: Row(children: [Icon(Icons.block, size: 16, color: Color(0xFFF59E0B)), SizedBox(width: 8), Text('Hủy kiểm kê', style: TextStyle(color: Color(0xFFF59E0B)))])),
+                            PopupMenuItem(value: 'cancel', child: Row(children: [Icon(Icons.block, size: 16, color: Color(0xFFF59E0B)), SizedBox(width: 8), Text(tr('Hủy kiểm kê'), style: TextStyle(color: Color(0xFFF59E0B)))])),
                           const PopupMenuDivider(),
-                          const PopupMenuItem(value: 'delete', child: Row(children: [Icon(Icons.delete_outline, size: 16, color: Color(0xFFEF4444)), SizedBox(width: 8), Text('Xóa', style: TextStyle(color: Color(0xFFEF4444)))])),
+                          PopupMenuItem(value: 'delete', child: Row(children: [Icon(Icons.delete_outline, size: 16, color: Color(0xFFEF4444)), SizedBox(width: 8), Text(tr('Xóa'), style: TextStyle(color: Color(0xFFEF4444)))])),
                         ],
                         onSelected: (value) => _handleInventoryAction(inventory, value),
                       ),
@@ -2417,7 +2414,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                         ),
                       ),
                       const SizedBox(width: 10),
-                      Text('${inventory.progressPercent.toStringAsFixed(0)}%', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: statusColor)),
+                      Text(tr('${inventory.progressPercent.toStringAsFixed(0)}%'), style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: statusColor)),
                     ],
                   ),
                   const SizedBox(height: 10),
@@ -2427,7 +2424,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(color: statusColor.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(6)),
-                        child: Text(statusLabel, style: TextStyle(fontSize: 10, color: statusColor, fontWeight: FontWeight.w700)),
+                        child: Text(tr(statusLabel), style: TextStyle(fontSize: 10, color: statusColor, fontWeight: FontWeight.w700)),
                       ),
                       const SizedBox(width: 8),
                       Container(
@@ -2438,7 +2435,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                           children: [
                             const Icon(Icons.check, size: 12, color: Color(0xFF64748B)),
                             const SizedBox(width: 3),
-                            Text('${inventory.checkedCount}/${inventory.totalAssets}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF64748B))),
+                            Text(tr('${inventory.checkedCount}/${inventory.totalAssets}'), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF64748B))),
                           ],
                         ),
                       ),
@@ -2452,7 +2449,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                             children: [
                               const Icon(Icons.warning_amber, size: 12, color: Color(0xFFF59E0B)),
                               const SizedBox(width: 3),
-                              Text('${inventory.issueCount}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFFF59E0B))),
+                              Text(tr('${inventory.issueCount}'), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFFF59E0B))),
                             ],
                           ),
                         ),
@@ -2465,12 +2462,12 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                             color: HrmPageChrome.primaryNavy,
                             borderRadius: BorderRadius.circular(6),
                           ),
-                          child: const Row(
+                          child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Icon(Icons.play_arrow, size: 12, color: Colors.white),
                               SizedBox(width: 2),
-                              Text('Tiếp tục', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Colors.white)),
+                              Text(tr('Tiếp tục'), style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Colors.white)),
                             ],
                           ),
                         ),
@@ -2520,22 +2517,22 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
   // ==================== DIALOGS ====================
   void _showAssetDialog({Asset? asset}) {
     final isEdit = asset != null;
-    final codeCtrl = TextEditingController(text: asset?.assetCode ?? '');
-    final nameCtrl = TextEditingController(text: asset?.name ?? '');
-    final descCtrl = TextEditingController(text: asset?.description ?? '');
-    final serialCtrl = TextEditingController(text: asset?.serialNumber ?? '');
-    final modelCtrl = TextEditingController(text: asset?.model ?? '');
-    final brandCtrl = TextEditingController(text: asset?.brand ?? '');
-    final sizeCtrl = TextEditingController(text: asset?.size ?? '');
-    final colorCtrl = TextEditingController(text: asset?.color ?? '');
-    final priceCtrl = TextEditingController(text: formatNumber(asset?.purchasePrice));
-    final qtyCtrl = TextEditingController(text: asset?.quantity.toString() ?? '1');
-    final unitCtrl = TextEditingController(text: asset?.unit ?? 'Cái');
-    final locationCtrl = TextEditingController(text: asset?.location ?? '');
-    final notesCtrl = TextEditingController(text: asset?.notes ?? '');
-    final supplierCtrl = TextEditingController(text: asset?.supplier ?? '');
-    final invoiceCtrl = TextEditingController(text: asset?.invoiceNumber ?? '');
-    final warrantyCtrl = TextEditingController(text: asset?.warrantyMonths?.toString() ?? '');
+    final codeCtrl = TextEditingController(text: tr(asset?.assetCode ?? ''));
+    final nameCtrl = TextEditingController(text: tr(asset?.name ?? ''));
+    final descCtrl = TextEditingController(text: tr(asset?.description ?? ''));
+    final serialCtrl = TextEditingController(text: tr(asset?.serialNumber ?? ''));
+    final modelCtrl = TextEditingController(text: tr(asset?.model ?? ''));
+    final brandCtrl = TextEditingController(text: tr(asset?.brand ?? ''));
+    final sizeCtrl = TextEditingController(text: tr(asset?.size ?? ''));
+    final colorCtrl = TextEditingController(text: tr(asset?.color ?? ''));
+    final priceCtrl = TextEditingController(text: tr(formatNumber(asset?.purchasePrice)));
+    final qtyCtrl = TextEditingController(text: tr(asset?.quantity.toString() ?? '1'));
+    final unitCtrl = TextEditingController(text: tr(asset?.unit ?? 'Cái'));
+    final locationCtrl = TextEditingController(text: tr(asset?.location ?? ''));
+    final notesCtrl = TextEditingController(text: tr(asset?.notes ?? ''));
+    final supplierCtrl = TextEditingController(text: tr(asset?.supplier ?? ''));
+    final invoiceCtrl = TextEditingController(text: tr(asset?.invoiceNumber ?? ''));
+    final warrantyCtrl = TextEditingController(text: tr(asset?.warrantyMonths?.toString() ?? ''));
 
     AssetType selectedType = asset?.assetType ?? AssetType.electronics;
     AssetStatus selectedStatus = asset?.status ?? AssetStatus.inStock;
@@ -2585,7 +2582,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         // Basic info
-                        const Text('Thông tin cơ bản', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: Color(0xFF52525B))),
+                        Text(tr('Thông tin cơ bản'), style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: Color(0xFF52525B))),
                         const SizedBox(height: 12),
                         Row(children: [
                           Expanded(child: qrField('Mã tài sản *', codeCtrl)),
@@ -2599,7 +2596,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                         const SizedBox(height: 20),
 
                         // Classification
-                        const Text('Phân loại', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: Color(0xFF52525B))),
+                        Text(tr('Phân loại'), style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: Color(0xFF52525B))),
                         const SizedBox(height: 12),
                         Row(children: [
                           Expanded(child: _dialogField('Model', modelCtrl)),
@@ -2616,15 +2613,15 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                         Row(children: [
                           Expanded(
                             child: _dialogDropdown<AssetType>('Loại tài sản', selectedType,
-                              AssetType.values.map((t) => DropdownMenuItem(value: t, child: Text(getAssetTypeLabel(t)))).toList(),
+                              AssetType.values.map((t) => DropdownMenuItem(value: t, child: Text(tr(getAssetTypeLabel(t))))).toList(),
                               (v) => setDialogState(() => selectedType = v!),
                             ),
                           ),
                           const SizedBox(width: 16),
                           Expanded(
                             child: _dialogDropdown<String?>('Danh mục', selectedCategory,
-                              [const DropdownMenuItem(value: null, child: Text('Không')),
-                               ..._categories.map((c) => DropdownMenuItem(value: c.id, child: Text(c.name)))],
+                              [DropdownMenuItem(value: null, child: Text(tr('Không'))),
+                               ..._categories.map((c) => DropdownMenuItem(value: c.id, child: Text(tr(c.name))))],
                               (v) => setDialogState(() => selectedCategory = v),
                             ),
                           ),
@@ -2632,14 +2629,14 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                         if (isEdit) ...[
                           const SizedBox(height: 12),
                           _dialogDropdown<AssetStatus>('Trạng thái', selectedStatus,
-                            AssetStatus.values.map((s) => DropdownMenuItem(value: s, child: Text(getAssetStatusLabel(s)))).toList(),
+                            AssetStatus.values.map((s) => DropdownMenuItem(value: s, child: Text(tr(getAssetStatusLabel(s))))).toList(),
                             (v) => setDialogState(() => selectedStatus = v!),
                           ),
                         ],
                         const SizedBox(height: 20),
 
                         // Financial
-                        const Text('Tài chính & Mua sắm', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: Color(0xFF52525B))),
+                        Text(tr('Tài chính & Mua sắm'), style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: Color(0xFF52525B))),
                         const SizedBox(height: 12),
                         Row(children: [
                           Expanded(flex: 2, child: _dialogField('Giá mua *', priceCtrl, inputType: TextInputType.number, suffix: 'VND')),
@@ -2670,7 +2667,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                               child: InputDecorator(
                                 decoration: _dialogDecoration('Ngày mua'),
                                 child: Text(
-                                  purchaseDate != null ? DateFormat('dd/MM/yyyy').format(purchaseDate!) : 'Chọn ngày',
+                                  tr(purchaseDate != null ? DateFormat('dd/MM/yyyy').format(purchaseDate!) : 'Chọn ngày'),
                                   style: TextStyle(color: purchaseDate != null ? const Color(0xFF18181B) : const Color(0xFFA1A1AA)),
                                 ),
                               ),
@@ -2686,7 +2683,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                         const SizedBox(height: 20),
 
                         // Images
-                        const Text('Hình ảnh sản phẩm', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: Color(0xFF52525B))),
+                        Text(tr('Hình ảnh sản phẩm'), style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: Color(0xFF52525B))),
                         const SizedBox(height: 8),
                         Wrap(
                           spacing: 8, runSpacing: 8,
@@ -2713,8 +2710,8 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                                   context: context,
                                   shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
                                   builder: (ctx) => SafeArea(child: Column(mainAxisSize: MainAxisSize.min, children: [
-                                    ListTile(leading: const Icon(Icons.camera_alt), title: const Text('Chụp ảnh'), onTap: () => Navigator.pop(ctx, ImageSource.camera)),
-                                    ListTile(leading: const Icon(Icons.photo_library), title: const Text('Chọn từ thư viện'), onTap: () => Navigator.pop(ctx, ImageSource.gallery)),
+                                    ListTile(leading: const Icon(Icons.camera_alt), title: Text(tr('Chụp ảnh')), onTap: () => Navigator.pop(ctx, ImageSource.camera)),
+                                    ListTile(leading: const Icon(Icons.photo_library), title: Text(tr('Chọn từ thư viện')), onTap: () => Navigator.pop(ctx, ImageSource.gallery)),
                                   ])),
                                 );
                                 if (source == null) return;
@@ -2732,10 +2729,10 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                                   border: Border.all(color: const Color(0xFFD4D4D8), style: BorderStyle.solid),
                                   color: const Color(0xFFF4F4F5),
                                 ),
-                                child: const Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                                child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
                                   Icon(Icons.add_photo_alternate, color: Color(0xFF71717A), size: 24),
                                   SizedBox(height: 4),
-                                  Text('Thêm ảnh', style: TextStyle(fontSize: 10, color: Color(0xFF71717A))),
+                                  Text(tr('Thêm ảnh'), style: TextStyle(fontSize: 10, color: Color(0xFF71717A))),
                                 ]),
                               ),
                             ),
@@ -2751,7 +2748,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                     children: [
                       TextButton(
                         onPressed: () => Navigator.pop(context),
-                        child: const Text('Hủy', style: TextStyle(color: Color(0xFF71717A))),
+                        child: Text(tr('Hủy'), style: TextStyle(color: Color(0xFF71717A))),
                       ),
                       const SizedBox(width: 12),
                       FilledButton(
@@ -2772,7 +2769,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                         ),
-                        child: Text(isEdit ? 'Cập nhật' : 'Thêm mới'),
+                        child: Text(tr(isEdit ? 'Cập nhật' : 'Thêm mới')),
                       ),
                     ],
             ),
@@ -2785,7 +2782,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                 height: double.infinity,
                 child: Scaffold(
                   appBar: AppBar(
-                    title: Text(isEdit ? 'Chỉnh sửa tài sản' : 'Thêm tài sản mới'),
+                    title: Text(tr(isEdit ? 'Chỉnh sửa tài sản' : 'Thêm tài sản mới')),
                     leading: IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context)),
                   ),
                   body: formContent,
@@ -2811,7 +2808,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                       children: [
                         Icon(isEdit ? Icons.edit : Icons.add_circle, color: HrmPageChrome.primaryNavy),
                         const SizedBox(width: 10),
-                        Text(isEdit ? 'Chỉnh sửa tài sản' : 'Thêm tài sản mới', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                        Text(tr(isEdit ? 'Chỉnh sửa tài sản' : 'Thêm tài sản mới'), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                         const Spacer(),
                         IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context)),
                       ],
@@ -2859,7 +2856,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
     DateTime? purchaseDate, List<_PickedImage>? images,
   }) async {
     if (code.isEmpty || name.isEmpty) {
-      NotificationOverlayManager().showWarning(title: 'Thiếu thông tin', message: 'Vui lòng nhập mã và tên tài sản');
+      NotificationOverlayManager().showWarning(title: 'Thiếu thông tin', message: tr('Vui lòng nhập mã và tên tài sản'));
       return;
     }
 
@@ -2985,7 +2982,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                         _detailSection('Ghi chú', [
                           Padding(
                             padding: const EdgeInsets.symmetric(vertical: 4),
-                            child: Text(asset.notes!, style: const TextStyle(color: Color(0xFF52525B), fontSize: 13)),
+                            child: Text(tr(asset.notes!), style: const TextStyle(color: Color(0xFF52525B), fontSize: 13)),
                           ),
                         ]),
                       ],
@@ -3006,7 +3003,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                           final history = data['data'] as List? ?? [];
                           if (history.isEmpty) {
                             return _detailSection('Lịch sử kiểm kê', [
-                              const Padding(padding: EdgeInsets.all(8), child: Text('Chưa có lần kiểm kê nào', style: TextStyle(color: Color(0xFFA1A1AA), fontSize: 13))),
+                              Padding(padding: EdgeInsets.all(8), child: Text(tr('Chưa có lần kiểm kê nào'), style: TextStyle(color: Color(0xFFA1A1AA), fontSize: 13))),
                             ]);
                           }
                           return _detailSection('Lịch sử kiểm kê (${history.length})', history.map<Widget>((h) {
@@ -3040,37 +3037,37 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                                 decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(8), border: Border.all(color: const Color(0xFFE4E4E7))),
                                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                                   Row(children: [
-                                    Expanded(child: Text(h['inventoryName'] ?? '', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13))),
+                                    Expanded(child: Text(tr(h['inventoryName'] ?? ''), style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13))),
                                     Container(
                                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                       decoration: BoxDecoration(color: statusColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(4)),
-                                      child: Text(statusLabel, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: statusColor)),
+                                      child: Text(tr(statusLabel), style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: statusColor)),
                                     ),
                                   ]),
                                   const SizedBox(height: 4),
                                   Row(children: [
-                                    Text(date, style: const TextStyle(fontSize: 11, color: Color(0xFF71717A))),
+                                    Text(tr(date), style: const TextStyle(fontSize: 11, color: Color(0xFF71717A))),
                                     if (!isChecked) ...[
                                       const Spacer(),
                                       Container(
                                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
                                         decoration: BoxDecoration(color: const Color(0xFFF59E0B).withValues(alpha: 0.1), borderRadius: BorderRadius.circular(4)),
-                                        child: const Text('Chưa kiểm', style: TextStyle(fontSize: 10, color: Color(0xFFF59E0B), fontWeight: FontWeight.w600)),
+                                        child: Text(tr('Chưa kiểm'), style: TextStyle(fontSize: 10, color: Color(0xFFF59E0B), fontWeight: FontWeight.w600)),
                                       ),
                                     ],
                                     if (isChecked) ...[
                                       const Spacer(),
-                                      Text('TK: $expected', style: const TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+                                      Text(tr('TK: $expected'), style: const TextStyle(fontSize: 11, color: Color(0xFF64748B))),
                                       const SizedBox(width: 8),
-                                      Text('TT: $actual', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+                                      Text(tr('TT: $actual'), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
                                       const SizedBox(width: 8),
-                                      Text('CL: ${diff > 0 ? "+$diff" : "$diff"}',
+                                      Text(tr('CL: ${diff > 0 ? "+$diff" : "$diff"}'),
                                         style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: diff < 0 ? const Color(0xFFEF4444) : diff > 0 ? const Color(0xFF22C55E) : const Color(0xFF71717A))),
                                     ],
                                   ]),
                                   if (h['hasIssue'] == true && h['issueDescription'] != null && h['issueDescription'].toString().isNotEmpty) ...[
                                     const SizedBox(height: 4),
-                                    Text('Vấn đề: ${h['issueDescription']}', style: const TextStyle(fontSize: 11, color: Color(0xFFEF4444))),
+                                    Text(tr('${tr('Vấn đề: ')}${h['issueDescription']}'), style: const TextStyle(fontSize: 11, color: Color(0xFFEF4444))),
                                   ],
                                 ]),
                               ),
@@ -3088,7 +3085,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                     OutlinedButton.icon(
                       onPressed: () { Navigator.pop(context); _showAssetDialog(asset: asset); },
                       icon: const Icon(Icons.edit, size: 16),
-                      label: const Text('Sửa'),
+                      label: Text(tr('Sửa')),
                       style: OutlinedButton.styleFrom(foregroundColor: const Color(0xFF52525B)),
                     ),
                     const Spacer(),
@@ -3096,20 +3093,20 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                       FilledButton.icon(
                         onPressed: () { Navigator.pop(context); _showAssignDialog(asset); },
                         icon: const Icon(Icons.person_add, size: 16),
-                        label: const Text('Cấp phát'),
+                        label: Text(tr('Cấp phát')),
                         style: FilledButton.styleFrom(backgroundColor: HrmPageChrome.primaryNavy),
                       ),
                     if (asset.currentAssigneeId != null) ...[
                       OutlinedButton.icon(
                         onPressed: () { Navigator.pop(context); _showTransferDialog(asset); },
                         icon: const Icon(Icons.swap_horiz, size: 16),
-                        label: const Text('Chuyển giao'),
+                        label: Text(tr('Chuyển giao')),
                       ),
                       const SizedBox(width: 8),
                       FilledButton.icon(
                         onPressed: () { Navigator.pop(context); _showReturnDialog(asset); },
                         icon: const Icon(Icons.keyboard_return, size: 16),
-                        label: const Text('Thu hồi'),
+                        label: Text(tr('Thu hồi')),
                         style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFF59E0B), foregroundColor: Colors.white),
                       ),
                     ],
@@ -3124,7 +3121,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
               height: double.infinity,
               child: Scaffold(
                 appBar: AppBar(
-                  title: Text(asset.name),
+                  title: Text(tr(asset.name)),
                   leading: IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context)),
                 ),
                 body: bodyContent,
@@ -3162,12 +3159,12 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Row(children: [
-                              Text(asset.assetCode, style: const TextStyle(color: HrmPageChrome.primaryNavy, fontWeight: FontWeight.w600, fontSize: 13)),
+                              Text(tr(asset.assetCode), style: const TextStyle(color: HrmPageChrome.primaryNavy, fontWeight: FontWeight.w600, fontSize: 13)),
                               const SizedBox(width: 8),
                               _buildStatusBadge(asset.status),
                             ]),
                             const SizedBox(height: 4),
-                            Text(asset.name, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF18181B))),
+                            Text(tr(asset.name), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF18181B))),
                           ],
                         ),
                       ),
@@ -3192,7 +3189,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: Color(0xFF52525B))),
+        Text(tr(title), style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: Color(0xFF52525B))),
         const SizedBox(height: 8),
         Container(
           padding: const EdgeInsets.all(12),
@@ -3211,8 +3208,8 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
       padding: const EdgeInsets.symmetric(vertical: 5),
       child: Row(
         children: [
-          SizedBox(width: 140, child: Text(label, style: const TextStyle(color: Color(0xFFA1A1AA), fontSize: 13))),
-          Expanded(child: Text(value, style: TextStyle(fontWeight: FontWeight.w500, fontSize: 13, color: valueColor ?? const Color(0xFF18181B)))),
+          SizedBox(width: 140, child: Text(tr(label), style: const TextStyle(color: Color(0xFFA1A1AA), fontSize: 13))),
+          Expanded(child: Text(tr(value), style: TextStyle(fontWeight: FontWeight.w500, fontSize: 13, color: valueColor ?? const Color(0xFF18181B)))),
         ],
       ),
     );
@@ -3220,9 +3217,9 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
 
   void _showCategoryDialog({AssetCategory? category, String? parentId}) {
     final isEdit = category != null;
-    final codeCtrl = TextEditingController(text: category?.categoryCode ?? '');
-    final nameCtrl = TextEditingController(text: category?.name ?? '');
-    final descCtrl = TextEditingController(text: category?.description ?? '');
+    final codeCtrl = TextEditingController(text: tr(category?.categoryCode ?? ''));
+    final nameCtrl = TextEditingController(text: tr(category?.name ?? ''));
+    final descCtrl = TextEditingController(text: tr(category?.description ?? ''));
 
     final isMobile = Responsive.isMobile(context);
     showDialog(
@@ -3234,7 +3231,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               if (!isMobile) ...[
-                Text(isEdit ? 'Sửa danh mục' : 'Thêm danh mục mới', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                Text(tr(isEdit ? 'Sửa danh mục' : 'Thêm danh mục mới'), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 20),
               ],
               _dialogField('Mã danh mục *', codeCtrl),
@@ -3247,7 +3244,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
         );
         Future<Null> onSave() async {
                       if (codeCtrl.text.isEmpty || nameCtrl.text.isEmpty) {
-                        NotificationOverlayManager().showWarning(title: 'Thiếu thông tin', message: 'Vui lòng nhập mã và tên danh mục');
+                        NotificationOverlayManager().showWarning(title: 'Thiếu thông tin', message: tr('Vui lòng nhập mã và tên danh mục'));
                         return;
                       }
                       Map<String, dynamic> result;
@@ -3271,12 +3268,12 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
           child: Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  TextButton(onPressed: () => Navigator.pop(context), child: const Text('Hủy', style: TextStyle(color: Color(0xFF71717A)))),
+                  TextButton(onPressed: () => Navigator.pop(context), child: Text(tr('Hủy'), style: TextStyle(color: Color(0xFF71717A)))),
                   const SizedBox(width: 12),
                   FilledButton(
                     onPressed: onSave,
                     style: ElevatedButton.styleFrom(backgroundColor: HrmPageChrome.primaryNavy, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
-                    child: Text(isEdit ? 'Cập nhật' : 'Thêm'),
+                    child: Text(tr(isEdit ? 'Cập nhật' : 'Thêm')),
                   ),
                 ],
           ),
@@ -3289,7 +3286,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
               height: double.infinity,
               child: Scaffold(
                 appBar: AppBar(
-                  title: Text(isEdit ? 'Sửa danh mục' : 'Thêm danh mục mới'),
+                  title: Text(tr(isEdit ? 'Sửa danh mục' : 'Thêm danh mục mới')),
                   leading: IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context)),
                 ),
                 body: formContent,
@@ -3391,7 +3388,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                         },
                         child: InputDecorator(
                           decoration: _dialogDecoration('Ngày bắt đầu *'),
-                          child: Text(DateFormat('dd/MM/yyyy').format(startDate)),
+                          child: Text(tr(DateFormat('dd/MM/yyyy').format(startDate))),
                         ),
                       ),
                     ),
@@ -3404,15 +3401,15 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                         },
                         child: InputDecorator(
                           decoration: _dialogDecoration('Ngày kết thúc'),
-                          child: Text(endDate != null ? DateFormat('dd/MM/yyyy').format(endDate!) : 'Chọn ngày', style: TextStyle(color: endDate != null ? const Color(0xFF18181B) : const Color(0xFFA1A1AA))),
+                          child: Text(tr(endDate != null ? DateFormat('dd/MM/yyyy').format(endDate!) : 'Chọn ngày'), style: TextStyle(color: endDate != null ? const Color(0xFF18181B) : const Color(0xFFA1A1AA))),
                         ),
                       ),
                     ),
                   ]),
                   const SizedBox(height: 12),
                   _dialogDropdown<String?>('Người phụ trách', responsibleUserId,
-                    [const DropdownMenuItem(value: null, child: Text('Chọn người phụ trách')),
-                     ..._employees.map((e) => DropdownMenuItem(value: e.id, child: Text(e.fullName)))],
+                    [DropdownMenuItem(value: null, child: Text(tr('Chọn người phụ trách'))),
+                     ..._employees.map((e) => DropdownMenuItem(value: e.id, child: Text(tr(e.fullName))))],
                     (v) => setDialogState(() => responsibleUserId = v),
                   ),
                   const SizedBox(height: 12),
@@ -3433,7 +3430,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                       TextField(
                         controller: searchCtrl,
                         decoration: InputDecoration(
-                          hintText: 'Tìm hàng hóa...',
+                          hintText: tr('Tìm hàng hóa...'),
                           prefixIcon: const Icon(Icons.search, size: 20),
                           suffixIcon: searchText.isNotEmpty ? IconButton(icon: const Icon(Icons.clear, size: 18), onPressed: () { searchCtrl.clear(); setDialogState(() => searchText = ''); }) : null,
                           isDense: true,
@@ -3459,14 +3456,14 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                             child: Row(children: [
                               Icon(itemQuantities.length == allAssets.length ? Icons.check_box : Icons.check_box_outline_blank, size: 20, color: HrmPageChrome.primaryNavy),
                               const SizedBox(width: 6),
-                              const Text('Chọn tất cả', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+                              Text(tr('Chọn tất cả'), style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
                             ]),
                           ),
                           const Spacer(),
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                             decoration: BoxDecoration(color: HrmPageChrome.primaryNavy.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(12)),
-                            child: Text('Đã chọn: $selectedCount', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: HrmPageChrome.primaryNavy)),
+                            child: Text(tr('Đã chọn: $selectedCount'), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: HrmPageChrome.primaryNavy)),
                           ),
                         ],
                       ),
@@ -3479,7 +3476,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                 else
                   Expanded(
                     child: displayAssets.isEmpty
-                        ? const Center(child: Text('Không tìm thấy hàng hóa', style: TextStyle(color: Color(0xFFA1A1AA))))
+                        ? Center(child: Text(tr('Không tìm thấy hàng hóa'), style: TextStyle(color: Color(0xFFA1A1AA))))
                         : ListView.builder(
                             padding: const EdgeInsets.symmetric(horizontal: 12),
                             itemCount: displayAssets.length,
@@ -3493,7 +3490,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                               final isExpanded = expandedItemId == asset.id;
 
                               if (!actualQtyControllers.containsKey(asset.id)) {
-                                actualQtyControllers[asset.id] = TextEditingController(text: actualQty?.toString() ?? '');
+                                actualQtyControllers[asset.id] = TextEditingController(text: tr(actualQty?.toString() ?? ''));
                               }
 
                               return Container(
@@ -3532,15 +3529,15 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                                             child: Column(
                                               crossAxisAlignment: CrossAxisAlignment.start,
                                               children: [
-                                                Text(asset.name, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600), maxLines: 1, overflow: TextOverflow.ellipsis),
-                                                Text('Mã: ${asset.assetCode}', style: const TextStyle(fontSize: 11, color: Color(0xFF71717A))),
+                                                Text(tr(asset.name), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600), maxLines: 1, overflow: TextOverflow.ellipsis),
+                                                Text(tr('Mã: ${asset.assetCode}'), style: const TextStyle(fontSize: 11, color: Color(0xFF71717A))),
                                               ],
                                             ),
                                           ),
                                           Container(
                                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                             decoration: BoxDecoration(color: const Color(0xFFF4F4F5), borderRadius: BorderRadius.circular(6)),
-                                            child: Text('Tồn: $stockQty', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF64748B))),
+                                            child: Text(tr('Tồn: $stockQty'), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF64748B))),
                                           ),
                                         ],
                                       ),
@@ -3558,7 +3555,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                                                 controller: actualQtyControllers[asset.id],
                                                 keyboardType: TextInputType.number,
                                                 decoration: InputDecoration(
-                                                  labelText: 'SL thực tế',
+                                                  labelText: tr('SL thực tế'),
                                                   labelStyle: const TextStyle(fontSize: 11),
                                                   isDense: true,
                                                   contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
@@ -3596,7 +3593,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                                                     ),
                                                     const SizedBox(width: 4),
                                                     Text(
-                                                      diff < 0 ? 'Hụt: ${diff.abs()}' : diff > 0 ? 'Thừa: +$diff' : 'Khớp',
+                                                      tr(diff < 0 ? 'Hụt: ${diff.abs()}' : diff > 0 ? 'Thừa: +$diff' : 'Khớp'),
                                                       style: TextStyle(
                                                         fontSize: 11,
                                                         fontWeight: FontWeight.w600,
@@ -3645,7 +3642,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                                           children: [
                                             TextField(
                                               decoration: InputDecoration(
-                                                hintText: 'Ghi chú cho sản phẩm này...',
+                                                hintText: tr('Ghi chú cho sản phẩm này...'),
                                                 hintStyle: const TextStyle(fontSize: 12, color: Color(0xFFA1A1AA)),
                                                 isDense: true,
                                                 contentPadding: const EdgeInsets.all(10),
@@ -3653,7 +3650,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                                               ),
                                               style: const TextStyle(fontSize: 12),
                                               maxLines: 2,
-                                              controller: TextEditingController(text: itemNotes[asset.id] ?? ''),
+                                              controller: TextEditingController(text: tr(itemNotes[asset.id] ?? '')),
                                               onChanged: (v) => itemNotes[asset.id] = v,
                                             ),
                                             const SizedBox(height: 8),
@@ -3691,10 +3688,10 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                                                     final source = await showDialog<ImageSource>(
                                                       context: context,
                                                       builder: (ctx) => SimpleDialog(
-                                                        title: const Text('Chọn nguồn ảnh'),
+                                                        title: Text(tr('Chọn nguồn ảnh')),
                                                         children: [
-                                                          SimpleDialogOption(onPressed: () => Navigator.pop(ctx, ImageSource.camera), child: const ListTile(leading: Icon(Icons.camera_alt), title: Text('Chụp ảnh'))),
-                                                          SimpleDialogOption(onPressed: () => Navigator.pop(ctx, ImageSource.gallery), child: const ListTile(leading: Icon(Icons.photo_library), title: Text('Thư viện'))),
+                                                          SimpleDialogOption(onPressed: () => Navigator.pop(ctx, ImageSource.camera), child: ListTile(leading: Icon(Icons.camera_alt), title: Text(tr('Chụp ảnh')))),
+                                                          SimpleDialogOption(onPressed: () => Navigator.pop(ctx, ImageSource.gallery), child: ListTile(leading: Icon(Icons.photo_library), title: Text(tr('Thư viện')))),
                                                         ],
                                                       ),
                                                     );
@@ -3708,7 +3705,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                                                     });
                                                   },
                                                   icon: const Icon(Icons.camera_alt, size: 16),
-                                                  label: Text(itemImages[asset.id] != null ? 'Đổi ảnh' : 'Thêm ảnh', style: const TextStyle(fontSize: 12)),
+                                                  label: Text(tr(itemImages[asset.id] != null ? 'Đổi ảnh' : 'Thêm ảnh'), style: const TextStyle(fontSize: 12)),
                                                   style: OutlinedButton.styleFrom(
                                                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                                                     minimumSize: Size.zero,
@@ -3740,24 +3737,24 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                     TextButton.icon(
                       onPressed: () => setDialogState(() => step = 0),
                       icon: const Icon(Icons.arrow_back, size: 18),
-                      label: const Text('Quay lại'),
+                      label: Text(tr('Quay lại')),
                       style: TextButton.styleFrom(foregroundColor: const Color(0xFF71717A)),
                     ),
                   const Spacer(),
-                  TextButton(onPressed: () => Navigator.pop(context), child: const Text('Hủy', style: TextStyle(color: Color(0xFF71717A)))),
+                  TextButton(onPressed: () => Navigator.pop(context), child: Text(tr('Hủy'), style: TextStyle(color: Color(0xFF71717A)))),
                   const SizedBox(width: 12),
                   if (step == 0)
                     FilledButton.icon(
                       onPressed: () {
                         if (nameCtrl.text.isEmpty) {
-                          NotificationOverlayManager().showWarning(title: 'Thiếu thông tin', message: 'Vui lòng nhập tên đợt kiểm kê');
+                          NotificationOverlayManager().showWarning(title: 'Thiếu thông tin', message: tr('Vui lòng nhập tên đợt kiểm kê'));
                           return;
                         }
                         setDialogState(() => step = 1);
                         if (!allLoaded) loadAllAssets(setDialogState);
                       },
                       icon: const Icon(Icons.arrow_forward, size: 18),
-                      label: const Text('Chọn hàng hóa'),
+                      label: Text(tr('Chọn hàng hóa')),
                       style: ElevatedButton.styleFrom(backgroundColor: HrmPageChrome.primaryNavy, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
                     ),
                   if (step == 1)
@@ -3805,7 +3802,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                           Navigator.pop(context);
                           if (!mounted) return;
                           if (result['isSuccess'] == true) {
-                            NotificationOverlayManager().showSuccess(title: 'Thành công', message: 'Đã tạo đợt kiểm kê với $selectedCount hàng hóa');
+                            NotificationOverlayManager().showSuccess(title: 'Thành công', message: tr('Đã tạo đợt kiểm kê với $selectedCount hàng hóa'));
                             _loadInventories();
                           } else {
                             NotificationOverlayManager().showError(title: 'Lỗi', message: result['message'] ?? 'Có lỗi xảy ra');
@@ -3815,7 +3812,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                         }
                       },
                       icon: isCreating ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Icon(Icons.check, size: 18),
-                      label: Text('Tạo ($selectedCount)'),
+                      label: Text(tr('Tạo ($selectedCount)')),
                       style: ElevatedButton.styleFrom(backgroundColor: HrmPageChrome.primaryNavy, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
                     ),
                 ],
@@ -3845,7 +3842,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                 height: double.infinity,
                 child: Scaffold(
                   appBar: AppBar(
-                    title: Text(step == 0 ? 'Tạo đợt kiểm kê' : 'Chọn hàng hóa kiểm kê'),
+                    title: Text(tr(step == 0 ? 'Tạo đợt kiểm kê' : 'Chọn hàng hóa kiểm kê')),
                     leading: IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context)),
                   ),
                   body: Column(
@@ -3872,7 +3869,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                     child: Row(children: [
                       const Icon(Icons.checklist, color: HrmPageChrome.primaryNavy, size: 22),
                       const SizedBox(width: 8),
-                      const Expanded(child: Text('Tạo đợt kiểm kê mới', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold))),
+                      Expanded(child: Text(tr('Tạo đợt kiểm kê mới'), style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold))),
                       IconButton(icon: const Icon(Icons.close, size: 20), onPressed: () => Navigator.pop(context)),
                     ]),
                   ),
@@ -3908,10 +3905,10 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
             shape: BoxShape.circle,
             border: Border.all(color: isActive ? HrmPageChrome.primaryNavy : const Color(0xFFD4D4D8), width: 2),
           ),
-          child: Center(child: Text('${index + 1}', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: isActive ? Colors.white : const Color(0xFFA1A1AA)))),
+          child: Center(child: Text(tr('${index + 1}'), style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: isActive ? Colors.white : const Color(0xFFA1A1AA)))),
         ),
         const SizedBox(width: 6),
-        Text(label, style: TextStyle(fontSize: 12, fontWeight: isActive ? FontWeight.w600 : FontWeight.normal, color: isActive ? HrmPageChrome.primaryNavy : const Color(0xFFA1A1AA))),
+        Text(tr(label), style: TextStyle(fontSize: 12, fontWeight: isActive ? FontWeight.w600 : FontWeight.normal, color: isActive ? HrmPageChrome.primaryNavy : const Color(0xFFA1A1AA))),
       ],
     );
   }
@@ -3932,13 +3929,13 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 if (!isMobile) ...[
-                  const Text('Cấp phát tài sản', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  Text(tr('Cấp phát tài sản'), style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 8),
                 ],
-                Text('Tài sản: ${asset.name}', style: const TextStyle(color: Color(0xFF71717A))),
+                Text(tr('Tài sản: ${asset.name}'), style: const TextStyle(color: Color(0xFF71717A))),
                 const SizedBox(height: 20),
                 _dialogDropdown<String?>('Cấp cho *', selectedUserId,
-                  _employees.map((e) => DropdownMenuItem(value: e.id, child: Text(e.fullName))).toList(),
+                  _employees.map((e) => DropdownMenuItem(value: e.id, child: Text(tr(e.fullName)))).toList(),
                   (v) => setDialogState(() => selectedUserId = v),
                 ),
                 const SizedBox(height: 12),
@@ -3953,12 +3950,12 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
             child: Row(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
-                    TextButton(onPressed: () => Navigator.pop(context), child: const Text('Hủy', style: TextStyle(color: Color(0xFF71717A)))),
+                    TextButton(onPressed: () => Navigator.pop(context), child: Text(tr('Hủy'), style: TextStyle(color: Color(0xFF71717A)))),
                     const SizedBox(width: 12),
                     FilledButton(
                       onPressed: () async {
                         if (selectedUserId == null) {
-                          NotificationOverlayManager().showWarning(title: 'Thiếu thông tin', message: 'Vui lòng chọn người nhận');
+                          NotificationOverlayManager().showWarning(title: 'Thiếu thông tin', message: tr('Vui lòng chọn người nhận'));
                           return;
                         }
                         final result = await _apiService.assignAsset(assetId: asset.id, toUserId: selectedUserId!, reason: reasonCtrl.text.isNotEmpty ? reasonCtrl.text : null, notes: notesCtrl.text.isNotEmpty ? notesCtrl.text : null);
@@ -3966,14 +3963,14 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                         Navigator.pop(context);
                         if (!mounted) return;
                         if (result['isSuccess'] == true) {
-                          NotificationOverlayManager().showSuccess(title: 'Thành công', message: 'Đã cấp phát tài sản');
+                          NotificationOverlayManager().showSuccess(title: 'Thành công', message: tr('Đã cấp phát tài sản'));
                           _loadAssets(); _loadStatistics();
                         } else {
                           NotificationOverlayManager().showError(title: 'Lỗi', message: result['message'] ?? 'Có lỗi xảy ra');
                         }
                       },
                       style: ElevatedButton.styleFrom(backgroundColor: HrmPageChrome.primaryNavy, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
-                      child: const Text('Cấp phát'),
+                      child: Text(tr('Cấp phát')),
                     ),
                   ],
             ),
@@ -3986,7 +3983,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                 height: double.infinity,
                 child: Scaffold(
                   appBar: AppBar(
-                    title: const Text('Cấp phát tài sản'),
+                    title: Text(tr('Cấp phát tài sản')),
                     leading: IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context)),
                   ),
                   body: formContent,
@@ -4032,14 +4029,14 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 if (!isMobile) ...[
-                  const Text('Chuyển giao tài sản', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  Text(tr('Chuyển giao tài sản'), style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 8),
                 ],
-                Text('Tài sản: ${asset.name}', style: const TextStyle(color: Color(0xFF71717A))),
-                Text('Đang sử dụng: ${asset.currentAssigneeName}', style: const TextStyle(color: Color(0xFFA1A1AA), fontSize: 13)),
+                Text(tr('Tài sản: ${asset.name}'), style: const TextStyle(color: Color(0xFF71717A))),
+                Text(tr('Đang sử dụng: ${asset.currentAssigneeName}'), style: const TextStyle(color: Color(0xFFA1A1AA), fontSize: 13)),
                 const SizedBox(height: 20),
                 _dialogDropdown<String?>('Chuyển cho *', selectedUserId,
-                  _employees.where((e) => e.id != asset.currentAssigneeId).map((e) => DropdownMenuItem(value: e.id, child: Text(e.fullName))).toList(),
+                  _employees.where((e) => e.id != asset.currentAssigneeId).map((e) => DropdownMenuItem(value: e.id, child: Text(tr(e.fullName)))).toList(),
                   (v) => setDialogState(() => selectedUserId = v),
                 ),
                 const SizedBox(height: 12),
@@ -4054,12 +4051,12 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
             child: Row(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
-                    TextButton(onPressed: () => Navigator.pop(context), child: const Text('Hủy', style: TextStyle(color: Color(0xFF71717A)))),
+                    TextButton(onPressed: () => Navigator.pop(context), child: Text(tr('Hủy'), style: TextStyle(color: Color(0xFF71717A)))),
                     const SizedBox(width: 12),
                     FilledButton(
                       onPressed: () async {
                         if (selectedUserId == null) {
-                          NotificationOverlayManager().showWarning(title: 'Thiếu thông tin', message: 'Vui lòng chọn người nhận');
+                          NotificationOverlayManager().showWarning(title: 'Thiếu thông tin', message: tr('Vui lòng chọn người nhận'));
                           return;
                         }
                         final result = await _apiService.transferAsset(assetId: asset.id, fromUserId: asset.currentAssigneeId!, toUserId: selectedUserId!, reason: reasonCtrl.text.isNotEmpty ? reasonCtrl.text : null, notes: notesCtrl.text.isNotEmpty ? notesCtrl.text : null);
@@ -4067,14 +4064,14 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                         Navigator.pop(context);
                         if (!mounted) return;
                         if (result['isSuccess'] == true) {
-                          NotificationOverlayManager().showSuccess(title: 'Thành công', message: 'Đã chuyển giao tài sản');
+                          NotificationOverlayManager().showSuccess(title: 'Thành công', message: tr('Đã chuyển giao tài sản'));
                           _loadAssets(); _loadStatistics();
                         } else {
                           NotificationOverlayManager().showError(title: 'Lỗi', message: result['message'] ?? 'Có lỗi xảy ra');
                         }
                       },
                       style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFF59E0B), foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
-                      child: const Text('Chuyển giao'),
+                      child: Text(tr('Chuyển giao')),
                     ),
                   ],
             ),
@@ -4087,7 +4084,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                 height: double.infinity,
                 child: Scaffold(
                   appBar: AppBar(
-                    title: const Text('Chuyển giao tài sản'),
+                    title: Text(tr('Chuyển giao tài sản')),
                     leading: IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context)),
                   ),
                   body: formContent,
@@ -4133,14 +4130,14 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 if (!isMobile) ...[
-                  const Text('Thu hồi tài sản', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  Text(tr('Thu hồi tài sản'), style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 8),
                 ],
-                Text('Tài sản: ${asset.name}', style: const TextStyle(color: Color(0xFF71717A))),
-                Text('Thu hồi từ: ${asset.currentAssigneeName}', style: const TextStyle(color: Color(0xFFA1A1AA), fontSize: 13)),
+                Text(tr('Tài sản: ${asset.name}'), style: const TextStyle(color: Color(0xFF71717A))),
+                Text(tr('Thu hồi từ: ${asset.currentAssigneeName}'), style: const TextStyle(color: Color(0xFFA1A1AA), fontSize: 13)),
                 const SizedBox(height: 20),
                 _dialogDropdown<InventoryCondition>('Tình trạng khi thu hồi', condition,
-                  InventoryCondition.values.map((c) => DropdownMenuItem(value: c, child: Text(getConditionLabel(c)))).toList(),
+                  InventoryCondition.values.map((c) => DropdownMenuItem(value: c, child: Text(tr(getConditionLabel(c))))).toList(),
                   (v) => setDialogState(() => condition = v!),
                 ),
                 const SizedBox(height: 12),
@@ -4155,7 +4152,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
             child: Row(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
-                    TextButton(onPressed: () => Navigator.pop(context), child: const Text('Hủy', style: TextStyle(color: Color(0xFF71717A)))),
+                    TextButton(onPressed: () => Navigator.pop(context), child: Text(tr('Hủy'), style: TextStyle(color: Color(0xFF71717A)))),
                     const SizedBox(width: 12),
                     FilledButton(
                       onPressed: () async {
@@ -4164,14 +4161,14 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                         Navigator.pop(context);
                         if (!mounted) return;
                         if (result['isSuccess'] == true) {
-                          NotificationOverlayManager().showSuccess(title: 'Thành công', message: 'Đã thu hồi tài sản');
+                          NotificationOverlayManager().showSuccess(title: 'Thành công', message: tr('Đã thu hồi tài sản'));
                           _loadAssets(); _loadStatistics();
                         } else {
                           NotificationOverlayManager().showError(title: 'Lỗi', message: result['message'] ?? 'Có lỗi xảy ra');
                         }
                       },
                       style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFF59E0B), foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
-                      child: const Text('Thu hồi'),
+                      child: Text(tr('Thu hồi')),
                     ),
                   ],
             ),
@@ -4184,7 +4181,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                 height: double.infinity,
                 child: Scaffold(
                   appBar: AppBar(
-                    title: const Text('Thu hồi tài sản'),
+                    title: Text(tr('Thu hồi tài sản')),
                     leading: IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context)),
                   ),
                   body: formContent,
@@ -4239,14 +4236,14 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
       context: context,
       builder: (context) => ScrollableAlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Xác nhận xóa'),
-        content: Text('Bạn có chắc muốn xóa tài sản "${asset.name}"?'),
+        title: Text(tr('Xác nhận xóa')),
+        content: Text(tr('Bạn có chắc muốn xóa tài sản "${asset.name}"?')),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Hủy', style: TextStyle(color: Color(0xFF71717A)))),
+          TextButton(onPressed: () => Navigator.pop(context, false), child: Text(tr('Hủy'), style: TextStyle(color: Color(0xFF71717A)))),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
             style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFEF4444), foregroundColor: Colors.white),
-            child: const Text('Xóa'),
+            child: Text(tr('Xóa')),
           ),
         ],
       ),
@@ -4255,7 +4252,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
       final result = await _apiService.deleteAsset(asset.id);
       if (!mounted) return;
       if (result['isSuccess'] == true) {
-        NotificationOverlayManager().showSuccess(title: 'Thành công', message: 'Đã xóa tài sản');
+        NotificationOverlayManager().showSuccess(title: 'Thành công', message: tr('Đã xóa tài sản'));
         _loadAssets(); _loadStatistics();
       } else {
         NotificationOverlayManager().showError(title: 'Lỗi', message: result['message'] ?? 'Có lỗi xảy ra');
@@ -4268,14 +4265,14 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
       context: context,
       builder: (context) => ScrollableAlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Xác nhận xóa'),
-        content: Text('Bạn có chắc muốn xóa danh mục "${category.name}"?'),
+        title: Text(tr('Xác nhận xóa')),
+        content: Text(tr('Bạn có chắc muốn xóa danh mục "${category.name}"?')),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Hủy', style: TextStyle(color: Color(0xFF71717A)))),
+          TextButton(onPressed: () => Navigator.pop(context, false), child: Text(tr('Hủy'), style: TextStyle(color: Color(0xFF71717A)))),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
             style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFEF4444), foregroundColor: Colors.white),
-            child: const Text('Xóa'),
+            child: Text(tr('Xóa')),
           ),
         ],
       ),
@@ -4284,7 +4281,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
       final result = await _apiService.deleteAssetCategory(category.id);
       if (!mounted) return;
       if (result['isSuccess'] == true) {
-        NotificationOverlayManager().showSuccess(title: 'Thành công', message: 'Đã xóa danh mục');
+        NotificationOverlayManager().showSuccess(title: 'Thành công', message: tr('Đã xóa danh mục'));
         _loadCategories();
       } else {
         NotificationOverlayManager().showError(title: 'Lỗi', message: result['message'] ?? 'Có lỗi xảy ra');
@@ -4297,14 +4294,14 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
       context: context,
       builder: (context) => ScrollableAlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Xác nhận nhận tài sản'),
-        content: Text('Bạn xác nhận đã nhận tài sản "${transfer.assetName ?? 'Tài sản'}"?'),
+        title: Text(tr('Xác nhận nhận tài sản')),
+        content: Text(tr('${tr('Bạn xác nhận đã nhận tài sản "')}${transfer.assetName ?? 'Tài sản'}"?')),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Hủy', style: TextStyle(color: Color(0xFF71717A)))),
+          TextButton(onPressed: () => Navigator.pop(context, false), child: Text(tr('Hủy'), style: TextStyle(color: Color(0xFF71717A)))),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
             style: FilledButton.styleFrom(backgroundColor: HrmPageChrome.primaryNavy),
-            child: const Text('Xác nhận'),
+            child: Text(tr('Xác nhận')),
           ),
         ],
       ),
@@ -4314,7 +4311,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
     final result = await _apiService.confirmAssetTransfer(transfer.id);
     if (!mounted) return;
     if (result['isSuccess'] == true) {
-      NotificationOverlayManager().showSuccess(title: 'Thành công', message: 'Đã xác nhận chuyển giao');
+      NotificationOverlayManager().showSuccess(title: 'Thành công', message: tr('Đã xác nhận chuyển giao'));
       _loadTransfers();
     } else {
       NotificationOverlayManager().showError(title: 'Lỗi', message: result['message'] ?? 'Có lỗi xảy ra');
@@ -4331,9 +4328,9 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
       inputFormatters: isMoney ? [ThousandSeparatorFormatter()] : null,
       style: const TextStyle(fontSize: 14, color: Color(0xFF18181B)),
       decoration: InputDecoration(
-        labelText: label,
+        labelText: tr(label),
         labelStyle: const TextStyle(fontSize: 13, color: Color(0xFFA1A1AA)),
-        suffixText: suffix,
+        suffixText: trN(suffix),
         filled: true,
         fillColor: const Color(0xFFFAFAFA),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFE4E4E7))),
@@ -4346,7 +4343,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
 
   InputDecoration _dialogDecoration(String label) {
     return InputDecoration(
-      labelText: label,
+      labelText: tr(label),
       labelStyle: const TextStyle(fontSize: 13, color: Color(0xFFA1A1AA)),
       filled: true,
       fillColor: const Color(0xFFFAFAFA),
@@ -4437,8 +4434,8 @@ class _AssetQrScanDialogState extends State<_AssetQrScanDialog> {
                 children: [
                   const Icon(Icons.qr_code_scanner, color: Colors.white, size: 22),
                   const SizedBox(width: 10),
-                  const Expanded(
-                    child: Text('Quét QR / Barcode tài sản', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w700)),
+                  Expanded(
+                    child: Text(tr('Quét QR / Barcode tài sản'), style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w700)),
                   ),
                   IconButton(icon: const Icon(Icons.close, color: Colors.white, size: 20), onPressed: () => Navigator.pop(context), padding: EdgeInsets.zero, constraints: const BoxConstraints()),
                 ],
@@ -4454,8 +4451,8 @@ class _AssetQrScanDialogState extends State<_AssetQrScanDialog> {
                             controller: _manualController,
                             autofocus: true,
                             decoration: InputDecoration(
-                              labelText: 'Nhập mã tài sản',
-                              hintText: 'VD: TS-20240101-0001',
+                              labelText: tr('Nhập mã tài sản'),
+                              hintText: tr('VD: TS-20240101-0001'),
                               border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                               prefixIcon: const Icon(Icons.search),
                             ),
@@ -4476,7 +4473,7 @@ class _AssetQrScanDialogState extends State<_AssetQrScanDialog> {
                                 padding: const EdgeInsets.symmetric(vertical: 14),
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                               ),
-                              child: const Text('Tìm kiếm'),
+                              child: Text(tr('Tìm kiếm')),
                             ),
                           ),
                         ],
@@ -4495,7 +4492,7 @@ class _AssetQrScanDialogState extends State<_AssetQrScanDialog> {
                                     children: [
                                       const Icon(Icons.camera_alt, size: 48, color: Color(0xFFA1A1AA)),
                                       const SizedBox(height: 8),
-                                      Text(error.errorDetails?.message ?? 'Không thể truy cập camera', style: const TextStyle(color: Color(0xFFA1A1AA))),
+                                      Text(tr(error.errorDetails?.message ?? 'Không thể truy cập camera'), style: const TextStyle(color: Color(0xFFA1A1AA))),
                                     ],
                                   ),
                                 );
@@ -4518,7 +4515,7 @@ class _AssetQrScanDialogState extends State<_AssetQrScanDialog> {
                               children: [
                                 const Icon(Icons.camera_alt, size: 48, color: Color(0xFFA1A1AA)),
                                 const SizedBox(height: 8),
-                                Text(_cameraError ?? 'Camera không khả dụng', style: const TextStyle(color: Color(0xFFA1A1AA))),
+                                Text(tr(_cameraError ?? 'Camera không khả dụng'), style: const TextStyle(color: Color(0xFFA1A1AA))),
                               ],
                             ),
                           ),
@@ -4561,7 +4558,7 @@ class _AssetQrScanDialogState extends State<_AssetQrScanDialog> {
                   TextButton.icon(
                     onPressed: () => setState(() => _showManualInput = !_showManualInput),
                     icon: Icon(_showManualInput ? Icons.camera_alt : Icons.keyboard, size: 18),
-                    label: Text(_showManualInput ? 'Quét mã' : 'Nhập thủ công'),
+                    label: Text(tr(_showManualInput ? 'Quét mã' : 'Nhập thủ công')),
                   ),
                 ],
               ),
@@ -4647,7 +4644,7 @@ class _InventoryDetailDialogState extends State<_InventoryDetailDialog> {
         final data = result['data'];
         final assetName = data?['assetName'] ?? code;
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('✓ Đã quét: $assetName - Hãy nhập số lượng thực tế'),
+          content: Text(tr('✓ Đã quét: $assetName - Hãy nhập số lượng thực tế')),
           backgroundColor: const Color(0xFF059669),
           duration: const Duration(seconds: 2),
         ));
@@ -4664,7 +4661,7 @@ class _InventoryDetailDialogState extends State<_InventoryDetailDialog> {
       } else {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text(result['message'] ?? 'Không tìm thấy tài sản'),
+            content: Text(tr(result['message'] ?? 'Không tìm thấy tài sản')),
             backgroundColor: const Color(0xFFEF4444),
           ));
         }
@@ -4691,9 +4688,9 @@ class _InventoryDetailDialogState extends State<_InventoryDetailDialog> {
       if (notes.isEmpty) notes = null;
     }
 
-    final qtyCtrl = TextEditingController(text: item.isChecked ? actualQty.toString() : '');
-    final issueCtrl = TextEditingController(text: issueDesc ?? '');
-    final notesCtrl = TextEditingController(text: notes ?? '');
+    final qtyCtrl = TextEditingController(text: tr(item.isChecked ? actualQty.toString() : ''));
+    final issueCtrl = TextEditingController(text: tr(issueDesc ?? ''));
+    final notesCtrl = TextEditingController(text: tr(notes ?? ''));
 
     final confirmed = await showDialog<bool>(
       context: context,
@@ -4715,8 +4712,8 @@ class _InventoryDetailDialogState extends State<_InventoryDetailDialog> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(item.assetName ?? item.assetCode ?? '', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: Colors.white)),
-                  if (item.assetCode != null) Text(item.assetCode!, style: const TextStyle(fontSize: 12, color: Colors.white70)),
+                  Text(tr(item.assetName ?? item.assetCode ?? ''), style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: Colors.white)),
+                  if (item.assetCode != null) Text(tr(item.assetCode!), style: const TextStyle(fontSize: 12, color: Colors.white70)),
                   const SizedBox(height: 8),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -4725,12 +4722,12 @@ class _InventoryDetailDialogState extends State<_InventoryDetailDialog> {
                       children: [
                         const Icon(Icons.inventory_2, size: 16, color: Colors.white70),
                         const SizedBox(width: 6),
-                        Text('Tồn kho: ${item.expectedQuantity}', style: const TextStyle(fontSize: 13, color: Colors.white, fontWeight: FontWeight.w600)),
+                        Text(tr('Tồn kho: ${item.expectedQuantity}'), style: const TextStyle(fontSize: 13, color: Colors.white, fontWeight: FontWeight.w600)),
                         const Spacer(),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                           decoration: BoxDecoration(color: diffColor, borderRadius: BorderRadius.circular(4)),
-                          child: Text(diffText, style: const TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.w600)),
+                          child: Text(tr(diffText), style: const TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.w600)),
                         ),
                       ],
                     ),
@@ -4752,7 +4749,7 @@ class _InventoryDetailDialogState extends State<_InventoryDetailDialog> {
                     ),
                     child: Row(
                       children: [
-                        const Expanded(child: Text('Số lượng thực tế', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600))),
+                        Expanded(child: Text(tr('Số lượng thực tế'), style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600))),
                         SizedBox(
                           width: 48, height: 36,
                           child: IconButton(
@@ -4773,7 +4770,7 @@ class _InventoryDetailDialogState extends State<_InventoryDetailDialog> {
                               contentPadding: const EdgeInsets.symmetric(vertical: 8),
                               border: const OutlineInputBorder(),
                               isDense: true,
-                              hintText: '?',
+                              hintText: tr('?'),
                               hintStyle: TextStyle(color: Colors.red.shade300, fontSize: 18),
                             ),
                             onChanged: (v) {
@@ -4801,19 +4798,19 @@ class _InventoryDetailDialogState extends State<_InventoryDetailDialog> {
                   const SizedBox(height: 12),
                   DropdownButtonFormField<int>(
                     initialValue: condition,
-                    decoration: const InputDecoration(labelText: 'Tình trạng', border: OutlineInputBorder(), isDense: true),
-                    items: const [
-                      DropdownMenuItem(value: 0, child: Text('Tốt')),
-                      DropdownMenuItem(value: 1, child: Text('Bình thường')),
-                      DropdownMenuItem(value: 2, child: Text('Kém')),
-                      DropdownMenuItem(value: 3, child: Text('Hỏng')),
-                      DropdownMenuItem(value: 4, child: Text('Không tìm thấy')),
+                    decoration: InputDecoration(labelText: tr('Tình trạng'), border: OutlineInputBorder(), isDense: true),
+                    items: [
+                      DropdownMenuItem(value: 0, child: Text(tr('Tốt'))),
+                      DropdownMenuItem(value: 1, child: Text(tr('Bình thường'))),
+                      DropdownMenuItem(value: 2, child: Text(tr('Kém'))),
+                      DropdownMenuItem(value: 3, child: Text(tr('Hỏng'))),
+                      DropdownMenuItem(value: 4, child: Text(tr('Không tìm thấy'))),
                     ],
                     onChanged: (v) => setDialogState(() => condition = v ?? 0),
                   ),
                   const SizedBox(height: 12),
                   SwitchListTile(
-                    title: const Text('Có vấn đề?', style: TextStyle(fontSize: 14)),
+                    title: Text(tr('Có vấn đề?'), style: TextStyle(fontSize: 14)),
                     value: hasIssue,
                     onChanged: (v) => setDialogState(() => hasIssue = v),
                     contentPadding: EdgeInsets.zero,
@@ -4823,7 +4820,7 @@ class _InventoryDetailDialogState extends State<_InventoryDetailDialog> {
                     const SizedBox(height: 8),
                     TextFormField(
                       controller: issueCtrl,
-                      decoration: const InputDecoration(labelText: 'Mô tả vấn đề', border: OutlineInputBorder(), isDense: true),
+                      decoration: InputDecoration(labelText: tr('Mô tả vấn đề'), border: OutlineInputBorder(), isDense: true),
                       maxLines: 2,
                       onChanged: (v) => issueDesc = v.isEmpty ? null : v,
                     ),
@@ -4831,11 +4828,11 @@ class _InventoryDetailDialogState extends State<_InventoryDetailDialog> {
                   const SizedBox(height: 12),
                   TextFormField(
                     controller: notesCtrl,
-                    decoration: const InputDecoration(labelText: 'Ghi chú', border: OutlineInputBorder(), isDense: true),
+                    decoration: InputDecoration(labelText: tr('Ghi chú'), border: OutlineInputBorder(), isDense: true),
                     onChanged: (v) => notes = v.isEmpty ? null : v,
                   ),
                   const SizedBox(height: 12),
-                  const Align(alignment: Alignment.centerLeft, child: Text('Hình ảnh', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500))),
+                  Align(alignment: Alignment.centerLeft, child: Text(tr('Hình ảnh'), style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500))),
                   const SizedBox(height: 8),
                   if (imageBytes != null) ...[
                     Stack(
@@ -4859,7 +4856,7 @@ class _InventoryDetailDialogState extends State<_InventoryDetailDialog> {
                           if (photo != null) { final bytes = await photo.readAsBytes(); setDialogState(() { imageBytes = bytes; imageName = photo.name; }); }
                         },
                         icon: const Icon(Icons.camera_alt, size: 18),
-                        label: const Text('Chụp ảnh', style: TextStyle(fontSize: 13)),
+                        label: Text(tr('Chụp ảnh'), style: TextStyle(fontSize: 13)),
                         style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 10)),
                       )),
                       const SizedBox(width: 8),
@@ -4870,7 +4867,7 @@ class _InventoryDetailDialogState extends State<_InventoryDetailDialog> {
                           if (photo != null) { final bytes = await photo.readAsBytes(); setDialogState(() { imageBytes = bytes; imageName = photo.name; }); }
                         },
                         icon: const Icon(Icons.photo_library, size: 18),
-                        label: const Text('Thư viện', style: TextStyle(fontSize: 13)),
+                        label: Text(tr('Thư viện'), style: TextStyle(fontSize: 13)),
                         style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 10)),
                       )),
                     ]),
@@ -4878,11 +4875,11 @@ class _InventoryDetailDialogState extends State<_InventoryDetailDialog> {
               ),
             ),
             actions: [
-              TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Hủy', style: TextStyle(color: Color(0xFF71717A)))),
+              TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Hủy'), style: TextStyle(color: Color(0xFF71717A)))),
               FilledButton(
                 onPressed: !hasEnteredQty ? null : () => Navigator.pop(ctx, true),
                 style: FilledButton.styleFrom(backgroundColor: HrmPageChrome.primaryNavy),
-                child: Text(hasEnteredQty ? 'Xác nhận' : 'Nhập số lượng'),
+                child: Text(tr(hasEnteredQty ? 'Xác nhận' : 'Nhập số lượng')),
               ),
             ],
           );
@@ -4917,7 +4914,7 @@ class _InventoryDetailDialogState extends State<_InventoryDetailDialog> {
     } else {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(result['message'] ?? 'Lỗi'),
+          content: Text(tr(result['message'] ?? 'Lỗi')),
           backgroundColor: const Color(0xFFEF4444),
         ));
       }
@@ -4931,14 +4928,14 @@ class _InventoryDetailDialogState extends State<_InventoryDetailDialog> {
         context: context,
         builder: (ctx) => ScrollableAlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: const Text('Hoàn thành kiểm kê?'),
-          content: Text('Còn $unchecked hàng hóa chưa kiểm. Bạn có chắc muốn hoàn thành?'),
+          title: Text(tr('Hoàn thành kiểm kê?')),
+          content: Text(tr('Còn $unchecked hàng hóa chưa kiểm. Bạn có chắc muốn hoàn thành?')),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Hủy')),
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Hủy'))),
             FilledButton(
               onPressed: () => Navigator.pop(ctx, true),
               style: FilledButton.styleFrom(backgroundColor: HrmPageChrome.primaryNavy),
-              child: const Text('Hoàn thành'),
+              child: Text(tr('Hoàn thành')),
             ),
           ],
         ),
@@ -4957,8 +4954,8 @@ class _InventoryDetailDialogState extends State<_InventoryDetailDialog> {
             _inventory = AssetInventory.fromJson(detailResult['data']);
             _showReport = true;
           });
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text('✓ Đã hoàn thành kiểm kê - Xem báo cáo bên dưới'),
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(tr('✓ Đã hoàn thành kiểm kê - Xem báo cáo bên dưới')),
             backgroundColor: Color(0xFF059669),
             duration: Duration(seconds: 3),
           ));
@@ -4967,7 +4964,7 @@ class _InventoryDetailDialogState extends State<_InventoryDetailDialog> {
     } else {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(result['message'] ?? 'Lỗi hoàn thành kiểm kê'),
+          content: Text(tr(result['message'] ?? 'Lỗi hoàn thành kiểm kê')),
           backgroundColor: const Color(0xFFEF4444),
         ));
       }
@@ -5037,9 +5034,9 @@ class _InventoryDetailDialogState extends State<_InventoryDetailDialog> {
             children: [
               const Icon(Icons.assessment, size: 18, color: HrmPageChrome.primaryNavy),
               const SizedBox(width: 6),
-              const Text('Báo cáo kiểm kê', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: HrmPageChrome.primaryNavy)),
+              Text(tr('Báo cáo kiểm kê'), style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: HrmPageChrome.primaryNavy)),
               const Spacer(),
-              Text('${s['checkedCount']}/${_inventory.totalAssets} đã kiểm', style: const TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+              Text(tr('${s['checkedCount']}/${_inventory.totalAssets} đã kiểm'), style: const TextStyle(fontSize: 11, color: Color(0xFF64748B))),
             ],
           ),
           const SizedBox(height: 10),
@@ -5082,9 +5079,9 @@ class _InventoryDetailDialogState extends State<_InventoryDetailDialog> {
       ),
       child: Column(
         children: [
-          Text(value, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: color)),
+          Text(tr(value), style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: color)),
           const SizedBox(height: 2),
-          Text(label, style: TextStyle(fontSize: 10, color: color.withValues(alpha: 0.8), fontWeight: FontWeight.w500)),
+          Text(tr(label), style: TextStyle(fontSize: 10, color: color.withValues(alpha: 0.8), fontWeight: FontWeight.w500)),
         ],
       ),
     );
@@ -5102,7 +5099,7 @@ class _InventoryDetailDialogState extends State<_InventoryDetailDialog> {
         children: [
           Icon(icon, size: 12, color: color),
           const SizedBox(width: 3),
-          Text(text, style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.w600)),
+          Text(tr(text), style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.w600)),
         ],
       ),
     );
@@ -5164,17 +5161,17 @@ class _InventoryDetailDialogState extends State<_InventoryDetailDialog> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(_inventory.name, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w700), maxLines: 1, overflow: TextOverflow.ellipsis),
+                                Text(tr(_inventory.name), style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w700), maxLines: 1, overflow: TextOverflow.ellipsis),
                                 const SizedBox(height: 2),
                                 Row(
                                   children: [
-                                    Text(_inventory.inventoryCode, style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 11)),
+                                    Text(tr(_inventory.inventoryCode), style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 11)),
                                     const SizedBox(width: 8),
                                     Container(
                                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
                                       decoration: BoxDecoration(color: statusColor, borderRadius: BorderRadius.circular(4)),
                                       child: Text(
-                                        _inventory.isInProgress ? 'Đang thực hiện' : _inventory.isCompleted ? 'Hoàn thành' : 'Đã hủy',
+                                        tr(_inventory.isInProgress ? 'Đang thực hiện' : _inventory.isCompleted ? 'Hoàn thành' : 'Đã hủy'),
                                         style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w700),
                                       ),
                                     ),
@@ -5205,7 +5202,7 @@ class _InventoryDetailDialogState extends State<_InventoryDetailDialog> {
                                   strokeWidth: 4,
                                 ),
                                 Center(
-                                  child: Text('${_inventory.progressPercent.toStringAsFixed(0)}%', style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w800)),
+                                  child: Text(tr('${_inventory.progressPercent.toStringAsFixed(0)}%'), style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w800)),
                                 ),
                               ],
                             ),
@@ -5248,7 +5245,7 @@ class _InventoryDetailDialogState extends State<_InventoryDetailDialog> {
                       child: FilledButton.icon(
                         onPressed: _isScanning ? null : _startQrScan,
                         icon: const Icon(Icons.qr_code_scanner, size: 18),
-                        label: const Text('Quét mã', style: TextStyle(fontSize: 13)),
+                        label: Text(tr('Quét mã'), style: TextStyle(fontSize: 13)),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF059669), foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(vertical: 10),
@@ -5260,7 +5257,7 @@ class _InventoryDetailDialogState extends State<_InventoryDetailDialog> {
                     const SizedBox(width: 6),
                     _actionIconBtn(
                       icon: _showReport ? Icons.list_alt : Icons.assessment_outlined,
-                      tooltip: _showReport ? 'Danh sách' : 'Báo cáo',
+                      tooltip: tr(_showReport ? 'Danh sách' : 'Báo cáo'),
                       onTap: () => setState(() => _showReport = !_showReport),
                       color: const Color(0xFF3B82F6),
                     ),
@@ -5268,7 +5265,7 @@ class _InventoryDetailDialogState extends State<_InventoryDetailDialog> {
                     FilledButton.icon(
                       onPressed: _completeInventory,
                       icon: const Icon(Icons.check_circle_outline, size: 16),
-                      label: const Text('Hoàn thành', style: TextStyle(fontSize: 12)),
+                      label: Text(tr('Hoàn thành'), style: TextStyle(fontSize: 12)),
                       style: ElevatedButton.styleFrom(
                         foregroundColor: Colors.white,
                         backgroundColor: HrmPageChrome.primaryNavy,
@@ -5293,17 +5290,17 @@ class _InventoryDetailDialogState extends State<_InventoryDetailDialog> {
                     Icon(_inventory.isCompleted ? Icons.check_circle : Icons.cancel, size: 16, color: statusColor),
                     const SizedBox(width: 6),
                     Text(
-                      _inventory.isCompleted ? 'Đã hoàn thành' : 'Đã hủy',
+                      tr(_inventory.isCompleted ? 'Đã hoàn thành' : 'Đã hủy'),
                       style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: statusColor),
                     ),
                     if (_inventory.endDate != null) ...[
                       const SizedBox(width: 8),
-                      Text('· ${DateFormat('dd/MM/yyyy HH:mm').format(_inventory.endDate!)}', style: TextStyle(fontSize: 11, color: statusColor.withValues(alpha: 0.7))),
+                      Text(tr('· ${DateFormat('dd/MM/yyyy HH:mm').format(_inventory.endDate!)}'), style: TextStyle(fontSize: 11, color: statusColor.withValues(alpha: 0.7))),
                     ],
                     const Spacer(),
                     _actionIconBtn(
                       icon: _showReport ? Icons.list_alt : Icons.assessment_outlined,
-                      tooltip: _showReport ? 'Danh sách' : 'Báo cáo',
+                      tooltip: tr(_showReport ? 'Danh sách' : 'Báo cáo'),
                       onTap: () => setState(() => _showReport = !_showReport),
                       color: const Color(0xFF3B82F6),
                     ),
@@ -5316,10 +5313,10 @@ class _InventoryDetailDialogState extends State<_InventoryDetailDialog> {
             // ===== ITEM LIST =====
             Expanded(
               child: items.isEmpty
-                  ? const Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
+                  ? Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
                       Icon(Icons.inventory_2_outlined, size: 48, color: Color(0xFFD4D4D8)),
                       SizedBox(height: 8),
-                      Text('Chưa có hàng hóa nào', style: TextStyle(color: Color(0xFFA1A1AA), fontSize: 14)),
+                      Text(tr('Chưa có hàng hóa nào'), style: TextStyle(color: Color(0xFFA1A1AA), fontSize: 14)),
                     ]))
                   : _showReport
                     ? _buildReportView(reportItems)
@@ -5349,8 +5346,8 @@ class _InventoryDetailDialogState extends State<_InventoryDetailDialog> {
   Widget _headerStat(String label, String value, Color color) {
     return Column(
       children: [
-        Text(value, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: color)),
-        Text(label, style: TextStyle(fontSize: 9, color: color.withValues(alpha: 0.7), fontWeight: FontWeight.w500)),
+        Text(tr(value), style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: color)),
+        Text(tr(label), style: TextStyle(fontSize: 9, color: color.withValues(alpha: 0.7), fontWeight: FontWeight.w500)),
       ],
     );
   }
@@ -5378,12 +5375,12 @@ class _InventoryDetailDialogState extends State<_InventoryDetailDialog> {
       children: [
         Icon(icon, size: 14, color: color),
         const SizedBox(width: 6),
-        Text(title, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: color)),
+        Text(tr(title), style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: color)),
         const SizedBox(width: 6),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
           decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
-          child: Text('$count', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: color)),
+          child: Text(tr('$count'), style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: color)),
         ),
       ],
     );
@@ -5391,7 +5388,7 @@ class _InventoryDetailDialogState extends State<_InventoryDetailDialog> {
 
   Widget _buildReportView(List<AssetInventoryItem> reportItems) {
     if (reportItems.isEmpty) {
-      return const Center(child: Text('Chưa có hàng hóa nào được kiểm', style: TextStyle(color: Color(0xFFA1A1AA))));
+      return Center(child: Text(tr('Chưa có hàng hóa nào được kiểm'), style: TextStyle(color: Color(0xFFA1A1AA))));
     }
 
     return ListView.builder(
@@ -5407,15 +5404,15 @@ class _InventoryDetailDialogState extends State<_InventoryDetailDialog> {
               color: HrmPageChrome.primaryNavy.withValues(alpha: 0.05),
               borderRadius: BorderRadius.circular(6),
             ),
-            child: const Row(
+            child: Row(
               children: [
-                Expanded(flex: 3, child: Text('Hàng hóa', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF64748B)))),
+                Expanded(flex: 3, child: Text(tr('Hàng hóa'), style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF64748B)))),
                 SizedBox(width: 4),
-                SizedBox(width: 45, child: Text('Tồn kho', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Color(0xFF64748B)), textAlign: TextAlign.center)),
+                SizedBox(width: 45, child: Text(tr('Tồn kho'), style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Color(0xFF64748B)), textAlign: TextAlign.center)),
                 SizedBox(width: 4),
-                SizedBox(width: 45, child: Text('Thực tế', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Color(0xFF64748B)), textAlign: TextAlign.center)),
+                SizedBox(width: 45, child: Text(tr('Thực tế'), style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Color(0xFF64748B)), textAlign: TextAlign.center)),
                 SizedBox(width: 4),
-                SizedBox(width: 55, child: Text('Chênh lệch', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Color(0xFF64748B)), textAlign: TextAlign.center)),
+                SizedBox(width: 55, child: Text(tr('Chênh lệch'), style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Color(0xFF64748B)), textAlign: TextAlign.center)),
               ],
             ),
           );
@@ -5448,13 +5445,13 @@ class _InventoryDetailDialogState extends State<_InventoryDetailDialog> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(item.assetName ?? '', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600), maxLines: 1, overflow: TextOverflow.ellipsis),
-                    if (item.assetCode != null) Text(item.assetCode!, style: const TextStyle(fontSize: 10, color: Color(0xFF94A3B8))),
+                    Text(tr(item.assetName ?? ''), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600), maxLines: 1, overflow: TextOverflow.ellipsis),
+                    if (item.assetCode != null) Text(tr(item.assetCode!), style: const TextStyle(fontSize: 10, color: Color(0xFF94A3B8))),
                     if (item.hasIssue)
                       Row(children: [
                         const Icon(Icons.warning_amber, size: 10, color: Color(0xFFEF4444)),
                         const SizedBox(width: 2),
-                        Expanded(child: Text(item.issueDescription ?? 'Vấn đề', style: const TextStyle(fontSize: 10, color: Color(0xFFEF4444)), maxLines: 1, overflow: TextOverflow.ellipsis)),
+                        Expanded(child: Text(tr(item.issueDescription ?? 'Vấn đề'), style: const TextStyle(fontSize: 10, color: Color(0xFFEF4444)), maxLines: 1, overflow: TextOverflow.ellipsis)),
                       ]),
                     if (imageUrl != null)
                       Padding(
@@ -5462,14 +5459,14 @@ class _InventoryDetailDialogState extends State<_InventoryDetailDialog> {
                         child: GestureDetector(
                           onTap: () => showDialog(context: context, builder: (_) => Dialog(
                             child: Column(mainAxisSize: MainAxisSize.min, children: [
-                              AppBar(title: Text(item.assetName ?? ''), leading: const CloseButton()),
+                              AppBar(title: Text(tr(item.assetName ?? '')), leading: const CloseButton()),
                               AuthCachedImage(imagePath: imageUrl!, apiService: widget.apiService, fit: BoxFit.contain),
                             ]),
                           )),
-                          child: const Row(children: [
+                          child: Row(children: [
                             Icon(Icons.image, size: 10, color: Color(0xFF3B82F6)),
                             SizedBox(width: 2),
-                            Text('Xem ảnh', style: TextStyle(fontSize: 10, color: Color(0xFF3B82F6), decoration: TextDecoration.underline)),
+                            Text(tr('Xem ảnh'), style: TextStyle(fontSize: 10, color: Color(0xFF3B82F6), decoration: TextDecoration.underline)),
                           ]),
                         ),
                       ),
@@ -5477,15 +5474,15 @@ class _InventoryDetailDialogState extends State<_InventoryDetailDialog> {
                 ),
               ),
               const SizedBox(width: 4),
-              SizedBox(width: 45, child: Text('${item.expectedQuantity}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600), textAlign: TextAlign.center)),
+              SizedBox(width: 45, child: Text(tr('${item.expectedQuantity}'), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600), textAlign: TextAlign.center)),
               const SizedBox(width: 4),
-              SizedBox(width: 45, child: Text('$actual', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: diffColor), textAlign: TextAlign.center)),
+              SizedBox(width: 45, child: Text(tr('$actual'), style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: diffColor), textAlign: TextAlign.center)),
               const SizedBox(width: 4),
               Container(
                 width: 55,
                 padding: const EdgeInsets.symmetric(vertical: 3),
                 decoration: BoxDecoration(color: diffColor.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(4)),
-                child: Text(diffText, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: diffColor), textAlign: TextAlign.center),
+                child: Text(tr(diffText), style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: diffColor), textAlign: TextAlign.center),
               ),
             ],
           ),
@@ -5534,11 +5531,11 @@ class _InventoryDetailDialogState extends State<_InventoryDetailDialog> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(item.assetName ?? 'Hàng hóa', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                Text(tr(item.assetName ?? 'Hàng hóa'), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
                 if (item.assetCode != null)
-                  Text(item.assetCode!, style: const TextStyle(fontSize: 11, color: Color(0xFF71717A))),
+                  Text(tr(item.assetCode!), style: const TextStyle(fontSize: 11, color: Color(0xFF71717A))),
                 if (!checked)
-                  Text('Tồn kho: ${item.expectedQuantity}', style: const TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+                  Text(tr('Tồn kho: ${item.expectedQuantity}'), style: const TextStyle(fontSize: 11, color: Color(0xFF64748B))),
                 if (checked) ...[
                   const SizedBox(height: 4),
                   Row(
@@ -5546,20 +5543,20 @@ class _InventoryDetailDialogState extends State<_InventoryDetailDialog> {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(color: const Color(0xFF3B82F6).withValues(alpha: 0.1), borderRadius: BorderRadius.circular(4)),
-                        child: Text('TK: ${item.expectedQuantity}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF3B82F6))),
+                        child: Text(tr('TK: ${item.expectedQuantity}'), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF3B82F6))),
                       ),
                       const SizedBox(width: 6),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(color: const Color(0xFF8B5CF6).withValues(alpha: 0.1), borderRadius: BorderRadius.circular(4)),
-                        child: Text('TT: $actual', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF8B5CF6))),
+                        child: Text(tr('TT: $actual'), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF8B5CF6))),
                       ),
                       const SizedBox(width: 6),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(color: diffColor.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(4)),
                         child: Text(
-                          diff < 0 ? '$diff' : diff > 0 ? '+$diff' : '±0',
+                          tr(diff < 0 ? '$diff' : diff > 0 ? '+$diff' : '±0'),
                           style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: diffColor),
                         ),
                       ),
@@ -5568,7 +5565,7 @@ class _InventoryDetailDialogState extends State<_InventoryDetailDialog> {
                   if (item.conditionName != null)
                     Padding(
                       padding: const EdgeInsets.only(top: 3),
-                      child: Text('Tình trạng: ${item.conditionName}', style: TextStyle(fontSize: 11, color: diffColor)),
+                      child: Text(tr('Tình trạng: ${item.conditionName}'), style: TextStyle(fontSize: 11, color: diffColor)),
                     ),
                 ],
                 if (item.hasIssue)
@@ -5578,14 +5575,14 @@ class _InventoryDetailDialogState extends State<_InventoryDetailDialog> {
                       children: [
                         const Icon(Icons.warning_amber, size: 12, color: Color(0xFFEF4444)),
                         const SizedBox(width: 4),
-                        Expanded(child: Text(item.issueDescription ?? 'Có vấn đề', style: const TextStyle(fontSize: 11, color: Color(0xFFEF4444)))),
+                        Expanded(child: Text(tr(item.issueDescription ?? 'Có vấn đề'), style: const TextStyle(fontSize: 11, color: Color(0xFFEF4444)))),
                       ],
                     ),
                   ),
                 if (displayNotes != null)
                   Padding(
                     padding: const EdgeInsets.only(top: 2),
-                    child: Text(displayNotes, style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8)), maxLines: 1, overflow: TextOverflow.ellipsis),
+                    child: Text(tr(displayNotes), style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8)), maxLines: 1, overflow: TextOverflow.ellipsis),
                   ),
                 if (imageUrl != null)
                   Padding(
@@ -5593,7 +5590,7 @@ class _InventoryDetailDialogState extends State<_InventoryDetailDialog> {
                     child: GestureDetector(
                       onTap: () => showDialog(context: context, builder: (_) => Dialog(
                         child: Column(mainAxisSize: MainAxisSize.min, children: [
-                          AppBar(title: Text(item.assetName ?? 'Ảnh kiểm kê'), leading: const CloseButton()),
+                          AppBar(title: Text(tr(item.assetName ?? 'Ảnh kiểm kê')), leading: const CloseButton()),
                           AuthCachedImage(imagePath: imageUrl!, apiService: widget.apiService, fit: BoxFit.contain),
                         ]),
                       )),
@@ -5622,7 +5619,7 @@ class _InventoryDetailDialogState extends State<_InventoryDetailDialog> {
             IconButton(
               onPressed: () => _checkItemManually(item),
               icon: const Icon(Icons.edit_note, size: 20, color: HrmPageChrome.primaryNavy),
-              tooltip: 'Kiểm kê',
+              tooltip: tr('Kiểm kê'),
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(),
             ),
@@ -5630,7 +5627,7 @@ class _InventoryDetailDialogState extends State<_InventoryDetailDialog> {
             IconButton(
               onPressed: () => _checkItemManually(item),
               icon: const Icon(Icons.edit, size: 16, color: Color(0xFF94A3B8)),
-              tooltip: 'Sửa',
+              tooltip: tr('Sửa'),
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(),
             ),

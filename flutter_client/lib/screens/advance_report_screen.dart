@@ -8,6 +8,7 @@ import '../services/api_service.dart';
 import '../utils/report_access_utils.dart';
 import '../utils/report_screen_helpers.dart';
 import '../widgets/reports/hrm_report_widgets.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 const _theme = Color(0xFFF59E0B);
 
@@ -381,13 +382,13 @@ class _AdvanceReportScreenState extends State<AdvanceReportScreen> {
         child: DropdownButton<AdvanceRequestStatus?>(
           value: _statusFilter,
           isExpanded: true,
-          hint: const Text('Trạng thái',
+          hint: Text(tr('Trạng thái'),
               style: TextStyle(fontSize: 12, color: Color(0xFF6B7280))),
           style: const TextStyle(fontSize: 12, color: Color(0xFF111827)),
           items: [
-            const DropdownMenuItem(value: null, child: Text('Tất cả')),
+            DropdownMenuItem(value: null, child: Text(tr('Tất cả'))),
             ...AdvanceRequestStatus.values.map(
-                (s) => DropdownMenuItem(value: s, child: Text(_statusLabel(s)))),
+                (s) => DropdownMenuItem(value: s, child: Text(tr(_statusLabel(s))))),
           ],
           onChanged: (v) => setState(() => _statusFilter = v),
         ),

@@ -7,6 +7,7 @@ import '../../services/api_service.dart';
 import '../../utils/responsive_helper.dart';
 import '../notification_overlay.dart';
 import 'pos_theme.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 const _kiotBlue = PosTheme.kiotBlue;
 
@@ -137,8 +138,8 @@ class _PosBankAccountFormDialogState extends State<_PosBankAccountFormDialog> {
         children: [
           DropdownButtonFormField<String>(
             value: _selectedBankCode,
-            decoration: const InputDecoration(
-              labelText: 'Ngân hàng *',
+            decoration: InputDecoration(
+              labelText: tr('Ngân hàng *'),
               border: OutlineInputBorder(),
               prefixIcon: Icon(Icons.account_balance),
             ),
@@ -157,7 +158,7 @@ class _PosBankAccountFormDialogState extends State<_PosBankAccountFormDialog> {
                                 const Icon(Icons.account_balance, size: 18),
                           ),
                         const SizedBox(width: 8),
-                        Expanded(child: Text(b.shortName, style: const TextStyle(fontSize: 13))),
+                        Expanded(child: Text(tr(b.shortName), style: const TextStyle(fontSize: 13))),
                       ],
                     ),
                   ),
@@ -169,8 +170,8 @@ class _PosBankAccountFormDialogState extends State<_PosBankAccountFormDialog> {
           const SizedBox(height: 12),
           TextFormField(
             controller: _accountNameCtrl,
-            decoration: const InputDecoration(
-              labelText: 'Tên chủ tài khoản *',
+            decoration: InputDecoration(
+              labelText: tr('Tên chủ tài khoản *'),
               border: OutlineInputBorder(),
             ),
             textCapitalization: TextCapitalization.characters,
@@ -180,8 +181,8 @@ class _PosBankAccountFormDialogState extends State<_PosBankAccountFormDialog> {
           const SizedBox(height: 12),
           TextFormField(
             controller: _accountNumberCtrl,
-            decoration: const InputDecoration(
-              labelText: 'Số tài khoản *',
+            decoration: InputDecoration(
+              labelText: tr('Số tài khoản *'),
               border: OutlineInputBorder(),
             ),
             keyboardType: TextInputType.number,
@@ -195,14 +196,14 @@ class _PosBankAccountFormDialogState extends State<_PosBankAccountFormDialog> {
           const SizedBox(height: 12),
           TextFormField(
             controller: _noteCtrl,
-            decoration: const InputDecoration(
-              labelText: 'Ghi chú',
+            decoration: InputDecoration(
+              labelText: tr('Ghi chú'),
               border: OutlineInputBorder(),
             ),
           ),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
-            title: const Text('Tài khoản mặc định VietQR'),
+            title: Text(tr('Tài khoản mặc định VietQR')),
             value: _isDefault,
             onChanged: (v) => setState(() => _isDefault = v),
           ),
@@ -214,7 +215,7 @@ class _PosBankAccountFormDialogState extends State<_PosBankAccountFormDialog> {
       return Dialog.fullscreen(
         child: Scaffold(
           appBar: AppBar(
-            title: Text(title),
+            title: Text(tr(title)),
             leading: IconButton(
               icon: const Icon(Icons.close),
               onPressed: () => Navigator.pop(context, false),
@@ -236,7 +237,7 @@ class _PosBankAccountFormDialogState extends State<_PosBankAccountFormDialog> {
                         width: 20,
                         child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                       )
-                    : Text(widget.account == null ? 'Tạo tài khoản' : 'Lưu'),
+                    : Text(tr(widget.account == null ? 'Tạo tài khoản' : 'Lưu')),
               ),
             ),
           ),
@@ -245,14 +246,14 @@ class _PosBankAccountFormDialogState extends State<_PosBankAccountFormDialog> {
     }
 
     return AlertDialog(
-      title: Text(title),
+      title: Text(tr(title)),
       content: SizedBox(width: 400, child: form),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Huỷ')),
+        TextButton(onPressed: () => Navigator.pop(context, false), child: Text(tr('Huỷ'))),
         FilledButton(
           style: FilledButton.styleFrom(backgroundColor: _kiotBlue),
           onPressed: _saving ? null : _save,
-          child: Text(widget.account == null ? 'Tạo' : 'Lưu'),
+          child: Text(tr(widget.account == null ? 'Tạo' : 'Lưu')),
         ),
       ],
     );

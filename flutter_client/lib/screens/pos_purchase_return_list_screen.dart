@@ -19,6 +19,7 @@ import '../widgets/pos/pos_purchase_toolbar.dart';
 import '../widgets/pos/pos_theme.dart';
 import 'pos_purchase_return_editor_screen.dart';
 import '../screens/main_layout.dart' show ScreenRefreshNotifier;
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 const _blue = Color(0xFF2563EB);
 
@@ -205,14 +206,14 @@ class _PosPurchaseReturnListScreenState extends State<PosPurchaseReturnListScree
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Hoàn thành trả hàng'),
-        content: Text('Xác nhận trả hàng phiếu ${r.returnNo}?'),
+        title: Text(tr('Hoàn thành trả hàng')),
+        content: Text(tr('Xác nhận trả hàng phiếu ${r.returnNo}?')),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Hủy')),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Hủy'))),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: FilledButton.styleFrom(backgroundColor: _blue),
-            child: const Text('Xác nhận'),
+            child: Text(tr('Xác nhận')),
           ),
         ],
       ),
@@ -248,7 +249,7 @@ class _PosPurchaseReturnListScreenState extends State<PosPurchaseReturnListScree
     if (res['isSuccess'] == true && res['data'] != null) {
       final copy = PosPurchaseReturn.fromJson(res['data'] as Map<String, dynamic>);
       NotificationOverlayManager()
-          .showSuccess(title: 'Sao chép', message: 'Đã tạo ${copy.returnNo}');
+          .showSuccess(title: 'Sao chép', message: tr('Đã tạo ${copy.returnNo}'));
       _load(page: _page);
       _openEditor(returnId: copy.id);
     } else {
@@ -261,14 +262,14 @@ class _PosPurchaseReturnListScreenState extends State<PosPurchaseReturnListScree
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Xóa phiếu'),
-        content: Text('Xóa hẳn phiếu ${r.returnNo}? Thao tác không thể hoàn tác.'),
+        title: Text(tr('Xóa phiếu')),
+        content: Text(tr('Xóa hẳn phiếu ${r.returnNo}? Thao tác không thể hoàn tác.')),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Không')),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Không'))),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Xóa'),
+            child: Text(tr('Xóa')),
           ),
         ],
       ),
@@ -300,15 +301,14 @@ class _PosPurchaseReturnListScreenState extends State<PosPurchaseReturnListScree
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Hủy phiếu trả hàng'),
-        content: Text(
-            'Hủy phiếu ${r.returnNo} và hoàn hàng về kho?'),
+        title: Text(tr('Hủy phiếu trả hàng')),
+        content: Text(tr('Hủy phiếu ${r.returnNo} và hoàn hàng về kho?')),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Không')),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Không'))),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Hủy phiếu'),
+            child: Text(tr('Hủy phiếu')),
           ),
         ],
       ),
@@ -363,7 +363,7 @@ class _PosPurchaseReturnListScreenState extends State<PosPurchaseReturnListScree
               CheckboxListTile(
                 dense: true,
                 contentPadding: EdgeInsets.zero,
-                title: const Text('Phiếu tạm', style: TextStyle(fontSize: 13)),
+                title: Text(tr('Phiếu tạm'), style: TextStyle(fontSize: 13)),
                 value: _statusFilter.contains('Draft'),
                 activeColor: _blue,
                 onChanged: (v) => _toggleStatus('Draft', v),
@@ -371,7 +371,7 @@ class _PosPurchaseReturnListScreenState extends State<PosPurchaseReturnListScree
               CheckboxListTile(
                 dense: true,
                 contentPadding: EdgeInsets.zero,
-                title: const Text('Đã trả hàng', style: TextStyle(fontSize: 13)),
+                title: Text(tr('Đã trả hàng'), style: TextStyle(fontSize: 13)),
                 value: _statusFilter.contains('Completed'),
                 activeColor: _blue,
                 onChanged: (v) => _toggleStatus('Completed', v),
@@ -379,7 +379,7 @@ class _PosPurchaseReturnListScreenState extends State<PosPurchaseReturnListScree
               CheckboxListTile(
                 dense: true,
                 contentPadding: EdgeInsets.zero,
-                title: const Text('Đã hủy', style: TextStyle(fontSize: 13)),
+                title: Text(tr('Đã hủy'), style: TextStyle(fontSize: 13)),
                 value: _statusFilter.contains('Cancelled'),
                 activeColor: _blue,
                 onChanged: (v) => _toggleStatus('Cancelled', v),
@@ -401,16 +401,16 @@ class _PosPurchaseReturnListScreenState extends State<PosPurchaseReturnListScree
               border: OutlineInputBorder(),
               contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
             ),
-            hint: const Text('Tất cả NCC', style: TextStyle(fontSize: 12)),
+            hint: Text(tr('Tất cả NCC'), style: TextStyle(fontSize: 12)),
             items: [
-              const DropdownMenuItem<String?>(
+              DropdownMenuItem<String?>(
                 value: null,
-                child: Text('Tất cả NCC', style: TextStyle(fontSize: 12)),
+                child: Text(tr('Tất cả NCC'), style: TextStyle(fontSize: 12)),
               ),
               ..._suppliers.map(
                 (s) => DropdownMenuItem<String?>(
                   value: s.id,
-                  child: Text(s.name,
+                  child: Text(tr(s.name),
                       style: const TextStyle(fontSize: 12),
                       overflow: TextOverflow.ellipsis),
                 ),
@@ -426,8 +426,8 @@ class _PosPurchaseReturnListScreenState extends State<PosPurchaseReturnListScree
           'Người tạo',
           TextField(
             controller: _createdByCtrl,
-            decoration: const InputDecoration(
-              hintText: 'Chọn người tạo…',
+            decoration: InputDecoration(
+              hintText: tr('Chọn người tạo…'),
               isDense: true,
               border: OutlineInputBorder(),
               contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
@@ -440,8 +440,8 @@ class _PosPurchaseReturnListScreenState extends State<PosPurchaseReturnListScree
           'Người trả',
           TextField(
             controller: _returnedByCtrl,
-            decoration: const InputDecoration(
-              hintText: 'Chọn người trả…',
+            decoration: InputDecoration(
+              hintText: tr('Chọn người trả…'),
               isDense: true,
               border: OutlineInputBorder(),
               contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
@@ -453,7 +453,7 @@ class _PosPurchaseReturnListScreenState extends State<PosPurchaseReturnListScree
         FilledButton(
           onPressed: () => _load(),
           style: FilledButton.styleFrom(backgroundColor: _blue),
-          child: const Text('Áp dụng lọc', style: TextStyle(fontSize: 12)),
+          child: Text(tr('Áp dụng lọc'), style: TextStyle(fontSize: 12)),
         ),
       ],
     );
@@ -467,8 +467,8 @@ class _PosPurchaseReturnListScreenState extends State<PosPurchaseReturnListScree
   Widget build(BuildContext context) {
     final perm = Provider.of<PermissionProvider>(context);
     if (!perm.canView('PosProducts')) {
-      return const Scaffold(
-          body: Center(child: Text('Không có quyền xem trả hàng nhập')));
+      return Scaffold(
+          body: Center(child: Text(tr('Không có quyền xem trả hàng nhập'))));
     }
     final canEdit = perm.canEdit('PosPurchaseReturns');
 
@@ -498,8 +498,8 @@ class _PosPurchaseReturnListScreenState extends State<PosPurchaseReturnListScree
                         12, posUseMobileList(context) ? 8 : 10, 12, 0),
                     child: TextField(
                       controller: _searchCtrl,
-                      decoration: const InputDecoration(
-                        hintText: 'Theo mã phiếu trả…',
+                      decoration: InputDecoration(
+                        hintText: tr('Theo mã phiếu trả…'),
                         prefixIcon: Icon(Icons.search, size: 20),
                         border: OutlineInputBorder(),
                         isDense: true,
@@ -513,8 +513,8 @@ class _PosPurchaseReturnListScreenState extends State<PosPurchaseReturnListScree
                     child: _loading
                         ? const LoadingWidget()
                         : _items.isEmpty
-                            ? const Center(
-                                child: Text('Chưa có phiếu trả hàng'))
+                            ? Center(
+                                child: Text(tr('Chưa có phiếu trả hàng')))
                             : Column(
                                 crossAxisAlignment: CrossAxisAlignment.stretch,
                                 children: [
@@ -550,7 +550,7 @@ class _PosPurchaseReturnListScreenState extends State<PosPurchaseReturnListScree
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       child: Row(
         children: [
-          Text('Tổng $_total phiếu',
+          Text(tr('Tổng $_total phiếu'),
               style:
                   const TextStyle(fontSize: 12, color: PosTheme.textSecondary)),
           const Spacer(),
@@ -558,7 +558,7 @@ class _PosPurchaseReturnListScreenState extends State<PosPurchaseReturnListScree
             icon: const Icon(Icons.chevron_left),
             onPressed: _page > 1 ? () => _load(page: _page - 1) : null,
           ),
-          Text('Trang $_page / $pages', style: const TextStyle(fontSize: 12)),
+          Text(tr('Trang $_page / $pages'), style: const TextStyle(fontSize: 12)),
           IconButton(
             icon: const Icon(Icons.chevron_right),
             onPressed: _page < pages ? () => _load(page: _page + 1) : null,
@@ -583,14 +583,14 @@ class _PosPurchaseReturnListScreenState extends State<PosPurchaseReturnListScree
       child: Row(
         children: [
           const SizedBox(width: 24),
-          const Expanded(flex: 2, child: Text('Mã THN', style: h)),
-          const Expanded(flex: 2, child: Text('Thời gian', style: h)),
-          const Expanded(flex: 3, child: Text('NCC', style: h)),
-          const Expanded(flex: 2, child: Text('Tổng tiền', style: h)),
-          const Expanded(flex: 2, child: Text('Giảm giá', style: h)),
-          const Expanded(flex: 2, child: Text('NCC cần trả', style: h)),
-          const Expanded(flex: 2, child: Text('NCC đã trả', style: h)),
-          const SizedBox(width: 100, child: Text('Trạng thái', style: h, textAlign: TextAlign.right)),
+          Expanded(flex: 2, child: Text(tr('Mã THN'), style: h)),
+          Expanded(flex: 2, child: Text(tr('Thời gian'), style: h)),
+          Expanded(flex: 3, child: Text(tr('NCC'), style: h)),
+          Expanded(flex: 2, child: Text(tr('Tổng tiền'), style: h)),
+          Expanded(flex: 2, child: Text(tr('Giảm giá'), style: h)),
+          Expanded(flex: 2, child: Text(tr('NCC cần trả'), style: h)),
+          Expanded(flex: 2, child: Text(tr('NCC đã trả'), style: h)),
+          SizedBox(width: 100, child: Text(tr('Trạng thái'), style: h, textAlign: TextAlign.right)),
         ],
       ),
     );
@@ -663,42 +663,42 @@ class _PosPurchaseReturnListScreenState extends State<PosPurchaseReturnListScree
                   ),
                   Expanded(
                     flex: 2,
-                    child: Text(r.returnNo,
+                    child: Text(tr(r.returnNo),
                         style: posDocNoTextStyle(r.status, activeColor: _blue)),
                   ),
                   Expanded(
                     flex: 2,
                     child: Text(
-                      r.returnDate != null
+                      tr(r.returnDate != null
                           ? _dateFmt.format(r.returnDate!.toLocal())
-                          : '—',
+                          : '—'),
                       style: const TextStyle(fontSize: 13),
                     ),
                   ),
                   Expanded(
                     flex: 3,
-                    child: Text(r.supplierName ?? '—',
+                    child: Text(tr(r.supplierName ?? '—'),
                         style: const TextStyle(fontSize: 13),
                         overflow: TextOverflow.ellipsis),
                   ),
                   Expanded(
                     flex: 2,
-                    child: Text('${_moneyFmt.format(r.totalAmount)} đ',
+                    child: Text(tr('${_moneyFmt.format(r.totalAmount)} đ'),
                         style: const TextStyle(fontSize: 13)),
                   ),
                   Expanded(
                     flex: 2,
-                    child: Text('${_moneyFmt.format(r.discountAmount)} đ',
+                    child: Text(tr('${_moneyFmt.format(r.discountAmount)} đ'),
                         style: const TextStyle(fontSize: 13)),
                   ),
                   Expanded(
                     flex: 2,
-                    child: Text('${_moneyFmt.format(_supplierOwed(r))} đ',
+                    child: Text(tr('${_moneyFmt.format(_supplierOwed(r))} đ'),
                         style: const TextStyle(fontSize: 13)),
                   ),
                   Expanded(
                     flex: 2,
-                    child: Text('${_moneyFmt.format(r.refundReceived)} đ',
+                    child: Text(tr('${_moneyFmt.format(r.refundReceived)} đ'),
                         style: const TextStyle(fontSize: 13)),
                   ),
                   SizedBox(
@@ -735,7 +735,7 @@ class _PosPurchaseReturnListScreenState extends State<PosPurchaseReturnListScree
         children: [
           Row(
             children: [
-              const Text('Thông tin',
+              Text(tr('Thông tin'),
                   style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: _blue)),
               const Spacer(),
               purchaseStatusChip(r.status, completedLabel: 'Đã trả hàng'),
@@ -771,22 +771,22 @@ class _PosPurchaseReturnListScreenState extends State<PosPurchaseReturnListScree
                 dataRowMinHeight: 32,
                 columnSpacing: 16,
                 headingRowColor: WidgetStateProperty.all(Colors.white),
-                columns: const [
-                  DataColumn(label: Text('Mã hàng', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600))),
-                  DataColumn(label: Text('Tên hàng', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600))),
-                  DataColumn(label: Text('SL', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600))),
-                  DataColumn(label: Text('Giá trả lại', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600))),
-                  DataColumn(label: Text('Giảm giá', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600))),
-                  DataColumn(label: Text('Thành tiền', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600))),
+                columns: [
+                  DataColumn(label: Text(tr('Mã hàng'), style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600))),
+                  DataColumn(label: Text(tr('Tên hàng'), style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600))),
+                  DataColumn(label: Text(tr('SL'), style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600))),
+                  DataColumn(label: Text(tr('Giá trả lại'), style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600))),
+                  DataColumn(label: Text(tr('Giảm giá'), style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600))),
+                  DataColumn(label: Text(tr('Thành tiền'), style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600))),
                 ],
                 rows: r.lines.map((l) {
                   return DataRow(cells: [
-                    DataCell(Text(l.productCode, style: const TextStyle(fontSize: 12))),
-                    DataCell(Text(l.productName, style: const TextStyle(fontSize: 12))),
-                    DataCell(Text(l.qty.toStringAsFixed(0), style: const TextStyle(fontSize: 12))),
-                    DataCell(Text('${_moneyFmt.format(l.costPrice)} đ', style: const TextStyle(fontSize: 12))),
-                    DataCell(Text('${_moneyFmt.format(l.discountAmount)} đ', style: const TextStyle(fontSize: 12))),
-                    DataCell(Text('${_moneyFmt.format(l.lineTotal)} đ', style: const TextStyle(fontSize: 12))),
+                    DataCell(Text(tr(l.productCode), style: const TextStyle(fontSize: 12))),
+                    DataCell(Text(tr(l.productName), style: const TextStyle(fontSize: 12))),
+                    DataCell(Text(tr(l.qty.toStringAsFixed(0)), style: const TextStyle(fontSize: 12))),
+                    DataCell(Text(tr('${_moneyFmt.format(l.costPrice)} đ'), style: const TextStyle(fontSize: 12))),
+                    DataCell(Text(tr('${_moneyFmt.format(l.discountAmount)} đ'), style: const TextStyle(fontSize: 12))),
+                    DataCell(Text(tr('${_moneyFmt.format(l.lineTotal)} đ'), style: const TextStyle(fontSize: 12))),
                   ]);
                 }).toList(),
               ),
@@ -797,13 +797,13 @@ class _PosPurchaseReturnListScreenState extends State<PosPurchaseReturnListScree
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                Text('Tổng tiền hàng: ${_moneyFmt.format(r.totalAmount)} đ',
+                Text(tr('Tổng tiền hàng: ${_moneyFmt.format(r.totalAmount)} đ'),
                     style: const TextStyle(fontSize: 12)),
-                Text('Giảm giá: ${_moneyFmt.format(r.discountAmount)} đ',
+                Text(tr('Giảm giá: ${_moneyFmt.format(r.discountAmount)} đ'),
                     style: const TextStyle(fontSize: 12)),
-                Text('NCC cần trả: ${_moneyFmt.format(_supplierOwed(r))} đ',
+                Text(tr('NCC cần trả: ${_moneyFmt.format(_supplierOwed(r))} đ'),
                     style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-                Text('NCC đã trả: ${_moneyFmt.format(r.refundReceived)} đ',
+                Text(tr('NCC đã trả: ${_moneyFmt.format(r.refundReceived)} đ'),
                     style: const TextStyle(fontSize: 12)),
               ],
             ),
@@ -817,37 +817,37 @@ class _PosPurchaseReturnListScreenState extends State<PosPurchaseReturnListScree
                 FilledButton(
                   onPressed: () => _openEditor(returnId: r.id),
                   style: FilledButton.styleFrom(backgroundColor: _blue),
-                  child: const Text('Mở phiếu'),
+                  child: Text(tr('Mở phiếu')),
                 ),
               if (canEdit && r.status == 'Draft')
                 OutlinedButton.icon(
                   onPressed: () => _completeReturn(r),
                   icon: const Icon(Icons.check_circle_outline, size: 16),
-                  label: const Text('Hoàn thành trả hàng'),
+                  label: Text(tr('Hoàn thành trả hàng')),
                 ),
               if (canEdit)
                 OutlinedButton.icon(
                   onPressed: () => _copyReturn(r),
                   icon: const Icon(Icons.copy, size: 16),
-                  label: const Text('Sao chép'),
+                  label: Text(tr('Sao chép')),
                 ),
               if (canEdit && r.status == 'Draft')
                 OutlinedButton.icon(
                   onPressed: () => _deleteReturn(r),
                   icon: const Icon(Icons.delete_outline, size: 16),
-                  label: const Text('Xóa'),
+                  label: Text(tr('Xóa')),
                 ),
               if (canEdit && r.status == 'Completed')
                 OutlinedButton.icon(
                   onPressed: () => _voidCompletedReturn(r),
                   icon: const Icon(Icons.cancel_outlined, size: 16),
-                  label: const Text('Hủy'),
+                  label: Text(tr('Hủy')),
                 ),
               if (canEdit && r.status == 'Cancelled')
                 OutlinedButton.icon(
                   onPressed: () => _deleteReturn(r),
                   icon: const Icon(Icons.delete_outline, size: 16),
-                  label: const Text('Xóa'),
+                  label: Text(tr('Xóa')),
                 ),
             ],
           ),
@@ -861,9 +861,9 @@ class _PosPurchaseReturnListScreenState extends State<PosPurchaseReturnListScree
           style: const TextStyle(fontSize: 12, color: Colors.black87),
           children: [
             TextSpan(
-                text: '$label: ',
+                text: tr('$label: '),
                 style: const TextStyle(color: PosTheme.textSecondary)),
-            TextSpan(text: value),
+            TextSpan(text: tr(value)),
           ],
         ),
       );

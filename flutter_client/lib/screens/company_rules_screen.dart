@@ -4,6 +4,7 @@ import '../services/api_service.dart';
 import '../utils/responsive_helper.dart';
 import '../widgets/loading_widget.dart';
 import '../widgets/hrm_page_chrome.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// Màn hình Nội quy công ty — hiển thị bài viết loại Regulation (type=7)
 class CompanyRulesScreen extends StatefulWidget {
@@ -146,12 +147,12 @@ class _CompanyRulesScreenState extends State<CompanyRulesScreen> {
                       child: const Icon(Icons.gavel, color: HrmPageChrome.primaryNavy, size: 22),
                     ),
                     const SizedBox(width: 12),
-                    const Expanded(
+                    Expanded(
                       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Text('Nội quy công ty',
+                        Text(tr('Nội quy công ty'),
                             style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF18181B))),
                         SizedBox(height: 2),
-                        Text('Quy định, quy chế, nội quy của công ty',
+                        Text(tr('Quy định, quy chế, nội quy của công ty'),
                             style: TextStyle(fontSize: 13, color: Color(0xFF71717A))),
                       ]),
                     ),
@@ -168,7 +169,7 @@ class _CompanyRulesScreenState extends State<CompanyRulesScreen> {
                       child: TextField(
                         onChanged: (v) => setState(() => _searchQuery = v),
                         decoration: InputDecoration(
-                          hintText: 'Tìm kiếm nội quy...',
+                          hintText: tr('Tìm kiếm nội quy...'),
                           hintStyle: const TextStyle(fontSize: 13, color: Color(0xFFA1A1AA)),
                           prefixIcon: const Icon(Icons.search, size: 18, color: Color(0xFFA1A1AA)),
                           filled: true,
@@ -189,13 +190,13 @@ class _CompanyRulesScreenState extends State<CompanyRulesScreen> {
                         child: DropdownButtonHideUnderline(
                           child: DropdownButton<String?>(
                             value: _selectedCategoryId,
-                            hint: const Text('Tất cả danh mục', style: TextStyle(fontSize: 13)),
+                            hint: Text(tr('Tất cả danh mục'), style: TextStyle(fontSize: 13)),
                             style: const TextStyle(fontSize: 13, color: Color(0xFF334155)),
                             items: [
-                              const DropdownMenuItem(value: null, child: Text('Tất cả danh mục')),
+                              DropdownMenuItem(value: null, child: Text(tr('Tất cả danh mục'))),
                               ..._categories.map((c) => DropdownMenuItem(
                                     value: c['id'].toString(),
-                                    child: Text(c['name'] ?? ''),
+                                    child: Text(tr(c['name'] ?? '')),
                                   )),
                             ],
                             onChanged: (v) => setState(() => _selectedCategoryId = v),
@@ -213,12 +214,12 @@ class _CompanyRulesScreenState extends State<CompanyRulesScreen> {
                         child: DropdownButton<String>(
                           value: _selectedTimeFilter,
                           style: const TextStyle(fontSize: 13, color: Color(0xFF334155)),
-                          items: const [
-                            DropdownMenuItem(value: 'newest', child: Text('Mới nhất')),
-                            DropdownMenuItem(value: 'this_week', child: Text('Tuần này')),
-                            DropdownMenuItem(value: 'this_month', child: Text('Tháng này')),
-                            DropdownMenuItem(value: 'last_month', child: Text('Tháng trước')),
-                            DropdownMenuItem(value: 'all', child: Text('Tất cả')),
+                          items: [
+                            DropdownMenuItem(value: 'newest', child: Text(tr('Mới nhất'))),
+                            DropdownMenuItem(value: 'this_week', child: Text(tr('Tuần này'))),
+                            DropdownMenuItem(value: 'this_month', child: Text(tr('Tháng này'))),
+                            DropdownMenuItem(value: 'last_month', child: Text(tr('Tháng trước'))),
+                            DropdownMenuItem(value: 'all', child: Text(tr('Tất cả'))),
                           ],
                           onChanged: (v) => setState(() => _selectedTimeFilter = v ?? 'newest'),
                         ),
@@ -230,7 +231,7 @@ class _CompanyRulesScreenState extends State<CompanyRulesScreen> {
                         color: HrmPageChrome.primaryNavy.withValues(alpha: 0.08),
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: Text('${filtered.length} bài viết',
+                      child: Text(tr('${filtered.length} bài viết'),
                           style: const TextStyle(fontSize: 12, color: HrmPageChrome.primaryNavy, fontWeight: FontWeight.w600)),
                     ),
                   ]),
@@ -298,15 +299,15 @@ class _CompanyRulesScreenState extends State<CompanyRulesScreen> {
           const SizedBox(width: 12),
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: Color(0xFF18181B)),
+              Text(tr(title), style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: Color(0xFF18181B)),
                   maxLines: 1, overflow: TextOverflow.ellipsis),
               const SizedBox(height: 2),
               Text(
-                [
+                tr([
                   if (summary.isNotEmpty) summary,
                   '$views lượt xem',
                   if (created != null) '${created.day}/${created.month}/${created.year}',
-                ].join(' · '),
+                ].join(' · ')),
                 style: const TextStyle(color: Color(0xFF71717A), fontSize: 12),
                 maxLines: 1, overflow: TextOverflow.ellipsis,
               ),
@@ -329,9 +330,9 @@ class _CompanyRulesScreenState extends State<CompanyRulesScreen> {
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           Icon(Icons.gavel_outlined, size: 64, color: Colors.grey[300]),
           const SizedBox(height: 16),
-          Text('Chưa có nội quy nào', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: Colors.grey[500])),
+          Text(tr('Chưa có nội quy nào'), style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: Colors.grey[500])),
           const SizedBox(height: 6),
-          Text('Các nội quy đã xuất bản sẽ hiển thị ở đây', style: TextStyle(fontSize: 13, color: Colors.grey[400])),
+          Text(tr('Các nội quy đã xuất bản sẽ hiển thị ở đây'), style: TextStyle(fontSize: 13, color: Colors.grey[400])),
         ]),
       );
 }
@@ -357,7 +358,7 @@ class _ArticleViewPage extends StatelessWidget {
       appBar: AppBar(
         backgroundColor: Colors.white, elevation: 0,
         leading: IconButton(icon: const Icon(Icons.arrow_back, color: Color(0xFF18181B)), onPressed: () => Navigator.pop(context)),
-        title: Text(title, style: const TextStyle(color: Color(0xFF18181B), fontSize: 16, fontWeight: FontWeight.bold),
+        title: Text(tr(title), style: const TextStyle(color: Color(0xFF18181B), fontSize: 16, fontWeight: FontWeight.bold),
             maxLines: 1, overflow: TextOverflow.ellipsis),
       ),
       body: SingleChildScrollView(
@@ -374,26 +375,26 @@ class _ArticleViewPage extends StatelessWidget {
                   boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 8, offset: const Offset(0, 2))],
                 ),
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(title, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Color(0xFF18181B))),
+                  Text(tr(title), style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Color(0xFF18181B))),
                   const SizedBox(height: 12),
                   Wrap(spacing: 16, runSpacing: 6, children: [
                     if (author.isNotEmpty)
                       Row(mainAxisSize: MainAxisSize.min, children: [
                         const Icon(Icons.person_outline, size: 16, color: Color(0xFF71717A)),
                         const SizedBox(width: 4),
-                        Text(author, style: const TextStyle(fontSize: 13, color: Color(0xFF71717A))),
+                        Text(tr(author), style: const TextStyle(fontSize: 13, color: Color(0xFF71717A))),
                       ]),
                     if (created != null)
                       Row(mainAxisSize: MainAxisSize.min, children: [
                         const Icon(Icons.calendar_today_outlined, size: 14, color: Color(0xFF71717A)),
                         const SizedBox(width: 4),
-                        Text('${created.day}/${created.month}/${created.year}',
+                        Text(tr('${created.day}/${created.month}/${created.year}'),
                             style: const TextStyle(fontSize: 13, color: Color(0xFF71717A))),
                       ]),
                     Row(mainAxisSize: MainAxisSize.min, children: [
                       Icon(Icons.visibility_outlined, size: 14, color: Colors.grey[400]),
                       const SizedBox(width: 4),
-                      Text('$views lượt xem', style: TextStyle(fontSize: 13, color: Colors.grey[400])),
+                      Text(tr('$views lượt xem'), style: TextStyle(fontSize: 13, color: Colors.grey[400])),
                     ]),
                   ]),
                 ]),
@@ -408,7 +409,7 @@ class _ArticleViewPage extends StatelessWidget {
                 ),
                 child: content.isNotEmpty
                     ? Html(data: content)
-                    : const Text('Không có nội dung', style: TextStyle(color: Color(0xFFA1A1AA), fontStyle: FontStyle.italic)),
+                    : Text(tr('Không có nội dung'), style: TextStyle(color: Color(0xFFA1A1AA), fontStyle: FontStyle.italic)),
               ),
             ]),
           ),

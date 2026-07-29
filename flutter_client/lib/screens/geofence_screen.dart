@@ -7,6 +7,7 @@ import '../services/api_service.dart';
 import '../utils/responsive_helper.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../widgets/hrm_fab_clearance.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 class GeofenceScreen extends StatefulWidget {
   const GeofenceScreen({super.key});
@@ -31,20 +32,20 @@ class _GeofenceScreenState extends State<GeofenceScreen> {
       icon: Icon(Icons.more_vert, color: Colors.grey[400], size: 20),
       itemBuilder: (_) => [
         if (canEdit)
-          const PopupMenuItem(
+          PopupMenuItem(
               value: 'edit',
               child: Row(children: [
                 Icon(Icons.edit, size: 16),
                 SizedBox(width: 8),
-                Text('Sửa')
+                Text(tr('Sửa'))
               ])),
         if (canDelete)
-          const PopupMenuItem(
+          PopupMenuItem(
               value: 'delete',
               child: Row(children: [
                 Icon(Icons.delete, size: 16, color: Colors.red),
                 SizedBox(width: 8),
-                Text('Xóa', style: TextStyle(color: Colors.red))
+                Text(tr('Xóa'), style: TextStyle(color: Colors.red))
               ])),
       ],
       onSelected: (v) {
@@ -99,7 +100,7 @@ class _GeofenceScreenState extends State<GeofenceScreen> {
               ? FloatingActionButton.extended(
                   onPressed: () => _showGeofenceDialog(),
                   icon: const Icon(Icons.add_location_alt),
-                  label: const Text('Thêm khu vực'),
+                  label: Text(tr('Thêm khu vực')),
                   backgroundColor: HrmPageChrome.primaryNavy,
                 )
               : null,
@@ -120,19 +121,19 @@ class _GeofenceScreenState extends State<GeofenceScreen> {
             child: const Icon(Icons.share_location, color: Colors.white, size: 24),
           ),
           const SizedBox(width: 16),
-          const Expanded(
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Quản lý Geofence', style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
-                Text('Khu vực chấm công theo vị trí', style: TextStyle(color: Colors.white70, fontSize: 14)),
+                Text(tr('Quản lý Geofence'), style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
+                Text(tr('Khu vực chấm công theo vị trí'), style: TextStyle(color: Colors.white70, fontSize: 14)),
               ],
             ),
           ),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
             decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(20)),
-            child: Text('${_geofences.length} khu vực', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+            child: Text(tr('${_geofences.length} khu vực'), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
           ),
         ],
       ),
@@ -144,9 +145,9 @@ class _GeofenceScreenState extends State<GeofenceScreen> {
       child: Column(mainAxisSize: MainAxisSize.min, children: [
         Icon(Icons.share_location, size: 80, color: Colors.grey[300]),
         const SizedBox(height: 16),
-        Text('Chưa có khu vực geofence', style: TextStyle(color: Colors.grey[500], fontSize: 16)),
+        Text(tr('Chưa có khu vực geofence'), style: TextStyle(color: Colors.grey[500], fontSize: 16)),
         const SizedBox(height: 8),
-        Text('Tạo khu vực để chấm công theo vị trí GPS', style: TextStyle(color: Colors.grey[400], fontSize: 13)),
+        Text(tr('Tạo khu vực để chấm công theo vị trí GPS'), style: TextStyle(color: Colors.grey[400], fontSize: 13)),
       ]),
     );
   }
@@ -212,7 +213,7 @@ class _GeofenceScreenState extends State<GeofenceScreen> {
                   child: const Icon(Icons.location_on, color: HrmPageChrome.primaryNavy, size: 20),
                 ),
                 const SizedBox(width: 10),
-                Expanded(child: Text(name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15), maxLines: 1, overflow: TextOverflow.ellipsis)),
+                Expanded(child: Text(tr(name), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15), maxLines: 1, overflow: TextOverflow.ellipsis)),
                 if (_geofenceActionMenu(geo) != null) _geofenceActionMenu(geo)!,
               ],
             ),
@@ -220,14 +221,14 @@ class _GeofenceScreenState extends State<GeofenceScreen> {
             Row(children: [
               Icon(Icons.gps_fixed, size: 14, color: Colors.grey[500]),
               const SizedBox(width: 6),
-              Expanded(child: Text('${(lat is double ? lat : double.tryParse(lat.toString()) ?? 0).toStringAsFixed(5)}, ${(lng is double ? lng : double.tryParse(lng.toString()) ?? 0).toStringAsFixed(5)}', style: TextStyle(color: Colors.grey[600], fontSize: 12))),
+              Expanded(child: Text(tr('${(lat is double ? lat : double.tryParse(lat.toString()) ?? 0).toStringAsFixed(5)}, ${(lng is double ? lng : double.tryParse(lng.toString()) ?? 0).toStringAsFixed(5)}'), style: TextStyle(color: Colors.grey[600], fontSize: 12))),
             ]),
             const SizedBox(height: 8),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Chip(
-                  label: Text('${radius}m', style: const TextStyle(color: HrmPageChrome.primaryNavy, fontSize: 11, fontWeight: FontWeight.w600)),
+                  label: Text(tr('${radius}m'), style: const TextStyle(color: HrmPageChrome.primaryNavy, fontSize: 11, fontWeight: FontWeight.w600)),
                   backgroundColor: HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
                   materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   visualDensity: VisualDensity.compact,
@@ -238,7 +239,7 @@ class _GeofenceScreenState extends State<GeofenceScreen> {
                     color: isActive ? HrmPageChrome.primaryNavy.withValues(alpha: 0.1) : Colors.grey.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: Text(isActive ? 'Hoạt động' : 'Tắt', style: TextStyle(color: isActive ? HrmPageChrome.primaryNavy : Colors.grey, fontSize: 11, fontWeight: FontWeight.w600)),
+                  child: Text(tr(isActive ? 'Hoạt động' : 'Tắt'), style: TextStyle(color: isActive ? HrmPageChrome.primaryNavy : Colors.grey, fontSize: 11, fontWeight: FontWeight.w600)),
                 ),
               ],
             ),
@@ -273,10 +274,10 @@ class _GeofenceScreenState extends State<GeofenceScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14), maxLines: 1, overflow: TextOverflow.ellipsis),
+                  Text(tr(name), style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14), maxLines: 1, overflow: TextOverflow.ellipsis),
                   const SizedBox(height: 2),
                   Text(
-                    '${(lat is double ? lat : double.tryParse(lat.toString()) ?? 0).toStringAsFixed(4)}, ${(lng is double ? lng : double.tryParse(lng.toString()) ?? 0).toStringAsFixed(4)} · ${radius}m',
+                    tr('${(lat is double ? lat : double.tryParse(lat.toString()) ?? 0).toStringAsFixed(4)}, ${(lng is double ? lng : double.tryParse(lng.toString()) ?? 0).toStringAsFixed(4)} · ${radius}m'),
                     style: TextStyle(fontSize: 12, color: Colors.grey[500]),
                     maxLines: 1, overflow: TextOverflow.ellipsis,
                   ),
@@ -290,7 +291,7 @@ class _GeofenceScreenState extends State<GeofenceScreen> {
                 color: isActive ? HrmPageChrome.primaryNavy.withValues(alpha: 0.1) : Colors.grey.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(4),
               ),
-              child: Text(isActive ? 'Hoạt động' : 'Tắt', style: TextStyle(color: isActive ? HrmPageChrome.primaryNavy : Colors.grey, fontSize: 10, fontWeight: FontWeight.w600)),
+              child: Text(tr(isActive ? 'Hoạt động' : 'Tắt'), style: TextStyle(color: isActive ? HrmPageChrome.primaryNavy : Colors.grey, fontSize: 10, fontWeight: FontWeight.w600)),
             ),
             if (_geofenceActionMenu(geo) != null)
               _geofenceActionMenu(geo)!,
@@ -304,11 +305,11 @@ class _GeofenceScreenState extends State<GeofenceScreen> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => ScrollableAlertDialog(
-        title: const Text('Xóa khu vực'),
-        content: Text('Xóa "${geo['name']}"?'),
+        title: Text(tr('Xóa khu vực')),
+        content: Text(tr('${tr('Xóa "')}${geo['name']}"?')),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Hủy')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), style: ElevatedButton.styleFrom(backgroundColor: Colors.red), child: const Text('Xóa')),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Hủy'))),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), style: ElevatedButton.styleFrom(backgroundColor: Colors.red), child: Text(tr('Xóa'))),
         ],
       ),
     );
@@ -323,16 +324,16 @@ class _GeofenceScreenState extends State<GeofenceScreen> {
 
   void _showGeofenceDialog({Map<String, dynamic>? geo}) {
     final isEdit = geo != null;
-    final nameCtrl = TextEditingController(text: geo?['name'] ?? '');
-    final latCtrl = TextEditingController(text: (geo?['latitude'] ?? geo?['centerLatitude'] ?? '').toString());
-    final lngCtrl = TextEditingController(text: (geo?['longitude'] ?? geo?['centerLongitude'] ?? '').toString());
-    final radiusCtrl = TextEditingController(text: (geo?['radius'] ?? geo?['radiusMeters'] ?? '200').toString());
-    final addressCtrl = TextEditingController(text: geo?['address'] ?? '');
+    final nameCtrl = TextEditingController(text: tr(geo?['name'] ?? ''));
+    final latCtrl = TextEditingController(text: tr((geo?['latitude'] ?? geo?['centerLatitude'] ?? '').toString()));
+    final lngCtrl = TextEditingController(text: tr((geo?['longitude'] ?? geo?['centerLongitude'] ?? '').toString()));
+    final radiusCtrl = TextEditingController(text: tr((geo?['radius'] ?? geo?['radiusMeters'] ?? '200').toString()));
+    final addressCtrl = TextEditingController(text: tr(geo?['address'] ?? ''));
 
     showDialog(
       context: context,
       builder: (ctx) => ScrollableAlertDialog(
-        title: Text(isEdit ? 'Sửa khu vực' : 'Thêm khu vực'),
+        title: Text(tr(isEdit ? 'Sửa khu vực' : 'Thêm khu vực')),
         content: SizedBox(
           width: math.min(420, MediaQuery.of(context).size.width - 32).toDouble(),
           child: SingleChildScrollView(
@@ -352,7 +353,7 @@ class _GeofenceScreenState extends State<GeofenceScreen> {
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('Hủy'))),
           FilledButton(
             onPressed: () async {
               final data = {
@@ -378,7 +379,7 @@ class _GeofenceScreenState extends State<GeofenceScreen> {
               }
             },
             style: FilledButton.styleFrom(backgroundColor: HrmPageChrome.primaryNavy),
-            child: Text(isEdit ? 'Cập nhật' : 'Tạo'),
+            child: Text(tr(isEdit ? 'Cập nhật' : 'Tạo')),
           ),
         ],
       ),
@@ -395,7 +396,7 @@ class _GeofenceScreenState extends State<GeofenceScreen> {
     return TextField(
       controller: ctrl,
       decoration: InputDecoration(
-        labelText: label,
+        labelText: tr(label),
         prefixIcon: Icon(icon, size: 20),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
         contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),

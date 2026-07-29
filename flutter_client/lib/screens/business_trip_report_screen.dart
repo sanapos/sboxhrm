@@ -8,6 +8,7 @@ import '../utils/business_trip_status.dart';
 import '../utils/report_access_utils.dart';
 import '../utils/report_screen_helpers.dart';
 import '../widgets/reports/hrm_report_widgets.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 const _theme = Color(0xFF0EA5E9);
 
@@ -418,8 +419,7 @@ class _BusinessTripReportScreenState extends State<BusinessTripReportScreen> {
                       child: Align(
                         alignment: Alignment.centerLeft,
                         child: InputChip(
-                          label: Text(
-                            'Loại CP: ${_categoryLabel(_selectedCategoryKey!)}',
+                          label: Text(tr('Loại CP: ${_categoryLabel(_selectedCategoryKey!)}'),
                             style: const TextStyle(fontSize: 12),
                           ),
                           onDeleted: () =>
@@ -433,10 +433,9 @@ class _BusinessTripReportScreenState extends State<BusinessTripReportScreen> {
                       (_summaryWithInvoice > 0 || _summaryWithoutInvoice > 0))
                     Padding(
                       padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-                      child: Text(
-                        'Có HĐ: ${reportMoneyFmt.format(_summaryWithInvoice)}đ'
+                      child: Text(tr('${tr('Có HĐ: ')}${reportMoneyFmt.format(_summaryWithInvoice)}đ'
                         ' · Không HĐ: ${reportMoneyFmt.format(_summaryWithoutInvoice)}đ'
-                        '${_expenseLineCount > 0 ? ' · $_expenseLineCount dòng chi' : ''}',
+                        '${_expenseLineCount > 0 ? ' · $_expenseLineCount dòng chi' : ''}'),
                         style: const TextStyle(
                             fontSize: 12, color: Color(0xFF6B7280)),
                       ),
@@ -511,15 +510,15 @@ class _BusinessTripReportScreenState extends State<BusinessTripReportScreen> {
         child: DropdownButton<int?>(
           value: _statusFilter,
           isExpanded: true,
-          hint: const Text('Trạng thái',
+          hint: Text(tr('Trạng thái'),
               style: TextStyle(fontSize: 12, color: Color(0xFF6B7280))),
           style: const TextStyle(fontSize: 12, color: Color(0xFF111827)),
           items: [
-            const DropdownMenuItem(value: null, child: Text('Tất cả')),
+            DropdownMenuItem(value: null, child: Text(tr('Tất cả'))),
             for (int i = 0; i <= 9; i++)
               if (i != 9)
                 DropdownMenuItem(
-                    value: i, child: Text(tripStatusLabel(i))),
+                    value: i, child: Text(tr(tripStatusLabel(i)))),
           ],
           onChanged: (v) => setState(() => _statusFilter = v),
         ),
@@ -619,15 +618,14 @@ class _BusinessTripReportScreenState extends State<BusinessTripReportScreen> {
                     children: [
                       Expanded(
                         child: Text(
-                          name,
+                          tr(name),
                           style: const TextStyle(
                             fontWeight: FontWeight.w600,
                             fontSize: 14,
                           ),
                         ),
                       ),
-                      Text(
-                        '${reportMoneyFmt.format(total)}đ',
+                      Text(tr('${reportMoneyFmt.format(total)}đ'),
                         style: const TextStyle(
                           fontWeight: FontWeight.w700,
                           color: Color(0xFF16A34A),
@@ -638,8 +636,8 @@ class _BusinessTripReportScreenState extends State<BusinessTripReportScreen> {
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    '$lines dòng · $cases HS · $pct%'
-                    '${withInv > 0 ? ' · HĐ ${reportMoneyFmt.format(withInv)}đ' : ''}',
+                    tr('$lines dòng · $cases HS · $pct%'
+                    '${withInv > 0 ? ' · HĐ ${reportMoneyFmt.format(withInv)}đ' : ''}'),
                     style: const TextStyle(
                         fontSize: 12, color: Color(0xFF6B7280)),
                   ),

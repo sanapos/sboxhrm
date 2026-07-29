@@ -15,6 +15,7 @@ import '../../../widgets/warehouse/wh_doc_type.dart';
 import '../../../widgets/warehouse/wh_mobile_components.dart';
 import '../../../widgets/warehouse/wh_mobile_theme.dart';
 import '../../main_layout.dart' show ScreenRefreshNotifier;
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 class WhMobileStockIssueEditor extends StatefulWidget {
   const WhMobileStockIssueEditor({
@@ -142,7 +143,7 @@ class _WhMobileStockIssueEditorState extends State<WhMobileStockIssueEditor> {
     final id = await _ensureId();
     if (id == null || !mounted) return;
     if (_lines.any((l) => l.productId == pick.product.id)) {
-      NotificationOverlayManager().showWarning(title: 'Trùng', message: 'Hàng đã có trong phiếu');
+      NotificationOverlayManager().showWarning(title: 'Trùng', message: tr('Hàng đã có trong phiếu'));
       return;
     }
     final res = await _api.addPosStockIssueDocLines(_config.kind, id, [
@@ -212,7 +213,7 @@ class _WhMobileStockIssueEditorState extends State<WhMobileStockIssueEditor> {
 
   Future<void> _saveDraft() async {
     if (_lines.isEmpty) {
-      NotificationOverlayManager().showWarning(title: 'Phiếu trống', message: 'Thêm ít nhất một dòng hàng');
+      NotificationOverlayManager().showWarning(title: 'Phiếu trống', message: tr('Thêm ít nhất một dòng hàng'));
       return;
     }
     setState(() => _saving = true);
@@ -226,17 +227,17 @@ class _WhMobileStockIssueEditorState extends State<WhMobileStockIssueEditor> {
 
   Future<void> _complete() async {
     if (_lines.isEmpty || _lines.every((l) => l.qty <= 0)) {
-      NotificationOverlayManager().showWarning(title: 'Số lượng', message: 'Nhập SL > 0');
+      NotificationOverlayManager().showWarning(title: 'Số lượng', message: tr('Nhập SL > 0'));
       return;
     }
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text(_config.completeDialogTitle),
-        content: Text(_config.completeDialogMessage),
+        title: Text(tr(_config.completeDialogTitle)),
+        content: Text(tr(_config.completeDialogMessage)),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Hủy')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Xác nhận')),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Hủy'))),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(tr('Xác nhận'))),
         ],
       ),
     );
@@ -310,7 +311,7 @@ class _WhMobileStockIssueEditorState extends State<WhMobileStockIssueEditor> {
                                   'Bảo trì',
                                   'Khác',
                                 ]
-                                    .map((c) => DropdownMenuItem(value: c, child: Text(c)))
+                                    .map((c) => DropdownMenuItem(value: c, child: Text(tr(c))))
                                     .toList(),
                                 onChanged: _readOnly
                                     ? null
@@ -330,7 +331,7 @@ class _WhMobileStockIssueEditorState extends State<WhMobileStockIssueEditor> {
                       if (!_readOnly)
                         PosPurchaseProductSearchBar(
                           api: _api,
-                          hintText: 'Tìm hoặc quét mã hàng…',
+                          hintText: tr('Tìm hoặc quét mã hàng…'),
                           onPick: _pickProduct,
                         ),
                       const SizedBox(height: WhMobileTheme.gap),
@@ -358,7 +359,7 @@ class _WhMobileStockIssueEditorState extends State<WhMobileStockIssueEditor> {
                               onChanged: (v) => setState(() => l.qty = v),
                             ),
                             trailing: Text(
-                              _moneyFmt.format(l.qty * l.cost),
+                              tr(_moneyFmt.format(l.qty * l.cost)),
                               style: WhMobileTheme.money.copyWith(fontSize: 15),
                             ),
                           );

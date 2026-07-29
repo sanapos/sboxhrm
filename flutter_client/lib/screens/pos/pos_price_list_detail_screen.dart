@@ -13,6 +13,7 @@ import '../../widgets/notification_overlay.dart';
 import '../../widgets/pos/pos_theme.dart';
 import '../../widgets/pos/pos_purchase_product_search_bar.dart';
 import '../main_layout.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 class _PriceRow {
   _PriceRow({
@@ -160,7 +161,7 @@ class _PosPriceListDetailScreenState extends State<PosPriceListDetailScreen> {
             'ĐVT cơ bản',
         basePrice: p?.basePrice ?? it.price,
         priceCtrl: TextEditingController(
-          text: VndThousandsInputFormatter.format(it.price),
+          text: tr(VndThousandsInputFormatter.format(it.price)),
         ),
         selected: false,
       ));
@@ -198,7 +199,7 @@ class _PosPriceListDetailScreenState extends State<PosPriceListDetailScreen> {
         unitLabel: v.label,
         basePrice: v.basePrice,
         priceCtrl: TextEditingController(
-          text: VndThousandsInputFormatter.format(v.basePrice),
+          text: tr(VndThousandsInputFormatter.format(v.basePrice)),
         ),
         selected: select,
       ));
@@ -217,7 +218,7 @@ class _PosPriceListDetailScreenState extends State<PosPriceListDetailScreen> {
     if (!silent) {
       NotificationOverlayManager().showSuccess(
         title: 'Đã thêm',
-        message: '$added đơn vị · ${p.name}',
+        message: tr('$added đơn vị · ${p.name}'),
       );
     }
     return added;
@@ -251,12 +252,12 @@ class _PosPriceListDetailScreenState extends State<PosPriceListDetailScreen> {
     if (productAdded == 0) {
       NotificationOverlayManager().showWarning(
         title: 'Đã có trong bảng',
-        message: '${picked.length} hàng hóa đã có sẵn',
+        message: tr('${picked.length} hàng hóa đã có sẵn'),
       );
     } else {
       NotificationOverlayManager().showSuccess(
         title: 'Đã thêm',
-        message: '$productAdded hàng hóa ($totalUnits mức giá)',
+        message: tr('$productAdded hàng hóa ($totalUnits mức giá)'),
       );
     }
   }
@@ -286,7 +287,7 @@ class _PosPriceListDetailScreenState extends State<PosPriceListDetailScreen> {
           : items.length;
       NotificationOverlayManager().showSuccess(
         title: 'Đã lưu',
-        message: '$saved dòng giá · ${widget.priceList.name}',
+        message: tr('$saved dòng giá · ${widget.priceList.name}'),
       );
       await _loadAll();
     } else {
@@ -392,48 +393,47 @@ class _PosPriceListDetailScreenState extends State<PosPriceListDetailScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Padding(
+            Padding(
               padding: EdgeInsets.fromLTRB(16, 16, 16, 4),
-              child: Text(
-                'Nhiều hơn',
+              child: Text(tr('Nhiều hơn'),
                 style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
               ),
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
               child: Text(
-                _targetHint,
+                tr(_targetHint),
                 style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
               ),
             ),
             ListTile(
               leading: const Icon(Icons.trending_up),
-              title: const Text('Tăng giá theo %'),
-              subtitle: const Text('Cộng % trên giá gốc'),
+              title: Text(tr('Tăng giá theo %')),
+              subtitle: Text(tr('Cộng % trên giá gốc')),
               onTap: () => Navigator.pop(ctx, 'pct_up'),
             ),
             ListTile(
               leading: const Icon(Icons.add_circle_outline),
-              title: const Text('Cộng thêm số tiền'),
-              subtitle: const Text('Giá gốc + số tiền'),
+              title: Text(tr('Cộng thêm số tiền')),
+              subtitle: Text(tr('Giá gốc + số tiền')),
               onTap: () => Navigator.pop(ctx, 'add_money'),
             ),
             ListTile(
               leading: const Icon(Icons.pin_outlined),
-              title: const Text('Đặt giá cố định'),
-              subtitle: const Text('Mọi dòng cùng một mức giá'),
+              title: Text(tr('Đặt giá cố định')),
+              subtitle: Text(tr('Mọi dòng cùng một mức giá')),
               onTap: () => Navigator.pop(ctx, 'fixed'),
             ),
             ListTile(
               leading: const Icon(Icons.calculate_outlined),
-              title: const Text('Nhân hệ số giá gốc'),
-              subtitle: const Text('Ví dụ 0.9 = còn 90% giá gốc'),
+              title: Text(tr('Nhân hệ số giá gốc')),
+              subtitle: Text(tr('Ví dụ 0.9 = còn 90% giá gốc')),
               onTap: () => Navigator.pop(ctx, 'factor'),
             ),
             ListTile(
               leading: const Icon(Icons.rounded_corner),
-              title: const Text('Làm tròn nghìn'),
-              subtitle: const Text('Làm tròn giá đang nhập về hàng nghìn'),
+              title: Text(tr('Làm tròn nghìn')),
+              subtitle: Text(tr('Làm tròn giá đang nhập về hàng nghìn')),
               onTap: () => Navigator.pop(ctx, 'round'),
             ),
             const SizedBox(height: 8),
@@ -477,7 +477,7 @@ class _PosPriceListDetailScreenState extends State<PosPriceListDetailScreen> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text(title),
+        title: Text(tr(title)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -489,14 +489,14 @@ class _PosPriceListDetailScreenState extends State<PosPriceListDetailScreen> {
                   ? [FilteringTextInputFormatter.allow(RegExp(r'[\d.]'))]
                   : [VndThousandsInputFormatter()],
               decoration: InputDecoration(
-                labelText: label,
-                suffixText: suffix,
+                labelText: tr(label),
+                suffixText: trN(suffix),
                 border: const OutlineInputBorder(),
               ),
             ),
             const SizedBox(height: 8),
             Text(
-              _targetHint,
+              tr(_targetHint),
               style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
             ),
           ],
@@ -504,12 +504,12 @@ class _PosPriceListDetailScreenState extends State<PosPriceListDetailScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Huỷ'),
+            child: Text(tr('Huỷ')),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: FilledButton.styleFrom(backgroundColor: PosTheme.kiotBlue),
-            child: const Text('Áp dụng'),
+            child: Text(tr('Áp dụng')),
           ),
         ],
       ),
@@ -540,7 +540,7 @@ class _PosPriceListDetailScreenState extends State<PosPriceListDetailScreen> {
     if (toRemove.isEmpty) {
       NotificationOverlayManager().showWarning(
         title: 'Chưa chọn',
-        message: 'Chọn dòng cần xoá khỏi danh sách sửa',
+        message: tr('Chọn dòng cần xoá khỏi danh sách sửa'),
       );
       return;
     }
@@ -557,19 +557,19 @@ class _PosPriceListDetailScreenState extends State<PosPriceListDetailScreen> {
     return Scaffold(
       backgroundColor: PosTheme.background,
       appBar: AppBar(
-        title: Text(widget.priceList.name),
+        title: Text(tr(widget.priceList.name)),
         backgroundColor: Colors.white,
         foregroundColor: Colors.black87,
         elevation: 0.5,
         actions: [
           if (selectedCount > 0)
             IconButton(
-              tooltip: 'Xoá dòng đã chọn',
+              tooltip: tr('Xoá dòng đã chọn'),
               onPressed: _removeSelected,
               icon: const Icon(Icons.delete_outline, color: Colors.red),
             ),
           IconButton(
-            tooltip: 'Tải lại',
+            tooltip: tr('Tải lại'),
             onPressed: _loading ? null : _loadAll,
             icon: const Icon(Icons.refresh),
           ),
@@ -582,8 +582,7 @@ class _PosPriceListDetailScreenState extends State<PosPriceListDetailScreen> {
               children: [
                 Padding(
                   padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
-                  child: Text(
-                    'SP không có trong bảng giá vẫn bán theo giá quản lý hàng hóa.',
+                  child: Text(tr('SP không có trong bảng giá vẫn bán theo giá quản lý hàng hóa.'),
                     style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
                   ),
                 ),
@@ -593,7 +592,7 @@ class _PosPriceListDetailScreenState extends State<PosPriceListDetailScreen> {
                     key: _searchKey,
                     api: _api,
                     onPick: _onPickProduct,
-                    hintText: 'Tìm & thêm hàng hoá vào bảng giá…',
+                    hintText: tr('Tìm & thêm hàng hoá vào bảng giá…'),
                   ),
                 ),
                 Padding(
@@ -604,15 +603,15 @@ class _PosPriceListDetailScreenState extends State<PosPriceListDetailScreen> {
                         child: OutlinedButton.icon(
                           onPressed: _openBulkAdd,
                           icon: const Icon(Icons.playlist_add, size: 18),
-                          label: const Text('Thêm nhiều SP'),
+                          label: Text(tr('Thêm nhiều SP')),
                         ),
                       ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: TextField(
                           controller: _filterCtrl,
-                          decoration: const InputDecoration(
-                            hintText: 'Lọc trong bảng…',
+                          decoration: InputDecoration(
+                            hintText: tr('Lọc trong bảng…'),
                             isDense: true,
                             prefixIcon: Icon(Icons.filter_list, size: 18),
                             border: OutlineInputBorder(),
@@ -629,8 +628,8 @@ class _PosPriceListDetailScreenState extends State<PosPriceListDetailScreen> {
                   child: Row(
                     children: [
                       Text(
-                        '${_rows.length} dòng'
-                        '${selectedCount > 0 ? ' · đã chọn $selectedCount' : ''}',
+                        tr('${_rows.length} dòng'
+                        '${selectedCount > 0 ? ' · đã chọn $selectedCount' : ''}'),
                         style: const TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
@@ -640,11 +639,11 @@ class _PosPriceListDetailScreenState extends State<PosPriceListDetailScreen> {
                       const Spacer(),
                       TextButton(
                         onPressed: () => _selectAllVisible(true),
-                        child: const Text('Chọn hết'),
+                        child: Text(tr('Chọn hết')),
                       ),
                       TextButton(
                         onPressed: () => _selectAllVisible(false),
-                        child: const Text('Bỏ chọn'),
+                        child: Text(tr('Bỏ chọn')),
                       ),
                     ],
                   ),
@@ -652,12 +651,12 @@ class _PosPriceListDetailScreenState extends State<PosPriceListDetailScreen> {
                 const Divider(height: 1),
                 Expanded(
                   child: _visibleRows.isEmpty
-                      ? const Center(
+                      ? Center(
                           child: Padding(
                             padding: EdgeInsets.all(24),
                             child: Text(
-                              'Chưa có hàng trong bảng giá.\n'
-                              'Tìm SP hoặc «Thêm nhiều SP» để gắn giá.',
+                              tr('Chưa có hàng trong bảng giá.\n'
+                              'Tìm SP hoặc «Thêm nhiều SP» để gắn giá.'),
                               textAlign: TextAlign.center,
                               style: TextStyle(color: PosTheme.textSecondary),
                             ),
@@ -687,7 +686,7 @@ class _PosPriceListDetailScreenState extends State<PosPriceListDetailScreen> {
                       ),
                     )
                   : const Icon(Icons.save_outlined),
-              label: Text(_saving ? 'Đang lưu…' : 'Lưu bảng giá'),
+              label: Text(tr(_saving ? 'Đang lưu…' : 'Lưu bảng giá')),
             ),
     );
   }
@@ -698,8 +697,7 @@ class _PosPriceListDetailScreenState extends State<PosPriceListDetailScreen> {
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
-          child: Text(
-            'Chiết khấu nhanh',
+          child: Text(tr('Chiết khấu nhanh'),
             style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w600,
@@ -720,14 +718,13 @@ class _PosPriceListDetailScreenState extends State<PosPriceListDetailScreen> {
               _quickChip('= Giá gốc', _applyBasePrice),
               ActionChip(
                 avatar: const Icon(Icons.more_horiz, size: 16),
-                label: const Text('Nhiều hơn'),
+                label: Text(tr('Nhiều hơn')),
                 onPressed: _openMorePriceActions,
               ),
               if (selectedCount == 0)
                 Padding(
                   padding: const EdgeInsets.only(left: 8),
-                  child: Text(
-                    'Chưa chọn → áp dụng dòng đang hiện',
+                  child: Text(tr('Chưa chọn → áp dụng dòng đang hiện'),
                     style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
                   ),
                 ),
@@ -742,7 +739,7 @@ class _PosPriceListDetailScreenState extends State<PosPriceListDetailScreen> {
     return Padding(
       padding: const EdgeInsets.only(right: 6),
       child: ActionChip(
-        label: Text(label, style: const TextStyle(fontSize: 12)),
+        label: Text(tr(label), style: const TextStyle(fontSize: 12)),
         onPressed: onTap,
       ),
     );
@@ -767,7 +764,7 @@ class _PosPriceListDetailScreenState extends State<PosPriceListDetailScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  r.productName,
+                  tr(r.productName),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
@@ -776,11 +773,11 @@ class _PosPriceListDetailScreenState extends State<PosPriceListDetailScreen> {
                   ),
                 ),
                 Text(
-                  [
+                  tr([
                     if (r.productCode.isNotEmpty) r.productCode,
                     r.unitLabel,
                     'Gốc ${_moneyFmt.format(r.basePrice)}đ',
-                  ].join(' · '),
+                  ].join(' · ')),
                   style: const TextStyle(
                     fontSize: 11,
                     color: PosTheme.textSecondary,
@@ -802,9 +799,9 @@ class _PosPriceListDetailScreenState extends State<PosPriceListDetailScreen> {
                 fontWeight: FontWeight.w600,
                 fontSize: 15,
               ),
-              decoration: const InputDecoration(
-                labelText: 'Giá bán',
-                suffixText: 'đ',
+              decoration: InputDecoration(
+                labelText: tr('Giá bán'),
+                suffixText: tr('đ'),
                 isDense: true,
                 border: OutlineInputBorder(),
               ),
@@ -894,9 +891,8 @@ class _BulkProductPickerSheetState extends State<_BulkProductPickerSheet> {
             padding: const EdgeInsets.fromLTRB(16, 12, 8, 8),
             child: Row(
               children: [
-                const Expanded(
-                  child: Text(
-                    'Thêm nhiều hàng hoá',
+                Expanded(
+                  child: Text(tr('Thêm nhiều hàng hoá'),
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
                   ),
                 ),
@@ -907,7 +903,7 @@ class _BulkProductPickerSheetState extends State<_BulkProductPickerSheet> {
                             context,
                             _selected.values.toList(),
                           ),
-                  child: Text('Thêm (${_selected.length})'),
+                  child: Text(tr('Thêm (${_selected.length})')),
                 ),
               ],
             ),
@@ -917,7 +913,7 @@ class _BulkProductPickerSheetState extends State<_BulkProductPickerSheet> {
             child: TextField(
               controller: _searchCtrl,
               decoration: InputDecoration(
-                hintText: 'Tìm tên / mã…',
+                hintText: tr('Tìm tên / mã…'),
                 isDense: true,
                 prefixIcon: const Icon(Icons.search, size: 20),
                 border: const OutlineInputBorder(),
@@ -947,9 +943,8 @@ class _BulkProductPickerSheetState extends State<_BulkProductPickerSheet> {
                       return CheckboxListTile(
                         value: on,
                         activeColor: PosTheme.kiotBlue,
-                        title: Text(p.name, maxLines: 2),
-                        subtitle: Text(
-                          '${p.productCode} · ${_moneyFmt(p.basePrice)}đ',
+                        title: Text(tr(p.name), maxLines: 2),
+                        subtitle: Text(tr('${p.productCode} · ${_moneyFmt(p.basePrice)}đ'),
                           style: const TextStyle(fontSize: 12),
                         ),
                         onChanged: (v) {

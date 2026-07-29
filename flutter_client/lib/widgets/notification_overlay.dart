@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import '../l10n/app_tr.dart';
 import '../models/hrm.dart';
 import '../utils/notification_sound.dart';
 
@@ -391,7 +392,7 @@ class _NotificationCardState extends State<_NotificationCard>
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Text(
-                              widget.item.title,
+                              tr(widget.item.title),
                               style: const TextStyle(
                                 fontWeight: FontWeight.bold,
                                 fontSize: 14,
@@ -402,7 +403,7 @@ class _NotificationCardState extends State<_NotificationCard>
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              widget.item.message,
+                              tr(widget.item.message),
                               style: TextStyle(
                                 fontSize: 13,
                                 color: Colors.grey[400],

@@ -12,6 +12,7 @@ import '../providers/theme_provider.dart';
 import '../services/api_service.dart';
 import '../widgets/notification_overlay.dart';
 import 'app_info_screen.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -49,7 +50,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              l.settingsTitle,
+              tr(l.settingsTitle),
               style: const TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
@@ -57,7 +58,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              l.settingsSubtitle,
+              tr(l.settingsSubtitle),
               style: TextStyle(color: Colors.grey[400]),
             ),
             const SizedBox(height: 24),
@@ -93,7 +94,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   title: l.darkMode,
                   subtitle: Consumer<ThemeProvider>(
                     builder: (context, tp, _) => Text(
-                      tp.isDarkMode ? l.turnedOn : l.turnedOff,
+                      tr(tp.isDarkMode ? l.turnedOn : l.turnedOff),
                       style: TextStyle(color: Colors.grey[400], fontSize: 14),
                     ),
                   ),
@@ -115,7 +116,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       icon: Icons.language,
                       title: l.language,
                       subtitle: Text(
-                        themeProvider.languageLabel,
+                        tr(themeProvider.languageLabel),
                         style: TextStyle(color: Colors.grey[400], fontSize: 14),
                       ),
                       onTap: () => _showLanguageDialog(context),
@@ -261,7 +262,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 onPressed: () => _showLogoutDialog(context),
                 icon: const Icon(Icons.logout, color: Colors.red),
                 label: Text(
-                  l.logout,
+                  tr(l.logout),
                   style: const TextStyle(color: Colors.red),
                 ),
                 style: OutlinedButton.styleFrom(
@@ -291,7 +292,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             Icon(icon, size: 20, color: Theme.of(context).primaryColor),
             const SizedBox(width: 8),
             Text(
-              title,
+              tr(title),
               style: const TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
@@ -320,7 +321,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             backgroundColor:
                 Theme.of(context).primaryColor.withValues(alpha: 0.2),
             child: Text(
-              (user?.fullName ?? 'U')[0].toUpperCase(),
+              tr((user?.fullName ?? 'U')[0].toUpperCase()),
               style: TextStyle(
                 color: Theme.of(context).primaryColor,
                 fontWeight: FontWeight.bold,
@@ -334,7 +335,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  user?.fullName ?? 'User',
+                  tr(user?.fullName ?? 'User'),
                   style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
@@ -342,7 +343,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  user?.email ?? '',
+                  tr(user?.email ?? ''),
                   style: TextStyle(color: Colors.grey[400]),
                 ),
                 const SizedBox(height: 4),
@@ -357,7 +358,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
-                    user?.role ?? 'Employee',
+                    tr(user?.role ?? 'Employee'),
                     style: TextStyle(
                       color: Theme.of(context).primaryColor,
                       fontSize: 12,
@@ -389,7 +390,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (subtitle is Widget) {
       subtitleWidget = subtitle;
     } else if (subtitle is String) {
-      subtitleWidget = Text(subtitle);
+      subtitleWidget = Text(tr(subtitle));
     }
 
     return ListTile(
@@ -405,7 +406,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           size: 20,
         ),
       ),
-      title: Text(title),
+      title: Text(tr(title)),
       subtitle: subtitleWidget,
       trailing:
           trailing ?? (onTap != null ? const Icon(Icons.chevron_right) : null),
@@ -421,13 +422,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
     showDialog(
       context: context,
       builder: (context) => ScrollableAlertDialog(
-        title: Text(l.selectLanguage),
+        title: Text(tr(l.selectLanguage)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
-              leading: const Text('🇻🇳'),
-              title: const Text('Tiếng Việt'),
+              leading: Text(tr('🇻🇳')),
+              title: Text(tr('Tiếng Việt')),
               trailing: currentLang == 'vi'
                   ? const Icon(Icons.check, color: Colors.green)
                   : null,
@@ -437,8 +438,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
               },
             ),
             ListTile(
-              leading: const Text('🇺🇸'),
-              title: const Text('English'),
+              leading: Text(tr('🇺🇸')),
+              title: Text(tr('English')),
               trailing: currentLang == 'en'
                   ? const Icon(Icons.check, color: Colors.green)
                   : null,
@@ -454,26 +455,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   void _showServerDialog(BuildContext context) {
-    final controller = TextEditingController(text: _serverUrl);
+    final controller = TextEditingController(text: tr(_serverUrl));
     final l = AppLocalizations.of(context);
 
     showDialog(
       context: context,
       builder: (context) => ScrollableAlertDialog(
-        title: Text(l.serverConfig),
+        title: Text(tr(l.serverConfig)),
         content: SingleChildScrollView(
           child: TextField(
             controller: controller,
-            decoration: const InputDecoration(
-              labelText: 'URL Server API',
-              hintText: 'http://192.168.1.2:7070',
+            decoration: InputDecoration(
+              labelText: tr('URL Server API'),
+              hintText: tr('http://192.168.1.2:7070'),
             ),
           ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text(l.cancel),
+            child: Text(tr(l.cancel)),
           ),
           ElevatedButton(
             onPressed: () {
@@ -481,11 +482,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
               Navigator.pop(context);
               appNotification.showInfo(
                 title: l.serverConfig,
-                message:
-                    'URL Server được tùy chỉnh qua biến môi trường API_BASE_URL khi build.\nURL hiện tại: ${ApiService.baseUrl}',
+                message: tr('URL Server được tùy chỉnh qua biến môi trường API_BASE_URL khi build.\nURL hiện tại: ${ApiService.baseUrl}'),
               );
             },
-            child: Text(l.save),
+            child: Text(tr(l.save)),
           ),
         ],
       ),
@@ -497,13 +497,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
     showDialog(
       context: context,
       builder: (ctx) => ScrollableAlertDialog(
-        title: Text(l.autoSync),
-        content: const Text(
-            'Hệ thống tự động đồng bộ dữ liệu chấm công mỗi 5 phút.\nDữ liệu sẽ được cập nhật khi có kết nối mạng.'),
+        title: Text(tr(l.autoSync)),
+        content: Text(tr('Hệ thống tự động đồng bộ dữ liệu chấm công mỗi 5 phút.\nDữ liệu sẽ được cập nhật khi có kết nối mạng.')),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Đóng'),
+            child: Text(tr('Đóng')),
           ),
         ],
       ),
@@ -518,7 +517,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     showDialog(
       context: context,
       builder: (ctx) => ScrollableAlertDialog(
-        title: const Text('Thông tin tài khoản'),
+        title: Text(tr('Thông tin tài khoản')),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -527,8 +526,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             _buildInfoRow('Email', user?.email ?? 'N/A'),
             _buildInfoRow('Vai trò', user?.role ?? 'N/A'),
             const SizedBox(height: 12),
-            const Text(
-              'Bạn có thể đổi mật khẩu trong mục Đổi mật khẩu bên dưới.',
+            Text(tr('Bạn có thể đổi mật khẩu trong mục Đổi mật khẩu bên dưới.'),
               style: TextStyle(color: Color(0xFF71717A), fontSize: 12),
             ),
           ],
@@ -536,14 +534,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: Text(l.cancel),
+            child: Text(tr(l.cancel)),
           ),
           TextButton(
             onPressed: () {
               Navigator.pop(ctx);
               _showChangePasswordDialog(context);
             },
-            child: const Text('Đổi mật khẩu'),
+            child: Text(tr('Đổi mật khẩu')),
           ),
         ],
       ),
@@ -572,21 +570,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
             if (current.isEmpty) {
               appNotification.showWarning(
                 title: 'Thiếu thông tin',
-                message: 'Vui lòng nhập mật khẩu hiện tại',
+                message: tr('Vui lòng nhập mật khẩu hiện tại'),
               );
               return;
             }
             if (newPassword.length < 6) {
               appNotification.showWarning(
                 title: 'Mật khẩu quá ngắn',
-                message: 'Mật khẩu mới phải có ít nhất 6 ký tự',
+                message: tr('Mật khẩu mới phải có ít nhất 6 ký tự'),
               );
               return;
             }
             if (newPassword != confirm) {
               appNotification.showWarning(
                 title: 'Không khớp',
-                message: 'Mật khẩu xác nhận không khớp',
+                message: tr('Mật khẩu xác nhận không khớp'),
               );
               return;
             }
@@ -602,7 +600,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 Navigator.pop(ctx);
                 appNotification.showSuccess(
                   title: 'Thành công',
-                  message: 'Đã đổi mật khẩu thành công',
+                  message: tr('Đã đổi mật khẩu thành công'),
                 );
               } else {
                 appNotification.showError(
@@ -615,7 +613,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               if (ctx.mounted) {
                 appNotification.showError(
                   title: 'Lỗi',
-                  message: 'Không thể đổi mật khẩu: $e',
+                  message: tr('Không thể đổi mật khẩu: $e'),
                 );
               }
             } finally {
@@ -631,7 +629,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             required VoidCallback toggle,
           }) {
             return InputDecoration(
-              hintText: hint,
+              hintText: tr(hint),
               contentPadding:
                   const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
               suffixIcon: IconButton(
@@ -646,17 +644,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
           }
 
           return ScrollableAlertDialog(
-            title: const Text('Đổi mật khẩu'),
+            title: Text(tr('Đổi mật khẩu')),
             content: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Nhập mật khẩu hiện tại và mật khẩu mới để cập nhật tài khoản của bạn.',
+                Text(tr('Nhập mật khẩu hiện tại và mật khẩu mới để cập nhật tài khoản của bạn.'),
                   style: TextStyle(color: Color(0xFF71717A), fontSize: 13),
                 ),
                 const SizedBox(height: 16),
-                const Text('Mật khẩu hiện tại',
+                Text(tr('Mật khẩu hiện tại'),
                     style: TextStyle(fontSize: 13, color: Color(0xFF71717A))),
                 const SizedBox(height: 6),
                 TextField(
@@ -671,7 +668,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                 ),
                 const SizedBox(height: 12),
-                const Text('Mật khẩu mới',
+                Text(tr('Mật khẩu mới'),
                     style: TextStyle(fontSize: 13, color: Color(0xFF71717A))),
                 const SizedBox(height: 6),
                 TextField(
@@ -685,7 +682,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                 ),
                 const SizedBox(height: 12),
-                const Text('Xác nhận mật khẩu mới',
+                Text(tr('Xác nhận mật khẩu mới'),
                     style: TextStyle(fontSize: 13, color: Color(0xFF71717A))),
                 const SizedBox(height: 6),
                 TextField(
@@ -704,7 +701,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             actions: [
               TextButton(
                 onPressed: isSaving ? null : () => Navigator.pop(ctx),
-                child: Text(l.cancel),
+                child: Text(tr(l.cancel)),
               ),
               FilledButton.icon(
                 onPressed: isSaving ? null : submit,
@@ -715,7 +712,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
                     : const Icon(Icons.lock_reset, size: 18),
-                label: Text(isSaving ? 'Đang lưu...' : 'Lưu'),
+                label: Text(tr(isSaving ? 'Đang lưu...' : 'Lưu')),
               ),
             ],
           );
@@ -735,11 +732,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
         children: [
           SizedBox(
               width: 80,
-              child: Text(label,
+              child: Text(tr(label),
                   style:
                       const TextStyle(color: Color(0xFF71717A), fontSize: 13))),
           Expanded(
-              child: Text(value,
+              child: Text(tr(value),
                   style: const TextStyle(
                       fontWeight: FontWeight.w500, fontSize: 13))),
         ],
@@ -752,19 +749,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
     showDialog(
       context: context,
       builder: (context) => ScrollableAlertDialog(
-        title: Text(l.seedSampleData),
-        content: Text(l.seedSampleDataConfirm),
+        title: Text(tr(l.seedSampleData)),
+        content: Text(tr(l.seedSampleDataConfirm)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text(l.cancel),
+            child: Text(tr(l.cancel)),
           ),
           ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
               _seedSampleData();
             },
-            child: Text(l.seedSampleData),
+            child: Text(tr(l.seedSampleData)),
           ),
         ],
       ),
@@ -785,7 +782,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       if (mounted) {
         appNotification.showError(
           title: 'Lỗi',
-          message: 'Không tìm thấy mã cửa hàng. Vui lòng đăng nhập lại.',
+          message: tr('Không tìm thấy mã cửa hàng. Vui lòng đăng nhập lại.'),
         );
       }
       return;
@@ -798,7 +795,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       if (result['isSuccess'] == true) {
         appNotification.showSuccess(
           title: 'Thành công',
-          message: 'Đã cài dữ liệu mẫu thành công!',
+          message: tr('Đã cài dữ liệu mẫu thành công!'),
         );
       } else {
         appNotification.showError(
@@ -810,7 +807,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       if (mounted) {
         appNotification.showError(
           title: 'Lỗi',
-          message: 'Không thể cài dữ liệu mẫu: $e',
+          message: tr('Không thể cài dữ liệu mẫu: $e'),
         );
       }
     } finally {
@@ -823,12 +820,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
     showDialog(
       context: context,
       builder: (context) => ScrollableAlertDialog(
-        title: Text(l.deleteSampleData),
-        content: Text(l.deleteSampleDataConfirm),
+        title: Text(tr(l.deleteSampleData)),
+        content: Text(tr(l.deleteSampleDataConfirm)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text(l.cancel),
+            child: Text(tr(l.cancel)),
           ),
           ElevatedButton(
             onPressed: () {
@@ -836,7 +833,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               _deleteSampleData();
             },
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: Text(l.delete),
+            child: Text(tr(l.delete)),
           ),
         ],
       ),
@@ -858,7 +855,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       if (mounted) {
         appNotification.showError(
           title: 'Lỗi',
-          message: 'Không tìm thấy mã cửa hàng. Vui lòng đăng nhập lại.',
+          message: tr('Không tìm thấy mã cửa hàng. Vui lòng đăng nhập lại.'),
         );
       }
       return;
@@ -887,7 +884,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       if (mounted) {
         appNotification.showError(
           title: 'Lỗi',
-          message: 'Không thể xóa dữ liệu mẫu: $e',
+          message: tr('Không thể xóa dữ liệu mẫu: $e'),
         );
       }
     } finally {
@@ -900,12 +897,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
     showDialog(
       context: context,
       builder: (context) => ScrollableAlertDialog(
-        title: Text(l.logout),
-        content: Text(l.logoutConfirm),
+        title: Text(tr(l.logout)),
+        content: Text(tr(l.logoutConfirm)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text(l.cancel),
+            child: Text(tr(l.cancel)),
           ),
           ElevatedButton(
             onPressed: () {
@@ -913,7 +910,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               Provider.of<AuthProvider>(context, listen: false).logout();
             },
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: Text(l.logout),
+            child: Text(tr(l.logout)),
           ),
         ],
       ),

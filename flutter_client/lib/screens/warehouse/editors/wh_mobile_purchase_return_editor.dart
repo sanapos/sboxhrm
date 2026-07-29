@@ -11,6 +11,7 @@ import '../../../widgets/pos_barcode_scanner.dart';
 import '../../../widgets/warehouse/wh_mobile_components.dart';
 import '../../../widgets/warehouse/wh_mobile_theme.dart';
 import '../../main_layout.dart' show ScreenRefreshNotifier;
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 class WhMobilePurchaseReturnEditor extends StatefulWidget {
   const WhMobilePurchaseReturnEditor({super.key, this.docId});
@@ -145,11 +146,11 @@ class _WhMobilePurchaseReturnEditorState extends State<WhMobilePurchaseReturnEdi
 
   Future<void> _save({required bool complete}) async {
     if (_supplierId == null) {
-      NotificationOverlayManager().showWarning(title: 'NCC', message: 'Chọn nhà cung cấp');
+      NotificationOverlayManager().showWarning(title: 'NCC', message: tr('Chọn nhà cung cấp'));
       return;
     }
     if (_lines.isEmpty) {
-      NotificationOverlayManager().showWarning(title: 'Phiếu trống', message: 'Thêm hàng cần trả');
+      NotificationOverlayManager().showWarning(title: 'Phiếu trống', message: tr('Thêm hàng cần trả'));
       return;
     }
     setState(() => _saving = true);
@@ -213,7 +214,7 @@ class _WhMobilePurchaseReturnEditorState extends State<WhMobilePurchaseReturnEdi
                     value: _supplierId,
                     decoration: WhMobileTheme.fieldDecoration(label: 'Nhà cung cấp *'),
                     items: _suppliers
-                        .map((s) => DropdownMenuItem(value: s.id, child: Text(s.name)))
+                        .map((s) => DropdownMenuItem(value: s.id, child: Text(tr(s.name))))
                         .toList(),
                     onChanged: _readOnly ? null : (v) => setState(() => _supplierId = v),
                   ),
@@ -222,7 +223,7 @@ class _WhMobilePurchaseReturnEditorState extends State<WhMobilePurchaseReturnEdi
                 if (!_readOnly)
                   PosPurchaseProductSearchBar(
                     api: _api,
-                    hintText: 'Tìm hàng cần trả…',
+                    hintText: tr('Tìm hàng cần trả…'),
                     onPick: _pickProduct,
                   ),
                 const SizedBox(height: WhMobileTheme.gap),
@@ -245,7 +246,7 @@ class _WhMobilePurchaseReturnEditorState extends State<WhMobilePurchaseReturnEdi
                       onChanged: (v) => setState(() => l.qty = v),
                     ),
                     trailing: Text(
-                      _moneyFmt.format(l.qty * l.cost),
+                      tr(_moneyFmt.format(l.qty * l.cost)),
                       style: WhMobileTheme.money.copyWith(fontSize: 15),
                     ),
                   );

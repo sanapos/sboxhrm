@@ -11,6 +11,7 @@ import 'pos_product_type_badge.dart';
 import 'pos_product_unit_view.dart';
 import 'pos_theme.dart';
 import 'pos_unit_chip_selector.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 typedef PosProductRowAction = void Function(PosProduct product);
 
@@ -224,7 +225,7 @@ class PosProductDataTable extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 2),
       child: Center(
         child: Text(
-          PosProductTableColumn.image.headerLabel,
+          tr(PosProductTableColumn.image.headerLabel),
           maxLines: 1,
           textAlign: TextAlign.center,
           overflow: TextOverflow.visible,
@@ -258,7 +259,7 @@ class PosProductDataTable extends StatelessWidget {
               ? Alignment.centerRight
               : Alignment.centerLeft,
           child: Text(
-            label,
+            tr(label),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
@@ -278,7 +279,7 @@ class PosProductDataTable extends StatelessWidget {
           children: [
             Flexible(
               child: Text(
-                label,
+                tr(label),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
@@ -380,7 +381,7 @@ class PosProductDataTable extends StatelessWidget {
         alignment:
             align == TextAlign.right ? Alignment.centerRight : Alignment.centerLeft,
         child: Text(
-          text,
+          tr(text),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           softWrap: false,
@@ -442,7 +443,7 @@ class PosProductDataTable extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Text(
-                p.name,
+                tr(p.name),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
@@ -680,7 +681,7 @@ class PosProductDataTable extends StatelessWidget {
           TextButton.icon(
             onPressed: () => onCopy!(p),
             icon: const Icon(Icons.copy, size: 16),
-            label: const Text('Sao chép'),
+            label: Text(tr('Sao chép')),
           ),
           const Spacer(),
           FilledButton.icon(
@@ -691,7 +692,7 @@ class PosProductDataTable extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
             ),
             icon: const Icon(Icons.add, size: 16),
-            label: const Text('Thêm hàng hóa cùng loại'),
+            label: Text(tr('Thêm hàng hóa cùng loại')),
           ),
         ],
       ),

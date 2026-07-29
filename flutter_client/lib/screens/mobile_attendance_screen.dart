@@ -26,6 +26,7 @@ import '../widgets/mobile_attendance_record_detail_sheet.dart';
 import '../widgets/notification_overlay.dart';
 import 'main_layout.dart' show ScreenRefreshNotifier;
 import 'mobile_attendance_history_screen.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 class MobileAttendanceScreen extends StatefulWidget {
   const MobileAttendanceScreen({super.key});
@@ -1675,7 +1676,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
             ),
             child: Center(
               child: Text(
-                _employeeName.isNotEmpty ? _employeeName[0].toUpperCase() : 'U',
+                tr(_employeeName.isNotEmpty ? _employeeName[0].toUpperCase() : 'U'),
                 style: const TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.w700,
@@ -1689,7 +1690,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  _employeeName,
+                  tr(_employeeName),
                   style: const TextStyle(
                       color: Colors.white,
                       fontSize: 16,
@@ -1698,7 +1699,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  _department,
+                  tr(_department),
                   style:
                       const TextStyle(color: Color(0xFF94A3B8), fontSize: 12),
                   overflow: TextOverflow.ellipsis,
@@ -1795,7 +1796,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
                 colors: [Color(0xFF60A5FA), Color(0xFFA78BFA)],
               ).createShader(bounds),
               child: Text(
-                '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}',
+                tr('${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}'),
                 style: const TextStyle(
                   fontSize: 56,
                   fontWeight: FontWeight.w200,
@@ -1807,7 +1808,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
               ),
             ),
             Text(
-              ':${now.second.toString().padLeft(2, '0')}',
+              tr(':${now.second.toString().padLeft(2, '0')}'),
               style: const TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w300,
@@ -1816,7 +1817,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
             ),
             const SizedBox(height: 4),
             Text(
-              '${weekdays[now.weekday % 7]}, ${now.day.toString().padLeft(2, '0')}/${now.month.toString().padLeft(2, '0')}/${now.year}',
+              tr('${weekdays[now.weekday % 7]}, ${now.day.toString().padLeft(2, '0')}/${now.month.toString().padLeft(2, '0')}/${now.year}'),
               style: const TextStyle(
                   fontSize: 13, color: Color(0xFF64748B), letterSpacing: 0.5),
             ),
@@ -1885,7 +1886,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
                             ),
                             const SizedBox(height: 6),
                             Text(
-                              ctaLabel,
+                              tr(ctaLabel),
                               style: TextStyle(
                                 color: Colors.white
                                     .withValues(alpha: isEnabled ? 0.95 : 0.3),
@@ -1917,13 +1918,13 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
                       child: CircularProgressIndicator(
                           strokeWidth: 2, color: activeGradient[0])),
                   const SizedBox(width: 8),
-                  const Text('Đang xử lý...',
+                  Text(tr('Đang xử lý...'),
                       style: TextStyle(fontSize: 13, color: Color(0xFF64748B))),
                 ],
               )
             else
               Text(
-                isEnabled
+                tr(isEnabled
                     ? needsFaceScan
                         ? (isCheckIn
                             ? 'Nhấn để quét mặt và chấm vào'
@@ -1937,7 +1938,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
                             ? 'Thiết bị chưa đăng ký'
                             : !_isDeviceApproved
                                 ? 'Thiết bị chưa được duyệt'
-                                : 'Đang kiểm tra...',
+                                : 'Đang kiểm tra...'),
                 style: TextStyle(
                     fontSize: 12,
                     color: isEnabled
@@ -1980,7 +1981,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              hint,
+              tr(hint),
               style: TextStyle(
                   fontSize: 12, fontWeight: FontWeight.w600, color: barColor),
             ),
@@ -2091,7 +2092,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      modeText,
+                      tr(modeText),
                       style: TextStyle(
                         fontSize: 10,
                         color: Colors.white.withValues(alpha: 0.6),
@@ -2134,7 +2135,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
                   decoration: BoxDecoration(
                       color: Colors.white.withValues(alpha: 0.06),
                       borderRadius: BorderRadius.circular(8)),
-                  child: const Text('ANY',
+                  child: Text(tr('ANY'),
                       style: TextStyle(
                           fontSize: 9,
                           fontWeight: FontWeight.w700,
@@ -2173,7 +2174,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
           ),
           const SizedBox(width: 5),
           Text(
-            pending ? '$label (đang chờ)' : label,
+            tr(pending ? '$label (đang chờ)' : label),
             style: TextStyle(
               fontSize: 10,
               fontWeight: FontWeight.w600,
@@ -2198,8 +2199,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
 
     return Column(
       children: [
-        Text(
-          'Tăng ca trưa (nghỉ giữa ca)',
+        Text(tr('Tăng ca trưa (nghỉ giữa ca)'),
           style: TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w600,
@@ -2237,8 +2237,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
         ),
         if (openOut != null) ...[
           const SizedBox(height: 8),
-          Text(
-            'Đang tăng ca trưa từ ${openOut.hour.toString().padLeft(2, '0')}:${openOut.minute.toString().padLeft(2, '0')} — bấm Vào lại khi xong',
+          Text(tr('${tr('Đang tăng ca trưa từ ')}${openOut.hour.toString().padLeft(2, '0')}:${openOut.minute.toString().padLeft(2, '0')} — bấm Vào lại khi xong'),
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 10,
@@ -2248,8 +2247,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
           ),
         ],
         const SizedBox(height: 6),
-        Text(
-          'Chỉ tính tăng ca khi chấm trong khung nghỉ ca (cấu hình ở Thiết lập ca)',
+        Text(tr('Chỉ tính tăng ca khi chấm trong khung nghỉ ca (cấu hình ở Thiết lập ca)'),
           textAlign: TextAlign.center,
           style: TextStyle(
             fontSize: 10,
@@ -2271,8 +2269,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
 
     return Column(
       children: [
-        Text(
-          'Chấm đi đường',
+        Text(tr('Chấm đi đường'),
           style: TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w600,
@@ -2310,8 +2307,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
         ),
         if (openStart != null) ...[
           const SizedBox(height: 8),
-          Text(
-            'Đang di chuyển từ ${openStart.hour.toString().padLeft(2, '0')}:${openStart.minute.toString().padLeft(2, '0')} — bấm Đến điểm làm khi tới công trình',
+          Text(tr('${tr('Đang di chuyển từ ')}${openStart.hour.toString().padLeft(2, '0')}:${openStart.minute.toString().padLeft(2, '0')} — bấm Đến điểm làm khi tới công trình'),
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 10,
@@ -2322,9 +2318,9 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
         ],
         const SizedBox(height: 6),
         Text(
-          todayTravelHours > 0
+          tr(todayTravelHours > 0
               ? 'Hôm nay: ${todayTravelHours.toStringAsFixed(1)} giờ đi đường (đã duyệt) · tính lương 1×'
-              : 'Giờ đi đường tính lương 1× (không tăng ca)',
+              : 'Giờ đi đường tính lương 1× (không tăng ca)'),
           textAlign: TextAlign.center,
           style: TextStyle(
             fontSize: 10,
@@ -2369,7 +2365,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
               ),
               const SizedBox(height: 6),
               Text(
-                label,
+                tr(label),
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 11,
@@ -2442,7 +2438,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
               ),
               const SizedBox(height: 10),
               Text(
-                _isGettingLocation
+                tr(_isGettingLocation
                     ? 'Định vị...'
                     : gpsOk
                         ? (_allowOutsideCheckIn
@@ -2450,7 +2446,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
                             : 'Trong phạm vi')
                         : (_allowOutsideCheckIn
                             ? 'Chưa có GPS'
-                            : 'Ngoài phạm vi'),
+                            : 'Ngoài phạm vi')),
                 style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
@@ -2459,7 +2455,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
               if (_nearestLocationName != null) ...[
                 const SizedBox(height: 3),
                 Text(
-                  _nearestLocationName!,
+                  tr(_nearestLocationName!),
                   style:
                       const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
                   maxLines: 1,
@@ -2468,7 +2464,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
               ],
               if (_distanceFromOffice != null) ...[
                 const SizedBox(height: 2),
-                Text(formatMobileAttendanceDistance(_distanceFromOffice, compact: true),
+                Text(tr(formatMobileAttendanceDistance(_distanceFromOffice, compact: true)),
                     style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w500,
@@ -2537,11 +2533,11 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
               ),
               const SizedBox(height: 10),
               Text(
-                _isCheckingWifi
+                tr(_isCheckingWifi
                     ? 'Kiểm tra...'
                     : _isWifiVerified
                         ? 'Đã xác thực'
-                        : 'Chưa xác thực',
+                        : 'Chưa xác thực'),
                 style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
@@ -2550,7 +2546,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
               if (_wifiLocationName != null) ...[
                 const SizedBox(height: 3),
                 Text(
-                  _wifiLocationName!,
+                  tr(_wifiLocationName!),
                   style:
                       const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
                   maxLines: 1,
@@ -2560,7 +2556,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
               if (_connectedWifiSsid != null) ...[
                 const SizedBox(height: 2),
                 Text(
-                  _connectedWifiSsid!,
+                  tr(_connectedWifiSsid!),
                   style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w500,
@@ -2595,8 +2591,8 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
                 shape: BoxShape.circle, color: Color(0xFF22C55E)),
           ),
           const SizedBox(width: 10),
-          const Expanded(
-            child: Text('Chấm ngoài công ty — cần bật GPS, không cần trong vùng',
+          Expanded(
+            child: Text(tr('Chấm ngoài công ty — cần bật GPS, không cần trong vùng'),
                 style: TextStyle(fontSize: 12, color: Color(0xFF4ADE80))),
           ),
         ],
@@ -2625,7 +2621,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
                       size: 16, color: Color(0xFF60A5FA)),
                 ),
                 const SizedBox(width: 10),
-                const Text('Hôm nay',
+                Text(tr('Hôm nay'),
                     style: TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w600,
@@ -2637,7 +2633,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
                   decoration: BoxDecoration(
                       color: Colors.white.withValues(alpha: 0.06),
                       borderRadius: BorderRadius.circular(8)),
-                  child: Text('${_todayRecords.length}',
+                  child: Text(tr('${_todayRecords.length}'),
                       style: const TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
@@ -2655,7 +2651,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
                       Icon(Icons.event_note_rounded,
                           size: 32, color: Colors.white.withValues(alpha: 0.1)),
                       const SizedBox(height: 8),
-                      const Text('Chưa có lượt chấm công',
+                      Text(tr('Chưa có lượt chấm công'),
                           style: TextStyle(
                               fontSize: 13, color: Color(0xFF475569))),
                     ],
@@ -2724,7 +2720,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                '${record.punchTime.hour.toString().padLeft(2, '0')}:${record.punchTime.minute.toString().padLeft(2, '0')}',
+                tr('${record.punchTime.hour.toString().padLeft(2, '0')}:${record.punchTime.minute.toString().padLeft(2, '0')}'),
                 style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
@@ -2735,15 +2731,15 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
               Row(
                 children: [
                   Text(
-                    record.punchTypeLabel,
+                    tr(record.punchTypeLabel),
                     style: TextStyle(
                         fontSize: 11, color: color.withValues(alpha: 0.8)),
                   ),
                   if (record.distanceFromLocation != null) ...[
-                    Text(' · ',
+                    Text(tr(' · '),
                         style: TextStyle(
                             color: Colors.white.withValues(alpha: 0.2))),
-                    Text(record.formattedDistanceFromLocation,
+                    Text(tr(record.formattedDistanceFromLocation),
                         style: const TextStyle(
                             fontSize: 11, color: Color(0xFF64748B))),
                   ],
@@ -2766,7 +2762,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
                       .withValues(alpha: 0.15)),
             ),
             child: Text(
-              approved ? 'Duyệt' : 'Chờ',
+              tr(approved ? 'Duyệt' : 'Chờ'),
               style: TextStyle(
                   fontSize: 10,
                   fontWeight: FontWeight.w600,

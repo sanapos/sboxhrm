@@ -7,6 +7,7 @@ import '../../widgets/warehouse/wh_doc_type.dart';
 import '../../widgets/warehouse/wh_mobile_components.dart';
 import '../../widgets/warehouse/wh_mobile_theme.dart';
 import 'wh_mobile_list_screen.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// Trung tâm điều hướng module Kho trên mobile.
 class WhMobileHubScreen extends StatelessWidget {
@@ -47,13 +48,11 @@ class WhMobileHubScreen extends StatelessWidget {
           WhMobileTheme.gapLg + 24,
         ),
         children: [
-          Text(
-            'Chọn loại phiếu',
+          Text(tr('Chọn loại phiếu'),
             style: WhMobileTheme.titleLarge.copyWith(fontSize: 20),
           ),
           const SizedBox(height: 6),
-          Text(
-            'Thao tác nhanh bằng một tay — tạo, sửa và hoàn thành phiếu kho.',
+          Text(tr('Thao tác nhanh bằng một tay — tạo, sửa và hoàn thành phiếu kho.'),
             style: WhMobileTheme.caption,
           ),
           const SizedBox(height: WhMobileTheme.gapLg),
@@ -82,8 +81,7 @@ class WhMobileHubScreen extends StatelessWidget {
                     color: WhMobileTheme.primary.withValues(alpha: 0.8), size: 22),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: Text(
-                    'Quét mã vạch khi thêm hàng · Lưu nháp bất cứ lúc nào · Hoàn thành khi đã kiểm tra xong.',
+                  child: Text(tr('Quét mã vạch khi thêm hàng · Lưu nháp bất cứ lúc nào · Hoàn thành khi đã kiểm tra xong.'),
                     style: WhMobileTheme.caption,
                   ),
                 ),

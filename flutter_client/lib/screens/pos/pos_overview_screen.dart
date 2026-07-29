@@ -11,6 +11,7 @@ import '../../widgets/pos/pos_kiot_time_filter.dart';
 import '../../widgets/pos/pos_mobile_widgets.dart';
 import '../../widgets/pos/pos_theme.dart';
 import '../main_layout.dart' show ScreenRefreshNotifier;
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// Tổng quan POS mobile — layout đồng bộ với tab Nhiều hơn.
 class PosOverviewScreen extends StatefulWidget {
@@ -115,10 +116,9 @@ class _PosOverviewScreenState extends State<PosOverviewScreen> {
                 padding: EdgeInsets.fromLTRB(12, inHub ? 8 : 12, 12, 24),
                 children: [
                   if (!inHub)
-                    const Padding(
+                    Padding(
                       padding: EdgeInsets.only(bottom: 8),
-                      child: Text(
-                        'Tổng quan',
+                      child: Text(tr('Tổng quan'),
                         style: TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
@@ -221,7 +221,7 @@ class _PosOverviewScreenState extends State<PosOverviewScreen> {
     return PosMobileHubSection(
       title: 'Kết quả kinh doanh',
       trailing: Text(
-        _time.displayLabel,
+        tr(_time.displayLabel),
         style: const TextStyle(fontSize: 11, color: PosTheme.textSecondary),
       ),
       child: GridView.count(
@@ -283,29 +283,28 @@ class _PosOverviewScreenState extends State<PosOverviewScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Row(
+          Row(
             children: [
               Icon(Icons.warning_amber_rounded, color: Color(0xFFF57C00), size: 20),
               SizedBox(width: 8),
-              Text(
-                'Cảnh báo tồn kho',
+              Text(tr('Cảnh báo tồn kho'),
                 style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
               ),
             ],
           ),
           const SizedBox(height: 10),
           if (out > 0)
-            Text('• $out hàng hoá đã hết hàng',
+            Text(tr('• $out hàng hoá đã hết hàng'),
                 style: const TextStyle(fontSize: 13)),
           if (below > 0)
-            Text('• $below hàng hoá dưới mức tồn tối thiểu',
+            Text(tr('• $below hàng hoá dưới mức tồn tối thiểu'),
                 style: const TextStyle(fontSize: 13)),
           const SizedBox(height: 8),
           Align(
             alignment: Alignment.centerRight,
             child: TextButton(
               onPressed: () => _goHubTab(1),
-              child: const Text('Xem hàng hoá'),
+              child: Text(tr('Xem hàng hoá')),
             ),
           ),
         ],
@@ -318,8 +317,7 @@ class _PosOverviewScreenState extends State<PosOverviewScreen> {
     if (top.isEmpty) {
       return PosMobileHubSection(
         title: 'Hàng bán chạy',
-        child: const Text(
-          'Chưa có dữ liệu trong kỳ đã chọn',
+        child: Text(tr('Chưa có dữ liệu trong kỳ đã chọn'),
           style: TextStyle(color: PosTheme.textSecondary, fontSize: 13),
         ),
       );
@@ -357,7 +355,7 @@ class _PosOverviewScreenState extends State<PosOverviewScreen> {
                   width: 22,
                   alignment: Alignment.center,
                   child: Text(
-                    '${i + 1}',
+                    tr('${i + 1}'),
                     style: const TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.bold,
@@ -368,7 +366,7 @@ class _PosOverviewScreenState extends State<PosOverviewScreen> {
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
-                    sorted[i]['productName']?.toString() ?? '—',
+                    tr(sorted[i]['productName']?.toString() ?? '—'),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
@@ -382,14 +380,14 @@ class _PosOverviewScreenState extends State<PosOverviewScreen> {
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Text(
-                      '${_moneyFmt.format(_num(sorted[i]['revenue']))} đ',
+                      tr('${_moneyFmt.format(_num(sorted[i]['revenue']))} đ'),
                       style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 13,
                       ),
                     ),
                     Text(
-                      '${_num(sorted[i]['qty']).toStringAsFixed(_num(sorted[i]['qty']) == _num(sorted[i]['qty']).roundToDouble() ? 0 : 1)} sp',
+                      tr('${_num(sorted[i]['qty']).toStringAsFixed(_num(sorted[i]['qty']) == _num(sorted[i]['qty']).roundToDouble() ? 0 : 1)} sp'),
                       style: const TextStyle(
                         fontSize: 11,
                         color: PosTheme.textSecondary,
@@ -415,7 +413,7 @@ class _PosOverviewScreenState extends State<PosOverviewScreen> {
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           child: Text(
-            label,
+            tr(label),
             style: TextStyle(
               fontSize: 10,
               fontWeight: FontWeight.w600,

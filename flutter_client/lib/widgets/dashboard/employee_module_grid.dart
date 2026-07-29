@@ -9,6 +9,7 @@ import '../../widgets/hrm_pushed_screen_shell.dart';
 import '../pos/pos_mobile_widgets.dart';
 import '../hrm_page_chrome.dart';
 import '../safe_layout_widgets.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 class EmployeeModuleGrid extends StatelessWidget {
   const EmployeeModuleGrid({super.key});
@@ -292,8 +293,7 @@ class EmployeeModuleGrid extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Chức năng',
+        Text(tr('Chức năng'),
           style: TextStyle(
             fontSize: 15,
             fontWeight: FontWeight.w700,
@@ -384,7 +384,7 @@ class _ModuleTile extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  tile.label,
+                  tr(tile.label),
                   textAlign: TextAlign.center,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,

@@ -13,6 +13,7 @@ import '../widgets/hrm_mini_stat_chip.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../widgets/loading_widget.dart';
 import '../widgets/notification_overlay.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 // ===== HOLIDAY SETTINGS SCREEN =====
 class HolidaySettingsScreen extends StatefulWidget {
   const HolidaySettingsScreen({super.key});
@@ -106,7 +107,7 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
       if (mounted) {
         appNotification.showError(
           title: 'Lỗi tải dữ liệu',
-          message: 'Không thể tải ngày lễ từ máy chủ. Đang hiển thị danh sách mặc định.',
+          message: tr('Không thể tải ngày lễ từ máy chủ. Đang hiển thị danh sách mặc định.'),
         );
       }
     } finally {
@@ -271,7 +272,7 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
       message: text,
       waitDuration: const Duration(milliseconds: 400),
       child: Text(
-        text,
+        tr(text),
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         textAlign: textAlign,
@@ -308,7 +309,7 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 6),
             child: Text(
-              '$_selectedYear',
+              tr('$_selectedYear'),
               style: TextStyle(
                 fontSize: compact ? 13 : 14,
                 fontWeight: FontWeight.bold,
@@ -353,9 +354,8 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
               if (!embedded && !isMobile) ...[
                 const Icon(Icons.celebration, color: Color(0xFFF59E0B), size: 24),
                 const SizedBox(width: 10),
-                const Expanded(
-                  child: Text(
-                    'Thiết lập ngày lễ',
+                Expanded(
+                  child: Text(tr('Thiết lập ngày lễ'),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
@@ -366,9 +366,8 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
                   ),
                 ),
               ] else if (!embedded && isMobile)
-                const Expanded(
-                  child: Text(
-                    'Thiết lập ngày lễ',
+                Expanded(
+                  child: Text(tr('Thiết lập ngày lễ'),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
@@ -393,7 +392,7 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
                   FilledButton.icon(
                     onPressed: () => _showHolidayDialog(),
                     icon: const Icon(Icons.add, size: 18),
-                    label: Text(isMobile ? 'Thêm' : 'Thêm ngày lễ'),
+                    label: Text(tr(isMobile ? 'Thêm' : 'Thêm ngày lễ')),
                     style: FilledButton.styleFrom(
                       backgroundColor: HrmPageChrome.primaryNavy,
                       padding: EdgeInsets.symmetric(
@@ -462,11 +461,11 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
           icon: Icon(Icons.keyboard_arrow_down, color: Colors.grey[400], size: 18),
           style: const TextStyle(fontSize: 12, color: _textDark),
           items: [
-            const DropdownMenuItem(value: 'all', child: Text('Tất cả danh mục')),
+            DropdownMenuItem(value: 'all', child: Text(tr('Tất cả danh mục'))),
             ..._categories.map(
               (c) => DropdownMenuItem(
                 value: c,
-                child: Text(c, maxLines: 1, overflow: TextOverflow.ellipsis),
+                child: Text(tr(c), maxLines: 1, overflow: TextOverflow.ellipsis),
               ),
             ),
           ],
@@ -479,7 +478,7 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
   Widget _searchField() {
     return TextField(
       decoration: InputDecoration(
-        hintText: 'Tìm ngày lễ...',
+        hintText: tr('Tìm ngày lễ...'),
         hintStyle: TextStyle(color: Colors.grey[400], fontSize: 13),
         prefixIcon: Icon(Icons.search, color: Colors.grey[400], size: 20),
         suffixIcon: _searchQuery.isNotEmpty
@@ -519,15 +518,15 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
       child: Row(
         children: [
           const SizedBox(width: 40),
-          Expanded(flex: 4, child: Text('Tên ngày lễ', style: h)),
-          SizedBox(width: 92, child: Text('Dương lịch', style: h)),
-          SizedBox(width: 76, child: Text('Âm lịch', style: h)),
-          SizedBox(width: 32, child: Text('Thứ', style: h)),
-          SizedBox(width: 72, child: Text('Danh mục', style: h)),
-          SizedBox(width: 44, child: Text('Hệ số', style: h, textAlign: TextAlign.center)),
+          Expanded(flex: 4, child: Text(tr('Tên ngày lễ'), style: h)),
+          SizedBox(width: 92, child: Text(tr('Dương lịch'), style: h)),
+          SizedBox(width: 76, child: Text(tr('Âm lịch'), style: h)),
+          SizedBox(width: 32, child: Text(tr('Thứ'), style: h)),
+          SizedBox(width: 72, child: Text(tr('Danh mục'), style: h)),
+          SizedBox(width: 44, child: Text(tr('Hệ số'), style: h, textAlign: TextAlign.center)),
           SizedBox(
               width: 48,
-              child: Text('NV', style: h, textAlign: TextAlign.center)),
+              child: Text(tr('NV'), style: h, textAlign: TextAlign.center)),
         ],
       ),
     );
@@ -673,7 +672,7 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Text('Hiển thị:', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+          Text(tr('Hiển thị:'), style: TextStyle(fontSize: 12, color: Colors.grey[600])),
           const SizedBox(width: 6),
           DropdownButtonHideUnderline(
             child: DropdownButton<int>(
@@ -681,7 +680,7 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
               isDense: true,
               style: TextStyle(fontSize: 12, color: Colors.grey[800]),
               items: _pageSizeOptions
-                  .map((s) => DropdownMenuItem(value: s, child: Text('$s')))
+                  .map((s) => DropdownMenuItem(value: s, child: Text(tr('$s'))))
                   .toList(),
               onChanged: (v) {
                 if (v != null) {
@@ -699,8 +698,7 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
             icon: const Icon(Icons.chevron_left),
             onPressed: safePage > 1 ? () => setState(() => _holidayPage--) : null,
           ),
-          Text(
-            'Trang $safePage/$totalPages · ${all.length} ngày',
+          Text(tr('Trang $safePage/$totalPages · ${all.length} ngày'),
             style: const TextStyle(fontSize: 12),
           ),
           IconButton(
@@ -876,12 +874,12 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(holiday['name'] ?? '', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: _textDark)),
+                      Text(tr(holiday['name'] ?? ''), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: _textDark)),
                       const SizedBox(height: 4),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(color: catColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(4)),
-                        child: Text(category, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: catColor)),
+                        child: Text(tr(category), style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: catColor)),
                       ),
                     ],
                   ),
@@ -929,7 +927,7 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
                                   children: [
                                     Icon(Icons.today, size: 16, color: (dayOfWeek == 'Chủ Nhật' || dayOfWeek == 'Thứ Bảy') ? Colors.red : _primaryColor),
                                     const SizedBox(width: 6),
-                                    Text(dayOfWeek, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: (dayOfWeek == 'Chủ Nhật' || dayOfWeek == 'Thứ Bảy') ? Colors.red : _primaryColor)),
+                                    Text(tr(dayOfWeek), style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: (dayOfWeek == 'Chủ Nhật' || dayOfWeek == 'Thứ Bảy') ? Colors.red : _primaryColor)),
                                   ],
                                 ),
                               ),
@@ -945,7 +943,7 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
                                 children: [
                                   const Icon(Icons.trending_up, size: 16, color: HrmPageChrome.primaryNavy),
                                   const SizedBox(width: 6),
-                                  Text('Hệ số: ${salaryRate}x', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: HrmPageChrome.primaryNavy)),
+                                  Text(tr('Hệ số: ${salaryRate}x'), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: HrmPageChrome.primaryNavy)),
                                 ],
                               ),
                             ),
@@ -957,7 +955,7 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
                   const SizedBox(height: 16),
 
                   // Category info
-                  const Text('Thông tin', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: _textDark)),
+                  Text(tr('Thông tin'), style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: _textDark)),
                   const SizedBox(height: 10),
                   _buildInfoRow(Icons.category, 'Danh mục', category, catColor),
                   _buildInfoRow(Icons.payments, 'Hệ số lương', '${salaryRate}x', HrmPageChrome.primaryNavy),
@@ -968,7 +966,7 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
 
                   // Employee list (if specific)
                   if (empIds.isNotEmpty) ...[
-                    const Text('Danh sách nhân viên', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: _textDark)),
+                    Text(tr('Danh sách nhân viên'), style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: _textDark)),
                     const SizedBox(height: 8),
                     ...empIds.take(5).map((id) {
                       final emp = _employees.firstWhere((e) => e['id'].toString() == id.toString(), orElse: () => {});
@@ -977,10 +975,10 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
                         padding: const EdgeInsets.only(bottom: 4),
                         child: Row(
                           children: [
-                            CircleAvatar(radius: 12, backgroundColor: _primaryColor.withValues(alpha: 0.1), child: Text((emp['fullName'] ?? '?')[0], style: const TextStyle(fontSize: 10, color: _primaryColor))),
+                            CircleAvatar(radius: 12, backgroundColor: _primaryColor.withValues(alpha: 0.1), child: Text(tr((emp['fullName'] ?? '?')[0]), style: const TextStyle(fontSize: 10, color: _primaryColor))),
                             const SizedBox(width: 8),
-                            Expanded(child: Text(emp['fullName'] ?? emp['name'] ?? '', style: const TextStyle(fontSize: 12, color: _textDark))),
-                            Text(emp['employeeCode'] ?? '', style: const TextStyle(fontSize: 11, color: _textMuted)),
+                            Expanded(child: Text(tr(emp['fullName'] ?? emp['name'] ?? ''), style: const TextStyle(fontSize: 12, color: _textDark))),
+                            Text(tr(emp['employeeCode'] ?? ''), style: const TextStyle(fontSize: 11, color: _textMuted)),
                           ],
                         ),
                       );
@@ -988,7 +986,7 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
                     if (empIds.length > 5)
                       Padding(
                         padding: const EdgeInsets.only(top: 4),
-                        child: Text('... và ${empIds.length - 5} nhân viên khác', style: const TextStyle(fontSize: 11, color: _textMuted, fontStyle: FontStyle.italic)),
+                        child: Text(tr('... và ${empIds.length - 5} nhân viên khác'), style: const TextStyle(fontSize: 11, color: _textMuted, fontStyle: FontStyle.italic)),
                       ),
                   ],
                 ],
@@ -1007,7 +1005,7 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
                     child: OutlinedButton.icon(
                       onPressed: () => _showHolidayDialog(holiday: holiday),
                       icon: const Icon(Icons.edit, size: 16),
-                      label: const Text('Sửa', style: TextStyle(fontSize: 13)),
+                      label: Text(tr('Sửa'), style: TextStyle(fontSize: 13)),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: _primaryColor,
                         side: const BorderSide(color: _primaryColor),
@@ -1024,7 +1022,7 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
                     child: OutlinedButton.icon(
                       onPressed: () => _deleteHoliday(holiday),
                       icon: const Icon(Icons.delete_outline, size: 16),
-                      label: const Text('Xóa', style: TextStyle(fontSize: 13)),
+                      label: Text(tr('Xóa'), style: TextStyle(fontSize: 13)),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: const Color(0xFFEF4444),
                         side: const BorderSide(color: Color(0xFFEF4444)),
@@ -1047,9 +1045,9 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
       children: [
         Icon(icon, color: color.withValues(alpha: 0.7), size: 20),
         const SizedBox(height: 4),
-        Text(value, style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: color)),
+        Text(tr(value), style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: color)),
         const SizedBox(height: 2),
-        Text(label, style: const TextStyle(fontSize: 11, color: _textMuted)),
+        Text(tr(label), style: const TextStyle(fontSize: 11, color: _textMuted)),
       ],
     );
   }
@@ -1064,12 +1062,12 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
           children: [
             Icon(icon, size: 16, color: color),
             const SizedBox(width: 10),
-            Expanded(child: Text(label, style: const TextStyle(fontSize: 13, color: _textDark))),
+            Expanded(child: Text(tr(label), style: const TextStyle(fontSize: 13, color: _textDark))),
             Flexible(
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(6)),
-                child: Text(value, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: color), overflow: TextOverflow.ellipsis),
+                child: Text(tr(value), style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: color), overflow: TextOverflow.ellipsis),
               ),
             ),
           ],
@@ -1125,15 +1123,15 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
         children: [
           Icon(Icons.celebration, size: 64, color: Colors.grey[300]),
           const SizedBox(height: 16),
-          Text('Chưa có ngày lễ', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: Colors.grey[600])),
+          Text(tr('Chưa có ngày lễ'), style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: Colors.grey[600])),
           const SizedBox(height: 8),
-          Text('Nhấn "Thêm ngày lễ" để bắt đầu', style: TextStyle(fontSize: 13, color: Colors.grey[400])),
+          Text(tr('Nhấn "Thêm ngày lễ" để bắt đầu'), style: TextStyle(fontSize: 13, color: Colors.grey[400])),
           if (_perm.canCreate('Holiday')) ...[
             const SizedBox(height: 20),
             FilledButton.icon(
               onPressed: () => _showHolidayDialog(),
               icon: const Icon(Icons.add, size: 18),
-              label: const Text('Thêm ngày lễ'),
+              label: Text(tr('Thêm ngày lễ')),
               style: FilledButton.styleFrom(
                 backgroundColor: HrmPageChrome.primaryNavy,
                 padding:
@@ -1149,8 +1147,8 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
   // ===== HOLIDAY DIALOG =====
   void _showHolidayDialog({Map<String, dynamic>? holiday}) {
     final isEditing = holiday != null;
-    final nameCtrl = TextEditingController(text: holiday?['name'] ?? '');
-    final salaryRateCtrl = TextEditingController(text: (holiday?['salaryRate'] ?? 3.0).toString());
+    final nameCtrl = TextEditingController(text: tr(holiday?['name'] ?? ''));
+    final salaryRateCtrl = TextEditingController(text: tr((holiday?['salaryRate'] ?? 3.0).toString()));
     DateTime selectedDate = DateTime.tryParse(holiday?['date'] ?? '') ?? DateTime.now();
     String selectedCategory = _getCategory(holiday ?? {});
     List<String> selectedEmployeeIds = _parseEmployeeIds(holiday?['employeeIds']);
@@ -1174,7 +1172,7 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
 
           Future<void> onSave() async {
             if (nameCtrl.text.isEmpty) {
-              appNotification.showWarning(title: 'Thiếu thông tin', message: 'Vui lòng nhập tên ngày lễ');
+              appNotification.showWarning(title: 'Thiếu thông tin', message: tr('Vui lòng nhập tên ngày lễ'));
               return;
             }
             setDialogState(() => isSaving = true);
@@ -1222,11 +1220,11 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
                                 child: DropdownButton<String>(
                                   value: selectedPreset,
                                   isExpanded: true,
-                                  hint: const Text('-- Chọn ngày lễ có sẵn hoặc nhập thủ công --', style: TextStyle(fontSize: 13, color: _textMuted)),
+                                  hint: Text(tr('-- Chọn ngày lễ có sẵn hoặc nhập thủ công --'), style: TextStyle(fontSize: 13, color: _textMuted)),
                                   icon: Icon(Icons.keyboard_arrow_down, color: Colors.grey[400]),
                                   items: _vietnamHolidayPresets.map((p) => DropdownMenuItem(
                                     value: p['name'] as String,
-                                    child: Text(p['name'] as String, style: const TextStyle(fontSize: 13)),
+                                    child: Text(tr(p['name'] as String), style: const TextStyle(fontSize: 13)),
                                   )).toList(),
                                   onChanged: (v) {
                                     if (v != null) {
@@ -1286,7 +1284,7 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
                                         children: [
                                           Icon(_getCategoryIcon(c), size: 14, color: _getCategoryColor(c)),
                                           const SizedBox(width: 6),
-                                          Flexible(child: Text(c, style: const TextStyle(fontSize: 13), overflow: TextOverflow.ellipsis)),
+                                          Flexible(child: Text(tr(c), style: const TextStyle(fontSize: 13), overflow: TextOverflow.ellipsis)),
                                         ],
                                       ),
                                     )).toList(),
@@ -1327,7 +1325,7 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
                                     children: [
                                       const Icon(Icons.calendar_today, size: 16, color: _primaryColor),
                                       const SizedBox(width: 8),
-                                      Expanded(child: Text('${selectedDate.day.toString().padLeft(2, '0')}/${selectedDate.month.toString().padLeft(2, '0')}/${selectedDate.year}', style: const TextStyle(fontSize: 14))),
+                                      Expanded(child: Text(tr('${selectedDate.day.toString().padLeft(2, '0')}/${selectedDate.month.toString().padLeft(2, '0')}/${selectedDate.year}'), style: const TextStyle(fontSize: 14))),
                                       Icon(Icons.edit_calendar, color: Colors.grey[400], size: 18),
                                     ],
                                   ),
@@ -1360,7 +1358,7 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
                                     children: [
                                       Icon(Icons.auto_awesome, size: 16, color: Colors.orange[700]),
                                       const SizedBox(width: 8),
-                                      Expanded(child: Text(lunar.toString(), style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: Colors.orange[800]))),
+                                      Expanded(child: Text(tr(lunar.toString()), style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: Colors.orange[800]))),
                                       Icon(Icons.edit_calendar, color: Colors.orange[300], size: 18),
                                     ],
                                   ),
@@ -1376,7 +1374,7 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
                                     border: Border.all(color: _borderColor),
                                     borderRadius: BorderRadius.circular(8),
                                   ),
-                                  child: Text(dayOfWeek, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: (dayOfWeek == 'Chủ Nhật' || dayOfWeek == 'Thứ Bảy') ? Colors.red : _textDark)),
+                                  child: Text(tr(dayOfWeek), style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: (dayOfWeek == 'Chủ Nhật' || dayOfWeek == 'Thứ Bảy') ? Colors.red : _textDark)),
                                 )),
                               ),
                             ],
@@ -1406,7 +1404,7 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
                                       Icon(Icons.people, size: 16, color: Colors.grey[400]),
                                       const SizedBox(width: 8),
                                       Expanded(child: Text(
-                                        selectedEmployeeIds.isEmpty ? 'Tất cả nhân viên' : '${selectedEmployeeIds.length} nhân viên đã chọn',
+                                        tr(selectedEmployeeIds.isEmpty ? 'Tất cả nhân viên' : '${selectedEmployeeIds.length} nhân viên đã chọn'),
                                         style: TextStyle(fontSize: 13, color: selectedEmployeeIds.isEmpty ? _textMuted : _textDark),
                                       )),
                                       Icon(Icons.arrow_drop_down, color: Colors.grey[400]),
@@ -1417,7 +1415,7 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
                             ],
                           ),
                           const SizedBox(height: 4),
-                          Text('Bỏ trống để áp dụng cho tất cả nhân viên', style: TextStyle(fontSize: 11, color: Colors.grey[400])),
+                          Text(tr('Bỏ trống để áp dụng cho tất cả nhân viên'), style: TextStyle(fontSize: 11, color: Colors.grey[400])),
                           const SizedBox(height: 12),
                           // Recurring toggle
                           InkWell(
@@ -1433,8 +1431,8 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
                                 children: [
                                   Icon(isRecurring ? Icons.check_box : Icons.check_box_outline_blank, size: 20, color: _primaryColor),
                                   const SizedBox(width: 10),
-                                  const Expanded(child: Text('Lặp lại hàng năm', style: TextStyle(fontSize: 13, color: _textDark))),
-                                  Text(isRecurring ? 'Có' : 'Không', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: isRecurring ? _primaryColor : _textMuted)),
+                                  Expanded(child: Text(tr('Lặp lại hàng năm'), style: TextStyle(fontSize: 13, color: _textDark))),
+                                  Text(tr(isRecurring ? 'Có' : 'Không'), style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: isRecurring ? _primaryColor : _textMuted)),
                                 ],
                               ),
                             ),
@@ -1446,7 +1444,7 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
             return Dialog.fullscreen(
               child: Scaffold(
                 appBar: AppBar(
-                  title: Text(isEditing ? 'Sửa ngày lễ' : 'Thêm ngày lễ'),
+                  title: Text(tr(isEditing ? 'Sửa ngày lễ' : 'Thêm ngày lễ')),
                   leading: IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(ctx)),
                   actions: [
                     TextButton.icon(
@@ -1454,7 +1452,7 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
                       icon: isSaving
                           ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
                           : const Icon(Icons.save, size: 18),
-                      label: Text(isSaving ? 'Đang lưu...' : 'Lưu'),
+                      label: Text(tr(isSaving ? 'Đang lưu...' : 'Lưu')),
                     ),
                   ],
                 ),
@@ -1484,7 +1482,7 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
                       children: [
                         Icon(isEditing ? Icons.edit : Icons.add_circle, color: const Color(0xFFF59E0B), size: 22),
                         const SizedBox(width: 10),
-                        Text(isEditing ? 'Sửa ngày lễ' : 'Thêm ngày lễ', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: _textDark)),
+                        Text(tr(isEditing ? 'Sửa ngày lễ' : 'Thêm ngày lễ'), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: _textDark)),
                         const Spacer(),
                         IconButton(onPressed: () => Navigator.pop(ctx), icon: const Icon(Icons.close, color: _textMuted), visualDensity: VisualDensity.compact),
                       ],
@@ -1512,7 +1510,7 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                             side: const BorderSide(color: _borderColor),
                           ),
-                          child: const Text('Hủy'),
+                          child: Text(tr('Hủy')),
                         ),
                         const SizedBox(width: 12),
                         FilledButton.icon(
@@ -1520,7 +1518,7 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
                           icon: isSaving
                               ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                               : const Icon(Icons.save, size: 18),
-                          label: Text(isSaving ? 'Đang lưu...' : 'Lưu'),
+                          label: Text(tr(isSaving ? 'Đang lưu...' : 'Lưu')),
                           style: FilledButton.styleFrom(
                             backgroundColor: HrmPageChrome.primaryNavy,
                             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
@@ -1542,7 +1540,7 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: _textMuted)),
+        Text(tr(label), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: _textMuted)),
         const SizedBox(height: 6),
         child,
       ],
@@ -1551,7 +1549,7 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
 
   InputDecoration _inputDecor(String hint) {
     return InputDecoration(
-      hintText: hint,
+      hintText: tr(hint),
       hintStyle: TextStyle(color: Colors.grey[400], fontSize: 13),
       border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: _borderColor)),
       enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: _borderColor)),
@@ -1587,7 +1585,7 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
                   children: [
                     Icon(Icons.auto_awesome, color: Colors.orange[700], size: 22),
                     const SizedBox(width: 10),
-                    const Text('Chọn ngày Âm lịch', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: _textDark)),
+                    Text(tr('Chọn ngày Âm lịch'), style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: _textDark)),
                   ],
                 ),
                 const SizedBox(height: 20),
@@ -1601,7 +1599,7 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
                           initialValue: day.clamp(1, maxDay),
                           decoration: _inputDecor(''),
                           style: const TextStyle(fontSize: 14, color: _textDark),
-                          items: List.generate(maxDay, (i) => DropdownMenuItem(value: i + 1, child: Text('${i + 1}'))),
+                          items: List.generate(maxDay, (i) => DropdownMenuItem(value: i + 1, child: Text(tr('${i + 1}')))),
                           onChanged: (v) => setState(() => day = v ?? 1),
                         );
                       })),
@@ -1612,7 +1610,7 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
                         initialValue: month.clamp(1, 12),
                         decoration: _inputDecor(''),
                         style: const TextStyle(fontSize: 14, color: _textDark),
-                        items: List.generate(12, (i) => DropdownMenuItem(value: i + 1, child: Text('Tháng ${i + 1}'))),
+                        items: List.generate(12, (i) => DropdownMenuItem(value: i + 1, child: Text(tr('Tháng ${i + 1}')))),
                         onChanged: (v) => setState(() {
                           month = v ?? 1;
                           final maxDay = LunarConverter.lunarMonthDays(year, month);
@@ -1626,7 +1624,7 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
                         initialValue: year.clamp(2020, 2049),
                         decoration: _inputDecor(''),
                         style: const TextStyle(fontSize: 14, color: _textDark),
-                        items: List.generate(30, (i) => DropdownMenuItem(value: 2020 + i, child: Text('${2020 + i}'))),
+                        items: List.generate(30, (i) => DropdownMenuItem(value: 2020 + i, child: Text(tr('${2020 + i}')))),
                         onChanged: (v) => setState(() {
                           year = v ?? DateTime.now().year;
                           final maxDay = LunarConverter.lunarMonthDays(year, month);
@@ -1647,10 +1645,10 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
                       children: [
                         const Icon(Icons.calendar_today, size: 14, color: _primaryColor),
                         const SizedBox(width: 8),
-                        Text('Dương lịch: ${solarDate.day.toString().padLeft(2, '0')}/${solarDate.month.toString().padLeft(2, '0')}/${solarDate.year}',
+                        Text(tr('${tr('Dương lịch: ')}${solarDate.day.toString().padLeft(2, '0')}/${solarDate.month.toString().padLeft(2, '0')}/${solarDate.year}'),
                           style: const TextStyle(fontSize: 13, color: _textDark)),
                         const SizedBox(width: 8),
-                        Text('(${_getDayOfWeek(solarDate)})', style: const TextStyle(fontSize: 12, color: _textMuted)),
+                        Text(tr('(${_getDayOfWeek(solarDate)})'), style: const TextStyle(fontSize: 12, color: _textMuted)),
                       ],
                     ),
                   );
@@ -1667,7 +1665,7 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
                         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                       ),
-                      child: const Text('Hủy'),
+                      child: Text(tr('Hủy')),
                     ),
                     const SizedBox(width: 12),
                     FilledButton(
@@ -1681,7 +1679,7 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
                         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                       ),
-                      child: const Text('Xác nhận'),
+                      child: Text(tr('Xác nhận')),
                     ),
                   ],
                 ),
@@ -1729,7 +1727,7 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
                 children: [
                   Icon(tempIds.length == _employees.length ? Icons.check_box : Icons.check_box_outline_blank, size: 20, color: _primaryColor),
                   const SizedBox(width: 10),
-                  Text('Chọn tất cả (${tempIds.length}/${_employees.length})', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+                  Text(tr('Chọn tất cả (${tempIds.length}/${_employees.length})'), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
                 ],
               ),
             ),
@@ -1758,15 +1756,15 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
                         CircleAvatar(
                           radius: 14,
                           backgroundColor: _badgeColors[i % _badgeColors.length].withValues(alpha: 0.15),
-                          child: Text((emp['fullName'] ?? emp['name'] ?? '?')[0], style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: _badgeColors[i % _badgeColors.length])),
+                          child: Text(tr((emp['fullName'] ?? emp['name'] ?? '?')[0]), style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: _badgeColors[i % _badgeColors.length])),
                         ),
                         const SizedBox(width: 10),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(emp['fullName'] ?? emp['name'] ?? '', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: _textDark)),
-                              Text(emp['employeeCode'] ?? '', style: const TextStyle(fontSize: 11, color: _textMuted)),
+                              Text(tr(emp['fullName'] ?? emp['name'] ?? ''), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: _textDark)),
+                              Text(tr(emp['employeeCode'] ?? ''), style: const TextStyle(fontSize: 11, color: _textMuted)),
                             ],
                           ),
                         ),
@@ -1782,12 +1780,12 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
             return Dialog.fullscreen(
               child: Scaffold(
                 appBar: AppBar(
-                  title: const Text('Chọn nhân viên'),
+                  title: Text(tr('Chọn nhân viên')),
                   leading: IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(ctx)),
                   actions: [
                     TextButton(
                       onPressed: onConfirm,
-                      child: Text('Xác nhận (${tempIds.length})'),
+                      child: Text(tr('Xác nhận (${tempIds.length})')),
                     ),
                   ],
                 ),
@@ -1814,7 +1812,7 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
                       children: [
                         const Icon(Icons.people, color: _primaryColor, size: 20),
                         const SizedBox(width: 8),
-                        const Expanded(child: Text('Chọn nhân viên', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: _textDark))),
+                        Expanded(child: Text(tr('Chọn nhân viên'), style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: _textDark))),
                         IconButton(onPressed: () => Navigator.pop(ctx), icon: const Icon(Icons.close, color: _textMuted, size: 20)),
                       ],
                     ),
@@ -1835,7 +1833,7 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
                             side: const BorderSide(color: _borderColor),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                           ),
-                          child: const Text('Hủy'),
+                          child: Text(tr('Hủy')),
                         ),
                         const SizedBox(width: 12),
                         FilledButton(
@@ -1843,7 +1841,7 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
                           style: FilledButton.styleFrom(
                             backgroundColor: HrmPageChrome.primaryNavy,
                           ),
-                          child: Text('Xác nhận (${tempIds.length})'),
+                          child: Text(tr('Xác nhận (${tempIds.length})')),
                         ),
                       ],
                     ),
@@ -1863,8 +1861,8 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
       builder: (context) => ScrollableAlertDialog(
         backgroundColor: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        title: const Text('Xác nhận xóa', style: TextStyle(color: _textDark)),
-        content: Text('Bạn có chắc muốn xóa ngày lễ "${holiday['name']}"?', style: const TextStyle(color: _textMuted)),
+        title: Text(tr('Xác nhận xóa'), style: TextStyle(color: _textDark)),
+        content: Text(tr('${tr('Bạn có chắc muốn xóa ngày lễ "')}${holiday['name']}"?'), style: const TextStyle(color: _textMuted)),
         actions: [AppDialogActions.delete(onConfirm: () async {
               Navigator.pop(context);
               try {
@@ -1872,7 +1870,7 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
                 if (_selectedHoliday?['id'] == holiday['id']) setState(() => _selectedHoliday = null);
                 _loadData();
                 if (response['isSuccess'] == true) {
-                  appNotification.showSuccess(title: 'Thành công', message: 'Đã xóa ngày lễ');
+                  appNotification.showSuccess(title: 'Thành công', message: tr('Đã xóa ngày lễ'));
                 } else {
                   appNotification.showError(title: 'Lỗi', message: response['message'] ?? 'Lỗi khi xóa');
                 }

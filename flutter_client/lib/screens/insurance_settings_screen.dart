@@ -10,6 +10,7 @@ import '../widgets/loading_widget.dart';
 import '../widgets/hrm/hrm_settings_mobile_kit.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../widgets/notification_overlay.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 class InsuranceSettingsScreen extends StatefulWidget {
   const InsuranceSettingsScreen({super.key});
 
@@ -26,28 +27,28 @@ class _InsuranceSettingsScreenState extends State<InsuranceSettingsScreen> {
   bool _isLoading = true;
 
   // Lương cơ sở & Tối thiểu vùng
-  final _baseSalaryController = TextEditingController(text: '2.340.000');
-  final _regionISalaryController = TextEditingController(text: '4.960.000');
-  final _regionIISalaryController = TextEditingController(text: '4.410.000');
-  final _regionIIISalaryController = TextEditingController(text: '3.860.000');
-  final _regionIVSalaryController = TextEditingController(text: '3.450.000');
-  final _maxInsuranceSalaryController = TextEditingController(text: '46.800.000');
+  final _baseSalaryController = TextEditingController(text: tr('2.340.000'));
+  final _regionISalaryController = TextEditingController(text: tr('4.960.000'));
+  final _regionIISalaryController = TextEditingController(text: tr('4.410.000'));
+  final _regionIIISalaryController = TextEditingController(text: tr('3.860.000'));
+  final _regionIVSalaryController = TextEditingController(text: tr('3.450.000'));
+  final _maxInsuranceSalaryController = TextEditingController(text: tr('46.800.000'));
 
   // BHXH - Bảo hiểm xã hội
-  final _bhxhEmployeeController = TextEditingController(text: '8');
-  final _bhxhEmployerController = TextEditingController(text: '17.5');
+  final _bhxhEmployeeController = TextEditingController(text: tr('8'));
+  final _bhxhEmployerController = TextEditingController(text: tr('17.5'));
 
   // BHYT - Bảo hiểm y tế
-  final _bhytEmployeeController = TextEditingController(text: '1.5');
-  final _bhytEmployerController = TextEditingController(text: '3');
+  final _bhytEmployeeController = TextEditingController(text: tr('1.5'));
+  final _bhytEmployerController = TextEditingController(text: tr('3'));
 
   // BHTN - Bảo hiểm thất nghiệp
-  final _bhtnEmployeeController = TextEditingController(text: '1');
-  final _bhtnEmployerController = TextEditingController(text: '1');
+  final _bhtnEmployeeController = TextEditingController(text: tr('1'));
+  final _bhtnEmployerController = TextEditingController(text: tr('1'));
 
   // Công đoàn
-  final _unionEmployeeController = TextEditingController(text: '1');
-  final _unionEmployerController = TextEditingController(text: '2');
+  final _unionEmployeeController = TextEditingController(text: tr('1'));
+  final _unionEmployerController = TextEditingController(text: tr('2'));
 
   // Vùng công ty
   int _companyRegion = 1;
@@ -94,7 +95,7 @@ class _InsuranceSettingsScreenState extends State<InsuranceSettingsScreen> {
       if (mounted) {
         appNotification.showError(
           title: 'Lỗi tải dữ liệu',
-          message: 'Không thể tải cài đặt bảo hiểm từ máy chủ. Đang hiển thị giá trị mặc định.',
+          message: tr('Không thể tải cài đặt bảo hiểm từ máy chủ. Đang hiển thị giá trị mặc định.'),
         );
       }
     } finally {
@@ -112,10 +113,10 @@ class _InsuranceSettingsScreenState extends State<InsuranceSettingsScreen> {
         iconColor: Colors.orange,
         maxWidth: 420,
         scrollable: false,
-        child: const Text(
-          'Dữ liệu chưa được tải từ máy chủ. '
+        child: Text(
+          tr('Dữ liệu chưa được tải từ máy chủ. '
           'Lưu có thể ghi đè thiết lập đã lưu bằng giá trị mặc định.\n\n'
-          'Bạn có chắc chắn muốn lưu không?',
+          'Bạn có chắc chắn muốn lưu không?'),
           style: TextStyle(fontSize: 14, height: 1.5),
         ),
         actions: AppDialogActions(
@@ -151,14 +152,14 @@ class _InsuranceSettingsScreenState extends State<InsuranceSettingsScreen> {
       final response = await _apiService.saveInsuranceSettings(settings);
       if (mounted) {
         if (response['isSuccess'] == true) {
-          appNotification.showSuccess(title: 'Thành công', message: 'Đã lưu thiết lập bảo hiểm');
+          appNotification.showSuccess(title: 'Thành công', message: tr('Đã lưu thiết lập bảo hiểm'));
         } else {
           appNotification.showError(title: 'Lỗi', message: response['message'] ?? 'Lỗi khi lưu thiết lập');
         }
       }
     } catch (e) {
       if (mounted) {
-        appNotification.showError(title: 'Lỗi', message: 'Lỗi: $e');
+        appNotification.showError(title: 'Lỗi', message: tr('Lỗi: $e'));
       }
     }
   }
@@ -197,8 +198,7 @@ class _InsuranceSettingsScreenState extends State<InsuranceSettingsScreen> {
       child: FilledButton.icon(
         onPressed: _saveSettings,
         icon: const Icon(Icons.save, size: 20),
-        label: const Text(
-          'Lưu thiết lập bảo hiểm',
+        label: Text(tr('Lưu thiết lập bảo hiểm'),
           style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
         ),
         style: FilledButton.styleFrom(
@@ -283,20 +283,18 @@ class _InsuranceSettingsScreenState extends State<InsuranceSettingsScreen> {
                               color: Color(0xFF71717A), size: 20),
                         ),
                         const SizedBox(width: 12),
-                        const Expanded(
+                        Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
-                                'Thiết lập Bảo hiểm xã hội',
+                              Text(tr('Thiết lập Bảo hiểm xã hội'),
                                 style: TextStyle(
                                   color: HrmPageChrome.primaryNavy,
                                   fontSize: 20,
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
-                              Text(
-                                'Cấu hình tỷ lệ đóng BHXH, BHYT, BHTN và phí công đoàn',
+                              Text(tr('Cấu hình tỷ lệ đóng BHXH, BHYT, BHTN và phí công đoàn'),
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
@@ -446,8 +444,7 @@ class _InsuranceSettingsScreenState extends State<InsuranceSettingsScreen> {
               backgroundColor: Colors.white,
               elevation: 0,
               automaticallyImplyLeading: false,
-              title: const Text(
-                'Bảo hiểm xã hội',
+              title: Text(tr('Bảo hiểm xã hội'),
                 style: TextStyle(
                   color: Color(0xFF18181B),
                   fontWeight: FontWeight.bold,
@@ -503,16 +500,14 @@ class _InsuranceSettingsScreenState extends State<InsuranceSettingsScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'Lương cơ sở & Tối thiểu vùng',
+                      Text(tr('Lương cơ sở & Tối thiểu vùng'),
                         style: TextStyle(
                           color: Color(0xFF18181B),
                           fontSize: 15,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                      Text(
-                        'Mức lương làm căn cứ tính bảo hiểm',
+                      Text(tr('Mức lương làm căn cứ tính bảo hiểm'),
                         style: TextStyle(color: Colors.grey[500], fontSize: 12),
                       ),
                     ],
@@ -578,8 +573,8 @@ class _InsuranceSettingsScreenState extends State<InsuranceSettingsScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text('Công ty thuộc vùng', style: TextStyle(color: Color(0xFF18181B), fontWeight: FontWeight.w500, fontSize: 14)),
-                          Text('Vùng lương tối thiểu áp dụng cho công ty', style: TextStyle(color: Colors.grey[500], fontSize: 11)),
+                          Text(tr('Công ty thuộc vùng'), style: TextStyle(color: Color(0xFF18181B), fontWeight: FontWeight.w500, fontSize: 14)),
+                          Text(tr('Vùng lương tối thiểu áp dụng cho công ty'), style: TextStyle(color: Colors.grey[500], fontSize: 11)),
                         ],
                       ),
                     ),
@@ -596,11 +591,11 @@ class _InsuranceSettingsScreenState extends State<InsuranceSettingsScreen> {
                         child: DropdownButton<int>(
                           value: _companyRegion,
                           style: const TextStyle(color: Color(0xFF18181B), fontSize: 14, fontWeight: FontWeight.w600),
-                          items: const [
-                            DropdownMenuItem(value: 1, child: Text('Vùng I')),
-                            DropdownMenuItem(value: 2, child: Text('Vùng II')),
-                            DropdownMenuItem(value: 3, child: Text('Vùng III')),
-                            DropdownMenuItem(value: 4, child: Text('Vùng IV')),
+                          items: [
+                            DropdownMenuItem(value: 1, child: Text(tr('Vùng I'))),
+                            DropdownMenuItem(value: 2, child: Text(tr('Vùng II'))),
+                            DropdownMenuItem(value: 3, child: Text(tr('Vùng III'))),
+                            DropdownMenuItem(value: 4, child: Text(tr('Vùng IV'))),
                           ],
                           onChanged: (value) {
                             if (value != null) setState(() => _companyRegion = value);
@@ -632,8 +627,8 @@ class _InsuranceSettingsScreenState extends State<InsuranceSettingsScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(label, style: const TextStyle(color: Color(0xFF18181B), fontWeight: FontWeight.w500, fontSize: 14)),
-              Text(description, style: TextStyle(color: Colors.grey[500], fontSize: 11)),
+              Text(tr(label), style: const TextStyle(color: Color(0xFF18181B), fontWeight: FontWeight.w500, fontSize: 14)),
+              Text(tr(description), style: TextStyle(color: Colors.grey[500], fontSize: 11)),
             ],
           ),
         ),
@@ -648,7 +643,7 @@ class _InsuranceSettingsScreenState extends State<InsuranceSettingsScreen> {
             keyboardType: TextInputType.number,
             inputFormatters: [ThousandSeparatorFormatter()],
             decoration: InputDecoration(
-              suffixText: 'đ',
+              suffixText: tr('đ'),
               suffixStyle: const TextStyle(color: Color(0xFF71717A), fontSize: 12),
               contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               enabledBorder: OutlineInputBorder(
@@ -712,16 +707,14 @@ class _InsuranceSettingsScreenState extends State<InsuranceSettingsScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'Bảo hiểm Xã hội (BHXH)',
+                      Text(tr('Bảo hiểm Xã hội (BHXH)'),
                         style: TextStyle(
                           color: Color(0xFF18181B),
                           fontSize: 15,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                      Text(
-                        'Tỷ lệ đóng BHXH người lao động và doanh nghiệp',
+                      Text(tr('Tỷ lệ đóng BHXH người lao động và doanh nghiệp'),
                         style: TextStyle(color: Colors.grey[500], fontSize: 12),
                       ),
                     ],
@@ -800,16 +793,14 @@ class _InsuranceSettingsScreenState extends State<InsuranceSettingsScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'Bảo hiểm Y tế (BHYT)',
+                      Text(tr('Bảo hiểm Y tế (BHYT)'),
                         style: TextStyle(
                           color: Color(0xFF18181B),
                           fontSize: 15,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                      Text(
-                        'Tỷ lệ đóng BHYT người lao động và doanh nghiệp',
+                      Text(tr('Tỷ lệ đóng BHYT người lao động và doanh nghiệp'),
                         style: TextStyle(color: Colors.grey[500], fontSize: 12),
                       ),
                     ],
@@ -889,16 +880,14 @@ class _InsuranceSettingsScreenState extends State<InsuranceSettingsScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'Bảo hiểm Thất nghiệp (BHTN)',
+                      Text(tr('Bảo hiểm Thất nghiệp (BHTN)'),
                         style: TextStyle(
                           color: Color(0xFF18181B),
                           fontSize: 15,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                      Text(
-                        'Tỷ lệ đóng BHTN người lao động và doanh nghiệp',
+                      Text(tr('Tỷ lệ đóng BHTN người lao động và doanh nghiệp'),
                         style: TextStyle(color: Colors.grey[500], fontSize: 12),
                       ),
                     ],
@@ -978,16 +967,14 @@ class _InsuranceSettingsScreenState extends State<InsuranceSettingsScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'Phi Công đoàn',
+                      Text(tr('Phi Công đoàn'),
                         style: TextStyle(
                           color: Color(0xFF18181B),
                           fontSize: 15,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                      Text(
-                        'Phí công đoàn người lao động và kinh phí công đoàn',
+                      Text(tr('Phí công đoàn người lao động và kinh phí công đoàn'),
                         style: TextStyle(color: Colors.grey[500], fontSize: 12),
                       ),
                     ],
@@ -1034,8 +1021,8 @@ class _InsuranceSettingsScreenState extends State<InsuranceSettingsScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(label, style: const TextStyle(color: Color(0xFF18181B), fontWeight: FontWeight.w500, fontSize: 14)),
-              Text(description, style: TextStyle(color: Colors.grey[500], fontSize: 11)),
+              Text(tr(label), style: const TextStyle(color: Color(0xFF18181B), fontWeight: FontWeight.w500, fontSize: 14)),
+              Text(tr(description), style: TextStyle(color: Colors.grey[500], fontSize: 11)),
             ],
           ),
         ),
@@ -1049,7 +1036,7 @@ class _InsuranceSettingsScreenState extends State<InsuranceSettingsScreen> {
             style: const TextStyle(color: Color(0xFF18181B), fontSize: 14, fontWeight: FontWeight.w600),
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             decoration: InputDecoration(
-              suffixText: '%',
+              suffixText: tr('%'),
               suffixStyle: const TextStyle(color: Color(0xFF71717A), fontSize: 12),
               contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               enabledBorder: OutlineInputBorder(
@@ -1082,7 +1069,7 @@ class _InsuranceSettingsScreenState extends State<InsuranceSettingsScreen> {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(
-            label,
+            tr(label),
             style: const TextStyle(
               color: Color(0xFF18181B),
               fontSize: 14,
@@ -1090,7 +1077,7 @@ class _InsuranceSettingsScreenState extends State<InsuranceSettingsScreen> {
             ),
           ),
           Text(
-            '${_formatRate(value)}%',
+            tr('${_formatRate(value)}%'),
             style: TextStyle(
               color: color,
               fontSize: 18,
@@ -1160,16 +1147,14 @@ class _InsuranceSettingsScreenState extends State<InsuranceSettingsScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'Tổng kết tỷ lệ đóng',
+                      Text(tr('Tổng kết tỷ lệ đóng'),
                         style: TextStyle(
                           color: Color(0xFF18181B),
                           fontSize: 15,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                      Text(
-                        'Tổng hợp các khoản đóng bảo hiểm',
+                      Text(tr('Tổng hợp các khoản đóng bảo hiểm'),
                         style: TextStyle(color: Colors.grey[500], fontSize: 12),
                       ),
                     ],
@@ -1199,12 +1184,12 @@ class _InsuranceSettingsScreenState extends State<InsuranceSettingsScreen> {
                         topRight: Radius.circular(11),
                       ),
                     ),
-                    child: const Row(
+                    child: Row(
                       children: [
-                        Expanded(flex: 3, child: Text('Loại bảo hiểm', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13))),
-                        Expanded(flex: 2, child: Text('NLĐ đóng', textAlign: TextAlign.center, style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13))),
-                        Expanded(flex: 2, child: Text('DN đóng', textAlign: TextAlign.center, style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13))),
-                        Expanded(flex: 2, child: Text('Tổng', textAlign: TextAlign.center, style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13))),
+                        Expanded(flex: 3, child: Text(tr('Loại bảo hiểm'), style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13))),
+                        Expanded(flex: 2, child: Text(tr('NLĐ đóng'), textAlign: TextAlign.center, style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13))),
+                        Expanded(flex: 2, child: Text(tr('DN đóng'), textAlign: TextAlign.center, style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13))),
+                        Expanded(flex: 2, child: Text(tr('Tổng'), textAlign: TextAlign.center, style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13))),
                       ],
                     ),
                   ),
@@ -1225,10 +1210,10 @@ class _InsuranceSettingsScreenState extends State<InsuranceSettingsScreen> {
                     ),
                     child: Row(
                       children: [
-                        const Expanded(flex: 3, child: Text('TỔNG CỘNG', style: TextStyle(color: Color(0xFF18181B), fontWeight: FontWeight.bold, fontSize: 13))),
-                        Expanded(flex: 2, child: Text('${_formatRate(totalEmp)}%', textAlign: TextAlign.center, style: const TextStyle(color: HrmPageChrome.primaryNavy, fontWeight: FontWeight.bold, fontSize: 13))),
-                        Expanded(flex: 2, child: Text('${_formatRate(totalEmr)}%', textAlign: TextAlign.center, style: const TextStyle(color: HrmPageChrome.primaryNavy, fontWeight: FontWeight.bold, fontSize: 13))),
-                        Expanded(flex: 2, child: Text('${_formatRate(totalEmp + totalEmr)}%', textAlign: TextAlign.center, style: const TextStyle(color: HrmPageChrome.primaryNavy, fontWeight: FontWeight.bold, fontSize: 13))),
+                        Expanded(flex: 3, child: Text(tr('TỔNG CỘNG'), style: TextStyle(color: Color(0xFF18181B), fontWeight: FontWeight.bold, fontSize: 13))),
+                        Expanded(flex: 2, child: Text(tr('${_formatRate(totalEmp)}%'), textAlign: TextAlign.center, style: const TextStyle(color: HrmPageChrome.primaryNavy, fontWeight: FontWeight.bold, fontSize: 13))),
+                        Expanded(flex: 2, child: Text(tr('${_formatRate(totalEmr)}%'), textAlign: TextAlign.center, style: const TextStyle(color: HrmPageChrome.primaryNavy, fontWeight: FontWeight.bold, fontSize: 13))),
+                        Expanded(flex: 2, child: Text(tr('${_formatRate(totalEmp + totalEmr)}%'), textAlign: TextAlign.center, style: const TextStyle(color: HrmPageChrome.primaryNavy, fontWeight: FontWeight.bold, fontSize: 13))),
                       ],
                     ),
                   ),
@@ -1247,10 +1232,10 @@ class _InsuranceSettingsScreenState extends State<InsuranceSettingsScreen> {
       color: isAlt ? const Color(0xFFFAFAFA) : Colors.white,
       child: Row(
         children: [
-          Expanded(flex: 3, child: Text(label, style: const TextStyle(color: Color(0xFF71717A), fontSize: 13))),
-          Expanded(flex: 2, child: Text('${_formatRate(empRate)}%', textAlign: TextAlign.center, style: const TextStyle(color: Color(0xFF18181B), fontSize: 13))),
-          Expanded(flex: 2, child: Text('${_formatRate(emrRate)}%', textAlign: TextAlign.center, style: const TextStyle(color: Color(0xFF18181B), fontSize: 13))),
-          Expanded(flex: 2, child: Text('${_formatRate(empRate + emrRate)}%', textAlign: TextAlign.center, style: const TextStyle(color: Color(0xFF18181B), fontSize: 13))),
+          Expanded(flex: 3, child: Text(tr(label), style: const TextStyle(color: Color(0xFF71717A), fontSize: 13))),
+          Expanded(flex: 2, child: Text(tr('${_formatRate(empRate)}%'), textAlign: TextAlign.center, style: const TextStyle(color: Color(0xFF18181B), fontSize: 13))),
+          Expanded(flex: 2, child: Text(tr('${_formatRate(emrRate)}%'), textAlign: TextAlign.center, style: const TextStyle(color: Color(0xFF18181B), fontSize: 13))),
+          Expanded(flex: 2, child: Text(tr('${_formatRate(empRate + emrRate)}%'), textAlign: TextAlign.center, style: const TextStyle(color: Color(0xFF18181B), fontSize: 13))),
         ],
       ),
     );

@@ -10,6 +10,7 @@ import '../utils/report_screen_helpers.dart';
 import '../utils/vietnamese_font.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../widgets/reports/hrm_report_widgets.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 const _theme = HrmPageChrome.primaryNavy;
 const _accentBlue = Color(0xFF2563EB);
@@ -365,7 +366,7 @@ class _PenaltyReportScreenState extends State<PenaltyReportScreen> {
         child: DropdownButton<String?>(
           value: _statusFilter,
           isExpanded: true,
-          hint: Text('Trạng thái',
+          hint: Text(tr('Trạng thái'),
               style: vietnameseTextStyle(
                   const TextStyle(fontSize: 12, color: Color(0xFF6B7280)))),
           style: vietnameseTextStyle(
@@ -373,19 +374,19 @@ class _PenaltyReportScreenState extends State<PenaltyReportScreen> {
           items: [
             DropdownMenuItem(
                 value: null,
-                child: Text('Tất cả', style: vietnameseTextStyle())),
+                child: Text(tr('Tất cả'), style: vietnameseTextStyle())),
             DropdownMenuItem(
                 value: '0',
-                child: Text('Chờ duyệt', style: vietnameseTextStyle())),
+                child: Text(tr('Chờ duyệt'), style: vietnameseTextStyle())),
             DropdownMenuItem(
                 value: '1',
-                child: Text('Đã duyệt', style: vietnameseTextStyle())),
+                child: Text(tr('Đã duyệt'), style: vietnameseTextStyle())),
             DropdownMenuItem(
                 value: '3',
-                child: Text('Tự động duyệt', style: vietnameseTextStyle())),
+                child: Text(tr('Tự động duyệt'), style: vietnameseTextStyle())),
             DropdownMenuItem(
                 value: '2',
-                child: Text('Đã hủy', style: vietnameseTextStyle())),
+                child: Text(tr('Đã hủy'), style: vietnameseTextStyle())),
           ],
           onChanged: (v) => setState(() => _statusFilter = v),
         ),

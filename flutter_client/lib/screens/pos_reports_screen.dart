@@ -14,6 +14,7 @@ import '../utils/responsive_helper.dart';
 import '../widgets/pos/pos_mobile_widgets.dart';
 import '../widgets/pos/pos_module_toolbar.dart';
 import '../widgets/pos/pos_theme.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 const _kiotBlue = PosTheme.kiotBlue;
 
@@ -153,7 +154,7 @@ class _PosReportsScreenState extends State<PosReportsScreen>
           'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         );
         NotificationOverlayManager()
-            .showSuccess(title: 'Xuất file', message: 'Đã xuất Excel doanh thu');
+            .showSuccess(title: 'Xuất file', message: tr('Đã xuất Excel doanh thu'));
       }
     } finally {
       if (mounted) setState(() => _exporting = false);
@@ -174,7 +175,7 @@ class _PosReportsScreenState extends State<PosReportsScreen>
           'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         );
         NotificationOverlayManager()
-            .showSuccess(title: 'Xuất file', message: 'Đã xuất Excel tồn kho');
+            .showSuccess(title: 'Xuất file', message: tr('Đã xuất Excel tồn kho'));
       }
     } finally {
       if (mounted) setState(() => _exporting = false);
@@ -191,7 +192,7 @@ class _PosReportsScreenState extends State<PosReportsScreen>
     final perm = Provider.of<PermissionProvider>(context);
     final canView = perm.canView('PosSalesReport') || perm.canView('PosProducts');
     if (!canView) {
-      return const Scaffold(body: Center(child: Text('Không có quyền xem báo cáo POS')));
+      return Scaffold(body: Center(child: Text(tr('Không có quyền xem báo cáo POS'))));
     }
     final canExport = perm.canExport('PosSalesReport') || perm.canExport('PosProducts');
     final mobile = posUseMobileList(context);
@@ -211,9 +212,9 @@ class _PosReportsScreenState extends State<PosReportsScreen>
               isScrollable: mobile,
               tabAlignment: mobile ? TabAlignment.start : TabAlignment.fill,
               tabs: [
-                Tab(text: mobile ? 'Doanh thu' : 'Doanh thu bán hàng'),
-                const Tab(text: 'Tồn kho'),
-                Tab(text: mobile ? 'Lô/HSD' : 'Lô / HSD'),
+                Tab(text: tr(mobile ? 'Doanh thu' : 'Doanh thu bán hàng')),
+                Tab(text: tr('Tồn kho')),
+                Tab(text: tr(mobile ? 'Lô/HSD' : 'Lô / HSD')),
               ],
             ),
           ),
@@ -255,7 +256,7 @@ class _PosReportsScreenState extends State<PosReportsScreen>
                         style: FilledButton.styleFrom(backgroundColor: _kiotBlue),
                         onPressed: _exporting ? null : _exportSales,
                         icon: const Icon(Icons.download, size: 18),
-                        label: const Text('Xuất Excel'),
+                        label: Text(tr('Xuất Excel')),
                       ),
                     ],
                   ],
@@ -276,7 +277,7 @@ class _PosReportsScreenState extends State<PosReportsScreen>
                         style: FilledButton.styleFrom(backgroundColor: _kiotBlue),
                         onPressed: _exporting ? null : _exportSales,
                         icon: const Icon(Icons.download, size: 18),
-                        label: const Text('Excel'),
+                        label: Text(tr('Excel')),
                       ),
                   ],
                 ),
@@ -285,7 +286,7 @@ class _PosReportsScreenState extends State<PosReportsScreen>
           child: _loadingSales
               ? const Center(child: CircularProgressIndicator(color: _kiotBlue))
               : _salesSummary == null
-                  ? const Center(child: Text('Không có dữ liệu'))
+                  ? Center(child: Text(tr('Không có dữ liệu')))
                   : _buildSalesBody(_salesSummary!),
         ),
       ],
@@ -330,8 +331,8 @@ class _PosReportsScreenState extends State<PosReportsScreen>
                   children: [
                     TextField(
                       controller: _stockSearchCtrl,
-                      decoration: const InputDecoration(
-                        hintText: 'Tìm hàng hóa',
+                      decoration: InputDecoration(
+                        hintText: tr('Tìm hàng hóa'),
                         prefixIcon: Icon(Icons.search, size: 20),
                         border: OutlineInputBorder(),
                         isDense: true,
@@ -346,7 +347,7 @@ class _PosReportsScreenState extends State<PosReportsScreen>
                             style: FilledButton.styleFrom(
                                 backgroundColor: _kiotBlue),
                             onPressed: _loadingStock ? null : () => _loadStock(),
-                            child: const Text('Lọc'),
+                            child: Text(tr('Lọc')),
                           ),
                         ),
                         if (canExport) ...[
@@ -365,8 +366,8 @@ class _PosReportsScreenState extends State<PosReportsScreen>
                     Expanded(
                       child: TextField(
                         controller: _stockSearchCtrl,
-                        decoration: const InputDecoration(
-                          hintText: 'Tìm hàng hóa',
+                        decoration: InputDecoration(
+                          hintText: tr('Tìm hàng hóa'),
                           prefixIcon: Icon(Icons.search, size: 20),
                           border: OutlineInputBorder(),
                           isDense: true,
@@ -378,14 +379,14 @@ class _PosReportsScreenState extends State<PosReportsScreen>
                     FilledButton(
                       style: FilledButton.styleFrom(backgroundColor: _kiotBlue),
                       onPressed: _loadingStock ? null : () => _loadStock(),
-                      child: const Text('Lọc'),
+                      child: Text(tr('Lọc')),
                     ),
                     if (canExport) ...[
                       const SizedBox(width: 8),
                       OutlinedButton.icon(
                         onPressed: _exporting ? null : _exportStock,
                         icon: const Icon(Icons.download, size: 18),
-                        label: const Text('Excel'),
+                        label: Text(tr('Excel')),
                       ),
                     ],
                   ],
@@ -418,21 +419,21 @@ class _PosReportsScreenState extends State<PosReportsScreen>
                         margin: const EdgeInsets.only(bottom: 8),
                         decoration: PosTheme.mobileCardDecoration(),
                         child: ListTile(
-                          title: Text(p['name']?.toString() ?? ''),
+                          title: Text(tr(p['name']?.toString() ?? '')),
                           subtitle: Text(
-                              '${p['productCode']} · Tồn: ${p['onHandQty']}'),
+                              tr('${p['productCode']} · Tồn: ${p['onHandQty']}')),
                           trailing: Text(
-                            _moneyFmt.format(_num(p['stockValue'])),
+                            tr(_moneyFmt.format(_num(p['stockValue']))),
                             style: const TextStyle(fontWeight: FontWeight.w600),
                           ),
                         ),
                       );
                     }
                     return ListTile(
-                      title: Text(p['name']?.toString() ?? ''),
+                      title: Text(tr(p['name']?.toString() ?? '')),
                       subtitle: Text(
-                          '${p['productCode']} · Tồn: ${p['onHandQty']}'),
-                      trailing: Text(_moneyFmt.format(_num(p['stockValue']))),
+                          tr('${p['productCode']} · Tồn: ${p['onHandQty']}')),
+                      trailing: Text(tr(_moneyFmt.format(_num(p['stockValue'])))),
                     );
                   },
                 ),
@@ -455,7 +456,7 @@ class _PosReportsScreenState extends State<PosReportsScreen>
                   onPressed: _stockPage > 1 ? () => _loadStock(page: _stockPage - 1) : null,
                   icon: const Icon(Icons.chevron_left),
                 ),
-                Text('$_stockPage / $totalPages'),
+                Text(tr('$_stockPage / $totalPages')),
                 IconButton(
                   onPressed: _stockPage < totalPages
                       ? () => _loadStock(page: _stockPage + 1)
@@ -495,8 +496,8 @@ class _PosReportsScreenState extends State<PosReportsScreen>
             children: [
               TextField(
                 controller: _stockSearchCtrl,
-                decoration: const InputDecoration(
-                  hintText: 'Tìm hàng / mã lô',
+                decoration: InputDecoration(
+                  hintText: tr('Tìm hàng / mã lô'),
                   prefixIcon: Icon(Icons.search, size: 20),
                   border: OutlineInputBorder(),
                   isDense: true,
@@ -508,7 +509,7 @@ class _PosReportsScreenState extends State<PosReportsScreen>
                 spacing: 8,
                 children: [
                   FilterChip(
-                    label: const Text('Tất cả'),
+                    label: Text(tr('Tất cả')),
                     selected: _lotFilter == null,
                     onSelected: (_) {
                       setState(() => _lotFilter = null);
@@ -516,7 +517,7 @@ class _PosReportsScreenState extends State<PosReportsScreen>
                     },
                   ),
                   FilterChip(
-                    label: const Text('Sắp hết HSD'),
+                    label: Text(tr('Sắp hết HSD')),
                     selected: _lotFilter == 'expiring',
                     onSelected: (_) {
                       setState(() => _lotFilter = 'expiring');
@@ -524,7 +525,7 @@ class _PosReportsScreenState extends State<PosReportsScreen>
                     },
                   ),
                   FilterChip(
-                    label: const Text('Đã hết HSD'),
+                    label: Text(tr('Đã hết HSD')),
                     selected: _lotFilter == 'expired',
                     onSelected: (_) {
                       setState(() => _lotFilter = 'expired');
@@ -534,7 +535,7 @@ class _PosReportsScreenState extends State<PosReportsScreen>
                   FilledButton(
                     style: FilledButton.styleFrom(backgroundColor: _kiotBlue),
                     onPressed: _loadingStock ? null : () => _loadLots(),
-                    child: const Text('Lọc'),
+                    child: Text(tr('Lọc')),
                   ),
                 ],
               ),
@@ -579,18 +580,18 @@ class _PosReportsScreenState extends State<PosReportsScreen>
                     ].join(' · ');
 
                     final tile = ListTile(
-                      title: Text(l['productName']?.toString() ?? ''),
-                      subtitle: Text(subtitle),
+                      title: Text(tr(l['productName']?.toString() ?? '')),
+                      subtitle: Text(tr(subtitle)),
                       trailing: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
                           Text(
-                            _moneyFmt.format(_num(l['stockValue'] ?? l['StockValue'])),
+                            tr(_moneyFmt.format(_num(l['stockValue'] ?? l['StockValue']))),
                             style: const TextStyle(fontWeight: FontWeight.w600),
                           ),
                           Text(
-                            statusLabel(status),
+                            tr(statusLabel(status)),
                             style: TextStyle(
                               fontSize: 11,
                               color: statusColor(status),
@@ -630,7 +631,7 @@ class _PosReportsScreenState extends State<PosReportsScreen>
                         onPressed: _lotPage > 1 ? () => _loadLots(page: _lotPage - 1) : null,
                         icon: const Icon(Icons.chevron_left),
                       ),
-                      Text('$_lotPage / $totalPages'),
+                      Text(tr('$_lotPage / $totalPages')),
                       IconButton(
                         onPressed: _lotPage < totalPages
                             ? () => _loadLots(page: _lotPage + 1)
@@ -651,7 +652,7 @@ class _PosReportsScreenState extends State<PosReportsScreen>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
+            Text(tr(title), style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
             const SizedBox(height: 8),
             ...children,
           ],
@@ -664,13 +665,13 @@ class _PosReportsScreenState extends State<PosReportsScreen>
         padding: const EdgeInsets.symmetric(vertical: 4),
         child: Row(
           children: [
-            Expanded(child: Text(label)),
-            Text(value, style: const TextStyle(fontWeight: FontWeight.w500)),
+            Expanded(child: Text(tr(label))),
+            Text(tr(value), style: const TextStyle(fontWeight: FontWeight.w500)),
           ],
         ),
       );
 
   Widget _chip(String label, String value) => Chip(
-        label: Text('$label: $value', style: const TextStyle(fontSize: 12)),
+        label: Text(tr('$label: $value'), style: const TextStyle(fontSize: 12)),
       );
 }

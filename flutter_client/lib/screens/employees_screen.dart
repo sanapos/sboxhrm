@@ -33,6 +33,7 @@ import '../providers/permission_provider.dart';
 import '../providers/auth_provider.dart';
 import '../widgets/notification_overlay.dart';
 import 'employee_career_tab.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 class EmployeesScreen extends StatefulWidget {
   final String? highlightId;
@@ -620,34 +621,34 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => ScrollableAlertDialog(
-        title: const Row(
+        title: Row(
           children: [
             Icon(Icons.upload_file, color: HrmPageChrome.primaryNavy),
             SizedBox(width: 8),
-            Text('Import nhân viên từ Excel', style: TextStyle(fontSize: 16)),
+            Text(tr('Import nhân viên từ Excel'), style: TextStyle(fontSize: 16)),
           ],
         ),
         content: SizedBox(
           width: MediaQuery.of(context).size.width < 600
               ? MediaQuery.of(context).size.width - 32
               : 460,
-          child: const Column(
+          child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Hỗ trợ 2 định dạng file:',
+              Text(tr('Hỗ trợ 2 định dạng file:'),
                   style: TextStyle(fontWeight: FontWeight.w600)),
               SizedBox(height: 8),
               Text(
-                '1) File Export từ SBOX (có dòng tiêu đề "DANH SÁCH NHÂN VIÊN", cột STT + Mã NV + Họ và tên…)\n'
-                '2) File mẫu Import (cột A: Mã NV*, B: Họ và tên*, C: Email công ty…)',
+                tr('1) File Export từ SBOX (có dòng tiêu đề "DANH SÁCH NHÂN VIÊN", cột STT + Mã NV + Họ và tên…)\n'
+                '2) File mẫu Import (cột A: Mã NV*, B: Họ và tên*, C: Email công ty…)'),
                 style: TextStyle(fontSize: 12, color: Colors.black87),
               ),
               SizedBox(height: 12),
               Text(
-                  '• Bắt buộc: Họ và tên (hoặc Họ + Tên riêng)\n'
+                  tr('• Bắt buộc: Họ và tên (hoặc Họ + Tên riêng)\n'
                   '• Mã NV: nếu trống sẽ lấy SĐT hoặc CCCD làm mã\n'
-                  '• Ngày sinh / ngày vào làm: dd/MM/yyyy',
+                  '• Ngày sinh / ngày vào làm: dd/MM/yyyy'),
                   style: TextStyle(fontSize: 12, color: Colors.grey)),
             ],
           ),
@@ -657,7 +658,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
             onPressed: () async {
               await _downloadEmployeeImportTemplate();
             },
-            child: const Text('Tải file mẫu'),
+            child: Text(tr('Tải file mẫu')),
           ),
           AppDialogActions(
             onConfirm: () => Navigator.pop(ctx, true),
@@ -708,8 +709,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
           showDialog(
             context: context,
             builder: (ctx) => ScrollableAlertDialog(
-              title: Text(
-                  'Import: $imported mới, $updated cập nhật, $failed lỗi'),
+              title: Text(tr('Import: $imported mới, $updated cập nhật, $failed lỗi')),
               content: SizedBox(
                 width: MediaQuery.of(context).size.width < 600
                     ? MediaQuery.of(context).size.width - 32
@@ -719,7 +719,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                   children: errors
                       .map((e) => Padding(
                             padding: const EdgeInsets.symmetric(vertical: 2),
-                            child: Text('• $e',
+                            child: Text(tr('• $e'),
                                 style: const TextStyle(
                                     fontSize: 12, color: Colors.red)),
                           ))
@@ -729,7 +729,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
               actions: [
                 TextButton(
                     onPressed: () => Navigator.pop(ctx),
-                    child: const Text('Đóng'))
+                    child: Text(tr('Đóng')))
               ],
             ),
           );
@@ -806,12 +806,12 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(_l10n.hrManagement,
+                            Text(tr(_l10n.hrManagement),
                                 style: const TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.bold,
                                     color: Colors.white)),
-                            Text('${_filteredEmployees.length} nhân viên',
+                            Text(tr('${_filteredEmployees.length} nhân viên'),
                                 style: TextStyle(
                                     fontSize: 11,
                                     color:
@@ -830,7 +830,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                                 size: 18, color: Colors.white),
                           ),
                           onPressed: () => _showEmployeeForm(null),
-                          tooltip: _l10n.addEmployee,
+                          tooltip: tr(_l10n.addEmployee),
                         ),
                       const SizedBox(width: 2),
                       PopupMenuButton<String>(
@@ -854,7 +854,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                                 child: Row(children: [
                                   const Icon(Icons.upload_file, size: 18),
                                   const SizedBox(width: 10),
-                                  Text(_l10n.importExcel)
+                                  Text(tr(_l10n.importExcel))
                                 ])),
                           if (_perm.canExport(_module))
                             PopupMenuItem(
@@ -862,14 +862,14 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                                 child: Row(children: [
                                   const Icon(Icons.download, size: 18),
                                   const SizedBox(width: 10),
-                                  Text(_l10n.exportExcel)
+                                  Text(tr(_l10n.exportExcel))
                                 ])),
                           PopupMenuItem(
                               value: 'dept',
                               child: Row(children: [
                                 const Icon(Icons.business, size: 18),
                                 const SizedBox(width: 10),
-                                Text(_l10n.department)
+                                Text(tr(_l10n.department))
                               ])),
                         ],
                       ),
@@ -891,14 +891,13 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            _l10n.hrManagement,
+                            tr(_l10n.hrManagement),
                             style: const TextStyle(
                                 fontSize: 20,
                                 fontWeight: FontWeight.bold,
                                 color: Colors.white),
                           ),
-                          Text(
-                            '${_filteredEmployees.length} nhân viên',
+                          Text(tr('${_filteredEmployees.length} nhân viên'),
                             style: TextStyle(
                                 fontSize: 12,
                                 color: Colors.white.withValues(alpha: 0.8)),
@@ -954,7 +953,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
     final codeController = TextEditingController();
     final nameController = TextEditingController();
     final descController = TextEditingController();
-    final sortOrderController = TextEditingController(text: '0');
+    final sortOrderController = TextEditingController(text: tr('0'));
 
     String? selectedParentId;
     String? selectedManagerId;
@@ -989,9 +988,9 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                 children: [
                   TextFormField(
                     controller: codeController,
-                    decoration: const InputDecoration(
-                      labelText: 'Mã phòng ban *',
-                      hintText: 'VD: IT, HR, SALES...',
+                    decoration: InputDecoration(
+                      labelText: tr('Mã phòng ban *'),
+                      hintText: tr('VD: IT, HR, SALES...'),
                       prefixIcon: Icon(Icons.code),
                     ),
                     validator: (v) =>
@@ -1000,9 +999,9 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                   const SizedBox(height: 16),
                   TextFormField(
                     controller: nameController,
-                    decoration: const InputDecoration(
-                      labelText: 'Tên phòng ban *',
-                      hintText: 'VD: Phòng Công nghệ Thông tin',
+                    decoration: InputDecoration(
+                      labelText: tr('Tên phòng ban *'),
+                      hintText: tr('VD: Phòng Công nghệ Thông tin'),
                       prefixIcon: Icon(Icons.business),
                     ),
                     autofocus: true,
@@ -1012,18 +1011,18 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                   const SizedBox(height: 16),
                   DropdownButtonFormField<String>(
                     initialValue: selectedParentId,
-                    decoration: const InputDecoration(
-                      labelText: 'Phòng ban cha',
+                    decoration: InputDecoration(
+                      labelText: tr('Phòng ban cha'),
                       prefixIcon: Icon(Icons.account_tree),
                     ),
                     items: [
-                      const DropdownMenuItem(
+                      DropdownMenuItem(
                         value: null,
-                        child: Text('Không có (Phòng ban gốc)'),
+                        child: Text(tr('Không có (Phòng ban gốc)')),
                       ),
                       ..._departmentList.map((d) => DropdownMenuItem(
                             value: d.id,
-                            child: Text(d.name),
+                            child: Text(tr(d.name)),
                           )),
                     ],
                     onChanged: (v) =>
@@ -1032,16 +1031,16 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                   const SizedBox(height: 16),
                   DropdownButtonFormField<String>(
                     initialValue: selectedManagerId,
-                    decoration: const InputDecoration(
-                      labelText: 'Quản lý phòng ban',
+                    decoration: InputDecoration(
+                      labelText: tr('Quản lý phòng ban'),
                       prefixIcon: Icon(Icons.person),
-                      hintText: 'Chọn người quản lý...',
+                      hintText: tr('Chọn người quản lý...'),
                     ),
                     isExpanded: true,
                     items: [
-                      const DropdownMenuItem(
+                      DropdownMenuItem(
                         value: null,
-                        child: Text('Chưa phân công',
+                        child: Text(tr('Chưa phân công'),
                             style: TextStyle(color: Colors.grey)),
                       ),
                       ..._employees.map((emp) {
@@ -1052,14 +1051,14 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                           child: Row(
                             children: [
                               Expanded(
-                                child: Text(fullName,
+                                child: Text(tr(fullName),
                                     style: const TextStyle(fontSize: 14),
                                     overflow: TextOverflow.ellipsis),
                               ),
                               if ((emp.position ?? '').isNotEmpty)
                                 Padding(
                                   padding: const EdgeInsets.only(left: 6),
-                                  child: Text(emp.position!,
+                                  child: Text(tr(emp.position!),
                                       style: TextStyle(
                                           fontSize: 11,
                                           color: Colors.grey[500])),
@@ -1074,8 +1073,8 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                   ),
                   const SizedBox(height: 16),
                   InputDecorator(
-                    decoration: const InputDecoration(
-                      labelText: 'Chức vụ trong phòng ban',
+                    decoration: InputDecoration(
+                      labelText: tr('Chức vụ trong phòng ban'),
                       prefixIcon: Icon(Icons.badge),
                       border: OutlineInputBorder(),
                       contentPadding: EdgeInsets.fromLTRB(12, 12, 12, 8),
@@ -1089,7 +1088,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                             runSpacing: 4,
                             children: selectedPositions
                                 .map((pos) => Chip(
-                                      label: Text(pos,
+                                      label: Text(tr(pos),
                                           style: const TextStyle(fontSize: 13)),
                                       deleteIcon:
                                           const Icon(Icons.close, size: 16),
@@ -1120,8 +1119,8 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                             return TextField(
                               controller: controller,
                               focusNode: focusNode,
-                              decoration: const InputDecoration(
-                                hintText: 'Nhập chức vụ hoặc chọn gợi ý...',
+                              decoration: InputDecoration(
+                                hintText: tr('Nhập chức vụ hoặc chọn gợi ý...'),
                                 border: InputBorder.none,
                                 isDense: true,
                                 contentPadding:
@@ -1154,7 +1153,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                               children: defaultPositionSuggestions
                                   .take(6)
                                   .map((s) => ActionChip(
-                                        label: Text(s,
+                                        label: Text(tr(s),
                                             style:
                                                 const TextStyle(fontSize: 12)),
                                         onPressed: () {
@@ -1176,8 +1175,8 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                   const SizedBox(height: 16),
                   TextFormField(
                     controller: descController,
-                    decoration: const InputDecoration(
-                      labelText: 'Mô tả',
+                    decoration: InputDecoration(
+                      labelText: tr('Mô tả'),
                       prefixIcon: Icon(Icons.description),
                     ),
                     maxLines: 2,
@@ -1185,8 +1184,8 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                   const SizedBox(height: 16),
                   TextFormField(
                     controller: sortOrderController,
-                    decoration: const InputDecoration(
-                      labelText: 'Thứ tự hiển thị',
+                    decoration: InputDecoration(
+                      labelText: tr('Thứ tự hiển thị'),
                       prefixIcon: Icon(Icons.sort),
                     ),
                     keyboardType: TextInputType.number,
@@ -1220,7 +1219,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
               });
               if (mounted) {
                 NotificationOverlayManager().showSuccess(
-                    title: 'Thành công', message: 'Đã thêm phòng ban "$name"');
+                    title: 'Thành công', message: tr('Đã thêm phòng ban "$name"'));
               }
             } else {
               if (mounted) {
@@ -1239,7 +1238,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                 height: double.infinity,
                 child: Scaffold(
                   appBar: AppBar(
-                    title: const Text('Thêm phòng ban mới'),
+                    title: Text(tr('Thêm phòng ban mới')),
                     leading: IconButton(
                         icon: const Icon(Icons.close),
                         onPressed: () => Navigator.pop(ctx)),
@@ -1252,11 +1251,11 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                         children: [
                           TextButton(
                               onPressed: () => Navigator.pop(ctx),
-                              child: Text(_l10n.cancel)),
+                              child: Text(tr(_l10n.cancel))),
                           const SizedBox(width: 12),
                           FilledButton.icon(
                               icon: const Icon(Icons.add, size: 18),
-                              label: const Text('Tạo mới'),
+                              label: Text(tr('Tạo mới')),
                               onPressed: onSave),
                         ]),
                   ),
@@ -1265,11 +1264,11 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
             );
           }
           return ScrollableAlertDialog(
-            title: const Row(
+            title: Row(
               children: [
                 Icon(Icons.business, color: HrmPageChrome.primaryNavy),
                 SizedBox(width: 8),
-                Text('Thêm phòng ban mới', style: TextStyle(fontSize: 16)),
+                Text(tr('Thêm phòng ban mới'), style: TextStyle(fontSize: 16)),
               ],
             ),
             content: SizedBox(
@@ -1304,7 +1303,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
             children: [
               Icon(icon, size: 16, color: Colors.white),
               const SizedBox(width: 6),
-              Text(label,
+              Text(tr(label),
                   style: const TextStyle(
                       fontSize: 12,
                       color: Colors.white,
@@ -1373,13 +1372,13 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
           children: [
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-              child: Text(title,
+              child: Text(tr(title),
                   style: const TextStyle(
                       fontSize: 16, fontWeight: FontWeight.w700)),
             ),
             ...options.map(
               (o) => ListTile(
-                title: Text(o.label, style: const TextStyle(fontSize: 15)),
+                title: Text(tr(o.label), style: const TextStyle(fontSize: 15)),
                 onTap: () {
                   Navigator.pop(ctx);
                   o.onPick();
@@ -1394,7 +1393,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
   }
 
   Future<void> _pickSearchFilter() async {
-    final ctrl = TextEditingController(text: _searchQuery);
+    final ctrl = TextEditingController(text: tr(_searchQuery));
     final result = await showAppSheet<String?>(
       context: context,
       isScrollControlled: true,
@@ -1410,14 +1409,14 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Text('Tìm nhân viên',
+            Text(tr('Tìm nhân viên'),
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
             const SizedBox(height: 12),
             TextField(
               controller: ctrl,
               autofocus: true,
-              decoration: const InputDecoration(
-                hintText: 'Tên, mã NV, SĐT…',
+              decoration: InputDecoration(
+                hintText: tr('Tên, mã NV, SĐT…'),
                 prefixIcon: Icon(Icons.search),
                 border: OutlineInputBorder(),
               ),
@@ -1428,14 +1427,14 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                 Expanded(
                   child: OutlinedButton(
                     onPressed: () => Navigator.pop(ctx, ''),
-                    child: const Text('Xóa'),
+                    child: Text(tr('Xóa')),
                   ),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: FilledButton(
                     onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
-                    child: const Text('Áp dụng'),
+                    child: Text(tr('Áp dụng')),
                   ),
                 ),
               ],
@@ -1494,7 +1493,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                       color: active ? accent : Colors.grey[500]),
                   const SizedBox(width: 5),
                   Expanded(
-                    child: Text(title,
+                    child: Text(tr(title),
                         style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w600,
@@ -1508,7 +1507,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
               ),
               const SizedBox(height: 6),
               Text(
-                value,
+                tr(value),
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w700,
@@ -1707,7 +1706,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                 Icon(Icons.analytics_outlined,
                     size: 16, color: Colors.blue.shade700),
                 const SizedBox(width: 6),
-                Text('Tổng quan & bộ lọc',
+                Text(tr('Tổng quan & bộ lọc'),
                     style: TextStyle(
                         fontWeight: FontWeight.w600,
                         fontSize: 13,
@@ -1744,7 +1743,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
 
   Widget _buildEmployeesDesktopBody() {
     if (_isLoading) {
-      return const LoadingWidget(message: 'Đang tải nhân viên...');
+      return LoadingWidget(message: tr('Đang tải nhân viên...'));
     }
     if (_filteredEmployees.isEmpty) {
       return EmptyState(
@@ -1766,7 +1765,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
     if (_isLoading) {
       return [
         HrmScrollSlivers.fillRemaining(
-            child: const LoadingWidget(message: 'Đang tải nhân viên...')),
+            child: LoadingWidget(message: tr('Đang tải nhân viên...'))),
       ];
     }
     if (_filteredEmployees.isEmpty) {
@@ -1890,7 +1889,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
     DataColumn col(String label, {double? width}) => DataColumn(
           label: SizedBox(
             width: width,
-            child: Text(label, style: _tableHeaderStyle),
+            child: Text(tr(label), style: _tableHeaderStyle),
           ),
         );
 
@@ -1971,7 +1970,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                                     ),
                                   ),
                                   DataCell(Text(
-                                    employee.employeeCode,
+                                    tr(employee.employeeCode),
                                     style: const TextStyle(
                                       color: Color(0xFF3B82F6),
                                       fontWeight: FontWeight.w600,
@@ -1979,7 +1978,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                                     ),
                                   )),
                                   DataCell(Text(
-                                    employee.fullName,
+                                    tr(employee.fullName),
                                     style: const TextStyle(
                                       fontWeight: FontWeight.w600,
                                       fontSize: 13,
@@ -1987,24 +1986,24 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                                   )),
                                   if (showBranchCol)
                                     DataCell(Text(
-                                      branchLabel,
+                                      tr(branchLabel),
                                       style: const TextStyle(fontSize: 12),
                                     )),
                                   DataCell(Text(
-                                    _employeeDepartmentLabel(employee),
+                                    tr(_employeeDepartmentLabel(employee)),
                                     style: const TextStyle(fontSize: 12),
                                   )),
                                   DataCell(Text(
-                                    employee.position?.trim().isNotEmpty ==
+                                    tr(employee.position?.trim().isNotEmpty ==
                                             true
                                         ? employee.position!
-                                        : '—',
+                                        : '—'),
                                     style: const TextStyle(fontSize: 12),
                                   )),
                                   DataCell(Text(
-                                    employee.phone?.trim().isNotEmpty == true
+                                    tr(employee.phone?.trim().isNotEmpty == true
                                         ? employee.phone!
-                                        : '—',
+                                        : '—'),
                                     style: const TextStyle(fontSize: 12),
                                   )),
                                   DataCell(_buildStatusChip(
@@ -2037,7 +2036,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
         IconButton(
           icon: const Icon(Icons.visibility_outlined,
               size: 20, color: Color(0xFF71717A)),
-          tooltip: 'Xem',
+          tooltip: tr('Xem'),
           onPressed: () => _showEmployeeDetails(employee),
           visualDensity: VisualDensity.compact,
         ),
@@ -2045,7 +2044,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
           IconButton(
             icon: const Icon(Icons.edit_outlined,
                 size: 20, color: HrmPageChrome.primaryNavy),
-            tooltip: _l10n.edit,
+            tooltip: tr(_l10n.edit),
             onPressed: () => _showEmployeeForm(employee),
             visualDensity: VisualDensity.compact,
           ),
@@ -2073,15 +2072,15 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
         runSpacing: 8,
         children: [
           Text(
-            totalCount > 0
+            tr(totalCount > 0
                 ? 'Hiển thị ${startIndex + 1}-$endIndex / $totalCount'
-                : 'Không có dữ liệu',
+                : 'Không có dữ liệu'),
             style: TextStyle(fontSize: 12, color: Colors.grey[600]),
           ),
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('Hiển thị:',
+              Text(tr('Hiển thị:'),
                   style: TextStyle(fontSize: 12, color: Colors.grey[500])),
               const SizedBox(width: 8),
               Container(
@@ -2099,7 +2098,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                     style: TextStyle(fontSize: 13, color: Colors.grey[800]),
                     items: _pageSizeOptions
                         .map((s) =>
-                            DropdownMenuItem(value: s, child: Text('$s')))
+                            DropdownMenuItem(value: s, child: Text(tr('$s'))))
                         .toList(),
                     onChanged: (v) {
                       if (v != null) {
@@ -2138,7 +2137,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                   color: Theme.of(context).primaryColor,
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: Text('$_currentPage / $totalPages',
+                child: Text(tr('$_currentPage / $totalPages'),
                     style: const TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
@@ -2186,7 +2185,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                     size: 14, color: Theme.of(context).primaryColor),
                 const SizedBox(width: 6),
                 Text(
-                  name,
+                  tr(name),
                   style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w700,
@@ -2200,7 +2199,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                     color: Theme.of(context).primaryColor,
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: Text('$count',
+                  child: Text(tr('$count'),
                       style: const TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
@@ -2273,7 +2272,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    employee.fullName,
+                    tr(employee.fullName),
                     style: const TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w700,
@@ -2285,7 +2284,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    employee.employeeCode,
+                    tr(employee.employeeCode),
                     style: const TextStyle(
                       color: Color(0xFF3B82F6),
                       fontSize: 12,
@@ -2307,7 +2306,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                       const SizedBox(width: 5),
                       Expanded(
                         child: Text(
-                          dept,
+                          tr(dept),
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight:
@@ -2331,7 +2330,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                         const SizedBox(width: 5),
                         Expanded(
                           child: Text(
-                            position,
+                            tr(position),
                             style: const TextStyle(
                               fontSize: 12,
                               color: Color(0xFF71717A),
@@ -2369,12 +2368,12 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(employee.fullName,
+                  Text(tr(employee.fullName),
                       style: const TextStyle(
                           fontSize: 14, fontWeight: FontWeight.w600),
                       overflow: TextOverflow.ellipsis),
                   const SizedBox(height: 3),
-                  Text(employee.employeeCode,
+                  Text(tr(employee.employeeCode),
                       style: const TextStyle(
                           color: Color(0xFF3B82F6),
                           fontSize: 11,
@@ -2392,7 +2391,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                       const SizedBox(width: 4),
                       Expanded(
                         child: Text(
-                          dept,
+                          tr(dept),
                           style: TextStyle(
                             fontSize: 11,
                             color: hasDept
@@ -2413,7 +2412,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                             size: 11, color: Color(0xFFA1A1AA)),
                         const SizedBox(width: 3),
                         Flexible(
-                            child: Text(employee.position!,
+                            child: Text(tr(employee.position!),
                                 style: const TextStyle(
                                     color: Color(0xFF71717A), fontSize: 11),
                                 overflow: TextOverflow.ellipsis)),
@@ -2422,7 +2421,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                           employee.position!.trim().isNotEmpty &&
                           employee.phone != null &&
                           employee.phone!.isNotEmpty)
-                        const Text(' · ',
+                        Text(tr(' · '),
                             style: TextStyle(
                                 color: Color(0xFFA1A1AA), fontSize: 11)),
                       if (employee.phone != null &&
@@ -2430,7 +2429,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                         const Icon(Icons.phone_outlined,
                             size: 11, color: Color(0xFFA1A1AA)),
                         const SizedBox(width: 3),
-                        Text(employee.phone!,
+                        Text(tr(employee.phone!),
                             style: const TextStyle(
                                 color: Color(0xFF71717A), fontSize: 11)),
                       ],
@@ -2469,45 +2468,45 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                 }
               },
               itemBuilder: (context) => [
-                const PopupMenuItem(
+                PopupMenuItem(
                   value: 'view',
                   child: Row(
                     children: [
                       Icon(Icons.visibility, size: 20),
                       SizedBox(width: 12),
-                      Text('View Details'),
+                      Text(tr('View Details')),
                     ],
                   ),
                 ),
                 if (_perm.canEdit(_module))
-                  const PopupMenuItem(
+                  PopupMenuItem(
                     value: 'edit',
                     child: Row(
                       children: [
                         Icon(Icons.edit, size: 20),
                         SizedBox(width: 12),
-                        Text('Edit'),
+                        Text(tr('Edit')),
                       ],
                     ),
                   ),
                 if (employee.phone != null && employee.phone!.isNotEmpty)
-                  const PopupMenuItem(
+                  PopupMenuItem(
                     value: 'call',
                     child: Row(
                       children: [
                         Icon(Icons.phone, size: 20, color: Colors.green),
                         SizedBox(width: 12),
-                        Text('Call', style: TextStyle(color: Colors.green)),
+                        Text(tr('Call'), style: TextStyle(color: Colors.green)),
                       ],
                     ),
                   ),
-                const PopupMenuItem(
+                PopupMenuItem(
                   value: 'salary',
                   child: Row(
                     children: [
                       Icon(Icons.payments, size: 20, color: Colors.blue),
                       SizedBox(width: 12),
-                      Text('Salary Settings',
+                      Text(tr('Salary Settings'),
                           style: TextStyle(color: Colors.blue)),
                     ],
                   ),
@@ -2519,7 +2518,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                       children: [
                         const Icon(Icons.delete, size: 20, color: Colors.red),
                         const SizedBox(width: 12),
-                        Text(_l10n.delete,
+                        Text(tr(_l10n.delete),
                             style: const TextStyle(color: Colors.red)),
                       ],
                     ),
@@ -2545,7 +2544,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
         border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Text(
-        status,
+        tr(status),
         style: TextStyle(
           color: color,
           fontSize: 11,
@@ -2564,34 +2563,34 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
     }
 
     final employeeCodeController =
-        TextEditingController(text: employee?.employeeCode ?? '');
+        TextEditingController(text: tr(employee?.employeeCode ?? ''));
     final fullNameController =
-        TextEditingController(text: employee?.fullName ?? '');
-    final phoneController = TextEditingController(text: employee?.phone ?? '');
-    final emailController = TextEditingController(text: employee?.email ?? '');
+        TextEditingController(text: tr(employee?.fullName ?? ''));
+    final phoneController = TextEditingController(text: tr(employee?.phone ?? ''));
+    final emailController = TextEditingController(text: tr(employee?.email ?? ''));
     final companyEmailController =
-        TextEditingController(text: employee?.companyEmail ?? '');
+        TextEditingController(text: tr(employee?.companyEmail ?? ''));
     final permanentAddressController =
-        TextEditingController(text: employee?.permanentAddress ?? '');
+        TextEditingController(text: tr(employee?.permanentAddress ?? ''));
     final temporaryAddressController =
-        TextEditingController(text: employee?.temporaryAddress ?? '');
+        TextEditingController(text: tr(employee?.temporaryAddress ?? ''));
     final emergencyContactController =
-        TextEditingController(text: employee?.emergencyContact ?? '');
+        TextEditingController(text: tr(employee?.emergencyContact ?? ''));
     final emergencyContactNameController =
-        TextEditingController(text: employee?.emergencyContactName ?? '');
+        TextEditingController(text: tr(employee?.emergencyContactName ?? ''));
     final departmentController =
-        TextEditingController(text: employee?.department ?? '');
+        TextEditingController(text: tr(employee?.department ?? ''));
     final positionController =
-        TextEditingController(text: employee?.position ?? '');
+        TextEditingController(text: tr(employee?.position ?? ''));
     final bankAccountNameController = TextEditingController(
-        text: employee?.bankAccountName ??
+        text: tr(employee?.bankAccountName ??
             (isEditing && employee.fullName.isNotEmpty
                 ? _removeVietnameseAccents(employee.fullName).toUpperCase()
-                : ''));
+                : '')));
     final bankAccountNumberController =
-        TextEditingController(text: employee?.bankAccountNumber ?? '');
+        TextEditingController(text: tr(employee?.bankAccountNumber ?? ''));
     final nationalIdController =
-        TextEditingController(text: employee?.nationalId ?? '');
+        TextEditingController(text: tr(employee?.nationalId ?? ''));
     String? selectedHometown = employee?.hometown;
 
     String? selectedBank = employee?.bankName;
@@ -2667,7 +2666,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                                   color: Colors.grey[400],
                                 ),
                                 const SizedBox(height: 4),
-                                Text('Tải ảnh lên',
+                                Text(tr('Tải ảnh lên'),
                                     style: TextStyle(
                                         fontSize: 10, color: Colors.grey[500])),
                               ],
@@ -2718,16 +2717,16 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                           });
                           NotificationOverlayManager().showSuccess(
                               title: 'CCCD',
-                              message: 'Đã điền thông tin từ CCCD');
+                              message: tr('Đã điền thông tin từ CCCD'));
                         } else {
                           NotificationOverlayManager().showError(
                               title: 'Lỗi',
-                              message: 'Mã QR không đúng định dạng CCCD');
+                              message: tr('Mã QR không đúng định dạng CCCD'));
                         }
                       }
                     },
                     icon: const Icon(Icons.qr_code_scanner, size: 20),
-                    label: const Text('Quét QR căn cước công dân'),
+                    label: Text(tr('Quét QR căn cước công dân')),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: HrmPageChrome.primaryNavy,
                       side: const BorderSide(color: HrmPageChrome.primaryNavy),
@@ -2741,8 +2740,8 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                 if (isMobileForm) ...[
                   TextField(
                     controller: employeeCodeController,
-                    decoration: const InputDecoration(
-                      labelText: 'Mã nhân viên *',
+                    decoration: InputDecoration(
+                      labelText: tr('Mã nhân viên *'),
                       prefixIcon: Icon(Icons.badge),
                     ),
                     enabled: !isEditing,
@@ -2750,10 +2749,10 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                   const SizedBox(height: 12),
                   TextField(
                     controller: fullNameController,
-                    decoration: const InputDecoration(
-                      labelText: 'Tên nhân viên *',
+                    decoration: InputDecoration(
+                      labelText: tr('Tên nhân viên *'),
                       prefixIcon: Icon(Icons.person),
-                      hintText: 'VD: Nguyễn Văn A',
+                      hintText: tr('VD: Nguyễn Văn A'),
                     ),
                     onChanged: (_) => autoFillBankAccountName(),
                   ),
@@ -2763,8 +2762,8 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                       Expanded(
                         child: TextField(
                           controller: employeeCodeController,
-                          decoration: const InputDecoration(
-                            labelText: 'Mã nhân viên *',
+                          decoration: InputDecoration(
+                            labelText: tr('Mã nhân viên *'),
                             prefixIcon: Icon(Icons.badge),
                           ),
                           enabled: !isEditing,
@@ -2775,10 +2774,10 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                         flex: 2,
                         child: TextField(
                           controller: fullNameController,
-                          decoration: const InputDecoration(
-                            labelText: 'Tên nhân viên *',
+                          decoration: InputDecoration(
+                            labelText: tr('Tên nhân viên *'),
                             prefixIcon: Icon(Icons.person),
-                            hintText: 'VD: Nguyễn Văn A',
+                            hintText: tr('VD: Nguyễn Văn A'),
                           ),
                           onChanged: (_) => autoFillBankAccountName(),
                         ),
@@ -2792,12 +2791,12 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                     initialValue: _genders.contains(selectedGender)
                         ? selectedGender
                         : null,
-                    decoration: const InputDecoration(
-                      labelText: 'Giới tính',
+                    decoration: InputDecoration(
+                      labelText: tr('Giới tính'),
                       prefixIcon: Icon(Icons.wc),
                     ),
                     items: _genders
-                        .map((g) => DropdownMenuItem(value: g, child: Text(g)))
+                        .map((g) => DropdownMenuItem(value: g, child: Text(tr(g))))
                         .toList(),
                     onChanged: (value) =>
                         setDialogState(() => selectedGender = value),
@@ -2817,14 +2816,14 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                     },
                     child: InputDecorator(
                       decoration: InputDecoration(
-                        labelText: _l10n.birthDate,
+                        labelText: tr(_l10n.birthDate),
                         prefixIcon: const Icon(Icons.cake),
                       ),
                       child: Text(
-                        selectedDateOfBirth != null
+                        tr(selectedDateOfBirth != null
                             ? DateFormat('dd/MM/yyyy')
                                 .format(selectedDateOfBirth!)
-                            : 'Chọn ngày',
+                            : 'Chọn ngày'),
                       ),
                     ),
                   ),
@@ -2834,12 +2833,12 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                         _maritalStatuses.contains(selectedMaritalStatus)
                             ? selectedMaritalStatus
                             : null,
-                    decoration: const InputDecoration(
-                      labelText: 'Tình trạng hôn nhân',
+                    decoration: InputDecoration(
+                      labelText: tr('Tình trạng hôn nhân'),
                       prefixIcon: Icon(Icons.favorite),
                     ),
                     items: _maritalStatuses
-                        .map((s) => DropdownMenuItem(value: s, child: Text(s)))
+                        .map((s) => DropdownMenuItem(value: s, child: Text(tr(s))))
                         .toList(),
                     onChanged: (value) =>
                         setDialogState(() => selectedMaritalStatus = value),
@@ -2852,13 +2851,13 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                           initialValue: _genders.contains(selectedGender)
                               ? selectedGender
                               : null,
-                          decoration: const InputDecoration(
-                            labelText: 'Giới tính',
+                          decoration: InputDecoration(
+                            labelText: tr('Giới tính'),
                             prefixIcon: Icon(Icons.wc),
                           ),
                           items: _genders
                               .map((g) =>
-                                  DropdownMenuItem(value: g, child: Text(g)))
+                                  DropdownMenuItem(value: g, child: Text(tr(g))))
                               .toList(),
                           onChanged: (value) =>
                               setDialogState(() => selectedGender = value),
@@ -2881,14 +2880,14 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                           },
                           child: InputDecorator(
                             decoration: InputDecoration(
-                              labelText: _l10n.birthDate,
+                              labelText: tr(_l10n.birthDate),
                               prefixIcon: const Icon(Icons.cake),
                             ),
                             child: Text(
-                              selectedDateOfBirth != null
+                              tr(selectedDateOfBirth != null
                                   ? DateFormat('dd/MM/yyyy')
                                       .format(selectedDateOfBirth!)
-                                  : 'Chọn ngày',
+                                  : 'Chọn ngày'),
                             ),
                           ),
                         ),
@@ -2900,13 +2899,13 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                               _maritalStatuses.contains(selectedMaritalStatus)
                                   ? selectedMaritalStatus
                                   : null,
-                          decoration: const InputDecoration(
-                            labelText: 'Tình trạng hôn nhân',
+                          decoration: InputDecoration(
+                            labelText: tr('Tình trạng hôn nhân'),
                             prefixIcon: Icon(Icons.favorite),
                           ),
                           items: _maritalStatuses
                               .map((s) =>
-                                  DropdownMenuItem(value: s, child: Text(s)))
+                                  DropdownMenuItem(value: s, child: Text(tr(s))))
                               .toList(),
                           onChanged: (value) => setDialogState(
                               () => selectedMaritalStatus = value),
@@ -2918,15 +2917,15 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                 const SizedBox(height: 16),
                 TextField(
                   controller: nationalIdController,
-                  decoration: const InputDecoration(
-                    labelText: 'Số CCCD/CMND',
+                  decoration: InputDecoration(
+                    labelText: tr('Số CCCD/CMND'),
                     prefixIcon: Icon(Icons.credit_card),
                   ),
                 ),
                 const SizedBox(height: 16),
                 // Quê quán — Autocomplete 34 tỉnh thành
                 Autocomplete<String>(
-                  initialValue: TextEditingValue(text: selectedHometown ?? ''),
+                  initialValue: TextEditingValue(text: tr(selectedHometown ?? '')),
                   optionsBuilder: (TextEditingValue textEditingValue) {
                     if (textEditingValue.text.isEmpty) {
                       return _vietnamProvinces;
@@ -2944,10 +2943,10 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                       controller: controller,
                       focusNode: focusNode,
                       onChanged: (value) => selectedHometown = value,
-                      decoration: const InputDecoration(
-                        labelText: 'Quê quán',
+                      decoration: InputDecoration(
+                        labelText: tr('Quê quán'),
                         prefixIcon: Icon(Icons.location_on_outlined),
-                        hintText: 'Chọn hoặc tìm tỉnh/thành...',
+                        hintText: tr('Chọn hoặc tìm tỉnh/thành...'),
                       ),
                     );
                   },
@@ -2973,7 +2972,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                                 dense: true,
                                 leading: const Icon(Icons.location_on,
                                     size: 16, color: HrmPageChrome.primaryNavy),
-                                title: Text(option,
+                                title: Text(tr(option),
                                     style: const TextStyle(fontSize: 13)),
                                 onTap: () => onSelected(option),
                               );
@@ -2998,21 +2997,21 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                   ].contains(selectedEducationLevel)
                       ? selectedEducationLevel
                       : null,
-                  decoration: const InputDecoration(
-                    labelText: 'Trình độ học vấn',
+                  decoration: InputDecoration(
+                    labelText: tr('Trình độ học vấn'),
                     prefixIcon: Icon(Icons.school),
                   ),
-                  items: const [
+                  items: [
                     DropdownMenuItem(
-                        value: 'Trung học', child: Text('Trung học')),
+                        value: 'Trung học', child: Text(tr('Trung học'))),
                     DropdownMenuItem(
-                        value: 'Trung cấp', child: Text('Trung cấp')),
+                        value: 'Trung cấp', child: Text(tr('Trung cấp'))),
                     DropdownMenuItem(
-                        value: 'Cao đẳng', child: Text('Cao đẳng')),
-                    DropdownMenuItem(value: 'Đại học', child: Text('Đại học')),
-                    DropdownMenuItem(value: 'Thạc sĩ', child: Text('Thạc sĩ')),
-                    DropdownMenuItem(value: 'Tiến sĩ', child: Text('Tiến sĩ')),
-                    DropdownMenuItem(value: 'Khác', child: Text('Khác')),
+                        value: 'Cao đẳng', child: Text(tr('Cao đẳng'))),
+                    DropdownMenuItem(value: 'Đại học', child: Text(tr('Đại học'))),
+                    DropdownMenuItem(value: 'Thạc sĩ', child: Text(tr('Thạc sĩ'))),
+                    DropdownMenuItem(value: 'Tiến sĩ', child: Text(tr('Tiến sĩ'))),
+                    DropdownMenuItem(value: 'Khác', child: Text(tr('Khác'))),
                   ],
                   onChanged: (value) {
                     selectedEducationLevel = value;
@@ -3026,7 +3025,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                   TextField(
                     controller: phoneController,
                     decoration: InputDecoration(
-                      labelText: _l10n.phone,
+                      labelText: tr(_l10n.phone),
                       prefixIcon: const Icon(Icons.phone),
                     ),
                     keyboardType: TextInputType.phone,
@@ -3034,8 +3033,8 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                   const SizedBox(height: 12),
                   TextField(
                     controller: emailController,
-                    decoration: const InputDecoration(
-                      labelText: 'Email cá nhân',
+                    decoration: InputDecoration(
+                      labelText: tr('Email cá nhân'),
                       prefixIcon: Icon(Icons.email),
                     ),
                     keyboardType: TextInputType.emailAddress,
@@ -3047,7 +3046,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                         child: TextField(
                           controller: phoneController,
                           decoration: InputDecoration(
-                            labelText: _l10n.phone,
+                            labelText: tr(_l10n.phone),
                             prefixIcon: const Icon(Icons.phone),
                           ),
                           keyboardType: TextInputType.phone,
@@ -3057,8 +3056,8 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                       Expanded(
                         child: TextField(
                           controller: emailController,
-                          decoration: const InputDecoration(
-                            labelText: 'Email cá nhân',
+                          decoration: InputDecoration(
+                            labelText: tr('Email cá nhân'),
                             prefixIcon: Icon(Icons.email),
                           ),
                           keyboardType: TextInputType.emailAddress,
@@ -3071,16 +3070,16 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                 if (isMobileForm) ...[
                   TextField(
                     controller: emergencyContactNameController,
-                    decoration: const InputDecoration(
-                      labelText: 'Tên người thân',
+                    decoration: InputDecoration(
+                      labelText: tr('Tên người thân'),
                       prefixIcon: Icon(Icons.person_outline),
                     ),
                   ),
                   const SizedBox(height: 12),
                   TextField(
                     controller: emergencyContactController,
-                    decoration: const InputDecoration(
-                      labelText: 'SĐT người thân',
+                    decoration: InputDecoration(
+                      labelText: tr('SĐT người thân'),
                       prefixIcon: Icon(Icons.contact_phone),
                     ),
                     keyboardType: TextInputType.phone,
@@ -3091,8 +3090,8 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                       Expanded(
                         child: TextField(
                           controller: emergencyContactNameController,
-                          decoration: const InputDecoration(
-                            labelText: 'Tên người thân',
+                          decoration: InputDecoration(
+                            labelText: tr('Tên người thân'),
                             prefixIcon: Icon(Icons.person_outline),
                           ),
                         ),
@@ -3101,8 +3100,8 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                       Expanded(
                         child: TextField(
                           controller: emergencyContactController,
-                          decoration: const InputDecoration(
-                            labelText: 'SĐT người thân',
+                          decoration: InputDecoration(
+                            labelText: tr('SĐT người thân'),
                             prefixIcon: Icon(Icons.contact_phone),
                           ),
                           keyboardType: TextInputType.phone,
@@ -3115,15 +3114,15 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                 TextField(
                   controller: permanentAddressController,
                   decoration: InputDecoration(
-                    labelText: _l10n.address,
+                    labelText: tr(_l10n.address),
                     prefixIcon: const Icon(Icons.home),
                   ),
                 ),
                 const SizedBox(height: 16),
                 TextField(
                   controller: temporaryAddressController,
-                  decoration: const InputDecoration(
-                    labelText: 'Địa chỉ tạm trú',
+                  decoration: InputDecoration(
+                    labelText: tr('Địa chỉ tạm trú'),
                     prefixIcon: Icon(Icons.location_on),
                   ),
                 ),
@@ -3142,14 +3141,14 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                               ? departmentController.text
                               : null,
                           decoration: InputDecoration(
-                            labelText: _l10n.department,
+                            labelText: tr(_l10n.department),
                             prefixIcon: const Icon(Icons.business),
-                            hintText: 'Select department',
+                            hintText: tr('Select department'),
                           ),
                           items: _departments
                               .where((d) => d != 'Tất cả')
                               .map((d) =>
-                                  DropdownMenuItem(value: d, child: Text(d)))
+                                  DropdownMenuItem(value: d, child: Text(tr(d))))
                               .toList(),
                           onChanged: (value) {
                             setDialogState(() {
@@ -3163,7 +3162,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                       IconButton(
                         icon: const Icon(Icons.add_circle_outline,
                             color: HrmPageChrome.primaryNavy),
-                        tooltip: 'Thêm phòng ban mới',
+                        tooltip: tr('Thêm phòng ban mới'),
                         onPressed: () => _showQuickAddDepartmentDialog(
                             setDialogState, departmentController),
                       ),
@@ -3183,15 +3182,15 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                                 ? positionController.text
                                 : null,
                         decoration: InputDecoration(
-                          labelText: _l10n.position,
+                          labelText: tr(_l10n.position),
                           prefixIcon: const Icon(Icons.work),
-                          hintText: deptName.isEmpty
+                          hintText: tr(deptName.isEmpty
                               ? 'Select department first'
-                              : 'Select position',
+                              : 'Select position'),
                         ),
                         items: availablePositions
                             .map((p) =>
-                                DropdownMenuItem(value: p, child: Text(p)))
+                                DropdownMenuItem(value: p, child: Text(tr(p))))
                             .toList(),
                         onChanged: deptName.isEmpty
                             ? null
@@ -3215,14 +3214,14 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                               ? departmentController.text
                               : null,
                           decoration: InputDecoration(
-                            labelText: _l10n.department,
+                            labelText: tr(_l10n.department),
                             prefixIcon: const Icon(Icons.business),
-                            hintText: 'Select department',
+                            hintText: tr('Select department'),
                           ),
                           items: _departments
                               .where((d) => d != 'Tất cả')
                               .map((d) =>
-                                  DropdownMenuItem(value: d, child: Text(d)))
+                                  DropdownMenuItem(value: d, child: Text(tr(d))))
                               .toList(),
                           onChanged: (value) {
                             setDialogState(() {
@@ -3238,7 +3237,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                       IconButton(
                         icon: const Icon(Icons.add_circle_outline,
                             color: HrmPageChrome.primaryNavy),
-                        tooltip: 'Thêm phòng ban mới',
+                        tooltip: tr('Thêm phòng ban mới'),
                         onPressed: () => _showQuickAddDepartmentDialog(
                             setDialogState, departmentController),
                       ),
@@ -3258,15 +3257,15 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                                   ? positionController.text
                                   : null,
                               decoration: InputDecoration(
-                                labelText: _l10n.position,
+                                labelText: tr(_l10n.position),
                                 prefixIcon: const Icon(Icons.work),
-                                hintText: deptName.isEmpty
+                                hintText: tr(deptName.isEmpty
                                     ? 'Select department first'
-                                    : 'Select position',
+                                    : 'Select position'),
                               ),
                               items: availablePositions
                                   .map((p) => DropdownMenuItem(
-                                      value: p, child: Text(p)))
+                                      value: p, child: Text(tr(p))))
                                   .toList(),
                               onChanged: deptName.isEmpty
                                   ? null
@@ -3288,7 +3287,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                 if (positionController.text.isNotEmpty) ...[
                   Autocomplete<Employee>(
                     initialValue:
-                        TextEditingValue(text: selectedManagerName ?? ''),
+                        TextEditingValue(text: tr(selectedManagerName ?? '')),
                     optionsBuilder: (TextEditingValue textEditingValue) {
                       final managers = _employees.where((e) =>
                           e.id != employee?.id &&
@@ -3320,10 +3319,10 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                       return TextField(
                         controller: controller,
                         focusNode: focusNode,
-                        decoration: const InputDecoration(
-                          labelText: 'Người quản lý',
+                        decoration: InputDecoration(
+                          labelText: tr('Người quản lý'),
                           prefixIcon: Icon(Icons.supervisor_account),
-                          hintText: 'Chọn quản lý',
+                          hintText: tr('Chọn quản lý'),
                         ),
                       );
                     },
@@ -3335,17 +3334,17 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                   DropdownButtonFormField<String?>(
                     key: ValueKey('branch_edit_$selectedBranchId'),
                     initialValue: selectedBranchId,
-                    decoration: const InputDecoration(
-                      labelText: 'Chi nhánh',
+                    decoration: InputDecoration(
+                      labelText: tr('Chi nhánh'),
                       prefixIcon: Icon(Icons.account_tree_outlined),
                     ),
                     items: [
-                      const DropdownMenuItem<String?>(
+                      DropdownMenuItem<String?>(
                           value: null,
-                          child: Text('Không thuộc chi nhánh nào')),
+                          child: Text(tr('Không thuộc chi nhánh nào'))),
                       ..._branches.map((b) => DropdownMenuItem<String?>(
                             value: b['id']?.toString(),
-                            child: Text(b['name']?.toString() ?? '',
+                            child: Text(tr(b['name']?.toString() ?? ''),
                                 overflow: TextOverflow.ellipsis),
                           )),
                     ],
@@ -3369,24 +3368,24 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                       }
                     },
                     child: InputDecorator(
-                      decoration: const InputDecoration(
-                        labelText: 'Ngày vào làm',
+                      decoration: InputDecoration(
+                        labelText: tr('Ngày vào làm'),
                         prefixIcon: Icon(Icons.calendar_today),
                       ),
                       child: Text(
-                        selectedJoinDate != null
+                        tr(selectedJoinDate != null
                             ? DateFormat('dd/MM/yyyy').format(selectedJoinDate!)
-                            : 'Chọn ngày',
+                            : 'Chọn ngày'),
                       ),
                     ),
                   ),
                   const SizedBox(height: 12),
                   TextField(
                     controller: companyEmailController,
-                    decoration: const InputDecoration(
-                      labelText: 'Email công ty',
+                    decoration: InputDecoration(
+                      labelText: tr('Email công ty'),
                       prefixIcon: Icon(Icons.alternate_email),
-                      hintText: 'VD: nva@company.com',
+                      hintText: tr('VD: nva@company.com'),
                     ),
                     keyboardType: TextInputType.emailAddress,
                   ),
@@ -3408,15 +3407,15 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                             }
                           },
                           child: InputDecorator(
-                            decoration: const InputDecoration(
-                              labelText: 'Ngày vào làm',
+                            decoration: InputDecoration(
+                              labelText: tr('Ngày vào làm'),
                               prefixIcon: Icon(Icons.calendar_today),
                             ),
                             child: Text(
-                              selectedJoinDate != null
+                              tr(selectedJoinDate != null
                                   ? DateFormat('dd/MM/yyyy')
                                       .format(selectedJoinDate!)
-                                  : 'Chọn ngày',
+                                  : 'Chọn ngày'),
                             ),
                           ),
                         ),
@@ -3425,10 +3424,10 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                       Expanded(
                         child: TextField(
                           controller: companyEmailController,
-                          decoration: const InputDecoration(
-                            labelText: 'Email công ty',
+                          decoration: InputDecoration(
+                            labelText: tr('Email công ty'),
                             prefixIcon: Icon(Icons.alternate_email),
-                            hintText: 'VD: nva@company.com',
+                            hintText: tr('VD: nva@company.com'),
                           ),
                           keyboardType: TextInputType.emailAddress,
                         ),
@@ -3447,13 +3446,13 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                             ? selectedWorkStatus
                             : 'Đang làm việc',
                         decoration: InputDecoration(
-                          labelText: _l10n.status,
+                          labelText: tr(_l10n.status),
                           prefixIcon: const Icon(Icons.toggle_on),
                         ),
                         items: _statuses
                             .where((s) => s != 'Tất cả')
                             .map((s) =>
-                                DropdownMenuItem(value: s, child: Text(s)))
+                                DropdownMenuItem(value: s, child: Text(tr(s))))
                             .toList(),
                         onChanged: (value) {
                           if (value != null) {
@@ -3479,18 +3478,18 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                           }
                         },
                         child: InputDecorator(
-                          decoration: const InputDecoration(
-                            labelText: 'Hết hạn HĐ',
+                          decoration: InputDecoration(
+                            labelText: tr('Hết hạn HĐ'),
                             prefixIcon: Icon(Icons.assignment_late_outlined),
                           ),
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               Text(
-                                selectedContractEndDate != null
+                                tr(selectedContractEndDate != null
                                     ? DateFormat('dd/MM/yyyy')
                                         .format(selectedContractEndDate!)
-                                    : 'Chọn ngày',
+                                    : 'Chọn ngày'),
                                 style: TextStyle(
                                   color: selectedContractEndDate != null
                                       ? null
@@ -3515,7 +3514,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                 // Thông tin ngân hàng
                 _buildSectionHeader('Thông tin ngân hàng'),
                 Autocomplete<String>(
-                  initialValue: TextEditingValue(text: selectedBank ?? ''),
+                  initialValue: TextEditingValue(text: tr(selectedBank ?? '')),
                   optionsBuilder: (TextEditingValue textEditingValue) {
                     if (textEditingValue.text.isEmpty) {
                       return _vietnamBanks;
@@ -3539,10 +3538,10 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                       focusNode: focusNode,
                       onChanged: (value) =>
                           setDialogState(() => selectedBank = value),
-                      decoration: const InputDecoration(
-                        labelText: 'Ngân hàng',
+                      decoration: InputDecoration(
+                        labelText: tr('Ngân hàng'),
                         prefixIcon: Icon(Icons.account_balance),
-                        hintText: 'Chọn hoặc nhập ngân hàng',
+                        hintText: tr('Chọn hoặc nhập ngân hàng'),
                       ),
                     );
                   },
@@ -3565,7 +3564,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                               final option = options.elementAt(index);
                               return ListTile(
                                 dense: true,
-                                title: Text(option,
+                                title: Text(tr(option),
                                     style: const TextStyle(fontSize: 13)),
                                 onTap: () => onSelected(option),
                               );
@@ -3595,10 +3594,10 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                     },
                     child: TextField(
                       controller: bankAccountNameController,
-                      decoration: const InputDecoration(
-                        labelText: 'Tên chủ tài khoản',
+                      decoration: InputDecoration(
+                        labelText: tr('Tên chủ tài khoản'),
                         prefixIcon: Icon(Icons.person_outline),
-                        hintText: 'VD: NGUYEN VAN A',
+                        hintText: tr('VD: NGUYEN VAN A'),
                       ),
                       textCapitalization: TextCapitalization.characters,
                       onChanged: (value) {
@@ -3606,7 +3605,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                             _removeVietnameseAccents(value).toUpperCase();
                         if (value != uppercaseValue) {
                           bankAccountNameController.value = TextEditingValue(
-                            text: uppercaseValue,
+                            text: tr(uppercaseValue),
                             selection: TextSelection.collapsed(
                                 offset: uppercaseValue.length),
                           );
@@ -3617,10 +3616,10 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                   const SizedBox(height: 12),
                   TextField(
                     controller: bankAccountNumberController,
-                    decoration: const InputDecoration(
-                      labelText: 'Số tài khoản',
+                    decoration: InputDecoration(
+                      labelText: tr('Số tài khoản'),
                       prefixIcon: Icon(Icons.numbers),
-                      hintText: 'VD: 1234567890',
+                      hintText: tr('VD: 1234567890'),
                     ),
                     keyboardType: TextInputType.number,
                   ),
@@ -3647,10 +3646,10 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                           },
                           child: TextField(
                             controller: bankAccountNameController,
-                            decoration: const InputDecoration(
-                              labelText: 'Tên chủ tài khoản',
+                            decoration: InputDecoration(
+                              labelText: tr('Tên chủ tài khoản'),
                               prefixIcon: Icon(Icons.person_outline),
-                              hintText: 'VD: NGUYEN VAN A',
+                              hintText: tr('VD: NGUYEN VAN A'),
                             ),
                             textCapitalization: TextCapitalization.characters,
                             onChanged: (value) {
@@ -3660,7 +3659,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                               if (value != uppercaseValue) {
                                 bankAccountNameController.value =
                                     TextEditingValue(
-                                  text: uppercaseValue,
+                                  text: tr(uppercaseValue),
                                   selection: TextSelection.collapsed(
                                       offset: uppercaseValue.length),
                                 );
@@ -3673,10 +3672,10 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                       Expanded(
                         child: TextField(
                           controller: bankAccountNumberController,
-                          decoration: const InputDecoration(
-                            labelText: 'Số tài khoản',
+                          decoration: InputDecoration(
+                            labelText: tr('Số tài khoản'),
                             prefixIcon: Icon(Icons.numbers),
-                            hintText: 'VD: 1234567890',
+                            hintText: tr('VD: 1234567890'),
                           ),
                           keyboardType: TextInputType.number,
                         ),
@@ -3854,7 +3853,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                 child: Scaffold(
                   appBar: AppBar(
                     title: Text(
-                        isEditing ? _l10n.editEmployee : _l10n.addNewEmployee),
+                        tr(isEditing ? _l10n.editEmployee : _l10n.addNewEmployee)),
                     leading: IconButton(
                         icon: const Icon(Icons.close),
                         onPressed: () => Navigator.pop(context)),
@@ -3867,7 +3866,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                         children: [
                           TextButton(
                               onPressed: () => Navigator.pop(context),
-                              child: Text(_l10n.cancel)),
+                              child: Text(tr(_l10n.cancel))),
                           const SizedBox(width: 12),
                           FilledButton(
                               onPressed: isSaving ? null : onSave,
@@ -3878,9 +3877,9 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                                       child: CircularProgressIndicator(
                                           strokeWidth: 2, color: Colors.white),
                                     )
-                                  : Text(isEditing
+                                  : Text(tr(isEditing
                                       ? _l10n.save
-                                      : _l10n.addEmployee)),
+                                      : _l10n.addEmployee))),
                         ]),
                   ),
                 ),
@@ -3888,7 +3887,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
             );
           }
           return ScrollableAlertDialog(
-            title: Text(isEditing ? _l10n.editEmployee : _l10n.addNewEmployee),
+            title: Text(tr(isEditing ? _l10n.editEmployee : _l10n.addNewEmployee)),
             content: SizedBox(
               width: MediaQuery.of(context).size.width < 600
                   ? MediaQuery.of(context).size.width - 32
@@ -3915,7 +3914,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Text(
-        title,
+        tr(title),
         style: const TextStyle(
           fontSize: 16,
           fontWeight: FontWeight.bold,
@@ -3971,11 +3970,11 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
       children: [
         Icon(icon, size: 28, color: Colors.grey[400]),
         const SizedBox(height: 4),
-        Text(label,
+        Text(tr(label),
             style: TextStyle(fontSize: 11, color: Colors.grey[500]),
             textAlign: TextAlign.center),
         const SizedBox(height: 2),
-        Text('Nhấn để tải lên',
+        Text(tr('Nhấn để tải lên'),
             style: TextStyle(fontSize: 9, color: Colors.grey[400])),
       ],
     );
@@ -4019,8 +4018,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
               ),
             ),
             const SizedBox(height: 12),
-            Text(
-              'Kéo và thu phóng để chọn vùng ảnh',
+            Text(tr('Kéo và thu phóng để chọn vùng ảnh'),
               style: TextStyle(color: Colors.grey[500], fontSize: 12),
             ),
           ],
@@ -4029,12 +4027,12 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
           TextButton(
             onPressed: () => Navigator.pop(ctx, null),
             child:
-                Text(_l10n.cancel, style: const TextStyle(color: Colors.grey)),
+                Text(tr(_l10n.cancel), style: const TextStyle(color: Colors.grey)),
           ),
           FilledButton.icon(
             onPressed: () => cropController.crop(),
             icon: const Icon(Icons.check, size: 18),
-            label: const Text('Xác nhận'),
+            label: Text(tr('Xác nhận')),
             style: FilledButton.styleFrom(
               backgroundColor: HrmPageChrome.primaryNavy,
             ),
@@ -4048,7 +4046,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
               height: double.infinity,
               child: Scaffold(
                 appBar: AppBar(
-                  title: const Text('Cắt ảnh'),
+                  title: Text(tr('Cắt ảnh')),
                   leading: IconButton(
                       icon: const Icon(Icons.close),
                       onPressed: () => Navigator.pop(ctx, null)),
@@ -4074,7 +4072,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
             children: [
               const Icon(Icons.crop, color: HrmPageChrome.primaryNavy),
               const SizedBox(width: 8),
-              const Text('Cắt ảnh',
+              Text(tr('Cắt ảnh'),
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
               const Spacer(),
               IconButton(
@@ -4178,7 +4176,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
         final field = TextField(
             controller: ctrl,
             decoration: InputDecoration(
-                labelText: label,
+                labelText: tr(label),
                 border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10))));
         if (isMobile) {
@@ -4189,7 +4187,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
               height: double.infinity,
               child: Scaffold(
                 appBar: AppBar(
-                  title: Text(title),
+                  title: Text(tr(title)),
                   leading: IconButton(
                       icon: const Icon(Icons.close),
                       onPressed: () => Navigator.pop(ctx, null)),
@@ -4201,11 +4199,11 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                       Row(mainAxisAlignment: MainAxisAlignment.end, children: [
                     TextButton(
                         onPressed: () => Navigator.pop(ctx, null),
-                        child: Text(_l10n.cancel)),
+                        child: Text(tr(_l10n.cancel))),
                     const SizedBox(width: 12),
                     FilledButton(
                         onPressed: () => Navigator.pop(ctx, ctrl.text),
-                        child: const Text('Thêm')),
+                        child: Text(tr('Thêm'))),
                   ]),
                 ),
               ),
@@ -4213,7 +4211,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
           );
         }
         return ScrollableAlertDialog(
-          title: Text(title),
+          title: Text(tr(title)),
           content: field,
           actions: [
             AppDialogActions(
@@ -4242,9 +4240,9 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
               employee.avatarUrl != null ? (_, __) {} : null,
           child: employee.avatarUrl == null
               ? Text(
-                  employee.fullName.isNotEmpty
+                  tr(employee.fullName.isNotEmpty
                       ? employee.fullName[0].toUpperCase()
-                      : '?',
+                      : '?'),
                   style: TextStyle(
                     color: Theme.of(context).primaryColor,
                     fontWeight: FontWeight.bold,
@@ -4258,11 +4256,11 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(employee.fullName,
+              Text(tr(employee.fullName),
                   style: const TextStyle(
                       fontSize: 16, fontWeight: FontWeight.bold)),
               Text(
-                employee.position ?? 'Nhân viên',
+                tr(employee.position ?? 'Nhân viên'),
                 style: TextStyle(
                     fontSize: 14,
                     color: Colors.grey[600],
@@ -4445,7 +4443,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                         child: OutlinedButton.icon(
                           onPressed: () => _callEmployee(employee),
                           icon: const Icon(Icons.phone, size: 18),
-                          label: const Text('Gọi'),
+                          label: Text(tr('Gọi')),
                           style: OutlinedButton.styleFrom(
                             foregroundColor: Colors.green,
                             side: const BorderSide(color: Colors.green),
@@ -4459,7 +4457,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                       child: OutlinedButton.icon(
                         onPressed: openCareer,
                         icon: const Icon(Icons.work_history_outlined, size: 18),
-                        label: const Text('Quá trình CT'),
+                        label: Text(tr('Quá trình CT')),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: const Color(0xFF0369A1),
                           side: const BorderSide(color: Color(0xFF0369A1)),
@@ -4475,7 +4473,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                           backgroundColor: HrmPageChrome.primaryNavy,
                           padding: const EdgeInsets.symmetric(vertical: 10),
                         ),
-                        child: const Text('Đóng'),
+                        child: Text(tr('Đóng')),
                       ),
                     ),
                   ],
@@ -4487,7 +4485,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                     child: OutlinedButton.icon(
                       onPressed: openEdit,
                       icon: const Icon(Icons.edit_outlined, size: 18),
-                      label: const Text('Chỉnh sửa'),
+                      label: Text(tr('Chỉnh sửa')),
                     ),
                   ),
                 ],
@@ -4504,20 +4502,20 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
           onPressed: () => _callEmployee(employee),
           icon: const Icon(Icons.phone, color: Colors.green),
           label:
-              const Text('Gọi điện', style: TextStyle(color: Colors.green)),
+              Text(tr('Gọi điện'), style: TextStyle(color: Colors.green)),
         ),
       TextButton.icon(
         onPressed: openCareer,
         icon: const Icon(Icons.work_history_outlined, color: Color(0xFF0369A1)),
-        label: const Text('Quá trình CT',
+        label: Text(tr('Quá trình CT'),
             style: TextStyle(color: Color(0xFF0369A1))),
       ),
-      TextButton(onPressed: closeDetails, child: const Text('Đóng')),
+      TextButton(onPressed: closeDetails, child: Text(tr('Đóng'))),
       if (canEdit)
         FilledButton.icon(
           onPressed: openEdit,
           icon: const Icon(Icons.edit),
-          label: const Text('Chỉnh sửa'),
+          label: Text(tr('Chỉnh sửa')),
         ),
     ];
 
@@ -4532,7 +4530,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                 icon: const Icon(Icons.close),
                 onPressed: closeDetails,
               ),
-              title: Text(employee.fullName, overflow: TextOverflow.ellipsis),
+              title: Text(tr(employee.fullName), overflow: TextOverflow.ellipsis),
             ),
             body: SingleChildScrollView(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
@@ -4580,7 +4578,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          title,
+          tr(title),
           style: const TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.bold,
@@ -4608,7 +4606,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
           SizedBox(
             width: isMobile ? 100 : 140,
             child: Text(
-              label,
+              tr(label),
               style: TextStyle(color: Colors.grey[600], fontSize: 12),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
@@ -4616,7 +4614,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
           ),
           Expanded(
             child: Text(
-              value,
+              tr(value),
               style: const TextStyle(fontWeight: FontWeight.w500),
             ),
           ),
@@ -4638,9 +4636,9 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
     showDialog(
       context: context,
       builder: (context) => ScrollableAlertDialog(
-        title: const Text('Xác nhận xóa'),
+        title: Text(tr('Xác nhận xóa')),
         content:
-            Text('Bạn có chắc chắn muốn xóa nhân viên "${employee.fullName}"?'),
+            Text(tr('Bạn có chắc chắn muốn xóa nhân viên "${employee.fullName}"?')),
         actions: [
           AppDialogActions.delete(
             onConfirm: () async {
@@ -4728,9 +4726,8 @@ class _CccdQrScannerDialogState extends State<_CccdQrScannerDialog> {
                   const Icon(Icons.qr_code_scanner,
                       color: Colors.white, size: 22),
                   const SizedBox(width: 10),
-                  const Expanded(
-                    child: Text(
-                      'Quét QR Căn cước công dân',
+                  Expanded(
+                    child: Text(tr('Quét QR Căn cước công dân'),
                       style: TextStyle(
                           color: Colors.white,
                           fontSize: 16,
@@ -4846,8 +4843,7 @@ class _CccdQrScannerDialogState extends State<_CccdQrScannerDialog> {
                         const Icon(Icons.check_circle,
                             color: Color(0xFF059669), size: 24),
                         const SizedBox(height: 6),
-                        const Text(
-                          'Đã quét thành công!',
+                        Text(tr('Đã quét thành công!'),
                           style: TextStyle(
                             color: Color(0xFF059669),
                             fontWeight: FontWeight.w700,
@@ -4856,9 +4852,9 @@ class _CccdQrScannerDialogState extends State<_CccdQrScannerDialog> {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          _scannedPreview!.length > 60
+                          tr(_scannedPreview!.length > 60
                               ? '${_scannedPreview!.substring(0, 60)}...'
-                              : _scannedPreview!,
+                              : _scannedPreview!),
                           textAlign: TextAlign.center,
                           style: const TextStyle(
                               color: Color(0xFF586064), fontSize: 11),
@@ -4869,8 +4865,7 @@ class _CccdQrScannerDialogState extends State<_CccdQrScannerDialog> {
                       ? const SizedBox.shrink()
                       : Column(
                           children: [
-                            const Text(
-                              'Hướng camera vào mã QR trên CCCD',
+                            Text(tr('Hướng camera vào mã QR trên CCCD'),
                               textAlign: TextAlign.center,
                               style: TextStyle(
                                   color: Color(0xFF586064),
@@ -4878,8 +4873,7 @@ class _CccdQrScannerDialogState extends State<_CccdQrScannerDialog> {
                                   fontWeight: FontWeight.w500),
                             ),
                             const SizedBox(height: 4),
-                            Text(
-                              'Mã QR nằm ở mặt sau của thẻ căn cước',
+                            Text(tr('Mã QR nằm ở mặt sau của thẻ căn cước'),
                               textAlign: TextAlign.center,
                               style: TextStyle(
                                   color: Colors.grey[400], fontSize: 11),
@@ -4889,7 +4883,7 @@ class _CccdQrScannerDialogState extends State<_CccdQrScannerDialog> {
                               onPressed: () =>
                                   setState(() => _showManualInput = true),
                               icon: const Icon(Icons.keyboard, size: 16),
-                              label: const Text('Nhập thủ công',
+                              label: Text(tr('Nhập thủ công'),
                                   style: TextStyle(fontSize: 12)),
                             ),
                           ],
@@ -4911,13 +4905,12 @@ class _CccdQrScannerDialogState extends State<_CccdQrScannerDialog> {
             const Icon(Icons.videocam_off, color: Colors.red, size: 48),
             const SizedBox(height: 12),
             Text(
-              message,
+              tr(message),
               textAlign: TextAlign.center,
               style: const TextStyle(color: Colors.red, fontSize: 13),
             ),
             const SizedBox(height: 8),
-            const Text(
-              'Vui lòng kiểm tra:\n• Quyền truy cập camera trong trình duyệt\n• Kết nối qua HTTPS hoặc localhost',
+            Text(tr('Vui lòng kiểm tra:\n• Quyền truy cập camera trong trình duyệt\n• Kết nối qua HTTPS hoặc localhost'),
               textAlign: TextAlign.center,
               style: TextStyle(color: Color(0xFF586064), fontSize: 11),
             ),
@@ -4925,7 +4918,7 @@ class _CccdQrScannerDialogState extends State<_CccdQrScannerDialog> {
             FilledButton.icon(
               onPressed: () => setState(() => _showManualInput = true),
               icon: const Icon(Icons.keyboard, size: 16),
-              label: const Text('Nhập mã thủ công'),
+              label: Text(tr('Nhập mã thủ công')),
               style: FilledButton.styleFrom(
                 backgroundColor: HrmPageChrome.primaryNavy,
               ),
@@ -4944,13 +4937,11 @@ class _CccdQrScannerDialogState extends State<_CccdQrScannerDialog> {
         children: [
           const Icon(Icons.qr_code, color: HrmPageChrome.primaryNavy, size: 40),
           const SizedBox(height: 12),
-          const Text(
-            'Nhập dữ liệu QR CCCD',
+          Text(tr('Nhập dữ liệu QR CCCD'),
             style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
           ),
           const SizedBox(height: 4),
-          Text(
-            'Dán nội dung QR đã quét từ ứng dụng khác',
+          Text(tr('Dán nội dung QR đã quét từ ứng dụng khác'),
             style: TextStyle(color: Colors.grey[500], fontSize: 12),
           ),
           const SizedBox(height: 16),
@@ -4958,7 +4949,7 @@ class _CccdQrScannerDialogState extends State<_CccdQrScannerDialog> {
             controller: _manualController,
             maxLines: 4,
             decoration: InputDecoration(
-              hintText: 'VD: 079201001234|Nguyen Van A|...',
+              hintText: tr('VD: 079201001234|Nguyen Van A|...'),
               border:
                   OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
               contentPadding: const EdgeInsets.all(12),
@@ -4969,7 +4960,7 @@ class _CccdQrScannerDialogState extends State<_CccdQrScannerDialog> {
             children: [
               TextButton(
                 onPressed: () => setState(() => _showManualInput = false),
-                child: const Text('Quay lại camera'),
+                child: Text(tr('Quay lại camera')),
               ),
               const Spacer(),
               FilledButton(
@@ -4982,7 +4973,7 @@ class _CccdQrScannerDialogState extends State<_CccdQrScannerDialog> {
                 style: FilledButton.styleFrom(
                   backgroundColor: HrmPageChrome.primaryNavy,
                 ),
-                child: const Text('Xác nhận'),
+                child: Text(tr('Xác nhận')),
               ),
             ],
           ),

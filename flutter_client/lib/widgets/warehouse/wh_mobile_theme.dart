@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../l10n/app_tr.dart';
 
 /// Design tokens — Material 3 + iOS (glass nhẹ, bo góc lớn, nhiều khoảng trắng).
 abstract final class WhMobileTheme {
@@ -107,8 +108,8 @@ abstract final class WhMobileTheme {
     Widget? prefix,
   }) =>
       InputDecoration(
-        labelText: label,
-        hintText: hint,
+        labelText: trN(label),
+        hintText: trN(hint),
         hintStyle: caption.copyWith(color: textTertiary),
         labelStyle: WhMobileTheme.label,
         filled: true,

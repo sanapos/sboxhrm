@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../services/api_service.dart';
 import '../../utils/file_saver.dart' as file_saver;
 import 'system_admin_helpers.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 class ConsultationRequestsTab extends StatefulWidget {
   const ConsultationRequestsTab({super.key});
@@ -82,8 +83,7 @@ class ConsultationRequestsTabState extends State<ConsultationRequestsTab> {
           Row(
             children: [
               Expanded(
-                child: Text(
-                  'Lead tư vấn ($_total)',
+                child: Text(tr('Lead tư vấn ($_total)'),
                   style: const TextStyle(
                       fontSize: 18, fontWeight: FontWeight.bold),
                 ),
@@ -96,7 +96,7 @@ class ConsultationRequestsTabState extends State<ConsultationRequestsTab> {
               FilledButton.icon(
                 onPressed: (_loading || _items.isEmpty) ? null : _exportExcel,
                 icon: const Icon(Icons.download_rounded),
-                label: const Text('Xuất Excel'),
+                label: Text(tr('Xuất Excel')),
               ),
             ],
           ),
@@ -108,7 +108,7 @@ class ConsultationRequestsTabState extends State<ConsultationRequestsTab> {
                   controller: _searchCtrl,
                   onSubmitted: (_) => _load(),
                   decoration: InputDecoration(
-                    hintText: 'Tìm theo tên, SĐT, công ty, gói quan tâm',
+                    hintText: tr('Tìm theo tên, SĐT, công ty, gói quan tâm'),
                     prefixIcon: const Icon(Icons.search),
                     suffixIcon: _searchCtrl.text.isEmpty
                         ? null
@@ -131,7 +131,7 @@ class ConsultationRequestsTabState extends State<ConsultationRequestsTab> {
               FilledButton.icon(
                 onPressed: _loading ? null : _load,
                 icon: const Icon(Icons.filter_alt_outlined),
-                label: const Text('Lọc'),
+                label: Text(tr('Lọc')),
               ),
             ],
           ),
@@ -153,9 +153,9 @@ class ConsultationRequestsTabState extends State<ConsultationRequestsTab> {
           if (_loading)
             const Expanded(child: Center(child: CircularProgressIndicator())),
           if (!_loading && _items.isEmpty)
-            const Expanded(
+            Expanded(
               child: Center(
-                child: Text('Chưa có lead tư vấn',
+                child: Text(tr('Chưa có lead tư vấn'),
                     style: TextStyle(color: Colors.grey)),
               ),
             ),
@@ -177,7 +177,7 @@ class ConsultationRequestsTabState extends State<ConsultationRequestsTab> {
     return Padding(
       padding: const EdgeInsets.only(right: 8),
       child: FilterChip(
-        label: Text(label),
+        label: Text(tr(label)),
         selected: selected,
         onSelected: (_) {
           setState(() => _statusFilter = status);
@@ -206,7 +206,7 @@ class ConsultationRequestsTabState extends State<ConsultationRequestsTab> {
         children: [
           Expanded(
             child: Text(
-              item['name'] as String? ?? 'Ẩn danh',
+              tr(item['name'] as String? ?? 'Ẩn danh'),
               style: const TextStyle(fontWeight: FontWeight.w600),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
@@ -219,7 +219,7 @@ class ConsultationRequestsTabState extends State<ConsultationRequestsTab> {
               borderRadius: BorderRadius.circular(10),
             ),
             child: Text(
-              _statusLabels[status] ?? status,
+              tr(_statusLabels[status] ?? status),
               style: TextStyle(
                   fontSize: 11,
                   color: statusColor,
@@ -233,18 +233,18 @@ class ConsultationRequestsTabState extends State<ConsultationRequestsTab> {
         children: [
           const SizedBox(height: 2),
           Text(
-            item['phone'] as String? ?? '',
+            tr(item['phone'] as String? ?? ''),
             style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
           ),
           if ((company?.isNotEmpty ?? false) ||
               (province?.isNotEmpty ?? false) ||
               (interestedPlan?.isNotEmpty ?? false))
             Text(
-              [
+              tr([
                 if (company?.isNotEmpty ?? false) company,
                 if (province?.isNotEmpty ?? false) province,
                 if (interestedPlan?.isNotEmpty ?? false) interestedPlan,
-              ].join(' • '),
+              ].join(' • ')),
               style: const TextStyle(fontSize: 12),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
@@ -254,11 +254,11 @@ class ConsultationRequestsTabState extends State<ConsultationRequestsTab> {
             children: [
               Icon(Icons.public, size: 12, color: Colors.grey[500]),
               const SizedBox(width: 4),
-              Text(item['source'] as String? ?? 'LandingPage',
+              Text(tr(item['source'] as String? ?? 'LandingPage'),
                   style: TextStyle(fontSize: 11, color: Colors.grey[500])),
               const Spacer(),
               if (createdAt != null)
-                Text(_df.format(createdAt),
+                Text(tr(_df.format(createdAt)),
                     style: TextStyle(fontSize: 11, color: Colors.grey[500])),
             ],
           ),
@@ -277,21 +277,21 @@ class ConsultationRequestsTabState extends State<ConsultationRequestsTab> {
               },
               itemBuilder: (_) => [
                 if (context.systemAdminCanEdit) ...[
-                  const PopupMenuItem(
-                      value: 'Contacted', child: Text('Đã liên hệ')),
-                  const PopupMenuItem(
-                      value: 'Qualified', child: Text('Tiềm năng')),
-                  const PopupMenuItem(
-                      value: 'Closed', child: Text('Đã đóng')),
-                  const PopupMenuItem(
-                      value: 'Spam', child: Text('Đánh dấu spam')),
+                  PopupMenuItem(
+                      value: 'Contacted', child: Text(tr('Đã liên hệ'))),
+                  PopupMenuItem(
+                      value: 'Qualified', child: Text(tr('Tiềm năng'))),
+                  PopupMenuItem(
+                      value: 'Closed', child: Text(tr('Đã đóng'))),
+                  PopupMenuItem(
+                      value: 'Spam', child: Text(tr('Đánh dấu spam'))),
                 ],
                 if (context.systemAdminCanEdit &&
                     context.systemAdminCanDelete)
                   const PopupMenuDivider(),
                 if (context.systemAdminCanDelete)
-                  const PopupMenuItem(
-                      value: 'delete', child: Text('Xoá lead')),
+                  PopupMenuItem(
+                      value: 'delete', child: Text(tr('Xoá lead'))),
               ],
             )
           : null,
@@ -308,7 +308,7 @@ class ConsultationRequestsTabState extends State<ConsultationRequestsTab> {
     }
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Không mở được ứng dụng gọi điện')),
+      SnackBar(content: Text(tr('Không mở được ứng dụng gọi điện'))),
     );
   }
 
@@ -321,7 +321,7 @@ class ConsultationRequestsTabState extends State<ConsultationRequestsTab> {
     }
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Không mở được Zalo cho số này')),
+      SnackBar(content: Text(tr('Không mở được Zalo cho số này'))),
     );
   }
 
@@ -362,7 +362,7 @@ class ConsultationRequestsTabState extends State<ConsultationRequestsTab> {
     if (bytes == null) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Không thể tạo file Excel')),
+        SnackBar(content: Text(tr('Không thể tạo file Excel'))),
       );
       return;
     }
@@ -375,7 +375,7 @@ class ConsultationRequestsTabState extends State<ConsultationRequestsTab> {
     );
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Đã xuất Excel danh sách lead')),
+      SnackBar(content: Text(tr('Đã xuất Excel danh sách lead'))),
     );
   }
 
@@ -396,8 +396,8 @@ class ConsultationRequestsTabState extends State<ConsultationRequestsTab> {
       await _load();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text('Đã cập nhật trạng thái'),
+        SnackBar(
+            content: Text(tr('Đã cập nhật trạng thái')),
             backgroundColor: Colors.green),
       );
     }
@@ -407,16 +407,16 @@ class ConsultationRequestsTabState extends State<ConsultationRequestsTab> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (_) => ScrollableAlertDialog(
-        title: const Text('Xoá lead?'),
-        content: Text('Xoá yêu cầu tư vấn của ${item['name'] ?? ''}?'),
+        title: Text(tr('Xoá lead?')),
+        content: Text(tr('${tr('Xoá yêu cầu tư vấn của ')}${item['name'] ?? ''}?')),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(context, false),
-              child: const Text('Huỷ')),
+              child: Text(tr('Huỷ'))),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Xoá', style: TextStyle(color: Colors.white)),
+            child: Text(tr('Xoá'), style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -428,22 +428,22 @@ class ConsultationRequestsTabState extends State<ConsultationRequestsTab> {
       await _load();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text('Đã xoá lead'), backgroundColor: Colors.green),
+        SnackBar(
+            content: Text(tr('Đã xoá lead')), backgroundColor: Colors.green),
       );
     }
   }
 
   void _showDetail(Map<String, dynamic> item) {
     final noteCtrl =
-        TextEditingController(text: item['adminNote'] as String? ?? '');
+        TextEditingController(text: tr(item['adminNote'] as String? ?? ''));
     var selectedStatus = item['status'] as String? ?? 'New';
 
     showDialog(
       context: context,
       builder: (dialogContext) => StatefulBuilder(
         builder: (_, setDialogState) => ScrollableAlertDialog(
-          title: Text(item['name'] as String? ?? 'Chi tiết lead'),
+          title: Text(tr(item['name'] as String? ?? 'Chi tiết lead')),
           content: SizedBox(
             width: 620,
             child: SingleChildScrollView(
@@ -470,7 +470,7 @@ class ConsultationRequestsTabState extends State<ConsultationRequestsTab> {
                                 DateTime.now())),
                   if ((item['notes'] as String?)?.isNotEmpty ?? false) ...[
                     const SizedBox(height: 8),
-                    const Text('Ghi chú khách để lại',
+                    Text(tr('Ghi chú khách để lại'),
                         style: TextStyle(fontWeight: FontWeight.w600)),
                     const SizedBox(height: 4),
                     Container(
@@ -481,19 +481,19 @@ class ConsultationRequestsTabState extends State<ConsultationRequestsTab> {
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(color: Colors.grey[200]!),
                       ),
-                      child: Text(item['notes'] as String),
+                      child: Text(tr(item['notes'] as String)),
                     ),
                   ],
                   const SizedBox(height: 12),
                   DropdownButtonFormField<String>(
                     initialValue: selectedStatus,
-                    decoration: const InputDecoration(
-                      labelText: 'Trạng thái',
+                    decoration: InputDecoration(
+                      labelText: tr('Trạng thái'),
                       border: OutlineInputBorder(),
                     ),
                     items: _statusLabels.entries
                         .map((entry) => DropdownMenuItem(
-                            value: entry.key, child: Text(entry.value)))
+                            value: entry.key, child: Text(tr(entry.value))))
                         .toList(),
                     onChanged: (value) {
                       if (value == null) return;
@@ -505,8 +505,8 @@ class ConsultationRequestsTabState extends State<ConsultationRequestsTab> {
                     controller: noteCtrl,
                     minLines: 4,
                     maxLines: 6,
-                    decoration: const InputDecoration(
-                      labelText: 'Ghi chú xử lý',
+                    decoration: InputDecoration(
+                      labelText: tr('Ghi chú xử lý'),
                       alignLabelWithHint: true,
                       border: OutlineInputBorder(),
                     ),
@@ -520,13 +520,13 @@ class ConsultationRequestsTabState extends State<ConsultationRequestsTab> {
                         onPressed: () =>
                             _callCustomer(item['phone'] as String? ?? ''),
                         icon: const Icon(Icons.call_outlined),
-                        label: const Text('Gọi điện'),
+                        label: Text(tr('Gọi điện')),
                       ),
                       OutlinedButton.icon(
                         onPressed: () =>
                             _openZalo(item['phone'] as String? ?? ''),
                         icon: const Icon(Icons.chat_bubble_outline),
-                        label: const Text('Nhắn Zalo'),
+                        label: Text(tr('Nhắn Zalo')),
                       ),
                     ],
                   ),
@@ -537,7 +537,7 @@ class ConsultationRequestsTabState extends State<ConsultationRequestsTab> {
           actions: [
             TextButton(
                 onPressed: () => Navigator.pop(dialogContext),
-                child: const Text('Đóng')),
+                child: Text(tr('Đóng'))),
             FilledButton.icon(
               onPressed: () async {
                 final res = await _api.adminUpdateConsultationRequest(
@@ -555,14 +555,14 @@ class ConsultationRequestsTabState extends State<ConsultationRequestsTab> {
                   await _load();
                   if (!mounted) return;
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                        content: Text('Đã lưu xử lý lead'),
+                    SnackBar(
+                        content: Text(tr('Đã lưu xử lý lead')),
                         backgroundColor: Colors.green),
                   );
                 }
               },
               icon: const Icon(Icons.save),
-              label: const Text('Lưu'),
+              label: Text(tr('Lưu')),
             ),
           ],
         ),
@@ -578,11 +578,11 @@ class ConsultationRequestsTabState extends State<ConsultationRequestsTab> {
         children: [
           SizedBox(
             width: 100,
-            child: Text('$label:',
+            child: Text(tr('$label:'),
                 style:
                     const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
           ),
-          Expanded(child: Text(value, style: const TextStyle(fontSize: 13))),
+          Expanded(child: Text(tr(value), style: const TextStyle(fontSize: 13))),
         ],
       ),
     );

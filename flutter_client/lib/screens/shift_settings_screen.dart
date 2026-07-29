@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -16,6 +17,7 @@ import '../widgets/hrm_page_chrome.dart';
 import '../widgets/loading_widget.dart';
 import '../widgets/pos/pos_theme.dart';
 import '../widgets/notification_overlay.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 class ShiftSettingsScreen extends StatefulWidget {
   const ShiftSettingsScreen({super.key});
 
@@ -96,7 +98,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
       if (mounted) {
         appNotification.showError(
           title: 'Lỗi tải dữ liệu',
-          message: 'Không thể tải danh sách ca: $e',
+          message: tr('Không thể tải danh sách ca: $e'),
         );
       }
     } finally {
@@ -211,7 +213,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
   Widget _buildShiftSearchField() {
     return TextField(
       decoration: InputDecoration(
-        hintText: 'Tìm theo tên ca...',
+        hintText: tr('Tìm theo tên ca...'),
         hintStyle: TextStyle(color: Colors.grey[400], fontSize: 13),
         prefixIcon: Icon(Icons.search, color: Colors.grey[400], size: 20),
         suffixIcon: _searchQuery.isNotEmpty
@@ -262,7 +264,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                 size: 16, color: Color(0xFFEA580C)),
             if (!compact) ...[
               const SizedBox(width: 6),
-              const Text('Hướng dẫn',
+              Text(tr('Hướng dẫn'),
                   style: TextStyle(
                       color: Color(0xFFEA580C),
                       fontWeight: FontWeight.w600,
@@ -286,7 +288,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
     return FilledButton.icon(
       onPressed: () => _showShiftDialog(),
       icon: const Icon(Icons.add, size: 18),
-      label: Text(compact ? 'Thêm' : 'Thêm ca'),
+      label: Text(tr(compact ? 'Thêm' : 'Thêm ca')),
       style: FilledButton.styleFrom(
         backgroundColor: HrmPageChrome.primaryNavy,
         padding: EdgeInsets.symmetric(
@@ -343,7 +345,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                         color: HrmPageChrome.primaryNavy, size: 26),
                     const SizedBox(width: 10),
                     Expanded(
-                      child: Text('Thiết lập Ca & Chấm công',
+                      child: Text(tr('Thiết lập Ca & Chấm công'),
                           style: TextStyle(
                               fontSize: isMobile ? 16 : 20,
                               fontWeight: FontWeight.bold,
@@ -474,7 +476,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                                                         () => _shiftPage--)
                                                     : null),
                                             Text(
-                                                'Trang $safePage / $totalPages (${allShifts.length} ca)',
+                                                tr('Trang $safePage / $totalPages (${allShifts.length} ca)'),
                                                 style: const TextStyle(
                                                     fontSize: 13)),
                                             IconButton(
@@ -510,7 +512,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
   Widget _tableHeader(String text, {int flex = 1}) {
     return Expanded(
       flex: flex,
-      child: Text(text,
+      child: Text(tr(text),
           style: const TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.bold,
@@ -571,7 +573,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                           color: color.withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(8)),
                       child: Center(
-                          child: Text(_getShiftAbbreviation(shift),
+                          child: Text(tr(_getShiftAbbreviation(shift)),
                               style: TextStyle(
                                   fontSize: 12,
                                   fontWeight: FontWeight.bold,
@@ -582,13 +584,13 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(shift.name,
+                          Text(tr(shift.name),
                               style: const TextStyle(
                                   fontSize: 13,
                                   fontWeight: FontWeight.w600,
                                   color: _textDark),
                               overflow: TextOverflow.ellipsis),
-                          Text(shift.code,
+                          Text(tr(shift.code),
                               style: const TextStyle(
                                   fontSize: 11, color: _textMuted)),
                         ],
@@ -604,7 +606,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                   children: [
                     Icon(Icons.login, size: 14, color: Colors.green[400]),
                     const SizedBox(width: 4),
-                    Text(_formatTime(shift.startTime),
+                    Text(tr(_formatTime(shift.startTime)),
                         style: const TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
@@ -619,7 +621,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                   children: [
                     Icon(Icons.logout, size: 14, color: Colors.red[400]),
                     const SizedBox(width: 4),
-                    Text(_formatTime(shift.endTime),
+                    Text(tr(_formatTime(shift.endTime)),
                         style: const TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
@@ -635,7 +637,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                       const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
                       color: _bgColor, borderRadius: BorderRadius.circular(6)),
-                  child: Text(workHours,
+                  child: Text(tr(workHours),
                       style: const TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
@@ -659,7 +661,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                           size: 13, color: typeColor),
                       const SizedBox(width: 4),
                       Flexible(
-                          child: Text(shiftType,
+                          child: Text(tr(shiftType),
                               style: TextStyle(
                                   fontSize: 11,
                                   fontWeight: FontWeight.w600,
@@ -693,7 +695,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                               ? HrmPageChrome.primaryNavy
                               : Colors.grey),
                       const SizedBox(width: 4),
-                      Text(shift.isActive ? 'Kích hoạt' : 'Tạm dừng',
+                      Text(tr(shift.isActive ? 'Kích hoạt' : 'Tạm dừng'),
                           style: TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.w600,
@@ -776,8 +778,8 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                       const Icon(Icons.schedule,
                           color: HrmPageChrome.primaryNavy, size: 26),
                       const SizedBox(width: 10),
-                      const Expanded(
-                        child: Text('Thiết lập Ca & Chấm công',
+                      Expanded(
+                        child: Text(tr('Thiết lập Ca & Chấm công'),
                             style: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold,
@@ -901,7 +903,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                     onPressed: safePage > 1
                         ? () => setState(() => _shiftPage--)
                         : null),
-                Text('$safePage / $totalPages',
+                Text(tr('$safePage / $totalPages'),
                     style: const TextStyle(fontSize: 13)),
                 IconButton(
                     icon: const Icon(Icons.chevron_right, size: 20),
@@ -934,7 +936,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                   color: color.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(8)),
               child: Center(
-                  child: Text(_getShiftAbbreviation(shift),
+                  child: Text(tr(_getShiftAbbreviation(shift)),
                       style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.bold,
@@ -945,7 +947,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(shift.name,
+                  Text(tr(shift.name),
                       style: const TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
@@ -954,7 +956,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                       overflow: TextOverflow.ellipsis),
                   const SizedBox(height: 2),
                   Text(
-                    '${_formatTime(shift.startTime)} – ${_formatTime(shift.endTime)} · $workHours',
+                    tr('${_formatTime(shift.startTime)} – ${_formatTime(shift.endTime)} · $workHours'),
                     style: const TextStyle(fontSize: 12, color: _textMuted),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -968,7 +970,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
               decoration: BoxDecoration(
                   color: typeColor.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(4)),
-              child: Text(shiftType,
+              child: Text(tr(shiftType),
                   style: TextStyle(
                       fontSize: 10,
                       fontWeight: FontWeight.w600,
@@ -1047,7 +1049,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                   decoration: BoxDecoration(
                       color: color, borderRadius: BorderRadius.circular(10)),
                   child: Center(
-                      child: Text(_getShiftAbbreviation(shift),
+                      child: Text(tr(_getShiftAbbreviation(shift)),
                           style: const TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.bold,
@@ -1058,7 +1060,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(shift.name,
+                      Text(tr(shift.name),
                           style: const TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
@@ -1072,7 +1074,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                             decoration: BoxDecoration(
                                 color: typeColor.withValues(alpha: 0.1),
                                 borderRadius: BorderRadius.circular(4)),
-                            child: Text(shiftType,
+                            child: Text(tr(shiftType),
                                 style: TextStyle(
                                     fontSize: 10,
                                     fontWeight: FontWeight.w600,
@@ -1090,7 +1092,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                               borderRadius: BorderRadius.circular(4),
                             ),
                             child: Text(
-                              shift.isActive ? 'Kích hoạt' : 'Tạm dừng',
+                              tr(shift.isActive ? 'Kích hoạt' : 'Tạm dừng'),
                               style: TextStyle(
                                   fontSize: 10,
                                   fontWeight: FontWeight.w600,
@@ -1143,7 +1145,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                               decoration: BoxDecoration(
                                   color: _primaryColor.withValues(alpha: 0.1),
                                   borderRadius: BorderRadius.circular(6)),
-                              child: Text(workHours,
+                              child: Text(tr(workHours),
                                   style: const TextStyle(
                                       fontSize: 12,
                                       fontWeight: FontWeight.bold,
@@ -1160,7 +1162,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                   const SizedBox(height: 16),
 
                   // Attendance parameters
-                  const Text('Thông số chấm công',
+                  Text(tr('Thông số chấm công'),
                       style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.bold,
@@ -1204,7 +1206,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                   const SizedBox(height: 20),
 
                   // Shift info
-                  const Text('Thông tin khác',
+                  Text(tr('Thông tin khác'),
                       style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.bold,
@@ -1233,7 +1235,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                     child: OutlinedButton.icon(
                       onPressed: () => _showShiftDialog(shift: shift),
                       icon: const Icon(Icons.edit, size: 16),
-                      label: const Text('Sửa', style: TextStyle(fontSize: 13)),
+                      label: Text(tr('Sửa'), style: TextStyle(fontSize: 13)),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: _primaryColor,
                         side: const BorderSide(color: _primaryColor),
@@ -1249,7 +1251,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                     child: OutlinedButton.icon(
                       onPressed: () => _showShiftSalaryDialog(shift),
                       icon: const Icon(Icons.payments, size: 16),
-                      label: const Text('Lương ca',
+                      label: Text(tr('Lương ca'),
                           style: TextStyle(fontSize: 13)),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: const Color(0xFFF59E0B),
@@ -1291,11 +1293,11 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
         children: [
           Icon(icon, color: color.withValues(alpha: 0.7), size: 20),
           const SizedBox(height: 4),
-          Text(time,
+          Text(tr(time),
               style: TextStyle(
                   fontSize: 22, fontWeight: FontWeight.bold, color: color)),
           const SizedBox(height: 2),
-          Text(label, style: const TextStyle(fontSize: 11, color: _textMuted)),
+          Text(tr(label), style: const TextStyle(fontSize: 11, color: _textMuted)),
         ],
       ),
     );
@@ -1315,14 +1317,14 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
             Icon(icon, size: 16, color: color),
             const SizedBox(width: 10),
             Expanded(
-                child: Text(label,
+                child: Text(tr(label),
                     style: const TextStyle(fontSize: 13, color: _textDark))),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
                   color: color.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(6)),
-              child: Text(value,
+              child: Text(tr(value),
                   style: TextStyle(
                       fontSize: 12, fontWeight: FontWeight.w600, color: color)),
             ),
@@ -1339,10 +1341,10 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
         children: [
           SizedBox(
               width: 100,
-              child: Text(label,
+              child: Text(tr(label),
                   style: const TextStyle(fontSize: 12, color: _textMuted))),
           Expanded(
-              child: Text(value,
+              child: Text(tr(value),
                   style: const TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w500,
@@ -1395,19 +1397,19 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
         children: [
           Icon(Icons.schedule, size: 64, color: Colors.grey[300]),
           const SizedBox(height: 16),
-          Text('Chưa có ca làm việc',
+          Text(tr('Chưa có ca làm việc'),
               style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w500,
                   color: Colors.grey[600])),
           const SizedBox(height: 8),
-          Text('Nhấn "Thêm ca" để bắt đầu tạo ca mới',
+          Text(tr('Nhấn "Thêm ca" để bắt đầu tạo ca mới'),
               style: TextStyle(fontSize: 13, color: Colors.grey[400])),
           const SizedBox(height: 20),
           FilledButton.icon(
             onPressed: () => _showShiftDialog(),
             icon: const Icon(Icons.add, size: 18),
-            label: const Text('Thêm ca mới'),
+            label: Text(tr('Thêm ca mới')),
             style: FilledButton.styleFrom(
               backgroundColor: HrmPageChrome.primaryNavy,
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
@@ -1426,13 +1428,12 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
       builder: (context) => ScrollableAlertDialog(
         backgroundColor: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Row(
+        title: Row(
           children: [
             Icon(Icons.menu_book, color: Color(0xFFEA580C)),
             SizedBox(width: 8),
             Expanded(
-              child: Text(
-                'Hướng dẫn thiết lập ca & chấm công',
+              child: Text(tr('Hướng dẫn thiết lập ca & chấm công'),
                 style: TextStyle(
                     color: _textDark,
                     fontWeight: FontWeight.bold,
@@ -1556,7 +1557,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
             onPressed: () => Navigator.pop(context),
             style: FilledButton.styleFrom(
                 backgroundColor: HrmPageChrome.primaryNavy),
-            child: const Text('Đã hiểu'),
+            child: Text(tr('Đã hiểu')),
           ),
         ],
       ),
@@ -1573,7 +1574,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
             Icon(icon, color: color, size: 20),
             const SizedBox(width: 8),
             Expanded(
-              child: Text(title,
+              child: Text(tr(title),
                   style: TextStyle(
                       color: color, fontWeight: FontWeight.bold, fontSize: 15)),
             ),
@@ -1585,9 +1586,9 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('• ', style: TextStyle(color: _textMuted)),
+                  Text(tr('• '), style: TextStyle(color: _textMuted)),
                   Expanded(
-                    child: Text(step,
+                    child: Text(tr(step),
                         style: const TextStyle(
                             color: Color(0xFF52525B),
                             fontSize: 13,
@@ -1617,7 +1618,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(title,
+            Text(tr(title),
                 style: const TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w700,
@@ -1625,7 +1626,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
             const SizedBox(height: 8),
             ...rows.map((row) => Padding(
                   padding: const EdgeInsets.only(bottom: 4),
-                  child: Text(row,
+                  child: Text(tr(row),
                       style: const TextStyle(
                           fontSize: 12.5,
                           height: 1.4,
@@ -1639,8 +1640,8 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
 
   void _showShiftDialog({Shift? shift}) {
     final isEditing = shift != null;
-    final nameCtrl = TextEditingController(text: shift?.name ?? '');
-    final codeCtrl = TextEditingController(text: shift?.code ?? '');
+    final nameCtrl = TextEditingController(text: tr(shift?.name ?? ''));
+    final codeCtrl = TextEditingController(text: tr(shift?.code ?? ''));
     TimeOfDay startTime = TimeOfDay(
       hour: int.tryParse(shift?.startTime.split(':')[0] ?? '8') ?? 8,
       minute: int.tryParse(shift?.startTime.split(':')[1] ?? '0') ?? 0,
@@ -1720,7 +1721,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                         Icon(isEditing ? Icons.edit : Icons.add_circle,
                             color: _primaryColor, size: 22),
                         const SizedBox(width: 10),
-                        Text(isEditing ? 'Sửa ca làm việc' : 'Thêm ca làm việc',
+                        Text(tr(isEditing ? 'Sửa ca làm việc' : 'Thêm ca làm việc'),
                             style: const TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.bold,
@@ -1818,7 +1819,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                                       child: Row(
                                         children: [
                                           Expanded(
-                                              child: Text(totalHours,
+                                              child: Text(tr(totalHours),
                                                   style: const TextStyle(
                                                       fontSize: 14,
                                                       fontWeight:
@@ -1866,7 +1867,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                                                               _getShiftTypeColor(
                                                                   t)),
                                                       const SizedBox(width: 8),
-                                                      Text(t,
+                                                      Text(tr(t),
                                                           style:
                                                               const TextStyle(
                                                                   fontSize:
@@ -1906,7 +1907,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                                                       size: 16,
                                                       color: Colors.green[400]),
                                                   const SizedBox(width: 8),
-                                                  const Text('Kích hoạt',
+                                                  Text(tr('Kích hoạt'),
                                                       style: TextStyle(
                                                           fontSize: 14))
                                                 ])),
@@ -1917,7 +1918,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                                                       size: 16,
                                                       color: Colors.grey[400]),
                                                   const SizedBox(width: 8),
-                                                  const Text('Tạm dừng',
+                                                  Text(tr('Tạm dừng'),
                                                       style: TextStyle(
                                                           fontSize: 14))
                                                 ])),
@@ -1945,7 +1946,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                                     color: HrmPageChrome.primaryNavy
                                         .withValues(alpha: 0.25)),
                               ),
-                              child: const Column(
+                              child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Row(
@@ -1954,7 +1955,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                                           size: 16,
                                           color: HrmPageChrome.primaryNavy),
                                       SizedBox(width: 6),
-                                      Text('Ca qua đêm',
+                                      Text(tr('Ca qua đêm'),
                                           style: TextStyle(
                                               fontSize: 13,
                                               fontWeight: FontWeight.bold,
@@ -1963,8 +1964,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                                     ],
                                   ),
                                   SizedBox(height: 6),
-                                  Text(
-                                    'Ranh giới ngày chấm công lấy từ Thiết lập hệ thống → Giờ kết thúc ngày (day_end_time). Hệ số lương ca đêm cấu hình ở bậc lương / phụ cấp.',
+                                  Text(tr('Ranh giới ngày chấm công lấy từ Thiết lập hệ thống → Giờ kết thúc ngày (day_end_time). Hệ số lương ca đêm cấu hình ở bậc lương / phụ cấp.'),
                                     style: TextStyle(
                                         fontSize: 12, color: Color(0xFF64748B)),
                                   ),
@@ -1988,12 +1988,12 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Row(
+                                Row(
                                   children: [
                                     Icon(Icons.free_breakfast,
                                         color: Color(0xFFEA580C), size: 20),
                                     SizedBox(width: 8),
-                                    Text('Nghỉ giữa ca / tăng ca trưa',
+                                    Text(tr('Nghỉ giữa ca / tăng ca trưa'),
                                         style: TextStyle(
                                             fontSize: 14,
                                             fontWeight: FontWeight.bold,
@@ -2001,8 +2001,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                                   ],
                                 ),
                                 const SizedBox(height: 8),
-                                const Text(
-                                  'Chấm trong khung này (máy MealOut/MealIn hoặc app) được tính tăng ca. Giờ làm chính sẽ trừ khoảng nghỉ.',
+                                Text(tr('Chấm trong khung này (máy MealOut/MealIn hoặc app) được tính tăng ca. Giờ làm chính sẽ trừ khoảng nghỉ.'),
                                   style: TextStyle(
                                       fontSize: 12, color: Color(0xFF64748B)),
                                 ),
@@ -2063,12 +2062,12 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Row(
+                                Row(
                                   children: [
                                     Icon(Icons.fingerprint,
                                         color: _primaryColor, size: 20),
                                     SizedBox(width: 8),
-                                    Text('Thông số chấm công',
+                                    Text(tr('Thông số chấm công'),
                                         style: TextStyle(
                                             fontSize: 14,
                                             fontWeight: FontWeight.bold,
@@ -2140,7 +2139,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                                 borderRadius: BorderRadius.circular(8)),
                             side: const BorderSide(color: _borderColor),
                           ),
-                          child: const Text('Hủy'),
+                          child: Text(tr('Hủy')),
                         ),
                         const SizedBox(width: 12),
                         FilledButton.icon(
@@ -2150,15 +2149,14 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                                   if (nameCtrl.text.isEmpty) {
                                     appNotification.showWarning(
                                         title: 'Thiếu thông tin',
-                                        message: 'Vui lòng nhập tên ca');
+                                        message: tr('Vui lòng nhập tên ca'));
                                     return;
                                   }
                                   if (_earlyOvertimeExceedsCheckIn(
                                       earlyCheckIn, earlyOvertimeThreshold)) {
                                     appNotification.showWarning(
                                       title: 'Cấu hình chấm công',
-                                      message:
-                                          'Tăng ca trước ca ($earlyOvertimeThreshold phút) cần Cho phép chấm sớm ít nhất ${earlyOvertimeThreshold + 1} phút để nhân viên khớp ca và tính được tăng ca.',
+                                      message: tr('Tăng ca trước ca ($earlyOvertimeThreshold phút) cần Cho phép chấm sớm ít nhất ${earlyOvertimeThreshold + 1} phút để nhân viên khớp ca và tính được tăng ca.'),
                                     );
                                     return;
                                   }
@@ -2226,7 +2224,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                                   child: CircularProgressIndicator(
                                       strokeWidth: 2, color: Colors.white))
                               : const Icon(Icons.save, size: 18),
-                          label: Text(isSaving ? 'Đang lưu...' : 'Lưu'),
+                          label: Text(tr(isSaving ? 'Đang lưu...' : 'Lưu')),
                           style: FilledButton.styleFrom(
                             backgroundColor: HrmPageChrome.primaryNavy,
                             padding: const EdgeInsets.symmetric(
@@ -2249,7 +2247,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label,
+        Text(tr(label),
             style: const TextStyle(
                 fontSize: 12, fontWeight: FontWeight.w500, color: _textMuted)),
         const SizedBox(height: 6),
@@ -2260,7 +2258,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
 
   InputDecoration _inputDecor(String hint) {
     return InputDecoration(
-      hintText: hint,
+      hintText: tr(hint),
       hintStyle: TextStyle(color: Colors.grey[400], fontSize: 13),
       border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
@@ -2287,7 +2285,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
           const SizedBox(width: 8),
           Expanded(
               child: Text(
-                  '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}',
+                  tr('${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}'),
                   style: const TextStyle(
                       fontSize: 14, fontWeight: FontWeight.w500))),
           Icon(Icons.access_time, color: Colors.grey[400], size: 18),
@@ -2376,15 +2374,14 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Row(
+            Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Icon(Icons.warning_amber_rounded,
                     color: Color(0xFFEA580C), size: 18),
                 SizedBox(width: 8),
                 Expanded(
-                  child: Text(
-                    'Cần tăng Cho phép chấm sớm',
+                  child: Text(tr('Cần tăng Cho phép chấm sớm'),
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
@@ -2396,9 +2393,9 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
             ),
             const SizedBox(height: 6),
             Text(
-              'Tăng ca trước ca ($earlyOvertimeThreshold phút) lớn hơn hoặc bằng Cho phép chấm sớm ($earlyCheckIn phút). '
+              tr('Tăng ca trước ca ($earlyOvertimeThreshold phút) lớn hơn hoặc bằng Cho phép chấm sớm ($earlyCheckIn phút). '
               'Nhân viên chấm đủ sớm để tính tăng ca có thể không khớp ca. '
-              'Nên đặt Cho phép chấm sớm ít nhất $suggested phút.',
+              'Nên đặt Cho phép chấm sớm ít nhất $suggested phút.'),
               style: const TextStyle(
                 fontSize: 12,
                 height: 1.45,
@@ -2417,7 +2414,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                   minimumSize: Size.zero,
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
-                child: Text('Đặt chấm sớm = $suggested phút'),
+                child: Text(tr('Đặt chấm sớm = $suggested phút')),
               ),
             ),
           ],
@@ -2431,7 +2428,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          label,
+          tr(label),
           style: const TextStyle(fontSize: 11, color: _textMuted),
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
@@ -2462,14 +2459,13 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
-                          '$value',
+                          tr('$value'),
                           style: const TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
-                        Text(
-                          ' phút',
+                        Text(tr(' phút'),
                           style: TextStyle(
                             fontSize: 11,
                             color: Colors.grey[600],
@@ -2537,7 +2533,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
             onPressed: () => _showAddEditSalaryLevel(
                 shift, null, () => loadSalaryLevels(setDialogState)),
             icon: const Icon(Icons.add, size: 16),
-            label: const Text('Thêm mức lương', style: TextStyle(fontSize: 13)),
+            label: Text(tr('Thêm mức lương'), style: TextStyle(fontSize: 13)),
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFFF59E0B),
               foregroundColor: Colors.white,
@@ -2562,12 +2558,11 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                             Icon(Icons.payments_outlined,
                                 size: 48, color: Colors.grey[400]),
                             const SizedBox(height: 12),
-                            const Text('Chưa có mức lương nào',
+                            Text(tr('Chưa có mức lương nào'),
                                 style:
                                     TextStyle(fontSize: 15, color: _textMuted)),
                             const SizedBox(height: 4),
-                            Text(
-                                'Nhấn "Thêm mức lương" để tạo loại lương, đơn giá và nhóm nhân viên',
+                            Text(tr('Nhấn "Thêm mức lương" để tạo loại lương, đơn giá và nhóm nhân viên'),
                                 style: TextStyle(
                                     fontSize: 12, color: Colors.grey[400])),
                           ],
@@ -2587,8 +2582,9 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                           empCount = empIds.length;
                         } else if (empIds is String && empIds.isNotEmpty) {
                           try {
-                            final parsed =
-                                empIds.startsWith('[') ? empIds.split(',') : [];
+                            final parsed = empIds.startsWith('[')
+                                ? (jsonDecode(empIds) as List)
+                                : empIds.split(',');
                             empCount = parsed.length;
                           } catch (_) {}
                         }
@@ -2630,7 +2626,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                                 Row(
                                   children: [
                                     Expanded(
-                                      child: Text(sl['levelName'] ?? '',
+                                      child: Text(tr(sl['levelName'] ?? ''),
                                           style: const TextStyle(
                                               fontSize: 14,
                                               fontWeight: FontWeight.bold,
@@ -2644,7 +2640,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                                             color: Colors.red.shade50,
                                             borderRadius:
                                                 BorderRadius.circular(4)),
-                                        child: Text('Tắt',
+                                        child: Text(tr('Tắt'),
                                             style: TextStyle(
                                                 fontSize: 10,
                                                 color: Colors.red.shade700)),
@@ -2672,9 +2668,8 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                                         final confirm = await showDialog<bool>(
                                           context: context,
                                           builder: (c) => ScrollableAlertDialog(
-                                            title: const Text('Xác nhận xóa'),
-                                            content: Text(
-                                                'Xóa mức lương "${sl['levelName']}"?'),
+                                            title: Text(tr('Xác nhận xóa')),
+                                            content: Text(tr('${tr('Xóa mức lương "')}${sl['levelName']}"?')),
                                             actions: [
                                               AppDialogActions.delete(
                                                   onCancel: () =>
@@ -2691,8 +2686,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                                           if (resp['isSuccess'] == true) {
                                             appNotification.showSuccess(
                                                 title: 'Đã xóa',
-                                                message:
-                                                    'Đã xóa mức lương "${sl['levelName']}"');
+                                                message: 'Đã xóa mức lương "${sl['levelName']}"');
                                             loadSalaryLevels(setDialogState);
                                           } else {
                                             appNotification.showError(
@@ -2725,7 +2719,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                                         .toString()
                                         .isNotEmpty) ...[
                                   const SizedBox(height: 6),
-                                  Text(sl['description'],
+                                  Text(tr(sl['description']),
                                       style: const TextStyle(
                                           fontSize: 11,
                                           color: _textMuted,
@@ -2749,10 +2743,10 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                     title: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('Thiết lập lương ca',
+                        Text(tr('Thiết lập lương ca'),
                             style: TextStyle(fontSize: 16)),
                         Text(
-                            'Ca: ${shift.name} (${_formatTime(shift.startTime)} - ${_formatTime(shift.endTime)})',
+                            tr('Ca: ${shift.name} (${_formatTime(shift.startTime)} - ${_formatTime(shift.endTime)})'),
                             style: const TextStyle(fontSize: 12)),
                       ],
                     ),
@@ -2793,14 +2787,14 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text('Thiết lập lương ca',
+                              Text(tr('Thiết lập lương ca'),
                                   style: TextStyle(
                                       fontSize: 16,
                                       fontWeight: FontWeight.bold,
                                       color: _textDark)),
                               const SizedBox(height: 2),
                               Text(
-                                  'Ca: ${shift.name} (${_formatTime(shift.startTime)} - ${_formatTime(shift.endTime)})',
+                                  tr('Ca: ${shift.name} (${_formatTime(shift.startTime)} - ${_formatTime(shift.endTime)})'),
                                   style: const TextStyle(
                                       fontSize: 12, color: _textMuted)),
                             ],
@@ -2837,7 +2831,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                                 borderRadius: BorderRadius.circular(8)),
                             side: const BorderSide(color: _borderColor),
                           ),
-                          child: const Text('Đóng'),
+                          child: Text(tr('Đóng')),
                         ),
                       ],
                     ),
@@ -2862,10 +2856,10 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text('$label: ',
+          Text(tr('$label: '),
               style:
                   TextStyle(fontSize: 11, color: color.withValues(alpha: 0.7))),
-          Text(value,
+          Text(tr(value),
               style: TextStyle(
                   fontSize: 11, fontWeight: FontWeight.bold, color: color)),
         ],
@@ -2887,15 +2881,15 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
   void _showAddEditSalaryLevel(
       Shift shift, Map<String, dynamic>? existing, VoidCallback onDone) {
     final isEditing = existing != null;
-    final nameCtrl = TextEditingController(text: existing?['levelName'] ?? '');
+    final nameCtrl = TextEditingController(text: tr(existing?['levelName'] ?? ''));
     final fixedRateCtrl =
-        TextEditingController(text: formatNumber(existing?['fixedRate']));
+        TextEditingController(text: tr(formatNumber(existing?['fixedRate'])));
     final hourlyRateCtrl =
-        TextEditingController(text: formatNumber(existing?['hourlyRate']));
+        TextEditingController(text: tr(formatNumber(existing?['hourlyRate'])));
     final multiplierCtrl = TextEditingController(
-        text: (existing?['multiplier'] ?? 1.0).toString());
+        text: tr((existing?['multiplier'] ?? 1.0).toString()));
     final descCtrl =
-        TextEditingController(text: existing?['description'] ?? '');
+        TextEditingController(text: tr(existing?['description'] ?? ''));
     String rateType = existing?['rateType']?.toString() ?? 'fixed';
     bool isActive = existing?['isActive'] != false;
     List<String> selectedEmployeeIds = [];
@@ -2944,14 +2938,14 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                       initialValue: rateType,
                       decoration: _inputDecor(''),
                       style: const TextStyle(fontSize: 14, color: _textDark),
-                      items: const [
+                      items: [
                         DropdownMenuItem(
-                            value: 'fixed', child: Text('Cố định lương ca')),
+                            value: 'fixed', child: Text(tr('Cố định lương ca'))),
                         DropdownMenuItem(
                             value: 'multiplier',
-                            child: Text('Nhân hệ số lương ca')),
+                            child: Text(tr('Nhân hệ số lương ca'))),
                         DropdownMenuItem(
-                            value: 'hourly', child: Text('Lương theo giờ')),
+                            value: 'hourly', child: Text(tr('Lương theo giờ'))),
                       ],
                       onChanged: (v) =>
                           setDialogState(() => rateType = v ?? 'fixed'),
@@ -2995,13 +2989,13 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                         style: const TextStyle(fontSize: 14),
                         maxLines: 2)),
                 const SizedBox(height: 20),
-                const Text('Nhóm nhân viên áp dụng',
+                Text(tr('Nhóm nhân viên áp dụng'),
                     style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
                         color: _textDark)),
                 const SizedBox(height: 4),
-                Text('Bỏ trống = áp dụng cho tất cả nhân viên',
+                Text(tr('Bỏ trống = áp dụng cho tất cả nhân viên'),
                     style: TextStyle(fontSize: 12, color: Colors.grey[400])),
                 if (_branches.isNotEmpty) ...[
                   const SizedBox(height: 8),
@@ -3028,13 +3022,13 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                             icon: const Icon(Icons.keyboard_arrow_down,
                                 size: 16, color: Color(0xFF9CA3AF)),
                             items: [
-                              const DropdownMenuItem<String?>(
+                              DropdownMenuItem<String?>(
                                   value: null,
-                                  child: Text('T\u1ea5t c\u1ea3 chi nh\u00e1nh',
+                                  child: Text(tr('T\u1ea5t c\u1ea3 chi nh\u00e1nh'),
                                       style: TextStyle(fontSize: 12))),
                               ..._branches.map((b) => DropdownMenuItem<String?>(
                                   value: b['id']?.toString(),
-                                  child: Text(b['name']?.toString() ?? '',
+                                  child: Text(tr(b['name']?.toString() ?? ''),
                                       overflow: TextOverflow.ellipsis,
                                       style: const TextStyle(fontSize: 12)))),
                             ],
@@ -3094,8 +3088,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                               color: _primaryColor,
                             ),
                             const SizedBox(width: 10),
-                            Text(
-                                'Chọn tất cả (${selectedEmployeeIds.length}/${displayEmps.length})',
+                            Text(tr('Chọn tất cả (${selectedEmployeeIds.length}/${displayEmps.length})'),
                                 style: const TextStyle(
                                     fontSize: 13,
                                     fontWeight: FontWeight.w500,
@@ -3113,10 +3106,10 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                             bottomRight: Radius.circular(8)),
                       ),
                       child: displayEmps.isEmpty
-                          ? const Padding(
+                          ? Padding(
                               padding: EdgeInsets.all(20),
                               child: Center(
-                                  child: Text('Chưa có nhân viên',
+                                  child: Text(tr('Chưa có nhân viên'),
                                       style: TextStyle(
                                           color: _textMuted, fontSize: 13))))
                           : ListView.separated(
@@ -3158,9 +3151,9 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                                                   i % _badgeColors.length]
                                               .withValues(alpha: 0.15),
                                           child: Text(
-                                              emp.fullName.isNotEmpty
+                                              tr(emp.fullName.isNotEmpty
                                                   ? emp.fullName[0]
-                                                  : '?',
+                                                  : '?'),
                                               style: TextStyle(
                                                   fontSize: 11,
                                                   fontWeight: FontWeight.bold,
@@ -3173,21 +3166,21 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                                             crossAxisAlignment:
                                                 CrossAxisAlignment.start,
                                             children: [
-                                              Text(emp.fullName,
+                                              Text(tr(emp.fullName),
                                                   style: const TextStyle(
                                                       fontSize: 13,
                                                       fontWeight:
                                                           FontWeight.w500,
                                                       color: _textDark)),
                                               Text(
-                                                  '${emp.department ?? ''} • ${emp.position ?? ''}',
+                                                  tr('${emp.department ?? ''} • ${emp.position ?? ''}'),
                                                   style: const TextStyle(
                                                       fontSize: 11,
                                                       color: _textMuted)),
                                             ],
                                           ),
                                         ),
-                                        Text(emp.employeeCode,
+                                        Text(tr(emp.employeeCode),
                                             style: const TextStyle(
                                                 fontSize: 11,
                                                 color: _textMuted)),
@@ -3208,7 +3201,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
               : () async {
                   if (nameCtrl.text.trim().isEmpty) {
                     appNotification.showError(
-                        title: 'Lỗi', message: 'Vui lòng nhập tên mức lương');
+                        title: 'Lỗi', message: tr('Vui lòng nhập tên mức lương'));
                     return;
                   }
                   setDialogState(() => isSaving = true);
@@ -3265,7 +3258,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                   child: CircularProgressIndicator(
                       strokeWidth: 2, color: Colors.white))
               : const Icon(Icons.save, size: 18);
-          final saveLabel = Text(isSaving ? 'Đang lưu...' : 'Lưu',
+          final saveLabel = Text(tr(isSaving ? 'Đang lưu...' : 'Lưu'),
               style: const TextStyle(fontSize: 13));
 
           if (isMobileSalary) {
@@ -3276,7 +3269,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                 height: double.infinity,
                 child: Scaffold(
                   appBar: AppBar(
-                    title: Text(isEditing ? 'Sửa mức lương' : 'Thêm mức lương'),
+                    title: Text(tr(isEditing ? 'Sửa mức lương' : 'Thêm mức lương')),
                     leading: IconButton(
                         icon: const Icon(Icons.close),
                         onPressed: () => Navigator.pop(ctx2)),
@@ -3289,7 +3282,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                         children: [
                           TextButton(
                               onPressed: () => Navigator.pop(ctx2),
-                              child: const Text('Hủy')),
+                              child: Text(tr('Hủy'))),
                           const SizedBox(width: 12),
                           FilledButton.icon(
                             onPressed: onSave,
@@ -3332,7 +3325,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                         Icon(isEditing ? Icons.edit : Icons.add_circle,
                             color: const Color(0xFFF59E0B), size: 22),
                         const SizedBox(width: 10),
-                        Text(isEditing ? 'Sửa mức lương' : 'Thêm mức lương',
+                        Text(tr(isEditing ? 'Sửa mức lương' : 'Thêm mức lương'),
                             style: const TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold,
@@ -3363,7 +3356,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                                 borderRadius: BorderRadius.circular(8)),
                             side: const BorderSide(color: _borderColor),
                           ),
-                          child: const Text('Hủy'),
+                          child: Text(tr('Hủy')),
                         ),
                         const SizedBox(width: 12),
                         FilledButton.icon(
@@ -3397,8 +3390,8 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
       builder: (context) => ScrollableAlertDialog(
         backgroundColor: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        title: const Text('Xác nhận xóa', style: TextStyle(color: _textDark)),
-        content: Text('Bạn có chắc muốn xóa ca "${shift.name}"?',
+        title: Text(tr('Xác nhận xóa'), style: TextStyle(color: _textDark)),
+        content: Text(tr('Bạn có chắc muốn xóa ca "${shift.name}"?'),
             style: const TextStyle(color: _textMuted)),
         actions: [
           AppDialogActions.delete(onConfirm: () async {
@@ -3411,14 +3404,14 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                 }
                 _loadData();
                 appNotification.showSuccess(
-                    title: 'Thành công', message: 'Đã xóa ca "${shift.name}"');
+                    title: 'Thành công', message: tr('Đã xóa ca "${shift.name}"'));
               } else {
                 appNotification.showError(
                     title: 'Lỗi',
                     message: response['message'] ?? 'Không thể xóa ca');
               }
             } catch (e) {
-              appNotification.showError(title: 'Lỗi', message: 'Lỗi: $e');
+              appNotification.showError(title: 'Lỗi', message: tr('Lỗi: $e'));
             }
           })
         ],

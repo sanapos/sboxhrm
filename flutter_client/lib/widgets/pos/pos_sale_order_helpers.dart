@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../utils/pos_doc_status.dart';
 import 'pos_theme.dart';
+import '../../l10n/app_tr.dart';
 String posSaleOrderStatusLabel(String status) => switch (status) {
       'Completed' => 'Hoàn thành',
       'Cancelled' => 'Đã hủy',
@@ -55,7 +56,7 @@ Widget posSaleOrderStatusChip(String status, {String? returnStatus}) {
             borderRadius: BorderRadius.circular(12),
           ),
           child: Text(
-            returnLabel,
+            tr(returnLabel),
             style: TextStyle(
               fontSize: 10,
               fontWeight: FontWeight.w600,
@@ -72,7 +73,7 @@ Widget saleFilterSection(String title, Widget content) => Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Text(
-          title,
+          tr(title),
           style: const TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w600,

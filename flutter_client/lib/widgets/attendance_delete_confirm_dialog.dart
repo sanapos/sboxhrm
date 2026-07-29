@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 
 import 'app_responsive_dialog.dart';
 import 'attendance_correction_reason_field.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// Dialog xóa chấm công — mobile full-screen, nút Hủy/Xóa cố định dưới (không bị che).
 Future<String?> showAttendanceDeleteConfirmDialog({
@@ -29,9 +30,9 @@ Future<String?> showAttendanceDeleteConfirmDialog({
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            directApply
+            tr(directApply
                 ? 'Bạn có chắc muốn xóa lần chấm công này? (áp dụng ngay)'
-                : 'Bạn có chắc muốn yêu cầu xóa lần chấm công này?',
+                : 'Bạn có chắc muốn yêu cầu xóa lần chấm công này?'),
             style: const TextStyle(fontSize: 14, height: 1.4),
           ),
           const SizedBox(height: 12),
@@ -42,13 +43,13 @@ Future<String?> showAttendanceDeleteConfirmDialog({
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Nhân viên: $employeeName',
+                  Text(tr('Nhân viên: $employeeName'),
                       style: const TextStyle(fontWeight: FontWeight.w600)),
-                  Text('Mã: $employeeCode'),
-                  Text('Ngày: ${DateFormat('dd/MM/yyyy').format(date)}'),
+                  Text(tr('Mã: $employeeCode')),
+                  Text(tr('${tr('Ngày: ')}${DateFormat('dd/MM/yyyy').format(date)}')),
                   Text(
-                    'Lần chấm: $punchIndex (${isIn ? 'Vào' : 'Ra'}) — '
-                    '${DateFormat('HH:mm').format(punchTime)}',
+                    tr('Lần chấm: $punchIndex (${isIn ? 'Vào' : 'Ra'}) — '
+                    '${DateFormat('HH:mm').format(punchTime)}'),
                   ),
                 ],
               ),
@@ -86,7 +87,7 @@ class _DeleteDialogActions extends StatelessWidget {
         Expanded(
           child: OutlinedButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Hủy'),
+            child: Text(tr('Hủy')),
           ),
         ),
         const SizedBox(width: 12),
@@ -96,8 +97,8 @@ class _DeleteDialogActions extends StatelessWidget {
               final reason = reasonController.text.trim();
               if (reason.isEmpty) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Vui lòng chọn gợi ý hoặc nhập lý do xóa'),
+                  SnackBar(
+                    content: Text(tr('Vui lòng chọn gợi ý hoặc nhập lý do xóa')),
                     behavior: SnackBarBehavior.floating,
                   ),
                 );
@@ -106,7 +107,7 @@ class _DeleteDialogActions extends StatelessWidget {
               Navigator.pop(context, reason);
             },
             icon: const Icon(Icons.delete, size: 20),
-            label: const Text('Xóa'),
+            label: Text(tr('Xóa')),
             style: FilledButton.styleFrom(
               backgroundColor: const Color(0xFFEF4444),
               foregroundColor: Colors.white,

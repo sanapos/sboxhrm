@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../services/api_service.dart';
 import 'system_admin_helpers.dart';
 import '../../utils/responsive_helper.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 class AuditTab extends StatefulWidget {
   const AuditTab({super.key});
@@ -169,16 +170,16 @@ class AuditTabState extends State<AuditTab> {
                 child: DropdownButtonHideUnderline(
                   child: DropdownButton<String?>(
                     value: _actionFilter,
-                    hint: const Text('Loại hành động',
+                    hint: Text(tr('Loại hành động'),
                         style: TextStyle(fontSize: 13)),
                     items: [
-                      const DropdownMenuItem(
+                      DropdownMenuItem(
                           value: null,
-                          child: Text('Tất cả',
+                          child: Text(tr('Tất cả'),
                               style: TextStyle(fontSize: 13))),
                       ...actions.map((a) => DropdownMenuItem(
                           value: a,
-                          child: Text('$a (${actionMap[a]})',
+                          child: Text(tr('$a (${actionMap[a]})'),
                               style: const TextStyle(fontSize: 13)))),
                     ],
                     onChanged: (v) {
@@ -239,7 +240,7 @@ class AuditTabState extends State<AuditTab> {
                   }
                 : null,
             icon: const Icon(Icons.first_page, size: 20),
-            tooltip: 'Trang đầu',
+            tooltip: tr('Trang đầu'),
           ),
           IconButton(
             onPressed: _currentPage > 1
@@ -249,12 +250,12 @@ class AuditTabState extends State<AuditTab> {
                   }
                 : null,
             icon: const Icon(Icons.chevron_left, size: 20),
-            tooltip: 'Trang trước',
+            tooltip: tr('Trang trước'),
           ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12),
             child: Text(
-              'Trang $_currentPage / $_totalPages',
+              tr('Trang $_currentPage / $_totalPages'),
               style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
             ),
           ),
@@ -266,7 +267,7 @@ class AuditTabState extends State<AuditTab> {
                   }
                 : null,
             icon: const Icon(Icons.chevron_right, size: 20),
-            tooltip: 'Trang sau',
+            tooltip: tr('Trang sau'),
           ),
           IconButton(
             onPressed: _currentPage < _totalPages
@@ -276,11 +277,10 @@ class AuditTabState extends State<AuditTab> {
                   }
                 : null,
             icon: const Icon(Icons.last_page, size: 20),
-            tooltip: 'Trang cuối',
+            tooltip: tr('Trang cuối'),
           ),
           if (!isMobile) const SizedBox(width: 16),
-          Text(
-            'Hiển thị ${(_currentPage - 1) * _pageSize + 1}-${(_currentPage * _pageSize).clamp(0, _totalCount)} / $_totalCount',
+          Text(tr('Hiển thị ${(_currentPage - 1) * _pageSize + 1}-${(_currentPage * _pageSize).clamp(0, _totalCount)} / $_totalCount'),
             style: TextStyle(fontSize: 12, color: Colors.grey[600]),
           ),
         ],
@@ -315,13 +315,13 @@ class AuditTabState extends State<AuditTab> {
         const SizedBox(width: 12),
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(log['description'] ?? log['entityType'] ?? 'N/A', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14), maxLines: 1, overflow: TextOverflow.ellipsis),
+            Text(tr(log['description'] ?? log['entityType'] ?? 'N/A'), style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14), maxLines: 1, overflow: TextOverflow.ellipsis),
             const SizedBox(height: 2),
-            Text([action.toString(), log['userName'] ?? log['userEmail'] ?? ''].where((s) => s.isNotEmpty).join(' \u00b7 '),
+            Text(tr([action.toString(), log['userName'] ?? log['userEmail'] ?? ''].where((s) => s.isNotEmpty).join(' \u00b7 ')),
               style: const TextStyle(color: Color(0xFF71717A), fontSize: 12), maxLines: 1, overflow: TextOverflow.ellipsis),
           ]),
         ),
-        Text(AdminHelpers.formatDate(log['createdAt'] ?? log['timestamp']),
+        Text(tr(AdminHelpers.formatDate(log['createdAt'] ?? log['timestamp'])),
           style: const TextStyle(fontSize: 11, color: Color(0xFF71717A))),
       ]),
     );
@@ -366,7 +366,7 @@ class AuditTabState extends State<AuditTab> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                    log['description'] ?? log['entityType'] ?? 'N/A',
+                    tr(log['description'] ?? log['entityType'] ?? 'N/A'),
                     style: const TextStyle(
                         fontSize: 13, fontWeight: FontWeight.w500)),
                 Row(children: [
@@ -376,7 +376,7 @@ class AuditTabState extends State<AuditTab> {
                       log['userEmail'] != null) ...[
                     const SizedBox(width: 6),
                     Text(
-                        log['userName'] ?? log['userEmail'] ?? '',
+                        tr(log['userName'] ?? log['userEmail'] ?? ''),
                         style: TextStyle(
                             fontSize: 11,
                             color: Colors.grey[600])),
@@ -385,8 +385,8 @@ class AuditTabState extends State<AuditTab> {
               ]),
         ),
         Text(
-            AdminHelpers.formatDate(
-                log['createdAt'] ?? log['timestamp']),
+            tr(AdminHelpers.formatDate(
+                log['createdAt'] ?? log['timestamp'])),
             style:
                 TextStyle(fontSize: 11, color: Colors.grey[500])),
       ]),

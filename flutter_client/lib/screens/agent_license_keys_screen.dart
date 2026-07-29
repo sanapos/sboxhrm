@@ -6,6 +6,7 @@ import '../services/api_service.dart';
 import '../utils/responsive_helper.dart';
 import '../widgets/notification_overlay.dart';
 import '../widgets/hrm_page_chrome.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 class AgentLicenseKeysScreen extends StatefulWidget {
   final bool embedded;
@@ -108,9 +109,9 @@ class _AgentLicenseKeysScreenState extends State<AgentLicenseKeysScreen> {
   }
 
   void _copyKey(String key) {
-    Clipboard.setData(ClipboardData(text: key));
+    Clipboard.setData(ClipboardData(text: tr(key)));
     NotificationOverlayManager()
-        .showSuccess(title: 'Thành công', message: 'Đã copy license key');
+        .showSuccess(title: 'Thành công', message: tr('Đã copy license key'));
   }
 
   @override
@@ -164,12 +165,11 @@ class _AgentLicenseKeysScreenState extends State<AgentLicenseKeysScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('License Keys được cấp',
+                  Text(tr('License Keys được cấp'),
                       style:
                           TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                   if (_profile != null)
-                    Text(
-                        'Đại lý: ${_profile!['name'] ?? ''} (${_profile!['code'] ?? ''})',
+                    Text(tr('${tr('Đại lý: ')}${_profile!['name'] ?? ''} (${_profile!['code'] ?? ''})'),
                         style:
                             TextStyle(color: Colors.grey[600], fontSize: 13)),
                 ],
@@ -196,11 +196,11 @@ class _AgentLicenseKeysScreenState extends State<AgentLicenseKeysScreen> {
         border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Row(mainAxisSize: MainAxisSize.min, children: [
-        Text('$value',
+        Text(tr('$value'),
             style: TextStyle(
                 fontWeight: FontWeight.bold, color: color, fontSize: 15)),
         const SizedBox(width: 6),
-        Text(label, style: TextStyle(color: color, fontSize: 12)),
+        Text(tr(label), style: TextStyle(color: color, fontSize: 12)),
       ]),
     );
   }
@@ -212,7 +212,7 @@ class _AgentLicenseKeysScreenState extends State<AgentLicenseKeysScreen> {
       child: TextField(
         controller: _searchCtrl,
         decoration: InputDecoration(
-          hintText: 'Tìm key, store, ghi chú...',
+          hintText: tr('Tìm key, store, ghi chú...'),
           prefixIcon: const Icon(Icons.search, size: 18),
           isDense: true,
           contentPadding:
@@ -248,11 +248,11 @@ class _AgentLicenseKeysScreenState extends State<AgentLicenseKeysScreen> {
                     _filterDropdown(
                       value: _filterUsed,
                       hint: 'Trạng thái',
-                      items: const [
-                        DropdownMenuItem(value: null, child: Text('Tất cả')),
+                      items: [
+                        DropdownMenuItem(value: null, child: Text(tr('Tất cả'))),
                         DropdownMenuItem(
-                            value: 'false', child: Text('Còn trống')),
-                        DropdownMenuItem(value: 'true', child: Text('Đã dùng')),
+                            value: 'false', child: Text(tr('Còn trống'))),
+                        DropdownMenuItem(value: 'true', child: Text(tr('Đã dùng'))),
                       ],
                       onChanged: (v) {
                         _filterUsed = v;
@@ -262,21 +262,21 @@ class _AgentLicenseKeysScreenState extends State<AgentLicenseKeysScreen> {
                     _filterDropdown(
                       value: _filterType,
                       hint: 'Loại',
-                      items: const [
-                        DropdownMenuItem(value: null, child: Text('Tất cả')),
-                        DropdownMenuItem(value: 'Basic', child: Text('Cơ bản')),
+                      items: [
+                        DropdownMenuItem(value: null, child: Text(tr('Tất cả'))),
+                        DropdownMenuItem(value: 'Basic', child: Text(tr('Cơ bản'))),
                         DropdownMenuItem(
-                            value: 'Advanced', child: Text('Nâng cao')),
+                            value: 'Advanced', child: Text(tr('Nâng cao'))),
                         DropdownMenuItem(
                             value: 'Professional',
-                            child: Text('Chuyên nghiệp')),
+                            child: Text(tr('Chuyên nghiệp'))),
                       ],
                       onChanged: (v) {
                         _filterType = v;
                         _applyFilter();
                       },
                     ),
-                    Text('$_totalCount keys',
+                    Text(tr('$_totalCount keys'),
                         style:
                             TextStyle(color: Colors.grey[500], fontSize: 13)),
                   ],
@@ -289,10 +289,10 @@ class _AgentLicenseKeysScreenState extends State<AgentLicenseKeysScreen> {
               _filterDropdown(
                 value: _filterUsed,
                 hint: 'Trạng thái',
-                items: const [
-                  DropdownMenuItem(value: null, child: Text('Tất cả')),
-                  DropdownMenuItem(value: 'false', child: Text('Còn trống')),
-                  DropdownMenuItem(value: 'true', child: Text('Đã dùng')),
+                items: [
+                  DropdownMenuItem(value: null, child: Text(tr('Tất cả'))),
+                  DropdownMenuItem(value: 'false', child: Text(tr('Còn trống'))),
+                  DropdownMenuItem(value: 'true', child: Text(tr('Đã dùng'))),
                 ],
                 onChanged: (v) {
                   _filterUsed = v;
@@ -303,12 +303,12 @@ class _AgentLicenseKeysScreenState extends State<AgentLicenseKeysScreen> {
               _filterDropdown(
                 value: _filterType,
                 hint: 'Loại',
-                items: const [
-                  DropdownMenuItem(value: null, child: Text('Tất cả')),
-                  DropdownMenuItem(value: 'Basic', child: Text('Cơ bản')),
-                  DropdownMenuItem(value: 'Advanced', child: Text('Nâng cao')),
+                items: [
+                  DropdownMenuItem(value: null, child: Text(tr('Tất cả'))),
+                  DropdownMenuItem(value: 'Basic', child: Text(tr('Cơ bản'))),
+                  DropdownMenuItem(value: 'Advanced', child: Text(tr('Nâng cao'))),
                   DropdownMenuItem(
-                      value: 'Professional', child: Text('Chuyên nghiệp')),
+                      value: 'Professional', child: Text(tr('Chuyên nghiệp'))),
                 ],
                 onChanged: (v) {
                   _filterType = v;
@@ -316,7 +316,7 @@ class _AgentLicenseKeysScreenState extends State<AgentLicenseKeysScreen> {
                 },
               ),
               const Spacer(),
-              Text('$_totalCount keys',
+              Text(tr('$_totalCount keys'),
                   style: TextStyle(color: Colors.grey[500], fontSize: 13)),
             ]),
     );
@@ -337,7 +337,7 @@ class _AgentLicenseKeysScreenState extends State<AgentLicenseKeysScreen> {
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String?>(
           value: value,
-          hint: Text(hint, style: const TextStyle(fontSize: 13)),
+          hint: Text(tr(hint), style: const TextStyle(fontSize: 13)),
           isDense: true,
           items: items,
           onChanged: onChanged,
@@ -352,10 +352,10 @@ class _AgentLicenseKeysScreenState extends State<AgentLicenseKeysScreen> {
       child: Column(mainAxisSize: MainAxisSize.min, children: [
         Icon(Icons.vpn_key_outlined, size: 64, color: Colors.grey[300]),
         const SizedBox(height: 12),
-        Text('Chưa có license key nào',
+        Text(tr('Chưa có license key nào'),
             style: TextStyle(color: Colors.grey[500], fontSize: 15)),
         const SizedBox(height: 6),
-        Text('Liên hệ quản trị viên để được cấp key',
+        Text(tr('Liên hệ quản trị viên để được cấp key'),
             style: TextStyle(color: Colors.grey[400], fontSize: 13)),
       ]),
     );
@@ -419,7 +419,7 @@ class _AgentLicenseKeysScreenState extends State<AgentLicenseKeysScreen> {
             child:
                 Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(
-                  keyStr.length > 20 ? '${keyStr.substring(0, 20)}...' : keyStr,
+                  tr(keyStr.length > 20 ? '${keyStr.substring(0, 20)}...' : keyStr),
                   style: const TextStyle(
                       fontWeight: FontWeight.w600,
                       fontSize: 13,
@@ -428,7 +428,7 @@ class _AgentLicenseKeysScreenState extends State<AgentLicenseKeysScreen> {
                   overflow: TextOverflow.ellipsis),
               const SizedBox(height: 2),
               Text(
-                [typeLabel, if (packageName != null) packageName].join(' · '),
+                tr([typeLabel, if (packageName != null) packageName].join(' · ')),
                 style: const TextStyle(color: Color(0xFF71717A), fontSize: 12),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
@@ -442,7 +442,7 @@ class _AgentLicenseKeysScreenState extends State<AgentLicenseKeysScreen> {
                     ? Colors.grey.withValues(alpha: 0.1)
                     : Colors.green.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8)),
-            child: Text(isUsed ? 'Đã dùng' : 'Chưa dùng',
+            child: Text(tr(isUsed ? 'Đã dùng' : 'Chưa dùng'),
                 style: TextStyle(
                     fontSize: 10,
                     fontWeight: FontWeight.w600,
@@ -510,7 +510,7 @@ class _AgentLicenseKeysScreenState extends State<AgentLicenseKeysScreen> {
                   children: [
                     Row(children: [
                       Expanded(
-                        child: Text(keyStr,
+                        child: Text(tr(keyStr),
                             style: TextStyle(
                               fontFamily: 'monospace',
                               fontWeight: FontWeight.w600,
@@ -523,7 +523,7 @@ class _AgentLicenseKeysScreenState extends State<AgentLicenseKeysScreen> {
                       IconButton(
                         icon: const Icon(Icons.copy, size: 16),
                         onPressed: () => _copyKey(keyStr),
-                        tooltip: 'Copy key',
+                        tooltip: tr('Copy key'),
                         padding: EdgeInsets.zero,
                         constraints:
                             const BoxConstraints(minWidth: 28, minHeight: 28),
@@ -542,7 +542,7 @@ class _AgentLicenseKeysScreenState extends State<AgentLicenseKeysScreen> {
                       Row(children: [
                         Icon(Icons.store, size: 13, color: Colors.grey[500]),
                         const SizedBox(width: 4),
-                        Text(storeName,
+                        Text(tr(storeName),
                             style: TextStyle(
                                 fontSize: 12, color: Colors.grey[600])),
                       ]),
@@ -554,14 +554,14 @@ class _AgentLicenseKeysScreenState extends State<AgentLicenseKeysScreen> {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  Text('$maxUsers users · $maxDevices TBị',
+                  Text(tr('$maxUsers users · $maxDevices TBị'),
                       style: TextStyle(fontSize: 11, color: Colors.grey[500])),
                   const SizedBox(height: 2),
-                  Text('$durationDays ngày',
+                  Text(tr('$durationDays ngày'),
                       style: TextStyle(fontSize: 11, color: Colors.grey[500])),
                   if (createdAt != null) ...[
                     const SizedBox(height: 2),
-                    Text(_formatDate(createdAt),
+                    Text(tr(_formatDate(createdAt)),
                         style:
                             TextStyle(fontSize: 10, color: Colors.grey[400])),
                   ],
@@ -589,10 +589,10 @@ class _AgentLicenseKeysScreenState extends State<AgentLicenseKeysScreen> {
     final notes = key['notes']?.toString();
     final isMobile = MediaQuery.of(context).size.width < 600;
 
-    const titleRow = Row(children: [
+    final titleRow = Row(children: [
       Icon(Icons.vpn_key, color: _primary, size: 22),
       SizedBox(width: 10),
-      Text('Chi tiết License Key', style: TextStyle(fontSize: 16)),
+      Text(tr('Chi tiết License Key'), style: TextStyle(fontSize: 16)),
     ]);
 
     final contentBody = Column(
@@ -621,14 +621,14 @@ class _AgentLicenseKeysScreenState extends State<AgentLicenseKeysScreen> {
 
     final actionButtons = [
       TextButton(
-          onPressed: () => Navigator.pop(context), child: const Text('Đóng')),
+          onPressed: () => Navigator.pop(context), child: Text(tr('Đóng'))),
       FilledButton.icon(
         onPressed: () {
           _copyKey(keyStr);
           Navigator.pop(context);
         },
         icon: const Icon(Icons.copy, size: 16),
-        label: const Text('Sao chép Key'),
+        label: Text(tr('Sao chép Key')),
       ),
     ];
 
@@ -646,7 +646,7 @@ class _AgentLicenseKeysScreenState extends State<AgentLicenseKeysScreen> {
                   icon: const Icon(Icons.close),
                   onPressed: () => Navigator.pop(ctx),
                 ),
-                title: const Text('Chi tiết License Key',
+                title: Text(tr('Chi tiết License Key'),
                     overflow: TextOverflow.ellipsis, maxLines: 1),
               ),
               body: SingleChildScrollView(
@@ -700,11 +700,11 @@ class _AgentLicenseKeysScreenState extends State<AgentLicenseKeysScreen> {
         const SizedBox(width: 10),
         SizedBox(
           width: 100,
-          child: Text(label,
+          child: Text(tr(label),
               style: TextStyle(color: Colors.grey[600], fontSize: 13)),
         ),
         Expanded(
-          child: Text(value,
+          child: Text(tr(value),
               style: TextStyle(
                 fontWeight: FontWeight.w500,
                 fontSize: 13,
@@ -730,7 +730,7 @@ class _AgentLicenseKeysScreenState extends State<AgentLicenseKeysScreen> {
         borderRadius: BorderRadius.circular(4),
         border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
-      child: Text(label,
+      child: Text(tr(label),
           style: TextStyle(
               fontSize: 11, color: color, fontWeight: FontWeight.w500)),
     );
@@ -752,12 +752,12 @@ class _AgentLicenseKeysScreenState extends State<AgentLicenseKeysScreen> {
         spacing: 12,
         runSpacing: 8,
         children: [
-          Text('Hiển thị $start-$end / $_totalCount',
+          Text(tr('Hiển thị $start-$end / $_totalCount'),
               style: TextStyle(color: Colors.grey[600], fontSize: 13)),
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('Hiển thị:',
+              Text(tr('Hiển thị:'),
                   style: TextStyle(fontSize: 12, color: Colors.grey[500])),
               const SizedBox(width: 8),
               Container(
@@ -775,7 +775,7 @@ class _AgentLicenseKeysScreenState extends State<AgentLicenseKeysScreen> {
                     style: TextStyle(fontSize: 13, color: Colors.grey[800]),
                     items: _pageSizeOptions
                         .map((s) =>
-                            DropdownMenuItem(value: s, child: Text('$s')))
+                            DropdownMenuItem(value: s, child: Text(tr('$s'))))
                         .toList(),
                     onChanged: (v) {
                       if (v != null) {
@@ -811,7 +811,7 @@ class _AgentLicenseKeysScreenState extends State<AgentLicenseKeysScreen> {
                   color: _primary,
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: Text('$_page / $_totalPages',
+                child: Text(tr('$_page / $_totalPages'),
                     style: const TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w600,

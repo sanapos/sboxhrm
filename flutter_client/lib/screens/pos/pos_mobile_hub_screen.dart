@@ -17,6 +17,7 @@ import '../pos_sell_screen.dart';
 import '../main_layout.dart' show ScreenRefreshNotifier;
 import 'pos_more_screen.dart';
 import 'pos_overview_screen.dart';
+import '../../l10n/app_tr.dart';
 
 /// Shell POS mobile 5-tab kiểu KiotViet — 5 ô cố định, tùy chỉnh được.
 class PosMobileHubScreen extends StatefulWidget {
@@ -226,7 +227,7 @@ class PosMobileHubScreenState extends State<PosMobileHubScreen> {
                             const Icon(Icons.remove, size: 20, color: Colors.grey),
                             const SizedBox(height: 2),
                             Text(
-                              def?.label ?? 'Trống',
+                              tr(def?.label ?? 'Trống'),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
@@ -255,7 +256,7 @@ class PosMobileHubScreenState extends State<PosMobileHubScreen> {
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            def.label,
+                            tr(def.label),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(

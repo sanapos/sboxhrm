@@ -9,6 +9,7 @@ import '../../widgets/hrm_page_chrome.dart';
 import '../../widgets/notification_overlay.dart';
 import '../../widgets/pos/pos_bank_account_form_dialog.dart';
 import '../../widgets/pos/pos_theme.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// Thiết lập cửa hàng / VAT / VietQR — dùng trong Settings hub (HRM).
 class PosStoreSettingsHubScreen extends StatefulWidget {
@@ -103,7 +104,7 @@ class _PosStoreSettingsHubScreenState extends State<PosStoreSettingsHubScreen> {
     setState(() => _saving = false);
     NotificationOverlayManager().showSuccess(
       title: 'Đã lưu',
-      message: 'Thiết lập cửa hàng đã cập nhật',
+      message: tr('Thiết lập cửa hàng đã cập nhật'),
     );
   }
 
@@ -119,8 +120,8 @@ class _PosStoreSettingsHubScreenState extends State<PosStoreSettingsHubScreen> {
         children: [
           TextField(
             controller: _nameCtrl,
-            decoration: const InputDecoration(
-              labelText: 'Tên cửa hàng',
+            decoration: InputDecoration(
+              labelText: tr('Tên cửa hàng'),
               border: OutlineInputBorder(),
             ),
             textCapitalization: TextCapitalization.words,
@@ -128,8 +129,8 @@ class _PosStoreSettingsHubScreenState extends State<PosStoreSettingsHubScreen> {
           const SizedBox(height: 12),
           TextField(
             controller: _addressCtrl,
-            decoration: const InputDecoration(
-              labelText: 'Địa chỉ',
+            decoration: InputDecoration(
+              labelText: tr('Địa chỉ'),
               border: OutlineInputBorder(),
             ),
             maxLines: 2,
@@ -138,20 +139,18 @@ class _PosStoreSettingsHubScreenState extends State<PosStoreSettingsHubScreen> {
           TextField(
             controller: _phoneCtrl,
             keyboardType: TextInputType.phone,
-            decoration: const InputDecoration(
-              labelText: 'Số điện thoại',
+            decoration: InputDecoration(
+              labelText: tr('Số điện thoại'),
               border: OutlineInputBorder(),
             ),
           ),
           const SizedBox(height: 16),
-          const Text(
-            'Tài khoản VietQR',
+          Text(tr('Tài khoản VietQR'),
             style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: 8),
           if (_accounts.isEmpty)
-            Text(
-              'Chưa có tài khoản ngân hàng. Thêm tài khoản để tạo mã QR.',
+            Text(tr('Chưa có tài khoản ngân hàng. Thêm tài khoản để tạo mã QR.'),
               style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
             )
           else
@@ -162,8 +161,8 @@ class _PosStoreSettingsHubScreenState extends State<PosStoreSettingsHubScreen> {
                       .map((a) => a.id)
                       .firstOrNull ??
                   _accounts.first.id,
-              decoration: const InputDecoration(
-                labelText: 'Tài khoản nhận tiền',
+              decoration: InputDecoration(
+                labelText: tr('Tài khoản nhận tiền'),
                 border: OutlineInputBorder(),
               ),
               items: _accounts
@@ -171,8 +170,8 @@ class _PosStoreSettingsHubScreenState extends State<PosStoreSettingsHubScreen> {
                     (a) => DropdownMenuItem(
                       value: a.id,
                       child: Text(
-                        '${a.bankShortName ?? a.bankName} · ${a.accountNumber}'
-                        '${a.isDefault ? ' (Mặc định)' : ''}',
+                        tr('${a.bankShortName ?? a.bankName} · ${a.accountNumber}'
+                        '${a.isDefault ? ' (Mặc định)' : ''}'),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
@@ -188,7 +187,7 @@ class _PosStoreSettingsHubScreenState extends State<PosStoreSettingsHubScreen> {
                   if (ok) await _reloadAccounts();
                 },
                 icon: const Icon(Icons.add, size: 18),
-                label: const Text('Thêm tài khoản'),
+                label: Text(tr('Thêm tài khoản')),
               ),
               if (_accounts.isNotEmpty)
                 TextButton(
@@ -203,19 +202,18 @@ class _PosStoreSettingsHubScreenState extends State<PosStoreSettingsHubScreen> {
                     );
                     if (ok) await _reloadAccounts();
                   },
-                  child: const Text('Sửa'),
+                  child: Text(tr('Sửa')),
                 ),
             ],
           ),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
-            title: const Text('Hiện mã VietQR khi thanh toán'),
+            title: Text(tr('Hiện mã VietQR khi thanh toán')),
             value: _showVietQr,
             onChanged: (v) => setState(() => _showVietQr = v),
           ),
           const Divider(height: 28),
-          const Text(
-            'Cách tính thuế VAT',
+          Text(tr('Cách tính thuế VAT'),
             style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
           ),
           ...PosSellTaxMode.values.map(
@@ -224,7 +222,7 @@ class _PosStoreSettingsHubScreenState extends State<PosStoreSettingsHubScreen> {
               groupValue: _taxMode,
               dense: true,
               contentPadding: EdgeInsets.zero,
-              title: Text(m.label, style: const TextStyle(fontSize: 13)),
+              title: Text(tr(m.label), style: const TextStyle(fontSize: 13)),
               onChanged: (v) {
                 if (v != null) setState(() => _taxMode = v);
               },
@@ -234,15 +232,15 @@ class _PosStoreSettingsHubScreenState extends State<PosStoreSettingsHubScreen> {
             const SizedBox(height: 8),
             DropdownButtonFormField<double>(
               value: _vatRate,
-              decoration: const InputDecoration(
-                labelText: 'Thuế suất VAT (%)',
+              decoration: InputDecoration(
+                labelText: tr('Thuế suất VAT (%)'),
                 border: OutlineInputBorder(),
               ),
-              items: const [
-                DropdownMenuItem(value: 0, child: Text('0%')),
-                DropdownMenuItem(value: 5, child: Text('5%')),
-                DropdownMenuItem(value: 8, child: Text('8%')),
-                DropdownMenuItem(value: 10, child: Text('10%')),
+              items: [
+                DropdownMenuItem(value: 0, child: Text(tr('0%'))),
+                DropdownMenuItem(value: 5, child: Text(tr('5%'))),
+                DropdownMenuItem(value: 8, child: Text(tr('8%'))),
+                DropdownMenuItem(value: 10, child: Text(tr('10%'))),
               ],
               onChanged: (v) {
                 if (v != null) setState(() => _vatRate = v);
@@ -262,7 +260,7 @@ class _PosStoreSettingsHubScreenState extends State<PosStoreSettingsHubScreen> {
                     height: 22,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                : const Text('Lưu thiết lập'),
+                : Text(tr('Lưu thiết lập')),
           ),
         ],
       ),

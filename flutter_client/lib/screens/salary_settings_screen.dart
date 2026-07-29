@@ -18,6 +18,7 @@ import '../utils/allowance_calculator.dart';
 import '../utils/travel_salary_utils.dart';
 import '../utils/standard_work_days_utils.dart';
 import '../utils/shift_records_calculator.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 class SalarySettingsScreen extends StatefulWidget {
   const SalarySettingsScreen({super.key});
@@ -322,7 +323,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                       );
                     },
                     icon: const Icon(Icons.card_giftcard, size: 18),
-                    label: const Text('Phụ cấp'),
+                    label: Text(tr('Phụ cấp')),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: HrmPageChrome.primaryNavy,
                       side: const BorderSide(color: HrmPageChrome.primaryNavy),
@@ -333,11 +334,11 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                     onPressed: () {
                       appNotification.showInfo(
                         title: 'Thông báo',
-                        message: 'Chức năng xuất dữ liệu đang được phát triển',
+                        message: tr('Chức năng xuất dữ liệu đang được phát triển'),
                       );
                     },
                     icon: const Icon(Icons.file_download_outlined, size: 18),
-                    label: const Text('Xuất'),
+                    label: Text(tr('Xuất')),
                   ),
                   const SizedBox(width: 8),
                   if (Provider.of<PermissionProvider>(context, listen: false)
@@ -345,7 +346,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                     FilledButton.icon(
                       onPressed: () => _showAddEmployeeDialog(),
                       icon: const Icon(Icons.add, size: 18),
-                      label: const Text('Thêm mới'),
+                      label: Text(tr('Thêm mới')),
                       style: FilledButton.styleFrom(
                         backgroundColor: HrmPageChrome.primaryNavy,
                       ),
@@ -405,7 +406,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
     final selected = _filterType == type;
     return ChoiceChip(
       label: Text(
-        '$label · $count',
+        tr('$label · $count'),
         style: TextStyle(
           fontSize: 12,
           height: 1.2,
@@ -470,8 +471,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                 ),
               ),
               const SizedBox(height: 14),
-              const Text(
-                'Bộ lọc',
+              Text(tr('Bộ lọc'),
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w700,
@@ -481,13 +481,13 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
               const SizedBox(height: 16),
               _buildFilterDropdown(
                 value: _filterSalaryType,
-                items: const [
+                items: [
                   DropdownMenuItem(
-                      value: 'all', child: Text('Tất cả loại lương')),
-                  DropdownMenuItem(value: '1', child: Text('Lương tháng')),
-                  DropdownMenuItem(value: '2', child: Text('Lương ngày')),
-                  DropdownMenuItem(value: '3', child: Text('Lương ca')),
-                  DropdownMenuItem(value: '0', child: Text('Lương giờ')),
+                      value: 'all', child: Text(tr('Tất cả loại lương'))),
+                  DropdownMenuItem(value: '1', child: Text(tr('Lương tháng'))),
+                  DropdownMenuItem(value: '2', child: Text(tr('Lương ngày'))),
+                  DropdownMenuItem(value: '3', child: Text(tr('Lương ca'))),
+                  DropdownMenuItem(value: '0', child: Text(tr('Lương giờ'))),
                 ],
                 onChanged: (value) =>
                     setState(() => _filterSalaryType = value ?? 'all'),
@@ -495,18 +495,18 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
               const SizedBox(height: 10),
               _buildFilterDropdown(
                 value: _filterInsurance,
-                items: const [
-                  DropdownMenuItem(value: 'all', child: Text('Tất cả BHXH')),
+                items: [
+                  DropdownMenuItem(value: 'all', child: Text(tr('Tất cả BHXH'))),
                   DropdownMenuItem(
-                      value: '0', child: Text('Chưa đóng BHXH')),
+                      value: '0', child: Text(tr('Chưa đóng BHXH'))),
                   DropdownMenuItem(
-                      value: '1', child: Text('Đóng lương cơ bản')),
+                      value: '1', child: Text(tr('Đóng lương cơ bản'))),
                   DropdownMenuItem(
-                      value: '2', child: Text('LCB và Lương HT')),
+                      value: '2', child: Text(tr('LCB và Lương HT'))),
                   DropdownMenuItem(
-                      value: '3', child: Text('Lương tối thiểu vùng')),
+                      value: '3', child: Text(tr('Lương tối thiểu vùng'))),
                   DropdownMenuItem(
-                      value: '4', child: Text('Mức lương khác')),
+                      value: '4', child: Text(tr('Mức lương khác'))),
                 ],
                 onChanged: (value) =>
                     setState(() => _filterInsurance = value ?? 'all'),
@@ -514,22 +514,22 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
               const SizedBox(height: 10),
               _buildFilterDropdown(
                 value: _filterAttendance,
-                items: const [
+                items: [
                   DropdownMenuItem(
-                      value: 'all', child: Text('Tất cả chấm công')),
-                  DropdownMenuItem(value: 'checkin', child: Text('Chấm vào')),
-                  DropdownMenuItem(value: 'checkout', child: Text('Chấm ra')),
+                      value: 'all', child: Text(tr('Tất cả chấm công'))),
+                  DropdownMenuItem(value: 'checkin', child: Text(tr('Chấm vào'))),
+                  DropdownMenuItem(value: 'checkout', child: Text(tr('Chấm ra'))),
                   DropdownMenuItem(
-                      value: 'both', child: Text('Chấm vào & Chấm ra')),
-                  DropdownMenuItem(value: 'any', child: Text('Chấm bất kỳ')),
+                      value: 'both', child: Text(tr('Chấm vào & Chấm ra'))),
+                  DropdownMenuItem(value: 'any', child: Text(tr('Chấm bất kỳ'))),
                   DropdownMenuItem(
                       value: kOncePerShiftAttendanceMode,
-                      child: Text('Chấm vào 1 lần/ca')),
+                      child: Text(tr('Chấm vào 1 lần/ca'))),
                   DropdownMenuItem(
                       value: kFreeTwoPunchAttendanceMode,
-                      child: Text('Chấm 2 lần bất kỳ trong ngày')),
+                      child: Text(tr('Chấm 2 lần bất kỳ trong ngày'))),
                   DropdownMenuItem(
-                      value: 'none', child: Text('Không chấm công')),
+                      value: 'none', child: Text(tr('Không chấm công'))),
                 ],
                 onChanged: (value) =>
                     setState(() => _filterAttendance = value ?? 'all'),
@@ -553,7 +553,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                           });
                           Navigator.pop(ctx);
                         },
-                        child: const Text('Xóa lọc'),
+                        child: Text(tr('Xóa lọc')),
                       ),
                     ),
                   if (_activeFilterCount > 0 ||
@@ -567,7 +567,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                       style: FilledButton.styleFrom(
                         backgroundColor: HrmPageChrome.primaryNavy,
                       ),
-                      child: const Text('Áp dụng'),
+                      child: Text(tr('Áp dụng')),
                     ),
                   ),
                 ],
@@ -594,7 +594,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
         onChanged: (value) => setState(() => _searchQuery = value),
         style: const TextStyle(color: Color(0xFF18181B), fontSize: 13),
         decoration: InputDecoration(
-          hintText: 'Tìm theo tên hoặc mã nhân viên...',
+          hintText: tr('Tìm theo tên hoặc mã nhân viên...'),
           hintStyle: TextStyle(color: Colors.grey[400], fontSize: 13),
           prefixIcon: Icon(Icons.search, color: Colors.grey[400], size: 18),
           filled: true,
@@ -641,7 +641,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                     Icon(Icons.filter_alt_off,
                         size: 16, color: Colors.red.shade700),
                     const SizedBox(width: 4),
-                    Text('Xóa lọc',
+                    Text(tr('Xóa lọc'),
                         style: TextStyle(
                             fontSize: 12,
                             color: Colors.red.shade700,
@@ -655,44 +655,44 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
 
     final salaryTypeDropdown = _buildFilterDropdown(
       value: _filterSalaryType,
-      items: const [
-        DropdownMenuItem(value: 'all', child: Text('Tất cả loại lương')),
-        DropdownMenuItem(value: '1', child: Text('Lương tháng')),
-        DropdownMenuItem(value: '2', child: Text('Lương ngày')),
-        DropdownMenuItem(value: '3', child: Text('Lương ca')),
-        DropdownMenuItem(value: '0', child: Text('Lương giờ')),
+      items: [
+        DropdownMenuItem(value: 'all', child: Text(tr('Tất cả loại lương'))),
+        DropdownMenuItem(value: '1', child: Text(tr('Lương tháng'))),
+        DropdownMenuItem(value: '2', child: Text(tr('Lương ngày'))),
+        DropdownMenuItem(value: '3', child: Text(tr('Lương ca'))),
+        DropdownMenuItem(value: '0', child: Text(tr('Lương giờ'))),
       ],
       onChanged: (value) => setState(() => _filterSalaryType = value ?? 'all'),
     );
 
     final insuranceDropdown = _buildFilterDropdown(
       value: _filterInsurance,
-      items: const [
-        DropdownMenuItem(value: 'all', child: Text('Tất cả BHXH')),
-        DropdownMenuItem(value: '0', child: Text('Chưa đóng BHXH')),
-        DropdownMenuItem(value: '1', child: Text('Đóng lương cơ bản')),
-        DropdownMenuItem(value: '2', child: Text('LCB và Lương HT')),
-        DropdownMenuItem(value: '3', child: Text('Lương tối thiểu vùng')),
-        DropdownMenuItem(value: '4', child: Text('Mức lương khác')),
+      items: [
+        DropdownMenuItem(value: 'all', child: Text(tr('Tất cả BHXH'))),
+        DropdownMenuItem(value: '0', child: Text(tr('Chưa đóng BHXH'))),
+        DropdownMenuItem(value: '1', child: Text(tr('Đóng lương cơ bản'))),
+        DropdownMenuItem(value: '2', child: Text(tr('LCB và Lương HT'))),
+        DropdownMenuItem(value: '3', child: Text(tr('Lương tối thiểu vùng'))),
+        DropdownMenuItem(value: '4', child: Text(tr('Mức lương khác'))),
       ],
       onChanged: (value) => setState(() => _filterInsurance = value ?? 'all'),
     );
 
     final attendanceDropdown = _buildFilterDropdown(
       value: _filterAttendance,
-      items: const [
-        DropdownMenuItem(value: 'all', child: Text('Tất cả chấm công')),
-        DropdownMenuItem(value: 'checkin', child: Text('Chấm vào')),
-        DropdownMenuItem(value: 'checkout', child: Text('Chấm ra')),
-        DropdownMenuItem(value: 'both', child: Text('Chấm vào & Chấm ra')),
-        DropdownMenuItem(value: 'any', child: Text('Chấm bất kỳ')),
+      items: [
+        DropdownMenuItem(value: 'all', child: Text(tr('Tất cả chấm công'))),
+        DropdownMenuItem(value: 'checkin', child: Text(tr('Chấm vào'))),
+        DropdownMenuItem(value: 'checkout', child: Text(tr('Chấm ra'))),
+        DropdownMenuItem(value: 'both', child: Text(tr('Chấm vào & Chấm ra'))),
+        DropdownMenuItem(value: 'any', child: Text(tr('Chấm bất kỳ'))),
         DropdownMenuItem(
             value: kOncePerShiftAttendanceMode,
-            child: Text('Chấm vào 1 lần/ca')),
+            child: Text(tr('Chấm vào 1 lần/ca'))),
         DropdownMenuItem(
             value: kFreeTwoPunchAttendanceMode,
-            child: Text('Chấm 2 lần bất kỳ trong ngày')),
-        DropdownMenuItem(value: 'none', child: Text('Không chấm công')),
+            child: Text(tr('Chấm 2 lần bất kỳ trong ngày'))),
+        DropdownMenuItem(value: 'none', child: Text(tr('Không chấm công'))),
       ],
       onChanged: (value) => setState(() => _filterAttendance = value ?? 'all'),
     );
@@ -731,9 +731,9 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                               : const Color(0xFF71717A),
                         ),
                         label: Text(
-                          _activeFilterCount > 0
+                          tr(_activeFilterCount > 0
                               ? 'Bộ lọc ($_activeFilterCount)'
-                              : 'Bộ lọc',
+                              : 'Bộ lọc'),
                           style: TextStyle(
                             fontSize: 13,
                             color: hasFilters
@@ -833,13 +833,13 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
               icon: const Icon(Icons.keyboard_arrow_down,
                   size: 18, color: Color(0xFF9CA3AF)),
               items: [
-                const DropdownMenuItem<String?>(
+                DropdownMenuItem<String?>(
                     value: null,
-                    child: Text('Tất cả chi nhánh',
+                    child: Text(tr('Tất cả chi nhánh'),
                         style: TextStyle(fontSize: 13))),
                 ..._branches.map((b) => DropdownMenuItem<String?>(
                     value: b['id']?.toString(),
-                    child: Text(b['name']?.toString() ?? '',
+                    child: Text(tr(b['name']?.toString() ?? ''),
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(fontSize: 13)))),
               ],
@@ -958,7 +958,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
         DataColumn(
           label: SizedBox(
             width: width,
-            child: Text(label, style: _salaryTableHeaderStyle),
+            child: Text(tr(label), style: _salaryTableHeaderStyle),
           ),
           onSort: (i, asc) {
             setState(() {
@@ -1054,7 +1054,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                         onSelectChanged: (_) => _showViewDialog(employee),
                         cells: [
                           DataCell(Text(
-                            code.isNotEmpty ? code : '—',
+                            tr(code.isNotEmpty ? code : '—'),
                             style: const TextStyle(
                               color: HrmPageChrome.primaryNavy,
                               fontWeight: FontWeight.w600,
@@ -1062,20 +1062,20 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                             ),
                           )),
                           DataCell(Text(
-                            name,
+                            tr(name),
                             style: const TextStyle(
                               fontWeight: FontWeight.w600,
                               fontSize: 13,
                             ),
                           )),
                           DataCell(Text(
-                            isConfigured ? salaryType : '—',
+                            tr(isConfigured ? salaryType : '—'),
                             style: const TextStyle(fontSize: 12),
                           )),
                           DataCell(Text(
-                            baseSalary > 0
+                            tr(baseSalary > 0
                                 ? _formatCurrency(baseSalary)
-                                : '—',
+                                : '—'),
                             style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w600,
@@ -1085,9 +1085,9 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                             ),
                           )),
                           DataCell(Text(
-                            fixedAllowance > 0
+                            tr(fixedAllowance > 0
                                 ? _formatCurrency(fixedAllowance)
-                                : '—',
+                                : '—'),
                             style: const TextStyle(fontSize: 12),
                           )),
                           DataCell(
@@ -1151,7 +1151,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
         IconButton(
           icon: const Icon(Icons.visibility_outlined,
               size: 20, color: Color(0xFF71717A)),
-          tooltip: 'Xem chi tiết',
+          tooltip: tr('Xem chi tiết'),
           onPressed: () => _showViewDialog(employee),
           visualDensity: VisualDensity.compact,
         ),
@@ -1159,7 +1159,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
           IconButton(
             icon: const Icon(Icons.edit_outlined,
                 size: 20, color: HrmPageChrome.primaryNavy),
-            tooltip: 'Chỉnh sửa',
+            tooltip: tr('Chỉnh sửa'),
             onPressed: () => _showEditDialog(employee),
             visualDensity: VisualDensity.compact,
           ),
@@ -1312,7 +1312,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                     size: 14, color: Theme.of(context).primaryColor),
                 const SizedBox(width: 6),
                 Text(
-                  name,
+                  tr(name),
                   style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w700,
@@ -1326,7 +1326,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                     color: Theme.of(context).primaryColor,
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: Text('$count',
+                  child: Text(tr('$count'),
                       style: const TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
@@ -1408,7 +1408,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
             children: [
               // Hàng 1: chỉ tên — tối đa không gian hiển thị
               Text(
-                name,
+                tr(name),
                 style: const TextStyle(
                   fontWeight: FontWeight.w700,
                   fontSize: 15,
@@ -1424,7 +1424,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                 children: [
                   Expanded(
                     child: Text(
-                      code.isNotEmpty ? code : '—',
+                      tr(code.isNotEmpty ? code : '—'),
                       style: const TextStyle(
                         fontSize: 12,
                         color: HrmPageChrome.primaryNavy,
@@ -1449,8 +1449,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                       size: 15, color: Color(0xFF94A3B8)),
                   const SizedBox(width: 6),
                   Expanded(
-                    child: Text(
-                      'Lương CB: $salaryLabel',
+                    child: Text(tr('Lương CB: $salaryLabel'),
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
@@ -1486,13 +1485,13 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
   Widget _buildSalaryShiftsText(String? raw, {TextAlign align = TextAlign.start}) {
     final text = _formatShiftsDisplay(raw);
     if (text == '—') {
-      return Text(text, style: const TextStyle(fontSize: 12, color: Color(0xFF71717A)));
+      return Text(tr(text), style: const TextStyle(fontSize: 12, color: Color(0xFF71717A)));
     }
     return Tooltip(
       message: text,
       waitDuration: const Duration(milliseconds: 350),
       child: Text(
-        text,
+        tr(text),
         textAlign: align,
         style: const TextStyle(fontSize: 12, height: 1.4, color: Color(0xFF3F3F46)),
         softWrap: true,
@@ -1514,8 +1513,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'Ca làm việc',
+              Text(tr('Ca làm việc'),
                 style: TextStyle(color: Color(0xFF71717A), fontSize: 12),
               ),
               const SizedBox(height: 4),
@@ -1541,7 +1539,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
         border: Border.all(color: color.withValues(alpha: 0.2)),
       ),
       child: Text(
-        label,
+        tr(label),
         style: TextStyle(
           fontSize: 10,
           fontWeight: FontWeight.w600,
@@ -1586,7 +1584,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        employee['fullName'] ?? 'N/A',
+                        tr(employee['fullName'] ?? 'N/A'),
                         style: const TextStyle(
                           color: Color(0xFF18181B),
                           fontWeight: FontWeight.bold,
@@ -1597,7 +1595,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        employee['employeeCode'] ?? '',
+                        tr(employee['employeeCode'] ?? ''),
                         style: const TextStyle(
                             color: HrmPageChrome.primaryNavy, fontSize: 12),
                       ),
@@ -1626,7 +1624,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                       ),
                       const SizedBox(width: 4),
                       Text(
-                        isConfigured ? salaryType : 'Chưa TL',
+                        tr(isConfigured ? salaryType : 'Chưa TL'),
                         style: TextStyle(
                           color: isConfigured
                               ? HrmPageChrome.primaryNavy
@@ -1691,7 +1689,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                   onPressed: () => _showViewDialog(employee),
                   icon: const Icon(Icons.visibility_outlined,
                       color: Color(0xFF71717A), size: 20),
-                  tooltip: 'Xem chi tiết',
+                  tooltip: tr('Xem chi tiết'),
                 ),
                 if (Provider.of<PermissionProvider>(context, listen: false)
                     .canEdit('SalarySettings'))
@@ -1699,7 +1697,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                     onPressed: () => _showEditDialog(employee),
                     icon: const Icon(Icons.edit_outlined,
                         color: HrmPageChrome.primaryNavy, size: 20),
-                    tooltip: 'Chỉnh sửa',
+                    tooltip: tr('Chỉnh sửa'),
                   ),
               ],
             ),
@@ -1758,12 +1756,12 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
         const SizedBox(width: 8),
         Expanded(
           child: Text(
-            label,
+            tr(label),
             style: const TextStyle(color: Color(0xFF71717A), fontSize: 12),
           ),
         ),
         Text(
-          value,
+          tr(value),
           style: TextStyle(
             color: valueColor,
             fontWeight: FontWeight.w600,
@@ -1785,12 +1783,12 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              label,
+              tr(label),
               style: const TextStyle(color: Color(0xFF71717A), fontSize: 12),
             ),
           ),
           Text(
-            value,
+            tr(value),
             style: TextStyle(
               color: valueColor,
               fontWeight: FontWeight.w600,
@@ -1903,7 +1901,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
             final actionButtons = [
               TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: const Text('Đóng',
+                child: Text(tr('Đóng'),
                     style: TextStyle(color: Color(0xFF71717A))),
               ),
               if (canEditSalary)
@@ -1915,7 +1913,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                   style: FilledButton.styleFrom(
                     backgroundColor: HrmPageChrome.primaryNavy,
                   ),
-                  child: const Text('Chỉnh sửa'),
+                  child: Text(tr('Chỉnh sửa')),
                 ),
             ];
             if (isMobile) {
@@ -1926,7 +1924,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                   height: double.infinity,
                   child: Scaffold(
                     appBar: AppBar(
-                      title: Text(employee['fullName'] ?? 'Chi tiết'),
+                      title: Text(tr(employee['fullName'] ?? 'Chi tiết')),
                       leading: IconButton(
                           icon: const Icon(Icons.close),
                           onPressed: () => Navigator.pop(context)),
@@ -1954,7 +1952,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      employee['fullName'] ?? 'Chi tiết',
+                      tr(employee['fullName'] ?? 'Chi tiết'),
                       style: const TextStyle(
                           color: Color(0xFF18181B),
                           fontWeight: FontWeight.bold,
@@ -2268,10 +2266,10 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
         children: [
           const Icon(Icons.info_outline, size: 16, color: HrmPageChrome.primaryNavy),
           const SizedBox(width: 8),
-          Text(label,
+          Text(tr(label),
               style: const TextStyle(fontSize: 12, color: Color(0xFF71717A))),
           const Spacer(),
-          Text(amount,
+          Text(tr(amount),
               style: const TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
@@ -2385,7 +2383,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
             SizedBox(
               width: 150,
               child: Text(
-                label,
+                tr(label),
                 style: const TextStyle(color: Color(0xFF71717A), fontSize: 14),
               ),
             ),
@@ -2393,7 +2391,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
               child: Row(
                 children: [
                   Text(
-                    value,
+                    tr(value),
                     style: const TextStyle(
                       color: HrmPageChrome.primaryNavy,
                       fontWeight: FontWeight.w500,
@@ -2461,17 +2459,16 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        allowanceType == 0
+                        tr(allowanceType == 0
                             ? 'Chi tiết phụ cấp cố định'
-                            : 'Chi tiết phụ cấp theo ngày',
+                            : 'Chi tiết phụ cấp theo ngày'),
                         style: const TextStyle(
                           color: Color(0xFF18181B),
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                      Text(
-                        '${assignedAllowances.length} khoản phụ cấp',
+                      Text(tr('${assignedAllowances.length} khoản phụ cấp'),
                         style: TextStyle(color: Colors.grey[600], fontSize: 12),
                       ),
                     ],
@@ -2495,8 +2492,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                           Icon(Icons.inbox_outlined,
                               size: 48, color: Colors.grey[400]),
                           const SizedBox(height: 8),
-                          Text(
-                            'Chưa có phụ cấp ${allowanceType == 0 ? 'cố định' : 'theo ngày'} nào được gán',
+                          Text(tr('${tr('Chưa có phụ cấp ')}${allowanceType == 0 ? 'cố định' : 'theo ngày'} nào được gán'),
                             style: TextStyle(color: Colors.grey[600]),
                           ),
                         ],
@@ -2521,7 +2517,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                           ),
                           child: Center(
                             child: Text(
-                              '${index + 1}',
+                              tr('${index + 1}'),
                               style: const TextStyle(
                                 color: HrmPageChrome.primaryNavy,
                                 fontWeight: FontWeight.bold,
@@ -2531,7 +2527,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                           ),
                         ),
                         title: Text(
-                          allowance['name'] ?? '',
+                          tr(allowance['name'] ?? ''),
                           style: const TextStyle(
                             color: Color(0xFF18181B),
                             fontSize: 14,
@@ -2540,8 +2536,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                         ),
                         subtitle: allowance['code'] != null &&
                                 allowance['code'].toString().isNotEmpty
-                            ? Text(
-                                'Mã: ${allowance['code']}',
+                            ? Text(tr('${tr('Mã: ')}${allowance['code']}'),
                                 style: TextStyle(
                                     color: Colors.grey[600], fontSize: 12),
                               )
@@ -2554,8 +2549,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                                 HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(6),
                           ),
-                          child: Text(
-                            '${_currencyFormat.format(amount)} đ',
+                          child: Text(tr('${_currencyFormat.format(amount)} đ'),
                             style: const TextStyle(
                               color: HrmPageChrome.primaryNavy,
                               fontSize: 13,
@@ -2589,16 +2583,14 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text(
-                          'Tổng cộng:',
+                        Text(tr('Tổng cộng:'),
                           style: TextStyle(
                             color: Color(0xFF18181B),
                             fontSize: 14,
                             fontWeight: FontWeight.w500,
                           ),
                         ),
-                        Text(
-                          '${_currencyFormat.format(total)} đ',
+                        Text(tr('${_currencyFormat.format(total)} đ'),
                           style: const TextStyle(
                             color: HrmPageChrome.primaryNavy,
                             fontSize: 18,
@@ -2622,7 +2614,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                             );
                           },
                           icon: const Icon(Icons.add, size: 18),
-                          label: const Text('Thêm phụ cấp'),
+                          label: Text(tr('Thêm phụ cấp')),
                           style: OutlinedButton.styleFrom(
                             foregroundColor: HrmPageChrome.primaryNavy,
                             side: const BorderSide(color: HrmPageChrome.primaryNavy),
@@ -2640,7 +2632,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                             backgroundColor: HrmPageChrome.primaryNavy,
                             padding: const EdgeInsets.symmetric(vertical: 12),
                           ),
-                          child: const Text('Đóng'),
+                          child: Text(tr('Đóng')),
                         ),
                       ),
                     ],
@@ -2657,9 +2649,9 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                   height: double.infinity,
                   child: Scaffold(
                     appBar: AppBar(
-                      title: Text(allowanceType == 0
+                      title: Text(tr(allowanceType == 0
                           ? 'Phụ cấp cố định'
-                          : 'Phụ cấp theo ngày'),
+                          : 'Phụ cấp theo ngày')),
                       leading: IconButton(
                           icon: const Icon(Icons.close),
                           onPressed: () => Navigator.pop(context)),
@@ -2712,13 +2704,13 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
           SizedBox(
             width: 150,
             child: Text(
-              label,
+              tr(label),
               style: const TextStyle(color: Color(0xFF71717A), fontSize: 14),
             ),
           ),
           Expanded(
             child: Text(
-              value,
+              tr(value),
               style: const TextStyle(
                   color: Color(0xFF18181B),
                   fontWeight: FontWeight.w500,
@@ -2734,9 +2726,9 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
 
   void _showEditDialog(Map<String, dynamic> employee) {
     final nameController =
-        TextEditingController(text: employee['fullName'] ?? '');
+        TextEditingController(text: tr(employee['fullName'] ?? ''));
     final codeController =
-        TextEditingController(text: employee['employeeCode'] ?? '');
+        TextEditingController(text: tr(employee['employeeCode'] ?? ''));
 
     final benefit = employee['benefit'] as Map<String, dynamic>? ?? {};
 
@@ -2746,25 +2738,25 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
 
     // Monthly fields
     final baseSalaryController = TextEditingController(
-        text: _formatNumber((benefit['rate'] as num?)?.toDouble() ??
+        text: tr(_formatNumber((benefit['rate'] as num?)?.toDouble() ??
             (employee['baseSalary'] as num?)?.toDouble() ??
-            0));
+            0)));
     final completionSalaryController = TextEditingController(
-        text: _formatNumber(
-            (benefit['completionSalary'] as num?)?.toDouble() ?? 0));
+        text: tr(_formatNumber(
+            (benefit['completionSalary'] as num?)?.toDouble() ?? 0)));
 
     // Holiday overtime
     String holidayOvertimeType =
         (benefit['holidayOvertimeType'] ?? 1).toString();
     final holidayOvertimeDailyRateController = TextEditingController(
-        text: _formatNumber(
-            (benefit['holidayOvertimeDailyRate'] as num?)?.toDouble() ?? 0));
+        text: tr(_formatNumber(
+            (benefit['holidayOvertimeDailyRate'] as num?)?.toDouble() ?? 0)));
 
     // Hourly overtime
     String hourlyOvertimeType = (benefit['hourlyOvertimeType'] ?? 1).toString();
     final hourlyOvertimeFixedRateController = TextEditingController(
-        text: _formatNumber(
-            (benefit['hourlyOvertimeFixedRate'] as num?)?.toDouble() ?? 0));
+        text: tr(_formatNumber(
+            (benefit['hourlyOvertimeFixedRate'] as num?)?.toDouble() ?? 0)));
 
     // Social insurance
     String socialInsuranceType =
@@ -2775,23 +2767,23 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
       socialInsuranceType = '0';
     }
     final insuranceSalaryController = TextEditingController(
-        text: _formatNumber(
-            (benefit['insuranceSalary'] as num?)?.toDouble() ?? 0));
+        text: tr(_formatNumber(
+            (benefit['insuranceSalary'] as num?)?.toDouble() ?? 0)));
 
     // Daily fields
     final dailyFixedRateController = TextEditingController(
-        text: _formatNumber(
-            (benefit['dailyFixedRate'] as num?)?.toDouble() ?? 0));
+        text: tr(_formatNumber(
+            (benefit['dailyFixedRate'] as num?)?.toDouble() ?? 0)));
 
     // Shift fields
     String shiftSalaryType = (benefit['shiftSalaryType'] ?? 0).toString();
     final fixedShiftRateController = TextEditingController(
-        text: _formatNumber(
-            (benefit['fixedShiftRate'] as num?)?.toDouble() ?? 0));
+        text: tr(_formatNumber(
+            (benefit['fixedShiftRate'] as num?)?.toDouble() ?? 0)));
 
     // Hourly fields
     final hourlyRateController = TextEditingController(
-        text: _formatNumber((benefit['rate'] as num?)?.toDouble() ?? 0));
+        text: tr(_formatNumber((benefit['rate'] as num?)?.toDouble() ?? 0)));
 
     // Common fields
     // Calculate totals from individual allowances assigned to this employee
@@ -2804,26 +2796,26 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
     final fixedVal = calcFixedTotal;
     final dailyVal = calcDailyTotal;
     final fixedAllowanceController =
-        TextEditingController(text: _formatNumber(fixedVal));
+        TextEditingController(text: tr(_formatNumber(fixedVal)));
     final dailyAllowanceController =
-        TextEditingController(text: _formatNumber(dailyVal));
+        TextEditingController(text: tr(_formatNumber(dailyVal)));
 
     final paidLeaveDaysController = TextEditingController(
-      text: benefit['paidLeaveDays']?.toString() ??
+      text: tr(benefit['paidLeaveDays']?.toString() ??
           (_parseSalaryRateType(
                       benefit['rateType'] ?? employee['salaryType']) ==
                   1
               ? '12'
-              : '0'),
+              : '0')),
     );
     final unpaidLeaveDaysController = TextEditingController(
-      text: (benefit['unpaidLeaveDays'] ?? 0).toString(),
+      text: tr((benefit['unpaidLeaveDays'] ?? 0).toString()),
     );
 
     EmployeeStandardWorkMode stdWorkMode =
         parseEmployeeStandardWorkMode(benefit);
     final fixedStdDaysController = TextEditingController(
-      text: parseFixedStandardWorkDays(benefit).toString(),
+      text: tr(parseFixedStandardWorkDays(benefit).toString()),
     );
     bool deductIfBelowFixed = parseDeductIfBelowFixedStandard(benefit);
     bool addIfAboveFixed = parseAddIfAboveFixedStandard(benefit);
@@ -2881,9 +2873,9 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
       fallbackHours: _standardWorkHours,
     );
     final hoursPerWorkDayController = TextEditingController(
-      text: hoursPerWorkDayInit == hoursPerWorkDayInit.roundToDouble()
+      text: tr(hoursPerWorkDayInit == hoursPerWorkDayInit.roundToDouble()
           ? hoursPerWorkDayInit.toInt().toString()
-          : hoursPerWorkDayInit.toStringAsFixed(1),
+          : hoursPerWorkDayInit.toStringAsFixed(1)),
     );
 
     bool travelSalaryEnabled = isTravelSalaryEnabledForEmployee(benefit: benefit);
@@ -2897,9 +2889,9 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
       benefit: benefit,
     );
     final employeeTravelFixedRateController = TextEditingController(
-      text: employeeTravelFixedRate > 0
+      text: tr(employeeTravelFixedRate > 0
           ? _formatNumber(employeeTravelFixedRate)
-          : '',
+          : ''),
     );
     final stdDaysLabel = _storeStandardWorkDays() ==
             _storeStandardWorkDays().roundToDouble()
@@ -2936,11 +2928,11 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                 _buildDropdownField(
                   label: 'Loại lương:',
                   value: salaryType,
-                  items: const [
-                    DropdownMenuItem(value: '1', child: Text('Lương tháng')),
-                    DropdownMenuItem(value: '2', child: Text('Lương ngày')),
-                    DropdownMenuItem(value: '3', child: Text('Lương ca')),
-                    DropdownMenuItem(value: '0', child: Text('Lương giờ')),
+                  items: [
+                    DropdownMenuItem(value: '1', child: Text(tr('Lương tháng'))),
+                    DropdownMenuItem(value: '2', child: Text(tr('Lương ngày'))),
+                    DropdownMenuItem(value: '3', child: Text(tr('Lương ca'))),
+                    DropdownMenuItem(value: '0', child: Text(tr('Lương giờ'))),
                   ],
                   onChanged: (value) => setDialogState(() {
                     final oldType = salaryType;
@@ -2987,12 +2979,12 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                         child: _buildDropdownField(
                           label: 'Tăng ca ngày nghỉ:',
                           value: holidayOvertimeType,
-                          items: const [
+                          items: [
                             DropdownMenuItem(
-                                value: '0', child: Text('Cố định ngày')),
+                                value: '0', child: Text(tr('Cố định ngày'))),
                             DropdownMenuItem(
                                 value: '1',
-                                child: Text('Hệ số tăng ca theo luật')),
+                                child: Text(tr('Hệ số tăng ca theo luật'))),
                           ],
                           onChanged: (value) => setDialogState(
                               () => holidayOvertimeType = value ?? '1'),
@@ -3017,14 +3009,14 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                         child: _buildDropdownField(
                           label: 'Tăng ca làm thêm giờ:',
                           value: hourlyOvertimeType,
-                          items: const [
+                          items: [
                             DropdownMenuItem(
-                                value: '0', child: Text('Cố định giờ')),
+                                value: '0', child: Text(tr('Cố định giờ'))),
                             DropdownMenuItem(
                                 value: '1',
-                                child: Text('Hệ số tăng ca theo luật')),
+                                child: Text(tr('Hệ số tăng ca theo luật'))),
                             DropdownMenuItem(
-                                value: '2', child: Text('Không tính tăng ca')),
+                                value: '2', child: Text(tr('Không tính tăng ca'))),
                           ],
                           onChanged: (value) => setDialogState(
                               () => hourlyOvertimeType = value ?? '1'),
@@ -3049,20 +3041,20 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                         child: _buildDropdownField(
                           label: 'Đóng bảo hiểm xã hội:',
                           value: socialInsuranceType,
-                          items: const [
+                          items: [
                             DropdownMenuItem(
-                                value: '0', child: Text('Chưa đóng BHXH')),
+                                value: '0', child: Text(tr('Chưa đóng BHXH'))),
                             DropdownMenuItem(
-                                value: '1', child: Text('Đóng lương cơ bản')),
+                                value: '1', child: Text(tr('Đóng lương cơ bản'))),
                             DropdownMenuItem(
                                 value: '2',
                                 child:
-                                    Text('Lương cơ bản và Lương hoàn thành')),
+                                    Text(tr('Lương cơ bản và Lương hoàn thành'))),
                             DropdownMenuItem(
                                 value: '3',
-                                child: Text('Lương tối thiểu vùng')),
+                                child: Text(tr('Lương tối thiểu vùng'))),
                             DropdownMenuItem(
-                                value: '4', child: Text('Mức lương khác')),
+                                value: '4', child: Text(tr('Mức lương khác'))),
                           ],
                           onChanged: (value) => setDialogState(
                               () => socialInsuranceType = value ?? '0'),
@@ -3103,12 +3095,12 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                         child: _buildDropdownField(
                           label: 'Tăng ca ngày nghỉ:',
                           value: holidayOvertimeType,
-                          items: const [
+                          items: [
                             DropdownMenuItem(
-                                value: '0', child: Text('Cố định ngày')),
+                                value: '0', child: Text(tr('Cố định ngày'))),
                             DropdownMenuItem(
                                 value: '1',
-                                child: Text('Hệ số tăng ca theo luật')),
+                                child: Text(tr('Hệ số tăng ca theo luật'))),
                           ],
                           onChanged: (value) => setDialogState(
                               () => holidayOvertimeType = value ?? '1'),
@@ -3133,14 +3125,14 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                         child: _buildDropdownField(
                           label: 'Tăng ca làm thêm giờ:',
                           value: hourlyOvertimeType,
-                          items: const [
+                          items: [
                             DropdownMenuItem(
-                                value: '0', child: Text('Cố định giờ')),
+                                value: '0', child: Text(tr('Cố định giờ'))),
                             DropdownMenuItem(
                                 value: '1',
-                                child: Text('Hệ số tăng ca theo luật')),
+                                child: Text(tr('Hệ số tăng ca theo luật'))),
                             DropdownMenuItem(
-                                value: '2', child: Text('Không tính tăng ca')),
+                                value: '2', child: Text(tr('Không tính tăng ca'))),
                           ],
                           onChanged: (value) => setDialogState(
                               () => hourlyOvertimeType = value ?? '1'),
@@ -3164,14 +3156,14 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                         child: _buildDropdownField(
                           label: 'Đóng bảo hiểm xã hội:',
                           value: socialInsuranceType,
-                          items: const [
+                          items: [
                             DropdownMenuItem(
-                                value: '0', child: Text('Chưa đóng BHXH')),
+                                value: '0', child: Text(tr('Chưa đóng BHXH'))),
                             DropdownMenuItem(
                                 value: '3',
-                                child: Text('Lương tối thiểu vùng')),
+                                child: Text(tr('Lương tối thiểu vùng'))),
                             DropdownMenuItem(
-                                value: '4', child: Text('Mức lương khác')),
+                                value: '4', child: Text(tr('Mức lương khác'))),
                           ],
                           onChanged: (value) => setDialogState(
                               () => socialInsuranceType = value ?? '0'),
@@ -3217,8 +3209,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                   ),
                   Padding(
                     padding: const EdgeInsets.only(top: 6),
-                    child: Text(
-                      'Khi gán hồ sơ lương tháng, số phép năm được đưa vào quỹ nghỉ phép của nhân viên.',
+                    child: Text(tr('Khi gán hồ sơ lương tháng, số phép năm được đưa vào quỹ nghỉ phép của nhân viên.'),
                       style: TextStyle(
                         fontSize: 12,
                         color: Colors.grey[600],
@@ -3233,11 +3224,11 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                   _buildDropdownField(
                     label: 'Kiểu tính lương:',
                     value: shiftSalaryType,
-                    items: const [
+                    items: [
                       DropdownMenuItem(
-                          value: '0', child: Text('Lương ca cố định')),
+                          value: '0', child: Text(tr('Lương ca cố định'))),
                       DropdownMenuItem(
-                          value: '1', child: Text('Lương theo ca')),
+                          value: '1', child: Text(tr('Lương theo ca'))),
                     ],
                     onChanged: (value) =>
                         setDialogState(() => shiftSalaryType = value ?? '0'),
@@ -3258,12 +3249,12 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                         child: _buildDropdownField(
                           label: 'Tăng ca ngày nghỉ:',
                           value: holidayOvertimeType,
-                          items: const [
+                          items: [
                             DropdownMenuItem(
-                                value: '0', child: Text('Cố định ngày')),
+                                value: '0', child: Text(tr('Cố định ngày'))),
                             DropdownMenuItem(
                                 value: '1',
-                                child: Text('Hệ số tăng ca theo luật')),
+                                child: Text(tr('Hệ số tăng ca theo luật'))),
                           ],
                           onChanged: (value) => setDialogState(
                               () => holidayOvertimeType = value ?? '1'),
@@ -3288,14 +3279,14 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                         child: _buildDropdownField(
                           label: 'Tăng ca làm thêm giờ:',
                           value: hourlyOvertimeType,
-                          items: const [
+                          items: [
                             DropdownMenuItem(
-                                value: '0', child: Text('Cố định giờ')),
+                                value: '0', child: Text(tr('Cố định giờ'))),
                             DropdownMenuItem(
                                 value: '1',
-                                child: Text('Hệ số tăng ca theo luật')),
+                                child: Text(tr('Hệ số tăng ca theo luật'))),
                             DropdownMenuItem(
-                                value: '2', child: Text('Không tính tăng ca')),
+                                value: '2', child: Text(tr('Không tính tăng ca'))),
                           ],
                           onChanged: (value) => setDialogState(
                               () => hourlyOvertimeType = value ?? '1'),
@@ -3319,14 +3310,14 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                         child: _buildDropdownField(
                           label: 'Đóng bảo hiểm xã hội:',
                           value: socialInsuranceType,
-                          items: const [
+                          items: [
                             DropdownMenuItem(
-                                value: '0', child: Text('Chưa đóng BHXH')),
+                                value: '0', child: Text(tr('Chưa đóng BHXH'))),
                             DropdownMenuItem(
                                 value: '3',
-                                child: Text('Lương tối thiểu vùng')),
+                                child: Text(tr('Lương tối thiểu vùng'))),
                             DropdownMenuItem(
-                                value: '4', child: Text('Mức lương khác')),
+                                value: '4', child: Text(tr('Mức lương khác'))),
                           ],
                           onChanged: (value) => setDialogState(
                               () => socialInsuranceType = value ?? '0'),
@@ -3367,14 +3358,14 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                         child: _buildDropdownField(
                           label: 'Tăng ca làm thêm giờ:',
                           value: hourlyOvertimeType,
-                          items: const [
+                          items: [
                             DropdownMenuItem(
-                                value: '0', child: Text('Cố định giờ')),
+                                value: '0', child: Text(tr('Cố định giờ'))),
                             DropdownMenuItem(
                                 value: '1',
-                                child: Text('Hệ số tăng ca theo luật')),
+                                child: Text(tr('Hệ số tăng ca theo luật'))),
                             DropdownMenuItem(
-                                value: '2', child: Text('Không tính tăng ca')),
+                                value: '2', child: Text(tr('Không tính tăng ca'))),
                           ],
                           onChanged: (value) => setDialogState(
                               () => hourlyOvertimeType = value ?? '1'),
@@ -3398,14 +3389,14 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                         child: _buildDropdownField(
                           label: 'Đóng bảo hiểm xã hội:',
                           value: socialInsuranceType,
-                          items: const [
+                          items: [
                             DropdownMenuItem(
-                                value: '0', child: Text('Chưa đóng BHXH')),
+                                value: '0', child: Text(tr('Chưa đóng BHXH'))),
                             DropdownMenuItem(
                                 value: '3',
-                                child: Text('Lương tối thiểu vùng')),
+                                child: Text(tr('Lương tối thiểu vùng'))),
                             DropdownMenuItem(
-                                value: '4', child: Text('Mức lương khác')),
+                                value: '4', child: Text(tr('Mức lương khác'))),
                           ],
                           onChanged: (value) => setDialogState(
                               () => socialInsuranceType = value ?? '0'),
@@ -3477,9 +3468,8 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                 const SizedBox(height: 8),
                 Row(
                   children: [
-                    const Expanded(
-                      child: Text(
-                        'Lương đi đường (nhân viên)',
+                    Expanded(
+                      child: Text(tr('Lương đi đường (nhân viên)'),
                         style: TextStyle(
                           fontWeight: FontWeight.w700,
                           fontSize: 14,
@@ -3502,9 +3492,9 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  travelSalaryEnabled
+                  tr(travelSalaryEnabled
                       ? 'Bật thì chọn cách tính đơn giá giờ đi đường. Chỉ NV có giờ đi đường mobile (đã duyệt) mới có trên bảng lương.'
-                      : 'Đang tắt — không tính lương đi đường cho nhân viên này.',
+                      : 'Đang tắt — không tính lương đi đường cho nhân viên này.'),
                   style:
                       const TextStyle(fontSize: 11, color: Color(0xFF71717A)),
                 ),
@@ -3513,10 +3503,9 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                   RadioListTile<TravelSalaryMode>(
                     contentPadding: EdgeInsets.zero,
                     dense: true,
-                    title: Text(
-                        'Lương cơ bản ÷ $stdDaysLabel công ÷ $stdHoursLabel giờ'),
+                    title: Text(tr('Lương cơ bản ÷ $stdDaysLabel công ÷ $stdHoursLabel giờ')),
                     subtitle: Text(
-                      'VD: LCB 8.000.000, $stdDaysLabel công, $stdHoursLabel h → ${NumberFormat('#,###', 'vi_VN').format((8000000 / (_storeStandardWorkDays() * _standardWorkHours)).round())}đ/giờ',
+                      tr('VD: LCB 8.000.000, $stdDaysLabel công, $stdHoursLabel h → ${NumberFormat('#,###', 'vi_VN').format((8000000 / (_storeStandardWorkDays() * _standardWorkHours)).round())}đ/giờ'),
                       style: const TextStyle(fontSize: 11),
                     ),
                     value: TravelSalaryMode.basePer8h,
@@ -3527,10 +3516,8 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                   RadioListTile<TravelSalaryMode>(
                     contentPadding: EdgeInsets.zero,
                     dense: true,
-                    title: Text(
-                        'Lương hoàn thành ÷ $stdDaysLabel công ÷ $stdHoursLabel giờ'),
-                    subtitle: const Text(
-                      'Dùng mức lương hoàn thành trên hồ sơ lương NV',
+                    title: Text(tr('Lương hoàn thành ÷ $stdDaysLabel công ÷ $stdHoursLabel giờ')),
+                    subtitle: Text(tr('Dùng mức lương hoàn thành trên hồ sơ lương NV'),
                       style: TextStyle(fontSize: 11),
                     ),
                     value: TravelSalaryMode.completionPer8h,
@@ -3541,10 +3528,9 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                   RadioListTile<TravelSalaryMode>(
                     contentPadding: EdgeInsets.zero,
                     dense: true,
-                    title: Text(
-                        '(Lương cơ bản + lương hoàn thành) ÷ $stdDaysLabel công ÷ $stdHoursLabel giờ'),
+                    title: Text(tr('(Lương cơ bản + lương hoàn thành) ÷ $stdDaysLabel công ÷ $stdHoursLabel giờ')),
                     subtitle: Text(
-                      'VD: LCB 5.000.000 + LHT 3.000.000, $stdDaysLabel công, $stdHoursLabel h → ${NumberFormat('#,###', 'vi_VN').format((8000000 / (_storeStandardWorkDays() * _standardWorkHours)).round())}đ/giờ',
+                      tr('VD: LCB 5.000.000 + LHT 3.000.000, $stdDaysLabel công, $stdHoursLabel h → ${NumberFormat('#,###', 'vi_VN').format((8000000 / (_storeStandardWorkDays() * _standardWorkHours)).round())}đ/giờ'),
                       style: const TextStyle(fontSize: 11),
                     ),
                     value: TravelSalaryMode.basePlusCompletionPer8h,
@@ -3556,7 +3542,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                   RadioListTile<TravelSalaryMode>(
                     contentPadding: EdgeInsets.zero,
                     dense: true,
-                    title: const Text('Giờ cố định (VNĐ/giờ)'),
+                    title: Text(tr('Giờ cố định (VNĐ/giờ)')),
                     value: TravelSalaryMode.fixed,
                     groupValue: employeeTravelMode,
                     onChanged: (v) => setDialogState(
@@ -3575,8 +3561,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
 
                 const Divider(color: Color(0xFFE4E4E7)),
                 const SizedBox(height: 8),
-                const Text(
-                  'Công chuẩn tháng',
+                Text(tr('Công chuẩn tháng'),
                   style: TextStyle(
                     fontWeight: FontWeight.w700,
                     fontSize: 14,
@@ -3584,18 +3569,17 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                   ),
                 ),
                 const SizedBox(height: 4),
-                const Text(
-                  'Dùng chia lương tháng: đơn giá ngày = lương tháng ÷ công chuẩn. '
-                  'Công tính lương có thể khác công thực tế khi chọn cố định.',
+                Text(
+                  tr('Dùng chia lương tháng: đơn giá ngày = lương tháng ÷ công chuẩn. '
+                  'Công tính lương có thể khác công thực tế khi chọn cố định.'),
                   style: TextStyle(fontSize: 11, color: Color(0xFF71717A)),
                 ),
                 const SizedBox(height: 8),
                 RadioListTile<EmployeeStandardWorkMode>(
                   contentPadding: EdgeInsets.zero,
                   dense: true,
-                  title: const Text('Số ngày trong tháng − Ngày nghỉ có lương'),
-                  subtitle: const Text(
-                    'VD tháng 30 ngày, nghỉ CN → công chuẩn ≈ 26 (tùy tháng)',
+                  title: Text(tr('Số ngày trong tháng − Ngày nghỉ có lương')),
+                  subtitle: Text(tr('VD tháng 30 ngày, nghỉ CN → công chuẩn ≈ 26 (tùy tháng)'),
                     style: TextStyle(fontSize: 11),
                   ),
                   value: EmployeeStandardWorkMode.monthMinusPaidLeave,
@@ -3606,9 +3590,8 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                 RadioListTile<EmployeeStandardWorkMode>(
                   contentPadding: EdgeInsets.zero,
                   dense: true,
-                  title: const Text('Cố định số ngày'),
-                  subtitle: const Text(
-                    'Đơn giá ngày ổn định theo N công (mặc định 26)',
+                  title: Text(tr('Cố định số ngày')),
+                  subtitle: Text(tr('Đơn giá ngày ổn định theo N công (mặc định 26)'),
                     style: TextStyle(fontSize: 11),
                   ),
                   value: EmployeeStandardWorkMode.fixedDays,
@@ -3627,8 +3610,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                     contentPadding: EdgeInsets.zero,
                     dense: true,
                     controlAffinity: ListTileControlAffinity.leading,
-                    title: const Text(
-                      'Trừ lương theo ngày nếu tháng không đủ số công cố định',
+                    title: Text(tr('Trừ lương theo ngày nếu tháng không đủ số công cố định'),
                       style: TextStyle(fontSize: 13),
                     ),
                     value: deductIfBelowFixed,
@@ -3639,8 +3621,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                     contentPadding: EdgeInsets.zero,
                     dense: true,
                     controlAffinity: ListTileControlAffinity.leading,
-                    title: const Text(
-                      'Cộng lương theo ngày nếu vượt số công cố định',
+                    title: Text(tr('Cộng lương theo ngày nếu vượt số công cố định'),
                       style: TextStyle(fontSize: 13),
                     ),
                     value: addIfAboveFixed,
@@ -3657,25 +3638,25 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                       child: _buildDropdownField(
                         label: 'Ngày nghỉ có lương:',
                         value: paidLeaveType,
-                        items: const [
+                        items: [
                           DropdownMenuItem(
-                              value: 'sunday', child: Text('Chủ nhật')),
+                              value: 'sunday', child: Text(tr('Chủ nhật'))),
                           DropdownMenuItem(
-                              value: 'saturday', child: Text('Thứ bảy')),
+                              value: 'saturday', child: Text(tr('Thứ bảy'))),
                           DropdownMenuItem(
                               value: 'sat-sun',
-                              child: Text('Thứ bảy & Chủ nhật')),
+                              child: Text(tr('Thứ bảy & Chủ nhật'))),
                           DropdownMenuItem(
                               value: 'sat-afternoon-sun',
-                              child: Text('Chiều thứ 7 & Chủ nhật')),
+                              child: Text(tr('Chiều thứ 7 & Chủ nhật'))),
                           DropdownMenuItem(
-                              value: 'off-1', child: Text('Nghỉ 1 ngày/tháng')),
+                              value: 'off-1', child: Text(tr('Nghỉ 1 ngày/tháng'))),
                           DropdownMenuItem(
-                              value: 'off-2', child: Text('Nghỉ 2 ngày/tháng')),
+                              value: 'off-2', child: Text(tr('Nghỉ 2 ngày/tháng'))),
                           DropdownMenuItem(
-                              value: 'off-3', child: Text('Nghỉ 3 ngày/tháng')),
+                              value: 'off-3', child: Text(tr('Nghỉ 3 ngày/tháng'))),
                           DropdownMenuItem(
-                              value: 'off-4', child: Text('Nghỉ 4 ngày/tháng')),
+                              value: 'off-4', child: Text(tr('Nghỉ 4 ngày/tháng'))),
                         ],
                         onChanged: (value) => setDialogState(
                             () => paidLeaveType = value ?? 'sunday'),
@@ -3686,26 +3667,24 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                       child: _buildDropdownField(
                         label: 'Chấm công:',
                         value: attendanceMode,
-                        items: const [
+                        items: [
                           DropdownMenuItem(
-                              value: 'none', child: Text('Không chấm công')),
+                              value: 'none', child: Text(tr('Không chấm công'))),
                           DropdownMenuItem(
-                              value: 'checkin', child: Text('Chấm vào')),
+                              value: 'checkin', child: Text(tr('Chấm vào'))),
                           DropdownMenuItem(
-                              value: 'checkout', child: Text('Chấm ra')),
+                              value: 'checkout', child: Text(tr('Chấm ra'))),
                           DropdownMenuItem(
-                              value: 'both', child: Text('Chấm vào & Chấm ra')),
+                              value: 'both', child: Text(tr('Chấm vào & Chấm ra'))),
                           DropdownMenuItem(
                               value: 'any',
-                              child: Text('Chấm bất kỳ trong ca')),
+                              child: Text(tr('Chấm bất kỳ trong ca'))),
                           DropdownMenuItem(
                               value: kOncePerShiftAttendanceMode,
-                              child: Text(
-                                  'Chấm vào 1 lần/ca (trễ theo ca, giờ ra = hết ca)')),
+                              child: Text(tr('Chấm vào 1 lần/ca (trễ theo ca, giờ ra = hết ca)'))),
                           DropdownMenuItem(
                               value: kFreeTwoPunchAttendanceMode,
-                              child: Text(
-                                  'Chấm 2 lần bất kỳ trong ngày (không theo ca, không trễ/sớm/OT)')),
+                              child: Text(tr('Chấm 2 lần bất kỳ trong ngày (không theo ca, không trễ/sớm/OT)'))),
                         ],
                         onChanged: (value) => setDialogState(
                             () => attendanceMode = value ?? 'both'),
@@ -3731,11 +3710,11 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                         controller: hoursPerWorkDayController,
                         keyboardType: const TextInputType.numberWithOptions(
                             decimal: true),
-                        decoration: const InputDecoration(
-                          labelText: 'Giờ / 1 công',
-                          hintText: 'Mặc định 8',
-                          suffixText: 'h',
-                          helperText: 'Tổng giờ các ca trong ngày = 1 công',
+                        decoration: InputDecoration(
+                          labelText: tr('Giờ / 1 công'),
+                          hintText: tr('Mặc định 8'),
+                          suffixText: tr('h'),
+                          helperText: tr('Tổng giờ các ca trong ngày = 1 công'),
                           border: OutlineInputBorder(),
                           isDense: true,
                         ),
@@ -3931,7 +3910,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                   // Already assigned, just reload
                   appNotification.showSuccess(
                     title: 'Thành công',
-                    message: 'Đã cập nhật thiết lập lương',
+                    message: tr('Đã cập nhật thiết lập lương'),
                   );
                   _loadData();
                 } else {
@@ -3944,7 +3923,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                   if (assignResult['isSuccess'] == true) {
                     appNotification.showSuccess(
                       title: 'Thành công',
-                      message: 'Đã cập nhật thiết lập lương',
+                      message: tr('Đã cập nhật thiết lập lương'),
                     );
                     _loadData();
                   } else {
@@ -3964,7 +3943,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
             } catch (e) {
               appNotification.showError(
                 title: 'Lỗi',
-                message: 'Có lỗi xảy ra: $e',
+                message: tr('Có lỗi xảy ra: $e'),
               );
             }
           }
@@ -3977,7 +3956,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                 height: double.infinity,
                 child: Scaffold(
                   appBar: AppBar(
-                    title: const Text('Chỉnh sửa thiết lập lương'),
+                    title: Text(tr('Chỉnh sửa thiết lập lương')),
                     leading: IconButton(
                         icon: const Icon(Icons.close),
                         onPressed: () => Navigator.pop(dialogContext)),
@@ -3990,12 +3969,12 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                       children: [
                         TextButton(
                             onPressed: () => Navigator.pop(dialogContext),
-                            child: const Text('Hủy')),
+                            child: Text(tr('Hủy'))),
                         const SizedBox(width: 12),
                         FilledButton.icon(
                           onPressed: onSave,
                           icon: const Icon(Icons.save, size: 18),
-                          label: const Text('Lưu'),
+                          label: Text(tr('Lưu')),
                           style: FilledButton.styleFrom(
                             backgroundColor: HrmPageChrome.primaryNavy,
                           ),
@@ -4016,8 +3995,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
               children: [
                 const Icon(Icons.edit, color: HrmPageChrome.primaryNavy),
                 const SizedBox(width: 8),
-                const Text(
-                  'Chỉnh sửa thiết lập lương',
+                Text(tr('Chỉnh sửa thiết lập lương'),
                   style: TextStyle(
                       color: Color(0xFF18181B),
                       fontWeight: FontWeight.bold,
@@ -4037,13 +4015,13 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(dialogContext),
-                child: const Text('Hủy',
+                child: Text(tr('Hủy'),
                     style: TextStyle(color: Color(0xFF71717A))),
               ),
               FilledButton.icon(
                 onPressed: onSave,
                 icon: const Icon(Icons.save, size: 18),
-                label: const Text('Lưu'),
+                label: Text(tr('Lưu')),
                 style: FilledButton.styleFrom(
                   backgroundColor: HrmPageChrome.primaryNavy,
                 ),
@@ -4068,12 +4046,11 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          Row(
             children: [
               Icon(Icons.info_outline, color: HrmPageChrome.primaryNavy, size: 16),
               SizedBox(width: 8),
-              Text(
-                'Mức lương theo ca đã thiết lập',
+              Text(tr('Mức lương theo ca đã thiết lập'),
                 style: TextStyle(
                     color: HrmPageChrome.primaryNavy,
                     fontWeight: FontWeight.w600,
@@ -4083,20 +4060,19 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
           ),
           const SizedBox(height: 8),
           if (_shifts.isEmpty)
-            const Text('Chưa có ca làm việc nào',
+            Text(tr('Chưa có ca làm việc nào'),
                 style: TextStyle(color: Color(0xFF71717A), fontSize: 12))
           else
             ..._shifts.map((shift) => Padding(
                   padding: const EdgeInsets.symmetric(vertical: 2),
                   child: Text(
-                    '• ${shift['name']} (${shift['startTime']} - ${shift['endTime']})',
+                    tr('• ${shift['name']} (${shift['startTime']} - ${shift['endTime']})'),
                     style:
                         const TextStyle(color: Color(0xFF18181B), fontSize: 12),
                   ),
                 )),
           const SizedBox(height: 4),
-          const Text(
-            'Cấu hình mức lương theo ca tại mục Thiết lập ca',
+          Text(tr('Cấu hình mức lương theo ca tại mục Thiết lập ca'),
             style: TextStyle(
                 color: Color(0xFF71717A),
                 fontSize: 11,
@@ -4111,11 +4087,11 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label,
+        Text(tr(label),
             style: const TextStyle(color: Color(0xFF71717A), fontSize: 13)),
         const SizedBox(height: 6),
         Text(
-          value,
+          tr(value),
           style: const TextStyle(
               color: Color(0xFF18181B),
               fontSize: 14,
@@ -4135,7 +4111,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label,
+        Text(tr(label),
             style: const TextStyle(color: Color(0xFF71717A), fontSize: 13)),
         const SizedBox(height: 6),
         TextField(
@@ -4145,7 +4121,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
           onChanged:
               isNumeric ? (_) => _formatControllerNumber(controller) : null,
           decoration: InputDecoration(
-            hintText: hint,
+            hintText: trN(hint),
             hintStyle: TextStyle(color: Colors.grey[400], fontSize: 12),
             filled: true,
             fillColor: const Color(0xFFFAFAFA),
@@ -4180,7 +4156,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label,
+        Text(tr(label),
             style: const TextStyle(color: Color(0xFF71717A), fontSize: 13)),
         const SizedBox(height: 6),
         Row(
@@ -4228,7 +4204,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
               child: IconButton(
                 icon: const Icon(Icons.calculate, color: HrmPageChrome.primaryNavy),
                 onPressed: onCalculatePressed,
-                tooltip: 'Chọn phụ cấp từ danh sách',
+                tooltip: tr('Chọn phụ cấp từ danh sách'),
               ),
             ),
           ],
@@ -4318,17 +4294,16 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        allowanceType == 0
+                        tr(allowanceType == 0
                             ? 'Chi tiết phụ cấp cố định'
-                            : 'Chi tiết phụ cấp theo ngày',
+                            : 'Chi tiết phụ cấp theo ngày'),
                         style: const TextStyle(
                           color: Color(0xFF18181B),
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                      Text(
-                        '${assignedAllowances.length} khoản phụ cấp',
+                      Text(tr('${assignedAllowances.length} khoản phụ cấp'),
                         style: TextStyle(color: Colors.grey[600], fontSize: 12),
                       ),
                     ],
@@ -4351,8 +4326,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                           Icon(Icons.inbox_outlined,
                               size: 48, color: Colors.grey[400]),
                           const SizedBox(height: 8),
-                          Text(
-                            'Chưa có phụ cấp ${allowanceType == 0 ? 'cố định' : 'theo ngày'} nào được gán',
+                          Text(tr('${tr('Chưa có phụ cấp ')}${allowanceType == 0 ? 'cố định' : 'theo ngày'} nào được gán'),
                             style: TextStyle(color: Colors.grey[600]),
                           ),
                         ],
@@ -4378,7 +4352,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                           ),
                           child: Center(
                             child: Text(
-                              '${index + 1}',
+                              tr('${index + 1}'),
                               style: const TextStyle(
                                 color: HrmPageChrome.primaryNavy,
                                 fontWeight: FontWeight.bold,
@@ -4388,7 +4362,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                           ),
                         ),
                         title: Text(
-                          allowance['name'] ?? '',
+                          tr(allowance['name'] ?? ''),
                           style: const TextStyle(
                             color: Color(0xFF18181B),
                             fontSize: 14,
@@ -4397,8 +4371,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                         ),
                         subtitle: allowance['code'] != null &&
                                 allowance['code'].toString().isNotEmpty
-                            ? Text(
-                                'Mã: ${allowance['code']}',
+                            ? Text(tr('${tr('Mã: ')}${allowance['code']}'),
                                 style: TextStyle(
                                     color: Colors.grey[600], fontSize: 12),
                               )
@@ -4411,8 +4384,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                                 HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(6),
                           ),
-                          child: Text(
-                            '${_currencyFormat.format(amount)} đ',
+                          child: Text(tr('${_currencyFormat.format(amount)} đ'),
                             style: const TextStyle(
                               color: HrmPageChrome.primaryNavy,
                               fontSize: 13,
@@ -4445,16 +4417,14 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text(
-                          'Tổng cộng:',
+                        Text(tr('Tổng cộng:'),
                           style: TextStyle(
                             color: Color(0xFF18181B),
                             fontSize: 14,
                             fontWeight: FontWeight.w500,
                           ),
                         ),
-                        Text(
-                          '${_currencyFormat.format(total)} đ',
+                        Text(tr('${_currencyFormat.format(total)} đ'),
                           style: const TextStyle(
                             color: HrmPageChrome.primaryNavy,
                             fontSize: 18,
@@ -4478,7 +4448,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                             );
                           },
                           icon: const Icon(Icons.add, size: 18),
-                          label: const Text('Thêm phụ cấp'),
+                          label: Text(tr('Thêm phụ cấp')),
                           style: OutlinedButton.styleFrom(
                             foregroundColor: HrmPageChrome.primaryNavy,
                             side: const BorderSide(color: HrmPageChrome.primaryNavy),
@@ -4496,7 +4466,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                             backgroundColor: HrmPageChrome.primaryNavy,
                             padding: const EdgeInsets.symmetric(vertical: 12),
                           ),
-                          child: const Text('Đóng'),
+                          child: Text(tr('Đóng')),
                         ),
                       ),
                     ],
@@ -4512,9 +4482,9 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                   height: double.infinity,
                   child: Scaffold(
                     appBar: AppBar(
-                      title: Text(allowanceType == 0
+                      title: Text(tr(allowanceType == 0
                           ? 'Phụ cấp cố định'
-                          : 'Phụ cấp theo ngày'),
+                          : 'Phụ cấp theo ngày')),
                       leading: IconButton(
                           icon: const Icon(Icons.close),
                           onPressed: () => Navigator.pop(context)),
@@ -4587,11 +4557,11 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                       color: HrmPageChrome.primaryNavy, size: 24),
                   const SizedBox(width: 8),
                   Text(
-                    allowanceType != null
+                    tr(allowanceType != null
                         ? (allowanceType == 0
                             ? 'Thêm phụ cấp cố định'
                             : 'Thêm phụ cấp theo ngày')
-                        : 'Thêm phụ cấp mới',
+                        : 'Thêm phụ cấp mới'),
                     style: const TextStyle(
                         fontSize: 16, fontWeight: FontWeight.bold),
                   ),
@@ -4606,21 +4576,21 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                       DropdownButtonFormField<int>(
                         initialValue: selectedType,
                         decoration: InputDecoration(
-                          labelText: 'Loại phụ cấp *',
+                          labelText: tr('Loại phụ cấp *'),
                           border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(8)),
                           contentPadding: const EdgeInsets.symmetric(
                               horizontal: 12, vertical: 12),
                         ),
-                        items: const [
+                        items: [
                           DropdownMenuItem(
-                              value: 0, child: Text('Phụ cấp cố định')),
+                              value: 0, child: Text(tr('Phụ cấp cố định'))),
                           DropdownMenuItem(
-                              value: 1, child: Text('Phụ cấp theo ngày')),
+                              value: 1, child: Text(tr('Phụ cấp theo ngày'))),
                           DropdownMenuItem(
-                              value: 2, child: Text('Phụ cấp theo giờ')),
+                              value: 2, child: Text(tr('Phụ cấp theo giờ'))),
                           DropdownMenuItem(
-                              value: 3, child: Text('Phụ cấp khác')),
+                              value: 3, child: Text(tr('Phụ cấp khác'))),
                         ],
                         onChanged: (v) =>
                             setAddState(() => selectedType = v ?? 0),
@@ -4630,8 +4600,8 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                     TextFormField(
                       controller: nameController,
                       decoration: InputDecoration(
-                        labelText: 'Tên phụ cấp *',
-                        hintText: 'VD: Phụ cấp ăn trưa',
+                        labelText: tr('Tên phụ cấp *'),
+                        hintText: tr('VD: Phụ cấp ăn trưa'),
                         border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(8)),
                         contentPadding: const EdgeInsets.symmetric(
@@ -4645,13 +4615,13 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                     TextFormField(
                       controller: amountController,
                       decoration: InputDecoration(
-                        labelText: 'Số tiền (VNĐ) *',
-                        hintText: 'VD: 500000',
+                        labelText: tr('Số tiền (VNĐ) *'),
+                        hintText: tr('VD: 500000'),
                         border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(8)),
                         contentPadding: const EdgeInsets.symmetric(
                             horizontal: 12, vertical: 12),
-                        suffixText: 'đ',
+                        suffixText: tr('đ'),
                       ),
                       keyboardType: TextInputType.number,
                       validator: (v) {
@@ -4672,7 +4642,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
               actions: [
                 TextButton(
                   onPressed: isSubmitting ? null : () => Navigator.pop(context),
-                  child: const Text('Hủy'),
+                  child: Text(tr('Hủy')),
                 ),
                 FilledButton(
                   onPressed: isSubmitting
@@ -4702,8 +4672,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                               onCreated();
                               appNotification.showSuccess(
                                 title: 'Thành công',
-                                message:
-                                    'Đã thêm phụ cấp "${nameController.text.trim()}"',
+                                message: tr('Đã thêm phụ cấp "${nameController.text.trim()}"'),
                               );
                             } else {
                               setAddState(() => isSubmitting = false);
@@ -4717,7 +4686,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                             setAddState(() => isSubmitting = false);
                             appNotification.showError(
                               title: 'Lỗi',
-                              message: 'Có lỗi xảy ra: $e',
+                              message: tr('Có lỗi xảy ra: $e'),
                             );
                           }
                         },
@@ -4730,7 +4699,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                           height: 20,
                           child: CircularProgressIndicator(
                               strokeWidth: 2, color: Colors.white))
-                      : const Text('Tạo phụ cấp'),
+                      : Text(tr('Tạo phụ cấp')),
                 ),
               ],
             );
@@ -4749,7 +4718,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label,
+        Text(tr(label),
             style: const TextStyle(color: Color(0xFF71717A), fontSize: 13)),
         const SizedBox(height: 6),
         Container(
@@ -4783,7 +4752,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('Ca làm việc:',
+        Text(tr('Ca làm việc:'),
             style: TextStyle(color: Color(0xFF71717A), fontSize: 13)),
         const SizedBox(height: 6),
         InkWell(
@@ -4799,9 +4768,9 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
               children: [
                 Expanded(
                   child: Text(
-                    selectedShifts.isEmpty
+                    tr(selectedShifts.isEmpty
                         ? 'Chọn ca làm việc'
-                        : selectedShifts.join(', '),
+                        : selectedShifts.join(', ')),
                     style: TextStyle(
                       color: selectedShifts.isEmpty
                           ? Colors.grey[400]
@@ -4831,9 +4800,9 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) {
           final shiftList = _shifts.isEmpty
-              ? const Padding(
+              ? Padding(
                   padding: EdgeInsets.all(16),
-                  child: Text('Chưa có ca làm việc nào',
+                  child: Text(tr('Chưa có ca làm việc nào'),
                       style: TextStyle(color: Color(0xFF71717A))),
                 )
               : Column(
@@ -4842,10 +4811,10 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                     final shiftName = shift['name']?.toString() ?? '';
                     final isSelected = selected.contains(shiftName);
                     return CheckboxListTile(
-                      title: Text(shiftName,
+                      title: Text(tr(shiftName),
                           style: const TextStyle(color: Color(0xFF18181B))),
                       subtitle: Text(
-                        '${shift['startTime'] ?? ''} - ${shift['endTime'] ?? ''}',
+                        tr('${shift['startTime'] ?? ''} - ${shift['endTime'] ?? ''}'),
                         style: const TextStyle(
                             color: Color(0xFF71717A), fontSize: 12),
                       ),
@@ -4867,7 +4836,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
             TextButton(
               onPressed: () => Navigator.pop(context),
               child:
-                  const Text('Hủy', style: TextStyle(color: Color(0xFF71717A))),
+                  Text(tr('Hủy'), style: TextStyle(color: Color(0xFF71717A))),
             ),
             FilledButton(
               onPressed: () {
@@ -4877,7 +4846,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
               style: FilledButton.styleFrom(
                 backgroundColor: HrmPageChrome.primaryNavy,
               ),
-              child: const Text('Xác nhận'),
+              child: Text(tr('Xác nhận')),
             ),
           ];
           if (isMobileShift) {
@@ -4888,7 +4857,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                 height: double.infinity,
                 child: Scaffold(
                   appBar: AppBar(
-                    title: const Text('Chọn ca làm việc'),
+                    title: Text(tr('Chọn ca làm việc')),
                     leading: IconButton(
                         icon: const Icon(Icons.close),
                         onPressed: () => Navigator.pop(context)),
@@ -4910,7 +4879,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
           }
           return ScrollableAlertDialog(
             backgroundColor: Colors.white,
-            title: const Text('Chọn ca làm việc',
+            title: Text(tr('Chọn ca làm việc'),
                 style: TextStyle(color: Color(0xFF18181B))),
             content: SizedBox(
               width: 300,
@@ -4927,7 +4896,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
     // Redirect to employee screen or show a message
     appNotification.showInfo(
       title: 'Thông báo',
-      message: 'Vui lòng thêm nhân viên từ màn hình Quản lý Nhân sự',
+      message: tr('Vui lòng thêm nhân viên từ màn hình Quản lý Nhân sự'),
     );
   }
 

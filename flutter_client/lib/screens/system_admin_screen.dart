@@ -36,6 +36,7 @@ import 'system_admin/marketing_tab.dart';
 import 'system_admin/content_pages_tab.dart';
 import 'system_admin/consultation_requests_tab.dart';
 import 'system_admin/landing_content_tab.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 class SystemAdminScreen extends StatefulWidget {
   final bool agentMode;
@@ -271,12 +272,12 @@ class _SystemAdminScreenState extends State<SystemAdminScreen>
 
   Widget _buildNotificationBell() {
     return IconButton(
-      tooltip: 'Thông báo',
+      tooltip: tr('Thông báo'),
       onPressed: _openNotificationsInbox,
       icon: Badge(
         isLabelVisible: _unreadNotificationsCount > 0,
         label: Text(
-          _unreadNotificationsCount > 99 ? '99+' : '$_unreadNotificationsCount',
+          tr(_unreadNotificationsCount > 99 ? '99+' : '$_unreadNotificationsCount'),
         ),
         child: const Icon(Icons.notifications_outlined, color: Colors.white),
       ),
@@ -591,14 +592,14 @@ class _SystemAdminScreenState extends State<SystemAdminScreen>
               IconButton(
                 onPressed: () => _scaffoldKey.currentState?.openDrawer(),
                 icon: const Icon(Icons.menu, color: Colors.white),
-                tooltip: 'Menu',
+                tooltip: tr('Menu'),
               ),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      _visibleTabLabels[idx],
+                      tr(_visibleTabLabels[idx]),
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 17,
@@ -608,7 +609,7 @@ class _SystemAdminScreenState extends State<SystemAdminScreen>
                       overflow: TextOverflow.ellipsis,
                     ),
                     Text(
-                      roleLabel,
+                      tr(roleLabel),
                       style: const TextStyle(color: Colors.white60, fontSize: 12),
                     ),
                   ],
@@ -675,15 +676,15 @@ class _SystemAdminScreenState extends State<SystemAdminScreen>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Quản trị hệ thống',
+                    Text(tr('Quản trị hệ thống'),
                         style: TextStyle(
                             color: Colors.white,
                             fontSize: 22,
                             fontWeight: FontWeight.bold)),
                     Text(
-                      widget.agentMode
+                      tr(widget.agentMode
                           ? '${_agentDisplayName ?? 'Đại lý'} — Quản lý cửa hàng trong phạm vi được gán'
-                          : 'SuperAdmin — Quản lý toàn bộ hệ thống',
+                          : 'SuperAdmin — Quản lý toàn bộ hệ thống'),
                       style: const TextStyle(color: Colors.white70, fontSize: 14),
                     ),
                   ],
@@ -707,7 +708,7 @@ class _SystemAdminScreenState extends State<SystemAdminScreen>
                         color: Colors.white,
                         size: 14),
                     const SizedBox(width: 4),
-                    Text(health['status']?.toString() ?? 'N/A',
+                    Text(tr(health['status']?.toString() ?? 'N/A'),
                         style: const TextStyle(
                             color: Colors.white,
                             fontSize: 12,
@@ -731,72 +732,72 @@ class _SystemAdminScreenState extends State<SystemAdminScreen>
             tabAlignment: TabAlignment.start,
             tabs: widget.agentMode
                 ? [
-                    const Tab(
+                    Tab(
                         icon: Icon(Icons.dashboard, size: 18),
-                        text: 'Tổng quan'),
+                        text: tr('Tổng quan')),
                     Tab(
                         icon: const Icon(Icons.store, size: 18),
-                        text: 'Cửa hàng ($storeCount)'),
+                        text: tr('Cửa hàng ($storeCount)')),
                     Tab(
                         icon: const Icon(Icons.people, size: 18),
-                        text: 'Người dùng ($userCount)'),
+                        text: tr('Người dùng ($userCount)')),
                     Tab(
                         icon: const Icon(Icons.router, size: 18),
-                        text: 'Thiết bị ($deviceCount)'),
+                        text: tr('Thiết bị ($deviceCount)')),
                     Tab(
                         icon: const Icon(Icons.vpn_key, size: 18),
-                        text: 'License ($licenseCount)'),
-                    const Tab(
+                        text: tr('License ($licenseCount)')),
+                    Tab(
                         icon: Icon(Icons.account_circle, size: 18),
-                        text: 'Hồ sơ'),
+                        text: tr('Hồ sơ')),
                   ]
                 : [
-              const Tab(
-                  icon: Icon(Icons.dashboard, size: 18), text: 'Tổng quan'),
+              Tab(
+                  icon: Icon(Icons.dashboard, size: 18), text: tr('Tổng quan')),
               Tab(
                   icon: const Icon(Icons.store, size: 18),
-                  text: 'Cửa hàng ($storeCount)'),
+                  text: tr('Cửa hàng ($storeCount)')),
               Tab(
                   icon: const Icon(Icons.people, size: 18),
-                  text: 'Người dùng ($userCount)'),
+                  text: tr('Người dùng ($userCount)')),
               Tab(
                   icon: const Icon(Icons.router, size: 18),
-                  text: 'Thiết bị ($deviceCount)'),
+                  text: tr('Thiết bị ($deviceCount)')),
               Tab(
                   icon: const Icon(Icons.support_agent, size: 18),
-                  text: 'Đại lý ($agentCount)'),
+                  text: tr('Đại lý ($agentCount)')),
               Tab(
                   icon: const Icon(Icons.vpn_key, size: 18),
-                  text: 'License ($licenseCount)'),
+                  text: tr('License ($licenseCount)')),
               Tab(
                   icon: const Icon(Icons.settings, size: 18),
-                  text: 'Cài đặt ($settingCount)'),
-              const Tab(icon: Icon(Icons.storage, size: 18), text: 'Database'),
-              const Tab(icon: Icon(Icons.history, size: 18), text: 'Nhật ký'),
+                  text: tr('Cài đặt ($settingCount)')),
+              Tab(icon: Icon(Icons.storage, size: 18), text: tr('Database')),
+              Tab(icon: Icon(Icons.history, size: 18), text: tr('Nhật ký')),
               Tab(
                   icon: const Icon(Icons.inventory, size: 18),
-                  text: 'Gói DV ($packageCount)'),
+                  text: tr('Gói DV ($packageCount)')),
               Tab(
                   icon: const Icon(Icons.card_giftcard, size: 18),
-                  text: 'KH Kích key ($promoCount)'),
+                  text: tr('KH Kích key ($promoCount)')),
               Tab(
                   icon: const Icon(Icons.campaign, size: 18),
-                  text: 'Thông báo ($announcementCount)'),
+                  text: tr('Thông báo ($announcementCount)')),
               Tab(
                   icon: const Icon(Icons.build_circle, size: 18),
-                  text: 'Bảo trì ($maintenanceCount)'),
+                  text: tr('Bảo trì ($maintenanceCount)')),
               Tab(
                   icon: const Icon(Icons.local_offer, size: 18),
-                  text: 'Marketing ($marketingCount)'),
-              const Tab(
+                  text: tr('Marketing ($marketingCount)')),
+              Tab(
                   icon: Icon(Icons.description_outlined, size: 18),
-                  text: 'Nội dung & Phản hồi'),
+                  text: tr('Nội dung & Phản hồi')),
               Tab(
                   icon: const Icon(Icons.support_agent_rounded, size: 18),
-                  text: 'Lead tư vấn ($consultationCount)'),
-              const Tab(
+                  text: tr('Lead tư vấn ($consultationCount)')),
+              Tab(
                   icon: Icon(Icons.web_rounded, size: 18),
-                  text: 'Landing Page'),
+                  text: tr('Landing Page')),
             ],
           ),
         ],
@@ -808,19 +809,19 @@ class _SystemAdminScreenState extends State<SystemAdminScreen>
     final auth = Provider.of<AuthProvider>(context, listen: false);
     final userLabel = auth.currentUser?.email ?? 'Admin';
     return Tooltip(
-      message: 'Đăng xuất ($userLabel)',
+      message: tr('Đăng xuất ($userLabel)'),
       child: Material(
         color: Colors.white.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(20),
         child: InkWell(
           borderRadius: BorderRadius.circular(20),
           onTap: _handleLogout,
-          child: const Padding(
+          child: Padding(
             padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             child: Row(mainAxisSize: MainAxisSize.min, children: [
               Icon(Icons.logout, color: Colors.white, size: 14),
               SizedBox(width: 6),
-              Text('Đăng xuất',
+              Text(tr('Đăng xuất'),
                   style: TextStyle(
                       color: Colors.white,
                       fontSize: 12,
@@ -836,19 +837,19 @@ class _SystemAdminScreenState extends State<SystemAdminScreen>
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => ScrollableAlertDialog(
-        title: const Text('Đăng xuất?'),
+        title: Text(tr('Đăng xuất?')),
         content:
-            const Text('Bạn có chắc muốn đăng xuất khỏi khu vực quản trị?'),
+            Text(tr('Bạn có chắc muốn đăng xuất khỏi khu vực quản trị?')),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Huỷ'),
+            child: Text(tr('Huỷ')),
           ),
           FilledButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () => Navigator.of(ctx).pop(true),
             child:
-                const Text('Đăng xuất', style: TextStyle(color: Colors.white)),
+                Text(tr('Đăng xuất'), style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
