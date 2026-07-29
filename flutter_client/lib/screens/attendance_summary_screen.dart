@@ -24,6 +24,7 @@ import '../utils/report_screen_helpers.dart';
 import '../utils/salary_profile_load_utils.dart';
 import '../utils/shift_records_calculator.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
+import '../design_system/design_system.dart';
 
 /// Màn hình tổng hợp chấm công - standalone wrapper cho AttendanceSummaryTab
 /// Tự load dữ liệu (attendances + devices) và nhúng AttendanceSummaryTab
@@ -456,14 +457,14 @@ class _AttendanceSummaryScreenState extends State<AttendanceSummaryScreen> {
                   child: Row(
                     children: [
                       Icon(Icons.info_outline,
-                          size: 18, color: Colors.blue.shade800),
+                          size: 18, color: AppColors.info.shade800),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
                           tr('Chưa có bảng lương cấu hình — hệ số ngày lễ/nghỉ trong tổng hợp có thể không chính xác. '
                           'Vào Thiết lập lương để cấu hình.'),
                           style: TextStyle(
-                              fontSize: 12, color: Colors.blue.shade900),
+                              fontSize: 12, color: AppColors.info.shade900),
                         ),
                       ),
                     ],

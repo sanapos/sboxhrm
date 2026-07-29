@@ -7,6 +7,7 @@ import '../widgets/hrm/hrm_settings_mobile_kit.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../widgets/notification_overlay.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
+import '../design_system/design_system.dart';
 class AiSettingsScreen extends StatefulWidget {
   const AiSettingsScreen({super.key});
 
@@ -801,7 +802,7 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
                         fontSize: 14, fontWeight: FontWeight.w500)),
                 if (subtitle != null)
                   Text(tr(subtitle),
-                      style: TextStyle(fontSize: 12, color: Colors.blue[600])),
+                      style: TextStyle(fontSize: 12, color: AppColors.info[600])),
               ],
             ),
           ),

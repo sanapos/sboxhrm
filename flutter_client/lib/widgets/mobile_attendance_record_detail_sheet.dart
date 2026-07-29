@@ -155,7 +155,7 @@ class _MobileAttendanceRecordDetailBodyState
         ? _record.locationName!
         : _record.employeeName;
 
-    final isMobile = MediaQuery.of(context).size.width < 600;
+    final isMobile = MediaQuery.of(context).size.width < 768;
     if (isMobile) {
       final uri = Uri.parse(
           'https://www.google.com/maps/search/?api=1&query=$lat,$lng');

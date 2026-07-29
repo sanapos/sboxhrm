@@ -23,6 +23,7 @@ import '../screens/main_layout.dart' show NavigationNotifier;
 import '../widgets/hrm_pushed_screen_shell.dart';
 import 'mobile_attendance_approval_screen.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
+import '../design_system/design_system.dart';
 
 class AttendanceApprovalScreen extends StatefulWidget {
   final String? highlightId;
@@ -691,7 +692,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
       case 0:
         return Colors.green;
       case 1:
-        return Colors.blue;
+        return AppColors.info;
       case 2:
         return Colors.red;
       default:
@@ -918,7 +919,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
               valueColor: AlwaysStoppedAnimation<Color>(
                 statusInt == 2
                     ? Colors.red
-                    : (currentStep >= totalLevels ? Colors.green : Colors.blue),
+                    : (currentStep >= totalLevels ? Colors.green : AppColors.info),
               ),
               minHeight: 6,
             ),
@@ -1224,7 +1225,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
           );
         }),
         const SizedBox(width: 4),
-        Icon(Icons.info_outline, size: 12, color: Colors.blue[300]),
+        Icon(Icons.info_outline, size: 12, color: AppColors.info[300]),
       ],
     );
   }
@@ -1384,7 +1385,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
                       value: 'png',
                       child: Row(children: [
                         Icon(Icons.image_outlined,
-                            size: 18, color: Colors.blue),
+                            size: 18, color: AppColors.info),
                         SizedBox(width: 8),
                         Text(tr('Xuất PNG'))
                       ])),
@@ -1395,7 +1396,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
                 Colors.green, _exportToExcel),
             const SizedBox(width: 8),
             _buildHeaderButton(
-                Icons.image_outlined, 'PNG', Colors.blue, _exportToPng),
+                Icons.image_outlined, 'PNG', AppColors.info, _exportToPng),
           ],
         ],
       ),
@@ -1891,7 +1892,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        if (constraints.maxWidth < 600) {
+        if (constraints.maxWidth < 768) {
           return _buildMobileCardList(startIndex);
         }
         return Card(

@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import '../../l10n/app_tr.dart';
+import '../../design_system/tokens/app_radius.dart';
+import '../../design_system/tokens/app_space.dart';
 
 /// Giao diện POS kiểu KiotViet (xanh lá chủ đạo).
+/// Radius / spacing kế thừa App DS; màu domain giữ độc lập.
 abstract final class PosTheme {
   static const Color kiotBlue = Color(0xFF0070F4);
   static const Color kiotBlueLight = Color(0xFFE8F4FD);
@@ -24,7 +27,7 @@ abstract final class PosTheme {
     backgroundColor: primary,
     foregroundColor: Colors.white,
     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.sm)),
   );
 
   /// Nút chính mobile/tablet POS — xanh KiotViet, đủ lớn cho cảm ứng.
@@ -32,7 +35,7 @@ abstract final class PosTheme {
     backgroundColor: kiotBlue,
     foregroundColor: Colors.white,
     minimumSize: const Size(0, 56),
-    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.md)),
   );
 
   /// Hit-target tối thiểu trên tablet cảm ứng (≥10").
@@ -51,15 +54,15 @@ abstract final class PosTheme {
         filled: true,
         fillColor: Colors.white,
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(AppRadius.sm),
           borderSide: const BorderSide(color: border),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(AppRadius.sm),
           borderSide: const BorderSide(color: border),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(AppRadius.sm),
           borderSide: const BorderSide(color: primary, width: 1.5),
         ),
         isDense: true,
@@ -70,9 +73,9 @@ abstract final class PosTheme {
   static const double mobileTopBarHeight = 52.0;
   static const double mobileBottomNavHeight = 56.0;
   static const double mobileCartBarHeight = 48.0;
-  static const double mobileRadius = 12.0;
+  static const double mobileRadius = AppRadius.lg;
   static const EdgeInsets mobilePadding =
-      EdgeInsets.symmetric(horizontal: 12, vertical: 8);
+      EdgeInsets.symmetric(horizontal: AppSpace.sm, vertical: AppSpace.xs);
 
   static BoxDecoration mobileCardDecoration({Color? borderColor}) =>
       BoxDecoration(

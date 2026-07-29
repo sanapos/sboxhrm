@@ -7,6 +7,7 @@ import '../../utils/responsive_helper.dart';
 import '../../widgets/admin/admin_mobile_widgets.dart';
 import 'system_admin_helpers.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
+import '../../design_system/design_system.dart';
 
 class LicensesTab extends StatefulWidget {
   final bool agentMode;
@@ -524,7 +525,7 @@ class LicensesTabState extends State<LicensesTab> {
 
   Widget _buildLicenseDeckItem(Map<String, dynamic> license) {
     final status = _getStatus(license);
-    final statusColor = status == 'activated' ? Colors.green : status == 'available' ? Colors.blue : Colors.red;
+    final statusColor = status == 'activated' ? Colors.green : status == 'available' ? AppColors.info : Colors.red;
     final statusText = status == 'activated' ? 'K\u00edch ho\u1ea1t' : status == 'available' ? 'C\u00f2n tr\u1ed1ng' : 'Thu h\u1ed3i';
     final key = license['key']?.toString() ?? '';
     final licenseType = license['licenseType']?.toString() ?? '';
@@ -780,7 +781,7 @@ class LicensesTabState extends State<LicensesTab> {
       builder: (ctx) => ScrollableAlertDialog(
         title: Text(tr('Tạo License Key')),
         content: SizedBox(
-          width: MediaQuery.of(context).size.width < 600 ? MediaQuery.of(context).size.width - 32 : 400,
+          width: MediaQuery.of(context).size.width < 768 ? MediaQuery.of(context).size.width - 32 : 400,
           child: StatefulBuilder(
             builder: (ctx, setSt) =>
                 Column(mainAxisSize: MainAxisSize.min, children: [
@@ -904,7 +905,7 @@ class LicensesTabState extends State<LicensesTab> {
       builder: (ctx) => ScrollableAlertDialog(
         title: Text(tr('Tạo hàng loạt License')),
         content: SizedBox(
-          width: MediaQuery.of(context).size.width < 600 ? MediaQuery.of(context).size.width - 32 : 400,
+          width: MediaQuery.of(context).size.width < 768 ? MediaQuery.of(context).size.width - 32 : 400,
           child: StatefulBuilder(
             builder: (ctx, setSt) =>
                 Column(mainAxisSize: MainAxisSize.min, children: [
@@ -1036,7 +1037,7 @@ class LicensesTabState extends State<LicensesTab> {
       builder: (ctx) => ScrollableAlertDialog(
         title: Text(tr('Cấp key hàng loạt cho đại lý')),
         content: SizedBox(
-          width: MediaQuery.of(context).size.width < 600 ? MediaQuery.of(context).size.width - 32 : 420,
+          width: MediaQuery.of(context).size.width < 768 ? MediaQuery.of(context).size.width - 32 : 420,
           child: StatefulBuilder(
             builder: (ctx, setSt) {
               // Recalculate filtered count based on selected filters

@@ -138,7 +138,7 @@ class _ContentManagementScreenState extends State<ContentManagementScreen>
   // ═══════════════════════════════════════════════════════════
   @override
   Widget build(BuildContext context) {
-    final isMobile = MediaQuery.of(context).size.width < 600;
+    final isMobile = MediaQuery.of(context).size.width < 768;
     return Scaffold(
       backgroundColor: const Color(0xFFFAFAFA),
       appBar: AppBar(
@@ -901,7 +901,7 @@ class _ArticleEditorPageState extends State<_ArticleEditorPage> {
 
   @override
   Widget build(BuildContext context) {
-    final isMobile = MediaQuery.of(context).size.width < 600;
+    final isMobile = MediaQuery.of(context).size.width < 768;
 
     return Scaffold(
       backgroundColor: HrmPageChrome.background,

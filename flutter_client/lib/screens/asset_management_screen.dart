@@ -21,6 +21,7 @@ import 'package:provider/provider.dart';
 import '../providers/permission_provider.dart';
 import '../widgets/hrm_page_chrome.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
+import '../design_system/design_system.dart';
 
 class AssetManagementScreen extends StatefulWidget {
   const AssetManagementScreen({super.key});
@@ -483,26 +484,26 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
               padding:
                   const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
-                color: Colors.blue.shade50,
+                color: AppColors.info.shade50,
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Row(
                 children: [
                   Icon(Icons.analytics_outlined,
-                      size: 16, color: Colors.blue.shade700),
+                      size: 16, color: AppColors.info.shade700),
                   const SizedBox(width: 6),
                   Text(tr('Tổng quan'),
                       style: TextStyle(
                           fontWeight: FontWeight.w600,
                           fontSize: 13,
-                          color: Colors.blue.shade700)),
+                          color: AppColors.info.shade700)),
                   const Spacer(),
                   Icon(
                       _showMobileSummary
                           ? Icons.expand_less
                           : Icons.expand_more,
                       size: 20,
-                      color: Colors.blue.shade700),
+                      color: AppColors.info.shade700),
                 ],
               ),
             ),
@@ -4416,7 +4417,7 @@ class _AssetQrScanDialogState extends State<_AssetQrScanDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final isMobile = MediaQuery.of(context).size.width < 600;
+    final isMobile = MediaQuery.of(context).size.width < 768;
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: SizedBox(
@@ -5107,7 +5108,7 @@ class _InventoryDetailDialogState extends State<_InventoryDetailDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final isMobile = MediaQuery.of(context).size.width < 600;
+    final isMobile = MediaQuery.of(context).size.width < 768;
     final items = _inventory.items ?? [];
     final checkedItems = items.where((i) => i.isChecked).toList();
     final uncheckedItems = items.where((i) => !i.isChecked).toList();

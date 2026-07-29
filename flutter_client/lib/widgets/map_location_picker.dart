@@ -117,7 +117,7 @@ class _MapLocationPickerState extends State<MapLocationPicker> {
 
   @override
   Widget build(BuildContext context) {
-    final isMobile = MediaQuery.of(context).size.width < 600;
+    final isMobile = MediaQuery.of(context).size.width < 768;
     final hasValidLocation =
         widget.initialLatitude != 0 || widget.initialLongitude != 0;
 

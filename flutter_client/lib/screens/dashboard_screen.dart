@@ -23,6 +23,8 @@ import '../utils/shift_records_calculator.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../widgets/pos/pos_mobile_widgets.dart';
 import '../widgets/pos/pos_theme.dart';
+import '../design_system/design_system.dart';
+import '../utils/responsive_helper.dart';
 import '../widgets/loading_widget.dart';
 import '../widgets/notification_overlay.dart';
 import '../widgets/app_scroll_safe.dart';
@@ -1566,11 +1568,23 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
         return Scaffold(
           backgroundColor:
-              isMobile ? PosTheme.background : const Color(0xFFFAFAFA),
+              isMobile ? PosTheme.background : AppColors.scaffold,
           body: Scrollbar(
             controller: _scrollController,
             thumbVisibility: true,
-            child: body,
+            child: isMobile
+                ? body
+                : Align(
+                    alignment: Alignment.topCenter,
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        maxWidth:
+                            Responsive.maxContentWidth(context, dashboard: true) ??
+                                1440,
+                      ),
+                      child: body,
+                    ),
+                  ),
           ),
           floatingActionButton: caps.showAiFab
               ? FloatingActionButton.extended(

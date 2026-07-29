@@ -13,6 +13,7 @@ import 'main_layout.dart' show ScreenRefreshNotifier;
 import '../utils/device_setup_guide.dart';
 import '../widgets/hrm_page_chrome.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
+import '../design_system/design_system.dart';
 
 enum DeviceFilter {
   all,
@@ -298,7 +299,7 @@ class _AdmsDevicesScreenState extends State<AdmsDevicesScreen> {
       case DeviceFilter.offline:
         return Colors.red;
       case DeviceFilter.today:
-        return Colors.blue;
+        return AppColors.info;
       case DeviceFilter.thisWeek:
         return Colors.orange;
       case DeviceFilter.thisMonth:
@@ -546,7 +547,7 @@ class _AdmsDevicesScreenState extends State<AdmsDevicesScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
                 _buildStatItem(
-                    'Tổng', _allDevices.length, Icons.devices, Colors.blue),
+                    'Tổng', _allDevices.length, Icons.devices, AppColors.info),
                 _buildStatItem('Online', onlineCount, Icons.wifi, Colors.green),
                 _buildStatItem(
                     'Offline', offlineCount, Icons.wifi_off, Colors.red),
@@ -847,7 +848,7 @@ class _AdmsDevicesScreenState extends State<AdmsDevicesScreen> {
 
                 // Details
                 _buildDetailRow('Serial Number', device.serialNumber,
-                    Icons.qr_code, Colors.blue),
+                    Icons.qr_code, AppColors.info),
                 if (device.ipAddress != null)
                   _buildDetailRow(
                       'Địa chỉ IP', device.ipAddress!, Icons.lan, Colors.cyan),

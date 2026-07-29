@@ -31,6 +31,7 @@ import '../widgets/announcement_banner.dart';
 import '../widgets/ai_assistant_sheet.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../widgets/hrm_pushed_screen_shell.dart';
+import '../design_system/design_system.dart';
 import '../models/hrm.dart';
 import '../models/user.dart';
 import '../models/attendance.dart';
@@ -766,7 +767,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       relatedEntityType: 'Device',
     ).then((enabled) {
       if (!enabled || !mounted) return;
-      final isMobile = mounted && MediaQuery.of(context).size.width < 600;
+      final isMobile = mounted && MediaQuery.of(context).size.width < 768;
       // Mobile: không hiện popup/notif ở đây - để _handleNewNotification xử lý (có notificationId)
       if (!isMobile) {
         NotificationSound().play();
@@ -825,7 +826,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       final verifyType = attendance.verifyTypeText;
       final deviceName = attendance.deviceName ?? 'ADMS Device';
 
-      final isMobile = mounted && MediaQuery.of(context).size.width < 600;
+      final isMobile = mounted && MediaQuery.of(context).size.width < 768;
       // Mobile: không hiện popup/notif ở đây - để _handleNewNotification xử lý (có notificationId)
       if (!isMobile) {
         _showAttendancePopup(
@@ -918,7 +919,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       ).then((shouldShow) {
         if (!shouldShow || !mounted) return;
 
-        final isMobile = mounted && MediaQuery.of(context).size.width < 600;
+        final isMobile = mounted && MediaQuery.of(context).size.width < 768;
         final isAttendanceOrDevice = entityTypeLower == 'attendance' ||
             entityTypeLower == 'device' ||
             entityTypeLower == 'devicestatus' ||
@@ -1036,7 +1037,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     ).then((enabled) {
       if (!enabled || !mounted) return;
 
-      final isMobile = mounted && MediaQuery.of(context).size.width < 600;
+      final isMobile = mounted && MediaQuery.of(context).size.width < 768;
       if (isMobile) {
         // Suppress if FCM already showed this notification while app was backgrounded.
         final createdAtStr =
@@ -1729,13 +1730,55 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     final isDesktop = MediaQuery.of(context).size.width >= 1024;
     final isTablet = MediaQuery.of(context).size.width >= 768;
 
+    late final Widget shell;
     if (isDesktop) {
-      return _buildDesktopLayout();
+      shell = _buildDesktopLayout();
     } else if (isTablet) {
-      return _buildTabletLayout();
+      shell = _buildTabletLayout();
     } else {
-      return _buildMobileLayout();
+      shell = _buildMobileLayout();
     }
+
+    return HrmCommandShortcut(
+      onOpen: _openCommandPalette,
+      child: shell,
+    );
+  }
+
+  void _openCommandPalette() {
+    final perm = Provider.of<PermissionProvider>(context, listen: false);
+    final authUser = Provider.of<AuthProvider>(context, listen: false).user;
+    final allowed = authUser?.allowedModules;
+    final bypass = StoreRoleHelper.bypassesPackageFilter(authUser?.role);
+    final items = <HrmCommandItem>[];
+    for (var i = 0; i < _navItems.length; i++) {
+      final item = _navItems[i];
+      if (item.adminOnly) continue;
+      if (!PermissionNavigation.isAllowedByPackageOrRole(
+        item.moduleCode,
+        allowedModules: allowed,
+        perm: perm,
+        bypassPackageFilter: bypass,
+      )) {
+        continue;
+      }
+      if (!perm.canViewNav(item.moduleCode)) continue;
+      items.add(HrmCommandItem(
+        id: '$i',
+        title: item.label,
+        subtitle: item.subtitle,
+        icon: item.icon,
+        group: item.group,
+      ));
+    }
+    HrmCommandPalette.open(
+      context,
+      items: items,
+      onSelected: (cmd) {
+        final idx = int.tryParse(cmd.id);
+        if (idx != null) _tryNavigateToIndex(idx);
+      },
+    );
   }
 
   List<String>? _homeAllowedModules() {
@@ -3715,8 +3758,14 @@ class _HomeMenuScreenState extends State<_HomeMenuScreen> {
     }
 
     return Container(
-      color: const Color(0xFFF1F4F6),
-      child: ListView(
+      color: AppColors.scaffold,
+      child: Align(
+        alignment: Alignment.topCenter,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxWidth: Responsive.maxContentWidth(context) ?? 1600,
+          ),
+          child: ListView(
         controller: _scrollController,
         key: const PageStorageKey<String>('home_menu_scroll'),
         cacheExtent: 800,
@@ -3993,7 +4042,8 @@ class _HomeMenuScreenState extends State<_HomeMenuScreen> {
                   // Items - list on mobile, grid on desktop
                   LayoutBuilder(
                     builder: (context, constraints) {
-                      final isMobileLayout = constraints.maxWidth < 600;
+                      final isMobileLayout =
+                          constraints.maxWidth < Responsive.mobileBreakpoint;
 
                       if (isMobileLayout) {
                         // DECK layout: mỗi chức năng 1 hàng
@@ -4051,6 +4101,8 @@ class _HomeMenuScreenState extends State<_HomeMenuScreen> {
             );
           }),
         ],
+      ),
+        ),
       ),
     );
   }

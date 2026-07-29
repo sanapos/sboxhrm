@@ -24,6 +24,7 @@ import '../widgets/hrm_page_chrome.dart';
 import '../widgets/app_scroll_safe.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 import 'package:zkteco_flutter_client/l10n/app_ui_locale.dart';
+import '../design_system/design_system.dart';
 
 enum _SyncStatus { starting, deleting, syncing, completed, error }
 
@@ -409,7 +410,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
             title: Row(
               children: [
                 Icon(Icons.edit_calendar,
-                    color: Colors.blue.shade700, size: 24),
+                    color: AppColors.info.shade700, size: 24),
                 const SizedBox(width: 8),
                 Text(tr('Sửa giờ chấm công')),
               ],
@@ -515,7 +516,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
                             child: Row(
                               children: [
                                 Icon(Icons.calendar_today,
-                                    size: 18, color: Colors.blue.shade700),
+                                    size: 18, color: AppColors.info.shade700),
                                 const SizedBox(width: 8),
                                 Text(
                                   tr(_dateFormat.format(editDate)),
@@ -568,7 +569,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
                             child: Row(
                               children: [
                                 Icon(Icons.access_time,
-                                    size: 18, color: Colors.blue.shade700),
+                                    size: 18, color: AppColors.info.shade700),
                                 const SizedBox(width: 8),
                                 Text(
                                   tr('${editTime.hour.toString().padLeft(2, '0')}:${editTime.minute.toString().padLeft(2, '0')}'),
@@ -590,17 +591,17 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
                   Container(
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      color: Colors.blue.shade50,
+                      color: AppColors.info.shade50,
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Row(
                       children: [
                         Icon(Icons.arrow_forward,
-                            size: 16, color: Colors.blue.shade700),
+                            size: 16, color: AppColors.info.shade700),
                         const SizedBox(width: 8),
                         Text(tr('${tr('Giờ mới: ')}${DateFormat('dd/MM/yyyy HH:mm:ss').format(editDate)}'),
                           style: TextStyle(
-                              color: Colors.blue.shade700,
+                              color: AppColors.info.shade700,
                               fontWeight: FontWeight.w600),
                         ),
                       ],
@@ -1119,7 +1120,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
             return ScrollableAlertDialog(
               title: Row(
                 children: [
-                  Icon(Icons.sync, color: Colors.blue.shade700, size: 24),
+                  Icon(Icons.sync, color: AppColors.info.shade700, size: 24),
                   const SizedBox(width: 8),
                   Text(tr(fromTime != null
                       ? 'Đồng bộ theo thời gian'
@@ -1246,17 +1247,17 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
                       Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: Colors.blue.shade50,
+                          color: AppColors.info.shade50,
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Row(
                           children: [
                             Icon(Icons.date_range,
-                                color: Colors.blue.shade700, size: 18),
+                                color: AppColors.info.shade700, size: 18),
                             const SizedBox(width: 8),
                             Text(tr('Thời gian: ${_dateTimeFormat.format(fromTime)} → ${_dateTimeFormat.format(toTime)}'),
                               style: TextStyle(
-                                  color: Colors.blue.shade700, fontSize: 13),
+                                  color: AppColors.info.shade700, fontSize: 13),
                             ),
                           ],
                         ),
@@ -1506,7 +1507,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
             return ScrollableAlertDialog(
               title: Row(
                 children: [
-                  Icon(Icons.date_range, color: Colors.blue.shade700, size: 24),
+                  Icon(Icons.date_range, color: AppColors.info.shade700, size: 24),
                   const SizedBox(width: 8),
                   Text(tr('Chọn khoảng thời gian')),
                 ],
@@ -1614,7 +1615,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
             return ScrollableAlertDialog(
               title: Row(
                 children: [
-                  Icon(Icons.people, color: Colors.blue.shade700),
+                  Icon(Icons.people, color: AppColors.info.shade700),
                   const SizedBox(width: 8),
                   Text(tr('Chọn nhân viên')),
                   const Spacer(),
@@ -1684,13 +1685,13 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 10, vertical: 4),
                             decoration: BoxDecoration(
-                              color: Colors.blue.shade50,
+                              color: AppColors.info.shade50,
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: Text(tr('Đã chọn: ${tempSelected.length}'),
                               style: TextStyle(
                                 fontSize: 12,
-                                color: Colors.blue.shade700,
+                                color: AppColors.info.shade700,
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
@@ -1732,7 +1733,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
 
                                 return Material(
                                   color: isSelected
-                                      ? Colors.blue.shade50
+                                      ? AppColors.info.shade50
                                       : Colors.transparent,
                                   child: InkWell(
                                     onTap: () {
@@ -1766,7 +1767,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
                                           CircleAvatar(
                                             radius: 16,
                                             backgroundColor:
-                                                Colors.blue.shade100,
+                                                AppColors.info.shade100,
                                             child: Text(
                                               tr(name.isNotEmpty
                                                   ? name[0].toUpperCase()
@@ -1774,7 +1775,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
                                               style: TextStyle(
                                                   fontSize: 13,
                                                   fontWeight: FontWeight.bold,
-                                                  color: Colors.blue.shade700),
+                                                  color: AppColors.info.shade700),
                                             ),
                                           ),
                                           const SizedBox(width: 10),
@@ -1789,7 +1790,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
                                                     fontWeight: FontWeight.w500,
                                                     fontSize: 13,
                                                     color: isSelected
-                                                        ? Colors.blue.shade800
+                                                        ? AppColors.info.shade800
                                                         : null,
                                                   ),
                                                 ),
@@ -1926,7 +1927,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
         return Colors.orange;
       case 4:
       case 5:
-        return Colors.blue;
+        return AppColors.info;
       default:
         return Colors.grey;
     }
@@ -2034,7 +2035,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
     IconData statusIcon;
     switch (sync.status) {
       case _SyncStatus.starting:
-        statusColor = Colors.blue;
+        statusColor = AppColors.info;
         statusIcon = Icons.hourglass_top;
         break;
       case _SyncStatus.deleting:
@@ -2042,7 +2043,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
         statusIcon = Icons.delete_sweep;
         break;
       case _SyncStatus.syncing:
-        statusColor = Colors.blue;
+        statusColor = AppColors.info;
         statusIcon = Icons.sync;
         break;
       case _SyncStatus.completed:
@@ -2137,11 +2138,11 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: Colors.blue.shade50,
+              color: AppColors.info.shade50,
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(Icons.access_time_filled,
-                color: Colors.blue.shade700, size: 28),
+                color: AppColors.info.shade700, size: 28),
           ),
           const SizedBox(width: 16),
           Expanded(
@@ -2186,7 +2187,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
                     width: 18,
                     height: 18,
                     child: CircularProgressIndicator(strokeWidth: 2))
-                : Icon(Icons.download, color: Colors.blue.shade700),
+                : Icon(Icons.download, color: AppColors.info.shade700),
             itemBuilder: (context) => [
               PopupMenuItem(
                 value: 'excel',
@@ -2214,7 +2215,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
                 value: 'png',
                 child: Row(
                   children: [
-                    Icon(Icons.image, color: Colors.blue.shade700, size: 20),
+                    Icon(Icons.image, color: AppColors.info.shade700, size: 20),
                     const SizedBox(width: 12),
                     Text(tr('Xuất ảnh PNG')),
                   ],
@@ -2356,19 +2357,19 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
             decoration: BoxDecoration(
-              color: Colors.blue.shade50,
+              color: AppColors.info.shade50,
               borderRadius: BorderRadius.circular(8),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.date_range, size: 16, color: Colors.blue.shade700),
+                Icon(Icons.date_range, size: 16, color: AppColors.info.shade700),
                 const SizedBox(width: 6),
                 Text(
                   tr('${DateFormat('dd/MM/yyyy').format(_fromDate)} - ${DateFormat('dd/MM/yyyy').format(_toDate)}'),
                   style: TextStyle(
                       fontSize: 12,
-                      color: Colors.blue.shade700,
+                      color: AppColors.info.shade700,
                       fontWeight: FontWeight.w500),
                 ),
               ],
@@ -2389,12 +2390,12 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
               decoration: BoxDecoration(
                 border: Border.all(
                   color: _selectedEmployeePins.isNotEmpty
-                      ? Colors.blue.shade400
+                      ? AppColors.info.shade400
                       : Colors.grey.shade400,
                 ),
                 borderRadius: BorderRadius.circular(8),
                 color: _selectedEmployeePins.isNotEmpty
-                    ? Colors.blue.shade50
+                    ? AppColors.info.shade50
                     : null,
               ),
               child: Row(
@@ -2403,7 +2404,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
                   Icon(Icons.people_outline,
                       size: 18,
                       color: _selectedEmployeePins.isNotEmpty
-                          ? Colors.blue.shade700
+                          ? AppColors.info.shade700
                           : Colors.grey.shade600),
                   const SizedBox(width: 8),
                   Flexible(
@@ -2415,7 +2416,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
                       style: TextStyle(
                         fontSize: 13,
                         color: _selectedEmployeePins.isNotEmpty
-                            ? Colors.blue.shade700
+                            ? AppColors.info.shade700
                             : Colors.grey.shade600,
                         fontWeight: _selectedEmployeePins.isNotEmpty
                             ? FontWeight.w600
@@ -2612,7 +2613,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
   Widget _buildDataTable(List<Attendance> data, ThemeData theme) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        if (constraints.maxWidth < 600) {
+        if (constraints.maxWidth < 768) {
           return _buildMobileList(data);
         }
         return RepaintBoundary(
@@ -2764,7 +2765,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
                                   onPressed: () =>
                                       _showEditAttendanceDialog(att),
                                   icon: Icon(Icons.edit,
-                                      size: 18, color: Colors.blue.shade700),
+                                      size: 18, color: AppColors.info.shade700),
                                   tooltip: tr('Sửa giờ chấm'),
                                   padding: EdgeInsets.zero,
                                   constraints: const BoxConstraints(
@@ -2936,14 +2937,14 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
               decoration: BoxDecoration(
-                color: Colors.blue.shade50,
+                color: AppColors.info.shade50,
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Text(
                 tr('Trang $_currentPage / $totalPages'),
                 style: TextStyle(
                   fontWeight: FontWeight.w600,
-                  color: Colors.blue.shade700,
+                  color: AppColors.info.shade700,
                   fontSize: 13,
                 ),
               ),

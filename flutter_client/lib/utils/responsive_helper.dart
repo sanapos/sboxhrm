@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 
+import '../design_system/components/hrm_page.dart';
+
 /// Centralized responsive breakpoints and helpers
 class Responsive {
   static const double mobileBreakpoint = 768;
@@ -68,9 +70,59 @@ class Responsive {
           ? const EdgeInsets.all(16)
           : const EdgeInsets.all(24);
 
-  /// Max width for cards/content
-  static double? maxContentWidth(BuildContext context) =>
-      isMobile(context) ? null : null;
+  /// Max width for page content (list / form / dashboard).
+  static double? maxContentWidth(
+    BuildContext context, {
+    bool dashboard = false,
+    bool form = false,
+  }) {
+    if (isMobile(context)) return null;
+    final tokens = Theme.of(context).extension<AppDesignTokens>();
+    if (form) {
+      return tokens?.formMaxWidth ?? 720;
+    }
+    if (dashboard) {
+      return tokens?.dashboardMaxWidth ??
+          (isXLarge(context) ? 1600 : 1440);
+    }
+    if (isXLarge(context)) return tokens?.contentMaxWidth ?? 1360;
+    if (isLarge(context)) return tokens?.contentMaxWidth ?? 1280;
+    if (isDesktop(context)) return 1120;
+    return 960; // tablet
+  }
+
+  static const double xlargeBreakpoint = 1920;
+
+  static bool isLarge(BuildContext context) =>
+      MediaQuery.of(context).size.width >= largeBreakpoint;
+
+  static bool isXLarge(BuildContext context) =>
+      MediaQuery.of(context).size.width >= xlargeBreakpoint;
+
+  /// Wrap [child] with centered max-width constraint when on wide screens.
+  static Widget constrainContent(
+    BuildContext context,
+    Widget child, {
+    bool dashboard = false,
+    bool form = false,
+    EdgeInsetsGeometry? padding,
+  }) {
+    final max = maxContentWidth(
+      context,
+      dashboard: dashboard,
+      form: form,
+    );
+    final pad = padding ?? contentPadding(context);
+    final padded = Padding(padding: pad, child: child);
+    if (max == null) return padded;
+    return Align(
+      alignment: Alignment.topCenter,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: max),
+        child: padded,
+      ),
+    );
+  }
 
   /// Dialog width - full screen on mobile, constrained on desktop
   static double dialogWidth(BuildContext context) {

@@ -946,7 +946,7 @@ class _CommunicationScreenState extends State<CommunicationScreen>
   Widget _buildFilterBar() {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final isNarrow = constraints.maxWidth < 600;
+        final isNarrow = constraints.maxWidth < 768;
         final searchField = TextField(
           controller: _searchCtrl,
           decoration: InputDecoration(
@@ -2981,7 +2981,7 @@ class _CreateEditDialogState extends State<_CreateEditDialog> {
       padding: isMobile ? const EdgeInsets.all(16) : EdgeInsets.zero,
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final isNarrow = constraints.maxWidth < 600;
+          final isNarrow = constraints.maxWidth < 768;
           final leftContent = Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [

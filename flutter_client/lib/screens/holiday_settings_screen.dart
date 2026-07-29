@@ -14,6 +14,7 @@ import '../widgets/hrm_page_chrome.dart';
 import '../widgets/loading_widget.dart';
 import '../widgets/notification_overlay.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
+import '../design_system/design_system.dart';
 // ===== HOLIDAY SETTINGS SCREEN =====
 class HolidaySettingsScreen extends StatefulWidget {
   const HolidaySettingsScreen({super.key});
@@ -919,7 +920,7 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
                               child: Container(
                                 padding: const EdgeInsets.symmetric(vertical: 8),
                                 decoration: BoxDecoration(
-                                  color: (dayOfWeek == 'Chủ Nhật' || dayOfWeek == 'Thứ Bảy') ? Colors.red.withValues(alpha: 0.08) : Colors.blue.withValues(alpha: 0.08),
+                                  color: (dayOfWeek == 'Chủ Nhật' || dayOfWeek == 'Thứ Bảy') ? Colors.red.withValues(alpha: 0.08) : AppColors.info.withValues(alpha: 0.08),
                                   borderRadius: BorderRadius.circular(8),
                                 ),
                                 child: Row(

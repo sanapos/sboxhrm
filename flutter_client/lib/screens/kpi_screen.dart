@@ -17,6 +17,7 @@ import 'package:provider/provider.dart';
 import '../providers/permission_provider.dart';
 import '../widgets/hrm_page_chrome.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
+import '../design_system/design_system.dart';
 
 class KpiScreen extends StatefulWidget {
   const KpiScreen({super.key});
@@ -1206,7 +1207,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                                 ((s['grossIncome'] ?? 0) as num).toDouble())
                         : filteredTargets.fold<double>(
                             0, (sum, t) => sum + _previewSalaryTotal(t));
-                    final isNarrow = constraints.maxWidth < 600;
+                    final isNarrow = constraints.maxWidth < 768;
                     final cards = [
                       _statCard('Nhân viên', '${filteredTargets.length}',
                           Icons.people_outline),
@@ -1910,20 +1911,20 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                    color: Colors.blue.shade50,
+                    color: AppColors.info.shade50,
                     borderRadius: BorderRadius.circular(8)),
                 child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Icon(Icons.info_outline,
-                          color: Colors.blue.shade700, size: 16),
+                          color: AppColors.info.shade700, size: 16),
                       const SizedBox(width: 8),
                       Expanded(
                           child: Text(
                         tr('Gửi yêu cầu báo cáo công việc hàng ngày cho nhân viên $name. '
                         'Nhân viên sẽ nhận thông báo và cần nộp báo cáo.'),
                         style: TextStyle(
-                            color: Colors.blue.shade700, fontSize: 11),
+                            color: AppColors.info.shade700, fontSize: 11),
                       )),
                     ]),
               ),
@@ -2807,7 +2808,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
   Widget _buildTargetMiniStats(List<Map<String, dynamic>> filtered,
       {bool compact = false}) {
     return LayoutBuilder(builder: (context, constraints) {
-      final mobileLayout = compact || constraints.maxWidth < 600;
+      final mobileLayout = compact || constraints.maxWidth < 768;
       final items = [
         _miniStat('Tổng NV', '${filtered.length}'),
         _miniStat(
@@ -4278,7 +4279,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
               final endIdx =
                   (startIdx + _salaryPageSize).clamp(0, filteredTgts.length);
               final pageItems = filteredTgts.sublist(startIdx, endIdx);
-              final isMobileSalary = constraints.maxWidth < 600;
+              final isMobileSalary = constraints.maxWidth < 768;
               return Column(children: [
                 isMobileSalary
                     ? _buildSalaryMobileCards(pageItems, startIdx, filteredTgts)
@@ -5787,20 +5788,20 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                    color: Colors.blue.shade50,
+                    color: AppColors.info.shade50,
                     borderRadius: BorderRadius.circular(8)),
                 child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Icon(Icons.info_outline,
-                          color: Colors.blue.shade700, size: 16),
+                          color: AppColors.info.shade700, size: 16),
                       const SizedBox(width: 8),
                       Expanded(
                           child: Text(
                         tr('Nhập URL Google Sheet và nhấn "Test" để kiểm tra kết nối. '
                         'Nếu chưa chia sẻ, hãy share cho service account email quyền Viewer.'),
                         style: TextStyle(
-                            color: Colors.blue.shade700, fontSize: 11),
+                            color: AppColors.info.shade700, fontSize: 11),
                       )),
                     ]),
               ),
@@ -6133,15 +6134,15 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                  color: Colors.blue.shade50,
+                  color: AppColors.info.shade50,
                   borderRadius: BorderRadius.circular(8)),
               child:
                   Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Icon(Icons.info_outline, color: Colors.blue.shade700, size: 16),
+                Icon(Icons.info_outline, color: AppColors.info.shade700, size: 16),
                 const SizedBox(width: 8),
                 Expanded(
                     child: Text(tr('Nhập vị trí ô chứa doanh số/point của nhân viên trên Google Sheet (VD: B5, C10, D3).'),
-                  style: TextStyle(color: Colors.blue.shade700, fontSize: 11),
+                  style: TextStyle(color: AppColors.info.shade700, fontSize: 11),
                 )),
               ]),
             ),
@@ -6549,10 +6550,10 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
               style: TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 12,
-                  color: Colors.blue.shade800)),
+                  color: AppColors.info.shade800)),
         ),
         const SizedBox(width: 8),
-        Text(tr(desc), style: TextStyle(fontSize: 12, color: Colors.blue.shade700)),
+        Text(tr(desc), style: TextStyle(fontSize: 12, color: AppColors.info.shade700)),
       ]),
     );
   }

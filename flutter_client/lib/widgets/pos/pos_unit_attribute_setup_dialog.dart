@@ -1416,7 +1416,7 @@ class _UnitAttributeSetupDialogState extends State<_UnitAttributeSetupDialog> {
   Widget build(BuildContext context) {
     final size = MediaQuery.sizeOf(context);
     final pad = MediaQuery.paddingOf(context);
-    final narrow = size.width < 600;
+    final narrow = size.width < 768;
     final dialogW = narrow
         ? size.width
         : (size.width * 0.98).clamp(720.0, 1400.0);

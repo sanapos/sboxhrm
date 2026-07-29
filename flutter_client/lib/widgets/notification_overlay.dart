@@ -171,7 +171,7 @@ class _NotificationOverlayState extends State<NotificationOverlay> {
       _overlayEntry = OverlayEntry(
         builder: (context) {
           final screenWidth = MediaQuery.of(context).size.width;
-          final isMobile = screenWidth < 600;
+          final isMobile = screenWidth < 768;
           return Positioned(
             top: MediaQuery.of(context).padding.top +
                 widget.extraTopInset +

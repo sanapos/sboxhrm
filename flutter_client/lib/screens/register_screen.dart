@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../design_system/design_system.dart';
 
 import '../data/vietnam_provinces.dart';
 import '../utils/web_route_parser.dart';
@@ -413,7 +414,7 @@ class _RegisterScreenState extends State<RegisterScreen>
                     end: Alignment.bottomRight,
                     colors: [
                       const Color(0xFFDAE2FF),
-                      const Color(0xFF0C56D0).withValues(alpha: 0.3),
+                      AppColors.primary.withValues(alpha: 0.3),
                     ],
                   ),
                 ),
@@ -421,7 +422,7 @@ class _RegisterScreenState extends State<RegisterScreen>
                   child: Icon(
                     Icons.store_rounded,
                     size: 180,
-                    color: const Color(0xFF0C56D0).withValues(alpha: 0.2),
+                    color: AppColors.primary.withValues(alpha: 0.2),
                   ),
                 ),
               );
@@ -435,8 +436,8 @@ class _RegisterScreenState extends State<RegisterScreen>
                   begin: Alignment.bottomLeft,
                   end: Alignment.topRight,
                   colors: [
-                    const Color(0xFF0C56D0).withValues(alpha: 0.60),
-                    const Color(0xFF0C56D0).withValues(alpha: 0.20),
+                    AppColors.primary.withValues(alpha: 0.60),
+                    AppColors.primary.withValues(alpha: 0.20),
                     Colors.transparent,
                   ],
                   stops: const [0.0, 0.5, 1.0],
@@ -513,11 +514,11 @@ class _RegisterScreenState extends State<RegisterScreen>
                         width: 40,
                         height: 40,
                         decoration: BoxDecoration(
-                          color: const Color(0xFF0C56D0).withValues(alpha: 0.1),
+                          color: AppColors.primary.withValues(alpha: 0.1),
                           shape: BoxShape.circle,
                         ),
                         child: const Icon(Icons.rocket_launch_rounded,
-                            color: Color(0xFF0C56D0), size: 20),
+                            color: AppColors.primary, size: 20),
                       ),
                       const SizedBox(width: 16),
                       Column(
@@ -533,7 +534,7 @@ class _RegisterScreenState extends State<RegisterScreen>
                           SizedBox(height: 2),
                           Text(tr('CHỈ 2 PHÚT'),
                             style: TextStyle(
-                                color: Color(0xFF0C56D0),
+                                color: AppColors.primary,
                                 fontSize: 20,
                                 fontWeight: FontWeight.w800),
                           ),
@@ -687,7 +688,7 @@ class _RegisterScreenState extends State<RegisterScreen>
                           suffixIcon: _loginNameManuallyEdited
                               ? IconButton(
                                   icon: const Icon(Icons.refresh_rounded,
-                                      color: Color(0xFF0C56D0), size: 20),
+                                      color: AppColors.primary, size: 20),
                                   tooltip: tr('Tạo lại từ tên doanh nghiệp'),
                                   onPressed: () {
                                     setState(() {
@@ -761,7 +762,7 @@ class _RegisterScreenState extends State<RegisterScreen>
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
                               borderSide: const BorderSide(
-                                  color: Color(0xFF0C56D0), width: 1.4),
+                                  color: AppColors.primary, width: 1.4),
                             ),
                           ),
                           items: kVietnamProvinces
@@ -834,7 +835,7 @@ class _RegisterScreenState extends State<RegisterScreen>
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
                               borderSide: const BorderSide(
-                                  color: Color(0xFF0C56D0), width: 1.4),
+                                  color: AppColors.primary, width: 1.4),
                             ),
                           ),
                           items: _servicePackages
@@ -938,12 +939,12 @@ class _RegisterScreenState extends State<RegisterScreen>
                               gradient: const LinearGradient(
                                 begin: Alignment.topLeft,
                                 end: Alignment.bottomRight,
-                                colors: [Color(0xFF0C56D0), Color(0xFF004ABA)],
+                                colors: [AppColors.primary, Color(0xFF004ABA)],
                               ),
                               borderRadius: BorderRadius.circular(12),
                               boxShadow: [
                                 BoxShadow(
-                                  color: const Color(0xFF0C56D0)
+                                  color: AppColors.primary
                                       .withValues(alpha: 0.25),
                                   blurRadius: 16,
                                   offset: const Offset(0, 6),
@@ -997,13 +998,13 @@ class _RegisterScreenState extends State<RegisterScreen>
                       TextButton(
                         onPressed: () => Navigator.of(context).pop(),
                         style: TextButton.styleFrom(
-                            foregroundColor: const Color(0xFF0C56D0)),
+                            foregroundColor: AppColors.primary),
                         child: Text(tr('Đăng nhập'),
                             style: TextStyle(
                               fontWeight: FontWeight.w700,
                               fontSize: 14,
                               decoration: TextDecoration.underline,
-                              decorationColor: Color(0xFF0C56D0),
+                              decorationColor: AppColors.primary,
                             )),
                       ),
                     ],
@@ -1097,14 +1098,14 @@ class _RegisterScreenState extends State<RegisterScreen>
           isDesktop ? MainAxisAlignment.start : MainAxisAlignment.center,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(Icons.bubble_chart, color: Color(0xFF0C56D0), size: 44),
+        Icon(Icons.bubble_chart, color: AppColors.primary, size: 44),
         SizedBox(width: 14),
         Text(
           tr('SBOX HRM'),
           style: TextStyle(
             fontSize: 32,
             fontWeight: FontWeight.w900,
-            color: Color(0xFF0C56D0),
+            color: AppColors.primary,
             letterSpacing: -0.5,
           ),
         ),
@@ -1155,7 +1156,7 @@ class _RegisterScreenState extends State<RegisterScreen>
                 Material(
                   color: Colors.white,
                   shape: const CircleBorder(
-                    side: BorderSide(color: Color(0xFF0C56D0), width: 1.2),
+                    side: BorderSide(color: AppColors.primary, width: 1.2),
                   ),
                   child: InkWell(
                     customBorder: const CircleBorder(),
@@ -1165,7 +1166,7 @@ class _RegisterScreenState extends State<RegisterScreen>
                       child: Icon(
                         Icons.help_outline_rounded,
                         size: 18,
-                        color: Color(0xFF0C56D0),
+                        color: AppColors.primary,
                       ),
                     ),
                   ),
@@ -1200,15 +1201,15 @@ class _RegisterScreenState extends State<RegisterScreen>
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(Icons.open_in_new_rounded,
-                        size: 15, color: Color(0xFF0C56D0)),
+                        size: 15, color: AppColors.primary),
                     SizedBox(width: 6),
                     Text(tr('Xem bảng giá các gói dịch vụ trên trang chủ'),
                       style: TextStyle(
-                        color: Color(0xFF0C56D0),
+                        color: AppColors.primary,
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
                         decoration: TextDecoration.underline,
-                        decorationColor: Color(0xFF0C56D0),
+                        decorationColor: AppColors.primary,
                       ),
                     ),
                   ],
@@ -1412,7 +1413,7 @@ class _RegisterScreenState extends State<RegisterScreen>
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: Color(0xFF0C56D0), width: 2),
+          borderSide: const BorderSide(color: AppColors.primary, width: 2),
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),

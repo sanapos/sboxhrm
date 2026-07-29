@@ -17,6 +17,7 @@ import '../services/signalr_service.dart';
 import '../widgets/hrm_responsive_list_layout.dart';
 import 'main_layout.dart' show ScreenRefreshNotifier;
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
+import '../design_system/design_system.dart';
 
 class NotificationsScreen extends StatefulWidget {
   final bool adminPortalMode;
@@ -1030,7 +1031,7 @@ class _ExpandableTextState extends State<_ExpandableText> {
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
-                      color: Colors.blue.shade500,
+                      color: AppColors.info.shade500,
                     ),
                   ),
                 ),

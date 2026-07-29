@@ -5,6 +5,7 @@ import '../../services/api_service.dart';
 import 'system_admin_helpers.dart';
 import '../../widgets/hrm_page_chrome.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
+import '../../design_system/design_system.dart';
 
 /// SuperAdmin – Tab quản lý nội dung: Điều khoản, Chính sách, Trợ giúp + Báo lỗi
 class ContentPagesTab extends StatefulWidget {
@@ -505,7 +506,7 @@ class _BugReportsSubTabState extends State<_BugReportsSubTab> {
         backgroundColor: (type == 'Bug'
                 ? Colors.red
                 : type == 'Suggestion'
-                    ? Colors.blue
+                    ? AppColors.info
                     : Colors.grey)
             .withValues(alpha: 0.12),
         child: Icon(
@@ -517,7 +518,7 @@ class _BugReportsSubTabState extends State<_BugReportsSubTab> {
           color: type == 'Bug'
               ? Colors.red
               : type == 'Suggestion'
-                  ? Colors.blue
+                  ? AppColors.info
                   : Colors.grey,
           size: 20,
         ),

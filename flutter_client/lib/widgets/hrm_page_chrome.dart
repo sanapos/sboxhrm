@@ -1,20 +1,20 @@
 import 'package:flutter/material.dart';
 
+import '../design_system/design_system.dart';
 import '../screens/settings_hub_screen.dart';
 import '../utils/navigation_notifier.dart';
 import '../utils/responsive_helper.dart';
 import 'hrm/hrm_settings_mobile_kit.dart';
-import 'pos/pos_theme.dart';
 import '../l10n/app_tr.dart';
 
 /// Shared layout tokens and helpers for HRM settings sub-pages.
 class HrmPageChrome {
   HrmPageChrome._();
 
-  static const Color background = Color(0xFFFAFAFA);
-  static const Color primaryNavy = Color(0xFF1E3A5F);
-  static const Color textDark = Color(0xFF18181B);
-  static const Color textMuted = Color(0xFF71717A);
+  static const Color background = AppColors.scaffold;
+  static const Color primaryNavy = AppColors.primary;
+  static const Color textDark = AppColors.textPrimary;
+  static const Color textMuted = AppColors.textSecondary;
 
   /// Hub sub-page is open — [main_layout] already shows back + title.
   static bool get isEmbedded => SettingsHubScreen.isEmbeddedSubPage;

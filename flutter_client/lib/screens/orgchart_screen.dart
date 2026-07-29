@@ -9,6 +9,7 @@ import '../utils/responsive_helper.dart';
 import '../widgets/notification_overlay.dart';
 import '../widgets/hrm_page_chrome.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
+import '../design_system/design_system.dart';
 
 /// Màn hình Sơ đồ tổ chức & Luồng duyệt
 class OrgChartScreen extends StatefulWidget {
@@ -204,7 +205,7 @@ class _OrgChartScreenState extends State<OrgChartScreen> with SingleTickerProvid
       spacing: 12,
       runSpacing: 12,
       children: [
-        _statCard('Phòng ban', s.totalDepartments, Icons.business, Colors.blue),
+        _statCard('Phòng ban', s.totalDepartments, Icons.business, AppColors.info),
         _statCard('Chức vụ', s.totalPositions, Icons.badge, Colors.purple),
         _statCard('Đã gán', s.totalAssignments, Icons.assignment_ind, Colors.green),
         _statCard('Tổng NV', s.totalEmployees, Icons.people, Colors.orange),
@@ -250,7 +251,7 @@ class _OrgChartScreenState extends State<OrgChartScreen> with SingleTickerProvid
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
               side: BorderSide(
-                color: depth == 0 ? Colors.blue.shade300 : Colors.grey.shade300,
+                color: depth == 0 ? AppColors.info.shade300 : Colors.grey.shade300,
                 width: depth == 0 ? 2 : 1,
               ),
             ),
@@ -340,7 +341,7 @@ class _OrgChartScreenState extends State<OrgChartScreen> with SingleTickerProvid
   Widget _buildMemberTile(OrgChartMember member, {required bool isHead}) {
     final posColor = member.positionColor != null
         ? Color(int.parse('0xFF${member.positionColor!.replaceAll('#', '')}'))
-        : (isHead ? Colors.blue : Colors.grey);
+        : (isHead ? AppColors.info : Colors.grey);
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
@@ -400,7 +401,7 @@ class _OrgChartScreenState extends State<OrgChartScreen> with SingleTickerProvid
     final manager = sortedMembers.isNotEmpty ? sortedMembers.first : null;
     final otherMembers = sortedMembers.length > 1 ? sortedMembers.sublist(1) : <OrgChartMember>[];
     final color = _deptColor(depth);
-    final isMobile = MediaQuery.of(context).size.width < 600;
+    final isMobile = MediaQuery.of(context).size.width < 768;
 
     final titleRow = Row(
       children: [
@@ -588,7 +589,7 @@ class _OrgChartScreenState extends State<OrgChartScreen> with SingleTickerProvid
   }
 
   Color _deptColor(int depth) {
-    final colors = [Colors.blue, Colors.teal, Colors.purple, Colors.orange, Colors.green];
+    final colors = [AppColors.info, Colors.teal, Colors.purple, Colors.orange, Colors.green];
     return colors[depth % colors.length];
   }
 
@@ -613,7 +614,7 @@ class _OrgChartScreenState extends State<OrgChartScreen> with SingleTickerProvid
               ? _buildEmptyState('Chưa có chức vụ nào', 'Tạo chức vụ để xây dựng sơ đồ tổ chức')
               : RefreshIndicator(
                   onRefresh: () => _loadTabData(1),
-                  child: MediaQuery.of(context).size.width < 600
+                  child: MediaQuery.of(context).size.width < 768
                     ? ListView.builder(
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                         itemCount: _positions.length,
@@ -644,7 +645,7 @@ class _OrgChartScreenState extends State<OrgChartScreen> with SingleTickerProvid
   Widget _buildPositionDeckItem(OrgPosition position) {
     final posColor = position.color != null
         ? Color(int.parse('0xFF${position.color!.replaceAll('#', '')}'))
-        : Colors.blue;
+        : AppColors.info;
     return InkWell(
       onTap: () => _showEditPositionDialog(position),
       child: Padding(
@@ -676,7 +677,7 @@ class _OrgChartScreenState extends State<OrgChartScreen> with SingleTickerProvid
   Widget _buildPositionCard(OrgPosition position) {
     final posColor = position.color != null
         ? Color(int.parse('0xFF${position.color!.replaceAll('#', '')}'))
-        : Colors.blue;
+        : AppColors.info;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
@@ -745,7 +746,7 @@ class _OrgChartScreenState extends State<OrgChartScreen> with SingleTickerProvid
               ? _buildEmptyState('Chưa có gán chức vụ nào', 'Gán chức vụ cho nhân viên để xây dựng sơ đồ')
               : RefreshIndicator(
                   onRefresh: () => _loadTabData(2),
-                  child: MediaQuery.of(context).size.width < 600
+                  child: MediaQuery.of(context).size.width < 768
                     ? ListView.builder(
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                         itemCount: _assignments.length,
@@ -781,10 +782,10 @@ class _OrgChartScreenState extends State<OrgChartScreen> with SingleTickerProvid
         child: Row(children: [
           CircleAvatar(
             radius: 18,
-            backgroundColor: Colors.blue.shade50,
+            backgroundColor: AppColors.info.shade50,
             backgroundImage: assign.employeePhoto != null && assign.employeePhoto!.isNotEmpty ? _api.storeImageProvider(assign.employeePhoto!) : null,
             onBackgroundImageError: assign.employeePhoto != null && assign.employeePhoto!.isNotEmpty ? (_, __) {} : null,
-            child: assign.employeePhoto == null || assign.employeePhoto!.isEmpty ? const Icon(Icons.person, color: Colors.blue, size: 18) : null,
+            child: assign.employeePhoto == null || assign.employeePhoto!.isEmpty ? const Icon(Icons.person, color: AppColors.info, size: 18) : null,
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -818,13 +819,13 @@ class _OrgChartScreenState extends State<OrgChartScreen> with SingleTickerProvid
           children: [
             CircleAvatar(
               radius: 22,
-              backgroundColor: Colors.blue.shade50,
+              backgroundColor: AppColors.info.shade50,
               backgroundImage: assign.employeePhoto != null && assign.employeePhoto!.isNotEmpty
                   ? _api.storeImageProvider(assign.employeePhoto!)
                   : null,
               onBackgroundImageError: assign.employeePhoto != null && assign.employeePhoto!.isNotEmpty ? (_, __) {} : null,
               child: assign.employeePhoto == null || assign.employeePhoto!.isEmpty
-                  ? const Icon(Icons.person, color: Colors.blue)
+                  ? const Icon(Icons.person, color: AppColors.info)
                   : null,
             ),
             const SizedBox(width: 12),
@@ -916,7 +917,7 @@ class _OrgChartScreenState extends State<OrgChartScreen> with SingleTickerProvid
               ? _buildEmptyState('Chưa có luồng duyệt nào', 'Tạo luồng duyệt để cấu hình quy trình phê duyệt')
               : RefreshIndicator(
                   onRefresh: () => _loadTabData(3),
-                  child: MediaQuery.of(context).size.width < 600
+                  child: MediaQuery.of(context).size.width < 768
                     ? ListView.builder(
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                         itemCount: _approvalFlows.length,
@@ -1090,7 +1091,7 @@ class _OrgChartScreenState extends State<OrgChartScreen> with SingleTickerProvid
               ? _buildEmptyState('Tất cả nhân viên đã được gán chức vụ', 'Không có nhân viên nào cần gán thêm')
               : RefreshIndicator(
                   onRefresh: () => _loadTabData(4),
-                  child: MediaQuery.of(context).size.width < 600
+                  child: MediaQuery.of(context).size.width < 768
                     ? ListView.builder(
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                         itemCount: _unassignedEmployees.length,

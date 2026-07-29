@@ -11,6 +11,7 @@ import '../widgets/hrm_mini_stat_chip.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../widgets/notification_overlay.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
+import '../design_system/design_system.dart';
 
 /// Màn hình Quản lý Chi nhánh
 class BranchManagementScreen extends StatefulWidget {
@@ -332,7 +333,7 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
     final isActive = branch.isActive;
     final color = branch.isHeadquarter
         ? Colors.amber.shade700
-        : (isActive ? Colors.blue : Colors.grey);
+        : (isActive ? AppColors.info : Colors.grey);
 
     return InkWell(
       onTap: () => _showBranchDetail(branch),
@@ -434,7 +435,7 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
     final isActive = branch.isActive;
     final color = branch.isHeadquarter
         ? Colors.amber.shade700
-        : (isActive ? Colors.blue : Colors.grey);
+        : (isActive ? AppColors.info : Colors.grey);
 
     return HrmSettingsEntityTile(
       title: branch.name,
@@ -589,7 +590,7 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
     final hasChildren = node.children.isNotEmpty;
     final color = node.isHeadquarter
         ? Colors.amber.shade700
-        : (node.isActive ? Colors.blue : Colors.grey);
+        : (node.isActive ? AppColors.info : Colors.grey);
 
     return Padding(
       padding: EdgeInsets.only(left: depth * 24.0),
@@ -700,20 +701,20 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
                       padding: const EdgeInsets.symmetric(
                           horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
-                        color: Colors.blue.shade50,
+                        color: AppColors.info.shade50,
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(Icons.people,
-                              size: 14, color: Colors.blue.shade700),
+                              size: 14, color: AppColors.info.shade700),
                           const SizedBox(width: 4),
                           Text(tr('${node.employeeCount}'),
                               style: TextStyle(
                                   fontSize: 12,
                                   fontWeight: FontWeight.w600,
-                                  color: Colors.blue.shade700)),
+                                  color: AppColors.info.shade700)),
                         ],
                       ),
                     ),
@@ -970,7 +971,7 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
                     width: 48,
                     height: 48,
                     decoration: BoxDecoration(
-                      color: (branch.isHeadquarter ? Colors.amber : Colors.blue)
+                      color: (branch.isHeadquarter ? Colors.amber : AppColors.info)
                           .withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(12),
                     ),
@@ -978,7 +979,7 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
                       branch.isHeadquarter ? Icons.domain : Icons.business,
                       color: branch.isHeadquarter
                           ? Colors.amber.shade700
-                          : Colors.blue,
+                          : AppColors.info,
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -1104,7 +1105,7 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
                           decoration: BoxDecoration(
                             color: (branch.isHeadquarter
                                     ? Colors.amber
-                                    : Colors.blue)
+                                    : AppColors.info)
                                 .withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(12),
                           ),
@@ -1114,7 +1115,7 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
                                 : Icons.business,
                             color: branch.isHeadquarter
                                 ? Colors.amber.shade700
-                                : Colors.blue,
+                                : AppColors.info,
                           ),
                         ),
                         const SizedBox(width: 12),
@@ -1563,14 +1564,14 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: Colors.blue.shade50,
+                      color: AppColors.info.shade50,
                       borderRadius:
                           const BorderRadius.vertical(top: Radius.circular(16)),
                     ),
                     child: Row(
                       children: [
                         Icon(isEdit ? Icons.edit : Icons.add_business,
-                            color: Colors.blue),
+                            color: AppColors.info),
                         const SizedBox(width: 12),
                         Text(
                           tr(isEdit ? 'Sửa chi nhánh' : 'Thêm chi nhánh mới'),

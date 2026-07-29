@@ -69,7 +69,7 @@ class ServicePackagesTabState extends State<ServicePackagesTab> {
           child: _packages.isEmpty
               ? AdminHelpers.emptyState(
                   Icons.inventory_2, 'Chưa có gói dịch vụ nào')
-              : MediaQuery.of(context).size.width < 600
+              : MediaQuery.of(context).size.width < 768
                 ? ListView.builder(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     itemCount: _packages.length,
@@ -342,7 +342,7 @@ class ServicePackagesTabState extends State<ServicePackagesTab> {
                   style: const TextStyle(fontSize: 17)),
             ]),
             content: SizedBox(
-              width: MediaQuery.of(context).size.width < 600 ? MediaQuery.of(context).size.width - 32 : 600,
+              width: MediaQuery.of(context).size.width < 768 ? MediaQuery.of(context).size.width - 32 : 600,
               height: 500,
               child: SingleChildScrollView(
                 child: Column(

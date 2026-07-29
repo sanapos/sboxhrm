@@ -1,4 +1,5 @@
 import 'dart:convert';
+import '../design_system/design_system.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -97,7 +98,7 @@ class _LandingGuideScreenState extends State<LandingGuideScreen> {
         ),
         body: _loading
             ? const Center(
-                child: CircularProgressIndicator(color: Color(0xFF0C56D0)),
+                child: CircularProgressIndicator(color: AppColors.primary),
               )
             : LayoutBuilder(
                 builder: (context, constraints) {
@@ -250,12 +251,12 @@ class _LandingGuidePanelState extends State<LandingGuidePanel> {
             padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
             decoration: BoxDecoration(
               color: selected
-                  ? const Color(0xFF0C56D0).withValues(alpha: 0.2)
+                  ? AppColors.primary.withValues(alpha: 0.2)
                   : Colors.white.withValues(alpha: 0.04),
               borderRadius: BorderRadius.circular(10),
               border: Border.all(
                 color: selected
-                    ? const Color(0xFF0C56D0).withValues(alpha: 0.7)
+                    ? AppColors.primary.withValues(alpha: 0.7)
                     : Colors.white.withValues(alpha: 0.1),
               ),
             ),

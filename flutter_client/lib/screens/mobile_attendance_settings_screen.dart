@@ -3064,7 +3064,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
   }
 
   void _showFaceImagesDialog(FaceRegistration registration) {
-    final isMobile = MediaQuery.of(context).size.width < 600;
+    final isMobile = MediaQuery.of(context).size.width < 768;
     showDialog(
       context: context,
       barrierDismissible: true,
@@ -3741,7 +3741,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
 
   void _showDeviceDetailsDialog(AuthorizedDevice device) {
     final isPending = !device.isAuthorized;
-    final isMobile = MediaQuery.of(context).size.width < 600;
+    final isMobile = MediaQuery.of(context).size.width < 768;
     bool photoProofOn = device.requirePhotoProof;
     for (final d in _authorizedDevices) {
       if (d.id == device.id) {
