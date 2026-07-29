@@ -27,8 +27,8 @@ import '../providers/permission_provider.dart';
 import '../utils/attendance_correction_privilege.dart';
 import '../widgets/app_button.dart';
 import 'attendance/attendance_correction_tab.dart'
-    show CorrectionRequestInternal, CorrectionStatus;
 import '../design_system/design_system.dart';
+    show CorrectionRequestInternal, CorrectionStatus;
 import 'main_layout.dart' show ScreenRefreshNotifier;
 import '../l10n/app_localizations.dart';
 import '../widgets/hrm_page_chrome.dart';
