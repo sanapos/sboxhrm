@@ -12,8 +12,8 @@ import '../utils/travel_hours_load_utils.dart';
 import '../utils/travel_eligibility_utils.dart';
 import 'attendance/attendance_by_shift_tab.dart';
 import 'attendance/attendance_summary_tab.dart'
-import '../design_system/design_system.dart';
     show AttendanceCorrectionRequest;
+import '../design_system/design_system.dart';
 import 'main_layout.dart' show ScreenRefreshNotifier;
 import '../widgets/notification_overlay.dart';
 import '../utils/attendance_load_utils.dart';

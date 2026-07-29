@@ -163,7 +163,7 @@ class PosSellPrintSettings {
     final tid = prefs.getString(_kTemplate);
     final wtid = prefs.getString(_kWarehouseTemplate);
     // Lần đầu chưa chọn: bật tự động in nếu đã cấu hình máy in nhiệt local.
-    final bool autoPrint;
+    late final bool autoPrint;
     if (prefs.containsKey(_kAuto)) {
       autoPrint = prefs.getBool(_kAuto) ?? false;
     } else {
