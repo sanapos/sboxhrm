@@ -1170,7 +1170,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       screen: const DeviceUsersScreen(),
       group: 'Chấm công',
       showInSidebar: false,
-      themeColor: const Color(0xFF0284C7),
+      themeColor: AppColors.secondary,
       moduleCode: 'DeviceUser',
     ),
     NavItem(
@@ -1192,7 +1192,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       screen: const LeaveScreen(),
       group: 'Chấm công',
       showInSidebar: false,
-      themeColor: const Color(0xFF0284C7),
+      themeColor: AppColors.secondary,
       moduleCode: 'Leave',
     ),
     NavItem(
@@ -1216,7 +1216,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       screen: const AttendanceScreen(),
       group: 'Chấm công',
       showInSidebar: false,
-      themeColor: const Color(0xFF0284C7),
+      themeColor: AppColors.secondary,
       moduleCode: 'Attendance',
     ),
     NavItem(
@@ -1227,7 +1227,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       screen: const WorkScheduleScreen(),
       group: 'Chấm công',
       showInSidebar: false,
-      themeColor: const Color(0xFF0284C7),
+      themeColor: AppColors.secondary,
       moduleCode: 'WorkSchedule',
     ),
     NavItem(
@@ -1237,7 +1237,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       subtitle: 'Bảng tổng hợp công theo tháng',
       screen: const AttendanceSummaryScreen(),
       group: 'Báo cáo',
-      themeColor: const Color(0xFF7C3AED),
+      themeColor: AppColors.secondary,
       moduleCode: 'AttendanceSummary',
     ),
     NavItem(
@@ -1247,7 +1247,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       subtitle: 'Thống kê giờ công theo ca làm',
       screen: const AttendanceByShiftScreen(),
       group: 'Báo cáo',
-      themeColor: const Color(0xFF7C3AED),
+      themeColor: AppColors.secondary,
       moduleCode: 'AttendanceByShift',
     ),
     NavItem(
@@ -1258,7 +1258,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       screen: const AttendanceApprovalScreen(),
       group: 'Chấm công',
       showInSidebar: false,
-      themeColor: const Color(0xFF0284C7),
+      themeColor: AppColors.secondary,
       moduleCode: 'AttendanceApproval',
     ),
     NavItem(
@@ -1269,7 +1269,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       screen: const ScheduleApprovalScreen(),
       group: 'Chấm công',
       showInSidebar: false,
-      themeColor: const Color(0xFF0284C7),
+      themeColor: AppColors.secondary,
       moduleCode: 'ScheduleApproval',
     ),
     NavItem(
@@ -1279,7 +1279,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       subtitle: 'Phiếu lương cá nhân',
       screen: const PayslipScreen(),
       group: 'Báo cáo',
-      themeColor: const Color(0xFF7C3AED),
+      themeColor: AppColors.secondary,
       moduleCode: 'Payslip',
     ),
     NavItem(
@@ -1289,7 +1289,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       subtitle: 'Bảng lương nhân viên',
       screen: const PayrollScreen(),
       group: 'Báo cáo',
-      themeColor: const Color(0xFF7C3AED),
+      themeColor: AppColors.secondary,
       moduleCode: 'Payroll',
     ),
 
@@ -1300,7 +1300,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       subtitle: 'Đăng ký thiết bị & khuôn mặt',
       screen: const MobileDeviceRegistrationScreen(),
       group: 'Chấm công',
-      themeColor: const Color(0xFF0284C7),
+      themeColor: AppColors.secondary,
       moduleCode: 'MobileDeviceRegistration',
     ),
     NavItem(
@@ -1310,7 +1310,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       subtitle: 'Chấm công bằng điện thoại',
       screen: const MobileAttendanceScreen(),
       group: 'Chấm công',
-      themeColor: const Color(0xFF0284C7),
+      themeColor: AppColors.secondary,
       moduleCode: 'MobileAttendance',
     ),
     NavItem(
@@ -1320,7 +1320,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       subtitle: 'Quản lý suất ăn',
       screen: const MealTrackingScreen(),
       group: 'Quản lý Vận hành',
-      themeColor: const Color(0xFF059669),
+      themeColor: AppColors.primary,
       moduleCode: 'Meal',
     ),
 
@@ -1333,7 +1333,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       screen: const BonusPenaltyScreen(bonusOnly: true),
       group: 'Tài chính',
       showInSidebar: true,
-      themeColor: const Color(0xFFEC4899),
+      themeColor: AppColors.primary,
       moduleCode: 'BonusPenalty',
     ),
     NavItem(
@@ -1344,7 +1344,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       screen: const AdvanceRequestsScreen(),
       group: 'Tài chính',
       showInSidebar: true,
-      themeColor: const Color(0xFFEC4899),
+      themeColor: AppColors.primary,
       moduleCode: 'AdvanceRequests',
     ),
     NavItem(
@@ -1366,7 +1366,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       screen: const CashTransactionScreen(),
       group: 'Tài chính',
       showInSidebar: false,
-      themeColor: const Color(0xFFEC4899),
+      themeColor: AppColors.primary,
       moduleCode: 'CashTransaction',
     ),
 
@@ -1379,7 +1379,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       screen: const AssetManagementScreen(),
       group: 'Quản lý Vận hành',
       showInSidebar: false,
-      themeColor: const Color(0xFF059669),
+      themeColor: AppColors.primary,
       moduleCode: 'Asset',
     ),
     NavItem(
@@ -1390,7 +1390,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       screen: const TaskManagementScreen(),
       group: 'Quản lý Vận hành',
       showInSidebar: false,
-      themeColor: const Color(0xFF059669),
+      themeColor: AppColors.primary,
       moduleCode: 'Task',
     ),
     NavItem(
@@ -1400,7 +1400,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       subtitle: 'Tin tức, thông báo, nội quy nội bộ',
       screen: const CommunicationScreen(),
       group: 'Quản lý Vận hành',
-      themeColor: const Color(0xFF059669),
+      themeColor: AppColors.primary,
       moduleCode: 'Communication',
     ),
 
@@ -1412,7 +1412,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       subtitle: 'Chỉ tiêu, đánh giá hiệu suất',
       screen: const KpiScreen(),
       group: 'Quản lý Vận hành',
-      themeColor: const Color(0xFF059669),
+      themeColor: AppColors.primary,
       moduleCode: 'KPI',
     ),
 
@@ -1424,7 +1424,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       subtitle: 'Nhập sản lượng, tính lương sản phẩm',
       screen: const ProductionOutputScreen(),
       group: 'Quản lý Vận hành',
-      themeColor: const Color(0xFF059669),
+      themeColor: AppColors.primary,
       moduleCode: 'Production',
     ),
 
@@ -1448,7 +1448,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       subtitle: 'Vị trí trực tuyến NV chấm ngoài CT trên bản đồ',
       screen: const FieldCheckInScreen(),
       group: 'Quản lý Vận hành',
-      themeColor: const Color(0xFF059669),
+      themeColor: AppColors.primary,
       moduleCode: 'FieldCheckIn',
     ),
 
@@ -1460,7 +1460,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       subtitle: 'Danh mục sản phẩm, tồn kho, giá bán',
       screen: const PosProductsScreen(),
       group: 'POS',
-      themeColor: const Color(0xFF2563EB),
+      themeColor: AppColors.secondary,
       moduleCode: 'PosProducts',
     ),
     NavItem(
@@ -1470,7 +1470,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       subtitle: 'Màn hình bán hàng POS, giỏ hàng, thanh toán',
       screen: const PosSellScreen(),
       group: 'POS',
-      themeColor: const Color(0xFF2563EB),
+      themeColor: AppColors.secondary,
       moduleCode: 'PosSell',
     ),
     NavItem(
@@ -1480,7 +1480,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       subtitle: 'Quản lý đơn hàng, hóa đơn bán hàng',
       screen: const PosSaleOrderListScreen(),
       group: 'POS',
-      themeColor: const Color(0xFF2563EB),
+      themeColor: AppColors.secondary,
       moduleCode: 'PosSaleOrders',
     ),
     NavItem(
@@ -1490,7 +1490,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       subtitle: 'Lịch sử phiếu trả hàng khách',
       screen: const PosSaleReturnListScreen(),
       group: 'POS',
-      themeColor: const Color(0xFF2563EB),
+      themeColor: AppColors.secondary,
       moduleCode: 'PosSaleReturns',
     ),
     NavItem(
@@ -1500,7 +1500,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       subtitle: 'Phiếu nhập hàng nhà cung cấp (PN)',
       screen: const WhAdaptivePurchaseReceiptList(),
       group: 'POS',
-      themeColor: const Color(0xFF2563EB),
+      themeColor: AppColors.secondary,
       moduleCode: 'PosPurchaseReceipts',
     ),
     NavItem(
@@ -1510,7 +1510,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       subtitle: 'Trả hàng cho nhà cung cấp (THN)',
       screen: const WhAdaptivePurchaseReturnList(),
       group: 'POS',
-      themeColor: const Color(0xFF2563EB),
+      themeColor: AppColors.secondary,
       moduleCode: 'PosPurchaseReturns',
     ),
     NavItem(
@@ -1520,7 +1520,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       subtitle: 'Phiếu kiểm kê, cân bằng tồn kho (KK)',
       screen: const WhAdaptiveStockCountList(),
       group: 'POS',
-      themeColor: const Color(0xFF2563EB),
+      themeColor: AppColors.secondary,
       moduleCode: 'PosStockCounts',
     ),
     NavItem(
@@ -1530,7 +1530,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       subtitle: 'Phiếu xuất hủy hàng hóa (XH)',
       screen: const WhAdaptiveDamageIssueList(),
       group: 'POS',
-      themeColor: const Color(0xFF2563EB),
+      themeColor: AppColors.secondary,
       moduleCode: 'PosDamageIssues',
     ),
     NavItem(
@@ -1540,7 +1540,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       subtitle: 'Phiếu xuất dùng nội bộ (XDNB)',
       screen: const WhAdaptiveInternalUseList(),
       group: 'POS',
-      themeColor: const Color(0xFF2563EB),
+      themeColor: AppColors.secondary,
       moduleCode: 'PosInternalUseIssues',
     ),
     NavItem(
@@ -1550,7 +1550,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       subtitle: 'Doanh thu bán hàng, tồn kho POS',
       screen: const PosReportsScreen(),
       group: 'POS',
-      themeColor: const Color(0xFF2563EB),
+      themeColor: AppColors.secondary,
       moduleCode: 'PosSalesReport',
     ),
 
@@ -1562,7 +1562,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       subtitle: 'Vắng không chấm, đi trễ / về sớm',
       screen: const AttendanceReportScreen(),
       group: 'Báo cáo',
-      themeColor: const Color(0xFF0284C7),
+      themeColor: AppColors.secondary,
       moduleCode: 'AttendanceReport',
     ),
     NavItem(
@@ -1572,7 +1572,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       subtitle: 'Thống kê phiếu phạt nhân viên',
       screen: const PenaltyReportScreen(),
       group: 'Báo cáo',
-      themeColor: const Color(0xFFEC4899),
+      themeColor: AppColors.primary,
       moduleCode: 'PenaltyReport',
     ),
     NavItem(
@@ -1612,7 +1612,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       subtitle: 'Thống kê đơn nghỉ phép',
       screen: const LeaveReportScreen(),
       group: 'Báo cáo',
-      themeColor: const Color(0xFF0284C7),
+      themeColor: AppColors.secondary,
       moduleCode: 'LeaveReport',
     ),
     NavItem(
@@ -1622,7 +1622,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       subtitle: 'Danh mục, cấp phát, kho, kiểm kê',
       screen: const AssetReportScreen(),
       group: 'Báo cáo',
-      themeColor: const Color(0xFF059669),
+      themeColor: AppColors.primary,
       moduleCode: 'AssetReport',
     ),
     // Không moduleCode: chỉ mục file local trên máy, không API / không phân quyền.
@@ -1634,7 +1634,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       screen: const DownloadedDocumentsScreen(),
       group: 'Báo cáo',
       showInSidebar: false,
-      themeColor: const Color(0xFF7C3AED),
+      themeColor: AppColors.secondary,
     ),
 
     // ══════════ ĐẠI LÝ ══════════
@@ -1694,7 +1694,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       screen: const PenaltyTicketsScreen(),
       group: 'Tài chính',
       showInSidebar: false,
-      themeColor: const Color(0xFFEC4899),
+      themeColor: AppColors.primary,
       moduleCode: 'PenaltyTickets',
     ),
     // ══════════ THIẾT LẬP THÔNG BÁO ══════════
@@ -1717,7 +1717,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       screen: const ShiftSwapScreen(),
       group: 'Chấm công',
       showInSidebar: false,
-      themeColor: const Color(0xFF0284C7),
+      themeColor: AppColors.secondary,
       moduleCode: 'ShiftSwap',
     ),
   ];
@@ -3557,13 +3557,13 @@ class _HomeMenuScreen extends StatefulWidget {
   };
 
   static const _groupColors = {
-    'Hồ sơ nhân sự': HrmPageChrome.primaryNavy, // Navy
-    'Chấm công': Color(0xFF0284C7), // Sky 600
-    'Tài chính': Color(0xFFEC4899), // Pink 500
-    'Quản lý Vận hành': Color(0xFF059669), // Emerald 600
-    'POS': Color(0xFF2563EB), // Blue 600
-    'Báo cáo': Color(0xFF7C3AED), // Violet 600
-    'Cài đặt': Color(0xFF64748B), // Slate 500
+    'Hồ sơ nhân sự': AppColors.primary,
+    'Chấm công': AppColors.primaryDark,
+    'Tài chính': AppColors.secondary,
+    'Quản lý Vận hành': AppColors.primaryLight,
+    'POS': AppColors.secondary,
+    'Báo cáo': AppColors.primary,
+    'Cài đặt': AppColors.textSecondary,
   };
 
   static const _groupDescriptions = {

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../design_system/design_system.dart';
 import '../models/settings_hub_sidebar_config.dart';
-import '../widgets/hrm_page_chrome.dart';
 
 /// Định nghĩa một mục menu trong Thiết lập HRM.
 class SettingsHubItemDef {
@@ -24,9 +24,12 @@ class SettingsHubItemDef {
   final String? moduleCode;
 }
 
-/// Danh mục cố định các module Thiết lập HRM.
+/// Danh mục cố định — accent chỉ Kiot green / Kiot blue (không cầu vồng).
 class SettingsHubCatalog {
   SettingsHubCatalog._();
+
+  static const Color _g = AppColors.primary;
+  static const Color _b = AppColors.secondary;
 
   static const List<SettingsHubItemDef> allItems = [
     SettingsHubItemDef(
@@ -34,7 +37,7 @@ class SettingsHubCatalog {
       icon: Icons.schedule_send,
       label: 'Thiết lập ca',
       desc: 'Ca làm việc, vào sớm, đi trễ, về sớm, tăng ca',
-      accent: HrmPageChrome.primaryNavy,
+      accent: _g,
       groupTitle: 'Chấm công & Ca',
       moduleCode: 'ShiftSetup',
     ),
@@ -43,7 +46,7 @@ class SettingsHubCatalog {
       icon: Icons.phone_android,
       label: 'Chấm công mobile',
       desc: 'Face ID, GPS, cấp quyền thiết bị, vùng chấm công',
-      accent: HrmPageChrome.primaryNavy,
+      accent: _g,
       groupTitle: 'Chấm công & Ca',
       moduleCode: 'MobileAttendance',
     ),
@@ -52,7 +55,7 @@ class SettingsHubCatalog {
       icon: Icons.celebration,
       label: 'Ngày lễ',
       desc: 'Ngày nghỉ lễ, hệ số công, cấu hình lịch nghỉ',
-      accent: Color(0xFFEF4444),
+      accent: _g,
       groupTitle: 'Chấm công & Ca',
       moduleCode: 'Holiday',
     ),
@@ -61,7 +64,7 @@ class SettingsHubCatalog {
       icon: Icons.router,
       label: 'Máy chấm công',
       desc: 'Kết nối, quản lý, điều khiển máy chấm công',
-      accent: HrmPageChrome.primaryNavy,
+      accent: _g,
       groupTitle: 'Chấm công & Ca',
       moduleCode: 'Device',
     ),
@@ -70,7 +73,7 @@ class SettingsHubCatalog {
       icon: Icons.groups,
       label: 'Định mức nhân sự',
       desc: 'Min/Max nhân sự theo ca, phòng ban, từng thứ T2–CN',
-      accent: Color(0xFF7C3AED),
+      accent: _g,
       groupTitle: 'Chấm công & Ca',
       moduleCode: 'WorkSchedule',
     ),
@@ -79,7 +82,7 @@ class SettingsHubCatalog {
       icon: Icons.card_giftcard,
       label: 'Phụ cấp',
       desc: 'Phụ cấp cố định, phụ cấp ngày công',
-      accent: Color(0xFFEC4899),
+      accent: _g,
       groupTitle: 'Chính sách lương',
       moduleCode: 'Allowance',
     ),
@@ -88,7 +91,7 @@ class SettingsHubCatalog {
       icon: Icons.gavel,
       label: 'Phạt',
       desc: 'Đi trễ, về sớm, tái phạm, kỷ luật',
-      accent: Color(0xFFF97316),
+      accent: _g,
       groupTitle: 'Chính sách lương',
       moduleCode: 'PenaltySetup',
     ),
@@ -97,7 +100,7 @@ class SettingsHubCatalog {
       icon: Icons.health_and_safety,
       label: 'Bảo hiểm',
       desc: 'BHXH, BHYT, BHTN, lương cơ sở',
-      accent: Color(0xFF2D5F8B),
+      accent: _g,
       groupTitle: 'Chính sách lương',
       moduleCode: 'Insurance',
     ),
@@ -106,7 +109,7 @@ class SettingsHubCatalog {
       icon: Icons.receipt_long,
       label: 'Thuế TNCN',
       desc: 'Bậc thuế, giảm trừ gia cảnh',
-      accent: HrmPageChrome.primaryNavy,
+      accent: _g,
       groupTitle: 'Chính sách lương',
       moduleCode: 'Tax',
     ),
@@ -115,7 +118,7 @@ class SettingsHubCatalog {
       icon: Icons.precision_manufacturing,
       label: 'Lương sản phẩm',
       desc: 'Nhóm SP, sản phẩm, đơn giá theo bậc',
-      accent: Color(0xFF059669),
+      accent: _g,
       groupTitle: 'Chính sách lương',
       moduleCode: 'ProductSalary',
     ),
@@ -124,7 +127,7 @@ class SettingsHubCatalog {
       icon: Icons.manage_accounts,
       label: 'Tài khoản',
       desc: 'Người dùng, kích hoạt, vai trò',
-      accent: HrmPageChrome.primaryNavy,
+      accent: _g,
       groupTitle: 'Quản trị hệ thống',
       moduleCode: 'UserManagement',
     ),
@@ -133,7 +136,7 @@ class SettingsHubCatalog {
       icon: Icons.security,
       label: 'Phân quyền',
       desc: 'Ma trận quyền, vai trò, module',
-      accent: Color(0xFFEF4444),
+      accent: _g,
       groupTitle: 'Quản trị hệ thống',
       moduleCode: 'Role',
     ),
@@ -142,7 +145,7 @@ class SettingsHubCatalog {
       icon: Icons.settings_suggest,
       label: 'Hệ thống',
       desc: 'Giờ kết thúc ngày, tham số vận hành',
-      accent: Color(0xFF334155),
+      accent: _g,
       groupTitle: 'Quản trị hệ thống',
       moduleCode: 'SystemSettings',
     ),
@@ -151,7 +154,7 @@ class SettingsHubCatalog {
       icon: Icons.business,
       label: 'Chi nhánh',
       desc: 'Quản lý chi nhánh, cây chi nhánh, thống kê',
-      accent: HrmPageChrome.primaryNavy,
+      accent: _g,
       groupTitle: 'Quản trị hệ thống',
       moduleCode: 'Branch',
     ),
@@ -160,7 +163,7 @@ class SettingsHubCatalog {
       icon: Icons.print_outlined,
       label: 'Mẫu in',
       desc: 'K58, K80, A5, A4 — thiết kế hóa đơn, phiếu',
-      accent: Color(0xFF2563EB),
+      accent: _b,
       groupTitle: 'POS / Bán hàng',
       moduleCode: 'PosProducts',
     ),
@@ -169,7 +172,7 @@ class SettingsHubCatalog {
       icon: Icons.storefront_outlined,
       label: 'Ngành hàng & bán hàng',
       desc: 'Hồ sơ ngành, bàn/ghế, tính giờ, gói buổi',
-      accent: Color(0xFF0D9488),
+      accent: _b,
       groupTitle: 'POS / Bán hàng',
       moduleCode: 'PosSell',
     ),
@@ -178,7 +181,7 @@ class SettingsHubCatalog {
       icon: Icons.store_outlined,
       label: 'Thiết lập cửa hàng',
       desc: 'Tên, địa chỉ, VAT, VietQR thanh toán',
-      accent: Color(0xFF7C3AED),
+      accent: _b,
       groupTitle: 'POS / Bán hàng',
       moduleCode: 'PosSell',
     ),
@@ -187,7 +190,7 @@ class SettingsHubCatalog {
       icon: Icons.print,
       label: 'Máy in (thiết bị)',
       desc: 'In hoá đơn, Bluetooth/LAN/USB, tem ly',
-      accent: Color(0xFFEA580C),
+      accent: _b,
       groupTitle: 'POS / Bán hàng',
       moduleCode: 'PosSell',
     ),
@@ -196,7 +199,7 @@ class SettingsHubCatalog {
       icon: Icons.table_restaurant_outlined,
       label: 'Quản lý bàn / phòng',
       desc: 'Sơ đồ mặt bằng, tạo/sửa bàn ghế',
-      accent: Color(0xFF0891B2),
+      accent: _b,
       groupTitle: 'POS / Bán hàng',
       moduleCode: 'PosSell',
     ),
@@ -205,7 +208,7 @@ class SettingsHubCatalog {
       icon: Icons.auto_awesome,
       label: 'Thiết lập AI',
       desc: 'Gemini, bật/tắt AI',
-      accent: HrmPageChrome.primaryNavy,
+      accent: _g,
       groupTitle: 'Tích hợp',
       moduleCode: 'AIGemini',
     ),
@@ -221,7 +224,7 @@ class SettingsHubCatalog {
     return null;
   }
 
-  /// Áp dụng cấu hình tùy chỉnh lên danh sách đã lọc quyền.
+  /// Áp dụng cấu hình sidebar.
   static List<SettingsHubItemDef> applyConfig(
     List<SettingsHubItemDef> permitted,
     SettingsHubSidebarConfig? config,
@@ -251,7 +254,6 @@ class SettingsHubCatalog {
     return ordered;
   }
 
-  /// Nhóm các mục đã sắp xếp để hiển thị header nhóm trên sidebar.
   static List<({String title, List<SettingsHubItemDef> items})> groupOrderedItems(
     List<SettingsHubItemDef> ordered,
   ) {

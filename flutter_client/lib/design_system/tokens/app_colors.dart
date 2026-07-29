@@ -1,83 +1,91 @@
 import 'package:flutter/material.dart';
 
-/// Single source of brand + semantic colors for SBOX (HRM + shared chrome).
+/// Brand palette chuẩn **KiotViet** (xanh lá + xanh dương + xám).
 ///
-/// POS domain accents live in [PosTheme] but should reuse these neutrals /
-/// radii via [AppSpace] / [AppRadius]. Prefer `Theme.of(context).colorScheme`
-/// or `AppColors.of(context)` in widgets.
+/// Không dùng pink/violet/orange làm brand — chỉ semantic status.
 abstract final class AppColors {
-  // --- Brand (HRM enterprise navy) ---
-  static const Color primary = Color(0xFF1E3A5F);
-  static const Color primaryLight = Color(0xFF2D5F8B);
-  static const Color primaryDark = Color(0xFF0F2340);
+  // --- Brand KiotViet ---
+  /// Xanh lá chủ đạo (nút chính, sidebar selected, CTA).
+  static const Color primary = Color(0xFF00B63E);
+  static const Color primaryLight = Color(0xFF2DD15C);
+  static const Color primaryDark = Color(0xFF009632);
+  static const Color primaryMuted = Color(0xFFE8F8ED);
 
-  /// Legacy marketing blue — aliased to [primary] for brand unification.
-  static const Color marketingBlue = primary;
+  /// Xanh dương hành động / link / highlight (Kiot blue).
+  static const Color secondary = Color(0xFF0070F4);
+  static const Color secondaryMuted = Color(0xFFE8F4FD);
 
-  // --- Semantic ---
-  static const Color secondary = Color(0xFF0EA5E9); // Sky — actions / links
-  static const Color accent = Color(0xFFEC4899); // Decorative only
-  static const Color success = Color(0xFF059669);
-  static const Color warning = Color(0xFFD97706);
-  static const Color danger = Color(0xFFEF4444);
+  /// Alias marketing / legacy.
+  static const Color marketingBlue = secondary;
+  static const Color kiotGreen = primary;
+  static const Color kiotBlue = secondary;
 
-  /// Info blue with Material shade ladder (replaces Colors.blue.*).
+  // --- Semantic (status only — không dùng làm brand module) ---
+  static const Color accent = secondary; // không còn pink
+  static const Color success = Color(0xFF00B63E);
+  static const Color warning = Color(0xFFF5A623);
+  static const Color danger = Color(0xFFE53935);
+
+  /// Info = Kiot blue shade ladder.
   static const MaterialColor info = MaterialColor(
-    0xFF2563EB,
+    0xFF0070F4,
     <int, Color>{
-      50: Color(0xFFEFF6FF),
-      100: Color(0xFFDBEAFE),
-      200: Color(0xFFBFDBFE),
-      300: Color(0xFF93C5FD),
-      400: Color(0xFF60A5FA),
-      500: Color(0xFF3B82F6),
-      600: Color(0xFF2563EB),
-      700: Color(0xFF1D4ED8),
-      800: Color(0xFF1E40AF),
-      900: Color(0xFF1E3A8A),
+      50: Color(0xFFE8F4FD),
+      100: Color(0xFFCCE4FC),
+      200: Color(0xFF99C9F9),
+      300: Color(0xFF66AEF6),
+      400: Color(0xFF3393F5),
+      500: Color(0xFF0070F4),
+      600: Color(0xFF005CC9),
+      700: Color(0xFF00479E),
+      800: Color(0xFF003372),
+      900: Color(0xFF001E47),
     },
   );
 
-  // --- Surfaces (light) ---
-  static const Color scaffold = Color(0xFFFAFAFA);
+  // --- Surfaces (Kiot gray) ---
+  static const Color scaffold = Color(0xFFF4F6F8);
   static const Color surface = Color(0xFFFFFFFF);
-  static const Color surfaceMuted = Color(0xFFF4F4F5);
-  static const Color border = Color(0xFFE4E4E7);
-  static const Color borderSubtle = Color(0xFFEEEEF0);
-  static const Color textPrimary = Color(0xFF18181B);
-  static const Color textSecondary = Color(0xFF71717A);
-  static const Color textTertiary = Color(0xFFA1A1AA);
+  static const Color surfaceMuted = Color(0xFFEEF1F4);
+  static const Color border = Color(0xFFE0E4E8);
+  static const Color borderSubtle = Color(0xFFE8ECF0);
+  static const Color textPrimary = Color(0xFF1A1D21);
+  static const Color textSecondary = Color(0xFF6B7280);
+  static const Color textTertiary = Color(0xFF9CA3AF);
 
-  // --- Surfaces (dark) ---
-  static const Color scaffoldDark = Color(0xFF0F1419);
+  // --- Dark ---
+  static const Color scaffoldDark = Color(0xFF12151A);
   static const Color surfaceDark = Color(0xFF1A1F26);
   static const Color surfaceMutedDark = Color(0xFF242A33);
   static const Color borderDark = Color(0xFF2E3540);
-  static const Color textPrimaryDark = Color(0xFFE4E4E7);
+  static const Color textPrimaryDark = Color(0xFFE8EAED);
   static const Color textSecondaryDark = Color(0xFF9CA3AF);
 
-  // --- Chart palette (dashboard) ---
+  /// Biểu đồ / nhóm module — chỉ xanh lá + xanh dương + xám.
   static const List<Color> chart = [
     primary,
-    info,
-    success,
-    Color(0xFF7C3AED),
-    warning,
     secondary,
-    accent,
-    Color(0xFF64748B),
+    primaryDark,
+    Color(0xFF4DA3FF),
+    Color(0xFF34C759),
+    Color(0xFF6B7280),
+    Color(0xFF009632),
+    Color(0xFF005CC9),
   ];
+
+  /// Màu icon nhóm Home/Settings — xoay trong palette Kiot (không cầu vồng).
+  static Color moduleTone(int index) => chart[index % chart.length];
 
   static ColorScheme lightScheme() => const ColorScheme.light(
         primary: primary,
         onPrimary: Colors.white,
-        primaryContainer: Color(0xFFD6E4F5),
+        primaryContainer: primaryMuted,
         onPrimaryContainer: primaryDark,
         secondary: secondary,
         onSecondary: Colors.white,
-        secondaryContainer: Color(0xFFE0F2FE),
-        onSecondaryContainer: Color(0xFF0C4A6E),
-        tertiary: accent,
+        secondaryContainer: secondaryMuted,
+        onSecondaryContainer: Color(0xFF003372),
+        tertiary: primaryDark,
         onTertiary: Colors.white,
         error: danger,
         onError: Colors.white,
@@ -93,10 +101,10 @@ abstract final class AppColors {
         primary: primaryLight,
         onPrimary: Colors.white,
         primaryContainer: primaryDark,
-        onPrimaryContainer: Color(0xFFD6E4F5),
+        onPrimaryContainer: primaryMuted,
         secondary: secondary,
         onSecondary: Colors.white,
-        tertiary: accent,
+        tertiary: primaryLight,
         onTertiary: Colors.white,
         error: danger,
         onError: Colors.white,
