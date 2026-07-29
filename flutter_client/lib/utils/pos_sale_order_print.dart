@@ -338,6 +338,13 @@ Future<bool> printPosSaleOrder({
       }
       // Chỉ bỏ cloud khi không còn máy Agent — Oppo vẫn phải gửi được sang Sunmi.
       if (preferDevicePrintOnly && cloudPrinters.isEmpty) {
+        if (showFeedback) {
+          NotificationOverlayManager().showError(
+            title: 'Chưa in được',
+            message: tr(
+                'Máy in cục bộ lỗi và chưa có Print Agent. Không mở mẫu phiếu.'),
+          );
+        }
         return false;
       }
     }
@@ -385,11 +392,24 @@ Future<bool> printPosSaleOrder({
         return true;
       }
       if (preferDevicePrintOnly) {
+        if (showFeedback) {
+          NotificationOverlayManager().showError(
+            title: 'In thất bại',
+            message: tr('Không gửi được máy in — phiếu treo, không mở mẫu.'),
+          );
+        }
         return false;
       }
     }
 
     if (preferDevicePrintOnly) {
+      if (showFeedback) {
+        NotificationOverlayManager().showError(
+          title: 'Chưa in được',
+          message: tr(
+              'Chưa cấu hình máy in nhiệt hoặc Print Agent. Vào Thiết lập in — không mở mẫu phiếu.'),
+        );
+      }
       return false;
     }
   }
@@ -397,6 +417,7 @@ Future<bool> printPosSaleOrder({
   final saleDate =
       printOrder.saleDate?.toLocal() ?? printOrder.createdAt?.toLocal() ?? DateTime.now();
 
+  // Fallback HTML/PDF chỉ khi caller cho phép (không dùng trên POS cảm ứng).
   if (template != null && template.htmlContent.trim().isNotEmpty) {
     final html = renderSaleOrderTemplate(
       template.htmlContent,

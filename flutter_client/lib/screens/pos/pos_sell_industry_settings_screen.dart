@@ -311,6 +311,18 @@ class _PosSellIndustrySettingsScreenState
               : (v) => _patchAndSave(
                   (cur) => cur.copyWith(allowProvisionalBill: v)),
         ),
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          title: Text(tr('Hỏi số khách khi mở bàn')),
+          subtitle: Text(tr(
+              'Bật thì hiện hộp nhập số khách khi mở bàn trống. '
+              'Tắt: mở bàn thẳng (mặc định 1 khách — sửa sau trên bàn).')),
+          value: s.promptGuestCountOnOpen,
+          onChanged: _saving
+              ? null
+              : (v) => _patchAndSave(
+                  (cur) => cur.copyWith(promptGuestCountOnOpen: v)),
+        ),
         const Divider(height: 28),
         Text(tr('Màn hình phụ (khách)'),
           style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14),

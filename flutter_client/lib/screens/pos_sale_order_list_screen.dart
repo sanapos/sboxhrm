@@ -266,6 +266,8 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
       copies: printSettings.copies,
       templateId: printSettings.templateId,
       skipDedup: true,
+      preferDevicePrintOnly: true,
+      showFeedback: true,
     );
     // Làm mới printCount trên danh sách sau khi ghi nhận in.
     if (!mounted) return;

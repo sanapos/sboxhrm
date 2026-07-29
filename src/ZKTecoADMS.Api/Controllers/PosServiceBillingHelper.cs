@@ -78,6 +78,8 @@ public static class PosServiceBillingHelper
                 s.RequireResourceOnSale = false;
                 s.ShowFloorPlan = false;
                 s.AllowProvisionalBill = false;
+                s.EnableMultiDeviceDraftLock = false;
+                s.PromptGuestCountOnOpen = false;
                 break;
             case PosSellProfile.Salon:
                 s.EnableResources = true;
@@ -86,6 +88,9 @@ public static class PosServiceBillingHelper
                 s.RequireResourceOnSale = false;
                 s.ShowFloorPlan = true;
                 s.AllowProvisionalBill = true;
+                // F&B/salon thường nhiều máy — bật khóa đồng bộ; 1 máy tắt trong Thiết lập.
+                s.EnableMultiDeviceDraftLock = true;
+                s.PromptGuestCountOnOpen = false;
                 break;
             case PosSellProfile.RoomHourly:
                 s.EnableResources = true;
@@ -94,6 +99,8 @@ public static class PosServiceBillingHelper
                 s.RequireResourceOnSale = true;
                 s.ShowFloorPlan = true;
                 s.AllowProvisionalBill = true;
+                s.EnableMultiDeviceDraftLock = true;
+                s.PromptGuestCountOnOpen = false;
                 break;
             case PosSellProfile.Restaurant:
                 s.EnableResources = true;
@@ -102,6 +109,8 @@ public static class PosServiceBillingHelper
                 s.RequireResourceOnSale = false;
                 s.ShowFloorPlan = true;
                 s.AllowProvisionalBill = true;
+                s.EnableMultiDeviceDraftLock = true;
+                s.PromptGuestCountOnOpen = false;
                 break;
             case PosSellProfile.Gym:
                 s.EnableResources = false;
@@ -110,6 +119,8 @@ public static class PosServiceBillingHelper
                 s.RequireResourceOnSale = false;
                 s.ShowFloorPlan = false;
                 s.AllowProvisionalBill = false;
+                s.EnableMultiDeviceDraftLock = false;
+                s.PromptGuestCountOnOpen = false;
                 break;
         }
     }

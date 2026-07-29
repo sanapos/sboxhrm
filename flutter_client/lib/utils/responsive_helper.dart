@@ -7,9 +7,9 @@ class Responsive {
   static const double tabletBreakpoint = 1024;
   static const double largeBreakpoint = 1440;
 
-  /// Tablet lớn / màn ngang ≥12" (POS F&B: sơ đồ bàn → chọn món → thanh toán
-  /// theo từng bước riêng, thay vì 3 cột chung màn hình).
-  static const double tabletLandscapeFlowBreakpoint = 1200;
+  /// Tablet lớn / màn ngang ≥10" (~1024 dp) — POS F&B: sơ đồ bàn → chọn món → thanh toán
+  /// theo từng bước riêng (phủ 10.1" landscape, không chờ ≥1200).
+  static const double tabletLandscapeFlowBreakpoint = 1024;
 
   static bool isMobile(BuildContext context) =>
       MediaQuery.of(context).size.width < mobileBreakpoint;

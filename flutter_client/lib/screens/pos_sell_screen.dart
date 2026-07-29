@@ -546,6 +546,9 @@ class _PosSellScreenState extends State<PosSellScreen> {
   PosSellPrintSettings _printSettings = const PosSellPrintSettings();
   PosThermalPrinterSettings _thermalPrintSettings =
       const PosThermalPrinterSettings();
+  /// In bill/tem lần TT này — độc lập thiết lập «tự động»; gieo từ settings.
+  bool _quickPrintInvoice = false;
+  bool _quickPrintCup = false;
   PosSellStoreSettings _storeSettings = const PosSellStoreSettings();
   PosStoreSellSettingsDto? _industrySettings;
   bool _checkingOut = false;
@@ -783,7 +786,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
 
     setState(() {
       _storeSettings = store;
-      _printSettings = printS;
+      _applyPrintSettings(printS);
       _thermalPrintSettings = thermal;
       _industrySettings = industry;
       _sellMode = sellMode;
@@ -1109,12 +1112,19 @@ class _PosSellScreenState extends State<PosSellScreen> {
     return false;
   }
 
+  void _applyPrintSettings(PosSellPrintSettings s) {
+    _printSettings = s;
+    // Gieo chip nhanh từ thiết lập — user có thể bật/tắt cho lần TT này.
+    _quickPrintInvoice = s.autoPrint;
+    _quickPrintCup = s.shouldPrintCupOnPay;
+  }
+
   Future<void> _loadPrintSettings() async {
     final s = await PosSellPrintSettings.load();
     final thermal = await PosThermalPrinterSettings.load();
     if (mounted) {
       setState(() {
-        _printSettings = s;
+        _applyPrintSettings(s);
         _thermalPrintSettings = thermal;
       });
       PosPrintConfigSession.instance.invalidate(warehouseTemplateOnly: true);
@@ -1163,6 +1173,8 @@ class _PosSellScreenState extends State<PosSellScreen> {
             enableHourlyBilling: prev.enableHourlyBilling,
             enableSessionPacks: prev.enableSessionPacks,
             requireResourceOnSale: prev.requireResourceOnSale,
+            enableMultiDeviceDraftLock: prev.enableMultiDeviceDraftLock,
+            promptGuestCountOnOpen: prev.promptGuestCountOnOpen,
           )
         : dto;
 
@@ -1208,7 +1220,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
   bool _floorMapVisible = true;
   /// Tăng sau thanh toán để remount sơ đồ (reload trạng thái bàn).
   int _floorMapEpoch = 0;
-  /// Tablet lớn (≥1200) + F&B: true = đang ở màn thanh toán riêng (sau khi
+  /// Tablet lớn (≥1024) + F&B: true = đang ở màn thanh toán riêng (sau khi
   /// bấm "Thanh toán" từ màn chọn món), false = đang ở màn chọn món/giỏ hàng.
   bool _tabletPaymentStage = false;
   Timer? _customerDisplayPublishTimer;
@@ -1623,6 +1635,8 @@ class _PosSellScreenState extends State<PosSellScreen> {
         builder: (_) => PosResourceFloorScreen(
           manageMode: false,
           sellProfile: _industrySettings?.sellProfile,
+          promptGuestCountOnOpen:
+              _industrySettings?.promptGuestCountOnOpen == true,
           onResourceFreed: _onFloorResourceFreed,
           zeroPendingKitchenResourceIds: _kitchenClearedResourceIds,
           billRequestedResourceIds: _billRequestedResourceIds,
@@ -2038,21 +2052,13 @@ class _PosSellScreenState extends State<PosSellScreen> {
 
     setState(() => _provisionalPrinting = true);
     try {
-      // Đợi autosave nền — không force-claim (tránh bump LockVersion trên 1 máy).
+      // Đợi autosave ngắn — tối đa ~1.6s rồi flush 1 lần.
       _suspendDraftAutosave = true;
       _draftAutosaveTimer?.cancel();
       try {
-        for (var i = 0; i < 150 && _autosavingDraft; i++) {
+        for (var i = 0; i < 20 && _autosavingDraft; i++) {
           await Future<void>.delayed(const Duration(milliseconds: 80));
         }
-        if (_autosavingDraft) {
-          NotificationOverlayManager().showWarning(
-            title: 'Đang lưu đơn',
-            message: tr('Đợi lưu xong rồi in tạm tính lại'),
-          );
-          return;
-        }
-
         if (_tab.localDirty || (_tab.draftOrderId ?? '').isEmpty) {
           final saved = await _persistDraftAutosave(
             forTab: _tab,
@@ -2074,43 +2080,54 @@ class _PosSellScreenState extends State<PosSellScreen> {
         return;
       }
 
-      // Ưu tiên đánh dấu theo bàn (phiên Open đang sống) — đúng session sơ đồ dùng.
       final rid = _tab.serviceResourceId;
-      var billMarked = false;
-      if (rid != null && rid.isNotEmpty) {
-        final byRes =
-            await _api.requestPosResourceBillByResource(rid, requested: true);
-        if (!mounted) return;
-        if (byRes['isSuccess'] == true) {
-          billMarked = true;
-          final data = byRes['data'] is Map ? byRes['data'] as Map : null;
-          final sid = (data?['sessionId'] ?? data?['SessionId'])?.toString();
-          if (sid != null && sid.isNotEmpty) {
-            _tab.resourceSessionId = sid;
-          }
-        }
-      }
-      if (!billMarked) {
-        var sid = _tab.resourceSessionId;
-        if ((sid == null || sid.isEmpty)) {
-          final probe = await _api.getPosSale(orderId);
-          if (probe['isSuccess'] == true && probe['data'] is Map) {
-            final m = probe['data'] as Map;
-            sid = (m['resourceSessionId'] ?? m['ResourceSessionId'])?.toString();
+      final sidCached = _tab.resourceSessionId;
+
+      // Song song: đánh dấu tạm tính + tải đơn in.
+      final billFuture = () async {
+        var billMarked = false;
+        if (rid != null && rid.isNotEmpty) {
+          final byRes =
+              await _api.requestPosResourceBillByResource(rid, requested: true);
+          if (byRes['isSuccess'] == true) {
+            billMarked = true;
+            final data = byRes['data'] is Map ? byRes['data'] as Map : null;
+            final sid = (data?['sessionId'] ?? data?['SessionId'])?.toString();
             if (sid != null && sid.isNotEmpty) {
               _tab.resourceSessionId = sid;
             }
           }
         }
-        if (sid != null && sid.isNotEmpty) {
-          final billRes =
-              await _api.requestPosResourceBill(sid, requested: true);
-          if (!mounted) return;
-          billMarked = billRes['isSuccess'] == true;
+        if (!billMarked) {
+          var sid = sidCached ?? _tab.resourceSessionId;
+          if ((sid == null || sid.isEmpty)) {
+            // Fallback session từ đơn — chỉ khi chưa có.
+            final probe = await _api.getPosSale(orderId);
+            if (probe['isSuccess'] == true && probe['data'] is Map) {
+              final m = probe['data'] as Map;
+              sid =
+                  (m['resourceSessionId'] ?? m['ResourceSessionId'])?.toString();
+              if (sid != null && sid.isNotEmpty) {
+                _tab.resourceSessionId = sid;
+              }
+            }
+          }
+          if (sid != null && sid.isNotEmpty) {
+            final billRes =
+                await _api.requestPosResourceBill(sid, requested: true);
+            billMarked = billRes['isSuccess'] == true;
+          }
         }
-      }
+        return billMarked;
+      }();
+
+      final orderFuture = _api.getPosSale(orderId);
+
+      final results = await Future.wait([billFuture, orderFuture]);
       if (!mounted) return;
-      // Optimistic màu tạm tính — không remount sơ đồ (tránh mất màu / race sync).
+      final billMarked = results[0] as bool;
+      final res = results[1] as Map<String, dynamic>;
+
       if (rid != null && rid.isNotEmpty) {
         final key = rid.toLowerCase();
         setState(() {
@@ -2124,14 +2141,6 @@ class _PosSellScreenState extends State<PosSellScreen> {
         );
       }
 
-      NotificationOverlayManager().show(
-        title: 'Đang in tạm tính…',
-        message: _tab.serviceResourceName ?? 'Gửi lệnh in',
-        duration: const Duration(seconds: 2),
-      );
-
-      final res = await _api.getPosSale(orderId);
-      if (!mounted) return;
       if (res['isSuccess'] != true || res['data'] is! Map) {
         NotificationOverlayManager().showError(
           title: 'Không in tạm tính',
@@ -2140,42 +2149,55 @@ class _PosSellScreenState extends State<PosSellScreen> {
         return;
       }
       final map = Map<String, dynamic>.from(res['data'] as Map);
-      // In phiếu: NV = tên/email/SĐT nhân viên — không dùng tên máy.
       map['soldBy'] = _kitchenSenderName();
       final order = PosSaleOrder.fromJson(map);
-      final ok = await printPosSaleOrder(
-        context: context,
-        order: order,
-        branchName: _storeSettings.storeName.isNotEmpty
-            ? _storeSettings.storeName
-            : null,
-        storeAddress:
-            _storeSettings.address.isNotEmpty ? _storeSettings.address : null,
-        storePhone:
-            _storeSettings.phone.isNotEmpty ? _storeSettings.phone : null,
-        mergeSameItems: _printSettings.mergeSameItems,
-        copies: _printSettings.copies,
-        templateId: _printSettings.templateId,
-        skipDedup: true,
-        // Oppo: local fail vẫn gửi cloud Agent (Sunmi).
-        preferDevicePrintOnly: false,
-        showFeedback: true,
-        documentTitle: 'HÓA ĐƠN TẠM TÍNH',
+
+      NotificationOverlayManager().show(
+        title: 'Đang in tạm tính…',
+        message: _tab.serviceResourceName ?? 'Gửi lệnh in',
+        duration: const Duration(seconds: 2),
       );
-      if (!mounted) return;
-      if (ok) {
-        NotificationOverlayManager().showSuccess(
-          title: 'Đã gửi lệnh in tạm tính',
-          message: _tab.serviceResourceName ?? order.orderNo,
-        );
-        if (_useFloorAsPrimary) {
-          setState(() {
-            _floorMapVisible = true;
-            _tabletPaymentStage = false;
-            // Chỉ bump epoch khi cần hiện sơ đồ — giữ billRequested set.
-          });
-        }
+
+      // Về sơ đồ ngay — in chạy nền (nhanh cảm nhận).
+      if (_useFloorAsPrimary && mounted) {
+        setState(() {
+          _floorMapVisible = true;
+          _tabletPaymentStage = false;
+        });
       }
+
+      unawaited(() async {
+        final ok = await printPosSaleOrder(
+          context: context,
+          order: order,
+          branchName: _storeSettings.storeName.isNotEmpty
+              ? _storeSettings.storeName
+              : null,
+          storeAddress:
+              _storeSettings.address.isNotEmpty ? _storeSettings.address : null,
+          storePhone:
+              _storeSettings.phone.isNotEmpty ? _storeSettings.phone : null,
+          mergeSameItems: _printSettings.mergeSameItems,
+          copies: _printSettings.copies,
+          templateId: _printSettings.templateId,
+          skipDedup: true,
+          preferDevicePrintOnly: true,
+          showFeedback: false,
+          documentTitle: 'HÓA ĐƠN TẠM TÍNH',
+        );
+        if (!mounted) return;
+        if (ok) {
+          NotificationOverlayManager().showSuccess(
+            title: 'Đã gửi lệnh in tạm tính',
+            message: _tab.serviceResourceName ?? order.orderNo,
+          );
+        } else {
+          NotificationOverlayManager().showError(
+            title: 'In tạm tính thất bại',
+            message: tr('Kiểm tra máy in — thử in lại từ bàn'),
+          );
+        }
+      }());
     } finally {
       if (mounted) setState(() => _provisionalPrinting = false);
     }
@@ -3784,47 +3806,6 @@ class _PosSellScreenState extends State<PosSellScreen> {
     return msg.isNotEmpty ? msg : 'thu ngân khác';
   }
 
-  Future<String?> _promptDraftAccess({
-    required String holderLabel,
-    String? detailMessage,
-    bool allowTakeover = true,
-  }) async {
-    if (!mounted) return null;
-    return showDialog<String>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(tr('Đơn đang được mở')),
-        content: Text(
-          tr(detailMessage?.trim().isNotEmpty == true
-              ? detailMessage!
-              : allowTakeover
-                  ? 'Đang mở bởi $holderLabel.\n\n'
-                      'Nếu máy kia đã về sơ đồ bàn: bấm «Lấy quyền» để mở sửa.\n'
-                      '«Chỉ xem» để theo dõi (không sửa).'
-                  : 'Bàn đang được mở trên $holderLabel.\n\n'
-                      'Chờ máy đó thoát về sơ đồ bàn rồi thử lại.'),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text(tr('Huỷ')),
-          ),
-          if (allowTakeover)
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, 'view'),
-              child: Text(tr('Chỉ xem')),
-            ),
-          if (allowTakeover)
-            FilledButton(
-              onPressed: () => Navigator.pop(ctx, 'force'),
-              style: FilledButton.styleFrom(backgroundColor: _kiotBlue),
-              child: Text(tr('Lấy quyền')),
-            ),
-        ],
-      ),
-    );
-  }
-
   /// Claim khóa, hoặc mở chỉ xem. null = user hủy.
   Future<({Map<String, dynamic>? lock, bool readOnly})?> _claimOrViewDraft(
     String orderId, {
@@ -3860,42 +3841,31 @@ class _PosSellScreenState extends State<PosSellScreen> {
       if (silentViewOnConflict) {
         return (lock: data, readOnly: true);
       }
-      final holder = _lockHolderLabel(
-        data,
-        fallbackMessage: res['message']?.toString(),
-      );
       final activelyHeld = _isLockActivelyHeldByOther(data);
-      final choice = await _promptDraftAccess(
-        holderLabel: holder,
-        detailMessage: res['message']?.toString(),
-        allowTakeover: !activelyHeld,
-      );
-      if (choice == null) return null;
-      if (choice == 'view') {
+      // Máy khác đang sửa → chỉ xem (không hỏi dialog).
+      if (activelyHeld) {
         return (lock: data, readOnly: true);
       }
-      if (choice == 'force') {
-        res = await _api.lockPosSaleDraft(
-          orderId,
-          deviceId: deviceId,
-          deviceName: deviceName,
-          force: true,
-        );
-        if (res['isSuccess'] == true) {
-          final forced = res['data'] is Map
-              ? Map<String, dynamic>.from(res['data'] as Map)
-              : null;
-          _ignoreReadOnlyUntil =
-              DateTime.now().add(const Duration(seconds: 20));
-          return (lock: forced, readOnly: false);
-        }
-        NotificationOverlayManager().showError(
-          title: 'Không lấy được quyền',
-          message: res['message']?.toString() ??
-              'Máy kia vẫn đang trong đơn — nhờ thoát về sơ đồ rồi thử lại',
-        );
-        return null;
+      // Bàn chờ / tạm rời — tự lấy quyền, không bảng xác nhận.
+      res = await _api.lockPosSaleDraft(
+        orderId,
+        deviceId: deviceId,
+        deviceName: deviceName,
+        force: true,
+      );
+      if (res['isSuccess'] == true) {
+        final forced = res['data'] is Map
+            ? Map<String, dynamic>.from(res['data'] as Map)
+            : null;
+        _ignoreReadOnlyUntil = DateTime.now().add(const Duration(seconds: 20));
+        return (lock: forced, readOnly: false);
       }
+      NotificationOverlayManager().showError(
+        title: 'Không lấy được quyền',
+        message: res['message']?.toString() ??
+            'Máy kia vẫn đang trong đơn — nhờ thoát về sơ đồ rồi thử lại',
+      );
+      return null;
     }
 
     NotificationOverlayManager().showError(
@@ -4162,12 +4132,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
     final deviceName = _posDeviceName;
     if (deviceId == null || deviceName == null) return false;
 
-    if (!quiet) {
-      final choice = await _promptDraftAccess(
-        holderLabel: _tab.lockedByLabel ?? 'thu ngân khác',
-      );
-      if (choice != 'force') return false;
-    }
+    // Không hiện bảng «Lấy quyền» — claim thẳng; lỗi thì toast.
 
     final res = await _api.lockPosSaleDraft(
       orderId,
@@ -5617,30 +5582,8 @@ class _PosSellScreenState extends State<PosSellScreen> {
     required String productName,
     required double qty,
   }) async {
-    if (!mounted) return false;
-    final qtyLabel = qty % 1 == 0 ? qty.toInt().toString() : _qtyFmt.format(qty);
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(tr('Hủy món đã báo bếp?')),
-        content: Text(
-          tr('«$productName» × $qtyLabel đã gửi chế biến.\n\n'
-          'Xác nhận sẽ in phiếu hủy bếp ngay.'),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: Text(tr('Không')),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            style: FilledButton.styleFrom(backgroundColor: Colors.red.shade700),
-            child: Text(tr('In phiếu hủy')),
-          ),
-        ],
-      ),
-    );
-    return ok == true;
+    // In phiếu hủy thẳng — không hỏi xác nhận (ít thao tác trên sàn cảm ứng).
+    return true;
   }
 
   Future<void> _showReturnGoodsDialog(_SellCartLine line) async {
@@ -6459,13 +6402,6 @@ class _PosSellScreenState extends State<PosSellScreen> {
       final orderId = data?['id']?.toString();
       final orderNo = data?['orderNo']?.toString() ?? '';
 
-      // Đóng phiên bàn phía client (phòng server sót ResourceSessionId).
-      if (paidSessionId != null && paidSessionId.isNotEmpty) {
-        try {
-          await _api.closePosResourceSession(paidSessionId);
-        } catch (_) {}
-      }
-
       NotificationOverlayManager().showSuccess(
         title: 'Thanh toán thành công',
         message: tr('Mã đơn: $orderNo'),
@@ -6477,7 +6413,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
       final printAreaName = _tab.serviceAreaName;
       final printTableName = _tab.serviceResourceName;
       final printResourceId = _tab.serviceResourceId;
-      final cupLabelLines = _printSettings.cupLabelPrintMode.autoOnCheckout
+      final cupLabelLines = _quickPrintCup
           ? List<_SellCartLine>.from(
               _tab.cart.where((l) => l.cupLabelPendingQty > 0))
           : const <_SellCartLine>[];
@@ -6486,19 +6422,32 @@ class _PosSellScreenState extends State<PosSellScreen> {
         tableName: printTableName,
       );
       final cupOrderNo = orderNo.isNotEmpty ? orderNo : _tab.draftOrderNo;
+      final paidSlot = _tab.invoiceSlot;
+      final paidResourceId = _tab.serviceResourceId?.toLowerCase();
+      final useFloor = _useFloorAsPrimary;
+      final wantInvoicePrint = _quickPrintInvoice;
+      final warehouseAuto =
+          _printSettings.warehousePrintMode == PosWarehousePrintMode.auto;
+
+      // Đóng phiên + in nền — không chặn UI sau khi API TT thành công.
+      if (paidSessionId != null && paidSessionId.isNotEmpty) {
+        unawaited(() async {
+          try {
+            await _api.closePosResourceSession(paidSessionId);
+          } catch (_) {}
+        }());
+      }
 
       if (cupLabelLines.isNotEmpty) {
-        await _printCupLabelsForLines(
+        unawaited(_printCupLabelsForLines(
           cupLabelLines,
           tableLabelOverride: cupTableLabel,
           orderNoOverride: cupOrderNo,
           showFeedback: false,
-        );
+        ));
       }
 
       _stopDraftLockHeartbeat();
-      final paidSlot = _tab.invoiceSlot;
-      final paidResourceId = _tab.serviceResourceId?.toLowerCase();
       setState(() {
         _tab.reset(defaultVatRate: _storeSettings.defaultVatRate);
         _tab.sellerEmployeeId = _defaultSellerEmployeeId;
@@ -6508,27 +6457,32 @@ class _PosSellScreenState extends State<PosSellScreen> {
             for (final e in _billRequestedResourceIds)
               if (e.toLowerCase() != paidResourceId) e,
           };
-          // Ép ẩn badge chờ bếp đến khi sơ đồ Free khớp server.
           _kitchenClearedResourceIds = {
             ..._kitchenClearedResourceIds,
             paidResourceId,
           };
         }
-        if (_useFloorAsPrimary) {
+        if (useFloor) {
           _floorMapVisible = true;
           _tabletPaymentStage = false;
-          _floorMapEpoch++;
+          // Không bump epoch — tránh remount sơ đồ chậm; poll/flags đủ cập nhật Free.
         }
       });
       _scheduleCustomerDisplayPublish();
-      // Slot cố định: server tạo lại Draft trống — nạp lại Hóa đơn N.
-      await _reloadInvoiceSlot(paidSlot);
-      _restartDraftLockHeartbeat();
-
       _patchLocalStock(soldLines);
       ScreenRefreshNotifier.refreshPosAfterStockChange(reloadSellCatalog: false);
 
-      if (orderId != null && _printSettings.autoPrint) {
+      // Slot TMP: nạp nền. F&B về sơ đồ — không chặn.
+      if (!useFloor) {
+        unawaited(() async {
+          await _reloadInvoiceSlot(paidSlot);
+          if (mounted) _restartDraftLockHeartbeat();
+        }());
+      } else {
+        _restartDraftLockHeartbeat();
+      }
+
+      if (orderId != null && wantInvoicePrint) {
         final enriched = data == null
             ? null
             : <String, dynamic>{
@@ -6540,19 +6494,19 @@ class _PosSellScreenState extends State<PosSellScreen> {
                 if ((printResourceId ?? '').isNotEmpty)
                   'serviceResourceId': printResourceId,
               };
-        await _maybePrintOrder(
+        unawaited(_maybePrintOrder(
           orderId,
           orderJson: enriched ?? data,
           areaNameOverride: printAreaName,
           tableNameOverride: printTableName,
-        );
+        ));
       }
-      if (orderId != null &&
-          _printSettings.warehousePrintMode == PosWarehousePrintMode.auto) {
-        await _maybePrintWarehouseSlip(
+      if (orderId != null && warehouseAuto) {
+        unawaited(_maybePrintWarehouseSlip(
           orderId,
           alreadyPrinted: alreadySentToWarehouse,
-        );
+          orderJson: data,
+        ));
       }
     } catch (e) {
       if (mounted) {
@@ -7071,11 +7025,19 @@ class _PosSellScreenState extends State<PosSellScreen> {
     String orderId, {
     Map<String, double> alreadyPrinted = const {},
     String? slipTitleOverride,
+    Map<String, dynamic>? orderJson,
   }) async {
     if (orderId.isEmpty) return;
-    final res = await _api.getPosSale(orderId);
-    if (!mounted || res['isSuccess'] != true || res['data'] is! Map) return;
-    var order = PosSaleOrder.fromJson(res['data'] as Map<String, dynamic>);
+    Map<String, dynamic>? data = orderJson;
+    if (data == null ||
+        ((data['lines'] ?? data['Lines']) is! List) ||
+        ((data['lines'] ?? data['Lines']) as List).isEmpty) {
+      final res = await _api.getPosSale(orderId);
+      if (!mounted || res['isSuccess'] != true || res['data'] is! Map) return;
+      data = Map<String, dynamic>.from(res['data'] as Map);
+    }
+    if (!mounted || data == null) return;
+    var order = PosSaleOrder.fromJson(data);
     order = filterWarehouseSlipOrder(order, alreadyPrinted);
     if (order.lines.isEmpty) return;
 
@@ -7208,7 +7170,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
       );
       if (result != null && mounted) {
         setState(() {
-          _printSettings = result.$1;
+          _applyPrintSettings(result.$1);
           _thermalPrintSettings = result.$2;
         });
         PosPrintConfigSession.instance.invalidate(warehouseTemplateOnly: true);
@@ -7232,7 +7194,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
       ),
     );
     if (updated != null && mounted) {
-      setState(() => _printSettings = updated);
+      setState(() => _applyPrintSettings(updated));
       PosPrintConfigSession.instance.invalidate(warehouseTemplateOnly: true);
       PosPrintConfigSession.instance.warmUp(
         warehouseTemplateId: updated.warehouseTemplateId,
@@ -7641,6 +7603,8 @@ class _PosSellScreenState extends State<PosSellScreen> {
             showAppBar: true,
             manageMode: false,
             sellProfile: _industrySettings?.sellProfile,
+            promptGuestCountOnOpen:
+                _industrySettings?.promptGuestCountOnOpen == true,
             onHome: inHub ? _goMobileSellHome : null,
             onSelect: (result) => unawaited(_attachFloorResult(result)),
             onResourceFreed: _onFloorResourceFreed,
@@ -7673,7 +7637,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
               return _buildMobileShell(perm, isNormal);
             }
 
-            // Tablet lớn / màn ngang (≥1200) + F&B: luồng riêng theo từng bước
+            // Tablet lớn / màn ngang (≥1024) + F&B: luồng riêng theo từng bước
             // sơ đồ bàn (toàn màn hình) → chọn món + giỏ hàng → thanh toán.
             if (_useFloorAsPrimary &&
                 w >= Responsive.tabletLandscapeFlowBreakpoint) {
@@ -9444,32 +9408,38 @@ class _PosSellScreenState extends State<PosSellScreen> {
 
   Widget _qtyControls(_SellCartLine line) {
     final showReturn = line.qty > 2;
+    final touch = MediaQuery.sizeOf(context).shortestSide >= 600;
+    final hit = touch ? PosTheme.touchIconMin : 36.0;
+    final iconSize = touch ? 22.0 : 15.0;
     return Row(
       mainAxisSize: MainAxisSize.min,
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         IconButton(
-          visualDensity: VisualDensity.compact,
+          visualDensity: touch ? VisualDensity.standard : VisualDensity.compact,
           padding: EdgeInsets.zero,
-          constraints: const BoxConstraints(minWidth: 26, minHeight: 26),
-          icon: const Icon(Icons.remove, size: 15),
+          constraints: BoxConstraints(minWidth: hit, minHeight: hit),
+          icon: Icon(Icons.remove, size: iconSize),
           onPressed: () => _adjustQty(line, -1),
         ),
         SizedBox(
-          width: 36,
+          width: touch ? 44 : 36,
           child: Text(
             tr(line.qty == line.qty.roundToDouble()
                 ? line.qty.toStringAsFixed(0)
                 : line.qty.toStringAsFixed(2)),
             textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+            style: TextStyle(
+              fontSize: touch ? 16 : 14,
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ),
         IconButton(
-          visualDensity: VisualDensity.compact,
+          visualDensity: touch ? VisualDensity.standard : VisualDensity.compact,
           padding: EdgeInsets.zero,
-          constraints: const BoxConstraints(minWidth: 26, minHeight: 26),
-          icon: const Icon(Icons.add, size: 15, color: _kiotBlue),
+          constraints: BoxConstraints(minWidth: hit, minHeight: hit),
+          icon: Icon(Icons.add, size: iconSize, color: _kiotBlue),
           onPressed: () => _adjustQty(line, 1),
         ),
         if (showReturn)
@@ -9477,10 +9447,13 @@ class _PosSellScreenState extends State<PosSellScreen> {
             onPressed: () => unawaited(_showReturnGoodsDialog(line)),
             style: TextButton.styleFrom(
               foregroundColor: Colors.red.shade700,
-              padding: const EdgeInsets.symmetric(horizontal: 4),
-              minimumSize: const Size(0, 26),
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              visualDensity: VisualDensity.compact,
+              padding: EdgeInsets.symmetric(horizontal: touch ? 8 : 4),
+              minimumSize: Size(0, touch ? PosTheme.touchIconMin : 26),
+              tapTargetSize: touch
+                  ? MaterialTapTargetSize.padded
+                  : MaterialTapTargetSize.shrinkWrap,
+              visualDensity:
+                  touch ? VisualDensity.standard : VisualDensity.compact,
             ),
             child: Text(tr('Trả'), style: TextStyle(fontSize: 11)),
           ),
@@ -9497,6 +9470,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
     double radius = 10,
     String completeLabel = 'HOÀN TẤT',
     double completeFontSize = 12,
+    bool showQuickPrintChips = true,
   }) {
     final showProvisional = (_industrySettings?.allowProvisionalBill ?? false) &&
         _tab.cart.isNotEmpty;
@@ -9645,26 +9619,104 @@ class _PosSellScreenState extends State<PosSellScreen> {
     }
 
     if (!showProvisional) {
-      if (onPark == null) return completeBtn(expanded: true);
-      return Row(
+      if (onPark == null) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (showQuickPrintChips) _buildCheckoutQuickPrintChips(),
+            completeBtn(expanded: true),
+          ],
+        );
+      }
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Expanded(child: parkBtn()),
-          const SizedBox(width: 8),
-          Expanded(flex: 2, child: completeBtn(expanded: false)),
+          if (showQuickPrintChips) _buildCheckoutQuickPrintChips(),
+          Row(
+            children: [
+              Expanded(child: parkBtn()),
+              const SizedBox(width: 8),
+              Expanded(flex: 2, child: completeBtn(expanded: false)),
+            ],
+          ),
         ],
       );
     }
 
-    return Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (onPark != null) ...[
-          Expanded(child: parkBtn()),
-          const SizedBox(width: 6),
-        ],
-        Expanded(child: provisionalBtn()),
-        const SizedBox(width: 6),
-        Expanded(flex: 2, child: completeBtn(expanded: false)),
+        if (showQuickPrintChips) _buildCheckoutQuickPrintChips(),
+        Row(
+          children: [
+            if (onPark != null) ...[
+              Expanded(child: parkBtn()),
+              const SizedBox(width: 6),
+            ],
+            Expanded(child: provisionalBtn()),
+            const SizedBox(width: 6),
+            Expanded(flex: 2, child: completeBtn(expanded: false)),
+          ],
+        ),
       ],
+    );
+  }
+
+  /// Chip in nhanh lần TT này — không cần bật «tự động in» trong thiết lập.
+  Widget _buildCheckoutQuickPrintChips() {
+    Widget chip({
+      required String label,
+      required IconData icon,
+      required bool selected,
+      required ValueChanged<bool> onSelected,
+    }) {
+      return FilterChip(
+        selected: selected,
+        showCheckmark: false,
+        avatar: Icon(
+          icon,
+          size: 16,
+          color: selected ? Colors.white : _kiotBlue,
+        ),
+        label: Text(
+          tr(label),
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: selected ? Colors.white : PosTheme.textPrimary,
+          ),
+        ),
+        selectedColor: _kiotBlue,
+        backgroundColor: const Color(0xFFF1F5F9),
+        side: BorderSide(
+          color: selected ? _kiotBlue : PosTheme.border,
+        ),
+        visualDensity: VisualDensity.compact,
+        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        onSelected: onSelected,
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 6,
+        children: [
+          chip(
+            label: 'In bill nhanh',
+            icon: Icons.receipt_long_outlined,
+            selected: _quickPrintInvoice,
+            onSelected: (v) => setState(() => _quickPrintInvoice = v),
+          ),
+          chip(
+            label: 'In tem nhanh',
+            icon: Icons.local_cafe_outlined,
+            selected: _quickPrintCup,
+            onSelected: (v) => setState(() => _quickPrintCup = v),
+          ),
+        ],
+      ),
     );
   }
 
@@ -10084,6 +10136,8 @@ class _PosSellScreenState extends State<PosSellScreen> {
       showAppBar: false,
       manageMode: false,
       sellProfile: _industrySettings?.sellProfile,
+      promptGuestCountOnOpen:
+          _industrySettings?.promptGuestCountOnOpen == true,
       onSelect: (result) => unawaited(_attachFloorResult(result)),
       onResourceFreed: _onFloorResourceFreed,
       zeroPendingKitchenResourceIds: _kitchenClearedResourceIds,
@@ -10284,6 +10338,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
             radius: 10,
             completeLabel: 'Thanh toán',
             completeFontSize: 16,
+            showQuickPrintChips: false,
           ),
         ],
       ),
@@ -10836,7 +10891,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
               Expanded(
                 flex: 4,
                 child: SizedBox(
-                  height: 44,
+                  height: 56,
                   child: FilledButton(
                     onPressed: _tab.cart.isEmpty || _checkingOut || _parking || !canPay
                         ? null

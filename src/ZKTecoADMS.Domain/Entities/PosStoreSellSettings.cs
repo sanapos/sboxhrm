@@ -26,6 +26,15 @@ public class PosStoreSellSettings : AuditableEntity<Guid>
     /// <summary>Cho phép in hóa đơn tạm tính từ màn thanh toán.</summary>
     public bool AllowProvisionalBill { get; set; }
 
+    /// <summary>
+    /// Khóa draft / «Lấy quyền» giữa nhiều máy POS.
+    /// Tắt khi cửa hàng chỉ dùng 1 máy — tránh dialog và heartbeat thừa.
+    /// </summary>
+    public bool EnableMultiDeviceDraftLock { get; set; }
+
+    /// <summary>Hỏi số khách khi mở bàn trống trên sơ đồ.</summary>
+    public bool PromptGuestCountOnOpen { get; set; }
+
     /// <summary>JSON flags mở rộng (tùy ngành).</summary>
     [MaxLength(4000)]
     public string? ExtraJson { get; set; }

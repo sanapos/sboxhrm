@@ -1,5 +1,7 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'pos_thermal_printer_settings.dart';
+
 /// Chế độ in phiếu báo xuất kho trên màn bán hàng.
 enum PosWarehousePrintMode {
   off,
@@ -67,6 +69,7 @@ typedef PosKitchenPrintMode = PosWarehousePrintMode;
 class PosSellPrintSettings {
   const PosSellPrintSettings({
     this.autoPrint = false,
+    this.printCupOnCheckout = false,
     this.mergeSameItems = true,
     this.copies = 1,
     this.templateId,
@@ -76,7 +79,12 @@ class PosSellPrintSettings {
     this.cupLabelPrintMode = PosCupLabelPrintMode.off,
   });
 
+  /// In hóa đơn khi thanh toán (thiết lập cố định).
   final bool autoPrint;
+
+  /// In tem ly khi thanh toán — độc lập với [autoPrint] và chế độ tem.
+  final bool printCupOnCheckout;
+
   final bool mergeSameItems;
   final int copies;
 
@@ -98,7 +106,12 @@ class PosSellPrintSettings {
   bool get showWarehouseManualButton =>
       warehousePrintMode == PosWarehousePrintMode.manual;
 
-  bool get showCupLabelManualButton => cupLabelPrintMode.showManualButton;
+  bool get showCupLabelManualButton =>
+      cupLabelPrintMode.showManualButton || printCupOnCheckout;
+
+  /// In tem khi TT: cờ riêng hoặc chế độ onCheckout.
+  bool get shouldPrintCupOnPay =>
+      printCupOnCheckout || cupLabelPrintMode.autoOnCheckout;
 
   @Deprecated('Use warehousePrintMode')
   PosWarehousePrintMode get kitchenPrintMode => warehousePrintMode;
@@ -107,6 +120,7 @@ class PosSellPrintSettings {
   bool get showKitchenManualButton => showWarehouseManualButton;
 
   static const _kAuto = 'pos_sell_print_auto';
+  static const _kCupOnPay = 'pos_sell_print_cup_on_checkout';
   static const _kMerge = 'pos_sell_print_merge';
   static const _kCopies = 'pos_sell_print_copies';
   static const _kTemplate = 'pos_sell_print_template_id';
@@ -117,6 +131,7 @@ class PosSellPrintSettings {
 
   PosSellPrintSettings copyWith({
     bool? autoPrint,
+    bool? printCupOnCheckout,
     bool? mergeSameItems,
     int? copies,
     String? templateId,
@@ -130,6 +145,7 @@ class PosSellPrintSettings {
   }) =>
       PosSellPrintSettings(
         autoPrint: autoPrint ?? this.autoPrint,
+        printCupOnCheckout: printCupOnCheckout ?? this.printCupOnCheckout,
         mergeSameItems: mergeSameItems ?? this.mergeSameItems,
         copies: copies ?? this.copies,
         templateId: clearTemplateId ? null : (templateId ?? this.templateId),
@@ -146,8 +162,27 @@ class PosSellPrintSettings {
     final prefs = await SharedPreferences.getInstance();
     final tid = prefs.getString(_kTemplate);
     final wtid = prefs.getString(_kWarehouseTemplate);
+    // Lần đầu chưa chọn: bật tự động in nếu đã cấu hình máy in nhiệt local.
+    final bool autoPrint;
+    if (prefs.containsKey(_kAuto)) {
+      autoPrint = prefs.getBool(_kAuto) ?? false;
+    } else {
+      try {
+        final thermal = await PosThermalPrinterSettings.load();
+        autoPrint = thermal.enabled;
+      } catch (_) {
+        autoPrint = false;
+      }
+    }
+    final cupMode =
+        PosCupLabelPrintMode.fromStored(prefs.getString(_kCupLabelMode));
+    // Cờ riêng; nếu prefs chưa có mà mode = onCheckout → coi như bật.
+    final printCupOnCheckout = prefs.containsKey(_kCupOnPay)
+        ? (prefs.getBool(_kCupOnPay) ?? false)
+        : cupMode.autoOnCheckout;
     return PosSellPrintSettings(
-      autoPrint: prefs.getBool(_kAuto) ?? false,
+      autoPrint: autoPrint,
+      printCupOnCheckout: printCupOnCheckout,
       mergeSameItems: prefs.getBool(_kMerge) ?? true,
       copies: (prefs.getInt(_kCopies) ?? 1).clamp(1, 10),
       templateId: tid != null && tid.isNotEmpty ? tid : null,
@@ -155,14 +190,14 @@ class PosSellPrintSettings {
       printVietQrOnReceipt: prefs.getBool(_kPrintVietQr) ?? false,
       warehousePrintMode:
           PosWarehousePrintMode.fromStored(prefs.getString(_kWarehouseMode)),
-      cupLabelPrintMode:
-          PosCupLabelPrintMode.fromStored(prefs.getString(_kCupLabelMode)),
+      cupLabelPrintMode: cupMode,
     );
   }
 
   Future<void> save() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_kAuto, autoPrint);
+    await prefs.setBool(_kCupOnPay, printCupOnCheckout);
     await prefs.setBool(_kMerge, mergeSameItems);
     await prefs.setInt(_kCopies, copies.clamp(1, 10));
     await prefs.setBool(_kPrintVietQr, printVietQrOnReceipt);

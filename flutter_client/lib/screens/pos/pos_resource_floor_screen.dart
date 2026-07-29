@@ -39,6 +39,7 @@ class PosResourceFloorScreen extends StatefulWidget {
     this.zeroPendingKitchenResourceIds = const {},
     this.billRequestedResourceIds = const {},
     this.releasedOrderIds = const {},
+    this.promptGuestCountOnOpen = false,
   });
 
   /// Nhúng trong màn bán hàng (không push route).
@@ -63,6 +64,9 @@ class PosResourceFloorScreen extends StatefulWidget {
 
   /// Đơn máy này vừa nhả khóa khi về sơ đồ — không hiện «đang giữ».
   final Set<String> releasedOrderIds;
+
+  /// Hỏi số khách khi mở bàn trống (Thiết lập ngành POS).
+  final bool promptGuestCountOnOpen;
 
   @override
   State<PosResourceFloorScreen> createState() => _PosResourceFloorScreenState();
@@ -428,40 +432,9 @@ class _PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
         return;
       }
 
+      // Bàn chờ / tạm rời (không ai đang sửa): vào thẳng + lấy quyền — không dialog.
       if (r.hasParkedBill && !r.isActivelyOpen) {
-        final choice = await showDialog<String>(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            title: Text(tr(r.name)),
-            content: Text(
-              tr(r.lineCount > 0
-                  ? 'Bàn có đơn tạm (${r.lineCount} món) — không ai đang sửa.\n'
-                      'Bấm «Lấy quyền» để tiếp tục.'
-                  : 'Bàn đã mở nhưng tạm rời — bấm «Lấy quyền» để chọn món.'),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: Text(tr('Đóng')),
-              ),
-              TextButton(
-                onPressed: () => Navigator.pop(ctx, 'view'),
-                child: Text(tr('Chỉ xem')),
-              ),
-              FilledButton(
-                onPressed: () => Navigator.pop(ctx, 'take'),
-                child: Text(tr('Lấy quyền')),
-              ),
-            ],
-          ),
-        );
-        if (!mounted || choice == null) return;
-        if (choice == 'view') {
-          // Vào chỉ xem — sell screen mở im lặng.
-        } else if (choice != 'take') {
-          return;
-        }
-        if (choice == 'take' && r.openOrderId != null && r.openOrderId!.isNotEmpty) {
+        if (r.openOrderId != null && r.openOrderId!.isNotEmpty) {
           _emitSelect({
             'saleOrderId': r.openOrderId,
             'sessionId': r.openSessionId,
@@ -474,39 +447,6 @@ class _PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
           });
           return;
         }
-      } else if (r.isHolding && !skipHoldingPrompt) {
-        final choice = await showDialog<String>(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            title: Text(tr(r.name)),
-            content: Text(
-              tr('Bàn đã mở nhưng chưa gọi món.\n'
-              'Bạn muốn vào chọn món hay trả bàn về trống?'),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: Text(tr('Đóng')),
-              ),
-              TextButton(
-                onPressed: () => Navigator.pop(ctx, 'free'),
-                style:
-                    TextButton.styleFrom(foregroundColor: Colors.red.shade700),
-                child: Text(tr('Trả về trống')),
-              ),
-              FilledButton(
-                onPressed: () => Navigator.pop(ctx, 'open'),
-                child: Text(tr('Vào chọn món')),
-              ),
-            ],
-          ),
-        );
-        if (!mounted || choice == null) return;
-        if (choice == 'free') {
-          await _freeHoldingTable(r);
-          return;
-        }
-        // Tiếp tục mở đơn — không hỏi lại.
       }
       if (r.openOrderId != null && r.openOrderId!.isNotEmpty) {
         // Đơn đã TT / hủy nhưng phiên còn sót → giải phóng rồi mở bàn mới ngay.
@@ -557,7 +497,9 @@ class _PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
       return;
     }
 
-    final guests = await _promptGuestCount(r);
+    final guests = widget.promptGuestCountOnOpen
+        ? await _promptGuestCount(r)
+        : 1;
     if (guests == null || !mounted) return;
     await _startResourceSession(r, guestCount: guests);
   }

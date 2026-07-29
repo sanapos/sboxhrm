@@ -27,13 +27,17 @@ abstract final class PosTheme {
     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
   );
 
-  /// Nút chính mobile POS — xanh KiotViet.
+  /// Nút chính mobile/tablet POS — xanh KiotViet, đủ lớn cho cảm ứng.
   static ButtonStyle mobilePrimaryButton = FilledButton.styleFrom(
     backgroundColor: kiotBlue,
     foregroundColor: Colors.white,
-    minimumSize: const Size(0, 48),
+    minimumSize: const Size(0, 56),
     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
   );
+
+  /// Hit-target tối thiểu trên tablet cảm ứng (≥10").
+  static const double touchMin = 56.0;
+  static const double touchIconMin = 48.0;
 
   static InputDecoration inputDecoration({
     required String label,

@@ -57,6 +57,14 @@ public partial class PosSalesController
             snap.LockedByDeviceId, snap.LockedByDeviceName, snap.LockedAt, snap.LockExpiresAt);
     }
 
+    async Task<bool> IsMultiDeviceDraftLockEnabledAsync(Guid storeId)
+    {
+        // Khóa draft luôn bật (1 máy hay nhiều máy) — đồng bộ bàn/đơn.
+        // Cột EnableMultiDeviceDraftLock giữ tương thích schema, không còn cổng tắt.
+        _ = storeId;
+        return true;
+    }
+
     /// <summary>
     /// Claim / force-take. HĐ trống: nhả chỗ cũ (nếu có) — không chiếm chỗ / không bump version.
     /// </summary>
@@ -76,6 +84,17 @@ public partial class PosSalesController
 
         var lineCount = await CountActiveLinesAsync(id);
         var actor = CurrentLockActor(dto?.DeviceId, dto?.DeviceName);
+
+        // 1 máy / tắt khóa đa máy: không chiếm chỗ — luôn cho sửa.
+        if (!await IsMultiDeviceDraftLockEnabledAsync(storeId))
+        {
+            if (PosDraftLockHelper.IsLockActive(order))
+            {
+                PosDraftLockHelper.Release(order);
+                await dbContext.SaveChangesAsync();
+            }
+            return Ok(AppResponse<DraftLockStateDto>.Success(MapLockState(order, actor, lineCount)));
+        }
 
         // HĐ trống thường (TMP): không khóa — dọn seat cũ.
         // Đơn gắn bàn (ServiceResourceId): vẫn khóa kể cả Holding chưa có món.
@@ -144,6 +163,17 @@ public partial class PosSalesController
 
         var lineCount = await CountActiveLinesAsync(id);
         var actor = CurrentLockActor(dto?.DeviceId, dto?.DeviceName);
+
+        if (!await IsMultiDeviceDraftLockEnabledAsync(storeId))
+        {
+            if (PosDraftLockHelper.IsLockActive(order))
+            {
+                PosDraftLockHelper.Release(order);
+                await dbContext.SaveChangesAsync();
+            }
+            return Ok(AppResponse<DraftLockStateDto>.Success(MapLockState(order, actor, lineCount)));
+        }
+
         var tableBound = order.ServiceResourceId.HasValue;
         if (lineCount <= 0 && !tableBound)
         {
@@ -179,6 +209,15 @@ public partial class PosSalesController
 
         var lineCount = await CountActiveLinesAsync(id);
         var actor = CurrentLockActor(dto?.DeviceId, dto?.DeviceName);
+
+        // Tắt khóa đa máy: luôn nhả được.
+        if (!await IsMultiDeviceDraftLockEnabledAsync(storeId))
+        {
+            PosDraftLockHelper.Release(order);
+            await dbContext.SaveChangesAsync();
+            return Ok(AppResponse<DraftLockStateDto>.Success(MapLockState(order, actor, lineCount)));
+        }
+
         // Cùng user đang về sơ đồ → luôn nhả được (kể cả lệch deviceId cũ).
         var sameUser = order.LockedByUserId == actor.UserId;
         if (PosDraftLockHelper.IsLockActive(order)

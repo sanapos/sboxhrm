@@ -38,6 +38,8 @@ public partial class PosSellIndustryController(ZKTecoDbContext db) : Authenticat
         bool RequireResourceOnSale,
         bool ShowFloorPlan,
         bool AllowProvisionalBill,
+        bool EnableMultiDeviceDraftLock,
+        bool PromptGuestCountOnOpen,
         string? ExtraJson);
 
     public record SellSettingsSaveDto(
@@ -49,6 +51,8 @@ public partial class PosSellIndustryController(ZKTecoDbContext db) : Authenticat
         bool? RequireResourceOnSale = null,
         bool? ShowFloorPlan = null,
         bool? AllowProvisionalBill = null,
+        bool? EnableMultiDeviceDraftLock = null,
+        bool? PromptGuestCountOnOpen = null,
         string? ExtraJson = null,
         bool? ApplyProfileDefaults = null);
 
@@ -106,6 +110,10 @@ public partial class PosSellIndustryController(ZKTecoDbContext db) : Authenticat
             if (dto.RequireResourceOnSale.HasValue) s.RequireResourceOnSale = dto.RequireResourceOnSale.Value;
             if (dto.ShowFloorPlan.HasValue) s.ShowFloorPlan = dto.ShowFloorPlan.Value;
             if (dto.AllowProvisionalBill.HasValue) s.AllowProvisionalBill = dto.AllowProvisionalBill.Value;
+            if (dto.EnableMultiDeviceDraftLock.HasValue)
+                s.EnableMultiDeviceDraftLock = dto.EnableMultiDeviceDraftLock.Value;
+            if (dto.PromptGuestCountOnOpen.HasValue)
+                s.PromptGuestCountOnOpen = dto.PromptGuestCountOnOpen.Value;
         }
         else
         {
@@ -115,6 +123,10 @@ public partial class PosSellIndustryController(ZKTecoDbContext db) : Authenticat
             if (dto.RequireResourceOnSale.HasValue) s.RequireResourceOnSale = dto.RequireResourceOnSale.Value;
             if (dto.ShowFloorPlan.HasValue) s.ShowFloorPlan = dto.ShowFloorPlan.Value;
             if (dto.AllowProvisionalBill.HasValue) s.AllowProvisionalBill = dto.AllowProvisionalBill.Value;
+            if (dto.EnableMultiDeviceDraftLock.HasValue)
+                s.EnableMultiDeviceDraftLock = dto.EnableMultiDeviceDraftLock.Value;
+            if (dto.PromptGuestCountOnOpen.HasValue)
+                s.PromptGuestCountOnOpen = dto.PromptGuestCountOnOpen.Value;
         }
 
         if (!string.IsNullOrWhiteSpace(dto.DefaultSellMode))
@@ -178,7 +190,8 @@ public partial class PosSellIndustryController(ZKTecoDbContext db) : Authenticat
     static SellSettingsDto MapSettings(PosStoreSellSettings s) => new(
         s.Id, s.SellProfile.ToString(), s.DefaultSellMode,
         s.EnableResources, s.EnableHourlyBilling, s.EnableSessionPacks,
-        s.RequireResourceOnSale, s.ShowFloorPlan, s.AllowProvisionalBill, s.ExtraJson);
+        s.RequireResourceOnSale, s.ShowFloorPlan, s.AllowProvisionalBill,
+        s.EnableMultiDeviceDraftLock, s.PromptGuestCountOnOpen, s.ExtraJson);
 
     // ── Areas / resources ─────────────────────────────────────────────────────
 

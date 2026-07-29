@@ -90,9 +90,25 @@ Future<PosSellPrintSettings?> showPosSellPrintPopover(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           _toggleRow(
-                            'Tự động in hóa đơn',
+                            'In hóa đơn khi thanh toán',
                             settings.autoPrint,
                             (v) => setLocal(() => settings = settings.copyWith(autoPrint: v)),
+                          ),
+                          const SizedBox(height: 8),
+                          _toggleRow(
+                            'In tem ly khi thanh toán',
+                            settings.printCupOnCheckout,
+                            (v) => setLocal(() {
+                              settings = settings.copyWith(
+                                printCupOnCheckout: v,
+                                // Bật tem TT: nếu đang tắt tem → chuyển sang manual để có nút Tem ly.
+                                cupLabelPrintMode: v &&
+                                        settings.cupLabelPrintMode ==
+                                            PosCupLabelPrintMode.off
+                                    ? PosCupLabelPrintMode.manual
+                                    : settings.cupLabelPrintMode,
+                              );
+                            }),
                           ),
                           const SizedBox(height: 8),
                           _toggleRow(
@@ -153,7 +169,13 @@ Future<PosSellPrintSettings?> showPosSellPrintPopover(
                             onChanged: (v) {
                               if (v == null) return;
                               setLocal(
-                                () => settings = settings.copyWith(cupLabelPrintMode: v),
+                                () => settings = settings.copyWith(
+                                  cupLabelPrintMode: v,
+                                  printCupOnCheckout:
+                                      v == PosCupLabelPrintMode.onCheckout
+                                          ? true
+                                          : settings.printCupOnCheckout,
+                                ),
                               );
                             },
                           ),

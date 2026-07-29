@@ -335,14 +335,40 @@ class _PosSellMobilePrintSettingsScreenState
                   ),
                   const SizedBox(height: 12),
                 ],
-                _sectionTitle('Hóa đơn'),
+                _sectionTitle('Khi thanh toán'),
                 _card([
                   SwitchListTile(
-                    title: Text(tr('Tự động in sau thanh toán')),
+                    title: Text(tr('In hóa đơn khi thanh toán')),
+                    subtitle: Text(tr('Tự gửi lệnh in HĐ sau khi TT thành công'),
+                      style: TextStyle(fontSize: 11),
+                    ),
                     value: _print.autoPrint,
                     activeThumbColor: _blue,
-                    onChanged: (v) => setState(() => _print = _print.copyWith(autoPrint: v)),
+                    onChanged: (v) =>
+                        setState(() => _print = _print.copyWith(autoPrint: v)),
                   ),
+                  SwitchListTile(
+                    title: Text(tr('In tem ly khi thanh toán')),
+                    subtitle: Text(
+                      tr('Độc lập với in hóa đơn — tem món còn chờ in'),
+                      style: TextStyle(fontSize: 11),
+                    ),
+                    value: _print.printCupOnCheckout,
+                    activeThumbColor: _blue,
+                    onChanged: (v) => setState(() {
+                      _print = _print.copyWith(
+                        printCupOnCheckout: v,
+                        cupLabelPrintMode: v &&
+                                _print.cupLabelPrintMode ==
+                                    PosCupLabelPrintMode.off
+                            ? PosCupLabelPrintMode.manual
+                            : _print.cupLabelPrintMode,
+                      );
+                    }),
+                  ),
+                ]),
+                _sectionTitle('Hóa đơn'),
+                _card([
                   SwitchListTile(
                     title: Text(tr('Gộp hàng cùng loại khi in')),
                     value: _print.mergeSameItems,
@@ -454,8 +480,13 @@ class _PosSellMobilePrintSettingsScreenState
                       activeColor: _blue,
                       onChanged: (v) {
                         if (v == null) return;
-                        setState(() =>
-                            _print = _print.copyWith(cupLabelPrintMode: v));
+                        setState(() => _print = _print.copyWith(
+                              cupLabelPrintMode: v,
+                              printCupOnCheckout:
+                                  v == PosCupLabelPrintMode.onCheckout
+                                      ? true
+                                      : _print.printCupOnCheckout,
+                            ));
                       },
                     ),
                   ),
@@ -809,7 +840,7 @@ class _PosSellMobilePrintSettingsScreenState
                       style: OutlinedButton.styleFrom(
                         foregroundColor: _blue,
                         side: const BorderSide(color: _blue),
-                        minimumSize: const Size(double.infinity, 44),
+                        minimumSize: const Size(double.infinity, 56),
                       ),
                     ),
                   ),
@@ -990,7 +1021,7 @@ class _PosSellMobilePrintSettingsScreenState
                       style: OutlinedButton.styleFrom(
                         foregroundColor: _blue,
                         side: const BorderSide(color: _blue),
-                        minimumSize: const Size(double.infinity, 44),
+                        minimumSize: const Size(double.infinity, 56),
                       ),
                     ),
                   ),

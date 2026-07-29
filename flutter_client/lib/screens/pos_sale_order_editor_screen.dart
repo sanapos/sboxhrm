@@ -772,6 +772,8 @@ class _PosSaleOrderEditorScreenState extends State<PosSaleOrderEditorScreen> {
                 storeAddress: store.address,
                 storePhone: store.phone,
                 skipDedup: true,
+                preferDevicePrintOnly: true,
+                showFeedback: true,
               );
             },
             icon: const Icon(Icons.print, size: 16),

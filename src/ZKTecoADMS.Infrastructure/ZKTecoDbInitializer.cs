@@ -1097,6 +1097,23 @@ public class ZKTecoDbInitializer(
                     ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""AllowToppings"" boolean NOT NULL DEFAULT false;
                     ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""AutoOpenToppingPopup"" boolean NOT NULL DEFAULT true;
                     ALTER TABLE ""PosStoreSellSettings"" ADD COLUMN IF NOT EXISTS ""AllowProvisionalBill"" boolean NOT NULL DEFAULT false;
+                    DO $$
+                    BEGIN
+                        IF NOT EXISTS (
+                            SELECT 1 FROM information_schema.columns
+                            WHERE table_name = 'PosStoreSellSettings'
+                              AND column_name = 'EnableMultiDeviceDraftLock'
+                        ) THEN
+                            ALTER TABLE ""PosStoreSellSettings""
+                                ADD COLUMN ""EnableMultiDeviceDraftLock"" boolean NOT NULL DEFAULT false;
+                            -- Backfill 1 lần: cửa hàng sơ đồ/bàn giữ hành vi khóa đa máy cũ.
+                            UPDATE ""PosStoreSellSettings""
+                            SET ""EnableMultiDeviceDraftLock"" = true
+                            WHERE ""Deleted"" IS NULL
+                              AND (""ShowFloorPlan"" = true OR ""EnableResources"" = true);
+                        END IF;
+                    END $$;
+                    ALTER TABLE ""PosStoreSellSettings"" ADD COLUMN IF NOT EXISTS ""PromptGuestCountOnOpen"" boolean NOT NULL DEFAULT false;
                     ALTER TABLE ""PosSaleOrders"" ADD COLUMN IF NOT EXISTS ""VatAmount"" numeric(18,2) NOT NULL DEFAULT 0;
 
                     CREATE TABLE IF NOT EXISTS ""PosKitchenVoidSlips"" (

@@ -130,6 +130,8 @@ class PosStoreSellSettingsDto {
     this.requireResourceOnSale = false,
     this.showFloorPlan = false,
     this.allowProvisionalBill = false,
+    this.enableMultiDeviceDraftLock = false,
+    this.promptGuestCountOnOpen = false,
     this.extraJson,
   });
 
@@ -142,6 +144,10 @@ class PosStoreSellSettingsDto {
   final bool requireResourceOnSale;
   final bool showFloorPlan;
   final bool allowProvisionalBill;
+  /// Khóa draft / «Lấy quyền» khi nhiều máy POS song song.
+  final bool enableMultiDeviceDraftLock;
+  /// Hỏi số khách khi mở bàn trống.
+  final bool promptGuestCountOnOpen;
   final String? extraJson;
 
   factory PosStoreSellSettingsDto.fromJson(Map<String, dynamic> json) =>
@@ -164,6 +170,11 @@ class PosStoreSellSettingsDto {
             json['showFloorPlan'] == true || json['ShowFloorPlan'] == true,
         allowProvisionalBill: json['allowProvisionalBill'] == true ||
             json['AllowProvisionalBill'] == true,
+        enableMultiDeviceDraftLock:
+            json['enableMultiDeviceDraftLock'] == true ||
+                json['EnableMultiDeviceDraftLock'] == true,
+        promptGuestCountOnOpen: json['promptGuestCountOnOpen'] == true ||
+            json['PromptGuestCountOnOpen'] == true,
         extraJson: (json['extraJson'] ?? json['ExtraJson'])?.toString(),
       );
 
@@ -178,6 +189,8 @@ class PosStoreSellSettingsDto {
       'requireResourceOnSale': requireResourceOnSale,
       'showFloorPlan': showFloorPlan,
       'allowProvisionalBill': allowProvisionalBill,
+      'enableMultiDeviceDraftLock': enableMultiDeviceDraftLock,
+      'promptGuestCountOnOpen': promptGuestCountOnOpen,
       if (extraJson != null) 'extraJson': extraJson,
       'applyProfileDefaults': applyProfileDefaults,
     };
@@ -195,6 +208,8 @@ class PosStoreSellSettingsDto {
           requireResourceOnSale: false,
           showFloorPlan: false,
           allowProvisionalBill: false,
+          enableMultiDeviceDraftLock: false,
+          promptGuestCountOnOpen: false,
         );
       case PosSellProfile.salon:
         return copyWith(
@@ -205,6 +220,8 @@ class PosStoreSellSettingsDto {
           requireResourceOnSale: false,
           showFloorPlan: true,
           allowProvisionalBill: true,
+          enableMultiDeviceDraftLock: true,
+          promptGuestCountOnOpen: false,
         );
       case PosSellProfile.roomHourly:
         return copyWith(
@@ -215,6 +232,8 @@ class PosStoreSellSettingsDto {
           requireResourceOnSale: true,
           showFloorPlan: true,
           allowProvisionalBill: true,
+          enableMultiDeviceDraftLock: true,
+          promptGuestCountOnOpen: false,
         );
       case PosSellProfile.restaurant:
         return copyWith(
@@ -225,6 +244,8 @@ class PosStoreSellSettingsDto {
           requireResourceOnSale: false,
           showFloorPlan: true,
           allowProvisionalBill: true,
+          enableMultiDeviceDraftLock: true,
+          promptGuestCountOnOpen: false,
         );
       case PosSellProfile.gym:
         return copyWith(
@@ -235,6 +256,8 @@ class PosStoreSellSettingsDto {
           requireResourceOnSale: false,
           showFloorPlan: false,
           allowProvisionalBill: false,
+          enableMultiDeviceDraftLock: false,
+          promptGuestCountOnOpen: false,
         );
     }
   }
@@ -248,6 +271,8 @@ class PosStoreSellSettingsDto {
     bool? requireResourceOnSale,
     bool? showFloorPlan,
     bool? allowProvisionalBill,
+    bool? enableMultiDeviceDraftLock,
+    bool? promptGuestCountOnOpen,
     String? extraJson,
   }) =>
       PosStoreSellSettingsDto(
@@ -261,6 +286,10 @@ class PosStoreSellSettingsDto {
             requireResourceOnSale ?? this.requireResourceOnSale,
         showFloorPlan: showFloorPlan ?? this.showFloorPlan,
         allowProvisionalBill: allowProvisionalBill ?? this.allowProvisionalBill,
+        enableMultiDeviceDraftLock:
+            enableMultiDeviceDraftLock ?? this.enableMultiDeviceDraftLock,
+        promptGuestCountOnOpen:
+            promptGuestCountOnOpen ?? this.promptGuestCountOnOpen,
         extraJson: extraJson ?? this.extraJson,
       );
 }
