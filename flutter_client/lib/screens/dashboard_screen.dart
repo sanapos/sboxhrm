@@ -1589,7 +1589,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           floatingActionButton: caps.showAiFab
               ? FloatingActionButton.extended(
                   onPressed: () => showAiAssistant(context),
-                  backgroundColor: const Color(0xFF8B5CF6),
+                  backgroundColor: AppColors.secondary,
                   foregroundColor: Colors.white,
                   icon: const Icon(Icons.auto_awesome_rounded),
                   label: Text(tr('Trợ lý AI')),
@@ -1606,14 +1606,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFFF0F9FF),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFBAE6FD)),
+        color: AppColors.secondary.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+        border: Border.all(color: AppColors.secondary.withValues(alpha: 0.35)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.info_outline, color: Color(0xFF0284C7)),
+          const Icon(Icons.info_outline, color: AppColors.secondary),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -1623,7 +1623,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   style: TextStyle(
                     fontWeight: FontWeight.w700,
                     fontSize: 14,
-                    color: Color(0xFF0F172A),
+                    color: AppColors.textPrimary,
                   ),
                 ),
                 const SizedBox(height: 6),
@@ -1631,7 +1631,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   style: TextStyle(
                     fontSize: 12,
                     height: 1.45,
-                    color: Colors.grey.shade700,
+                    color: AppColors.textSecondary,
                   ),
                 ),
                 const SizedBox(height: 10),

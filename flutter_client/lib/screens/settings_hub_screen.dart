@@ -14,6 +14,7 @@ import '../widgets/settings_hub_sidebar_config_dialog.dart';
 import '../widgets/store_agent_support_card.dart';
 import '../widgets/pos/pos_mobile_widgets.dart';
 import '../widgets/pos/pos_theme.dart';
+import '../design_system/design_system.dart';
 import '../models/user.dart';
 
 import 'account_management_screen.dart';
@@ -246,10 +247,10 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
     SettingsHubScreen.internalBackCallback ??= _closeSubPage;
   }
 
-  static const _bgColor = Color(0xFFFAFAFA);
-  static const _textDark = Color(0xFF0F172A);
-  static const _textMuted = Color(0xFF71717A);
-  static const _borderColor = Color(0xFFE4E4E7);
+  static const _bgColor = AppColors.scaffold;
+  static const _textDark = AppColors.textPrimary;
+  static const _textMuted = AppColors.textSecondary;
+  static const _borderColor = AppColors.border;
 
   Widget _getScreen(int index) {
     switch (index) {
@@ -313,7 +314,7 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
       }
       _closeSubPage();
       return ColoredBox(
-        color: PosTheme.background,
+        color: AppColors.scaffold,
         child: _buildMobileHome(),
       );
     }
@@ -345,7 +346,7 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
     final groups = _orderedHubGroups();
 
     return ColoredBox(
-      color: PosTheme.background,
+      color: AppColors.scaffold,
       child: ListView(
         padding: const EdgeInsets.fromLTRB(12, 8, 12, 24),
         children: [
@@ -387,17 +388,17 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
             : 'Quản lý cấu hình hệ thống');
 
     return Container(
-      decoration: PosTheme.mobileCardDecoration(),
-      padding: const EdgeInsets.all(14),
+      decoration: AppElevation.cardSurface(elevated: true),
+      padding: const EdgeInsets.all(AppSpace.sm + 2),
       child: Row(
         children: [
           CircleAvatar(
             radius: 26,
-            backgroundColor: PosTheme.kiotBlueLight,
+            backgroundColor: AppColors.primary.withValues(alpha: 0.12),
             child: const Icon(Icons.tune_rounded,
-                color: PosTheme.kiotBlue, size: 26),
+                color: AppColors.primary, size: 26),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: AppSpace.sm),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -407,6 +408,7 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
                   style: const TextStyle(
                     fontSize: 17,
                     fontWeight: FontWeight.bold,
+                    color: AppColors.textPrimary,
                   ),
                 ),
                 Text(
@@ -415,7 +417,7 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     fontSize: 13,
-                    color: PosTheme.textSecondary,
+                    color: AppColors.textSecondary,
                   ),
                 ),
               ],
@@ -427,7 +429,7 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
               onPressed:
                   _sidebarConfigLoading ? null : _openSidebarConfigDialog,
               icon: const Icon(Icons.dashboard_customize_outlined,
-                  color: PosTheme.kiotBlue),
+                  color: AppColors.primary),
             ),
         ],
       ),
@@ -615,22 +617,19 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
 
   Widget _buildOverviewHeader() {
     return Container(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(AppSpace.lg),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
           colors: [
-            Color(0xFF0F172A),
-            HrmPageChrome.primaryNavy,
-            HrmPageChrome.primaryNavy,
+            AppColors.primaryDark,
+            AppColors.primary,
+            AppColors.primaryLight,
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: const [
-          BoxShadow(
-              color: Color(0x180F172A), blurRadius: 20, offset: Offset(0, 10))
-        ],
+        borderRadius: AppRadius.dialog,
+        boxShadow: AppElevation.soft(color: AppColors.primaryDark),
       ),
       child: Row(
         children: [
@@ -643,7 +642,7 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
                       const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
                       color: Colors.white.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(999)),
+                      borderRadius: AppRadius.pill),
                   child: Text(tr('HRM Settings Center'),
                       style: TextStyle(
                           color: Colors.white,
@@ -832,11 +831,11 @@ class _SettingsAccessDeniedScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFFAFAFA),
+      backgroundColor: AppColors.scaffold,
       appBar: AppBar(
         title: Text(tr('Thiet lap HRM')),
-        backgroundColor: Colors.white,
-        foregroundColor: const Color(0xFF18181B),
+        backgroundColor: AppColors.surface,
+        foregroundColor: AppColors.textPrimary,
         elevation: 0,
       ),
       body: Center(
@@ -846,18 +845,18 @@ class _SettingsAccessDeniedScreen extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               const Icon(Icons.lock_outline_rounded,
-                  size: 56, color: Color(0xFF94A3B8)),
+                  size: 56, color: AppColors.textTertiary),
               const SizedBox(height: 12),
               Text(tr(title),
                   style: const TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.w700,
-                      color: Color(0xFF0F172A))),
+                      color: AppColors.textPrimary)),
               const SizedBox(height: 8),
               Text(tr(message),
                   textAlign: TextAlign.center,
                   style:
-                      const TextStyle(fontSize: 14, color: Color(0xFF64748B))),
+                      const TextStyle(fontSize: 14, color: AppColors.textSecondary)),
             ],
           ),
         ),
