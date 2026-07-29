@@ -1730,20 +1730,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
       return (
         greeting: _l10n.goodMorning,
         icon: Icons.wb_sunny_rounded,
-        accent: AppColors.warning,
+        accent: const Color(0xFFFCD34D),
       );
     }
     if (_now.hour < 18) {
       return (
         greeting: _l10n.goodAfternoon,
         icon: Icons.wb_twilight_rounded,
-        accent: AppColors.warning,
+        accent: const Color(0xFFFB923C),
       );
     }
     return (
       greeting: _l10n.goodEvening,
       icon: Icons.nightlight_round,
-      accent: AppColors.secondary,
+      accent: const Color(0xFFA78BFA),
     );
   }
 
@@ -1921,7 +1921,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             Icons.cake_outlined,
             'Sinh nhật',
             '${_todayBirthdays.length}',
-            AppColors.primary,
+            const Color(0xFFEC4899),
             'birthday_detail'));
         break;
       case 'docs_detail':
@@ -1929,7 +1929,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             Icons.assignment_late_outlined,
             'HĐ hết hạn',
             '${_expiringDocs.length + _expiredContracts.length}',
-            AppColors.warning,
+            const Color(0xFFEA580C),
             'docs_detail'));
         break;
       case 'pending_all':
@@ -2024,9 +2024,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final actions = <_QuickAction>[
       if (caps.quickLeave)
         _QuickAction(Icons.beach_access_rounded, 'Xin nghỉ',
-            AppColors.warning, () => NavigationNotifier.goToLeaves()),
+            const Color(0xFFF59E0B), () => NavigationNotifier.goToLeaves()),
       if (caps.quickShiftSwap)
-        _QuickAction(Icons.swap_horiz_rounded, 'Đổi ca', AppColors.secondary,
+        _QuickAction(Icons.swap_horiz_rounded, 'Đổi ca', const Color(0xFF8B5CF6),
             () {
           final perm =
               Provider.of<PermissionProvider>(context, listen: false);
@@ -2039,7 +2039,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         }),
       if (caps.quickPayroll)
         _QuickAction(Icons.payments_rounded, 'Phiếu lương',
-            AppColors.secondary, () {
+            const Color(0xFF06B6D4), () {
           final perm =
               Provider.of<PermissionProvider>(context, listen: false);
           NavigationNotifier.goToPayModule(
@@ -2050,11 +2050,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
         _QuickAction(
             Icons.campaign_rounded,
             'Truyền thông',
-            AppColors.primary,
+            const Color(0xFFEC4899),
             () => NavigationNotifier.goToCommunication()),
       if (caps.quickAi)
         _QuickAction(Icons.auto_awesome_rounded, 'Trợ lý AI',
-            AppColors.secondary, () => showAiAssistant(context)),
+            const Color(0xFF6366F1), () => showAiAssistant(context)),
     ];
 
     if (actions.isEmpty) return const SizedBox.shrink();
@@ -2593,10 +2593,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
     const palette = [
       Color(0xFF22C55E),
       Color(0xFF3B82F6),
-      AppColors.secondary,
-      AppColors.warning,
+      Color(0xFF8B5CF6),
+      Color(0xFFF59E0B),
       Color(0xFF10B981),
-      AppColors.primary,
+      Color(0xFFEC4899),
     ];
 
     Widget chip(IconData icon, String label, int count, Color color,
@@ -2820,7 +2820,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             Icons.beach_access_outlined,
             'Nghỉ phép',
             '${_absentWithPermission.length}',
-            AppColors.warning,
+            const Color(0xFFF59E0B),
             'leave_today'),
       if (caps.insightPending)
         _InsightChipData(Icons.pending_actions_outlined, 'Chờ duyệt',
@@ -2830,11 +2830,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
             Icons.cake_outlined,
             'Sinh nhật',
             '${_todayBirthdays.length}',
-            AppColors.primary,
+            const Color(0xFFEC4899),
             'birthday_detail'),
       if (caps.insightOvertime)
         _InsightChipData(Icons.av_timer_outlined, 'OT chờ duyệt', '$otCount',
-            AppColors.secondary, 'overtime_detail'),
+            const Color(0xFF8B5CF6), 'overtime_detail'),
       if (caps.insightTask)
         _InsightChipData(
             Icons.task_alt_outlined,
@@ -2850,7 +2850,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             Icons.assignment_late_outlined,
             'HĐ hết hạn',
             '${_expiringDocs.length + _expiredContracts.length}',
-            AppColors.warning,
+            const Color(0xFFEA580C),
             'docs_detail'),
       if (caps.insightAdvance)
         _InsightChipData(
@@ -3977,7 +3977,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         // ── Đơn nghỉ phép ──
         if (leaves.isNotEmpty) ...[
           sectionHeader(
-              'Đơn nghỉ phép', leaves.length, AppColors.warning),
+              'Đơn nghỉ phép', leaves.length, const Color(0xFFF59E0B)),
           ...leaves.map((item) {
             final name =
                 (item['employeeName'] ?? item['fullName'] ?? '').toString();
@@ -4012,7 +4012,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               item: item,
               typeKey: 'leave',
               typeLabel: 'Nghỉ phép',
-              color: AppColors.warning,
+              color: const Color(0xFFF59E0B),
               title: name.isEmpty ? 'N/A' : name,
               subtitle: subtitle,
               dateStr: fmtDateRange(item['startDate'], item['endDate']),
@@ -4025,7 +4025,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         // ── Chỉnh sửa CC ──
         if (corrections.isNotEmpty) ...[
           sectionHeader('Chỉnh sửa chấm công', corrections.length,
-              AppColors.secondary),
+              const Color(0xFF6366F1)),
           ...corrections.map((item) {
             final name =
                 (item['employeeName'] ?? item['fullName'] ?? '').toString();
@@ -4038,7 +4038,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               item: item,
               typeKey: 'correction',
               typeLabel: 'Chỉnh CC',
-              color: AppColors.secondary,
+              color: const Color(0xFF6366F1),
               title: name.isEmpty ? 'N/A' : name,
               subtitle:
                   [action, newTime].where((s) => s.isNotEmpty).join(' → '),
@@ -4049,7 +4049,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ],
         // ── Đổi ca ──
         if (swaps.isNotEmpty) ...[
-          sectionHeader('Đổi ca', swaps.length, AppColors.secondary),
+          sectionHeader('Đổi ca', swaps.length, const Color(0xFF8B5CF6)),
           ...swaps.map((item) {
             final requester =
                 (item['requesterName'] ?? item['employeeName'] ?? '')
@@ -4067,7 +4067,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               item: item,
               typeKey: 'swap',
               typeLabel: 'Đổi ca',
-              color: AppColors.secondary,
+              color: const Color(0xFF8B5CF6),
               title: requester.isEmpty ? 'N/A' : requester,
               subtitle: target.isNotEmpty ? 'Đổi với: $target' : '',
               dateStr: shiftFrom.isNotEmpty || shiftTo.isNotEmpty
@@ -4621,7 +4621,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           color: Colors.white,
           borderRadius: BorderRadius.circular(10),
           border:
-              Border.all(color: AppColors.warning.withValues(alpha: .2)),
+              Border.all(color: const Color(0xFFF59E0B).withValues(alpha: .2)),
         ),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
@@ -4657,7 +4657,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
                 decoration: BoxDecoration(
-                  color: AppColors.warning.withValues(alpha: .12),
+                  color: const Color(0xFFF59E0B).withValues(alpha: .12),
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(tr(daysStr),
@@ -4707,7 +4707,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  color: AppColors.warning.withValues(alpha: .12),
+                  color: const Color(0xFFF59E0B).withValues(alpha: .12),
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(tr('${entry.value.length}'),
@@ -4744,7 +4744,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       final dept = (d['department'] ?? '').toString();
       final days = (d['daysUntilExpiry'] as num?)?.toInt() ?? 0;
       final accent =
-          isExpired ? const Color(0xFFEF4444) : AppColors.warning;
+          isExpired ? const Color(0xFFEF4444) : const Color(0xFFF59E0B);
       final badge = isExpired
           ? '${(-days)} ngày trước'
           : (days == 0 ? 'Hôm nay' : '$days ngày');
@@ -4848,7 +4848,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       children: [
         if (expiring.isNotEmpty) ...[
           sectionHeader('Cần gia hạn (trong 30 ngày)', expiring.length,
-              AppColors.warning),
+              const Color(0xFFF59E0B)),
           ...expiring.map((d) => Padding(
                 padding: const EdgeInsets.only(bottom: 6),
                 child: contractRow(d),
@@ -4896,7 +4896,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     upcoming.sort((a, b) =>
         (a['_birthdayDay'] as int).compareTo(b['_birthdayDay'] as int));
 
-    const pink = AppColors.primary;
+    const pink = Color(0xFFEC4899);
     const green = Color(0xFF22C55E);
     const grey = Color(0xFF94A3B8);
 
@@ -5055,10 +5055,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final completed = _toInt(_overtimeStats['completedCount'] ?? 0);
     return Column(children: [
       _detailStatRow(Icons.receipt_long_outlined, 'Tổng đơn OT', '$total',
-          AppColors.secondary),
+          const Color(0xFF8B5CF6)),
       const SizedBox(height: 8),
       _detailStatRow(Icons.timer_outlined, 'Tổng giờ OT',
-          '${hours.toStringAsFixed(1)} giờ', AppColors.secondary),
+          '${hours.toStringAsFixed(1)} giờ', const Color(0xFF8B5CF6)),
       const SizedBox(height: 8),
       _detailStatRow(Icons.check_circle_outline, 'Đã duyệt', '$approved',
           const Color(0xFF22C55E)),
@@ -5067,7 +5067,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           Icons.task_alt, 'Hoàn thành', '$completed', HrmPageChrome.primaryNavy),
       const SizedBox(height: 8),
       _detailStatRow(Icons.pending_outlined, 'Chờ duyệt', '$pending',
-          AppColors.warning),
+          const Color(0xFFF59E0B)),
     ]);
   }
 
@@ -5126,11 +5126,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
       if (assigned > 0) ...[
         const SizedBox(height: 8),
         tappableRow(Icons.assignment_late_outlined, 'Chờ xác nhận', '$assigned',
-            AppColors.warning,
+            const Color(0xFFF59E0B),
             statusIndex: WorkTaskStatus.assigned.index),
       ],
       const SizedBox(height: 8),
-      tappableRow(Icons.autorenew, 'Đang làm', '$inProg', AppColors.warning,
+      tappableRow(Icons.autorenew, 'Đang làm', '$inProg', const Color(0xFFF59E0B),
           statusIndex: WorkTaskStatus.inProgress.index),
       const SizedBox(height: 8),
       tappableRow(Icons.check_circle, 'Hoàn thành', '$done',
@@ -5150,7 +5150,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           valueColor: AlwaysStoppedAnimation(rate >= 80
               ? const Color(0xFF22C55E)
               : rate >= 50
-                  ? AppColors.warning
+                  ? const Color(0xFFF59E0B)
                   : const Color(0xFFEF4444)),
         ),
       ),
@@ -5215,7 +5215,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           HrmPageChrome.primaryNavy, '3'),
       const SizedBox(height: 8),
       tappableRow(Icons.pending_outlined, 'Chờ xử lý', '$pending',
-          AppColors.warning, '0'),
+          const Color(0xFFF59E0B), '0'),
       const SizedBox(height: 8),
       tappableRow(Icons.cancel_outlined, 'Đã hủy', '$cancelled',
           const Color(0xFF71717A), '2'),
@@ -5489,10 +5489,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
     const palette = [
       Color(0xFF22C55E),
       Color(0xFF3B82F6),
-      AppColors.secondary,
-      AppColors.warning,
+      Color(0xFF8B5CF6),
+      Color(0xFFF59E0B),
       Color(0xFF10B981),
-      AppColors.primary,
+      Color(0xFFEC4899),
     ];
 
     final double total = _totalEmployees > 0 ? _totalEmployees.toDouble() : 1.0;
@@ -5502,7 +5502,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final Color mainColor = rate >= 85
         ? const Color(0xFF22C55E)
         : rate >= 70
-            ? AppColors.warning
+            ? const Color(0xFFF59E0B)
             : const Color(0xFFEF4444);
 
     // Build sections with touch-aware radius
@@ -5693,7 +5693,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       _HeroKpi(_presentShiftLabel, '$_presentCount', Icons.how_to_reg_rounded,
           const Color(0xFF22C55E), 'present'),
       _HeroKpi('Đi trễ / Về sớm', '$_lateCount', Icons.schedule_rounded,
-          AppColors.warning, 'late'),
+          const Color(0xFFF59E0B), 'late'),
       _HeroKpi('Vắng', '$_absentCount', Icons.person_off_rounded,
           const Color(0xFFEF4444), 'absent'),
       _HeroKpi('Vào / Ra', '$_checkIns / $_checkOuts', Icons.swap_horiz_rounded,
@@ -6144,7 +6144,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       ),
                       // Legend
                       Row(mainAxisSize: MainAxisSize.min, children: [
-                        _totalLegendDot(AppColors.warning, 'Lịch'),
+                        _totalLegendDot(const Color(0xFFF59E0B), 'Lịch'),
                         const SizedBox(width: 8),
                         _totalLegendDot(const Color(0xFF22C55E), 'Đã vào'),
                       ]),
@@ -6959,7 +6959,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                     if (lateInShift > 0) ...[
                                       const SizedBox(width: 6),
                                       _lateBadge('⏰ $lateInShift trễ',
-                                          AppColors.warning),
+                                          const Color(0xFFF59E0B)),
                                     ],
                                     if (earlyInShift > 0) ...[
                                       const SizedBox(width: 4),
@@ -6973,7 +6973,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                     final hasIssue = emp.lateMinutes > 0 ||
                                         emp.earlyMinutes > 0;
                                     final borderColor = hasIssue
-                                        ? AppColors.warning
+                                        ? const Color(0xFFF59E0B)
                                             .withValues(alpha: 0.40)
                                         : const Color(0xFF22C55E)
                                             .withValues(alpha: 0.25);
@@ -6981,7 +6981,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                         ? const Color(0xFFFFFBEB)
                                         : const Color(0xFFF0FDF4);
                                     final avatarColor = hasIssue
-                                        ? AppColors.warning
+                                        ? const Color(0xFFF59E0B)
                                         : const Color(0xFF22C55E);
 
                                     return Container(
@@ -7211,7 +7211,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
                           color:
-                              AppColors.warning.withValues(alpha: 0.14),
+                              const Color(0xFFF59E0B).withValues(alpha: 0.14),
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: const Icon(Icons.schedule_rounded,
@@ -7245,7 +7245,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
                   child: Row(children: [
                     _inOutChip('⏰ Đi trễ: $totalLateCount ca', totalLateCount,
-                        AppColors.warning),
+                        const Color(0xFFF59E0B)),
                     const SizedBox(width: 8),
                     _inOutChip('🚪 Về sớm: $totalEarlyCount ca',
                         totalEarlyCount, const Color(0xFFEF4444)),
@@ -7293,7 +7293,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(12),
                                 side: BorderSide(
-                                    color: AppColors.warning
+                                    color: const Color(0xFFF59E0B)
                                         .withValues(alpha: 0.35)),
                               ),
                               color: const Color(0xFFFFFBEB),
@@ -7307,7 +7307,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                       left: 12, right: 12, bottom: 10),
                                   leading: CircleAvatar(
                                     radius: 20,
-                                    backgroundColor: AppColors.warning
+                                    backgroundColor: const Color(0xFFF59E0B)
                                         .withValues(alpha: 0.18),
                                     child: Text(
                                       tr(g.name.isNotEmpty
@@ -7334,7 +7334,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                     if (totLate > 0) ...[
                                       const SizedBox(width: 6),
                                       _lateBadge('⏰ ${fmtMin(totLate)}',
-                                          AppColors.warning),
+                                          const Color(0xFFF59E0B)),
                                     ],
                                     if (totEarly > 0) ...[
                                       const SizedBox(width: 4),
@@ -7385,13 +7385,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
         color: const Color(0xFFFFFBEB),
         borderRadius: BorderRadius.circular(12),
         border:
-            Border.all(color: AppColors.warning.withValues(alpha: 0.35)),
+            Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.35)),
       ),
       child: Row(
         children: [
           CircleAvatar(
             radius: 20,
-            backgroundColor: AppColors.warning.withValues(alpha: 0.18),
+            backgroundColor: const Color(0xFFF59E0B).withValues(alpha: 0.18),
             child: Text(
               tr(name.isNotEmpty ? name[0].toUpperCase() : '?'),
               style: const TextStyle(
@@ -7462,7 +7462,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   fontWeight: FontWeight.w600)),
         ]),
         if (lateMin > 0)
-          _lateBadge('⏰ Trễ ${fmtMin(lateMin)}', AppColors.warning),
+          _lateBadge('⏰ Trễ ${fmtMin(lateMin)}', const Color(0xFFF59E0B)),
         if (earlyMin > 0)
           _lateBadge('🚪 Sớm ${fmtMin(earlyMin)}', const Color(0xFFEF4444)),
       ],
@@ -7614,7 +7614,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         '✅ Đủ cặp', completeCount, const Color(0xFF22C55E)),
                     const SizedBox(width: 8),
                     _inOutChip(
-                        '⚠️ Thiếu ra', missingCount, AppColors.warning),
+                        '⚠️ Thiếu ra', missingCount, const Color(0xFFF59E0B)),
                   ]),
                 ),
                 const Divider(height: 1),
@@ -7633,7 +7633,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           itemBuilder: (_, i) {
                             final r = rows[i];
                             final color = r.missing
-                                ? AppColors.warning
+                                ? const Color(0xFFF59E0B)
                                 : const Color(0xFF22C55E);
                             return Container(
                               padding: const EdgeInsets.symmetric(
@@ -7707,13 +7707,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                     else
                                       Row(children: [
                                         Icon(Icons.warning_amber_rounded,
-                                            size: 13, color: AppColors.warning),
+                                            size: 13, color: Color(0xFFF59E0B)),
                                         SizedBox(width: 3),
                                         Text(tr('Chưa ra'),
                                             style: TextStyle(
                                                 fontSize: 12,
                                                 fontWeight: FontWeight.w600,
-                                                color: AppColors.warning)),
+                                                color: Color(0xFFF59E0B))),
                                       ]),
                                   ],
                                 ),
@@ -8244,7 +8244,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final isLate = p.lateMinutes > 0;
     final isEarly = p.earlyMinutes > 0;
     final color =
-        (isLate || isEarly) ? AppColors.warning : const Color(0xFF22C55E);
+        (isLate || isEarly) ? const Color(0xFFF59E0B) : const Color(0xFF22C55E);
     final statusParts = <String>[];
     if (isLate) statusParts.add('Trễ ${p.lateMinutes}p');
     if (isEarly) statusParts.add('Sớm ${p.earlyMinutes}p');
@@ -8400,7 +8400,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         status.contains('muộn') || status.contains('trễ') || status == 'late';
     final isEarlyLeave = status.contains('sớm') || status.contains('early');
     final statusColor = (isLate || isEarlyLeave)
-        ? AppColors.warning
+        ? const Color(0xFFF59E0B)
         : HrmPageChrome.primaryNavy;
     final statusText = isLate && isEarlyLeave
         ? '${_l10n.late} + Về sớm'
@@ -8472,7 +8472,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       badge: '${withPerm.length + withoutPerm.length} người',
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         _sectionLabel('${_l10n.authorized} (${withPerm.length})',
-            AppColors.warning),
+            const Color(0xFFF59E0B)),
         if (withPerm.isEmpty)
           _emptyRow('Không có')
         else
@@ -8516,7 +8516,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Widget _absentRow(String name, String detail, bool hasPermission) {
     final color =
-        hasPermission ? AppColors.warning : const Color(0xFFEF4444);
+        hasPermission ? const Color(0xFFF59E0B) : const Color(0xFFEF4444);
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 3),
       child: Row(children: [
@@ -8543,7 +8543,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       return _DashCard(
         icon: Icons.timer_off_outlined,
         title: _l10n.lateEarly,
-        color: AppColors.warning,
+        color: const Color(0xFFF59E0B),
         badge: '${entries.length} ca',
         child: Column(children: [
           ...entries.take(8).map((e) {
@@ -8557,7 +8557,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             return Padding(
               padding: const EdgeInsets.symmetric(vertical: 3),
               child: Row(children: [
-                const Icon(Icons.schedule, size: 16, color: AppColors.warning),
+                const Icon(Icons.schedule, size: 16, color: Color(0xFFF59E0B)),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Column(
@@ -8607,7 +8607,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return _DashCard(
       icon: Icons.timer_off_outlined,
       title: _l10n.lateEarly,
-      color: AppColors.warning,
+      color: const Color(0xFFF59E0B),
       badge: '${_lateEmployees.length} người',
       child: Column(children: [
         if (_lateEmployees.isEmpty)
@@ -8635,7 +8635,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             return Padding(
               padding: const EdgeInsets.symmetric(vertical: 3),
               child: Row(children: [
-                const Icon(Icons.schedule, size: 16, color: AppColors.warning),
+                const Icon(Icons.schedule, size: 16, color: Color(0xFFF59E0B)),
                 const SizedBox(width: 8),
                 Expanded(
                     child: Column(
@@ -8678,13 +8678,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return _DashCard(
       icon: Icons.cake_outlined,
       title: _l10n.birthday,
-      color: AppColors.primary,
+      color: const Color(0xFFEC4899),
       badge: totalBirthdays > 0
           ? '$totalBirthdays ${_l10n.birthdayThisMonth}'
           : null,
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         if (today.isNotEmpty) ...[
-          _sectionLabel('🎂 Hôm nay', AppColors.primary),
+          _sectionLabel('🎂 Hôm nay', const Color(0xFFEC4899)),
           ...today.map((e) {
             final ln = (e['lastName'] ?? '').toString().trim();
             final fn = (e['firstName'] ?? '').toString().trim();
@@ -8723,7 +8723,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
                       gradient: const LinearGradient(
-                          colors: [AppColors.primary, Color(0xFFF472B6)]),
+                          colors: [Color(0xFFEC4899), Color(0xFFF472B6)]),
                       borderRadius: BorderRadius.circular(12)),
                   child: Text(tr(_l10n.today),
                       style: const TextStyle(
@@ -8821,7 +8821,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     if (hour >= 6 && hour < 14) {
       currentShift = 'Ca sáng';
       shiftIcon = Icons.wb_sunny;
-      shiftColor = AppColors.warning;
+      shiftColor = const Color(0xFFF59E0B);
     } else if (hour >= 14 && hour < 22) {
       currentShift = 'Ca chiều';
       shiftIcon = Icons.wb_twilight;
@@ -8891,7 +8891,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             final rateColor = rate >= 0.8
                 ? HrmPageChrome.primaryNavy
                 : rate >= 0.5
-                    ? AppColors.warning
+                    ? const Color(0xFFF59E0B)
                     : const Color(0xFFEF4444);
             return Padding(
               padding: const EdgeInsets.symmetric(vertical: 5),
@@ -9008,7 +9008,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         avgScore >= 80
                             ? HrmPageChrome.primaryNavy
                             : avgScore >= 50
-                                ? AppColors.warning
+                                ? const Color(0xFFF59E0B)
                                 : const Color(0xFFEF4444))),
                 Container(width: 1, height: 36, color: const Color(0xFFE4E4E7)),
                 Expanded(
@@ -9066,7 +9066,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               kpiColor = HrmPageChrome.primaryNavy;
               kpiLabel = 'Tốt';
             } else if (pct >= 50) {
-              kpiColor = AppColors.warning;
+              kpiColor = const Color(0xFFF59E0B);
               kpiLabel = 'Trung bình';
             } else {
               kpiColor = const Color(0xFFEF4444);
@@ -9160,7 +9160,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 case 'Policy':
                   typeLabel = 'Chính sách';
                   typeIcon = Icons.policy;
-                  typeColor = AppColors.warning;
+                  typeColor = const Color(0xFFF59E0B);
                 case 'Training':
                   typeLabel = 'Đào tạo';
                   typeIcon = Icons.school;
@@ -9168,7 +9168,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 case 'Culture':
                   typeLabel = 'Văn hóa';
                   typeIcon = Icons.diversity_3;
-                  typeColor = AppColors.primary;
+                  typeColor = const Color(0xFFEC4899);
                 case 'Recruitment':
                   typeLabel = 'Tuyển dụng';
                   typeIcon = Icons.person_add;
@@ -9435,11 +9435,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return _DashCard(
       icon: Icons.pending_actions_outlined,
       title: 'Phê duyệt chờ xử lý',
-      color: AppColors.warning,
+      color: const Color(0xFFF59E0B),
       badge: totalPending > 0 ? '$totalPending đơn' : null,
       child: Column(children: [
         _approvalRow(Icons.event_busy, 'Đơn nghỉ phép', leaveCount,
-            AppColors.warning,
+            const Color(0xFFF59E0B),
             onTap: leaveCount > 0
                 ? () => NavigationNotifier.goToLeaves(pendingOnly: true)
                 : null),
@@ -9451,7 +9451,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 : null),
         const SizedBox(height: 8),
         _approvalRow(Icons.swap_horiz, 'Đổi ca làm việc', swapCount,
-            AppColors.primary,
+            const Color(0xFFEC4899),
             onTap: swapCount > 0
                 ? () => NavigationNotifier.goToScheduleApproval(tab: 3)
                 : null),
@@ -9488,10 +9488,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
             child: Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: AppColors.warning.withValues(alpha: 0.08),
+              color: const Color(0xFFF59E0B).withValues(alpha: 0.08),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                  color: AppColors.warning.withValues(alpha: 0.2)),
+                  color: const Color(0xFFF59E0B).withValues(alpha: 0.2)),
             ),
             child: Row(children: [
               const Icon(Icons.warning_amber_rounded,
@@ -9750,7 +9750,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     'Chờ duyệt',
                     '$pending',
                     pending > 0
-                        ? AppColors.warning
+                        ? const Color(0xFFF59E0B)
                         : const Color(0xFFA1A1AA))),
           ]),
         ),
@@ -9856,7 +9856,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ]),
         ),
         const SizedBox(height: 12),
-        _penaltyTypeRow('Đi trễ', lateCount, AppColors.warning),
+        _penaltyTypeRow('Đi trễ', lateCount, const Color(0xFFF59E0B)),
         const SizedBox(height: 6),
         _penaltyTypeRow('Vắng mặt', absentCount, const Color(0xFFEF4444)),
         const SizedBox(height: 6),
@@ -10052,12 +10052,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
               Icons.pie_chart_outline,
               avgAttendanceRate >= 80
                   ? HrmPageChrome.primaryNavy
-                  : AppColors.warning),
+                  : const Color(0xFFF59E0B)),
         ]),
         const SizedBox(height: 8),
         Row(children: [
           _monthStatBox(
-              'Đi trễ', '$totalLate', Icons.schedule, AppColors.warning),
+              'Đi trễ', '$totalLate', Icons.schedule, const Color(0xFFF59E0B)),
           const SizedBox(width: 8),
           _monthStatBox('Vắng', '$totalAbsent', Icons.person_off,
               const Color(0xFFEF4444)),
@@ -10140,7 +10140,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       final isUrgent = !isExpired && daysLeft <= 7;
       final statusColor = isExpired
           ? const Color(0xFFEF4444)
-          : (isUrgent ? const Color(0xFFEF4444) : AppColors.warning);
+          : (isUrgent ? const Color(0xFFEF4444) : const Color(0xFFF59E0B));
       final statusText = isExpired
           ? '${(-daysLeft)} ngày trước'
           : (daysLeft == 0 ? 'Hôm nay' : '$daysLeft ngày');
@@ -10203,7 +10203,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w600,
-                            color: AppColors.warning)),
+                            color: Color(0xFFF59E0B))),
                   ),
                   ..._expiringDocs.take(3).map((d) => contractTile(d)),
                 ],
@@ -10419,13 +10419,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return _DashCard(
       icon: Icons.event_note_outlined,
       title: 'Phân tích nghỉ phép',
-      color: AppColors.warning,
+      color: const Color(0xFFF59E0B),
       badge: '$leaveTotal đơn',
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
           _leaveStatBox('Đã duyệt', '$approved', const Color(0xFF22C55E)),
           const SizedBox(width: 8),
-          _leaveStatBox('Chờ duyệt', '$pending', AppColors.warning),
+          _leaveStatBox('Chờ duyệt', '$pending', const Color(0xFFF59E0B)),
           const SizedBox(width: 8),
           _leaveStatBox(
               'Ngày phép đã dùng', '$annualUsed', HrmPageChrome.primaryNavy),
@@ -10440,7 +10440,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           const SizedBox(height: 6),
           ...leaveTypes.map((e) {
             final pct = leaveTotal > 0 ? e.value / leaveTotal : 0.0;
-            const barColor = AppColors.warning;
+            const barColor = Color(0xFFF59E0B);
             return Padding(
               padding: const EdgeInsets.symmetric(vertical: 3),
               child: Row(children: [
@@ -10468,7 +10468,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         style: const TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w600,
-                            color: AppColors.warning),
+                            color: Color(0xFFF59E0B)),
                         textAlign: TextAlign.right)),
               ]),
             );
@@ -10782,7 +10782,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return _DashCard(
       icon: Icons.view_week_rounded,
       title: 'Tổng hợp chấm công theo ca',
-      color: AppColors.secondary,
+      color: const Color(0xFF7C3AED),
       badge: _employeeStatsPeriodLabel(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -10865,7 +10865,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 icon: const Icon(Icons.open_in_new_rounded, size: 16),
                 label: Text(tr('Mở báo cáo theo ca')),
                 style: TextButton.styleFrom(
-                  foregroundColor: AppColors.secondary,
+                  foregroundColor: const Color(0xFF7C3AED),
                   textStyle: const TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
@@ -11017,7 +11017,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     style: const TextStyle(
                       fontSize: 10,
                       fontWeight: FontWeight.w600,
-                      color: AppColors.warning,
+                      color: Color(0xFFF59E0B),
                     ),
                   ),
                 ],
@@ -11126,7 +11126,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ? const Color(0xFF22C55E)
             : isCheckOut
                 ? HrmPageChrome.primaryNavy
-                : AppColors.warning;
+                : const Color(0xFFF59E0B);
     final timeText = formatAttendanceWallClock(
       punch.attendanceTime,
       pattern: 'dd/MM/yyyy HH:mm:ss',
@@ -11230,7 +11230,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         break;
       case 'not-started':
         statusText = 'Chưa chấm công';
-        statusColor = AppColors.warning;
+        statusColor = const Color(0xFFF59E0B);
         statusIcon = Icons.access_time_filled;
         break;
       default:
@@ -11400,7 +11400,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             children: [
               Expanded(
                   child: _employeeStatTile(
-                      'Đi trễ', '$lateCnt', 'lần', AppColors.warning)),
+                      'Đi trễ', '$lateCnt', 'lần', const Color(0xFFF59E0B))),
               const SizedBox(width: 10),
               Expanded(
                   child: _employeeStatTile('TB giờ/ngày', avgHours, '',
@@ -11567,7 +11567,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return _DashCard(
       icon: Icons.event_note_rounded,
       title: 'Đơn nghỉ phép gần đây',
-      color: AppColors.secondary,
+      color: const Color(0xFF7C3AED),
       badge: '${_todayLeaves.length}',
       child: _todayLeaves.isEmpty
           ? _emptyState('Chưa có đơn nghỉ phép')
@@ -11587,7 +11587,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     stColor = const Color(0xFFEF4444);
                     break;
                   default:
-                    stColor = AppColors.warning;
+                    stColor = const Color(0xFFF59E0B);
                 }
                 return Container(
                   margin: const EdgeInsets.only(bottom: 8),

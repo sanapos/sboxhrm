@@ -1,23 +1,23 @@
 import 'package:flutter/material.dart';
 import '../../l10n/app_tr.dart';
-import '../../design_system/tokens/app_colors.dart';
 import '../../design_system/tokens/app_radius.dart';
 import '../../design_system/tokens/app_space.dart';
 
-/// Giao diện POS kiểu KiotViet — đồng bộ [AppColors].
+/// Giao diện POS kiểu KiotViet (xanh lá chủ đạo).
+/// Radius / spacing kế thừa App DS; màu domain giữ độc lập.
 abstract final class PosTheme {
-  static const Color kiotBlue = AppColors.secondary;
-  static const Color kiotBlueLight = AppColors.secondaryMuted;
+  static const Color kiotBlue = Color(0xFF0070F4);
+  static const Color kiotBlueLight = Color(0xFFE8F4FD);
   /// Microsoft Edge logo blue — bàn đang dùng trên sơ đồ.
   static const Color edgeBlue = Color(0xFF0078D4);
   static const Color edgeBlueLight = Color(0xFFDEECF9);
-  static const Color primary = AppColors.primary;
-  static const Color primaryDark = AppColors.primaryDark;
-  static const Color primaryLight = AppColors.primaryMuted;
-  static const Color background = AppColors.scaffold;
-  static const Color border = AppColors.border;
-  static const Color textPrimary = AppColors.textPrimary;
-  static const Color textSecondary = AppColors.textSecondary;
+  static const Color primary = Color(0xFF00B63E);
+  static const Color primaryDark = Color(0xFF009632);
+  static const Color primaryLight = Color(0xFFE8F8ED);
+  static const Color background = Color(0xFFF4F6F8);
+  static const Color border = Color(0xFFE0E4E8);
+  static const Color textPrimary = Color(0xFF1A1D21);
+  static const Color textSecondary = Color(0xFF6B7280);
 
   static const Color goodsColor = Color(0xFF2563EB);
   static const Color serviceColor = Color(0xFF7C3AED);

@@ -192,12 +192,9 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
       };
 
   Color _groupAccent(String title) => switch (title) {
-        'POS / Bán hàng' => AppColors.secondary,
-        'Chính sách lương' => AppColors.primary,
-        'Chấm công & Ca' => AppColors.primary,
-        'Quản trị hệ thống' => AppColors.primaryDark,
-        'Tích hợp' => AppColors.secondary,
-        _ => AppColors.primary,
+        'POS / Bán hàng' => const Color(0xFF2563EB),
+        'Chính sách lương' => HrmPageChrome.primaryNavy,
+        _ => HrmPageChrome.primaryNavy,
       };
 
   Future<void> _openSidebarConfigDialog() async {
