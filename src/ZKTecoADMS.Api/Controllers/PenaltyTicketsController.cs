@@ -396,10 +396,10 @@ public class PenaltyTicketsController(
     {
         var storeId = RequiredStoreId;
         // Use VN-local "now" instead of DateTime.Now: Linux containers run in UTC, and at
-        // 00:00â€“07:00 VN that would point at the wrong month/year.
+        // 00:00–07:00 VN that would point at the wrong month/year.
         var now = DateTime.UtcNow.AddHours(7);
 
-        // Base query â€” todos os filtros comuns
+        // Base query — todos os filtros comuns
         var query = dbContext.PenaltyTickets
             .Where(pt => pt.StoreId == storeId && pt.Deleted == null)
             .AsQueryable();

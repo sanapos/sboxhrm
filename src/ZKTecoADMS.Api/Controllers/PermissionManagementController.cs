@@ -14,7 +14,7 @@ using ZKTecoADMS.Infrastructure;
 namespace ZKTecoADMS.Api.Controllers;
 
 /// <summary>
-/// Controller Ä‘á»ƒ quáº£n lÃ½ phÃ¢n quyá»n theo role
+/// Controller để quản lý phân quyền theo role
 /// </summary>
 [ApiController]
 [Route("api/permission-management")]
@@ -29,7 +29,7 @@ public class PermissionManagementController(
     #region Get Permissions
 
     /// <summary>
-    /// Láº¥y táº¥t cáº£ permissions cá»§a má»™t role
+    /// Lấy tất cả permissions của một role
     /// </summary>
     [HttpGet("by-role")]
     [RequirePermission("Role", PermissionAction.View)]
@@ -46,12 +46,12 @@ public class PermissionManagementController(
 
         if (permissions.Count == 0)
         {
-            // Táº¡o permissions máº·c Ä‘á»‹nh náº¿u chÆ°a cÃ³
+            // Tạo permissions mặc định nếu chưa có
             permissions = await CreateDefaultPermissionsForRole(roleName, allModules);
         }
         else
         {
-            // Kiá»ƒm tra module má»›i Ä‘Æ°á»£c thÃªm sau khi role Ä‘Ã£ cÃ³ permissions
+            // Kiểm tra module mới được thêm sau khi role đã có permissions
             var existingPermissionIds = permissions.Select(p => p.PermissionId).ToHashSet();
             var missingModules = allModules.Where(m => !existingPermissionIds.Contains(m.Id)).ToList();
             if (missingModules.Count > 0)
@@ -77,7 +77,7 @@ public class PermissionManagementController(
                 }
                 context.RolePermissions.AddRange(newEntries);
                 await context.SaveChangesAsync();
-                // Reload Ä‘á»ƒ cÃ³ Ä‘áº§y Ä‘á»§ navigation props
+                // Reload để có đầy đủ navigation props
                 permissions = await context.RolePermissions
                     .Include(p => p.Permission)
                     .Where(p => p.StoreId == RequiredStoreId && p.RoleName == roleName)
@@ -113,7 +113,7 @@ public class PermissionManagementController(
     }
 
     /// <summary>
-    /// Láº¥y táº¥t cáº£ permissions cá»§a store theo táº¥t cáº£ roles
+    /// Lấy tất cả permissions của store theo tất cả roles
     /// </summary>
     [HttpGet("all")]
     [RequirePermission("Role", PermissionAction.View)]
@@ -243,7 +243,7 @@ public class PermissionManagementController(
     }
 
     /// <summary>
-    /// Láº¥y danh sÃ¡ch modules cÃ³ thá»ƒ phÃ¢n quyá»n
+    /// Lấy danh sách modules có thể phân quyền
     /// </summary>
     [HttpGet("modules")]
     [RequireModulePermission("Role", ModulePermissionAction.View)]
@@ -269,7 +269,7 @@ public class PermissionManagementController(
     #region Update Permission
 
     /// <summary>
-    /// Cáº­p nháº­t permissions cá»§a má»™t role
+    /// Cập nhật permissions của một role
     /// </summary>
     [HttpPut("role/{roleName}")]
     [RequirePermission("Role", PermissionAction.Edit)]
@@ -397,7 +397,7 @@ public class PermissionManagementController(
     }
 
     /// <summary>
-    /// Reset permissions cá»§a má»™t role vá» máº·c Ä‘á»‹nh
+    /// Reset permissions của một role về mặc định
     /// </summary>
     [HttpPost("reset/{roleName}")]
     [RequirePermission("Role", PermissionAction.Edit)]
@@ -406,7 +406,7 @@ public class PermissionManagementController(
     {
         if (roleName.Equals("Admin", StringComparison.OrdinalIgnoreCase))
         {
-            return BadRequest(AppResponse<bool>.Error("KhÃ´ng thá»ƒ reset quyá»n cá»§a Admin"));
+            return BadRequest(AppResponse<bool>.Error("Không thể reset quyền của Admin"));
         }
 
         var existingPermissions = await context.RolePermissions
@@ -415,7 +415,7 @@ public class PermissionManagementController(
 
         context.RolePermissions.RemoveRange(existingPermissions);
 
-        // Táº¡o permissions máº·c Ä‘á»‹nh
+        // Tạo permissions mặc định
         var allModules = await context.Permissions.OrderBy(p => p.DisplayOrder).ToListAsync();
         await CreateDefaultPermissionsForRole(roleName, allModules);
 

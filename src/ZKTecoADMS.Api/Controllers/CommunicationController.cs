@@ -211,7 +211,7 @@ public class CommunicationController(
         catch (Exception ex)
         {
             logger.LogError(ex, "Error getting communications");
-            return StatusCode(500, AppResponse<object>.Fail("Lá»—i khi láº¥y danh sÃ¡ch bÃ i truyá»n thÃ´ng"));
+            return StatusCode(500, AppResponse<object>.Fail("Lỗi khi lấy danh sách bài truyền thông"));
         }
     }
 
@@ -321,7 +321,7 @@ public class CommunicationController(
         catch (Exception ex)
         {
             logger.LogError(ex, "Error getting communication {Id}", id);
-            return StatusCode(500, AppResponse<object>.Fail("Lá»—i khi láº¥y bÃ i truyá»n thÃ´ng"));
+            return StatusCode(500, AppResponse<object>.Fail("Lỗi khi lấy bài truyền thông"));
         }
     }
 
@@ -385,8 +385,8 @@ public class CommunicationController(
                             if (uid != CurrentUserId)
                                 await notificationService.CreateAndSendAsync(
                                     uid, NotificationType.Info,
-                                    "BÃ i truyá»n thÃ´ng má»›i",
-                                    $"BÃ i viáº¿t \"{dto.Title}\" Ä‘Ã£ Ä‘Æ°á»£c Ä‘Äƒng",
+                                    "Bài truyền thông mới",
+                                    $"Bài viết \"{dto.Title}\" đã được đăng",
                                     relatedEntityType: "Communication", relatedEntityId: result.Data,
                                     fromUserId: CurrentUserId, categoryCode: "communication", storeId: RequiredStoreId);
                         }
@@ -400,7 +400,7 @@ public class CommunicationController(
         catch (Exception ex)
         {
             logger.LogError(ex, "Error creating communication");
-            return StatusCode(500, AppResponse<Guid>.Fail("Lá»—i khi táº¡o bÃ i truyá»n thÃ´ng"));
+            return StatusCode(500, AppResponse<Guid>.Fail("Lỗi khi tạo bài truyền thông"));
         }
     }
 
@@ -481,8 +481,8 @@ public class CommunicationController(
                         if (uid != CurrentUserId)
                             await notificationService.CreateAndSendAsync(
                                 uid, NotificationType.Info,
-                                "BÃ i truyá»n thÃ´ng má»›i",
-                                $"BÃ i viáº¿t \"{dto.Title}\" Ä‘Ã£ Ä‘Æ°á»£c Ä‘Äƒng",
+                                "Bài truyền thông mới",
+                                $"Bài viết \"{dto.Title}\" đã được đăng",
                                 relatedEntityType: "Communication", relatedEntityId: id,
                                 fromUserId: CurrentUserId, categoryCode: "communication", storeId: oldEntity.StoreId);
                     }
@@ -495,7 +495,7 @@ public class CommunicationController(
         catch (Exception ex)
         {
             logger.LogError(ex, "Error updating communication {Id}", id);
-            return StatusCode(500, AppResponse<bool>.Fail("Lá»—i khi cáº­p nháº­t bÃ i truyá»n thÃ´ng"));
+            return StatusCode(500, AppResponse<bool>.Fail("Lỗi khi cập nhật bài truyền thông"));
         }
     }
 
@@ -572,7 +572,7 @@ public class CommunicationController(
         catch (Exception ex)
         {
             logger.LogError(ex, "Error deleting communication {Id}", id);
-            return StatusCode(500, AppResponse<bool>.Fail("Lá»—i khi xÃ³a bÃ i truyá»n thÃ´ng"));
+            return StatusCode(500, AppResponse<bool>.Fail("Lỗi khi xóa bài truyền thông"));
         }
     }
 
@@ -610,7 +610,7 @@ public class CommunicationController(
             var now = DateTime.UtcNow;
             var publishedAt = entity.PublishedAt ?? now;
 
-            // Use ExecuteUpdateAsync for direct SQL UPDATE â€“ bypasses all EF change tracking
+            // Use ExecuteUpdateAsync for direct SQL UPDATE – bypasses all EF change tracking
             var affected = await dbContext.InternalCommunications
                 .Where(c => c.Id == id)
                 .ExecuteUpdateAsync(s => s
@@ -621,7 +621,7 @@ public class CommunicationController(
             logger.LogInformation("PublishCommunication: id={Id} affected={Affected}", id, affected);
 
             if (affected == 0)
-                return StatusCode(500, AppResponse<bool>.Fail("KhÃ´ng thá»ƒ cáº­p nháº­t tráº¡ng thÃ¡i bÃ i viáº¿t"));
+                return StatusCode(500, AppResponse<bool>.Fail("Không thể cập nhật trạng thái bài viết"));
 
             // Broadcast published communication via SignalR
             _ = hubContext.Clients.Group($"store_{entity.StoreId}")
@@ -640,8 +640,8 @@ public class CommunicationController(
                     if (uid != CurrentUserId)
                         await notificationService.CreateAndSendAsync(
                             uid, NotificationType.Info,
-                            "BÃ i truyá»n thÃ´ng má»›i",
-                            $"BÃ i viáº¿t \"{entity.Title}\" Ä‘Ã£ Ä‘Æ°á»£c Ä‘Äƒng",
+                            "Bài truyền thông mới",
+                            $"Bài viết \"{entity.Title}\" đã được đăng",
                             relatedEntityType: "Communication", relatedEntityId: entity.Id,
                             fromUserId: CurrentUserId, categoryCode: "communication", storeId: entity.StoreId);
                 }
@@ -653,7 +653,7 @@ public class CommunicationController(
         catch (Exception ex)
         {
             logger.LogError(ex, "Error publishing communication {Id}", id);
-            return StatusCode(500, AppResponse<bool>.Fail("Lá»—i khi xuáº¥t báº£n bÃ i truyá»n thÃ´ng"));
+            return StatusCode(500, AppResponse<bool>.Fail("Lỗi khi xuất bản bài truyền thông"));
         }
     }
 
@@ -722,7 +722,7 @@ public class CommunicationController(
         catch (Exception ex)
         {
             logger.LogError(ex, "Error getting comments for communication {Id}", id);
-            return StatusCode(500, AppResponse<object>.Fail("Lá»—i khi láº¥y bÃ¬nh luáº­n"));
+            return StatusCode(500, AppResponse<object>.Fail("Lỗi khi lấy bình luận"));
         }
     }
 
@@ -777,11 +777,11 @@ public class CommunicationController(
                                 .FirstOrDefaultAsync();
                             if (authorUserId != Guid.Empty && authorUserId != CurrentUserId)
                             {
-                                var commenterName = User.FindFirst(System.Security.Claims.ClaimTypes.Name)?.Value ?? "Ai Ä‘Ã³";
+                                var commenterName = User.FindFirst(System.Security.Claims.ClaimTypes.Name)?.Value ?? "Ai đó";
                                 await notificationService.CreateAndSendAsync(
                                     authorUserId, NotificationType.Info,
-                                    "BÃ¬nh luáº­n má»›i",
-                                    $"{commenterName} Ä‘Ã£ bÃ¬nh luáº­n bÃ i viáº¿t \"{comm.Title}\"",
+                                    "Bình luận mới",
+                                    $"{commenterName} đã bình luận bài viết \"{comm.Title}\"",
                                     relatedEntityType: "Communication", relatedEntityId: id,
                                     fromUserId: CurrentUserId, categoryCode: "communication", storeId: comm.StoreId);
                             }
@@ -796,7 +796,7 @@ public class CommunicationController(
         catch (Exception ex)
         {
             logger.LogError(ex, "Error adding comment");
-            return StatusCode(500, AppResponse<Guid>.Fail("Lá»—i khi thÃªm bÃ¬nh luáº­n"));
+            return StatusCode(500, AppResponse<Guid>.Fail("Lỗi khi thêm bình luận"));
         }
     }
 
@@ -840,7 +840,7 @@ public class CommunicationController(
         catch (Exception ex)
         {
             logger.LogError(ex, "Error toggling reaction");
-            return StatusCode(500, AppResponse<bool>.Fail("Lá»—i khi cáº­p nháº­t reaction"));
+            return StatusCode(500, AppResponse<bool>.Fail("Lỗi khi cập nhật reaction"));
         }
     }
 
@@ -873,24 +873,24 @@ public class CommunicationController(
 
             var typeLabel = dto.Type switch
             {
-                CommunicationType.News => "tin tá»©c ná»™i bá»™",
-                CommunicationType.Announcement => "thÃ´ng bÃ¡o",
-                CommunicationType.Event => "sá»± kiá»‡n",
-                CommunicationType.Policy => "chÃ­nh sÃ¡ch",
-                CommunicationType.Training => "Ä‘Ã o táº¡o",
-                CommunicationType.Culture => "vÄƒn hÃ³a cÃ´ng ty",
-                CommunicationType.Recruitment => "tuyá»ƒn dá»¥ng",
-                CommunicationType.Regulation => "ná»™i quy cÃ´ng ty",
-                _ => "bÃ i viáº¿t"
+                CommunicationType.News => "tin tức nội bộ",
+                CommunicationType.Announcement => "thông báo",
+                CommunicationType.Event => "sự kiện",
+                CommunicationType.Policy => "chính sách",
+                CommunicationType.Training => "đào tạo",
+                CommunicationType.Culture => "văn hóa công ty",
+                CommunicationType.Recruitment => "tuyển dụng",
+                CommunicationType.Regulation => "nội quy công ty",
+                _ => "bài viết"
             };
 
             var toneLabel = dto.Tone?.ToLower() switch
             {
-                "formal" => "trang trá»ng, chuyÃªn nghiá»‡p",
-                "friendly" => "thÃ¢n thiá»‡n, gáº§n gÅ©i",
-                "creative" => "sÃ¡ng táº¡o, háº¥p dáº«n",
-                "inspirational" => "truyá»n cáº£m há»©ng, Ä‘á»™ng lá»±c",
-                _ => "chuyÃªn nghiá»‡p"
+                "formal" => "trang trọng, chuyên nghiệp",
+                "friendly" => "thân thiện, gần gũi",
+                "creative" => "sáng tạo, hấp dẫn",
+                "inspirational" => "truyền cảm hứng, động lực",
+                _ => "chuyên nghiệp"
             };
 
             var stream = geminiAiService.StreamGenerateCommunicationContentAsync(
@@ -917,7 +917,7 @@ public class CommunicationController(
         catch (Exception ex)
         {
             logger.LogError(ex, "Error streaming AI content");
-            await WriteSseEvent("error", $"Lá»—i khi táº¡o ná»™i dung AI: {ex.Message}");
+            await WriteSseEvent("error", $"Lỗi khi tạo nội dung AI: {ex.Message}");
         }
     }
 
@@ -940,24 +940,24 @@ public class CommunicationController(
         {
             var typeLabel = dto.Type switch
             {
-                CommunicationType.News => "tin tá»©c ná»™i bá»™",
-                CommunicationType.Announcement => "thÃ´ng bÃ¡o",
-                CommunicationType.Event => "sá»± kiá»‡n",
-                CommunicationType.Policy => "chÃ­nh sÃ¡ch",
-                CommunicationType.Training => "Ä‘Ã o táº¡o",
-                CommunicationType.Culture => "vÄƒn hÃ³a cÃ´ng ty",
-                CommunicationType.Recruitment => "tuyá»ƒn dá»¥ng",
-                CommunicationType.Regulation => "ná»™i quy cÃ´ng ty",
-                _ => "bÃ i viáº¿t"
+                CommunicationType.News => "tin tức nội bộ",
+                CommunicationType.Announcement => "thông báo",
+                CommunicationType.Event => "sự kiện",
+                CommunicationType.Policy => "chính sách",
+                CommunicationType.Training => "đào tạo",
+                CommunicationType.Culture => "văn hóa công ty",
+                CommunicationType.Recruitment => "tuyển dụng",
+                CommunicationType.Regulation => "nội quy công ty",
+                _ => "bài viết"
             };
 
             var toneLabel = dto.Tone?.ToLower() switch
             {
-                "formal" => "trang trá»ng, chuyÃªn nghiá»‡p",
-                "friendly" => "thÃ¢n thiá»‡n, gáº§n gÅ©i",
-                "creative" => "sÃ¡ng táº¡o, háº¥p dáº«n",
-                "inspirational" => "truyá»n cáº£m há»©ng, Ä‘á»™ng lá»±c",
-                _ => "chuyÃªn nghiá»‡p"
+                "formal" => "trang trọng, chuyên nghiệp",
+                "friendly" => "thân thiện, gần gũi",
+                "creative" => "sáng tạo, hấp dẫn",
+                "inspirational" => "truyền cảm hứng, động lực",
+                _ => "chuyên nghiệp"
             };
 
             AiGeneratedContentDto result;
@@ -1001,7 +1001,7 @@ public class CommunicationController(
         catch (Exception ex)
         {
             logger.LogError(ex, "Error generating AI content");
-            return StatusCode(500, AppResponse<AiGeneratedContentDto>.Fail($"Lá»—i khi táº¡o ná»™i dung AI: {ex.Message}"));
+            return StatusCode(500, AppResponse<AiGeneratedContentDto>.Fail($"Lỗi khi tạo nội dung AI: {ex.Message}"));
         }
     }
 
@@ -1018,13 +1018,13 @@ public class CommunicationController(
         {
             if (file == null || file.Length == 0)
             {
-                return BadRequest(AppResponse<string>.Fail("Vui lÃ²ng chá»n file áº£nh"));
+                return BadRequest(AppResponse<string>.Fail("Vui lòng chọn file ảnh"));
             }
 
             var allowedTypes = new[] { "image/jpeg", "image/png", "image/gif", "image/webp" };
             if (!allowedTypes.Contains(file.ContentType.ToLower()))
             {
-                return BadRequest(AppResponse<string>.Fail("Chá»‰ há»— trá»£ Ä‘á»‹nh dáº¡ng JPEG, PNG, GIF, WebP"));
+                return BadRequest(AppResponse<string>.Fail("Chỉ hỗ trợ định dạng JPEG, PNG, GIF, WebP"));
             }
 
             using var stream = file.OpenReadStream();
@@ -1033,7 +1033,7 @@ public class CommunicationController(
             var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
             if (!ValidateImageMagicBytes(stream, ext))
             {
-                return BadRequest(AppResponse<string>.Fail("Ná»™i dung file khÃ´ng khá»›p vá»›i Ä‘á»‹nh dáº¡ng khai bÃ¡o"));
+                return BadRequest(AppResponse<string>.Fail("Nội dung file không khớp với định dạng khai báo"));
             }
             stream.Position = 0;
 
@@ -1046,7 +1046,7 @@ public class CommunicationController(
         catch (Exception ex)
         {
             logger.LogError(ex, "Error uploading image");
-            return StatusCode(500, AppResponse<string>.Fail("Lá»—i khi upload áº£nh"));
+            return StatusCode(500, AppResponse<string>.Fail("Lỗi khi upload ảnh"));
         }
     }
 
@@ -1063,14 +1063,14 @@ public class CommunicationController(
         {
             if (string.IsNullOrEmpty(dto.Base64Data) || string.IsNullOrEmpty(dto.FileName))
             {
-                return BadRequest(AppResponse<string>.Fail("Vui lÃ²ng chá»n file áº£nh"));
+                return BadRequest(AppResponse<string>.Fail("Vui lòng chọn file ảnh"));
             }
 
             var extension = Path.GetExtension(dto.FileName).ToLower();
             var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif", ".webp" };
             if (!allowedExtensions.Contains(extension))
             {
-                return BadRequest(AppResponse<string>.Fail("Chá»‰ há»— trá»£ Ä‘á»‹nh dáº¡ng JPEG, PNG, GIF, WebP"));
+                return BadRequest(AppResponse<string>.Fail("Chỉ hỗ trợ định dạng JPEG, PNG, GIF, WebP"));
             }
 
             // Remove data URI prefix if present (e.g., "data:image/png;base64,")
@@ -1084,7 +1084,7 @@ public class CommunicationController(
             var estimatedSize = (long)(base64.Length * 3.0 / 4.0);
             if (estimatedSize > 10 * 1024 * 1024)
             {
-                return BadRequest(AppResponse<string>.Fail("KÃ­ch thÆ°á»›c áº£nh tá»‘i Ä‘a 10MB"));
+                return BadRequest(AppResponse<string>.Fail("Kích thước ảnh tối đa 10MB"));
             }
 
             byte[] fileBytes;
@@ -1094,19 +1094,19 @@ public class CommunicationController(
             }
             catch
             {
-                return BadRequest(AppResponse<string>.Fail("Dá»¯ liá»‡u áº£nh khÃ´ng há»£p lá»‡"));
+                return BadRequest(AppResponse<string>.Fail("Dữ liệu ảnh không hợp lệ"));
             }
 
             if (fileBytes.Length > 10 * 1024 * 1024)
             {
-                return BadRequest(AppResponse<string>.Fail("KÃ­ch thÆ°á»›c áº£nh tá»‘i Ä‘a 10MB"));
+                return BadRequest(AppResponse<string>.Fail("Kích thước ảnh tối đa 10MB"));
             }
 
             // Validate magic bytes
             using var checkStream = new MemoryStream(fileBytes);
             if (!ValidateImageMagicBytes(checkStream, extension))
             {
-                return BadRequest(AppResponse<string>.Fail("Ná»™i dung file khÃ´ng khá»›p vá»›i Ä‘á»‹nh dáº¡ng khai bÃ¡o"));
+                return BadRequest(AppResponse<string>.Fail("Nội dung file không khớp với định dạng khai báo"));
             }
 
             using var stream = new MemoryStream(fileBytes);
@@ -1119,7 +1119,7 @@ public class CommunicationController(
         catch (Exception ex)
         {
             logger.LogError(ex, "Error uploading base64 image");
-            return StatusCode(500, AppResponse<string>.Fail("Lá»—i khi upload áº£nh"));
+            return StatusCode(500, AppResponse<string>.Fail("Lỗi khi upload ảnh"));
         }
     }
 
@@ -1167,7 +1167,7 @@ public class CommunicationController(
         catch (Exception ex)
         {
             logger.LogError(ex, "Error getting communication stats");
-            return StatusCode(500, AppResponse<object>.Fail("Lá»—i khi láº¥y thá»‘ng kÃª"));
+            return StatusCode(500, AppResponse<object>.Fail("Lỗi khi lấy thống kê"));
         }
     }
 
@@ -1259,99 +1259,99 @@ public class CommunicationController(
         string summary;
         var tags = new List<string>();
 
-        if (promptLower.Contains("sá»± kiá»‡n") || promptLower.Contains("event"))
+        if (promptLower.Contains("sự kiện") || promptLower.Contains("event"))
         {
             title = $"ðŸ“¢ {prompt}";
-            summary = $"ThÃ´ng tin chi tiáº¿t vá» sá»± kiá»‡n {prompt} táº¡i cÃ´ng ty.";
+            summary = $"Thông tin chi tiết về sự kiện {prompt} tại công ty.";
             content = $@"<h2>ðŸŽ‰ {prompt}</h2>
-<p><strong>KÃ­nh gá»­i toÃ n thá»ƒ nhÃ¢n viÃªn,</strong></p>
-<p>Ban lÃ£nh Ä‘áº¡o cÃ´ng ty trÃ¢n trá»ng thÃ´ng bÃ¡o vá» sá»± kiá»‡n <strong>{prompt}</strong> sáº¯p Ä‘Æ°á»£c tá»• chá»©c.</p>
-<h3>ðŸ“‹ Chi tiáº¿t sá»± kiá»‡n:</h3>
+<p><strong>Kính gửi toàn thể nhân viên,</strong></p>
+<p>Ban lãnh đạo công ty trân trọng thông báo về sự kiện <strong>{prompt}</strong> sắp được tổ chức.</p>
+<h3>ðŸ“‹ Chi tiết sự kiện:</h3>
 <ul>
-<li><strong>Thá»i gian:</strong> [Cáº­p nháº­t thá»i gian cá»¥ thá»ƒ]</li>
-<li><strong>Äá»‹a Ä‘iá»ƒm:</strong> [Cáº­p nháº­t Ä‘á»‹a Ä‘iá»ƒm]</li>
-<li><strong>Äá»‘i tÆ°á»£ng tham gia:</strong> ToÃ n thá»ƒ nhÃ¢n viÃªn</li>
+<li><strong>Thời gian:</strong> [Cập nhật thời gian cụ thể]</li>
+<li><strong>Địa điểm:</strong> [Cập nhật địa điểm]</li>
+<li><strong>Đối tượng tham gia:</strong> Toàn thể nhân viên</li>
 </ul>
-{(context != null ? $"<p><em>Bá»‘i cáº£nh:</em> {context}</p>" : "")}
-<h3>ðŸŽ¯ Má»¥c Ä‘Ã­ch:</h3>
-<p>Sá»± kiá»‡n nháº±m táº¡o cÆ¡ há»™i giao lÆ°u, káº¿t ná»‘i giá»¯a cÃ¡c phÃ²ng ban vÃ  nÃ¢ng cao tinh tháº§n Ä‘oÃ n káº¿t trong táº­p thá»ƒ.</p>
-<p><em>NgÃ y táº¡o: {dateStr}</em></p>
-<p>TrÃ¢n trá»ng,<br/><strong>Ban Truyá»n thÃ´ng Ná»™i bá»™</strong></p>";
-            tags.AddRange(new[] { "sá»± kiá»‡n", "team-building", typeLabel });
+{(context != null ? $"<p><em>Bối cảnh:</em> {context}</p>" : "")}
+<h3>ðŸŽ¯ Mục đích:</h3>
+<p>Sự kiện nhằm tạo cơ hội giao lưu, kết nối giữa các phòng ban và nâng cao tinh thần đoàn kết trong tập thể.</p>
+<p><em>Ngày tạo: {dateStr}</em></p>
+<p>Trân trọng,<br/><strong>Ban Truyền thông Nội bộ</strong></p>";
+            tags.AddRange(new[] { "sự kiện", "team-building", typeLabel });
         }
-        else if (promptLower.Contains("thÃ´ng bÃ¡o") || promptLower.Contains("announcement"))
+        else if (promptLower.Contains("thông báo") || promptLower.Contains("announcement"))
         {
-            title = $"ðŸ“‹ ThÃ´ng bÃ¡o: {prompt}";
-            summary = $"ThÃ´ng bÃ¡o quan trá»ng vá» {prompt}.";
-            content = $@"<h2>ðŸ“‹ THÃ”NG BÃO</h2>
-<p><strong>KÃ­nh gá»­i toÃ n thá»ƒ CBNV,</strong></p>
-<p>Ban lÃ£nh Ä‘áº¡o cÃ´ng ty xin thÃ´ng bÃ¡o vá» ná»™i dung: <strong>{prompt}</strong></p>
-<h3>ðŸ“Œ Ná»™i dung chÃ­nh:</h3>
+            title = $"ðŸ“‹ Thông báo: {prompt}";
+            summary = $"Thông báo quan trọng về {prompt}.";
+            content = $@"<h2>ðŸ“‹ THÔNG BÁO</h2>
+<p><strong>Kính gửi toàn thể CBNV,</strong></p>
+<p>Ban lãnh đạo công ty xin thông báo về nội dung: <strong>{prompt}</strong></p>
+<h3>ðŸ“Œ Nội dung chính:</h3>
 <p>{prompt}</p>
-{(context != null ? $"<p><strong>Chi tiáº¿t bá»• sung:</strong> {context}</p>" : "")}
-<h3>â° Thá»i gian Ã¡p dá»¥ng:</h3>
-<p>CÃ³ hiá»‡u lá»±c tá»« ngÃ y {dateStr}</p>
-<p>Má»i tháº¯c máº¯c vui lÃ²ng liÃªn há»‡ PhÃ²ng NhÃ¢n sá»± hoáº·c quáº£n lÃ½ trá»±c tiáº¿p.</p>
-<p>TrÃ¢n trá»ng,<br/><strong>Ban GiÃ¡m Ä‘á»‘c</strong></p>";
-            tags.AddRange(new[] { "thÃ´ng bÃ¡o", "quan trá»ng", typeLabel });
+{(context != null ? $"<p><strong>Chi tiết bổ sung:</strong> {context}</p>" : "")}
+<h3>â° Thời gian áp dụng:</h3>
+<p>Có hiệu lực từ ngày {dateStr}</p>
+<p>Mọi thắc mắc vui lòng liên hệ Phòng Nhân sự hoặc quản lý trực tiếp.</p>
+<p>Trân trọng,<br/><strong>Ban Giám đốc</strong></p>";
+            tags.AddRange(new[] { "thông báo", "quan trọng", typeLabel });
         }
-        else if (promptLower.Contains("chÃ­nh sÃ¡ch") || promptLower.Contains("policy"))
+        else if (promptLower.Contains("chính sách") || promptLower.Contains("policy"))
         {
-            title = $"ðŸ“œ ChÃ­nh sÃ¡ch: {prompt}";
-            summary = $"Cáº­p nháº­t chÃ­nh sÃ¡ch má»›i vá» {prompt}.";
-            content = $@"<h2>ðŸ“œ Cáº¬P NHáº¬T CHÃNH SÃCH</h2>
-<p><strong>KÃ­nh gá»­i toÃ n thá»ƒ CBNV,</strong></p>
-<p>Nháº±m hoÃ n thiá»‡n há»‡ thá»‘ng quáº£n lÃ½ vÃ  nÃ¢ng cao hiá»‡u quáº£ lÃ m viá»‡c, cÃ´ng ty ban hÃ nh chÃ­nh sÃ¡ch má»›i vá»: <strong>{prompt}</strong></p>
-<h3>ðŸ“‹ Ná»™i dung chÃ­nh sÃ¡ch:</h3>
+            title = $"ðŸ“œ Chính sách: {prompt}";
+            summary = $"Cập nhật chính sách mới về {prompt}.";
+            content = $@"<h2>ðŸ“œ CẬP NHẬT CHÍNH SÁCH</h2>
+<p><strong>Kính gửi toàn thể CBNV,</strong></p>
+<p>Nhằm hoàn thiện hệ thống quản lý và nâng cao hiệu quả làm việc, công ty ban hành chính sách mới về: <strong>{prompt}</strong></p>
+<h3>ðŸ“‹ Nội dung chính sách:</h3>
 <ol>
-<li>Pháº¡m vi Ã¡p dá»¥ng: ToÃ n thá»ƒ CBNV</li>
-<li>Ná»™i dung: {prompt}</li>
-<li>Thá»i gian Ã¡p dá»¥ng: Tá»« ngÃ y {dateStr}</li>
+<li>Phạm vi áp dụng: Toàn thể CBNV</li>
+<li>Nội dung: {prompt}</li>
+<li>Thời gian áp dụng: Từ ngày {dateStr}</li>
 </ol>
-{(context != null ? $"<h3>ðŸ’¡ LÆ°u Ã½:</h3><p>{context}</p>" : "")}
-<p>Äá» nghá»‹ cÃ¡c phÃ²ng ban phá»• biáº¿n Ä‘áº¿n tá»«ng nhÃ¢n viÃªn Ä‘á»ƒ Ä‘áº£m báº£o thá»±c hiá»‡n Ä‘Ãºng quy Ä‘á»‹nh.</p>
-<p>TrÃ¢n trá»ng,<br/><strong>PhÃ²ng NhÃ¢n sá»±</strong></p>";
-            tags.AddRange(new[] { "chÃ­nh sÃ¡ch", "quy Ä‘á»‹nh", typeLabel });
+{(context != null ? $"<h3>ðŸ’¡ Lưu ý:</h3><p>{context}</p>" : "")}
+<p>Đề nghị các phòng ban phổ biến đến từng nhân viên để đảm bảo thực hiện đúng quy định.</p>
+<p>Trân trọng,<br/><strong>Phòng Nhân sự</strong></p>";
+            tags.AddRange(new[] { "chính sách", "quy định", typeLabel });
         }
-        else if (promptLower.Contains("tuyá»ƒn dá»¥ng") || promptLower.Contains("recruit"))
+        else if (promptLower.Contains("tuyển dụng") || promptLower.Contains("recruit"))
         {
-            title = $"ðŸ” Tuyá»ƒn dá»¥ng: {prompt}";
-            summary = $"ThÃ´ng tin tuyá»ƒn dá»¥ng {prompt}.";
-            content = $@"<h2>ðŸ” THÃ”NG BÃO TUYá»‚N Dá»¤NG</h2>
-<p><strong>CÃ´ng ty Ä‘ang tÃ¬m kiáº¿m á»©ng viÃªn cho vá»‹ trÃ­:</strong></p>
+            title = $"ðŸ” Tuyển dụng: {prompt}";
+            summary = $"Thông tin tuyển dụng {prompt}.";
+            content = $@"<h2>ðŸ” THÔNG BÁO TUYỂN DỤNG</h2>
+<p><strong>Công ty đang tìm kiếm ứng viên cho vị trí:</strong></p>
 <h3>ðŸ’¼ {prompt}</h3>
-<h3>ðŸ“‹ YÃªu cáº§u:</h3>
+<h3>ðŸ“‹ Yêu cầu:</h3>
 <ul>
-<li>Kinh nghiá»‡m: [Cáº­p nháº­t yÃªu cáº§u]</li>
-<li>TrÃ¬nh Ä‘á»™: [Cáº­p nháº­t trÃ¬nh Ä‘á»™]</li>
-<li>Ká»¹ nÄƒng: [Cáº­p nháº­t ká»¹ nÄƒng]</li>
+<li>Kinh nghiệm: [Cập nhật yêu cầu]</li>
+<li>Trình độ: [Cập nhật trình độ]</li>
+<li>Kỹ năng: [Cập nhật kỹ năng]</li>
 </ul>
-<h3>ðŸŽ Quyá»n lá»£i:</h3>
+<h3>ðŸŽ Quyền lợi:</h3>
 <ul>
-<li>Má»©c lÆ°Æ¡ng cáº¡nh tranh</li>
-<li>MÃ´i trÆ°á»ng lÃ m viá»‡c chuyÃªn nghiá»‡p</li>
-<li>CÆ¡ há»™i phÃ¡t triá»ƒn nghá» nghiá»‡p</li>
+<li>Mức lương cạnh tranh</li>
+<li>Môi trường làm việc chuyên nghiệp</li>
+<li>Cơ hội phát triển nghề nghiệp</li>
 </ul>
-{(context != null ? $"<p><strong>ThÃ´ng tin thÃªm:</strong> {context}</p>" : "")}
-<p>á»¨ng viÃªn quan tÃ¢m vui lÃ²ng gá»­i CV vá» PhÃ²ng NhÃ¢n sá»± hoáº·c giá»›i thiá»‡u á»©ng viÃªn phÃ¹ há»£p.</p>
-<p><em>Háº¡n ná»™p há»“ sÆ¡: [Cáº­p nháº­t deadline]</em></p>";
-            tags.AddRange(new[] { "tuyá»ƒn dá»¥ng", "viá»‡c lÃ m", typeLabel });
+{(context != null ? $"<p><strong>Thông tin thêm:</strong> {context}</p>" : "")}
+<p>Ứng viên quan tâm vui lòng gửi CV về Phòng Nhân sự hoặc giới thiệu ứng viên phù hợp.</p>
+<p><em>Hạn nộp hồ sơ: [Cập nhật deadline]</em></p>";
+            tags.AddRange(new[] { "tuyển dụng", "việc làm", typeLabel });
         }
         else
         {
             title = $"ðŸ“° {prompt}";
-            summary = $"BÃ i viáº¿t truyá»n thÃ´ng ná»™i bá»™ vá» {prompt}.";
+            summary = $"Bài viết truyền thông nội bộ về {prompt}.";
             content = $@"<h2>ðŸ“° {prompt}</h2>
-<p><strong>KÃ­nh gá»­i toÃ n thá»ƒ CBNV,</strong></p>
+<p><strong>Kính gửi toàn thể CBNV,</strong></p>
 <p>{prompt}</p>
 {(context != null ? $"<p>{context}</p>" : "")}
-<h3>ðŸ“‹ Chi tiáº¿t:</h3>
-<p>Ná»™i dung bÃ i viáº¿t vá» chá»§ Ä‘á» trÃªn sáº½ Ä‘Æ°á»£c cáº­p nháº­t chi tiáº¿t táº¡i Ä‘Ã¢y. BÃ i viáº¿t nháº±m má»¥c Ä‘Ã­ch chia sáº» thÃ´ng tin, káº¿t ná»‘i vÃ  xÃ¢y dá»±ng vÄƒn hÃ³a doanh nghiá»‡p.</p>
-<h3>ðŸ’¡ Káº¿t luáº­n:</h3>
-<p>Cáº£m Æ¡n sá»± quan tÃ¢m vÃ  Ä‘á»“ng hÃ nh cá»§a toÃ n thá»ƒ CBNV. Má»i gÃ³p Ã½ xin gá»­i vá» PhÃ²ng Truyá»n thÃ´ng.</p>
-<p><em>NgÃ y Ä‘Äƒng: {dateStr}</em></p>
-<p>TrÃ¢n trá»ng,<br/><strong>Ban Truyá»n thÃ´ng Ná»™i bá»™</strong></p>";
-            tags.AddRange(new[] { "truyá»n thÃ´ng", "ná»™i bá»™", typeLabel });
+<h3>ðŸ“‹ Chi tiết:</h3>
+<p>Nội dung bài viết về chủ đề trên sẽ được cập nhật chi tiết tại đây. Bài viết nhằm mục đích chia sẻ thông tin, kết nối và xây dựng văn hóa doanh nghiệp.</p>
+<h3>ðŸ’¡ Kết luận:</h3>
+<p>Cảm ơn sự quan tâm và đồng hành của toàn thể CBNV. Mọi góp ý xin gửi về Phòng Truyền thông.</p>
+<p><em>Ngày đăng: {dateStr}</em></p>
+<p>Trân trọng,<br/><strong>Ban Truyền thông Nội bộ</strong></p>";
+            tags.AddRange(new[] { "truyền thông", "nội bộ", typeLabel });
         }
 
         return (title, content, summary, tags);
@@ -1362,7 +1362,7 @@ public class CommunicationController(
     #region AI Config (Multi-provider)
 
     /// <summary>
-    /// Láº¥y danh sÃ¡ch táº¥t cáº£ AI providers vá»›i tráº¡ng thÃ¡i
+    /// Lấy danh sách tất cả AI providers với trạng thái
     /// </summary>
     [HttpGet("ai/providers")]
     [Authorize]
@@ -1399,12 +1399,12 @@ public class CommunicationController(
         catch (Exception ex)
         {
             logger.LogError(ex, "Error getting AI providers");
-            return StatusCode(500, AppResponse<object>.Fail("Lá»—i khi láº¥y danh sÃ¡ch AI"));
+            return StatusCode(500, AppResponse<object>.Fail("Lỗi khi lấy danh sách AI"));
         }
     }
 
     /// <summary>
-    /// Láº¥y cáº¥u hÃ¬nh Gemini AI hiá»‡n táº¡i
+    /// Lấy cấu hình Gemini AI hiện tại
     /// </summary>
     [HttpGet("ai/config")]
     [Authorize]
@@ -1413,7 +1413,7 @@ public class CommunicationController(
     {
         try
         {
-            // Äá»c config tá»« DB trÆ°á»›c (batch load), náº¿u khÃ´ng cÃ³ thÃ¬ láº¥y tá»« service
+            // Đọc config từ DB trước (batch load), nếu không có thì lấy từ service
             var storeId = RequiredStoreId;
             var geminiKeys = new[] { "gemini_api_key", "gemini_model", "gemini_max_tokens", "gemini_temperature", "gemini_enabled" };
             var geminiSettings = await dbContext.AppSettings
@@ -1453,12 +1453,12 @@ public class CommunicationController(
         catch (Exception ex)
         {
             logger.LogError(ex, "Error getting Gemini config");
-            return StatusCode(500, AppResponse<object>.Fail("Lá»—i khi láº¥y cáº¥u hÃ¬nh AI"));
+            return StatusCode(500, AppResponse<object>.Fail("Lỗi khi lấy cấu hình AI"));
         }
     }
 
     /// <summary>
-    /// Cáº­p nháº­t cáº¥u hÃ¬nh Gemini AI
+    /// Cập nhật cấu hình Gemini AI
     /// </summary>
     [HttpPost("ai/config")]
     [Authorize]
@@ -1467,7 +1467,7 @@ public class CommunicationController(
     {
         try
         {
-            // LÆ°u vÃ o DB - pre-load existing settings to avoid N+1
+            // Lưu vào DB - pre-load existing settings to avoid N+1
             var storeId = RequiredStoreId;
             var settings = new Dictionary<string, string?>
             {
@@ -1550,12 +1550,12 @@ public class CommunicationController(
         catch (Exception ex)
         {
             logger.LogError(ex, "Error updating Gemini config");
-            return StatusCode(500, AppResponse<object>.Fail($"Lá»—i khi cáº­p nháº­t cáº¥u hÃ¬nh AI: {ex.Message}"));
+            return StatusCode(500, AppResponse<object>.Fail($"Lỗi khi cập nhật cấu hình AI: {ex.Message}"));
         }
     }
 
     /// <summary>
-    /// Kiá»ƒm tra káº¿t ná»‘i Gemini AI
+    /// Kiểm tra kết nối Gemini AI
     /// </summary>
     [HttpPost("ai/test")]
     [Authorize]
@@ -1566,16 +1566,16 @@ public class CommunicationController(
         {
             if (!geminiAiService.IsConfigured || !geminiAiService.IsEnabled)
             {
-                return Ok(AppResponse<object>.Fail("Gemini AI chÆ°a Ä‘Æ°á»£c báº­t hoáº·c chÆ°a cáº¥u hÃ¬nh API Key"));
+                return Ok(AppResponse<object>.Fail("Gemini AI chưa được bật hoặc chưa cấu hình API Key"));
             }
 
             var result = await geminiAiService.GenerateCommunicationContentAsync(
-                "Viáº¿t má»™t cÃ¢u chÃ o ngáº¯n gá»n", "tin tá»©c", "thÃ¢n thiá»‡n", null, 200);
+                "Viết một câu chào ngắn gọn", "tin tức", "thân thiện", null, 200);
 
             return Ok(AppResponse<object>.Success(new
             {
                 success = true,
-                message = "Káº¿t ná»‘i Gemini AI thÃ nh cÃ´ng!",
+                message = "Kết nối Gemini AI thành công!",
                 sampleTitle = result.Title,
                 sampleContent = result.Content.Length > 200 ? result.Content[..200] + "..." : result.Content
             }));
@@ -1587,29 +1587,29 @@ public class CommunicationController(
             {
                 success = true,
                 isQuotaError = true,
-                message = "âœ… API Key há»£p lá»‡! Tuy nhiÃªn quota miá»…n phÃ­ Ä‘Ã£ táº¡m háº¿t.",
+                message = "✅ API Key hợp lệ! Tuy nhiên quota miễn phí đã tạm hết.",
                 detail = ex.Message
             }));
         }
         catch (AiApiException ex) when (ex.IsAuthError)
         {
             logger.LogWarning("Gemini AI test - auth error");
-            return Ok(AppResponse<object>.Fail($"âŒ API Key khÃ´ng há»£p lá»‡: {ex.Message}"));
+            return Ok(AppResponse<object>.Fail($"âŒ API Key không hợp lệ: {ex.Message}"));
         }
         catch (AiApiException ex)
         {
             logger.LogError(ex, "Gemini AI test failed with API error");
-            return Ok(AppResponse<object>.Fail($"Lá»—i API: {ex.Message}"));
+            return Ok(AppResponse<object>.Fail($"Lỗi API: {ex.Message}"));
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "Gemini AI test failed");
-            return Ok(AppResponse<object>.Fail($"Káº¿t ná»‘i tháº¥t báº¡i: {ex.Message}"));
+            return Ok(AppResponse<object>.Fail($"Kết nối thất bại: {ex.Message}"));
         }
     }
 
     /// <summary>
-    /// Láº¥y cáº¥u hÃ¬nh DeepSeek AI hiá»‡n táº¡i
+    /// Lấy cấu hình DeepSeek AI hiện tại
     /// </summary>
     [HttpGet("ai/deepseek/config")]
     [Authorize]
@@ -1641,12 +1641,12 @@ public class CommunicationController(
         catch (Exception ex)
         {
             logger.LogError(ex, "Error getting DeepSeek config");
-            return StatusCode(500, AppResponse<object>.Fail("Lá»—i khi láº¥y cáº¥u hÃ¬nh DeepSeek"));
+            return StatusCode(500, AppResponse<object>.Fail("Lỗi khi lấy cấu hình DeepSeek"));
         }
     }
 
     /// <summary>
-    /// Cáº­p nháº­t cáº¥u hÃ¬nh DeepSeek AI
+    /// Cập nhật cấu hình DeepSeek AI
     /// </summary>
     [HttpPost("ai/deepseek/config")]
     [Authorize]
@@ -1722,18 +1722,18 @@ public class CommunicationController(
             return Ok(AppResponse<object>.Success(new
             {
                 isConfigured = deepSeekAiService.IsConfigured,
-                message = "Cáº­p nháº­t cáº¥u hÃ¬nh DeepSeek thÃ nh cÃ´ng"
+                message = "Cập nhật cấu hình DeepSeek thành công"
             }));
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "Error updating DeepSeek config");
-            return StatusCode(500, AppResponse<object>.Fail($"Lá»—i khi cáº­p nháº­t cáº¥u hÃ¬nh DeepSeek: {ex.Message}"));
+            return StatusCode(500, AppResponse<object>.Fail($"Lỗi khi cập nhật cấu hình DeepSeek: {ex.Message}"));
         }
     }
 
     /// <summary>
-    /// Kiá»ƒm tra káº¿t ná»‘i DeepSeek AI
+    /// Kiểm tra kết nối DeepSeek AI
     /// </summary>
     [HttpPost("ai/deepseek/test")]
     [Authorize]
@@ -1744,16 +1744,16 @@ public class CommunicationController(
         {
             if (!deepSeekAiService.IsConfigured || !deepSeekAiService.IsEnabled)
             {
-                return Ok(AppResponse<object>.Fail("DeepSeek AI chÆ°a Ä‘Æ°á»£c báº­t hoáº·c chÆ°a cáº¥u hÃ¬nh API Key"));
+                return Ok(AppResponse<object>.Fail("DeepSeek AI chưa được bật hoặc chưa cấu hình API Key"));
             }
 
             var result = await deepSeekAiService.GenerateCommunicationContentAsync(
-                "Viáº¿t má»™t cÃ¢u chÃ o ngáº¯n gá»n", "tin tá»©c", "thÃ¢n thiá»‡n", null, 200);
+                "Viết một câu chào ngắn gọn", "tin tức", "thân thiện", null, 200);
 
             return Ok(AppResponse<object>.Success(new
             {
                 success = true,
-                message = "Káº¿t ná»‘i DeepSeek AI thÃ nh cÃ´ng!",
+                message = "Kết nối DeepSeek AI thành công!",
                 sampleTitle = result.Title,
                 sampleContent = result.Content.Length > 200 ? result.Content[..200] + "..." : result.Content
             }));
@@ -1765,24 +1765,24 @@ public class CommunicationController(
             {
                 success = true,
                 isQuotaError = true,
-                message = "âœ… API Key há»£p lá»‡! Tuy nhiÃªn quota Ä‘Ã£ táº¡m háº¿t.",
+                message = "✅ API Key hợp lệ! Tuy nhiên quota đã tạm hết.",
                 detail = ex.Message
             }));
         }
         catch (AiApiException ex) when (ex.IsAuthError)
         {
             logger.LogWarning("DeepSeek AI test - auth error");
-            return Ok(AppResponse<object>.Fail($"âŒ API Key khÃ´ng há»£p lá»‡: {ex.Message}"));
+            return Ok(AppResponse<object>.Fail($"âŒ API Key không hợp lệ: {ex.Message}"));
         }
         catch (AiApiException ex)
         {
             logger.LogError(ex, "DeepSeek AI test failed with API error");
-            return Ok(AppResponse<object>.Fail($"Lá»—i API: {ex.Message}"));
+            return Ok(AppResponse<object>.Fail($"Lỗi API: {ex.Message}"));
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "DeepSeek AI test failed");
-            return Ok(AppResponse<object>.Fail($"Káº¿t ná»‘i tháº¥t báº¡i: {ex.Message}"));
+            return Ok(AppResponse<object>.Fail($"Kết nối thất bại: {ex.Message}"));
         }
     }
 

@@ -18,7 +18,7 @@ namespace ZKTecoADMS.Api.Controllers;
 public class HrDocumentsController(IMediator mediator) : AuthenticatedControllerBase
 {
     /// <summary>
-    /// Láº¥y danh sÃ¡ch tÃ i liá»‡u HR
+    /// Lấy danh sách tài liệu HR
     /// </summary>
     [HttpGet]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
@@ -46,7 +46,7 @@ public class HrDocumentsController(IMediator mediator) : AuthenticatedController
     }
 
     /// <summary>
-    /// Láº¥y danh sÃ¡ch tÃ i liá»‡u sáº¯p háº¿t háº¡n
+    /// Lấy danh sách tài liệu sắp hết hạn
     /// </summary>
     [HttpGet("expiring")]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
@@ -60,7 +60,7 @@ public class HrDocumentsController(IMediator mediator) : AuthenticatedController
     }
 
     /// <summary>
-    /// Táº¡o tÃ i liá»‡u má»›i
+    /// Tạo tài liệu mới
     /// </summary>
     [HttpPost]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
@@ -91,7 +91,7 @@ public class HrDocumentsController(IMediator mediator) : AuthenticatedController
     }
 
     /// <summary>
-    /// Cáº­p nháº­t tÃ i liá»‡u
+    /// Cập nhật tài liệu
     /// </summary>
     [HttpPut("{id}")]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
@@ -117,7 +117,7 @@ public class HrDocumentsController(IMediator mediator) : AuthenticatedController
     }
 
     /// <summary>
-    /// XÃ³a tÃ i liá»‡u
+    /// Xóa tài liệu
     /// </summary>
     [HttpDelete("{id}")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]

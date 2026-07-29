@@ -23,7 +23,7 @@ public class ReportsController(
     ILogger<ReportsController> logger
 ) : AuthenticatedControllerBase
 {
-    // Typed projection for ShiftTemplate used by daily report â€” using a named record
+    // Typed projection for ShiftTemplate used by daily report — using a named record
     // (vs anonymous types boxed into dynamic) avoids runtime cast issues when the
     // list is iterated in a different assembly/internal scope.
     private sealed record ShiftInfo(
@@ -128,7 +128,7 @@ public class ReportsController(
 
             var allPins = pinToEmployeeId.Keys.ToList();
 
-            // Get attendances for the date (filter by Device.StoreId) â€” use Select projection.
+            // Get attendances for the date (filter by Device.StoreId) — use Select projection.
             // AttendanceTime is stored in UTC; filter by VN-day UTC range so punches near
             // midnight VN fall into the correct calendar day.
             var attendances = await dbContext.AttendanceLogs
@@ -177,13 +177,13 @@ public class ReportsController(
                 .GroupBy(ws => ws.EmployeeUserId)
                 .ToDictionary(g => g.Key, g => g.ToList());
 
-            // Load active salary profile (Benefit) for each employee â€” used as a
+            // Load active salary profile (Benefit) for each employee — used as a
             // fallback when no WorkSchedule exists. Salary profile defines:
-            //   â€¢ WeeklyOffDays (e.g. "Saturday,Sunday") â†’ those weekdays are rest
+            //   • WeeklyOffDays (e.g. "Saturday,Sunday") → those weekdays are rest
             //     days and NOT counted as absent when employee doesn't show up.
-            //   â€¢ CheckIn/CheckOut â†’ default expected hours.
+            //   • CheckIn/CheckOut → default expected hours.
             // Any other working weekday with no check-in and no approved leave is
-            // counted as "Váº¯ng khÃ´ng phÃ©p".
+            // counted as "Vắng không phép".
             // EffectiveDate may carry a time component (e.g. created at 14:29:30 of the
             // same day). Treat assignment as effective for the WHOLE day, so compare against
             // end-of-day rather than 00:00. Same for EndDate inclusivity.
@@ -200,10 +200,10 @@ public class ReportsController(
                 .ToDictionary(g => g.Key, g => g.First().Benefit);
 
             // â”€â”€â”€ Load shift templates for "shifts in salary profile" fallback â”€â”€
-            // Khi nhÃ¢n viÃªn khÃ´ng cÃ³ WorkSchedule cho ngÃ y, ta Ä‘á»‘i chiáº¿u giá»
-            // cháº¥m vÃ o vá»›i danh sÃ¡ch ca trong há»“ sÆ¡ lÆ°Æ¡ng (Benefit.Description
-            // dáº¡ng "shifts:Ca sÃ¡ng, Ca chiá»u|...") Ä‘á»ƒ tÃ­nh trá»…/sá»›m chuáº©n theo
-            // tab "Tá»•ng há»£p theo ca" trÃªn Flutter.
+            // Khi nhân viên không có WorkSchedule cho ngày, ta đối chiếu giờ
+            // chấm vào với danh sách ca trong hồ sơ lương (Benefit.Description
+            // dạng "shifts:Ca sáng, Ca chiều|...") để tính trễ/sớm chuẩn theo
+            // tab "Tổng hợp theo ca" trên Flutter.
             var activeShiftTemplates = await dbContext.ShiftTemplates
                 .Where(s => s.StoreId == storeId && s.IsActive)
                 .Select(s => new ShiftInfo(
@@ -238,10 +238,10 @@ public class ReportsController(
 
             // Public holidays applicable to this date for this store.
             // A holiday applies if:
-            //  â€¢ its exact Date == targetDate, OR
-            //  â€¢ IsRecurring AND month/day match (annual holidays)
-            //  â€¢ AND (StoreId == storeId OR StoreId IS NULL â€” null = global)
-            //  â€¢ AND IsActive
+            //  • its exact Date == targetDate, OR
+            //  • IsRecurring AND month/day match (annual holidays)
+            //  • AND (StoreId == storeId OR StoreId IS NULL — null = global)
+            //  • AND IsActive
             // EmployeeIds (comma-separated) optionally restricts the holiday to a subset.
             var allHolidays = await dbContext.Holidays
                 .Where(h => h.IsActive
@@ -255,7 +255,7 @@ public class ReportsController(
             var isHolidayToday = matchingHolidays.Any(h => string.IsNullOrWhiteSpace(h.EmployeeIds));
             // Per-employee holiday membership: if a holiday has EmployeeIds set,
             // only those employees are off on that holiday. EmployeeIds is stored either
-            // as comma-separated values OR as a JSON array (legacy seeded data) â€” handle both.
+            // as comma-separated values OR as a JSON array (legacy seeded data) — handle both.
             var holidayEmployeeIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             foreach (var h in matchingHolidays.Where(h => !string.IsNullOrWhiteSpace(h.EmployeeIds)))
             {
@@ -373,7 +373,7 @@ public class ReportsController(
                         if (assignedShifts.Count > 0)
                         {
                             multiShiftAssignments = assignedShifts;
-                            // Best-match ca chÃ­nh (cho expectedStart/End máº·c Ä‘á»‹nh khi chá»‰ cÃ³ 1 punch)
+                            // Best-match ca chính (cho expectedStart/End mặc định khi chỉ có 1 punch)
                             if (checkIn != null)
                             {
                                 var checkInVnMin = (int)checkIn.AttendanceTime.AddHours(7).TimeOfDay.TotalMinutes;
@@ -407,7 +407,7 @@ public class ReportsController(
                         holidayEmployeeIds.Contains(employee.Id.ToString())
                         || (!string.IsNullOrEmpty(employee.EmployeeCode) && holidayEmployeeIds.Contains(employee.EmployeeCode))));
 
-                // Check if on leave â€” O(1) HashSet lookup
+                // Check if on leave — O(1) HashSet lookup
                 var isOnLeave = employee.ApplicationUserId.HasValue && 
                     leaveUserIds.Contains(employee.ApplicationUserId.Value);
                 
@@ -418,7 +418,7 @@ public class ReportsController(
 
                 if (isHolidayForEmp && checkIn == null)
                 {
-                    // Public holiday and employee did not work â†’ "Nghá»‰ lá»…".
+                    // Public holiday and employee did not work → "Nghỉ lễ".
                     // If they DID check in on a holiday, fall through to normal
                     // attendance branches so OT/holiday-pay logic still applies.
                     status = ReportLabels.Holiday;
@@ -445,14 +445,14 @@ public class ReportsController(
                 }
                 else if (checkIn != null)
                 {
-                    // Náº¿u nhÃ¢n viÃªn cÃ³ nhiá»u ca trong há»“ sÆ¡ lÆ°Æ¡ng, pair tá»«ng
-                    // punch vá»›i ca gáº§n nháº¥t theo giá» vÃ  cá»™ng dá»“n late/early.
+                    // Nếu nhân viên có nhiều ca trong hồ sơ lương, pair từng
+                    // punch với ca gần nhất theo giờ và cộng dồn late/early.
                     if (multiShiftAssignments != null && multiShiftAssignments.Count > 1)
                     {
                         var sortedPunches = empAttendances
                             .OrderBy(a => a.AttendanceTime)
                             .ToList();
-                        // Pair theo cáº·p (in, out) â€” odd index lÃ m in, even+1 lÃ m out.
+                        // Pair theo cặp (in, out) — odd index làm in, even+1 làm out.
                         var pairs = new List<(DateTime In, DateTime? Out)>();
                         for (int i = 0; i < sortedPunches.Count; i += 2)
                         {
@@ -566,7 +566,7 @@ public class ReportsController(
                 else
                 {
                     // Today is a working day (per WorkSchedule or salary
-                    // profile), no check-in, no approved leave â†’ váº¯ng khÃ´ng phÃ©p.
+                    // profile), no check-in, no approved leave → vắng không phép.
                     status = ReportLabels.AbsentUnexcused;
                     totalAbsent++;
                 }
@@ -592,11 +592,11 @@ public class ReportsController(
             }
 
             var scheduledCount = employees.Count - totalNotScheduled;
-            // Present = nhÃ¢n viÃªn cÃ³ check-in (Ä‘Ãºng giá» + Ä‘i muá»™n). "Vá» sá»›m" lÃ  sub-flag,
-            // khÃ´ng cá»™ng thÃªm vÃ o Present Ä‘á»ƒ trÃ¡nh Ä‘áº¿m 2 láº§n ngÆ°á»i Ä‘i muá»™n-vá» sá»›m.
+            // Present = nhân viên có check-in (đúng giờ + đi muộn). "Về sớm" là sub-flag,
+            // không cộng thêm vào Present để tránh đếm 2 lần người đi muộn-về sớm.
             var totalPresent = totalOnTime + totalLate;
-            // Máº«u sá»‘ cá»§a tá»· lá»‡ cháº¥m cÃ´ng bá» qua ngÆ°á»i nghá»‰ phÃ©p há»£p lá»‡ Ä‘á»ƒ pháº£n Ã¡nh
-            // Ä‘Ãºng má»©c Ä‘á»™ "váº¯ng ngoÃ i dá»± kiáº¿n".
+            // Mẫu số của tỷ lệ chấm công bỏ qua người nghỉ phép hợp lệ để phản ánh
+            // đúng mức độ "vắng ngoài dự kiến".
             var rateDenominator = scheduledCount - totalOnLeave;
             var report = new DailyAttendanceReportDto
             {
@@ -663,7 +663,7 @@ public class ReportsController(
 
             var employeePins = employees.Select(e => e.EmployeeCode).ToList();
 
-            // AttendanceLogs stored in UTC â€” filter by VN-month UTC range.
+            // AttendanceLogs stored in UTC — filter by VN-month UTC range.
             var rawAttendances = await dbContext.AttendanceLogs
                 .Where(a => a.Device != null && a.Device.StoreId == storeId
                     && a.AttendanceTime >= utcStart
@@ -739,7 +739,7 @@ public class ReportsController(
                 // O(1) lookup instead of scanning entire list
                 var empAttendances = attendanceByPin[employee.EmployeeCode].ToList();
                 
-                // Get leaves for this employee â€” O(1) lookup (ILookup returns empty for missing keys)
+                // Get leaves for this employee — O(1) lookup (ILookup returns empty for missing keys)
                 var empLeaveUserId = employee.ApplicationUserId ?? Guid.Empty;
                 var empLeaves = leavesByUserId[empLeaveUserId];
 
@@ -764,7 +764,7 @@ public class ReportsController(
                     leaveDays += (int)(leaveEnd - leaveStart).TotalDays + 1;
                 }
 
-                // Calculate total worked minutes â€” group by VN date, diff in VN times
+                // Calculate total worked minutes — group by VN date, diff in VN times
                 var totalWorkedMinutes = 0;
                 var groupedByDate = empAttendances.GroupBy(a => a.VnTime.Date);
                 foreach (var dayGroup in groupedByDate)
@@ -1039,9 +1039,9 @@ public class ReportsController(
 
             var employees = await employeesQuery.ToListAsync();
 
-            // â”€â”€â”€ Loáº¡i bá» NV chÆ°a thiáº¿t láº­p báº£ng lÆ°Æ¡ng (giá»‘ng tab "Tá»•ng há»£p theo ca") â”€
-            // Tab Flutter chá»‰ tÃ­nh trá»…/sá»›m cho NV náº±m trong SalaryProfile thuá»™c
-            // store hiá»‡n táº¡i (BenefitsController.GetAllProfiles filter Benefit.StoreId).
+            // â”€â”€â”€ Loại bỏ NV chưa thiết lập bảng lương (giống tab "Tổng hợp theo ca") â”€
+            // Tab Flutter chỉ tính trễ/sớm cho NV nằm trong SalaryProfile thuộc
+            // store hiện tại (BenefitsController.GetAllProfiles filter Benefit.StoreId).
             var salaryProfileEmpIds = await (
                 from eb in dbContext.Set<EmployeeBenefit>()
                 join b in dbContext.Set<Benefit>() on eb.BenefitId equals b.Id
@@ -1055,9 +1055,9 @@ public class ReportsController(
             var employeeIdSet = employees.Select(e => e.Id).ToHashSet();
 
             // â”€â”€â”€ Load shift templates (active in this store) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-            // Mirror logic cá»§a tab "Tá»•ng há»£p theo ca" (attendance_by_shift_tab.dart):
-            // má»—i punch tÃ¬m ca phÃ¹ há»£p dá»±a trÃªn thá»i Ä‘iá»ƒm cháº¥m vÃ o, Ã¡p dá»¥ng
-            // grace period rá»“i má»›i tÃ­nh trá»…/sá»›m.
+            // Mirror logic của tab "Tổng hợp theo ca" (attendance_by_shift_tab.dart):
+            // mỗi punch tìm ca phù hợp dựa trên thời điểm chấm vào, áp dụng
+            // grace period rồi mới tính trễ/sớm.
             var shiftTemplates = await dbContext.ShiftTemplates
                 .Where(s => s.StoreId == storeId && s.IsActive)
                 .Select(s => new
@@ -1070,7 +1070,7 @@ public class ReportsController(
                 })
                 .ToListAsync();
 
-            // â”€â”€â”€ Load shift salary levels â†’ empId â†’ assigned shift ids â”€â”€â”€â”€â”€â”€
+            // â”€â”€â”€ Load shift salary levels → empId → assigned shift ids â”€â”€â”€â”€â”€â”€
             var shiftSalaryLevels = await dbContext.Set<ShiftSalaryLevel>()
                 .Select(l => new { l.ShiftTemplateId, l.EmployeeIds })
                 .ToListAsync();
@@ -1083,7 +1083,7 @@ public class ReportsController(
                 {
                     ids = System.Text.Json.JsonSerializer.Deserialize<List<string>>(lvl.EmployeeIds);
                 }
-                catch { /* malformed JSON â€” bá» qua dÃ²ng nÃ y */ }
+                catch { /* malformed JSON — bỏ qua dòng này */ }
                 if (ids == null) continue;
                 foreach (var raw in ids)
                 {
@@ -1118,8 +1118,8 @@ public class ReportsController(
                 var empAttendances = attendanceByPin[employee.EmployeeCode].ToList();
                 if (empAttendances.Count == 0) continue;
 
-                // Candidate shift templates: ca Ä‘Æ°á»£c gÃ¡n riÃªng náº¿u cÃ³,
-                // khÃ´ng thÃ¬ duyá»‡t toÃ n bá»™ ca trong store (giá»‘ng fallback Flutter).
+                // Candidate shift templates: ca được gán riêng nếu có,
+                // không thì duyệt toàn bộ ca trong store (giống fallback Flutter).
                 var candidateIds = empIdToShiftIds.TryGetValue(employee.Id, out var assigned) && assigned.Count > 0
                     ? assigned
                     : shiftTemplates.Select(s => s.Id).ToList();
@@ -1137,8 +1137,8 @@ public class ReportsController(
                     var ins = dayPunches.Where(a => a.AttendanceState == AttendanceStates.CheckIn).ToList();
                     var outs = dayPunches.Where(a => a.AttendanceState == AttendanceStates.CheckOut).ToList();
 
-                    // Pair (in, out): Æ°u tiÃªn dÃ¹ng AttendanceState; náº¿u khÃ´ng
-                    // Ä‘á»§ thÃ´ng tin thÃ¬ rÆ¡i vá» ghÃ©p theo thá»© tá»± chronological.
+                    // Pair (in, out): ưu tiên dùng AttendanceState; nếu không
+                    // đủ thông tin thì rơi về ghép theo thứ tự chronological.
                     var pairs = new List<(DateTime? In, DateTime? Out)>();
                     if (ins.Count > 0 && outs.Count > 0 && (ins.Count + outs.Count) == dayPunches.Count)
                     {
@@ -1167,20 +1167,20 @@ public class ReportsController(
 
                     foreach (var (punchIn, punchOut) in pairs)
                     {
-                        // Mirror tab "Tá»•ng há»£p theo ca": chá»‰ tÃ­nh trá»…/sá»›m khi pair
-                        // cÃ³ Äá»¦ cáº£ IN vÃ  OUT (attendanceMode='both' máº·c Ä‘á»‹nh).
-                        // Pair thiáº¿u 1 váº¿ â†’ coi lÃ  "thiáº¿u cháº¥m cÃ´ng", khÃ´ng
-                        // cá»™ng vÃ o trá»…/sá»›m Ä‘á»ƒ trÃ¡nh sá»‘ áº£o (vd. 683p do match
-                        // nháº§m ca cho 1 punch láº»).
+                        // Mirror tab "Tổng hợp theo ca": chỉ tính trễ/sớm khi pair
+                        // có ĐỦ cả IN và OUT (attendanceMode='both' mặc định).
+                        // Pair thiếu 1 vế → coi là "thiếu chấm công", không
+                        // cộng vào trễ/sớm để tránh số ảo (vd. 683p do match
+                        // nhầm ca cho 1 punch lẻ).
                         if (punchIn == null || punchOut == null) continue;
 
                         var refTime = punchIn ?? punchOut;
                         if (refTime == null) continue;
                         var refMin = refTime.Value.Hour * 60 + refTime.Value.Minute;
 
-                        // TÃ¬m ca khá»›p nháº¥t: dÃ¹ng wrap-around distance (giá»‘ng Flutter
-                        // _findMatchingShift). Náº¿u best > 180 phÃºt thÃ¬ fallback duyá»‡t
-                        // toÃ n bá»™ ca trong store; náº¿u váº«n > 180 thÃ¬ Bá»Ž QUA pair nÃ y.
+                        // Tìm ca khớp nhất: dùng wrap-around distance (giống Flutter
+                        // _findMatchingShift). Nếu best > 180 phút thì fallback duyệt
+                        // toàn bộ ca trong store; nếu vẫn > 180 thì BỎ QUA pair này.
                         static int WrapDist(int refM, int startM)
                         {
                             var d = Math.Abs(refM - startM);
@@ -1193,11 +1193,11 @@ public class ReportsController(
                             .FirstOrDefault();
                         if (matched == null || matched.Diff > 180)
                         {
-                            // Náº¿u nhÃ¢n viÃªn Ä‘Ã£ Ä‘Æ°á»£c gÃ¡n ca cá»¥ thá»ƒ, KHÃ”NG fallback sang ca
-                            // khÃ¡c. Má»™t punch cÃ¡ch xa ca Ä‘Æ°á»£c gÃ¡n â†’ coi lÃ  punch láº¡c
-                            // (vd. NV ca Ä‘Ãªm cháº¥m vÃ o lÃºc 14:33 khÃ´ng nÃªn bá»‹ tÃ­nh trá»…
-                            // 93p theo "Ca chiá»u"). Chá»‰ fallback khi nhÃ¢n viÃªn CHÆ¯A
-                            // Ä‘Æ°á»£c gÃ¡n ca nÃ o.
+                            // Nếu nhân viên đã được gán ca cụ thể, KHÔNG fallback sang ca
+                            // khác. Một punch cách xa ca được gán → coi là punch lạc
+                            // (vd. NV ca đêm chấm vào lúc 14:33 không nên bị tính trễ
+                            // 93p theo "Ca chiều"). Chỉ fallback khi nhân viên CHƯA
+                            // được gán ca nào.
                             var hasAssignedShifts = empIdToShiftIds.TryGetValue(employee.Id, out var assignedList)
                                 && assignedList.Count > 0;
                             if (hasAssignedShifts) continue;
@@ -1352,7 +1352,7 @@ public class ReportsController(
 
             // Group employees by department
             var departments = employees
-                .GroupBy(e => e.Department ?? "ChÆ°a phÃ¢n bá»•")
+                .GroupBy(e => e.Department ?? "Chưa phân bổ")
                 .ToList();
 
             var reportItems = new List<DepartmentSummaryItemDto>();
@@ -2413,12 +2413,12 @@ public class ReportsController(
 
     private static string GetDayOfWeekVN(DayOfWeek day) => day switch
     {
-        DayOfWeek.Monday => "Thá»© 2",
-        DayOfWeek.Tuesday => "Thá»© 3",
-        DayOfWeek.Wednesday => "Thá»© 4",
-        DayOfWeek.Thursday => "Thá»© 5",
-        DayOfWeek.Friday => "Thá»© 6",
-        DayOfWeek.Saturday => "Thá»© 7",
+        DayOfWeek.Monday => "Thứ 2",
+        DayOfWeek.Tuesday => "Thứ 3",
+        DayOfWeek.Wednesday => "Thứ 4",
+        DayOfWeek.Thursday => "Thứ 5",
+        DayOfWeek.Friday => "Thứ 6",
+        DayOfWeek.Saturday => "Thứ 7",
         DayOfWeek.Sunday => "CN",
         _ => day.ToString()
     };

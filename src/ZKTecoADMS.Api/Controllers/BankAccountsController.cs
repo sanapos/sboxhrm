@@ -19,7 +19,7 @@ namespace ZKTecoADMS.Api.Controllers;
 public class BankAccountsController(ZKTecoDbContext context) : AuthenticatedControllerBase
 {
     /// <summary>
-    /// Láº¥y danh sÃ¡ch tÃ i khoáº£n ngÃ¢n hÃ ng
+    /// Lấy danh sách tài khoản ngân hàng
     /// </summary>
     [HttpGet]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
@@ -28,7 +28,7 @@ public class BankAccountsController(ZKTecoDbContext context) : AuthenticatedCont
     {
         var storeId = RequiredStoreId;
         
-        // Láº¥y danh sÃ¡ch bank accounts liÃªn káº¿t qua transactions
+        // Lấy danh sách bank accounts liên kết qua transactions
         var bankAccounts = await context.BankAccounts
             .Where(x => x.StoreId == storeId && x.IsActive)
             .Select(x => new BankAccountDto
@@ -55,7 +55,7 @@ public class BankAccountsController(ZKTecoDbContext context) : AuthenticatedCont
     }
 
     /// <summary>
-    /// Láº¥y chi tiáº¿t tÃ i khoáº£n ngÃ¢n hÃ ng
+    /// Lấy chi tiết tài khoản ngân hàng
     /// </summary>
     [HttpGet("{id}")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
@@ -90,7 +90,7 @@ public class BankAccountsController(ZKTecoDbContext context) : AuthenticatedCont
     }
 
     /// <summary>
-    /// Táº¡o tÃ i khoáº£n ngÃ¢n hÃ ng má»›i
+    /// Tạo tài khoản ngân hàng mới
     /// </summary>
     [HttpPost]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
@@ -131,7 +131,7 @@ public class BankAccountsController(ZKTecoDbContext context) : AuthenticatedCont
     }
 
     /// <summary>
-    /// Cáº­p nháº­t tÃ i khoáº£n ngÃ¢n hÃ ng
+    /// Cập nhật tài khoản ngân hàng
     /// </summary>
     [HttpPut("{id}")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
@@ -167,7 +167,7 @@ public class BankAccountsController(ZKTecoDbContext context) : AuthenticatedCont
     }
 
     /// <summary>
-    /// Äáº·t tÃ i khoáº£n lÃ m máº·c Ä‘á»‹nh
+    /// Đặt tài khoản làm mặc định
     /// </summary>
     [HttpPut("{id}/set-default")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
@@ -195,7 +195,7 @@ public class BankAccountsController(ZKTecoDbContext context) : AuthenticatedCont
     }
 
     /// <summary>
-    /// XÃ³a tÃ i khoáº£n ngÃ¢n hÃ ng (soft delete)
+    /// Xóa tài khoản ngân hàng (soft delete)
     /// </summary>
     [HttpDelete("{id}")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
@@ -205,7 +205,7 @@ public class BankAccountsController(ZKTecoDbContext context) : AuthenticatedCont
         var storeId = RequiredStoreId;
         var bankAccount = await context.BankAccounts.AsTracking().FirstOrDefaultAsync(x => x.Id == id && x.StoreId == storeId);
         if (bankAccount == null)
-            return NotFound(AppResponse<bool>.Error("KhÃ´ng tÃ¬m tháº¥y tÃ i khoáº£n ngÃ¢n hÃ ng"));
+            return NotFound(AppResponse<bool>.Error("Không tìm thấy tài khoản ngân hàng"));
 
         // Check if used in any transaction
         var usedCount = await context.CashTransactions.CountAsync(x => x.BankAccountId == id && x.IsActive);
@@ -225,7 +225,7 @@ public class BankAccountsController(ZKTecoDbContext context) : AuthenticatedCont
     }
 
     /// <summary>
-    /// Láº¥y danh sÃ¡ch ngÃ¢n hÃ ng há»— trá»£ VietQR
+    /// Lấy danh sách ngân hàng hỗ trợ VietQR
     /// </summary>
     [HttpGet("vietqr-banks")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
@@ -256,7 +256,7 @@ public class BankAccountsController(ZKTecoDbContext context) : AuthenticatedCont
 public class TransactionCategoriesController(ZKTecoDbContext context, ICacheService cacheService) : AuthenticatedControllerBase
 {
     /// <summary>
-    /// Láº¥y danh sÃ¡ch danh má»¥c giao dá»‹ch
+    /// Lấy danh sách danh mục giao dịch
     /// </summary>
     [HttpGet]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
@@ -370,7 +370,7 @@ public class TransactionCategoriesController(ZKTecoDbContext context, ICacheServ
     }
 
     /// <summary>
-    /// Táº¡o danh má»¥c má»›i
+    /// Tạo danh mục mới
     /// </summary>
     [HttpPost]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
@@ -386,7 +386,7 @@ public class TransactionCategoriesController(ZKTecoDbContext context, ICacheServ
             if (parent == null)
                 return BadRequest(AppResponse<TransactionCategoryDto>.Error("Danh mục cha không tồn tại"));
             if (parent.Type != request.Type)
-                return BadRequest(AppResponse<TransactionCategoryDto>.Error("Danh má»¥c cha khÃ´ng cÃ¹ng loáº¡i"));
+                return BadRequest(AppResponse<TransactionCategoryDto>.Error("Danh mục cha không cùng loại"));
         }
 
         var category = new TransactionCategory
@@ -412,7 +412,7 @@ public class TransactionCategoriesController(ZKTecoDbContext context, ICacheServ
     }
 
     /// <summary>
-    /// Láº¥y chi tiáº¿t danh má»¥c
+    /// Lấy chi tiết danh mục
     /// </summary>
     [HttpGet("{id}")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
@@ -447,7 +447,7 @@ public class TransactionCategoriesController(ZKTecoDbContext context, ICacheServ
     }
 
     /// <summary>
-    /// Cáº­p nháº­t danh má»¥c
+    /// Cập nhật danh mục
     /// </summary>
     [HttpPut("{id}")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
@@ -466,7 +466,7 @@ public class TransactionCategoriesController(ZKTecoDbContext context, ICacheServ
             if (parent == null)
                 return BadRequest(AppResponse<TransactionCategoryDto>.Error("Danh mục cha không tồn tại"));
             if (parent.Type != category.Type)
-                return BadRequest(AppResponse<TransactionCategoryDto>.Error("Danh má»¥c cha khÃ´ng cÃ¹ng loáº¡i"));
+                return BadRequest(AppResponse<TransactionCategoryDto>.Error("Danh mục cha không cùng loại"));
         }
 
         category.Name = request.Name;
@@ -485,7 +485,7 @@ public class TransactionCategoriesController(ZKTecoDbContext context, ICacheServ
     }
 
     /// <summary>
-    /// XÃ³a danh má»¥c (soft delete)
+    /// Xóa danh mục (soft delete)
     /// </summary>
     [HttpDelete("{id}")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
@@ -495,7 +495,7 @@ public class TransactionCategoriesController(ZKTecoDbContext context, ICacheServ
         var storeId = RequiredStoreId;
         var category = await context.TransactionCategories.AsTracking().FirstOrDefaultAsync(x => x.Id == id && x.StoreId == storeId);
         if (category == null)
-            return NotFound(AppResponse<bool>.Error("KhÃ´ng tÃ¬m tháº¥y danh má»¥c"));
+            return NotFound(AppResponse<bool>.Error("Không tìm thấy danh mục"));
 
         var usedCount = await context.CashTransactions.CountAsync(x => x.CategoryId == id && x.IsActive);
         if (category.IsSystem || usedCount > 0)

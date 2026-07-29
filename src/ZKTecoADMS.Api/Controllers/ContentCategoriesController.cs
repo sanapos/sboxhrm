@@ -21,7 +21,7 @@ public class ContentCategoriesController(
 ) : AuthenticatedControllerBase
 {
     /// <summary>
-    /// Láº¥y danh sÃ¡ch thÆ° má»¥c theo loáº¡i ná»™i dung
+    /// Lấy danh sách thư mục theo loại nội dung
     /// </summary>
     [HttpGet]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
@@ -64,12 +64,12 @@ public class ContentCategoriesController(
         catch (Exception ex)
         {
             logger.LogError(ex, "Error getting content categories");
-            return StatusCode(500, AppResponse<object>.Fail("Lá»—i khi láº¥y danh sÃ¡ch thÆ° má»¥c"));
+            return StatusCode(500, AppResponse<object>.Fail("Lỗi khi lấy danh sách thư mục"));
         }
     }
 
     /// <summary>
-    /// Táº¡o thÆ° má»¥c má»›i
+    /// Tạo thư mục mới
     /// </summary>
     [HttpPost]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
@@ -102,12 +102,12 @@ public class ContentCategoriesController(
         catch (Exception ex)
         {
             logger.LogError(ex, "Error creating content category");
-            return StatusCode(500, AppResponse<Guid>.Fail("Lá»—i khi táº¡o thÆ° má»¥c"));
+            return StatusCode(500, AppResponse<Guid>.Fail("Lỗi khi tạo thư mục"));
         }
     }
 
     /// <summary>
-    /// Cáº­p nháº­t thÆ° má»¥c
+    /// Cập nhật thư mục
     /// </summary>
     [HttpPut("{id:guid}")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
@@ -121,7 +121,7 @@ public class ContentCategoriesController(
                 .FirstOrDefaultAsync(c => c.Id == id && c.StoreId == RequiredStoreId);
 
             if (category == null)
-                return NotFound(AppResponse<bool>.Fail("KhÃ´ng tÃ¬m tháº¥y thÆ° má»¥c"));
+                return NotFound(AppResponse<bool>.Fail("Không tìm thấy thư mục"));
 
             category.Name = dto.Name;
             category.Description = dto.Description;
@@ -138,12 +138,12 @@ public class ContentCategoriesController(
         catch (Exception ex)
         {
             logger.LogError(ex, "Error updating content category {Id}", id);
-            return StatusCode(500, AppResponse<bool>.Fail("Lá»—i khi cáº­p nháº­t thÆ° má»¥c"));
+            return StatusCode(500, AppResponse<bool>.Fail("Lỗi khi cập nhật thư mục"));
         }
     }
 
     /// <summary>
-    /// XÃ³a thÆ° má»¥c
+    /// Xóa thư mục
     /// </summary>
     [HttpDelete("{id:guid}")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
@@ -157,7 +157,7 @@ public class ContentCategoriesController(
                 .FirstOrDefaultAsync(c => c.Id == id && c.StoreId == RequiredStoreId);
 
             if (category == null)
-                return NotFound(AppResponse<bool>.Fail("KhÃ´ng tÃ¬m tháº¥y thÆ° má»¥c"));
+                return NotFound(AppResponse<bool>.Fail("Không tìm thấy thư mục"));
 
             // Soft delete
             category.IsActive = false;
@@ -170,7 +170,7 @@ public class ContentCategoriesController(
         catch (Exception ex)
         {
             logger.LogError(ex, "Error deleting content category {Id}", id);
-            return StatusCode(500, AppResponse<bool>.Fail("Lá»—i khi xÃ³a thÆ° má»¥c"));
+            return StatusCode(500, AppResponse<bool>.Fail("Lỗi khi xóa thư mục"));
         }
     }
 }

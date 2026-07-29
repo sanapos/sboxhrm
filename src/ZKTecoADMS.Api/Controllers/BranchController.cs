@@ -13,7 +13,7 @@ using ZKTecoADMS.Infrastructure.Services;
 namespace ZKTecoADMS.Api.Controllers;
 
 /// <summary>
-/// API Controller quáº£n lÃ½ chi nhÃ¡nh
+/// API Controller quản lý chi nhánh
 /// </summary>
 [ApiController]
 [Route("api/branches")]
@@ -25,11 +25,11 @@ public class BranchController(
     : AuthenticatedControllerBase
 {
     // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-    // Láº¤Y DANH SÃCH
+    // LẤY DANH SÁCH
     // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
     /// <summary>
-    /// Láº¥y danh sÃ¡ch chi nhÃ¡nh (flat list)
+    /// Lấy danh sách chi nhánh (flat list)
     /// </summary>
     [HttpGet]
     [RequireModulePermission("Branch", ModulePermissionAction.View)]
@@ -39,7 +39,7 @@ public class BranchController(
     {
         var storeId = CurrentStoreId;
 
-        // PhÃ¢n quyá»n: Admin tháº¥y táº¥t cáº£; Manager/Manager chi nhÃ¡nh chá»‰ tháº¥y CN quáº£n lÃ½
+        // Phân quyền: Admin thấy tất cả; Manager/Manager chi nhánh chỉ thấy CN quản lý
         List<Guid>? allowedBranchIds = null;
         if (!IsAdmin && storeId.HasValue)
             allowedBranchIds = await dataScopeService.GetManagedBranchIdsAsync(CurrentUserId, storeId.Value);
@@ -103,7 +103,7 @@ public class BranchController(
     }
 
     /// <summary>
-    /// Láº¥y cÃ¢y chi nhÃ¡nh (hierarchical)
+    /// Lấy cây chi nhánh (hierarchical)
     /// </summary>
     [HttpGet("tree")]
     [RequireModulePermission("Branch", ModulePermissionAction.View)]
@@ -111,7 +111,7 @@ public class BranchController(
     {
         var storeId = CurrentStoreId;
 
-        // PhÃ¢n quyá»n: Admin tháº¥y táº¥t cáº£, Manager chá»‰ tháº¥y sub-tree cá»§a CN mÃ¬nh
+        // Phân quyền: Admin thấy tất cả, Manager chỉ thấy sub-tree của CN mình
         List<Guid>? allowedBranchIds = null;
         if (!IsAdmin && storeId.HasValue)
             allowedBranchIds = await dataScopeService.GetManagedBranchIdsAsync(CurrentUserId, storeId.Value);
@@ -171,7 +171,7 @@ public class BranchController(
     }
 
     /// <summary>
-    /// Láº¥y thá»‘ng kÃª chi nhÃ¡nh
+    /// Lấy thống kê chi nhánh
     /// </summary>
     [HttpGet("stats")]
     [RequireModulePermission("Branch", ModulePermissionAction.View)]
@@ -206,7 +206,7 @@ public class BranchController(
     }
 
     /// <summary>
-    /// Láº¥y chi tiáº¿t 1 chi nhÃ¡nh
+    /// Lấy chi tiết 1 chi nhánh
     /// </summary>
     [HttpGet("{id}")]
     [RequireModulePermission("Branch", ModulePermissionAction.View)]
@@ -218,7 +218,7 @@ public class BranchController(
             .FirstOrDefaultAsync(b => b.Id == id && b.Deleted == null);
 
         if (branch == null)
-            return NotFound(AppResponse<BranchDto>.Fail("KhÃ´ng tÃ¬m tháº¥y chi nhÃ¡nh"));
+            return NotFound(AppResponse<BranchDto>.Fail("Không tìm thấy chi nhánh"));
 
         var dto = MapToDto(branch);
         dto.EmployeeCount = await dbContext.Set<Employee>()
@@ -227,11 +227,11 @@ public class BranchController(
     }
 
     // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-    // Táº O Má»šI
+    // TẠO MỚI
     // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
     /// <summary>
-    /// Táº¡o chi nhÃ¡nh má»›i
+    /// Tạo chi nhánh mới
     /// </summary>
     [HttpPost]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
@@ -246,7 +246,7 @@ public class BranchController(
                 && b.Deleted == null
                 && (!storeId.HasValue || b.StoreId == storeId.Value));
         if (existingCode)
-            return BadRequest(AppResponse<BranchDto>.Fail($"MÃ£ chi nhÃ¡nh '{request.Code}' Ä‘Ã£ tá»“n táº¡i"));
+            return BadRequest(AppResponse<BranchDto>.Fail($"Mã chi nhánh '{request.Code}' đã tồn tại"));
 
         // If set as headquarter, unset others
         if (request.IsHeadquarter)
@@ -296,11 +296,11 @@ public class BranchController(
     }
 
     // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-    // Cáº¬P NHáº¬T
+    // CẬP NHẬT
     // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
     /// <summary>
-    /// Cáº­p nháº­t chi nhÃ¡nh
+    /// Cập nhật chi nhánh
     /// </summary>
     [HttpPut("{id}")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
@@ -313,7 +313,7 @@ public class BranchController(
             .FirstOrDefaultAsync(b => b.Id == id && b.Deleted == null);
 
         if (branch == null)
-            return NotFound(AppResponse<BranchDto>.Fail("KhÃ´ng tÃ¬m tháº¥y chi nhÃ¡nh"));
+            return NotFound(AppResponse<BranchDto>.Fail("Không tìm thấy chi nhánh"));
 
         // Check duplicate code (exclude self)
         var existingCode = await dbContext.Branches
@@ -321,11 +321,11 @@ public class BranchController(
                 && b.Deleted == null
                 && (!storeId.HasValue || b.StoreId == storeId.Value));
         if (existingCode)
-            return BadRequest(AppResponse<BranchDto>.Fail($"MÃ£ chi nhÃ¡nh '{request.Code}' Ä‘Ã£ tá»“n táº¡i"));
+            return BadRequest(AppResponse<BranchDto>.Fail($"Mã chi nhánh '{request.Code}' đã tồn tại"));
 
         // Prevent circular parent
         if (request.ParentBranchId.HasValue && request.ParentBranchId.Value == id)
-            return BadRequest(AppResponse<BranchDto>.Fail("Chi nhÃ¡nh khÃ´ng thá»ƒ lÃ  cha cá»§a chÃ­nh nÃ³"));
+            return BadRequest(AppResponse<BranchDto>.Fail("Chi nhánh không thể là cha của chính nó"));
 
         // If set as headquarter, unset others
         if (request.IsHeadquarter && !branch.IsHeadquarter)
@@ -370,11 +370,11 @@ public class BranchController(
     }
 
     // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-    // XÃ“A
+    // XÓA
     // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
     /// <summary>
-    /// XÃ³a chi nhÃ¡nh (soft delete)
+    /// Xóa chi nhánh (soft delete)
     /// </summary>
     [HttpDelete("{id}")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
@@ -386,13 +386,13 @@ public class BranchController(
             .FirstOrDefaultAsync(b => b.Id == id && b.Deleted == null);
 
         if (branch == null)
-            return NotFound(AppResponse<bool>.Fail("KhÃ´ng tÃ¬m tháº¥y chi nhÃ¡nh"));
+            return NotFound(AppResponse<bool>.Fail("Không tìm thấy chi nhánh"));
 
         // Check children
         var hasChildren = await dbContext.Branches
             .AnyAsync(b => b.ParentBranchId == id && b.Deleted == null);
         if (hasChildren)
-            return BadRequest(AppResponse<bool>.Fail("KhÃ´ng thá»ƒ xÃ³a chi nhÃ¡nh cÃ³ chi nhÃ¡nh con. HÃ£y xÃ³a chi nhÃ¡nh con trÆ°á»›c."));
+            return BadRequest(AppResponse<bool>.Fail("Không thể xóa chi nhánh có chi nhánh con. Hãy xóa chi nhánh con trước."));
 
         var linkedEmployees = await dbContext.Set<Employee>()
             .AsTracking()
@@ -409,7 +409,7 @@ public class BranchController(
     }
 
     /// <summary>
-    /// Chuyá»ƒn Ä‘á»•i tráº¡ng thÃ¡i hoáº¡t Ä‘á»™ng
+    /// Chuyển đổi trạng thái hoạt động
     /// </summary>
     [HttpPatch("{id}/toggle-active")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
@@ -423,7 +423,7 @@ public class BranchController(
             .FirstOrDefaultAsync(b => b.Id == id && b.Deleted == null);
 
         if (branch == null)
-            return NotFound(AppResponse<BranchDto>.Fail("KhÃ´ng tÃ¬m tháº¥y chi nhÃ¡nh"));
+            return NotFound(AppResponse<BranchDto>.Fail("Không tìm thấy chi nhánh"));
 
         branch.IsActive = !branch.IsActive;
         await dbContext.SaveChangesAsync();
@@ -432,7 +432,7 @@ public class BranchController(
     }
 
     /// <summary>
-    /// Láº¥y danh sÃ¡ch chi nhÃ¡nh cho dropdown select
+    /// Lấy danh sách chi nhánh cho dropdown select
     /// </summary>
     [HttpGet("select")]
     public async Task<ActionResult<AppResponse<List<BranchSelectDto>>>> GetBranchesForSelect()
@@ -466,11 +466,11 @@ public class BranchController(
     }
 
     // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-    // PHÃ‚N QUYá»€N CHI NHÃNH (BranchPermission)
+    // PHÂN QUYỀN CHI NHÁNH (BranchPermission)
     // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
     /// <summary>
-    /// Láº¥y danh sÃ¡ch phÃ¢n quyá»n cá»§a 1 chi nhÃ¡nh
+    /// Lấy danh sách phân quyền của 1 chi nhánh
     /// </summary>
     [HttpGet("{branchId}/permissions")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
@@ -503,7 +503,7 @@ public class BranchController(
     }
 
     /// <summary>
-    /// ThÃªm phÃ¢n quyá»n cho user á»Ÿ chi nhÃ¡nh
+    /// Thêm phân quyền cho user ở chi nhánh
     /// </summary>
     [HttpPost("{branchId}/permissions")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
@@ -516,14 +516,14 @@ public class BranchController(
         var branch = await dbContext.Branches
             .FirstOrDefaultAsync(b => b.Id == branchId && b.Deleted == null);
         if (branch == null)
-            return NotFound(AppResponse<BranchPermissionDto>.Fail("KhÃ´ng tÃ¬m tháº¥y chi nhÃ¡nh"));
+            return NotFound(AppResponse<BranchPermissionDto>.Fail("Không tìm thấy chi nhánh"));
 
         var targetUser = await dbContext.Users
             .FirstOrDefaultAsync(u => u.Id == request.UserId);
         if (targetUser == null)
-            return NotFound(AppResponse<BranchPermissionDto>.Fail("KhÃ´ng tÃ¬m tháº¥y user"));
+            return NotFound(AppResponse<BranchPermissionDto>.Fail("Không tìm thấy user"));
 
-        // Upsert: náº¿u Ä‘Ã£ cÃ³ thÃ¬ update, khÃ´ng thÃ¬ táº¡o má»›i
+        // Upsert: nếu đã có thì update, không thì tạo mới
         var existing = await dbContext.BranchPermissions
             .AsTracking()
             .FirstOrDefaultAsync(p => p.UserId == request.UserId && p.BranchId == branchId);
@@ -582,7 +582,7 @@ public class BranchController(
     }
 
     /// <summary>
-    /// Cáº­p nháº­t phÃ¢n quyá»n chi nhÃ¡nh
+    /// Cập nhật phân quyền chi nhánh
     /// </summary>
     [HttpPut("permissions/{permId}")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
@@ -594,7 +594,7 @@ public class BranchController(
             .AsTracking()
             .FirstOrDefaultAsync(p => p.Id == permId);
         if (perm == null)
-            return NotFound(AppResponse<bool>.Fail("KhÃ´ng tÃ¬m tháº¥y phÃ¢n quyá»n"));
+            return NotFound(AppResponse<bool>.Fail("Không tìm thấy phân quyền"));
 
         perm.IncludeChildren = request.IncludeChildren;
         perm.CanView = request.CanView;
@@ -609,7 +609,7 @@ public class BranchController(
     }
 
     /// <summary>
-    /// XÃ³a phÃ¢n quyá»n chi nhÃ¡nh
+    /// Xóa phân quyền chi nhánh
     /// </summary>
     [HttpDelete("permissions/{permId}")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
@@ -620,7 +620,7 @@ public class BranchController(
             .AsTracking()
             .FirstOrDefaultAsync(p => p.Id == permId);
         if (perm == null)
-            return NotFound(AppResponse<bool>.Fail("KhÃ´ng tÃ¬m tháº¥y phÃ¢n quyá»n"));
+            return NotFound(AppResponse<bool>.Fail("Không tìm thấy phân quyền"));
 
         dbContext.BranchPermissions.Remove(perm);
         await dbContext.SaveChangesAsync();
@@ -629,7 +629,7 @@ public class BranchController(
     }
 
     /// <summary>
-    /// Láº¥y danh sÃ¡ch chi nhÃ¡nh mÃ  user hiá»‡n táº¡i quáº£n lÃ½ (dÃ¹ng cho UI)
+    /// Lấy danh sách chi nhánh mà user hiện tại quản lý (dùng cho UI)
     /// </summary>
     [HttpGet("my-branches")]
     public async Task<ActionResult<AppResponse<List<BranchSelectDto>>>> GetMyBranches()

@@ -12,7 +12,7 @@ using ZKTecoADMS.Infrastructure;
 namespace ZKTecoADMS.Api.Controllers;
 
 /// <summary>
-/// API Controller quáº£n lÃ½ sÆ¡ Ä‘á»“ tá»• chá»©c & luá»“ng duyá»‡t
+/// API Controller quản lý sơ đồ tổ chức & luồng duyệt
 /// </summary>
 [ApiController]
 [Route("api/orgchart")]
@@ -25,11 +25,11 @@ public class OrgChartController(
 #pragma warning restore CS9113
 {
     // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-    // CHá»¨C Vá»¤ (OrgPosition) CRUD
+    // CHỨC VỤ (OrgPosition) CRUD
     // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
     /// <summary>
-    /// Láº¥y danh sÃ¡ch chá»©c vá»¥
+    /// Lấy danh sách chức vụ
     /// </summary>
     [HttpGet("positions")]
     [RequireModulePermission("OrgChart", ModulePermissionAction.View)]
@@ -64,7 +64,7 @@ public class OrgChartController(
     }
 
     /// <summary>
-    /// Táº¡o chá»©c vá»¥ má»›i
+    /// Tạo chức vụ mới
     /// </summary>
     [HttpPost("positions")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
@@ -77,7 +77,7 @@ public class OrgChartController(
         var exists = await dbContext.OrgPositions
             .AnyAsync(p => p.StoreId == storeId && p.Code == request.Code && p.Deleted == null);
         if (exists)
-            return Ok(AppResponse<OrgPositionDto>.Error($"MÃ£ chá»©c vá»¥ '{request.Code}' Ä‘Ã£ tá»“n táº¡i"));
+            return Ok(AppResponse<OrgPositionDto>.Error($"Mã chức vụ '{request.Code}' đã tồn tại"));
 
         var position = new OrgPosition
         {
@@ -118,7 +118,7 @@ public class OrgChartController(
     }
 
     /// <summary>
-    /// Cáº­p nháº­t chá»©c vá»¥
+    /// Cập nhật chức vụ
     /// </summary>
     [HttpPut("positions/{id}")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
@@ -131,13 +131,13 @@ public class OrgChartController(
             .FirstOrDefaultAsync(p => p.Id == id && p.StoreId == storeId && p.Deleted == null);
 
         if (position == null)
-            return Ok(AppResponse<OrgPositionDto>.Error("KhÃ´ng tÃ¬m tháº¥y chá»©c vá»¥"));
+            return Ok(AppResponse<OrgPositionDto>.Error("Không tìm thấy chức vụ"));
 
         // Check duplicate code
         var exists = await dbContext.OrgPositions
             .AnyAsync(p => p.StoreId == storeId && p.Code == request.Code && p.Id != id && p.Deleted == null);
         if (exists)
-            return Ok(AppResponse<OrgPositionDto>.Error($"MÃ£ chá»©c vá»¥ '{request.Code}' Ä‘Ã£ tá»“n táº¡i"));
+            return Ok(AppResponse<OrgPositionDto>.Error($"Mã chức vụ '{request.Code}' đã tồn tại"));
 
         position.Code = request.Code;
         position.Name = request.Name;
@@ -174,7 +174,7 @@ public class OrgChartController(
     }
 
     /// <summary>
-    /// XÃ³a chá»©c vá»¥
+    /// Xóa chức vụ
     /// </summary>
     [HttpDelete("positions/{id}")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
@@ -187,13 +187,13 @@ public class OrgChartController(
             .FirstOrDefaultAsync(p => p.Id == id && p.StoreId == storeId && p.Deleted == null);
 
         if (position == null)
-            return Ok(AppResponse<bool>.Error("KhÃ´ng tÃ¬m tháº¥y chá»©c vá»¥"));
+            return Ok(AppResponse<bool>.Error("Không tìm thấy chức vụ"));
 
         // Check if position is used in assignments
         var hasAssignments = await dbContext.OrgAssignments
             .AnyAsync(a => a.PositionId == id && a.Deleted == null);
         if (hasAssignments)
-            return Ok(AppResponse<bool>.Error("KhÃ´ng thá»ƒ xÃ³a chá»©c vá»¥ Ä‘ang Ä‘Æ°á»£c gÃ¡n cho nhÃ¢n viÃªn"));
+            return Ok(AppResponse<bool>.Error("Không thể xóa chức vụ đang được gán cho nhân viên"));
 
         position.Deleted = DateTime.Now;
         position.DeletedBy = CurrentUserId.ToString();
@@ -203,11 +203,11 @@ public class OrgChartController(
     }
 
     // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-    // GÃN CHá»¨C Vá»¤ (OrgAssignment) CRUD
+    // GÁN CHỨC VỤ (OrgAssignment) CRUD
     // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
     /// <summary>
-    /// Láº¥y danh sÃ¡ch gÃ¡n chá»©c vá»¥ (cÃ³ filter theo phÃ²ng ban)
+    /// Lấy danh sách gán chức vụ (có filter theo phòng ban)
     /// </summary>
     [HttpGet("assignments")]
     [RequireModulePermission("OrgChart", ModulePermissionAction.View)]
@@ -268,7 +268,7 @@ public class OrgChartController(
     }
 
     /// <summary>
-    /// Táº¡o gÃ¡n chá»©c vá»¥ má»›i
+    /// Tạo gán chức vụ mới
     /// </summary>
     [HttpPost("assignments")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
@@ -281,19 +281,19 @@ public class OrgChartController(
         var employee = await dbContext.Employees
             .FirstOrDefaultAsync(e => e.Id == request.EmployeeId && e.StoreId == storeId && e.Deleted == null);
         if (employee == null)
-            return Ok(AppResponse<OrgAssignmentDto>.Error("KhÃ´ng tÃ¬m tháº¥y nhÃ¢n viÃªn"));
+            return Ok(AppResponse<OrgAssignmentDto>.Error("Không tìm thấy nhân viên"));
 
         // Validate department exists
         var department = await dbContext.Departments
             .FirstOrDefaultAsync(d => d.Id == request.DepartmentId && d.StoreId == storeId && d.Deleted == null);
         if (department == null)
-            return Ok(AppResponse<OrgAssignmentDto>.Error("KhÃ´ng tÃ¬m tháº¥y phÃ²ng ban"));
+            return Ok(AppResponse<OrgAssignmentDto>.Error("Không tìm thấy phòng ban"));
 
         // Validate position exists
         var position = await dbContext.OrgPositions
             .FirstOrDefaultAsync(p => p.Id == request.PositionId && p.StoreId == storeId && p.Deleted == null);
         if (position == null)
-            return Ok(AppResponse<OrgAssignmentDto>.Error("KhÃ´ng tÃ¬m tháº¥y chá»©c vá»¥"));
+            return Ok(AppResponse<OrgAssignmentDto>.Error("Không tìm thấy chức vụ"));
 
         // Chỉ chặn trùng khi còn một gán đang hiệu lực (chưa có ngày kết thúc)
         var existsActive = await dbContext.OrgAssignments
@@ -381,7 +381,7 @@ public class OrgChartController(
     }
 
     /// <summary>
-    /// Cáº­p nháº­t gÃ¡n chá»©c vá»¥
+    /// Cập nhật gán chức vụ
     /// </summary>
     [HttpPut("assignments/{id}")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
@@ -397,7 +397,7 @@ public class OrgChartController(
             .FirstOrDefaultAsync(a => a.Id == id && a.StoreId == storeId && a.Deleted == null);
 
         if (assignment == null)
-            return Ok(AppResponse<OrgAssignmentDto>.Error("KhÃ´ng tÃ¬m tháº¥y báº£n ghi gÃ¡n chá»©c vá»¥"));
+            return Ok(AppResponse<OrgAssignmentDto>.Error("Không tìm thấy bản ghi gán chức vụ"));
 
         // If setting as primary, unset others
         if (request.IsPrimary && !assignment.IsPrimary)
@@ -450,7 +450,7 @@ public class OrgChartController(
     }
 
     /// <summary>
-    /// XÃ³a gÃ¡n chá»©c vá»¥
+    /// Xóa gán chức vụ
     /// </summary>
     [HttpDelete("assignments/{id}")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
@@ -463,13 +463,13 @@ public class OrgChartController(
             .FirstOrDefaultAsync(a => a.Id == id && a.StoreId == storeId && a.Deleted == null);
 
         if (assignment == null)
-            return Ok(AppResponse<bool>.Error("KhÃ´ng tÃ¬m tháº¥y báº£n ghi gÃ¡n chá»©c vá»¥"));
+            return Ok(AppResponse<bool>.Error("Không tìm thấy bản ghi gán chức vụ"));
 
         // Check if anyone reports to this assignment
         var hasReports = await dbContext.OrgAssignments
             .AnyAsync(a => a.ReportToAssignmentId == id && a.Deleted == null);
         if (hasReports)
-            return Ok(AppResponse<bool>.Error("KhÃ´ng thá»ƒ xÃ³a - cÃ³ nhÃ¢n viÃªn Ä‘ang bÃ¡o cÃ¡o cho chá»©c vá»¥ nÃ y"));
+            return Ok(AppResponse<bool>.Error("Không thể xóa - có nhân viên đang báo cáo cho chức vụ này"));
 
         assignment.Deleted = DateTime.Now;
         assignment.DeletedBy = CurrentUserId.ToString();
@@ -479,11 +479,11 @@ public class OrgChartController(
     }
 
     // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-    // SÆ  Äá»’ Tá»” CHá»¨C (OrgChart Tree)
+    // SƠ ĐỒ TỔ CHỨC (OrgChart Tree)
     // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
     /// <summary>
-    /// Láº¥y sÆ¡ Ä‘á»“ tá»• chá»©c dáº¡ng cÃ¢y (theo phÃ²ng ban + chá»©c vá»¥ + nhÃ¢n viÃªn)
+    /// Lấy sơ đồ tổ chức dạng cây (theo phòng ban + chức vụ + nhân viên)
     /// </summary>
     [HttpGet("tree")]
     [RequireModulePermission("OrgChart", ModulePermissionAction.View)]
@@ -558,7 +558,7 @@ public class OrgChartController(
     }
 
     /// <summary>
-    /// Láº¥y thá»‘ng kÃª sÆ¡ Ä‘á»“ tá»• chá»©c
+    /// Lấy thống kê sơ đồ tổ chức
     /// </summary>
     [HttpGet("stats")]
     [RequireModulePermission("OrgChart", ModulePermissionAction.View)]
@@ -599,11 +599,11 @@ public class OrgChartController(
     }
 
     // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-    // LUá»’NG DUYá»†T (ApprovalFlow) CRUD
+    // LUỒNG DUYỆT (ApprovalFlow) CRUD
     // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
     /// <summary>
-    /// Láº¥y danh sÃ¡ch luá»“ng duyá»‡t
+    /// Lấy danh sách luồng duyệt
     /// </summary>
     [HttpGet("approval-flows")]
     [RequireModulePermission("OrgChart", ModulePermissionAction.View)]
@@ -660,7 +660,7 @@ public class OrgChartController(
     }
 
     /// <summary>
-    /// Táº¡o luá»“ng duyá»‡t má»›i (kÃ¨m cÃ¡c bÆ°á»›c)
+    /// Tạo luồng duyệt mới (kèm các bước)
     /// </summary>
     [HttpPost("approval-flows")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
@@ -673,7 +673,7 @@ public class OrgChartController(
         var exists = await dbContext.ApprovalFlows
             .AnyAsync(f => f.StoreId == storeId && f.Code == request.Code && f.Deleted == null);
         if (exists)
-            return Ok(AppResponse<ApprovalFlowDto>.Error($"MÃ£ luá»“ng duyá»‡t '{request.Code}' Ä‘Ã£ tá»“n táº¡i"));
+            return Ok(AppResponse<ApprovalFlowDto>.Error($"Mã luồng duyệt '{request.Code}' đã tồn tại"));
 
         var flow = new ApprovalFlow
         {
@@ -746,7 +746,7 @@ public class OrgChartController(
     }
 
     /// <summary>
-    /// Cáº­p nháº­t luá»“ng duyá»‡t (kÃ¨m cáº­p nháº­t cÃ¡c bÆ°á»›c)
+    /// Cập nhật luồng duyệt (kèm cập nhật các bước)
     /// </summary>
     [HttpPut("approval-flows/{id}")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
@@ -760,7 +760,7 @@ public class OrgChartController(
             .FirstOrDefaultAsync(f => f.Id == id && f.StoreId == storeId && f.Deleted == null);
 
         if (flow == null)
-            return Ok(AppResponse<ApprovalFlowDto>.Error("KhÃ´ng tÃ¬m tháº¥y luá»“ng duyá»‡t"));
+            return Ok(AppResponse<ApprovalFlowDto>.Error("Không tìm thấy luồng duyệt"));
 
         flow.Code = request.Code;
         flow.Name = request.Name;
@@ -835,7 +835,7 @@ public class OrgChartController(
     }
 
     /// <summary>
-    /// XÃ³a luá»“ng duyá»‡t
+    /// Xóa luồng duyệt
     /// </summary>
     [HttpDelete("approval-flows/{id}")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
@@ -849,7 +849,7 @@ public class OrgChartController(
             .FirstOrDefaultAsync(f => f.Id == id && f.StoreId == storeId && f.Deleted == null);
 
         if (flow == null)
-            return Ok(AppResponse<bool>.Error("KhÃ´ng tÃ¬m tháº¥y luá»“ng duyá»‡t"));
+            return Ok(AppResponse<bool>.Error("Không tìm thấy luồng duyệt"));
 
         flow.Deleted = DateTime.Now;
         flow.DeletedBy = CurrentUserId.ToString();
@@ -865,7 +865,7 @@ public class OrgChartController(
     }
 
     /// <summary>
-    /// Láº¥y danh sÃ¡ch nhÃ¢n viÃªn chÆ°a Ä‘Æ°á»£c gÃ¡n chá»©c vá»¥
+    /// Lấy danh sách nhân viên chưa được gán chức vụ
     /// </summary>
     [HttpGet("unassigned-employees")]
     [RequireModulePermission("OrgChart", ModulePermissionAction.View)]

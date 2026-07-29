@@ -12,8 +12,8 @@ using ZKTecoADMS.Infrastructure;
 namespace ZKTecoADMS.Api.Controllers;
 
 /// <summary>
-/// Controller quáº£n lÃ½ sinh tráº¯c há»c (vÃ¢n tay, khuÃ´n máº·t) giá»¯a cÃ¡c thiáº¿t bá»‹.
-/// Há»— trá»£ xem, thá»‘ng kÃª vÃ  sao chÃ©p dá»¯ liá»‡u sinh tráº¯c giá»¯a cÃ¡c mÃ¡y cháº¥m cÃ´ng.
+/// Controller quản lý sinh trắc học (vân tay, khuôn mặt) giữa các thiết bị.
+/// Hỗ trợ xem, thống kê và sao chép dữ liệu sinh trắc giữa các máy chấm công.
 /// </summary>
 [ApiController]
 [Authorize]
@@ -26,7 +26,7 @@ public class BiometricController(
     // ==================== GET BIOMETRICS BY DEVICE ====================
 
     /// <summary>
-    /// Láº¥y danh sÃ¡ch dá»¯ liá»‡u sinh tráº¯c há»c cá»§a má»™t thiáº¿t bá»‹
+    /// Lấy danh sách dữ liệu sinh trắc học của một thiết bị
     /// </summary>
     [HttpGet("device/{deviceId}")]
     [RequireModulePermission("Device", ModulePermissionAction.View)]
@@ -71,7 +71,7 @@ public class BiometricController(
     // ==================== GET SUMMARY ====================
 
     /// <summary>
-    /// Láº¥y thá»‘ng kÃª tá»•ng há»£p sinh tráº¯c há»c cá»§a má»™t thiáº¿t bá»‹
+    /// Lấy thống kê tổng hợp sinh trắc học của một thiết bị
     /// </summary>
     [HttpGet("device/{deviceId}/summary")]
     [RequireModulePermission("Device", ModulePermissionAction.View)]
@@ -79,7 +79,7 @@ public class BiometricController(
     {
         var device = await dbContext.Devices.FindAsync(deviceId);
         if (device == null)
-            return NotFound(AppResponse<object>.Fail("KhÃ´ng tÃ¬m tháº¥y thiáº¿t bá»‹"));
+            return NotFound(AppResponse<object>.Fail("Không tìm thấy thiết bị"));
 
         var totalUsers = await dbContext.DeviceUsers
             .CountAsync(du => du.DeviceId == deviceId);
@@ -96,7 +96,7 @@ public class BiometricController(
         var totalFaces = await dbContext.FaceTemplates
             .CountAsync(f => f.Employee.DeviceId == deviceId);
 
-        // Äáº¿m sá»‘ vÃ¢n tay/khuÃ´n máº·t cÃ³ vÃ  chÆ°a cÃ³ template data
+        // Đếm số vân tay/khuôn mặt có và chưa có template data
         var fingerprintsWithTemplate = await dbContext.FingerprintTemplates
             .CountAsync(f => f.Employee.DeviceId == deviceId && f.Template != null && f.Template != "");
         var fingerprintsWithoutTemplate = totalFingerprints - fingerprintsWithTemplate;
@@ -105,7 +105,7 @@ public class BiometricController(
             .CountAsync(f => f.Employee.DeviceId == deviceId && f.Template != null && f.Template != "");
         var facesWithoutTemplate = totalFaces - facesWithTemplate;
 
-        // Kiá»ƒm tra cÃ³ lá»‡nh sync Ä‘ang chá» khÃ´ng
+        // Kiểm tra có lệnh sync đang chờ không
         var hasPendingSync = await dbContext.DeviceCommands
             .AnyAsync(c => c.DeviceId == deviceId
                 && (c.CommandType == DeviceCommandTypes.SyncFingerprints || c.CommandType == DeviceCommandTypes.SyncFaces)
@@ -132,7 +132,7 @@ public class BiometricController(
     // ==================== SYNC BIOMETRICS (CHECK BIODATA) ====================
 
     /// <summary>
-    /// Gá»­i lá»‡nh CHECK BIODATA tá»›i thiáº¿t bá»‹ Ä‘á»ƒ Ä‘á»“ng bá»™ dá»¯ liá»‡u sinh tráº¯c vá» server.
+    /// Gửi lệnh CHECK BIODATA tới thiết bị để đồng bộ dữ liệu sinh trắc về server.
     /// </summary>
     [HttpPost("device/{deviceId}/sync")]
     [RequireModulePermission("Device", ModulePermissionAction.Create)]
@@ -140,16 +140,16 @@ public class BiometricController(
     {
         var device = await dbContext.Devices.FindAsync(deviceId);
         if (device == null)
-            return NotFound(AppResponse<object>.Fail("KhÃ´ng tÃ¬m tháº¥y thiáº¿t bá»‹"));
+            return NotFound(AppResponse<object>.Fail("Không tìm thấy thiết bị"));
 
-        // Kiá»ƒm tra xem Ä‘Ã£ cÃ³ lá»‡nh sync Ä‘ang chá» chÆ°a
+        // Kiểm tra xem đã có lệnh sync đang chờ chưa
         var pendingSync = await dbContext.DeviceCommands
             .AnyAsync(c => c.DeviceId == deviceId 
                 && (c.CommandType == DeviceCommandTypes.SyncFingerprints || c.CommandType == DeviceCommandTypes.SyncFaces)
                 && (c.Status == CommandStatus.Created || c.Status == CommandStatus.Sent));
 
         if (pendingSync)
-            return BadRequest(AppResponse<object>.Fail("Äang cÃ³ lá»‡nh Ä‘á»“ng bá»™ sinh tráº¯c chá» xá»­ lÃ½. Vui lÃ²ng Ä‘á»£i hoÃ n thÃ nh."));
+            return BadRequest(AppResponse<object>.Fail("Đang có lệnh đồng bộ sinh trắc chờ xử lý. Vui lòng đợi hoàn thành."));
 
         var syncCmd = new DeviceCommand
         {
@@ -167,7 +167,7 @@ public class BiometricController(
 
         return Ok(AppResponse<object>.Success(new
         {
-            Message = "ÄÃ£ gá»­i lá»‡nh Ä‘á»“ng bá»™ sinh tráº¯c há»c. Vui lÃ²ng chá» thiáº¿t bá»‹ pháº£n há»“i.",
+            Message = "Đã gửi lệnh đồng bộ sinh trắc học. Vui lòng chờ thiết bị phản hồi.",
             CommandId = syncCmd.Id
         }));
     }
@@ -175,7 +175,7 @@ public class BiometricController(
     // ==================== CANCEL SYNC ====================
 
     /// <summary>
-    /// Há»§y lá»‡nh Ä‘á»“ng bá»™ sinh tráº¯c Ä‘ang chá» (khi bá»‹ káº¹t quÃ¡ lÃ¢u).
+    /// Hủy lệnh đồng bộ sinh trắc đang chờ (khi bị kẹt quá lâu).
     /// </summary>
     [HttpPost("device/{deviceId}/cancel-sync")]
     [RequireModulePermission("Device", ModulePermissionAction.Create)]
@@ -189,12 +189,12 @@ public class BiometricController(
             .ToListAsync();
 
         if (pendingSyncCommands.Count == 0)
-            return Ok(AppResponse<object>.Success(new { Message = "KhÃ´ng cÃ³ lá»‡nh Ä‘á»“ng bá»™ nÃ o Ä‘ang chá».", CancelledCount = 0 }));
+            return Ok(AppResponse<object>.Success(new { Message = "Không có lệnh đồng bộ nào đang chờ.", CancelledCount = 0 }));
 
         foreach (var cmd in pendingSyncCommands)
         {
             cmd.Status = CommandStatus.Failed;
-            cmd.ErrorMessage = "ÄÃ£ bá»‹ há»§y bá»Ÿi ngÆ°á»i dÃ¹ng";
+            cmd.ErrorMessage = "Đã bị hủy bởi người dùng";
             cmd.CompletedAt = DateTime.UtcNow;
         }
 
@@ -205,7 +205,7 @@ public class BiometricController(
 
         return Ok(AppResponse<object>.Success(new
         {
-            Message = $"ÄÃ£ há»§y {pendingSyncCommands.Count} lá»‡nh Ä‘á»“ng bá»™.",
+            Message = $"Đã hủy {pendingSyncCommands.Count} lệnh đồng bộ.",
             CancelledCount = pendingSyncCommands.Count
         }));
     }
@@ -213,7 +213,7 @@ public class BiometricController(
     // ==================== CANCEL ALL PENDING COMMANDS ====================
 
     /// <summary>
-    /// Há»§y Táº¤T Cáº¢ lá»‡nh Ä‘ang chá» cá»§a thiáº¿t bá»‹ (khi bá»‹ káº¹t).
+    /// Hủy TẤT CẢ lệnh đang chờ của thiết bị (khi bị kẹt).
     /// </summary>
     [HttpPost("device/{deviceId}/cancel-all-commands")]
     [RequireModulePermission("Device", ModulePermissionAction.Create)]
@@ -226,12 +226,12 @@ public class BiometricController(
             .ToListAsync();
 
         if (pendingCommands.Count == 0)
-            return Ok(AppResponse<object>.Success(new { Message = "KhÃ´ng cÃ³ lá»‡nh nÃ o Ä‘ang chá».", CancelledCount = 0 }));
+            return Ok(AppResponse<object>.Success(new { Message = "Không có lệnh nào đang chờ.", CancelledCount = 0 }));
 
         foreach (var cmd in pendingCommands)
         {
             cmd.Status = CommandStatus.Failed;
-            cmd.ErrorMessage = "ÄÃ£ bá»‹ há»§y bá»Ÿi ngÆ°á»i dÃ¹ng";
+            cmd.ErrorMessage = "Đã bị hủy bởi người dùng";
             cmd.CompletedAt = DateTime.UtcNow;
         }
 
@@ -242,7 +242,7 @@ public class BiometricController(
 
         return Ok(AppResponse<object>.Success(new
         {
-            Message = $"ÄÃ£ há»§y {pendingCommands.Count} lá»‡nh Ä‘ang chá».",
+            Message = $"Đã hủy {pendingCommands.Count} lệnh đang chờ.",
             CancelledCount = pendingCommands.Count
         }));
     }

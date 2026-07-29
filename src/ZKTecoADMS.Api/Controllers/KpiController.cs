@@ -17,7 +17,7 @@ using ZKTecoADMS.Infrastructure.Services;
 namespace ZKTecoADMS.Api.Controllers;
 
 /// <summary>
-/// API Controller quáº£n lÃ½ KPI Salary - TÃ­nh lÆ°Æ¡ng theo KPI káº¿t ná»‘i Google Sheet
+/// API Controller quản lý KPI Salary - Tính lương theo KPI kết nối Google Sheet
 /// </summary>
 [ApiController]
 [Route("api/kpi")]
@@ -39,7 +39,7 @@ public class KpiController(
     // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
     /// <summary>
-    /// Láº¥y danh sÃ¡ch cáº¥u hÃ¬nh KPI
+    /// Lấy danh sách cấu hình KPI
     /// </summary>
     [HttpGet("configs")]
     [RequireModulePermission("KPI", ModulePermissionAction.View)]
@@ -76,7 +76,7 @@ public class KpiController(
     }
 
     /// <summary>
-    /// Táº¡o cáº¥u hÃ¬nh KPI má»›i
+    /// Tạo cấu hình KPI mới
     /// </summary>
     [HttpPost("configs")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
@@ -110,7 +110,7 @@ public class KpiController(
     }
 
     /// <summary>
-    /// Cáº­p nháº­t cáº¥u hÃ¬nh KPI
+    /// Cập nhật cấu hình KPI
     /// </summary>
     [HttpPut("configs/{id}")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
@@ -118,7 +118,7 @@ public class KpiController(
     public async Task<ActionResult<AppResponse<KpiConfigDto>>> UpdateConfig(Guid id, [FromBody] CreateKpiConfigRequest request)
     {
         var config = await dbContext.KpiConfigs.FindAsync(id);
-        if (config == null) return NotFound(AppResponse<KpiConfigDto>.Fail("KhÃ´ng tÃ¬m tháº¥y cáº¥u hÃ¬nh KPI"));
+        if (config == null) return NotFound(AppResponse<KpiConfigDto>.Fail("Không tìm thấy cấu hình KPI"));
 
         config.Code = request.Code;
         config.Name = request.Name;
@@ -141,7 +141,7 @@ public class KpiController(
     }
 
     /// <summary>
-    /// XÃ³a cáº¥u hÃ¬nh KPI (soft delete)
+    /// Xóa cấu hình KPI (soft delete)
     /// </summary>
     [HttpDelete("configs/{id}")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
@@ -149,7 +149,7 @@ public class KpiController(
     public async Task<ActionResult<AppResponse<bool>>> DeleteConfig(Guid id)
     {
         var config = await dbContext.KpiConfigs.FindAsync(id);
-        if (config == null) return NotFound(AppResponse<bool>.Fail("KhÃ´ng tÃ¬m tháº¥y cáº¥u hÃ¬nh KPI"));
+        if (config == null) return NotFound(AppResponse<bool>.Fail("Không tìm thấy cấu hình KPI"));
 
         config.Deleted = DateTime.UtcNow;
         config.DeletedBy = CurrentUserId.ToString();
@@ -164,7 +164,7 @@ public class KpiController(
     // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
     /// <summary>
-    /// Láº¥y danh sÃ¡ch ká»³ Ä‘Ã¡nh giÃ¡ KPI
+    /// Lấy danh sách kỳ đánh giá KPI
     /// </summary>
     [HttpGet("periods")]
     [RequireModulePermission("KPI", ModulePermissionAction.View)]
@@ -207,7 +207,7 @@ public class KpiController(
     }
 
     /// <summary>
-    /// Táº¡o ká»³ Ä‘Ã¡nh giÃ¡ KPI má»›i
+    /// Tạo kỳ đánh giá KPI mới
     /// </summary>
     [HttpPost("periods")]
     [RequireModulePermission("KPI", ModulePermissionAction.Create)]
@@ -239,14 +239,14 @@ public class KpiController(
     }
 
     /// <summary>
-    /// Cáº­p nháº­t ká»³ Ä‘Ã¡nh giÃ¡
+    /// Cập nhật kỳ đánh giá
     /// </summary>
     [HttpPut("periods/{id}")]
     [RequireModulePermission("KPI", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<KpiPeriodDto>>> UpdatePeriod(Guid id, [FromBody] CreateKpiPeriodRequest request)
     {
         var period = await dbContext.KpiPeriods.FindAsync(id);
-        if (period == null) return NotFound(AppResponse<KpiPeriodDto>.Fail("KhÃ´ng tÃ¬m tháº¥y ká»³ Ä‘Ã¡nh giÃ¡"));
+        if (period == null) return NotFound(AppResponse<KpiPeriodDto>.Fail("Không tìm thấy kỳ đánh giá"));
 
         period.Name = request.Name;
         period.Year = request.Year;
@@ -267,14 +267,14 @@ public class KpiController(
     }
 
     /// <summary>
-    /// Cáº­p nháº­t tráº¡ng thÃ¡i ká»³
+    /// Cập nhật trạng thái kỳ
     /// </summary>
     [HttpPut("periods/{id}/status")]
     [RequireModulePermission("KPI", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<bool>>> UpdatePeriodStatus(Guid id, [FromBody] UpdateStatusRequest request)
     {
         var period = await dbContext.KpiPeriods.FindAsync(id);
-        if (period == null) return NotFound(AppResponse<bool>.Fail("KhÃ´ng tÃ¬m tháº¥y ká»³ Ä‘Ã¡nh giÃ¡"));
+        if (period == null) return NotFound(AppResponse<bool>.Fail("Không tìm thấy kỳ đánh giá"));
 
         period.Status = request.Status;
         period.UpdatedAt = DateTime.UtcNow;
@@ -286,7 +286,7 @@ public class KpiController(
         {
             try
             {
-                var statusLabel = request.Status == KpiPeriodStatus.Locked ? "Ä‘Ã£ khÃ³a" : "Ä‘Ã£ tÃ­nh lÆ°Æ¡ng";
+                var statusLabel = request.Status == KpiPeriodStatus.Locked ? "đã khóa" : "đã tính lương";
                 var empUserIds = await dbContext.KpiEmployeeTargets
                     .Where(t => t.KpiPeriodId == id && t.Deleted == null)
                     .Select(t => t.Employee.ApplicationUserId)
@@ -299,8 +299,8 @@ public class KpiController(
                     {
                         await notificationService.CreateAndSendAsync(
                             uid.Value, NotificationType.Info,
-                            "Ká»³ KPI cáº­p nháº­t",
-                            $"Ká»³ Ä‘Ã¡nh giÃ¡ \"{period.Name}\" {statusLabel}",
+                            "Kỳ KPI cập nhật",
+                            $"Kỳ đánh giá \"{period.Name}\" {statusLabel}",
                             relatedEntityType: "KpiPeriod",
                             fromUserId: CurrentUserId, categoryCode: "kpi", storeId: RequiredStoreId);
                     }
@@ -313,14 +313,14 @@ public class KpiController(
     }
 
     /// <summary>
-    /// XÃ³a ká»³ Ä‘Ã¡nh giÃ¡ (soft delete)
+    /// Xóa kỳ đánh giá (soft delete)
     /// </summary>
     [HttpDelete("periods/{id}")]
     [RequireModulePermission("KPI", ModulePermissionAction.Delete)]
     public async Task<ActionResult<AppResponse<bool>>> DeletePeriod(Guid id)
     {
         var period = await dbContext.KpiPeriods.FindAsync(id);
-        if (period == null) return NotFound(AppResponse<bool>.Fail("KhÃ´ng tÃ¬m tháº¥y ká»³ Ä‘Ã¡nh giÃ¡"));
+        if (period == null) return NotFound(AppResponse<bool>.Fail("Không tìm thấy kỳ đánh giá"));
 
         period.Deleted = DateTime.UtcNow;
         period.DeletedBy = CurrentUserId.ToString();
@@ -335,7 +335,7 @@ public class KpiController(
     // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
     /// <summary>
-    /// Láº¥y danh sÃ¡ch quy táº¯c thÆ°á»Ÿng KPI
+    /// Lấy danh sách quy tắc thưởng KPI
     /// </summary>
     [HttpGet("bonus-rules")]
     [RequireModulePermission("KPI", ModulePermissionAction.View)]
@@ -365,7 +365,7 @@ public class KpiController(
     }
 
     /// <summary>
-    /// LÆ°u danh sÃ¡ch quy táº¯c thÆ°á»Ÿng (thay tháº¿ toÃ n bá»™)
+    /// Lưu danh sách quy tắc thưởng (thay thế toàn bộ)
     /// </summary>
     [HttpPost("bonus-rules")]
     [RequireModulePermission("KPI", ModulePermissionAction.Create)]
@@ -373,14 +373,14 @@ public class KpiController(
     {
         var storeId = RequiredStoreId;
 
-        // XÃ³a rules cÅ©
+        // Xóa rules cũ
         var oldRules = await dbContext.KpiBonusRules
             .AsTracking()
             .Where(r => r.StoreId == storeId && r.Deleted == null)
             .ToListAsync();
         dbContext.KpiBonusRules.RemoveRange(oldRules);
 
-        // ThÃªm rules má»›i
+        // Thêm rules mới
         for (int i = 0; i < requests.Count; i++)
         {
             var rule = new KpiBonusRule
@@ -406,10 +406,10 @@ public class KpiController(
     // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
     /// <summary>
-    /// Láº¥y káº¿t quáº£ KPI theo ká»³. Khi khÃ´ng truyá»n periodId, máº·c Ä‘á»‹nh dÃ¹ng ká»³ KPI
-    /// "Ä‘ang má»Ÿ" má»›i nháº¥t cá»§a store hiá»‡n táº¡i (náº¿u khÃ´ng cÃ³ ká»³ Open thÃ¬ láº¥y ká»³
-    /// káº¿t thÃºc gáº§n nháº¥t). TrÆ°á»›c Ä‘Ã¢y client gá»i khÃ´ng kÃ¨m periodId luÃ´n nháº­n
-    /// Guid.Empty â†’ tráº£ vá» 0 dÃ²ng â†’ block KPI trÃªn Dashboard luÃ´n rá»—ng.
+    /// Lấy kết quả KPI theo kỳ. Khi không truyền periodId, mặc định dùng kỳ KPI
+    /// "đang mở" mới nhất của store hiện tại (nếu không có kỳ Open thì lấy kỳ
+    /// kết thúc gần nhất). Trước đây client gọi không kèm periodId luôn nhận
+    /// Guid.Empty → trả về 0 dòng → block KPI trên Dashboard luôn rỗng.
     /// </summary>
     [HttpGet("results")]
     [RequireModulePermission("KPI", ModulePermissionAction.View)]
@@ -428,7 +428,7 @@ public class KpiController(
         {
             var fallbackPeriod = await dbContext.KpiPeriods
                 .Where(p => p.StoreId == storeId && p.Deleted == null)
-                // Æ¯u tiÃªn ká»³ Open má»›i nháº¥t theo PeriodStart, sau Ä‘Ã³ lÃ  ká»³ cÃ³ PeriodEnd gáº§n now nháº¥t.
+                // Ưu tiên kỳ Open mới nhất theo PeriodStart, sau đó là kỳ có PeriodEnd gần now nhất.
                 .OrderBy(p => p.Status == KpiPeriodStatus.Open ? 0 : 1)
                 .ThenByDescending(p => p.PeriodStart)
                 .Select(p => new { p.Id })
@@ -479,7 +479,7 @@ public class KpiController(
     }
 
     /// <summary>
-    /// Nháº­p káº¿t quáº£ KPI thá»§ cÃ´ng
+    /// Nhập kết quả KPI thủ công
     /// </summary>
     [HttpPost("results")]
     [RequireModulePermission("KPI", ModulePermissionAction.Create)]
@@ -553,7 +553,7 @@ public class KpiController(
     // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
     /// <summary>
-    /// Láº¥y danh sÃ¡ch sheet trong spreadsheet
+    /// Lấy danh sách sheet trong spreadsheet
     /// </summary>
     [HttpGet("sheets/names")]
     [RequireModulePermission("KPI", ModulePermissionAction.View)]
@@ -567,12 +567,12 @@ public class KpiController(
         catch (Exception ex)
         {
             logger.LogError(ex, "Failed to get sheet names");
-            return Ok(AppResponse<List<string>>.Fail($"Lá»—i: {ex.Message}"));
+            return Ok(AppResponse<List<string>>.Fail($"Lỗi: {ex.Message}"));
         }
     }
 
     /// <summary>
-    /// Láº¥y header cá»§a sheet (Ä‘á»ƒ mapping cá»™t KPI)
+    /// Lấy header của sheet (để mapping cột KPI)
     /// </summary>
     [HttpGet("sheets/headers")]
     [RequireModulePermission("KPI", ModulePermissionAction.View)]
@@ -587,12 +587,12 @@ public class KpiController(
         catch (Exception ex)
         {
             logger.LogError(ex, "Failed to get sheet headers");
-            return Ok(AppResponse<List<string>>.Fail($"Lá»—i: {ex.Message}"));
+            return Ok(AppResponse<List<string>>.Fail($"Lỗi: {ex.Message}"));
         }
     }
 
     /// <summary>
-    /// Äá»“ng bá»™ dá»¯ liá»‡u KPI tá»« Google Sheet vÃ o há»‡ thá»‘ng
+    /// Đồng bộ dữ liệu KPI từ Google Sheet vào hệ thống
     /// </summary>
     [HttpPost("sheets/sync")]
     [RequireModulePermission("KPI", ModulePermissionAction.Edit)]
@@ -603,26 +603,26 @@ public class KpiController(
 
         try
         {
-            // 1. Äá»c dá»¯ liá»‡u tá»« Sheet
+            // 1. Đọc dữ liệu từ Sheet
             var sheetRows = await kpiSheetService.ReadKpiDataAsync(
                 request.SpreadsheetId, request.SheetName);
 
             if (sheetRows.Count == 0)
             {
-                return Ok(AppResponse<SyncKpiResult>.Fail("KhÃ´ng cÃ³ dá»¯ liá»‡u KPI trong sheet"));
+                return Ok(AppResponse<SyncKpiResult>.Fail("Không có dữ liệu KPI trong sheet"));
             }
 
-            // 2. Láº¥y danh sÃ¡ch KPI configs Ä‘á»ƒ mapping cá»™t
+            // 2. Lấy danh sách KPI configs để mapping cột
             var kpiConfigs = await dbContext.KpiConfigs
                 .Where(c => c.StoreId == storeId && c.Deleted == null && c.IsActive)
                 .ToListAsync();
 
-            // 3. Láº¥y danh sÃ¡ch nhÃ¢n viÃªn Ä‘á»ƒ matching
+            // 3. Lấy danh sách nhân viên để matching
             var employees = await dbContext.Set<Employee>()
                 .Where(e => e.StoreId == storeId && e.Deleted == null)
                 .ToListAsync();
 
-            // 4. Xá»­ lÃ½ tá»«ng dÃ²ng
+            // 4. Xử lý từng dòng
             foreach (var row in sheetRows)
             {
                 var employee = employees.FirstOrDefault(e =>
@@ -630,20 +630,20 @@ public class KpiController(
 
                 if (employee == null)
                 {
-                    syncResult.SkippedRows.Add($"KhÃ´ng tÃ¬m tháº¥y NV: {row.EmployeeCode} - {row.EmployeeName}");
+                    syncResult.SkippedRows.Add($"Không tìm thấy NV: {row.EmployeeCode} - {row.EmployeeName}");
                     continue;
                 }
 
                 foreach (var kpiConfig in kpiConfigs)
                 {
-                    // TÃ¬m giÃ¡ trá»‹ KPI trong dÃ²ng dá»±a trÃªn GoogleSheetColumnName
+                    // Tìm giá trị KPI trong dòng dựa trên GoogleSheetColumnName
                     decimal? actualValue = null;
                     if (!string.IsNullOrEmpty(kpiConfig.GoogleSheetColumnName) &&
                         row.KpiValues.TryGetValue(kpiConfig.GoogleSheetColumnName, out var val))
                     {
                         actualValue = val;
                     }
-                    // Fallback: tÃ¬m theo tÃªn KPI
+                    // Fallback: tìm theo tên KPI
                     else if (row.KpiValues.TryGetValue(kpiConfig.Name, out val))
                     {
                         actualValue = val;
@@ -699,7 +699,7 @@ public class KpiController(
                 syncResult.ProcessedEmployees++;
             }
 
-            // Cáº­p nháº­t thá»i gian sync cho period
+            // Cập nhật thời gian sync cho period
             var period = await dbContext.KpiPeriods.FindAsync(request.PeriodId);
             if (period != null)
             {
@@ -719,7 +719,7 @@ public class KpiController(
         catch (Exception ex)
         {
             logger.LogError(ex, "Failed to sync KPI data from Google Sheet");
-            return Ok(AppResponse<SyncKpiResult>.Fail($"Lá»—i Ä‘á»“ng bá»™: {ex.Message}"));
+            return Ok(AppResponse<SyncKpiResult>.Fail($"Lỗi đồng bộ: {ex.Message}"));
         }
     }
 
@@ -728,7 +728,7 @@ public class KpiController(
     // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
     /// <summary>
-    /// TÃ­nh lÆ°Æ¡ng KPI cho toÃ n bá»™ nhÃ¢n viÃªn trong ká»³
+    /// Tính lương KPI cho toàn bộ nhân viên trong kỳ
     /// </summary>
     [HttpPost("salary/calculate")]
     [RequireModulePermission("KPI", ModulePermissionAction.Edit)]
@@ -738,7 +738,7 @@ public class KpiController(
 
         try
         {
-            // Æ¯u tiÃªn: Náº¿u cÃ³ KpiEmployeeTargets vá»›i ActualValue â†’ dÃ¹ng cÃ´ng thá»©c band-based
+            // Ưu tiên: Nếu có KpiEmployeeTargets với ActualValue → dùng công thức band-based
             var empTargets = await dbContext.KpiEmployeeTargets
                 .Include(t => t.Employee)
                 .Where(t => t.KpiPeriodId == request.PeriodId &&
@@ -761,7 +761,7 @@ public class KpiController(
                 {
                     var employee = target.Employee;
 
-                    // TÃ­nh % hoÃ n thÃ nh
+                    // Tính % hoàn thành
                     var pct = (target.ActualValue.HasValue && target.TargetValue != 0)
                         ? target.ActualValue.Value / target.TargetValue * 100m
                         : 0m;
@@ -769,7 +769,7 @@ public class KpiController(
                     decimal baseSalary, kpiBonusAmount, grossIncome;
                     if (pct < 100m)
                     {
-                        // ChÆ°a Ä‘áº¡t 100%: lÆ°Æ¡ng tá»‰ lá»‡ + thÆ°á»Ÿng/pháº¡t theo PenaltyTiersJson
+                        // Chưa đạt 100%: lương tỉ lệ + thưởng/phạt theo PenaltyTiersJson
                         baseSalary = Math.Round(target.CompletionSalary * pct / 100m, 0);
                         kpiBonusAmount = CalcPenaltyBonus(target, pct);
                         grossIncome = baseSalary + kpiBonusAmount;
@@ -777,7 +777,7 @@ public class KpiController(
                     }
                     else
                     {
-                        // Äáº¡t/vÆ°á»£t 100%: lÆ°Æ¡ng cÆ¡ báº£n = CompletionSalary + thÆ°á»Ÿng vÆ°á»£t tá»« tiers
+                        // Đạt/vượt 100%: lương cơ bản = CompletionSalary + thưởng vượt từ tiers
                         var bandBonus = CalcBandedBonus(target);
                         baseSalary = target.CompletionSalary;
                         kpiBonusAmount = bandBonus - target.CompletionSalary;
@@ -869,8 +869,8 @@ public class KpiController(
                         {
                             await notificationService.CreateAndSendAsync(
                                 empUserId.Value, NotificationType.Info,
-                                "LÆ°Æ¡ng KPI Ä‘Ã£ tÃ­nh",
-                                $"LÆ°Æ¡ng KPI cá»§a báº¡n Ä‘Ã£ Ä‘Æ°á»£c tÃ­nh. Vui lÃ²ng kiá»ƒm tra.",
+                                "Lương KPI đã tính",
+                                $"Lương KPI của bạn đã được tính. Vui lòng kiểm tra.",
                                 relatedEntityType: "KpiSalary",
                                 fromUserId: CurrentUserId, categoryCode: "kpi", storeId: RequiredStoreId);
                         }
@@ -881,20 +881,20 @@ public class KpiController(
                 return Ok(AppResponse<List<KpiSalaryDto>>.Success(bandResults));
             }
 
-            // 1. Láº¥y táº¥t cáº£ káº¿t quáº£ KPI trong ká»³ (fallback dÃ¹ng KpiResults)
+            // 1. Lấy tất cả kết quả KPI trong kỳ (fallback dùng KpiResults)
             var kpiResults = await dbContext.KpiResults
                 .Include(r => r.Employee)
                 .Include(r => r.KpiConfig)
                 .Where(r => r.KpiPeriodId == request.PeriodId && r.Deleted == null)
                 .ToListAsync();
 
-            // 2. Láº¥y bonus rules
+            // 2. Lấy bonus rules
             var bonusRules = await dbContext.KpiBonusRules
                 .Where(r => r.StoreId == storeId && r.Deleted == null)
                 .OrderBy(r => r.SortOrder)
                 .ToListAsync();
 
-            // 3. NhÃ³m theo nhÃ¢n viÃªn vÃ  tÃ­nh tá»•ng Ä‘iá»ƒm
+            // 3. Nhóm theo nhân viên và tính tổng điểm
             var employeeGroups = kpiResults.GroupBy(r => r.EmployeeId);
             var salaryResults = new List<KpiSalaryDto>();
 
@@ -918,12 +918,12 @@ public class KpiController(
                 var employee = group.First().Employee;
                 var totalScore = group.Sum(r => r.WeightedScore);
 
-                // TÃ¬m má»©c thÆ°á»Ÿng Ã¡p dá»¥ng
+                // Tìm mức thưởng áp dụng
                 var applicableRule = bonusRules.FirstOrDefault(r =>
                     totalScore >= r.MinScore && totalScore <= r.MaxScore);
                 var bonusRate = applicableRule?.BonusRate ?? 0;
 
-                // Láº¥y lÆ°Æ¡ng cÆ¡ báº£n tá»« SalaryProfile
+                // Lấy lương cơ bản từ SalaryProfile
                 employeeBenefitsMap.TryGetValue(employeeId, out var employeeBenefit);
 
                 var baseSalary = employeeBenefit?.Benefit?.Rate ?? 0;
@@ -1006,7 +1006,7 @@ public class KpiController(
 
             await dbContext.SaveChangesAsync();
 
-            // Cáº­p nháº­t tráº¡ng thÃ¡i ká»³
+            // Cập nhật trạng thái kỳ
             var period = await dbContext.KpiPeriods.FindAsync(request.PeriodId);
             if (period != null && period.Status == KpiPeriodStatus.Locked)
             {
@@ -1028,8 +1028,8 @@ public class KpiController(
                     {
                         await notificationService.CreateAndSendAsync(
                             empUserId.Value, NotificationType.Info,
-                            "LÆ°Æ¡ng KPI Ä‘Ã£ tÃ­nh",
-                            $"LÆ°Æ¡ng KPI cá»§a báº¡n Ä‘Ã£ Ä‘Æ°á»£c tÃ­nh. Vui lÃ²ng kiá»ƒm tra.",
+                            "Lương KPI đã tính",
+                            $"Lương KPI của bạn đã được tính. Vui lòng kiểm tra.",
                             relatedEntityType: "KpiSalary",
                             fromUserId: CurrentUserId, categoryCode: "kpi", storeId: RequiredStoreId);
                     }
@@ -1042,12 +1042,12 @@ public class KpiController(
         catch (Exception ex)
         {
             logger.LogError(ex, "Failed to calculate KPI salary");
-            return Ok(AppResponse<List<KpiSalaryDto>>.Fail($"Lá»—i tÃ­nh lÆ°Æ¡ng: {ex.Message}"));
+            return Ok(AppResponse<List<KpiSalaryDto>>.Fail($"Lỗi tính lương: {ex.Message}"));
         }
     }
 
     /// <summary>
-    /// Láº¥y báº£ng lÆ°Æ¡ng KPI theo ká»³
+    /// Lấy bảng lương KPI theo kỳ
     /// </summary>
     [HttpGet("salary")]
     [RequireModulePermission("KPI", ModulePermissionAction.View)]
@@ -1082,7 +1082,7 @@ public class KpiController(
     }
 
     /// <summary>
-    /// Duyá»‡t báº£ng lÆ°Æ¡ng KPI
+    /// Duyệt bảng lương KPI
     /// </summary>
     [HttpPost("salary/approve")]
     [RequireModulePermission("KPI", ModulePermissionAction.Approve)]
@@ -1117,8 +1117,8 @@ public class KpiController(
                 {
                     await notificationService.CreateAndSendAsync(
                         salary.Employee.ApplicationUserId.Value, NotificationType.Success,
-                        "LÆ°Æ¡ng KPI Ä‘Ã£ duyá»‡t",
-                        $"LÆ°Æ¡ng KPI cá»§a báº¡n Ä‘Ã£ Ä‘Æ°á»£c duyá»‡t",
+                        "Lương KPI đã duyệt",
+                        $"Lương KPI của bạn đã được duyệt",
                         relatedEntityId: salary.Id, relatedEntityType: "KpiSalary",
                         fromUserId: CurrentUserId, categoryCode: "kpi", storeId: RequiredStoreId);
                 }
@@ -1130,7 +1130,7 @@ public class KpiController(
     }
 
     /// <summary>
-    /// Xuáº¥t káº¿t quáº£ lÆ°Æ¡ng KPI lÃªn Google Sheet
+    /// Xuất kết quả lương KPI lên Google Sheet
     /// </summary>
     [HttpPost("salary/export-sheet")]
     [RequireModulePermission("KPI", ModulePermissionAction.Edit)]
@@ -1161,12 +1161,12 @@ public class KpiController(
 
             return ok
                 ? Ok(AppResponse<bool>.Success(true))
-                : Ok(AppResponse<bool>.Fail("KhÃ´ng thá»ƒ ghi káº¿t quáº£ lÃªn Google Sheet"));
+                : Ok(AppResponse<bool>.Fail("Không thể ghi kết quả lên Google Sheet"));
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "Failed to export salary to sheet");
-            return Ok(AppResponse<bool>.Fail($"Lá»—i xuáº¥t: {ex.Message}"));
+            return Ok(AppResponse<bool>.Fail($"Lỗi xuất: {ex.Message}"));
         }
     }
 
@@ -1175,7 +1175,7 @@ public class KpiController(
     // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
     /// <summary>
-    /// Dashboard thá»‘ng kÃª KPI
+    /// Dashboard thống kê KPI
     /// </summary>
     [HttpGet("dashboard")]
     [RequireModulePermission("KPI", ModulePermissionAction.View)]
@@ -1261,11 +1261,11 @@ public class KpiController(
     }
 
     // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-    // KPI EMPLOYEE TARGETS (Thiáº¿t láº­p KPI theo nhÃ¢n viÃªn trong ká»³)
+    // KPI EMPLOYEE TARGETS (Thiết lập KPI theo nhân viên trong kỳ)
     // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
     /// <summary>
-    /// Láº¥y danh sÃ¡ch thiáº¿t láº­p KPI nhÃ¢n viÃªn cá»§a má»™t ká»³
+    /// Lấy danh sách thiết lập KPI nhân viên của một kỳ
     /// </summary>
     [HttpGet("employee-targets")]
     [RequireModulePermission("KPI", ModulePermissionAction.View)]
@@ -1304,7 +1304,7 @@ public class KpiController(
     }
 
     /// <summary>
-    /// LÆ°u hÃ ng loáº¡t (upsert) thiáº¿t láº­p KPI nhÃ¢n viÃªn cho má»™t ká»³
+    /// Lưu hàng loạt (upsert) thiết lập KPI nhân viên cho một kỳ
     /// </summary>
     [HttpPost("employee-targets/batch")]
     [RequireModulePermission("KPI", ModulePermissionAction.Edit)]
@@ -1390,8 +1390,8 @@ public class KpiController(
                 {
                     await notificationService.CreateAndSendAsync(
                         emp.ApplicationUserId.Value, NotificationType.Info,
-                        "Chá»‰ tiÃªu KPI má»›i",
-                        $"Báº¡n Ä‘Æ°á»£c giao chá»‰ tiÃªu KPI cho ká»³: {periodName}",
+                        "Chỉ tiêu KPI mới",
+                        $"Bạn được giao chỉ tiêu KPI cho kỳ: {periodName}",
                         relatedEntityType: "KpiEmployeeTarget",
                         fromUserId: CurrentUserId, categoryCode: "kpi", storeId: RequiredStoreId);
                 }
@@ -1403,14 +1403,14 @@ public class KpiController(
     }
 
     /// <summary>
-    /// XÃ³a má»™t nhÃ¢n viÃªn khá»i thiáº¿t láº­p KPI cá»§a ká»³ (soft delete)
+    /// Xóa một nhân viên khỏi thiết lập KPI của kỳ (soft delete)
     /// </summary>
     [HttpDelete("employee-targets/{id}")]
     [RequireModulePermission("KPI", ModulePermissionAction.Delete)]
     public async Task<ActionResult<AppResponse<bool>>> DeleteEmployeeTarget(Guid id)
     {
         var target = await dbContext.KpiEmployeeTargets.FindAsync(id);
-        if (target == null) return NotFound(AppResponse<bool>.Fail("KhÃ´ng tÃ¬m tháº¥y thiáº¿t láº­p KPI"));
+        if (target == null) return NotFound(AppResponse<bool>.Fail("Không tìm thấy thiết lập KPI"));
 
         target.Deleted = DateTime.UtcNow;
         target.DeletedBy = CurrentUserId.ToString();
@@ -1420,7 +1420,7 @@ public class KpiController(
     }
 
     /// <summary>
-    /// Äá»“ng bá»™ giÃ¡ trá»‹ thá»±c táº¿ tá»« Google Sheet vÃ o ActualValue cá»§a KpiEmployeeTargets
+    /// Đồng bộ giá trị thực tế từ Google Sheet vào ActualValue của KpiEmployeeTargets
     /// </summary>
     [HttpPost("employee-targets/sync-actuals")]
     [RequireModulePermission("KPI", ModulePermissionAction.Edit)]
@@ -1446,7 +1446,7 @@ public class KpiController(
                     r.EmployeeCode.Equals(empCode, StringComparison.OrdinalIgnoreCase));
                 if (row == null) continue;
 
-                // TÃ¬m cá»™t actual (exact hoáº·c case-insensitive)
+                // Tìm cột actual (exact hoặc case-insensitive)
                 var key = row.KpiValues.Keys.FirstOrDefault(k =>
                     k.Equals(request.ActualColumnName, StringComparison.OrdinalIgnoreCase));
                 if (key == null) continue;
@@ -1468,7 +1468,7 @@ public class KpiController(
         catch (Exception ex)
         {
             logger.LogError(ex, "Failed to sync actuals from sheet");
-            return Ok(AppResponse<object>.Fail($"Lá»—i Ä‘á»“ng bá»™: {ex.Message}"));
+            return Ok(AppResponse<object>.Fail($"Lỗi đồng bộ: {ex.Message}"));
         }
     }
 
@@ -1477,7 +1477,7 @@ public class KpiController(
     // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
     /// <summary>
-    /// LÆ°u cáº¥u hÃ¬nh Google Sheet cho ká»³ (URL + sheet + employee cell mappings + auto-sync)
+    /// Lưu cấu hình Google Sheet cho kỳ (URL + sheet + employee cell mappings + auto-sync)
     /// </summary>
     [HttpPost("gsheet-config/{periodId}")]
     [RequireModulePermission("KPI", ModulePermissionAction.Create)]
@@ -1486,7 +1486,7 @@ public class KpiController(
     {
         var period = await dbContext.KpiPeriods.FindAsync(periodId);
         if (period == null)
-            return NotFound(AppResponse<bool>.Fail("KhÃ´ng tÃ¬m tháº¥y ká»³"));
+            return NotFound(AppResponse<bool>.Fail("Không tìm thấy kỳ"));
 
         // Save period-level config
         var spreadsheetId = ExtractSpreadsheetId(request.GoogleSheetUrl ?? "");
@@ -1524,7 +1524,7 @@ public class KpiController(
     }
 
     /// <summary>
-    /// Test káº¿t ná»‘i Google Sheet - kiá»ƒm tra truy cáº­p vÃ  láº¥y tÃªn cÃ¡c sheet
+    /// Test kết nối Google Sheet - kiểm tra truy cập và lấy tên các sheet
     /// </summary>
     [HttpPost("gsheet-config/test-connection")]
     [RequireModulePermission("KPI", ModulePermissionAction.Create)]
@@ -1535,7 +1535,7 @@ public class KpiController(
         {
             var spreadsheetId = ExtractSpreadsheetId(request.GoogleSheetUrl ?? "");
             if (string.IsNullOrEmpty(spreadsheetId))
-                return Ok(AppResponse<object>.Fail("Link Google Sheet khÃ´ng há»£p lá»‡"));
+                return Ok(AppResponse<object>.Fail("Link Google Sheet không hợp lệ"));
 
             var sheetNames = await kpiSheetService.GetSheetNamesAsync(spreadsheetId);
             return Ok(AppResponse<object>.Success(new
@@ -1582,16 +1582,16 @@ public class KpiController(
                 serviceAccountEmail = saEmail,
                 rawError = fullMsg,
                 error = notShared
-                    ? $"Google Sheet chÆ°a Ä‘Æ°á»£c chia sáº» cho service account. Vui lÃ²ng chia sáº» quyá»n Viewer cho: {saEmail ?? "(khÃ´ng rÃµ email)"}"
+                    ? $"Google Sheet chưa được chia sẻ cho service account. Vui lòng chia sẻ quyền Viewer cho: {saEmail ?? "(không rõ email)"}"
                     : credsMissing
-                        ? "ChÆ°a cáº¥u hÃ¬nh file credentials.json trÃªn server. Vui lÃ²ng liÃªn há»‡ quáº£n trá»‹ viÃªn Ä‘á»ƒ thiáº¿t láº­p Google Service Account."
-                        : $"KhÃ´ng thá»ƒ káº¿t ná»‘i: {msg}"
+                        ? "Chưa cấu hình file credentials.json trên server. Vui lòng liên hệ quản trị viên để thiết lập Google Service Account."
+                        : $"Không thể kết nối: {msg}"
             }));
         }
     }
 
     /// <summary>
-    /// Táº¡o sheet máº«u KPI vá»›i danh sÃ¡ch nhÃ¢n viÃªn trong ká»³
+    /// Tạo sheet mẫu KPI với danh sách nhân viên trong kỳ
     /// </summary>
     [HttpPost("gsheet-config/{periodId}/create-template")]
     [RequireModulePermission("KPI", ModulePermissionAction.Edit)]
@@ -1601,15 +1601,15 @@ public class KpiController(
         {
             var period = await dbContext.KpiPeriods.FindAsync(periodId);
             if (period == null)
-                return NotFound(AppResponse<object>.Fail("KhÃ´ng tÃ¬m tháº¥y chu ká»³"));
+                return NotFound(AppResponse<object>.Fail("Không tìm thấy chu kỳ"));
 
             var spreadsheetId = period.GoogleSpreadsheetId;
-            var sheetName = period.GoogleSheetName ?? "NhÃ¢n viÃªn";
+            var sheetName = period.GoogleSheetName ?? "Nhân viên";
 
             if (string.IsNullOrEmpty(spreadsheetId))
-                return Ok(AppResponse<object>.Fail("ChÆ°a cáº¥u hÃ¬nh Google Sheet cho chu ká»³ nÃ y. Vui lÃ²ng thiáº¿t láº­p káº¿t ná»‘i trÆ°á»›c."));
+                return Ok(AppResponse<object>.Fail("Chưa cấu hình Google Sheet cho chu kỳ này. Vui lòng thiết lập kết nối trước."));
 
-            // Láº¥y nhÃ¢n viÃªn cÃ³ chá»‰ tiÃªu trong ká»³
+            // Lấy nhân viên có chỉ tiêu trong kỳ
             var targets = await dbContext.KpiEmployeeTargets
                 .Include(t => t.Employee)
                 .Where(t => t.KpiPeriodId == periodId && t.Deleted == null)
@@ -1631,7 +1631,7 @@ public class KpiController(
             }
             else
             {
-                // Fallback: láº¥y táº¥t cáº£ nhÃ¢n viÃªn active
+                // Fallback: lấy tất cả nhân viên active
                 var storeId = RequiredStoreId;
                 var allEmployees = await dbContext.Set<Employee>()
                     .Where(e => e.StoreId == storeId && e.Deleted == null && e.IsActive)
@@ -1651,18 +1651,18 @@ public class KpiController(
             {
                 sheetName,
                 employeeCount = employees.Count,
-                message = $"ÄÃ£ táº¡o sheet máº«u '{sheetName}' vá»›i {employees.Count} nhÃ¢n viÃªn"
+                message = $"Đã tạo sheet mẫu '{sheetName}' với {employees.Count} nhân viên"
             }));
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "Failed to create GSheet template for period {PeriodId}", periodId);
-            return Ok(AppResponse<object>.Fail($"Lá»—i táº¡o template: {ex.Message}"));
+            return Ok(AppResponse<object>.Fail($"Lỗi tạo template: {ex.Message}"));
         }
     }
 
     /// <summary>
-    /// Kiá»ƒm tra tráº¡ng thÃ¡i credentials.json trÃªn server
+    /// Kiểm tra trạng thái credentials.json trên server
     /// </summary>
     [HttpGet("gsheet-config/credentials-status")]
     [RequireModulePermission("KPI", ModulePermissionAction.View)]
@@ -1699,7 +1699,7 @@ public class KpiController(
         var form = await Request.ReadFormAsync();
         var file = form.Files.GetFile("credentials");
         if (file == null || file.Length == 0)
-            return Ok(AppResponse<object>.Fail("KhÃ´ng tÃ¬m tháº¥y file credentials"));
+            return Ok(AppResponse<object>.Fail("Không tìm thấy file credentials"));
 
         // Validate JSON structure
         try
@@ -1713,13 +1713,13 @@ public class KpiController(
             if (!root.TryGetProperty("type", out var typeProp)
                 || typeProp.GetString() != "service_account")
             {
-                return Ok(AppResponse<object>.Fail("File khÃ´ng pháº£i Google Service Account JSON key. Vui lÃ²ng táº£i Ä‘Ãºng file tá»« Google Cloud Console."));
+                return Ok(AppResponse<object>.Fail("File không phải Google Service Account JSON key. Vui lòng tải đúng file từ Google Cloud Console."));
             }
 
             if (!root.TryGetProperty("client_email", out _)
                 || !root.TryGetProperty("private_key", out _))
             {
-                return Ok(AppResponse<object>.Fail("File credentials khÃ´ng há»£p lá»‡: thiáº¿u client_email hoáº·c private_key."));
+                return Ok(AppResponse<object>.Fail("File credentials không hợp lệ: thiếu client_email hoặc private_key."));
             }
 
             // Save to credentials.json in ContentRootPath
@@ -1735,17 +1735,17 @@ public class KpiController(
             {
                 configured = true,
                 serviceAccountEmail = email,
-                message = "Upload credentials thÃ nh cÃ´ng!"
+                message = "Upload credentials thành công!"
             }));
         }
         catch (System.Text.Json.JsonException)
         {
-            return Ok(AppResponse<object>.Fail("File khÃ´ng pháº£i JSON há»£p lá»‡."));
+            return Ok(AppResponse<object>.Fail("File không phải JSON hợp lệ."));
         }
     }
 
     /// <summary>
-    /// Copy cáº¥u hÃ¬nh GSheet tá»« ká»³ nguá»“n sang ká»³ Ä‘Ã­ch
+    /// Copy cấu hình GSheet từ kỳ nguồn sang kỳ đích
     /// </summary>
     [HttpPost("gsheet-config/{periodId}/copy-from/{sourcePeriodId}")]
     [RequireModulePermission("KPI", ModulePermissionAction.Create)]
@@ -1755,7 +1755,7 @@ public class KpiController(
         var sourcePeriod = await dbContext.KpiPeriods.FindAsync(sourcePeriodId);
         var destPeriod = await dbContext.KpiPeriods.FindAsync(periodId);
         if (sourcePeriod == null || destPeriod == null)
-            return NotFound(AppResponse<object>.Fail("KhÃ´ng tÃ¬m tháº¥y ká»³"));
+            return NotFound(AppResponse<object>.Fail("Không tìm thấy kỳ"));
 
         // Copy period-level config
         destPeriod.GoogleSpreadsheetId = sourcePeriod.GoogleSpreadsheetId;
@@ -1795,9 +1795,9 @@ public class KpiController(
     }
 
     /// <summary>
-    /// Äá»“ng bá»™ doanh sá»‘ tá»« Google Sheet. 
-    /// Æ¯u tiÃªn Ä‘á»c theo MÃ£ NV + cá»™t "Tá»•ng KPI" tá»« sheet máº«u.
-    /// Fallback: Ä‘á»c theo cell position náº¿u cÃ³ cáº¥u hÃ¬nh per-employee.
+    /// Đồng bộ doanh số từ Google Sheet. 
+    /// Ưu tiên đọc theo Mã NV + cột "Tổng KPI" từ sheet mẫu.
+    /// Fallback: đọc theo cell position nếu có cấu hình per-employee.
     /// </summary>
     [HttpPost("sync-actuals/{periodId}")]
     [RequireModulePermission("KPI", ModulePermissionAction.Edit)]
@@ -1807,7 +1807,7 @@ public class KpiController(
         {
             var period = await dbContext.KpiPeriods.FindAsync(periodId);
             if (period == null)
-                return NotFound(AppResponse<object>.Fail("KhÃ´ng tÃ¬m tháº¥y chu ká»³"));
+                return NotFound(AppResponse<object>.Fail("Không tìm thấy chu kỳ"));
 
             var allTargets = await dbContext.KpiEmployeeTargets
                 .AsTracking()
@@ -1818,16 +1818,16 @@ public class KpiController(
             int updatedCount = 0;
             var errors = new List<string>();
 
-            // â”€â”€ Mode 1: Äá»c theo MÃ£ NV (sheet máº«u) â”€â”€
+            // â”€â”€ Mode 1: Đọc theo Mã NV (sheet mẫu) â”€â”€
             if (!string.IsNullOrEmpty(period.GoogleSpreadsheetId))
             {
-                var sheetName = period.GoogleSheetName ?? "NhÃ¢n viÃªn";
+                var sheetName = period.GoogleSheetName ?? "Nhân viên";
                 try
                 {
                     var rows = await kpiSheetService.ReadKpiDataAsync(
                         period.GoogleSpreadsheetId, sheetName);
 
-                    // XÃ¡c Ä‘á»‹nh cá»™t Tá»•ng KPI (máº·c Ä‘á»‹nh C náº¿u dÃ¹ng template)
+                    // Xác định cột Tổng KPI (mặc định C nếu dùng template)
                     string kpiColLetter = "C";
                     if (rows.Count > 0)
                     {
@@ -1835,10 +1835,10 @@ public class KpiController(
                         int colOffset = 0;
                         foreach (var key in firstRow.KpiValues.Keys)
                         {
-                            if (key.Contains("Tá»•ng KPI", StringComparison.OrdinalIgnoreCase)
+                            if (key.Contains("Tổng KPI", StringComparison.OrdinalIgnoreCase)
                                 || key.Contains("KPI", StringComparison.OrdinalIgnoreCase))
                             {
-                                // TÃ­nh cá»™t: skip MÃ£ NV(A) + TÃªn NV(B) + offset
+                                // Tính cột: skip Mã NV(A) + Tên NV(B) + offset
                                 kpiColLetter = GetColumnLetter(2 + colOffset); // 0=A,1=B,2=C
                                 break;
                             }
@@ -1848,7 +1848,7 @@ public class KpiController(
 
                     var sheetUrl = $"https://docs.google.com/spreadsheets/d/{period.GoogleSpreadsheetId}";
 
-                    // Debug: log mÃ£ NV tá»« sheet vÃ  tá»« DB
+                    // Debug: log mã NV từ sheet và từ DB
                     var sheetCodes = rows.Select(r => r.EmployeeCode).ToList();
                     var dbCodes = allTargets.Where(t => t.Employee != null).Select(t => t.Employee!.EmployeeCode).ToList();
                     logger.LogWarning("[SYNC] Sheet codes: [{SheetCodes}]", string.Join(", ", sheetCodes));
@@ -1856,7 +1856,7 @@ public class KpiController(
 
                     foreach (var row in rows)
                     {
-                        // TÃ¬m target theo mÃ£ NV (normalize cáº£ 2 phÃ­a)
+                        // Tìm target theo mã NV (normalize cả 2 phía)
                         var sheetCode = row.EmployeeCode.Trim();
                         var target = allTargets.FirstOrDefault(t =>
                             t.Employee != null &&
@@ -1864,17 +1864,17 @@ public class KpiController(
 
                         if (target == null) continue;
 
-                        // Auto-map cell position: cá»™t KPI + dÃ²ng trong sheet
+                        // Auto-map cell position: cột KPI + dòng trong sheet
                         var cellPos = $"{kpiColLetter}{row.RowIndex}";
                         target.GoogleCellPosition = cellPos;
                         target.GoogleSheetUrl = sheetUrl;
                         target.GoogleSheetName = sheetName;
 
-                        // Äá»c cá»™t "Tá»•ng KPI"
+                        // Đọc cột "Tổng KPI"
                         decimal? kpiValue = null;
                         foreach (var key in row.KpiValues.Keys)
                         {
-                            if (key.Contains("Tá»•ng KPI", StringComparison.OrdinalIgnoreCase)
+                            if (key.Contains("Tổng KPI", StringComparison.OrdinalIgnoreCase)
                                 || key.Contains("TongKPI", StringComparison.OrdinalIgnoreCase)
                                 || key.Contains("Total KPI", StringComparison.OrdinalIgnoreCase)
                                 || key.Contains("KPI", StringComparison.OrdinalIgnoreCase))
@@ -1883,7 +1883,7 @@ public class KpiController(
                                 break;
                             }
                         }
-                        // Fallback: láº¥y giÃ¡ trá»‹ Ä‘áº§u tiÃªn náº¿u chá»‰ cÃ³ 1 cá»™t sá»‘
+                        // Fallback: lấy giá trị đầu tiên nếu chỉ có 1 cột số
                         kpiValue ??= row.KpiValues.Values.FirstOrDefault();
 
                         if (kpiValue.HasValue)
@@ -1914,8 +1914,8 @@ public class KpiController(
                     }
                     else
                     {
-                        // KhÃ´ng match Ä‘Æ°á»£c â†’ tráº£ debug info
-                        errors.Add($"Äá»c Ä‘Æ°á»£c {rows.Count} dÃ²ng tá»« sheet nhÆ°ng khÃ´ng match mÃ£ NV nÃ o.");
+                        // Không match được → trả debug info
+                        errors.Add($"Đọc được {rows.Count} dòng từ sheet nhưng không match mã NV nào.");
                         errors.Add($"Sheet codes: [{string.Join(", ", sheetCodes)}]");
                         errors.Add($"DB codes: [{string.Join(", ", dbCodes)}]");
                     }
@@ -1923,11 +1923,11 @@ public class KpiController(
                 catch (Exception ex)
                 {
                     logger.LogWarning(ex, "Code-based sync failed, falling back to cell-based sync");
-                    errors.Add($"Äá»c theo mÃ£ NV tháº¥t báº¡i: {ex.Message}");
+                    errors.Add($"Đọc theo mã NV thất bại: {ex.Message}");
                 }
             }
 
-            // â”€â”€ Mode 2: Fallback - Ä‘á»c theo cell position â”€â”€
+            // â”€â”€ Mode 2: Fallback - đọc theo cell position â”€â”€
             var cellTargets = allTargets
                 .Where(t => t.GoogleSheetUrl != null && t.GoogleCellPosition != null)
                 .ToList();
@@ -1969,12 +1969,12 @@ public class KpiController(
         catch (Exception ex)
         {
             logger.LogError(ex, "Failed to sync actuals per employee");
-            return Ok(AppResponse<object>.Fail($"Lá»—i Ä‘á»“ng bá»™: {ex.Message}"));
+            return Ok(AppResponse<object>.Fail($"Lỗi đồng bộ: {ex.Message}"));
         }
     }
 
     /// <summary>
-    /// Import doanh sá»‘ tá»« Excel - nháº­n JSON array [{employeeCode, actualValue}]
+    /// Import doanh số từ Excel - nhận JSON array [{employeeCode, actualValue}]
     /// </summary>
     [HttpPost("import-actuals/{periodId}")]
     [RequireModulePermission("KPI", ModulePermissionAction.Edit)]
@@ -1982,7 +1982,7 @@ public class KpiController(
         Guid periodId, [FromBody] List<ImportActualDto> data)
     {
         if (data == null || data.Count == 0)
-            return Ok(AppResponse<object>.Fail("KhÃ´ng cÃ³ dá»¯ liá»‡u import"));
+            return Ok(AppResponse<object>.Fail("Không có dữ liệu import"));
 
         var targets = await dbContext.KpiEmployeeTargets
             .AsTracking()
@@ -2005,7 +2005,7 @@ public class KpiController(
 
             if (target == null)
             {
-                errors.Add($"KhÃ´ng tÃ¬m tháº¥y NV '{item.EmployeeCode}'");
+                errors.Add($"Không tìm thấy NV '{item.EmployeeCode}'");
                 continue;
             }
 
@@ -2027,7 +2027,7 @@ public class KpiController(
     }
 
     /// <summary>
-    /// Táº£i file máº«u Excel cho ká»³
+    /// Tải file mẫu Excel cho kỳ
     /// </summary>
     [HttpGet("excel-template/{periodId}")]
     [RequireModulePermission("KPI", ModulePermissionAction.View)]
@@ -2039,9 +2039,9 @@ public class KpiController(
             .OrderBy(t => t.Employee.EmployeeCode)
             .ToListAsync();
 
-        // Táº¡o CSV Ä‘Æ¡n giáº£n lÃ m template
+        // Tạo CSV đơn giản làm template
         var sb = new System.Text.StringBuilder();
-        sb.AppendLine("MÃ£ NV,TÃªn nhÃ¢n viÃªn,Doanh sá»‘ thá»±c táº¿");
+        sb.AppendLine("Mã NV,Tên nhân viên,Doanh số thực tế");
         foreach (var t in targets)
         {
             var empCode = t.Employee?.EmployeeCode ?? "";
@@ -2065,7 +2065,7 @@ public class KpiController(
     }
 
     /// <summary>
-    /// Ghi chá»‰ tiÃªu (targetValue) cá»§a tá»«ng nhÃ¢n viÃªn xuá»‘ng cá»™t D Google Sheet
+    /// Ghi chỉ tiêu (targetValue) của từng nhân viên xuống cột D Google Sheet
     /// </summary>
     [HttpPost("gsheet-config/{periodId}/write-targets")]
     [RequireModulePermission("KPI", ModulePermissionAction.Edit)]
@@ -2075,26 +2075,26 @@ public class KpiController(
         {
             var period = await dbContext.KpiPeriods.FindAsync(periodId);
             if (period == null)
-                return NotFound(AppResponse<object>.Fail("KhÃ´ng tÃ¬m tháº¥y chu ká»³"));
+                return NotFound(AppResponse<object>.Fail("Không tìm thấy chu kỳ"));
 
             var spreadsheetId = period.GoogleSpreadsheetId;
-            var sheetName = period.GoogleSheetName ?? "NhÃ¢n viÃªn";
+            var sheetName = period.GoogleSheetName ?? "Nhân viên";
 
             if (string.IsNullOrEmpty(spreadsheetId))
-                return Ok(AppResponse<object>.Fail("ChÆ°a cáº¥u hÃ¬nh Google Sheet cho chu ká»³ nÃ y."));
+                return Ok(AppResponse<object>.Fail("Chưa cấu hình Google Sheet cho chu kỳ này."));
 
-            // Äá»c dá»¯ liá»‡u sheet Ä‘á»ƒ match mÃ£ NV
+            // Đọc dữ liệu sheet để match mã NV
             var rows = await kpiSheetService.ReadKpiDataAsync(spreadsheetId, sheetName);
             if (rows.Count == 0)
-                return Ok(AppResponse<object>.Fail("Sheet trá»‘ng, hÃ£y táº¡o template trÆ°á»›c."));
+                return Ok(AppResponse<object>.Fail("Sheet trống, hãy tạo template trước."));
 
             var targets = await dbContext.KpiEmployeeTargets
                 .Include(t => t.Employee)
                 .Where(t => t.KpiPeriodId == periodId && t.Deleted == null)
                 .ToListAsync();
 
-            // Ghi header cá»™t D
-            var headerValues = new List<IList<object>> { new List<object> { "Chá»‰ tiÃªu" } };
+            // Ghi header cột D
+            var headerValues = new List<IList<object>> { new List<object> { "Chỉ tiêu" } };
             await kpiSheetService.WriteCellRangeAsync(spreadsheetId, $"{sheetName}!D1", headerValues);
 
             int writtenCount = 0;
@@ -2110,7 +2110,7 @@ public class KpiController(
 
                 if (target == null)
                 {
-                    errors.Add($"KhÃ´ng tÃ¬m tháº¥y chá»‰ tiÃªu cho mÃ£ NV '{sheetCode}'");
+                    errors.Add($"Không tìm thấy chỉ tiêu cho mã NV '{sheetCode}'");
                     continue;
                 }
 
@@ -2125,13 +2125,13 @@ public class KpiController(
                 writtenCount,
                 totalRows = rows.Count,
                 errors,
-                message = $"ÄÃ£ ghi chá»‰ tiÃªu cho {writtenCount}/{rows.Count} nhÃ¢n viÃªn vÃ o cá»™t D"
+                message = $"Đã ghi chỉ tiêu cho {writtenCount}/{rows.Count} nhân viên vào cột D"
             }));
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "Failed to write targets to GSheet for period {PeriodId}", periodId);
-            return Ok(AppResponse<object>.Fail($"Lá»—i ghi chá»‰ tiÃªu: {ex.Message}"));
+            return Ok(AppResponse<object>.Fail($"Lỗi ghi chỉ tiêu: {ex.Message}"));
         }
     }
 
@@ -2149,7 +2149,7 @@ public class KpiController(
     private static string NormalizeEmployeeCode(string code)
     {
         if (string.IsNullOrWhiteSpace(code)) return "";
-        // Loáº¡i bá» .0, khoáº£ng tráº¯ng
+        // Loại bỏ .0, khoảng trắng
         if (double.TryParse(code, System.Globalization.NumberStyles.Any,
                 System.Globalization.CultureInfo.InvariantCulture, out var num))
             return ((long)num).ToString();
@@ -2195,7 +2195,7 @@ public class KpiController(
         Notes = p.Notes
     };
 
-    /// <summary>TÃ­nh thÆ°á»Ÿng vÆ°á»£t chá»‰ tiÃªu theo cáº¥u trÃºc band</summary>
+    /// <summary>Tính thưởng vượt chỉ tiêu theo cấu trúc band</summary>
     private static decimal CalcBandedBonus(KpiEmployeeTarget target)
     {
         if (!target.ActualValue.HasValue || target.TargetValue == 0) return 0;
@@ -2204,7 +2204,7 @@ public class KpiController(
         var pct = act / tgt * 100m;
         if (pct < 100m) return 0;
 
-        var bonus = target.CompletionSalary; // lÆ°Æ¡ng cá»‘ Ä‘á»‹nh khi Ä‘áº¡t 100%
+        var bonus = target.CompletionSalary; // lương cố định khi đạt 100%
         if (string.IsNullOrWhiteSpace(target.BonusTiersJson)) return bonus;
 
         try
@@ -2222,12 +2222,12 @@ public class KpiController(
 
                 if (band.RateType == 2)
                 {
-                    // GiÃ¡ trá»‹ VNÄ cá»‘ Ä‘á»‹nh
+                    // Giá trị VNĐ cố định
                     bonus += band.Rate;
                 }
                 else if (band.RateType == 3)
                 {
-                    // % lÆ°Æ¡ng hoÃ n thÃ nh
+                    // % lương hoàn thành
                     bonus += Math.Round(target.CompletionSalary * band.Rate / 100m, 0);
                 }
                 else
@@ -2235,17 +2235,17 @@ public class KpiController(
                     var inBand = Math.Min(act, toVal) - fromVal;
                     if (inBand <= 0) continue;
                     bonus += band.RateType == 1
-                        ? inBand * band.Rate / 100m   // % giÃ¡ trá»‹ vÆ°á»£t
-                        : inBand * band.Rate;          // Ä‘/Ä‘Æ¡n vá»‹ cá»‘ Ä‘á»‹nh
+                        ? inBand * band.Rate / 100m   // % giá trị vượt
+                        : inBand * band.Rate;          // đ/đơn vị cố định
                 }
             }
         }
-        catch { /* Json parse failed, tráº£ vá» completionSalary */ }
+        catch { /* Json parse failed, trả về completionSalary */ }
 
         return bonus;
     }
 
-    /// <summary>TÃ­nh thÆ°á»Ÿng/pháº¡t khi chÆ°a Ä‘áº¡t 100% theo PenaltyTiersJson</summary>
+    /// <summary>Tính thưởng/phạt khi chưa đạt 100% theo PenaltyTiersJson</summary>
     private static decimal CalcPenaltyBonus(KpiEmployeeTarget target, decimal pct)
     {
         if (string.IsNullOrWhiteSpace(target.PenaltyTiersJson)) return 0;
@@ -2257,15 +2257,15 @@ public class KpiController(
                 new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
             if (tiers == null) return 0;
 
-            // TÃ¬m band chá»©a pct hiá»‡n táº¡i, Ã¡p dá»¥ng rate
+            // Tìm band chứa pct hiện tại, áp dụng rate
             foreach (var band in tiers)
             {
                 var fromPct = (decimal)band.FromPct;
                 var toPct = band.ToPct < 0 ? 100m : (decimal)band.ToPct;
                 if (pct >= fromPct && pct < toPct)
                 {
-                    // rate < 0 = pháº¡t, rate > 0 = thÆ°á»Ÿng
-                    // rateType 1 = % cá»§a CompletionSalary, rateType 0 = sá»‘ tiá»n cá»‘ Ä‘á»‹nh
+                    // rate < 0 = phạt, rate > 0 = thưởng
+                    // rateType 1 = % của CompletionSalary, rateType 0 = số tiền cố định
                     return band.RateType == 1
                         ? Math.Round(target.CompletionSalary * band.Rate / 100m, 0)
                         : band.Rate;
@@ -2514,16 +2514,16 @@ public class SyncActualsFromSheetRequest
     public Guid PeriodId { get; set; }
     public string SpreadsheetId { get; set; } = "";
     public string SheetName { get; set; } = "";
-    public string CodeColumnName { get; set; } = "MÃ£ NV";
+    public string CodeColumnName { get; set; } = "Mã NV";
     public string ActualColumnName { get; set; } = "";
 }
 
 public class BandTier
 {
     public double FromPct { get; set; }
-    public double ToPct { get; set; }  // -1 = khÃ´ng giá»›i háº¡n
+    public double ToPct { get; set; }  // -1 = không giới hạn
     public decimal Rate { get; set; }
-    public int RateType { get; set; }  // 0 = cá»‘ Ä‘á»‹nh Ä‘/Ä‘vt, 1 = % giÃ¡ trá»‹ vÆ°á»£t, 2 = VNÄ cá»‘ Ä‘á»‹nh, 3 = % lÆ°Æ¡ng hoÃ n thÃ nh
+    public int RateType { get; set; }  // 0 = cố định đ/đvt, 1 = % giá trị vượt, 2 = VNĐ cố định, 3 = % lương hoàn thành
 }
 
 public class KpiEmployeeTargetItem

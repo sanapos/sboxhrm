@@ -19,7 +19,7 @@ namespace ZKTecoADMS.Api.Controllers;
 public class DepartmentPermissionsController(ZKTecoDbContext context, IDataScopeService dataScopeService) : AuthenticatedControllerBase
 {
     /// <summary>
-    /// Láº¥y cÃ¢y phÃ²ng ban kÃ¨m thÃ´ng tin quyá»n
+    /// Lấy cây phòng ban kèm thông tin quyền
     /// </summary>
     [HttpGet("department-tree")]
     [RequirePermission("DepartmentPermission", PermissionAction.View)]
@@ -47,7 +47,7 @@ public class DepartmentPermissionsController(ZKTecoDbContext context, IDataScope
             })
             .ToListAsync();
 
-        // Láº¥y tÃªn manager
+        // Lấy tên manager
         var managerIds = departments.Where(d => d.ManagerId.HasValue).Select(d => d.ManagerId!.Value).Distinct().ToList();
         var managers = await context.Employees
             .Where(e => managerIds.Contains(e.Id))
@@ -80,7 +80,7 @@ public class DepartmentPermissionsController(ZKTecoDbContext context, IDataScope
     }
 
     /// <summary>
-    /// Láº¥y quyá»n phÃ²ng ban theo user
+    /// Lấy quyền phòng ban theo user
     /// </summary>
     [HttpGet("by-user/{userId}")]
     [RequirePermission("DepartmentPermission", PermissionAction.View)]
@@ -96,7 +96,7 @@ public class DepartmentPermissionsController(ZKTecoDbContext context, IDataScope
             .FirstOrDefaultAsync();
 
         if (user == null)
-            return NotFound(AppResponse<object>.Error("User khÃ´ng tá»“n táº¡i"));
+            return NotFound(AppResponse<object>.Error("User không tồn tại"));
 
         var permissions = await context.DepartmentPermissions
             .Include(dp => dp.Permission)
@@ -113,7 +113,7 @@ public class DepartmentPermissionsController(ZKTecoDbContext context, IDataScope
             .Select(g => new DepartmentPermissionItemDto
             {
                 DepartmentId = g.Key.DepartmentId,
-                DepartmentName = g.Key.DeptName ?? "Táº¥t cáº£ phÃ²ng ban",
+                DepartmentName = g.Key.DeptName ?? "Tất cả phòng ban",
                 IncludeChildren = g.Key.IncludeChildren,
                 Permissions = g.Select(dp => new ModulePermissionDto
                 {
@@ -142,7 +142,7 @@ public class DepartmentPermissionsController(ZKTecoDbContext context, IDataScope
     }
 
     /// <summary>
-    /// Láº¥y quyá»n phÃ²ng ban theo department
+    /// Lấy quyền phòng ban theo department
     /// </summary>
     [HttpGet("by-department/{departmentId}")]
     [RequirePermission("DepartmentPermission", PermissionAction.View)]
@@ -190,7 +190,7 @@ public class DepartmentPermissionsController(ZKTecoDbContext context, IDataScope
     }
 
     /// <summary>
-    /// GÃ¡n quyá»n phÃ²ng ban cho user
+    /// Gán quyền phòng ban cho user
     /// </summary>
     [HttpPost]
     [RequirePermission("DepartmentPermission", PermissionAction.Create)]
@@ -200,7 +200,7 @@ public class DepartmentPermissionsController(ZKTecoDbContext context, IDataScope
     {
         var effectiveStoreId = request.StoreId ?? CurrentStoreId;
 
-        // XÃ³a quyá»n cÅ© cá»§a user trong department + store
+        // Xóa quyền cũ của user trong department + store
         var oldPermissions = await context.DepartmentPermissions
             .Where(dp => dp.UserId == request.UserId &&
                          dp.DepartmentId == request.DepartmentId &&
@@ -209,13 +209,13 @@ public class DepartmentPermissionsController(ZKTecoDbContext context, IDataScope
 
         context.DepartmentPermissions.RemoveRange(oldPermissions);
 
-        // ThÃªm quyá»n má»›i
+        // Thêm quyền mới
         var currentUserName = User.Identity?.Name ?? "system";
         foreach (var perm in request.Permissions)
         {
             if (!perm.CanView && !perm.CanCreate && !perm.CanEdit &&
                 !perm.CanDelete && !perm.CanExport && !perm.CanApprove)
-                continue; // Bá» qua náº¿u khÃ´ng cÃ³ quyá»n nÃ o
+                continue; // Bỏ qua nếu không có quyền nào
 
             context.DepartmentPermissions.Add(new DepartmentPermission
             {
@@ -245,7 +245,7 @@ public class DepartmentPermissionsController(ZKTecoDbContext context, IDataScope
     }
 
     /// <summary>
-    /// XÃ³a quyá»n phÃ²ng ban cho user trong má»™t department
+    /// Xóa quyền phòng ban cho user trong một department
     /// </summary>
     [HttpDelete("{userId}/{departmentId}")]
     [RequirePermission("DepartmentPermission", PermissionAction.Delete)]
@@ -262,7 +262,7 @@ public class DepartmentPermissionsController(ZKTecoDbContext context, IDataScope
             .ToListAsync();
 
         if (!permissions.Any())
-            return NotFound(AppResponse<object>.Error("KhÃ´ng tÃ¬m tháº¥y quyá»n phÃ²ng ban"));
+            return NotFound(AppResponse<object>.Error("Không tìm thấy quyền phòng ban"));
 
         context.DepartmentPermissions.RemoveRange(permissions);
         await context.SaveChangesAsync();
@@ -271,7 +271,7 @@ public class DepartmentPermissionsController(ZKTecoDbContext context, IDataScope
     }
 
     /// <summary>
-    /// Láº¥y quyá»n phÃ²ng ban hiá»‡u lá»±c cá»§a current user (cho frontend check)
+    /// Lấy quyền phòng ban hiệu lực của current user (cho frontend check)
     /// </summary>
     [HttpGet("my-permissions")]
     public async Task<ActionResult<AppResponse<List<DepartmentPermissionDto>>>> GetMyDepartmentPermissions()
@@ -291,7 +291,7 @@ public class DepartmentPermissionsController(ZKTecoDbContext context, IDataScope
                 Id = dp.Id,
                 UserId = dp.UserId,
                 DepartmentId = dp.DepartmentId,
-                DepartmentName = dp.Department != null ? dp.Department.Name : "Táº¥t cáº£",
+                DepartmentName = dp.Department != null ? dp.Department.Name : "Tất cả",
                 PermissionId = dp.PermissionId,
                 Module = dp.Permission!.Module,
                 ModuleDisplayName = dp.Permission.ModuleDisplayName,
@@ -312,7 +312,7 @@ public class DepartmentPermissionsController(ZKTecoDbContext context, IDataScope
     }
 
     /// <summary>
-    /// Kiá»ƒm tra user cÃ³ quyá»n cá»¥ thá»ƒ trong phÃ²ng ban khÃ´ng
+    /// Kiểm tra user có quyền cụ thể trong phòng ban không
     /// </summary>
     [HttpGet("check")]
     public async Task<ActionResult<AppResponse<bool>>> CheckDepartmentPermission(
@@ -331,7 +331,7 @@ public class DepartmentPermissionsController(ZKTecoDbContext context, IDataScope
 
         if (departmentId.HasValue)
         {
-            // Kiá»ƒm tra quyá»n trá»±c tiáº¿p hoáº·c quyá»n káº¿ thá»«a tá»« phÃ²ng ban cha
+            // Kiểm tra quyền trực tiếp hoặc quyền kế thừa từ phòng ban cha
             var dept = await context.Departments
                 .Where(d => d.Id == departmentId.Value)
                 .Select(d => new { d.Id, d.HierarchyPath })
@@ -341,10 +341,10 @@ public class DepartmentPermissionsController(ZKTecoDbContext context, IDataScope
                 return Ok(AppResponse<bool>.Success(false));
 
             query = query.Where(dp =>
-                dp.DepartmentId == null || // Quyá»n táº¥t cáº£ phÃ²ng ban
-                dp.DepartmentId == departmentId.Value || // Quyá»n trá»±c tiáº¿p
+                dp.DepartmentId == null || // Quyền tất cả phòng ban
+                dp.DepartmentId == departmentId.Value || // Quyền trực tiếp
                 (dp.IncludeChildren && dept.HierarchyPath != null &&
-                 dept.HierarchyPath.Contains(dp.DepartmentId.ToString()!))); // Káº¿ thá»«a tá»« cha
+                 dept.HierarchyPath.Contains(dp.DepartmentId.ToString()!))); // Kế thừa từ cha
         }
 
         var permission = await query.FirstOrDefaultAsync();
@@ -366,7 +366,7 @@ public class DepartmentPermissionsController(ZKTecoDbContext context, IDataScope
     }
 
     /// <summary>
-    /// Láº¥y pháº¡m vi quáº£n lÃ½ cá»§a current user (danh sÃ¡ch PB Ä‘Æ°á»£c quáº£n lÃ½ + sá»‘ NV)
+    /// Lấy phạm vi quản lý của current user (danh sách PB được quản lý + số NV)
     /// </summary>
     [HttpGet("my-scope")]
     public async Task<ActionResult<AppResponse<object>>> GetMyScope()
@@ -375,7 +375,7 @@ public class DepartmentPermissionsController(ZKTecoDbContext context, IDataScope
         if (!storeId.HasValue)
             return Ok(AppResponse<object>.Success(new { departments = new List<object>(), employeeCount = 0 }));
 
-        // Admin xem táº¥t cáº£
+        // Admin xem tất cả
         if (IsAdmin)
         {
             var allDepts = await context.Departments

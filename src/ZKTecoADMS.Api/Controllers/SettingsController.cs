@@ -374,7 +374,7 @@ public class SettingsController(IMediator mediator, ZKTecoDbContext dbContext) :
         return Ok(result);
     }
 
-    // App Settings (Thiáº¿t láº­p há»‡ thá»‘ng)
+    // App Settings (Thiết lập hệ thống)
     [HttpGet("app/{key}")]
     [Authorize]
     [RequireAnyModulePermission(ModulePermissionAction.View, "SystemSettings", "SalarySettings")]
@@ -454,7 +454,7 @@ public class SettingsController(IMediator mediator, ZKTecoDbContext dbContext) :
     }
 
     /// <summary>
-    /// Láº¥y danh sÃ¡ch module Ä‘Æ°á»£c phÃ©p cá»§a cá»­a hÃ ng hiá»‡n táº¡i (dá»±a trÃªn gÃ³i dá»‹ch vá»¥)
+    /// Lấy danh sách module được phép của cửa hàng hiện tại (dựa trên gói dịch vụ)
     /// </summary>
     [HttpGet("my-modules")]
     [Authorize]

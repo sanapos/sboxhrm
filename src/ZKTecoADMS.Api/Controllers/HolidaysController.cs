@@ -183,7 +183,7 @@ public class HolidayDto
     public bool IsRecurring { get; set; }
     public string? Region { get; set; }
     public double SalaryRate { get; set; } = 3.0;
-    public string Category { get; set; } = "NgÃ y nghá»‰ chÃ­nh thá»©c";
+    public string Category { get; set; } = "Ngày nghỉ chính thức";
     public List<string>? EmployeeIds { get; set; }
 }
 
@@ -195,7 +195,7 @@ public class CreateHolidayRequest
     public bool IsRecurring { get; set; } = true;
     public string? Region { get; set; }
     public double SalaryRate { get; set; } = 3.0;
-    public string Category { get; set; } = "NgÃ y nghá»‰ chÃ­nh thá»©c";
+    public string Category { get; set; } = "Ngày nghỉ chính thức";
     public List<string>? EmployeeIds { get; set; }
 }
 
@@ -207,7 +207,7 @@ public class UpdateHolidayRequest
     public bool IsRecurring { get; set; }
     public string? Region { get; set; }
     public double SalaryRate { get; set; } = 3.0;
-    public string Category { get; set; } = "NgÃ y nghá»‰ chÃ­nh thá»©c";
+    public string Category { get; set; } = "Ngày nghỉ chính thức";
     public List<string>? EmployeeIds { get; set; }
 }
 

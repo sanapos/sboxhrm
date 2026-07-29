@@ -6592,7 +6592,7 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
         if (status != "pending")
             await TryPurgeSitePhotoAsync(record, CurrentUserEmail);
 
-        // Äá»“ng bá»™ vÃ o báº£ng cháº¥m cÃ´ng chÃ­nh náº¿u auto_approved
+        // Đồng bộ vào bảng chấm công chính nếu auto_approved
 
 
         var syncedToRaw = false;
@@ -6646,7 +6646,7 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
 
 
 
-        // Gá»­i thÃ´ng bÃ¡o cho quáº£n lÃ½ náº¿u báº£n ghi cáº§n duyá»‡t
+        // Gửi thông báo cho quản lý nếu bản ghi cần duyệt
 
 
         if (status == "pending")
@@ -7564,7 +7564,7 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
 
 
 
-        // Äá»“ng bá»™ vÃ o báº£ng cháº¥m cÃ´ng chÃ­nh khi Ä‘Æ°á»£c duyá»‡t
+        // Đồng bộ vào bảng chấm công chính khi được duyệt
 
 
         if (request.Approved)
@@ -7591,7 +7591,7 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
 
 
 
-        // Gá»­i thÃ´ng bÃ¡o cho nhÃ¢n viÃªn vá» káº¿t quáº£ duyá»‡t
+        // Gửi thông báo cho nhân viên về kết quả duyệt
 
 
         try
@@ -8102,7 +8102,7 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
 
 
 
-        // Strip absolute URL prefix (e.g., http://localhost:7070/uploads/... â†’ /uploads/...)
+        // Strip absolute URL prefix (e.g., http://localhost:7070/uploads/... → /uploads/...)
 
 
         if (path.StartsWith("http://") || path.StartsWith("https://"))
@@ -8607,10 +8607,10 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
     /// <summary>
 
 
-    /// Äá»“ng bá»™ báº£n ghi cháº¥m cÃ´ng mobile Ä‘Ã£ duyá»‡t vÃ o báº£ng AttendanceLogs chÃ­nh
+    /// Đồng bộ bản ghi chấm công mobile đã duyệt vào bảng AttendanceLogs chính
 
 
-    /// Ä‘á»ƒ hiá»ƒn thá»‹ trong bÃ¡o cÃ¡o cháº¥m cÃ´ng tá»•ng há»£p.
+    /// để hiển thị trong báo cáo chấm công tổng hợp.
 
 
     /// </summary>
@@ -8631,7 +8631,7 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
             // Chấm đi đường (2/3) ghi vào chấm công thô với AttendanceState riêng — không tính vào giờ ca.
 
 
-            // Kiá»ƒm tra Ä‘Ã£ sync chÆ°a
+            // Kiểm tra đã sync chưa
 
 
             var alreadySynced = await _dbContext.AttendanceLogs
@@ -8652,7 +8652,7 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
 
 
 
-            // TÃ¬m DeviceUser qua Employee.ApplicationUserId == OdooEmployeeId
+            // Tìm DeviceUser qua Employee.ApplicationUserId == OdooEmployeeId
 
 
             Guid? deviceUserId = null;
@@ -8735,7 +8735,7 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
 
 
 
-                    // TÃ¬m DeviceUser liÃªn káº¿t vá»›i employee trÃªn device MOBILE
+                    // Tìm DeviceUser liên kết với employee trên device MOBILE
 
 
                     var deviceUser = employee.DeviceUsers
@@ -8753,7 +8753,7 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
                     {
 
 
-                        // TÃ¬m DeviceUser báº¥t ká»³ cá»§a employee
+                        // Tìm DeviceUser bất kỳ của employee
 
 
                         deviceUser = employee.DeviceUsers.FirstOrDefault();
@@ -8771,7 +8771,7 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
                     {
 
 
-                        // Táº¡o DeviceUser má»›i trÃªn device MOBILE
+                        // Tạo DeviceUser mới trên device MOBILE
 
 
                         deviceUser = new DeviceUser
@@ -8868,7 +8868,7 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
 
 
 
-            // Map VerifyMethod â†’ VerifyModes
+            // Map VerifyMethod → VerifyModes
 
 
             var verifyMode = record.VerifyMethod switch

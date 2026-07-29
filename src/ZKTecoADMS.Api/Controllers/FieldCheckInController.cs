@@ -72,7 +72,7 @@ public class FieldCheckInController : AuthenticatedControllerBase
     }
 
     /// <summary>
-    /// NÃ©n áº£nh: resize max 1024px, JPEG quality 65%
+    /// Nén ảnh: resize max 1024px, JPEG quality 65%
     /// </summary>
     private static MemoryStream CompressImage(byte[] imageBytes, int maxWidth = 1024, int quality = 65)
     {
@@ -88,10 +88,10 @@ public class FieldCheckInController : AuthenticatedControllerBase
         return output;
     }
 
-    // ==================== FIELD LOCATIONS (Ã„ÂIÃ¡Â»â€šM BÃƒÂN KHÃƒÂCH HÃƒâ‚¬NG) ====================
+    // ==================== FIELD LOCATIONS (ĐIỂM BÁN KHÁCH HÀNG) ====================
 
     /// <summary>
-    /// LÃ¡ÂºÂ¥y danh sÃƒÂ¡ch tÃ¡ÂºÂ¥t cÃ¡ÂºÂ£ Ã„â€˜iÃ¡Â»Æ’m bÃƒÂ¡n (nhÃƒÂ¢n viÃƒÂªn + manager Ã„â€˜Ã¡Â»Âu xem Ã„â€˜Ã†Â°Ã¡Â»Â£c)
+    /// Lấy danh sách tất cả điểm bán (nhân viên + manager đều xem được)
     /// </summary>
     [HttpGet("locations")]
     [RequireModulePermission("FieldCheckIn", ModulePermissionAction.View)]
@@ -146,7 +146,7 @@ public class FieldCheckInController : AuthenticatedControllerBase
     }
 
     /// <summary>
-    /// NhÃƒÂ¢n viÃƒÂªn Ã„â€˜Ã„Æ’ng kÃƒÂ½ Ã„â€˜iÃ¡Â»Æ’m bÃƒÂ¡n mÃ¡Â»â€ºi (tÃ¡Â»Â± chÃ¡Â»Â¥p Ã¡ÂºÂ£nh, nhÃ¡ÂºÂ­p thÃƒÂ´ng tin liÃƒÂªn hÃ¡Â»â€¡)
+    /// Nhân viên đăng ký điểm bán mới (tự chụp ảnh, nhập thông tin liên hệ)
     /// </summary>
     [HttpPost("locations")]
     [RequireModulePermission("FieldCheckIn", ModulePermissionAction.Create)]
@@ -221,7 +221,7 @@ public class FieldCheckInController : AuthenticatedControllerBase
     }
 
     /// <summary>
-    /// CÃ¡ÂºÂ­p nhÃ¡ÂºÂ­t thÃƒÂ´ng tin Ã„â€˜iÃ¡Â»Æ’m bÃƒÂ¡n
+    /// Cập nhật thông tin điểm bán
     /// </summary>
     [HttpPut("locations/{id}")]
     [RequireModulePermission("FieldCheckIn", ModulePermissionAction.Edit)]
@@ -234,7 +234,7 @@ public class FieldCheckInController : AuthenticatedControllerBase
             .FirstOrDefaultAsync(l => l.Id == id && l.StoreId == storeId && l.Deleted == null);
 
         if (location == null)
-            return NotFound(AppResponse<object>.Fail("KhÃƒÂ´ng tÃƒÂ¬m thÃ¡ÂºÂ¥y Ã„â€˜iÃ¡Â»Æ’m bÃƒÂ¡n"));
+            return NotFound(AppResponse<object>.Fail("Không tìm thấy điểm bán"));
 
         if (!string.IsNullOrEmpty(request.Name)) location.Name = request.Name;
         if (request.Address != null) location.Address = request.Address;
@@ -280,7 +280,7 @@ public class FieldCheckInController : AuthenticatedControllerBase
     }
 
     /// <summary>
-    /// XÃƒÂ³a Ã„â€˜iÃ¡Â»Æ’m bÃƒÂ¡n (Manager)
+    /// Xóa điểm bán (Manager)
     /// </summary>
     [HttpDelete("locations/{id}")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
@@ -293,7 +293,7 @@ public class FieldCheckInController : AuthenticatedControllerBase
             .FirstOrDefaultAsync(l => l.Id == id && l.StoreId == storeId && l.Deleted == null);
 
         if (location == null)
-            return NotFound(AppResponse<object>.Fail("KhÃƒÂ´ng tÃƒÂ¬m thÃ¡ÂºÂ¥y Ã„â€˜iÃ¡Â»Æ’m bÃƒÂ¡n"));
+            return NotFound(AppResponse<object>.Fail("Không tìm thấy điểm bán"));
 
         location.Deleted = DateTime.UtcNow;
         location.DeletedBy = CurrentUserEmail;
@@ -302,10 +302,10 @@ public class FieldCheckInController : AuthenticatedControllerBase
         return Ok(AppResponse<object>.Success(new { deleted = true }));
     }
 
-    // ==================== ASSIGNMENT (GIAO Ã„ÂIÃ¡Â»â€šM) ====================
+    // ==================== ASSIGNMENT (GIAO ĐIỂM) ====================
 
     /// <summary>
-    /// LÃ¡ÂºÂ¥y danh sÃƒÂ¡ch giao Ã„â€˜iÃ¡Â»Æ’m cho nhÃƒÂ¢n viÃƒÂªn (Manager)
+    /// Lấy danh sách giao điểm cho nhân viên (Manager)
     /// </summary>
     [HttpGet("assignments")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
@@ -349,7 +349,7 @@ public class FieldCheckInController : AuthenticatedControllerBase
     }
 
     /// <summary>
-    /// NhÃƒÂ¢n viÃƒÂªn xem danh sÃƒÂ¡ch Ã„â€˜iÃ¡Â»Æ’m Ã„â€˜Ã†Â°Ã¡Â»Â£c giao cho mÃƒÂ¬nh (hÃƒÂ´m nay hoÃ¡ÂºÂ·c theo thÃ¡Â»Â©)
+    /// Nhân viên xem danh sách điểm được giao cho mình (hôm nay hoặc theo thứ)
     /// </summary>
     [HttpGet("my-assignments")]
     [RequireModulePermission("FieldCheckIn", ModulePermissionAction.View)]
@@ -389,7 +389,7 @@ public class FieldCheckInController : AuthenticatedControllerBase
     }
 
     /// <summary>
-    /// Giao Ã„â€˜iÃ¡Â»Æ’m cho nhÃƒÂ¢n viÃƒÂªn (Manager)
+    /// Giao điểm cho nhân viên (Manager)
     /// </summary>
     [HttpPost("assignments")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
@@ -397,7 +397,7 @@ public class FieldCheckInController : AuthenticatedControllerBase
     public async Task<ActionResult> CreateAssignment([FromBody] CreateAssignmentRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.EmployeeId))
-            return BadRequest(AppResponse<object>.Fail("ThiÃ¡ÂºÂ¿u thÃƒÂ´ng tin nhÃƒÂ¢n viÃƒÂªn"));
+            return BadRequest(AppResponse<object>.Fail("Thiếu thông tin nhân viên"));
 
         var storeId = RequiredStoreId;
 
@@ -406,7 +406,7 @@ public class FieldCheckInController : AuthenticatedControllerBase
             .AsNoTracking()
             .FirstOrDefaultAsync(l => l.Id == request.LocationId && l.StoreId == storeId && l.Deleted == null);
         if (location == null)
-            return NotFound(AppResponse<object>.Fail("KhÃƒÂ´ng tÃƒÂ¬m thÃ¡ÂºÂ¥y Ã„â€˜iÃ¡Â»Æ’m bÃƒÂ¡n"));
+            return NotFound(AppResponse<object>.Fail("Không tìm thấy điểm bán"));
 
         // Check duplicate
         var exists = await _dbContext.FieldLocationAssignments
@@ -416,7 +416,7 @@ public class FieldCheckInController : AuthenticatedControllerBase
                 && a.DayOfWeek == request.DayOfWeek
                 && a.Deleted == null);
         if (exists)
-            return BadRequest(AppResponse<object>.Fail("NhÃƒÂ¢n viÃƒÂªn Ã„â€˜ÃƒÂ£ Ã„â€˜Ã†Â°Ã¡Â»Â£c giao Ã„â€˜iÃ¡Â»Æ’m nÃƒÂ y vÃƒÂ o thÃ¡Â»Â© Ã„â€˜ÃƒÂ£ chÃ¡Â»Ân"));
+            return BadRequest(AppResponse<object>.Fail("Nhân viên đã được giao điểm này vào thứ đã chọn"));
 
         var assignment = new FieldLocationAssignment
         {
@@ -449,7 +449,7 @@ public class FieldCheckInController : AuthenticatedControllerBase
     }
 
     /// <summary>
-    /// Giao Ã„â€˜iÃ¡Â»Æ’m hÃƒÂ ng loÃ¡ÂºÂ¡t (Manager)
+    /// Giao điểm hàng loạt (Manager)
     /// </summary>
     [HttpPost("assignments/bulk")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
@@ -457,7 +457,7 @@ public class FieldCheckInController : AuthenticatedControllerBase
     public async Task<ActionResult> BulkAssign([FromBody] BulkAssignRequest request)
     {
         if (request.Items == null || request.Items.Count == 0)
-            return BadRequest(AppResponse<object>.Fail("Danh sÃƒÂ¡ch giao Ã„â€˜iÃ¡Â»Æ’m trÃ¡Â»â€˜ng"));
+            return BadRequest(AppResponse<object>.Fail("Danh sách giao điểm trống"));
 
         var storeId = RequiredStoreId;
         var created = 0;
@@ -503,7 +503,7 @@ public class FieldCheckInController : AuthenticatedControllerBase
             .FirstOrDefaultAsync(a => a.Id == id && a.StoreId == storeId && a.Deleted == null);
 
         if (assignment == null)
-            return NotFound(AppResponse<object>.Fail("KhÃƒÂ´ng tÃƒÂ¬m thÃ¡ÂºÂ¥y giao Ã„â€˜iÃ¡Â»Æ’m"));
+            return NotFound(AppResponse<object>.Fail("Không tìm thấy giao điểm"));
 
         if (request.DayOfWeek.HasValue) assignment.DayOfWeek = request.DayOfWeek;
         if (request.SortOrder.HasValue) assignment.SortOrder = request.SortOrder.Value;
@@ -528,7 +528,7 @@ public class FieldCheckInController : AuthenticatedControllerBase
             .FirstOrDefaultAsync(a => a.Id == id && a.StoreId == storeId && a.Deleted == null);
 
         if (assignment == null)
-            return NotFound(AppResponse<object>.Fail("KhÃƒÂ´ng tÃƒÂ¬m thÃ¡ÂºÂ¥y giao Ã„â€˜iÃ¡Â»Æ’m"));
+            return NotFound(AppResponse<object>.Fail("Không tìm thấy giao điểm"));
 
         assignment.Deleted = DateTime.UtcNow;
         assignment.DeletedBy = CurrentUserEmail;
@@ -540,7 +540,7 @@ public class FieldCheckInController : AuthenticatedControllerBase
     // ==================== VISIT REPORTS (CHECK-IN / CHECK-OUT) ====================
 
     /// <summary>
-    /// NhÃƒÂ¢n viÃƒÂªn check-in tÃ¡ÂºÂ¡i Ã„â€˜iÃ¡Â»Æ’m bÃƒÂ¡n
+    /// Nhân viên check-in tại điểm bán
     /// </summary>
     [HttpPost("checkin")]
     [RequireModulePermission("FieldCheckIn", ModulePermissionAction.Create)]
@@ -554,7 +554,7 @@ public class FieldCheckInController : AuthenticatedControllerBase
             .AsNoTracking()
             .FirstOrDefaultAsync(l => l.Id == request.LocationId && l.StoreId == storeId && l.Deleted == null);
         if (location == null)
-            return NotFound(AppResponse<object>.Fail("KhÃƒÂ´ng tÃƒÂ¬m thÃ¡ÂºÂ¥y Ã„â€˜iÃ¡Â»Æ’m bÃƒÂ¡n"));
+            return NotFound(AppResponse<object>.Fail("Không tìm thấy điểm bán"));
 
         // Check if already checked in at this location today (not yet checked out)
         var (today, vnStart, vnEnd) = VnTodayRange();
@@ -567,7 +567,7 @@ public class FieldCheckInController : AuthenticatedControllerBase
                 && v.Deleted == null);
 
         if (existing != null)
-            return BadRequest(AppResponse<object>.Fail($"BÃ¡ÂºÂ¡n Ã„â€˜ÃƒÂ£ check-in tÃ¡ÂºÂ¡i '{location.Name}' lÃƒÂºc {existing.CheckInTime:HH:mm} vÃƒÂ  chÃ†Â°a check-out. Vui lÃƒÂ²ng check-out trÃ†Â°Ã¡Â»â€ºc."));
+            return BadRequest(AppResponse<object>.Fail($"Bạn đã check-in tại '{location.Name}' lúc {existing.CheckInTime:HH:mm} và chưa check-out. Vui lòng check-out trước."));
 
         // Calculate distance from location & enforce radius
         double? distance = null;
@@ -579,7 +579,7 @@ public class FieldCheckInController : AuthenticatedControllerBase
                 location.Latitude, location.Longitude);
             var maxRadius = location.Radius > 0 ? location.Radius * 3 : 600; // 3x radius = hard limit
             if (distance > maxRadius)
-                return BadRequest(AppResponse<object>.Fail($"BÃ¡ÂºÂ¡n Ã¡Â»Å¸ quÃƒÂ¡ xa Ã„â€˜iÃ¡Â»Æ’m bÃƒÂ¡n ({distance:F0}m > {maxRadius}m). Vui lÃƒÂ²ng di chuyÃ¡Â»Æ’n Ã„â€˜Ã¡ÂºÂ¿n gÃ¡ÂºÂ§n hÃ†Â¡n."));
+                return BadRequest(AppResponse<object>.Fail($"Bạn ở quá xa điểm bán ({distance:F0}m > {maxRadius}m). Vui lòng di chuyển đến gần hơn."));
             outsideRadius = distance > (location.Radius > 0 ? location.Radius : 200);
         }
 
@@ -635,7 +635,7 @@ public class FieldCheckInController : AuthenticatedControllerBase
     }
 
     /// <summary>
-    /// NhÃƒÂ¢n viÃƒÂªn check-out khÃ¡Â»Âi Ã„â€˜iÃ¡Â»Æ’m bÃƒÂ¡n + upload Ã¡ÂºÂ£nh + ghi chÃƒÂº
+    /// Nhân viên check-out khỏi điểm bán + upload ảnh + ghi chú
     /// </summary>
     [HttpPost("checkout/{visitId}")]
     [RequireModulePermission("FieldCheckIn", ModulePermissionAction.Create)]
@@ -653,10 +653,10 @@ public class FieldCheckInController : AuthenticatedControllerBase
                 && v.Deleted == null);
 
         if (report == null)
-            return NotFound(AppResponse<object>.Fail("KhÃƒÂ´ng tÃƒÂ¬m thÃ¡ÂºÂ¥y bÃ¡ÂºÂ£n ghi check-in"));
+            return NotFound(AppResponse<object>.Fail("Không tìm thấy bản ghi check-in"));
 
         if (report.Status != "checked_in")
-            return BadRequest(AppResponse<object>.Fail("BÃ¡ÂºÂ£n ghi nÃƒÂ y Ã„â€˜ÃƒÂ£ check-out hoÃ¡ÂºÂ·c khÃƒÂ´ng Ã¡Â»Å¸ trÃ¡ÂºÂ¡ng thÃƒÂ¡i check-in"));
+            return BadRequest(AppResponse<object>.Fail("Bản ghi này đã check-out hoặc không ở trạng thái check-in"));
 
         // Calculate distance
         double? distance = null;
@@ -748,7 +748,7 @@ public class FieldCheckInController : AuthenticatedControllerBase
     }
 
     /// <summary>
-    /// NhÃƒÂ¢n viÃƒÂªn xem lÃ¡Â»â€¹ch sÃ¡Â»Â­ check-in cÃ¡Â»Â§a mÃƒÂ¬nh
+    /// Nhân viên xem lịch sử check-in của mình
     /// </summary>
     [HttpGet("my-visits")]
     [RequireModulePermission("FieldCheckIn", ModulePermissionAction.View)]
@@ -843,7 +843,7 @@ public class FieldCheckInController : AuthenticatedControllerBase
     }
 
     /// <summary>
-    /// NhÃƒÂ¢n viÃƒÂªn xem trÃ¡ÂºÂ¡ng thÃƒÂ¡i check-in hÃƒÂ´m nay
+    /// Nhân viên xem trạng thái check-in hôm nay
     /// </summary>
     [HttpGet("today")]
     [RequireModulePermission("FieldCheckIn", ModulePermissionAction.View)]
@@ -895,7 +895,7 @@ public class FieldCheckInController : AuthenticatedControllerBase
     // ==================== MANAGER ENDPOINTS ====================
 
     /// <summary>
-    /// Manager xem tÃ¡ÂºÂ¥t cÃ¡ÂºÂ£ bÃƒÂ¡o cÃƒÂ¡o check-in  
+    /// Manager xem tất cả báo cáo check-in  
     /// </summary>
     [HttpGet("reports")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
@@ -996,7 +996,7 @@ public class FieldCheckInController : AuthenticatedControllerBase
     }
 
     /// <summary>
-    /// Manager review bÃƒÂ¡o cÃƒÂ¡o check-in
+    /// Manager review báo cáo check-in
     /// </summary>
     [HttpPost("review/{visitId}")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
@@ -1009,7 +1009,7 @@ public class FieldCheckInController : AuthenticatedControllerBase
             .FirstOrDefaultAsync(v => v.Id == visitId && v.StoreId == storeId && v.Deleted == null);
 
         if (report == null)
-            return NotFound(AppResponse<object>.Fail("KhÃƒÂ´ng tÃƒÂ¬m thÃ¡ÂºÂ¥y bÃ¡ÂºÂ£n ghi"));
+            return NotFound(AppResponse<object>.Fail("Không tìm thấy bản ghi"));
 
         report.Status = "reviewed";
         report.ReviewedBy = CurrentUserEmail;
@@ -1025,7 +1025,7 @@ public class FieldCheckInController : AuthenticatedControllerBase
     }
 
     /// <summary>
-    /// Manager xem thÃ¡Â»â€˜ng kÃƒÂª check-in theo thÃ¡Â»Âi gian
+    /// Manager xem thống kê check-in theo thời gian
     /// </summary>
     [HttpGet("summary")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
@@ -1093,7 +1093,7 @@ public class FieldCheckInController : AuthenticatedControllerBase
     // ==================== JOURNEY TRACKING ====================
 
     /// <summary>
-    /// NhÃƒÂ¢n viÃƒÂªn bÃ¡ÂºÂ¯t Ã„â€˜Ã¡ÂºÂ§u hÃƒÂ nh trÃƒÂ¬nh trong ngÃƒÂ y
+    /// Nhân viên bắt đầu hành trình trong ngày
     /// </summary>
     [HttpPost("journey/start")]
     [RequireModulePermission("FieldCheckIn", ModulePermissionAction.Create)]
@@ -1111,7 +1111,7 @@ public class FieldCheckInController : AuthenticatedControllerBase
                 && j.Deleted == null);
 
         if (existing != null && existing.Status == "in_progress")
-            return BadRequest(AppResponse<object>.Fail("HÃƒÂ nh trÃƒÂ¬nh hÃƒÂ´m nay Ã„â€˜ang diÃ¡Â»â€¦n ra"));
+            return BadRequest(AppResponse<object>.Fail("Hành trình hôm nay đang diễn ra"));
 
         // Count assigned locations for today
         var dow = (int)DateTime.UtcNow.DayOfWeek;
@@ -1178,7 +1178,7 @@ public class FieldCheckInController : AuthenticatedControllerBase
     }
 
     /// <summary>
-    /// NhÃƒÂ¢n viÃƒÂªn gÃ¡Â»Â­i batch GPS points (gÃ¡Â»Âi mÃ¡Â»â€”i 30s-60s tÃ¡Â»Â« client)
+    /// Nhân viên gửi batch GPS points (gọi mỗi 30s-60s từ client)
     /// </summary>
     [HttpPost("journey/track")]
     [RequireModulePermission("FieldCheckIn", ModulePermissionAction.Create)]
@@ -1195,7 +1195,7 @@ public class FieldCheckInController : AuthenticatedControllerBase
                 && j.Deleted == null);
 
         if (journey == null)
-            return NotFound(AppResponse<object>.Fail("KhÃƒÂ´ng tÃƒÂ¬m thÃ¡ÂºÂ¥y hÃƒÂ nh trÃƒÂ¬nh Ã„â€˜ang hoÃ¡ÂºÂ¡t Ã„â€˜Ã¡Â»â„¢ng"));
+            return NotFound(AppResponse<object>.Fail("Không tìm thấy hành trình đang hoạt động"));
 
         if (request.Points == null || request.Points.Count == 0)
             return Ok(AppResponse<object>.Success(new { saved = 0 }));
@@ -1231,7 +1231,7 @@ public class FieldCheckInController : AuthenticatedControllerBase
                 existingPoints[i].Lat, existingPoints[i].Lng);
         }
 
-        // Detect dwell zones: consecutive points within 50m radius Ã¢â€ â€™ mark dwell time
+        // Detect dwell zones: consecutive points within 50m radius → mark dwell time
         var fieldLocations = await _dbContext.FieldLocations
             .AsNoTracking()
             .Where(l => l.StoreId == storeId && l.Deleted == null && l.IsActive)
@@ -1279,7 +1279,7 @@ public class FieldCheckInController : AuthenticatedControllerBase
         journey.UpdatedAt = DateTime.UtcNow;
 
         // Update checked-in count from today's visits (VisitDate is stored in
-        // UTC, but JourneyDate is the VN calendar date â€” convert that to a UTC
+        // UTC, but JourneyDate is the VN calendar date — convert that to a UTC
         // window so the filter matches).
         var journeyDayStart = journey.JourneyDate.AddHours(-7);
         var journeyDayEnd = journeyDayStart.AddDays(1);
@@ -1321,7 +1321,7 @@ public class FieldCheckInController : AuthenticatedControllerBase
     }
 
     /// <summary>
-    /// NhÃƒÂ¢n viÃƒÂªn kÃ¡ÂºÂ¿t thÃƒÂºc hÃƒÂ nh trÃƒÂ¬nh  
+    /// Nhân viên kết thúc hành trình  
     /// </summary>
     [HttpPost("journey/end")]
     [RequireModulePermission("FieldCheckIn", ModulePermissionAction.Create)]
@@ -1338,7 +1338,7 @@ public class FieldCheckInController : AuthenticatedControllerBase
                 && j.Deleted == null);
 
         if (journey == null)
-            return NotFound(AppResponse<object>.Fail("KhÃƒÂ´ng tÃƒÂ¬m thÃ¡ÂºÂ¥y hÃƒÂ nh trÃƒÂ¬nh Ã„â€˜ang hoÃ¡ÂºÂ¡t Ã„â€˜Ã¡Â»â„¢ng"));
+            return NotFound(AppResponse<object>.Fail("Không tìm thấy hành trình đang hoạt động"));
 
         var now = DateTime.UtcNow;
         journey.EndTime = now;
@@ -1388,7 +1388,7 @@ public class FieldCheckInController : AuthenticatedControllerBase
     }
 
     /// <summary>
-    /// NhÃƒÂ¢n viÃƒÂªn xem hÃƒÂ nh trÃƒÂ¬nh hÃƒÂ´m nay
+    /// Nhân viên xem hành trình hôm nay
     /// </summary>
     [HttpGet("journey/today")]
     [RequireModulePermission("FieldCheckIn", ModulePermissionAction.View)]
@@ -1473,7 +1473,7 @@ public class FieldCheckInController : AuthenticatedControllerBase
     }
 
     /// <summary>
-    /// Manager xem tÃ¡ÂºÂ¥t cÃ¡ÂºÂ£ hÃƒÂ nh trÃƒÂ¬nh Ã„â€˜ang hoÃ¡ÂºÂ¡t Ã„â€˜Ã¡Â»â„¢ng hÃƒÂ´m nay (live map)
+    /// Manager xem tất cả hành trình đang hoạt động hôm nay (live map)
     /// </summary>
     [HttpGet("journey/active")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
@@ -1839,10 +1839,10 @@ public class FieldCheckInController : AuthenticatedControllerBase
         // 6. Build result per employee
         // Pre-compute department -> color index so the legend is STABLE across
         // refresh cycles (previously the index was assigned inside the Select,
-        // which re-ordered colours whenever the employee list changed order â€”
+        // which re-ordered colours whenever the employee list changed order —
         // managers saw departments swap colours every 60 seconds).
         var deptColorMap = employees
-            .Select(e => e.Department ?? "ChÆ°a phÃ¢n bá»•")
+            .Select(e => e.Department ?? "Chưa phân bổ")
             .Distinct()
             .OrderBy(d => d, StringComparer.OrdinalIgnoreCase)
             .Select((name, idx) => new { name, idx })
@@ -1853,7 +1853,7 @@ public class FieldCheckInController : AuthenticatedControllerBase
             var empIdStr = emp.Id.ToString();
             var empCode = emp.EmployeeCode;
             var appUserIdStr = emp.ApplicationUserId?.ToString();
-            var deptName = emp.Department ?? "ChÆ°a phÃ¢n bá»•";
+            var deptName = emp.Department ?? "Chưa phân bổ";
 
             // Colour index was assigned up-front above; safe fallback if a new
             // department name slipped through.
@@ -1863,7 +1863,7 @@ public class FieldCheckInController : AuthenticatedControllerBase
             // Find current working location. Each source exposes its own timestamp;
             // we pick the FRESHEST one instead of a fixed hierarchy so a stale
             // morning journey point cannot override a live GPS heartbeat sent
-            // 60 seconds ago (this caused the "Quáº£n lÃ½ tab shows yesterday's
+            // 60 seconds ago (this caused the "Quản lý tab shows yesterday's
             // street" bug). Punch/check-in GPS are used only as last resort.
             double? lat = null, lng = null;
             DateTime? lastUpdate = null;
@@ -2019,7 +2019,7 @@ public class FieldCheckInController : AuthenticatedControllerBase
                 .Select(u => new { u.Id, u.UserName, u.FirstName, u.LastName })
                 .ToListAsync();
 
-            var unmatchedDept = "ChÆ°a phÃ¢n bá»•";
+            var unmatchedDept = "Chưa phân bổ";
             if (!deptColorMap.ContainsKey(unmatchedDept))
                 deptColorMap[unmatchedDept] = deptColorMap.Count;
 
@@ -2118,7 +2118,7 @@ public class FieldCheckInController : AuthenticatedControllerBase
     }
 
     /// <summary>
-    /// Manager xem hÃƒÂ nh trÃƒÂ¬nh cÃ¡Â»Â§a nhÃƒÂ¢n viÃƒÂªn (bÃ¡ÂºÂ£n Ã„â€˜Ã¡Â»â€œ + timeline)
+    /// Manager xem hành trình của nhân viên (bản đồ + timeline)
     /// </summary>
     [HttpGet("journey/reports")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
@@ -2169,7 +2169,7 @@ public class FieldCheckInController : AuthenticatedControllerBase
     }
 
     /// <summary>
-    /// Manager xem chi tiÃ¡ÂºÂ¿t hÃƒÂ nh trÃƒÂ¬nh + visits trong ngÃƒÂ y
+    /// Manager xem chi tiết hành trình + visits trong ngày
     /// </summary>
     [HttpGet("journey/{journeyId}")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
@@ -2183,7 +2183,7 @@ public class FieldCheckInController : AuthenticatedControllerBase
             .FirstOrDefaultAsync(j => j.Id == journeyId && j.StoreId == storeId && j.Deleted == null);
 
         if (journey == null)
-            return NotFound(AppResponse<object>.Fail("KhÃƒÂ´ng tÃƒÂ¬m thÃ¡ÂºÂ¥y hÃƒÂ nh trÃƒÂ¬nh"));
+            return NotFound(AppResponse<object>.Fail("Không tìm thấy hành trình"));
 
         // Get visits for that day by that employee
         var visits = await _dbContext.VisitReports
@@ -2271,7 +2271,7 @@ public class FieldCheckInController : AuthenticatedControllerBase
     }
 
     /// <summary>
-    /// Manager review hÃƒÂ nh trÃƒÂ¬nh
+    /// Manager review hành trình
     /// </summary>
     [HttpPost("journey/{journeyId}/review")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
@@ -2284,7 +2284,7 @@ public class FieldCheckInController : AuthenticatedControllerBase
             .FirstOrDefaultAsync(j => j.Id == journeyId && j.StoreId == storeId && j.Deleted == null);
 
         if (journey == null)
-            return NotFound(AppResponse<object>.Fail("KhÃƒÂ´ng tÃƒÂ¬m thÃ¡ÂºÂ¥y hÃƒÂ nh trÃƒÂ¬nh"));
+            return NotFound(AppResponse<object>.Fail("Không tìm thấy hành trình"));
 
         journey.Status = "reviewed";
         journey.ReviewedBy = CurrentUserEmail;

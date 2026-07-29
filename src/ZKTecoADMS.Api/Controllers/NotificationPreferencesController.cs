@@ -17,7 +17,7 @@ public class NotificationPreferencesController(
 ) : AuthenticatedControllerBase
 {
     /// <summary>
-    /// Láº¥y danh sÃ¡ch nhÃ³m thÃ´ng bÃ¡o
+    /// Lấy danh sách nhóm thông báo
     /// </summary>
     [HttpGet("categories")]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
@@ -44,7 +44,7 @@ public class NotificationPreferencesController(
     }
 
     /// <summary>
-    /// Láº¥y thiáº¿t láº­p nháº­n thÃ´ng bÃ¡o cá»§a user hiá»‡n táº¡i
+    /// Lấy thiết lập nhận thông báo của user hiện tại
     /// </summary>
     [HttpGet]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
@@ -79,7 +79,7 @@ public class NotificationPreferencesController(
     }
 
     /// <summary>
-    /// Cáº­p nháº­t thiáº¿t láº­p nháº­n thÃ´ng bÃ¡o
+    /// Cập nhật thiết lập nhận thông báo
     /// </summary>
     [HttpPut]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]

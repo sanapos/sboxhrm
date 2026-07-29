@@ -81,7 +81,7 @@ public class DevicesController(
             Console.WriteLine($"[AddDevice] Stack: {ex.StackTrace}");
             if (ex.InnerException != null)
                 Console.WriteLine($"[AddDevice] Inner: {ex.InnerException.Message}");
-            return Ok(AppResponse<DeviceDto>.Error($"Lá»—i thÃªm thiáº¿t bá»‹: {ex.Message}"));
+            return Ok(AppResponse<DeviceDto>.Error($"Lỗi thêm thiết bị: {ex.Message}"));
         }
     }
 
@@ -95,9 +95,9 @@ public class DevicesController(
         {
             var device = await deviceRepository.GetByIdAsync(id);
             if (device == null)
-                return Ok(AppResponse<Guid>.Error("KhÃ´ng tÃ¬m tháº¥y thiáº¿t bá»‹"));
+                return Ok(AppResponse<Guid>.Error("Không tìm thấy thiết bị"));
             if (device.StoreId != GetCurrentStoreId())
-                return Ok(AppResponse<Guid>.Error("Báº¡n khÃ´ng cÃ³ quyá»n xÃ³a thiáº¿t bá»‹ nÃ y"));
+                return Ok(AppResponse<Guid>.Error("Bạn không có quyền xóa thiết bị này"));
         }
 
         var cmd = new DeleteDeviceCommand(id);
@@ -133,7 +133,7 @@ public class DevicesController(
     }
 
     /// <summary>
-    /// Refresh tráº¡ng thÃ¡i online/offline cá»§a thiáº¿t bá»‹ dá»±a trÃªn LastOnline thá»±c táº¿
+    /// Refresh trạng thái online/offline của thiết bị dựa trên LastOnline thực tế
     /// </summary>
     [HttpGet("{deviceId}/refresh-status")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
@@ -142,7 +142,7 @@ public class DevicesController(
     {
         var device = await deviceRepository.GetByIdAsync(deviceId);
         if (device == null)
-            return NotFound(AppResponse<object>.Fail("Thiáº¿t bá»‹ khÃ´ng tá»“n táº¡i"));
+            return NotFound(AppResponse<object>.Fail("Thiết bị không tồn tại"));
 
         var isOnline = device.LastOnline != null && 
                        DateTime.UtcNow.Subtract(device.LastOnline.Value).TotalSeconds <= 90;
@@ -168,7 +168,7 @@ public class DevicesController(
     }
     
     /// <summary>
-    /// Láº¥y danh sÃ¡ch thiáº¿t bá»‹ Ä‘ang chá» duyá»‡t (Pending)
+    /// Lấy danh sách thiết bị đang chờ duyệt (Pending)
     /// </summary>
     [HttpGet("pending")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
@@ -189,7 +189,7 @@ public class DevicesController(
     }
     
     /// <summary>
-    /// Láº¥y danh sÃ¡ch thiáº¿t bá»‹ Ä‘ang káº¿t ná»‘i (online trong 5 phÃºt gáº§n Ä‘Ã¢y)
+    /// Lấy danh sách thiết bị đang kết nối (online trong 5 phút gần đây)
     /// </summary>
     [HttpGet("connected")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
@@ -210,7 +210,7 @@ public class DevicesController(
     }
     
     /// <summary>
-    /// Duyá»‡t thiáº¿t bá»‹ - chuyá»ƒn tá»« Pending sang Active (Admin only)
+    /// Duyệt thiết bị - chuyển từ Pending sang Active (Admin only)
     /// </summary>
     [HttpPost("{id}/approve")]
     [Authorize(Policy = PolicyNames.AdminOnly)]
@@ -220,7 +220,7 @@ public class DevicesController(
         var device = await deviceService.ApproveDeviceAsync(id, request.DeviceName, request.Description, request.Location);
         if (device == null)
         {
-            return Ok(AppResponse<DeviceDto>.Error("KhÃ´ng tÃ¬m tháº¥y thiáº¿t bá»‹"));
+            return Ok(AppResponse<DeviceDto>.Error("Không tìm thấy thiết bị"));
         }
         
         var deviceDto = device.Adapt<DeviceDto>();
@@ -228,7 +228,7 @@ public class DevicesController(
     }
     
     /// <summary>
-    /// Tá»« chá»‘i thiáº¿t bá»‹ - xÃ³a khá»i danh sÃ¡ch (Admin only)
+    /// Từ chối thiết bị - xóa khỏi danh sách (Admin only)
     /// </summary>
     [HttpDelete("{id}/reject")]
     [Authorize(Policy = PolicyNames.AdminOnly)]
@@ -238,7 +238,7 @@ public class DevicesController(
         var result = await deviceService.RejectDeviceAsync(id);
         if (!result)
         {
-            return Ok(AppResponse<bool>.Error("KhÃ´ng tÃ¬m tháº¥y thiáº¿t bá»‹"));
+            return Ok(AppResponse<bool>.Error("Không tìm thấy thiết bị"));
         }
         
         return Ok(AppResponse<bool>.Success(true));
@@ -247,7 +247,7 @@ public class DevicesController(
     // ==================== USER CLAIM DEVICE APIs ====================
     
     /// <summary>
-    /// Láº¥y danh sÃ¡ch thiáº¿t bá»‹ Ä‘Ã£ claim cá»§a user hiá»‡n táº¡i
+    /// Lấy danh sách thiết bị đã claim của user hiện tại
     /// </summary>
     [HttpGet("my-devices")]
     [Authorize]
@@ -260,8 +260,8 @@ public class DevicesController(
     }
     
     /// <summary>
-    /// User claim thiáº¿t bá»‹ báº±ng Serial Number
-    /// Náº¿u thiáº¿t bá»‹ Ä‘Ã£ káº¿t ná»‘i vá»›i server vÃ  chÆ°a Ä‘Æ°á»£c claim, sáº½ gÃ¡n cho user
+    /// User claim thiết bị bằng Serial Number
+    /// Nếu thiết bị đã kết nối với server và chưa được claim, sẽ gán cho user
     /// </summary>
     [HttpPost("claim")]
     [Authorize]
@@ -285,7 +285,7 @@ public class DevicesController(
     }
     
     /// <summary>
-    /// Kiá»ƒm tra Serial Number cÃ³ tá»“n táº¡i vÃ  available khÃ´ng
+    /// Kiểm tra Serial Number có tồn tại và available không
     /// </summary>
     [HttpGet("check-serial/{serialNumber}")]
     [Authorize]
@@ -301,17 +301,17 @@ public class DevicesController(
             IsClaimed = device?.IsClaimed ?? false,
             LastOnline = device?.LastOnline,
             Message = device == null 
-                ? "Thiáº¿t bá»‹ chÆ°a káº¿t ná»‘i vá»›i server" 
+                ? "Thiết bị chưa kết nối với server" 
                 : device.IsClaimed 
-                    ? "Thiáº¿t bá»‹ Ä‘Ã£ Ä‘Æ°á»£c Ä‘Äƒng kÃ½ bá»Ÿi tÃ i khoáº£n khÃ¡c" 
-                    : "Thiáº¿t bá»‹ sáºµn sÃ ng Ä‘á»ƒ Ä‘Äƒng kÃ½"
+                    ? "Thiết bị đã được đăng ký bởi tài khoản khác" 
+                    : "Thiết bị sẵn sàng để đăng ký"
         };
         
         return Ok(AppResponse<DeviceAvailabilityDto>.Success(availability));
     }
     
     /// <summary>
-    /// User unclaim thiáº¿t bá»‹ - tráº£ láº¡i thiáº¿t bá»‹ vá» tráº¡ng thÃ¡i available
+    /// User unclaim thiết bị - trả lại thiết bị về trạng thái available
     /// </summary>
     [HttpPost("{id}/unclaim")]
     [Authorize]
@@ -328,7 +328,7 @@ public class DevicesController(
     }
     
     /// <summary>
-    /// Cáº­p nháº­t thÃ´ng tin thiáº¿t bá»‹ (tÃªn, vá»‹ trÃ­, mÃ´ táº£)
+    /// Cập nhật thông tin thiết bị (tên, vị trí, mô tả)
     /// </summary>
     [HttpPut("{id}")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
@@ -338,13 +338,13 @@ public class DevicesController(
         var device = await deviceRepository.GetByIdAsync(id);
         if (device == null)
         {
-            return Ok(AppResponse<DeviceDto>.Error("KhÃ´ng tÃ¬m tháº¥y thiáº¿t bá»‹"));
+            return Ok(AppResponse<DeviceDto>.Error("Không tìm thấy thiết bị"));
         }
 
         // Verify device belongs to user's store (Admin can update any)
         if (!IsAdmin && device.StoreId != GetCurrentStoreId())
         {
-            return Ok(AppResponse<DeviceDto>.Error("Báº¡n khÃ´ng cÃ³ quyá»n cáº­p nháº­t thiáº¿t bá»‹ nÃ y"));
+            return Ok(AppResponse<DeviceDto>.Error("Bạn không có quyền cập nhật thiết bị này"));
         }
         
         if (!string.IsNullOrWhiteSpace(request.DeviceName))
@@ -363,7 +363,7 @@ public class DevicesController(
 }
 
 /// <summary>
-/// Request model cho viá»‡c duyá»‡t thiáº¿t bá»‹ (Admin)
+/// Request model cho việc duyệt thiết bị (Admin)
 /// </summary>
 public class ApproveDeviceRequest
 {
@@ -373,7 +373,7 @@ public class ApproveDeviceRequest
 }
 
 /// <summary>
-/// Request model cho user claim thiáº¿t bá»‹
+/// Request model cho user claim thiết bị
 /// </summary>
 public class ClaimDeviceRequest
 {
@@ -384,7 +384,7 @@ public class ClaimDeviceRequest
 }
 
 /// <summary>
-/// DTO kiá»ƒm tra tÃ¬nh tráº¡ng thiáº¿t bá»‹
+/// DTO kiểm tra tình trạng thiết bị
 /// </summary>
 public class DeviceAvailabilityDto
 {
@@ -397,7 +397,7 @@ public class DeviceAvailabilityDto
 }
 
 /// <summary>
-/// Request model cho viá»‡c cáº­p nháº­t thÃ´ng tin thiáº¿t bá»‹
+/// Request model cho việc cập nhật thông tin thiết bị
 /// </summary>
 public class UpdateDeviceRequest
 {

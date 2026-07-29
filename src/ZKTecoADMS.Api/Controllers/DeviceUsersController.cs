@@ -83,7 +83,7 @@ public class DeviceUsersController(IMediator bus, ZKTecoDbContext dbContext) : A
     }
 
     /// <summary>
-    /// Láº¥y danh sÃ¡ch vÃ¢n tay Ä‘Ã£ Ä‘Äƒng kÃ½ cho device user
+    /// Lấy danh sách vân tay đã đăng ký cho device user
     /// </summary>
     [HttpGet("{deviceUserId}/fingerprints")]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
@@ -108,12 +108,12 @@ public class DeviceUsersController(IMediator bus, ZKTecoDbContext dbContext) : A
         }
         catch (Exception ex)
         {
-            return Ok(AppResponse<IEnumerable<FingerprintDto>>.Fail($"Lá»—i láº¥y vÃ¢n tay: {ex.Message}"));
+            return Ok(AppResponse<IEnumerable<FingerprintDto>>.Fail($"Lỗi lấy vân tay: {ex.Message}"));
         }
     }
 
     /// <summary>
-    /// Láº¥y danh sÃ¡ch khuÃ´n máº·t Ä‘Ã£ Ä‘Äƒng kÃ½ cho device user
+    /// Lấy danh sách khuôn mặt đã đăng ký cho device user
     /// </summary>
     [HttpGet("{deviceUserId}/faces")]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
@@ -138,7 +138,7 @@ public class DeviceUsersController(IMediator bus, ZKTecoDbContext dbContext) : A
         }
         catch (Exception ex)
         {
-            return Ok(AppResponse<IEnumerable<FaceDto>>.Fail($"Lá»—i láº¥y khuÃ´n máº·t: {ex.Message}"));
+            return Ok(AppResponse<IEnumerable<FaceDto>>.Fail($"Lỗi lấy khuôn mặt: {ex.Message}"));
         }
     }
 }

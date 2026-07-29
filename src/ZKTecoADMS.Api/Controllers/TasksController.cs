@@ -83,7 +83,7 @@ public partial class TasksController(
     #region Task CRUD
 
     /// <summary>
-    /// Láº¥y danh sÃ¡ch cÃ´ng viá»‡c
+    /// Lấy danh sách công việc
     /// </summary>
     [HttpGet]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
@@ -283,7 +283,7 @@ public partial class TasksController(
     }
 
     /// <summary>
-    /// Láº¥y cÃ´ng viá»‡c cá»§a tÃ´i
+    /// Lấy công việc của tôi
     /// </summary>
     [HttpGet("my")]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
@@ -382,7 +382,7 @@ public partial class TasksController(
     }
 
     /// <summary>
-    /// Láº¥y chi tiáº¿t cÃ´ng viá»‡c
+    /// Lấy chi tiết công việc
     /// </summary>
     [HttpGet("{id}")]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
@@ -419,7 +419,7 @@ public partial class TasksController(
     }
 
     /// <summary>
-    /// Táº¡o cÃ´ng viá»‡c má»›i
+    /// Tạo công việc mới
     /// </summary>
     [HttpPost]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
@@ -521,7 +521,7 @@ public partial class TasksController(
     }
 
     /// <summary>
-    /// Cáº­p nháº­t cÃ´ng viá»‡c
+    /// Cập nhật công việc
     /// </summary>
     [HttpPut("{id}")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
@@ -646,7 +646,7 @@ public partial class TasksController(
     }
 
     /// <summary>
-    /// Cáº­p nháº­t tráº¡ng thÃ¡i cÃ´ng viá»‡c
+    /// Cập nhật trạng thái công việc
     /// </summary>
     [HttpPatch("{id}/status")]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
@@ -744,7 +744,7 @@ public partial class TasksController(
     }
 
     /// <summary>
-    /// Cáº­p nháº­t tiáº¿n Ä‘á»™
+    /// Cập nhật tiến độ
     /// </summary>
     [HttpPatch("{id}/progress")]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
@@ -830,7 +830,7 @@ public partial class TasksController(
     }
 
     /// <summary>
-    /// XÃ³a cÃ´ng viá»‡c (soft delete)
+    /// Xóa công việc (soft delete)
     /// </summary>
     [HttpDelete("{id}")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
@@ -877,7 +877,7 @@ public partial class TasksController(
     #region Batch Operations
 
     /// <summary>
-    /// Cáº­p nháº­t tráº¡ng thÃ¡i hÃ ng loáº¡t
+    /// Cập nhật trạng thái hàng loạt
     /// </summary>
     [HttpPost("batch/status")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
@@ -952,7 +952,7 @@ public partial class TasksController(
     }
 
     /// <summary>
-    /// GÃ¡n cÃ´ng viá»‡c hÃ ng loáº¡t
+    /// Gán công việc hàng loạt
     /// </summary>
     [HttpPost("batch/assign")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
@@ -1013,7 +1013,7 @@ public partial class TasksController(
     }
 
     /// <summary>
-    /// XÃ³a hÃ ng loáº¡t
+    /// Xóa hàng loạt
     /// </summary>
     [HttpPost("batch/delete")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
@@ -1061,7 +1061,7 @@ public partial class TasksController(
     #region Comments
 
     /// <summary>
-    /// Láº¥y comments cá»§a task
+    /// Lấy comments của task
     /// </summary>
     [HttpGet("{taskId}/comments")]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
@@ -1084,7 +1084,7 @@ public partial class TasksController(
     }
 
     /// <summary>
-    /// ThÃªm comment
+    /// Thêm comment
     /// </summary>
     [HttpPost("{taskId}/comments")]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
@@ -1204,7 +1204,7 @@ public partial class TasksController(
     }
 
     /// <summary>
-    /// XÃ³a comment
+    /// Xóa comment
     /// </summary>
     [HttpDelete("{taskId}/comments/{commentId}")]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
@@ -1232,7 +1232,7 @@ public partial class TasksController(
     #region Statistics & Kanban
 
     /// <summary>
-    /// Láº¥y thá»‘ng kÃª cÃ´ng viá»‡c
+    /// Lấy thống kê công việc
     /// </summary>
     [HttpGet("statistics")]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
@@ -1336,7 +1336,7 @@ public partial class TasksController(
     }
 
     /// <summary>
-    /// Láº¥y Kanban board view
+    /// Lấy Kanban board view
     /// </summary>
     [HttpGet("kanban")]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
@@ -1407,7 +1407,7 @@ public partial class TasksController(
     }
 
     /// <summary>
-    /// Láº¥y lá»‹ch sá»­ task
+    /// Lấy lịch sử task
     /// </summary>
     [HttpGet("{taskId}/history")]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]

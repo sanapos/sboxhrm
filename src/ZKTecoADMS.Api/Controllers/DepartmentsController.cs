@@ -21,7 +21,7 @@ namespace ZKTecoADMS.Api.Controllers;
 public class DepartmentsController(IMediator mediator, ICacheService cacheService) : AuthenticatedControllerBase
 {
     /// <summary>
-    /// Láº¥y danh sÃ¡ch phÃ²ng ban cÃ³ phÃ¢n trang
+    /// Lấy danh sách phòng ban có phân trang
     /// </summary>
     [HttpGet]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
@@ -37,7 +37,7 @@ public class DepartmentsController(IMediator mediator, ICacheService cacheServic
     }
 
     /// <summary>
-    /// Láº¥y cÃ¢y phÃ²ng ban (tree view)
+    /// Lấy cây phòng ban (tree view)
     /// </summary>
     [HttpGet("tree")]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
@@ -51,7 +51,7 @@ public class DepartmentsController(IMediator mediator, ICacheService cacheServic
     }
 
     /// <summary>
-    /// Láº¥y danh sÃ¡ch phÃ²ng ban cho dropdown
+    /// Lấy danh sách phòng ban cho dropdown
     /// </summary>
     [HttpGet("select")]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
@@ -71,7 +71,7 @@ public class DepartmentsController(IMediator mediator, ICacheService cacheServic
     }
 
     /// <summary>
-    /// Láº¥y thÃ´ng tin chi tiáº¿t phÃ²ng ban
+    /// Lấy thông tin chi tiết phòng ban
     /// </summary>
     [HttpGet("{id}")]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
@@ -84,7 +84,7 @@ public class DepartmentsController(IMediator mediator, ICacheService cacheServic
     }
 
     /// <summary>
-    /// Táº¡o phÃ²ng ban má»›i
+    /// Tạo phòng ban mới
     /// </summary>
     [HttpPost]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
@@ -107,7 +107,7 @@ public class DepartmentsController(IMediator mediator, ICacheService cacheServic
     }
 
     /// <summary>
-    /// Cáº­p nháº­t phÃ²ng ban
+    /// Cập nhật phòng ban
     /// </summary>
     [HttpPut("{id}")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
@@ -132,7 +132,7 @@ public class DepartmentsController(IMediator mediator, ICacheService cacheServic
     }
 
     /// <summary>
-    /// XÃ³a phÃ²ng ban
+    /// Xóa phòng ban
     /// </summary>
     [HttpDelete("{id}")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
