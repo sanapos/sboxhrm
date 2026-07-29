@@ -1464,63 +1464,58 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
       }
     }
 
-    // ═══ Late/early penalties from penalty settings (tiered system) ═══
+    // ═══ Late/early penalties from PenaltySetting (API: lateMinutes1/latePenalty1…) ═══
+    // lateMinutes/earlyMinutes from shiftRecords already have per-shift grace applied
+    // (0 = within grace → no fine). Do NOT hardcode an extra "> 5 minutes" gate.
     double latePenaltyTotal = 0;
-    // Use tiered penalty rates if available, otherwise flat rates
-    final double late15 = _toDouble(_penaltySettings['lateDeduction15Min']);
-    final double late30 = _toDouble(_penaltySettings['lateDeduction30Min']);
-    final double late60 = _toDouble(_penaltySettings['lateDeduction60Min']);
-    final double earlyL15 =
-        _toDouble(_penaltySettings['earlyLeaveDeduction15Min']);
-    final double earlyL30 =
-        _toDouble(_penaltySettings['earlyLeaveDeduction30Min']);
-    final double earlyL60 =
-        _toDouble(_penaltySettings['earlyLeaveDeduction60Min']);
-    final double unauthorizedLeavePenalty =
-        _toDouble(_penaltySettings['unauthorizedLeaveDeduction']);
+    final int lateMin1 = _toInt(_penaltySettings['lateMinutes1'], 15);
+    final int lateMin2 = _toInt(_penaltySettings['lateMinutes2'], 30);
+    final int lateMin3 = _toInt(_penaltySettings['lateMinutes3'], 60);
+    final double latePen1 = _toDouble(_penaltySettings['latePenalty1']);
+    final double latePen2 = _toDouble(_penaltySettings['latePenalty2']);
+    final double latePen3 = _toDouble(_penaltySettings['latePenalty3']);
+    final int earlyMin1 = _toInt(_penaltySettings['earlyMinutes1'], 15);
+    final int earlyMin2 = _toInt(_penaltySettings['earlyMinutes2'], 30);
+    final int earlyMin3 = _toInt(_penaltySettings['earlyMinutes3'], 60);
+    final double earlyPen1 = _toDouble(_penaltySettings['earlyPenalty1']);
+    final double earlyPen2 = _toDouble(_penaltySettings['earlyPenalty2']);
+    final double earlyPen3 = _toDouble(_penaltySettings['earlyPenalty3']);
+    final double unauthorizedLeavePenalty = _toDouble(
+      _penaltySettings['unauthorizedLeavePenalty'],
+      _toDouble(_penaltySettings['unauthorizedLeaveDeduction']),
+    );
 
-    // Fallback to generic rates
-    final double penaltyPerLate =
-        _toDouble(_penaltySettings['lateDeduction'], late15);
-    final double penaltyPerEarly =
-        _toDouble(_penaltySettings['earlyLeaveDeduction'], earlyL15);
-    final double penaltyPerAbsent = _toDouble(
-        _penaltySettings['absentDeduction'], unauthorizedLeavePenalty);
+    double tierAmount(int minutes, int m1, int m2, int m3, double p1, double p2, double p3) {
+      if (minutes <= 0) return 0;
+      if (minutes >= m3 && p3 > 0) return p3;
+      if (minutes >= m2 && p2 > 0) return p2;
+      if (minutes >= m1 && p1 > 0) return p1;
+      return 0;
+    }
 
-    if (late15 > 0 || late30 > 0 || late60 > 0) {
+    final hasLateTiers = latePen1 > 0 || latePen2 > 0 || latePen3 > 0;
+    final hasEarlyTiers = earlyPen1 > 0 || earlyPen2 > 0 || earlyPen3 > 0;
+    if (hasLateTiers || hasEarlyTiers) {
       for (final r in shiftRecords) {
         if (_isHoliday(r.date) || _isWeekend(r.date)) continue;
-        final lateMins = r.lateMinutes;
-        if (lateMins > 5) {
-          if (lateMins >= 60) {
-            latePenaltyTotal += late60 > 0 ? late60 : penaltyPerLate;
-          } else if (lateMins >= 30) {
-            latePenaltyTotal += late30 > 0 ? late30 : penaltyPerLate;
-          } else {
-            latePenaltyTotal += late15 > 0 ? late15 : penaltyPerLate;
-          }
+        if (hasLateTiers) {
+          latePenaltyTotal += tierAmount(
+              r.lateMinutes, lateMin1, lateMin2, lateMin3, latePen1, latePen2, latePen3);
         }
-      }
-      for (final r in shiftRecords) {
-        if (_isHoliday(r.date) || _isWeekend(r.date)) continue;
-        final earlyMins = r.earlyMinutes;
-        if (earlyMins > 5) {
-          if (earlyMins >= 60) {
-            latePenaltyTotal += earlyL60 > 0 ? earlyL60 : penaltyPerEarly;
-          } else if (earlyMins >= 30) {
-            latePenaltyTotal += earlyL30 > 0 ? earlyL30 : penaltyPerEarly;
-          } else {
-            latePenaltyTotal += earlyL15 > 0 ? earlyL15 : penaltyPerEarly;
-          }
+        if (hasEarlyTiers) {
+          latePenaltyTotal += tierAmount(
+              r.earlyMinutes, earlyMin1, earlyMin2, earlyMin3, earlyPen1, earlyPen2, earlyPen3);
         }
       }
     } else {
-      // Flat rate penalties (backward compatible)
+      // Flat fallback (legacy keys) — only when no tier amounts configured
+      final double penaltyPerLate = _toDouble(_penaltySettings['lateDeduction']);
+      final double penaltyPerEarly =
+          _toDouble(_penaltySettings['earlyLeaveDeduction']);
       latePenaltyTotal =
           (penaltyPerLate * lateCount) + (penaltyPerEarly * earlyCount);
     }
-    // Absent penalty
-    latePenaltyTotal += penaltyPerAbsent * absentDays;
+    latePenaltyTotal += unauthorizedLeavePenalty * absentDays;
 
     // ═══ Insurance (BHXH, BHYT, BHTN, Đoàn phí) ═══
     // Use correct field names from InsuranceSetting entity (camelCase from C#)

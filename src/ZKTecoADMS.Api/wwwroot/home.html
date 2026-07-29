@@ -1046,6 +1046,7 @@
     <li><a href="#devices">Thiết bị</a></li>
     <li><a href="#platforms">Nền tảng</a></li>
     <li><a href="#videos">Video</a></li>
+    <li><a href="/guide">Hướng dẫn</a></li>
     <li><a href="#contact">Liên hệ</a></li>
     <li><a href="#faq">Hỏi đáp</a></li>
   </ul>
@@ -1643,6 +1644,21 @@
 </div>
 
 <script>
+  // Old share links used /?guide=basic&step=register — nginx serves home.html for /,
+  // so Flutter never loads. Forward to /guide which serves the Flutter app.
+  (function () {
+    try {
+      var p = new URLSearchParams(window.location.search);
+      var section = p.get('guide');
+      var step = p.get('step');
+      if ((section === 'basic' || section === 'advanced') && step) {
+        window.location.replace('/guide?guide=' + encodeURIComponent(section) +
+            '&step=' + encodeURIComponent(step));
+        return;
+      }
+    } catch (e) {}
+  })();
+
   function openLightbox(src) {
     var img = document.getElementById('lightbox-img');
     img.src = src;

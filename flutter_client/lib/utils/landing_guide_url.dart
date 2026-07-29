@@ -20,8 +20,8 @@ class LandingGuideUrl {
 
   static const productionOrigin = 'https://sboxhrm.com';
 
-  /// Link chia sẻ — query param (giữ được khi gửi Zalo), không dùng hash.
-  /// Ví dụ: https://sboxhrm.com/?guide=advanced&step=kpi
+  /// Link chia sẻ — path `/guide` + query (nginx phục vụ Flutter app, không phải home.html).
+  /// Ví dụ: https://sboxhrm.com/guide?guide=advanced&step=kpi
   static String buildLink({
     required String section,
     required String stepId,
@@ -32,7 +32,7 @@ class LandingGuideUrl {
       'guide': section,
       'step': stepId,
     }).query;
-    return '$origin/?$q';
+    return '$origin/guide?$q';
   }
 
   static GuideDeepLink? parse(Uri uri) {

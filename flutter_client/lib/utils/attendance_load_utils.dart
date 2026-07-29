@@ -124,7 +124,6 @@ Future<AttendanceLoadResult> _loadAttendancesByWeekChunks(
   final all = <Attendance>[];
   final seenIds = <String>{};
   var truncated = false;
-  var totalReported = 0;
 
   for (var i = 0; i < chunks.length; i++) {
     final chunk = chunks[i];
@@ -157,19 +156,22 @@ Future<AttendanceLoadResult> _loadAttendancesByWeekChunks(
       mergeInto: all,
     );
 
+    // Chỉ coi thiếu khi một tuần dừng sớm (lỗi mạng / hard cap trang).
+    // Không cộng totalCount các tuần: fetchFrom/fetchTo cố ý chồng ~1–2 ngày
+    // quanh day_end_time → tổng API bị đếm đôi trong khi log đã dedupe theo id.
     if (part.truncated) truncated = true;
-    if (part.totalCount != null) totalReported += part.totalCount!;
   }
 
   onProgress?.call('Hoàn tất (${all.length} log)');
 
-  final expected = totalReported > 0 ? totalReported : null;
-  if (expected != null && all.length < expected) truncated = true;
-
   return AttendanceLoadResult(
     items: all,
     truncated: truncated,
-    totalCount: expected,
+    // Never sum weekly API totalCounts — fetch windows intentionally overlap by
+    // ~1–2 days when day_end_time is set, so the sum looks like "missing" logs
+    // (e.g. 1648 unique / 2043 summed) even when every punch was loaded.
+    // On real truncation, omit expected so the UI shows a generic reload hint.
+    totalCount: truncated || all.isEmpty ? null : all.length,
   );
 }
 

@@ -375,11 +375,10 @@ public class AttendanceService(
         Guid? shiftIdForTicket;
         string? matchedShiftType;
 
-        // Shift-specific tolerance thresholds (from ShiftTemplate config)
+        // Shift-specific grace (from ShiftTemplate). maxAllowed* is used only in
+        // ResolveFallbackShift match windows — once matched, severe lateness still fines.
         int lateGraceMinutes;
         int earlyLeaveGraceMinutes;
-        int maxAllowedLateMinutes;
-        int maxAllowedEarlyLeaveMinutes;
 
         if (schedule != null)
         {
@@ -389,11 +388,8 @@ public class AttendanceService(
             shiftEnd = schedule.EndTime ?? schedule.Shift?.EndTime ?? defaultEnd;
             shiftIdForTicket = schedule.ShiftId;
             matchedShiftType = schedule.Shift?.ShiftType;
-            // Apply per-shift tolerances; fall back to sensible defaults when no template linked.
             lateGraceMinutes          = schedule.Shift?.LateGraceMinutes ?? 5;
             earlyLeaveGraceMinutes    = schedule.Shift?.EarlyLeaveGraceMinutes ?? 5;
-            maxAllowedLateMinutes     = schedule.Shift?.MaximumAllowedLateMinutes ?? 30;
-            maxAllowedEarlyLeaveMinutes = schedule.Shift?.MaximumAllowedEarlyLeaveMinutes ?? 30;
         }
         else
         {
@@ -405,8 +401,6 @@ public class AttendanceService(
             shiftEnd   = fallback.Value.end;
             lateGraceMinutes          = fallback.Value.lateGrace;
             earlyLeaveGraceMinutes    = fallback.Value.earlyLeaveGrace;
-            maxAllowedLateMinutes     = fallback.Value.maxLate;
-            maxAllowedEarlyLeaveMinutes = fallback.Value.maxEarlyLeave;
             matchedShiftType          = fallback.Value.shiftType;
             shiftIdForTicket = null;
         }
@@ -420,39 +414,32 @@ public class AttendanceService(
             if (IsOvertimeShiftType(matchedShiftType))
                 return;
 
-            if (punchTime > shiftStart)
-            {
-                var lateMinutes = (int)(punchTime - shiftStart).TotalMinutes;
-                if (lateMinutes <= 0) return;
+            var lateMinutes = MinutesLateAfterStart(punchTime, shiftStart, shiftEnd);
+            if (lateMinutes <= 0) return;
 
-                // Within grace period → no penalty (e.g. "Tính đi trễ sau: 5 phút")
-                if (lateMinutes <= lateGraceMinutes) return;
+            // Within grace period → no penalty (e.g. "Tính đi trễ sau: 5 phút")
+            if (lateMinutes <= lateGraceMinutes) return;
 
-                // Beyond maximum allowed late → outside shift window, skip (treat as absent elsewhere)
-                // e.g. "Cho phép chấm trễ: 30 phút" – punches more than 30 min late are not penalised here
-                if (lateMinutes > maxAllowedLateMinutes) return;
+            var (tier, amount) = CalculateLatePenalty(lateMinutes, penaltySetting);
+            if (amount <= 0) return;
 
-                var (tier, amount) = CalculateLatePenalty(lateMinutes, penaltySetting);
-                if (amount <= 0) return;
+            if (HasActiveTicket(existingTickets, employeeId, violationDate, PenaltyTicketType.Late))
+                return;
 
-                if (HasActiveTicket(existingTickets, employeeId, violationDate, PenaltyTicketType.Late))
-                    return;
+            var repeatCount = CountMonthRepeatViolations(existingTickets, employeeId, violationDate);
+            var repeatPenalty = CalculateRepeatPenalty(repeatCount + 1, penaltySetting);
 
-                var repeatCount = CountMonthRepeatViolations(existingTickets, employeeId, violationDate);
-                var repeatPenalty = CalculateRepeatPenalty(repeatCount + 1, penaltySetting);
+            var description = $"Đi trễ {lateMinutes} phút (bậc {tier}: {amount:N0}đ"
+                + (repeatPenalty > 0 ? $", tái phạm lần {repeatCount + 1}: +{repeatPenalty:N0}đ" : "")
+                + ")";
 
-                var description = $"Đi trễ {lateMinutes} phút (bậc {tier}: {amount:N0}đ"
-                    + (repeatPenalty > 0 ? $", tái phạm lần {repeatCount + 1}: +{repeatPenalty:N0}đ" : "")
-                    + ")";
+            await CreatePenaltyTicketAsync(employeeId, device.StoreId, violationDate,
+                PenaltyTicketType.Late, tier, lateMinutes, amount + repeatPenalty,
+                repeatCount + 1, repeatPenalty, shiftStart, shiftEnd, punchTime,
+                attendance, shiftIdForTicket, description, existingTickets, ticketCountsByDate);
 
-                await CreatePenaltyTicketAsync(employeeId, device.StoreId, violationDate,
-                    PenaltyTicketType.Late, tier, lateMinutes, amount + repeatPenalty,
-                    repeatCount + 1, repeatPenalty, shiftStart, shiftEnd, punchTime,
-                    attendance, shiftIdForTicket, description, existingTickets, ticketCountsByDate);
-
-                logger.LogInformation("{DeviceSN}: Tạo phiếu phạt đi trễ cho NV {Pin} - {Minutes} phút - {Amount}đ",
-                    device.SerialNumber, deviceUser.Pin, lateMinutes, amount + repeatPenalty);
-            }
+            logger.LogInformation("{DeviceSN}: Tạo phiếu phạt đi trễ cho NV {Pin} - {Minutes} phút - {Amount}đ",
+                device.SerialNumber, deviceUser.Pin, lateMinutes, amount + repeatPenalty);
         }
         else if (attendance.AttendanceState == AttendanceStates.CheckOut)
         {
@@ -461,40 +448,61 @@ public class AttendanceService(
                 IsOncePerShiftMode(onceBenefit.Benefit?.AttendanceMode))
                 return;
 
-            if (punchTime < shiftEnd)
-            {
-                var earlyMinutes = (int)(shiftEnd - punchTime).TotalMinutes;
-                if (earlyMinutes <= 0) return;
+            var earlyMinutes = MinutesEarlyBeforeEnd(punchTime, shiftStart, shiftEnd);
+            if (earlyMinutes <= 0) return;
 
-                // Within grace period → no penalty (e.g. "Tính về sớm sau: 5 phút")
-                if (earlyMinutes <= earlyLeaveGraceMinutes) return;
+            // Within grace period → no penalty (e.g. "Tính về sớm sau: 5 phút")
+            if (earlyMinutes <= earlyLeaveGraceMinutes) return;
 
-                // Beyond maximum allowed early leave → outside shift window, skip
-                // e.g. "Cho phép về sớm: 30 phút" – punches more than 30 min early are not penalised here
-                if (earlyMinutes > maxAllowedEarlyLeaveMinutes) return;
+            var (tier, amount) = CalculateEarlyPenalty(earlyMinutes, penaltySetting);
+            if (amount <= 0) return;
 
-                var (tier, amount) = CalculateEarlyPenalty(earlyMinutes, penaltySetting);
-                if (amount <= 0) return;
+            if (HasActiveTicket(existingTickets, employeeId, violationDate, PenaltyTicketType.EarlyLeave))
+                return;
 
-                if (HasActiveTicket(existingTickets, employeeId, violationDate, PenaltyTicketType.EarlyLeave))
-                    return;
+            var repeatCount = CountMonthRepeatViolations(existingTickets, employeeId, violationDate);
+            var repeatPenalty = CalculateRepeatPenalty(repeatCount + 1, penaltySetting);
 
-                var repeatCount = CountMonthRepeatViolations(existingTickets, employeeId, violationDate);
-                var repeatPenalty = CalculateRepeatPenalty(repeatCount + 1, penaltySetting);
+            var description = $"Về sớm {earlyMinutes} phút (bậc {tier}: {amount:N0}đ"
+                + (repeatPenalty > 0 ? $", tái phạm lần {repeatCount + 1}: +{repeatPenalty:N0}đ" : "")
+                + ")";
 
-                var description = $"Về sớm {earlyMinutes} phút (bậc {tier}: {amount:N0}đ"
-                    + (repeatPenalty > 0 ? $", tái phạm lần {repeatCount + 1}: +{repeatPenalty:N0}đ" : "")
-                    + ")";
+            await CreatePenaltyTicketAsync(employeeId, device.StoreId, violationDate,
+                PenaltyTicketType.EarlyLeave, tier, earlyMinutes, amount + repeatPenalty,
+                repeatCount + 1, repeatPenalty, shiftStart, shiftEnd, punchTime,
+                attendance, shiftIdForTicket, description, existingTickets, ticketCountsByDate);
 
-                await CreatePenaltyTicketAsync(employeeId, device.StoreId, violationDate,
-                    PenaltyTicketType.EarlyLeave, tier, earlyMinutes, amount + repeatPenalty,
-                    repeatCount + 1, repeatPenalty, shiftStart, shiftEnd, punchTime,
-                    attendance, shiftIdForTicket, description, existingTickets, ticketCountsByDate);
-
-                logger.LogInformation("{DeviceSN}: Tạo phiếu phạt về sớm cho NV {Pin} - {Minutes} phút - {Amount}đ",
-                    device.SerialNumber, deviceUser.Pin, earlyMinutes, amount + repeatPenalty);
-            }
+            logger.LogInformation("{DeviceSN}: Tạo phiếu phạt về sớm cho NV {Pin} - {Minutes} phút - {Amount}đ",
+                device.SerialNumber, deviceUser.Pin, earlyMinutes, amount + repeatPenalty);
         }
+    }
+
+    /// <summary>Late minutes after shift start; supports overnight (Start &gt; End).</summary>
+    private static int MinutesLateAfterStart(TimeSpan punch, TimeSpan start, TimeSpan end)
+    {
+        var overnight = start > end;
+        if (!overnight)
+            return punch > start ? (int)(punch - start).TotalMinutes : 0;
+
+        if (punch >= start)
+            return (int)(punch - start).TotalMinutes;
+        if (punch <= end)
+            return (int)((TimeSpan.FromDays(1) - start) + punch).TotalMinutes;
+        return 0;
+    }
+
+    /// <summary>Early-leave minutes before shift end; supports overnight.</summary>
+    private static int MinutesEarlyBeforeEnd(TimeSpan punch, TimeSpan start, TimeSpan end)
+    {
+        var overnight = start > end;
+        if (!overnight)
+            return punch < end ? (int)(end - punch).TotalMinutes : 0;
+
+        if (punch <= end)
+            return (int)(end - punch).TotalMinutes;
+        if (punch >= start)
+            return (int)((TimeSpan.FromDays(1) - punch) + end).TotalMinutes;
+        return 0;
     }
 
     /// <summary>
@@ -845,33 +853,99 @@ public class AttendanceService(
             return null;
         }
 
-        // Choose the shift covering this punch.
+        // Choose the shift covering this punch (handles overnight Start > End).
         ShiftTemplate? chosen;
         if (state == AttendanceStates.CheckIn)
         {
             var window = TimeSpan.FromHours(2);
             var match = candidates
-                .Where(s => punchTime >= s.StartTime - window && punchTime <= s.EndTime)
-                .OrderBy(s => Math.Abs((punchTime - s.StartTime).TotalMinutes))
+                .Where(s => IsPunchInMatchWindow(punchTime, s.StartTime, s.EndTime, window,
+                    s.MaximumAllowedLateMinutes > 0 ? s.MaximumAllowedLateMinutes : 120,
+                    s.EarlyCheckInMinutes > 0 ? s.EarlyCheckInMinutes : 30))
+                .OrderBy(s => CircularMinutesDistance(punchTime, s.StartTime))
                 .ToList();
             chosen = match.FirstOrDefault()
-                ?? candidates.OrderBy(s => Math.Abs((punchTime - s.StartTime).TotalMinutes)).First();
+                ?? candidates.OrderBy(s => CircularMinutesDistance(punchTime, s.StartTime)).First();
         }
         else
         {
             var window = TimeSpan.FromHours(2);
             var match = candidates
-                .Where(s => punchTime >= s.StartTime && punchTime <= s.EndTime + window)
-                .OrderBy(s => Math.Abs((punchTime - s.EndTime).TotalMinutes))
+                .Where(s => IsPunchOutMatchWindow(punchTime, s.StartTime, s.EndTime, window,
+                    s.MaximumAllowedEarlyLeaveMinutes > 0 ? s.MaximumAllowedEarlyLeaveMinutes : 120))
+                .OrderBy(s => CircularMinutesDistance(punchTime, s.EndTime))
                 .ToList();
             chosen = match.FirstOrDefault()
-                ?? candidates.OrderBy(s => Math.Abs((punchTime - s.EndTime).TotalMinutes)).First();
+                ?? candidates.OrderBy(s => CircularMinutesDistance(punchTime, s.EndTime)).First();
         }
 
         return (chosen.StartTime, chosen.EndTime,
             chosen.LateGraceMinutes, chosen.EarlyLeaveGraceMinutes,
             chosen.MaximumAllowedLateMinutes, chosen.MaximumAllowedEarlyLeaveMinutes,
             chosen.ShiftType);
+    }
+
+    /// <summary>Minutes between two times of day, wrapping at midnight (0–720).</summary>
+    private static double CircularMinutesDistance(TimeSpan a, TimeSpan b)
+    {
+        var d = Math.Abs((a - b).TotalMinutes);
+        return d > 720 ? 1440 - d : d;
+    }
+
+    private static bool IsPunchInMatchWindow(
+        TimeSpan punch, TimeSpan start, TimeSpan end, TimeSpan fallbackWindow,
+        int maxLateMinutes, int earlyCheckInMinutes)
+    {
+        var overnight = start > end;
+        var earlyLimit = TimeSpan.FromMinutes(earlyCheckInMinutes);
+        var lateLimit = TimeSpan.FromMinutes(Math.Max(maxLateMinutes, (int)fallbackWindow.TotalMinutes));
+
+        if (!overnight)
+        {
+            if (punch > end) return false;
+            if (punch < start - earlyLimit) return false;
+            if (punch > start + lateLimit) return false;
+            return true;
+        }
+
+        // Overnight: e.g. 22:00–06:00. Punch may be late after start (same evening)
+        // or before end next morning (still "late into" the shift).
+        var earlyBoundStart = start - earlyLimit;
+        if (earlyBoundStart < TimeSpan.Zero) earlyBoundStart += TimeSpan.FromDays(1);
+
+        // Accept in [start - early, 24h) U [0, end]
+        if (punch >= start || punch <= end) return true;
+        if (earlyBoundStart > start)
+        {
+            // early window wraps (rare for large earlyCheckIn)
+            return punch >= earlyBoundStart || punch <= end;
+        }
+        return punch >= earlyBoundStart && punch < start;
+    }
+
+    private static bool IsPunchOutMatchWindow(
+        TimeSpan punch, TimeSpan start, TimeSpan end, TimeSpan fallbackWindow,
+        int maxEarlyMinutes)
+    {
+        var overnight = start > end;
+        var earlyLimit = TimeSpan.FromMinutes(Math.Max(maxEarlyMinutes, (int)fallbackWindow.TotalMinutes));
+
+        if (!overnight)
+        {
+            if (punch < start) return false;
+            if (punch > end + fallbackWindow) return false;
+            // Too early relative to end beyond max early leave → still allow match
+            // (penalty tier handles amount); only reject if before start.
+            return true;
+        }
+
+        // Overnight checkout: typically in [0, end+window] or late evening after start
+        if (punch <= end + fallbackWindow && punch >= TimeSpan.Zero)
+        {
+            if (punch <= end || punch <= end + earlyLimit) return true;
+        }
+        if (punch >= start) return true;
+        return false;
     }
 
     private static string NormalizeShiftName(string s)
@@ -927,6 +1001,24 @@ public class AttendanceService(
         var dayPunches = attendances
             .Where(a => GetLogicalDate(a.AttendanceTime, storesDayEnd) == logicalWorkDate.Date)
             .ToList();
+
+        // Cancel Pending auto Late/Early tickets for this day so reprocessing can
+        // recreate them with the current shift match (idempotency would otherwise
+        // keep a wrong first ticket forever).
+        var stale = (await penaltyTicketRepository.GetAllAsync(
+            t => t.EmployeeId == employeeId
+                 && t.StoreId == storeId
+                 && t.ViolationDate.Date == logicalWorkDate.Date
+                 && t.Status == PenaltyTicketStatus.Pending
+                 && (t.Type == PenaltyTicketType.Late || t.Type == PenaltyTicketType.EarlyLeave),
+            cancellationToken: cancellationToken)).ToList();
+        foreach (var ticket in stale)
+        {
+            ticket.Status = PenaltyTicketStatus.Cancelled;
+            ticket.UpdatedAt = DateTime.UtcNow;
+            ticket.UpdatedBy = "RecalculatePenalties";
+            await penaltyTicketRepository.UpdateAsync(ticket, cancellationToken);
+        }
 
         if (dayPunches.Count == 0)
             return;

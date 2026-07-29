@@ -167,6 +167,9 @@ class ZKTecoApp extends StatelessWidget {
                 if (kIsWeb && InitialWebRoute.showLogin) {
                   return const LoginScreen();
                 }
+                if (kIsWeb && InitialWebRoute.showGuide) {
+                  return const LandingGuideScreen();
+                }
                 return kIsWeb
                     ? const WebStaticHomeRedirect()
                     : const LoginScreen();

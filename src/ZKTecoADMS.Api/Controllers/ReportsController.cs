@@ -5,6 +5,7 @@ using System.Text;
 using ClosedXML.Excel;
 using ZKTecoADMS.Api.Authorization;
 using ZKTecoADMS.Application.Constants;
+using ZKTecoADMS.Application.Helpers;
 using ZKTecoADMS.Api.Controllers.Base;
 using ZKTecoADMS.Application.Models;
 using ZKTecoADMS.Domain.Entities;
@@ -376,7 +377,7 @@ public class ReportsController(
                             // Best-match ca chính (cho expectedStart/End mặc định khi chỉ có 1 punch)
                             if (checkIn != null)
                             {
-                                var checkInVnMin = (int)checkIn.AttendanceTime.AddHours(7).TimeOfDay.TotalMinutes;
+                                var checkInVnMin = (int)VnTimeHelper.AttendanceWallClock(checkIn.AttendanceTime).TimeOfDay.TotalMinutes;
                                 var bestDist = int.MaxValue;
                                 var best = assignedShifts[0];
                                 foreach (var s in assignedShifts)
@@ -467,7 +468,8 @@ public class ReportsController(
                         var totalShiftEarly = 0;
                         foreach (var (inT, outT) in pairs)
                         {
-                            var inVnMin = (int)inT.AddHours(7).TimeOfDay.TotalMinutes;
+                            var inWall = VnTimeHelper.AttendanceWallClock(inT);
+                            var inVnMin = (int)inWall.TimeOfDay.TotalMinutes;
                             var bestDist = int.MaxValue;
                             ShiftInfo? bestShift = null;
                             foreach (var s in multiShiftAssignments)
@@ -487,14 +489,14 @@ public class ReportsController(
                             int sLateGrace = bestShift.LateGraceMinutes;
                             int sEarlyGrace = bestShift.EarlyLeaveGraceMinutes;
 
-                            var inTime = inT.AddHours(7).TimeOfDay;
+                            var inTime = inWall.TimeOfDay;
                             if (inTime > sStart + TimeSpan.FromMinutes(sLateGrace))
                             {
                                 totalShiftLate += (int)(inTime - sStart).TotalMinutes;
                             }
                             if (outT.HasValue)
                             {
-                                var outTime = outT.Value.AddHours(7).TimeOfDay;
+                                var outTime = VnTimeHelper.AttendanceWallClock(outT.Value).TimeOfDay;
                                 if (outTime < sEnd - TimeSpan.FromMinutes(sEarlyGrace))
                                 {
                                     totalShiftEarly += (int)(sEnd - outTime).TotalMinutes;
@@ -529,7 +531,7 @@ public class ReportsController(
                     else
                     {
                         // AttendanceTime is stored as UTC. Convert to VN (UTC+7) before comparing with shift times.
-                        var checkInTime = checkIn.AttendanceTime.AddHours(7).TimeOfDay;
+                        var checkInTime = VnTimeHelper.AttendanceWallClock(checkIn.AttendanceTime).TimeOfDay;
                         var lateGraceMin = TimeSpan.FromMinutes(lateGrace ?? 0);
                         if (checkInTime > expectedStart + lateGraceMin)
                         {
@@ -545,7 +547,7 @@ public class ReportsController(
 
                         if (checkOut != null)
                         {
-                            var checkOutTime = checkOut.AttendanceTime.AddHours(7).TimeOfDay;
+                            var checkOutTime = VnTimeHelper.AttendanceWallClock(checkOut.AttendanceTime).TimeOfDay;
                             var earlyGraceMin = TimeSpan.FromMinutes(earlyGrace ?? 0);
                             if (checkOutTime < expectedEnd - earlyGraceMin)
                             {
@@ -674,7 +676,7 @@ public class ReportsController(
 
             // Project once to VN-local time so all Date/TimeOfDay compares are correct.
             var attendances = rawAttendances
-                .Select(a => new { a.PIN, VnTime = a.AttendanceTime.AddHours(7), a.AttendanceState })
+                .Select(a => new { a.PIN, VnTime = VnTimeHelper.AttendanceWallClock(a.AttendanceTime), a.AttendanceState })
                 .ToList();
 
             // Build attendance lookup by PIN for O(1) access
@@ -927,7 +929,7 @@ public class ReportsController(
                 else if (checkIn != null)
                 {
                     totalPresentDays++;
-                    var checkInTime = checkIn.AttendanceTime.AddHours(7).TimeOfDay;
+                    var checkInTime = VnTimeHelper.AttendanceWallClock(checkIn.AttendanceTime).TimeOfDay;
                     
                     if (checkInTime > lateThreshold)
                     {
@@ -946,7 +948,7 @@ public class ReportsController(
                             checkIn.AttendanceTime, checkOut.AttendanceTime);
                         totalWorkedMinutes += workedMinutes;
                         
-                        if (checkOut.AttendanceTime.AddHours(7).TimeOfDay < earlyLeaveThreshold)
+                        if (VnTimeHelper.AttendanceWallClock(checkOut.AttendanceTime).TimeOfDay < earlyLeaveThreshold)
                         {
                             isEarlyLeave = true;
                             totalEarlyLeaveDays++;
@@ -1371,7 +1373,7 @@ public class ReportsController(
                 {
                     // O(1) lookup instead of scanning
                     var empAtts = attendanceByPin[emp.EmployeeCode].ToList();
-                    var groupedByDate = empAtts.GroupBy(a => a.AttendanceTime.AddHours(7).Date);
+                    var groupedByDate = empAtts.GroupBy(a => VnTimeHelper.AttendanceWallClock(a.AttendanceTime).Date);
 
                     foreach (var dayGroup in groupedByDate)
                     {
@@ -1381,7 +1383,8 @@ public class ReportsController(
                         var checkOut = dayGroup.Where(a => a.AttendanceState == AttendanceStates.CheckOut)
                             .OrderByDescending(a => a.AttendanceTime).FirstOrDefault();
 
-                        if (checkIn?.AttendanceTime.AddHours(7).TimeOfDay > lateThreshold)
+                        if (checkIn != null &&
+                            VnTimeHelper.AttendanceWallClock(checkIn.AttendanceTime).TimeOfDay > lateThreshold)
                         {
                             lateCount++;
                         }

@@ -9,6 +9,8 @@ import '../services/api_service.dart';
 import '../utils/landing_guide_url.dart';
 import '../utils/landing_public_url.dart';
 import '../utils/landing_usage_guide.dart';
+import '../utils/web_marketing_gate_stub.dart'
+    if (dart.library.html) '../utils/web_marketing_gate_web.dart' as web_gate;
 import '../widgets/landing_product_image.dart';
 import '../widgets/landing_youtube_player.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
@@ -84,7 +86,12 @@ class _LandingGuideScreenState extends State<LandingGuideScreen> {
             icon: const Icon(Icons.arrow_back_rounded),
             onPressed: () {
               LandingGuideUrl.clearFromBrowser();
-              Navigator.of(context).pop();
+              if (Navigator.of(context).canPop()) {
+                Navigator.of(context).pop();
+              } else {
+                // Deep-link entry (/guide) has no prior Flutter route — go home.
+                web_gate.redirectToStaticHome();
+              }
             },
           ),
         ),

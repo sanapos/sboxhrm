@@ -72,6 +72,20 @@ bool get isForgotPasswordDeepLink {
   return segs.isNotEmpty && segs.first == 'forgot-password';
 }
 
+/// The static homepage links to `/guide`; share links instead carry the step in
+/// the query, as `/guide?guide=basic&step=register`.
+bool get isGuideDeepLink {
+  if (!kIsWeb) return false;
+  final path = Uri.base.path;
+  if (path == '/guide' || path.endsWith('/guide')) return true;
+  final segs = parseWebHashPathSegments();
+  if (segs.isNotEmpty && segs.first == 'guide') return true;
+  final params = parseWebRouteQueryParams();
+  final section = params['guide'];
+  return (section == 'basic' || section == 'advanced') &&
+      (params['step']?.trim().isNotEmpty ?? false);
+}
+
 /// Giữ deep link web đọc một lần lúc khởi động (tránh mất hash sau Flutter bootstrap).
 class InitialWebRoute {
   InitialWebRoute._();
@@ -81,6 +95,7 @@ class InitialWebRoute {
   static bool showAgentRegister = false;
   static bool showLogin = false;
   static bool showForgotPassword = false;
+  static bool showGuide = false;
   static String? agentRegisterToken;
   static Map<String, String> queryParams = const {};
 
@@ -93,6 +108,7 @@ class InitialWebRoute {
     showRegister = isPublicRegisterDeepLink;
     showLogin = isLoginDeepLink;
     showForgotPassword = isForgotPasswordDeepLink;
+    showGuide = isGuideDeepLink;
 
     // Fallback: index.html lưu vào sessionStorage trước khi Flutter có thể xóa hash.
     initial_route_capture.captureInitialRouteFromStorage();
