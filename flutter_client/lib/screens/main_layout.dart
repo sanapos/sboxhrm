@@ -28,6 +28,7 @@ import '../utils/mobile_quick_actions_catalog.dart';
 import '../widgets/mobile_bottom_nav_config_sheet.dart';
 import '../widgets/mobile_quick_actions_config_sheet.dart';
 import '../widgets/announcement_banner.dart';
+import '../widgets/page_top_actions.dart';
 import '../widgets/ai_assistant_sheet.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../widgets/hrm_pushed_screen_shell.dart';
@@ -290,6 +291,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
   StreamSubscription? _deviceStatusSubscription;
   StreamSubscription? _communicationSubscription;
   bool _isConnectingSignalR = false;
+  bool _topSearchExpanded = false;
 
   // Popup queue: show one popup at a time to prevent overlap
   final List<Widget Function(VoidCallback onDismiss)> _popupQueue = [];
@@ -2047,6 +2049,30 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
             ?.copyWith(fontSize: 17),
         title: Text(tr(_settingsHubTitle(l))),
         actions: [
+          ListenableBuilder(
+            listenable: PageTopActions.instance,
+            builder: (context, _) {
+              final acts = PageTopActions.instance.actions;
+              if (acts.isEmpty) return const SizedBox.shrink();
+              return ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 220),
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  reverse: true,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      for (var i = 0; i < acts.length; i++) ...[
+                        if (i > 0) const SizedBox(width: 4),
+                        acts[i],
+                      ],
+                      const SizedBox(width: 4),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.auto_awesome, color: Color(0xFF8B5CF6)),
             onPressed: () => showAiAssistant(context),
@@ -2967,34 +2993,78 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
               color: Theme.of(context).colorScheme.onSurface,
             ),
           ),
-          const Spacer(),
-          // Search
-          Container(
-            width: 300,
-            height: 40,
-            decoration: BoxDecoration(
-              color: Theme.of(context).scaffoldBackgroundColor,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Theme.of(context).dividerColor),
-            ),
-            child: TextField(
-              decoration: InputDecoration(
-                hintText: tr(AppLocalizations.of(context).search),
-                hintStyle: const TextStyle(color: Color(0xFFA1A1AA)),
-                prefixIcon: const Icon(Icons.search, color: Color(0xFFA1A1AA)),
-                border: InputBorder.none,
-                contentPadding: const EdgeInsets.symmetric(vertical: 10),
-              ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: ListenableBuilder(
+              listenable: PageTopActions.instance,
+              builder: (context, _) {
+                final acts = PageTopActions.instance.actions;
+                if (acts.isEmpty) return const SizedBox.shrink();
+                return Align(
+                  alignment: Alignment.centerRight,
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        for (var i = 0; i < acts.length; i++) ...[
+                          if (i > 0) const SizedBox(width: 6),
+                          acts[i],
+                        ],
+                      ],
+                    ),
+                  ),
+                );
+              },
             ),
           ),
-          const SizedBox(width: 16),
+          const SizedBox(width: 8),
+          // Search thu gọn → bấm icon mới mở field (tránh che action).
+          if (_topSearchExpanded)
+            SizedBox(
+              width: 200,
+              height: 40,
+              child: TextField(
+                autofocus: true,
+                onTapOutside: (_) =>
+                    setState(() => _topSearchExpanded = false),
+                decoration: InputDecoration(
+                  hintText: tr(AppLocalizations.of(context).search),
+                  hintStyle: const TextStyle(color: Color(0xFFA1A1AA)),
+                  prefixIcon:
+                      const Icon(Icons.search, color: Color(0xFFA1A1AA), size: 20),
+                  suffixIcon: IconButton(
+                    icon: const Icon(Icons.close, size: 18),
+                    onPressed: () =>
+                        setState(() => _topSearchExpanded = false),
+                  ),
+                  filled: true,
+                  fillColor: Theme.of(context).scaffoldBackgroundColor,
+                  contentPadding: const EdgeInsets.symmetric(vertical: 0),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide:
+                        BorderSide(color: Theme.of(context).dividerColor),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide:
+                        BorderSide(color: Theme.of(context).dividerColor),
+                  ),
+                ),
+              ),
+            )
+          else
+            IconButton(
+              icon: const Icon(Icons.search),
+              tooltip: tr(AppLocalizations.of(context).search),
+              onPressed: () => setState(() => _topSearchExpanded = true),
+            ),
           IconButton(
             icon: const Icon(Icons.auto_awesome, color: Color(0xFF8B5CF6)),
             onPressed: () => showAiAssistant(context),
             tooltip: tr('Trợ lý ảo AI'),
           ),
-          const SizedBox(width: 4),
-          // Notifications
           IconButton(
             icon: Badge(
               isLabelVisible: _unreadNotificationsCount > 0,
@@ -3005,12 +3075,11 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
             ),
             onPressed: () {
               _tryNavigateToIndex(_notificationsIndex);
-              // Reload notification count khi chuyển đến màn hình thông báo
               _loadNotificationCount();
             },
             tooltip: tr(AppLocalizations.of(context).notifications),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 4),
           _buildUserMenu(),
         ],
       ),
@@ -3608,53 +3677,77 @@ class _HomeMenuScreenState extends State<_HomeMenuScreen> {
         .where((g) => groupedItems.containsKey(g))
         .toList(growable: false);
 
-    return ColoredBox(
-      color: PosTheme.background,
-      child: CustomScrollView(
-        controller: _scrollController,
-        key: const PageStorageKey<String>('home_menu_scroll'),
-        cacheExtent: 800,
-        slivers: [
-          SliverPadding(
-            padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
-            sliver: SliverList(
-              delegate: SliverChildListDelegate([
-                RepaintBoundary(
-                  child: PosMobileProfileCard(
-                    name: user?.fullName ?? 'User',
-                    subtitle: _profileSubtitle(user),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                RepaintBoundary(child: _buildMobileQuickActionsGrid(context)),
-              ]),
-            ),
-          ),
-          for (final groupName in groupNames) ...[
-            SliverPadding(
-              padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
-              sliver: SliverToBoxAdapter(
-                child: RepaintBoundary(
-                  child: PosMobileHubSectionGrid(
-                    title: NavItem._groupMap[groupName]?.call(l) ??
-                        tr(groupName),
-                    items: groupedItems[groupName]!
-                        .map(
-                          (entry) => PosMobileHubGridItem(
-                            label: entry.value.localizedLabel(l),
-                            icon: entry.value.activeIcon,
-                            onTap: () => widget.onItemTap(entry.key),
-                          ),
-                        )
-                        .toList(),
-                  ),
+    List<PosMobileHubGridItem> itemsFor(String groupName) =>
+        groupedItems[groupName]!
+            .map(
+              (entry) => PosMobileHubGridItem(
+                label: entry.value.localizedLabel(l),
+                icon: entry.value.activeIcon,
+                onTap: () => widget.onItemTap(entry.key),
+              ),
+            )
+            .toList();
+
+    final hPad = kIsWeb ? 20.0 : 12.0;
+    final maxContent = kIsWeb ? 1180.0 : double.infinity;
+
+    final scroll = CustomScrollView(
+      controller: _scrollController,
+      key: const PageStorageKey<String>('home_menu_scroll'),
+      cacheExtent: 800,
+      slivers: [
+        SliverPadding(
+          padding: EdgeInsets.fromLTRB(hPad, kIsWeb ? 16 : 8, hPad, 0),
+          sliver: SliverList(
+            delegate: SliverChildListDelegate([
+              RepaintBoundary(
+                child: PosMobileProfileCard(
+                  name: user?.fullName ?? 'User',
+                  subtitle: _profileSubtitle(user),
                 ),
               ),
+              const SizedBox(height: 12),
+              RepaintBoundary(child: _buildMobileQuickActionsGrid(context)),
+            ]),
+          ),
+        ),
+        SliverPadding(
+          padding: EdgeInsets.fromLTRB(hPad, 12, hPad, 28),
+          sliver: SliverList(
+            delegate: SliverChildBuilderDelegate(
+              (context, index) {
+                final groupName = groupNames[index];
+                return Padding(
+                  padding: EdgeInsets.only(
+                    bottom: index == groupNames.length - 1 ? 0 : 12,
+                  ),
+                  child: RepaintBoundary(
+                    child: PosMobileHubSectionGrid(
+                      title: NavItem._groupMap[groupName]?.call(l) ??
+                          tr(groupName),
+                      items: itemsFor(groupName),
+                    ),
+                  ),
+                );
+              },
+              childCount: groupNames.length,
             ),
-          ],
-          const SliverPadding(padding: EdgeInsets.only(bottom: 24)),
-        ],
-      ),
+          ),
+        ),
+      ],
+    );
+
+    return ColoredBox(
+      color: PosTheme.background,
+      child: !kIsWeb
+          ? scroll
+          : Align(
+              alignment: Alignment.topCenter,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: maxContent),
+                child: scroll,
+              ),
+            ),
     );
   }
 
@@ -3710,7 +3803,8 @@ class _HomeMenuScreenState extends State<_HomeMenuScreen> {
       groupedItems[group]!.add(MapEntry(i, item));
     }
 
-    if (isMobile) {
+    // Web + mobile: cùng layout Kiot (profile + lưới section).
+    if (isMobile || kIsWeb) {
       return _buildMobileKiotHome(context, user, groupedItems);
     }
 

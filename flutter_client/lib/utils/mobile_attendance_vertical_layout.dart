@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../widgets/pos/pos_theme.dart';
 /// Mobile: nhân viên (hoặc chỉ 1 NV trong dữ liệu) → bảng dọc dễ đọc hơn bảng ngang.
 bool preferMobileVerticalAttendanceView({
   required String? userRole,
@@ -84,7 +85,8 @@ class MobileAttendanceVerticalTable extends StatelessWidget {
     this.totalRow,
   });
 
-  static const _headerBg = Color(0xFF1E3A5F);
+  static const _headerBg = Color(0xFFF4F6F8);
+  static const _accent = PosTheme.kiotBlue;
   static const _border = Color(0xFFE4E4E7);
   static const _todayBg = Color(0xFFEFF6FF);
   static const _totalBg = Color(0xFFEFF6FF);
@@ -118,7 +120,7 @@ class MobileAttendanceVerticalTable extends StatelessWidget {
               child: Row(
                 children: [
                   const Icon(Icons.table_rows_outlined,
-                      size: 18, color: _headerBg),
+                      size: 18, color: _accent),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
@@ -166,7 +168,7 @@ class MobileAttendanceVerticalTable extends StatelessWidget {
                 tr(headers[i]),
                 textAlign: i >= 2 ? TextAlign.center : TextAlign.center,
                 style: const TextStyle(
-                  color: Colors.white,
+                  color: Color(0xFF374151),
                   fontSize: 10,
                   fontWeight: FontWeight.w700,
                 ),
@@ -383,7 +385,8 @@ class MobileAttendanceShiftVerticalTable extends StatelessWidget {
     this.totalRow,
   });
 
-  static const _headerBg = Color(0xFF1E3A5F);
+  static const _headerBg = Color(0xFFF4F6F8);
+  static const _accent = PosTheme.kiotBlue;
   static const _border = Color(0xFFE4E4E7);
   static const _todayBg = Color(0xFFEFF6FF);
   static const _totalBg = Color(0xFFEFF6FF);
@@ -421,7 +424,7 @@ class MobileAttendanceShiftVerticalTable extends StatelessWidget {
                   Row(
                     children: [
                       const Icon(Icons.table_rows_outlined,
-                          size: 18, color: _headerBg),
+                          size: 18, color: _accent),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
@@ -493,7 +496,7 @@ class MobileAttendanceShiftVerticalTable extends StatelessWidget {
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
-                  color: Colors.white,
+                  color: Color(0xFF374151),
                   fontSize: 9,
                   fontWeight: FontWeight.w700,
                   height: 1.15,
@@ -695,7 +698,8 @@ class MobilePayrollVerticalTable extends StatelessWidget {
     this.totalRow,
   });
 
-  static const _headerBg = Color(0xFF1E3A5F);
+  static const _headerBg = Color(0xFFF4F6F8);
+  static const _accent = PosTheme.kiotBlue;
   static const _border = Color(0xFFE4E4E7);
   static const _totalBg = Color(0xFFEFF6FF);
   static const _totalFrozenBg = Color(0xFFDBEAFE);
@@ -736,7 +740,7 @@ class MobilePayrollVerticalTable extends StatelessWidget {
                   Row(
                     children: [
                       const Icon(Icons.table_rows_outlined,
-                          size: 18, color: _headerBg),
+                          size: 18, color: _accent),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
@@ -813,13 +817,13 @@ class MobilePayrollVerticalTable extends StatelessWidget {
             decoration: const BoxDecoration(
               color: _headerBg,
               border: Border(
-                right: BorderSide(color: Colors.white24),
-                bottom: BorderSide(color: Colors.white24, width: 0.5),
+                right: BorderSide(color: Color(0xFFE5E7EB)),
+                bottom: BorderSide(color: Color(0xFFE5E7EB), width: 0.5),
               ),
             ),
             child: Text(tr('Nhân viên'),
               style: TextStyle(
-                color: Colors.white,
+                color: Color(0xFF374151),
                 fontSize: 10,
                 fontWeight: FontWeight.w700,
               ),
@@ -921,7 +925,7 @@ class MobilePayrollVerticalTable extends StatelessWidget {
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    color: Colors.white,
+                    color: Color(0xFF374151),
                     fontSize: 9,
                     fontWeight: FontWeight.w700,
                     height: 1.15,

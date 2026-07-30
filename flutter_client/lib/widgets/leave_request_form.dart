@@ -11,9 +11,10 @@ import 'employee_search_picker.dart';
 import 'notification_overlay.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import './pos/pos_theme.dart';
 export '../features/leave/leave_catalog.dart' show normalizeLeaveType;
 
-const _primary = Color(0xFF1E3A5F);
+const _primary = PosTheme.kiotBlue;
 const _primaryDark = Color(0xFF0F2340);
 const _border = Color(0xFFE4E4E7);
 const _muted = Color(0xFF71717A);

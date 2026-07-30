@@ -155,7 +155,7 @@ class _HrDocumentsScreenState extends State<HrDocumentsScreen>
       backgroundColor: const Color(0xFFF0F4F8),
       body: Column(
         children: [
-          _buildHeader(),
+          _buildTabBar(),
           Expanded(
             child: HrmFabClearance(
               fabVisible: canCreateDoc,
@@ -183,72 +183,18 @@ class _HrDocumentsScreenState extends State<HrDocumentsScreen>
     );
   }
 
-  Widget _buildHeader() {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
-      decoration: const BoxDecoration(
-        gradient:
-            LinearGradient(colors: [Color(0xFF153058), HrmPageChrome.primaryNavy]),
-      ),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(12)),
-                child: const Icon(Icons.folder_special,
-                    color: Colors.white, size: 24),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(tr('Hồ sơ nhân sự'),
-                        style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 22,
-                            fontWeight: FontWeight.bold)),
-                    Text(tr('Hợp đồng, bằng cấp, giấy phép'),
-                        style: TextStyle(color: Colors.white70, fontSize: 14)),
-                  ],
-                ),
-              ),
-              if (_expiringDocs.isNotEmpty)
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                      color: const Color(0xFFFEF3C7),
-                      borderRadius: BorderRadius.circular(20)),
-                  child: Row(mainAxisSize: MainAxisSize.min, children: [
-                    const Icon(Icons.warning_amber,
-                        color: Color(0xFFD97706), size: 16),
-                    const SizedBox(width: 4),
-                    Text(tr('${_expiringDocs.length} sắp hết hạn'),
-                        style: const TextStyle(
-                            color: Color(0xFFD97706),
-                            fontWeight: FontWeight.w600,
-                            fontSize: 12)),
-                  ]),
-                ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          TabBar(
-            controller: _tabController,
-            indicatorColor: Colors.white,
-            indicatorWeight: 3,
-            labelColor: Colors.white,
-            unselectedLabelColor: Colors.white60,
-            tabs: [
-              Tab(text: tr('Tất cả (${_documents.length})')),
-              Tab(text: tr('Sắp hết hạn (${_expiringDocs.length})')),
-            ],
-          ),
+  Widget _buildTabBar() {
+    return Material(
+      color: Colors.white,
+      child: TabBar(
+        controller: _tabController,
+        indicatorColor: HrmPageChrome.primaryNavy,
+        indicatorWeight: 3,
+        labelColor: HrmPageChrome.primaryNavy,
+        unselectedLabelColor: Colors.grey[600],
+        tabs: [
+          Tab(text: tr('Tất cả (${_documents.length})')),
+          Tab(text: tr('Sắp hết hạn (${_expiringDocs.length})')),
         ],
       ),
     );

@@ -42,6 +42,9 @@ PosThermalPrinterSettings toThermalSettings(PosStorePrinter printer) {
     usbDeviceName: printer.usbDeviceName,
     feedBeforeCut: printer.feedBeforeCut,
     partialCut: printer.partialCut,
+    openCashDrawer: printer.openCashDrawer,
+    openDrawerCashOnly: printer.openDrawerCashOnly,
+    beepOnPrint: printer.beepOnPrint,
   );
 }
 
@@ -111,6 +114,9 @@ Map<String, dynamic> thermalToPrinterSaveJson(
     'usbDeviceName': s.usbDeviceName,
     'feedBeforeCut': s.feedBeforeCut,
     'partialCut': s.partialCut,
+    'openCashDrawer': s.openCashDrawer,
+    'openDrawerCashOnly': s.openDrawerCashOnly,
+    'beepOnPrint': s.beepOnPrint,
     'isDefault': isDefault,
     'sortOrder': sortOrder,
     'isActive': true,

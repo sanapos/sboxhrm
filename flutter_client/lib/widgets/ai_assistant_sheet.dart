@@ -18,6 +18,7 @@ import '../utils/navigation_notifier.dart';
 import 'notification_overlay.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import './pos/pos_theme.dart';
 class _ChatMsg {
   final String role; // 'user' | 'assistant'
   final String content;
@@ -829,7 +830,7 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
       constraints:
           BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.78),
       decoration: BoxDecoration(
-        color: isUser ? const Color(0xFF1E3A5F) : const Color(0xFFF3F4F6),
+        color: isUser ? PosTheme.kiotBlue : const Color(0xFFF3F4F6),
         borderRadius: BorderRadius.only(
           topLeft: const Radius.circular(14),
           topRight: const Radius.circular(14),

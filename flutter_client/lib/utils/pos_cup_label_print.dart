@@ -81,7 +81,10 @@ Future<bool> printCupLabels({
     final thermal = await PosThermalPrinterSettings.load();
     if (thermal.enabled) {
       final prepared = await PosPrinterTransport.prepareLocalSettings(thermal);
-      final cupSettings = prepared.copyWith(feedBeforeCut: 10);
+      final cupSettings = prepared.copyWith(
+        feedBeforeCut: 10,
+        openCashDrawer: false,
+      );
       if (cupSettings.connectionType == PosThermalConnectionType.sunmi ||
           await PosPrinterTransport.isSunmiDevice()) {
         try {
@@ -132,7 +135,10 @@ Future<bool> printCupLabels({
 
   final printers = PosPrintOrchestrator.instance.printers;
   if (printers.isEmpty) return false;
-  final cloudSettings = toThermalSettings(printers.first).copyWith(feedBeforeCut: 10);
+  final cloudSettings = toThermalSettings(printers.first).copyWith(
+    feedBeforeCut: 10,
+    openCashDrawer: false,
+  );
   final bytes = await PosThermalPrinterService.buildTextEscPosBytes(
     settings: cloudSettings,
     title: '',

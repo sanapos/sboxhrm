@@ -13,6 +13,7 @@ import '../widgets/hrm/hrm_settings_mobile_kit.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../widgets/notification_overlay.dart';
 import '../widgets/device_sync_progress_overlay.dart';
+import '../widgets/pos/pos_theme.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 class DeviceManagementSettingsScreen extends StatefulWidget {
   const DeviceManagementSettingsScreen({super.key});
@@ -803,63 +804,60 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
     }
 
     return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF0F172A), HrmPageChrome.primaryNavy, HrmPageChrome.primaryNavy],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(20),
-      ),
+      padding: const EdgeInsets.all(16),
+      decoration: PosTheme.mobileCardDecoration(),
       child: Row(
         children: [
           Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(16)),
-            child: const Icon(Icons.router, color: Colors.white, size: 32),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: PosTheme.kiotBlueLight,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(Icons.router, color: PosTheme.kiotBlue, size: 28),
           ),
-          const SizedBox(width: 20),
+          const SizedBox(width: 16),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(tr('Kết nối máy chấm công'), style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: Colors.white)),
-                const SizedBox(height: 6),
-                Text(tr('Quản lý danh sách máy chấm công, theo dõi trạng thái kết nối và điều khiển từ xa'),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 13, color: Colors.white.withValues(alpha: 0.8), height: 1.4),
-                ),
+                Text(tr('Kết nối máy chấm công'),
+                    style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                        color: PosTheme.textPrimary)),
+                const SizedBox(height: 4),
+                Text(
+                    tr('Quản lý danh sách máy chấm công, theo dõi trạng thái kết nối và điều khiển từ xa'),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                        fontSize: 13,
+                        color: PosTheme.textSecondary,
+                        height: 1.4)),
               ],
             ),
           ),
           const SizedBox(width: 12),
           if (_perm.canCreate('Device'))
             Responsive.isMobile(context)
-                ? Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(
-                        onPressed: _showAddDeviceDialog,
-                        icon: const Icon(Icons.add_circle, size: 28),
-                        color: Colors.white,
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
-                      ),
-                    ],
+                ? IconButton(
+                    onPressed: _showAddDeviceDialog,
+                    icon: const Icon(Icons.add_circle, size: 28),
+                    color: PosTheme.kiotBlue,
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
                   )
                 : FilledButton.icon(
                     onPressed: _showAddDeviceDialog,
                     icon: const Icon(Icons.add, size: 18),
                     label: Text(tr('Thêm thiết bị')),
                     style: FilledButton.styleFrom(
-                      backgroundColor: Colors.white.withValues(alpha: 0.2),
+                      backgroundColor: PosTheme.kiotBlue,
                       foregroundColor: Colors.white,
                       shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12)),
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 20, vertical: 14),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
                     ),
                   ),
         ],

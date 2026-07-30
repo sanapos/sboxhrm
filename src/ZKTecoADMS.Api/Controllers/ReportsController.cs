@@ -33,7 +33,19 @@ public class ReportsController(
         TimeSpan StartTime,
         TimeSpan EndTime,
         int LateGraceMinutes,
-        int EarlyLeaveGraceMinutes);
+        int EarlyLeaveGraceMinutes,
+        int MaximumAllowedLateMinutes = 30,
+        int EarlyCheckInMinutes = 30,
+        int MaximumAllowedEarlyLeaveMinutes = 120,
+        string? ShiftType = null)
+    {
+        public ShiftMatchHelper.Candidate ToCandidate() => new(
+            Id, StartTime, EndTime, LateGraceMinutes, EarlyLeaveGraceMinutes,
+            MaximumAllowedLateMinutes > 0 ? MaximumAllowedLateMinutes : 30,
+            EarlyCheckInMinutes > 0 ? EarlyCheckInMinutes : 30,
+            MaximumAllowedEarlyLeaveMinutes > 0 ? MaximumAllowedEarlyLeaveMinutes : 120,
+            ShiftType, Name);
+    }
 
     /// <summary>
     /// Build a VN (UTC+7) day range for querying UTC-stored timestamps.
@@ -58,10 +70,34 @@ public class ReportsController(
         Guid? branchId,
         bool includeChildBranches,
         string? employeeCodes,
-        string? employeeCode = null)
+        string? employeeCode = null,
+        Guid? departmentId = null)
     {
-        if (!string.IsNullOrEmpty(department))
-            query = query.Where(e => e.Department == department);
+        // Flutter gửi departmentId (GUID); API cũ nhận department (tên). Hỗ trợ cả hai.
+        Guid? resolvedDeptId = departmentId is { } id && id != Guid.Empty ? id : null;
+        string? resolvedDeptName = null;
+        if (resolvedDeptId == null && !string.IsNullOrWhiteSpace(department))
+        {
+            if (Guid.TryParse(department.Trim(), out var deptGuid) && deptGuid != Guid.Empty)
+                resolvedDeptId = deptGuid;
+            else
+                resolvedDeptName = department;
+        }
+
+        if (resolvedDeptId.HasValue)
+        {
+            var deptEntity = await dbContext.Set<Department>()
+                .AsNoTracking()
+                .FirstOrDefaultAsync(d => d.Id == resolvedDeptId.Value && d.StoreId == storeId);
+            var deptName = deptEntity?.Name;
+            query = query.Where(e =>
+                e.DepartmentId == resolvedDeptId.Value
+                || (deptName != null && e.Department == deptName));
+        }
+        else if (!string.IsNullOrWhiteSpace(resolvedDeptName))
+        {
+            query = query.Where(e => e.Department == resolvedDeptName);
+        }
 
         if (!string.IsNullOrEmpty(employeeCode))
             query = query.Where(e => e.EmployeeCode.Contains(employeeCode));
@@ -74,6 +110,118 @@ public class ReportsController(
             query = query.Where(e => codeFilter.Contains(e.EmployeeCode));
 
         return query;
+    }
+
+    /// <summary>Giờ chuẩn / nghỉ trưa / hệ số OT cửa hàng từ AppSettings (salary).</summary>
+    private async Task<(int standardHoursPerDay, int lunchBreakMinutes, OvertimeCalcHelper.OtRates otRates)> ResolveStoreWorkDayDefaultsAsync(Guid storeId)
+    {
+        var keys = new[]
+        {
+            "standard_work_hours", "lunch_break_minutes",
+            "overtime_rate", "weekend_rate", "holiday_rate"
+        };
+        var settings = await dbContext.Set<AppSettings>()
+            .AsNoTracking()
+            .Where(s => s.StoreId == storeId && keys.Contains(s.Key))
+            .Select(s => new { s.Key, s.Value })
+            .ToListAsync();
+        var map = settings.ToDictionary(s => s.Key, s => s.Value, StringComparer.OrdinalIgnoreCase);
+
+        var hours = 8;
+        if (map.TryGetValue("standard_work_hours", out var hRaw) &&
+            double.TryParse(hRaw, System.Globalization.NumberStyles.Any,
+                System.Globalization.CultureInfo.InvariantCulture, out var h) &&
+            h > 0 && h <= 24)
+        {
+            hours = (int)Math.Round(h);
+        }
+
+        var lunch = 0;
+        if (map.TryGetValue("lunch_break_minutes", out var lRaw) &&
+            int.TryParse(lRaw, out var l) && l >= 0 && l < 8 * 60)
+        {
+            lunch = l;
+        }
+
+        static decimal? ParseDec(Dictionary<string, string?> m, string key)
+        {
+            if (!m.TryGetValue(key, out var raw) || string.IsNullOrWhiteSpace(raw)) return null;
+            return decimal.TryParse(raw, System.Globalization.NumberStyles.Any,
+                System.Globalization.CultureInfo.InvariantCulture, out var d) && d > 0
+                ? d
+                : null;
+        }
+
+        var otRates = OvertimeCalcHelper.OtRates.Resolve(
+            null, null, null,
+            ParseDec(map, "overtime_rate"),
+            ParseDec(map, "weekend_rate"),
+            ParseDec(map, "holiday_rate"));
+
+        return (hours, lunch, otRates);
+    }
+
+    /// <summary>
+    /// Map PIN máy chấm → Employee.Id qua DeviceUser đã gán mã NV (+ EmployeeCode tương thích cũ).
+    /// Báo cáo phải dùng map này — không so AttendanceLogs.PIN == EmployeeCode thuần
+    /// (PIN thiết bị thường là số ngắn, mã NV là SĐT).
+    /// </summary>
+    private async Task<Dictionary<string, Guid>> BuildPinToEmployeeIdMapAsync(
+        IReadOnlyCollection<Employee> employees)
+    {
+        var pinToEmployeeId = new Dictionary<string, Guid>(StringComparer.OrdinalIgnoreCase);
+        if (employees.Count == 0) return pinToEmployeeId;
+
+        var employeeIds = employees.Select(e => e.Id).ToList();
+        var deviceUsers = await dbContext.DeviceUsers
+            .AsNoTracking()
+            .Where(du => du.EmployeeId.HasValue && employeeIds.Contains(du.EmployeeId.Value))
+            .Select(du => new { du.Pin, EmployeeId = du.EmployeeId!.Value })
+            .ToListAsync();
+
+        foreach (var du in deviceUsers)
+        {
+            if (string.IsNullOrWhiteSpace(du.Pin)) continue;
+            if (!pinToEmployeeId.ContainsKey(du.Pin))
+                pinToEmployeeId[du.Pin] = du.EmployeeId;
+        }
+
+        foreach (var emp in employees)
+        {
+            if (string.IsNullOrWhiteSpace(emp.EmployeeCode)) continue;
+            if (!pinToEmployeeId.ContainsKey(emp.EmployeeCode))
+                pinToEmployeeId[emp.EmployeeCode] = emp.Id;
+        }
+
+        return pinToEmployeeId;
+    }
+
+    private static List<string> PinsForEmployee(
+        IReadOnlyDictionary<string, Guid> pinToEmployeeId, Guid employeeId) =>
+        pinToEmployeeId.Where(kv => kv.Value == employeeId).Select(kv => kv.Key).ToList();
+
+    private static string ParseDescFieldStatic(string? description, string key)
+    {
+        if (string.IsNullOrEmpty(description)) return string.Empty;
+        foreach (var part in description.Split('|'))
+        {
+            var idx = part.IndexOf(':');
+            if (idx <= 0) continue;
+            if (string.Equals(part[..idx].Trim(), key, StringComparison.Ordinal))
+                return part[(idx + 1)..].Trim();
+        }
+        return string.Empty;
+    }
+
+    private static bool IsOvertimeShiftTypeName(string? shiftType)
+    {
+        if (string.IsNullOrWhiteSpace(shiftType)) return false;
+        var raw = shiftType.Trim().ToLowerInvariant();
+        return raw.Contains("tăng ca")
+            || raw.Contains("tang ca")
+            || raw.Contains("tangca")
+            || raw == "tangca"
+            || raw.Contains("overtime");
     }
 
     #region Daily Attendance Report
@@ -89,7 +237,8 @@ public class ReportsController(
         [FromQuery] string? employeeCode = null,
         [FromQuery] string? employeeCodes = null,
         [FromQuery] Guid? branchId = null,
-        [FromQuery] bool includeChildBranches = true)
+        [FromQuery] bool includeChildBranches = true,
+        [FromQuery] Guid? departmentId = null)
     {
         try
         {
@@ -103,30 +252,12 @@ public class ReportsController(
                 .Where(e => e.StoreId == storeId && e.Deleted == null);
 
             employeesQuery = await FilterEmployeesQueryAsync(
-                employeesQuery, storeId, department, branchId, includeChildBranches, employeeCodes, employeeCode);
+                employeesQuery, storeId, department, branchId, includeChildBranches, employeeCodes, employeeCode, departmentId);
 
             var employees = await employeesQuery.ToListAsync();
 
             var employeeIds = employees.Select(e => e.Id).ToList();
-
-            // Get DeviceUsers linked to these employees to map PIN -> Employee
-            var deviceUsers = await dbContext.DeviceUsers
-                .Where(du => du.EmployeeId.HasValue && employeeIds.Contains(du.EmployeeId.Value))
-                .ToListAsync();
-
-            // Build pin set: DeviceUser.Pin + Employee.EmployeeCode for backward compat
-            var pinToEmployeeId = new Dictionary<string, Guid>();
-            foreach (var du in deviceUsers)
-            {
-                if (du.EmployeeId.HasValue && !pinToEmployeeId.ContainsKey(du.Pin))
-                    pinToEmployeeId[du.Pin] = du.EmployeeId.Value;
-            }
-            foreach (var emp in employees)
-            {
-                if (!string.IsNullOrEmpty(emp.EmployeeCode) && !pinToEmployeeId.ContainsKey(emp.EmployeeCode))
-                    pinToEmployeeId[emp.EmployeeCode] = emp.Id;
-            }
-
+            var pinToEmployeeId = await BuildPinToEmployeeIdMapAsync(employees);
             var allPins = pinToEmployeeId.Keys.ToList();
 
             // Get attendances for the date (filter by Device.StoreId) — use Select projection.
@@ -213,7 +344,11 @@ public class ReportsController(
                     s.StartTime,
                     s.EndTime,
                     s.LateGraceMinutes,
-                    s.EarlyLeaveGraceMinutes))
+                    s.EarlyLeaveGraceMinutes,
+                    s.MaximumAllowedLateMinutes,
+                    s.EarlyCheckInMinutes,
+                    s.MaximumAllowedEarlyLeaveMinutes,
+                    s.ShiftType))
                 .ToListAsync();
             static string NormalizeShiftName(string s) =>
                 System.Text.RegularExpressions.Regex.Replace(
@@ -300,14 +435,9 @@ public class ReportsController(
 
             foreach (var employee in employees)
             {
-                // Find all pins mapped to this employee (from DeviceUser + EmployeeCode)
-                var employeePins = pinToEmployeeId
-                    .Where(kv => kv.Value == employee.Id)
-                    .Select(kv => kv.Key)
+                var empAttendances = PinsForEmployee(pinToEmployeeId, employee.Id)
+                    .SelectMany(pin => attendanceByPin[pin])
                     .ToList();
-
-                // Use lookup instead of scanning entire list
-                var empAttendances = employeePins.SelectMany(pin => attendanceByPin[pin]).ToList();
                 var checkIn = empAttendances.Where(a => a.AttendanceState == AttendanceStates.CheckIn)
                     .OrderBy(a => a.AttendanceTime).FirstOrDefault();
                 var checkOut = empAttendances.Where(a => a.AttendanceState == AttendanceStates.CheckOut)
@@ -357,7 +487,11 @@ public class ReportsController(
                             s.StartTime ?? s.Shift.StartTime,
                             s.EndTime ?? s.Shift.EndTime,
                             s.Shift.LateGraceMinutes,
-                            s.Shift.EarlyLeaveGraceMinutes))
+                            s.Shift.EarlyLeaveGraceMinutes,
+                            s.Shift.MaximumAllowedLateMinutes,
+                            s.Shift.EarlyCheckInMinutes,
+                            s.Shift.MaximumAllowedEarlyLeaveMinutes,
+                            s.Shift.ShiftType))
                         .ToList();
                 }
                 else if (!hasSchedule && benefit != null)
@@ -374,23 +508,15 @@ public class ReportsController(
                         if (assignedShifts.Count > 0)
                         {
                             multiShiftAssignments = assignedShifts;
-                            // Best-match ca chính (cho expectedStart/End mặc định khi chỉ có 1 punch)
+                            // Best-match ca chính: ưu tiên không trễ (sau grace).
                             if (checkIn != null)
                             {
-                                var checkInVnMin = (int)VnTimeHelper.AttendanceWallClock(checkIn.AttendanceTime).TimeOfDay.TotalMinutes;
-                                var bestDist = int.MaxValue;
-                                var best = assignedShifts[0];
-                                foreach (var s in assignedShifts)
-                                {
-                                    var startMin = (int)s.StartTime.TotalMinutes;
-                                    var dist = Math.Abs(checkInVnMin - startMin);
-                                    if (dist > 720) dist = 1440 - dist;
-                                    if (dist < bestDist)
-                                    {
-                                        bestDist = dist;
-                                        best = s;
-                                    }
-                                }
+                                var punchInTs = VnTimeHelper.AttendanceWallClock(checkIn.AttendanceTime).TimeOfDay;
+                                var fit = ShiftMatchHelper.FindBestForCheckIn(
+                                    assignedShifts.Select(s => s.ToCandidate()), punchInTs);
+                                var best = fit != null
+                                    ? assignedShifts.First(s => s.Id == fit.Shift.Id)
+                                    : assignedShifts[0];
                                 expectedStart = best.StartTime;
                                 expectedEnd = best.EndTime;
                                 lateGrace = best.LateGraceMinutes;
@@ -466,42 +592,24 @@ public class ReportsController(
 
                         var totalShiftLate = 0;
                         var totalShiftEarly = 0;
+                        var pairIdx = 0;
                         foreach (var (inT, outT) in pairs)
                         {
                             var inWall = VnTimeHelper.AttendanceWallClock(inT);
-                            var inVnMin = (int)inWall.TimeOfDay.TotalMinutes;
-                            var bestDist = int.MaxValue;
-                            ShiftInfo? bestShift = null;
-                            foreach (var s in multiShiftAssignments)
-                            {
-                                var startMin = (int)s.StartTime.TotalMinutes;
-                                var dist = Math.Abs(inVnMin - startMin);
-                                if (dist > 720) dist = 1440 - dist;
-                                if (dist < bestDist)
-                                {
-                                    bestDist = dist;
-                                    bestShift = s;
-                                }
-                            }
-                            if (bestShift == null) continue;
-                            var sStart = bestShift.StartTime;
-                            var sEnd = bestShift.EndTime;
-                            int sLateGrace = bestShift.LateGraceMinutes;
-                            int sEarlyGrace = bestShift.EarlyLeaveGraceMinutes;
-
-                            var inTime = inWall.TimeOfDay;
-                            if (inTime > sStart + TimeSpan.FromMinutes(sLateGrace))
-                            {
-                                totalShiftLate += (int)(inTime - sStart).TotalMinutes;
-                            }
-                            if (outT.HasValue)
-                            {
-                                var outTime = VnTimeHelper.AttendanceWallClock(outT.Value).TimeOfDay;
-                                if (outTime < sEnd - TimeSpan.FromMinutes(sEarlyGrace))
-                                {
-                                    totalShiftEarly += (int)(sEnd - outTime).TotalMinutes;
-                                }
-                            }
+                            TimeSpan? outTs = outT.HasValue
+                                ? VnTimeHelper.AttendanceWallClock(outT.Value).TimeOfDay
+                                : null;
+                            var fit = ShiftMatchHelper.FindBest(
+                                multiShiftAssignments
+                                    .Where(s => !IsOvertimeShiftTypeName(s.ShiftType))
+                                    .Select(s => s.ToCandidate()),
+                                inWall.TimeOfDay,
+                                outTs,
+                                pairIdx);
+                            if (fit == null) continue;
+                            pairIdx++;
+                            totalShiftLate += fit.EffectiveLateIn;
+                            totalShiftEarly += fit.EffectiveEarlyOut;
                         }
 
                         lateMinutes = totalShiftLate;
@@ -641,7 +749,8 @@ public class ReportsController(
         [FromQuery] string? department = null,
         [FromQuery] string? employeeCodes = null,
         [FromQuery] Guid? branchId = null,
-        [FromQuery] bool includeChildBranches = true)
+        [FromQuery] bool includeChildBranches = true,
+        [FromQuery] Guid? departmentId = null)
     {
         try
         {
@@ -659,18 +768,20 @@ public class ReportsController(
                 .Where(e => e.StoreId == storeId && e.Deleted == null);
 
             employeesQuery = await FilterEmployeesQueryAsync(
-                employeesQuery, storeId, department, branchId, includeChildBranches, employeeCodes);
+                employeesQuery, storeId, department, branchId, includeChildBranches, employeeCodes,
+                departmentId: departmentId);
 
             var employees = await employeesQuery.ToListAsync();
 
-            var employeePins = employees.Select(e => e.EmployeeCode).ToList();
+            var pinToEmployeeId = await BuildPinToEmployeeIdMapAsync(employees);
+            var allPins = pinToEmployeeId.Keys.ToList();
 
             // AttendanceLogs stored in UTC — filter by VN-month UTC range.
             var rawAttendances = await dbContext.AttendanceLogs
                 .Where(a => a.Device != null && a.Device.StoreId == storeId
                     && a.AttendanceTime >= utcStart
                     && a.AttendanceTime < utcEnd
-                    && employeePins.Contains(a.PIN))
+                    && allPins.Contains(a.PIN))
                 .Select(a => new { a.PIN, a.AttendanceTime, a.AttendanceState })
                 .ToListAsync();
 
@@ -738,8 +849,9 @@ public class ReportsController(
 
             foreach (var employee in employees)
             {
-                // O(1) lookup instead of scanning entire list
-                var empAttendances = attendanceByPin[employee.EmployeeCode].ToList();
+                var empAttendances = PinsForEmployee(pinToEmployeeId, employee.Id)
+                    .SelectMany(pin => attendanceByPin[pin])
+                    .ToList();
                 
                 // Get leaves for this employee — O(1) lookup (ILookup returns empty for missing keys)
                 var empLeaveUserId = employee.ApplicationUserId ?? Guid.Empty;
@@ -854,9 +966,14 @@ public class ReportsController(
                 return NotFound(AppResponse<EmployeeAttendanceReportDto>.Fail("Employee not found"));
             }
 
+            var pinToEmployeeId = await BuildPinToEmployeeIdMapAsync([employee]);
+            var employeePins = PinsForEmployee(pinToEmployeeId, employee.Id);
+            if (employeePins.Count == 0 && !string.IsNullOrWhiteSpace(employee.EmployeeCode))
+                employeePins.Add(employee.EmployeeCode);
+
             var attendances = await dbContext.AttendanceLogs
                 .Where(a => a.Device != null && a.Device.StoreId == storeId 
-                    && a.PIN == employee.EmployeeCode
+                    && employeePins.Contains(a.PIN)
                     && a.AttendanceTime >= start 
                     && a.AttendanceTime <= end.AddDays(1))
                 .OrderBy(a => a.AttendanceTime)
@@ -1025,7 +1142,8 @@ public class ReportsController(
         [FromQuery] string? department = null,
         [FromQuery] string? employeeCodes = null,
         [FromQuery] Guid? branchId = null,
-        [FromQuery] bool includeChildBranches = true)
+        [FromQuery] bool includeChildBranches = true,
+        [FromQuery] Guid? departmentId = null)
     {
         try
         {
@@ -1037,7 +1155,8 @@ public class ReportsController(
                 .Where(e => e.StoreId == storeId && e.Deleted == null);
 
             employeesQuery = await FilterEmployeesQueryAsync(
-                employeesQuery, storeId, department, branchId, includeChildBranches, employeeCodes);
+                employeesQuery, storeId, department, branchId, includeChildBranches, employeeCodes,
+                departmentId: departmentId);
 
             var employees = await employeesQuery.ToListAsync();
 
@@ -1053,30 +1172,43 @@ public class ReportsController(
             var salaryProfileEmpIdSet = salaryProfileEmpIds.ToHashSet();
             employees = employees.Where(e => salaryProfileEmpIdSet.Contains(e.Id)).ToList();
 
-            var employeePins = employees.Select(e => e.EmployeeCode).ToList();
+            var pinToEmployeeId = await BuildPinToEmployeeIdMapAsync(employees);
+            var employeePins = pinToEmployeeId.Keys.ToList();
             var employeeIdSet = employees.Select(e => e.Id).ToHashSet();
 
-            // â”€â”€â”€ Load shift templates (active in this store) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-            // Mirror logic của tab "Tổng hợp theo ca" (attendance_by_shift_tab.dart):
-            // mỗi punch tìm ca phù hợp dựa trên thời điểm chấm vào, áp dụng
-            // grace period rồi mới tính trễ/sớm.
+            // Mirror tab "Tổng hợp theo ca": ưu tiên ca không trễ (sau grace).
             var shiftTemplates = await dbContext.ShiftTemplates
                 .Where(s => s.StoreId == storeId && s.IsActive)
-                .Select(s => new
-                {
-                    s.Id,
-                    s.StartTime,
-                    s.EndTime,
-                    s.LateGraceMinutes,
-                    s.EarlyLeaveGraceMinutes,
-                })
+                .Select(s => new ShiftInfo(
+                    s.Id, s.Name, s.StartTime, s.EndTime,
+                    s.LateGraceMinutes, s.EarlyLeaveGraceMinutes,
+                    s.MaximumAllowedLateMinutes, s.EarlyCheckInMinutes,
+                    s.MaximumAllowedEarlyLeaveMinutes, s.ShiftType))
                 .ToListAsync();
+            var shiftById = shiftTemplates.ToDictionary(s => s.Id);
+            static string NormalizeShiftNameLe(string s) =>
+                System.Text.RegularExpressions.Regex.Replace(
+                    (s ?? string.Empty).Trim().ToLowerInvariant(), @"\s+", " ");
+            var shiftByNameLe = shiftTemplates
+                .Where(s => !string.IsNullOrWhiteSpace(s.Name))
+                .GroupBy(s => NormalizeShiftNameLe(s.Name))
+                .ToDictionary(g => g.Key, g => g.First());
 
-            // â”€â”€â”€ Load shift salary levels → empId → assigned shift ids â”€â”€â”€â”€â”€â”€
+            // Gán ca: ShiftSalaryLevel + Benefit.Description "shifts:..."
             var shiftSalaryLevels = await dbContext.Set<ShiftSalaryLevel>()
                 .Select(l => new { l.ShiftTemplateId, l.EmployeeIds })
                 .ToListAsync();
             var empIdToShiftIds = new Dictionary<Guid, List<Guid>>();
+            void AddEmpShift(Guid empGuid, Guid shiftId)
+            {
+                if (!employeeIdSet.Contains(empGuid)) return;
+                if (!empIdToShiftIds.TryGetValue(empGuid, out var list))
+                {
+                    list = new List<Guid>();
+                    empIdToShiftIds[empGuid] = list;
+                }
+                if (!list.Contains(shiftId)) list.Add(shiftId);
+            }
             foreach (var lvl in shiftSalaryLevels)
             {
                 if (string.IsNullOrWhiteSpace(lvl.EmployeeIds)) continue;
@@ -1085,18 +1217,34 @@ public class ReportsController(
                 {
                     ids = System.Text.Json.JsonSerializer.Deserialize<List<string>>(lvl.EmployeeIds);
                 }
-                catch { /* malformed JSON — bỏ qua dòng này */ }
+                catch { /* malformed JSON */ }
                 if (ids == null) continue;
                 foreach (var raw in ids)
                 {
-                    if (!Guid.TryParse(raw, out var empGuid)) continue;
-                    if (!employeeIdSet.Contains(empGuid)) continue;
-                    if (!empIdToShiftIds.TryGetValue(empGuid, out var list))
-                    {
-                        list = new List<Guid>();
-                        empIdToShiftIds[empGuid] = list;
-                    }
-                    if (!list.Contains(lvl.ShiftTemplateId)) list.Add(lvl.ShiftTemplateId);
+                    if (Guid.TryParse(raw, out var empGuid))
+                        AddEmpShift(empGuid, lvl.ShiftTemplateId);
+                }
+            }
+
+            var empBenefits = await (
+                from eb in dbContext.Set<EmployeeBenefit>()
+                join b in dbContext.Set<Benefit>() on eb.BenefitId equals b.Id
+                where b.StoreId == storeId && employeeIdSet.Contains(eb.EmployeeId)
+                select new { eb.EmployeeId, b.AttendanceMode, b.Description, eb.EffectiveDate }
+            ).ToListAsync();
+            var benefitByEmp = empBenefits
+                .GroupBy(x => x.EmployeeId)
+                .ToDictionary(g => g.Key, g => g.OrderByDescending(x => x.EffectiveDate).First());
+
+            foreach (var kv in benefitByEmp)
+            {
+                var shiftsStr = ParseDescFieldStatic(kv.Value.Description, "shifts");
+                if (string.IsNullOrWhiteSpace(shiftsStr)) continue;
+                foreach (var raw in shiftsStr.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
+                {
+                    var key = NormalizeShiftNameLe(raw);
+                    if (shiftByNameLe.TryGetValue(key, out var st))
+                        AddEmpShift(kv.Key, st.Id);
                 }
             }
 
@@ -1117,15 +1265,21 @@ public class ReportsController(
 
             foreach (var employee in employees)
             {
-                var empAttendances = attendanceByPin[employee.EmployeeCode].ToList();
+                // free2: không xét đi trễ / về sớm theo ca.
+                if (benefitByEmp.TryGetValue(employee.Id, out var empBen) &&
+                    string.Equals(empBen.AttendanceMode, "free2", StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                var empAttendances = PinsForEmployee(pinToEmployeeId, employee.Id)
+                    .SelectMany(pin => attendanceByPin[pin])
+                    .ToList();
                 if (empAttendances.Count == 0) continue;
 
-                // Candidate shift templates: ca được gán riêng nếu có,
-                // không thì duyệt toàn bộ ca trong store (giống fallback Flutter).
-                var candidateIds = empIdToShiftIds.TryGetValue(employee.Id, out var assigned) && assigned.Count > 0
-                    ? assigned
-                    : shiftTemplates.Select(s => s.Id).ToList();
-                var candidateShifts = shiftTemplates.Where(s => candidateIds.Contains(s.Id)).ToList();
+                var hasAssigned = empIdToShiftIds.TryGetValue(employee.Id, out var assignedIds)
+                    && assignedIds.Count > 0;
+                var candidateShifts = hasAssigned
+                    ? assignedIds!.Where(id => shiftById.ContainsKey(id)).Select(id => shiftById[id]).ToList()
+                    : shiftTemplates;
 
                 var groupedByDate = empAttendances.GroupBy(a => a.AttendanceTime.Date);
                 var lateCount = 0;
@@ -1139,8 +1293,6 @@ public class ReportsController(
                     var ins = dayPunches.Where(a => a.AttendanceState == AttendanceStates.CheckIn).ToList();
                     var outs = dayPunches.Where(a => a.AttendanceState == AttendanceStates.CheckOut).ToList();
 
-                    // Pair (in, out): ưu tiên dùng AttendanceState; nếu không
-                    // đủ thông tin thì rơi về ghép theo thứ tự chronological.
                     var pairs = new List<(DateTime? In, DateTime? Out)>();
                     if (ins.Count > 0 && outs.Count > 0 && (ins.Count + outs.Count) == dayPunches.Count)
                     {
@@ -1167,91 +1319,43 @@ public class ReportsController(
                         }
                     }
 
+                    var pairIndex = 0;
                     foreach (var (punchIn, punchOut) in pairs)
                     {
-                        // Mirror tab "Tổng hợp theo ca": chỉ tính trễ/sớm khi pair
-                        // có ĐỦ cả IN và OUT (attendanceMode='both' mặc định).
-                        // Pair thiếu 1 vế → coi là "thiếu chấm công", không
-                        // cộng vào trễ/sớm để tránh số ảo (vd. 683p do match
-                        // nhầm ca cho 1 punch lẻ).
                         if (punchIn == null || punchOut == null) continue;
 
-                        var refTime = punchIn ?? punchOut;
-                        if (refTime == null) continue;
-                        var refMin = refTime.Value.Hour * 60 + refTime.Value.Minute;
+                        var inWall = VnTimeHelper.AttendanceWallClock(punchIn.Value);
+                        var outWall = VnTimeHelper.AttendanceWallClock(punchOut.Value);
+                        var punchInTs = inWall.TimeOfDay;
+                        var punchOutTs = outWall.TimeOfDay;
 
-                        // Tìm ca khớp nhất: dùng wrap-around distance (giống Flutter
-                        // _findMatchingShift). Nếu best > 180 phút thì fallback duyệt
-                        // toàn bộ ca trong store; nếu vẫn > 180 thì BỎ QUA pair này.
-                        static int WrapDist(int refM, int startM)
+                        var candidates = candidateShifts
+                            .Where(s => !IsOvertimeShiftTypeName(s.ShiftType))
+                            .Select(s => s.ToCandidate())
+                            .ToList();
+                        var fit = ShiftMatchHelper.FindBest(
+                            candidates, punchInTs, punchOutTs, pairIndex);
+                        // NV chưa gán ca: thử toàn store (trừ OT). Đã gán: không fallback.
+                        if (fit == null && !hasAssigned)
                         {
-                            var d = Math.Abs(refM - startM);
-                            if (d > 720) d = 1440 - d;
-                            return d;
+                            fit = ShiftMatchHelper.FindBest(
+                                shiftTemplates
+                                    .Where(s => !IsOvertimeShiftTypeName(s.ShiftType))
+                                    .Select(s => s.ToCandidate()),
+                                punchInTs, punchOutTs, pairIndex);
                         }
-                        var matched = candidateShifts
-                            .Select(s => new { Shift = s, Diff = WrapDist(refMin, (int)s.StartTime.TotalMinutes) })
-                            .OrderBy(x => x.Diff)
-                            .FirstOrDefault();
-                        if (matched == null || matched.Diff > 180)
-                        {
-                            // Nếu nhân viên đã được gán ca cụ thể, KHÔNG fallback sang ca
-                            // khác. Một punch cách xa ca được gán → coi là punch lạc
-                            // (vd. NV ca đêm chấm vào lúc 14:33 không nên bị tính trễ
-                            // 93p theo "Ca chiều"). Chỉ fallback khi nhân viên CHƯA
-                            // được gán ca nào.
-                            var hasAssignedShifts = empIdToShiftIds.TryGetValue(employee.Id, out var assignedList)
-                                && assignedList.Count > 0;
-                            if (hasAssignedShifts) continue;
+                        if (fit == null) continue;
+                        pairIndex++;
 
-                            var fallback = shiftTemplates
-                                .Select(s => new { Shift = s, Diff = WrapDist(refMin, (int)s.StartTime.TotalMinutes) })
-                                .OrderBy(x => x.Diff)
-                                .FirstOrDefault();
-                            if (fallback == null || fallback.Diff > 180) continue;
-                            matched = fallback;
+                        if (fit.EffectiveLateIn > 0)
+                        {
+                            lateCount++;
+                            lateMins += fit.EffectiveLateIn;
                         }
-                        var shift = matched.Shift;
-                        var shiftStartMin = (int)shift.StartTime.TotalMinutes;
-                        var shiftEndMin = (int)shift.EndTime.TotalMinutes;
-                        var isCross = shiftStartMin > shiftEndMin;
-
-                        // Late
-                        if (punchIn != null)
+                        if (fit.EffectiveEarlyOut > 0)
                         {
-                            var pinMin = punchIn.Value.Hour * 60 + punchIn.Value.Minute;
-                            int lateCalc = 0;
-                            if (isCross)
-                            {
-                                if (pinMin >= shiftStartMin) lateCalc = pinMin - shiftStartMin;
-                                else if (pinMin < shiftEndMin) lateCalc = (1440 - shiftStartMin) + pinMin;
-                            }
-                            else if (pinMin > shiftStartMin) lateCalc = pinMin - shiftStartMin;
-                            if (lateCalc <= shift.LateGraceMinutes) lateCalc = 0;
-                            if (lateCalc > 0)
-                            {
-                                lateCount++;
-                                lateMins += lateCalc;
-                            }
-                        }
-
-                        // Early
-                        if (punchOut != null)
-                        {
-                            var poutMin = punchOut.Value.Hour * 60 + punchOut.Value.Minute;
-                            int earlyCalc = 0;
-                            if (isCross)
-                            {
-                                if (poutMin <= shiftEndMin) earlyCalc = shiftEndMin - poutMin;
-                                else if (poutMin >= shiftStartMin) earlyCalc = (1440 - poutMin) + shiftEndMin;
-                            }
-                            else if (poutMin < shiftEndMin) earlyCalc = shiftEndMin - poutMin;
-                            if (earlyCalc <= shift.EarlyLeaveGraceMinutes) earlyCalc = 0;
-                            if (earlyCalc > 0)
-                            {
-                                earlyCount++;
-                                earlyMins += earlyCalc;
-                            }
+                            earlyCount++;
+                            earlyMins += fit.EffectiveEarlyOut;
                         }
                     }
                 }
@@ -1309,7 +1413,11 @@ public class ReportsController(
     [RequireAnyModulePermission(ModulePermissionAction.View, "AttendanceReport", "AttendanceSummary", "AttendanceByShift", "Attendance")]
     public async Task<ActionResult<AppResponse<DepartmentSummaryReportDto>>> GetDepartmentSummaryReport(
         [FromQuery] int? year = null,
-        [FromQuery] int? month = null)
+        [FromQuery] int? month = null,
+        [FromQuery] string? department = null,
+        [FromQuery] Guid? departmentId = null,
+        [FromQuery] Guid? branchId = null,
+        [FromQuery] bool includeChildBranches = true)
     {
         try
         {
@@ -1320,35 +1428,47 @@ public class ReportsController(
             var startDate = new DateTime(targetYear, targetMonth, 1);
             var endDate = startDate.AddMonths(1).AddDays(-1);
 
-            var employees = await dbContext.Employees
-                .Where(e => e.StoreId == storeId && e.Deleted == null)
-                .ToListAsync();
+            var employeesQuery = dbContext.Employees
+                .Where(e => e.StoreId == storeId && e.Deleted == null);
+            employeesQuery = await FilterEmployeesQueryAsync(
+                employeesQuery, storeId, department, branchId, includeChildBranches, employeeCodes: null,
+                departmentId: departmentId);
+            var employees = await employeesQuery.ToListAsync();
 
-            var employeeCodes = employees.Select(e => e.EmployeeCode).ToList();
+            var pinToEmployeeId = await BuildPinToEmployeeIdMapAsync(employees);
+            var allPins = pinToEmployeeId.Keys.ToList();
+
+            // UTC window for VN calendar month (same as monthly report).
+            var utcStart = startDate.AddHours(-7);
+            var utcEnd = startDate.AddMonths(1).AddHours(-7);
 
             var attendances = await dbContext.AttendanceLogs
                 .Where(a => a.Device != null && a.Device.StoreId == storeId 
-                    && a.AttendanceTime >= startDate 
-                    && a.AttendanceTime <= endDate.AddDays(1)
-                    && employeeCodes.Contains(a.PIN))
+                    && a.AttendanceTime >= utcStart 
+                    && a.AttendanceTime < utcEnd
+                    && allPins.Contains(a.PIN))
                 .Select(a => new { a.PIN, a.AttendanceTime, a.AttendanceState })
                 .ToListAsync();
 
             // Build attendance lookup by PIN for O(1) access
             var attendanceByPin = attendances.ToLookup(a => a.PIN);
 
-            var holidays = await dbContext.Holidays
+            var holidays = (await dbContext.Holidays
                 .Where(h => h.StoreId == storeId && h.Date >= startDate && h.Date <= endDate)
                 .Select(h => h.Date)
-                .ToListAsync();
+                .ToListAsync())
+                .Select(d => d.Date)
+                .ToHashSet();
 
             // Calculate working days
             var workingDays = 0;
+            var workingDaySet = new HashSet<DateTime>();
             for (var d = startDate; d <= endDate; d = d.AddDays(1))
             {
                 if (d.DayOfWeek != DayOfWeek.Saturday && d.DayOfWeek != DayOfWeek.Sunday && !holidays.Contains(d))
                 {
                     workingDays++;
+                    workingDaySet.Add(d.Date);
                 }
             }
 
@@ -1371,12 +1491,16 @@ public class ReportsController(
 
                 foreach (var emp in deptEmployees)
                 {
-                    // O(1) lookup instead of scanning
-                    var empAtts = attendanceByPin[emp.EmployeeCode].ToList();
+                    var empAtts = PinsForEmployee(pinToEmployeeId, emp.Id)
+                        .SelectMany(pin => attendanceByPin[pin])
+                        .ToList();
                     var groupedByDate = empAtts.GroupBy(a => VnTimeHelper.AttendanceWallClock(a.AttendanceTime).Date);
 
                     foreach (var dayGroup in groupedByDate)
                     {
+                        // Chỉ tính ngày làm việc (T2–T6, không holiday) → rate không vượt 100%.
+                        if (!workingDaySet.Contains(dayGroup.Key)) continue;
+
                         attendedDays++;
                         var checkIn = dayGroup.Where(a => a.AttendanceState == AttendanceStates.CheckIn)
                             .OrderBy(a => a.AttendanceTime).FirstOrDefault();
@@ -1391,7 +1515,8 @@ public class ReportsController(
 
                         if (checkIn != null && checkOut != null)
                         {
-                            totalWorkedMinutes += (int)(checkOut.AttendanceTime - checkIn.AttendanceTime).TotalMinutes;
+                            totalWorkedMinutes += ReportsExportHelpers.WorkedMinutesVn(
+                                checkIn.AttendanceTime, checkOut.AttendanceTime);
                         }
                     }
                 }
@@ -1440,7 +1565,7 @@ public class ReportsController(
     #region Overtime Report
 
     /// <summary>
-    /// Get overtime report
+    /// Báo cáo tăng ca — phút OT theo logic ca (Flutter), hệ số từ Benefit/store.
     /// </summary>
     [HttpGet("overtime")]
     [RequireAnyModulePermission(ModulePermissionAction.View, "AttendanceReport", "AttendanceSummary", "AttendanceByShift", "Attendance")]
@@ -1450,97 +1575,181 @@ public class ReportsController(
         [FromQuery] string? department = null,
         [FromQuery] Guid? branchId = null,
         [FromQuery] bool includeChildBranches = true,
-        [FromQuery] int? minOvertimeMinutes = 0)
+        [FromQuery] int? minOvertimeMinutes = 0,
+        [FromQuery] Guid? departmentId = null)
     {
         try
         {
             var storeId = RequiredStoreId;
-            var start = startDate ?? DateTime.Today.AddMonths(-1);
-            var end = endDate ?? DateTime.Today;
+            var start = (startDate ?? DateTime.Today.AddMonths(-1)).Date;
+            var end = (endDate ?? DateTime.Today).Date;
             var minOvertime = minOvertimeMinutes ?? 0;
 
             var employeesQuery = dbContext.Employees
                 .Where(e => e.StoreId == storeId && e.Deleted == null);
 
             employeesQuery = await FilterEmployeesQueryAsync(
-                employeesQuery, storeId, department, branchId, includeChildBranches, employeeCodes: null);
+                employeesQuery, storeId, department, branchId, includeChildBranches, employeeCodes: null,
+                departmentId: departmentId);
 
             var employees = await employeesQuery.ToListAsync();
+            var empIds = employees.Select(e => e.Id).ToHashSet();
 
-            var employeePins = employees.Select(e => e.EmployeeCode).ToList();
+            var pinToEmployeeId = await BuildPinToEmployeeIdMapAsync(employees);
+            var employeePins = pinToEmployeeId.Keys.ToList();
 
+            var utcStart = start.AddHours(-7);
+            var utcEnd = end.AddDays(1).AddHours(-7);
             var attendances = await dbContext.AttendanceLogs
-                .Where(a => a.Device != null && a.Device.StoreId == storeId 
-                    && a.AttendanceTime >= start 
-                    && a.AttendanceTime <= end.AddDays(1)
+                .Where(a => a.Device != null && a.Device.StoreId == storeId
+                    && a.AttendanceTime >= utcStart
+                    && a.AttendanceTime < utcEnd
                     && employeePins.Contains(a.PIN))
                 .Select(a => new { a.PIN, a.AttendanceTime, a.AttendanceState })
                 .ToListAsync();
-
-            // Build attendance lookup by PIN for O(1) access
             var attendanceByPin = attendances.ToLookup(a => a.PIN);
+
+            var (storeStdHours, _, storeOtRates) = await ResolveStoreWorkDayDefaultsAsync(storeId);
+
+            var endExclusive = end.AddDays(1);
+            var benefits = await dbContext.EmployeeBenefits
+                .AsNoTracking()
+                .Include(eb => eb.Benefit)
+                .Where(eb => empIds.Contains(eb.EmployeeId)
+                    && eb.EffectiveDate < endExclusive
+                    && (eb.EndDate == null || eb.EndDate >= start))
+                .OrderByDescending(eb => eb.EffectiveDate)
+                .ToListAsync();
+            var benefitByEmp = benefits
+                .GroupBy(eb => eb.EmployeeId)
+                .ToDictionary(g => g.Key, g => g.First().Benefit);
+
+            var shiftTemplates = await dbContext.ShiftTemplates
+                .AsNoTracking()
+                .Where(s => s.StoreId == storeId && s.IsActive)
+                .ToListAsync();
+            static string NormShift(string s) =>
+                System.Text.RegularExpressions.Regex.Replace(
+                    (s ?? string.Empty).Trim().ToLowerInvariant(), @"\s+", " ");
+            var shiftByName = shiftTemplates
+                .Where(s => !string.IsNullOrWhiteSpace(s.Name))
+                .GroupBy(s => NormShift(s.Name))
+                .ToDictionary(g => g.Key, g => g.First());
+
+            var holidays = (await dbContext.Holidays
+                .AsNoTracking()
+                .Where(h => h.StoreId == storeId && h.Date >= start && h.Date <= end)
+                .Select(h => h.Date)
+                .ToListAsync())
+                .Select(d => d.Date)
+                .ToHashSet();
+
+            ShiftMatchHelper.Candidate ToCandidate(ShiftTemplate s) => new(
+                s.Id, s.StartTime, s.EndTime,
+                s.LateGraceMinutes, s.EarlyLeaveGraceMinutes,
+                s.MaximumAllowedLateMinutes > 0 ? s.MaximumAllowedLateMinutes : 30,
+                s.EarlyCheckInMinutes > 0 ? s.EarlyCheckInMinutes : 30,
+                s.MaximumAllowedEarlyLeaveMinutes > 0 ? s.MaximumAllowedEarlyLeaveMinutes : 120,
+                s.ShiftType, s.Name,
+                s.OvertimeMinutesThreshold > 0 ? s.OvertimeMinutesThreshold : 30,
+                s.EarlyOvertimeMinutesThreshold > 0 ? s.EarlyOvertimeMinutesThreshold : 30);
 
             var reportItems = new List<OvertimeItemDto>();
             var totalOvertimeMinutes = 0;
-
-            // Standard work hours: 9 hours (8:30 AM - 6:00 PM with 30 min break assumed)
-            var standardWorkMinutes = 9 * 60;
+            decimal totalEstimatedPay = 0;
 
             foreach (var employee in employees)
             {
-                // O(1) lookup instead of scanning entire list
-                var empAttendances = attendanceByPin[employee.EmployeeCode].ToList();
-                var groupedByDate = empAttendances.GroupBy(a => a.AttendanceTime.Date);
+                benefitByEmp.TryGetValue(employee.Id, out var benefit);
+                if (OvertimeCalcHelper.IsFreeTwoPunch(benefit?.AttendanceMode))
+                    continue;
 
-                var overtimeMinutes = 0;
-                var overtimeDays = 0;
-                var overtimeDetails = new List<OvertimeDayDetailDto>();
-
-                foreach (var dayGroup in groupedByDate)
+                var candidates = new List<ShiftMatchHelper.Candidate>();
+                var shiftsField = ParseDescFieldStatic(benefit?.Description, "shifts");
+                if (!string.IsNullOrWhiteSpace(shiftsField))
                 {
-                    var checkIn = dayGroup.Where(a => a.AttendanceState == AttendanceStates.CheckIn)
-                        .OrderBy(a => a.AttendanceTime).FirstOrDefault();
-                    var checkOut = dayGroup.Where(a => a.AttendanceState == AttendanceStates.CheckOut)
-                        .OrderByDescending(a => a.AttendanceTime).FirstOrDefault();
-
-                    if (checkIn != null && checkOut != null)
+                    foreach (var raw in shiftsField.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
                     {
-                        var workedMinutes = ReportsExportHelpers.WorkedMinutesVn(
-                            checkIn.AttendanceTime, checkOut.AttendanceTime);
-                        if (workedMinutes > standardWorkMinutes)
-                        {
-                            var dayOvertime = workedMinutes - standardWorkMinutes;
-                            overtimeMinutes += dayOvertime;
-                            overtimeDays++;
-                            
-                            overtimeDetails.Add(new OvertimeDayDetailDto
-                            {
-                                Date = dayGroup.Key,
-                                CheckInTime = checkIn.AttendanceTime,
-                                CheckOutTime = checkOut.AttendanceTime,
-                                WorkedMinutes = workedMinutes,
-                                OvertimeMinutes = dayOvertime
-                            });
-                        }
+                        if (shiftByName.TryGetValue(NormShift(raw), out var st))
+                            candidates.Add(ToCandidate(st));
                     }
                 }
+                if (candidates.Count == 0)
+                    candidates = shiftTemplates.Select(ToCandidate).ToList();
 
-                if (overtimeMinutes >= minOvertime)
-                {
-                    reportItems.Add(new OvertimeItemDto
+                var weeklyOff = (benefit?.WeeklyOffDays ?? "")
+                    .Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
+                    .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+                var punches = PinsForEmployee(pinToEmployeeId, employee.Id)
+                    .SelectMany(pin => attendanceByPin[pin])
+                    .Select(a =>
                     {
-                        EmployeeId = employee.Id,
-                        EmployeeCode = employee.EmployeeCode,
-                        EmployeeName = $"{employee.LastName} {employee.FirstName}".Trim(),
-                        DepartmentName = employee.Department ?? "N/A",
-                        TotalOvertimeMinutes = overtimeMinutes,
-                        TotalOvertimeHours = Math.Round(overtimeMinutes / 60.0, 2),
-                        OvertimeDays = overtimeDays,
-                        Details = overtimeDetails
-                    });
+                        var vn = VnTimeHelper.AttendanceWallClock(a.AttendanceTime);
+                        return new OvertimeCalcHelper.Punch(
+                            vn,
+                            a.AttendanceState == AttendanceStates.CheckIn,
+                            a.AttendanceState == AttendanceStates.CheckOut);
+                    })
+                    .ToList();
 
-                    totalOvertimeMinutes += overtimeMinutes;
-                }
+                var ot = OvertimeCalcHelper.ComputeEmployeeOvertime(
+                    punches,
+                    candidates,
+                    benefit?.AttendanceMode,
+                    d => weeklyOff.Contains(d.DayOfWeek.ToString()),
+                    d => holidays.Contains(d.Date),
+                    start,
+                    end);
+
+                if (ot.TotalMinutes < minOvertime || ot.TotalMinutes <= 0)
+                    continue;
+
+                var rates = OvertimeCalcHelper.OtRates.Resolve(
+                    benefit?.OTRateWeekday, benefit?.OTRateWeekend, benefit?.OTRateHoliday,
+                    storeOtRates.Weekday, storeOtRates.Weekend, storeOtRates.Holiday);
+
+                var hoursPerDay = benefit?.StandardHoursPerDay is > 0 and <= 24
+                    ? benefit.StandardHoursPerDay.Value
+                    : storeStdHours;
+                var hourlyRate = ResolveHourlyRateForOt(benefit, hoursPerDay);
+                var hourlyOtType = benefit?.HourlyOvertimeType ?? 1;
+                var fixedOt = benefit?.HourlyOvertimeFixedRate ?? 0;
+                var estimatedPay = OvertimeCalcHelper.EstimatePay(
+                    ot, rates, hourlyRate, hourlyOtType, fixedOt);
+
+                var details = ot.Days.Select(d => new OvertimeDayDetailDto
+                {
+                    Date = d.Date,
+                    CheckInTime = d.FirstIn ?? d.Date,
+                    CheckOutTime = d.LastOut ?? d.Date,
+                    WorkedMinutes = d.WorkedMinutes,
+                    OvertimeMinutes = d.OvertimeMinutes,
+                    Bucket = d.Bucket.ToString().ToLowerInvariant(),
+                    Source = d.Source
+                }).ToList();
+
+                reportItems.Add(new OvertimeItemDto
+                {
+                    EmployeeId = employee.Id,
+                    EmployeeCode = employee.EmployeeCode,
+                    EmployeeName = $"{employee.LastName} {employee.FirstName}".Trim(),
+                    DepartmentName = employee.Department ?? "N/A",
+                    TotalOvertimeMinutes = ot.TotalMinutes,
+                    TotalOvertimeHours = ot.TotalHours,
+                    OvertimeDays = ot.OvertimeDays,
+                    WeekdayOvertimeHours = ot.WeekdayHours,
+                    WeekendOvertimeHours = ot.WeekendHours,
+                    HolidayOvertimeHours = ot.HolidayHours,
+                    OtRateWeekday = rates.Weekday,
+                    OtRateWeekend = rates.Weekend,
+                    OtRateHoliday = rates.Holiday,
+                    EstimatedOvertimePay = estimatedPay,
+                    Details = details
+                });
+
+                totalOvertimeMinutes += ot.TotalMinutes;
+                totalEstimatedPay += estimatedPay;
             }
 
             var report = new OvertimeReportDto
@@ -1551,6 +1760,7 @@ public class ReportsController(
                 EmployeesWithOvertime = reportItems.Count,
                 TotalOvertimeMinutes = totalOvertimeMinutes,
                 TotalOvertimeHours = Math.Round(totalOvertimeMinutes / 60.0, 2),
+                TotalEstimatedOvertimePay = totalEstimatedPay,
                 Items = reportItems.OrderByDescending(i => i.TotalOvertimeMinutes).ToList()
             };
 
@@ -1561,6 +1771,21 @@ public class ReportsController(
             logger.LogError(ex, "Error generating overtime report");
             return StatusCode(500, AppResponse<OvertimeReportDto>.Fail("Error generating report"));
         }
+    }
+
+    private static decimal ResolveHourlyRateForOt(Benefit? benefit, int hoursPerDay)
+    {
+        if (benefit == null || hoursPerDay <= 0) return 0;
+        var rate = benefit.Rate;
+        var rateType = benefit.RateType.ToString(); // Monthly / Daily / Hourly / ...
+        // Domain may use enum — compare case-insensitive
+        if (rateType.Contains("Hour", StringComparison.OrdinalIgnoreCase))
+            return rate;
+        if (rateType.Contains("Day", StringComparison.OrdinalIgnoreCase))
+            return hoursPerDay > 0 ? rate / hoursPerDay : 0;
+        // Monthly / default
+        var days = benefit.FixedStandardWorkDays is > 0 ? benefit.FixedStandardWorkDays.Value : 26;
+        return days > 0 && hoursPerDay > 0 ? rate / days / hoursPerDay : 0;
     }
 
     #endregion
@@ -1577,7 +1802,8 @@ public class ReportsController(
         [FromQuery] DateTime? endDate = null,
         [FromQuery] string? department = null,
         [FromQuery] Guid? branchId = null,
-        [FromQuery] bool includeChildBranches = true)
+        [FromQuery] bool includeChildBranches = true,
+        [FromQuery] Guid? departmentId = null)
     {
         try
         {
@@ -1589,7 +1815,8 @@ public class ReportsController(
                 .Where(e => e.StoreId == storeId && e.Deleted == null);
 
             employeesQuery = await FilterEmployeesQueryAsync(
-                employeesQuery, storeId, department, branchId, includeChildBranches, employeeCodes: null);
+                employeesQuery, storeId, department, branchId, includeChildBranches, employeeCodes: null,
+                departmentId: departmentId);
 
             var employees = await employeesQuery.ToListAsync();
 
@@ -1704,10 +1931,11 @@ public class ReportsController(
         [FromQuery] string? department = null,
         [FromQuery] string? employeeCodes = null,
         [FromQuery] Guid? branchId = null,
-        [FromQuery] bool includeChildBranches = true)
+        [FromQuery] bool includeChildBranches = true,
+        [FromQuery] Guid? departmentId = null)
     {
         var reportResult = await GetDailyAttendanceReport(
-            date, department, null, employeeCodes, branchId, includeChildBranches);
+            date, department, null, employeeCodes, branchId, includeChildBranches, departmentId);
         if (reportResult.Result is not OkObjectResult okResult 
             || okResult.Value is not AppResponse<DailyAttendanceReportDto> response 
             || response.Data == null)
@@ -1758,10 +1986,11 @@ public class ReportsController(
         [FromQuery] string? department = null,
         [FromQuery] string? employeeCodes = null,
         [FromQuery] Guid? branchId = null,
-        [FromQuery] bool includeChildBranches = true)
+        [FromQuery] bool includeChildBranches = true,
+        [FromQuery] Guid? departmentId = null)
     {
         var reportResult = await GetMonthlyAttendanceReport(
-            year, month, department, employeeCodes, branchId, includeChildBranches);
+            year, month, department, employeeCodes, branchId, includeChildBranches, departmentId);
         if (reportResult.Result is not OkObjectResult okResult 
             || okResult.Value is not AppResponse<MonthlyAttendanceReportDto> response 
             || response.Data == null)
@@ -1812,10 +2041,11 @@ public class ReportsController(
         [FromQuery] string? department = null,
         [FromQuery] string? employeeCodes = null,
         [FromQuery] Guid? branchId = null,
-        [FromQuery] bool includeChildBranches = true)
+        [FromQuery] bool includeChildBranches = true,
+        [FromQuery] Guid? departmentId = null)
     {
         var reportResult = await GetLateEarlyReport(
-            startDate, endDate, department, employeeCodes, branchId, includeChildBranches);
+            startDate, endDate, department, employeeCodes, branchId, includeChildBranches, departmentId);
         if (reportResult.Result is not OkObjectResult okResult 
             || okResult.Value is not AppResponse<LateEarlyReportDto> response 
             || response.Data == null)
@@ -1857,12 +2087,13 @@ public class ReportsController(
         [FromQuery] string? department = null,
         [FromQuery] string? employeeCodes = null,
         [FromQuery] Guid? branchId = null,
-        [FromQuery] bool includeChildBranches = true)
+        [FromQuery] bool includeChildBranches = true,
+        [FromQuery] Guid? departmentId = null)
     {
         try
         {
             var reportResult = await GetDailyAttendanceReport(
-                date, department, null, employeeCodes, branchId, includeChildBranches);
+                date, department, null, employeeCodes, branchId, includeChildBranches, departmentId);
             if (reportResult.Result is not OkObjectResult okResult 
                 || okResult.Value is not AppResponse<DailyAttendanceReportDto> response 
                 || response.Data == null)
@@ -1934,12 +2165,13 @@ public class ReportsController(
         [FromQuery] string? department = null,
         [FromQuery] string? employeeCodes = null,
         [FromQuery] Guid? branchId = null,
-        [FromQuery] bool includeChildBranches = true)
+        [FromQuery] bool includeChildBranches = true,
+        [FromQuery] Guid? departmentId = null)
     {
         try
         {
             var reportResult = await GetMonthlyAttendanceReport(
-                year, month, department, employeeCodes, branchId, includeChildBranches);
+                year, month, department, employeeCodes, branchId, includeChildBranches, departmentId);
             if (reportResult.Result is not OkObjectResult okResult 
                 || okResult.Value is not AppResponse<MonthlyAttendanceReportDto> response 
                 || response.Data == null)
@@ -2114,12 +2346,13 @@ public class ReportsController(
         [FromQuery] string? department = null,
         [FromQuery] string? employeeCodes = null,
         [FromQuery] Guid? branchId = null,
-        [FromQuery] bool includeChildBranches = true)
+        [FromQuery] bool includeChildBranches = true,
+        [FromQuery] Guid? departmentId = null)
     {
         try
         {
             var reportResult = await GetLateEarlyReport(
-                startDate, endDate, department, employeeCodes, branchId, includeChildBranches);
+                startDate, endDate, department, employeeCodes, branchId, includeChildBranches, departmentId);
             if (reportResult.Result is not OkObjectResult okResult 
                 || okResult.Value is not AppResponse<LateEarlyReportDto> response 
                 || response.Data == null)
@@ -2190,11 +2423,16 @@ public class ReportsController(
     [RequireAnyModulePermission(ModulePermissionAction.Export, "AttendanceReport", "AttendanceSummary", "AttendanceByShift", "Attendance")]
     public async Task<IActionResult> ExportDepartmentSummaryExcel(
         [FromQuery] int? year = null,
-        [FromQuery] int? month = null)
+        [FromQuery] int? month = null,
+        [FromQuery] string? department = null,
+        [FromQuery] Guid? departmentId = null,
+        [FromQuery] Guid? branchId = null,
+        [FromQuery] bool includeChildBranches = true)
     {
         try
         {
-            var reportResult = await GetDepartmentSummaryReport(year, month);
+            var reportResult = await GetDepartmentSummaryReport(
+                year, month, department, departmentId, branchId, includeChildBranches);
             if (reportResult.Result is not OkObjectResult okResult 
                 || okResult.Value is not AppResponse<DepartmentSummaryReportDto> response 
                 || response.Data == null)
@@ -2253,11 +2491,17 @@ public class ReportsController(
     [RequireAnyModulePermission(ModulePermissionAction.Export, "AttendanceReport", "AttendanceSummary", "AttendanceByShift", "Attendance")]
     public async Task<IActionResult> ExportOvertimeReportExcel(
         [FromQuery] DateTime? startDate = null,
-        [FromQuery] DateTime? endDate = null)
+        [FromQuery] DateTime? endDate = null,
+        [FromQuery] string? department = null,
+        [FromQuery] Guid? departmentId = null,
+        [FromQuery] Guid? branchId = null,
+        [FromQuery] bool includeChildBranches = true,
+        [FromQuery] int? minOvertimeMinutes = 0)
     {
         try
         {
-            var reportResult = await GetOvertimeReport(startDate, endDate);
+            var reportResult = await GetOvertimeReport(
+                startDate, endDate, department, branchId, includeChildBranches, minOvertimeMinutes, departmentId);
             if (reportResult.Result is not OkObjectResult okResult 
                 || okResult.Value is not AppResponse<OvertimeReportDto> response 
                 || response.Data == null)
@@ -2323,11 +2567,16 @@ public class ReportsController(
     [RequireModulePermission("LeaveReport", ModulePermissionAction.Export)]
     public async Task<IActionResult> ExportLeaveSummaryReportExcel(
         [FromQuery] DateTime? startDate = null,
-        [FromQuery] DateTime? endDate = null)
+        [FromQuery] DateTime? endDate = null,
+        [FromQuery] string? department = null,
+        [FromQuery] Guid? departmentId = null,
+        [FromQuery] Guid? branchId = null,
+        [FromQuery] bool includeChildBranches = true)
     {
         try
         {
-            var reportResult = await GetLeaveSummaryReport(startDate, endDate);
+            var reportResult = await GetLeaveSummaryReport(
+                startDate, endDate, department, branchId, includeChildBranches, departmentId);
             if (reportResult.Result is not OkObjectResult okResult 
                 || okResult.Value is not AppResponse<LeaveSummaryReportDto> response 
                 || response.Data == null)
@@ -2582,6 +2831,7 @@ public class OvertimeReportDto
     public int EmployeesWithOvertime { get; set; }
     public int TotalOvertimeMinutes { get; set; }
     public double TotalOvertimeHours { get; set; }
+    public decimal TotalEstimatedOvertimePay { get; set; }
     public List<OvertimeItemDto> Items { get; set; } = new();
 }
 
@@ -2594,6 +2844,13 @@ public class OvertimeItemDto
     public int TotalOvertimeMinutes { get; set; }
     public double TotalOvertimeHours { get; set; }
     public int OvertimeDays { get; set; }
+    public double WeekdayOvertimeHours { get; set; }
+    public double WeekendOvertimeHours { get; set; }
+    public double HolidayOvertimeHours { get; set; }
+    public decimal OtRateWeekday { get; set; }
+    public decimal OtRateWeekend { get; set; }
+    public decimal OtRateHoliday { get; set; }
+    public decimal EstimatedOvertimePay { get; set; }
     public List<OvertimeDayDetailDto> Details { get; set; } = new();
 }
 
@@ -2604,6 +2861,8 @@ public class OvertimeDayDetailDto
     public DateTime CheckOutTime { get; set; }
     public int WorkedMinutes { get; set; }
     public int OvertimeMinutes { get; set; }
+    public string? Bucket { get; set; }
+    public string? Source { get; set; }
 }
 
 public class LeaveSummaryReportDto

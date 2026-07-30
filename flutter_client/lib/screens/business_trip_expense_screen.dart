@@ -8,7 +8,10 @@ import '../utils/navigation_notifier.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/loading_widget.dart';
 import '../widgets/notification_overlay.dart';
+import '../widgets/hrm_page_chrome.dart';
+import '../widgets/page_top_actions.dart';
 import 'business_trip_case_detail_screen.dart';
+import '../utils/responsive_helper.dart';
 import 'business_trip_categories_screen.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
@@ -485,22 +488,33 @@ class _BusinessTripExpenseScreenState extends State<BusinessTripExpenseScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
-      appBar: AppBar(
-        title: Text(tr('Công tác phí')),
-        backgroundColor: _theme,
-        foregroundColor: Colors.white,
-        actions: [
-          IconButton(
-            tooltip: tr('Loại chi phí'),
-            onPressed: _openCategories,
-            icon: const Icon(Icons.category_outlined),
+    final isMobile = Responsive.isMobile(context);
+    final canCreate = _canCreate(context);
+
+    return RegisterPageTopActions(
+      actions: [
+        HrmTopBarAction(
+          icon: Icons.category_outlined,
+          label: 'Loại chi phí',
+          onPressed: _openCategories,
+        ),
+        HrmTopBarAction(
+          icon: Icons.refresh,
+          label: 'Tải lại',
+          onPressed: _loading ? null : _load,
+        ),
+        if (canCreate && !isMobile)
+          HrmTopBarAction(
+            icon: Icons.add,
+            label: 'Hồ sơ mới',
+            primary: true,
+            showLabel: true,
+            onPressed: _openCreate,
           ),
-          IconButton(onPressed: _load, icon: const Icon(Icons.refresh)),
-        ],
-      ),
-      floatingActionButton: _canCreate(context)
+      ],
+      child: Scaffold(
+      backgroundColor: HrmPageChrome.background,
+      floatingActionButton: canCreate && isMobile
           ? FloatingActionButton.extended(
               backgroundColor: _theme,
               onPressed: _openCreate,
@@ -637,6 +651,7 @@ class _BusinessTripExpenseScreenState extends State<BusinessTripExpenseScreen> {
                     ],
                   ),
                 ),
+    ),
     );
   }
 }

@@ -19,6 +19,7 @@ import '../utils/navigation_notifier.dart';
 import '../widgets/app_button.dart';
 import '../widgets/hrm_responsive_list_layout.dart';
 import '../widgets/app_scroll_safe.dart';
+import '../widgets/page_top_actions.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 class CashTransactionScreen extends StatefulWidget {
@@ -462,25 +463,46 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
     }
   }
 
+  List<Widget> _buildTopActions() {
+    final perm = Provider.of<PermissionProvider>(context, listen: false);
+    final canCreate = perm.canCreate('CashTransaction');
+    final canExport = perm.canExport('CashTransaction');
+    final isTransferMode = _viewMode == 'transfers';
+
+    return [
+      HrmTopBarAction(
+        icon: Icons.category_outlined,
+        label: 'Danh mục',
+        onPressed: _showCategoryManagement,
+      ),
+      HrmTopBarAction(
+        icon: Icons.account_balance_outlined,
+        label: 'Tài khoản',
+        onPressed: _showBankAccountManagement,
+      ),
+      if (!isTransferMode && canExport)
+        HrmTopBarAction(
+          icon: Icons.file_download_outlined,
+          label: 'Xuất Excel',
+          onPressed: _exportCashTransactionsExcel,
+        ),
+      if (canCreate)
+        HrmTopBarAction(
+          icon: isTransferMode ? Icons.swap_horiz : Icons.add_circle_outline,
+          label: isTransferMode ? 'Chuyển quỹ' : 'Thu/Chi',
+          primary: true,
+          showLabel: true,
+          onPressed: isTransferMode ? _showFundTransferForm : _showTransactionForm,
+        ),
+    ];
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return RegisterPageTopActions(
+      actions: _buildTopActions(),
+      child: Scaffold(
       backgroundColor: HrmPageChrome.background,
-      appBar: AppBar(
-        title: Text(tr('Quản lý Thu Chi'), overflow: TextOverflow.ellipsis, maxLines: 1),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.category_outlined),
-            onPressed: () => _showCategoryManagement(),
-            tooltip: tr('Danh mục'),
-          ),
-          IconButton(
-            icon: const Icon(Icons.account_balance_outlined),
-            onPressed: () => _showBankAccountManagement(),
-            tooltip: tr('Tài khoản'),
-          ),
-        ],
-      ),
       body: _isLoading
           ? const LoadingWidget()
           : _viewMode == 'transfers'
@@ -498,6 +520,7 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
               foregroundColor: Colors.white,
             )
           : null,
+    ),
     );
   }
 
@@ -838,30 +861,11 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
       },
     );
 
-    final actionButtons = Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        if (Provider.of<PermissionProvider>(context, listen: false).canCreate('CashTransaction'))
-          FilledButton.icon(
-            onPressed: _showFundTransferForm,
-            icon: const Icon(Icons.swap_horiz, size: 18),
-            label: Text(tr('Chuyển quỹ')),
-            style: FilledButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-            ),
-          ),
-      ],
-    );
-
     if (isMobile) {
       return HrmFilterBar(
         margin: EdgeInsets.zero,
         padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-        children: [
-          dateDropdown,
-          const SizedBox(height: 8),
-          Row(mainAxisAlignment: MainAxisAlignment.end, children: [actionButtons]),
-        ],
+        children: [dateDropdown],
       );
     }
 
@@ -869,13 +873,7 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
       margin: EdgeInsets.zero,
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
       children: [
-        Row(
-          children: [
-            SizedBox(width: dropdownWidth, child: dateDropdown),
-            const Spacer(),
-            actionButtons,
-          ],
-        ),
+        SizedBox(width: dropdownWidth, child: dateDropdown),
       ],
     );
   }
@@ -1363,35 +1361,7 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
           )
         : null;
 
-    final actionButtons = Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        if (clearBtn != null) clearBtn,
-        if (Provider.of<PermissionProvider>(context, listen: false).canExport('CashTransaction'))
-        IconButton(
-          icon: Icon(Icons.file_download, size: 20, color: Colors.green.shade700),
-          tooltip: tr('Xuất Excel'),
-          onPressed: _exportCashTransactionsExcel,
-        ),
-        if (Provider.of<PermissionProvider>(context, listen: false).canCreate('CashTransaction'))
-        const SizedBox(width: 4),
-        if (Provider.of<PermissionProvider>(context, listen: false).canCreate('CashTransaction'))
-        FilledButton.icon(
-          onPressed: () => _viewMode == 'transfers'
-              ? _showFundTransferForm()
-              : _showTransactionForm(),
-          icon: Icon(_viewMode == 'transfers' ? Icons.swap_horiz : Icons.add, size: 18),
-          label: Text(tr(_viewMode == 'transfers' ? 'Chuyển quỹ' : 'Thu/Chi')),
-          style: FilledButton.styleFrom(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          ),
-        ),
-      ],
-    );
-
     if (isMobile) {
-      final canCreate = Provider.of<PermissionProvider>(context, listen: false)
-          .canCreate('CashTransaction');
       return HrmFilterBar(
         margin: EdgeInsets.zero,
         padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
@@ -1400,10 +1370,10 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
           typeDropdown,
           statusDropdown,
           categoryDropdown,
-          if (!canCreate)
+          if (clearBtn != null)
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
-              children: [actionButtons],
+              children: [clearBtn],
             ),
         ]),
       );
@@ -1428,8 +1398,7 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
               ],
             ),
           ),
-          const SizedBox(width: 8),
-          actionButtons,
+          if (clearBtn != null) clearBtn,
         ],
       ),
       ],

@@ -122,7 +122,6 @@ class _OvertimeScreenState extends State<OvertimeScreen>
       backgroundColor: const Color(0xFFF0F4F8),
       body: Column(
         children: [
-          _buildHeader(),
           Expanded(
             child: isMobile
                 ? HrmMobileNestedTabLayout(
@@ -171,6 +170,7 @@ class _OvertimeScreenState extends State<OvertimeScreen>
                   )
                 : Column(
                     children: [
+                      if (_branches.isNotEmpty) _buildBranchFilter(),
                       _buildStatsRow(),
                       TabBar(
                         controller: _tabController,
@@ -233,86 +233,37 @@ class _OvertimeScreenState extends State<OvertimeScreen>
         .toList();
   }
 
-  Widget _buildHeader() {
+  Widget _buildBranchFilter() {
     return Container(
-      padding: const EdgeInsets.fromLTRB(24, 20, 24, 12),
-      decoration: const BoxDecoration(
-        gradient:
-            LinearGradient(colors: [Color(0xFFEA580C), Color(0xFFF97316)]),
-      ),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(12)),
-                child:
-                    const Icon(Icons.more_time, color: Colors.white, size: 24),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(tr('Qu\u1ea3n l\u00fd t\u0103ng ca'),
-                        style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold)),
-                    Text(
-                        tr('\u0110\u0103ng k\u00fd v\u00e0 ph\u00ea duy\u1ec7t t\u0103ng ca'),
-                        style: TextStyle(color: Colors.white70, fontSize: 14)),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          if (_branches.isNotEmpty) ...[
-            const SizedBox(height: 10),
-            DropdownButtonFormField<String?>(
-              key: ValueKey('branch_$_selectedBranchId'),
-              initialValue: _selectedBranchId,
-              isExpanded: true,
-              dropdownColor: Colors.white,
-              decoration: InputDecoration(
-                labelText: tr('Chi nh\u00e1nh'),
-                labelStyle:
-                    const TextStyle(color: Colors.white70, fontSize: 13),
-                isDense: true,
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(color: Colors.white30)),
-                enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(color: Colors.white30)),
-                focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(color: Colors.white)),
-                filled: true,
-                fillColor: Colors.white.withValues(alpha: 0.15),
-              ),
-              style: const TextStyle(color: Colors.white, fontSize: 13),
-              iconEnabledColor: Colors.white,
-              items: [
-                DropdownMenuItem<String?>(
-                    value: null,
-                    child: Text(tr('T\u1ea5t c\u1ea3 chi nh\u00e1nh'),
-                        style: TextStyle(color: Colors.black87))),
-                ..._branches.map((b) => DropdownMenuItem<String?>(
-                    value: b['id']?.toString(),
-                    child: Text(tr(b['name']?.toString() ?? ''),
-                        style: const TextStyle(color: Colors.black87),
-                        overflow: TextOverflow.ellipsis))),
-              ],
-              onChanged: (v) => setState(() => _selectedBranchId = v),
-            ),
-          ],
+      color: Colors.white,
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+      child: DropdownButtonFormField<String?>(
+        key: ValueKey('branch_$_selectedBranchId'),
+        initialValue: _selectedBranchId,
+        isExpanded: true,
+        decoration: InputDecoration(
+          labelText: tr('Chi nh\u00e1nh'),
+          isDense: true,
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+          enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: const BorderSide(color: Color(0xFFE4E4E7))),
+        ),
+        style: const TextStyle(fontSize: 13, color: Color(0xFF111827)),
+        items: [
+          DropdownMenuItem<String?>(
+              value: null,
+              child: Text(tr('T\u1ea5t c\u1ea3 chi nh\u00e1nh'),
+                  style: const TextStyle(color: Colors.black87))),
+          ..._branches.map((b) => DropdownMenuItem<String?>(
+              value: b['id']?.toString(),
+              child: Text(tr(b['name']?.toString() ?? ''),
+                  style: const TextStyle(color: Colors.black87),
+                  overflow: TextOverflow.ellipsis))),
         ],
+        onChanged: (v) => setState(() => _selectedBranchId = v),
       ),
     );
   }
@@ -373,6 +324,7 @@ class _OvertimeScreenState extends State<OvertimeScreen>
   }
 
   List<Widget> _overtimeHeaderSections() => [
+        if (_branches.isNotEmpty) _buildBranchFilter(),
         Padding(
           padding: const EdgeInsets.symmetric(vertical: 4),
           child: InkWell(

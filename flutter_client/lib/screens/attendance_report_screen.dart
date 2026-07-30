@@ -13,6 +13,8 @@ import '../utils/report_access_utils.dart';
 import '../utils/report_screen_helpers.dart';
 import '../utils/salary_profile_load_utils.dart';
 import '../utils/shift_records_calculator.dart';
+import '../widgets/hrm_page_chrome.dart';
+import '../widgets/page_top_actions.dart';
 import '../widgets/pos/pos_theme.dart';
 import '../widgets/reports/hrm_report_widgets.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
@@ -1169,14 +1171,23 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
     final start = (page - 1) * _calEmpPageSize;
     final pageRows = calEmps.skip(start).take(_calEmpPageSize).toList();
 
-    return ReportScreenShell(
-      title: 'Báo cáo chấm công',
-      subtitle: reportPeriodSubtitle(_from, _to, team: _teamView),
-      accentColor: _theme,
-      canExport: canExport,
-      onExport: _exportExcel,
-      onRefresh: _load,
-      child: Column(
+    return RegisterPageTopActions(
+      actions: [
+        if (canExport)
+          HrmTopBarAction(
+            icon: Icons.file_download_outlined,
+            label: 'Xuất Excel',
+            onPressed: _exportExcel,
+          ),
+        HrmTopBarAction(
+          icon: Icons.refresh,
+          label: 'Tải lại',
+          onPressed: _load,
+        ),
+      ],
+      child: Scaffold(
+        backgroundColor: HrmPageChrome.background,
+        body: Column(
         children: [
           Expanded(
             child: RefreshIndicator(
@@ -1259,6 +1270,7 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
               onPageChanged: (p) => setState(() => _page = p),
             ),
         ],
+      ),
       ),
     );
   }

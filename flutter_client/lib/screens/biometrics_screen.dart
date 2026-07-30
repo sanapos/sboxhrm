@@ -89,7 +89,6 @@ class _BiometricsScreenState extends State<BiometricsScreen> {
       backgroundColor: const Color(0xFFF0F4F8),
       body: Column(
         children: [
-          _buildHeader(),
           Expanded(
             child: Responsive.isMobile(context)
                 ? (_selectedDeviceId == null
@@ -130,34 +129,6 @@ class _BiometricsScreenState extends State<BiometricsScreen> {
                       Expanded(child: _buildBiometricContent()),
                     ],
                   ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildHeader() {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(24, 20, 24, 16),
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(colors: [HrmPageChrome.primaryNavy, HrmPageChrome.primaryNavy]),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(12)),
-            child: const Icon(Icons.fingerprint, color: Colors.white, size: 24),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(tr('Quản lý sinh trắc học'), style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
-                Text(tr('Vân tay, khuôn mặt trên thiết bị'), style: TextStyle(color: Colors.white70, fontSize: 13)),
-              ],
-            ),
           ),
         ],
       ),

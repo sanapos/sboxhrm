@@ -11,10 +11,15 @@ import '../l10n/app_tr.dart';
 class HrmPageChrome {
   HrmPageChrome._();
 
-  static const Color background = Color(0xFFFAFAFA);
-  static const Color primaryNavy = Color(0xFF1E3A5F);
-  static const Color textDark = Color(0xFF18181B);
-  static const Color textMuted = Color(0xFF71717A);
+  /// Đồng bộ nền với trang chủ / hub (PosTheme).
+  static const Color background = PosTheme.background;
+
+  /// Brand accent = icon trang chủ (kiotBlue). Giữ tên [primaryNavy] để
+  /// không phải rename hàng trăm call-site.
+  static const Color primaryNavy = PosTheme.kiotBlue;
+
+  static const Color textDark = PosTheme.textPrimary;
+  static const Color textMuted = PosTheme.textSecondary;
 
   /// Hub sub-page is open — [main_layout] already shows back + title.
   static bool get isEmbedded => SettingsHubScreen.isEmbeddedSubPage;
@@ -65,7 +70,7 @@ class HrmPageChrome {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: const BoxDecoration(
         color: Colors.white,
-        border: Border(bottom: BorderSide(color: Color(0xFFE4E4E7))),
+        border: Border(bottom: BorderSide(color: PosTheme.border)),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.end,
@@ -74,7 +79,7 @@ class HrmPageChrome {
     );
   }
 
-  /// Stat cards: lưới đều trên mobile embedded; row / scroll trên màn khác.
+  /// Stat cards: lưới đều khi hub kit active; row / scroll trên màn khác.
   static Widget horizontalStatCards({
     required List<Widget> cards,
     double minCardWidth = 132,
@@ -84,7 +89,9 @@ class HrmPageChrome {
     return LayoutBuilder(
       builder: (context, constraints) {
         if (HrmSettingsMobileKit.active(context)) {
-          final cols = cards.length <= 2 ? cards.length : 2;
+          final cols = cards.length <= 2
+              ? cards.length
+              : (constraints.maxWidth >= 720 ? 3 : 2);
           return Wrap(
             spacing: gap,
             runSpacing: gap,
@@ -93,7 +100,7 @@ class HrmPageChrome {
                 SizedBox(
                   width: cols == 1
                       ? constraints.maxWidth
-                      : (constraints.maxWidth - gap) / cols,
+                      : (constraints.maxWidth - gap * (cols - 1)) / cols,
                   child: cards[i],
                 ),
             ],
@@ -134,8 +141,8 @@ class HrmPageChrome {
   static bool inlineFiltersOnMobile(bool legacyToggle) => true;
 }
 
-/// Tiêu đề trang THỐNG NHẤT (hero gradient): title 20 đậm (mobile 18),
-/// subtitle 13, icon badge, padding đều. Giữ màu nhấn qua [gradientColors].
+/// Header flat kiểu hub (không gradient navy).
+/// [gradientColors] legacy: lấy màu đầu làm accent icon nếu có.
 class HrmPageHero extends StatelessWidget {
   const HrmPageHero({
     super.key,
@@ -160,10 +167,11 @@ class HrmPageHero extends StatelessWidget {
       listenable: NavigationNotifier.mobileDrawerModuleActive,
       builder: (context, _) {
         final isMobile = MediaQuery.sizeOf(context).width < 768;
-        final hideDuplicateTitle =
-            isMobile && (HrmPageChrome.usesMainLayoutAppBar || HrmPageChrome.isEmbedded);
-        final colors = gradientColors ??
-            const [HrmPageChrome.primaryNavy, Color(0xFF2A5298)];
+        final hideDuplicateTitle = isMobile &&
+            (HrmPageChrome.usesMainLayoutAppBar || HrmPageChrome.isEmbedded);
+        final accent = (gradientColors != null && gradientColors!.isNotEmpty)
+            ? gradientColors!.first
+            : HrmPageChrome.primaryNavy;
 
         if (hideDuplicateTitle &&
             actions.isEmpty &&
@@ -175,19 +183,19 @@ class HrmPageHero extends StatelessWidget {
 
         return Container(
           width: double.infinity,
+          margin: EdgeInsets.fromLTRB(
+            isMobile ? 12 : 16,
+            isMobile ? 8 : 12,
+            isMobile ? 12 : 16,
+            0,
+          ),
           padding: EdgeInsets.fromLTRB(
-            isMobile ? 16 : 20,
-            isMobile ? (hideDuplicateTitle ? 8 : 14) : 16,
-            isMobile ? 16 : 20,
-            isMobile ? (hideDuplicateTitle ? 8 : 14) : 16,
+            isMobile ? 14 : 16,
+            isMobile ? (hideDuplicateTitle ? 10 : 14) : 16,
+            isMobile ? 14 : 16,
+            isMobile ? (hideDuplicateTitle ? 10 : 14) : 16,
           ),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: colors,
-            ),
-          ),
+          decoration: PosTheme.mobileCardDecoration(),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
@@ -198,10 +206,10 @@ class HrmPageHero extends StatelessWidget {
                     Container(
                       padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.18),
+                        color: PosTheme.kiotBlueLight,
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      child: Icon(icon, color: Colors.white, size: 22),
+                      child: Icon(icon, color: accent, size: 22),
                     ),
                     const SizedBox(width: 12),
                   ],
@@ -214,8 +222,8 @@ class HrmPageHero extends StatelessWidget {
                           Text(
                             tr(title),
                             style: TextStyle(
-                              color: Colors.white,
-                              fontSize: isMobile ? 18 : 20,
+                              color: HrmPageChrome.textDark,
+                              fontSize: isMobile ? 17 : 18,
                               fontWeight: FontWeight.bold,
                             ),
                             maxLines: 1,
@@ -225,8 +233,8 @@ class HrmPageHero extends StatelessWidget {
                             const SizedBox(height: 2),
                             Text(
                               tr(subtitle!),
-                              style: TextStyle(
-                                color: Colors.white.withValues(alpha: 0.85),
+                              style: const TextStyle(
+                                color: HrmPageChrome.textMuted,
                                 fontSize: 13,
                               ),
                               maxLines: 2,
@@ -240,8 +248,8 @@ class HrmPageHero extends StatelessWidget {
                     Expanded(
                       child: Text(
                         tr(subtitle!),
-                        style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.9),
+                        style: const TextStyle(
+                          color: HrmPageChrome.textMuted,
                           fontSize: 13,
                         ),
                         maxLines: 2,
@@ -293,7 +301,7 @@ class HrmSearchField extends StatelessWidget {
           hintText: tr(hintText),
           isDense: true,
           prefixIcon: const Icon(Icons.search,
-              size: 20, color: Color(0xFF71717A)),
+              size: 20, color: HrmPageChrome.textMuted),
           suffixIcon: hasText
               ? IconButton(
                   icon: const Icon(Icons.clear, size: 18),
@@ -306,12 +314,12 @@ class HrmSearchField extends StatelessWidget {
           fillColor: Colors.white,
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(10),
-            borderSide: const BorderSide(color: Color(0xFFE4E4E7)),
+            borderSide: const BorderSide(color: PosTheme.border),
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(10),
-            borderSide:
-                const BorderSide(color: HrmPageChrome.primaryNavy, width: 1.4),
+            borderSide: const BorderSide(
+                color: HrmPageChrome.primaryNavy, width: 1.4),
           ),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(10),
@@ -341,18 +349,7 @@ class HrmFilterBar extends StatelessWidget {
       width: double.infinity,
       margin: margin,
       padding: padding,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFEEEEF0)),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x0A000000),
-            blurRadius: 8,
-            offset: Offset(0, 2),
-          ),
-        ],
-      ),
+      decoration: PosTheme.mobileCardDecoration(borderColor: const Color(0xFFEEEEF0)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,

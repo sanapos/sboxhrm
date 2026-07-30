@@ -6,6 +6,7 @@ import 'package:print_bluetooth_thermal/print_bluetooth_thermal.dart';
 import 'package:sunmi_printer_plus/sunmi_printer_plus.dart';
 
 import 'pos_thermal_printer_settings.dart';
+import 'pos_printer_peripheral.dart';
 
 /// Gửi byte thô tới máy in qua Bluetooth / LAN / Sunmi.
 class PosPrinterTransport {
@@ -215,6 +216,30 @@ class PosPrinterTransport {
         await SunmiPrinter.cutPaper();
       } catch (e) {
         debugPrint('Sunmi cutPaper: $e');
+      }
+      // Bổ sung API mở két nếu payload có ESC p (strip không xóa lệnh này).
+      final drawerSig = PosPrinterPeripheral.openDrawerEscPos();
+      final tail = bytes.length > 24 ? bytes.sublist(bytes.length - 24) : bytes;
+      var openDrawer = false;
+      for (var i = 0; i <= tail.length - drawerSig.length; i++) {
+        var match = true;
+        for (var j = 0; j < drawerSig.length; j++) {
+          if (tail[i + j] != drawerSig[j]) {
+            match = false;
+            break;
+          }
+        }
+        if (match) {
+          openDrawer = true;
+          break;
+        }
+      }
+      if (openDrawer) {
+        try {
+          await SunmiDrawer.openDrawer();
+        } catch (e) {
+          debugPrint('SunmiDrawer after ESC print: $e');
+        }
       }
       return verifySunmiAfterPrint();
     } catch (e) {

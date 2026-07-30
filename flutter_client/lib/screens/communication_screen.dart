@@ -16,6 +16,7 @@ import '../utils/image_source_picker.dart';
 import 'package:provider/provider.dart';
 import '../providers/permission_provider.dart';
 import '../widgets/hrm_page_chrome.dart';
+import '../widgets/page_top_actions.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 class CommunicationScreen extends StatefulWidget {
@@ -314,12 +315,23 @@ class _CommunicationScreenState extends State<CommunicationScreen>
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Scaffold(
+    final canCreate = Provider.of<PermissionProvider>(context, listen: false)
+        .canCreate('Communication');
+    return RegisterPageTopActions(
+      actions: [
+        if (canCreate)
+          HrmTopBarAction(
+            icon: Icons.add,
+            label: 'Tạo bài mới',
+            primary: true,
+            showLabel: true,
+            onPressed: () => _openCreateDialog(),
+          ),
+      ],
+      child: Scaffold(
       backgroundColor: const Color(0xFFFAFAFA),
       body: Column(
         children: [
-          _buildHeader(theme),
           _buildTabBar(),
           Expanded(
             child: _tabController.index == 0
@@ -350,69 +362,7 @@ class _CommunicationScreenState extends State<CommunicationScreen>
           ),
         ],
       ),
-    );
-  }
-
-  // ─── HEADER ──────────────────────────────────────────────
-  Widget _buildHeader(ThemeData theme) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(bottom: BorderSide(color: Color(0xFFE4E4E7), width: 1)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                  colors: [HrmPageChrome.primaryNavy, HrmPageChrome.primaryNavy]),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: const Icon(Icons.campaign_rounded,
-                color: Colors.white, size: 20),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(tr('Truyền thông nội bộ'),
-                style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: const Color(0xFF18181B)),
-                overflow: TextOverflow.ellipsis),
-          ),
-          const SizedBox(width: 8),
-          if (Responsive.isMobile(context)) ...[
-            if (Provider.of<PermissionProvider>(context, listen: false)
-                .canCreate('Communication'))
-              IconButton(
-                onPressed: () => _openCreateDialog(),
-                icon: const Icon(Icons.add, size: 20),
-                style: IconButton.styleFrom(
-                  backgroundColor: HrmPageChrome.primaryNavy,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8)),
-                ),
-                constraints: const BoxConstraints(minWidth: 34, minHeight: 34),
-                padding: EdgeInsets.zero,
-              ),
-          ] else if (Provider.of<PermissionProvider>(context, listen: false)
-              .canCreate('Communication'))
-            FilledButton.icon(
-              onPressed: () => _openCreateDialog(),
-              icon: const Icon(Icons.add, size: 20),
-              label: Text(tr('Tạo bài mới')),
-              style: FilledButton.styleFrom(
-                backgroundColor: HrmPageChrome.primaryNavy,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10)),
-              ),
-            ),
-        ],
-      ),
+    ),
     );
   }
 

@@ -6,6 +6,7 @@ import '../utils/platform_geolocation.dart';
 import 'notification_overlay.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import './pos/pos_theme.dart';
 /// A dialog widget that lets the user pick a location on an OpenStreetMap.
 /// Returns the selected [LatLng] or null if cancelled.
 class MapLocationPicker extends StatefulWidget {
@@ -156,8 +157,8 @@ class _MapLocationPickerState extends State<MapLocationPicker> {
                     point: _selectedLocation,
                     radius: widget.radius!,
                     useRadiusInMeter: true,
-                    color: const Color(0xFF1E3A5F).withValues(alpha: 0.15),
-                    borderColor: const Color(0xFF1E3A5F).withValues(alpha: 0.6),
+                    color: PosTheme.kiotBlue.withValues(alpha: 0.15),
+                    borderColor: PosTheme.kiotBlue.withValues(alpha: 0.6),
                     borderStrokeWidth: 2,
                   ),
                 ],
@@ -283,11 +284,11 @@ class _MapLocationPickerState extends State<MapLocationPicker> {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.touch_app, size: 16, color: Color(0xFF1E3A5F)),
+                  Icon(Icons.touch_app, size: 16, color: PosTheme.kiotBlue),
                   SizedBox(width: 6),
                   Flexible(
                     child: Text(tr('Nhấn vào bản đồ để chọn vị trí chấm công'),
-                      style: TextStyle(fontSize: 12, color: Color(0xFF1E3A5F)),
+                      style: TextStyle(fontSize: 12, color: PosTheme.kiotBlue),
                     ),
                   ),
                 ],
@@ -329,7 +330,7 @@ class _MapLocationPickerState extends State<MapLocationPicker> {
                           icon: const Icon(Icons.check, size: 18),
                           label: Text(tr('Xác nhận vị trí')),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF1E3A5F),
+                            backgroundColor: PosTheme.kiotBlue,
                             foregroundColor: Colors.white,
                           ),
                         ),
@@ -348,7 +349,7 @@ class _MapLocationPickerState extends State<MapLocationPicker> {
         children: [
           Icon(
             widget.readOnly ? Icons.map : Icons.edit_location_alt,
-            color: const Color(0xFF1E3A5F),
+            color: PosTheme.kiotBlue,
           ),
           const SizedBox(width: 12),
           Text(
@@ -387,7 +388,7 @@ class _MapLocationPickerState extends State<MapLocationPicker> {
                 icon: const Icon(Icons.check, size: 18),
                 label: Text(tr('Xác nhận vị trí')),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF1E3A5F),
+                  backgroundColor: PosTheme.kiotBlue,
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                 ),

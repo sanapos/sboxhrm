@@ -218,11 +218,10 @@ public partial class PosSalesController
             return Ok(AppResponse<DraftLockStateDto>.Success(MapLockState(order, actor, lineCount)));
         }
 
-        // Cùng user đang về sơ đồ → luôn nhả được (kể cả lệch deviceId cũ).
-        var sameUser = order.LockedByUserId == actor.UserId;
+        // Chỉ máy đang giữ khóa mới được nhả.
+        // Không nhả theo cùng user — điện thoại chỉ xem rồi thoát sẽ xóa «Máy khác» của máy đang sửa.
         if (PosDraftLockHelper.IsLockActive(order)
-            && !PosDraftLockHelper.IsHeldBy(order, actor)
-            && !sameUser)
+            && !PosDraftLockHelper.IsHeldBy(order, actor))
         {
             return Conflict(AppResponse<DraftLockStateDto>.Create(
                 false, MapLockState(order, actor, lineCount), ["Bạn không đang giữ đơn này"]));

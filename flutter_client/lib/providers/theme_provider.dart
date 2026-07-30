@@ -5,6 +5,7 @@ import '../l10n/app_locale.dart';
 import '../l10n/app_tr.dart';
 import '../utils/vietnamese_font.dart';
 
+import '../widgets/pos/pos_theme.dart';
 /// Hệ thống typography chuẩn cho tiếng Việt
 /// Sử dụng Be Vietnam Pro – font được thiết kế riêng cho tiếng Việt
 /// (Google Fonts + Lâm Bảo), dấu thanh đẹp, được dùng phổ biến trên
@@ -160,11 +161,10 @@ class ThemeProvider extends ChangeNotifier {
     await prefs.setString('languageCode', locale.languageCode);
   }
 
-  // Màu chính của ứng dụng - Navy Dashboard palette
-  static const Color primaryColor =
-      Color(0xFF1E3A5F); // Navy (màu nền Tổng quan hệ thống)
-  static const Color primaryColorLight = Color(0xFF2D5F8B); // Navy Light
-  static const Color primaryColorDark = Color(0xFF0F2340); // Navy Dark
+  // Màu chính của ứng dụng — đồng bộ icon trang chủ (kiotBlue).
+  static const Color primaryColor = PosTheme.kiotBlue;
+  static const Color primaryColorLight = Color(0xFF3B8CFF);
+  static const Color primaryColorDark = Color(0xFF0056C7);
   static const Color accentColor = Color(0xFFEC4899); // Pink 500 (accent)
 
   ThemeData get lightTheme {
@@ -178,7 +178,7 @@ class ThemeProvider extends ChangeNotifier {
     }
     return baseTheme.copyWith(
       textTheme: textTheme,
-      scaffoldBackgroundColor: const Color(0xFFFAFAFA),
+      scaffoldBackgroundColor: PosTheme.background,
       primaryColor: primaryColor,
       colorScheme: const ColorScheme.light(
         primary: primaryColor,

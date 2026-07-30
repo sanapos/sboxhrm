@@ -164,39 +164,61 @@ class PosMobileHubSection extends StatelessWidget {
   }
 }
 
-/// Lưới 3 cột kiểu KiotViet (Nhiều hơn / Truy cập nhanh).
+/// Lưới kiểu KiotViet — tự tăng cột theo bề rộng (mobile 3 → desktop 6).
 class PosMobileHubSectionGrid extends StatelessWidget {
   const PosMobileHubSectionGrid({
     super.key,
     required this.title,
     required this.items,
+    this.crossAxisCount,
   });
 
   final String title;
   final List<PosMobileHubGridItem> items;
+  final int? crossAxisCount;
+
+  static int columnsForWidth(double width) {
+    if (width >= 1100) return 6;
+    if (width >= 860) return 5;
+    if (width >= 560) return 4;
+    return 3;
+  }
 
   @override
   Widget build(BuildContext context) {
     if (items.isEmpty) return const SizedBox.shrink();
-    return PosMobileHubSection(
-      title: title,
-      child: SafeFixedGrid(
-        crossAxisCount: 3,
-        spacing: 4,
-        runSpacing: 4,
-        childAspectRatio: 0.92,
-        itemCount: items.length,
-        itemBuilder: (context, index) =>
-            _PosMobileHubGridTile(item: items[index]),
-      ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final cols =
+            crossAxisCount ?? columnsForWidth(constraints.maxWidth);
+        final roomy = cols >= 4;
+        return PosMobileHubSection(
+          title: title,
+          child: SafeFixedGrid(
+            crossAxisCount: cols,
+            spacing: roomy ? 8 : 4,
+            runSpacing: roomy ? 8 : 4,
+            childAspectRatio: roomy ? 1.05 : 0.92,
+            itemCount: items.length,
+            itemBuilder: (context, index) => _PosMobileHubGridTile(
+              item: items[index],
+              large: roomy,
+            ),
+          ),
+        );
+      },
     );
   }
 }
 
 class _PosMobileHubGridTile extends StatelessWidget {
-  const _PosMobileHubGridTile({required this.item});
+  const _PosMobileHubGridTile({
+    required this.item,
+    this.large = false,
+  });
 
   final PosMobileHubGridItem item;
+  final bool large;
 
   @override
   Widget build(BuildContext context) {
@@ -204,18 +226,29 @@ class _PosMobileHubGridTile extends StatelessWidget {
       borderRadius: BorderRadius.circular(10),
       onTap: item.onTap,
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+        padding: EdgeInsets.symmetric(
+          vertical: large ? 10 : 8,
+          horizontal: large ? 6 : 4,
+        ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(item.icon, color: PosTheme.kiotBlue, size: 26),
-            const SizedBox(height: 6),
+            Icon(
+              item.icon,
+              color: PosTheme.kiotBlue,
+              size: large ? 28 : 26,
+            ),
+            SizedBox(height: large ? 8 : 6),
             Text(
               tr(item.label),
               textAlign: TextAlign.center,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 11, height: 1.2),
+              style: TextStyle(
+                fontSize: large ? 12.5 : 11,
+                height: 1.2,
+                fontWeight: large ? FontWeight.w500 : FontWeight.w400,
+              ),
             ),
           ],
         ),

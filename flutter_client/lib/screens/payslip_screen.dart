@@ -5,6 +5,7 @@ import '../providers/auth_provider.dart';
 import '../services/api_service.dart';
 import '../utils/api_datetime.dart';
 import '../widgets/hrm_page_chrome.dart';
+import '../widgets/page_top_actions.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 class PayslipScreen extends StatefulWidget {
@@ -197,11 +198,18 @@ class _PayslipScreenState extends State<PayslipScreen> {
   Widget build(BuildContext context) {
     final isMobile = MediaQuery.of(context).size.width < 768;
     final list = _filteredPayslips;
-    return Scaffold(
+    return RegisterPageTopActions(
+      actions: [
+        HrmTopBarAction(
+          icon: Icons.refresh,
+          label: 'Tải lại',
+          onPressed: _isLoading ? null : _loadData,
+        ),
+      ],
+      child: Scaffold(
       backgroundColor: const Color(0xFFF0F4F8),
       body: Column(
         children: [
-          _buildHeader(isMobile, list.length),
           _buildFilterPanel(isMobile),
           Expanded(
             child: _isLoading
@@ -222,56 +230,7 @@ class _PayslipScreenState extends State<PayslipScreen> {
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildHeader(bool isMobile, int count) {
-    return Container(
-      padding:
-          EdgeInsets.fromLTRB(isMobile ? 16 : 24, 20, isMobile ? 16 : 24, 12),
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Color(0xFF059669), HrmPageChrome.primaryNavy],
-        ),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Icon(Icons.receipt_long, color: Colors.white, size: 24),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(tr('Phiếu lương ($count)'),
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                Text(
-                  tr(_isManager
-                      ? 'Danh sách phiếu lương đã chốt'
-                      : 'Phiếu lương của bạn'),
-                  style: const TextStyle(color: Colors.white70, fontSize: 13),
-                ),
-              ],
-            ),
-          ),
-          IconButton(
-            onPressed: _isLoading ? null : _loadData,
-            icon: const Icon(Icons.refresh, color: Colors.white),
-            tooltip: tr('Tải lại'),
-          ),
-        ],
-      ),
+    ),
     );
   }
 

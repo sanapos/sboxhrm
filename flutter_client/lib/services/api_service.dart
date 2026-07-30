@@ -7825,6 +7825,20 @@ class ApiService {
 
   // ==================== REPORTS ====================
 
+  /// Maps Flutter [departmentId] (GUID or department name) to Reports API params.
+  void _putReportsDepartmentFilter(Map<String, String> params, String? departmentId) {
+    if (departmentId == null || departmentId.trim().isEmpty) return;
+    final v = departmentId.trim();
+    final isGuid = RegExp(
+      r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',
+    ).hasMatch(v);
+    if (isGuid) {
+      params['departmentId'] = v;
+    } else {
+      params['department'] = v;
+    }
+  }
+
   Future<Map<String, dynamic>> getDailyAttendanceReport(
       {dynamic date, String? departmentId}) async {
     try {
@@ -7834,7 +7848,7 @@ class ApiService {
             ? date.toIso8601String().split('T').first
             : date.toString();
       }
-      if (departmentId != null) params['departmentId'] = departmentId;
+      _putReportsDepartmentFilter(params, departmentId);
       // Work-day window comes solely from AppSettings day_end_time on the server.
       final uri = Uri.parse('$baseUrl/api/Reports/attendance/daily')
           .replace(queryParameters: params.isNotEmpty ? params : null);
@@ -7851,7 +7865,7 @@ class ApiService {
       final params = <String, String>{};
       if (month != null) params['month'] = month.toString();
       if (year != null) params['year'] = year.toString();
-      if (departmentId != null) params['departmentId'] = departmentId;
+      _putReportsDepartmentFilter(params, departmentId);
       final uri = Uri.parse('$baseUrl/api/Reports/attendance/monthly')
           .replace(queryParameters: params.isNotEmpty ? params : null);
       final response = await http.get(uri, headers: _headers);
@@ -7879,7 +7893,7 @@ class ApiService {
         params['endDate'] =
             td is DateTime ? td.toIso8601String() : td.toString();
       }
-      if (departmentId != null) params['departmentId'] = departmentId;
+      _putReportsDepartmentFilter(params, departmentId);
       final uri = Uri.parse('$baseUrl/api/Reports/late-early')
           .replace(queryParameters: params.isNotEmpty ? params : null);
       final response = await http.get(uri, headers: _headers);
@@ -7922,7 +7936,7 @@ class ApiService {
             ? date.toIso8601String().split('T').first
             : date.toString();
       }
-      if (departmentId != null) params['departmentId'] = departmentId;
+      _putReportsDepartmentFilter(params, departmentId);
       final uri = Uri.parse('$baseUrl/api/Reports/export/daily')
           .replace(queryParameters: params.isNotEmpty ? params : null);
       final response = await http.get(uri, headers: _headers);
@@ -7944,7 +7958,7 @@ class ApiService {
       final params = <String, String>{};
       if (month != null) params['month'] = month.toString();
       if (year != null) params['year'] = year.toString();
-      if (departmentId != null) params['departmentId'] = departmentId;
+      _putReportsDepartmentFilter(params, departmentId);
       final uri = Uri.parse('$baseUrl/api/Reports/export/monthly')
           .replace(queryParameters: params.isNotEmpty ? params : null);
       final response = await http.get(uri, headers: _headers);
@@ -7978,7 +7992,7 @@ class ApiService {
         params['endDate'] =
             td is DateTime ? td.toIso8601String() : td.toString();
       }
-      if (departmentId != null) params['departmentId'] = departmentId;
+      _putReportsDepartmentFilter(params, departmentId);
       final uri = Uri.parse('$baseUrl/api/Reports/export/late-early')
           .replace(queryParameters: params.isNotEmpty ? params : null);
       final response = await http.get(uri, headers: _headers);
@@ -8002,7 +8016,7 @@ class ApiService {
           ? date.toIso8601String().split('T').first
           : date.toString();
     }
-    if (departmentId != null) params['departmentId'] = departmentId;
+    _putReportsDepartmentFilter(params, departmentId);
     return _getExcelExport(
       Uri.parse('$baseUrl/api/Reports/export/excel/daily')
           .replace(queryParameters: params.isNotEmpty ? params : null),
@@ -8014,7 +8028,7 @@ class ApiService {
     final params = <String, String>{};
     if (month != null) params['month'] = month.toString();
     if (year != null) params['year'] = year.toString();
-    if (departmentId != null) params['departmentId'] = departmentId;
+    _putReportsDepartmentFilter(params, departmentId);
     return _getExcelExport(
       Uri.parse('$baseUrl/api/Reports/export/excel/monthly')
           .replace(queryParameters: params.isNotEmpty ? params : null),
@@ -8038,7 +8052,7 @@ class ApiService {
       params['endDate'] =
           td is DateTime ? td.toIso8601String() : td.toString();
     }
-    if (departmentId != null) params['departmentId'] = departmentId;
+    _putReportsDepartmentFilter(params, departmentId);
     return _getExcelExport(
       Uri.parse('$baseUrl/api/Reports/export/excel/late-early')
           .replace(queryParameters: params.isNotEmpty ? params : null),
@@ -8087,7 +8101,7 @@ class ApiService {
   }
 
   Future<Map<String, dynamic>> exportOvertimeReportExcel(
-      {dynamic startDate, dynamic endDate}) async {
+      {dynamic startDate, dynamic endDate, String? department}) async {
     final params = <String, String>{};
     if (startDate != null) {
       params['startDate'] = startDate is DateTime
@@ -8099,6 +8113,7 @@ class ApiService {
           ? endDate.toIso8601String()
           : endDate.toString();
     }
+    _putReportsDepartmentFilter(params, department);
     return _getExcelExport(
       Uri.parse('$baseUrl/api/Reports/export/excel/overtime')
           .replace(queryParameters: params.isNotEmpty ? params : null),
@@ -8130,7 +8145,7 @@ class ApiService {
   }
 
   Future<Map<String, dynamic>> exportLeaveReportExcel(
-      {dynamic startDate, dynamic endDate}) async {
+      {dynamic startDate, dynamic endDate, String? department}) async {
     final params = <String, String>{};
     if (startDate != null) {
       params['startDate'] = startDate is DateTime
@@ -8142,6 +8157,7 @@ class ApiService {
           ? endDate.toIso8601String()
           : endDate.toString();
     }
+    _putReportsDepartmentFilter(params, department);
     return _getExcelExport(
       Uri.parse('$baseUrl/api/Reports/export/excel/leave-summary')
           .replace(queryParameters: params.isNotEmpty ? params : null),

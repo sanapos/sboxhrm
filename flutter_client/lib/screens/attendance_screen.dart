@@ -31,7 +31,9 @@ import 'attendance/attendance_correction_tab.dart'
 import 'main_layout.dart' show ScreenRefreshNotifier;
 import '../l10n/app_localizations.dart';
 import '../widgets/hrm_page_chrome.dart';
+import '../widgets/hrm_collapsible_overview.dart';
 import '../widgets/hrm_responsive_list_layout.dart';
+import '../widgets/page_top_actions.dart';
 import '../widgets/employee_search_picker.dart';
 import '../models/mobile_attendance.dart';
 import '../widgets/map_location_picker.dart';
@@ -93,7 +95,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
 
   // Mobile UI state
   bool _showMobileSearch = false;
-  bool _showOverviewPanel = false;
+  bool _showOverviewPanel = true;
 
   // Pagination
   int _currentPage = 1;
@@ -1237,280 +1239,94 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final primary = Theme.of(context).primaryColor;
     final isMobile = Responsive.isMobile(context);
-    return Scaffold(
-      backgroundColor: HrmPageChrome.background,
-      body: Column(
-        children: [
-          // Modern gradient header
-          Container(
-            padding: EdgeInsets.fromLTRB(isMobile ? 14 : 24, isMobile ? 12 : 18,
-                isMobile ? 14 : 24, isMobile ? 10 : 14),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [primary, primary.withValues(alpha: 0.85)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: primary.withValues(alpha: 0.3),
-                  blurRadius: 12,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: isMobile
-                ? Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Title row with search + filter icons
-                      if (!_showMobileSearch)
-                        Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.2),
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: const Icon(Icons.access_time_filled,
-                                  size: 18, color: Colors.white),
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Text(
-                                tr(_l10n.attendance),
-                                style: const TextStyle(
-                                    fontSize: 17,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.white),
-                              ),
-                            ),
-                            _buildRealtimeIndicator(),
-                            const SizedBox(width: 4),
-                            // Search icon
-                            _buildMobileHeaderIcon(Icons.search, () {
-                              setState(() => _showMobileSearch = true);
-                            }),
-                            const SizedBox(width: 4),
-                            // Compact action menu
-                            PopupMenuButton<String>(
-                              icon: Container(
-                                padding: const EdgeInsets.all(7),
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withValues(alpha: 0.15),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: const Icon(Icons.more_vert,
-                                    size: 18, color: Colors.white),
-                              ),
-                              onSelected: (v) {
-                                if (v == 'sync') _syncAttendancesFromDevice();
-                                if (v == 'manual') {
-                                  _showManualAttendanceDialog();
-                                }
-                                if (v == 'import') _importFromExcel();
-                                if (v == 'export') _exportToExcel();
-                              },
-                              itemBuilder: (_) => [
-                                if (canSyncAttendanceFromDevice(
-                                  role: Provider.of<AuthProvider>(context,
-                                          listen: false)
-                                      .user
-                                      ?.role,
-                                  permissions: Provider.of<PermissionProvider>(
-                                      context,
-                                      listen: false),
-                                ))
-                                  PopupMenuItem(
-                                      value: 'sync',
-                                      child: Row(children: [
-                                        const Icon(Icons.sync,
-                                            size: 18, color: Colors.blue),
-                                        const SizedBox(width: 10),
-                                        Text(tr(_l10n.syncData))
-                                      ])),
-                                if (Provider.of<PermissionProvider>(context,
-                                        listen: false)
-                                    .canCreate('Attendance'))
-                                  PopupMenuItem(
-                                      value: 'manual',
-                                      child: Row(children: [
-                                        const Icon(Icons.add_circle_outline,
-                                            size: 18),
-                                        const SizedBox(width: 10),
-                                        Text(tr(_l10n.manualAttendance))
-                                      ])),
-                                if (Provider.of<PermissionProvider>(context,
-                                        listen: false)
-                                    .canCreate('Attendance'))
-                                  PopupMenuItem(
-                                      value: 'import',
-                                      child: Row(children: [
-                                        const Icon(Icons.upload_file, size: 18),
-                                        const SizedBox(width: 10),
-                                        Text(tr(_l10n.importExcel))
-                                      ])),
-                                if (Provider.of<PermissionProvider>(context,
-                                        listen: false)
-                                    .canExport('Attendance'))
-                                  PopupMenuItem(
-                                      value: 'export',
-                                      child: Row(children: [
-                                        const Icon(Icons.file_download_outlined,
-                                            size: 18),
-                                        const SizedBox(width: 10),
-                                        Text(tr(_l10n.exportExcel))
-                                      ])),
-                              ],
-                            ),
-                          ],
-                        )
-                      else
-                        // Search mode: show search field in header
-                        Row(
-                          children: [
-                            Expanded(
-                              child: SizedBox(
-                                height: 36,
-                                child: TextField(
-                                  autofocus: true,
-                                  decoration: InputDecoration(
-                                    hintText: tr('Tìm ID/Tên...'),
-                                    hintStyle: const TextStyle(
-                                        fontSize: 13, color: Colors.white70),
-                                    prefixIcon: const Icon(Icons.search,
-                                        size: 18, color: Colors.white70),
-                                    isDense: true,
-                                    filled: true,
-                                    fillColor:
-                                        Colors.white.withValues(alpha: 0.2),
-                                    contentPadding: const EdgeInsets.symmetric(
-                                        horizontal: 12, vertical: 10),
-                                    border: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(10),
-                                        borderSide: BorderSide.none),
-                                    enabledBorder: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(10),
-                                        borderSide: BorderSide.none),
-                                    focusedBorder: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(10),
-                                        borderSide: const BorderSide(
-                                            color: Colors.white54, width: 1)),
-                                  ),
-                                  style: const TextStyle(
-                                      fontSize: 13, color: Colors.white),
-                                  onChanged: (v) => setState(() {
-                                    _searchPin = v;
-                                    _currentPage = 1;
-                                  }),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            GestureDetector(
-                              onTap: () => setState(() {
-                                _showMobileSearch = false;
-                                _searchPin = '';
-                                _currentPage = 1;
-                              }),
-                              child: Container(
-                                padding: const EdgeInsets.all(7),
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withValues(alpha: 0.15),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: const Icon(Icons.close,
-                                    size: 18, color: Colors.white),
-                              ),
-                            ),
-                          ],
-                        ),
-                    ],
-                  )
-                : Row(
-                    children: [
-                      // Icon + Title
-                      Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.2),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Icon(Icons.access_time_filled,
-                            size: 22, color: Colors.white),
-                      ),
-                      const SizedBox(width: 14),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            tr(_l10n.attendance),
-                            style: const TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white),
-                          ),
-                          Text(
-                            tr(_l10n.attendanceData),
-                            style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.white.withValues(alpha: 0.8)),
-                          ),
-                        ],
-                      ),
-                      const Spacer(),
-                      // Realtime indicator
-                      _buildRealtimeIndicator(),
-                      const SizedBox(width: 12),
-                      // Action buttons
-                      if (Provider.of<PermissionProvider>(context,
-                              listen: false)
-                          .canCreate('Attendance'))
-                        _buildHeaderActionBtn(Icons.add_circle_outline,
-                            'Chấm công thủ công', _showManualAttendanceDialog),
-                      if (Provider.of<PermissionProvider>(context,
-                              listen: false)
-                          .canCreate('Attendance'))
-                        const SizedBox(width: 8),
-                      if (Provider.of<PermissionProvider>(context,
-                              listen: false)
-                          .canCreate('Attendance'))
-                        _buildHeaderActionBtn(Icons.upload_file, 'Import Excel',
-                            _importFromExcel),
-                      if (Provider.of<PermissionProvider>(context,
-                              listen: false)
-                          .canExport('Attendance'))
-                        const SizedBox(width: 8),
-                      if (Provider.of<PermissionProvider>(context,
-                              listen: false)
-                          .canExport('Attendance'))
-                        _buildHeaderActionBtn(Icons.file_download_outlined,
-                            'Xuất Excel', () => _exportToExcel()),
-                    ],
-                  ),
-          ),
-          // Content
-          Expanded(child: _buildDetailTab()),
-        ],
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    final perm = Provider.of<PermissionProvider>(context, listen: false);
+    final canSync = canSyncAttendanceFromDevice(
+      role: auth.user?.role,
+      permissions: perm,
+    );
+    final canCreate = perm.canCreate('Attendance');
+    final canExport = perm.canExport('Attendance');
+
+    final topActions = <Widget>[
+      if (isMobile)
+        HrmTopBarAction(
+          icon: _showMobileSearch ? Icons.close : Icons.search,
+          label: 'Tìm kiếm',
+          onPressed: () => setState(() {
+            if (_showMobileSearch) {
+              _showMobileSearch = false;
+              _searchPin = '';
+              _currentPage = 1;
+            } else {
+              _showMobileSearch = true;
+            }
+          }),
+        ),
+      if (canSync)
+        HrmTopBarAction(
+          icon: Icons.sync,
+          label: _l10n.syncData,
+          onPressed: _syncAttendancesFromDevice,
+        ),
+      if (canCreate)
+        HrmTopBarAction(
+          icon: Icons.upload_file,
+          label: _l10n.importExcel,
+          onPressed: _importFromExcel,
+        ),
+      if (canExport)
+        HrmTopBarAction(
+          icon: Icons.file_download_outlined,
+          label: _l10n.exportExcel,
+          onPressed: () => _exportToExcel(),
+        ),
+      if (canCreate)
+        HrmTopBarAction(
+          icon: Icons.add_circle_outline,
+          label: _l10n.manualAttendance,
+          primary: true,
+          showLabel: true,
+          onPressed: _showManualAttendanceDialog,
+        ),
+    ];
+
+    return RegisterPageTopActions(
+      actions: topActions,
+      child: Scaffold(
+        backgroundColor: HrmPageChrome.background,
+        body: _buildDetailTab(),
       ),
     );
   }
 
-  Widget _buildRealtimeIndicator() {
+  Widget _buildRealtimeIndicator({bool forLightBackground = false}) {
+    final connectedBg = forLightBackground
+        ? Colors.green.withValues(alpha: 0.12)
+        : Colors.greenAccent.withValues(alpha: 0.2);
+    final disconnectedBg = forLightBackground
+        ? const Color(0xFFF4F4F5)
+        : Colors.white.withValues(alpha: 0.15);
+    final connectedBorder = forLightBackground
+        ? Colors.green.withValues(alpha: 0.4)
+        : Colors.greenAccent.withValues(alpha: 0.6);
+    final disconnectedBorder = forLightBackground
+        ? const Color(0xFFE4E4E7)
+        : Colors.white.withValues(alpha: 0.3);
+    final labelColor = forLightBackground
+        ? (_isRealtimeConnected
+            ? const Color(0xFF16A34A)
+            : const Color(0xFF71717A))
+        : (_isRealtimeConnected ? Colors.greenAccent : Colors.white70);
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: _isRealtimeConnected
-            ? Colors.greenAccent.withValues(alpha: 0.2)
-            : Colors.white.withValues(alpha: 0.15),
+        color: _isRealtimeConnected ? connectedBg : disconnectedBg,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: _isRealtimeConnected
-              ? Colors.greenAccent.withValues(alpha: 0.6)
-              : Colors.white.withValues(alpha: 0.3),
+          color: _isRealtimeConnected ? connectedBorder : disconnectedBorder,
         ),
       ),
       child: Row(
@@ -1521,7 +1337,13 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
             height: 8,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: _isRealtimeConnected ? Colors.greenAccent : Colors.white54,
+              color: _isRealtimeConnected
+                  ? (forLightBackground
+                      ? const Color(0xFF16A34A)
+                      : Colors.greenAccent)
+                  : (forLightBackground
+                      ? const Color(0xFF9CA3AF)
+                      : Colors.white54),
               boxShadow: _isRealtimeConnected
                   ? [
                       BoxShadow(
@@ -1535,7 +1357,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
           Text(
             tr(_isRealtimeConnected ? 'LIVE' : 'OFFLINE'),
             style: TextStyle(
-              color: _isRealtimeConnected ? Colors.greenAccent : Colors.white70,
+              color: labelColor,
               fontSize: 11,
               fontWeight: FontWeight.bold,
               letterSpacing: 0.5,
@@ -1591,53 +1413,59 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   }
 
   List<Widget> _detailTabHeaderSections(bool isMobile) => [
+        if (isMobile && _showMobileSearch) ...[
+          TextField(
+            autofocus: true,
+            decoration: InputDecoration(
+              hintText: tr('Tìm ID/Tên...'),
+              hintStyle: const TextStyle(fontSize: 13),
+              prefixIcon: const Icon(Icons.search, size: 18),
+              isDense: true,
+              filled: true,
+              fillColor: Colors.white,
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(color: Color(0xFFE4E4E7))),
+              enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(color: Color(0xFFE4E4E7))),
+              focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide:
+                      BorderSide(color: Theme.of(context).primaryColor)),
+            ),
+            style: const TextStyle(fontSize: 13),
+            onChanged: (v) => setState(() {
+              _searchPin = v;
+              _currentPage = 1;
+            }),
+          ),
+          const SizedBox(height: 12),
+        ],
+        Align(
+          alignment: Alignment.centerRight,
+          child: _buildRealtimeIndicator(forLightBackground: true),
+        ),
+        const SizedBox(height: 12),
         _buildOverviewSection(isMobile),
         const SizedBox(height: 12),
       ];
 
   Widget _buildOverviewSection(bool isMobile) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        InkWell(
-          onTap: () =>
-              setState(() => _showOverviewPanel = !_showOverviewPanel),
-          borderRadius: BorderRadius.circular(8),
-          child: Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              color: Colors.blue.shade50,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Row(
-              children: [
-                Icon(Icons.analytics_outlined,
-                    size: 16, color: Colors.blue.shade700),
-                const SizedBox(width: 6),
-                Text(tr('Tổng quan & bộ lọc'),
-                    style: TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 13,
-                        color: Colors.blue.shade700)),
-                const Spacer(),
-                Icon(
-                    _showOverviewPanel
-                        ? Icons.expand_less
-                        : Icons.expand_more,
-                    size: 20,
-                    color: Colors.blue.shade700),
-              ],
-            ),
-          ),
-        ),
-        if (_showOverviewPanel) ...[
-          const SizedBox(height: 8),
+    return HrmCollapsibleOverview(
+      expanded: _showOverviewPanel,
+      onToggle: () =>
+          setState(() => _showOverviewPanel = !_showOverviewPanel),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
           _buildStatsRow(),
           const SizedBox(height: 10),
           _buildAttendanceFilterBar(),
         ],
-      ],
+      ),
     );
   }
 

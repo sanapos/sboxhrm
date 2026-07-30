@@ -23,8 +23,8 @@ import 'pos_receipt_layout.dart';
 import 'pos_table_label.dart';
 
 import 'pos_sunmi_native_print.dart';
-
 import 'pos_thermal_printer_settings.dart';
+import 'pos_printer_peripheral.dart';
 import '../l10n/app_tr.dart';
 
 
@@ -1022,6 +1022,12 @@ class _EscPosBuilder {
     }
     _add([0x1B, 0x64, n]);
     _add([0x1D, 0x56, _settings.partialCut ? 0x01 : 0x00]);
+    // Bip / mở két sau cắt — stripTrailingCut (Sunmi) giữ lại các lệnh này.
+    PosPrinterPeripheral.appendEscPosTrailing(
+      _buf,
+      _settings,
+      openDrawer: _settings.openCashDrawer,
+    );
   }
 }
 

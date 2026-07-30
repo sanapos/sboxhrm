@@ -14,6 +14,7 @@ import '../widgets/store_agent_support_card.dart';
 import 'store_success_screen.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../widgets/pos/pos_theme.dart';
 String _sanitizeStoreLoginNameInput(String input) {
   var code = input.toLowerCase();
   code = _removeVietnameseAccentsForLoginName(code);
@@ -1145,7 +1146,7 @@ class _RegisterScreenState extends State<RegisterScreen>
                   child: Text(
                     tr(package.name),
                     style: const TextStyle(
-                      color: Color(0xFF1E3A5F),
+                      color: PosTheme.kiotBlue,
                       fontSize: 14,
                       fontWeight: FontWeight.w700,
                       height: 1.35,

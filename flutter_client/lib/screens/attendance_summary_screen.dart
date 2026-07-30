@@ -4,6 +4,7 @@ import '../providers/auth_provider.dart';
 import '../providers/permission_provider.dart';
 import '../utils/attendance_correction_privilege.dart';
 import '../widgets/hrm_page_chrome.dart';
+import '../widgets/page_top_actions.dart';
 import '../models/attendance.dart';
 import '../models/device.dart';
 import '../services/api_service.dart';
@@ -340,107 +341,7 @@ class _AttendanceSummaryScreenState extends State<AttendanceSummaryScreen> {
     }
   }
 
-  List<Widget> _summaryPageChromeSections(Color primary) => [
-        Container(
-            padding: EdgeInsets.fromLTRB(
-              Responsive.isMobile(context) ? 14 : 24,
-              Responsive.isMobile(context) ? 12 : 18,
-              Responsive.isMobile(context) ? 14 : 24,
-              Responsive.isMobile(context) ? 12 : 18,
-            ),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [primary, primary.withValues(alpha: 0.85)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: primary.withValues(alpha: 0.3),
-                  blurRadius: 12,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: Row(
-              children: [
-                Container(
-                  padding:
-                      EdgeInsets.all(Responsive.isMobile(context) ? 8 : 10),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(Icons.analytics,
-                      size: Responsive.isMobile(context) ? 18 : 22,
-                      color: Colors.white),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(tr('Tổng hợp chấm công'),
-                        style: vietnameseTextStyle(TextStyle(
-                            fontSize: Responsive.isMobile(context) ? 16 : 20,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white)),
-                      ),
-                      if (!Responsive.isMobile(context))
-                        Text(tr('Tổng hợp dữ liệu chấm công theo nhân viên và ngày · ${_attendances.length} bản ghi'),
-                          style: vietnameseTextStyle(TextStyle(
-                              fontSize: 12,
-                              color: Colors.white.withValues(alpha: 0.8))),
-                        ),
-                    ],
-                  ),
-                ),
-                if (Responsive.isMobile(context))
-                  PopupMenuButton<String>(
-                    icon: Container(
-                      padding: const EdgeInsets.all(7),
-                      decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(8)),
-                      child: const Icon(Icons.more_vert,
-                          size: 18, color: Colors.white),
-                    ),
-                    onSelected: (v) {
-                      if (v == 'excel') {
-                        (_tabKey.currentState as dynamic)?.exportToExcel();
-                      }
-                      if (v == 'png') {
-                        (_tabKey.currentState as dynamic)?.exportToPng();
-                      }
-                    },
-                    itemBuilder: (_) => [
-                      PopupMenuItem(
-                          value: 'excel',
-                          child: Row(children: [
-                            const Icon(Icons.table_chart_outlined, size: 18),
-                            const SizedBox(width: 10),
-                            Text(tr('Xuất Excel'),
-                                style: vietnameseTextStyle()),
-                          ])),
-                      PopupMenuItem(
-                          value: 'png',
-                          child: Row(children: [
-                            const Icon(Icons.image_outlined, size: 18),
-                            const SizedBox(width: 10),
-                            Text(tr('Xuất PNG'), style: vietnameseTextStyle()),
-                          ])),
-                    ],
-                  )
-                else ...[
-                  _buildHeaderActionBtn(Icons.table_chart_outlined, 'Excel',
-                      () => (_tabKey.currentState as dynamic)?.exportToExcel()),
-                  const SizedBox(width: 8),
-                  _buildHeaderActionBtn(Icons.image_outlined, 'PNG',
-                      () => (_tabKey.currentState as dynamic)?.exportToPng()),
-                ],
-              ],
-            ),
-          ),
+  List<Widget> _summaryPageChromeSections() => [
           if (_salaryProfiles.isEmpty &&
               !_isLoading &&
               !isEmployeeUserRole(
@@ -569,8 +470,8 @@ class _AttendanceSummaryScreenState extends State<AttendanceSummaryScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final primary = Theme.of(context).primaryColor;
-    final chrome = _summaryPageChromeSections(primary);
+    final isMobile = Responsive.isMobile(context);
+    final chrome = _summaryPageChromeSections();
     final auth = context.watch<AuthProvider>();
     final perm = context.watch<PermissionProvider>();
     final canShowButtons = canShowCorrectionButtons(
@@ -584,12 +485,27 @@ class _AttendanceSummaryScreenState extends State<AttendanceSummaryScreen> {
       permissions: perm,
     );
 
-    return Scaffold(
-      backgroundColor: HrmPageChrome.background,
-      body: Column(
-        children: [
-          ...chrome,
-          Expanded(
+    final topActions = <Widget>[
+      HrmTopBarAction(
+        icon: Icons.image_outlined,
+        label: 'Xuất PNG',
+        onPressed: () => (_tabKey.currentState as dynamic)?.exportToPng(),
+      ),
+      HrmTopBarAction(
+        icon: Icons.table_chart_outlined,
+        label: 'Xuất Excel',
+        onPressed: () => (_tabKey.currentState as dynamic)?.exportToExcel(),
+      ),
+    ];
+
+    return RegisterPageTopActions(
+      actions: topActions,
+      child: Scaffold(
+        backgroundColor: HrmPageChrome.background,
+        body: Column(
+          children: [
+            ...chrome,
+            Expanded(
             child: _isLoading
                 ? Center(
                     child: Padding(
@@ -641,6 +557,7 @@ class _AttendanceSummaryScreenState extends State<AttendanceSummaryScreen> {
                   ),
           ),
         ],
+      ),
       ),
     );
   }

@@ -713,6 +713,9 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
         profile['weeklyOffDays'] = b['weeklyOffDays'];
         profile['holidayMultiplier'] = b['holidayMultiplier'];
         profile['holidayOvertimeType'] = b['holidayOvertimeType'];
+        // Bắt buộc lift — free2/once đọc từ profile['attendanceMode'].
+        profile['attendanceMode'] =
+            b['attendanceMode'] ?? profile['attendanceMode'];
         profile['description'] = b['description'] ?? profile['description'];
       }
       final empId = entry['employeeId']?.toString() ?? '';
@@ -1224,8 +1227,11 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
         case 'off-2':
         case 'off-3':
         case 'off-4':
-          isPaidOff =
-              false; // off-X days are flat deductions from standardWorkDays, not per-day
+          // Không có thứ nghỉ cố định — bỏ qua T7/CN (tránh phạt vắng ảo).
+          if (d.weekday == DateTime.saturday || d.weekday == DateTime.sunday) {
+            continue;
+          }
+          isPaidOff = false;
           break;
         default:
           // Fallback: use weeklyOffDays
@@ -1303,79 +1309,22 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
           );
           hourlyRate = fixedShiftRate / standardDayHours;
         } else {
-          // Two-pass: prefer level targeting this employee specifically,
-          // then fall back to default level (no employeeIds restriction).
-          Map<String, dynamic>? matchedLevel;
-          for (final level in _shiftSalaryLevels) {
-            if (level['isActive'] == false) continue;
-            final levelEmpIds = level['employeeIds']?.toString();
-            if (levelEmpIds == null || levelEmpIds.isEmpty) continue;
-            if (emp == null) continue;
-            try {
-              final ids = jsonDecode(levelEmpIds) as List;
-              if (ids.contains(emp.id)) {
-                matchedLevel = level;
-                break;
-              }
-            } catch (_) {}
-          }
-          if (matchedLevel == null) {
-            for (final level in _shiftSalaryLevels) {
-              if (level['isActive'] == false) continue;
-              final levelEmpIds = level['employeeIds']?.toString();
-              if (levelEmpIds == null || levelEmpIds.isEmpty) {
-                matchedLevel = level;
-                break;
-              }
-            }
-          }
-          if (matchedLevel != null) {
-            final lvlRateType = matchedLevel['rateType']?.toString() ?? 'fixed';
-            final lvlFixedRate =
-                _toDouble(matchedLevel['fixedRate'], fixedShiftRate);
-            final lvlHourlyRate = _toDouble(matchedLevel['hourlyRate']);
-            final lvlMultiplier = _toDouble(matchedLevel['multiplier'], 1.0);
-            shiftLevelAllowance =
-                _toDouble(matchedLevel['shiftAllowance']) * totalShifts;
-            switch (lvlRateType) {
-              case 'hourly':
-                final effHourly = lvlHourlyRate > 0
-                    ? lvlHourlyRate
-                    : fixedShiftRate / standardDayHours;
-                workSalary = effHourly * totalWorkHours;
-                // Ca qua đêm: +30% trên giờ chuẩn/ca đêm
-                if (overnightShifts > 0) {
-                  workSalary +=
-                      effHourly * standardDayHours * overnightShifts * 0.3;
-                }
-                hourlyRate = effHourly;
-                break;
-              case 'multiplier':
-                final perShift = fixedShiftRate * lvlMultiplier;
-                workSalary = applyOvernightShiftCoefficient(
-                  workSalary: perShift * totalShifts,
-                  totalShifts: totalShifts,
-                  overnightShifts: overnightShifts,
-                );
-                hourlyRate = perShift / standardDayHours;
-                break;
-              default: // 'fixed'
-                workSalary = applyOvernightShiftCoefficient(
-                  workSalary: lvlFixedRate * totalShifts,
-                  totalShifts: totalShifts,
-                  overnightShifts: overnightShifts,
-                );
-                hourlyRate = lvlFixedRate / standardDayHours;
-            }
-          } else {
-            // Không tìm thấy mức lương ca, dùng fixedShiftRate từ Benefit
-            workSalary = applyOvernightShiftCoefficient(
-              workSalary: fixedShiftRate * totalShifts,
-              totalShifts: totalShifts,
-              overnightShifts: overnightShifts,
-            );
-            hourlyRate = fixedShiftRate / standardDayHours;
-          }
+          // Per-pair theo shiftTemplateId (nhiều mức lương ca).
+          final shiftTotals = calcShiftBasedPayrollFromPairs(
+            shiftPairs: shiftPairs,
+            shiftSalaryLevels: _shiftSalaryLevels,
+            employeeGuid: emp?.id ?? '',
+            fallbackFixedShiftRate: fixedShiftRate,
+            standardDayHours: standardDayHours,
+            totalWorkHours: totalWorkHours,
+          );
+          workSalary = shiftTotals.workSalary;
+          shiftLevelAllowance = shiftTotals.shiftAllowance;
+          hourlyRate = shiftTotals.hourlyRate > 0
+              ? shiftTotals.hourlyRate
+              : (standardDayHours > 0
+                  ? fixedShiftRate / standardDayHours
+                  : 0);
         }
         break;
     }
@@ -1387,15 +1336,43 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
           (completionSalary / standardWorkDays) * billableWorkDays;
     }
 
-    // ═══ OT salary ═══
+    // ═══ OT salary — hệ số: Benefit.otRate* ?? store salary settings ?? 1.5/2/3 ═══
+    final storeOtWeekday = _toDouble(_salarySettings['overtimeRate'], 1.5);
+    final storeOtWeekend = _toDouble(_salarySettings['weekendRate'], 2.0);
+    final storeOtHoliday = _toDouble(_salarySettings['holidayRate'], 3.0);
+    final benefitOtWeekday = _toDouble(
+      benefit?['otRateWeekday'] ??
+          benefit?['OTRateWeekday'] ??
+          benefit?['oTRateWeekday'],
+    );
+    final benefitOtWeekend = _toDouble(
+      benefit?['otRateWeekend'] ??
+          benefit?['OTRateWeekend'] ??
+          benefit?['oTRateWeekend'],
+    );
+    final benefitOtHoliday = _toDouble(
+      benefit?['otRateHoliday'] ??
+          benefit?['OTRateHoliday'] ??
+          benefit?['oTRateHoliday'],
+    );
+    final otRateWeekday =
+        benefitOtWeekday > 0 ? benefitOtWeekday : storeOtWeekday;
+    final otRateWeekend =
+        benefitOtWeekend > 0 ? benefitOtWeekend : storeOtWeekend;
+    final otRateHoliday =
+        benefitOtHoliday > 0 ? benefitOtHoliday : storeOtHoliday;
+
     double otSalary = 0;
     if (hourlyOtType == 0) {
       otSalary = (otHoursWeekday + otHoursWeekend + otHoursHoliday) *
           hourlyOtFixedRate;
     } else if (hourlyOtType == 1) {
-      otSalary += otHoursWeekday * hourlyRate * 1.5;
-      otSalary += otHoursWeekend * hourlyRate * 2.0;
-      otSalary += otHoursHoliday * hourlyRate * 3.0;
+      otSalary += otHoursWeekday * hourlyRate * otRateWeekday;
+      otSalary += otHoursWeekend * hourlyRate * otRateWeekend;
+      // holidayOtType==0 dùng đơn giá ngày cố định — không nhân hệ số giờ lần nữa.
+      if (holidayOtType != 0) {
+        otSalary += otHoursHoliday * hourlyRate * otRateHoliday;
+      }
     }
 
     double holidayDaySalary = 0;
@@ -1680,8 +1657,11 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
       'department': emp?.department ?? '',
       'position': emp?.position ?? '',
       'salaryType': salaryTypeLabel,
+      'rateType': rateType,
       'standardDays': standardWorkDays,
       'workDays': workDays,
+      'totalShifts': totalShifts,
+      'overnightShifts': overnightShifts,
       'paidLeaveDays': paidLeaveDays,
       'totalHours': totalWorkHours,
       'standardHours': standardHours,
@@ -2020,15 +2000,23 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
         }
         final penalty = _toDouble(row['penalty']) + _toDouble(row['latePenalty']);
         final advance = _toDouble(row['advance']);
+        final unionFee = _toDouble(row['unionFeePart']);
+        final rateType = _toInt(row['rateType'], 1);
+        final regularUnits = switch (rateType) {
+          0 => _toDouble(row['standardHours']),
+          3 => _toDouble(row['totalShifts']),
+          _ => _toDouble(row['workDays']),
+        };
         final item = <String, dynamic>{
           'employeeId': employeeId,
           'salaryProfileId': profileId,
-          'regularWorkUnits': _toDouble(row['workDays']),
+          'regularWorkUnits': regularUnits,
           'overtimeUnits': _toDouble(row['otTotalHours']),
           'baseSalary': _toDouble(row['baseSalary']),
           'overtimePay': _toDouble(row['otSalary']),
           'bonus': _toDouble(row['bonus']),
-          'deductions': penalty + advance,
+          // Đoàn phí không có field riêng trên Payslip — gom vào deductions.
+          'deductions': penalty + advance + unionFee,
           'allowances': _toDouble(row['totalAllowance']),
           'socialInsurance': _toDouble(row['bhxhPart']),
           'healthInsurance': _toDouble(row['bhytPart']),

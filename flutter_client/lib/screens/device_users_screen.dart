@@ -18,6 +18,7 @@ import '../widgets/notification_overlay.dart';
 import '../widgets/app_button.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../widgets/hrm_responsive_list_layout.dart';
+import '../widgets/page_top_actions.dart';
 import '../widgets/app_responsive_dialog.dart';
 import '../utils/responsive_helper.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
@@ -837,151 +838,55 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final primary = Theme.of(context).primaryColor;
     final linkedCount = _deviceUsers.where((u) => u.employeeId != null).length;
     final unlinkedCount = _deviceUsers.length - linkedCount;
     final onlineDevices =
         _devices.where((d) => _isDeviceOnline(d.lastOnline)).length;
+    final isMobile = Responsive.isMobile(context);
 
-    return Scaffold(
-      backgroundColor: HrmPageChrome.background,
-      body: Column(
-        children: [
-          // Gradient header
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final isMobile = constraints.maxWidth < Responsive.mobileBreakpoint;
-              return Container(
-                padding: EdgeInsets.fromLTRB(
-                    isMobile ? 16 : 24, 14, isMobile ? 16 : 24, 14),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [primary, primary.withValues(alpha: 0.85)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: primary.withValues(alpha: 0.3),
-                      blurRadius: 12,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.2),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: const Icon(Icons.fingerprint,
-                              size: 22, color: Colors.white),
-                        ),
-                        const SizedBox(width: 14),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                tr(_l10n.deviceUsers),
-                                style: const TextStyle(
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.white),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              Text(tr('${_filteredUsers.length} nhân viên · ${_devices.length} thiết bị'),
-                                style: TextStyle(
-                                    fontSize: 12,
-                                    color: Colors.white.withValues(alpha: 0.8)),
-                              ),
-                            ],
-                          ),
-                        ),
-                        if (!isMobile) ...[
-                          _buildHeaderActionBtn(Icons.table_chart_outlined,
-                              'Excel', _isExporting ? null : _exportToExcel),
-                          const SizedBox(width: 6),
-                          _buildHeaderActionBtn(Icons.image_outlined, 'PNG',
-                              _isExporting ? null : _exportToPng),
-                          const SizedBox(width: 6),
-                          _buildHeaderActionBtn(Icons.download,
-                              _l10n.importFromDevice, _downloadUsersFromDevice),
-                          const SizedBox(width: 6),
-                          if (_perm.canCreate('DeviceUser') ||
-                              _perm.canEdit('DeviceUser')) ...[
-                            _buildHeaderActionBtn(Icons.upload,
-                                _l10n.uploadHrProfiles, _uploadEmployeesToDevice),
-                            const SizedBox(width: 6),
-                          ],
-                          if (_perm.canCreate('DeviceUser'))
-                            _buildHeaderActionBtn(Icons.person_add,
-                                _l10n.addUser, _showAddUserDialog),
-                        ],
-                      ],
-                    ),
-                    if (isMobile) ...[
-                      const SizedBox(height: 10),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: SingleChildScrollView(
-                              scrollDirection: Axis.horizontal,
-                              child: Row(
-                                children: [
-                                  _buildHeaderActionBtn(
-                                      Icons.table_chart_outlined,
-                                      'Excel',
-                                      _isExporting ? null : _exportToExcel),
-                                  const SizedBox(width: 6),
-                                  _buildHeaderActionBtn(
-                                      Icons.image_outlined,
-                                      'PNG',
-                                      _isExporting ? null : _exportToPng),
-                                  const SizedBox(width: 6),
-                                  _buildHeaderActionBtn(
-                                      Icons.download,
-                                      _l10n.importFromDevice,
-                                      _downloadUsersFromDevice),
-                                  const SizedBox(width: 6),
-                                  if (_perm.canCreate('DeviceUser') ||
-                                      _perm.canEdit('DeviceUser')) ...[
-                                    _buildHeaderActionBtn(
-                                        Icons.upload,
-                                        _l10n.uploadHrProfiles,
-                                        _uploadEmployeesToDevice),
-                                    const SizedBox(width: 6),
-                                  ],
-                                  if (_perm.canCreate('DeviceUser'))
-                                    _buildHeaderActionBtn(Icons.person_add,
-                                        _l10n.addUser, _showAddUserDialog),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ],
-                ),
-              );
-            },
-          ),
+    final topActions = <Widget>[
+      HrmTopBarAction(
+        icon: Icons.table_chart_outlined,
+        label: 'Excel',
+        onPressed: _isExporting ? null : _exportToExcel,
+      ),
+      HrmTopBarAction(
+        icon: Icons.image_outlined,
+        label: 'PNG',
+        onPressed: _isExporting ? null : _exportToPng,
+      ),
+      HrmTopBarAction(
+        icon: Icons.download,
+        label: _l10n.importFromDevice,
+        onPressed: _downloadUsersFromDevice,
+      ),
+      if (_perm.canCreate('DeviceUser') || _perm.canEdit('DeviceUser'))
+        HrmTopBarAction(
+          icon: Icons.upload,
+          label: _l10n.uploadHrProfiles,
+          onPressed: _uploadEmployeesToDevice,
+        ),
+      if (_perm.canCreate('DeviceUser'))
+        HrmTopBarAction(
+          icon: Icons.person_add,
+          label: _l10n.addUser,
+          primary: true,
+          showLabel: true,
+          onPressed: _showAddUserDialog,
+        ),
+    ];
 
-          Expanded(
-            child: HrmResponsiveListLayout(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-              headerSections: _buildUsersPageHeaderSections(
-                  linkedCount, unlinkedCount, onlineDevices),
-              desktopBody: _buildUsersListDesktopBody(),
-              mobileSlivers: (ctx) => _buildUsersListMobileSlivers(),
-            ),
-          ),
-        ],
+    return RegisterPageTopActions(
+      actions: topActions,
+      child: Scaffold(
+        backgroundColor: HrmPageChrome.background,
+        body: HrmResponsiveListLayout(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+          headerSections: _buildUsersPageHeaderSections(
+              linkedCount, unlinkedCount, onlineDevices),
+          desktopBody: _buildUsersListDesktopBody(),
+          mobileSlivers: (ctx) => _buildUsersListMobileSlivers(),
+        ),
       ),
     );
   }

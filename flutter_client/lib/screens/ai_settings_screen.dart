@@ -6,6 +6,7 @@ import '../utils/responsive_helper.dart';
 import '../widgets/hrm/hrm_settings_mobile_kit.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../widgets/notification_overlay.dart';
+import '../widgets/pos/pos_theme.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 class AiSettingsScreen extends StatefulWidget {
   const AiSettingsScreen({super.key});
@@ -180,8 +181,8 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
               name: 'Google Gemini',
               icon: Icons.auto_awesome,
               gradientColors: [
-                const Color(0xFF2D5F8B),
-                const Color(0xFF34A853)
+                PosTheme.kiotBlue,
+                const Color(0xFF0056C7),
               ],
               enabled: _geminiEnabled,
               configured: _geminiConfigured,
@@ -288,15 +289,18 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
   Widget _buildProviderHeader(String name, IconData icon,
       List<Color> gradientColors, bool enabled, ValueChanged<bool> onToggle) {
     final isMobile = Responsive.isMobile(context);
+    final accent = gradientColors.isNotEmpty
+        ? gradientColors.first
+        : PosTheme.kiotBlue;
     return Row(
       children: [
         Container(
           padding: EdgeInsets.all(isMobile ? 10 : 16),
           decoration: BoxDecoration(
-            gradient: LinearGradient(colors: gradientColors),
+            color: PosTheme.kiotBlueLight,
             borderRadius: BorderRadius.circular(isMobile ? 12 : 16),
           ),
-          child: Icon(icon, color: Colors.white, size: isMobile ? 24 : 32),
+          child: Icon(icon, color: accent, size: isMobile ? 24 : 32),
         ),
         const SizedBox(width: 12),
         Expanded(
@@ -307,7 +311,7 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
                   style: TextStyle(
                       fontSize: isMobile ? 17 : 22,
                       fontWeight: FontWeight.bold,
-                      color: const Color(0xFF18181B))),
+                      color: PosTheme.textPrimary)),
               const SizedBox(height: 4),
               Text(tr('Tích hợp AI để tự động tạo nội dung'),
                   style: TextStyle(
@@ -320,7 +324,7 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
             Switch(
               value: enabled,
               onChanged: _isSaving ? null : onToggle,
-              activeThumbColor: const Color(0xFF2D5F8B),
+              activeThumbColor: PosTheme.kiotBlue,
             ),
             Text(tr(enabled ? 'Đang bật' : 'Đang tắt'),
                 style: TextStyle(

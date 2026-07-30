@@ -211,23 +211,50 @@ public class DashboardController(
                 employeesQuery, dbContext, storeId, branchId, includeChildBranches);
 
             var employeeData = await employeesQuery
-                .Select(e => new { e.EmployeeCode, e.ApplicationUserId, e.FirstName, e.LastName })
+                .Select(e => new { e.Id, e.EmployeeCode, e.ApplicationUserId, e.FirstName, e.LastName })
                 .ToListAsync();
 
-            var employeeCodes = employeeData.Select(e => e.EmployeeCode).ToList();
-            // PIN → ApplicationUserId mapping (for shift lookup)
-            var pinToUserId = employeeData
-                .Where(e => e.ApplicationUserId.HasValue)
-                .ToDictionary(e => e.EmployeeCode, e => e.ApplicationUserId!.Value);
-            // PIN → display name mapping (Vietnamese: LastName FirstName)
-            var pinToName = employeeData
-                .ToDictionary(e => e.EmployeeCode, e => $"{e.LastName} {e.FirstName}".Trim());
+            var empIds = employeeData.Select(e => e.Id).ToList();
+            var deviceUsers = await dbContext.DeviceUsers
+                .AsNoTracking()
+                .Where(du => du.EmployeeId.HasValue && empIds.Contains(du.EmployeeId.Value))
+                .Select(du => new { du.Pin, EmployeeId = du.EmployeeId!.Value })
+                .ToListAsync();
+
+            // PIN máy → Employee.Id (DeviceUser đã gán mã NV + EmployeeCode tương thích)
+            var pinToEmpId = new Dictionary<string, Guid>(StringComparer.OrdinalIgnoreCase);
+            foreach (var du in deviceUsers)
+            {
+                if (string.IsNullOrWhiteSpace(du.Pin)) continue;
+                if (!pinToEmpId.ContainsKey(du.Pin))
+                    pinToEmpId[du.Pin] = du.EmployeeId;
+            }
+            foreach (var e in employeeData)
+            {
+                if (string.IsNullOrWhiteSpace(e.EmployeeCode)) continue;
+                if (!pinToEmpId.ContainsKey(e.EmployeeCode))
+                    pinToEmpId[e.EmployeeCode] = e.Id;
+            }
+
+            var empById = employeeData.ToDictionary(e => e.Id);
+            var allPins = pinToEmpId.Keys.ToList();
+            var pinToUserId = new Dictionary<string, Guid>(StringComparer.OrdinalIgnoreCase);
+            var pinToName = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            var pinToEmpCode = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var kv in pinToEmpId)
+            {
+                if (!empById.TryGetValue(kv.Value, out var emp)) continue;
+                if (emp.ApplicationUserId.HasValue)
+                    pinToUserId[kv.Key] = emp.ApplicationUserId.Value;
+                pinToName[kv.Key] = $"{emp.LastName} {emp.FirstName}".Trim();
+                pinToEmpCode[kv.Key] = emp.EmployeeCode;
+            }
 
             var attendances = await dbContext.AttendanceLogs
                 .Where(a => a.Device != null && a.Device.StoreId == storeId
                     && a.AttendanceTime >= rangeStart
                     && a.AttendanceTime < rangeEnd
-                    && employeeCodes.Contains(a.PIN))
+                    && allPins.Contains(a.PIN))
                 .Select(a => new { a.PIN, a.AttendanceTime, a.AttendanceState })
                 .ToListAsync();
 
@@ -278,7 +305,13 @@ public class DashboardController(
                     continue;
 
                 var dayAttendances = vnAttendances.Where(a => a.VnTime.Date == d).ToList();
-                var presentPins = dayAttendances.Select(a => a.PIN).Distinct().ToList();
+                // Gộp theo Employee.Id — một NV có nhiều PIN máy chỉ tính 1 lần có mặt.
+                var presentEmpIds = dayAttendances
+                    .Select(a => pinToEmpId.TryGetValue(a.PIN, out var id) ? id : (Guid?)null)
+                    .Where(id => id.HasValue)
+                    .Select(id => id!.Value)
+                    .Distinct()
+                    .ToList();
                 var lateCount = 0;
                 var onTimeCount = 0;
                 var earlyLeaveCount = 0;
@@ -288,13 +321,19 @@ public class DashboardController(
                 var lateEmps = new List<object>();
                 var earlyEmps = new List<object>();
 
-                foreach (var pin in presentPins)
+                foreach (var empId in presentEmpIds)
                 {
+                    var pinsForEmp = pinToEmpId
+                        .Where(kv => kv.Value == empId)
+                        .Select(kv => kv.Key)
+                        .ToList();
                     var checkIn = dayAttendances
-                        .Where(a => a.PIN == pin && a.AttendanceState == AttendanceStates.CheckIn)
+                        .Where(a => pinsForEmp.Contains(a.PIN) && a.AttendanceState == AttendanceStates.CheckIn)
                         .OrderBy(a => a.VnTime)
                         .FirstOrDefault();
                     if (checkIn == null) continue;
+
+                    var resolvePin = checkIn.PIN;
 
                     // Resolve per-employee shift start/end time
                     var threshold = defaultStart;
@@ -304,7 +343,7 @@ public class DashboardController(
                     var earlyGraceMin = 5;
 
                     // Primary: WorkSchedule lookup
-                    if (pinToUserId.TryGetValue(pin, out var uid)
+                    if (pinToUserId.TryGetValue(resolvePin, out var uid)
                         && scheduleIndex.TryGetValue((uid, d), out var sched)
                         && !sched.IsDayOff)
                     {
@@ -345,7 +384,7 @@ public class DashboardController(
 
                     // Kiểm tra về sớm: lấy lần checkout cuối cùng trong ngày
                     var checkOut = dayAttendances
-                        .Where(a => a.PIN == pin && a.AttendanceState == AttendanceStates.CheckOut)
+                        .Where(a => pinsForEmp.Contains(a.PIN) && a.AttendanceState == AttendanceStates.CheckOut)
                         .OrderByDescending(a => a.VnTime)
                         .FirstOrDefault();
                     var isEarly = checkOut != null && shiftEnd.HasValue
@@ -362,22 +401,23 @@ public class DashboardController(
                         cur.EarlyLeave + (isEarly ? 1 : 0)
                     );
 
-                    // Track employee details for late/early lists
-                    var empName = pinToName.TryGetValue(pin, out var n2) ? n2 : pin;
+                    // Track employee details for late/early lists (mã NV, không phải PIN máy)
+                    var empCode = pinToEmpCode.TryGetValue(resolvePin, out var code) ? code : resolvePin;
+                    var empName = pinToName.TryGetValue(resolvePin, out var n2) ? n2 : empCode;
                     if (isLate)
                     {
                         var lateMins = (int)(checkIn.VnTime.TimeOfDay - threshold - TimeSpan.FromMinutes(graceMin)).TotalMinutes;
-                        lateEmps.Add(new { pin, name = empName, checkIn = checkIn.VnTime.ToString("HH:mm"), lateMinutes = lateMins, shift = shiftLabel });
+                        lateEmps.Add(new { pin = empCode, name = empName, checkIn = checkIn.VnTime.ToString("HH:mm"), lateMinutes = lateMins, shift = shiftLabel });
                     }
                     if (isEarly && checkOut != null && shiftEnd.HasValue)
                     {
                         var earlyMins = (int)(shiftEnd.Value - TimeSpan.FromMinutes(earlyGraceMin) - checkOut.VnTime.TimeOfDay).TotalMinutes;
-                        earlyEmps.Add(new { pin, name = empName, checkOut = checkOut.VnTime.ToString("HH:mm"), earlyMinutes = earlyMins, shift = shiftLabel });
+                        earlyEmps.Add(new { pin = empCode, name = empName, checkOut = checkOut.VnTime.ToString("HH:mm"), earlyMinutes = earlyMins, shift = shiftLabel });
                     }
                 }
 
-                var totalEmp = employeeCodes.Count;
-                var presentCount = presentPins.Count;
+                var totalEmp = employeeData.Count;
+                var presentCount = presentEmpIds.Count;
                 var absentCount = Math.Max(0, totalEmp - presentCount);
                 var rate = totalEmp > 0 ? Math.Round((double)presentCount / totalEmp * 100, 1) : 0.0;
 

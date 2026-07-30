@@ -222,6 +222,8 @@ class DailyShiftRecord {
   final int overtimeMinutes;
   final double workHours;
   final double decimalHours;
+  /// Giờ làm trước khi nhân hệ số lễ/nghỉ — dùng cho payroll OT (tránh × kép).
+  final double baseWorkHours;
   final String status;
   final Color statusColor;
   final double workCount;
@@ -240,10 +242,11 @@ class DailyShiftRecord {
     required this.overtimeMinutes,
     required this.workHours,
     required this.decimalHours,
+    double? baseWorkHours,
     required this.status,
     required this.statusColor,
     required this.workCount,
-  });
+  }) : baseWorkHours = baseWorkHours ?? workHours;
 }
 
 int _parseTimeSpanToMinutes(String? timeStr) {
@@ -900,7 +903,23 @@ class _ShiftLookups {
           (profile['holidayMultiplier'] as num?)?.toDouble() ?? 2.0;
       final holidayOvertimeType =
           (profile['holidayOvertimeType'] as num?)?.toInt() ?? 1;
-      final attendanceMode = profile['attendanceMode']?.toString() ?? 'both';
+      // attendanceMode: field → nested benefit → description attendanceType.
+      String? modeRaw = profile['attendanceMode']?.toString();
+      if (modeRaw == null || modeRaw.isEmpty) {
+        final nested = profile['benefit'];
+        if (nested is Map) {
+          modeRaw = nested['attendanceMode']?.toString();
+        }
+      }
+      if (modeRaw == null || modeRaw.isEmpty) {
+        final fromDesc = LeaveSalaryShifts.parseDescField(
+          profile['description']?.toString(),
+          'attendanceType',
+        );
+        if (fromDesc.isNotEmpty) modeRaw = fromDesc;
+      }
+      final attendanceMode =
+          (modeRaw != null && modeRaw.isNotEmpty) ? modeRaw! : 'both';
 
       final employees = profile['employees'] as List? ?? [];
       for (final emp in employees) {
@@ -1182,6 +1201,7 @@ List<DailyShiftRecord> computeDailyShiftRecords({
             standardWorkHours;
         var workCount = credited ? 1.0 : 0.0;
         var workHours = credited ? hoursPerDay : 0.0;
+        final baseWorkHours = workHours;
 
         final isRestDay = lookups.isWeeklyOffDay(date, employeeCode);
         final holidayRate = lookups.getHolidayRate(date, employeeCode, holidays);
@@ -1198,6 +1218,23 @@ List<DailyShiftRecord> computeDailyShiftRecords({
             workCount *= holidayMultiplier;
             workHours *= holidayMultiplier;
           }
+        }
+
+        // Status lễ/nghỉ giống path ca — payroll gộp OT qua baseWorkHours.
+        String status;
+        Color statusColor;
+        if (!credited) {
+          status = 'Thiếu chấm';
+          statusColor = Colors.grey;
+        } else if (isHoliday) {
+          status = 'Tăng ca ngày lễ';
+          statusColor = Colors.deepOrange;
+        } else if (isRestDay) {
+          status = 'Tăng ca ngày nghỉ';
+          statusColor = Colors.purple;
+        } else {
+          status = 'Hợp lệ';
+          statusColor = Colors.green;
         }
 
         records.add(DailyShiftRecord(
@@ -1218,8 +1255,9 @@ List<DailyShiftRecord> computeDailyShiftRecords({
           overtimeMinutes: 0,
           workHours: workHours,
           decimalHours: workHours,
-          status: credited ? 'Hợp lệ' : 'Thiếu chấm',
-          statusColor: credited ? Colors.green : Colors.grey,
+          baseWorkHours: baseWorkHours,
+          status: status,
+          statusColor: statusColor,
           workCount: workCount,
         ));
         return;
@@ -1375,12 +1413,11 @@ List<DailyShiftRecord> computeDailyShiftRecords({
         }
         final actualWorkedMinutes = effectiveOut.difference(punchIn).inMinutes;
 
-        // Ca Tăng ca: không tính đi trễ/về sớm — chỉ cộng giờ làm thực tế vào OT.
+        // Ca Tăng ca: chỉ OT — không cộng decimalHours (tránh workCount + otSalary trùng).
         if (matchedShift != null && isOtShift) {
           if (actualWorkedMinutes > 0) {
             totalOT += actualWorkedMinutes;
             totalWorkHours += actualWorkedMinutes / 60.0;
-            totalDecimalHours += actualWorkedMinutes / 60.0;
           }
           continue;
         }
@@ -1480,6 +1517,7 @@ List<DailyShiftRecord> computeDailyShiftRecords({
       final holidayMultiplier =
           lookups.employeeCodeToHolidayMultiplier[employeeCode] ?? 2.0;
 
+      final baseWorkHours = totalWorkHours;
       if ((isRestDay || isHoliday) && totalWorkCount > 0) {
         if (isHoliday) {
           totalWorkCount *= holidayRate;
@@ -1558,6 +1596,7 @@ List<DailyShiftRecord> computeDailyShiftRecords({
         overtimeMinutes: totalOT,
         workHours: totalWorkHours,
         decimalHours: totalDecimalHours,
+        baseWorkHours: baseWorkHours,
         status: status,
         statusColor: statusColor,
         workCount: totalWorkCount,
@@ -1962,13 +2001,14 @@ PayrollShiftAttendanceStats aggregatePayrollStatsFromShiftRecords({
     final otHrs = r.overtimeMinutes / 60.0;
     totalWorkHours += hrs;
 
-    // Làm cả ngày lễ / ngày nghỉ: toàn bộ giờ làm tính OT theo bucket tương ứng.
+    // Làm cả ngày lễ / ngày nghỉ: toàn bộ giờ gốc → OT.
+    // Không dùng workHours đã × hệ số (payroll sẽ × otRate riêng).
     if (r.status.contains('Tăng ca ngày lễ')) {
-      otHoursHoliday += hrs;
+      otHoursHoliday += r.baseWorkHours;
       continue;
     }
     if (r.status.contains('Tăng ca ngày nghỉ')) {
-      otHoursWeekend += hrs;
+      otHoursWeekend += r.baseWorkHours;
       continue;
     }
 

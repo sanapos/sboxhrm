@@ -1,7 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using ZKTecoADMS.Application.Helpers;
-using ZKTecoADMS.Application.Helpers;
 using ZKTecoADMS.Application.Interfaces;
 using ZKTecoADMS.Domain.Entities;
 using ZKTecoADMS.Domain.Enums;
@@ -307,31 +306,43 @@ public class AttendanceService(
     private static TimeSpan GetPunchTimeOfDay(DateTime punchTime)
         => ToVietnamLocal(punchTime).TimeOfDay;
 
-    private static WorkSchedule? PickScheduleForPunch(List<WorkSchedule>? daySchedules, TimeSpan punchTime)
+    private static WorkSchedule? PickScheduleForPunch(
+        List<WorkSchedule>? daySchedules, TimeSpan punchTime, AttendanceStates state)
     {
         if (daySchedules == null || daySchedules.Count == 0)
             return null;
 
-        if (daySchedules.Count == 1)
-            return daySchedules[0];
-
-        var punchMin = (int)punchTime.TotalMinutes;
-        WorkSchedule? best = null;
-        var bestDist = int.MaxValue;
+        // Ưu tiên ca không bị trễ/sớm (sau grace) — khớp Flutter findBestMatchingShift.
+        // 1 ca cũng phải nằm trong cửa sổ (không gán ca chiều cho punch tan ca).
+        var candidates = new List<(WorkSchedule Ws, ShiftMatchHelper.Candidate C)>();
         foreach (var s in daySchedules)
         {
             var start = s.StartTime ?? s.Shift?.StartTime ?? TimeSpan.FromHours(8);
-            var startMin = (int)start.TotalMinutes;
-            var dist = Math.Abs(punchMin - startMin);
-            if (dist > 720) dist = 1440 - dist;
-            if (dist < bestDist)
-            {
-                bestDist = dist;
-                best = s;
-            }
+            var end = s.EndTime ?? s.Shift?.EndTime ?? TimeSpan.FromHours(17);
+            var shift = s.Shift;
+            candidates.Add((s, new ShiftMatchHelper.Candidate(
+                Id: s.ShiftId ?? s.Id,
+                StartTime: start,
+                EndTime: end,
+                LateGraceMinutes: shift?.LateGraceMinutes ?? 5,
+                EarlyLeaveGraceMinutes: shift?.EarlyLeaveGraceMinutes ?? 5,
+                MaximumAllowedLateMinutes: shift?.MaximumAllowedLateMinutes > 0
+                    ? shift.MaximumAllowedLateMinutes
+                    : 30,
+                EarlyCheckInMinutes: shift?.EarlyCheckInMinutes > 0
+                    ? shift.EarlyCheckInMinutes
+                    : 30,
+                MaximumAllowedEarlyLeaveMinutes: shift?.MaximumAllowedEarlyLeaveMinutes > 0
+                    ? shift.MaximumAllowedEarlyLeaveMinutes
+                    : 120,
+                ShiftType: shift?.ShiftType)));
         }
 
-        return best;
+        var fit = state == AttendanceStates.CheckOut
+            ? ShiftMatchHelper.FindBestForCheckOut(candidates.Select(x => x.C), punchTime)
+            : ShiftMatchHelper.FindBestForCheckIn(candidates.Select(x => x.C), punchTime);
+        if (fit == null) return null;
+        return candidates.First(x => x.C.Id == fit.Shift.Id).Ws;
     }
 
     private async Task ProcessPenaltyForAttendanceBatchAsync(
@@ -366,9 +377,9 @@ public class AttendanceService(
         var violationDate = GetLogicalDate(attendance.AttendanceTime, storesDayEnd);
         var punchTime = GetPunchTimeOfDay(attendance.AttendanceTime);
 
-        // Use pre-loaded schedules (keyed by logical date); pick closest shift by punch time.
+        // Use pre-loaded schedules (keyed by logical date); ưu tiên ca không trễ/sớm.
         schedulesByEmployeeDate.TryGetValue((employeeId, violationDate), out var daySchedules);
-        var schedule = PickScheduleForPunch(daySchedules, punchTime);
+        var schedule = PickScheduleForPunch(daySchedules, punchTime, attendance.AttendanceState);
 
         TimeSpan shiftStart;
         TimeSpan shiftEnd;
@@ -678,6 +689,12 @@ public class AttendanceService(
             if (!hrToDeviceUserIds.TryGetValue(employeeId, out var deviceUserIdsForEmp))
                 continue;
 
+            // free2: không bắt buộc đủ In/Out theo ca → bỏ ForgotCheck / UnauthorizedLeave.
+            if (employeeBenefits.TryGetValue(employeeId, out var free2Benefit) &&
+                string.Equals(free2Benefit.Benefit?.AttendanceMode, FreeTwoPunchAttendanceMode,
+                    StringComparison.OrdinalIgnoreCase))
+                continue;
+
             foreach (var workDate in scanDates)
             {
                 if (!IsExpectedWorkDay(employeeId, workDate,
@@ -853,99 +870,32 @@ public class AttendanceService(
             return null;
         }
 
-        // Choose the shift covering this punch (handles overnight Start > End).
-        ShiftTemplate? chosen;
-        if (state == AttendanceStates.CheckIn)
-        {
-            var window = TimeSpan.FromHours(2);
-            var match = candidates
-                .Where(s => IsPunchInMatchWindow(punchTime, s.StartTime, s.EndTime, window,
-                    s.MaximumAllowedLateMinutes > 0 ? s.MaximumAllowedLateMinutes : 120,
-                    s.EarlyCheckInMinutes > 0 ? s.EarlyCheckInMinutes : 30))
-                .OrderBy(s => CircularMinutesDistance(punchTime, s.StartTime))
-                .ToList();
-            chosen = match.FirstOrDefault()
-                ?? candidates.OrderBy(s => CircularMinutesDistance(punchTime, s.StartTime)).First();
-        }
-        else
-        {
-            var window = TimeSpan.FromHours(2);
-            var match = candidates
-                .Where(s => IsPunchOutMatchWindow(punchTime, s.StartTime, s.EndTime, window,
-                    s.MaximumAllowedEarlyLeaveMinutes > 0 ? s.MaximumAllowedEarlyLeaveMinutes : 120))
-                .OrderBy(s => CircularMinutesDistance(punchTime, s.EndTime))
-                .ToList();
-            chosen = match.FirstOrDefault()
-                ?? candidates.OrderBy(s => CircularMinutesDistance(punchTime, s.EndTime)).First();
-        }
+        // Ưu tiên ca không trễ/không về sớm (sau grace). Không ép chọn ca ngoài cửa sổ.
+        var helperCandidates = candidates.Select(s => new ShiftMatchHelper.Candidate(
+            Id: s.Id,
+            StartTime: s.StartTime,
+            EndTime: s.EndTime,
+            LateGraceMinutes: s.LateGraceMinutes,
+            EarlyLeaveGraceMinutes: s.EarlyLeaveGraceMinutes,
+            MaximumAllowedLateMinutes: s.MaximumAllowedLateMinutes > 0 ? s.MaximumAllowedLateMinutes : 30,
+            EarlyCheckInMinutes: s.EarlyCheckInMinutes > 0 ? s.EarlyCheckInMinutes : 30,
+            MaximumAllowedEarlyLeaveMinutes: s.MaximumAllowedEarlyLeaveMinutes > 0
+                ? s.MaximumAllowedEarlyLeaveMinutes
+                : 120,
+            ShiftType: s.ShiftType,
+            Name: s.Name)).ToList();
+
+        ShiftMatchHelper.Fit? fit = state == AttendanceStates.CheckIn
+            ? ShiftMatchHelper.FindBestForCheckIn(helperCandidates, punchTime)
+            : ShiftMatchHelper.FindBestForCheckOut(helperCandidates, punchTime);
+
+        if (fit == null) return null;
+        var chosen = candidates.First(s => s.Id == fit.Shift.Id);
 
         return (chosen.StartTime, chosen.EndTime,
             chosen.LateGraceMinutes, chosen.EarlyLeaveGraceMinutes,
             chosen.MaximumAllowedLateMinutes, chosen.MaximumAllowedEarlyLeaveMinutes,
             chosen.ShiftType);
-    }
-
-    /// <summary>Minutes between two times of day, wrapping at midnight (0–720).</summary>
-    private static double CircularMinutesDistance(TimeSpan a, TimeSpan b)
-    {
-        var d = Math.Abs((a - b).TotalMinutes);
-        return d > 720 ? 1440 - d : d;
-    }
-
-    private static bool IsPunchInMatchWindow(
-        TimeSpan punch, TimeSpan start, TimeSpan end, TimeSpan fallbackWindow,
-        int maxLateMinutes, int earlyCheckInMinutes)
-    {
-        var overnight = start > end;
-        var earlyLimit = TimeSpan.FromMinutes(earlyCheckInMinutes);
-        var lateLimit = TimeSpan.FromMinutes(Math.Max(maxLateMinutes, (int)fallbackWindow.TotalMinutes));
-
-        if (!overnight)
-        {
-            if (punch > end) return false;
-            if (punch < start - earlyLimit) return false;
-            if (punch > start + lateLimit) return false;
-            return true;
-        }
-
-        // Overnight: e.g. 22:00–06:00. Punch may be late after start (same evening)
-        // or before end next morning (still "late into" the shift).
-        var earlyBoundStart = start - earlyLimit;
-        if (earlyBoundStart < TimeSpan.Zero) earlyBoundStart += TimeSpan.FromDays(1);
-
-        // Accept in [start - early, 24h) U [0, end]
-        if (punch >= start || punch <= end) return true;
-        if (earlyBoundStart > start)
-        {
-            // early window wraps (rare for large earlyCheckIn)
-            return punch >= earlyBoundStart || punch <= end;
-        }
-        return punch >= earlyBoundStart && punch < start;
-    }
-
-    private static bool IsPunchOutMatchWindow(
-        TimeSpan punch, TimeSpan start, TimeSpan end, TimeSpan fallbackWindow,
-        int maxEarlyMinutes)
-    {
-        var overnight = start > end;
-        var earlyLimit = TimeSpan.FromMinutes(Math.Max(maxEarlyMinutes, (int)fallbackWindow.TotalMinutes));
-
-        if (!overnight)
-        {
-            if (punch < start) return false;
-            if (punch > end + fallbackWindow) return false;
-            // Too early relative to end beyond max early leave → still allow match
-            // (penalty tier handles amount); only reject if before start.
-            return true;
-        }
-
-        // Overnight checkout: typically in [0, end+window] or late evening after start
-        if (punch <= end + fallbackWindow && punch >= TimeSpan.Zero)
-        {
-            if (punch <= end || punch <= end + earlyLimit) return true;
-        }
-        if (punch >= start) return true;
-        return false;
     }
 
     private static string NormalizeShiftName(string s)

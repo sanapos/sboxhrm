@@ -80,7 +80,6 @@ class _GeofenceScreenState extends State<GeofenceScreen> {
       backgroundColor: const Color(0xFFF0F4F8),
       body: Column(
         children: [
-          _buildHeader(),
           Expanded(
             child: HrmFabClearance(
               fabVisible: _perm.canCreate('Geofence'),
@@ -104,39 +103,6 @@ class _GeofenceScreenState extends State<GeofenceScreen> {
                   backgroundColor: HrmPageChrome.primaryNavy,
                 )
               : null,
-    );
-  }
-
-  Widget _buildHeader() {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(24, 20, 24, 16),
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(colors: [HrmPageChrome.primaryNavy, HrmPageChrome.primaryNavy]),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(12)),
-            child: const Icon(Icons.share_location, color: Colors.white, size: 24),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(tr('Quản lý Geofence'), style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
-                Text(tr('Khu vực chấm công theo vị trí'), style: TextStyle(color: Colors.white70, fontSize: 14)),
-              ],
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-            decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(20)),
-            child: Text(tr('${_geofences.length} khu vực'), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
-          ),
-        ],
-      ),
     );
   }
 

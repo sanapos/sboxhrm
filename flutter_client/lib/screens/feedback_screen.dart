@@ -13,6 +13,7 @@ import '../utils/navigation_notifier.dart';
 import 'feedback_detail_screen.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../widgets/hrm_fab_clearance.dart';
+import '../widgets/page_top_actions.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 import 'package:zkteco_flutter_client/l10n/app_ui_locale.dart';
 
@@ -509,17 +510,40 @@ class _FeedbackScreenState extends State<FeedbackScreen>
     }
   }
 
+  List<Widget> _buildTopActions(bool isMobile) {
+    final canCreate = Provider.of<PermissionProvider>(context, listen: false)
+        .canCreate('Feedback');
+
+    return [
+      HrmTopBarAction(
+        icon: _hasActiveFilters ? Icons.filter_list : Icons.filter_list_outlined,
+        label: 'Bộ lọc',
+        onPressed: () => _showFilterSheet(
+            _isFeedbackManager() && _senders.isNotEmpty),
+      ),
+      if (canCreate && !isMobile)
+        HrmTopBarAction(
+          icon: Icons.add,
+          label: 'Gửi ý kiến',
+          primary: true,
+          showLabel: true,
+          onPressed: _showCreateDialog,
+        ),
+    ];
+  }
+
   @override
   Widget build(BuildContext context) {
     final isMobile = Responsive.isMobile(context);
     const primary = HrmPageChrome.primaryNavy;
     final hasActiveFilter = _hasActiveFilters;
-    final showSenderFilter = _isFeedbackManager() && _senders.isNotEmpty;
     final canCreateFeedback = isMobile &&
         Provider.of<PermissionProvider>(context, listen: false)
             .canCreate('Feedback');
 
-    return Scaffold(
+    return RegisterPageTopActions(
+      actions: _buildTopActions(isMobile),
+      child: Scaffold(
       backgroundColor: HrmPageChrome.background,
       floatingActionButton: canCreateFeedback
           ? FloatingActionButton.extended(
@@ -533,30 +557,7 @@ class _FeedbackScreenState extends State<FeedbackScreen>
           : null,
       body: Column(
         children: [
-          // ===== Compact action bar (mobile: hidden, nút lọc gộp vào TabBar) =====
-          if (!isMobile)
-            Container(
-              color: Colors.white,
-              padding: const EdgeInsets.symmetric(
-                  horizontal: 20, vertical: 8),
-              child: Row(
-                children: [
-                  const Expanded(child: SizedBox()),
-                  if (Provider.of<PermissionProvider>(context, listen: false).canCreate('Feedback'))
-                    FilledButton.icon(
-                      onPressed: _showCreateDialog,
-                      icon: const Icon(Icons.add, size: 18),
-                      label: Text(tr('Gửi ý kiến')),
-                      style: FilledButton.styleFrom(
-                        backgroundColor: primary,
-                        foregroundColor: Colors.white,
-                        elevation: 0,
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          // ===== TabBar + filter =====
+          // ===== TabBar + filter chip =====
           Container(
             color: Colors.white,
             padding: EdgeInsets.only(right: isMobile ? 4 : 12),
@@ -586,20 +587,6 @@ class _FeedbackScreenState extends State<FeedbackScreen>
                       padding: EdgeInsets.zero,
                     ),
                   ),
-                IconButton(
-                  tooltip: tr('Bộ lọc'),
-                  onPressed: () => _showFilterSheet(showSenderFilter),
-                  icon: Badge(
-                    isLabelVisible: hasActiveFilter,
-                    smallSize: 8,
-                    child: Icon(
-                      hasActiveFilter
-                          ? Icons.filter_list
-                          : Icons.filter_list_outlined,
-                      color: hasActiveFilter ? primary : const Color(0xFF71717A),
-                    ),
-                  ),
-                ),
               ],
             ),
           ),
@@ -617,6 +604,7 @@ class _FeedbackScreenState extends State<FeedbackScreen>
           ),
         ],
       ),
+    ),
     );
   }
 

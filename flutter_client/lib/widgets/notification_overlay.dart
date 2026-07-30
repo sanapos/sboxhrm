@@ -4,6 +4,7 @@ import '../l10n/app_tr.dart';
 import '../models/hrm.dart';
 import '../utils/notification_sound.dart';
 
+import './pos/pos_theme.dart';
 /// Global key để truy cập NotificationOverlay từ bất kỳ đâu
 class NotificationOverlayManager {
   static final NotificationOverlayManager _instance =
@@ -294,7 +295,7 @@ class _NotificationCardState extends State<_NotificationCard>
         return const Color(0xFFEF4444); // Bright red
       case NotificationType.info:
       default:
-        return const Color(0xFF1E3A5F); // Bright blue
+        return PosTheme.kiotBlue; // Bright blue
     }
   }
 

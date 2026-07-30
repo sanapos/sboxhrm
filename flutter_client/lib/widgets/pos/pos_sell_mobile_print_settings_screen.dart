@@ -825,6 +825,38 @@ class _PosSellMobilePrintSettingsScreenState
                     onChanged: (v) =>
                         setState(() => _thermal = _thermal.copyWith(partialCut: v)),
                   ),
+                  SwitchListTile(
+                    title: Text(tr('Mở két tiền khi in hóa đơn')),
+                    subtitle: Text(
+                      tr('Gửi lệnh ESC p (LAN/BT) hoặc SunmiDrawer. '
+                      'Két phải gắn cổng RJ11 máy in.'),
+                    ),
+                    value: _thermal.openCashDrawer,
+                    activeThumbColor: _blue,
+                    onChanged: (v) => setState(
+                        () => _thermal = _thermal.copyWith(openCashDrawer: v)),
+                  ),
+                  if (_thermal.openCashDrawer)
+                    SwitchListTile(
+                      title: Text(tr('Chỉ mở két với tiền mặt')),
+                      subtitle: Text(
+                        tr('Tắt = mở két mọi hình thức thanh toán khi in HĐ.'),
+                      ),
+                      value: _thermal.openDrawerCashOnly,
+                      activeThumbColor: _blue,
+                      onChanged: (v) => setState(() =>
+                          _thermal = _thermal.copyWith(openDrawerCashOnly: v)),
+                    ),
+                  SwitchListTile(
+                    title: Text(tr('Bip loa máy in khi in')),
+                    subtitle: Text(
+                      tr('Lệnh ESC B — máy phải có loa (nhiều máy nhiệt / Sunmi).'),
+                    ),
+                    value: _thermal.beepOnPrint,
+                    activeThumbColor: _blue,
+                    onChanged: (v) => setState(
+                        () => _thermal = _thermal.copyWith(beepOnPrint: v)),
+                  ),
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
                     child: OutlinedButton.icon(

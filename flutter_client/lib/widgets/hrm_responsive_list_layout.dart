@@ -47,6 +47,9 @@ class HrmResponsiveListLayout extends StatelessWidget {
     ];
   }
 
+  /// Header (tổng quan/bộ lọc) không được chiếm quá phần này — tránh ép danh sách về 0.
+  static const double _maxHeaderFraction = 0.42;
+
   @override
   Widget build(BuildContext context) {
     if (Responsive.useUnifiedPageScroll(context)) {
@@ -69,12 +72,29 @@ class HrmResponsiveListLayout extends StatelessWidget {
       return scroll;
     }
 
-    final column = Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        ...headerSections,
-        Expanded(child: desktopBody),
-      ],
+    final column = LayoutBuilder(
+      builder: (context, constraints) {
+        final maxHeaderH =
+            (constraints.maxHeight * _maxHeaderFraction).clamp(120.0, 420.0);
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (headerSections.isNotEmpty)
+              ConstrainedBox(
+                constraints: BoxConstraints(maxHeight: maxHeaderH),
+                child: SingleChildScrollView(
+                  physics: const ClampingScrollPhysics(),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: headerSections,
+                  ),
+                ),
+              ),
+            Expanded(child: desktopBody),
+          ],
+        );
+      },
     );
     if (padding != null) {
       return Padding(padding: padding!, child: column);
@@ -118,13 +138,31 @@ class HrmMobileNestedTabLayout extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (!Responsive.useUnifiedPageScroll(context)) {
-      final column = Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          ...headerSections,
-          tabBar,
-          Expanded(child: tabBarView),
-        ],
+      final column = LayoutBuilder(
+        builder: (context, constraints) {
+          final maxHeaderH = (constraints.maxHeight *
+                  HrmResponsiveListLayout._maxHeaderFraction)
+              .clamp(120.0, 420.0);
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (headerSections.isNotEmpty)
+                ConstrainedBox(
+                  constraints: BoxConstraints(maxHeight: maxHeaderH),
+                  child: SingleChildScrollView(
+                    physics: const ClampingScrollPhysics(),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: headerSections,
+                    ),
+                  ),
+                ),
+              tabBar,
+              Expanded(child: tabBarView),
+            ],
+          );
+        },
       );
       if (padding != null) {
         return Padding(padding: padding!, child: column);
@@ -285,13 +323,29 @@ class HrmResponsivePageBody extends StatelessWidget {
         ],
       );
     }
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        header,
-        ...belowHeader,
-        Expanded(child: body),
-      ],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final maxHeaderH = (constraints.maxHeight *
+                HrmResponsiveListLayout._maxHeaderFraction)
+            .clamp(120.0, 420.0);
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            ConstrainedBox(
+              constraints: BoxConstraints(maxHeight: maxHeaderH),
+              child: SingleChildScrollView(
+                physics: const ClampingScrollPhysics(),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [header, ...belowHeader],
+                ),
+              ),
+            ),
+            Expanded(child: body),
+          ],
+        );
+      },
     );
   }
 }

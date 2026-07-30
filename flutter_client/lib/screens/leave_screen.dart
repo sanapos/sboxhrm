@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import '../widgets/hrm_page_chrome.dart';
+import '../widgets/hrm_collapsible_overview.dart';
 import '../widgets/safe_layout_widgets.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -19,6 +20,7 @@ import '../widgets/notification_overlay.dart';
 import '../widgets/app_scroll_safe.dart';
 import '../widgets/hrm_mini_stat_chip.dart';
 import '../widgets/leave_request_form.dart';
+import '../widgets/page_top_actions.dart';
 import '../features/leave/leave_catalog.dart';
 import '../utils/navigation_notifier.dart';
 import '../utils/vietnamese_font.dart';
@@ -67,7 +69,7 @@ class _LeaveScreenState extends State<LeaveScreen>
   final List<int> _pageSizeOptions = [25, 50, 100, 200];
 
   // Tổng quan + bộ lọc (ẩn/hiện cùng nhau)
-  bool _showOverviewPanel = false;
+  bool _showOverviewPanel = true;
   double? _myAnnualLeaveBalance;
   String? _effectiveHighlightId;
   bool _navExtrasApplied = false;
@@ -429,13 +431,27 @@ class _LeaveScreenState extends State<LeaveScreen>
       );
     }
 
-    return Theme(
+    return RegisterPageTopActions(
+      actions: [
+        HrmTopBarAction(
+          icon: Icons.menu_book_rounded,
+          label: 'Quy định nghỉ phép',
+          onPressed: _showLeaveLegalGuide,
+        ),
+        HrmTopBarAction(
+          icon: Icons.add_rounded,
+          label: _l10n.createRequest,
+          primary: true,
+          showLabel: true,
+          onPressed: () => _showLeaveFormDialog(),
+        ),
+      ],
+      child: Theme(
       data: vietnameseThemeOverlay(context),
       child: Scaffold(
       backgroundColor: HrmPageChrome.background,
       body: Column(
         children: [
-          _buildHeader(theme),
           if (!isMobile) _buildTabBar(theme),
           Expanded(
             child: isMobile
@@ -444,7 +460,11 @@ class _LeaveScreenState extends State<LeaveScreen>
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        Flexible(
+                        ConstrainedBox(
+                          constraints: BoxConstraints(
+                            maxHeight:
+                                MediaQuery.sizeOf(context).height * 0.38,
+                          ),
                           child: SingleChildScrollView(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -479,36 +499,49 @@ class _LeaveScreenState extends State<LeaveScreen>
                   )
                 : Padding(
                     padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                    child: Column(
-                      children: [
-                        _buildOverviewSection(theme),
-                        const SizedBox(height: 12),
-                        Expanded(
-                          child: TabBarView(
-                            controller: _tabController,
-                            children: [
-                              _buildLeaveTabContent(
-                                _applyFilters(_myLeaves),
-                                isMyLeaves: true,
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        final maxHeaderH =
+                            (constraints.maxHeight * 0.42).clamp(120.0, 420.0);
+                        return Column(
+                          children: [
+                            ConstrainedBox(
+                              constraints:
+                                  BoxConstraints(maxHeight: maxHeaderH),
+                              child: SingleChildScrollView(
+                                child: _buildOverviewSection(theme),
                               ),
-                              if (_isManager) ...[
-                                _buildLeaveTabContent(
-                                  _applyFilters(_pendingLeaves),
-                                  showApprovalActions: true,
-                                ),
-                                _buildLeaveTabContent(
-                                  _applyFilters(_allLeaves),
-                                  isAllTab: true,
-                                ),
-                              ],
-                            ],
-                          ),
-                        ),
-                      ],
+                            ),
+                            const SizedBox(height: 12),
+                            Expanded(
+                              child: TabBarView(
+                                controller: _tabController,
+                                children: [
+                                  _buildLeaveTabContent(
+                                    _applyFilters(_myLeaves),
+                                    isMyLeaves: true,
+                                  ),
+                                  if (_isManager) ...[
+                                    _buildLeaveTabContent(
+                                      _applyFilters(_pendingLeaves),
+                                      showApprovalActions: true,
+                                    ),
+                                    _buildLeaveTabContent(
+                                      _applyFilters(_allLeaves),
+                                      isAllTab: true,
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
+                          ],
+                        );
+                      },
                     ),
                   ),
           ),
         ],
+      ),
       ),
       ),
     );
@@ -520,48 +553,18 @@ class _LeaveScreenState extends State<LeaveScreen>
       ];
 
   Widget _buildOverviewSection(ThemeData theme) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        InkWell(
-          onTap: () =>
-              setState(() => _showOverviewPanel = !_showOverviewPanel),
-          borderRadius: BorderRadius.circular(8),
-          child: Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              color: Colors.blue.shade50,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Row(
-              children: [
-                Icon(Icons.analytics_outlined,
-                    size: 16, color: Colors.blue.shade700),
-                const SizedBox(width: 6),
-                Text(tr('Tổng quan & bộ lọc'),
-                    style: TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 13,
-                        color: Colors.blue.shade700)),
-                const Spacer(),
-                Icon(
-                    _showOverviewPanel
-                        ? Icons.expand_less
-                        : Icons.expand_more,
-                    size: 20,
-                    color: Colors.blue.shade700),
-              ],
-            ),
-          ),
-        ),
-        if (_showOverviewPanel) ...[
-          const SizedBox(height: 8),
+    return HrmCollapsibleOverview(
+      expanded: _showOverviewPanel,
+      onToggle: () =>
+          setState(() => _showOverviewPanel = !_showOverviewPanel),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
           _buildStatsRow(theme),
           const SizedBox(height: 10),
           _buildFilterBar(theme),
         ],
-      ],
+      ),
     );
   }
 
@@ -594,112 +597,6 @@ class _LeaveScreenState extends State<LeaveScreen>
               text: tr(_l10n.all)),
         ],
       ],
-    );
-  }
-
-  // ---------------------------------------------------
-  // HEADER
-  // ---------------------------------------------------
-  Widget _buildHeader(ThemeData theme) {
-    final primary = theme.primaryColor;
-    final isMobile = Responsive.isMobile(context);
-    return Container(
-      padding: EdgeInsets.fromLTRB(isMobile ? 14 : 24, isMobile ? 12 : 18,
-          isMobile ? 14 : 24, isMobile ? 12 : 14),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [primary, primary.withValues(alpha: 0.85)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: primary.withValues(alpha: 0.3),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: EdgeInsets.all(isMobile ? 8 : 10),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(Icons.event_busy_rounded,
-                size: isMobile ? 18 : 22, color: Colors.white),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  tr(_l10n.leaveManagement),
-                  style: TextStyle(
-                      fontSize: isMobile ? 16 : 20,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white),
-                ),
-                if (!isMobile)
-                  Text(
-                    tr(_l10n.leaveSubtitle),
-                    style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.white.withValues(alpha: 0.8)),
-                  ),
-                if (_myAnnualLeaveBalance != null)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 4),
-                    child: Text(tr('Phép năm còn: ${_myAnnualLeaveBalance!.toStringAsFixed(_myAnnualLeaveBalance!.truncateToDouble() == _myAnnualLeaveBalance ? 0 : 1)} ngày'),
-                      style: TextStyle(
-                        fontSize: isMobile ? 11 : 12,
-                        fontWeight: FontWeight.w600,
-                        color: const Color(0xFF6EE7B7),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-          IconButton(
-            onPressed: _showLeaveLegalGuide,
-            icon: const Icon(Icons.menu_book_rounded, color: Colors.white),
-            tooltip: tr('Quy định nghỉ phép'),
-          ),
-          const SizedBox(width: 4),
-          Material(
-            color: Colors.white.withValues(alpha: 0.2),
-            borderRadius: BorderRadius.circular(10),
-            child: InkWell(
-              onTap: () => _showLeaveFormDialog(),
-              borderRadius: BorderRadius.circular(10),
-              child: Container(
-                padding: EdgeInsets.symmetric(
-                    horizontal: isMobile ? 12 : 16,
-                    vertical: isMobile ? 8 : 10),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.add_rounded,
-                        size: isMobile ? 18 : 20, color: Colors.white),
-                    if (!isMobile) ...[
-                      const SizedBox(width: 6),
-                      Text(tr(_l10n.createRequest),
-                          style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w600,
-                              fontSize: 13))
-                    ],
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
     );
   }
 

@@ -11,6 +11,8 @@ import '../services/api_service.dart';
 import '../models/meal.dart';
 import '../utils/responsive_helper.dart';
 import '../widgets/notification_overlay.dart';
+import '../widgets/hrm_page_chrome.dart';
+import '../widgets/page_top_actions.dart';
 import 'package:provider/provider.dart';
 import '../providers/permission_provider.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
@@ -88,7 +90,10 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
     super.initState();
     _tabCtl = TabController(length: 5, vsync: this);
     _tabCtl.addListener(() {
-      if (!_tabCtl.indexIsChanging) _loadCurrentTab();
+      if (!_tabCtl.indexIsChanging) {
+        setState(() {});
+        _loadCurrentTab();
+      }
     });
     _loadSessions().then((_) {
       _loadMasterDishes();
@@ -1731,71 +1736,88 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
 
   // ==================== BUILD ====================
 
+  List<Widget> _buildTopActions() {
+    final canCreate =
+        Provider.of<PermissionProvider>(context, listen: false).canCreate('Meal');
+    final tab = _tabCtl.index;
+
+    return [
+      if (tab == 0 || tab == 1)
+        HrmTopBarAction(
+          icon: Icons.calendar_today,
+          label: 'Chọn ngày',
+          onPressed: _pickDate,
+        ),
+      HrmTopBarAction(
+        icon: Icons.restaurant_menu,
+        label: 'Quản lý buổi ăn',
+        onPressed: _showSessionsDialog,
+      ),
+      if (canCreate)
+        HrmTopBarAction(
+          icon: Icons.menu_book_outlined,
+          label: 'Quản lý danh sách món',
+          onPressed: _showDishManagementDialog,
+        ),
+      if (canCreate)
+        HrmTopBarAction(
+          icon: Icons.add_chart_outlined,
+          label: 'Tạo thực đơn',
+          onPressed: _showCreateMenuDialog,
+        ),
+      if (_weeklyMenus.isNotEmpty) ...[
+        HrmTopBarAction(
+          icon: Icons.image_outlined,
+          label: 'Xuất ảnh PNG',
+          onPressed: _exportMenuAsPng,
+        ),
+        HrmTopBarAction(
+          icon: Icons.file_download_outlined,
+          label: 'Xuất Excel',
+          onPressed: _exportMenuAsExcel,
+        ),
+      ],
+    ];
+  }
+
   @override
   Widget build(BuildContext context) {
     final isMobile = Responsive.isMobile(context);
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(tr('Chấm cơm')),
-        bottom: TabBar(
-          controller: _tabCtl,
-          isScrollable: isMobile,
-          tabs: [
-            Tab(icon: Icon(Icons.restaurant), text: tr('Tổng quan')),
-            Tab(icon: Icon(Icons.list_alt), text: tr('Lịch sử')),
-            Tab(icon: Icon(Icons.people), text: tr('Tổng hợp')),
-            Tab(icon: Icon(Icons.menu_book), text: tr('Thực đơn')),
-            Tab(icon: Icon(Icons.account_balance_wallet), text: tr('Công nợ')),
-          ],
-        ),
-        actions: [
-          if (_tabCtl.index == 0 || _tabCtl.index == 1)
-            IconButton(
-              icon: const Icon(Icons.calendar_today),
-              tooltip: tr('Chọn ngày'),
-              onPressed: _pickDate,
-            ),
-          PopupMenuButton<String>(
-            icon: const Icon(Icons.more_vert),
-            onSelected: (v) {
-              if (v == 'sessions') _showSessionsDialog();
-              if (v == 'dishes') _showDishManagementDialog();
-              if (v == 'createMenu') _showCreateMenuDialog();
-              if (v == 'exportPng') _exportMenuAsPng();
-              if (v == 'exportExcel') _exportMenuAsExcel();
-            },
-            itemBuilder: (_) => [
-              PopupMenuItem(
-                  value: 'sessions', child: Text(tr('Quản lý buổi ăn'))),
-              if (Provider.of<PermissionProvider>(context, listen: false)
-                  .canCreate('Meal'))
-                PopupMenuItem(
-                    value: 'dishes', child: Text(tr('Quản lý danh sách món'))),
-              if (Provider.of<PermissionProvider>(context, listen: false)
-                  .canCreate('Meal'))
-                PopupMenuItem(
-                    value: 'createMenu', child: Text(tr('Tạo thực đơn'))),
-              if (_weeklyMenus.isNotEmpty) ...[
-                const PopupMenuDivider(),
-                PopupMenuItem(
-                    value: 'exportPng', child: Text(tr('Xuất ảnh PNG'))),
-                PopupMenuItem(
-                    value: 'exportExcel', child: Text(tr('Xuất Excel'))),
+    return RegisterPageTopActions(
+      actions: _buildTopActions(),
+      child: Scaffold(
+      backgroundColor: HrmPageChrome.background,
+      body: Column(
+        children: [
+          Material(
+            color: Colors.white,
+            child: TabBar(
+              controller: _tabCtl,
+              isScrollable: isMobile,
+              tabs: [
+                Tab(icon: Icon(Icons.restaurant), text: tr('Tổng quan')),
+                Tab(icon: Icon(Icons.list_alt), text: tr('Lịch sử')),
+                Tab(icon: Icon(Icons.people), text: tr('Tổng hợp')),
+                Tab(icon: Icon(Icons.menu_book), text: tr('Thực đơn')),
+                Tab(icon: Icon(Icons.account_balance_wallet), text: tr('Công nợ')),
               ],
-            ],
+            ),
+          ),
+          Expanded(
+            child: TabBarView(
+              controller: _tabCtl,
+              children: [
+                _buildDashboardTab(),
+                _buildRecordsTab(),
+                _buildSummaryTab(),
+                _buildMenuTab(),
+                _buildDebtTab(),
+              ],
+            ),
           ),
         ],
       ),
-      body: TabBarView(
-        controller: _tabCtl,
-        children: [
-          _buildDashboardTab(),
-          _buildRecordsTab(),
-          _buildSummaryTab(),
-          _buildMenuTab(),
-          _buildDebtTab(),
-        ],
-      ),
+    ),
     );
   }
 

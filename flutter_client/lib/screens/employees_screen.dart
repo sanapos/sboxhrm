@@ -23,8 +23,10 @@ import '../widgets/loading_widget.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/app_button.dart';
 import '../widgets/hrm_page_chrome.dart';
+import '../widgets/hrm_collapsible_overview.dart';
 import '../widgets/safe_layout_widgets.dart';
 import '../widgets/hrm_responsive_list_layout.dart';
+import '../widgets/page_top_actions.dart';
 import 'main_layout.dart';
 import '../l10n/app_localizations.dart';
 import '../utils/image_source_picker.dart';
@@ -66,7 +68,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
   final bool _groupByBranch = true;
 
   // Tổng quan + bộ lọc (ẩn/hiện cùng nhau)
-  bool _showOverviewPanel = false;
+  bool _showOverviewPanel = true;
   List<String> _departments = ['Tất cả'];
   List<String> _positions = [];
   List<Department> _departmentList = [];
@@ -756,7 +758,6 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final primary = Theme.of(context).primaryColor;
     final isMobile = Responsive.isMobile(context);
     final activeCount =
         _employees.where((e) => e.workStatusDisplay == 'Đang làm việc').length;
@@ -768,181 +769,49 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
         .toSet()
         .length;
 
-    return Scaffold(
-      backgroundColor: HrmPageChrome.background,
-      body: Column(
-        children: [
-          // Gradient header
-          Container(
-            padding: EdgeInsets.fromLTRB(isMobile ? 14 : 24, isMobile ? 12 : 18,
-                isMobile ? 14 : 24, isMobile ? 12 : 18),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [primary, primary.withValues(alpha: 0.85)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: primary.withValues(alpha: 0.3),
-                  blurRadius: 12,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: isMobile
-                ? Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.2),
-                            borderRadius: BorderRadius.circular(10)),
-                        child: const Icon(Icons.people_alt,
-                            size: 18, color: Colors.white),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(tr(_l10n.hrManagement),
-                                style: const TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.white)),
-                            Text(tr('${_filteredEmployees.length} nhân viên'),
-                                style: TextStyle(
-                                    fontSize: 11,
-                                    color:
-                                        Colors.white.withValues(alpha: 0.8))),
-                          ],
-                        ),
-                      ),
-                      if (_perm.canCreate(_module))
-                        IconButton(
-                          icon: Container(
-                            padding: const EdgeInsets.all(7),
-                            decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.2),
-                                borderRadius: BorderRadius.circular(8)),
-                            child: const Icon(Icons.person_add,
-                                size: 18, color: Colors.white),
-                          ),
-                          onPressed: () => _showEmployeeForm(null),
-                          tooltip: tr(_l10n.addEmployee),
-                        ),
-                      const SizedBox(width: 2),
-                      PopupMenuButton<String>(
-                        icon: Container(
-                          padding: const EdgeInsets.all(7),
-                          decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.15),
-                              borderRadius: BorderRadius.circular(8)),
-                          child: const Icon(Icons.more_vert,
-                              size: 18, color: Colors.white),
-                        ),
-                        onSelected: (v) {
-                          if (v == 'import') _importEmployeesExcel();
-                          if (v == 'export') _exportEmployeesExcel();
-                          if (v == 'dept') NavigationNotifier.goToDepartments();
-                        },
-                        itemBuilder: (_) => [
-                          if (_perm.canCreate(_module))
-                            PopupMenuItem(
-                                value: 'import',
-                                child: Row(children: [
-                                  const Icon(Icons.upload_file, size: 18),
-                                  const SizedBox(width: 10),
-                                  Text(tr(_l10n.importExcel))
-                                ])),
-                          if (_perm.canExport(_module))
-                            PopupMenuItem(
-                                value: 'export',
-                                child: Row(children: [
-                                  const Icon(Icons.download, size: 18),
-                                  const SizedBox(width: 10),
-                                  Text(tr(_l10n.exportExcel))
-                                ])),
-                          PopupMenuItem(
-                              value: 'dept',
-                              child: Row(children: [
-                                const Icon(Icons.business, size: 18),
-                                const SizedBox(width: 10),
-                                Text(tr(_l10n.department))
-                              ])),
-                        ],
-                      ),
-                    ],
-                  )
-                : Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.2),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Icon(Icons.people_alt,
-                            size: 22, color: Colors.white),
-                      ),
-                      const SizedBox(width: 14),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            tr(_l10n.hrManagement),
-                            style: const TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white),
-                          ),
-                          Text(tr('${_filteredEmployees.length} nhân viên'),
-                            style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.white.withValues(alpha: 0.8)),
-                          ),
-                        ],
-                      ),
-                      const Spacer(),
-                      if (_perm.canCreate(_module))
-                        _buildHeaderActionBtn(Icons.person_add,
-                            _l10n.addEmployee, () => _showEmployeeForm(null)),
-                      if (_perm.canCreate(_module)) const SizedBox(width: 8),
-                      if (_perm.canCreate(_module))
-                        _buildHeaderActionBtn(
-                          Icons.upload_file,
-                          _isImporting ? 'Importing...' : _l10n.importExcel,
-                          _isImporting ? null : _importEmployeesExcel,
-                        ),
-                      if (_perm.canExport(_module)) const SizedBox(width: 8),
-                      if (_perm.canExport(_module))
-                        _buildHeaderActionBtn(
-                          Icons.download,
-                          _isExporting ? 'Exporting...' : _l10n.exportExcel,
-                          _isExporting ? null : _exportEmployeesExcel,
-                        ),
-                      const SizedBox(width: 8),
-                      _buildHeaderActionBtn(Icons.business, _l10n.department,
-                          () => NavigationNotifier.goToDepartments()),
-                    ],
-                  ),
-          ),
+    final topActions = <Widget>[
+      HrmTopBarAction(
+        icon: Icons.business,
+        label: _l10n.department,
+        onPressed: () => NavigationNotifier.goToDepartments(),
+      ),
+      if (_perm.canExport(_module))
+        HrmTopBarAction(
+          icon: Icons.download,
+          label: _isExporting ? 'Exporting...' : _l10n.exportExcel,
+          onPressed: _isExporting ? null : _exportEmployeesExcel,
+        ),
+      if (_perm.canCreate(_module))
+        HrmTopBarAction(
+          icon: Icons.upload_file,
+          label: _isImporting ? 'Importing...' : _l10n.importExcel,
+          onPressed: _isImporting ? null : _importEmployeesExcel,
+        ),
+      if (_perm.canCreate(_module))
+        HrmTopBarAction(
+          icon: Icons.person_add,
+          label: _l10n.addEmployee,
+          primary: true,
+          showLabel: true,
+          onPressed: () => _showEmployeeForm(null),
+        ),
+    ];
 
-          Expanded(
-            child: RefreshIndicator(
-              onRefresh: () => _loadEmployees(showLoading: false),
-              child: HrmResponsiveListLayout(
-                padding: EdgeInsets.fromLTRB(isMobile ? 10 : 16,
-                    isMobile ? 10 : 16, isMobile ? 10 : 16, 8),
-                headerSections: _buildEmployeesPageHeaderSections(
-                    activeCount, probationCount, deptCount),
-                desktopBody: _buildEmployeesDesktopBody(),
-                mobileSlivers: (_) => _buildEmployeesMobileSlivers(),
-              ),
-            ),
+    return RegisterPageTopActions(
+      actions: topActions,
+      child: Scaffold(
+        backgroundColor: HrmPageChrome.background,
+        body: RefreshIndicator(
+          onRefresh: () => _loadEmployees(showLoading: false),
+          child: HrmResponsiveListLayout(
+            padding: EdgeInsets.fromLTRB(isMobile ? 10 : 16, isMobile ? 10 : 16,
+                isMobile ? 10 : 16, 8),
+            headerSections: _buildEmployeesPageHeaderSections(
+                activeCount, probationCount, deptCount),
+            desktopBody: _buildEmployeesDesktopBody(),
+            mobileSlivers: (_) => _buildEmployeesMobileSlivers(),
           ),
-        ],
+        ),
       ),
     );
   }
@@ -1688,47 +1557,18 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
 
   Widget _buildEmployeesOverviewSection(
       int activeCount, int probationCount, int deptCount) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        InkWell(
-          onTap: () =>
-              setState(() => _showOverviewPanel = !_showOverviewPanel),
-          borderRadius: BorderRadius.circular(8),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              color: Colors.blue.shade50,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Row(
-              children: [
-                Icon(Icons.analytics_outlined,
-                    size: 16, color: Colors.blue.shade700),
-                const SizedBox(width: 6),
-                Text(tr('Tổng quan & bộ lọc'),
-                    style: TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 13,
-                        color: Colors.blue.shade700)),
-                const Spacer(),
-                Icon(
-                    _showOverviewPanel
-                        ? Icons.expand_less
-                        : Icons.expand_more,
-                    size: 20,
-                    color: Colors.blue.shade700),
-              ],
-            ),
-          ),
-        ),
-        if (_showOverviewPanel) ...[
-          const SizedBox(height: 8),
+    return HrmCollapsibleOverview(
+      expanded: _showOverviewPanel,
+      onToggle: () =>
+          setState(() => _showOverviewPanel = !_showOverviewPanel),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
           _buildEmployeesStatsRow(activeCount, probationCount, deptCount),
           const SizedBox(height: 10),
           _buildEmployeeFilterBar(),
         ],
-      ],
+      ),
     );
   }
 

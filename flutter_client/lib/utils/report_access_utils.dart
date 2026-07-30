@@ -7,6 +7,7 @@ import 'cash_report_helpers.dart';
 import 'salary_profile_load_utils.dart';
 import '../l10n/app_tr.dart';
 
+import '../widgets/pos/pos_theme.dart';
 /// Admin/manager xem nhiều NV; nhân viên chỉ xem dữ liệu cá nhân.
 bool isTeamReportView({required String? role}) => !isEmployeeUserRole(role);
 
@@ -279,7 +280,7 @@ Color penaltyStatusColor(dynamic raw) {
   if (key == 'cancelled' || key == 'canceled' || key == '2') {
     return Colors.grey;
   }
-  return const Color(0xFF1E3A5F);
+  return PosTheme.kiotBlue;
 }
 
 Map<String, dynamic> normalizePenaltyTicketRow(Map<String, dynamic> t) {

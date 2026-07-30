@@ -218,62 +218,6 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
           : null,
       body: Column(
         children: [
-          // ═══════ GRADIENT HEADER ═══════
-          Container(
-            padding: EdgeInsets.fromLTRB(isMobile ? 14 : 24, isMobile ? 12 : 18,
-                isMobile ? 14 : 24, isMobile ? 12 : 14),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [primary, primary.withValues(alpha: 0.85)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: primary.withValues(alpha: 0.3),
-                  blurRadius: 12,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: Column(
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      padding: EdgeInsets.all(isMobile ? 8 : 10),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.2),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Icon(Icons.precision_manufacturing,
-                          size: isMobile ? 18 : 22, color: Colors.white),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(tr('Sản lượng'),
-                              style: TextStyle(
-                                  fontSize: isMobile ? 16 : 20,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white)),
-                          if (!isMobile)
-                            Text(tr('Quản lý sản lượng nhân viên'),
-                              style: TextStyle(
-                                  fontSize: 13,
-                                  color: Colors.white.withValues(alpha: 0.8)),
-                            ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-
           _buildToolbarRow(),
 
           Expanded(

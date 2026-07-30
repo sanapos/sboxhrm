@@ -187,7 +187,6 @@ class _ShiftRegistrationScreenState extends State<ShiftRegistrationScreen> {
       backgroundColor: const Color(0xFFF0F4F8),
       body: Column(
         children: [
-          _buildHeader(),
           _buildWeekNavigator(),
           if (_branches.isNotEmpty)
             Container(
@@ -254,40 +253,6 @@ class _ShiftRegistrationScreenState extends State<ShiftRegistrationScreen> {
                 : _shifts.isEmpty
                     ? _buildEmptyState()
                     : _buildBothTables(),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildHeader() {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(24, 20, 24, 12),
-      decoration: const BoxDecoration(
-          gradient:
-              LinearGradient(colors: [Color(0xFF0891B2), Color(0xFF2D5F8B)])),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.2),
-                borderRadius: BorderRadius.circular(12)),
-            child: const Icon(Icons.calendar_view_week,
-                color: Colors.white, size: 24),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child:
-                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(tr('Lịch ca làm việc'),
-                  style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold)),
-              Text(tr('Phân ca và phê duyệt theo tuần'),
-                  style: TextStyle(color: Colors.white70, fontSize: 14)),
-            ]),
           ),
         ],
       ),

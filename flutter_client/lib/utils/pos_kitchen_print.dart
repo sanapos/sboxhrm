@@ -959,7 +959,10 @@ Future<bool> _printKitchenCompactSlipDefault({
     final thermal = await PosThermalPrinterSettings.load();
     if (thermal.enabled) {
       final prepared = await PosPrinterTransport.prepareLocalSettings(thermal);
-      final kitchenSettings = prepared.copyWith(feedBeforeCut: 12);
+      final kitchenSettings = prepared.copyWith(
+        feedBeforeCut: 12,
+        openCashDrawer: false,
+      );
       if (kitchenSettings.connectionType == PosThermalConnectionType.sunmi ||
           await PosPrinterTransport.isSunmiDevice()) {
         try {

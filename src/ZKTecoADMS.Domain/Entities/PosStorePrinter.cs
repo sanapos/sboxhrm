@@ -44,6 +44,15 @@ public class PosStorePrinter : AuditableEntity<Guid>
 
     public bool PartialCut { get; set; } = true;
 
+    /// <summary>Gửi lệnh mở két khi in hóa đơn (ESC p / SunmiDrawer).</summary>
+    public bool OpenCashDrawer { get; set; }
+
+    /// <summary>Chỉ mở két khi thanh toán tiền mặt.</summary>
+    public bool OpenDrawerCashOnly { get; set; } = true;
+
+    /// <summary>Gửi lệnh bip loa máy in khi in.</summary>
+    public bool BeepOnPrint { get; set; }
+
     /// <summary>Máy in mặc định cửa hàng khi không có route.</summary>
     public bool IsDefault { get; set; }
 

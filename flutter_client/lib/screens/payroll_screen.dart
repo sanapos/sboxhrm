@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import '../widgets/hrm_page_chrome.dart';
+import '../widgets/hrm_collapsible_overview.dart';
+import '../widgets/page_top_actions.dart';
 import '../models/attendance.dart';
 import '../models/device.dart';
 import '../services/api_service.dart';
 import '../utils/responsive_helper.dart';
-import '../utils/vietnamese_font.dart';
 import '../utils/attendance_bootstrap_loader.dart';
 import 'attendance/payroll_summary_tab.dart';
 import 'main_layout.dart';
@@ -34,6 +35,7 @@ class _PayrollScreenState extends State<PayrollScreen> {
   String? _selectedBranchId;
   List<Map<String, dynamic>> _branches = [];
   List<Map<String, dynamic>> _employeesList = [];
+  bool _showOverviewPanel = true;
 
   @override
   void initState() {
@@ -124,207 +126,93 @@ class _PayrollScreenState extends State<PayrollScreen> {
     }
   }
 
-  List<Widget> _payrollPageChromeSections(bool isMobile) => [
-        Container(
-            padding: EdgeInsets.fromLTRB(isMobile ? 14 : 24, isMobile ? 12 : 18,
-                isMobile ? 14 : 24, isMobile ? 12 : 18),
+  List<Widget> _payrollPageChromeSections(bool isMobile) {
+    if (_branches.isEmpty) return const [];
+    return [
+      Padding(
+        padding: EdgeInsets.fromLTRB(
+          isMobile ? 12 : 24,
+          isMobile ? 8 : 16,
+          isMobile ? 12 : 24,
+          isMobile ? 4 : 8,
+        ),
+        child: HrmCollapsibleOverview(
+          expanded: _showOverviewPanel,
+          onToggle: () =>
+              setState(() => _showOverviewPanel = !_showOverviewPanel),
+          title: 'Bộ lọc',
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  Theme.of(context).primaryColor,
-                  Theme.of(context).primaryColor.withValues(alpha: 0.85),
-                ],
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Theme.of(context).primaryColor.withValues(alpha: 0.3),
-                  blurRadius: 12,
-                  offset: const Offset(0, 4),
-                ),
-              ],
+              color: const Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: const Color(0xFFE4E4E7)),
             ),
             child: Row(
               children: [
-                Container(
-                  padding: EdgeInsets.all(isMobile ? 8 : 10),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(Icons.payments,
-                      color: Colors.white, size: isMobile ? 18 : 24),
-                ),
-                const SizedBox(width: 12),
+                const Icon(Icons.account_tree_outlined,
+                    size: 16, color: Color(0xFF6B7280)),
+                const SizedBox(width: 8),
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(tr('Tổng hợp lương'),
-                          style: vietnameseTextStyle(TextStyle(
-                              color: Colors.white,
-                              fontSize: isMobile ? 16 : 20,
-                              fontWeight: FontWeight.bold))),
-                      if (!isMobile)
-                        Text(tr('Bảng lương chi tiết nhân viên'),
-                            style: vietnameseTextStyle(TextStyle(
-                                color: Colors.white.withValues(alpha: 0.8),
-                                fontSize: 13))),
-                    ],
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<String?>(
+                      value: _selectedBranchId,
+                      isExpanded: true,
+                      isDense: true,
+                      style: const TextStyle(
+                          fontSize: 13, color: Color(0xFF111827)),
+                      icon: const Icon(Icons.keyboard_arrow_down,
+                          size: 18, color: Color(0xFF9CA3AF)),
+                      items: [
+                        DropdownMenuItem<String?>(
+                            value: null,
+                            child: Text(tr('Tất cả chi nhánh'),
+                                style: const TextStyle(fontSize: 13))),
+                        ..._branches.map((b) => DropdownMenuItem<String?>(
+                            value: b['id']?.toString(),
+                            child: Text(tr(b['name']?.toString() ?? ''),
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(fontSize: 13)))),
+                      ],
+                      onChanged: (v) =>
+                          setState(() => _selectedBranchId = v),
+                    ),
                   ),
                 ),
-                _monthYearChip(isMobile),
-                if (isMobile)
-                  PopupMenuButton<String>(
-                    icon: Container(
-                      padding: const EdgeInsets.all(7),
-                      decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(8)),
-                      child: const Icon(Icons.more_vert,
-                          size: 18, color: Colors.white),
+                if (_selectedBranchId != null)
+                  InkWell(
+                    onTap: () => setState(() => _selectedBranchId = null),
+                    borderRadius: BorderRadius.circular(12),
+                    child: const Padding(
+                      padding: EdgeInsets.all(4),
+                      child: Icon(Icons.close,
+                          size: 14, color: Color(0xFF9CA3AF)),
                     ),
-                    onSelected: (v) {
-                      if (v == 'excel') {
-                        _payrollTabKey.currentState?.exportToExcel();
-                      }
-                      if (v == 'png') {
-                        _payrollTabKey.currentState?.exportToPng();
-                      }
-                      if (v == 'cols') {
-                        _payrollTabKey.currentState?.showColumnSelectorDialog();
-                      }
-                    },
-                    itemBuilder: (_) => [
-                      if (Provider.of<PermissionProvider>(context,
-                              listen: false)
-                          .canExport('Payroll'))
-                        PopupMenuItem(
-                            value: 'excel',
-                            child: Row(children: [
-                              const Icon(Icons.table_chart_outlined, size: 18),
-                              const SizedBox(width: 10),
-                              Text(tr('Xuất Excel'), style: vietnameseTextStyle())
-                            ])),
-                      if (Provider.of<PermissionProvider>(context,
-                              listen: false)
-                          .canExport('Payroll'))
-                        PopupMenuItem(
-                            value: 'png',
-                            child: Row(children: [
-                              const Icon(Icons.image_outlined, size: 18),
-                              const SizedBox(width: 10),
-                              Text(tr('Xuất PNG'), style: vietnameseTextStyle())
-                            ])),
-                      PopupMenuItem(
-                          value: 'cols',
-                          child: Row(children: [
-                            const Icon(Icons.view_column_outlined, size: 18),
-                            const SizedBox(width: 10),
-                            Text(tr('Chọn cột'), style: vietnameseTextStyle())
-                          ])),
-                    ],
-                  )
-                else ...[
-                  if (Provider.of<PermissionProvider>(context, listen: false)
-                      .canExport('Payroll')) ...[
-                    _buildHeaderActionBtn(Icons.table_chart_outlined, 'Excel',
-                        () {
-                      _payrollTabKey.currentState?.exportToExcel();
-                    }),
-                    const SizedBox(width: 8),
-                    _buildHeaderActionBtn(Icons.image_outlined, 'PNG', () {
-                      _payrollTabKey.currentState?.exportToPng();
-                    }),
-                    const SizedBox(width: 8),
-                  ],
-                  _buildHeaderActionBtn(Icons.view_column_outlined, 'Cột', () {
-                    _payrollTabKey.currentState?.showColumnSelectorDialog();
-                  }),
-                ],
+                  ),
               ],
             ),
           ),
-          // ═══ Content ═══
-          if (_branches.isNotEmpty)
-            Container(
-              color: Colors.white,
-              padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-              child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF8FAFC),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: const Color(0xFFE4E4E7)),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.account_tree_outlined,
-                        size: 16, color: Color(0xFF6B7280)),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: DropdownButtonHideUnderline(
-                        child: DropdownButton<String?>(
-                          key: const ValueKey('branch_\$_selectedBranchId'),
-                          value: _selectedBranchId,
-                          isExpanded: true,
-                          isDense: true,
-                          style: const TextStyle(
-                              fontSize: 13, color: Color(0xFF111827)),
-                          icon: const Icon(Icons.keyboard_arrow_down,
-                              size: 18, color: Color(0xFF9CA3AF)),
-                          items: [
-                            DropdownMenuItem<String?>(
-                                value: null,
-                                child: Text(tr('T\u1ea5t c\u1ea3 chi nh\u00e1nh'),
-                                    style: TextStyle(fontSize: 13))),
-                            ..._branches.map((b) => DropdownMenuItem<String?>(
-                                value: b['id']?.toString(),
-                                child: Text(tr(b['name']?.toString() ?? ''),
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(fontSize: 13)))),
-                          ],
-                          onChanged: (v) =>
-                              setState(() => _selectedBranchId = v),
-                        ),
-                      ),
-                    ),
-                    if (_selectedBranchId != null)
-                      InkWell(
-                        onTap: () => setState(() => _selectedBranchId = null),
-                        borderRadius: BorderRadius.circular(12),
-                        child: const Padding(
-                          padding: EdgeInsets.all(4),
-                          child: Icon(Icons.close,
-                              size: 14, color: Color(0xFF9CA3AF)),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-            ),
-      ];
-
-  Widget _monthYearChip(bool isMobile) {
-    return PopupMenuButton<String>(
-      tooltip: tr('Chọn tháng'),
-      child: Container(
-        padding: EdgeInsets.symmetric(
-            horizontal: isMobile ? 8 : 10, vertical: isMobile ? 6 : 8),
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.15),
-          borderRadius: BorderRadius.circular(8),
         ),
+      ),
+    ];
+  }
+
+  Widget _monthYearTopAction() {
+    return PopupMenuButton<String>(
+      tooltip: tr('Chọn tháng $_selectedMonth/$_selectedYear'),
+      padding: EdgeInsets.zero,
+      offset: const Offset(0, 40),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.calendar_month, size: 16, color: Colors.white),
+            const Icon(Icons.calendar_month, size: 20),
             const SizedBox(width: 4),
             Text(
-              tr('$_selectedMonth/$_selectedYear'),
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: isMobile ? 12 : 13,
+              '$_selectedMonth/$_selectedYear',
+              style: const TextStyle(
+                fontSize: 13,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -360,52 +248,66 @@ class _PayrollScreenState extends State<PayrollScreen> {
     final fromDate = DateTime(_selectedYear, _selectedMonth, 1);
     final toDate = DateTime(_selectedYear, _selectedMonth + 1, 0);
     final chrome = _payrollPageChromeSections(isMobile);
+    final canExport = Provider.of<PermissionProvider>(context, listen: false)
+        .canExport('Payroll');
 
-    return Scaffold(
-      backgroundColor: HrmPageChrome.background,
-      body: Column(
-        children: [
-          if (!isMobile) ...chrome,
-          Expanded(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : PayrollSummaryTab(
-                    key: _payrollTabKey,
-                    attendances: _filteredAttendances,
-                    devices: _devices,
-                    fromDate: fromDate,
-                    toDate: toDate,
-                    branchId: _selectedBranchId,
-                    mobileLeadingSections: isMobile ? chrome : null,
+    return RegisterPageTopActions(
+      actions: [
+        _monthYearTopAction(),
+        if (canExport)
+          HrmTopBarAction(
+            icon: Icons.table_chart_outlined,
+            label: 'Xuất Excel',
+            onPressed: () => _payrollTabKey.currentState?.exportToExcel(),
+          ),
+        if (canExport)
+          HrmTopBarAction(
+            icon: Icons.image_outlined,
+            label: 'Xuất PNG',
+            onPressed: () => _payrollTabKey.currentState?.exportToPng(),
+          ),
+        HrmTopBarAction(
+          icon: Icons.view_column_outlined,
+          label: 'Chọn cột',
+          onPressed: () =>
+              _payrollTabKey.currentState?.showColumnSelectorDialog(),
+        ),
+      ],
+      child: Scaffold(
+        backgroundColor: HrmPageChrome.background,
+        body: LayoutBuilder(
+          builder: (context, constraints) {
+            final maxHeaderH =
+                (constraints.maxHeight * 0.42).clamp(120.0, 420.0);
+            return Column(
+              children: [
+                if (!isMobile && chrome.isNotEmpty)
+                  ConstrainedBox(
+                    constraints: BoxConstraints(maxHeight: maxHeaderH),
+                    child: SingleChildScrollView(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: chrome,
+                      ),
+                    ),
                   ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildHeaderActionBtn(
-      IconData icon, String label, VoidCallback onTap) {
-    return Material(
-      color: Colors.white.withValues(alpha: 0.15),
-      borderRadius: BorderRadius.circular(10),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(10),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, color: Colors.white, size: 16),
-              const SizedBox(width: 6),
-              Text(tr(label),
-                  style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500)),
-            ],
-          ),
+                Expanded(
+                  child: _isLoading
+                      ? const Center(child: CircularProgressIndicator())
+                      : PayrollSummaryTab(
+                          key: _payrollTabKey,
+                          attendances: _filteredAttendances,
+                          devices: _devices,
+                          fromDate: fromDate,
+                          toDate: toDate,
+                          branchId: _selectedBranchId,
+                          mobileLeadingSections: isMobile ? chrome : null,
+                        ),
+                ),
+              ],
+            );
+          },
         ),
       ),
     );

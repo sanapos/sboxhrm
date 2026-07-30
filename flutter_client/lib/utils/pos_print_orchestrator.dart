@@ -457,7 +457,8 @@ class PosPrintOrchestrator {
           referenceNo: referenceNo,
           referenceId: referenceId,
           showFeedback: false,
-          waitForCompletion: true,
+          // Không chờ Completed cứng: Agent nhận/Printing = đã in được trên máy online.
+          waitForCompletion: false,
         );
       } else {
         final bytes = await buildEscPos(printer);
@@ -813,7 +814,10 @@ class PosPrintOrchestrator {
     final sender = senderName.trim().isEmpty ? 'admin' : senderName.trim();
     final code = (orderNo ?? '').trim().isEmpty ? '-' : orderNo!.trim();
     final when = timeFmt.format(sentAt);
-    final settings = toThermalSettings(printer).copyWith(feedBeforeCut: 12);
+    final settings = toThermalSettings(printer).copyWith(
+      feedBeforeCut: 12,
+      openCashDrawer: false,
+    );
     final layout = PosReceiptLayout.fromMm(settings.paperWidthMm);
     final body = <String>[
       if (isCancel) '*** PHIEU HUY ***' else '*** BAO CHE BIEN ***',
@@ -866,7 +870,10 @@ class PosPrintOrchestrator {
     bool showFeedback = true,
     String? successTitle,
   }) async {
-    final settings = toThermalSettings(printer).copyWith(feedBeforeCut: 12);
+    final settings = toThermalSettings(printer).copyWith(
+      feedBeforeCut: 12,
+      openCashDrawer: false,
+    );
     final qtyFmt = NumberFormat('#,##0.##', 'vi_VN');
     final ok = await PosSunmiNativePrint.printKitchenSlip(
       tableName: tableName,
@@ -1172,10 +1179,9 @@ class PosPrintOrchestrator {
             showFeedback: showFeedback,
           );
         } else if (status == 'Claimed' || status == 'Printing') {
-          // Agent đã nhận job — giấy thường đã/ sắp ra. Coi là thành công để
-          // không đẩy vào hàng "chờ in" rồi auto-retry in trùng phiếu
-          // (báo chế biến bị in lại sau ~45s).
-          if (i >= 6) {
+          // Agent đã nhận job — giấy thường đã/ sắp ra. Coi là thành công sớm
+          // để máy gửi không báo «không in được» dù Agent online đã in.
+          if (i >= 2) {
             _finishJob(
               jobId,
               const _JobOutcome(true, null),

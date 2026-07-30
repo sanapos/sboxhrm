@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import 'notification_overlay.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import './pos/pos_theme.dart';
 class CameraFaceCaptureResult {
   final List<String> base64Images;
   CameraFaceCaptureResult({required this.base64Images});
@@ -211,7 +212,7 @@ class _CameraFaceCaptureState extends State<CameraFaceCapture> {
             width: 120,
             height: 120,
             decoration: const BoxDecoration(
-              color: Color(0xFF1E3A5F),
+              color: PosTheme.kiotBlue,
               shape: BoxShape.circle,
             ),
             child: const Icon(Icons.check, color: Colors.white, size: 60),
@@ -246,7 +247,7 @@ class _CameraFaceCaptureState extends State<CameraFaceCapture> {
       margin: const EdgeInsets.symmetric(horizontal: 6),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFF1E3A5F), width: 2),
+        border: Border.all(color: PosTheme.kiotBlue, width: 2),
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(10),
@@ -297,7 +298,7 @@ class _CameraFaceCaptureState extends State<CameraFaceCapture> {
               height: 10,
               decoration: BoxDecoration(
                 color: isCompleted
-                    ? const Color(0xFF1E3A5F)
+                    ? PosTheme.kiotBlue
                     : isCurrent
                         ? Colors.white
                         : Colors.white.withValues(alpha: 0.3),
@@ -369,7 +370,7 @@ class _CameraFaceCaptureState extends State<CameraFaceCapture> {
             icon: const Icon(Icons.check),
             label: Text(tr('Xác nhận & Đăng ký')),
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF1E3A5F),
+              backgroundColor: PosTheme.kiotBlue,
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(vertical: 16),
               shape: RoundedRectangleBorder(

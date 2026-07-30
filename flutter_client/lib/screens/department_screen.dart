@@ -11,6 +11,7 @@ import '../utils/responsive_helper.dart';
 import '../widgets/app_button.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../widgets/hrm_responsive_list_layout.dart';
+import '../widgets/page_top_actions.dart';
 import '../widgets/notification_overlay.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
@@ -201,19 +202,23 @@ class _DepartmentScreenState extends State<DepartmentScreen>
   Widget build(BuildContext context) {
     final canAddDept = _canCreateDepartment(context);
     final isMobile = Responsive.isMobile(context);
-    return Scaffold(
+    return RegisterPageTopActions(
+      actions: [
+        if (canAddDept)
+          HrmTopBarAction(
+            icon: Icons.add,
+            label: _l10n.addNew,
+            primary: true,
+            showLabel: true,
+            onPressed: () => _showDepartmentDialog(),
+          ),
+      ],
+      child: Scaffold(
       backgroundColor: HrmPageChrome.background,
-      floatingActionButton: canAddDept
-          ? FloatingActionButton.extended(
-              onPressed: () => _showDepartmentDialog(),
-              icon: const Icon(Icons.add),
-              label: Text(tr(_l10n.addNew)),
-            )
-          : null,
       body: Column(
         children: [
           if (!isMobile) ...[
-            _buildHeader(),
+            _buildFilterBar(),
             Container(
               decoration: const BoxDecoration(
                 color: Colors.white,
@@ -234,9 +239,7 @@ class _DepartmentScreenState extends State<DepartmentScreen>
           Expanded(
             child: isMobile
                 ? HrmMobileNestedTabLayout(
-                    fabAware: canAddDept,
-                    extendedFab: true,
-                    headerSections: [_buildHeader()],
+                    headerSections: [_buildFilterBar()],
                     tabBar: TabBar(
                       controller: _tabController,
                       labelColor: Theme.of(context).primaryColor,
@@ -273,10 +276,11 @@ class _DepartmentScreenState extends State<DepartmentScreen>
           ),
         ],
       ),
+    ),
     );
   }
 
-  Widget _buildHeader() {
+  Widget _buildFilterBar() {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: const BoxDecoration(
@@ -285,54 +289,6 @@ class _DepartmentScreenState extends State<DepartmentScreen>
       ),
       child: Column(
         children: [
-          Row(
-            children: [
-              Icon(Icons.business,
-                  color: Theme.of(context).primaryColor, size: 28),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      tr(_l10n.deptManagement),
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
-                    ),
-                    Text(
-                      tr(_l10n.deptSubtitle),
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: Colors.grey[600],
-                          ),
-                    ),
-                  ],
-                ),
-              ),
-              if (_isManager) ...[
-                if (Responsive.isMobile(context))
-                  if (Provider.of<PermissionProvider>(context, listen: false).canCreate('Department'))
-                  IconButton(
-                    icon: const Icon(Icons.add, size: 20),
-                    onPressed: () => _showDepartmentDialog(),
-                    color: Theme.of(context).primaryColor,
-                  )
-                else
-                if (Provider.of<PermissionProvider>(context, listen: false).canCreate('Department'))
-                FilledButton.icon(
-                  onPressed: () => _showDepartmentDialog(),
-                  icon: const Icon(Icons.add),
-                  label: Text(tr(_l10n.addNew)),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Theme.of(context).primaryColor,
-                    foregroundColor: Colors.white,
-                  ),
-                ),
-              ],
-            ],
-          ),
-          ...[ 
-          const SizedBox(height: 12),
           if (Responsive.isMobile(context))
             Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -405,7 +361,6 @@ class _DepartmentScreenState extends State<DepartmentScreen>
               ),
             ],
           ),
-          ],
         ],
       ),
     );

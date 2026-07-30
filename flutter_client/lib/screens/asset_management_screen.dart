@@ -20,6 +20,7 @@ import '../widgets/hrm_mini_stat_chip.dart';
 import 'package:provider/provider.dart';
 import '../providers/permission_provider.dart';
 import '../widgets/hrm_page_chrome.dart';
+import '../widgets/page_top_actions.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 class AssetManagementScreen extends StatefulWidget {
@@ -351,10 +352,69 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
   // ==================== BUILD ====================
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: HrmPageChrome.background,
-      body: _isLoading ? const LoadingWidget() : _buildBody(),
+    return RegisterPageTopActions(
+      actions: _buildTopActions(),
+      child: Scaffold(
+        backgroundColor: HrmPageChrome.background,
+        body: _isLoading ? const LoadingWidget() : _buildBody(),
+      ),
     );
+  }
+
+  List<Widget> _buildTopActions() {
+    final canCreate =
+        Provider.of<PermissionProvider>(context, listen: false).canCreate('Asset');
+
+    return [
+      HrmTopBarAction(
+        icon: Icons.swap_horiz,
+        label: 'Chuyển giao',
+        onPressed: () {
+          setState(() {
+            _showTransfers = !_showTransfers;
+            _showCategories = false;
+            _showInventories = false;
+          });
+          if (_showTransfers && _transfers.isEmpty) _loadTransfers();
+        },
+      ),
+      HrmTopBarAction(
+        icon: Icons.category,
+        label: 'Danh mục',
+        onPressed: () {
+          setState(() {
+            _showCategories = !_showCategories;
+            _showTransfers = false;
+            _showInventories = false;
+          });
+        },
+      ),
+      HrmTopBarAction(
+        icon: Icons.checklist,
+        label: 'Kiểm kê',
+        onPressed: () {
+          setState(() {
+            _showInventories = !_showInventories;
+            _showTransfers = false;
+            _showCategories = false;
+          });
+          if (_showInventories && _inventories.isEmpty) _loadInventories();
+        },
+      ),
+      HrmTopBarAction(
+        icon: Icons.qr_code_scanner,
+        label: 'Quét QR tài sản',
+        onPressed: _showQrScanDialog,
+      ),
+      if (canCreate)
+        HrmTopBarAction(
+          icon: Icons.add,
+          label: 'Thêm tài sản',
+          primary: true,
+          showLabel: true,
+          onPressed: () => _showAssetDialog(),
+        ),
+    ];
   }
 
   void _switchTab(int tab) {
@@ -373,7 +433,6 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
   Widget _buildBody() {
     return Column(
       children: [
-        _buildHeader(),
         _buildTabBar(),
         Expanded(
           child: _currentTab == 0
@@ -1223,141 +1282,6 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
     if (_showCategories) return _buildCategoriesPanel();
     if (_showInventories) return _buildInventoriesPanel();
     return const SizedBox();
-  }
-
-  // ==================== HEADER ====================
-  Widget _buildHeader() {
-    final isMobile = Responsive.isMobile(context);
-    return Container(
-      padding: EdgeInsets.fromLTRB(isMobile ? 12 : 24, isMobile ? 12 : 20, isMobile ? 12 : 24, isMobile ? 8 : 16),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(bottom: BorderSide(color: Color(0xFFE4E4E7))),
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.inventory_2, color: HrmPageChrome.primaryNavy, size: 28),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(tr('Quản lý Tài sản'),
-              style: TextStyle(fontSize: isMobile ? 16 : 22, fontWeight: FontWeight.bold, color: const Color(0xFF18181B)),
-            ),
-          ),
-          if (isMobile) ...[
-            PopupMenuButton<String>(
-              icon: const Icon(Icons.more_vert, color: HrmPageChrome.primaryNavy),
-              tooltip: tr('Thêm'),
-              onSelected: (v) {
-                if (v == 'transfers') {
-                  setState(() { _showTransfers = true; _showCategories = false; _showInventories = false; });
-                  if (_transfers.isEmpty) _loadTransfers();
-                } else if (v == 'categories') {
-                  setState(() { _showCategories = true; _showTransfers = false; _showInventories = false; });
-                } else if (v == 'inventories') {
-                  setState(() { _showInventories = true; _showTransfers = false; _showCategories = false; });
-                  if (_inventories.isEmpty) _loadInventories();
-                }
-              },
-              itemBuilder: (_) => [
-                PopupMenuItem(value: 'transfers', child: Row(children: [Icon(Icons.swap_horiz, size: 18), SizedBox(width: 8), Text(tr('Chuyển giao'))])),
-                PopupMenuItem(value: 'categories', child: Row(children: [Icon(Icons.category, size: 18), SizedBox(width: 8), Text(tr('Danh mục'))])),
-                PopupMenuItem(value: 'inventories', child: Row(children: [Icon(Icons.checklist, size: 18), SizedBox(width: 8), Text(tr('Kiểm kê'))])),
-              ],
-            ),
-            IconButton(
-              onPressed: _showQrScanDialog,
-              icon: const Icon(Icons.qr_code_scanner, color: HrmPageChrome.primaryNavy),
-              tooltip: tr('Quét QR tài sản'),
-            ),
-            if (Provider.of<PermissionProvider>(context, listen: false).canCreate('Asset'))
-            IconButton(
-              onPressed: () => _showAssetDialog(),
-              icon: const Icon(Icons.add, color: HrmPageChrome.primaryNavy, size: 22),
-              tooltip: tr('Thêm tài sản'),
-            ),
-          ] else ...[
-          // Action buttons for less-used features
-          _buildHeaderAction(Icons.swap_horiz, 'Chuyển giao', _showTransfers, () {
-            setState(() {
-              _showTransfers = !_showTransfers;
-              _showCategories = false;
-              _showInventories = false;
-            });
-            if (_showTransfers && _transfers.isEmpty) _loadTransfers();
-          }),
-          const SizedBox(width: 8),
-          _buildHeaderAction(Icons.category, 'Danh mục', _showCategories, () {
-            setState(() {
-              _showCategories = !_showCategories;
-              _showTransfers = false;
-              _showInventories = false;
-            });
-          }),
-          const SizedBox(width: 8),
-          _buildHeaderAction(Icons.checklist, 'Kiểm kê', _showInventories, () {
-            setState(() {
-              _showInventories = !_showInventories;
-              _showTransfers = false;
-              _showCategories = false;
-            });
-            if (_showInventories && _inventories.isEmpty) _loadInventories();
-          }),
-          const SizedBox(width: 16),
-          // QR Scan button
-          FilledButton.icon(
-            onPressed: _showQrScanDialog,
-            icon: const Icon(Icons.qr_code_scanner, size: 18),
-            label: Text(tr('Quét QR')),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF059669),
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-            ),
-          ),
-          const SizedBox(width: 8),
-          if (Provider.of<PermissionProvider>(context, listen: false).canCreate('Asset'))
-          FilledButton.icon(
-            onPressed: () => _showAssetDialog(),
-            icon: const Icon(Icons.add, size: 18),
-            label: Text(tr('Thêm tài sản')),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: HrmPageChrome.primaryNavy,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-            ),
-          ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _buildHeaderAction(IconData icon, String label, bool isActive, VoidCallback onTap) {
-    return Material(
-      color: isActive ? HrmPageChrome.primaryNavy.withValues(alpha: 0.1) : Colors.transparent,
-      borderRadius: BorderRadius.circular(8),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(8),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: 18, color: isActive ? HrmPageChrome.primaryNavy : const Color(0xFF71717A)),
-              const SizedBox(width: 6),
-              Text(tr(label), style: TextStyle(
-                fontSize: 13,
-                fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
-                color: isActive ? HrmPageChrome.primaryNavy : const Color(0xFF71717A),
-              )),
-            ],
-          ),
-        ),
-      ),
-    );
   }
 
   // ==================== STAT CARDS ====================

@@ -8,6 +8,7 @@ import '../utils/number_formatter.dart';
 import '../utils/responsive_helper.dart';
 import '../widgets/notification_overlay.dart';
 import '../widgets/hrm_page_chrome.dart';
+import '../widgets/page_top_actions.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// Màn hình Sơ đồ tổ chức & Luồng duyệt
@@ -132,10 +133,40 @@ class _OrgChartScreenState extends State<OrgChartScreen> with SingleTickerProvid
     }
   }
 
+  List<Widget> _buildTopActions() {
+    return [
+      HrmTopBarAction(
+        icon: Icons.refresh,
+        label: 'Tải lại',
+        onPressed: _loading ? null : () => _loadTabData(_currentTab),
+      ),
+      if (_currentTab == 2 && _perm.canCreate('OrgChart'))
+        HrmTopBarAction(
+          icon: Icons.add,
+          label: 'Gán mới',
+          primary: true,
+          showLabel: true,
+          onPressed: _showCreateAssignmentDialog,
+        ),
+      if (_currentTab == 3 && _perm.canCreate('OrgChart'))
+        HrmTopBarAction(
+          icon: Icons.add,
+          label: 'Thêm luồng',
+          primary: true,
+          showLabel: true,
+          onPressed: _showCreateApprovalFlowDialog,
+        ),
+    ];
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Column(
+    return RegisterPageTopActions(
+      actions: _buildTopActions(),
+      child: Scaffold(
+        backgroundColor: HrmPageChrome.background,
+        body: Column(
       children: [
         // Tab bar
         Container(
@@ -168,6 +199,8 @@ class _OrgChartScreenState extends State<OrgChartScreen> with SingleTickerProvid
                 ),
         ),
       ],
+        ),
+      ),
     );
   }
 
@@ -726,19 +759,8 @@ class _OrgChartScreenState extends State<OrgChartScreen> with SingleTickerProvid
       children: [
         Padding(
           padding: const EdgeInsets.all(12),
-          child: Row(
-            children: [
-              Text(tr('Gán chức vụ (${_assignments.length})'),
-                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-              const Spacer(),
-              if (_perm.canCreate('OrgChart'))
-                FilledButton.icon(
-                  onPressed: _showCreateAssignmentDialog,
-                  icon: const Icon(Icons.add, size: 18),
-                  label: Text(tr('Gán mới')),
-                ),
-            ],
-          ),
+          child: Text(tr('Gán chức vụ (${_assignments.length})'),
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
         ),
         Expanded(
           child: _assignments.isEmpty
@@ -897,19 +919,8 @@ class _OrgChartScreenState extends State<OrgChartScreen> with SingleTickerProvid
       children: [
         Padding(
           padding: const EdgeInsets.all(12),
-          child: Row(
-            children: [
-              Text(tr('Luồng duyệt (${_approvalFlows.length})'),
-                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-              const Spacer(),
-              if (_perm.canCreate('OrgChart'))
-                FilledButton.icon(
-                  onPressed: _showCreateApprovalFlowDialog,
-                  icon: const Icon(Icons.add, size: 18),
-                  label: Text(tr('Thêm luồng')),
-                ),
-            ],
-          ),
+          child: Text(tr('Luồng duyệt (${_approvalFlows.length})'),
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
         ),
         Expanded(
           child: _approvalFlows.isEmpty

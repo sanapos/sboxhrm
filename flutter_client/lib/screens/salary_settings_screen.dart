@@ -11,6 +11,7 @@ import '../widgets/hrm_page_chrome.dart';
 import '../widgets/loading_widget.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/notification_overlay.dart';
+import '../widgets/page_top_actions.dart';
 import 'package:provider/provider.dart';
 import '../providers/permission_provider.dart';
 import 'allowance_settings_screen.dart';
@@ -301,67 +302,45 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
   @override
   Widget build(BuildContext context) {
     final isMobile = Responsive.isMobile(context);
-    return Scaffold(
+    final canCreate = Provider.of<PermissionProvider>(context, listen: false)
+        .canCreate('SalarySettings');
+    return RegisterPageTopActions(
+      actions: [
+        HrmTopBarAction(
+          icon: Icons.card_giftcard,
+          label: 'Phụ cấp',
+          onPressed: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                  builder: (_) => const AllowanceSettingsScreen()),
+            );
+          },
+        ),
+        HrmTopBarAction(
+          icon: Icons.file_download_outlined,
+          label: 'Xuất',
+          onPressed: () {
+            appNotification.showInfo(
+              title: 'Thông báo',
+              message: tr('Chức năng xuất dữ liệu đang được phát triển'),
+            );
+          },
+        ),
+        if (canCreate)
+          HrmTopBarAction(
+            icon: Icons.add,
+            label: 'Thêm mới',
+            primary: true,
+            showLabel: true,
+            onPressed: () => _showAddEmployeeDialog(),
+          ),
+      ],
+      child: Scaffold(
       backgroundColor: HrmPageChrome.background,
-      body: Column(
-        children: [
-          if (!isMobile)
-          Container(
-            padding: const EdgeInsets.fromLTRB(20, 14, 20, 10),
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              border: Border(bottom: BorderSide(color: Color(0xFFE4E4E7))),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.start,
-              children: [
-                  OutlinedButton.icon(
-                    onPressed: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                            builder: (_) => const AllowanceSettingsScreen()),
-                      );
-                    },
-                    icon: const Icon(Icons.card_giftcard, size: 18),
-                    label: Text(tr('Phụ cấp')),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: HrmPageChrome.primaryNavy,
-                      side: const BorderSide(color: HrmPageChrome.primaryNavy),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  OutlinedButton.icon(
-                    onPressed: () {
-                      appNotification.showInfo(
-                        title: 'Thông báo',
-                        message: tr('Chức năng xuất dữ liệu đang được phát triển'),
-                      );
-                    },
-                    icon: const Icon(Icons.file_download_outlined, size: 18),
-                    label: Text(tr('Xuất')),
-                  ),
-                  const SizedBox(width: 8),
-                  if (Provider.of<PermissionProvider>(context, listen: false)
-                      .canCreate('SalarySettings'))
-                    FilledButton.icon(
-                      onPressed: () => _showAddEmployeeDialog(),
-                      icon: const Icon(Icons.add, size: 18),
-                      label: Text(tr('Thêm mới')),
-                      style: FilledButton.styleFrom(
-                        backgroundColor: HrmPageChrome.primaryNavy,
-                      ),
-                    ),
-              ],
-            ),
-          ),
-          // Content
-          Expanded(
-            child: _isLoading
-                ? const LoadingWidget()
-                : _buildSalaryMainContent(isMobile),
-          ),
-        ],
-      ),
+      body: _isLoading
+          ? const LoadingWidget()
+          : _buildSalaryMainContent(isMobile),
+    ),
     );
   }
 

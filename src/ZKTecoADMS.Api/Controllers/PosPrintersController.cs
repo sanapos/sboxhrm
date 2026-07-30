@@ -23,7 +23,8 @@ public partial class PosPrintersController(
         Guid Id, string Name, string ConnectionType, string? PrinterBrand, string PaperSize,
         string? TextMode, string? BluetoothAddress, string? BluetoothName,
         string? LanHost, int LanPort, string? UsbDeviceName,
-        int FeedBeforeCut, bool PartialCut, bool IsDefault, bool RequiresAgent,
+        int FeedBeforeCut, bool PartialCut, bool OpenCashDrawer, bool OpenDrawerCashOnly,
+        bool BeepOnPrint, bool IsDefault, bool RequiresAgent,
         string HealthStatus, DateTime? LastSeenAt, string? LastErrorMessage,
         int SortOrder, bool IsActive, List<string> DocumentTypes, int DefaultCopies);
 
@@ -40,6 +41,9 @@ public partial class PosPrintersController(
         string? UsbDeviceName,
         int FeedBeforeCut,
         bool PartialCut,
+        bool? OpenCashDrawer,
+        bool? OpenDrawerCashOnly,
+        bool? BeepOnPrint,
         bool IsDefault,
         int SortOrder,
         bool IsActive);
@@ -284,7 +288,8 @@ public partial class PosPrintersController(
     static PrinterDto ToDto(PosStorePrinter p, List<string> docTypes, int copies) => new(
         p.Id, p.Name, p.ConnectionType.ToString(), p.PrinterBrand, p.PaperSize,
         p.TextMode, p.BluetoothAddress, p.BluetoothName, p.LanHost, p.LanPort, p.UsbDeviceName,
-        p.FeedBeforeCut, p.PartialCut, p.IsDefault, p.RequiresAgent,
+        p.FeedBeforeCut, p.PartialCut, p.OpenCashDrawer, p.OpenDrawerCashOnly, p.BeepOnPrint,
+        p.IsDefault, p.RequiresAgent,
         p.HealthStatus.ToString(), p.LastSeenAt, p.LastErrorMessage,
         p.SortOrder, p.IsActive, docTypes, copies);
 
@@ -307,6 +312,9 @@ public partial class PosPrintersController(
             UsbDeviceName = dto.UsbDeviceName,
             FeedBeforeCut = dto.FeedBeforeCut,
             PartialCut = dto.PartialCut,
+            OpenCashDrawer = dto.OpenCashDrawer ?? false,
+            OpenDrawerCashOnly = dto.OpenDrawerCashOnly ?? true,
+            BeepOnPrint = dto.BeepOnPrint ?? false,
             IsDefault = dto.IsDefault,
             RequiresAgent = requiresAgent,
             SortOrder = dto.SortOrder,
@@ -331,6 +339,9 @@ public partial class PosPrintersController(
         entity.UsbDeviceName = dto.UsbDeviceName;
         entity.FeedBeforeCut = dto.FeedBeforeCut;
         entity.PartialCut = dto.PartialCut;
+        entity.OpenCashDrawer = dto.OpenCashDrawer ?? false;
+        entity.OpenDrawerCashOnly = dto.OpenDrawerCashOnly ?? true;
+        entity.BeepOnPrint = dto.BeepOnPrint ?? false;
         entity.IsDefault = dto.IsDefault;
         entity.RequiresAgent = true;
         entity.SortOrder = dto.SortOrder;

@@ -56,6 +56,12 @@ public class ZKTecoDbInitializer(
                 await context.Database.ExecuteSqlRawAsync(
                     "ALTER TABLE \"Departments\" ADD COLUMN IF NOT EXISTS \"Positions\" VARCHAR(2000);");
 
+                await context.Database.ExecuteSqlRawAsync(@"
+                    ALTER TABLE ""PosStorePrinters"" ADD COLUMN IF NOT EXISTS ""OpenCashDrawer"" boolean NOT NULL DEFAULT false;
+                    ALTER TABLE ""PosStorePrinters"" ADD COLUMN IF NOT EXISTS ""OpenDrawerCashOnly"" boolean NOT NULL DEFAULT true;
+                    ALTER TABLE ""PosStorePrinters"" ADD COLUMN IF NOT EXISTS ""BeepOnPrint"" boolean NOT NULL DEFAULT false;
+                ");
+
                 // =============== Mobile Attendance Tables ===============
                 await context.Database.ExecuteSqlRawAsync(@"
                     CREATE TABLE IF NOT EXISTS ""MobileAttendanceSettings"" (

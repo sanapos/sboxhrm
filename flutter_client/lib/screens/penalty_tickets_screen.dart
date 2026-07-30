@@ -13,6 +13,7 @@ import 'package:provider/provider.dart';
 import '../providers/permission_provider.dart';
 import '../utils/navigation_notifier.dart';
 import '../widgets/hrm_pushed_screen_shell.dart';
+import '../widgets/page_top_actions.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// Màn hình quản lý phiếu phạt
@@ -1334,6 +1335,29 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
     );
   }
 
+  List<Widget> _buildTopActions(bool isMobile, bool canCreateTicket) {
+    return [
+      HrmTopBarAction(
+        icon: Icons.sync,
+        label: 'Quét lại chấm công',
+        onPressed: _isLoading ? null : _backfillFromAttendance,
+      ),
+      HrmTopBarAction(
+        icon: Icons.date_range,
+        label: 'Chọn khoảng thời gian',
+        onPressed: _pickDateRange,
+      ),
+      if (canCreateTicket && !isMobile)
+        HrmTopBarAction(
+          icon: Icons.add,
+          label: 'Tạo phiếu phạt',
+          primary: true,
+          showLabel: true,
+          onPressed: () => _showTicketDialog(),
+        ),
+    ];
+  }
+
   // ─── Build ───
   @override
   Widget build(BuildContext context) {
@@ -1341,50 +1365,10 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
     final canCreateTicket =
         Provider.of<PermissionProvider>(context, listen: false)
             .canCreate('PenaltyTickets');
-    return Scaffold(
+    return RegisterPageTopActions(
+      actions: _buildTopActions(isMobile, canCreateTicket),
+      child: Scaffold(
       backgroundColor: const Color(0xFFFAFAFA),
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        automaticallyImplyLeading: false,
-        leading: Navigator.canPop(context)
-            ? IconButton(
-                icon: const Icon(Icons.arrow_back, color: Color(0xFF18181B)),
-                onPressed: () => Navigator.pop(context),
-                tooltip: tr('Quay lại'),
-              )
-            : null,
-        title: Text(tr('Phiếu phạt'),
-            style: TextStyle(
-                color: Color(0xFF18181B), fontWeight: FontWeight.bold)),
-        actions: [
-          if (!isMobile &&
-              Provider.of<PermissionProvider>(context, listen: false)
-                  .canCreate('PenaltyTickets'))
-            FilledButton.icon(
-              onPressed: () => _showTicketDialog(),
-              icon: const Icon(Icons.add, size: 18),
-              label: Text(tr('Tạo phiếu phạt')),
-              style: FilledButton.styleFrom(
-                backgroundColor: HrmPageChrome.primaryNavy,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              ),
-            ),
-          if (Provider.of<PermissionProvider>(context, listen: false)
-              .canCreate('PenaltyTickets'))
-            IconButton(
-              icon: const Icon(Icons.sync, color: Color(0xFF18181B)),
-              onPressed: _isLoading ? null : _backfillFromAttendance,
-              tooltip: tr('Quét lại chấm công'),
-            ),
-          IconButton(
-              icon: const Icon(Icons.date_range, color: Color(0xFF18181B)),
-              onPressed: _pickDateRange,
-              tooltip: tr('Chọn khoảng thời gian')),
-          const SizedBox(width: 4),
-        ],
-      ),
       floatingActionButton: isMobile && canCreateTicket
           ? FloatingActionButton(
               onPressed: () => _showTicketDialog(),
@@ -1392,7 +1376,10 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
               child: const Icon(Icons.add, color: Colors.white),
             )
           : null,
-      body: _isLoading
+      body: HrmPushedScreenShell.maybeWrap(
+        context,
+        title: 'Phiếu phạt',
+        child: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : HrmResponsiveListLayout(
               fabAware: isMobile && canCreateTicket,
@@ -1407,6 +1394,8 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
               ),
               mobileSlivers: (_) => _penaltyMobileSlivers(),
             ),
+      ),
+    ),
     );
   }
 

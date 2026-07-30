@@ -609,7 +609,7 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
                 '2) Chỉ 1 máy (Sunmi / điện thoại gần máy in): bật công tắc này + chọn chip máy in — giữ app mở.\n'
                 '3) Điện thoại thu ngân khác: tắt công tắc này. In → lệnh gửi máy chủ → máy ở bước 2 in ra.\n'
                 'Lưu ý: máy thu ngân tắt «máy in cục bộ» nếu muốn chỉ in qua máy chủ.'),
-                style: TextStyle(fontSize: 12, height: 1.35, color: Color(0xFF1E3A5F)),
+                style: TextStyle(fontSize: 12, height: 1.35, color: PosTheme.kiotBlue),
               ),
             ),
             const SizedBox(height: 8),
@@ -1136,6 +1136,9 @@ class _PrinterEditorSheetState extends State<_PrinterEditorSheet> {
   String? _btAddr;
   String? _btName;
   bool _isDefault = false;
+  bool _openCashDrawer = false;
+  bool _openDrawerCashOnly = true;
+  bool _beepOnPrint = false;
   bool _saving = false;
   bool _isSunmi = false;
   List<Map<String, String>> _btDevices = [];
@@ -1166,6 +1169,9 @@ class _PrinterEditorSheetState extends State<_PrinterEditorSheet> {
       _lanPortCtrl.text = '${e.lanPort}';
       _usbNameCtrl.text = e.usbDeviceName ?? '';
       _isDefault = e.isDefault;
+      _openCashDrawer = e.openCashDrawer;
+      _openDrawerCashOnly = e.openDrawerCashOnly;
+      _beepOnPrint = e.beepOnPrint;
     }
     PosThermalPrinterService.isSunmiDevice().then((v) {
       if (mounted) setState(() => _isSunmi = v);
@@ -1273,6 +1279,9 @@ class _PrinterEditorSheetState extends State<_PrinterEditorSheet> {
                 : null,
         'feedBeforeCut': _isLabel ? _gapMm : (_connection == 'Sunmi' ? 14 : 8),
         'partialCut': !_isLabel,
+        'openCashDrawer': !_isLabel && _openCashDrawer,
+        'openDrawerCashOnly': _openDrawerCashOnly,
+        'beepOnPrint': !_isLabel && _beepOnPrint,
         'isDefault': _isDefault,
         'sortOrder': 0,
         'isActive': true,
@@ -1499,6 +1508,29 @@ class _PrinterEditorSheetState extends State<_PrinterEditorSheet> {
                 onChanged: (v) {
                   if (v != null) setState(() => _paper = v);
                 },
+              ),
+            ],
+            if (!_isLabel) ...[
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: Text(tr('Mở két tiền khi in hóa đơn')),
+                subtitle: Text(tr('ESC p / SunmiDrawer — két gắn cổng RJ11 máy in')),
+                value: _openCashDrawer,
+                onChanged: (v) => setState(() => _openCashDrawer = v),
+              ),
+              if (_openCashDrawer)
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(tr('Chỉ mở két với tiền mặt')),
+                  value: _openDrawerCashOnly,
+                  onChanged: (v) => setState(() => _openDrawerCashOnly = v),
+                ),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: Text(tr('Bip loa máy in khi in')),
+                subtitle: Text(tr('Lệnh ESC B')),
+                value: _beepOnPrint,
+                onChanged: (v) => setState(() => _beepOnPrint = v),
               ),
             ],
             SwitchListTile(

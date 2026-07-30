@@ -12,6 +12,7 @@ import 'punch_photo_preview.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 import 'package:zkteco_flutter_client/l10n/app_ui_locale.dart';
 
+import './pos/pos_theme.dart';
 /// Chi tiết bản ghi chấm công mobile — vị trí GPS, ảnh mặt, duyệt (tuỳ chọn).
 Future<void> showMobileAttendanceRecordDetailSheet(
   BuildContext context, {
@@ -296,7 +297,7 @@ class _MobileAttendanceRecordDetailBodyState
         ? (record.punchType == 2
             ? const Color(0xFF0EA5E9)
             : const Color(0xFF14B8A6))
-        : (isCheckIn ? const Color(0xFF1E3A5F) : const Color(0xFFEF4444));
+        : (isCheckIn ? PosTheme.kiotBlue : const Color(0xFFEF4444));
     final timeFmt = DateFormat('HH:mm:ss');
     final dateFmt = DateFormat('dd/MM/yyyy');
     return Container(
@@ -466,8 +467,8 @@ class _MobileAttendanceRecordDetailBodyState
                       icon: const Icon(Icons.map_outlined, size: 18),
                       label: Text(tr('Xem trên bản đồ')),
                       style: OutlinedButton.styleFrom(
-                        foregroundColor: const Color(0xFF1E3A5F),
-                        side: const BorderSide(color: Color(0xFF1E3A5F)),
+                        foregroundColor: PosTheme.kiotBlue,
+                        side: const BorderSide(color: PosTheme.kiotBlue),
                         padding: const EdgeInsets.symmetric(vertical: 12),
                       ),
                     ),
@@ -518,8 +519,8 @@ class _MobileAttendanceRecordDetailBodyState
                               : const Icon(Icons.edit_calendar_outlined, size: 18),
                           label: Text(tr('Sửa giờ')),
                           style: OutlinedButton.styleFrom(
-                            foregroundColor: const Color(0xFF1E3A5F),
-                            side: const BorderSide(color: Color(0xFF1E3A5F)),
+                            foregroundColor: PosTheme.kiotBlue,
+                            side: const BorderSide(color: PosTheme.kiotBlue),
                             padding: const EdgeInsets.symmetric(vertical: 12),
                           ),
                         ),
@@ -577,7 +578,7 @@ class _MobileAttendanceRecordDetailBodyState
                           icon: const Icon(Icons.check, size: 18),
                           label: Text(tr('Duyệt')),
                           style: FilledButton.styleFrom(
-                            backgroundColor: const Color(0xFF1E3A5F),
+                            backgroundColor: PosTheme.kiotBlue,
                             padding: const EdgeInsets.symmetric(vertical: 12),
                           ),
                         ),

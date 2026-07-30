@@ -5,7 +5,7 @@ import '../utils/settings_hub_catalog.dart';
 import '../widgets/hrm_page_chrome.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
-/// Dialog tùy chỉnh thứ tự và hiển thị module sidebar Thiết lập HRM.
+/// Dialog tùy chỉnh thứ tự và hiển thị module trong Thiết lập HRM.
 class SettingsHubSidebarConfigDialog extends StatefulWidget {
   const SettingsHubSidebarConfigDialog({
     super.key,
@@ -97,7 +97,9 @@ class _SettingsHubSidebarConfigDialogState
   @override
   Widget build(BuildContext context) {
     final width = MediaQuery.sizeOf(context).width;
-    final dialogWidth = width < 520 ? width * 0.94 : 520.0;
+    final dialogWidth = width < 720
+        ? (width < 520 ? width * 0.94 : 520.0)
+        : 640.0;
 
     return AlertDialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -106,7 +108,7 @@ class _SettingsHubSidebarConfigDialogState
           Icon(Icons.tune_rounded, color: HrmPageChrome.primaryNavy, size: 22),
           SizedBox(width: 10),
           Expanded(
-            child: Text(tr('Tùy chỉnh menu Thiết lập HRM'),
+            child: Text(tr('Tùy chỉnh module Thiết lập HRM'),
               style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
             ),
           ),
@@ -114,11 +116,11 @@ class _SettingsHubSidebarConfigDialogState
       ),
       content: SizedBox(
         width: dialogWidth,
-        height: 440,
+        height: width < 600 ? 440 : 520,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(tr('Bật/tắt module và kéo thả để sắp xếp thứ tự trên thanh công cụ trái.'),
+            Text(tr('Bật/tắt module và kéo thả để sắp xếp thứ tự hiển thị trên trang Thiết lập HRM.'),
               style: TextStyle(fontSize: 13, color: Color(0xFF64748B), height: 1.45),
             ),
             const SizedBox(height: 14),

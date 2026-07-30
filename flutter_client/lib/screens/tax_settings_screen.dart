@@ -8,6 +8,7 @@ import '../utils/responsive_helper.dart';
 import '../widgets/loading_widget.dart';
 import '../widgets/hrm/hrm_settings_mobile_kit.dart';
 import '../widgets/hrm_page_chrome.dart';
+import '../widgets/pos/pos_theme.dart';
 import '../widgets/notification_overlay.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 class TaxSettingsScreen extends StatefulWidget {
@@ -335,9 +336,7 @@ class _TaxSettingsScreenState extends State<TaxSettingsScreen> {
                   width: isMobile ? 40 : 48,
                   height: isMobile ? 40 : 48,
                   decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [HrmPageChrome.primaryNavy, Color(0xFF2D5F8B)],
-                    ),
+                    color: PosTheme.kiotBlue,
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Center(
@@ -781,13 +780,11 @@ class _TaxSettingsScreenState extends State<TaxSettingsScreen> {
                   width: 120,
                   height: 45,
                   decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [HrmPageChrome.primaryNavy, Color(0xFF60A5FA)],
-                    ),
+                    color: PosTheme.kiotBlueLight,
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: const Center(
-                    child: Icon(Icons.bar_chart, color: Colors.white, size: 24),
+                    child: Icon(Icons.bar_chart, color: PosTheme.kiotBlue, size: 24),
                   ),
                 ),
                 const SizedBox(width: 16),
@@ -1176,13 +1173,11 @@ class _TaxSettingsScreenState extends State<TaxSettingsScreen> {
                   width: 120,
                   height: 45,
                   decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [HrmPageChrome.primaryNavy, Color(0xFF2D5F8B)],
-                    ),
+                    color: PosTheme.kiotBlueLight,
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: const Center(
-                    child: Icon(Icons.table_chart, color: Colors.white, size: 24),
+                    child: Icon(Icons.table_chart, color: PosTheme.kiotBlue, size: 24),
                   ),
                 ),
                 const SizedBox(width: 16),

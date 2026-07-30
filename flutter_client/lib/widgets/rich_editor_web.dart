@@ -13,6 +13,7 @@ import 'auth_cached_image.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import './pos/pos_theme.dart';
 // ══════════════════════════════════════════════════════════
 // Controller
 // ══════════════════════════════════════════════════════════
@@ -460,7 +461,7 @@ class _RichEditorState extends State<RichEditor> {
             child: Icon(icon,
                 size: 18,
                 color: isActive
-                    ? const Color(0xFF1E3A5F)
+                    ? PosTheme.kiotBlue
                     : const Color(0xFF52525B)),
           ),
         ),
@@ -641,7 +642,7 @@ class _RichEditorState extends State<RichEditor> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Row(
           children: [
-            Icon(Icons.link, color: Color(0xFF1E3A5F), size: 22),
+            Icon(Icons.link, color: PosTheme.kiotBlue, size: 22),
             SizedBox(width: 10),
             Text(tr('Chèn liên kết'),
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
@@ -696,7 +697,7 @@ class _RichEditorState extends State<RichEditor> {
             icon: const Icon(Icons.check, size: 18),
             label: Text(tr('Chèn')),
             style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFF1E3A5F)),
+                backgroundColor: PosTheme.kiotBlue),
           ),
         ],
       ),
@@ -722,7 +723,7 @@ class _RichEditorState extends State<RichEditor> {
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: Row(
             children: [
-              Icon(Icons.image, color: Color(0xFF1E3A5F), size: 22),
+              Icon(Icons.image, color: PosTheme.kiotBlue, size: 22),
               SizedBox(width: 10),
               Text(tr('Chèn hình ảnh'),
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
@@ -760,12 +761,12 @@ class _RichEditorState extends State<RichEditor> {
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
                                   Icon(Icons.upload_file, size: 18,
-                                      color: tabIndex == 0 ? const Color(0xFF1E3A5F) : const Color(0xFFA1A1AA)),
+                                      color: tabIndex == 0 ? PosTheme.kiotBlue : const Color(0xFFA1A1AA)),
                                   const SizedBox(width: 6),
                                   Text(tr('Upload ảnh'),
                                       style: TextStyle(
                                         fontWeight: tabIndex == 0 ? FontWeight.w600 : FontWeight.normal,
-                                        color: tabIndex == 0 ? const Color(0xFF1E3A5F) : const Color(0xFFA1A1AA),
+                                        color: tabIndex == 0 ? PosTheme.kiotBlue : const Color(0xFFA1A1AA),
                                       )),
                                 ],
                               ),
@@ -788,12 +789,12 @@ class _RichEditorState extends State<RichEditor> {
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
                                   Icon(Icons.link, size: 18,
-                                      color: tabIndex == 1 ? const Color(0xFF1E3A5F) : const Color(0xFFA1A1AA)),
+                                      color: tabIndex == 1 ? PosTheme.kiotBlue : const Color(0xFFA1A1AA)),
                                   const SizedBox(width: 6),
                                   Text(tr('URL ảnh'),
                                       style: TextStyle(
                                         fontWeight: tabIndex == 1 ? FontWeight.w600 : FontWeight.normal,
-                                        color: tabIndex == 1 ? const Color(0xFF1E3A5F) : const Color(0xFFA1A1AA),
+                                        color: tabIndex == 1 ? PosTheme.kiotBlue : const Color(0xFFA1A1AA),
                                       )),
                                 ],
                               ),
@@ -1035,7 +1036,7 @@ class _RichEditorState extends State<RichEditor> {
               icon: const Icon(Icons.check, size: 18),
               label: Text(tr('Chèn')),
               style: FilledButton.styleFrom(
-                  backgroundColor: const Color(0xFF1E3A5F)),
+                  backgroundColor: PosTheme.kiotBlue),
             ),
           ],
         ),
@@ -1105,7 +1106,7 @@ class _RichEditorState extends State<RichEditor> {
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             title: Row(
               children: [
-                const Icon(Icons.image, color: Color(0xFF1E3A5F), size: 22),
+                const Icon(Icons.image, color: PosTheme.kiotBlue, size: 22),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(tr('Chỉnh sửa hình ảnh'),
@@ -1258,7 +1259,7 @@ class _RichEditorState extends State<RichEditor> {
                 icon: const Icon(Icons.check, size: 18),
                 label: Text(tr('Áp dụng')),
                 style: FilledButton.styleFrom(
-                    backgroundColor: const Color(0xFF1E3A5F)),
+                    backgroundColor: PosTheme.kiotBlue),
               ),
             ],
           );
@@ -1276,18 +1277,18 @@ class _RichEditorState extends State<RichEditor> {
           color: selected ? const Color(0xFFE8F0FE) : Colors.transparent,
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
-              color: selected ? const Color(0xFF1E3A5F) : const Color(0xFFCBD5E1)),
+              color: selected ? PosTheme.kiotBlue : const Color(0xFFCBD5E1)),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(icon, size: 16,
-                color: selected ? const Color(0xFF1E3A5F) : const Color(0xFF71717A)),
+                color: selected ? PosTheme.kiotBlue : const Color(0xFF71717A)),
             const SizedBox(width: 4),
             Text(tr(label),
                 style: TextStyle(
                   fontSize: 12,
-                  color: selected ? const Color(0xFF1E3A5F) : const Color(0xFF71717A),
+                  color: selected ? PosTheme.kiotBlue : const Color(0xFF71717A),
                   fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
                 )),
           ],
@@ -1331,7 +1332,7 @@ class _RichEditorState extends State<RichEditor> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Row(
           children: [
-            const Icon(Icons.table_chart, color: Color(0xFF1E3A5F), size: 22),
+            const Icon(Icons.table_chart, color: PosTheme.kiotBlue, size: 22),
             const SizedBox(width: 10),
             Expanded(
               child: Text(tr('Chỉnh sửa bảng'),
@@ -1782,7 +1783,7 @@ class _RichEditorState extends State<RichEditor> {
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: Row(
             children: [
-              Icon(Icons.table_chart, color: Color(0xFF1E3A5F), size: 22),
+              Icon(Icons.table_chart, color: PosTheme.kiotBlue, size: 22),
               SizedBox(width: 10),
               Text(tr('Chèn bảng'),
                   style:
@@ -1879,7 +1880,7 @@ class _RichEditorState extends State<RichEditor> {
               icon: const Icon(Icons.check, size: 18),
               label: Text(tr('Chèn')),
               style: FilledButton.styleFrom(
-                  backgroundColor: const Color(0xFF1E3A5F)),
+                  backgroundColor: PosTheme.kiotBlue),
             ),
           ],
         ),
@@ -1901,7 +1902,7 @@ class _RichEditorState extends State<RichEditor> {
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: Row(
             children: [
-              Icon(Icons.smart_button, color: Color(0xFF1E3A5F), size: 22),
+              Icon(Icons.smart_button, color: PosTheme.kiotBlue, size: 22),
               SizedBox(width: 10),
               Text(tr('Chèn nút bấm'),
                   style:
@@ -2006,7 +2007,7 @@ class _RichEditorState extends State<RichEditor> {
               icon: const Icon(Icons.check, size: 18),
               label: Text(tr('Chèn')),
               style: FilledButton.styleFrom(
-                  backgroundColor: const Color(0xFF1E3A5F)),
+                  backgroundColor: PosTheme.kiotBlue),
             ),
           ],
         ),

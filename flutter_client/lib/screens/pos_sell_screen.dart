@@ -1064,7 +1064,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
     if (deviceId != null && deviceName != null) {
       for (final t in _tabs) {
         final id = t.draftOrderId;
-        if (id == null || id.isEmpty) continue;
+        if (id == null || id.isEmpty || t.draftReadOnly) continue;
         unawaited(_api.unlockPosSaleDraft(
           id,
           deviceId: deviceId,
@@ -1562,6 +1562,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
   }
 
   /// Về sơ đồ: nhả khóa ngay để máy khác mở/claim được.
+  /// Chỉ xem (draftReadOnly) → không unlock / không «tạm rời» — giữ «Máy khác» của máy đang sửa.
   Future<void> _returnToFloorMap() async {
     _draftAutosaveTimer?.cancel();
     _stopDraftLockHeartbeat();
@@ -1571,9 +1572,11 @@ class _PosSellScreenState extends State<PosSellScreen> {
     final emptyCart = _tab.cart.isEmpty;
     final hasDraft = (_tab.draftOrderId ?? '').isNotEmpty;
     final draftId = _tab.draftOrderId;
+    final wasViewOnly = _tab.draftReadOnly;
 
     // Đánh dấu nhả trước — chặn heartbeat/autosave gắn lại khóa.
-    if (hasDraft && draftId != null && draftId.isNotEmpty) {
+    // Chỉ máy đang giữ khóa mới vào «tạm rời»; máy chỉ xem thoát ra không đụng khóa.
+    if (!wasViewOnly && hasDraft && draftId != null && draftId.isNotEmpty) {
       _floorReleasedOrderIds.add(draftId);
       if (mounted) {
         setState(() {
@@ -1589,7 +1592,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
       await Future<void>.delayed(const Duration(milliseconds: 50));
     }
 
-    if (hasDraft && draftId != null && draftId.isNotEmpty) {
+    if (!wasViewOnly && hasDraft && draftId != null && draftId.isNotEmpty) {
       final unlocked = await _unlockDraftQuietly(draftId);
       if (!unlocked && mounted) {
         NotificationOverlayManager().showWarning(
@@ -1893,15 +1896,8 @@ class _PosSellScreenState extends State<PosSellScreen> {
         });
       }
       if (kitchenOk) {
-        NotificationOverlayManager().showSuccess(
-          title: 'Đã báo bếp',
-          message: [
-            if (cancelLines.isNotEmpty) 'hủy ${cancelLines.length}',
-            'mới ${sendTicketLines.length}',
-            if (already) '(đã đồng bộ server)',
-            _tab.serviceResourceName ?? '',
-          ].where((e) => e.toString().isNotEmpty).join(' · '),
-        );
+        // Silent khi báo bếp + in OK; chỉ cảnh báo khi chưa in được phiếu.
+        debugPrint('POS kitchen send OK: ${_tab.serviceResourceName}');
       } else {
         NotificationOverlayManager().showWarning(
           title: 'Đã báo bếp — chưa in phiếu',
@@ -2152,13 +2148,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
       map['soldBy'] = _kitchenSenderName();
       final order = PosSaleOrder.fromJson(map);
 
-      NotificationOverlayManager().show(
-        title: 'Đang in tạm tính…',
-        message: _tab.serviceResourceName ?? 'Gửi lệnh in',
-        duration: const Duration(seconds: 2),
-      );
-
-      // Về sơ đồ ngay — in chạy nền (nhanh cảm nhận).
+      // Về sơ đồ ngay — in chạy nền (nhanh cảm nhận). Không toast progress/success.
       if (_useFloorAsPrimary && mounted) {
         setState(() {
           _floorMapVisible = true;
@@ -2186,12 +2176,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
           documentTitle: 'HÓA ĐƠN TẠM TÍNH',
         );
         if (!mounted) return;
-        if (ok) {
-          NotificationOverlayManager().showSuccess(
-            title: 'Đã gửi lệnh in tạm tính',
-            message: _tab.serviceResourceName ?? order.orderNo,
-          );
-        } else {
+        if (!ok) {
           NotificationOverlayManager().showError(
             title: 'In tạm tính thất bại',
             message: tr('Kiểm tra máy in — thử in lại từ bàn'),
@@ -3596,14 +3581,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
       if (silent && mounted) {
         await _verifyTableCartHydrated(orderId);
       }
-      if (!silent) {
-        NotificationOverlayManager().showSuccess(
-          title: _tab.draftReadOnly ? 'Đang xem đơn tạm' : 'Đã chuyển tab',
-          message: _tab.draftReadOnly
-              ? '${_tabs[existing].draftOrderNo ?? 'Đơn tạm'} · chỉ xem'
-              : (_tabs[existing].draftOrderNo ?? 'Đơn tạm'),
-        );
-      }
+      // Silent chuyển tab / mở đơn tạm — không toast che sơ đồ/POS.
       return;
     }
     if (_tab.cart.isNotEmpty) {
@@ -5436,14 +5414,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
     if (!silent) {
       _suspendDraftAutosave = false;
     }
-
-    if (silent) return;
-    NotificationOverlayManager().showSuccess(
-      title: _tab.draftReadOnly ? 'Đang xem đơn tạm' : 'Đã tải đơn tạm',
-      message: _tab.draftReadOnly
-          ? '${freshOrder.orderNo} · chỉ xem'
-          : freshOrder.orderNo,
-    );
+    // Không toast tải đơn tạm — tránh che màn bán hàng mỗi lần mở bàn.
   }
 
   Future<void> _onBarcodeScanned(String code, {bool mergeIfSame = true}) async {
@@ -6328,12 +6299,8 @@ class _PosSellScreenState extends State<PosSellScreen> {
       _applyLockMetaFromMap(data);
       _restartDraftLockHeartbeat();
 
-      NotificationOverlayManager().showSuccess(
-        title: 'Đã giữ đơn',
-        message: orderNo.isNotEmpty
-            ? 'Mã $orderNo — máy khác cùng cửa hàng có thể mở lại từ «Chờ TT»'
-            : 'Đơn tạm đã lưu — máy khác cùng cửa hàng có thể mở lại từ «Chờ TT»',
-      );
+      // Silent — giữ đơn thành công không cần toast che POS.
+      debugPrint('POS hold OK: $orderNo');
 
       if (openNewTabAfter) {
         await _newTabAsync(parkCurrentIfNeeded: false);
@@ -6402,10 +6369,8 @@ class _PosSellScreenState extends State<PosSellScreen> {
       final orderId = data?['id']?.toString();
       final orderNo = data?['orderNo']?.toString() ?? '';
 
-      NotificationOverlayManager().showSuccess(
-        title: 'Thanh toán thành công',
-        message: tr('Mã đơn: $orderNo'),
-      );
+      // Happy-path silent — tránh chồng toast che màn bán hàng (in/kho báo riêng khi lỗi).
+      debugPrint('POS checkout OK: $orderNo');
 
       final soldLines = _cartStockLinesFromCart();
       final alreadySentToWarehouse = _warehouseAlreadyPrintedMap();
@@ -6684,10 +6649,9 @@ class _PosSellScreenState extends State<PosSellScreen> {
       _enqueueFailedWarehousePrints(result, order);
     }
     if (result.anySuccess && !result.hasFailures) {
-      NotificationOverlayManager().showSuccess(
-        title: successTitle,
-        message: result.summaryMessage(lineCount: lineCount),
-      );
+      // Success silent — không toast "Đã gửi kho" chồng lên màn bán hàng.
+      debugPrint('Warehouse print OK: $successTitle');
+      return;
     } else if (result.anySuccess && result.hasFailures) {
       NotificationOverlayManager().showWarning(
         title: 'In kho một phần',
@@ -7124,7 +7088,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
         vietQrImageUrl: _buildVietQrImageUrlForOrder(order),
         skipDedup: true,
         preferDevicePrintOnly: true,
-        showFeedback: true,
+        showFeedback: false,
       );
       if (!ok && mounted) {
         _enqueueFailedSalePrint(
@@ -9471,6 +9435,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
     String completeLabel = 'HOÀN TẤT',
     double completeFontSize = 12,
     bool showQuickPrintChips = true,
+    VoidCallback? onPrintChipChanged,
   }) {
     final showProvisional = (_industrySettings?.allowProvisionalBill ?? false) &&
         _tab.cart.isNotEmpty;
@@ -9623,7 +9588,8 @@ class _PosSellScreenState extends State<PosSellScreen> {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            if (showQuickPrintChips) _buildCheckoutQuickPrintChips(),
+            if (showQuickPrintChips)
+              _buildCheckoutQuickPrintChips(onChanged: onPrintChipChanged),
             completeBtn(expanded: true),
           ],
         );
@@ -9631,7 +9597,8 @@ class _PosSellScreenState extends State<PosSellScreen> {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (showQuickPrintChips) _buildCheckoutQuickPrintChips(),
+          if (showQuickPrintChips)
+            _buildCheckoutQuickPrintChips(onChanged: onPrintChipChanged),
           Row(
             children: [
               Expanded(child: parkBtn()),
@@ -9646,7 +9613,8 @@ class _PosSellScreenState extends State<PosSellScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (showQuickPrintChips) _buildCheckoutQuickPrintChips(),
+        if (showQuickPrintChips)
+          _buildCheckoutQuickPrintChips(onChanged: onPrintChipChanged),
         Row(
           children: [
             if (onPark != null) ...[
@@ -9662,8 +9630,8 @@ class _PosSellScreenState extends State<PosSellScreen> {
     );
   }
 
-  /// Chip in nhanh lần TT này — không cần bật «tự động in» trong thiết lập.
-  Widget _buildCheckoutQuickPrintChips() {
+  /// Chip bật/tắt in bill & in tem khi thanh toán (chỉ lần TT này).
+  Widget _buildCheckoutQuickPrintChips({VoidCallback? onChanged}) {
     Widget chip({
       required String label,
       required IconData icon,
@@ -9704,16 +9672,22 @@ class _PosSellScreenState extends State<PosSellScreen> {
         runSpacing: 6,
         children: [
           chip(
-            label: 'In bill nhanh',
+            label: 'In bill',
             icon: Icons.receipt_long_outlined,
             selected: _quickPrintInvoice,
-            onSelected: (v) => setState(() => _quickPrintInvoice = v),
+            onSelected: (v) {
+              setState(() => _quickPrintInvoice = v);
+              onChanged?.call();
+            },
           ),
           chip(
-            label: 'In tem nhanh',
+            label: 'In tem',
             icon: Icons.local_cafe_outlined,
             selected: _quickPrintCup,
-            onSelected: (v) => setState(() => _quickPrintCup = v),
+            onSelected: (v) {
+              setState(() => _quickPrintCup = v);
+              onChanged?.call();
+            },
           ),
         ],
       ),
@@ -11379,6 +11353,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
                             _kitchenSending,
                         completeLabel: 'Hoàn thành',
                         completeFontSize: 17,
+                        onPrintChipChanged: () => setPay(() {}),
                         onComplete: () async {
                           setPay(() => paying = true);
                           try {

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../l10n/app_tr.dart';
 
+import './pos/pos_theme.dart';
 /// Semantic button variants for consistent UI
 enum AppButtonVariant { primary, danger, success, warning, cancel, outlined }
 
@@ -102,7 +103,7 @@ class AppButton extends StatelessWidget {
   }) : variant = AppButtonVariant.outlined;
 
   // -- Color palette --
-  static const _primaryColor = Color(0xFF1E3A5F);
+  static const _primaryColor = PosTheme.kiotBlue;
   static const _dangerColor = Color(0xFFEF4444);
   static const _successColor = Color(0xFF16A34A);
   static const _warningColor = Color(0xFFF59E0B);
@@ -366,7 +367,7 @@ class AppActionIcon extends StatelessWidget {
     this.tooltip = 'Sửa',
     this.size = 20,
   })  : icon = Icons.edit_outlined,
-        color = const Color(0xFF1E3A5F);
+        color = PosTheme.kiotBlue;
 
   const AppActionIcon.delete({
     super.key,
@@ -382,7 +383,7 @@ class AppActionIcon extends StatelessWidget {
     this.tooltip = 'Xem',
     this.size = 20,
   })  : icon = Icons.visibility_outlined,
-        color = const Color(0xFF1E3A5F);
+        color = PosTheme.kiotBlue;
 
   const AppActionIcon.approve({
     super.key,

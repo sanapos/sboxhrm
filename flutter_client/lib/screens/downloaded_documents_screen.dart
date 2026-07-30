@@ -9,6 +9,9 @@ import '../models/downloaded_document.dart';
 import '../services/downloaded_documents_service.dart';
 import '../utils/responsive_helper.dart';
 import '../widgets/hrm_page_chrome.dart';
+import '../widgets/hrm_collapsible_overview.dart';
+import '../widgets/page_top_actions.dart';
+import '../widgets/pos/pos_theme.dart';
 import '../widgets/safe_layout_widgets.dart';
 import '../widgets/notification_overlay.dart';
 import '../widgets/app_scroll_safe.dart';
@@ -31,7 +34,7 @@ class _DownloadedDocumentsScreenState extends State<DownloadedDocumentsScreen> {
   final _searchCtrl = TextEditingController();
 
   bool _loading = true;
-  bool _showOverviewPanel = false;
+  bool _showOverviewPanel = true;
   String _category = DownloadDocCategories.all;
   String _fileType = 'all';
   String _datePreset = 'all';
@@ -201,11 +204,18 @@ class _DownloadedDocumentsScreenState extends State<DownloadedDocumentsScreen> {
     final isMobile = Responsive.isMobile(context);
     final list = _filtered;
 
-    return Scaffold(
+    return RegisterPageTopActions(
+      actions: [
+        HrmTopBarAction(
+          icon: Icons.sync_rounded,
+          label: 'Quét lại thư mục SBOX HRM',
+          onPressed: _reload,
+        ),
+      ],
+      child: Scaffold(
       backgroundColor: HrmPageChrome.background,
       body: Column(
         children: [
-          _buildHeader(isMobile),
           Expanded(
             child: _loading
                 ? const Center(child: CircularProgressIndicator())
@@ -236,50 +246,7 @@ class _DownloadedDocumentsScreenState extends State<DownloadedDocumentsScreen> {
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildHeader(bool isMobile) {
-    return Container(
-      padding: EdgeInsets.fromLTRB(
-          isMobile ? 14 : 24, isMobile ? 12 : 18, isMobile ? 14 : 24, 12),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [_theme, _theme.withValues(alpha: 0.85)],
-        ),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.folder_special_rounded,
-              color: Colors.white, size: isMobile ? 22 : 26),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(tr('Quản lý tài liệu tải xuống'),
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: isMobile ? 17 : 20,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                Text(tr('Chỉ trên thiết bị này · Excel, PNG — mở, chia sẻ, xóa'),
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.85),
-                    fontSize: isMobile ? 11 : 12,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          IconButton(
-            onPressed: _reload,
-            icon: const Icon(Icons.sync_rounded, color: Colors.white),
-            tooltip: tr('Quét lại thư mục SBOX HRM'),
-          ),
-        ],
-      ),
+    ),
     );
   }
 
@@ -290,49 +257,21 @@ class _DownloadedDocumentsScreenState extends State<DownloadedDocumentsScreen> {
     final images =
         _svc.items.where((e) => e.isImage).length;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        InkWell(
-          onTap: () =>
-              setState(() => _showOverviewPanel = !_showOverviewPanel),
-          borderRadius: BorderRadius.circular(8),
-          child: Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              color: Colors.blue.shade50,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Row(
-              children: [
-                Icon(Icons.analytics_outlined,
-                    size: 16, color: Colors.blue.shade700),
-                const SizedBox(width: 6),
-                Text(tr('Tổng quan & bộ lọc'),
-                    style: TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 13,
-                        color: Colors.blue.shade700)),
-                const Spacer(),
-                Text(tr('$visibleCount/$total'),
-                    style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.blue.shade700)),
-                const SizedBox(width: 4),
-                Icon(
-                    _showOverviewPanel
-                        ? Icons.expand_less
-                        : Icons.expand_more,
-                    size: 20,
-                    color: Colors.blue.shade700),
-              ],
-            ),
-          ),
+    return HrmCollapsibleOverview(
+      expanded: _showOverviewPanel,
+      onToggle: () =>
+          setState(() => _showOverviewPanel = !_showOverviewPanel),
+      trailing: Text(
+        tr('$visibleCount/$total'),
+        style: TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+          color: PosTheme.kiotBlue,
         ),
-        if (_showOverviewPanel) ...[
-          const SizedBox(height: 8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
           HrmPageChrome.horizontalStatCards(
             cards: [
               _statCard('Tổng tệp', '$total', Icons.folder_open),
@@ -345,7 +284,7 @@ class _DownloadedDocumentsScreenState extends State<DownloadedDocumentsScreen> {
           const SizedBox(height: 10),
           _buildFilterBar(),
         ],
-      ],
+      ),
     );
   }
 

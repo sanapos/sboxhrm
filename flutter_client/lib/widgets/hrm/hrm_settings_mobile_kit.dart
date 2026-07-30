@@ -1,28 +1,34 @@
 import 'package:flutter/material.dart';
 
-import '../../utils/responsive_helper.dart';
 import '../hrm_page_chrome.dart';
 import '../pos/pos_theme.dart';
 import '../safe_layout_widgets.dart';
 import '../../l10n/app_tr.dart';
 
-/// Giao diện mobile cho màn con Thiết lập HRM (kiểu KiotViet / POS hub).
+/// Giao diện màn con Thiết lập HRM (kiểu KiotViet / trang chủ hub).
 class HrmSettingsMobileKit {
   HrmSettingsMobileKit._();
 
-  static bool active(BuildContext context) =>
-      HrmPageChrome.isEmbedded && Responsive.isMobile(context);
+  /// Active khi mở từ hub — cả mobile lẫn web/desktop (đồng bộ trang chủ).
+  static bool active(BuildContext _) => HrmPageChrome.isEmbedded;
 
   static Color scaffoldBackground(BuildContext context) =>
-      active(context) ? PosTheme.background : HrmPageChrome.background;
+      PosTheme.background;
 
-  static EdgeInsets pagePadding(BuildContext context) =>
-      active(context)
-          ? const EdgeInsets.fromLTRB(12, 8, 12, 20)
-          : const EdgeInsets.all(24);
+  static EdgeInsets pagePadding(BuildContext context) {
+    if (!active(context)) return const EdgeInsets.all(24);
+    final w = MediaQuery.sizeOf(context).width;
+    if (w >= 900) return const EdgeInsets.fromLTRB(20, 12, 20, 24);
+    return const EdgeInsets.fromLTRB(12, 8, 12, 20);
+  }
 
-  static int gridColumns(BuildContext context, {int mobile = 2}) =>
-      active(context) ? mobile : 1;
+  static int gridColumns(BuildContext context, {int mobile = 2}) {
+    if (!active(context)) return 1;
+    final w = MediaQuery.sizeOf(context).width;
+    if (w >= 900) return 3;
+    if (w >= 600) return 2;
+    return mobile;
+  }
 }
 
 /// Nút Thêm gọn trong section — thay IconButton (+) đứng một mình.
@@ -288,7 +294,7 @@ class HrmSettingsEntityTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ic = iconColor ?? HrmPageChrome.primaryNavy;
+    final ic = iconColor ?? PosTheme.kiotBlue;
     return Material(
       color: Colors.white,
       borderRadius: BorderRadius.circular(10),

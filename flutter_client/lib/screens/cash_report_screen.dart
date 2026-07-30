@@ -10,6 +10,8 @@ import '../utils/cash_report_helpers.dart';
 import '../providers/auth_provider.dart';
 import '../utils/api_datetime.dart';
 import '../utils/vietnamese_text_fix.dart';
+import '../widgets/hrm_page_chrome.dart';
+import '../widgets/page_top_actions.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 const _cRowH = 54.0;
@@ -307,23 +309,25 @@ class _CashReportScreenState extends State<CashReportScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF3F4F6),
-      appBar: AppBar(
-        title: Text(tr('Báo cáo thu chi')),
-        backgroundColor: _cTheme,
-        foregroundColor: Colors.white,
-        elevation: 0,
-        actions: [
-          if (Provider.of<PermissionProvider>(context, listen: false)
-              .canExport('CashReport'))
-            IconButton(
-                icon: const Icon(Icons.file_download_outlined),
-                tooltip: tr('Xuất Excel'),
-                onPressed: _exportExcel),
-          IconButton(icon: const Icon(Icons.refresh), onPressed: _load),
-        ],
-      ),
+    final canExport = Provider.of<PermissionProvider>(context, listen: false)
+        .canExport('CashReport');
+
+    return RegisterPageTopActions(
+      actions: [
+        if (canExport)
+          HrmTopBarAction(
+            icon: Icons.file_download_outlined,
+            label: 'Xuất Excel',
+            onPressed: _exportExcel,
+          ),
+        HrmTopBarAction(
+          icon: Icons.refresh,
+          label: 'Tải lại',
+          onPressed: _load,
+        ),
+      ],
+      child: Scaffold(
+      backgroundColor: HrmPageChrome.background,
       body: Column(children: [
         Expanded(
           child: SingleChildScrollView(
@@ -350,6 +354,7 @@ class _CashReportScreenState extends State<CashReportScreen> {
           ),
         ),
       ]),
+      ),
     );
   }
 

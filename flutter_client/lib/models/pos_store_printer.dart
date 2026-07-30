@@ -13,6 +13,9 @@ class PosStorePrinter {
     this.usbDeviceName,
     this.feedBeforeCut = 8,
     this.partialCut = true,
+    this.openCashDrawer = false,
+    this.openDrawerCashOnly = true,
+    this.beepOnPrint = false,
     this.isDefault = false,
     this.requiresAgent = false,
     this.healthStatus = 'Unknown',
@@ -37,6 +40,9 @@ class PosStorePrinter {
   final String? usbDeviceName;
   final int feedBeforeCut;
   final bool partialCut;
+  final bool openCashDrawer;
+  final bool openDrawerCashOnly;
+  final bool beepOnPrint;
   final bool isDefault;
   final bool requiresAgent;
   final String healthStatus;
@@ -71,6 +77,9 @@ class PosStorePrinter {
         usbDeviceName: json['usbDeviceName']?.toString(),
         feedBeforeCut: (json['feedBeforeCut'] as num?)?.toInt() ?? 8,
         partialCut: json['partialCut'] == true,
+        openCashDrawer: json['openCashDrawer'] == true,
+        openDrawerCashOnly: json['openDrawerCashOnly'] != false,
+        beepOnPrint: json['beepOnPrint'] == true,
         isDefault: json['isDefault'] == true,
         requiresAgent: json['requiresAgent'] == true,
         healthStatus: json['healthStatus']?.toString() ?? 'Unknown',
@@ -100,6 +109,9 @@ class PosStorePrinter {
         'usbDeviceName': usbDeviceName,
         'feedBeforeCut': feedBeforeCut,
         'partialCut': partialCut,
+        'openCashDrawer': openCashDrawer,
+        'openDrawerCashOnly': openDrawerCashOnly,
+        'beepOnPrint': beepOnPrint,
         'isDefault': isDefault,
         'sortOrder': sortOrder,
         'isActive': isActive,

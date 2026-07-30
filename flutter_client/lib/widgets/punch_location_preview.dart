@@ -3,6 +3,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import './pos/pos_theme.dart';
 /// Bản đồ xem trước vị trí chấm công (mobile / chấm công thô).
 class PunchLocationPreview extends StatefulWidget {
   const PunchLocationPreview({
@@ -120,11 +121,11 @@ class _PunchLocationPreviewState extends State<PunchLocationPreview> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(Icons.touch_app,
-                            size: 14, color: Color(0xFF1E3A5F)),
+                            size: 14, color: PosTheme.kiotBlue),
                         SizedBox(width: 4),
                         Text(tr('Chạm để phóng to'),
                             style: TextStyle(
-                                fontSize: 11, color: Color(0xFF1E3A5F))),
+                                fontSize: 11, color: PosTheme.kiotBlue)),
                       ],
                     ),
                   ),

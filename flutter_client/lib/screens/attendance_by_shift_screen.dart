@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/permission_provider.dart';
 import '../widgets/hrm_page_chrome.dart';
+import '../widgets/page_top_actions.dart';
 import 'package:intl/intl.dart';
 import '../models/attendance.dart';
 import '../models/device.dart';
@@ -303,96 +304,7 @@ class _AttendanceByShiftScreenState extends State<AttendanceByShiftScreen> {
     }
   }
 
-  List<Widget> _byShiftPageChromeSections(bool isMobile, Color primary) => [
-        Container(
-            padding: EdgeInsets.fromLTRB(
-                isMobile ? 14 : 24, 18, isMobile ? 14 : 24, 18),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [primary, primary.withValues(alpha: 0.85)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: primary.withValues(alpha: 0.3),
-                  blurRadius: 12,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: Row(
-              children: [
-                if (!isMobile)
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: const Icon(Icons.view_timeline,
-                        size: 22, color: Colors.white),
-                  ),
-                if (!isMobile) const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        tr('T\u1ed5ng h\u1ee3p ch\u1ea5m c\u00f4ng theo ca'),
-                        style: vietnameseTextStyle(TextStyle(
-                            fontSize: isMobile ? 16 : 20,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white)),
-                      ),
-                      Text(
-                        tr('T\u1ed5ng h\u1ee3p ch\u1ea5m c\u00f4ng theo ca \u00b7 ${_attendances.length} b\u1ea3n ghi'),
-                        style: vietnameseTextStyle(TextStyle(
-                            fontSize: 12,
-                            color: Colors.white.withValues(alpha: 0.8))),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 8),
-                if (isMobile)
-                  PopupMenuButton<String>(
-                    icon: const Icon(Icons.more_vert, color: Colors.white),
-                    onSelected: (value) {
-                      if (value == 'excel') {
-                        (_tabKey.currentState as dynamic)?.exportToExcel();
-                      } else if (value == 'png') {
-                        (_tabKey.currentState as dynamic)?.exportToPng();
-                      }
-                    },
-                    itemBuilder: (context) => [
-                      PopupMenuItem(
-                          value: 'excel',
-                          child: Row(children: [
-                            const Icon(Icons.table_chart_outlined, size: 18),
-                            const SizedBox(width: 8),
-                            Text(tr('Xu\u1ea5t Excel'), style: vietnameseTextStyle())
-                          ])),
-                      PopupMenuItem(
-                          value: 'png',
-                          child: Row(children: [
-                            const Icon(Icons.image_outlined, size: 18),
-                            const SizedBox(width: 8),
-                            Text(tr('Xu\u1ea5t PNG'), style: vietnameseTextStyle())
-                          ])),
-                    ],
-                  )
-                else ...[
-                  _buildHeaderActionBtn(Icons.table_chart_outlined, 'Excel',
-                      () => (_tabKey.currentState as dynamic)?.exportToExcel()),
-                  const SizedBox(width: 8),
-                  _buildHeaderActionBtn(Icons.image_outlined, 'PNG',
-                      () => (_tabKey.currentState as dynamic)?.exportToPng()),
-                ],
-              ],
-            ),
-          ),
+  List<Widget> _byShiftPageChromeSections() => [
           if (_salaryProfiles.isEmpty &&
               !_isLoading &&
               !isEmployeeUserRole(
@@ -490,9 +402,8 @@ class _AttendanceByShiftScreenState extends State<AttendanceByShiftScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final primary = Theme.of(context).primaryColor;
     final isMobile = Responsive.isMobile(context);
-    final chrome = _byShiftPageChromeSections(isMobile, primary);
+    final chrome = _byShiftPageChromeSections();
     final auth = context.watch<AuthProvider>();
     final perm = context.watch<PermissionProvider>();
     final canShowButtons = canShowCorrectionButtons(
@@ -506,12 +417,27 @@ class _AttendanceByShiftScreenState extends State<AttendanceByShiftScreen> {
       permissions: perm,
     );
 
-    return Scaffold(
-      backgroundColor: HrmPageChrome.background,
-      body: Column(
-        children: [
-          ...chrome,
-          Expanded(
+    final topActions = <Widget>[
+      HrmTopBarAction(
+        icon: Icons.image_outlined,
+        label: 'Xuất PNG',
+        onPressed: () => (_tabKey.currentState as dynamic)?.exportToPng(),
+      ),
+      HrmTopBarAction(
+        icon: Icons.table_chart_outlined,
+        label: 'Xuất Excel',
+        onPressed: () => (_tabKey.currentState as dynamic)?.exportToExcel(),
+      ),
+    ];
+
+    return RegisterPageTopActions(
+      actions: topActions,
+      child: Scaffold(
+        backgroundColor: HrmPageChrome.background,
+        body: Column(
+          children: [
+            ...chrome,
+            Expanded(
             child: Stack(
               fit: StackFit.expand,
               children: [
@@ -573,6 +499,7 @@ class _AttendanceByShiftScreenState extends State<AttendanceByShiftScreen> {
             ),
           ),
         ],
+      ),
       ),
     );
   }

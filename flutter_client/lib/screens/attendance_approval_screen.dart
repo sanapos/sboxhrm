@@ -16,6 +16,7 @@ import '../utils/responsive_helper.dart';
 import '../utils/vietnamese_font.dart';
 import '../utils/api_datetime.dart';
 import '../widgets/hrm_responsive_list_layout.dart';
+import '../widgets/page_top_actions.dart';
 import 'package:provider/provider.dart';
 import '../providers/permission_provider.dart';
 import '../utils/attendance_correction_privilege.dart';
@@ -1238,12 +1239,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
     final isMobile = Responsive.isMobile(context);
     final canPop = Navigator.of(context).canPop();
 
-    final correctionPane = Column(
-      children: [
-        _buildHeader(),
-        Expanded(child: _buildContent()),
-      ],
-    );
+    final correctionPane = _buildContent();
 
     Widget body = correctionPane;
     if (showMobileTab) {
@@ -1314,7 +1310,25 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
       child: body,
     );
 
-    return Scaffold(
+    final canExport = Provider.of<PermissionProvider>(context, listen: false)
+        .canExport('AttendanceApproval');
+
+    return RegisterPageTopActions(
+      actions: [
+        if (canExport)
+          HrmTopBarAction(
+            icon: Icons.table_chart_outlined,
+            label: 'Xuất Excel',
+            onPressed: _exportToExcel,
+          ),
+        if (canExport)
+          HrmTopBarAction(
+            icon: Icons.image_outlined,
+            label: 'Xuất PNG',
+            onPressed: _exportToPng,
+          ),
+      ],
+      child: Scaffold(
       backgroundColor: HrmPageChrome.background,
       body: SafeArea(
         top: !canPop,
@@ -1326,121 +1340,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
           ),
         ),
       ),
-    );
-  }
-
-  Widget _buildHeader() {
-    final isMobile = Responsive.isMobile(context);
-    return Container(
-      padding:
-          EdgeInsets.symmetric(horizontal: isMobile ? 10 : 16, vertical: 10),
-      decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
-        border:
-            Border(bottom: BorderSide(color: Colors.grey[300]!, width: 0.5)),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.fact_check_outlined,
-              size: 20, color: Theme.of(context).primaryColor),
-          const SizedBox(width: 8),
-          const Expanded(child: SizedBox()),
-          const SizedBox(width: 6),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-            decoration: BoxDecoration(
-              color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Text(tr('$_totalCount'),
-                style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    color: Theme.of(context).primaryColor)),
-          ),
-          const SizedBox(width: 8),
-          if (isMobile) ...[
-            PopupMenuButton<String>(
-              icon:
-                  Icon(Icons.more_vert, color: Theme.of(context).primaryColor),
-              onSelected: (value) {
-                if (value == 'excel') _exportToExcel();
-                if (value == 'png') _exportToPng();
-              },
-              itemBuilder: (context) => [
-                if (Provider.of<PermissionProvider>(context, listen: false)
-                    .canExport('AttendanceApproval'))
-                  PopupMenuItem(
-                      value: 'excel',
-                      child: Row(children: [
-                        Icon(Icons.table_chart_outlined,
-                            size: 18, color: Colors.green),
-                        SizedBox(width: 8),
-                        Text(tr('Xuất Excel'))
-                      ])),
-                if (Provider.of<PermissionProvider>(context, listen: false)
-                    .canExport('AttendanceApproval'))
-                  PopupMenuItem(
-                      value: 'png',
-                      child: Row(children: [
-                        Icon(Icons.image_outlined,
-                            size: 18, color: Colors.blue),
-                        SizedBox(width: 8),
-                        Text(tr('Xuất PNG'))
-                      ])),
-              ],
-            ),
-          ] else ...[
-            _buildHeaderButton(Icons.table_chart_outlined, 'Excel',
-                Colors.green, _exportToExcel),
-            const SizedBox(width: 8),
-            _buildHeaderButton(
-                Icons.image_outlined, 'PNG', Colors.blue, _exportToPng),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _buildHeaderButton(
-      IconData icon, String label, Color color, VoidCallback onTap) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: color.withValues(alpha: 0.3)),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 16, color: color),
-            const SizedBox(width: 4),
-            Text(tr(label),
-                style: TextStyle(
-                    fontSize: 12, color: color, fontWeight: FontWeight.w600)),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // ignore: unused_element
-  Widget _buildHeaderAction(
-      IconData icon, String tooltip, Color color, VoidCallback onPressed) {
-    return Padding(
-      padding: const EdgeInsets.only(left: 4),
-      child: IconButton(
-        onPressed: onPressed,
-        icon: Icon(icon, size: 18, color: color),
-        tooltip: tr(tooltip),
-        padding: EdgeInsets.zero,
-        constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-        splashRadius: 18,
-      ),
+    ),
     );
   }
 

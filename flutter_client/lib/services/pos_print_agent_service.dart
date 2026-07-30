@@ -38,6 +38,8 @@ class PosPrintAgentService {
   List<PosStorePrinter> _printers = [];
   final _activeJobIds = <String>{};
   final _notifiedReceiveJobIds = <String>{};
+  /// Job đã complete/fail — timeout không được ghi đè thành Failed sau khi giấy đã in.
+  final _settledJobIds = <String>{};
   Timer? _claimDebounce;
   String? _lastRegisterError;
   bool _warnedNoPrinters = false;
@@ -136,6 +138,7 @@ class PosPrintAgentService {
     _forceStopSub = null;
     _activeJobIds.clear();
     _notifiedReceiveJobIds.clear();
+    _settledJobIds.clear();
     if (storeId != null) {
       await _signalR.leavePrintAgentGroup(storeId);
     }
@@ -295,17 +298,31 @@ class PosPrintAgentService {
 
       await _api.markPosPrintJobPrinting(jobId, _agentId!);
       // Timeout — tránh 1 job treo Sunmi làm Agent ngừng claim.
+      // Không fail nếu job đã settle (giấy thường đã ra trước khi timeout).
       try {
-        await _executeJob(data, jobId).timeout(const Duration(seconds: 45));
+        await _executeJob(data, jobId).timeout(const Duration(seconds: 90));
       } on TimeoutException {
-        debugPrint('Print Agent: job $jobId timeout 45s');
+        debugPrint('Print Agent: job $jobId timeout 90s');
+        if (_settledJobIds.contains(jobId)) return;
+        try {
+          final statusRes = await _api.getPosPrintJob(jobId);
+          final st = (statusRes['data'] is Map)
+              ? (statusRes['data'] as Map)['status']?.toString()
+              : null;
+          if (st == 'Completed' || st == 'Failed' || st == 'Expired') {
+            _markJobSettled(jobId);
+            return;
+          }
+        } catch (_) {}
+        if (_settledJobIds.contains(jobId)) return;
         try {
           await _api.failPosPrintJob(
             jobId,
             _agentId!,
             errorCode: 'PRINT_TIMEOUT',
-            errorMessage: 'In quá 45 giây — kiểm tra giấy / máy Sunmi',
+            errorMessage: 'In quá 90 giây — kiểm tra giấy / máy Sunmi',
           );
+          _markJobSettled(jobId);
         } catch (_) {}
       }
     } catch (e) {
@@ -314,6 +331,13 @@ class PosPrintAgentService {
       _claimInFlight = false;
       // Xả hàng đợi ngay — không chờ timer 3s.
       if (_running && !_claimsPaused) _scheduleClaim();
+    }
+  }
+
+  void _markJobSettled(String jobId) {
+    _settledJobIds.add(jobId);
+    if (_settledJobIds.length > 80) {
+      _settledJobIds.remove(_settledJobIds.first);
     }
   }
 
@@ -358,6 +382,7 @@ class PosPrintAgentService {
         errorCode: 'NO_PRINTER',
         errorMessage: 'Không tìm thấy cấu hình máy in',
       );
+      _markJobSettled(jobId);
       return;
     }
 
@@ -509,6 +534,7 @@ class PosPrintAgentService {
           connectionType: PosThermalConnectionType.sunmi,
           printerBrand: PosThermalPrinterBrand.sunmi,
           feedBeforeCut: 12,
+          openCashDrawer: false,
         );
 
         for (var i = 0; i < copies.clamp(1, 10); i++) {
@@ -631,10 +657,12 @@ class PosPrintAgentService {
         errorCode: 'UNSUPPORTED_FORMAT',
         errorMessage: 'Agent không hỗ trợ $format',
       );
+      _markJobSettled(jobId);
       return;
     }
 
     if (ok) {
+      _markJobSettled(jobId);
       await _api.completePosPrintJob(jobId, _agentId!);
       await _api.reportPosPrinterHealth(printer.id, status: 'Online');
       NotificationOverlayManager().showSuccess(
@@ -644,6 +672,7 @@ class PosPrintAgentService {
             : printer.name,
       );
     } else {
+      _markJobSettled(jobId);
       await _api.failPosPrintJob(
         jobId,
         _agentId!,

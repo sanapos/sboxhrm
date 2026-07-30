@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import '../l10n/app_tr.dart';
 
+import './pos/pos_theme.dart';
 /// Gợi ý thống nhất cho danh sách compact trong Thiết lập HRM.
 const String kHrmTapToViewHint = 'Chạm để xem chi tiết';
 const String kHrmTapToEditHint = 'Chạm để xem / chỉnh sửa';
-const Color kHrmTapHintColor = Color(0xFF1E3A5F);
+const Color kHrmTapHintColor = PosTheme.kiotBlue;
 
 Widget hrmListTapHint([String text = kHrmTapToViewHint]) {
   return Text(

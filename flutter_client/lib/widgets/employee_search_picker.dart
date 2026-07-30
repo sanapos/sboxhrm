@@ -4,6 +4,7 @@ import '../utils/employee_work_status.dart';
 import 'full_screen_dialog.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import './pos/pos_theme.dart';
 /// Một dòng nhân viên trong picker (tên + mã tách dòng, có tìm kiếm).
 class EmployeePickerItem {
   final String id;
@@ -572,7 +573,7 @@ class _EmployeePickerSheetState extends State<_EmployeePickerSheet> {
                                       ? Icons.check_circle
                                       : Icons.circle_outlined,
                                   color: isSel
-                                      ? const Color(0xFF1E3A5F)
+                                      ? PosTheme.kiotBlue
                                       : const Color(0xFFD4D4D8),
                                   size: 22,
                                 ),
@@ -602,7 +603,7 @@ class _EmployeePickerSheetState extends State<_EmployeePickerSheet> {
                           ? null
                           : () => Navigator.pop(context, _selectedId),
                       style: FilledButton.styleFrom(
-                        backgroundColor: const Color(0xFF1E3A5F),
+                        backgroundColor: PosTheme.kiotBlue,
                       ),
                       child: Text(tr('Chọn')),
                     ),

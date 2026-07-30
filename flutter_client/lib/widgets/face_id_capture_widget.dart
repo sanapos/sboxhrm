@@ -3,6 +3,7 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import './pos/pos_theme.dart';
 /// Widget for Face ID capture with animated overlay
 class FaceIdCaptureWidget extends StatefulWidget {
   final VoidCallback? onCapture;
@@ -221,9 +222,9 @@ class _FaceIdCaptureWidgetState extends State<FaceIdCaptureWidget>
                     size: const Size(180, 220),
                     painter: FaceOvalPainter(
                       color: _isVerified
-                          ? const Color(0xFF1E3A5F)
+                          ? PosTheme.kiotBlue
                           : _isCapturing
-                              ? const Color(0xFF1E3A5F)
+                              ? PosTheme.kiotBlue
                               : const Color(0xFF0F2340),
                       strokeWidth: 3,
                     ),
@@ -249,7 +250,7 @@ class _FaceIdCaptureWidgetState extends State<FaceIdCaptureWidget>
                       gradient: LinearGradient(
                         colors: [
                           Colors.transparent,
-                          const Color(0xFF1E3A5F).withValues(alpha: 0.8),
+                          PosTheme.kiotBlue.withValues(alpha: 0.8),
                           Colors.transparent,
                         ],
                       ),
@@ -266,11 +267,11 @@ class _FaceIdCaptureWidgetState extends State<FaceIdCaptureWidget>
               child: Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF1E3A5F),
+                  color: PosTheme.kiotBlue,
                   shape: BoxShape.circle,
                   boxShadow: [
                     BoxShadow(
-                      color: const Color(0xFF1E3A5F).withValues(alpha: 0.4),
+                      color: PosTheme.kiotBlue.withValues(alpha: 0.4),
                       blurRadius: 20,
                       spreadRadius: 5,
                     ),
@@ -366,9 +367,9 @@ class _FaceIdCaptureWidgetState extends State<FaceIdCaptureWidget>
               fontSize: 16,
               fontWeight: FontWeight.w600,
               color: _isVerified
-                  ? const Color(0xFF1E3A5F)
+                  ? PosTheme.kiotBlue
                   : _isCapturing
-                      ? const Color(0xFF1E3A5F)
+                      ? PosTheme.kiotBlue
                       : const Color(0xFF18181B),
             ),
           ),
@@ -377,11 +378,11 @@ class _FaceIdCaptureWidgetState extends State<FaceIdCaptureWidget>
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.check_circle, color: Color(0xFF1E3A5F), size: 18),
+                const Icon(Icons.check_circle, color: PosTheme.kiotBlue, size: 18),
                 const SizedBox(width: 6),
                 Text(tr('Độ khớp: ${_matchScore!.toStringAsFixed(1)}%'),
                   style: const TextStyle(
-                    color: Color(0xFF1E3A5F),
+                    color: PosTheme.kiotBlue,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -400,7 +401,7 @@ class _FaceIdCaptureWidgetState extends State<FaceIdCaptureWidget>
                   margin: const EdgeInsets.symmetric(horizontal: 4),
                   decoration: BoxDecoration(
                     color: index < _livenessStep
-                        ? const Color(0xFF1E3A5F)
+                        ? PosTheme.kiotBlue
                         : const Color(0xFFE4E4E7),
                     shape: BoxShape.circle,
                   ),
@@ -426,7 +427,7 @@ class _FaceIdCaptureWidgetState extends State<FaceIdCaptureWidget>
                   : startCapture,
           style: ElevatedButton.styleFrom(
             backgroundColor: _isVerified
-                ? const Color(0xFF1E3A5F)
+                ? PosTheme.kiotBlue
                 : const Color(0xFF0F2340),
             foregroundColor: Colors.white,
             padding: const EdgeInsets.symmetric(vertical: 16),

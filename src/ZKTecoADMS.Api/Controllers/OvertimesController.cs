@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using ZKTecoADMS.Api.Authorization;
 using ZKTecoADMS.Api.Controllers.Base;
 using ZKTecoADMS.Application.Constants;
+using ZKTecoADMS.Application.Helpers;
 using ZKTecoADMS.Application.Models;
 using ZKTecoADMS.Domain.Entities;
 using ZKTecoADMS.Domain.Enums;
@@ -91,15 +92,7 @@ public class OvertimesController(
                 return BadRequest(AppResponse<OvertimeDto>.Fail("Thời gian kết thúc phải sau thời gian bắt đầu"));
             }
 
-            // Determine multiplier based on type
-            var multiplier = request.Type switch
-            {
-                OvertimeType.Weekday => 1.5m,
-                OvertimeType.Weekend => 2.0m,
-                OvertimeType.Holiday => 3.0m,
-                OvertimeType.Night => 1.3m,
-                _ => 1.5m
-            };
+            var multiplier = await ResolveMultiplierAsync(storeId, request.Type);
 
             var overtime = new Overtime
             {
@@ -230,14 +223,7 @@ public class OvertimesController(
             if (request.Type.HasValue)
             {
                 overtime.Type = request.Type.Value;
-                overtime.Multiplier = request.Type.Value switch
-                {
-                    OvertimeType.Weekday => 1.5m,
-                    OvertimeType.Weekend => 2.0m,
-                    OvertimeType.Holiday => 3.0m,
-                    OvertimeType.Night => 1.3m,
-                    _ => 1.5m
-                };
+                overtime.Multiplier = await ResolveMultiplierAsync(storeId, request.Type.Value);
             }
             if (!string.IsNullOrEmpty(request.Reason)) overtime.Reason = request.Reason;
             if (request.WorkContent != null) overtime.WorkContent = request.WorkContent;
@@ -708,6 +694,43 @@ public class OvertimesController(
         OvertimeType.Night => "Tăng ca ban đêm",
         _ => "Không xác định"
     };
+
+    /// <summary>Hệ số OT từ AppSettings cửa hàng (overtime/weekend/holiday_rate); night mặc định 1.3.</summary>
+    private async Task<decimal> ResolveMultiplierAsync(Guid storeId, OvertimeType type)
+    {
+        if (type == OvertimeType.Night) return 1.3m;
+
+        var keys = new[] { "overtime_rate", "weekend_rate", "holiday_rate" };
+        var settings = await dbContext.Set<AppSettings>()
+            .AsNoTracking()
+            .Where(s => s.StoreId == storeId && keys.Contains(s.Key))
+            .Select(s => new { s.Key, s.Value })
+            .ToListAsync();
+        var map = settings.ToDictionary(s => s.Key, s => s.Value, StringComparer.OrdinalIgnoreCase);
+
+        static decimal? ParseDec(Dictionary<string, string?> m, string key)
+        {
+            if (!m.TryGetValue(key, out var raw) || string.IsNullOrWhiteSpace(raw)) return null;
+            return decimal.TryParse(raw, System.Globalization.NumberStyles.Any,
+                System.Globalization.CultureInfo.InvariantCulture, out var d) && d > 0
+                ? d
+                : null;
+        }
+
+        var rates = OvertimeCalcHelper.OtRates.Resolve(
+            null, null, null,
+            ParseDec(map, "overtime_rate"),
+            ParseDec(map, "weekend_rate"),
+            ParseDec(map, "holiday_rate"));
+
+        return type switch
+        {
+            OvertimeType.Weekday => rates.Weekday,
+            OvertimeType.Weekend => rates.Weekend,
+            OvertimeType.Holiday => rates.Holiday,
+            _ => rates.Weekday
+        };
+    }
 
     private static string GetStatusName(OvertimeStatus status) => status switch
     {

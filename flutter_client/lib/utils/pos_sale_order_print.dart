@@ -22,6 +22,7 @@ import 'pos_sunmi_native_print.dart';
 import 'pos_thermal_printer_settings.dart';
 import 'pos_thermal_printer_service.dart';
 import 'pos_print_template_runtime.dart';
+import 'pos_printer_peripheral.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// Hóa đơn bán chưa in được — treo trên màn thu ngân để in lại.
@@ -318,7 +319,14 @@ Future<bool> printPosSaleOrder({
     // Ưu tiên máy in nhiệt cục bộ (Sunmi/BT/LAN) khi đã bật —
     // tránh gửi cloud "thành công" mà thiết bị POS không in ra giấy.
     if (thermal.enabled) {
-      var settings = await _prepareLocalThermalSettings(thermal, template);
+      final isProvisional = (documentTitle ?? '')
+          .toUpperCase()
+          .contains('TẠM');
+      var settings = await _prepareLocalThermalSettings(
+        thermal,
+        template,
+        order: isProvisional ? null : printOrder,
+      );
       final printed = await _tryLocalSalePrint(
         printOrder: printOrder,
         settings: settings,
@@ -376,6 +384,15 @@ Future<bool> printPosSaleOrder({
         buildEscPos: (printer) async {
           var settings = toThermalSettings(printer);
           settings = _thermalSettingsForTemplate(settings, template);
+          final isProvisional = (documentTitle ?? '')
+              .toUpperCase()
+              .contains('TẠM');
+          final kick = !isProvisional &&
+              PosPrinterPeripheral.shouldOpenDrawerForOrder(
+                settings,
+                printOrder,
+              );
+          settings = settings.copyWith(openCashDrawer: kick);
           return PosThermalPrinterService.buildSaleOrderEscPosBytes(
             printOrder,
             settings: settings,
@@ -472,10 +489,18 @@ Future<bool> printPosSaleOrder({
 
 Future<PosThermalPrinterSettings> _prepareLocalThermalSettings(
   PosThermalPrinterSettings thermal,
-  PosPrintTemplate? template,
-) async {
+  PosPrintTemplate? template, {
+  PosSaleOrder? order,
+}) async {
   var settings = _thermalSettingsForTemplate(thermal, template);
-  return PosPrinterTransport.prepareLocalSettings(settings);
+  settings = await PosPrinterTransport.prepareLocalSettings(settings);
+  if (order != null) {
+    final kick = PosPrinterPeripheral.shouldOpenDrawerForOrder(settings, order);
+    settings = settings.copyWith(openCashDrawer: kick);
+  } else {
+    settings = settings.copyWith(openCashDrawer: false);
+  }
+  return settings;
 }
 
 Future<bool> _tryLocalSalePrint({
@@ -517,6 +542,10 @@ Future<bool> _tryLocalSalePrint({
           copies: copies,
         );
         if (sunmiOk) {
+          await PosPrinterPeripheral.afterSunmiNativePrint(
+            settings,
+            openDrawer: settings.openCashDrawer,
+          );
           if (showFeedback) {
             NotificationOverlayManager().showSuccess(
               title: printOrder.isReprint ? 'In lại hóa đơn' : 'In hóa đơn',
@@ -540,6 +569,10 @@ Future<bool> _tryLocalSalePrint({
         documentTitle: documentTitle,
       );
       if (sunmiOk) {
+        await PosPrinterPeripheral.afterSunmiNativePrint(
+          settings,
+          openDrawer: settings.openCashDrawer,
+        );
         if (showFeedback) {
           NotificationOverlayManager().showSuccess(
             title: printOrder.isReprint ? 'In lại hóa đơn' : 'In hóa đơn',

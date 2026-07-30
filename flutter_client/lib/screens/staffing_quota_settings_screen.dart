@@ -6,6 +6,7 @@ import '../widgets/hrm/hrm_settings_mobile_kit.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../widgets/loading_widget.dart';
 import '../widgets/notification_overlay.dart';
+import '../widgets/pos/pos_theme.dart';
 import '../utils/staffing_quota_utils.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
@@ -377,29 +378,33 @@ class _StaffingQuotaSettingsScreenState
             if (!embeddedMobile)
               Container(
                 padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF7C3AED), Color(0xFF5B21B6)],
-                  ),
-                  borderRadius: BorderRadius.circular(12),
-                ),
+                decoration: PosTheme.mobileCardDecoration(),
                 child: Row(
                   children: [
-                    Icon(Icons.groups, color: Colors.white, size: 28),
-                    SizedBox(width: 12),
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: PosTheme.kiotBlueLight,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(Icons.groups,
+                          color: PosTheme.kiotBlue, size: 24),
+                    ),
+                    const SizedBox(width: 12),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(tr('Định mức nhân sự theo ca'),
-                              style: TextStyle(
-                                  color: Colors.white,
+                              style: const TextStyle(
+                                  color: PosTheme.textPrimary,
                                   fontWeight: FontWeight.bold,
                                   fontSize: 16)),
-                          SizedBox(height: 4),
-                          Text(tr('Min/Max từng thứ T2–CN · theo ca & phòng ban · cảnh báo trên Lịch làm việc'),
-                            style: TextStyle(color: Colors.white70, fontSize: 12),
-                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                              tr('Min/Max từng thứ T2–CN · theo ca & phòng ban · cảnh báo trên Lịch làm việc'),
+                              style: const TextStyle(
+                                  color: PosTheme.textSecondary, fontSize: 12)),
                         ],
                       ),
                     ),

@@ -1336,10 +1336,8 @@ class _PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
               'Các món đã báo bếp rồi — tránh in trùng',
         );
       } else {
-        NotificationOverlayManager().showSuccess(
-          title: 'Đã báo chế biến',
-          message: data['message']?.toString() ?? '$n dòng · ${r.name}',
-        );
+        // Silent — báo chế biến OK không toast che sơ đồ.
+        debugPrint('Floor kitchen send OK: $n · ${r.name}');
       }
       await _reload(silent: true);
     } else {

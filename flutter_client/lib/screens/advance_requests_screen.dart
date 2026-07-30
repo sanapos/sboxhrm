@@ -21,6 +21,7 @@ import '../providers/permission_provider.dart';
 import '../providers/auth_provider.dart';
 import '../utils/navigation_notifier.dart';
 import '../widgets/hrm_pushed_screen_shell.dart';
+import '../widgets/page_top_actions.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 import 'package:zkteco_flutter_client/l10n/app_ui_locale.dart';
 
@@ -1847,133 +1848,55 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
   // ==================== UI BUILD ====================
   @override
   Widget build(BuildContext context) {
-    final primary = Theme.of(context).primaryColor;
     final isMobile = Responsive.isMobile(context);
+    final perm = Provider.of<PermissionProvider>(context, listen: false);
+    final canCreate = perm.canCreate('AdvanceRequests');
+    final canExport = perm.canExport('AdvanceRequests');
 
-    return Scaffold(
-      backgroundColor: HrmPageChrome.background,
-      body: HrmPushedScreenShell.maybeWrap(
-        context,
-        title: _l10n.advanceManagement,
-        child: Column(
-        children: [
-          // ── Gradient Header ──
-          Container(
-            padding: EdgeInsets.fromLTRB(isMobile ? 14 : 24, isMobile ? 12 : 18,
-                isMobile ? 14 : 24, isMobile ? 12 : 14),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [primary, primary.withValues(alpha: 0.85)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              boxShadow: [
-                BoxShadow(
-                    color: primary.withValues(alpha: 0.3),
-                    blurRadius: 12,
-                    offset: const Offset(0, 4)),
-              ],
-            ),
-            child: Row(
-              children: [
-                Container(
-                  padding: EdgeInsets.all(isMobile ? 8 : 10),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(Icons.account_balance_wallet,
-                      size: isMobile ? 18 : 22, color: Colors.white),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(tr(_l10n.salaryAdvance),
-                          style: TextStyle(
-                              fontSize: isMobile ? 16 : 20,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white)),
-                      if (!isMobile)
-                        Text(tr('Quản lý yêu cầu ứng lương nhân viên'),
-                          style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.white.withValues(alpha: 0.8)),
-                        ),
-                    ],
-                  ),
-                ),
-                if (isMobile) ...[
-                  if (Provider.of<PermissionProvider>(context, listen: false)
-                      .canCreate('AdvanceRequests'))
-                    GestureDetector(
-                      onTap: _showCreateDialog,
-                      child: Container(
-                        padding: const EdgeInsets.all(7),
-                        decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.2),
-                            borderRadius: BorderRadius.circular(8)),
-                        child: const Icon(Icons.add_circle_outline,
-                            size: 18, color: Colors.white),
+    final topActions = <Widget>[
+      if (canExport)
+        HrmTopBarAction(
+          icon: Icons.file_download_outlined,
+          label: 'Xuất Excel',
+          onPressed: _exportAdvanceRequestsExcel,
+        ),
+      if (canCreate)
+        HrmTopBarAction(
+          icon: Icons.add_circle_outline,
+          label: 'Tạo yêu cầu mới',
+          primary: true,
+          showLabel: true,
+          onPressed: _showCreateDialog,
+        ),
+    ];
+
+    return RegisterPageTopActions(
+      actions: topActions,
+      child: Scaffold(
+        backgroundColor: HrmPageChrome.background,
+        body: HrmPushedScreenShell.maybeWrap(
+          context,
+          title: _l10n.advanceManagement,
+          child: HrmResponsiveListLayout(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+            headerSections: _advancePageHeaderSections(isMobile),
+            desktopBody: _isLoading
+                ? LoadingWidget(message: tr('Đang tải dữ liệu...'))
+                : _filteredRequests.isEmpty
+                    ? const EmptyState(
+                        icon: Icons.money_off,
+                        title: 'Không có yêu cầu',
+                        description: 'Chưa có yêu cầu ứng lương nào',
+                      )
+                    : Column(
+                        children: [
+                          Expanded(child: _buildDataTable()),
+                          _buildPagination(),
+                        ],
                       ),
-                    ),
-                  if (Provider.of<PermissionProvider>(context, listen: false)
-                      .canExport('AdvanceRequests'))
-                    const SizedBox(width: 4),
-                  if (Provider.of<PermissionProvider>(context, listen: false)
-                      .canExport('AdvanceRequests'))
-                    GestureDetector(
-                      onTap: _exportAdvanceRequestsExcel,
-                      child: Container(
-                        padding: const EdgeInsets.all(7),
-                        decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(8)),
-                        child: const Icon(Icons.file_download_outlined,
-                            size: 18, color: Colors.white),
-                      ),
-                    ),
-                ] else ...[
-                  if (Provider.of<PermissionProvider>(context, listen: false)
-                      .canCreate('AdvanceRequests'))
-                    _buildHeaderBtn(Icons.add_circle_outline, 'Tạo yêu cầu mới',
-                        _showCreateDialog),
-                  if (Provider.of<PermissionProvider>(context, listen: false)
-                      .canExport('AdvanceRequests'))
-                    const SizedBox(width: 8),
-                  if (Provider.of<PermissionProvider>(context, listen: false)
-                      .canExport('AdvanceRequests'))
-                    _buildHeaderBtn(Icons.file_download_outlined, 'Xuất Excel',
-                        _exportAdvanceRequestsExcel),
-                ],
-              ],
-            ),
+            mobileSlivers: (_) => _advanceMobileSlivers(),
           ),
-          // ── Content ──
-          Expanded(
-            child: HrmResponsiveListLayout(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-              headerSections: _advancePageHeaderSections(isMobile),
-              desktopBody: _isLoading
-                  ? LoadingWidget(message: tr('Đang tải dữ liệu...'))
-                  : _filteredRequests.isEmpty
-                      ? const EmptyState(
-                          icon: Icons.money_off,
-                          title: 'Không có yêu cầu',
-                          description: 'Chưa có yêu cầu ứng lương nào',
-                        )
-                      : Column(
-                          children: [
-                            Expanded(child: _buildDataTable()),
-                            _buildPagination(),
-                          ],
-                        ),
-              mobileSlivers: (_) => _advanceMobileSlivers(),
-            ),
-          ),
-        ],
-      ),
+        ),
       ),
     );
   }

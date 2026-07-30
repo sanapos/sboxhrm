@@ -5,6 +5,7 @@ import '../utils/notification_category_utils.dart';
 import '../utils/notification_group_settings.dart';
 import '../widgets/notification_overlay.dart';
 import '../widgets/hrm_page_chrome.dart';
+import '../widgets/pos/pos_theme.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 class NotificationSettingsScreen extends StatefulWidget {
@@ -344,46 +345,39 @@ class _NotificationSettingsScreenState
 
   Widget _buildHeader() {
     return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF0F172A), HrmPageChrome.primaryNavy, HrmPageChrome.primaryNavy],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: const [
-          BoxShadow(
-              color: Color(0x180F172A), blurRadius: 20, offset: Offset(0, 10))
-        ],
-      ),
+      padding: const EdgeInsets.all(16),
+      decoration: PosTheme.mobileCardDecoration(),
       child: Row(
         children: [
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(14),
+              color: PosTheme.kiotBlueLight,
+              borderRadius: BorderRadius.circular(12),
             ),
-            child:
-                const Icon(Icons.notifications_active, color: Colors.white, size: 28),
+            child: const Icon(Icons.notifications_active,
+                color: PosTheme.kiotBlue, size: 26),
           ),
           const SizedBox(width: 16),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(tr('Thiết lập thông báo'),
-                  style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 20,
-                      fontWeight: FontWeight.w700),
+                Text(
+                  tr('Thiết lập thông báo'),
+                  style: const TextStyle(
+                    color: PosTheme.textPrimary,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
                 const SizedBox(height: 4),
-                Text(tr('Chọn nhóm thông báo bạn muốn nhận. Tắt nhóm nào sẽ không nhận thông báo loại đó.'),
-                  style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.7),
-                      fontSize: 13),
+                Text(
+                  tr('Chọn nhóm thông báo bạn muốn nhận. Tắt nhóm nào sẽ không nhận thông báo loại đó.'),
+                  style: const TextStyle(
+                    color: PosTheme.textSecondary,
+                    fontSize: 13,
+                  ),
                 ),
               ],
             ),

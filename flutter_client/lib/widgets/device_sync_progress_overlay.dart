@@ -5,6 +5,7 @@ import '../services/api_service.dart';
 import 'device_sync_types.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import './pos/pos_theme.dart';
 export 'device_sync_types.dart';
 export 'device_sync_progress_dialog.dart';
 
@@ -669,7 +670,7 @@ class _SyncJobCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final mgr = DeviceSyncProgressManager.instance;
     final accent = job.kind == DeviceSyncKind.deviceUsers
-        ? const Color(0xFF1E3A5F)
+        ? PosTheme.kiotBlue
         : const Color(0xFF0284C7);
     final isMobile = MediaQuery.sizeOf(context).width < 600;
     final cardWidth = math.min(isMobile ? double.infinity : 340.0,

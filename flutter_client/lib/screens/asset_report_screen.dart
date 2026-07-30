@@ -8,6 +8,7 @@ import '../utils/excel_report_builder.dart';
 import '../services/api_service.dart';
 import '../utils/file_saver.dart' as file_saver;
 import '../widgets/notification_overlay.dart';
+import '../widgets/page_top_actions.dart';
 import '../utils/asset_report_helpers.dart';
 import '../utils/report_screen_helpers.dart';
 import '../utils/responsive_helper.dart';
@@ -305,11 +306,24 @@ class _AssetReportScreenState extends State<AssetReportScreen>
     final canExport = context.watch<PermissionProvider>().canExport('AssetReport') ||
         context.watch<PermissionProvider>().canExport('Asset');
 
-    return Scaffold(
+    return RegisterPageTopActions(
+      actions: [
+        if (canExport && _tabs.index == 1)
+          HrmTopBarAction(
+            icon: Icons.download,
+            label: 'Xuất Excel',
+            onPressed: _exportRegister,
+          ),
+        HrmTopBarAction(
+          icon: Icons.refresh,
+          label: 'Tải lại',
+          onPressed: () => _loadTab(_tabs.index),
+        ),
+      ],
+      child: Scaffold(
       backgroundColor: HrmPageChrome.background,
       body: Column(
         children: [
-          _buildHeader(canExport),
           Expanded(
             child: _loading
                 ? const Center(
@@ -358,6 +372,7 @@ class _AssetReportScreenState extends State<AssetReportScreen>
           ),
         ],
       ),
+    ),
     );
   }
 
@@ -744,52 +759,6 @@ class _AssetReportScreenState extends State<AssetReportScreen>
     );
     if (width == double.infinity) return field;
     return SizedBox(width: width, child: field);
-  }
-
-  Widget _buildHeader(bool canExport) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Color(0xFF047857), Color(0xFF059669)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-      ),
-      child: SafeArea(
-        bottom: false,
-        child: Row(
-          children: [
-            const Icon(Icons.inventory_2, color: Colors.white, size: 28),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(tr('Báo cáo tài sản'),
-                      style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold)),
-                  Text(tr('Kho, kiểm kê, bảo hành, cấp phát'),
-                      style: TextStyle(color: Colors.white70, fontSize: 12)),
-                ],
-              ),
-            ),
-            if (canExport && _tabs.index == 1)
-              IconButton(
-                tooltip: tr('Xuất Excel'),
-                onPressed: _exportRegister,
-                icon: const Icon(Icons.download, color: Colors.white),
-              ),
-            IconButton(
-              onPressed: () => _loadTab(_tabs.index),
-              icon: const Icon(Icons.refresh, color: Colors.white),
-            ),
-          ],
-        ),
-      ),
-    );
   }
 
   Widget _buildFilters() {

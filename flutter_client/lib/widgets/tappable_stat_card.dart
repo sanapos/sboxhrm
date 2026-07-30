@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import './pos/pos_theme.dart';
 /// Ô thống kê bấm được — áp dụng bộ lọc và highlight khi đang chọn.
 class TappableStatCard extends StatelessWidget {
   const TappableStatCard({
@@ -32,7 +33,7 @@ class TappableStatCard extends StatelessWidget {
             color: Colors.white,
             borderRadius: BorderRadius.circular(borderRadius),
             border: selected
-                ? Border.all(color: const Color(0xFF1E3A5F), width: 2)
+                ? Border.all(color: PosTheme.kiotBlue, width: 2)
                 : null,
             boxShadow: [
               BoxShadow(
@@ -77,7 +78,7 @@ class SummaryFilterBanner extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const Icon(Icons.filter_list, size: 18, color: Color(0xFF1E3A5F)),
+          const Icon(Icons.filter_list, size: 18, color: PosTheme.kiotBlue),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
@@ -85,14 +86,14 @@ class SummaryFilterBanner extends StatelessWidget {
               style: const TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
-                color: Color(0xFF1E3A5F),
+                color: PosTheme.kiotBlue,
               ),
             ),
           ),
           TextButton(
             onPressed: onClear,
             style: TextButton.styleFrom(
-              foregroundColor: const Color(0xFF1E3A5F),
+              foregroundColor: PosTheme.kiotBlue,
               padding: const EdgeInsets.symmetric(horizontal: 8),
               minimumSize: Size.zero,
               tapTargetSize: MaterialTapTargetSize.shrinkWrap,

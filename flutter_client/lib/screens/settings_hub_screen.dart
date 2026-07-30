@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/settings_hub_sidebar_config.dart';
@@ -7,14 +8,12 @@ import '../services/settings_hub_sidebar_prefs.dart';
 import '../utils/permission_navigation.dart';
 import '../utils/settings_hub_catalog.dart';
 import '../utils/store_role_helper.dart';
-import '../utils/responsive_helper.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../services/api_service.dart';
 import '../widgets/settings_hub_sidebar_config_dialog.dart';
 import '../widgets/store_agent_support_card.dart';
 import '../widgets/pos/pos_mobile_widgets.dart';
 import '../widgets/pos/pos_theme.dart';
-import '../models/user.dart';
 
 import 'account_management_screen.dart';
 import 'ai_settings_screen.dart';
@@ -246,10 +245,11 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
     SettingsHubScreen.internalBackCallback ??= _closeSubPage;
   }
 
-  static const _bgColor = Color(0xFFFAFAFA);
-  static const _textDark = Color(0xFF0F172A);
-  static const _textMuted = Color(0xFF71717A);
-  static const _borderColor = Color(0xFFE4E4E7);
+  /// Clear hub chrome flags without setState when already on menu.
+  void _syncHubChrome() {
+    SettingsHubScreen.activeSubPageTitle = null;
+    SettingsHubScreen.internalBackCallback = null;
+  }
 
   Widget _getScreen(int index) {
     switch (index) {
@@ -304,57 +304,39 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isMobile = Responsive.isMobile(context);
-
-    if (isMobile) {
-      if (_selectedIndex != null) {
-        _ensureSubPageCallback();
-        return _getScreen(_selectedIndex!);
-      }
-      _closeSubPage();
-      return ColoredBox(
-        color: PosTheme.background,
-        child: _buildMobileHome(),
-      );
-    }
-
     if (_selectedIndex != null) {
       _ensureSubPageCallback();
-    } else {
-      _closeSubPage();
+      // Full-width module — không còn cột sidebar trái.
+      return _getScreen(_selectedIndex!);
     }
-
-    return Scaffold(
-      backgroundColor: _bgColor,
-      body: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          SizedBox(width: 272, child: _buildDesktopSidebar()),
-          Expanded(
-            child: _selectedIndex != null
-                ? _getScreen(_selectedIndex!)
-                : _buildDesktopWelcome(),
-          ),
-        ],
-      ),
+    _syncHubChrome();
+    return ColoredBox(
+      color: PosTheme.background,
+      child: _buildHubHome(),
     );
   }
 
-  // ===== MOBILE HOME (lưới KiotViet) =====
-  Widget _buildMobileHome() {
+  /// Hub kiểu trang chủ: header + lưới nhóm 1 cột (tự tăng số ô theo bề ngang).
+  Widget _buildHubHome() {
     final groups = _orderedHubGroups();
+    final hPad = kIsWeb ? 20.0 : 12.0;
+    final maxContent = kIsWeb ? 1180.0 : double.infinity;
 
-    return ColoredBox(
-      color: PosTheme.background,
-      child: ListView(
-        padding: const EdgeInsets.fromLTRB(12, 8, 12, 24),
-        children: [
-          _buildMobileSettingsHeaderCard(),
-          if (_storeAgentContact != null) ...[
-            const SizedBox(height: 12),
-            StoreAgentSupportCard.fromMap(_storeAgentContact!),
-          ],
+    final scroll = ListView(
+      padding: EdgeInsets.fromLTRB(hPad, kIsWeb ? 16 : 8, hPad, 28),
+      children: [
+        _buildSettingsHeaderCard(),
+        if (_storeAgentContact != null) ...[
           const SizedBox(height: 12),
+          StoreAgentSupportCard.fromMap(_storeAgentContact!),
+        ],
+        const SizedBox(height: 12),
+        if (_sidebarConfigLoading)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 48),
+            child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+          )
+        else
           ...groups.expand((g) {
             if (g.items.isEmpty) return <Widget>[];
             return [
@@ -373,12 +355,21 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
               const SizedBox(height: 12),
             ];
           }),
-        ],
+      ],
+    );
+
+    if (!kIsWeb) return scroll;
+
+    return Align(
+      alignment: Alignment.topCenter,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: maxContent),
+        child: scroll,
       ),
     );
   }
 
-  Widget _buildMobileSettingsHeaderCard() {
+  Widget _buildSettingsHeaderCard() {
     final user = Provider.of<AuthProvider>(context, listen: false).user;
     final subtitle = user?.department?.trim().isNotEmpty == true
         ? user!.department!.trim()
@@ -423,7 +414,7 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
           ),
           if (_canCustomizeSidebar())
             IconButton(
-              tooltip: tr('Tùy chỉnh menu'),
+              tooltip: tr('Tùy chỉnh module'),
               onPressed:
                   _sidebarConfigLoading ? null : _openSidebarConfigDialog,
               icon: const Icon(Icons.dashboard_customize_outlined,
@@ -458,365 +449,6 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
       }
       return true;
     }).toList();
-  }
-
-  // ===== DESKTOP SIDEBAR =====
-  Widget _buildDesktopSidebar() {
-    final groups = _orderedHubGroups();
-    final canCustomize = _canCustomizeSidebar();
-
-    return Container(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(right: BorderSide(color: _borderColor)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Container(
-            padding: const EdgeInsets.fromLTRB(16, 18, 12, 14),
-            decoration: const BoxDecoration(
-              border: Border(bottom: BorderSide(color: _borderColor)),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: const Icon(Icons.tune_rounded,
-                      color: HrmPageChrome.primaryNavy, size: 18),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(tr('Thiết lập HRM'),
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                      color: _textDark,
-                    ),
-                  ),
-                ),
-                if (canCustomize)
-                  IconButton(
-                    tooltip: tr('Tùy chỉnh menu'),
-                    onPressed:
-                        _sidebarConfigLoading ? null : _openSidebarConfigDialog,
-                    icon: const Icon(Icons.dashboard_customize_outlined, size: 20),
-                    color: HrmPageChrome.primaryNavy,
-                    visualDensity: VisualDensity.compact,
-                  ),
-              ],
-            ),
-          ),
-          Expanded(
-            child: _sidebarConfigLoading
-                ? const Center(child: CircularProgressIndicator(strokeWidth: 2))
-                : ListView(
-                    padding: const EdgeInsets.fromLTRB(10, 10, 10, 12),
-                    children: [
-                      for (final g in groups) ...[
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(8, 8, 8, 6),
-                          child: Text(
-                            tr(g.title.toUpperCase()),
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w700,
-                              color: g.accent,
-                              letterSpacing: 0.6,
-                            ),
-                          ),
-                        ),
-                        for (final item in g.items)
-                          _buildDesktopSidebarItem(item),
-                      ],
-                    ],
-                  ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDesktopSidebarItem(SettingsHubItemDef item) {
-    final selected = _selectedIndex == item.index;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 4),
-      child: Material(
-        color: selected
-            ? item.accent.withValues(alpha: 0.1)
-            : Colors.transparent,
-        borderRadius: BorderRadius.circular(10),
-        child: InkWell(
-          onTap: () => _openSubPage(item.index),
-          borderRadius: BorderRadius.circular(10),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(10),
-              border: selected
-                  ? Border.all(color: item.accent.withValues(alpha: 0.35))
-                  : null,
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  item.icon,
-                  size: 18,
-                  color: selected ? item.accent : const Color(0xFF64748B),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    tr(item.label),
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight:
-                          selected ? FontWeight.w700 : FontWeight.w500,
-                      color: selected ? item.accent : _textDark,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDesktopWelcome() {
-    final groups = _orderedHubGroups();
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(28),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildOverviewHeader(),
-          if (_storeAgentContact != null) ...[
-            const SizedBox(height: 16),
-            StoreAgentSupportCard.fromMap(_storeAgentContact!),
-          ],
-          const SizedBox(height: 28),
-          for (final g in groups)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 24),
-              child: _buildGroupSection(g.title, g.icon, g.accent, g.items),
-            ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildOverviewHeader() {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [
-            Color(0xFF0F172A),
-            HrmPageChrome.primaryNavy,
-            HrmPageChrome.primaryNavy,
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: const [
-          BoxShadow(
-              color: Color(0x180F172A), blurRadius: 20, offset: Offset(0, 10))
-        ],
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(999)),
-                  child: Text(tr('HRM Settings Center'),
-                      style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w600,
-                          fontSize: 12)),
-                ),
-                const SizedBox(height: 14),
-                Text(tr('Trung tâm thiết lập hệ thống HRM'),
-                  style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 22,
-                      fontWeight: FontWeight.w700,
-                      height: 1.2),
-                ),
-                const SizedBox(height: 8),
-                Text(tr('Quản lý toàn bộ cấu hình ca làm việc, chính sách lương, quản trị hệ thống và tích hợp.'),
-                  style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.8),
-                      fontSize: 13,
-                      height: 1.5),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 24),
-          Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            children: [
-              for (final g in _orderedHubGroups())
-                _buildStatBadge(
-                    g.icon, '${g.items.length}', _shortGroupLabel(g.title)),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  String _shortGroupLabel(String title) {
-    if (title.contains('/')) return title.split('/').first.trim();
-    final words = title.split(' ');
-    return words.length > 2 ? words.first : title;
-  }
-
-  Widget _buildStatBadge(IconData icon, String count, String label) {
-    return Container(
-      width: 110,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, color: Colors.white, size: 18),
-          const SizedBox(height: 8),
-          Text(tr(count),
-              style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 20,
-                  fontWeight: FontWeight.w700)),
-          const SizedBox(height: 2),
-          Text(tr(label),
-              style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.7), fontSize: 11)),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildGroupSection(
-    String title,
-    IconData icon,
-    Color accent,
-    List<SettingsHubItemDef> items,
-  ) {
-    if (items.isEmpty) return const SizedBox.shrink();
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                  color: accent.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(10)),
-              child: Icon(icon, color: accent, size: 18),
-            ),
-            const SizedBox(width: 12),
-            Text(tr(title),
-                style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                    color: _textDark)),
-            const Spacer(),
-            Text(tr('${items.length} mục'),
-                style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: accent)),
-          ],
-        ),
-        const SizedBox(height: 14),
-        Wrap(
-          spacing: 14,
-          runSpacing: 14,
-          children: items.map((item) => _buildShortcutCard(item)).toList(),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildShortcutCard(SettingsHubItemDef item) {
-    return SizedBox(
-      width: 280,
-      child: Material(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        child: InkWell(
-          onTap: () => _openSubPage(item.index),
-          borderRadius: BorderRadius.circular(16),
-          hoverColor: item.accent.withValues(alpha: 0.04),
-          child: Container(
-            padding: const EdgeInsets.all(18),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: _borderColor),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(colors: [
-                      item.accent,
-                      item.accent.withValues(alpha: 0.7)
-                    ]),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(item.icon, color: Colors.white, size: 20),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(tr(item.label),
-                          style: const TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                              color: _textDark)),
-                      const SizedBox(height: 3),
-                      Text(tr(item.desc),
-                          style: const TextStyle(
-                              fontSize: 11, color: _textMuted, height: 1.3),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Icon(Icons.chevron_right,
-                    size: 18, color: item.accent.withValues(alpha: 0.5)),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
   }
 }
 

@@ -16,6 +16,7 @@ import '../providers/permission_provider.dart';
 import '../providers/auth_provider.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../widgets/hrm_fab_clearance.dart';
+import '../widgets/page_top_actions.dart';
 import '../widgets/pos/pos_theme.dart';
 import '../utils/image_source_picker.dart';
 import '../utils/navigation_notifier.dart';
@@ -553,6 +554,61 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
     }
   }
 
+  List<Widget> _buildTaskTopActions(bool isMobile) {
+    final perm = Provider.of<PermissionProvider>(context, listen: false);
+    final canEditTask = perm.canEdit('Task');
+    final canDeleteTask = perm.canDelete('Task');
+    final canCreateTask = perm.canCreate('Task');
+
+    if (_selectMode && _sel.isNotEmpty) {
+      return [
+        if (canDeleteTask)
+          HrmTopBarAction(
+            icon: Icons.delete,
+            label: 'Xóa',
+            onPressed: _confirmBatchDelete,
+          ),
+        if (canEditTask)
+          HrmTopBarAction(
+            icon: Icons.person_add,
+            label: 'Phân công',
+            onPressed: _showBatchAssign,
+          ),
+        if (canEditTask)
+          HrmTopBarAction(
+            icon: Icons.check_circle,
+            label: 'Hoàn thành',
+            onPressed: () => _batchStatus(WorkTaskStatus.completed),
+          ),
+      ];
+    }
+
+    return [
+      if (isMobile && _tabCtrl.index == 0)
+        HrmTopBarAction(
+          icon: _showFilters ? Icons.filter_list_off : Icons.filter_list,
+          label: 'Bộ lọc',
+          onPressed: () => setState(() => _showFilters = !_showFilters),
+        ),
+      HrmTopBarAction(
+        icon: _selectMode ? Icons.close : Icons.checklist,
+        label: _selectMode ? 'Hủy chọn' : 'Chọn nhiều',
+        onPressed: () => setState(() {
+          _selectMode = !_selectMode;
+          if (!_selectMode) _sel.clear();
+        }),
+      ),
+      if (canCreateTask)
+        HrmTopBarAction(
+          icon: Icons.add_task,
+          label: 'Tạo công việc',
+          primary: true,
+          showLabel: true,
+          onPressed: _showCreateDialog,
+        ),
+    ];
+  }
+
   // ======================== BUILD ========================
   @override
   Widget build(BuildContext context) {
@@ -564,78 +620,83 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
         isMobile &&
         Provider.of<PermissionProvider>(context, listen: false)
             .canCreate('Task');
+    final topActions =
+        showMobileDetail ? const <Widget>[] : _buildTaskTopActions(isMobile);
 
-    return Scaffold(
-      backgroundColor:
-          isMobile ? PosTheme.background : HrmPageChrome.background,
-      body: Column(
-        children: [
-          if (!showMobileDetail) _buildHeader(),
-          Expanded(
-            child: HrmFabClearance(
-              fabVisible: canCreateTask,
-              child: _loading
-                  ? const Center(child: CircularProgressIndicator())
-                  : showMobileDetail
-                      ? _buildDetailPanel()
-                      : Row(
-                        children: [
-                          // ========== MAIN CONTENT ==========
-                          Expanded(
-                            flex: showDesktopDetail ? 6 : 10,
-                            child: TabBarView(
-                              controller: _tabCtrl,
-                              children: [
-                                _buildListView(),
-                                _buildKanbanView(),
-                                _buildStatsView(),
-                                TaskAssignmentTab(
-                                  api: _api,
-                                  branchId: _filterBranchId,
-                                  isManager: _isManager,
-                                  onOpenTask: (t) {
-                                    _tabCtrl.animateTo(0);
-                                    _loadDetail(t.id);
-                                  },
-                                  onFilterList: _navigateToFilteredList,
-                                  onFilterByAssignee: (employeeId) {
-                                    setState(() {
-                                      _assigneeFilter = employeeId;
-                                      _assignedByMeOnly = false;
-                                      _page = 1;
-                                    });
-                                    if (_tabCtrl.index != 0) {
+    return RegisterPageTopActions(
+      actions: topActions,
+      child: Scaffold(
+        backgroundColor:
+            isMobile ? PosTheme.background : HrmPageChrome.background,
+        body: Column(
+          children: [
+            if (!showMobileDetail) _buildHeader(),
+            Expanded(
+              child: HrmFabClearance(
+                fabVisible: canCreateTask,
+                child: _loading
+                    ? const Center(child: CircularProgressIndicator())
+                    : showMobileDetail
+                        ? _buildDetailPanel()
+                        : Row(
+                          children: [
+                            // ========== MAIN CONTENT ==========
+                            Expanded(
+                              flex: showDesktopDetail ? 6 : 10,
+                              child: TabBarView(
+                                controller: _tabCtrl,
+                                children: [
+                                  _buildListView(),
+                                  _buildKanbanView(),
+                                  _buildStatsView(),
+                                  TaskAssignmentTab(
+                                    api: _api,
+                                    branchId: _filterBranchId,
+                                    isManager: _isManager,
+                                    onOpenTask: (t) {
                                       _tabCtrl.animateTo(0);
-                                    }
-                                    _loadTasks();
-                                  },
-                                  onRefreshParent: _reloadScopedData,
-                                ),
-                              ],
+                                      _loadDetail(t.id);
+                                    },
+                                    onFilterList: _navigateToFilteredList,
+                                    onFilterByAssignee: (employeeId) {
+                                      setState(() {
+                                        _assigneeFilter = employeeId;
+                                        _assignedByMeOnly = false;
+                                        _page = 1;
+                                      });
+                                      if (_tabCtrl.index != 0) {
+                                        _tabCtrl.animateTo(0);
+                                      }
+                                      _loadTasks();
+                                    },
+                                    onRefreshParent: _reloadScopedData,
+                                  ),
+                                ],
+                              ),
                             ),
-                          ),
-                          // ========== SIDE DETAIL PANEL ==========
-                          if (showDesktopDetail) ...[
-                            const VerticalDivider(width: 1),
-                            Expanded(flex: 4, child: _buildDetailPanel()),
+                            // ========== SIDE DETAIL PANEL ==========
+                            if (showDesktopDetail) ...[
+                              const VerticalDivider(width: 1),
+                              Expanded(flex: 4, child: _buildDetailPanel()),
+                            ],
                           ],
-                        ],
-                      ),
+                        ),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
+        floatingActionButton: showMobileDetail
+            ? null
+            : Provider.of<PermissionProvider>(context, listen: false)
+                    .canCreate('Task')
+                ? FloatingActionButton(
+                    onPressed: _showCreateDialog,
+                    backgroundColor: _taskPrimary,
+                    foregroundColor: Colors.white,
+                    child: Icon(isMobile ? Icons.add : Icons.add_task),
+                  )
+                : null,
       ),
-      floatingActionButton: showMobileDetail
-          ? null
-          : Provider.of<PermissionProvider>(context, listen: false)
-                  .canCreate('Task')
-              ? FloatingActionButton(
-                  onPressed: _showCreateDialog,
-                  backgroundColor: _taskPrimary,
-                  foregroundColor: Colors.white,
-                  child: Icon(isMobile ? Icons.add : Icons.add_task),
-                )
-              : null,
     );
   }
 
@@ -777,138 +838,59 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
   }
 
   Widget _buildMobileKiotHeader() {
-    final perm = Provider.of<PermissionProvider>(context, listen: false);
-    final canEditTask = perm.canEdit('Task');
-    final canDeleteTask = perm.canDelete('Task');
     final s = _stats;
 
     return ColoredBox(
       color: PosTheme.background,
       child: Column(
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
-            child: Container(
-              decoration: PosTheme.mobileCardDecoration(),
-              padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
-              child: Column(
-                children: [
-                  Row(
+          if (s != null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
+              child: Container(
+                decoration: PosTheme.mobileCardDecoration(),
+                padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
                     children: [
-                      Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: PosTheme.kiotBlueLight,
-                          borderRadius: BorderRadius.circular(12),
+                      if (s.assignedCount > 0)
+                        _headerStatChip(
+                          'Chờ XN',
+                          s.assignedCount,
+                          status: WorkTaskStatus.assigned,
+                          lightStyle: true,
                         ),
-                        child: const Icon(Icons.task_alt,
-                            size: 20, color: PosTheme.kiotBlue),
+                      _headerStatChip(
+                        'Chờ',
+                        s.todoCount,
+                        status: WorkTaskStatus.todo,
+                        lightStyle: true,
                       ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(tr('Công việc'),
-                                style: TextStyle(
-                                    fontSize: 17,
-                                    fontWeight: FontWeight.bold,
-                                    color: PosTheme.textPrimary)),
-                            if (_total > 0)
-                              Text(
-                                  tr('$_total công việc${_isMyTasks ? ' của tôi' : ''}'),
-                                  style: const TextStyle(
-                                      fontSize: 12,
-                                      color: PosTheme.textSecondary)),
-                          ],
+                      _headerStatChip(
+                        'Đang làm',
+                        s.inProgressCount,
+                        status: WorkTaskStatus.inProgress,
+                        lightStyle: true,
+                      ),
+                      _headerStatChip(
+                        'Xong',
+                        s.completedCount,
+                        status: WorkTaskStatus.completed,
+                        lightStyle: true,
+                      ),
+                      if (s.overdueCount > 0)
+                        _headerStatChip(
+                          'Trễ hạn',
+                          s.overdueCount,
+                          overdue: true,
+                          lightStyle: true,
                         ),
-                      ),
-                      if (_selectMode && _sel.isNotEmpty) ...[
-                        Text(tr('${_sel.length}'),
-                            style: const TextStyle(
-                                color: PosTheme.kiotBlue,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 14)),
-                        const SizedBox(width: 6),
-                        if (canEditTask)
-                          _headerActionIcon(Icons.check_circle,
-                              () => _batchStatus(WorkTaskStatus.completed),
-                              lightStyle: true),
-                        if (canEditTask)
-                          _headerActionIcon(Icons.person_add, _showBatchAssign,
-                              lightStyle: true),
-                        if (canDeleteTask)
-                          _headerActionIcon(Icons.delete, _confirmBatchDelete,
-                              color: Colors.red.shade600, lightStyle: true),
-                      ] else ...[
-                        _headerActionIcon(
-                            _selectMode ? Icons.close : Icons.checklist,
-                            () => setState(() {
-                                  _selectMode = !_selectMode;
-                                  if (!_selectMode) _sel.clear();
-                                }),
-                            color: _selectMode ? Colors.red.shade600 : null,
-                            lightStyle: true),
-                        if (_tabCtrl.index == 0) ...[
-                          const SizedBox(width: 6),
-                          _headerActionIcon(
-                              _showFilters
-                                  ? Icons.filter_list_off
-                                  : Icons.filter_list,
-                              () => setState(
-                                  () => _showFilters = !_showFilters),
-                              badge: _activeFilterCount,
-                              lightStyle: true),
-                        ],
-                      ],
                     ],
                   ),
-                  if (s != null) ...[
-                    const SizedBox(height: 10),
-                    SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                        children: [
-                          if (s.assignedCount > 0)
-                            _headerStatChip(
-                              'Chờ XN',
-                              s.assignedCount,
-                              status: WorkTaskStatus.assigned,
-                              lightStyle: true,
-                            ),
-                          _headerStatChip(
-                            'Chờ',
-                            s.todoCount,
-                            status: WorkTaskStatus.todo,
-                            lightStyle: true,
-                          ),
-                          _headerStatChip(
-                            'Đang làm',
-                            s.inProgressCount,
-                            status: WorkTaskStatus.inProgress,
-                            lightStyle: true,
-                          ),
-                          _headerStatChip(
-                            'Xong',
-                            s.completedCount,
-                            status: WorkTaskStatus.completed,
-                            lightStyle: true,
-                          ),
-                          if (s.overdueCount > 0)
-                            _headerStatChip(
-                              'Trễ hạn',
-                              s.overdueCount,
-                              overdue: true,
-                              lightStyle: true,
-                            ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ],
+                ),
               ),
             ),
-          ),
           Padding(
             padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
             child: Container(
@@ -939,154 +921,66 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
   }
 
   Widget _buildDesktopHeader() {
-    final perm = Provider.of<PermissionProvider>(context, listen: false);
-    final canEditTask = perm.canEdit('Task');
-    final canDeleteTask = perm.canDelete('Task');
     final isMobile = Responsive.isMobile(context);
-    const primary = _taskPrimary;
     final s = _stats;
 
     return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [primary, primary.withValues(alpha: 0.85)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: primary.withValues(alpha: 0.25),
-            blurRadius: 10,
-            offset: const Offset(0, 3),
-          ),
-        ],
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(bottom: BorderSide(color: Color(0xFFE4E4E7))),
       ),
       child: Column(
         children: [
-          Padding(
-            padding: EdgeInsets.fromLTRB(
-                isMobile ? 14 : 24, isMobile ? 12 : 18, isMobile ? 14 : 24, 8),
-            child: Column(
-              children: [
-                Row(
+          if (s != null)
+            Padding(
+              padding: EdgeInsets.fromLTRB(
+                  isMobile ? 14 : 24, isMobile ? 10 : 12, isMobile ? 14 : 24, 0),
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
                   children: [
-                    Container(
-                      padding: EdgeInsets.all(isMobile ? 8 : 10),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.2),
-                        borderRadius: BorderRadius.circular(12),
+                    if (s.assignedCount > 0)
+                      _headerStatChip(
+                        'Chờ XN',
+                        s.assignedCount,
+                        status: WorkTaskStatus.assigned,
+                        lightStyle: true,
                       ),
-                      child: Icon(Icons.task_alt,
-                          size: isMobile ? 18 : 22, color: Colors.white),
+                    _headerStatChip(
+                      'Chờ',
+                      s.todoCount,
+                      status: WorkTaskStatus.todo,
+                      lightStyle: true,
                     ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(tr(isMobile ? 'Công việc' : 'Quản lý Công việc'),
-                              style: TextStyle(
-                                  fontSize: isMobile ? 16 : 20,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white)),
-                          if (!isMobile)
-                            Text(tr('Theo dõi & phân công công việc'),
-                                style: TextStyle(
-                                    fontSize: 13,
-                                    color:
-                                        Colors.white.withValues(alpha: 0.8))),
-                          if (isMobile && _total > 0)
-                            Text(
-                                tr('$_total công việc${_isMyTasks ? ' của tôi' : ''}'),
-                                style: TextStyle(
-                                    fontSize: 11,
-                                    color:
-                                        Colors.white.withValues(alpha: 0.75))),
-                        ],
+                    _headerStatChip(
+                      'Đang làm',
+                      s.inProgressCount,
+                      status: WorkTaskStatus.inProgress,
+                      lightStyle: true,
+                    ),
+                    _headerStatChip(
+                      'Xong',
+                      s.completedCount,
+                      status: WorkTaskStatus.completed,
+                      lightStyle: true,
+                    ),
+                    if (s.overdueCount > 0)
+                      _headerStatChip(
+                        'Trễ hạn',
+                        s.overdueCount,
+                        overdue: true,
+                        lightStyle: true,
                       ),
-                    ),
-                    if (_selectMode && _sel.isNotEmpty) ...[
-                      Text(tr('${_sel.length}'),
-                          style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 14)),
-                      const SizedBox(width: 6),
-                      if (canEditTask)
-                        _headerActionIcon(Icons.check_circle,
-                            () => _batchStatus(WorkTaskStatus.completed)),
-                      if (canEditTask)
-                        _headerActionIcon(Icons.person_add, _showBatchAssign),
-                      if (canDeleteTask)
-                        _headerActionIcon(Icons.delete, _confirmBatchDelete,
-                            color: Colors.red.shade200),
-                    ] else ...[
-                      _headerActionIcon(
-                          _selectMode ? Icons.close : Icons.checklist,
-                          () => setState(() {
-                                _selectMode = !_selectMode;
-                                if (!_selectMode) _sel.clear();
-                              }),
-                          color: _selectMode ? Colors.red.shade200 : null),
-                      if (isMobile && _tabCtrl.index == 0) ...[
-                        const SizedBox(width: 6),
-                        _headerActionIcon(
-                            _showFilters
-                                ? Icons.filter_list_off
-                                : Icons.filter_list,
-                            () => setState(
-                                () => _showFilters = !_showFilters),
-                            badge: _activeFilterCount),
-                      ],
-                    ],
                   ],
                 ),
-                if (s != null) ...[
-                  const SizedBox(height: 10),
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: [
-                        if (s.assignedCount > 0)
-                          _headerStatChip(
-                            'Chờ XN',
-                            s.assignedCount,
-                            status: WorkTaskStatus.assigned,
-                          ),
-                        _headerStatChip(
-                          'Chờ',
-                          s.todoCount,
-                          status: WorkTaskStatus.todo,
-                        ),
-                        _headerStatChip(
-                          'Đang làm',
-                          s.inProgressCount,
-                          status: WorkTaskStatus.inProgress,
-                        ),
-                        _headerStatChip(
-                          'Xong',
-                          s.completedCount,
-                          status: WorkTaskStatus.completed,
-                        ),
-                        if (s.overdueCount > 0)
-                          _headerStatChip(
-                            'Trễ hạn',
-                            s.overdueCount,
-                            overdue: true,
-                          ),
-                      ],
-                    ),
-                  ),
-                ],
-              ],
+              ),
             ),
-          ),
           TabBar(
             controller: _tabCtrl,
-            indicatorColor: Colors.white,
+            indicatorColor: _taskPrimary,
             indicatorWeight: 3,
-            labelColor: Colors.white,
-            unselectedLabelColor: Colors.white.withValues(alpha: 0.55),
+            labelColor: _taskPrimary,
+            unselectedLabelColor: HrmPageChrome.textMuted,
             labelPadding: isMobile
                 ? const EdgeInsets.symmetric(horizontal: 4)
                 : const EdgeInsets.symmetric(horizontal: 12),

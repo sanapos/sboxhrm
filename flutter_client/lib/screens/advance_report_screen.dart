@@ -7,6 +7,8 @@ import '../providers/permission_provider.dart';
 import '../services/api_service.dart';
 import '../utils/report_access_utils.dart';
 import '../utils/report_screen_helpers.dart';
+import '../widgets/hrm_page_chrome.dart';
+import '../widgets/page_top_actions.dart';
 import '../widgets/reports/hrm_report_widgets.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
@@ -280,14 +282,23 @@ class _AdvanceReportScreenState extends State<AdvanceReportScreen> {
     final canExport = Provider.of<PermissionProvider>(context, listen: false)
         .canExport('AdvanceReport');
 
-    return ReportScreenShell(
-      title: _teamView ? 'Báo cáo ứng lương' : 'Lịch sử ứng lương',
-      subtitle: reportPeriodSubtitle(_from, _to, team: _teamView),
-      accentColor: _theme,
-      canExport: canExport,
-      onExport: _exportExcel,
-      onRefresh: _load,
-      child: Column(
+    return RegisterPageTopActions(
+      actions: [
+        if (canExport)
+          HrmTopBarAction(
+            icon: Icons.file_download_outlined,
+            label: 'Xuất Excel',
+            onPressed: _exportExcel,
+          ),
+        HrmTopBarAction(
+          icon: Icons.refresh,
+          label: 'Tải lại',
+          onPressed: _load,
+        ),
+      ],
+      child: Scaffold(
+        backgroundColor: HrmPageChrome.background,
+        body: Column(
         children: [
           Expanded(
             child: RefreshIndicator(
@@ -361,6 +372,7 @@ class _AdvanceReportScreenState extends State<AdvanceReportScreen> {
               },
             ),
         ],
+      ),
       ),
     );
   }
