@@ -1689,7 +1689,7 @@ public class ZKTecoDbInitializer(
     
     private async Task SeedRolesAsync()
     {
-        var roles = new[] { nameof(Roles.SuperAdmin), nameof(Roles.Admin), nameof(Roles.Director), nameof(Roles.User), nameof(Roles.Manager), nameof(Roles.Employee), nameof(Roles.Agent), nameof(Roles.DepartmentHead), nameof(Roles.Accountant), nameof(Roles.Cashier) };
+        var roles = new[] { nameof(Roles.SuperAdmin), nameof(Roles.Admin), nameof(Roles.Director), nameof(Roles.User), nameof(Roles.Manager), nameof(Roles.Employee), nameof(Roles.Agent), nameof(Roles.DepartmentHead), nameof(Roles.Accountant), nameof(Roles.Cashier), nameof(Roles.Waiter) };
 
         foreach (var roleName in roles)
         {

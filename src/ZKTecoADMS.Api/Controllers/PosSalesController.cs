@@ -1266,7 +1266,7 @@ public partial class PosSalesController(
     public record ReturnSaleDto(List<ReturnLineDto> Lines, string? Note, string? RefundPaymentMethod);
 
     [HttpPost("{id:guid}/return")]
-    [RequireModulePermission("PosSell", ModulePermissionAction.Edit)]
+    [RequireModulePermission("PosSell", ModulePermissionAction.Approve)]
     public async Task<ActionResult<AppResponse<object>>> ReturnSale(Guid id, [FromBody] ReturnSaleDto dto)
     {
         var storeId = RequiredStoreId;
@@ -1449,7 +1449,7 @@ public partial class PosSalesController(
     }
 
     [HttpPost("{id:guid}/returns/cancel")]
-    [RequireModulePermission("PosSell", ModulePermissionAction.Edit)]
+    [RequireModulePermission("PosSell", ModulePermissionAction.Approve)]
     public async Task<ActionResult<AppResponse<SaleOrderDto>>> CancelReturn(Guid id, [FromBody] CancelSaleReturnDto dto)
     {
         var storeId = RequiredStoreId;

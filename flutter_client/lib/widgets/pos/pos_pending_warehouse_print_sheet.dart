@@ -174,7 +174,11 @@ class _PendingWarehousePrintSheetBodyState
     if (!mounted) return;
     if (ok) {
       widget.onDismissSale?.call(job);
-      setState(() => _localSaleJobs.removeWhere((j) => j.id == job.id));
+      setState(() {
+        _localSaleJobs.removeWhere((j) => j.id == job.id);
+        _statusMessage = 'In lại hóa đơn thành công';
+        _busyJobId = null;
+      });
       if (_totalCount == 0 && mounted) Navigator.pop(context);
       return;
     }

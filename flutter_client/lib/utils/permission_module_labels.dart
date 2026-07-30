@@ -41,6 +41,7 @@ class PermissionModuleLabels {
     'Meal': 'Chấm cơm',
     'FieldCheckIn': 'Bản đồ nhân sự',
     'PosProducts': 'Hàng hóa POS',
+    'PosSell': 'Bán hàng POS (Order / Thu ngân)',
     'PosSalesReport': 'Báo cáo doanh thu POS',
     // Tài chính
     'BonusPenalty': 'Phiếu thưởng',

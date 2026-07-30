@@ -43,8 +43,12 @@ public class PosPrintDispatchService(
 {
     static readonly TimeSpan JobTtl = TimeSpan.FromHours(24);
     static readonly TimeSpan AgentOfflineThreshold = TimeSpan.FromSeconds(90);
-    /// <summary>Job Claimed/Printing quá lâu → Queued lại. Phải &lt; client timeout 90s.</summary>
-    static readonly TimeSpan StuckClaimReclaimAfter = TimeSpan.FromSeconds(40);
+    /// <summary>Claimed quá lâu chưa MarkPrinting → Queued lại.</summary>
+    static readonly TimeSpan StuckClaimReclaimAfter = TimeSpan.FromSeconds(90);
+    /// <summary>Printing quá lâu (Sunmi có thể &gt;40s) → Queued lại.</summary>
+    static readonly TimeSpan StuckPrintingReclaimAfter = TimeSpan.FromSeconds(180);
+    /// <summary>Reclaim quá số lần này → hủy (tránh in đôi/năm lần cùng hóa đơn).</summary>
+    const int MaxPrintAttemptsBeforeCancel = 2;
     /// <summary>
     /// Job Queued quá lâu (Agent tắt/offline) → hủy thay vì để dồn hàng đợi.
     /// Trước là 20 phút — Agent tắt máy nửa buổi rồi mở lại sẽ in ồ ạt cả loạt
@@ -126,8 +130,27 @@ public class PosPrintDispatchService(
 
         // Chặn in trùng: cùng máy in + cùng payload trong 10 phút (app điện thoại
         // cũ hay mở lại rồi auto-retry phiếu báo chế biến đã in).
+        // Hóa đơn: thêm khớp ReferenceId — payload đổi printCount mỗi lần retry
+        // nên dedup payload thuần bị lọt → in «Lần in thứ N».
         var since = DateTime.UtcNow.AddMinutes(-10);
-        var duplicate = await db.PosPrintJobs.AsNoTracking()
+        PosPrintJob? duplicate = null;
+        if (request.ReferenceId is { } refId && refId != Guid.Empty)
+        {
+            duplicate = await db.PosPrintJobs.AsNoTracking()
+                .Where(j => j.StoreId == request.StoreId
+                    && j.PrinterId == tracked.Id
+                    && j.Deleted == null
+                    && j.CreatedAt >= since
+                    && j.ReferenceId == refId
+                    && j.DocumentType == request.DocumentType
+                    && (j.Status == PosPrintJobStatus.Queued
+                        || j.Status == PosPrintJobStatus.Claimed
+                        || j.Status == PosPrintJobStatus.Printing
+                        || j.Status == PosPrintJobStatus.Completed))
+                .OrderByDescending(j => j.CreatedAt)
+                .FirstOrDefaultAsync(ct);
+        }
+        duplicate ??= await db.PosPrintJobs.AsNoTracking()
             .Where(j => j.StoreId == request.StoreId
                 && j.PrinterId == tracked.Id
                 && j.Deleted == null
@@ -330,6 +353,12 @@ public class PosPrintDispatchService(
     {
         var job = await db.PosPrintJobs.FirstOrDefaultAsync(j => j.Id == jobId, ct);
         if (job == null) return null;
+        // Không ghi đè job đã xong — tránh Agent fail trùng sau khi đã in + Complete.
+        if (job.Status is PosPrintJobStatus.Completed
+            or PosPrintJobStatus.Cancelled)
+        {
+            return job;
+        }
         // Cho phép fail job Queued (AgentId null) hoặc đúng agent đã claim.
         if (agentId.HasValue && job.AgentId != null && job.AgentId != agentId) {
             return null;
@@ -526,19 +555,54 @@ public class PosPrintDispatchService(
 
     async Task ReclaimStuckJobsAsync(Guid storeId, DateTime now, CancellationToken ct)
     {
-        var stuckBefore = now.Subtract(StuckClaimReclaimAfter);
-        var n = await db.PosPrintJobs
+        // Đã thử quá nhiều lần → hủy thay vì Queued lại (chống in trùng liên tục).
+        var overAttempt = await db.PosPrintJobs
             .Where(j => j.StoreId == storeId && j.Deleted == null
                 && (j.Status == PosPrintJobStatus.Claimed || j.Status == PosPrintJobStatus.Printing)
-                && j.ClaimedAt != null && j.ClaimedAt < stuckBefore)
+                && j.AttemptCount >= MaxPrintAttemptsBeforeCancel)
+            .ExecuteUpdateAsync(setters => setters
+                .SetProperty(j => j.Status, PosPrintJobStatus.Cancelled)
+                .SetProperty(j => j.ErrorCode, "MAX_ATTEMPTS")
+                .SetProperty(j => j.ErrorMessage,
+                    $"Đã claim {MaxPrintAttemptsBeforeCancel}+ lần — hủy để tránh in trùng")
+                .SetProperty(j => j.CompletedAt, now)
+                .SetProperty(j => j.UpdatedAt, now), ct);
+        if (overAttempt > 0)
+            logger.LogWarning(
+                "Cancelled {Count} over-attempt print job(s) in store {StoreId}",
+                overAttempt, storeId);
+
+        var claimedBefore = now.Subtract(StuckClaimReclaimAfter);
+        var nClaimed = await db.PosPrintJobs
+            .Where(j => j.StoreId == storeId && j.Deleted == null
+                && j.Status == PosPrintJobStatus.Claimed
+                && j.AttemptCount < MaxPrintAttemptsBeforeCancel
+                && j.ClaimedAt != null && j.ClaimedAt < claimedBefore)
             .ExecuteUpdateAsync(setters => setters
                 .SetProperty(j => j.Status, PosPrintJobStatus.Queued)
                 .SetProperty(j => j.AgentId, (Guid?)null)
                 .SetProperty(j => j.ClaimedAt, (DateTime?)null)
                 .SetProperty(j => j.StartedAt, (DateTime?)null)
                 .SetProperty(j => j.UpdatedAt, now), ct);
+
+        var printingBefore = now.Subtract(StuckPrintingReclaimAfter);
+        var nPrinting = await db.PosPrintJobs
+            .Where(j => j.StoreId == storeId && j.Deleted == null
+                && j.Status == PosPrintJobStatus.Printing
+                && j.AttemptCount < MaxPrintAttemptsBeforeCancel
+                && j.ClaimedAt != null && j.ClaimedAt < printingBefore)
+            .ExecuteUpdateAsync(setters => setters
+                .SetProperty(j => j.Status, PosPrintJobStatus.Queued)
+                .SetProperty(j => j.AgentId, (Guid?)null)
+                .SetProperty(j => j.ClaimedAt, (DateTime?)null)
+                .SetProperty(j => j.StartedAt, (DateTime?)null)
+                .SetProperty(j => j.UpdatedAt, now), ct);
+
+        var n = nClaimed + nPrinting;
         if (n > 0)
-            logger.LogWarning("Reclaimed {Count} stuck print job(s) in store {StoreId}", n, storeId);
+            logger.LogWarning(
+                "Reclaimed {Count} stuck print job(s) in store {StoreId} (claimed={Claimed}, printing={Printing})",
+                n, storeId, nClaimed, nPrinting);
 
         // Hủy job Queued quá lâu — tránh Agent xả cả loạt hàng đợi cũ khi vừa mở máy lại.
         var staleQueuedBefore = now.Subtract(StaleQueuedCancelAfter);

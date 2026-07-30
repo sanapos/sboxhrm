@@ -304,7 +304,7 @@ class _PosSellIndustrySettingsScreenState
         SwitchListTile(
           contentPadding: EdgeInsets.zero,
           title: Text(tr('Cho phép tạm tính')),
-          subtitle: Text(tr('Hiện nút Tạm tính khi thanh toán — in hóa đơn tạm (F&B)')),
+          subtitle: Text(tr('Hiện nút Tạm tính — đánh dấu bàn và in hóa đơn tạm')),
           value: s.allowProvisionalBill,
           onChanged: _saving
               ? null

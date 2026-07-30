@@ -11,5 +11,7 @@ public enum Roles
     Agent,
     DepartmentHead,
     Accountant,
-    Cashier
+    Cashier,
+    /// Order / phục vụ — gọi món, tạm tính; không thanh toán.
+    Waiter
 }

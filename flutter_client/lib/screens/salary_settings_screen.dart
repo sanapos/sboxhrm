@@ -1637,6 +1637,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                           allowanceType: 0,
                           employeeId: employeeId,
                           employeeCode: employee['employeeCode']?.toString(),
+                          employee: employee,
                           onChanged: () => setState(() {}),
                         )),
                 const SizedBox(height: 8),
@@ -1649,6 +1650,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                           allowanceType: 1,
                           employeeId: employeeId,
                           employeeCode: employee['employeeCode']?.toString(),
+                          employee: employee,
                           onChanged: () => setState(() {}),
                         )),
                 const SizedBox(height: 8),
@@ -1819,6 +1821,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                     allowanceType: 0,
                     employeeId: employeeId,
                     employeeCode: employee['employeeCode']?.toString(),
+                    employee: employee,
                     onChanged: () => setViewState(() {}),
                   ),
                 ),
@@ -1831,6 +1834,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                     allowanceType: 1,
                     employeeId: employeeId,
                     employeeCode: employee['employeeCode']?.toString(),
+                    employee: employee,
                     onChanged: () => setViewState(() {}),
                   ),
                 ),
@@ -2395,6 +2399,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
     required String employeeId,
     required VoidCallback onChanged,
     String? employeeCode,
+    Map<String, dynamic>? employee,
   }) {
     final isMobileView = Responsive.isMobile(context);
     showDialog(
@@ -2403,9 +2408,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
         return StatefulBuilder(
           builder: (context, setPickerState) {
             final assignedAllowances = _allowances.where((a) {
-              final type = a['type'] is int
-                  ? a['type']
-                  : int.tryParse(a['type']?.toString() ?? '0') ?? 0;
+              final type = AllowanceCalculator.parseType(a['type']);
               final isActive = a['isActive'] ?? true;
               return type == allowanceType &&
                   isActive &&
@@ -2415,8 +2418,13 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
 
             double total = 0;
             for (var allowance in assignedAllowances) {
-              total += (allowance['amount'] as num).toDouble();
+              total += (allowance['amount'] as num?)?.toDouble() ?? 0;
             }
+
+            final legacyAmount =
+                _legacyBenefitAllowanceAmount(employee, allowanceType);
+            final showLegacyClear =
+                assignedAllowances.isEmpty && legacyAmount > 0;
 
             final headerRow = Row(
               children: [
@@ -2471,9 +2479,50 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                           Icon(Icons.inbox_outlined,
                               size: 48, color: Colors.grey[400]),
                           const SizedBox(height: 8),
-                          Text(tr('${tr('Chưa có phụ cấp ')}${allowanceType == 0 ? 'cố định' : 'theo ngày'} nào được gán'),
+                          Text(
+                            tr('${tr('Chưa có phụ cấp ')}${allowanceType == 0 ? 'cố định' : 'theo ngày'} nào được gán'),
                             style: TextStyle(color: Colors.grey[600]),
+                            textAlign: TextAlign.center,
                           ),
+                          if (showLegacyClear) ...[
+                            const SizedBox(height: 16),
+                            Text(
+                              tr('Đang còn số cũ trên hồ sơ lương: ${_formatCurrency(legacyAmount)}'),
+                              style: const TextStyle(
+                                color: Color(0xFFB45309),
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              tr('Số này không thuộc danh mục phụ cấp nên không sửa được từng khoản. Bấm xóa để về 0.'),
+                              style: TextStyle(
+                                  color: Colors.grey[600], fontSize: 12),
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 12),
+                            FilledButton.icon(
+                              onPressed: employee == null
+                                  ? null
+                                  : () async {
+                                      await _clearLegacyBenefitAllowance(
+                                        employee: employee,
+                                        allowanceType: allowanceType,
+                                      );
+                                      if (context.mounted) {
+                                        Navigator.pop(context);
+                                      }
+                                      onChanged();
+                                    },
+                              icon: const Icon(Icons.delete_outline, size: 18),
+                              label: Text(tr('Xóa số phụ cấp cũ')),
+                              style: FilledButton.styleFrom(
+                                backgroundColor: const Color(0xFFDC2626),
+                              ),
+                            ),
+                          ],
                         ],
                       ),
                     ),
@@ -4197,20 +4246,93 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
     int allowanceType, {
     Map<String, dynamic>? employee,
   }) {
-    final benefit = employee?['benefit'] as Map<String, dynamic>?;
+    // Chỉ tính từ danh mục phụ cấp đã gán — không fallback mealAllowance /
+    // responsibilityAllowance (số cũ không sửa/xóa được trên UI).
     return AllowanceCalculator.sumForEmployee(
       allowances: _allowances,
       employeeId: employeeId,
       employeeCode: employee?['employeeCode']?.toString(),
       allowanceType: allowanceType,
-      benefitFallback: benefit ??
-          (employee != null
-              ? {
-                  'mealAllowance': employee['fixedAllowance'],
-                  'responsibilityAllowance': employee['dailyAllowance'],
-                }
-              : null),
     );
+  }
+
+  /// Số phụ cấp legacy trên benefit (không còn trong danh mục).
+  double _legacyBenefitAllowanceAmount(
+    Map<String, dynamic>? employee,
+    int allowanceType,
+  ) {
+    final benefit = employee?['benefit'] as Map<String, dynamic>?;
+    if (benefit == null) {
+      if (allowanceType == 0) {
+        return (employee?['fixedAllowance'] as num?)?.toDouble() ?? 0;
+      }
+      if (allowanceType == 1) {
+        return (employee?['dailyAllowance'] as num?)?.toDouble() ?? 0;
+      }
+      return 0;
+    }
+    if (allowanceType == 0) {
+      return (benefit['mealAllowance'] as num?)?.toDouble() ?? 0;
+    }
+    if (allowanceType == 1) {
+      return (benefit['responsibilityAllowance'] as num?)?.toDouble() ?? 0;
+    }
+    return 0;
+  }
+
+  Future<void> _clearLegacyBenefitAllowance({
+    required Map<String, dynamic> employee,
+    required int allowanceType,
+  }) async {
+    final benefitId = employee['benefitId']?.toString();
+    if (benefitId == null || benefitId.isEmpty) {
+      NotificationOverlayManager().showWarning(
+        title: 'Chưa có hồ sơ lương',
+        message: tr('Mở Chỉnh sửa lương rồi Lưu để đồng bộ phụ cấp = 0'),
+      );
+      return;
+    }
+    final benefit = Map<String, dynamic>.from(
+      (employee['benefit'] as Map<String, dynamic>?) ?? {},
+    );
+    if (allowanceType == 0) {
+      benefit['mealAllowance'] = 0;
+    } else if (allowanceType == 1) {
+      benefit['responsibilityAllowance'] = 0;
+    } else {
+      return;
+    }
+
+    try {
+      final result = await _apiService.updateSalaryProfile(benefitId, benefit);
+      if (result['isSuccess'] != true) {
+        NotificationOverlayManager().showError(
+          title: 'Không xóa được',
+          message: result['message']?.toString() ?? 'Lỗi máy chủ',
+        );
+        return;
+      }
+      employee['benefit'] = benefit;
+      if (allowanceType == 0) {
+        employee['fixedAllowance'] = 0;
+      } else {
+        employee['dailyAllowance'] = 0;
+      }
+      final profile = employee['salaryProfile'] as Map<String, dynamic>?;
+      if (profile != null) profile['benefit'] = benefit;
+      if (mounted) setState(() {});
+      NotificationOverlayManager().showSuccess(
+        title: 'Đã xóa số phụ cấp cũ',
+        message: tr(allowanceType == 0
+            ? 'Phụ cấp cố định = 0'
+            : 'Phụ cấp theo ngày = 0'),
+      );
+    } catch (e) {
+      NotificationOverlayManager().showError(
+        title: 'Không xóa được',
+        message: e.toString(),
+      );
+    }
   }
 
   bool _isAllowanceAssignedToEmployee(
@@ -4236,11 +4358,8 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
       builder: (dialogCtx) {
         return StatefulBuilder(
           builder: (context, setPickerState) {
-            // Filter allowances by type and assigned to this employee
             final assignedAllowances = _allowances.where((a) {
-              final type = a['type'] is int
-                  ? a['type']
-                  : int.tryParse(a['type']?.toString() ?? '0') ?? 0;
+              final type = AllowanceCalculator.parseType(a['type']);
               final isActive = a['isActive'] ?? true;
               return type == allowanceType &&
                   isActive &&
@@ -4250,7 +4369,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
             // Calculate total
             double total = 0;
             for (var allowance in assignedAllowances) {
-              total += (allowance['amount'] as num).toDouble();
+              total += (allowance['amount'] as num?)?.toDouble() ?? 0;
             }
 
             final headerRow = Row(

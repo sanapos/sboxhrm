@@ -85,7 +85,7 @@ public partial class PosSalesController
 
     /// <summary>Xóa 1 slot hóa đơn (soft-delete Draft). Từ chối nếu còn hàng và force=false.</summary>
     [HttpDelete("invoice-slots/{slot:int}")]
-    [RequireModulePermission("PosSell", ModulePermissionAction.Edit)]
+    [RequireModulePermission("PosSell", ModulePermissionAction.Create)]
     public async Task<ActionResult<AppResponse<object>>> RemoveInvoiceSlot(
         int slot,
         [FromQuery] bool force = false,

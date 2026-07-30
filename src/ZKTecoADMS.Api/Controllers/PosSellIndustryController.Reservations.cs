@@ -67,7 +67,7 @@ public partial class PosSellIndustryController
     }
 
     [HttpPost("resource-reservations")]
-    [RequireModulePermission("PosSell", ModulePermissionAction.Edit)]
+    [RequireModulePermission("PosSell", ModulePermissionAction.Create)]
     public async Task<ActionResult<AppResponse<object>>> CreateReservation(
         [FromBody] CreateReservationDto dto)
     {
@@ -152,7 +152,7 @@ public partial class PosSellIndustryController
     }
 
     [HttpPost("resource-reservations/{id:guid}/cancel")]
-    [RequireModulePermission("PosSell", ModulePermissionAction.Edit)]
+    [RequireModulePermission("PosSell", ModulePermissionAction.Create)]
     public async Task<ActionResult<AppResponse<object>>> CancelReservation(Guid id)
     {
         if (!TryGetStoreId(out var storeId))
@@ -179,7 +179,7 @@ public partial class PosSellIndustryController
 
     /// <summary>Khách đến — mở phiên, gắn món đặt trước vào đơn Draft.</summary>
     [HttpPost("resource-reservations/{id:guid}/seat")]
-    [RequireModulePermission("PosSell", ModulePermissionAction.Edit)]
+    [RequireModulePermission("PosSell", ModulePermissionAction.Create)]
     public async Task<ActionResult<AppResponse<object>>> SeatReservation(Guid id)
     {
         if (!TryGetStoreId(out var storeId))

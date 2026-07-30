@@ -258,14 +258,56 @@ int _parseTimeSpanToMinutes(String? timeStr) {
 
 int _dateTimeToMinutes(DateTime dt) => dt.hour * 60 + dt.minute;
 
+int _offsetMinutesInShiftWindow({
+  required int timeMin,
+  required int shiftStartMin,
+  required int shiftEndMin,
+}) {
+  final overnight = shiftEndMin <= shiftStartMin;
+  final duration =
+      overnight ? (24 * 60 - shiftStartMin) + shiftEndMin : shiftEndMin - shiftStartMin;
+  int offset;
+  if (overnight) {
+    if (timeMin >= shiftStartMin) {
+      offset = timeMin - shiftStartMin;
+    } else if (timeMin <= shiftEndMin) {
+      offset = (24 * 60 - shiftStartMin) + timeMin;
+    } else {
+      return -1;
+    }
+  } else {
+    if (timeMin < shiftStartMin || timeMin > shiftEndMin) return -1;
+    offset = timeMin - shiftStartMin;
+  }
+  if (offset < 0 || offset > duration) return -1;
+  return offset;
+}
+
 int _lunchBreakMinutesFromShift(Map<String, dynamic>? shift) {
   if (shift == null) return 0;
   final startStr = shift['lunchBreakStartTime']?.toString() ?? '';
   final endStr = shift['lunchBreakEndTime']?.toString() ?? '';
+  final shiftStart = _parseTimeSpanToMinutes(shift['startTime']?.toString());
+  final shiftEnd = _parseTimeSpanToMinutes(shift['endTime']?.toString());
   if (startStr.isNotEmpty && endStr.isNotEmpty) {
-    final start = _parseTimeSpanToMinutes(startStr);
-    final end = _parseTimeSpanToMinutes(endStr);
-    if (end > start) return end - start;
+    final lunchStart = _parseTimeSpanToMinutes(startStr);
+    final lunchEnd = _parseTimeSpanToMinutes(endStr);
+    // Chỉ trừ phần nghỉ nằm trong khung ca (tránh ca đêm trừ nghỉ 11:30–13:00).
+    if (shiftStart > 0 || shiftEnd > 0) {
+      final a = _offsetMinutesInShiftWindow(
+        timeMin: lunchStart,
+        shiftStartMin: shiftStart,
+        shiftEndMin: shiftEnd,
+      );
+      final b = _offsetMinutesInShiftWindow(
+        timeMin: lunchEnd,
+        shiftStartMin: shiftStart,
+        shiftEndMin: shiftEnd,
+      );
+      if (a >= 0 && b >= 0 && b > a) return b - a;
+      return 0;
+    }
+    if (lunchEnd > lunchStart) return lunchEnd - lunchStart;
   }
   final breakMin = (shift['breakTimeMinutes'] as num?)?.toInt() ?? 0;
   return breakMin > 0 ? breakMin : 0;

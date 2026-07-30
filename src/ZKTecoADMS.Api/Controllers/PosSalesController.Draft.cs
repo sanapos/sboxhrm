@@ -17,7 +17,7 @@ namespace ZKTecoADMS.Api.Controllers;
 public partial class PosSalesController
 {
     [HttpPut("{id:guid}")]
-    [RequireModulePermission("PosSell", ModulePermissionAction.Edit)]
+    [RequireModulePermission("PosSell", ModulePermissionAction.Create)]
     public async Task<ActionResult<AppResponse<SaleOrderDto>>> UpdateSale(Guid id, [FromBody] UpdateSaleDto dto)
     {
         var storeId = RequiredStoreId;
@@ -393,7 +393,7 @@ public partial class PosSalesController
     }
 
     [HttpPost("{id:guid}/complete")]
-    [RequireModulePermission("PosSaleOrders", ModulePermissionAction.Edit)]
+    [RequireModulePermission("PosSell", ModulePermissionAction.Approve)]
     public async Task<ActionResult<AppResponse<SaleOrderDto>>> CompleteSale(
         Guid id, [FromBody] CompleteSaleDto? dto = null)
     {

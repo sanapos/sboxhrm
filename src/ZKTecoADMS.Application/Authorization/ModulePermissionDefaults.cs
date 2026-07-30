@@ -32,6 +32,7 @@ public static class ModulePermissionDefaults
             "manager" => ManagerDefaults(m),
             "employee" => EmployeeDefaults(m),
             "cashier" => CashierDefaults(m),
+            "waiter" => WaiterDefaults(m),
             "user" => UserDefaults(m),
             _ => (false, false, false, false, false, false)
         };
@@ -108,6 +109,20 @@ public static class ModulePermissionDefaults
     };
 
     private static (bool, bool, bool, bool, bool, bool) CashierDefaults(string m) => m switch
+    {
+        "notification" => (true, false, false, false, false, false),
+        _ when IsDashboardFamily(m) || m is "home"
+            => (true, false, false, false, false, false),
+        // View + Create (order) + Approve (thanh toán)
+        "possell" => (true, true, false, false, false, true),
+        "posproducts" => (true, false, false, false, false, false),
+        "posprinttemplates" => (true, false, false, false, false, false),
+        "possaleorders" => (true, false, false, false, false, false),
+        _ => (false, false, false, false, false, false)
+    };
+
+    /// <summary>Order: gọi món / tạm tính — không thanh toán (CanApprove = false).</summary>
+    private static (bool, bool, bool, bool, bool, bool) WaiterDefaults(string m) => m switch
     {
         "notification" => (true, false, false, false, false, false),
         _ when IsDashboardFamily(m) || m is "home"

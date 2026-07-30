@@ -247,6 +247,9 @@ class PosPendingPrintStore {
   /// Job bếp cũ hơn ngưỡng này khi mở app → bỏ (tránh máy cũ auto-in trùng).
   static const kitchenMaxAge = Duration(minutes: 10);
 
+  /// Hóa đơn treo cũ: Agent thường đã in rồi client ghi fail → auto-retry in chồng.
+  static const saleMaxAge = Duration(minutes: 5);
+
   static List<PendingKitchenPrintJob> filterFreshKitchenJobs(
       List<PendingKitchenPrintJob> jobs) {
     final cutoff = DateTime.now().subtract(kitchenMaxAge);
@@ -254,6 +257,12 @@ class PosPendingPrintStore {
         .where((j) =>
             j.createdAt.isAfter(cutoff) || j.sentAt.isAfter(cutoff))
         .toList();
+  }
+
+  static List<PendingSalePrintJob> filterFreshSaleJobs(
+      List<PendingSalePrintJob> jobs) {
+    final cutoff = DateTime.now().subtract(saleMaxAge);
+    return jobs.where((j) => j.createdAt.isAfter(cutoff)).toList();
   }
 
   static Future<PosPendingPrintSnapshot> load() async {
@@ -264,10 +273,13 @@ class PosPendingPrintStore {
       final map = jsonDecode(raw);
       if (map is! Map) return const PosPendingPrintSnapshot();
       final snap = _fromMap(Map<String, dynamic>.from(map));
-      // Lọc bếp cũ ngay khi load — máy cập nhật một lần là hết queue độc.
       final kitchen = filterFreshKitchenJobs(snap.kitchen);
-      if (kitchen.length == snap.kitchen.length) return snap;
-      final cleaned = snap.copyWith(kitchen: kitchen);
+      final sales = filterFreshSaleJobs(snap.sales);
+      if (kitchen.length == snap.kitchen.length &&
+          sales.length == snap.sales.length) {
+        return snap;
+      }
+      final cleaned = snap.copyWith(kitchen: kitchen, sales: sales);
       await save(cleaned);
       return cleaned;
     } catch (e) {

@@ -340,6 +340,13 @@ class PermissionProvider extends ChangeNotifier {
     return _hasAction(moduleCode, 'canExport');
   }
 
+  /// Order / gọi món / tạm tính (không gồm thanh toán).
+  bool canPosOrder() =>
+      canCreate('PosSell') || canCreate('PosProducts');
+
+  /// Thu ngân — thanh toán / hoàn tất hóa đơn.
+  bool canPosPay() => canApprove('PosSell');
+
   /// Kiểm tra quyền DUYỆT cho một module
   bool canApprove(String? moduleCode) {
     if (moduleCode == null || moduleCode.isEmpty) return true;

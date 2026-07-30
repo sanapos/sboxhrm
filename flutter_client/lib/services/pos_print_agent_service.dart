@@ -254,14 +254,10 @@ class PosPrintAgentService {
       final jobId = data['jobId']?.toString() ?? data['JobId']?.toString() ?? '';
       if (jobId.isEmpty) return;
 
-      // Đã claim trên server — không được return im lặng (job sẽ kẹt Claimed).
-      if (_activeJobIds.contains(jobId)) {
-        await _api.failPosPrintJob(
-          jobId,
-          _agentId!,
-          errorCode: 'DUP_CLAIM',
-          errorMessage: 'Job đang được xử lý',
-        );
+      // Đã/đang xử lý job này — KHÔNG fail (tránh báo «không in được»
+      // trong khi lần claim đầu đã in ra giấy, rồi reclaim/claim lại).
+      if (_activeJobIds.contains(jobId) || _settledJobIds.contains(jobId)) {
+        debugPrint('Print Agent: bỏ claim trùng job $jobId (đang/đã xử lý)');
         return;
       }
 
@@ -335,6 +331,7 @@ class PosPrintAgentService {
   }
 
   void _markJobSettled(String jobId) {
+    _activeJobIds.remove(jobId);
     _settledJobIds.add(jobId);
     if (_settledJobIds.length > 80) {
       _settledJobIds.remove(_settledJobIds.first);

@@ -479,6 +479,9 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                                     value: 'Cashier',
                                     child: Text(tr('Thu ngân'))),
                                 DropdownMenuItem(
+                                    value: 'Waiter',
+                                    child: Text(tr('Order'))),
+                                DropdownMenuItem(
                                     value: 'Employee',
                                     child: Text(tr('Nhân viên'))),
                                 DropdownMenuItem(
@@ -863,6 +866,8 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
         return {'label': 'Kế toán', 'color': HrmPageChrome.primaryNavy};
       case 'Cashier':
         return {'label': 'Thu ngân', 'color': const Color(0xFF0D9488)};
+      case 'Waiter':
+        return {'label': 'Order', 'color': const Color(0xFF2563EB)};
       case 'Employee':
         return {'label': 'Nhân viên', 'color': HrmPageChrome.primaryNavy};
       case 'User':
@@ -1575,6 +1580,11 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
         'value': 'Cashier',
         'label': 'Thu ngân',
         'color': const Color(0xFF0D9488)
+      },
+      {
+        'value': 'Waiter',
+        'label': 'Order',
+        'color': const Color(0xFF2563EB)
       },
       {
         'value': 'Employee',
@@ -2384,8 +2394,9 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
     bool isSubmitting = false;
 
     const roles = [
-      {'value': 'Employee', 'label': 'Nhân viên'},
+      {'value': 'Waiter', 'label': 'Order'},
       {'value': 'Cashier', 'label': 'Thu ngân'},
+      {'value': 'Employee', 'label': 'Nhân viên'},
       {'value': 'User', 'label': 'Người dùng'},
       {'value': 'Accountant', 'label': 'Kế toán'},
       {'value': 'DepartmentHead', 'label': 'Trưởng phòng'},

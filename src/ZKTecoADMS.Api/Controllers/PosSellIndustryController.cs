@@ -1253,7 +1253,7 @@ public partial class PosSellIndustryController(ZKTecoDbContext db) : Authenticat
     }
 
     [HttpPost("resource-sessions/{id:guid}/close")]
-    [RequireModulePermission("PosSell", ModulePermissionAction.Edit)]
+    [RequireModulePermission("PosSell", ModulePermissionAction.Create)]
     public async Task<ActionResult<AppResponse<object>>> CloseSession(Guid id)
     {
         if (!TryGetStoreId(out var storeId))
@@ -1331,7 +1331,7 @@ public partial class PosSellIndustryController(ZKTecoDbContext db) : Authenticat
     /// Dùng ExecuteUpdate để chắc chắn ghi DB (tránh tracker stale).
     /// </summary>
     [HttpPost("service-resources/{id:guid}/free")]
-    [RequireModulePermission("PosSell", ModulePermissionAction.Edit)]
+    [RequireModulePermission("PosSell", ModulePermissionAction.Create)]
     public async Task<ActionResult<AppResponse<object>>> FreeResource(Guid id)
     {
         if (!TryGetStoreId(out var storeId))

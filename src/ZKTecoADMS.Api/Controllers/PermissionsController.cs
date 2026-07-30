@@ -78,6 +78,7 @@ public class PermissionsController(ZKTecoDbContext context) : AuthenticatedContr
             ("Manager", "Quản lý"),
             ("Employee", "Nhân viên"),
             ("Cashier", "Thu ngân"),
+            ("Waiter", "Order"),
             ("User", "Người dùng")
         };
 
@@ -325,6 +326,7 @@ public class PermissionsController(ZKTecoDbContext context) : AuthenticatedContr
         "Manager" => "Quản lý",
         "Employee" => "Nhân viên",
         "Cashier" => "Thu ngân",
+        "Waiter" => "Order",
         "User" => "Người dùng",
         _ => roleName
     };

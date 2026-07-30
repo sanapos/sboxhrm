@@ -2896,6 +2896,7 @@ public class SystemAdminController : AuthenticatedControllerBase
                 nameof(Roles.Manager),
                 nameof(Roles.Employee),
                 nameof(Roles.Cashier),
+                nameof(Roles.Waiter),
                 nameof(Roles.User),
             };
 
@@ -2975,6 +2976,7 @@ public class SystemAdminController : AuthenticatedControllerBase
                         nameof(Roles.Manager),
                         nameof(Roles.Employee),
                         nameof(Roles.Cashier),
+                        nameof(Roles.Waiter),
                         nameof(Roles.User),
                     };
                 }

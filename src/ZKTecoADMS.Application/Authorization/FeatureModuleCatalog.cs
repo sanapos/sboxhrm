@@ -95,7 +95,7 @@ public static class FeatureModuleCatalog
 
         // ══════════ POS / BÁN HÀNG ══════════
         new("PosProducts", "Hàng hóa POS", "Danh mục hàng hóa, tồn kho, giá bán", "POS / Bán hàng", 52),
-        new("PosSell", "Bán hàng POS", "Màn hình bán hàng, thu ngân", "POS / Bán hàng", 53),
+        new("PosSell", "Bán hàng POS", "Order / tạm tính (Tạo) · Thanh toán (Duyệt)", "POS / Bán hàng", 53),
         new("PosPrintTemplates", "Mẫu in POS", "Mẫu in hóa đơn, phiếu", "POS / Bán hàng", 54),
         new("PosSaleOrders", "Đơn hàng POS", "Danh sách đơn bán hàng", "POS / Bán hàng", 55),
         new("PosPurchaseReceipts", "Nhập hàng NCC", "Phiếu nhập hàng nhà cung cấp", "POS / Bán hàng", 56),

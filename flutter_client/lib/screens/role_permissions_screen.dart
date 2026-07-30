@@ -86,6 +86,7 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
     'DepartmentHead',
     'Manager',
     'Cashier',
+    'Waiter',
     'Employee',
     'User',
   ];
@@ -235,6 +236,11 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
         {
           'roleName': 'Cashier',
           'roleDisplayName': 'Thu ngân',
+          'permissionCount': 42
+        },
+        {
+          'roleName': 'Waiter',
+          'roleDisplayName': 'Order',
           'permissionCount': 42
         },
         {
@@ -413,6 +419,20 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
     'SystemSettings': {'canView', 'canEdit'},
     'NotificationSettings': {'canView', 'canEdit'},
     'AIGemini': {'canView', 'canEdit'},
+    'PosSell': {
+      // Xem = vào màn bán; Thêm = Order/tạm tính; Duyệt = Thanh toán
+      'canView',
+      'canCreate',
+      'canApprove',
+    },
+    'PosProducts': {
+      'canView',
+      'canCreate',
+      'canEdit',
+      'canDelete',
+      'canExport',
+    },
+    'PosSalesReport': {'canView', 'canExport'},
     'Settings': {'canView', 'canEdit'},
   };
 
@@ -1866,12 +1886,17 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
                                     children: [
                                       if (_moduleSupports(
                                           perm['module'], 'canView'))
-                                        _mobilePermChip('Xem', index, 'canView',
+                                        _mobilePermChip(
+                                            _posActionLabel(
+                                                perm['module'], 'canView'),
+                                            index,
+                                            'canView',
                                             perm['canView'] ?? false),
                                       if (_moduleSupports(
                                           perm['module'], 'canCreate'))
                                         _mobilePermChip(
-                                            'Thêm',
+                                            _posActionLabel(
+                                                perm['module'], 'canCreate'),
                                             index,
                                             'canCreate',
                                             perm['canCreate'] ?? false),
@@ -1896,7 +1921,8 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
                                       if (_moduleSupports(
                                           perm['module'], 'canApprove'))
                                         _mobilePermChip(
-                                            'Duyệt',
+                                            _posActionLabel(
+                                                perm['module'], 'canApprove'),
                                             index,
                                             'canApprove',
                                             perm['canApprove'] ?? false),
@@ -2276,6 +2302,8 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
         return HrmPageChrome.primaryNavy;
       case 'Cashier':
         return const Color(0xFF0D9488);
+      case 'Waiter':
+        return const Color(0xFF2563EB);
       case 'Employee':
         return HrmPageChrome.primaryNavy;
       case 'User':
@@ -2299,6 +2327,8 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
         return Icons.supervisor_account;
       case 'Cashier':
         return Icons.point_of_sale;
+      case 'Waiter':
+        return Icons.room_service_outlined;
       case 'Employee':
         return Icons.person;
       case 'User':
@@ -2418,6 +2448,30 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
         return const Color(0xFFEC4899);
       default:
         return const Color(0xFF71717A);
+    }
+  }
+
+  /// Nhãn quyền POS: Order / Thanh toán thay vì Thêm / Duyệt chung.
+  static String _posActionLabel(Object? module, String action) {
+    if (module == 'PosSell') {
+      switch (action) {
+        case 'canView':
+          return 'Vào bán';
+        case 'canCreate':
+          return 'Order';
+        case 'canApprove':
+          return 'Thanh toán';
+      }
+    }
+    switch (action) {
+      case 'canView':
+        return 'Xem';
+      case 'canCreate':
+        return 'Thêm';
+      case 'canApprove':
+        return 'Duyệt';
+      default:
+        return action;
     }
   }
 }

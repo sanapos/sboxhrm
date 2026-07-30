@@ -113,8 +113,7 @@ public class MyPermissionsController(ZKTecoDbContext context) : AuthenticatedCon
 
         var existingSet = existingPermissionIds.ToHashSet();
         var missingModules = allModules.Where(m => !existingSet.Contains(m.Id)).ToList();
-        if (missingModules.Count == 0)
-            return;
+        var changed = false;
 
         foreach (var module in missingModules)
         {
@@ -135,9 +134,37 @@ public class MyPermissionsController(ZKTecoDbContext context) : AuthenticatedCon
                 CanApprove = canApprove,
                 IsActive = true
             });
+            changed = true;
         }
 
-        await context.SaveChangesAsync();
+        // Thu ngân cũ: có Create PosSell nhưng chưa Approve → bổ sung quyền thanh toán.
+        if (roleName.Equals("Cashier", StringComparison.OrdinalIgnoreCase))
+        {
+            var sellModuleIds = allModules
+                .Where(m => m.Module == "PosSell")
+                .Select(m => m.Id)
+                .ToHashSet();
+            if (sellModuleIds.Count > 0)
+            {
+                var sellPerms = await context.RolePermissions
+                    .Where(rp => rp.RoleName == roleName &&
+                                 (rp.StoreId == storeId || rp.StoreId == null) &&
+                                 rp.IsActive &&
+                                 sellModuleIds.Contains(rp.PermissionId))
+                    .ToListAsync();
+                foreach (var rp in sellPerms)
+                {
+                    if (rp.CanCreate && !rp.CanApprove)
+                    {
+                        rp.CanApprove = true;
+                        changed = true;
+                    }
+                }
+            }
+        }
+
+        if (changed)
+            await context.SaveChangesAsync();
     }
 
     private static string GetRoleDisplayName(string roleName) => roleName.ToLower() switch
@@ -148,6 +175,8 @@ public class MyPermissionsController(ZKTecoDbContext context) : AuthenticatedCon
         "departmenthead" => "Trưởng phòng",
         "manager" => "Quản lý",
         "employee" => "Nhân viên",
+        "cashier" => "Thu ngân",
+        "waiter" => "Order",
         "user" => "Người dùng",
         _ => roleName
     };

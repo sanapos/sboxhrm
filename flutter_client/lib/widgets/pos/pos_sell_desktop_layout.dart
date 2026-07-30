@@ -46,11 +46,12 @@ class PosSellDesktopLayout extends StatelessWidget {
 
   /// Flex trái / giữa / phải theo độ rộng.
   static (int, int, int) flexFor(double width, {bool floorPrimary = false}) {
+    // Ưu tiên cột đơn hàng (giữa) rộng hơn để SL / ĐVT / giá không bị chật.
     if (width >= Responsive.largeBreakpoint) {
-      return floorPrimary ? (5, 4, 3) : (5, 4, 3);
+      return floorPrimary ? (4, 5, 3) : (4, 5, 3);
     }
     if (width >= Responsive.tabletBreakpoint) {
-      return floorPrimary ? (5, 4, 3) : (4, 4, 3);
+      return floorPrimary ? (4, 5, 3) : (4, 5, 3);
     }
     return (1, 1, 0);
   }

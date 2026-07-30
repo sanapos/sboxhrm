@@ -66,6 +66,9 @@ class AllowanceCalculator {
   }
 
   /// Tổng mức phụ cấp theo loại (0=cố định, 1=theo ngày, 2=theo giờ).
+  ///
+  /// [benefitFallback] đã bỏ dùng trên UI Thiết lập lương (số meal/responsibility
+  /// cũ không sửa được). Giữ tham số để tương thích gọi cũ — không nên truyền.
   static double sumForEmployee({
     required List<Map<String, dynamic>> allowances,
     required String employeeId,
@@ -84,14 +87,6 @@ class AllowanceCalculator {
       }
       final val = _amount(a);
       if (val > 0) total += val;
-    }
-    if (total > 0 || benefitFallback == null) return total;
-    if (allowanceType == 0) {
-      return (benefitFallback['mealAllowance'] as num?)?.toDouble() ?? 0;
-    }
-    if (allowanceType == 1) {
-      return (benefitFallback['responsibilityAllowance'] as num?)?.toDouble() ??
-          0;
     }
     return total;
   }

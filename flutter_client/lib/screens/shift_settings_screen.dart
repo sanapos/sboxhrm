@@ -164,19 +164,105 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
     return time;
   }
 
+  int _todMinutes(TimeOfDay t) => t.hour * 60 + t.minute;
+
+  /// Phút từ giờ vào ca → [t] trên trục thời gian ca (hỗ trợ qua đêm).
+  /// Ngoài ca → -1.
+  int _offsetInShift(TimeOfDay t, TimeOfDay shiftStart, TimeOfDay shiftEnd) {
+    final s = _todMinutes(shiftStart);
+    final e = _todMinutes(shiftEnd);
+    final m = _todMinutes(t);
+    final overnight = e <= s;
+    final duration = overnight ? (24 * 60 - s) + e : e - s;
+    int offset;
+    if (overnight) {
+      if (m >= s) {
+        offset = m - s;
+      } else if (m <= e) {
+        offset = (24 * 60 - s) + m;
+      } else {
+        return -1;
+      }
+    } else {
+      if (m < s || m > e) return -1;
+      offset = m - s;
+    }
+    if (offset < 0 || offset > duration) return -1;
+    return offset;
+  }
+
+  bool _isLunchBreakInsideShift({
+    required TimeOfDay shiftStart,
+    required TimeOfDay shiftEnd,
+    required TimeOfDay lunchStart,
+    required TimeOfDay lunchEnd,
+  }) {
+    final a = _offsetInShift(lunchStart, shiftStart, shiftEnd);
+    final b = _offsetInShift(lunchEnd, shiftStart, shiftEnd);
+    return a >= 0 && b >= 0 && b > a;
+  }
+
+  /// Số phút nghỉ giao với khung ca (0 nếu nghỉ nằm ngoài ca).
+  int _lunchOverlapMinutes({
+    required TimeOfDay shiftStart,
+    required TimeOfDay shiftEnd,
+    required TimeOfDay lunchStart,
+    required TimeOfDay lunchEnd,
+  }) {
+    final a = _offsetInShift(lunchStart, shiftStart, shiftEnd);
+    final b = _offsetInShift(lunchEnd, shiftStart, shiftEnd);
+    if (a < 0 || b < 0 || b <= a) return 0;
+    return b - a;
+  }
+
+  TimeOfDay _todFromShiftOffset(TimeOfDay shiftStart, int offsetMin) {
+    final total = (_todMinutes(shiftStart) + offsetMin) % (24 * 60);
+    return TimeOfDay(hour: total ~/ 60, minute: total % 60);
+  }
+
+  /// Đặt khung nghỉ vào giữa ca, giữ độ dài hiện tại (tối đa ½ ca).
+  ({TimeOfDay start, TimeOfDay end}) _snapLunchBreakIntoShift({
+    required TimeOfDay shiftStart,
+    required TimeOfDay shiftEnd,
+    required TimeOfDay lunchStart,
+    required TimeOfDay lunchEnd,
+  }) {
+    final s = _todMinutes(shiftStart);
+    final e = _todMinutes(shiftEnd);
+    final duration = e <= s ? (24 * 60 - s) + e : e - s;
+    var breakLen = _todMinutes(lunchEnd) - _todMinutes(lunchStart);
+    if (breakLen <= 0) breakLen = 60;
+    if (breakLen >= duration) {
+      breakLen = math.max(15, duration ~/ 3);
+    }
+    final startOffset = math.max(0, (duration - breakLen) ~/ 2);
+    return (
+      start: _todFromShiftOffset(shiftStart, startOffset),
+      end: _todFromShiftOffset(shiftStart, startOffset + breakLen),
+    );
+  }
+
   String _calculateWorkHours(String startTime, String endTime,
       {TimeOfDay? lunchStart, TimeOfDay? lunchEnd}) {
     try {
       final sp = startTime.split(':');
       final ep = endTime.split(':');
-      int startMin = int.parse(sp[0]) * 60 + int.parse(sp[1]);
-      int endMin = int.parse(ep[0]) * 60 + int.parse(ep[1]);
+      final shiftStart = TimeOfDay(
+          hour: int.parse(sp[0]), minute: int.parse(sp[1]));
+      final shiftEnd = TimeOfDay(
+          hour: int.parse(ep[0]), minute: int.parse(ep[1]));
+      int startMin = _todMinutes(shiftStart);
+      int endMin = _todMinutes(shiftEnd);
       if (endMin <= startMin) endMin += 24 * 60;
       var diff = endMin - startMin;
       if (lunchStart != null && lunchEnd != null) {
-        final lunchStartMin = lunchStart.hour * 60 + lunchStart.minute;
-        final lunchEndMin = lunchEnd.hour * 60 + lunchEnd.minute;
-        if (lunchEndMin > lunchStartMin) diff -= lunchEndMin - lunchStartMin;
+        // Chỉ trừ phần nghỉ nằm trong ca — không trừ khung nghỉ ca ngày khi sửa ca đêm.
+        diff -= _lunchOverlapMinutes(
+          shiftStart: shiftStart,
+          shiftEnd: shiftEnd,
+          lunchStart: lunchStart,
+          lunchEnd: lunchEnd,
+        );
       }
       if (diff < 0) diff = 0;
       return '${(diff ~/ 60).toString().padLeft(2, '0')}:${(diff % 60).toString().padLeft(2, '0')}';
@@ -1676,13 +1762,74 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
     TimeOfDay lunchBreakEnd =
         _timeOfDayFromShiftString(shift?.lunchBreakEndTime) ??
             const TimeOfDay(hour: 13, minute: 0);
+    // Khung nghỉ mặc định 11:30–13:00 không thuộc ca đêm → tự nhảy vào giữa ca.
+    if (!_isLunchBreakInsideShift(
+      shiftStart: startTime,
+      shiftEnd: endTime,
+      lunchStart: lunchBreakStart,
+      lunchEnd: lunchBreakEnd,
+    )) {
+      final snapped = _snapLunchBreakIntoShift(
+        shiftStart: startTime,
+        shiftEnd: endTime,
+        lunchStart: lunchBreakStart,
+        lunchEnd: lunchBreakEnd,
+      );
+      lunchBreakStart = snapped.start;
+      lunchBreakEnd = snapped.end;
+    }
     bool isSaving = false;
+
+    void applyLunchOrSnap(
+      StateSetter setDialogState, {
+      TimeOfDay? newLunchStart,
+      TimeOfDay? newLunchEnd,
+      TimeOfDay? newShiftStart,
+      TimeOfDay? newShiftEnd,
+    }) {
+      final s = newShiftStart ?? startTime;
+      final e = newShiftEnd ?? endTime;
+      var ls = newLunchStart ?? lunchBreakStart;
+      var le = newLunchEnd ?? lunchBreakEnd;
+      if (!_isLunchBreakInsideShift(
+        shiftStart: s,
+        shiftEnd: e,
+        lunchStart: ls,
+        lunchEnd: le,
+      )) {
+        final snapped = _snapLunchBreakIntoShift(
+          shiftStart: s,
+          shiftEnd: e,
+          lunchStart: ls,
+          lunchEnd: le,
+        );
+        ls = snapped.start;
+        le = snapped.end;
+        appNotification.showWarning(
+          title: 'Nghỉ giữa ca ngoài khung ca',
+          message: tr(
+              'Đã tự chỉnh nghỉ thành ${_formatTime(_timeOfDayToApi(ls))} – ${_formatTime(_timeOfDayToApi(le))} (nằm trong ca).'),
+        );
+      }
+      setDialogState(() {
+        if (newShiftStart != null) startTime = newShiftStart;
+        if (newShiftEnd != null) endTime = newShiftEnd;
+        lunchBreakStart = ls;
+        lunchBreakEnd = le;
+      });
+    }
 
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) {
+          final lunchInside = _isLunchBreakInsideShift(
+            shiftStart: startTime,
+            shiftEnd: endTime,
+            lunchStart: lunchBreakStart,
+            lunchEnd: lunchBreakEnd,
+          );
           final totalHours = _calculateWorkHours(
             '${startTime.hour}:${startTime.minute}:00',
             '${endTime.hour}:${endTime.minute}:00',
@@ -1780,7 +1927,8 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                                             context: ctx,
                                             initialTime: startTime);
                                         if (t != null) {
-                                          setDialogState(() => startTime = t);
+                                          applyLunchOrSnap(setDialogState,
+                                              newShiftStart: t);
                                         }
                                       },
                                       child: _timeBox(
@@ -1796,7 +1944,8 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                                         final t = await showTimePicker(
                                             context: ctx, initialTime: endTime);
                                         if (t != null) {
-                                          setDialogState(() => endTime = t);
+                                          applyLunchOrSnap(setDialogState,
+                                              newShiftEnd: t);
                                         }
                                       },
                                       child: _timeBox(
@@ -2017,8 +2166,8 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                                                   context: ctx,
                                                   initialTime: lunchBreakStart);
                                               if (t != null) {
-                                                setDialogState(
-                                                    () => lunchBreakStart = t);
+                                                applyLunchOrSnap(setDialogState,
+                                                    newLunchStart: t);
                                               }
                                             },
                                             child: _timeBox(lunchBreakStart,
@@ -2035,8 +2184,8 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                                                   context: ctx,
                                                   initialTime: lunchBreakEnd);
                                               if (t != null) {
-                                                setDialogState(
-                                                    () => lunchBreakEnd = t);
+                                                applyLunchOrSnap(setDialogState,
+                                                    newLunchEnd: t);
                                               }
                                             },
                                             child: _timeBox(lunchBreakEnd,
@@ -2045,6 +2194,59 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                                     ),
                                   ],
                                 ),
+                                if (!lunchInside) ...[
+                                  const SizedBox(height: 12),
+                                  Container(
+                                    width: double.infinity,
+                                    padding: const EdgeInsets.all(10),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFFEF2F2),
+                                      borderRadius: BorderRadius.circular(8),
+                                      border: Border.all(
+                                          color: const Color(0xFFFECACA)),
+                                    ),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          tr('Khung nghỉ đang nằm ngoài giờ ca — tổng giờ / chấm công sẽ sai.'),
+                                          style: const TextStyle(
+                                            fontSize: 12,
+                                            color: Color(0xFFB91C1C),
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 8),
+                                        TextButton.icon(
+                                          onPressed: () {
+                                            final snapped =
+                                                _snapLunchBreakIntoShift(
+                                              shiftStart: startTime,
+                                              shiftEnd: endTime,
+                                              lunchStart: lunchBreakStart,
+                                              lunchEnd: lunchBreakEnd,
+                                            );
+                                            setDialogState(() {
+                                              lunchBreakStart = snapped.start;
+                                              lunchBreakEnd = snapped.end;
+                                            });
+                                          },
+                                          icon: const Icon(Icons.auto_awesome,
+                                              size: 16),
+                                          label: Text(tr('Tự nhảy vào giữa ca')),
+                                          style: TextButton.styleFrom(
+                                            backgroundColor:
+                                                const Color(0xFFDC2626),
+                                            foregroundColor: Colors.white,
+                                            padding: const EdgeInsets.symmetric(
+                                                horizontal: 12, vertical: 8),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
                               ],
                             ),
                           ),
@@ -2157,6 +2359,19 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                                     appNotification.showWarning(
                                       title: 'Cấu hình chấm công',
                                       message: tr('Tăng ca trước ca ($earlyOvertimeThreshold phút) cần Cho phép chấm sớm ít nhất ${earlyOvertimeThreshold + 1} phút để nhân viên khớp ca và tính được tăng ca.'),
+                                    );
+                                    return;
+                                  }
+                                  if (!_isLunchBreakInsideShift(
+                                    shiftStart: startTime,
+                                    shiftEnd: endTime,
+                                    lunchStart: lunchBreakStart,
+                                    lunchEnd: lunchBreakEnd,
+                                  )) {
+                                    appNotification.showWarning(
+                                      title: 'Nghỉ giữa ca ngoài khung ca',
+                                      message: tr(
+                                          'Chọn giờ nghỉ nằm trong ca, hoặc bấm «Tự nhảy vào giữa ca».'),
                                     );
                                     return;
                                   }

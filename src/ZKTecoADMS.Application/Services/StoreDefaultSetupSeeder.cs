@@ -38,6 +38,7 @@ public static class StoreDefaultSetupSeeder
         nameof(Roles.Manager),
         nameof(Roles.Employee),
         nameof(Roles.Cashier),
+        nameof(Roles.Waiter),
         nameof(Roles.User),
     ];
     private static readonly (string Code, string Name, string Description, int SortOrder)[] DepartmentTemplates =

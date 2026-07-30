@@ -77,7 +77,13 @@ class PosPrintOrchestrator {
     _jobMeta.remove(jobId);
 
     if (outcome.ok) {
-      // Máy gửi lệnh: không toast thêm khi agent xa in xong (tránh trùng "nhận in").
+      if (showFeedback) {
+        final name = outcome.printerName?.trim() ?? '';
+        NotificationOverlayManager().showSuccess(
+          title: 'In thành công',
+          message: name.isNotEmpty ? name : 'Đã in xong trên Print Agent',
+        );
+      }
       return;
     }
     NotificationOverlayManager().showError(
@@ -95,7 +101,11 @@ class PosPrintOrchestrator {
     final printerName = data['printerName']?.toString() ?? '';
     final error = data['errorMessage']?.toString();
 
-    if (status == 'Completed') {
+    if (status == 'Completed' ||
+        status == 'Claimed' ||
+        status == 'Printing') {
+      // Claimed/Printing = Agent đã nhận — giấy thường đã/ sắp ra.
+      // Trước đây chỉ Completed → máy gửi báo «chưa in» dù Agent đã in.
       _finishJob(
         jobId,
         _JobOutcome(true, null, printerName: printerName),
@@ -286,10 +296,10 @@ class PosPrintOrchestrator {
       }
 
       if (!waitForCompletion) {
-        // Không chặn UI, nhưng vẫn theo dõi ngầm để báo lỗi thật nếu job
-        // kẹt/hết hạn — trước đây bỏ qua hoàn toàn nên mất tích không dấu vết.
+        // Không chặn UI. Không toast lỗi nền — trước đây showFeedback:true khiến
+        // báo «In thất bại» dù Agent đã in (race reclaim/DUP/timeout sau giấy ra).
         unawaited(
-          _waitJob(jobId, showFeedback: true).whenComplete(
+          _waitJob(jobId, showFeedback: false).whenComplete(
             () => PosPrintSessionRegistry.clearOutbound(jobId),
           ),
         );
@@ -457,8 +467,8 @@ class PosPrintOrchestrator {
           referenceNo: referenceNo,
           referenceId: referenceId,
           showFeedback: false,
-          // Không chờ Completed cứng: Agent nhận/Printing = đã in được trên máy online.
-          waitForCompletion: false,
+          // Thanh toán (showFeedback=false): gửi xong là OK. In tay/in lại: chờ Completed.
+          waitForCompletion: showFeedback,
         );
       } else {
         final bytes = await buildEscPos(printer);
@@ -639,7 +649,7 @@ class PosPrintOrchestrator {
     }
     if (!waitForCompletion) {
       unawaited(
-        _waitJob(jobId, showFeedback: true).whenComplete(
+        _waitJob(jobId, showFeedback: false).whenComplete(
           () => PosPrintSessionRegistry.clearOutbound(jobId),
         ),
       );
@@ -650,8 +660,9 @@ class PosPrintOrchestrator {
     return outcome.ok;
   }
 
-  /// Trả `true` (đã tự fail job) khi máy in cần Agent nhưng server báo không
-  /// có Agent nào online — tránh chờ 90s hoặc báo "đã gửi" giả.
+  /// Không hủy job khi heartbeat Agent «lệch» — demopos tái hiện:
+  /// `agentOnlineForPrinter=0` nhưng Agent vẫn Claim + in trong vài giây.
+  /// Fail-fast cũ → UI «Đã báo bếp — chưa in phiếu» dù giấy đã ra.
   bool _failFastNoAgent(
     PosStorePrinter printer,
     Map<String, dynamic>? data,
@@ -664,19 +675,16 @@ class PosPrintOrchestrator {
         agentsOnline.toInt() > 0) {
       return false;
     }
+    // Chỉ cảnh báo mềm — vẫn chờ Claimed/Printing/Completed.
     if (showFeedback) {
-      NotificationOverlayManager().showError(
-        title: 'Không có Print Agent',
-        message: tr('${printer.name} chưa có Agent online. Mở app trên máy gắn máy in này → Bật Agent.'),
+      NotificationOverlayManager().show(
+        title: 'Đang chờ Print Agent…',
+        message: tr(
+            '${printer.name}: chưa thấy heartbeat tươi — vẫn gửi lệnh, mở app Agent nếu lâu không in.'),
+        duration: const Duration(seconds: 4),
       );
     }
-    unawaited(_api.failPosPrintJob(
-      jobId,
-      '',
-      errorCode: 'NO_AGENT',
-      errorMessage: 'Không có Agent online cho máy in',
-    ));
-    return true;
+    return false;
   }
 
   /// Phiếu xuất kho / báo chế biến kho → Agent Sunmi native (không ESC/POS).
@@ -733,7 +741,7 @@ class PosPrintOrchestrator {
     PosPrintAgentService.instance.nudgeClaim();
     if (!waitForCompletion) {
       unawaited(
-        _waitJob(jobId, showFeedback: true).whenComplete(
+        _waitJob(jobId, showFeedback: false).whenComplete(
           () => PosPrintSessionRegistry.clearOutbound(jobId),
         ),
       );
@@ -993,7 +1001,7 @@ class PosPrintOrchestrator {
     }
     if (!waitForCompletion) {
       unawaited(
-        _waitJob(jobId, showFeedback: true).whenComplete(
+        _waitJob(jobId, showFeedback: false).whenComplete(
           () => PosPrintSessionRegistry.clearOutbound(jobId),
         ),
       );
@@ -1136,15 +1144,37 @@ class PosPrintOrchestrator {
 
     Timer(_jobTimeout, () {
       if (!completer.isCompleted) {
-        _finishJob(
-          jobId,
-          const _JobOutcome(
-            false,
-            'Print Agent không nhận lệnh trong 90 giây. '
-            'Kiểm tra Sunmi: Agent BẬT + đã chọn chip máy in + app đang mở.',
-          ),
-          showFeedback: showFeedback,
-        );
+        // Soft-timeout: nếu Agent đã nhận (Claimed/Printing) thì coi OK —
+        // tránh báo lỗi sau khi giấy đã ra mà Complete chậm.
+        unawaited(() async {
+          try {
+            final res = await _api.getPosPrintJob(jobId);
+            final status = (res['data'] is Map)
+                ? (res['data'] as Map)['status']?.toString()
+                : null;
+            if (status == 'Completed' ||
+                status == 'Claimed' ||
+                status == 'Printing') {
+              _finishJob(
+                jobId,
+                const _JobOutcome(true, null),
+                showFeedback: showFeedback,
+              );
+              return;
+            }
+          } catch (_) {}
+          if (!completer.isCompleted) {
+            _finishJob(
+              jobId,
+              const _JobOutcome(
+                false,
+                'Print Agent không nhận lệnh trong 90 giây. '
+                'Kiểm tra Sunmi: Agent BẬT + đã chọn chip máy in + app đang mở.',
+              ),
+              showFeedback: showFeedback,
+            );
+          }
+        }());
       }
     });
 
@@ -1179,15 +1209,12 @@ class PosPrintOrchestrator {
             showFeedback: showFeedback,
           );
         } else if (status == 'Claimed' || status == 'Printing') {
-          // Agent đã nhận job — giấy thường đã/ sắp ra. Coi là thành công sớm
-          // để máy gửi không báo «không in được» dù Agent online đã in.
-          if (i >= 2) {
-            _finishJob(
-              jobId,
-              const _JobOutcome(true, null),
-              showFeedback: showFeedback,
-            );
-          }
+          // Agent đã nhận — coi thành công ngay (không chờ i>=2 ~15s).
+          _finishJob(
+            jobId,
+            const _JobOutcome(true, null),
+            showFeedback: showFeedback,
+          );
         }
       } catch (_) {}
     }

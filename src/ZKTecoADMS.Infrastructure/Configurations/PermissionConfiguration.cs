@@ -112,7 +112,8 @@ public class PermissionConfiguration : IEntityTypeConfiguration<Permission>
             new Permission { Id = Guid.Parse("11111111-1111-1111-1111-111111111081"), Module = "DashboardKpiPanel", ModuleDisplayName = "KPI (Dashboard)", Description = "Khối KPI trên Dashboard", DisplayOrder = 10 },
             new Permission { Id = Guid.Parse("11111111-1111-1111-1111-111111111082"), Module = "DashboardInternalNews", ModuleDisplayName = "Bản tin nội bộ", Description = "Tin truyền thông trên Dashboard", DisplayOrder = 11 },
             new Permission { Id = Guid.Parse("11111111-1111-1111-1111-111111111083"), Module = "PosProducts", ModuleDisplayName = "Hàng hóa POS", Description = "Danh mục hàng hóa, tồn kho, giá bán POS", DisplayOrder = 52 },
-            new Permission { Id = Guid.Parse("11111111-1111-1111-1111-111111111084"), Module = "PosSalesReport", ModuleDisplayName = "Báo cáo doanh thu POS", Description = "Thống kê doanh thu, đơn bán hàng POS", DisplayOrder = 53 }
+            new Permission { Id = Guid.Parse("11111111-1111-1111-1111-111111111087"), Module = "PosSell", ModuleDisplayName = "Bán hàng POS", Description = "Order / tạm tính (Tạo) · Thanh toán (Duyệt)", DisplayOrder = 53 },
+            new Permission { Id = Guid.Parse("11111111-1111-1111-1111-111111111084"), Module = "PosSalesReport", ModuleDisplayName = "Báo cáo doanh thu POS", Description = "Thống kê doanh thu, đơn bán hàng POS", DisplayOrder = 54 }
         );
     }
 }

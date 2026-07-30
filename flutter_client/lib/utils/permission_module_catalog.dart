@@ -84,6 +84,7 @@ class PermissionModuleCatalog {
     'DashboardKpiPanel': '11111111-1111-1111-1111-111111111081',
     'DashboardInternalNews': '11111111-1111-1111-1111-111111111082',
     'PosProducts': '11111111-1111-1111-1111-111111111083',
+    'PosSell': '11111111-1111-1111-1111-111111111087',
     'PosSalesReport': '11111111-1111-1111-1111-111111111084',
     'BusinessTripExpense': '11111111-1111-1111-1111-111111111085',
   };

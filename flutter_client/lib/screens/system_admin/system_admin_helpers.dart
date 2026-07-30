@@ -423,6 +423,8 @@ class AdminHelpers {
         return 'Nhân viên';
       case 'cashier':
         return 'Thu ngân';
+      case 'waiter':
+        return 'Order';
       case 'user':
         return 'Người dùng';
       case 'agent':
