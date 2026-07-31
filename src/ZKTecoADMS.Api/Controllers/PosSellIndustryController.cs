@@ -467,7 +467,9 @@ public partial class PosSellIndustryController(
 
     [HttpGet("service-resources")]
     [RequireModulePermission("PosSell", ModulePermissionAction.View)]
-    public async Task<ActionResult<AppResponse<List<ResourceDto>>>> GetResources([FromQuery] Guid? areaId = null)
+    public async Task<ActionResult<AppResponse<List<ResourceDto>>>> GetResources(
+        [FromQuery] Guid? areaId = null,
+        [FromQuery] bool heal = true)
     {
         if (!TryGetStoreId(out var storeId))
             return BadRequest(AppResponse<List<ResourceDto>>.Fail("Thiếu cửa hàng"));
@@ -492,13 +494,13 @@ public partial class PosSellIndustryController(
                 && resourceIds.Contains(s.ResourceId))
             .ToListAsync();
 
-        // Heal orphan: phiên mở nhưng đơn đã thanh toán/hủy/mất → đóng + cần dọn.
+        // Heal orphan chỉ khi heal=true (mở sơ đồ / thao tác). Poll silent gửi heal=false.
         var orphanOrderIds = openSessions
             .Where(s => s.SaleOrderId.HasValue)
             .Select(s => s.SaleOrderId!.Value)
             .Distinct()
             .ToList();
-        if (orphanOrderIds.Count > 0 || openSessions.Any(s => !s.SaleOrderId.HasValue))
+        if (heal && (orphanOrderIds.Count > 0 || openSessions.Any(s => !s.SaleOrderId.HasValue)))
         {
             var draftAlive = await db.PosSaleOrders.AsNoTracking()
                 .Where(o => orphanOrderIds.Contains(o.Id) && o.StoreId == storeId

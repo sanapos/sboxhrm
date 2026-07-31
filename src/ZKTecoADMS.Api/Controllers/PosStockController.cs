@@ -123,59 +123,66 @@ public class PosStockController(ZKTecoDbContext dbContext) : AuthenticatedContro
 
 
         var query = dbContext.PosStockTransactions
-
             .AsNoTracking()
-
-            .Include(t => t.Product)
-
-            .Include(t => t.Variant)
-
-            .Include(t => t.StockReceipt)
-
-                .ThenInclude(r => r!.Supplier)
-
-            .Include(t => t.SaleOrder)
-
             .Where(t => t.StoreId == storeId && t.Deleted == null && t.IsActive);
 
-
-
         if (productId.HasValue)
-
             query = query.Where(t => t.ProductId == productId);
 
         if (variantId.HasValue)
-
             query = query.Where(t => t.VariantId == variantId);
 
         if (from.HasValue)
-
             query = query.Where(t => t.CreatedAt >= from.Value.Date);
 
         if (to.HasValue)
-
             query = query.Where(t => t.CreatedAt < to.Value.Date.AddDays(1));
-
-
 
         var total = await query.CountAsync();
         var rows = await query
             .OrderByDescending(t => t.CreatedAt)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
+            .Select(t => new
+            {
+                t.Id,
+                t.ProductId,
+                t.VariantId,
+                VariantName = t.Variant != null ? t.Variant.Name : null,
+                VariantAttr = t.Variant != null ? t.Variant.AttributeJson : null,
+                ProductName = t.Product != null ? t.Product.Name : "",
+                ProductCode = t.Product != null ? t.Product.ProductCode : "",
+                TransactionType = t.TransactionType.ToString(),
+                t.QtyChange,
+                t.QtyAfter,
+                t.ReferenceNo,
+                t.Note,
+                t.StockReceiptId,
+                t.SaleOrderId,
+                t.StockIssueId,
+                t.StockCountId,
+                t.PurchaseReturnId,
+                t.UnitCost,
+                t.LineAmount,
+                PartyName = t.StockReceipt != null && t.StockReceipt.Supplier != null
+                    ? t.StockReceipt.Supplier.Name
+                    : (t.SaleOrder != null ? t.SaleOrder.CustomerName : null),
+                t.CreatedAt,
+                t.CreatedBy,
+            })
             .ToListAsync();
         var items = rows.Select(t => new StockTransactionDto(
             t.Id, t.ProductId, t.VariantId,
-            t.Variant?.Name,
-            ParseUnitName(t.Variant?.AttributeJson),
-            t.Product?.Name ?? "",
-            t.Product?.ProductCode ?? "",
-            t.TransactionType.ToString(),
+            t.VariantName,
+            ParseUnitName(t.VariantAttr),
+            t.ProductName,
+            t.ProductCode,
+            t.TransactionType,
             t.QtyChange, t.QtyAfter,
             t.ReferenceNo, t.Note,
             t.StockReceiptId, t.SaleOrderId, t.StockIssueId, t.StockCountId,
             t.PurchaseReturnId, t.UnitCost, t.LineAmount,
-            t.StockReceipt?.Supplier?.Name ?? t.SaleOrder?.CustomerName,
+            t.PartyName,
             t.CreatedAt, t.CreatedBy)).ToList();
 
         return Ok(AppResponse<object>.Success(new { total, page, pageSize, items }));

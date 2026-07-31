@@ -420,10 +420,17 @@ public partial class PosSalesController(
             }
         }
 
-        var total = await query.CountAsync();
-        var catalogVersion = total == 0
-            ? (DateTime?)null
-            : await query.MaxAsync(p => (DateTime?)p.UpdatedAt);
+        // Một query lấy total + catalogVersion (tránh 2 scan filter).
+        var stats = await query
+            .GroupBy(_ => 1)
+            .Select(g => new
+            {
+                Total = g.Count(),
+                CatalogVersion = g.Max(p => (DateTime?)p.UpdatedAt),
+            })
+            .FirstOrDefaultAsync();
+        var total = stats?.Total ?? 0;
+        var catalogVersion = stats?.CatalogVersion;
 
         var products = await query
             .OrderBy(p => p.SortOrder)
@@ -691,6 +698,51 @@ public partial class PosSalesController(
         return false;
     }
 
+    private static bool IsUniqueOrderNoConflict(Exception ex)
+    {
+        for (var e = ex; e != null; e = e.InnerException)
+        {
+            if (e.Message.Contains("IX_PosSaleOrders_StoreId_OrderNo", StringComparison.Ordinal))
+                return true;
+        }
+        return false;
+    }
+
+    private static bool IsUniqueCashCodeConflict(Exception ex)
+    {
+        for (var e = ex; e != null; e = e.InnerException)
+        {
+            if (e.Message.Contains("IX_CashTransactions_StoreId_TransactionCode", StringComparison.Ordinal))
+                return true;
+        }
+        return false;
+    }
+
+    /// <summary>SaveChanges với regenerate OrderNo / mã phiếu thu khi trùng unique index.</summary>
+    private async Task SaveSaleChangesWithUniqueRetriesAsync(
+        PosSaleOrder order, Guid storeId, int maxAttempts = 6, CancellationToken ct = default)
+    {
+        for (var attempt = 0; attempt < maxAttempts; attempt++)
+        {
+            try
+            {
+                await dbContext.SaveChangesAsync(ct);
+                return;
+            }
+            catch (DbUpdateException ex) when (attempt < maxAttempts - 1 && IsUniqueOrderNoConflict(ex))
+            {
+                order.OrderNo = await PosSaleStockHelper.NextOrderNoAsync(
+                    dbContext, storeId, order.SaleDate ?? order.CreatedAt);
+            }
+            catch (DbUpdateException ex) when (attempt < maxAttempts - 1 && IsUniqueCashCodeConflict(ex))
+            {
+                await PosFinanceSyncHelper.RegenerateDuplicateCodesAsync(dbContext, storeId);
+            }
+        }
+
+        await dbContext.SaveChangesAsync(ct);
+    }
+
     [HttpPost]
     [RequireModulePermission("PosSell", ModulePermissionAction.Create)]
     public async Task<ActionResult<AppResponse<SaleOrderDto>>> CreateSale([FromBody] CreateSaleDto dto)
@@ -752,24 +804,7 @@ public partial class PosSalesController(
 
             try
             {
-                for (var attempt = 0; attempt < 6 && !saved; attempt++)
-                {
-                    try
-                    {
-                        await dbContext.SaveChangesAsync();
-                        saved = true;
-                    }
-                    catch (DbUpdateException ex) when (ex.InnerException?.Message.Contains("IX_PosSaleOrders_StoreId_OrderNo") == true)
-                    {
-                        order.OrderNo = await PosSaleStockHelper.NextOrderNoAsync(dbContext, storeId, order.SaleDate ?? order.CreatedAt);
-                    }
-                    catch (DbUpdateException ex) when (ex.InnerException?.Message.Contains("IX_CashTransactions_StoreId_TransactionCode") == true)
-                    {
-                        await PosFinanceSyncHelper.RegenerateDuplicateCodesAsync(dbContext, storeId);
-                    }
-                }
-                if (!saved)
-                    await dbContext.SaveChangesAsync();
+                await SaveSaleChangesWithUniqueRetriesAsync(order!, storeId);
                 await tx.CommitAsync();
                 saved = true;
             }
@@ -1064,16 +1099,11 @@ public partial class PosSalesController(
         {
             var stockFullyReversed =
                 await PosSaleStockHelper.IsSaleStockFullyReversedAsync(dbContext, storeId, order);
-            var financeReversed = false;
             if (!stockFullyReversed)
             {
                 var reversed =
                     await PosSaleStockHelper.ReverseSaleOrderAsync(dbContext, storeId, order, CurrentUserEmail);
-                if (reversed)
-                {
-                    financeReversed = true;
-                }
-                else
+                if (!reversed)
                 {
                     stockFullyReversed =
                         await PosSaleStockHelper.IsSaleStockFullyReversedAsync(dbContext, storeId, order);
@@ -1085,23 +1115,22 @@ public partial class PosSalesController(
                 }
             }
 
-            if (!financeReversed)
+            // Luôn hoàn khách / điểm / voucher / tài chính / bảo hành khi hủy thành công.
+            // (Trước đây gán nhầm cờ khi hoàn kho thành công → bỏ qua reverse finance.)
+            await PosSaleStockHelper.ReverseCustomerOnSaleCancelAsync(dbContext, storeId, order);
+            await PosCustomerFinanceHelper.ReversePointsOnSaleCancelAsync(dbContext, storeId, order, CurrentUserEmail);
+            if (order.VoucherId.HasValue)
             {
-                await PosSaleStockHelper.ReverseCustomerOnSaleCancelAsync(dbContext, storeId, order);
-                await PosCustomerFinanceHelper.ReversePointsOnSaleCancelAsync(dbContext, storeId, order, CurrentUserEmail);
-                if (order.VoucherId.HasValue)
+                var vch = await dbContext.PosVouchers.AsTracking()
+                    .FirstOrDefaultAsync(v => v.Id == order.VoucherId && v.StoreId == storeId);
+                if (vch != null && vch.UsedCount > 0)
                 {
-                    var vch = await dbContext.PosVouchers.AsTracking()
-                        .FirstOrDefaultAsync(v => v.Id == order.VoucherId && v.StoreId == storeId);
-                    if (vch != null && vch.UsedCount > 0)
-                    {
-                        vch.UsedCount -= 1;
-                        vch.UpdatedAt = DateTime.UtcNow;
-                    }
+                    vch.UsedCount -= 1;
+                    vch.UpdatedAt = DateTime.UtcNow;
                 }
-                await PosFinanceSyncHelper.ReverseSaleOnCancelAsync(dbContext, order);
-                await PosSaleWarrantyHelper.VoidOrderAsync(dbContext, storeId, order.Id, CurrentUserEmail);
             }
+            await PosFinanceSyncHelper.ReverseSaleOnCancelAsync(dbContext, order);
+            await PosSaleWarrantyHelper.VoidOrderAsync(dbContext, storeId, order.Id, CurrentUserEmail);
 
             await dbContext.SaveChangesAsync();
 
@@ -1127,6 +1156,12 @@ public partial class PosSalesController(
             }
 
             await tx.CommitAsync();
+        }
+        catch (Exception ex) when (IsSerializationFailure(ex))
+        {
+            await tx.RollbackAsync();
+            return Conflict(AppResponse<SaleOrderDto>.Fail(
+                "Xung đột dữ liệu khi hủy đơn — vui lòng bấm hủy lại"));
         }
         catch
         {
@@ -1499,6 +1534,12 @@ public partial class PosSalesController(
         await dbContext.SaveChangesAsync();
         await tx.CommitAsync();
         }
+        catch (Exception ex) when (IsSerializationFailure(ex))
+        {
+            await tx.RollbackAsync();
+            return Conflict(AppResponse<object>.Fail(
+                "Xung đột dữ liệu khi trả hàng — vui lòng bấm trả lại"));
+        }
         catch
         {
             await tx.RollbackAsync();
@@ -1569,6 +1610,12 @@ public partial class PosSalesController(
             dbContext, storeId, order.Id, warrantyLines, CurrentUserEmail);
         await dbContext.SaveChangesAsync();
         await tx.CommitAsync();
+        }
+        catch (Exception ex) when (IsSerializationFailure(ex))
+        {
+            await tx.RollbackAsync();
+            return Conflict(AppResponse<SaleOrderDto>.Fail(
+                "Xung đột dữ liệu khi hủy trả — vui lòng bấm lại"));
         }
         catch
         {

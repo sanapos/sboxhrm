@@ -68,6 +68,7 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
   bool _loading = true;
   bool _syncing = false;
   bool _loadingCategories = true;
+  String? _loadError;
   int _page = 0;
   final Map<String, List<PosProductUnitView>> _unitViewsCache = {};
   final Map<String, Future<List<PosProductUnitView>>> _unitViewsLoading = {};
@@ -318,48 +319,70 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
   Future<void> _fetchCatalogFromNetwork(String storeId, {bool silent = false}) async {
     final products = <PosProduct>[];
     DateTime? catalogVersion;
+    String? error;
     const pageSize = 500;
-    for (var page = 1; page <= 40; page++) {
-      final res =
-          await widget.api.getPosSellProducts(page: page, pageSize: pageSize);
-      if (!mounted) return;
-      if (res['isSuccess'] != true || res['data'] is! Map) break;
-      final data = res['data'] as Map<String, dynamic>;
-      final raw = data['items'] as List? ?? [];
-      if (raw.isEmpty) break;
-      products.addAll(
-        raw.map(
-          (e) => applyComboSellableToProduct(
-            PosProduct.fromJson(e as Map<String, dynamic>),
-          ),
-        ),
-      );
-      final verRaw = data['catalogVersion'];
-      if (verRaw != null) {
-        catalogVersion = DateTime.tryParse(verRaw.toString());
+    try {
+      for (var page = 1; page <= 40; page++) {
+        final res =
+            await widget.api.getPosSellProducts(page: page, pageSize: pageSize);
+        if (!mounted) return;
+        if (res['isSuccess'] != true || res['data'] is! Map) {
+          if (page == 1) {
+            error = res['message']?.toString() ?? 'Không tải được danh mục hàng';
+          }
+          break;
+        }
+        final data = res['data'] as Map<String, dynamic>;
+        final raw = data['items'] as List? ?? [];
+        if (raw.isEmpty) break;
+        for (final e in raw) {
+          if (e is! Map) continue;
+          try {
+            products.add(
+              applyComboSellableToProduct(
+                PosProduct.fromJson(Map<String, dynamic>.from(e)),
+              ),
+            );
+          } catch (_) {}
+        }
+        final verRaw = data['catalogVersion'];
+        if (verRaw != null) {
+          catalogVersion = DateTime.tryParse(verRaw.toString());
+        }
+        final total = (data['total'] as num?)?.toInt() ?? products.length;
+        if (products.length >= total || raw.length < pageSize) break;
       }
-      final total = (data['total'] as num?)?.toInt() ?? products.length;
-      if (products.length >= total || raw.length < pageSize) break;
-    }
-    if (!mounted) return;
 
-    if (storeId.isNotEmpty && products.isNotEmpty) {
-      await PosSellCatalogCache.instance.write(
-        storeId,
-        items: products,
-        catalogVersion: catalogVersion,
-      );
+      if (storeId.isNotEmpty && products.isNotEmpty) {
+        // Cache lỗi không được chặn UI (đặc biệt web).
+        try {
+          await PosSellCatalogCache.instance.write(
+            storeId,
+            items: products,
+            catalogVersion: catalogVersion,
+          );
+        } catch (_) {}
+      }
+    } catch (e) {
+      error = e.toString();
+    } finally {
+      if (!mounted) return;
+      setState(() {
+        if (products.isNotEmpty || error == null) {
+          _allProducts = products;
+          _products = _filterByCategory(_allProducts);
+          _page = 0;
+          _unitViewsCache.clear();
+          _unitViewsLoading.clear();
+        }
+        _loadError = products.isEmpty ? error : null;
+        _loading = false;
+      });
+      if (products.isNotEmpty) _prefetchPageUnitViews();
+      if (silent && error != null) {
+        // Background sync — không toast.
+      }
     }
-
-    setState(() {
-      _allProducts = products;
-      _products = _filterByCategory(_allProducts);
-      _page = 0;
-      _loading = false;
-      _unitViewsCache.clear();
-      _unitViewsLoading.clear();
-    });
-    _prefetchPageUnitViews();
   }
 
   Future<void> openCategoryFilter() async {
@@ -506,10 +529,11 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
       Responsive.isMobile(context) || w < 520;
 
   double _aspectRatioForWidth(double w, int cols) {
-    if (cols >= 5) return 0.88;
-    if (cols == 4) return 0.82;
-    if (cols == 3) return 0.78;
-    return 0.74;
+    // Thấp hơn = card cao hơn — tránh tên/giá/tồn bị cắt trên web/tablet.
+    if (cols >= 5) return 0.72;
+    if (cols == 4) return 0.68;
+    if (cols == 3) return 0.66;
+    return 0.64;
   }
 
   Future<void> _pickProduct(PosProduct p, {PosProductUnitView? view}) async {
@@ -680,7 +704,7 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
     );
   }
 
-  Widget _productCard(PosProduct p, double imgSize) {
+  Widget _productCard(PosProduct p) {
     return FutureBuilder<List<PosProductUnitView>>(
       future: _viewsFor(p),
       builder: (context, snap) {
@@ -693,113 +717,136 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
             : p.onHandQty;
         final unit = view?.label ?? p.baseUnitName;
         final trackStock = p.productType != PosProductType.service;
+        final reserved = p.reservedQty;
         final outOfStock = trackStock &&
             isPosSellOutOfStock(p, views ?? const []);
+        final price =
+            applyPosPriceListToProductBase(p, widget.priceOverrides);
         return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: outOfStock ? const Color(0xFFFECACA) : const Color(0xFFE2E8F0),
-        ),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x0A000000),
-            blurRadius: 4,
-            offset: Offset(0, 1),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: outOfStock
+                  ? const Color(0xFFFECACA)
+                  : const Color(0xFFE2E8F0),
+            ),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x0A000000),
+                blurRadius: 4,
+                offset: Offset(0, 1),
+              ),
+            ],
           ),
-        ],
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Expanded(
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: () => _pickProduct(p),
-                hoverColor: _blue.withValues(alpha: 0.04),
-                splashColor: _blue.withValues(alpha: 0.08),
-                child: Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    Positioned.fill(
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(8, 8, 8, 6),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Center(
-                              child: PosProductImage(
-                                productId: p.id,
-                                imageUrl: p.imageUrl,
-                                updatedAt: p.updatedAt,
-                                size: imgSize,
-                                borderRadius: 6,
-                              ),
+          clipBehavior: Clip.antiAlias,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: () => _pickProduct(p),
+                    hoverColor: _blue.withValues(alpha: 0.04),
+                    splashColor: _blue.withValues(alpha: 0.08),
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(6, 6, 6, 4),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          // Ảnh riêng — badge tồn chỉ đè góc ảnh, không che tên.
+                          Expanded(
+                            flex: 5,
+                            child: LayoutBuilder(
+                              builder: (context, c) {
+                                final side = (c.maxWidth < c.maxHeight
+                                        ? c.maxWidth
+                                        : c.maxHeight)
+                                    .clamp(36.0, 120.0);
+                                return Stack(
+                                  alignment: Alignment.center,
+                                  children: [
+                                    PosProductImage(
+                                      productId: p.id,
+                                      imageUrl: p.imageUrl,
+                                      updatedAt: p.updatedAt,
+                                      size: side,
+                                      borderRadius: 6,
+                                    ),
+                                    if (trackStock)
+                                      Positioned(
+                                        top: 0,
+                                        right: 0,
+                                        child: _stockBadge(qty: qty),
+                                      ),
+                                  ],
+                                );
+                              },
                             ),
-                            const SizedBox(height: 6),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            tr(p.name),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              height: 1.2,
+                              color: PosTheme.textPrimary,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            tr('${_moneyFmt.format(price)} đ'),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: _blue,
+                            ),
+                          ),
+                          if (trackStock) ...[
+                            const SizedBox(height: 2),
                             Text(
-                              tr(p.name),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w500,
-                                height: 1.25,
-                                color: PosTheme.textPrimary,
+                              tr(
+                                reserved > 0
+                                    ? 'Tồn ${_qtyFmt.format(qty)} $unit · Đặt ${_qtyFmt.format(reserved)}'
+                                    : 'Tồn ${_qtyFmt.format(qty)} $unit',
                               ),
-                            ),
-                            const SizedBox(height: 6),
-                            Text(tr('${_moneyFmt.format(applyPosPriceListToProductBase(p, widget.priceOverrides))} đ'),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               textAlign: TextAlign.center,
-                              style: const TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w700,
-                                color: _blue,
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: qty <= 0
+                                    ? const Color(0xFFB91C1C)
+                                    : const Color(0xFF475569),
                               ),
                             ),
-                            const SizedBox(height: 4),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                _metaBadge(
-                                    '${_qtyFmt.format(qty)} $unit'),
-                                const SizedBox(width: 4),
-                                _metaBadge('KH đặt: 0'),
-                              ],
-                            ),
                           ],
-                        ),
+                        ],
                       ),
                     ),
-                    if (trackStock)
-                      Positioned(
-                        top: 4,
-                        right: 4,
-                        child: _stockBadge(qty: qty),
-                      ),
-                  ],
+                  ),
                 ),
               ),
-            ),
+              _buildUnitBar(p),
+            ],
           ),
-          _buildUnitBar(p),
-        ],
-      ),
-    );
+        );
       },
     );
   }
 
   Widget _stockBadge({required double qty}) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
       decoration: BoxDecoration(
         color: qty <= 0
             ? const Color(0xFFFEE2E2)
@@ -811,32 +858,15 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
               : const Color(0xFF93C5FD),
         ),
       ),
-      child: Text(tr('Tồn ${_qtyFmt.format(qty)}'),
+      child: Text(
+        tr('Tồn ${_qtyFmt.format(qty)}'),
         style: TextStyle(
-          fontSize: 9,
-          fontWeight: FontWeight.w600,
+          fontSize: 10,
+          fontWeight: FontWeight.w700,
           color: qty <= 0
               ? const Color(0xFFB91C1C)
               : const Color(0xFF1D4ED8),
           height: 1,
-        ),
-      ),
-    );
-  }
-
-  Widget _metaBadge(String text) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF1F5F9),
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: Text(
-        tr(text),
-        style: const TextStyle(
-          fontSize: 8,
-          fontWeight: FontWeight.w500,
-          color: PosTheme.textSecondary,
         ),
       ),
     );
@@ -997,14 +1027,41 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
     }
     if (_products.isEmpty) {
       return Center(
-        child: Text(tr('Không có hàng bán trực tiếp'),
-          style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                tr(_loadError != null
+                    ? 'Không tải được hàng hóa'
+                    : 'Không có hàng bán trực tiếp'),
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.grey.shade700, fontSize: 13),
+              ),
+              if (_loadError != null) ...[
+                const SizedBox(height: 6),
+                Text(
+                  _loadError!,
+                  textAlign: TextAlign.center,
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(color: Colors.grey.shade500, fontSize: 11),
+                ),
+              ],
+              const SizedBox(height: 12),
+              TextButton.icon(
+                onPressed: () => _loadProducts(forceNetwork: true),
+                icon: const Icon(Icons.refresh, size: 18),
+                label: Text(tr('Thử lại')),
+              ),
+            ],
+          ),
         ),
       );
     }
 
     final cols = _columnsForWidth(gridWidth);
-    final imgSize = cols >= 5 ? 40.0 : 44.0;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -1024,7 +1081,7 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
               itemCount: _pageItems.length,
               itemBuilder: (_, i) {
                 final p = _pageItems[i];
-                return _productCard(p, imgSize);
+                return _productCard(p);
               },
             ),
           ),

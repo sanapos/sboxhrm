@@ -793,6 +793,7 @@ Future<bool> printKitchenCompactSlip({
   DateTime? sentAt,
   String? orderNo,
   bool skipDedup = false,
+  bool waitForCompletion = true,
 }) async {
   if (lines.isEmpty) return false;
 
@@ -825,7 +826,7 @@ Future<bool> printKitchenCompactSlip({
     }
 
     if (assignedGroups.isNotEmpty) {
-      var anyOk = false;
+      var allOk = true;
       for (final entry in assignedGroups.entries) {
         final printer = PosPrintOrchestrator.instance.printers
             .where((p) => p.id == entry.key)
@@ -855,10 +856,11 @@ Future<bool> printKitchenCompactSlip({
           showFeedback: false,
           successTitle: isCancel ? 'Hủy bếp' : 'Báo bếp',
           skipDedup: skipDedup,
+          waitForCompletion: waitForCompletion,
         );
-        if (ok) anyOk = true;
+        if (!ok) allOk = false;
       }
-      if (defaultLines.isEmpty) return anyOk;
+      if (defaultLines.isEmpty) return allOk;
       final defaultOk = await _printKitchenCompactSlipDefault(
         tableName: tableName,
         isCancel: isCancel,
@@ -868,8 +870,9 @@ Future<bool> printKitchenCompactSlip({
         orderNo: orderNo,
         skipDedup: skipDedup,
         dedupRef: dedupRef,
+        waitForCompletion: waitForCompletion,
       );
-      return anyOk || defaultOk;
+      return allOk && defaultOk;
     }
   }
 
@@ -882,6 +885,7 @@ Future<bool> printKitchenCompactSlip({
     orderNo: orderNo,
     skipDedup: skipDedup,
     dedupRef: dedupRef,
+    waitForCompletion: waitForCompletion,
   );
 }
 
@@ -910,6 +914,7 @@ Future<bool> _printKitchenCompactSlipDefault({
   String? orderNo,
   bool skipDedup = false,
   String? dedupRef,
+  bool waitForCompletion = true,
 }) async {
   if (lines.isEmpty) return false;
   final qtyFmt = NumberFormat('#,##0.##', 'vi_VN');
@@ -1049,6 +1054,7 @@ Future<bool> _printKitchenCompactSlipDefault({
           documentType: PosPrintDocumentTypes.stockIssue,
           skipDedup: skipDedup,
           referenceNo: dedupRef ?? (code == '-' ? null : code),
+          waitForCompletion: waitForCompletion,
         );
       } catch (e) {
         debugPrint('Local kitchen compact failed: $e');
@@ -1081,6 +1087,7 @@ Future<bool> _printKitchenCompactSlipDefault({
       showFeedback: false,
       successTitle: isCancel ? 'Hủy bếp' : 'Báo bếp',
       skipDedup: skipDedup,
+      waitForCompletion: waitForCompletion,
     );
   }
 

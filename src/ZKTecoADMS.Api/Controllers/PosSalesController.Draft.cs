@@ -97,6 +97,145 @@ public partial class PosSalesController
         }
 
         var slotBeforeComplete = order.InvoiceSlot;
+        var createDto = new CreateSaleDto(
+            dto.Lines, dto.Discount, dto.PaidAmount, dto.PaymentMethod,
+            dto.CustomerName, dto.CustomerId, dto.Note, dto.Complete,
+            dto.IsDelivery, dto.DeliveryAddress, dto.DeliveryPhone,
+            dto.DeliveryPartner, dto.DeliveryStatus, dto.DeliveryDate,
+            dto.SoldBy, dto.SoldByEmployeeId, dto.SalesChannel, dto.PriceListName,
+            dto.PriceListId, dto.Payments, dto.VoucherCode, dto.PointsToRedeem,
+            dto.ServiceResourceId, dto.ResourceSessionId, dto.ServiceStartedAt, dto.ServiceEndedAt,
+            dto.ExpectedLockVersion, dto.DeviceId, dto.DeviceName, dto.InvoiceSlot,
+            dto.VatAmount);
+
+        // Thanh toán: RepeatableRead + retry serialization/unique (giống CreateSale) —
+        // tránh 500 «lỗi hệ thống» khi autosave/máy khác tranh chấp tồn hoặc mã HD/phiếu thu.
+        if (dto.Complete)
+        {
+            List<PosSaleOrderLine>? linesComplete = null;
+            var savedComplete = false;
+
+            for (var outerAttempt = 0; outerAttempt < 5 && !savedComplete; outerAttempt++)
+            {
+                if (outerAttempt > 0)
+                {
+                    dbContext.ChangeTracker.Clear();
+                    order = await dbContext.PosSaleOrders
+                        .AsTracking()
+                        .Include(o => o.Lines)
+                        .FirstOrDefaultAsync(o => o.Id == id && o.StoreId == storeId && o.Deleted == null);
+                    if (order == null)
+                        return NotFound(AppResponse<SaleOrderDto>.Fail("Không tìm thấy đơn hàng"));
+                    if (order.Status == PosSaleOrderStatus.Completed)
+                    {
+                        // Request trước đã commit — trả đơn hoàn thành (idempotent).
+                        var doneLines = order.Lines?.Where(l => l.Deleted == null).ToList() ?? [];
+                        SaleOrderDto already;
+                        try { already = await MapOrderAsync(storeId, order, doneLines, dto.DeviceId, dto.DeviceName); }
+                        catch
+                        {
+                            already = MapOrder(order, doneLines, viewerUserId: CurrentUserId,
+                                viewerDeviceId: dto.DeviceId, viewerDeviceName: dto.DeviceName);
+                        }
+                        return Ok(AppResponse<SaleOrderDto>.Success(already));
+                    }
+                    if (order.Status != PosSaleOrderStatus.Draft)
+                        return BadRequest(AppResponse<SaleOrderDto>.Fail("Chỉ sửa được đơn tạm"));
+                    PosDraftLockHelper.StampDeviceIfMissing(order, actor);
+                }
+
+                dbContext.PosSaleOrderLines.RemoveRange(order.Lines);
+
+                await using var tx = await dbContext.Database.BeginTransactionAsync(IsolationLevel.RepeatableRead);
+                try
+                {
+                    var (_, builtLines, errComplete) =
+                        await BuildSaleAsync(storeId, order, createDto, complete: true,
+                            allowManualPriceOverride: true);
+                    if (errComplete != null)
+                    {
+                        await tx.RollbackAsync();
+                        return BadRequest(AppResponse<SaleOrderDto>.Fail(errComplete));
+                    }
+                    if (builtLines == null)
+                    {
+                        await tx.RollbackAsync();
+                        return BadRequest(AppResponse<SaleOrderDto>.Fail("Không cập nhật được đơn"));
+                    }
+                    dbContext.PosSaleOrderLines.AddRange(builtLines);
+                    await SaveSaleChangesWithUniqueRetriesAsync(order, storeId);
+                    await tx.CommitAsync();
+                    linesComplete = builtLines;
+                    savedComplete = true;
+                }
+                catch (Exception ex) when (outerAttempt < 4 && IsSerializationFailure(ex))
+                {
+                    await tx.RollbackAsync();
+                    savedComplete = false;
+                }
+                catch (DbUpdateException ex) when (IsUniqueCashCodeConflict(ex) || IsUniqueOrderNoConflict(ex))
+                {
+                    await tx.RollbackAsync();
+                    SaleOrderDto conflictMapped;
+                    try
+                    {
+                        conflictMapped = await MapOrderAsync(
+                            storeId, order, order.Lines?.ToList() ?? [], dto.DeviceId, dto.DeviceName);
+                    }
+                    catch
+                    {
+                        conflictMapped = MapOrder(order, order.Lines?.ToList() ?? [],
+                            viewerUserId: CurrentUserId,
+                            viewerDeviceId: dto.DeviceId, viewerDeviceName: dto.DeviceName);
+                    }
+                    return Conflict(AppResponse<SaleOrderDto>.Create(
+                        false, conflictMapped,
+                        ["Trùng mã đơn/phiếu thu do xử lý đồng thời — vui lòng bấm thanh toán lại"]));
+                }
+                catch
+                {
+                    await tx.RollbackAsync();
+                    throw;
+                }
+            }
+
+            if (!savedComplete || linesComplete == null)
+            {
+                return Conflict(AppResponse<SaleOrderDto>.Fail(
+                    "Xung đột dữ liệu khi thanh toán — vui lòng bấm thanh toán lại"));
+            }
+
+            SaleOrderDto mappedComplete;
+            try
+            {
+                mappedComplete = await MapOrderAsync(
+                    storeId, order, linesComplete, dto.DeviceId, dto.DeviceName);
+            }
+            catch
+            {
+                order.Lines = linesComplete;
+                mappedComplete = MapOrder(order, linesComplete, viewerUserId: CurrentUserId,
+                    viewerDeviceId: dto.DeviceId, viewerDeviceName: dto.DeviceName);
+            }
+
+            if (order.Status == PosSaleOrderStatus.Completed)
+            {
+                await CloseResourceSessionForCompletedOrderAsync(storeId, order);
+                try
+                {
+                    await PosNotificationHelper.NotifySaleCompletedAsync(
+                        notificationService, dbContext, storeId, order.Id, order.OrderNo,
+                        order.Total, order.SoldBy, CurrentUserId);
+                }
+                catch { }
+                try { await RecreateInvoiceSlotIfNeededAsync(storeId, slotBeforeComplete); }
+                catch { }
+                NotifyFloorChanged(storeId, "saleCompleted",
+                    orderId: order.Id, resourceId: order.ServiceResourceId);
+            }
+            return Ok(AppResponse<SaleOrderDto>.Success(mappedComplete));
+        }
+
         // Đọc KitchenSentQty mới từ DB (AsNoTracking) — tránh race với kitchen-send
         // khi tracked order.Lines còn stale (kitchen=0) rồi RemoveRange ghi đè.
         // Key gồm topping + ghi chú để không gộp nhầm dòng cùng SP.
@@ -120,76 +259,6 @@ public partial class PosSalesController
                     Sent: g.Sum(x => x.KitchenSentQty),
                     At: g.Max(x => x.KitchenSentAt)));
         dbContext.PosSaleOrderLines.RemoveRange(order.Lines);
-        var createDto = new CreateSaleDto(
-            dto.Lines, dto.Discount, dto.PaidAmount, dto.PaymentMethod,
-            dto.CustomerName, dto.CustomerId, dto.Note, dto.Complete,
-            dto.IsDelivery, dto.DeliveryAddress, dto.DeliveryPhone,
-            dto.DeliveryPartner, dto.DeliveryStatus, dto.DeliveryDate,
-            dto.SoldBy, dto.SoldByEmployeeId, dto.SalesChannel, dto.PriceListName,
-            dto.PriceListId, dto.Payments, dto.VoucherCode, dto.PointsToRedeem,
-            dto.ServiceResourceId, dto.ResourceSessionId, dto.ServiceStartedAt, dto.ServiceEndedAt,
-            dto.ExpectedLockVersion, dto.DeviceId, dto.DeviceName, dto.InvoiceSlot,
-            dto.VatAmount);
-
-        // Thanh toán: RepeatableRead chống oversell khi nhiều máy TT cùng SKU.
-        if (dto.Complete)
-        {
-            await using var tx = await dbContext.Database.BeginTransactionAsync(IsolationLevel.RepeatableRead);
-            try
-            {
-                var (_, linesComplete, errComplete) =
-                    await BuildSaleAsync(storeId, order, createDto, complete: true,
-                        allowManualPriceOverride: true);
-                if (errComplete != null)
-                {
-                    await tx.RollbackAsync();
-                    return BadRequest(AppResponse<SaleOrderDto>.Fail(errComplete));
-                }
-                if (linesComplete == null)
-                {
-                    await tx.RollbackAsync();
-                    return BadRequest(AppResponse<SaleOrderDto>.Fail("Không cập nhật được đơn"));
-                }
-                dbContext.PosSaleOrderLines.AddRange(linesComplete);
-                await dbContext.SaveChangesAsync();
-                await tx.CommitAsync();
-
-                SaleOrderDto mappedComplete;
-                try
-                {
-                    mappedComplete = await MapOrderAsync(
-                        storeId, order, linesComplete, dto.DeviceId, dto.DeviceName);
-                }
-                catch
-                {
-                    order.Lines = linesComplete;
-                    mappedComplete = MapOrder(order, linesComplete, viewerUserId: CurrentUserId,
-                        viewerDeviceId: dto.DeviceId, viewerDeviceName: dto.DeviceName);
-                }
-
-                if (order.Status == PosSaleOrderStatus.Completed)
-                {
-                    await CloseResourceSessionForCompletedOrderAsync(storeId, order);
-                    try
-                    {
-                        await PosNotificationHelper.NotifySaleCompletedAsync(
-                            notificationService, dbContext, storeId, order.Id, order.OrderNo,
-                            order.Total, order.SoldBy, CurrentUserId);
-                    }
-                    catch { }
-                    try { await RecreateInvoiceSlotIfNeededAsync(storeId, slotBeforeComplete); }
-                    catch { }
-                    NotifyFloorChanged(storeId, "saleCompleted",
-                        orderId: order.Id, resourceId: order.ServiceResourceId);
-                }
-                return Ok(AppResponse<SaleOrderDto>.Success(mappedComplete));
-            }
-            catch
-            {
-                await tx.RollbackAsync();
-                throw;
-            }
-        }
 
         var allowPrice = await HasPosSellApproveAsync();
         var (_, lines, err) = await BuildSaleAsync(
@@ -444,20 +513,30 @@ public partial class PosSalesController
         }
 
         var lineInputs = order.Lines.Select(l => (l.ProductId, l.Qty, l.VariantId, l.ToppingsJson)).ToList();
-        var (plan, stockErr) = await PosSaleStockHelper.PrepareSaleStockAsync(
+        // Validate stock sớm (ngoài tx) để trả lỗi nhanh; prepare thật nằm trong RR tx bên dưới.
+        var (_, earlyStockErr) = await PosSaleStockHelper.PrepareSaleStockAsync(
             dbContext, storeId, PosSaleStockHelper.ExpandStockInputsWithToppings(lineInputs));
-        if (stockErr != null) return BadRequest(AppResponse<SaleOrderDto>.Fail(stockErr));
+        if (earlyStockErr != null) return BadRequest(AppResponse<SaleOrderDto>.Fail(earlyStockErr));
+        // Bỏ entity tracked từ prepare sớm — tránh OnHand cũ dính change tracker.
+        dbContext.ChangeTracker.Clear();
+        order = await dbContext.PosSaleOrders.AsTracking()
+            .Include(o => o.Lines)
+            .FirstOrDefaultAsync(o => o.Id == id && o.StoreId == storeId && o.Deleted == null);
+        if (order == null)
+            return NotFound(AppResponse<SaleOrderDto>.Fail("Không tìm thấy đơn hàng"));
+        if (order.Status != PosSaleOrderStatus.Draft)
+            return BadRequest(AppResponse<SaleOrderDto>.Fail("Đơn không ở trạng thái tạm"));
 
         var productIds = order.Lines.Select(l => l.ProductId).Distinct().ToList();
-        var products = plan?.Products ?? await dbContext.PosProducts
+        var productsPreview = await dbContext.PosProducts.AsNoTracking()
             .Where(p => productIds.Contains(p.Id) && p.StoreId == storeId && p.Deleted == null)
             .ToDictionaryAsync(p => p.Id);
 
         var dtoLines = BuildCompleteSaleLineDtos(order.Lines.ToList(), dto?.Lines);
         var warrantyLines = dtoLines
-            .Where(l => products.TryGetValue(l.ProductId, out var wp) &&
+            .Where(l => productsPreview.TryGetValue(l.ProductId, out var wp) &&
                         PosSaleWarrantyHelper.NeedsRegistration(wp))
-            .Select(l => (l, products[l.ProductId]))
+            .Select(l => (l, productsPreview[l.ProductId]))
             .ToList();
         if (warrantyLines.Count > 0)
         {
@@ -466,84 +545,119 @@ public partial class PosSalesController
             if (warrantyErr != null) return BadRequest(AppResponse<SaleOrderDto>.Fail(warrantyErr));
         }
 
-        order.Status = PosSaleOrderStatus.Completed;
-        order.SaleDate = DateTime.UtcNow;
-        order.SoldBy ??= CurrentUserEmail;
-        order.PaidAmount = order.PaidAmount > 0 ? order.PaidAmount : 0;
         var slotBeforeComplete = order.InvoiceSlot;
-        if (PosDraftInvoiceSlots.IsTempOrderNo(order.OrderNo) || order.InvoiceSlot.HasValue
-            || order.OrderNo.StartsWith("BAN", StringComparison.OrdinalIgnoreCase))
-            order.OrderNo = await PosSaleStockHelper.NextOrderNoAsync(dbContext, storeId, order.SaleDate);
-        order.InvoiceSlot = null;
-        PosDraftLockHelper.Release(order);
+        var savedComplete = false;
+        SaleStockPlan? plan = null;
+        Dictionary<Guid, PosProduct> products = productsPreview;
 
-        await using var tx = await dbContext.Database.BeginTransactionAsync(IsolationLevel.RepeatableRead);
-        try
+        for (var outerAttempt = 0; outerAttempt < 5 && !savedComplete; outerAttempt++)
         {
-            await PosSaleStockHelper.ApplySaleStockAsync(
-                dbContext, storeId, order, order.Lines.ToList(), plan!, CurrentUserEmail);
-            await PosSaleStockHelper.UpdateCustomerOnSaleCompleteAsync(dbContext, storeId, order);
-            if (order.CustomerId.HasValue)
+            if (outerAttempt > 0)
             {
-                var saleCustomer = await dbContext.PosCustomers.AsTracking()
-                    .FirstOrDefaultAsync(c => c.Id == order.CustomerId && c.StoreId == storeId && c.Deleted == null);
-                if (saleCustomer != null)
+                dbContext.ChangeTracker.Clear();
+                order = await dbContext.PosSaleOrders.AsTracking()
+                    .Include(o => o.Lines)
+                    .FirstOrDefaultAsync(o => o.Id == id && o.StoreId == storeId && o.Deleted == null);
+                if (order == null)
+                    return NotFound(AppResponse<SaleOrderDto>.Fail("Không tìm thấy đơn hàng"));
+                if (order.Status == PosSaleOrderStatus.Completed)
                 {
-                    await PosCustomerFinanceHelper.ApplyPointsOnSaleCompleteAsync(
-                        dbContext, storeId, order, saleCustomer, CurrentUserEmail);
-                    if (order.VoucherId.HasValue)
+                    savedComplete = true;
+                    break;
+                }
+                if (order.Status != PosSaleOrderStatus.Draft)
+                    return BadRequest(AppResponse<SaleOrderDto>.Fail("Đơn không ở trạng thái tạm"));
+                if (order.Lines.Count == 0)
+                    return BadRequest(AppResponse<SaleOrderDto>.Fail("Đơn trống"));
+
+                dtoLines = BuildCompleteSaleLineDtos(order.Lines.ToList(), dto?.Lines);
+            }
+
+            order.Status = PosSaleOrderStatus.Completed;
+            order.SaleDate = DateTime.UtcNow;
+            order.SoldBy ??= CurrentUserEmail;
+            order.PaidAmount = order.PaidAmount > 0 ? order.PaidAmount : 0;
+            if (PosDraftInvoiceSlots.IsTempOrderNo(order.OrderNo) || order.InvoiceSlot.HasValue
+                || order.OrderNo.StartsWith("BAN", StringComparison.OrdinalIgnoreCase))
+                order.OrderNo = await PosSaleStockHelper.NextOrderNoAsync(dbContext, storeId, order.SaleDate);
+            order.InvoiceSlot = null;
+            PosDraftLockHelper.Release(order);
+
+            await using var tx = await dbContext.Database.BeginTransactionAsync(IsolationLevel.RepeatableRead);
+            try
+            {
+                // Prepare tồn TRONG RepeatableRead — tránh đọc OnHand ngoài tx rồi ghi đè mất cập nhật đồng thời.
+                string? stockErr;
+                (plan, stockErr) = await PosSaleStockHelper.PrepareSaleStockAsync(
+                    dbContext, storeId, PosSaleStockHelper.ExpandStockInputsWithToppings(
+                        order.Lines.Select(l => (l.ProductId, l.Qty, l.VariantId, l.ToppingsJson)).ToList()));
+                if (stockErr != null)
+                {
+                    await tx.RollbackAsync();
+                    return BadRequest(AppResponse<SaleOrderDto>.Fail(stockErr));
+                }
+                products = plan!.Products;
+
+                await PosSaleStockHelper.ApplySaleStockAsync(
+                    dbContext, storeId, order, order.Lines.ToList(), plan!, CurrentUserEmail);
+                await PosSaleStockHelper.UpdateCustomerOnSaleCompleteAsync(dbContext, storeId, order);
+                if (order.CustomerId.HasValue)
+                {
+                    var saleCustomer = await dbContext.PosCustomers.AsTracking()
+                        .FirstOrDefaultAsync(c => c.Id == order.CustomerId && c.StoreId == storeId && c.Deleted == null);
+                    if (saleCustomer != null)
                     {
-                        var vch = await dbContext.PosVouchers.AsTracking()
-                            .FirstOrDefaultAsync(v => v.Id == order.VoucherId && v.StoreId == storeId);
-                        if (vch != null)
+                        await PosCustomerFinanceHelper.ApplyPointsOnSaleCompleteAsync(
+                            dbContext, storeId, order, saleCustomer, CurrentUserEmail);
+                        if (order.VoucherId.HasValue)
                         {
-                            vch.UsedCount += 1;
-                            vch.UpdatedAt = DateTime.UtcNow;
+                            var vch = await dbContext.PosVouchers.AsTracking()
+                                .FirstOrDefaultAsync(v => v.Id == order.VoucherId && v.StoreId == storeId);
+                            if (vch != null)
+                            {
+                                vch.UsedCount += 1;
+                                vch.UpdatedAt = DateTime.UtcNow;
+                            }
                         }
                     }
                 }
+                await PosSellIndustryController.GrantSessionPacksOnSaleCompleteAsync(
+                    dbContext, storeId, order, order.Lines.ToList(), CurrentUserEmail);
+                await PosSaleWarrantyHelper.RegisterOnSaleAsync(
+                    dbContext, storeId, order, order.Lines.ToList(), dtoLines, products, CurrentUserEmail);
+                order.UpdatedAt = DateTime.UtcNow;
+                order.UpdatedBy = CurrentUserEmail;
+                await PosFinanceSyncHelper.SyncSaleOnCompleteAsync(dbContext, order, CurrentUserId);
+                await SaveSaleChangesWithUniqueRetriesAsync(order, storeId);
+                await tx.CommitAsync();
+                savedComplete = true;
             }
-            await PosSellIndustryController.GrantSessionPacksOnSaleCompleteAsync(
-                dbContext, storeId, order, order.Lines.ToList(), CurrentUserEmail);
-            await PosSaleWarrantyHelper.RegisterOnSaleAsync(
-                dbContext, storeId, order, order.Lines.ToList(), dtoLines, products, CurrentUserEmail);
-            order.UpdatedAt = DateTime.UtcNow;
-            order.UpdatedBy = CurrentUserEmail;
-            await PosFinanceSyncHelper.SyncSaleOnCompleteAsync(dbContext, order, CurrentUserId);
-            // Thử lại tối đa vài lần NGAY TRONG transaction hiện tại (không phải rollback toàn bộ +
-            // trừ kho lại) trước khi bó tay — mã phiếu trùng do đua counter thường tự hết sau 1-2 lần.
-            for (var attempt = 0; ; attempt++)
+            catch (Exception ex) when (outerAttempt < 4 && IsSerializationFailure(ex))
             {
-                try
-                {
-                    await dbContext.SaveChangesAsync();
-                    break;
-                }
-                catch (DbUpdateException ex) when (attempt < 4 && ex.InnerException?.Message.Contains(
-                    "IX_CashTransactions_StoreId_TransactionCode") == true)
-                {
-                    await PosFinanceSyncHelper.RegenerateDuplicateCodesAsync(dbContext, storeId);
-                }
+                await tx.RollbackAsync();
+                savedComplete = false;
             }
-            await tx.CommitAsync();
+            catch (DbUpdateException ex) when (IsUniqueCashCodeConflict(ex) || IsUniqueOrderNoConflict(ex))
+            {
+                await tx.RollbackAsync();
+                SaleOrderDto conflictMapped;
+                try { conflictMapped = await MapOrderAsync(storeId, order); }
+                catch { conflictMapped = MapOrder(order, order.Lines?.ToList() ?? [], viewerUserId: CurrentUserId); }
+                return Conflict(AppResponse<SaleOrderDto>.Create(
+                    false, conflictMapped,
+                    ["Trùng mã đơn/phiếu thu do xử lý đồng thời — vui lòng bấm hoàn thành lại"]));
+            }
+            catch
+            {
+                await tx.RollbackAsync();
+                throw;
+            }
         }
-        catch (DbUpdateException ex) when (ex.InnerException?.Message.Contains(
-            "IX_CashTransactions_StoreId_TransactionCode") == true)
+
+        if (!savedComplete)
         {
-            // Mã phiếu thu trùng do 2 request cùng store hoàn thành đơn gần như đồng thời, đã thử
-            // lại vài lần vẫn trùng. Rollback toàn bộ (kể cả trừ tồn kho) để tránh trừ kho 2 lần —
-            // trả 409 cho client tự gọi lại /complete, lúc đó GenerateCodeAsync sẽ tính lại đúng số mới.
-            await tx.RollbackAsync();
-            SaleOrderDto conflictMapped;
-            try { conflictMapped = await MapOrderAsync(storeId, order); }
-            catch { conflictMapped = MapOrder(order, order.Lines?.ToList() ?? [], viewerUserId: CurrentUserId); }
-            return Conflict(AppResponse<SaleOrderDto>.Create(
-                false, conflictMapped, ["Trùng mã phiếu thu do xử lý đồng thời — vui lòng bấm hoàn thành lại"]));
-        }
-        catch
-        {
-            await tx.RollbackAsync();
-            throw;
+            return Conflict(AppResponse<SaleOrderDto>.Fail(
+                "Xung đột dữ liệu khi hoàn thành đơn — vui lòng bấm lại"));
         }
 
         await CloseResourceSessionForCompletedOrderAsync(storeId, order);

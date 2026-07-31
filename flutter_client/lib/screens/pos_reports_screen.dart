@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -59,13 +60,32 @@ class _PosReportsScreenState extends State<PosReportsScreen>
       vsync: this,
       initialIndex: widget.initialTab.clamp(0, 2),
     );
-    _loadSales();
-    _loadStock();
-    _loadLots();
+    _tabs.addListener(_onTabChanged);
+    _loadTabData(_tabs.index);
+  }
+
+  void _onTabChanged() {
+    if (_tabs.indexIsChanging) return;
+    _loadTabData(_tabs.index);
+  }
+
+  void _loadTabData(int index) {
+    switch (index) {
+      case 0:
+        if (_salesSummary == null && !_loadingSales) unawaited(_loadSales());
+        break;
+      case 1:
+        if (_stockSummary == null && !_loadingStock) unawaited(_loadStock());
+        break;
+      case 2:
+        if (_lotSummary == null && !_loadingStock) unawaited(_loadLots());
+        break;
+    }
   }
 
   @override
   void dispose() {
+    _tabs.removeListener(_onTabChanged);
     _tabs.dispose();
     _stockSearchCtrl.dispose();
     super.dispose();
@@ -261,25 +281,32 @@ class _PosReportsScreenState extends State<PosReportsScreen>
                     ],
                   ],
                 )
-              : Row(
-                  children: [
-                    Expanded(
-                      child: PosKiotTimeFilter(
-                        state: _salesTime,
-                        onChanged: (s) {
-                          setState(() => _salesTime = s);
-                          _loadSales();
-                        },
+              : SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      SizedBox(
+                        width: 420,
+                        child: PosKiotTimeFilter(
+                          state: _salesTime,
+                          onChanged: (s) {
+                            setState(() => _salesTime = s);
+                            _loadSales();
+                          },
+                        ),
                       ),
-                    ),
-                    if (canExport)
-                      FilledButton.icon(
-                        style: FilledButton.styleFrom(backgroundColor: _kiotBlue),
-                        onPressed: _exporting ? null : _exportSales,
-                        icon: const Icon(Icons.download, size: 18),
-                        label: Text(tr('Excel')),
-                      ),
-                  ],
+                      if (canExport) ...[
+                        const SizedBox(width: 8),
+                        FilledButton.icon(
+                          style: FilledButton.styleFrom(
+                              backgroundColor: _kiotBlue),
+                          onPressed: _exporting ? null : _exportSales,
+                          icon: const Icon(Icons.download, size: 18),
+                          label: Text(tr('Excel')),
+                        ),
+                      ],
+                    ],
+                  ),
                 ),
         ),
         Expanded(
@@ -361,35 +388,41 @@ class _PosReportsScreenState extends State<PosReportsScreen>
                     ),
                   ],
                 )
-              : Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: _stockSearchCtrl,
-                        decoration: InputDecoration(
-                          hintText: tr('Tìm hàng hóa'),
-                          prefixIcon: Icon(Icons.search, size: 20),
-                          border: OutlineInputBorder(),
-                          isDense: true,
+              : SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      SizedBox(
+                        width: 360,
+                        child: TextField(
+                          controller: _stockSearchCtrl,
+                          decoration: InputDecoration(
+                            hintText: tr('Tìm hàng hóa'),
+                            prefixIcon: Icon(Icons.search, size: 20),
+                            border: OutlineInputBorder(),
+                            isDense: true,
+                          ),
+                          onSubmitted: (_) => _loadStock(),
                         ),
-                        onSubmitted: (_) => _loadStock(),
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    FilledButton(
-                      style: FilledButton.styleFrom(backgroundColor: _kiotBlue),
-                      onPressed: _loadingStock ? null : () => _loadStock(),
-                      child: Text(tr('Lọc')),
-                    ),
-                    if (canExport) ...[
                       const SizedBox(width: 8),
-                      OutlinedButton.icon(
-                        onPressed: _exporting ? null : _exportStock,
-                        icon: const Icon(Icons.download, size: 18),
-                        label: Text(tr('Excel')),
+                      FilledButton(
+                        style:
+                            FilledButton.styleFrom(backgroundColor: _kiotBlue),
+                        onPressed:
+                            _loadingStock ? null : () => _loadStock(),
+                        child: Text(tr('Lọc')),
                       ),
+                      if (canExport) ...[
+                        const SizedBox(width: 8),
+                        OutlinedButton.icon(
+                          onPressed: _exporting ? null : _exportStock,
+                          icon: const Icon(Icons.download, size: 18),
+                          label: Text(tr('Excel')),
+                        ),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
         ),
         if (_stockSummary != null)

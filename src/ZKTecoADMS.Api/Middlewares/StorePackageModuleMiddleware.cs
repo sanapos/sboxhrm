@@ -80,7 +80,17 @@ public class StorePackageModuleMiddleware
         ("/api/pos/stock/damage", "PosDamageIssues"),
         ("/api/pos/stock/internal-use", "PosInternalUseIssues"),
         ("/api/pos/stock/issues", "PosProducts"),
+        // Ledger / phiếu nhập nhanh / điều chỉnh tồn — thuộc kho hàng (PosProducts).
+        ("/api/pos/stock", "PosProducts"),
         ("/api/pos/print-templates", "PosPrintTemplates"),
+        // Báo cáo: tách path — stock/EOD = PosProducts; doanh thu = PosSalesReport.
+        // (Trước map cả /api/pos/reports → PosSalesReport khiến báo cáo tồn/EOD 403 sai.)
+        ("/api/pos/reports/sales", "PosSalesReport"),
+        ("/api/pos/reports/analysis", "PosSalesReport"),
+        ("/api/pos/reports/customer-debt", "PosSalesReport"),
+        ("/api/pos/reports/goods", "PosProducts"),
+        ("/api/pos/reports/stock", "PosProducts"),
+        ("/api/pos/reports/end-of-day", "PosProducts"),
         ("/api/pos/reports", "PosSalesReport"),
         ("/api/pos/customers", "PosProducts"),
         ("/api/pos/catalog", "PosProducts"),
@@ -154,12 +164,19 @@ public class StorePackageModuleMiddleware
 
     private static string? ResolveModule(string path)
     {
+        // Longer / more specific prefixes first (map order is not guaranteed to be path-length sorted).
+        string? best = null;
+        var bestLen = -1;
         foreach (var (prefix, module) in RouteModuleMap)
         {
-            if (path.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
-                return module;
+            if (path.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) &&
+                prefix.Length > bestLen)
+            {
+                best = module;
+                bestLen = prefix.Length;
+            }
         }
-        return null;
+        return best;
     }
 
     /// <summary>Gói chỉ có PosSell vẫn được đọc danh mục hàng / mẫu in phục vụ bán.</summary>

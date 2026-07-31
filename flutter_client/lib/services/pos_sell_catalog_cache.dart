@@ -1,10 +1,13 @@
 import 'dart:convert';
-import 'dart:io';
 
-import 'package:path_provider/path_provider.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/pos_product.dart';
+
+// Conditional File I/O — tránh import dart:io trên web (làm crash/spinner forever).
+import 'pos_sell_catalog_cache_io.dart'
+    if (dart.library.html) 'pos_sell_catalog_cache_web.dart' as cache_io;
 
 class PosSellCatalogSnapshot {
   const PosSellCatalogSnapshot({
@@ -22,6 +25,7 @@ class PosSellCatalogSnapshot {
 }
 
 /// Cache catalog bán hàng theo storeId — hiển thị ngay, sync nền sau TTL.
+/// Web: bỏ qua disk cache (SharedPreferences meta only / no-op) để tránh dart:io.
 class PosSellCatalogCache {
   PosSellCatalogCache._();
   static final PosSellCatalogCache instance = PosSellCatalogCache._();
@@ -30,28 +34,28 @@ class PosSellCatalogCache {
   static const _metaPrefix = 'pos_sell_catalog_v1_';
   String? _lastStoreId;
 
-  Future<File> _fileFor(String storeId) async {
-    final dir = await getApplicationSupportDirectory();
-    final safe = storeId.replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), '_');
-    return File('${dir.path}/pos_sell_catalog_$safe.json');
-  }
-
   Future<PosSellCatalogSnapshot?> read(String storeId) async {
-    if (storeId.isEmpty) return null;
-    final prefs = await SharedPreferences.getInstance();
-    final metaKey = '$_metaPrefix$storeId';
-    final cachedAtMs = prefs.getInt('${metaKey}_at');
-    if (cachedAtMs == null) return null;
-
-    final file = await _fileFor(storeId);
-    if (!await file.exists()) return null;
-
+    if (storeId.isEmpty || kIsWeb) return null;
     try {
-      final root = jsonDecode(await file.readAsString()) as Map<String, dynamic>;
+      final prefs = await SharedPreferences.getInstance();
+      final metaKey = '$_metaPrefix$storeId';
+      final cachedAtMs = prefs.getInt('${metaKey}_at');
+      if (cachedAtMs == null) return null;
+
+      final raw = await cache_io.readCatalogJson(storeId);
+      if (raw == null || raw.isEmpty) return null;
+
+      final root = jsonDecode(raw) as Map<String, dynamic>;
       final rawItems = root['items'] as List? ?? [];
-      final items = rawItems
-          .map((e) => PosProduct.fromJson(e as Map<String, dynamic>))
-          .toList();
+      final items = <PosProduct>[];
+      for (final e in rawItems) {
+        if (e is! Map) continue;
+        try {
+          items.add(PosProduct.fromJson(Map<String, dynamic>.from(e)));
+        } catch (_) {}
+      }
+      if (items.isEmpty) return null;
+
       final versionRaw = root['catalogVersion'];
       DateTime? catalogVersion;
       if (versionRaw != null) {
@@ -68,6 +72,7 @@ class PosSellCatalogCache {
   }
 
   Future<bool> shouldSync(String storeId) async {
+    if (kIsWeb) return true;
     final snap = await read(storeId);
     if (snap == null) return true;
     return !snap.isFresh;
@@ -78,38 +83,41 @@ class PosSellCatalogCache {
     required List<PosProduct> items,
     DateTime? catalogVersion,
   }) async {
-    if (storeId.isEmpty) return;
+    if (storeId.isEmpty || kIsWeb) return;
     _lastStoreId = storeId;
-    final file = await _fileFor(storeId);
-    await file.parent.create(recursive: true);
-    final payload = jsonEncode({
-      'catalogVersion': catalogVersion?.toUtc().toIso8601String(),
-      'items': items.map((p) => p.toSellCacheJson()).toList(),
-    });
-    await file.writeAsString(payload, flush: true);
+    try {
+      final payload = jsonEncode({
+        'catalogVersion': catalogVersion?.toUtc().toIso8601String(),
+        'items': items.map((p) => p.toSellCacheJson()).toList(),
+      });
+      await cache_io.writeCatalogJson(storeId, payload);
 
-    final prefs = await SharedPreferences.getInstance();
-    final metaKey = '$_metaPrefix$storeId';
-    await prefs.setInt('${metaKey}_at', DateTime.now().millisecondsSinceEpoch);
-    if (catalogVersion != null) {
-      await prefs.setString(
-        '${metaKey}_ver',
-        catalogVersion.toUtc().toIso8601String(),
-      );
+      final prefs = await SharedPreferences.getInstance();
+      final metaKey = '$_metaPrefix$storeId';
+      await prefs.setInt('${metaKey}_at', DateTime.now().millisecondsSinceEpoch);
+      if (catalogVersion != null) {
+        await prefs.setString(
+          '${metaKey}_ver',
+          catalogVersion.toUtc().toIso8601String(),
+        );
+      }
+    } catch (_) {
+      // Cache thất bại không được chặn UI catalog.
     }
   }
 
   Future<void> invalidate(String storeId) async {
     if (storeId.isEmpty) return;
-    final prefs = await SharedPreferences.getInstance();
-    final metaKey = '$_metaPrefix$storeId';
-    await prefs.remove('${metaKey}_at');
-    await prefs.remove('${metaKey}_ver');
-    final file = await _fileFor(storeId);
-    if (await file.exists()) {
-      await file.delete();
-    }
-    if (_lastStoreId == storeId) _lastStoreId = null;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final metaKey = '$_metaPrefix$storeId';
+      await prefs.remove('${metaKey}_at');
+      await prefs.remove('${metaKey}_ver');
+      if (!kIsWeb) {
+        await cache_io.deleteCatalogJson(storeId);
+      }
+      if (_lastStoreId == storeId) _lastStoreId = null;
+    } catch (_) {}
   }
 
   Future<void> invalidateLast() async {

@@ -1,10 +1,24 @@
 User-agent: *
 Allow: /
 Allow: /privacy-policy.html
+Allow: /sitemap.xml
+Allow: /images/
+Allow: /icons/
+Allow: /favicon.png
+
+# App SPA — không index (tránh trùng trang chủ SEO)
+Disallow: /index.html
+Disallow: /home.html
 Disallow: /api/
 Disallow: /hubs/
+Disallow: /iclock/
 Disallow: /admin
 Disallow: /login-app
 Disallow: /register
+Disallow: /landing
+Disallow: /main.dart.js
+Disallow: /flutter.js
+Disallow: /flutter_bootstrap.js
+Disallow: /canvaskit/
 
 Sitemap: https://sboxhrm.com/sitemap.xml

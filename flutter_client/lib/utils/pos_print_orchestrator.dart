@@ -32,6 +32,8 @@ class PosPrintOrchestrator {
   final _api = ApiService();
   final _signalR = SignalRService();
   final _pendingJobs = <String, Completer<_JobOutcome>>{};
+  /// Policy chờ Completed (false = không coi Claimed/Printing là thành công).
+  final _acceptClaimedByJob = <String, bool>{};
   final _jobMeta = <String, _JobFeedbackMeta>{};
   final _feedbackSent = <String>{};
 
@@ -59,6 +61,7 @@ class PosPrintOrchestrator {
       }
     }
     _pendingJobs.clear();
+    _acceptClaimedByJob.clear();
     _jobMeta.clear();
     _feedbackSent.clear();
   }
@@ -69,6 +72,7 @@ class PosPrintOrchestrator {
       completer.complete(outcome);
     }
     _pendingJobs.remove(jobId);
+    _acceptClaimedByJob.remove(jobId);
     if (!showFeedback || _feedbackSent.contains(jobId)) {
       _jobMeta.remove(jobId);
       return;
@@ -100,12 +104,12 @@ class PosPrintOrchestrator {
     final status = data['status']?.toString() ?? '';
     final printerName = data['printerName']?.toString() ?? '';
     final error = data['errorMessage']?.toString();
+    final acceptClaimed = _acceptClaimedByJob[jobId] ?? true;
 
     if (status == 'Completed' ||
-        status == 'Claimed' ||
-        status == 'Printing') {
-      // Claimed/Printing = Agent đã nhận — giấy thường đã/ sắp ra.
-      // Trước đây chỉ Completed → máy gửi báo «chưa in» dù Agent đã in.
+        (acceptClaimed && (status == 'Claimed' || status == 'Printing'))) {
+      // Claimed/Printing chỉ OK khi caller cho phép (hóa đơn thường).
+      // Phiếu bếp: bắt Completed — tránh báo thành công rồi Agent fail → sót bếp.
       _finishJob(
         jobId,
         _JobOutcome(true, null, printerName: printerName),
@@ -209,6 +213,7 @@ class PosPrintOrchestrator {
     bool waitForCompletion = true,
     bool skipDedup = false,
     bool forceCloud = false,
+    bool acceptClaimedAsSuccess = true,
   }) async {
     if (kIsWeb) return false;
 
@@ -299,14 +304,22 @@ class PosPrintOrchestrator {
         // Không chặn UI. Không toast lỗi nền — trước đây showFeedback:true khiến
         // báo «In thất bại» dù Agent đã in (race reclaim/DUP/timeout sau giấy ra).
         unawaited(
-          _waitJob(jobId, showFeedback: false).whenComplete(
+          _waitJob(
+            jobId,
+            showFeedback: false,
+            acceptClaimedAsSuccess: acceptClaimedAsSuccess,
+          ).whenComplete(
             () => PosPrintSessionRegistry.clearOutbound(jobId),
           ),
         );
         return true;
       }
 
-      final outcome = await _waitJob(jobId, showFeedback: showFeedback);
+      final outcome = await _waitJob(
+        jobId,
+        showFeedback: showFeedback,
+        acceptClaimedAsSuccess: acceptClaimedAsSuccess,
+      );
       PosPrintSessionRegistry.clearOutbound(jobId);
       return outcome.ok;
     }
@@ -346,26 +359,32 @@ class PosPrintOrchestrator {
     final okNames = <String>[];
 
     for (final printer in printers) {
-      final bytes = await buildBytes(printer);
-      final n = copiesFor(documentType, printerId: printer.id, fallback: copies);
-      final isAgent = await PosPrintRole.isAgentForPrinter(printer.id);
-      final ok = await dispatchEscPos(
-        documentType: documentType,
-        bytes: bytes,
-        copies: n,
-        referenceNo: referenceNo,
-        referenceId: referenceId,
-        printerId: printer.id,
-        showFeedback: false,
-        successTitle: successTitle,
-        waitForCompletion: isAgent,
-        skipDedup: true,
-      );
-      if (ok) {
-        okCount++;
-        okNames.add(printer.name);
-      } else {
+      try {
+        final bytes = await buildBytes(printer);
+        final n =
+            copiesFor(documentType, printerId: printer.id, fallback: copies);
+        final isAgent = await PosPrintRole.isAgentForPrinter(printer.id);
+        final ok = await dispatchEscPos(
+          documentType: documentType,
+          bytes: bytes,
+          copies: n,
+          referenceNo: referenceNo,
+          referenceId: referenceId,
+          printerId: printer.id,
+          showFeedback: false,
+          successTitle: successTitle,
+          waitForCompletion: isAgent,
+          skipDedup: true,
+        );
+        if (ok) {
+          okCount++;
+          okNames.add(printer.name);
+        } else {
+          failCount++;
+        }
+      } catch (e, st) {
         failCount++;
+        debugPrint('dispatchEscPosToAll ${printer.name}: $e\n$st');
       }
     }
 
@@ -430,67 +449,72 @@ class PosPrintOrchestrator {
     final okNames = <String>[];
 
     for (final printer in printers) {
-      final n = copiesFor(
-        PosCloudDocumentTypes.saleInvoice,
-        printerId: printer.id,
-        fallback: copies,
-      );
-      final isAgent = await PosPrintRole.isAgentForPrinter(printer.id);
-      final onSunmiHw = await PosPrinterTransport.isSunmiDevice();
-      final useNative = printer.isSunmi && (isAgent ? onSunmiHw : true);
-
-      bool ok;
-      if (useNative && isAgent && onSunmiHw) {
-        ok = await _printSaleNativeOnThisDevice(
-          printer: printer,
-          order: order,
-          copies: n,
-          storeName: storeName,
-          storeAddress: storeAddress,
-          storePhone: storePhone,
-          mergeSameItems: mergeSameItems,
-          documentTitle: documentTitle,
-          referenceNo: referenceNo,
-          showFeedback: false,
-          successTitle: successTitle,
-        );
-      } else if (useNative && !isAgent) {
-        ok = await _enqueueSaleOrderJson(
-          printer: printer,
-          order: order,
-          copies: n,
-          storeName: storeName,
-          storeAddress: storeAddress,
-          storePhone: storePhone,
-          mergeSameItems: mergeSameItems,
-          documentTitle: documentTitle,
-          referenceNo: referenceNo,
-          referenceId: referenceId,
-          showFeedback: false,
-          // Thanh toán (showFeedback=false): gửi xong là OK. In tay/in lại: chờ Completed.
-          waitForCompletion: showFeedback,
-        );
-      } else {
-        final bytes = await buildEscPos(printer);
-        ok = await dispatchEscPos(
-          documentType: PosCloudDocumentTypes.saleInvoice,
-          bytes: bytes,
-          copies: n,
-          referenceNo: referenceNo,
-          referenceId: referenceId,
+      try {
+        final n = copiesFor(
+          PosCloudDocumentTypes.saleInvoice,
           printerId: printer.id,
-          showFeedback: false,
-          successTitle: successTitle,
-          waitForCompletion: isAgent,
-          skipDedup: true,
+          fallback: copies,
         );
-      }
+        final isAgent = await PosPrintRole.isAgentForPrinter(printer.id);
+        final onSunmiHw = await PosPrinterTransport.isSunmiDevice();
+        final useNative = printer.isSunmi && (isAgent ? onSunmiHw : true);
 
-      if (ok) {
-        okCount++;
-        okNames.add(printer.name);
-      } else {
+        bool ok;
+        if (useNative && isAgent && onSunmiHw) {
+          ok = await _printSaleNativeOnThisDevice(
+            printer: printer,
+            order: order,
+            copies: n,
+            storeName: storeName,
+            storeAddress: storeAddress,
+            storePhone: storePhone,
+            mergeSameItems: mergeSameItems,
+            documentTitle: documentTitle,
+            referenceNo: referenceNo,
+            showFeedback: false,
+            successTitle: successTitle,
+          );
+        } else if (useNative && !isAgent) {
+          ok = await _enqueueSaleOrderJson(
+            printer: printer,
+            order: order,
+            copies: n,
+            storeName: storeName,
+            storeAddress: storeAddress,
+            storePhone: storePhone,
+            mergeSameItems: mergeSameItems,
+            documentTitle: documentTitle,
+            referenceNo: referenceNo,
+            referenceId: referenceId,
+            showFeedback: false,
+            // Thanh toán (showFeedback=false): gửi xong là OK. In tay/in lại: chờ Completed.
+            waitForCompletion: showFeedback,
+          );
+        } else {
+          final bytes = await buildEscPos(printer);
+          ok = await dispatchEscPos(
+            documentType: PosCloudDocumentTypes.saleInvoice,
+            bytes: bytes,
+            copies: n,
+            referenceNo: referenceNo,
+            referenceId: referenceId,
+            printerId: printer.id,
+            showFeedback: false,
+            successTitle: successTitle,
+            waitForCompletion: isAgent,
+            skipDedup: true,
+          );
+        }
+
+        if (ok) {
+          okCount++;
+          okNames.add(printer.name);
+        } else {
+          failCount++;
+        }
+      } catch (e, st) {
         failCount++;
+        debugPrint('dispatchSaleOrder ${printer.name}: $e\n$st');
       }
     }
 
@@ -859,6 +883,7 @@ class PosPrintOrchestrator {
       successTitle: successTitle,
       waitForCompletion: waitForCompletion,
       skipDedup: skipDedup,
+      acceptClaimedAsSuccess: false,
     );
   }
 
@@ -988,6 +1013,7 @@ class PosPrintOrchestrator {
     }
 
     PosPrintSessionRegistry.markOutbound(jobId);
+    PosPrintAgentService.instance.nudgeClaim();
     if (showFeedback) {
       final ref = referenceNo?.trim() ?? '';
       NotificationOverlayManager().show(
@@ -1001,13 +1027,22 @@ class PosPrintOrchestrator {
     }
     if (!waitForCompletion) {
       unawaited(
-        _waitJob(jobId, showFeedback: false).whenComplete(
+        _waitJob(
+          jobId,
+          showFeedback: false,
+          acceptClaimedAsSuccess: false,
+        ).whenComplete(
           () => PosPrintSessionRegistry.clearOutbound(jobId),
         ),
       );
       return true;
     }
-    final outcome = await _waitJob(jobId, showFeedback: showFeedback);
+    // Phiếu bếp: chỉ Completed mới OK — Claimed sớm dễ để job kẹt rồi reclaim in trùng.
+    final outcome = await _waitJob(
+      jobId,
+      showFeedback: showFeedback,
+      acceptClaimedAsSuccess: false,
+    );
     PosPrintSessionRegistry.clearOutbound(jobId);
     return outcome.ok;
   }
@@ -1091,6 +1126,7 @@ class PosPrintOrchestrator {
     String? referenceId,
     String? referenceNo,
     bool skipDedup = false,
+    bool waitForCompletion = true,
   }) async {
     if (kIsWeb) return false;
 
@@ -1107,25 +1143,33 @@ class PosPrintOrchestrator {
     final local = settingsOverride ?? await PosThermalPrinterSettings.load();
     if (!local.enabled) return false;
 
-    for (var c = 0; c < copies.clamp(1, 10); c++) {
-      final ok = await _sendLocal(local, bytes);
-      if (!ok) {
-        if (showFeedback) {
-          NotificationOverlayManager().showError(
-            title: 'In thất bại',
-            message: tr('Không kết nối được máy in cục bộ'),
-          );
+    Future<bool> run() async {
+      for (var c = 0; c < copies.clamp(1, 10); c++) {
+        final ok = await _sendLocal(local, bytes);
+        if (!ok) {
+          if (showFeedback) {
+            NotificationOverlayManager().showError(
+              title: 'In thất bại',
+              message: tr('Không kết nối được máy in cục bộ'),
+            );
+          }
+          return false;
         }
-        return false;
       }
+      if (showFeedback) {
+        NotificationOverlayManager().showSuccess(
+          title: successTitle ?? 'In thành công',
+          message: tr('Máy in cục bộ (cùng mạng)'),
+        );
+      }
+      return true;
     }
-    if (showFeedback) {
-      NotificationOverlayManager().showSuccess(
-        title: successTitle ?? 'In thành công',
-        message: tr('Máy in cục bộ (cùng mạng)'),
-      );
+
+    if (!waitForCompletion) {
+      unawaited(run());
+      return true;
     }
-    return true;
+    return run();
   }
 
   Future<bool> _sendLocal(PosThermalPrinterSettings settings, List<int> bytes) =>
@@ -1138,9 +1182,14 @@ class PosPrintOrchestrator {
         sunmiFeedLines: settings.resolvedFeedBeforeCut,
       );
 
-  Future<_JobOutcome> _waitJob(String jobId, {bool showFeedback = true}) async {
+  Future<_JobOutcome> _waitJob(
+    String jobId, {
+    bool showFeedback = true,
+    bool acceptClaimedAsSuccess = true,
+  }) async {
     final completer = Completer<_JobOutcome>();
     _pendingJobs[jobId] = completer;
+    _acceptClaimedByJob[jobId] = acceptClaimedAsSuccess;
 
     Timer(_jobTimeout, () {
       if (!completer.isCompleted) {
@@ -1153,8 +1202,8 @@ class PosPrintOrchestrator {
                 ? (res['data'] as Map)['status']?.toString()
                 : null;
             if (status == 'Completed' ||
-                status == 'Claimed' ||
-                status == 'Printing') {
+                (acceptClaimedAsSuccess &&
+                    (status == 'Claimed' || status == 'Printing'))) {
               _finishJob(
                 jobId,
                 const _JobOutcome(true, null),
@@ -1178,13 +1227,18 @@ class PosPrintOrchestrator {
       }
     });
 
-    unawaited(_pollJobUntilDone(jobId, showFeedback: showFeedback));
+    unawaited(_pollJobUntilDone(
+      jobId,
+      showFeedback: showFeedback,
+      acceptClaimedAsSuccess: acceptClaimedAsSuccess,
+    ));
     return completer.future;
   }
 
   Future<void> _pollJobUntilDone(
     String jobId, {
     bool showFeedback = true,
+    bool acceptClaimedAsSuccess = true,
   }) async {
     for (var i = 0; i < 18; i++) {
       if (!_pendingJobs.containsKey(jobId)) return;
@@ -1201,14 +1255,15 @@ class PosPrintOrchestrator {
             const _JobOutcome(true, null),
             showFeedback: showFeedback,
           );
-        } else if (status == 'Failed' || status == 'Expired') {
+        } else if (status == 'Failed' || status == 'Expired' || status == 'Cancelled') {
           final err = data['errorMessage']?.toString();
           _finishJob(
             jobId,
             _JobOutcome(false, err ?? status),
             showFeedback: showFeedback,
           );
-        } else if (status == 'Claimed' || status == 'Printing') {
+        } else if (acceptClaimedAsSuccess &&
+            (status == 'Claimed' || status == 'Printing')) {
           // Agent đã nhận — coi thành công ngay (không chờ i>=2 ~15s).
           _finishJob(
             jobId,
@@ -1472,38 +1527,21 @@ class PosPrintOrchestrator {
         return false;
       }
 
-      // Claim nhanh (tối đa ~1s) rồi complete — tránh job Queued bị máy khác in lại.
+      // Claim đúng job test — KHÔNG claimNext generic (tránh fail SUPERSEDED
+      // đè hóa đơn/phiếu bếp đang chờ → sót bill).
       Map<String, dynamic>? claimed;
-      final byId = await _api.claimPosPrintJobById(jobId, agentId);
-      final byIdData = byId['data'];
-      if (byIdData is Map) {
-        final map = Map<String, dynamic>.from(byIdData);
-        final id = map['jobId']?.toString() ?? map['JobId']?.toString() ?? '';
-        if (sameId(id, jobId)) claimed = map;
-      }
-      if (claimed == null) {
-        for (var i = 0; i < 4; i++) {
-          final claimRes = await _api.claimPosPrintJob(agentId);
-          final raw = claimRes['data'];
-          if (raw is Map) {
-            final map = Map<String, dynamic>.from(raw);
-            final claimedId =
-                map['jobId']?.toString() ?? map['JobId']?.toString() ?? '';
-            if (sameId(claimedId, jobId)) {
-              claimed = map;
-              break;
-            }
-            if (claimedId.isNotEmpty && !sameId(claimedId, jobId)) {
-              await _api.failPosPrintJob(
-                claimedId,
-                agentId,
-                errorCode: 'SUPERSEDED',
-                errorMessage: 'Bỏ job cũ để ưu tiên test cloud',
-              );
-            }
+      for (var i = 0; i < 5 && claimed == null; i++) {
+        final byId = await _api.claimPosPrintJobById(jobId, agentId);
+        final byIdData = byId['data'];
+        if (byIdData is Map) {
+          final map = Map<String, dynamic>.from(byIdData);
+          final id = map['jobId']?.toString() ?? map['JobId']?.toString() ?? '';
+          if (sameId(id, jobId)) {
+            claimed = map;
+            break;
           }
-          await Future<void>.delayed(const Duration(milliseconds: 80));
         }
+        await Future<void>.delayed(const Duration(milliseconds: 120));
       }
 
       if (claimed != null) {

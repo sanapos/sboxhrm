@@ -1,14 +1,14 @@
 User-agent: *
 Allow: /
-Allow: /home.html
 Allow: /privacy-policy.html
 Allow: /sitemap.xml
 Allow: /images/
 Allow: /icons/
 Allow: /favicon.png
 
-# App SPA — không ưu tiên index (tránh trùng trang chủ SEO)
+# App SPA — không index (tránh trùng trang chủ SEO)
 Disallow: /index.html
+Disallow: /home.html
 Disallow: /api/
 Disallow: /hubs/
 Disallow: /iclock/

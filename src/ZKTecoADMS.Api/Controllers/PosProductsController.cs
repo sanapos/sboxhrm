@@ -406,9 +406,9 @@ public partial class PosProductsController(
         return Ok(AppResponse<PosProductDto>.Success(dto));
     }
 
-    /// <summary>Phục vụ ảnh sản phẩm POS (có auth, tránh lỗi path serve).</summary>
+    /// <summary>Phục vụ ảnh sản phẩm POS (auth + store scope). Không khóa PosProducts —
+    /// thu ngân chỉ có PosSell vẫn cần xem ảnh trên màn bán.</summary>
     [HttpGet("{id:guid}/image")]
-    [RequireModulePermission("PosProducts", ModulePermissionAction.View)]
     [ResponseCache(Duration = 3600)]
     public async Task<IActionResult> GetProductImage(Guid id)
     {

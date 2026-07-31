@@ -17226,10 +17226,15 @@ class ApiService {
     }
   }
 
-  Future<Map<String, dynamic>> getPosServiceResources({String? areaId}) async {
+  /// [heal]: false khi poll silent — bỏ ghi DB orphan; true lúc mở sơ đồ / thao tác.
+  Future<Map<String, dynamic>> getPosServiceResources({
+    String? areaId,
+    bool heal = true,
+  }) async {
     try {
       final q = <String, String>{};
       if (areaId != null && areaId.isNotEmpty) q['areaId'] = areaId;
+      if (!heal) q['heal'] = 'false';
       final uri = Uri.parse('$baseUrl/api/pos/service-resources')
           .replace(queryParameters: q.isEmpty ? null : q);
       final response =

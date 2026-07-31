@@ -89,7 +89,7 @@ internal static class PosSaleStockHelper
             .Where(t => t.SaleOrderId == order.Id && t.StoreId == storeId && t.Deleted == null && t.IsActive &&
                         t.TransactionType == PosStockTransactionType.Sale)
             .SumAsync(t => -t.QtyChange);
-        if (saleTotal <= 0) return false;
+        if (saleTotal <= 0) return true; // Không có giao dịch Sale (vd. đơn dịch vụ) → coi như đã đủ hoàn kho.
 
         var restoredTotal = await db.PosStockTransactions.AsNoTracking()
             .Where(t => t.SaleOrderId == order.Id && t.StoreId == storeId && t.Deleted == null && t.IsActive &&

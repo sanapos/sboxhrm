@@ -195,16 +195,21 @@ class PosPurchaseProductSearchBarState extends State<PosPurchaseProductSearchBar
     if (gen != _searchGen || !mounted) return;
 
     final items = <PosProduct>[];
-    if (widget.sellMode) {
-      if (res['isSuccess'] == true && res['data'] is List) {
-        final raw = res['data'] as List;
-        items.addAll(
-            raw.map((e) => PosProduct.fromJson(e as Map<String, dynamic>)));
+    if (res['isSuccess'] == true) {
+      // Sell API trả { items, total }; một số endpoint cũ trả List trực tiếp.
+      List raw = const [];
+      final data = res['data'];
+      if (data is Map) {
+        raw = data['items'] as List? ?? const [];
+      } else if (data is List) {
+        raw = data;
       }
-    } else if (res['isSuccess'] == true && res['data'] is Map) {
-      final raw = (res['data'] as Map)['items'] as List? ?? [];
-      items.addAll(
-          raw.map((e) => PosProduct.fromJson(e as Map<String, dynamic>)));
+      for (final e in raw) {
+        if (e is! Map) continue;
+        try {
+          items.add(PosProduct.fromJson(Map<String, dynamic>.from(e)));
+        } catch (_) {}
+      }
     }
 
     final suggestions = await _expandSuggestions(items);

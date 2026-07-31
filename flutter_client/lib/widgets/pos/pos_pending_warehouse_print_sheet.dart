@@ -151,7 +151,9 @@ class _PendingWarehousePrintSheetBodyState
       return;
     }
     if (result.anySuccess) {
+      // Parent đã gỡ job cũ + enqueue phần còn lỗi — sync UI sheet.
       setState(() {
+        _localJobs.removeWhere((j) => j.id == job.id);
         _statusMessage = result.summaryMessage(lineCount: job.lines.length);
         _busyJobId = null;
       });

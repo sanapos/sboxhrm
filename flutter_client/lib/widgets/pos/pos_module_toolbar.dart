@@ -45,6 +45,7 @@ class PosModuleToolbar extends StatelessWidget {
   }
 
   Widget _buildDesktop(BuildContext context) {
+    final narrow = MediaQuery.sizeOf(context).width < 1280;
     return SizedBox(
       height: 48,
       child: Row(
@@ -58,19 +59,29 @@ class PosModuleToolbar extends StatelessWidget {
               fontSize: 15,
             ),
           ),
-          const SizedBox(width: 20),
-          ..._tabs.map((t) => _tabButton(t, compact: false)),
-          const Spacer(),
+          const SizedBox(width: 12),
+          Expanded(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  for (final t in _tabs) _tabButton(t, compact: narrow),
+                ],
+              ),
+            ),
+          ),
           FilledButton.icon(
             onPressed: () => NavigationNotifier.goToModule('PosSell'),
             style: FilledButton.styleFrom(
               backgroundColor: PosTheme.kiotBlue,
               foregroundColor: Colors.white,
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              padding: EdgeInsets.symmetric(
+                horizontal: narrow ? 10 : 16,
+                vertical: 8,
+              ),
             ),
             icon: const Icon(Icons.point_of_sale, size: 18),
-            label: Text(tr('Bán hàng')),
+            label: Text(tr(narrow ? 'Bán' : 'Bán hàng')),
           ),
           const SizedBox(width: 12),
         ],

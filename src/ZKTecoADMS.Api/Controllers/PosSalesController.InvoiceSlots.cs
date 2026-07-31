@@ -24,10 +24,21 @@ public partial class PosSalesController
         [FromQuery] string? deviceName = null)
     {
         var storeId = RequiredStoreId;
-        // Luôn chỉ đảm bảo tối thiểu DefaultCount — không dùng count client để “lấp lỗ”.
-        await EnsureInvoiceSlotsAsync(storeId, PosDraftInvoiceSlots.DefaultCount);
-        // Luôn prune (kể cả poll) — client cũ không gửi pruneEmpty vẫn được thu gọn.
-        await PruneEmptySurplusSlotsAsync(storeId, PosDraftInvoiceSlots.DefaultCount);
+        // Poll 4s chỉ đọc — không prune/ensure nặng mỗi lần.
+        // pruneEmpty=true lúc mở màn bán / thêm slot: thu gọn HĐ trống thừa.
+        if (pruneEmpty)
+        {
+            await EnsureInvoiceSlotsAsync(storeId, PosDraftInvoiceSlots.DefaultCount);
+            await PruneEmptySurplusSlotsAsync(storeId, PosDraftInvoiceSlots.DefaultCount);
+        }
+        else
+        {
+            var hasSlot = await dbContext.PosSaleOrders.AsNoTracking()
+                .AnyAsync(o => o.StoreId == storeId && o.Deleted == null
+                    && o.Status == PosSaleOrderStatus.Draft && o.InvoiceSlot != null);
+            if (!hasSlot)
+                await EnsureInvoiceSlotsAsync(storeId, PosDraftInvoiceSlots.DefaultCount);
+        }
 
         return Ok(AppResponse<object>.Success(await BuildInvoiceSlotsPayloadAsync(storeId, deviceId, deviceName)));
     }

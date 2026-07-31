@@ -346,7 +346,17 @@ class _PosSaleOrderEditorScreenState extends State<PosSaleOrderEditorScreen> {
   Future<void> _completeExisting() async {
     if (_orderId == null) return;
     setState(() => _saving = true);
-    final res = await _api.completePosSale(_orderId!);
+    var res = await _api.completePosSale(_orderId!);
+    final msg = (res['message'] ?? '').toString().toLowerCase();
+    if (res['isSuccess'] != true &&
+        res['statusCode'] == 409 &&
+        (msg.contains('xung đột') ||
+            msg.contains('trùng mã') ||
+            msg.contains('đồng thời'))) {
+      await Future<void>.delayed(const Duration(milliseconds: 350));
+      if (!mounted) return;
+      res = await _api.completePosSale(_orderId!);
+    }
     if (!mounted) return;
     setState(() => _saving = false);
     if (res['isSuccess'] == true) {

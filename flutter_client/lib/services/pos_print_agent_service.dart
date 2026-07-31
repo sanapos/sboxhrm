@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/pos_store_printer.dart';
 import '../models/pos_sale_order.dart';
@@ -24,6 +25,8 @@ class PosPrintAgentService {
   PosPrintAgentService._();
   static final PosPrintAgentService instance = PosPrintAgentService._();
 
+  static const _settledPrefsKey = 'pos_print_agent_settled_job_ids';
+
   final _api = ApiService();
   final _signalR = SignalRService();
 
@@ -39,7 +42,9 @@ class PosPrintAgentService {
   final _activeJobIds = <String>{};
   final _notifiedReceiveJobIds = <String>{};
   /// Job đã complete/fail — timeout không được ghi đè thành Failed sau khi giấy đã in.
+  /// Persist nhẹ để tránh restart Agent → reclaim → in chồng.
   final _settledJobIds = <String>{};
+  bool _settledLoaded = false;
   Timer? _claimDebounce;
   String? _lastRegisterError;
   bool _warnedNoPrinters = false;
@@ -79,6 +84,7 @@ class PosPrintAgentService {
     _storeId = storeId;
     _deviceId = await PosPrintOrchestrator.stableDeviceId();
     _running = true;
+    await _loadSettledJobIds();
 
     await _signalR.joinPrintAgentGroup(storeId);
     await _register(refreshPrinters: true);
@@ -138,7 +144,7 @@ class PosPrintAgentService {
     _forceStopSub = null;
     _activeJobIds.clear();
     _notifiedReceiveJobIds.clear();
-    _settledJobIds.clear();
+    // Giữ _settledJobIds (+ prefs) — tránh restart Agent in chồng job vừa in.
     if (storeId != null) {
       await _signalR.leavePrintAgentGroup(storeId);
     }
@@ -256,8 +262,19 @@ class PosPrintAgentService {
 
       // Đã/đang xử lý job này — KHÔNG fail (tránh báo «không in được»
       // trong khi lần claim đầu đã in ra giấy, rồi reclaim/claim lại).
-      if (_activeJobIds.contains(jobId) || _settledJobIds.contains(jobId)) {
-        debugPrint('Print Agent: bỏ claim trùng job $jobId (đang/đã xử lý)');
+      if (_settledJobIds.contains(jobId)) {
+        // App chủ/Agent claim lại job đã in: complete trên server để không
+        // reclaim → Queued → in lại phiếu bếp khi in hóa đơn sau.
+        debugPrint('Print Agent: job $jobId đã settle — complete lại trên server');
+        try {
+          await _api.completePosPrintJob(jobId, _agentId!);
+        } catch (e) {
+          debugPrint('Print Agent: complete trùng job $jobId: $e');
+        }
+        return;
+      }
+      if (_activeJobIds.contains(jobId)) {
+        debugPrint('Print Agent: bỏ claim trùng job $jobId (đang xử lý)');
         return;
       }
 
@@ -333,9 +350,37 @@ class PosPrintAgentService {
   void _markJobSettled(String jobId) {
     _activeJobIds.remove(jobId);
     _settledJobIds.add(jobId);
-    if (_settledJobIds.length > 80) {
-      _settledJobIds.remove(_settledJobIds.first);
+    if (_settledJobIds.length > 120) {
+      final drop = _settledJobIds.take(_settledJobIds.length - 100).toList();
+      for (final id in drop) {
+        _settledJobIds.remove(id);
+      }
     }
+    unawaited(_persistSettledJobIds());
+  }
+
+  Future<void> _loadSettledJobIds() async {
+    if (_settledLoaded) return;
+    _settledLoaded = true;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getStringList(_settledPrefsKey) ?? const [];
+      _settledJobIds
+        ..clear()
+        ..addAll(raw.where((e) => e.trim().isNotEmpty).take(120));
+    } catch (e) {
+      debugPrint('Print Agent load settled ids: $e');
+    }
+  }
+
+  Future<void> _persistSettledJobIds() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setStringList(
+        _settledPrefsKey,
+        _settledJobIds.take(100).toList(growable: false),
+      );
+    } catch (_) {}
   }
 
   void _notifyReceivedOnce(Map<String, dynamic> job, String jobId) {

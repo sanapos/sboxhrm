@@ -127,7 +127,8 @@ class _PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
     _floorRealtime.start((_) {
       if (mounted && !_layoutEdit) _reload(silent: true);
     });
-    _clock = Timer.periodic(const Duration(seconds: 1), (_) {
+    // Đồng hồ bàn: 15s đủ (hiển thị phút), tránh rebuild toàn sơ đồ mỗi giây.
+    _clock = Timer.periodic(const Duration(seconds: 15), (_) {
       if (!mounted || _layoutEdit) return;
       if (_resources.any((r) => r.liveElapsedMinutes > 0)) {
         setState(() {});
@@ -285,7 +286,10 @@ class _PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
       });
     }
     final areaRes = await _api.getPosServiceAreas();
-    final resRes = await _api.getPosServiceResources(areaId: _areaFilter);
+    final resRes = await _api.getPosServiceResources(
+      areaId: _areaFilter,
+      heal: !silent,
+    );
     if (!mounted) return;
     if (areaRes['isSuccess'] != true || resRes['isSuccess'] != true) {
       if (!silent) {

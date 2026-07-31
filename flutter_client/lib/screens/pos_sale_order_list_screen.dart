@@ -31,7 +31,6 @@ import '../widgets/pos/pos_sale_order_receipt_view.dart';
 import '../widgets/pos/pos_theme.dart';
 import 'pos_sale_order_editor_screen.dart';
 import 'pos_sale_return_screen.dart';
-import 'pos_sale_return_list_screen.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 enum _ListColumn {
@@ -51,15 +50,12 @@ enum _ListColumn {
   final String label;
 }
 
+/// Cột mặc định gọn — tránh bảng quá nhiều cột gây rối (còn lại bật trong Tùy chọn cột).
 Set<_ListColumn> _defaultListColumns() => {
       _ListColumn.orderNo,
       _ListColumn.time,
       _ListColumn.customer,
-      _ListColumn.subTotal,
-      _ListColumn.discount,
       _ListColumn.total,
-      _ListColumn.paid,
-      _ListColumn.balance,
       _ListColumn.status,
     };
 
@@ -437,7 +433,17 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
     if (ok != true || !mounted) return;
     setState(() => _completingId = o.id);
     try {
-    final res = await _api.completePosSale(o.id);
+    var res = await _api.completePosSale(o.id);
+    final msg = (res['message'] ?? '').toString().toLowerCase();
+    if (res['isSuccess'] != true &&
+        res['statusCode'] == 409 &&
+        (msg.contains('xung đột') ||
+            msg.contains('trùng mã') ||
+            msg.contains('đồng thời'))) {
+      await Future<void>.delayed(const Duration(milliseconds: 350));
+      if (!mounted) return;
+      res = await _api.completePosSale(o.id);
+    }
     if (!mounted) return;
     if (res['isSuccess'] == true) {
       PosSaleOrder? updated;
@@ -762,37 +768,27 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
           else
             PosMobileListHeader(
               icon: Icons.receipt_long,
-              title: 'Quản lý đơn hàng',
+              title: 'Hóa đơn',
               onRefresh: () => _load(page: _page),
               onOpenFilters: null,
               activeFilterCount: _activeFilterCount,
               trailing: [
-                if (perm.canExport('PosSaleOrders') || perm.canExport('PosProducts'))
-                  OutlinedButton.icon(
+                if (perm.canExport('PosSaleOrders') ||
+                    perm.canExport('PosProducts'))
+                  IconButton(
                     onPressed: _exporting ? null : () => _exportExcel(perm),
                     icon: _exporting
                         ? const SizedBox(
-                            width: 16,
-                            height: 16,
+                            width: 18,
+                            height: 18,
                             child: CircularProgressIndicator(strokeWidth: 2))
-                        : const Icon(Icons.download, size: 18),
-                    label: Text(tr('Xuất file')),
+                        : const Icon(Icons.download_outlined),
+                    tooltip: tr('Xuất Excel'),
                   ),
-                IconButton(
-                  onPressed: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => const PosSaleReturnListScreen(),
-                      ),
-                    );
-                  },
-                  icon: const Icon(Icons.assignment_return_outlined),
-                  tooltip: tr('Danh sách trả hàng'),
-                ),
                 IconButton(
                   onPressed: _showColumnPicker,
                   icon: const Icon(Icons.view_column_outlined),
-                  tooltip: tr('Tùy chọn cột'),
+                  tooltip: tr('Thêm cột'),
                 ),
               ],
             ),
@@ -1323,10 +1319,9 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
             dt != null ? _dateFmt.format(dt.toLocal()) : '—',
           ),
           PosMobileField('Khách', o.customerName ?? 'Khách lẻ'),
-          PosMobileField('Tổng còn', '${_moneyFmt.format(o.total)} đ'),
+          PosMobileField('Tổng', '${_moneyFmt.format(o.total)} đ'),
           if (o.hasReturns)
             PosMobileField('Đã trả', '${_moneyFmt.format(o.returnedAmount)} đ'),
-          PosMobileField('Còn lại', '${_moneyFmt.format(_balance(o))} đ'),
         ],
         detail: expanded ? _buildDetailPanel(o, canEdit) : null,
       );
