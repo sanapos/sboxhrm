@@ -152,6 +152,54 @@ class PosThermalPrinterService {
 
   }
 
+  /// In lần lượt 4 chế độ chữ (image / tcvn3 / cp1258 / utf8) để chọn mode đúng máy.
+  /// Trả về số phiếu gửi thành công.
+  static Future<int> probeTextModes(PosThermalPrinterSettings settings) async {
+    if (kIsWeb) return 0;
+    if (settings.connectionType == PosThermalConnectionType.sunmi ||
+        await PosPrinterTransport.isSunmiDevice()) {
+      final ok = await PosSunmiNativePrint.printTest(
+        storeLabel: 'SBOX POS (Sunmi native)',
+        feedLines: settings.resolvedFeedBeforeCut,
+        paperWidthMm: settings.paperWidthMm,
+      );
+      return ok ? 1 : 0;
+    }
+
+    const modes = [
+      PosThermalTextMode.image,
+      PosThermalTextMode.tcvn3,
+      PosThermalTextMode.cp1258,
+      PosThermalTextMode.utf8,
+    ];
+    var okCount = 0;
+    for (final mode in modes) {
+      final draft = settings.copyWith(enabled: true, textMode: mode);
+      final bytes = await _buildProbeReceipt(draft, mode);
+      final ok = await _sendBytes(draft, bytes);
+      if (ok) okCount++;
+      await Future<void>.delayed(const Duration(milliseconds: 1200));
+    }
+    return okCount;
+  }
+
+  static Future<List<int>> _buildProbeReceipt(
+    PosThermalPrinterSettings settings,
+    PosThermalTextMode mode,
+  ) async {
+    final b = await _EscPosBuilder.create(settings);
+    b.center();
+    await b.boldLine('SBOX — THU CHE DO CHU', size: 24);
+    await b.line('Mode: ${mode.key}');
+    await b.line(mode.label);
+    await b.line('Tieng Viet: Dau phong da ca');
+    await b.line('Có dấu: Đậu phộng — 35.000đ');
+    await b.line('Hoa: ĂÂÊÔƠƯ ĐẠ');
+    await b.line(_date.format(DateTime.now()));
+    await b.finishAsync();
+    return b.bytes;
+  }
+
 
 
   /// Tạo byte ESC/POS hóa đơn bán (dùng cho cloud print / agent).
@@ -358,6 +406,11 @@ class PosThermalPrinterService {
 
         if (await isSunmiDevice()) return _sendSunmi(settings, bytes);
 
+        // USB OTG chưa hỗ trợ — chỉ chuyển LAN khi đã có IP.
+        if ((settings.lanHost ?? '').trim().isEmpty) {
+          debugPrint('USB print: chưa hỗ trợ OTG và thiếu IP LAN');
+          return false;
+        }
         return _sendLan(settings, bytes);
 
     }
@@ -816,7 +869,7 @@ class _EscPosBuilder {
 
       case PosThermalTextMode.cp1258:
 
-        b._add(PosEscPosTextCodec.initCp1258());
+        b._add(PosEscPosTextCodec.initCp1258(page: b._settings.escPosCodePage));
 
       case PosThermalTextMode.utf8:
 
@@ -1004,12 +1057,13 @@ class _EscPosBuilder {
       if (raster != null && PosThermalBitmapEncoder.rasterHasInk(raster)) {
         _add(raster);
       } else {
+        // Không bỏ dấu im lặng — giữ UTF-8 có dấu; nếu máy không đọc được
+        // user dùng "Thử chế độ chữ" để chọn TCVN/CP1258/Image.
+        debugPrint('Raster image failed — fallback UTF-8 có dấu (không strip)');
         for (final ln in _imageLines) {
           final t = ln.text.trim();
           if (t.isEmpty) continue;
-          _add(PosEscPosTextCodec.encodeUtf8(
-            PosEscPosTextCodec.stripDiacritics(ln.text),
-          ));
+          _add(PosEscPosTextCodec.encodeUtf8(ln.text));
           _add([0x0A]);
         }
       }

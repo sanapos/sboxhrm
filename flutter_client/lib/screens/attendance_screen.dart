@@ -17,6 +17,7 @@ import '../services/api_service.dart';
 import '../services/signalr_service.dart';
 import '../utils/attendance_load_utils.dart';
 import '../utils/responsive_helper.dart';
+import '../utils/safe_navigator.dart';
 import '../widgets/loading_widget.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/notification_overlay.dart';
@@ -2652,6 +2653,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
 
   /// Show correction request detail dialog
   void _showCorrectionRequestDetail(String correctionId) async {
+    final loadingNav = SafeNavigator.capture(context);
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -2661,8 +2663,8 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     try {
       final result =
           await _apiService.getAttendanceCorrectionById(correctionId);
+      SafeNavigator.dismissCaptured(loadingNav);
       if (!mounted) return;
-      Navigator.of(context).pop(); // dismiss loading
 
       if (result['isSuccess'] == true && result['data'] != null) {
         final data = result['data'] as Map<String, dynamic>;
@@ -2796,8 +2798,8 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         );
       }
     } catch (e) {
+      SafeNavigator.dismissCaptured(loadingNav);
       if (!mounted) return;
-      Navigator.of(context).pop();
       appNotification.showError(
         title: _l10n.error,
         message: tr('Lỗi: $e'),

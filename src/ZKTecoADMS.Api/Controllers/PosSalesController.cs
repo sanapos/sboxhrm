@@ -1,9 +1,11 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using System.Data;
 using ZKTecoADMS.Api.Authorization;
 using ZKTecoADMS.Api.Controllers.Base;
+using ZKTecoADMS.Api.Hubs;
 using ZKTecoADMS.Api.Services;
 using ZKTecoADMS.Application.Constants;
 using ZKTecoADMS.Application.DTOs.Transactions;
@@ -22,8 +24,50 @@ namespace ZKTecoADMS.Api.Controllers;
 [Authorize]
 public partial class PosSalesController(
     ZKTecoDbContext dbContext,
-    ISystemNotificationService notificationService) : AuthenticatedControllerBase
+    ISystemNotificationService notificationService,
+    IModulePermissionService modulePermissionService,
+    IHubContext<AttendanceHub> hubContext) : AuthenticatedControllerBase
 {
+    void NotifyFloorChanged(
+        Guid storeId,
+        string reason,
+        Guid? orderId = null,
+        Guid? resourceId = null)
+        => PosFloorRealtimeHelper.Notify(hubContext, storeId, reason, orderId, resourceId);
+
+    /// <summary>
+    /// Thanh toán (Complete) bắt buộc PosSell Approve — tránh Waiter/Order
+    /// bypass bằng CreateSale/UpdateSale với complete=true.
+    /// </summary>
+    async Task<ActionResult?> DenyIfCannotCompleteSaleAsync(CancellationToken ct = default)
+    {
+        if (await HasPosSellApproveAsync(ct)) return null;
+        return StatusCode(StatusCodes.Status403Forbidden,
+            AppResponse<SaleOrderDto>.Fail(
+                "Tài khoản không có quyền duyệt module PosSell (thanh toán)."));
+    }
+
+    async Task<bool> HasPosSellApproveAsync(CancellationToken ct = default)
+    {
+        if (IsAdmin || IsManager) return true;
+        return await modulePermissionService.HasPermissionAsync(
+            CurrentUserId,
+            CurrentUserRole,
+            CurrentStoreId,
+            "PosSell",
+            ModulePermissionAction.Approve,
+            ct);
+    }
+
+    /// <summary>Đổi giá tay / CK đơn / CK dòng cần Approve (Order không được hạ giá).</summary>
+    async Task<ActionResult?> DenyIfCannotOverridePriceAsync(CancellationToken ct = default)
+    {
+        if (await HasPosSellApproveAsync(ct)) return null;
+        return StatusCode(StatusCodes.Status403Forbidden,
+            AppResponse<SaleOrderDto>.Fail(
+                "Tài khoản không có quyền duyệt PosSell (đổi giá / chiết khấu)."));
+    }
+
     public record SaleLineDto(
         Guid ProductId, decimal Qty, Guid? UnitId, decimal? UnitPrice, Guid? VariantId,
         decimal DiscountAmount = 0, string? LineNote = null,
@@ -651,6 +695,12 @@ public partial class PosSalesController(
     [RequireModulePermission("PosSell", ModulePermissionAction.Create)]
     public async Task<ActionResult<AppResponse<SaleOrderDto>>> CreateSale([FromBody] CreateSaleDto dto)
     {
+        if (dto.Complete)
+        {
+            var denied = await DenyIfCannotCompleteSaleAsync();
+            if (denied != null) return denied;
+        }
+
         var storeId = RequiredStoreId;
 
         // Bán nhanh (không qua draft) không có transaction cách ly trước đây → 2 đơn bán cùng
@@ -670,7 +720,17 @@ public partial class PosSalesController(
             await using var tx = await dbContext.Database.BeginTransactionAsync(IsolationLevel.RepeatableRead);
 
             string? err;
-            (order, lines, err) = await BuildSaleAsync(storeId, null, dto, dto.Complete);
+            var allowPrice = await HasPosSellApproveAsync();
+            (order, lines, err) = await BuildSaleAsync(
+                storeId, null, dto, dto.Complete,
+                allowManualPriceOverride: allowPrice);
+            if (err == PriceOverrideDeniedMessage)
+            {
+                var denied = await DenyIfCannotOverridePriceAsync();
+                return denied ?? StatusCode(StatusCodes.Status403Forbidden,
+                    AppResponse<SaleOrderDto>.Fail(
+                        "Tài khoản không có quyền duyệt PosSell (đổi giá / chiết khấu)."));
+            }
             if (err != null) return BadRequest(AppResponse<SaleOrderDto>.Fail(err));
             if (order == null || lines == null)
                 return BadRequest(AppResponse<SaleOrderDto>.Fail("Không tạo được đơn hàng"));
@@ -752,6 +812,14 @@ public partial class PosSalesController(
             {
                 // Không fail HTTP sau khi đơn đã lưu.
             }
+            NotifyFloorChanged(storeId, "saleCompleted",
+                orderId: order.Id, resourceId: order.ServiceResourceId);
+        }
+        else if (order.ServiceResourceId.HasValue)
+        {
+            // Chỉ đẩy sơ đồ khi đơn gắn bàn — tránh bão reload khi autosave quầy lẻ.
+            NotifyFloorChanged(storeId, "draftSaved",
+                orderId: order.Id, resourceId: order.ServiceResourceId);
         }
 
         return Ok(AppResponse<SaleOrderDto>.Success(mapped));
@@ -963,7 +1031,7 @@ public partial class PosSalesController(
     }
 
     [HttpPost("{id:guid}/cancel")]
-    [RequireModulePermission("PosSaleOrders", ModulePermissionAction.Edit)]
+    [RequireModulePermission("PosSell", ModulePermissionAction.Approve)]
     public async Task<ActionResult<AppResponse<SaleOrderDto>>> CancelSale(Guid id)
     {
         var storeId = RequiredStoreId;
@@ -1073,6 +1141,8 @@ public partial class PosSalesController(
         if (fresh == null)
             return NotFound(AppResponse<SaleOrderDto>.Fail("Không tìm thấy đơn hàng"));
 
+        NotifyFloorChanged(storeId, "saleCancelled",
+            orderId: fresh.Id, resourceId: fresh.ServiceResourceId);
         return Ok(AppResponse<SaleOrderDto>.Success(await MapOrderAsync(storeId, fresh)));
     }
 

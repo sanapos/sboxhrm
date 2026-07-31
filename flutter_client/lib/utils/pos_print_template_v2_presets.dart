@@ -59,7 +59,10 @@ abstract final class PosPrintTemplateV2Presets {
             style: PosPrintTextStyle(fontSize: bodySize),
           ),
           const PosPrintBlock(type: PosPrintBlockType.divider),
-          const PosPrintBlock(type: PosPrintBlockType.lineItems),
+          PosPrintBlock(
+            type: PosPrintBlockType.lineItems,
+            style: PosPrintTextStyle(fontSize: bodySize, bold: true),
+          ),
           const PosPrintBlock(type: PosPrintBlockType.divider, divider: PosPrintDividerStyle.equals),
           PosPrintBlock(
             type: PosPrintBlockType.field,
@@ -121,7 +124,10 @@ abstract final class PosPrintTemplateV2Presets {
           style: PosPrintTextStyle(fontSize: smallSize),
         ),
         const PosPrintBlock(type: PosPrintBlockType.divider),
-        const PosPrintBlock(type: PosPrintBlockType.lineItems),
+        PosPrintBlock(
+          type: PosPrintBlockType.lineItems,
+          style: PosPrintTextStyle(fontSize: bodySize, bold: true),
+        ),
         const PosPrintBlock(type: PosPrintBlockType.divider),
         PosPrintBlock(
           type: PosPrintBlockType.totals,
@@ -196,7 +202,10 @@ abstract final class PosPrintTemplateV2Presets {
             style: PosPrintTextStyle(fontSize: bodySize, bold: true),
           ),
           const PosPrintBlock(type: PosPrintBlockType.divider, divider: PosPrintDividerStyle.equals),
-          const PosPrintBlock(type: PosPrintBlockType.lineItemsKitchen),
+          PosPrintBlock(
+            type: PosPrintBlockType.lineItemsKitchen,
+            style: PosPrintTextStyle(fontSize: bodySize, bold: true),
+          ),
           const PosPrintBlock(type: PosPrintBlockType.divider, divider: PosPrintDividerStyle.equals),
         ],
       );

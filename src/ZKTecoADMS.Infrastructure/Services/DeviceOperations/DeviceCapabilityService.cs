@@ -100,8 +100,9 @@ public class DeviceCapabilityService(
                 case DeviceCommandTypes.SyncDeviceUsers:
                     if (info.SupportsUserQuery != false)
                     {
+                        // Chỉ đánh dấu USERINFO query fail — không khóa ATTLOG query
+                        // (nhiều máy PullDeny USERINFO vẫn hỗ trợ DATA QUERY ATTLOG).
                         info.SupportsUserQuery = false;
-                        info.PreferStampSync = true;
                         info.EngineProfile = AdmsEngineProfiles.PullDeny;
                         changed = true;
                     }
@@ -110,7 +111,6 @@ public class DeviceCapabilityService(
                     if (info.SupportsAttendanceQuery != false)
                     {
                         info.SupportsAttendanceQuery = false;
-                        info.PreferStampSync = true;
                         changed = true;
                     }
                     break;
@@ -236,7 +236,7 @@ public class DeviceCapabilityService(
                 return (ClockCommandBuilder.BuildDeleteFaceCommand(pin), null);
 
             case DeviceCommandTypes.SyncDeviceUsers:
-                if (info.SupportsUserQuery == false || info.PreferStampSync)
+                if (info.SupportsUserQuery == false)
                 {
                     return (AdmsEngineProfiles.StampSyncCommand,
                         "Máy không hỗ trợ DATA QUERY USERINFO. Server sẽ dùng Stamp/realtime; tải NV xuống máy bằng DATA UPDATE.");
@@ -245,7 +245,9 @@ public class DeviceCapabilityService(
                 return (ClockCommandBuilder.BuildGetAllUsersCommand(), null);
 
             case DeviceCommandTypes.SyncAttendances:
-                if (info.SupportsAttendanceQuery == false || info.PreferStampSync)
+                // Chỉ stamp khi ATTLOG query đã fail thật — không dùng PreferStampSync
+                // (flag đó từng bị set chung khi USERINFO -1002 → chặn nhầm tải công).
+                if (info.SupportsAttendanceQuery == false)
                 {
                     return (AdmsEngineProfiles.StampSyncCommand,
                         "Máy không hỗ trợ DATA QUERY ATTLOG. Server dùng ATTLOGStamp=0 + realtime; log đã chấm vẫn tự đẩy lên.");

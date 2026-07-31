@@ -72,8 +72,9 @@ public static class AdmsEngineProfiles
         switch (profile)
         {
             case PullDeny:
+                // USERINFO query thường -1002; ATTLOG query vẫn chạy được trên nhiều máy
+                // (vd. ZLM60_TFT Long Bình 3) — không seed SupportsAttendanceQuery=false.
                 info.SupportsUserQuery ??= false;
-                info.SupportsAttendanceQuery ??= false;
                 info.SupportsEnrollFingerprint ??= false;
                 // Chỉ tắt cửa với PullDeny thuần (OEM demo không ZAM). Không ghi đè nếu đã học true.
                 info.SupportsDoorControl ??= false;

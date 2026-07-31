@@ -216,11 +216,18 @@ public static class ModulePermissionImplicitGrants
             HasAction(map, "Notification", ModulePermissionAction.View))
             return true;
 
-        // POS: thu ngân (PosSell) được xem hàng hóa phục vụ bán.
+        // POS: thu ngân / order (PosSell) được xem hàng hóa phục vụ bán — không mirror Create/Edit.
         if (module.Equals("PosProducts", StringComparison.Ordinal) &&
-            action == ModulePermissionAction.View &&
-            HasAction(map, "PosSell", ModulePermissionAction.View))
-            return true;
+            action is ModulePermissionAction.View or ModulePermissionAction.Export)
+        {
+            if (HasAction(map, "PosSell", ModulePermissionAction.View))
+                return true;
+            foreach (var sub in PosSubmoduleCodes)
+            {
+                if (HasAction(map, sub, ModulePermissionAction.View))
+                    return true;
+            }
+        }
 
         // POS: thu ngân được xem mẫu in hóa đơn khi bán.
         if (module.Equals("PosPrintTemplates", StringComparison.Ordinal) &&
@@ -229,18 +236,10 @@ public static class ModulePermissionImplicitGrants
              HasAction(map, "PosProducts", ModulePermissionAction.View)))
             return true;
 
-        // POS: submodule (Bán hàng, Đơn hàng, Nhập hàng…) ↔ PosProducts.
+        // POS: có quyền trên PosProducts (kho/SP) → submodule cùng action (QL hàng được bán/nhập…).
+        // Không ngược lại: PosSell Create không còn cấp PosProducts Create.
         if (PosSubmoduleCodes.Contains(module) && HasAction(map, "PosProducts", action))
             return true;
-
-        if (module.Equals("PosProducts", StringComparison.Ordinal))
-        {
-            foreach (var sub in PosSubmoduleCodes)
-            {
-                if (HasAction(map, sub, action))
-                    return true;
-            }
-        }
 
         // Báo cáo POS: PosSalesReport hoặc PosProducts (xem/xuất).
         if (module.Equals("PosSalesReport", StringComparison.Ordinal) &&

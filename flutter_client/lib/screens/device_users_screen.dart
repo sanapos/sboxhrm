@@ -21,6 +21,7 @@ import '../widgets/hrm_responsive_list_layout.dart';
 import '../widgets/page_top_actions.dart';
 import '../widgets/app_responsive_dialog.dart';
 import '../utils/responsive_helper.dart';
+import '../utils/safe_navigator.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 // Hàm chuyển đổi tiếng Việt có dấu sang không dấu
@@ -330,6 +331,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
     if (!mounted) return;
 
     // Show loading
+    final loadingNav = SafeNavigator.capture(context);
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -347,8 +349,8 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
     try {
       // Send command to device to sync users
       final success = await _apiService.sendSyncUsersCommand(selectedDevice.id);
+      SafeNavigator.dismissCaptured(loadingNav);
       if (!mounted) return;
-      Navigator.pop(context); // Close loading
 
       if (success) {
         _showSuccess('Đã gửi lệnh tải nhân viên. Đang chờ dữ liệu từ máy...');
@@ -371,8 +373,8 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
         _showError('Không thể gửi lệnh đến máy chấm công');
       }
     } catch (e) {
+      SafeNavigator.dismissCaptured(loadingNav);
       if (!mounted) return;
-      Navigator.pop(context); // Close loading
       _showError('Lỗi: $e');
     }
   }
@@ -618,6 +620,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
 
     if (!mounted) return;
     // Show progress
+    final loadingNav = SafeNavigator.capture(context);
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -671,8 +674,8 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
         }
       }
 
+      SafeNavigator.dismissCaptured(loadingNav);
       if (!mounted) return;
-      Navigator.pop(context); // Close progress
 
       if (success > 0) {
         final pinHint = assignedPins.isEmpty
@@ -717,8 +720,8 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
         );
       }
     } catch (e) {
+      SafeNavigator.dismissCaptured(loadingNav);
       if (!mounted) return;
-      Navigator.pop(context);
       _showError('Lỗi: $e');
     }
   }

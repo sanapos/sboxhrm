@@ -1521,7 +1521,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
     );
   }
 
-  void _showAccountDialog({Map<String, dynamic>? account}) {
+  Future<void> _showAccountDialog({Map<String, dynamic>? account}) async {
     final isEditing = account != null;
     final roles0 = account?['roles'] as List<dynamic>? ?? [];
     final accountRole =
@@ -1548,6 +1548,34 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
     final availableEmployees = _employeesAvailableForAccount;
     final pickerCandidates =
         EmployeePickerItem.fromMaps(availableEmployees);
+
+    // Khu vực POS — gán cho Order/Waiter (rỗng = xem tất cả).
+    final posAreas = <Map<String, dynamic>>[];
+    final selectedAreaIds = <String>{};
+    try {
+      final areaRes = await _apiService.getPosServiceAreas();
+      if (areaRes['isSuccess'] == true && areaRes['data'] is List) {
+        for (final e in (areaRes['data'] as List).whereType<Map>()) {
+          posAreas.add(Map<String, dynamic>.from(e));
+        }
+      }
+      if (isEditing) {
+        final uid = account['id']?.toString() ?? '';
+        if (uid.isNotEmpty) {
+          final assignRes = await _apiService.getPosUserServiceAreas(uid);
+          if (assignRes['isSuccess'] == true && assignRes['data'] is Map) {
+            final data = Map<String, dynamic>.from(assignRes['data'] as Map);
+            final ids = data['areaIds'];
+            if (ids is List) {
+              for (final id in ids) {
+                final s = id?.toString() ?? '';
+                if (s.isNotEmpty) selectedAreaIds.add(s);
+              }
+            }
+          }
+        }
+      }
+    } catch (_) {}
 
     // Danh sách các quyền hạn
     final roles = [
@@ -1657,10 +1685,29 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
             Navigator.pop(context);
             try {
               dynamic response;
+              String? savedUserId =
+                  isEditing ? account['id']?.toString() : null;
               if (isEditing) {
                 response = await _apiService.updateAccount(account['id'], data);
               } else {
                 response = await _apiService.createAccount(data);
+              }
+              if (response is Map && response['isSuccess'] == true) {
+                final d = response['data'];
+                if (d is Map && d['id'] != null) {
+                  savedUserId = d['id'].toString();
+                }
+              }
+              // Gán khu vực: chỉ áp dụng Waiter/Order (và Employee nếu chọn).
+              // Admin/Manager/Cashier luôn xem tất cả — xóa gán nếu có.
+              if (savedUserId != null && savedUserId.isNotEmpty) {
+                final restrictRoles = {'Waiter', 'Employee', 'User'};
+                final areaIds = restrictRoles.contains(selectedRole)
+                    ? selectedAreaIds.toList()
+                    : <String>[];
+                try {
+                  await _apiService.setPosUserServiceAreas(savedUserId, areaIds);
+                } catch (_) {}
               }
               _loadAccounts();
               if (mounted) {
@@ -1993,6 +2040,53 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                   ),
                 ],
               ),
+              if (posAreas.isNotEmpty &&
+                  (selectedRole == 'Waiter' ||
+                      selectedRole == 'Employee' ||
+                      selectedRole == 'User')) ...[
+                const SizedBox(height: 16),
+                Text(tr('Khu vực bàn được phép'),
+                    style: const TextStyle(
+                        color: Color(0xFF71717A), fontSize: 13)),
+                const SizedBox(height: 6),
+                Text(
+                  tr(selectedAreaIds.isEmpty
+                      ? 'Chưa chọn = xem tất cả khu vực'
+                      : 'Chỉ hiện ${selectedAreaIds.length} khu đã chọn trên sơ đồ'),
+                  style: TextStyle(color: Colors.grey[500], fontSize: 11),
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    FilterChip(
+                      label: Text(tr('Tất cả khu')),
+                      selected: selectedAreaIds.isEmpty,
+                      onSelected: (_) {
+                        setDialogState(() => selectedAreaIds.clear());
+                      },
+                    ),
+                    for (final area in posAreas)
+                      FilterChip(
+                        label: Text(tr(area['name']?.toString() ?? '')),
+                        selected: selectedAreaIds
+                            .contains(area['id']?.toString() ?? ''),
+                        onSelected: (on) {
+                          final id = area['id']?.toString() ?? '';
+                          if (id.isEmpty) return;
+                          setDialogState(() {
+                            if (on) {
+                              selectedAreaIds.add(id);
+                            } else {
+                              selectedAreaIds.remove(id);
+                            }
+                          });
+                        },
+                      ),
+                  ],
+                ),
+              ],
               const SizedBox(height: 16),
 
               // Row 4: Mật khẩu + Xác nhận mật khẩu

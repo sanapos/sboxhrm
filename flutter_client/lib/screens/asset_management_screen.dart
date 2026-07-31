@@ -8,6 +8,7 @@ import 'package:image_picker/image_picker.dart';
 import '../services/api_service.dart';
 import '../widgets/auth_cached_image.dart';
 import '../utils/number_formatter.dart';
+import '../utils/safe_navigator.dart';
 import '../models/asset.dart';
 import '../models/employee.dart';
 import '../utils/responsive_helper.dart';
@@ -238,13 +239,11 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
   }
 
   Future<void> _lookupAssetByCode(String code) async {
-    showDialog(
+    final result = await SafeNavigator.runWithLoadingDialog(
       context: context,
-      barrierDismissible: false,
-      builder: (_) => const Center(child: CircularProgressIndicator()),
+      action: () => _apiService.lookupAssetByCode(code),
     );
-    final result = await _apiService.lookupAssetByCode(code);
-    if (mounted) Navigator.pop(context);
+    if (!mounted || result == null) return;
 
     if (result['isSuccess'] == true && result['data'] != null) {
       final asset = Asset.fromJson(result['data']);
@@ -314,13 +313,11 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
   }
 
   void _showInventoryDetailDialog(AssetInventory inventory) async {
-    showDialog(
+    final result = await SafeNavigator.runWithLoadingDialog(
       context: context,
-      barrierDismissible: false,
-      builder: (_) => const Center(child: CircularProgressIndicator()),
+      action: () => _apiService.getInventoryDetail(inventory.id),
     );
-    final result = await _apiService.getInventoryDetail(inventory.id);
-    if (mounted) Navigator.pop(context);
+    if (!mounted || result == null) return;
 
     if (result['isSuccess'] == true && result['data'] != null) {
       final detail = AssetInventory.fromJson(result['data']);
@@ -339,15 +336,15 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
           ),
         );
       }
-    } else {
-      if (mounted) {
-        NotificationOverlayManager().showError(
-          title: 'Lỗi',
-          message: result['message'] ?? 'Không thể tải chi tiết kiểm kê',
-        );
-      }
+    } else if (mounted) {
+      NotificationOverlayManager().showError(
+        title: 'Lỗi',
+        message: result['message'] ?? 'Không tải được chi tiết kiểm kê',
+      );
     }
   }
+
+  // Inventory actions continue below — detail dialog ends above.
 
   // ==================== BUILD ====================
   @override

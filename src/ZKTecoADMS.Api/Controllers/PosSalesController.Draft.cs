@@ -20,6 +20,12 @@ public partial class PosSalesController
     [RequireModulePermission("PosSell", ModulePermissionAction.Create)]
     public async Task<ActionResult<AppResponse<SaleOrderDto>>> UpdateSale(Guid id, [FromBody] UpdateSaleDto dto)
     {
+        if (dto.Complete)
+        {
+            var denied = await DenyIfCannotCompleteSaleAsync();
+            if (denied != null) return denied;
+        }
+
         var storeId = RequiredStoreId;
         // DbContext mặc định NoTracking — bắt buộc AsTracking khi sửa đơn.
         var order = await dbContext.PosSaleOrders
@@ -132,7 +138,8 @@ public partial class PosSalesController
             try
             {
                 var (_, linesComplete, errComplete) =
-                    await BuildSaleAsync(storeId, order, createDto, complete: true);
+                    await BuildSaleAsync(storeId, order, createDto, complete: true,
+                        allowManualPriceOverride: true);
                 if (errComplete != null)
                 {
                     await tx.RollbackAsync();
@@ -172,6 +179,8 @@ public partial class PosSalesController
                     catch { }
                     try { await RecreateInvoiceSlotIfNeededAsync(storeId, slotBeforeComplete); }
                     catch { }
+                    NotifyFloorChanged(storeId, "saleCompleted",
+                        orderId: order.Id, resourceId: order.ServiceResourceId);
                 }
                 return Ok(AppResponse<SaleOrderDto>.Success(mappedComplete));
             }
@@ -182,7 +191,17 @@ public partial class PosSalesController
             }
         }
 
-        var (_, lines, err) = await BuildSaleAsync(storeId, order, createDto, dto.Complete);
+        var allowPrice = await HasPosSellApproveAsync();
+        var (_, lines, err) = await BuildSaleAsync(
+            storeId, order, createDto, dto.Complete,
+            allowManualPriceOverride: allowPrice);
+        if (err == PriceOverrideDeniedMessage)
+        {
+            var denied = await DenyIfCannotOverridePriceAsync();
+            return denied ?? StatusCode(StatusCodes.Status403Forbidden,
+                AppResponse<SaleOrderDto>.Fail(
+                    "Tài khoản không có quyền duyệt PosSell (đổi giá / chiết khấu)."));
+        }
         if (err != null) return BadRequest(AppResponse<SaleOrderDto>.Fail(err));
         if (lines == null)
             return BadRequest(AppResponse<SaleOrderDto>.Fail("Không cập nhật được đơn"));
@@ -334,6 +353,11 @@ public partial class PosSalesController
             mapped = MapOrder(order, lines, viewerUserId: CurrentUserId, viewerDeviceId: dto.DeviceId, viewerDeviceName: dto.DeviceName);
         }
 
+        if (order.ServiceResourceId.HasValue)
+        {
+            NotifyFloorChanged(storeId, "draftSaved",
+                orderId: order.Id, resourceId: order.ServiceResourceId);
+        }
         return Ok(AppResponse<SaleOrderDto>.Success(mapped));
     }
 
@@ -552,6 +576,8 @@ public partial class PosSalesController
         try { await RecreateInvoiceSlotIfNeededAsync(storeId, slotBeforeComplete); }
         catch { }
 
+        NotifyFloorChanged(storeId, "saleCompleted",
+            orderId: order.Id, resourceId: order.ServiceResourceId);
         return Ok(AppResponse<SaleOrderDto>.Success(mapped));
     }
 
@@ -662,16 +688,27 @@ public partial class PosSalesController
             $"DonHang_{DateTime.Now:yyyyMMdd}.xlsx");
     }
 
+    const string PriceOverrideDeniedMessage = "PRICE_OVERRIDE_REQUIRES_APPROVE";
+
     private async Task<(PosSaleOrder? order, List<PosSaleOrderLine>? lines, string? error)> BuildSaleAsync(
         Guid storeId,
         PosSaleOrder? existing,
         CreateSaleDto dto,
-        bool complete)
+        bool complete,
+        bool allowManualPriceOverride = false)
     {
         if (dto.Lines == null || dto.Lines.Count == 0)
         {
             // CreateSale / complete không cho trống; UpdateSale clear đã xử lý riêng.
             return (null, null, "Đơn hàng trống");
+        }
+
+        if (!allowManualPriceOverride)
+        {
+            if (dto.Discount > 0.009m)
+                return (null, null, PriceOverrideDeniedMessage);
+            if (dto.Lines.Any(l => l.DiscountAmount > 0.009m))
+                return (null, null, PriceOverrideDeniedMessage);
         }
 
         if (dto.CustomerId.HasValue && !await dbContext.PosCustomers.AnyAsync(c =>
@@ -886,6 +923,13 @@ public partial class PosSalesController
                 ? null
                 : PosPriceListResolver.ResolvePrice(
                     priceOverrides, p.Id, line.VariantId, line.UnitId);
+            if (!allowManualPriceOverride
+                && listPrice == null
+                && line.UnitPrice.HasValue
+                && Math.Abs(line.UnitPrice.Value - catalogPrice) > 0.009m)
+            {
+                return (null, null, PriceOverrideDeniedMessage);
+            }
             var unitPrice = listPrice ?? line.UnitPrice ?? catalogPrice;
 
             var grossLine = unitPrice * line.Qty;

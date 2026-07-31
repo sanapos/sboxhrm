@@ -11,7 +11,10 @@ import 'pos_printer_peripheral.dart';
 /// Gửi byte thô tới máy in qua Bluetooth / LAN / Sunmi.
 class PosPrinterTransport {
   static const _btChunkSize = 512;
+  static const _btChunkSizeLarge = 256;
+  static const _btLargePayloadBytes = 8 * 1024;
   static const _btChunkDelay = Duration(milliseconds: 40);
+  static const _btChunkDelayLarge = Duration(milliseconds: 70);
   static const _btSettleDelay = Duration(milliseconds: 600);
 
   static Future<bool> isSunmiDevice() async {
@@ -61,10 +64,22 @@ class PosPrinterTransport {
       case PosThermalConnectionType.bluetooth:
         return _sendBluetooth(bluetoothAddress, bytes);
       case PosThermalConnectionType.usb:
+        // USB OTG ESC/POS chưa có driver — chỉ hợp lệ trên Sunmi (máy in nội bộ).
+        // Không giả gửi LAN khi thiếu IP (tránh "in lỗi font" do không in được).
         if (await isSunmiDevice()) {
           return _sendSunmi(bytes, sunmiFeedLines);
         }
-        return _sendLan(lanHost, lanPort, bytes);
+        final host = lanHost?.trim();
+        if (host != null && host.isNotEmpty) {
+          debugPrint(
+            'USB print: không có OTG — chuyển LAN $host:$lanPort',
+          );
+          return _sendLan(lanHost, lanPort, bytes);
+        }
+        debugPrint(
+          'USB print failed: chưa hỗ trợ USB OTG. Dùng Bluetooth, LAN hoặc Sunmi.',
+        );
+        return false;
     }
   }
 
@@ -269,10 +284,12 @@ class PosPrinterTransport {
       if (connected != true) return false;
 
       // Gửi theo chunk — ghi một cục lớn (ảnh GS v 0) dễ tràn buffer BT,
-      // lần 2 thường in font/ký tự rác.
-      for (var i = 0; i < bytes.length; i += _btChunkSize) {
-        final end =
-            i + _btChunkSize < bytes.length ? i + _btChunkSize : bytes.length;
+      // lần 2 thường in font/ký tự rác. Payload lớn → chunk nhỏ hơn + delay dài hơn.
+      final large = bytes.length >= _btLargePayloadBytes;
+      final chunk = large ? _btChunkSizeLarge : _btChunkSize;
+      final delay = large ? _btChunkDelayLarge : _btChunkDelay;
+      for (var i = 0; i < bytes.length; i += chunk) {
+        final end = i + chunk < bytes.length ? i + chunk : bytes.length;
         final ok =
             await PrintBluetoothThermal.writeBytes(bytes.sublist(i, end));
         if (ok != true) {
@@ -282,7 +299,7 @@ class PosPrinterTransport {
           return false;
         }
         if (end < bytes.length) {
-          await Future<void>.delayed(_btChunkDelay);
+          await Future<void>.delayed(delay);
         }
       }
 

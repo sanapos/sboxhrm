@@ -17,7 +17,9 @@ class PosEscPosTextCodec {
   static List<int> initTcvn3() => [0x1B, 0x40, 0x1B, 0x74, 0x1E];
 
   /// CP1258 — code page 27 (Xprinter/Zywell một số model).
-  static List<int> initCp1258({int page = 27}) => [0x1B, 0x40, 0x1B, 0x74, page];
+  /// [page] có thể đổi nếu firmware map khác (thường 27).
+  static List<int> initCp1258({int page = 27}) =>
+      [0x1B, 0x40, 0x1B, 0x74, page.clamp(0, 255)];
 
   static final Map<int, int> _utf8ToCp1258 = _buildCp1258Map();
 
@@ -39,9 +41,12 @@ class PosEscPosTextCodec {
     return out;
   }
 
-  /// Khởi tạo UTF-8 (Epson / máy mới).
+  /// Khởi tạo UTF-8 tốt hơn trên máy Epson/clone hiện đại:
+  /// ESC t 255 (một số firmware) + hủy Kanji FS .
+  /// Vẫn không đảm bảo trên mọi máy Trung Quốc — ưu tiên image mode.
   static List<int> initUtf8() => [
         0x1B, 0x40,
+        0x1B, 0x74, 0xFF,
         0x1C, 0x2E,
       ];
 
@@ -121,6 +126,8 @@ class PosEscPosTextCodec {
   }
 
   static Map<int, int> _buildCp1258Map() {
+    // Chữ hoa có dấu (ẠẢẤ…) map cùng byte chữ thường — khớp firmware ESC/POS VN
+    // (page 27) vốn dùng bảng mở rộng giống TCVN hơn Windows CP1258 chuẩn.
     const pairs = <String, String>{
       'À': '\xC0', 'Á': '\xC1', 'Â': '\xC2', 'Ã': '\xC3', 'È': '\xC8',
       'É': '\xC9', 'Ê': '\xCA', 'Ì': '\xCC', 'Í': '\xCD', 'Ò': '\xD2',
@@ -130,15 +137,24 @@ class PosEscPosTextCodec {
       'ò': '\xF2', 'ó': '\xF3', 'ô': '\xF4', 'õ': '\xF5', 'ù': '\xF9',
       'ú': '\xFA', 'ý': '\xFD', 'Ă': '\xC7', 'ă': '\xE7', 'Đ': '\xD0',
       'đ': '\xF0', 'Ơ': '\xCE', 'ơ': '\xEE', 'Ư': '\xDC', 'ư': '\xFC',
-      'ạ': '\xA1', 'ả': '\xA2', 'ấ': '\xA3', 'ầ': '\xA4', 'ẩ': '\xA5',
-      'ẫ': '\xA6', 'ậ': '\xA7', 'ắ': '\xA8', 'ằ': '\xA9', 'ẳ': '\xAA',
-      'ẵ': '\xAB', 'ặ': '\xAC', 'ẹ': '\xAD', 'ẻ': '\xAE', 'ẽ': '\xAF',
-      'ế': '\xB0', 'ề': '\xB1', 'ể': '\xB2', 'ễ': '\xB3', 'ệ': '\xB4',
-      'ỉ': '\xB5', 'ị': '\xB6', 'ọ': '\xB7', 'ỏ': '\xB8', 'ố': '\xB9',
-      'ồ': '\xBA', 'ổ': '\xBB', 'ỗ': '\xBC', 'ộ': '\xBD', 'ớ': '\xBE',
-      'ờ': '\xBF', 'ở': '\xC5', 'ỡ': '\xC6', 'ợ': '\xC7', 'ụ': '\xC8',
-      'ủ': '\xC9', 'ứ': '\xCA', 'ừ': '\xCB', 'ử': '\xCC', 'ữ': '\xCD',
-      'ự': '\xCE', 'ỳ': '\xCF', 'ỵ': '\xD1', 'ỷ': '\xD2', 'ỹ': '\xD3',
+      'ạ': '\xA1', 'Ả': '\xA2', 'ả': '\xA2', 'Ấ': '\xA3', 'ấ': '\xA3',
+      'Ầ': '\xA4', 'ầ': '\xA4', 'Ẩ': '\xA5', 'ẩ': '\xA5', 'Ẫ': '\xA6',
+      'ẫ': '\xA6', 'Ậ': '\xA7', 'ậ': '\xA7', 'Ắ': '\xA8', 'ắ': '\xA8',
+      'Ằ': '\xA9', 'ằ': '\xA9', 'Ẳ': '\xAA', 'ẳ': '\xAA', 'Ẵ': '\xAB',
+      'ẵ': '\xAB', 'Ặ': '\xAC', 'ặ': '\xAC', 'Ẹ': '\xAD', 'ẹ': '\xAD',
+      'Ẻ': '\xAE', 'ẻ': '\xAE', 'Ẽ': '\xAF', 'ẽ': '\xAF', 'Ế': '\xB0',
+      'ế': '\xB0', 'Ề': '\xB1', 'ề': '\xB1', 'Ể': '\xB2', 'ể': '\xB2',
+      'Ễ': '\xB3', 'ễ': '\xB3', 'Ệ': '\xB4', 'ệ': '\xB4', 'Ỉ': '\xB5',
+      'ỉ': '\xB5', 'Ị': '\xB6', 'ị': '\xB6', 'Ọ': '\xB7', 'ọ': '\xB7',
+      'Ỏ': '\xB8', 'ỏ': '\xB8', 'Ố': '\xB9', 'ố': '\xB9', 'Ồ': '\xBA',
+      'ồ': '\xBA', 'Ổ': '\xBB', 'ổ': '\xBB', 'Ỗ': '\xBC', 'ỗ': '\xBC',
+      'Ộ': '\xBD', 'ộ': '\xBD', 'Ớ': '\xBE', 'ớ': '\xBE', 'Ờ': '\xBF',
+      'ờ': '\xBF', 'Ở': '\xC5', 'ở': '\xC5', 'Ỡ': '\xC6', 'ỡ': '\xC6',
+      'Ợ': '\xC7', 'ợ': '\xC7', 'Ụ': '\xC8', 'ụ': '\xC8', 'Ủ': '\xC9',
+      'ủ': '\xC9', 'Ứ': '\xCA', 'ứ': '\xCA', 'Ừ': '\xCB', 'ừ': '\xCB',
+      'Ử': '\xCC', 'ử': '\xCC', 'Ữ': '\xCD', 'ữ': '\xCD', 'Ự': '\xCE',
+      'ự': '\xCE', 'Ỳ': '\xCF', 'ỳ': '\xCF', 'Ỵ': '\xD1', 'ỵ': '\xD1',
+      'Ỷ': '\xD2', 'ỷ': '\xD2', 'Ỹ': '\xD3', 'ỹ': '\xD3', 'Ạ': '\xA1',
     };
     final map = <int, int>{};
     pairs.forEach((utf, cp) {

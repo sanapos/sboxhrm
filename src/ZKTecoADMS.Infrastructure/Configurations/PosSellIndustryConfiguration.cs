@@ -31,6 +31,22 @@ public class PosServiceAreaConfiguration : IEntityTypeConfiguration<PosServiceAr
     }
 }
 
+public class PosServiceAreaAssignmentConfiguration : IEntityTypeConfiguration<PosServiceAreaAssignment>
+{
+    public void Configure(EntityTypeBuilder<PosServiceAreaAssignment> builder)
+    {
+        builder.ToTable("PosServiceAreaAssignments");
+        builder.HasKey(x => x.Id);
+        builder.Property(x => x.GrantedBy).HasMaxLength(100);
+        builder.Property(x => x.Note).HasMaxLength(500);
+        builder.HasIndex(x => new { x.StoreId, x.UserId, x.AreaId }).IsUnique();
+        builder.HasIndex(x => new { x.StoreId, x.UserId });
+        builder.HasOne(x => x.Store).WithMany().HasForeignKey(x => x.StoreId).OnDelete(DeleteBehavior.Cascade);
+        builder.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+        builder.HasOne(x => x.Area).WithMany().HasForeignKey(x => x.AreaId).OnDelete(DeleteBehavior.Cascade);
+    }
+}
+
 public class PosServiceResourceConfiguration : IEntityTypeConfiguration<PosServiceResource>
 {
     public void Configure(EntityTypeBuilder<PosServiceResource> builder)

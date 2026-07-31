@@ -39,6 +39,66 @@ public class PosPrintJobsController(
 
     public record AgentOfflineDto(string DeviceId);
 
+    /// <summary>
+    /// Agent phải thuộc store và gắn đúng user đang đăng nhập (trừ QL/Admin).
+    /// Chống spoof agentId để claim payload đơn của máy khác.
+    /// </summary>
+    async Task<ActionResult?> DenyIfCannotUseAgentAsync(Guid agentId)
+    {
+        var agent = await db.PosPrintAgents.AsNoTracking()
+            .FirstOrDefaultAsync(a =>
+                a.Id == agentId && a.StoreId == RequiredStoreId && a.Deleted == null);
+        if (agent == null)
+            return NotFound(AppResponse<object>.Fail("Không tìm thấy print agent"));
+
+        if (IsAdmin || IsManager) return null;
+
+        var uid = CurrentUserId.ToString();
+        if (!string.IsNullOrWhiteSpace(agent.UserId) &&
+            !string.Equals(agent.UserId, uid, StringComparison.OrdinalIgnoreCase))
+        {
+            return StatusCode(StatusCodes.Status403Forbidden,
+                AppResponse<object>.Fail("Print agent đang gắn tài khoản khác trên thiết bị này."));
+        }
+
+        return null;
+    }
+
+    /// <summary>Chặn chiếm deviceId đang online của user khác.</summary>
+    async Task<ActionResult?> DenyIfAgentDeviceHijackAsync(string deviceId)
+    {
+        if (IsAdmin || IsManager) return null;
+
+        var agent = await db.PosPrintAgents.AsNoTracking()
+            .FirstOrDefaultAsync(a =>
+                a.StoreId == RequiredStoreId &&
+                a.DeviceId == deviceId &&
+                a.Deleted == null);
+        if (agent == null) return null;
+
+        var uid = CurrentUserId.ToString();
+        if (string.IsNullOrWhiteSpace(agent.UserId) ||
+            string.Equals(agent.UserId, uid, StringComparison.OrdinalIgnoreCase))
+            return null;
+
+        // Cho phép reclaim nếu agent đã stale (>3 phút) — đổi ca trên cùng máy.
+        if (agent.LastHeartbeatAt is { } hb)
+        {
+            var now = DateTime.UtcNow;
+            var ageUtc = Math.Abs((now - DateTime.SpecifyKind(hb, DateTimeKind.Utc)).TotalSeconds);
+            var ageRaw = Math.Abs((now - hb).TotalSeconds);
+            if (Math.Min(ageUtc, ageRaw) > 180) return null;
+        }
+        else if (!agent.IsOnline)
+        {
+            return null;
+        }
+
+        return StatusCode(StatusCodes.Status403Forbidden,
+            AppResponse<object>.Fail(
+                "Thiết bị đang là print agent của tài khoản khác. Đợi offline hoặc dùng tài khoản đó."));
+    }
+
     [HttpGet("agents")]
     [RequireModulePermission("PosSell", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<object>>> ListAgents(
@@ -304,13 +364,16 @@ public class PosPrintJobsController(
     }
 
     [HttpPost("agents/register")]
-    [RequireModulePermission("PosSell", ModulePermissionAction.View)]
+    [RequireModulePermission("PosSell", ModulePermissionAction.Create)]
     public async Task<ActionResult<AppResponse<object>>> RegisterAgent([FromBody] AgentRegisterDto dto)
     {
         if (string.IsNullOrWhiteSpace(dto.DeviceId))
             return BadRequest(AppResponse<object>.Fail("Thiếu deviceId"));
         if (dto.PrinterIds == null || dto.PrinterIds.Count == 0)
             return BadRequest(AppResponse<object>.Fail("Agent phải chọn ít nhất một máy in"));
+
+        var hijack = await DenyIfAgentDeviceHijackAsync(dto.DeviceId.Trim());
+        if (hijack != null) return hijack;
 
         var display = dto.EmployeeName?.Trim();
         if (string.IsNullOrWhiteSpace(display))
@@ -345,20 +408,34 @@ public class PosPrintJobsController(
     }
 
     [HttpPost("agents/offline")]
-    [RequireModulePermission("PosSell", ModulePermissionAction.View)]
+    [RequireModulePermission("PosSell", ModulePermissionAction.Create)]
     public async Task<ActionResult<AppResponse<object>>> MarkAgentOffline([FromBody] AgentOfflineDto? dto)
     {
         if (dto == null || string.IsNullOrWhiteSpace(dto.DeviceId))
             return BadRequest(AppResponse<object>.Fail("Thiếu deviceId"));
+
+        var agent = await db.PosPrintAgents.AsNoTracking()
+            .FirstOrDefaultAsync(a =>
+                a.StoreId == RequiredStoreId &&
+                a.DeviceId == dto.DeviceId.Trim() &&
+                a.Deleted == null);
+        if (agent != null)
+        {
+            var owned = await DenyIfCannotUseAgentAsync(agent.Id);
+            if (owned != null) return owned;
+        }
 
         await dispatch.MarkAgentOfflineAsync(RequiredStoreId, dto.DeviceId.Trim());
         return Ok(AppResponse<object>.Success(new { offline = true }));
     }
 
     [HttpPost("agents/{agentId:guid}/claim")]
-    [RequireModulePermission("PosSell", ModulePermissionAction.View)]
+    [RequireModulePermission("PosSell", ModulePermissionAction.Create)]
     public async Task<ActionResult<AppResponse<object>>> Claim(Guid agentId)
     {
+        var denied = await DenyIfCannotUseAgentAsync(agentId);
+        if (denied != null) return denied;
+
         var job = await dispatch.ClaimNextJobAsync(RequiredStoreId, agentId);
         if (job == null)
             return Ok(AppResponse<object>.Success(null));
@@ -368,10 +445,13 @@ public class PosPrintJobsController(
 
     /// <summary>Claim đúng jobId — dùng khi test cloud trên chính máy Agent.</summary>
     [HttpPost("{id:guid}/claim")]
-    [RequireModulePermission("PosSell", ModulePermissionAction.View)]
+    [RequireModulePermission("PosSell", ModulePermissionAction.Create)]
     public async Task<ActionResult<AppResponse<object>>> ClaimById(
         Guid id, [FromQuery] Guid agentId)
     {
+        var denied = await DenyIfCannotUseAgentAsync(agentId);
+        if (denied != null) return denied;
+
         var job = await dispatch.ClaimJobByIdAsync(RequiredStoreId, agentId, id);
         if (job == null)
             return Ok(AppResponse<object>.Success(null));
@@ -391,27 +471,39 @@ public class PosPrintJobsController(
     };
 
     [HttpPost("{id:guid}/printing")]
-    [RequireModulePermission("PosSell", ModulePermissionAction.View)]
+    [RequireModulePermission("PosSell", ModulePermissionAction.Create)]
     public async Task<ActionResult<AppResponse<object>>> MarkPrinting(Guid id, [FromQuery] Guid agentId)
     {
+        var denied = await DenyIfCannotUseAgentAsync(agentId);
+        if (denied != null) return denied;
+
         var job = await dispatch.MarkPrintingAsync(id, agentId);
         if (job == null) return NotFound(AppResponse<object>.Fail("Không claim được job"));
         return Ok(AppResponse<object>.Success(new { status = job.Status.ToString() }));
     }
 
     [HttpPost("{id:guid}/complete")]
-    [RequireModulePermission("PosSell", ModulePermissionAction.View)]
+    [RequireModulePermission("PosSell", ModulePermissionAction.Create)]
     public async Task<ActionResult<AppResponse<object>>> Complete(Guid id, [FromQuery] Guid agentId)
     {
+        var denied = await DenyIfCannotUseAgentAsync(agentId);
+        if (denied != null) return denied;
+
         var job = await dispatch.CompleteJobAsync(id, agentId);
         if (job == null) return NotFound(AppResponse<object>.Fail("Không hoàn thành job"));
         return Ok(AppResponse<object>.Success(new { status = job.Status.ToString() }));
     }
 
     [HttpPost("{id:guid}/fail")]
-    [RequireModulePermission("PosSell", ModulePermissionAction.View)]
+    [RequireModulePermission("PosSell", ModulePermissionAction.Create)]
     public async Task<ActionResult<AppResponse<object>>> Fail(Guid id, [FromQuery] Guid? agentId, [FromBody] FailJobDto dto)
     {
+        if (!agentId.HasValue || agentId.Value == Guid.Empty)
+            return BadRequest(AppResponse<object>.Fail("Thiếu agentId"));
+
+        var denied = await DenyIfCannotUseAgentAsync(agentId.Value);
+        if (denied != null) return denied;
+
         var job = await dispatch.FailJobAsync(id, agentId, dto.ErrorCode, dto.ErrorMessage);
         if (job == null) return NotFound(AppResponse<object>.Fail("Không cập nhật job"));
         return Ok(AppResponse<object>.Success(new { status = job.Status.ToString() }));

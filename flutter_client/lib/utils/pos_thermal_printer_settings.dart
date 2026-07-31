@@ -75,6 +75,7 @@ class PosThermalPrinterSettings {
     this.lanHost,
     this.lanPort = 9100,
     this.usbDeviceName,
+    this.escPosCodePage = 27,
     this.feedBeforeCut = 14,
     this.partialCut = true,
     this.openCashDrawer = false,
@@ -94,6 +95,9 @@ class PosThermalPrinterSettings {
   final String? lanHost;
   final int lanPort;
   final String? usbDeviceName;
+
+  /// Code page ESC t n khi dùng CP1258 (mặc định 27).
+  final int escPosCodePage;
 
   /// Số dòng giấy trống trước khi cắt (tránh cắt mất dòng cuối).
   final int feedBeforeCut;
@@ -118,6 +122,7 @@ class PosThermalPrinterSettings {
   static const _kLanHost = 'pos_thermal_lan_host';
   static const _kLanPort = 'pos_thermal_lan_port';
   static const _kUsbName = 'pos_thermal_usb_name';
+  static const _kCodePage = 'pos_thermal_esc_code_page';
   static const _kFeedCut = 'pos_thermal_feed_before_cut';
   static const _kPartialCut = 'pos_thermal_partial_cut';
   static const _kOpenDrawer = 'pos_thermal_open_cash_drawer';
@@ -171,6 +176,7 @@ class PosThermalPrinterSettings {
     String? lanHost,
     int? lanPort,
     String? usbDeviceName,
+    int? escPosCodePage,
     int? feedBeforeCut,
     bool? partialCut,
     bool? openCashDrawer,
@@ -193,6 +199,7 @@ class PosThermalPrinterSettings {
         lanHost: clearLan ? null : (lanHost ?? this.lanHost),
         lanPort: lanPort ?? this.lanPort,
         usbDeviceName: clearUsb ? null : (usbDeviceName ?? this.usbDeviceName),
+        escPosCodePage: escPosCodePage ?? this.escPosCodePage,
         feedBeforeCut: feedBeforeCut ?? this.feedBeforeCut,
         partialCut: partialCut ?? this.partialCut,
         openCashDrawer: openCashDrawer ?? this.openCashDrawer,
@@ -213,6 +220,7 @@ class PosThermalPrinterSettings {
       lanHost: prefs.getString(_kLanHost),
       lanPort: prefs.getInt(_kLanPort) ?? 9100,
       usbDeviceName: prefs.getString(_kUsbName),
+      escPosCodePage: prefs.getInt(_kCodePage) ?? 27,
       feedBeforeCut: prefs.getInt(_kFeedCut) ?? 14,
       partialCut: prefs.getBool(_kPartialCut) ?? true,
       openCashDrawer: prefs.getBool(_kOpenDrawer) ?? false,
@@ -244,6 +252,7 @@ class PosThermalPrinterSettings {
       await prefs.remove(_kLanHost);
     }
     await prefs.setInt(_kLanPort, lanPort);
+    await prefs.setInt(_kCodePage, escPosCodePage.clamp(0, 255));
     if (usbDeviceName != null && usbDeviceName!.isNotEmpty) {
       await prefs.setString(_kUsbName, usbDeviceName!);
     } else {

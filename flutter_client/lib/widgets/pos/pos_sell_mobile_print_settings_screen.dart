@@ -14,6 +14,7 @@ import '../../utils/pos_printer_transport.dart';
 import '../../utils/pos_thermal_printer_service.dart';
 import '../../utils/pos_thermal_printer_settings.dart';
 import '../../utils/responsive_helper.dart';
+import '../../utils/safe_navigator.dart';
 import '../hrm_page_chrome.dart';
 import '../notification_overlay.dart';
 import 'pos_theme.dart';
@@ -218,7 +219,8 @@ class _PosSellMobilePrintSettingsScreenState
     if (!mounted) return;
     NotificationOverlayManager()
         .showSuccess(title: 'Đã lưu', message: tr('Thiết lập in đã được cập nhật'));
-    Navigator.pop(context, (_print, _thermal));
+    // Settings Hub nhúng màn này không push route — Navigator.pop sẽ gỡ MainLayout → màn đen.
+    SafeNavigator.popPageIfPushed(context, (_print, _thermal));
   }
 
   Future<void> _testPrint() async {
@@ -239,9 +241,77 @@ class _PosSellMobilePrintSettingsScreenState
     } else {
       NotificationOverlayManager().showError(
         title: 'In thử thất bại',
-        message: tr('Kiểm tra kết nối máy in và quyền Bluetooth/USB'),
+        message: draft.connectionType == PosThermalConnectionType.usb
+            ? tr('USB OTG chưa hỗ trợ. Chọn Bluetooth, LAN hoặc Sunmi.')
+            : tr('Kiểm tra kết nối máy in và quyền Bluetooth/USB'),
       );
     }
+  }
+
+  Future<void> _probeTextModes() async {
+    setState(() => _testing = true);
+    final port = int.tryParse(_lanPortCtrl.text.trim()) ?? 9100;
+    final draft = _thermal.copyWith(
+      enabled: true,
+      lanHost: _lanHostCtrl.text.trim(),
+      lanPort: port,
+      usbDeviceName: _usbNameCtrl.text.trim(),
+    );
+    final okCount = await PosThermalPrinterService.probeTextModes(draft);
+    if (!mounted) return;
+    setState(() => _testing = false);
+
+    if (okCount <= 0) {
+      NotificationOverlayManager().showError(
+        title: 'Thử chế độ chữ thất bại',
+        message: tr('Không gửi được phiếu thử. Kiểm tra kết nối máy in.'),
+      );
+      return;
+    }
+
+    final chosen = await showDialog<PosThermalTextMode>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(tr('Chọn chế độ chữ đúng')),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                tr('Đã in $okCount phiếu thử. Chọn phiếu tiếng Việt đọc đúng nhất:'),
+                style: const TextStyle(fontSize: 13),
+              ),
+              const SizedBox(height: 12),
+              for (final m in [
+                PosThermalTextMode.image,
+                PosThermalTextMode.tcvn3,
+                PosThermalTextMode.cp1258,
+                PosThermalTextMode.utf8,
+              ])
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(tr(m.label)),
+                  subtitle: Text(m.key, style: const TextStyle(fontSize: 11)),
+                  onTap: () => Navigator.pop(ctx, m),
+                ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(tr('Để sau')),
+          ),
+        ],
+      ),
+    );
+    if (!mounted || chosen == null) return;
+    setState(() => _thermal = _thermal.copyWith(textMode: chosen));
+    NotificationOverlayManager().showSuccess(
+      title: 'Đã chọn chế độ chữ',
+      message: tr('${chosen.label} — bấm Lưu để áp dụng'),
+    );
   }
 
   Future<void> _testLabelPrint() async {
@@ -740,14 +810,30 @@ class _PosSellMobilePrintSettingsScreenState
                   if (_thermal.connectionType == PosThermalConnectionType.usb)
                     Padding(
                       padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-                      child: TextField(
-                        controller: _usbNameCtrl,
-                        decoration: InputDecoration(
-                          labelText: tr('Tên thiết bị USB (tùy chọn)'),
-                          helperText: tr('Sunmi: dùng chế độ Sunmi. USB OTG: ưu tiên máy ESC/POS hỗ trợ LAN/BT.'),
-                          border: OutlineInputBorder(),
-                          isDense: true,
-                        ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          TextField(
+                            controller: _usbNameCtrl,
+                            decoration: InputDecoration(
+                              labelText: tr('Tên thiết bị USB (tùy chọn)'),
+                              helperText: tr(
+                                'USB OTG ESC/POS chưa hỗ trợ. Sunmi: chọn cổng Sunmi. '
+                                'Máy ngoài: dùng Bluetooth hoặc LAN.',
+                              ),
+                              border: OutlineInputBorder(),
+                              isDense: true,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            tr('Khuyến nghị: đổi sang Bluetooth / LAN / Sunmi để in tiếng Việt ổn định.'),
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.orange.shade800,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   if (_thermal.connectionType == PosThermalConnectionType.sunmi)
@@ -859,21 +945,45 @@ class _PosSellMobilePrintSettingsScreenState
                   ),
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-                    child: OutlinedButton.icon(
-                      onPressed: _testing ? null : _testPrint,
-                      icon: _testing
-                          ? const SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Icon(Icons.print_outlined),
-                      label: Text(tr('In thử')),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: _blue,
-                        side: const BorderSide(color: _blue),
-                        minimumSize: const Size(double.infinity, 56),
-                      ),
+                    child: Column(
+                      children: [
+                        OutlinedButton.icon(
+                          onPressed: _testing ? null : _testPrint,
+                          icon: _testing
+                              ? const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                )
+                              : const Icon(Icons.print_outlined),
+                          label: Text(tr('In thử')),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: _blue,
+                            side: const BorderSide(color: _blue),
+                            minimumSize: const Size(double.infinity, 56),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        OutlinedButton.icon(
+                          onPressed: _testing ? null : _probeTextModes,
+                          icon: const Icon(Icons.font_download_outlined),
+                          label: Text(tr('Thử 4 chế độ chữ (sửa lỗi font)')),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: _blue,
+                            side: BorderSide(color: _blue.withValues(alpha: 0.5)),
+                            minimumSize: const Size(double.infinity, 48),
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          tr('In lần lượt Image / TCVN-3 / CP1258 / UTF-8 — chọn phiếu đọc đúng rồi Lưu.'),
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: PosTheme.textSecondary,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
                     ),
                   ),
                   ],

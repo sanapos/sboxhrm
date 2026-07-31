@@ -101,6 +101,7 @@ class SignalRService {
       StreamController<Map<String, dynamic>>.broadcast();
   final _printJobStatusController = StreamController<Map<String, dynamic>>.broadcast();
   final _printerStatusController = StreamController<Map<String, dynamic>>.broadcast();
+  final _posFloorChangedController = StreamController<Map<String, dynamic>>.broadcast();
 
   // Recent notification IDs for deduplication (id -> arrival time).
   // Drops duplicate NewNotification events delivered within [_dedupWindow].
@@ -138,6 +139,10 @@ class SignalRService {
   /// POS print cloud: trạng thái máy in thay đổi
   Stream<Map<String, dynamic>> get onPrinterStatusChanged =>
       _printerStatusController.stream;
+
+  /// POS sơ đồ / draft bàn — mở/đóng/chuyển/TT/báo bếp…
+  Stream<Map<String, dynamic>> get onPosFloorChanged =>
+      _posFloorChangedController.stream;
   
   /// Whether the connection is active
   bool get isConnected => _isConnected;
@@ -219,6 +224,7 @@ class SignalRService {
       _hubConnection!.on('PrintJobStatusChanged', _handlePrintJobStatusChanged);
       _hubConnection!.on('PrinterStatusChanged', _handlePrinterStatusChanged);
       _hubConnection!.on('PrinterAgentHeartbeat', _handlePrintAgentHeartbeat);
+      _hubConnection!.on('PosFloorChanged', _handlePosFloorChanged);
 
       // Connection state handlers
       _hubConnection!.onclose(({Exception? error}) {
@@ -424,6 +430,16 @@ class SignalRService {
     }
   }
 
+  void _handlePosFloorChanged(List<Object?>? args) {
+    try {
+      if (args == null || args.isEmpty) return;
+      final data = Map<String, dynamic>.from(args[0] as Map);
+      _posFloorChangedController.add(data);
+    } catch (e) {
+      debugPrint('📡 Error parsing PosFloorChanged: $e');
+    }
+  }
+
   /// Join a store group to receive store-scoped notifications
   Future<void> joinStoreGroup(String storeId) async {
     _currentStoreId = storeId;
@@ -565,6 +581,7 @@ class SignalRService {
     _printJobStatusController.close();
     _printAgentHeartbeatController.close();
     _printerStatusController.close();
+    _posFloorChangedController.close();
     // Fire-and-forget but suppress any errors during teardown
     disconnect().catchError((_) {});
   }

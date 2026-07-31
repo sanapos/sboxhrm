@@ -36,6 +36,7 @@ import '../utils/pos_sale_order_print.dart';
 import '../utils/pos_sell_print_settings.dart';
 import '../utils/pos_sell_stock_patch.dart';
 import '../utils/pos_device_identity.dart';
+import '../utils/pos_floor_realtime.dart';
 import '../utils/pos_sell_store_settings.dart';
 import '../utils/pos_sell_tax.dart';
 import '../utils/pos_sell_unit_views.dart';
@@ -533,6 +534,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
   /// Sau khi máy này lưu Draft thành công — không để sync lật readOnly trong vài giây.
   DateTime? _ignoreReadOnlyUntil;
   Timer? _draftLockHeartbeat;
+  final _floorRealtime = PosFloorRealtimeSubscription();
   bool _suspendDraftAutosave = false;
   /// Đơn đã nhả khóa khi về sơ đồ — không heartbeat/autosave gắn lại cho đến khi mở bàn lại.
   final Set<String> _floorReleasedOrderIds = {};
@@ -691,6 +693,10 @@ class _PosSellScreenState extends State<PosSellScreen> {
     ScreenRefreshNotifier.posPriceLists.addListener(_onPriceListsChanged);
     ScreenRefreshNotifier.posSellIndustry.addListener(_onSellIndustryChanged);
     NavigationNotifier.posHandleSystemBack = _onSystemBack;
+    _floorRealtime.start((_) {
+      if (!mounted) return;
+      unawaited(_syncHeldDraftTabs());
+    });
     unawaited(_bootstrapSellScreen());
   }
 
@@ -1059,6 +1065,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
     }
     _pendingPrintRetryTimer?.cancel();
     _stopDraftLockHeartbeat();
+    _floorRealtime.dispose();
     _draftAutosaveTimer?.cancel();
     _customerDisplayPublishTimer?.cancel();
     final deviceId = _posDeviceId;
@@ -4197,8 +4204,8 @@ class _PosSellScreenState extends State<PosSellScreen> {
       return;
     }
     if (_draftLockHeartbeat != null) return;
-    // Poll 2s cho đơn bàn — Sunmi/Oppo thấy nhau «Lấy quyền / tạm rời» nhanh.
-    _draftLockHeartbeat = Timer.periodic(const Duration(seconds: 2), (_) {
+    // Poll 4s làm fallback khóa/draft; SignalR PosFloorChanged sync sớm hơn.
+    _draftLockHeartbeat = Timer.periodic(const Duration(seconds: 4), (_) {
       unawaited(_syncHeldDraftTabs());
     });
   }
@@ -8157,6 +8164,17 @@ class _PosSellScreenState extends State<PosSellScreen> {
     final isExpanded = _expandedCartRowId == line.rowId;
     final noteExpanded = isExpanded && _expandedCartMode == _CartRowExpand.note;
     final priceExpanded = isExpanded && _expandedCartMode == _CartRowExpand.priceDiscount;
+    final canEditPrice = context.read<PermissionProvider>().canPosPay();
+    void openPriceEditor() {
+      if (!canEditPrice) {
+        NotificationOverlayManager().showError(
+          title: tr('Không đủ quyền'),
+          message: tr('Cần quyền thu ngân (duyệt) để đổi giá / chiết khấu'),
+        );
+        return;
+      }
+      _toggleCartRowExpand(line.rowId, _CartRowExpand.priceDiscount);
+    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -8271,8 +8289,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
                 SizedBox(
                   width: _KiotLayout.wPrice,
                   child: InkWell(
-                    onTap: () =>
-                        _toggleCartRowExpand(line.rowId, _CartRowExpand.priceDiscount),
+                    onTap: openPriceEditor,
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       crossAxisAlignment: CrossAxisAlignment.end,
@@ -8282,7 +8299,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
                           textAlign: TextAlign.right,
                           style: TextStyle(
                             fontSize: 13,
-                            color: _kiotBlue,
+                            color: canEditPrice ? _kiotBlue : PosTheme.textPrimary,
                             decoration: priceExpanded
                                 ? TextDecoration.underline
                                 : TextDecoration.none,
@@ -8302,8 +8319,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
                 SizedBox(
                   width: _KiotLayout.wTotal,
                   child: InkWell(
-                    onTap: () =>
-                        _toggleCartRowExpand(line.rowId, _CartRowExpand.priceDiscount),
+                    onTap: openPriceEditor,
                     child: Text(
                       tr(_moneyFmt.format(line.lineTotal)),
                       textAlign: TextAlign.right,
@@ -8320,7 +8336,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
           ),
         ),
         if (noteExpanded) _buildCartLineNoteEditor(line),
-        if (priceExpanded) _buildCartLinePriceEditor(line),
+        if (priceExpanded && canEditPrice) _buildCartLinePriceEditor(line),
       ],
     );
   }

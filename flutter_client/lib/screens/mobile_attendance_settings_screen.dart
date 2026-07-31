@@ -8,6 +8,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:network_info_plus/network_info_plus.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../utils/responsive_helper.dart';
+import '../utils/safe_navigator.dart';
 import '../models/mobile_attendance.dart';
 import '../services/api_service.dart';
 import '../widgets/hrm/hrm_settings_mobile_kit.dart';
@@ -2060,6 +2061,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
     if (result == null || result.base64Images.isEmpty || !mounted) return;
 
     // Show loading overlay
+    final loadingNav = SafeNavigator.capture(context);
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -2087,8 +2089,8 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
         faceImages: result.base64Images,
       );
 
+      SafeNavigator.dismissCaptured(loadingNav);
       if (!mounted) return;
-      Navigator.pop(context); // close loading
 
       if (response['isSuccess'] == true) {
         appNotification.showSuccess(
@@ -2103,8 +2105,8 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
         );
       }
     } catch (e) {
+      SafeNavigator.dismissCaptured(loadingNav);
       if (mounted) {
-        Navigator.pop(context); // close loading
         appNotification.showError(
           title: 'Lỗi',
           message: tr('Không thể đăng ký khuôn mặt: $e'),
@@ -3306,6 +3308,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
     if (result == null || result.base64Images.isEmpty || !mounted) return;
 
     // Show loading
+    final loadingNav = SafeNavigator.capture(context);
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -3333,8 +3336,8 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
         faceImages: result.base64Images,
       );
 
+      SafeNavigator.dismissCaptured(loadingNav);
       if (!mounted) return;
-      Navigator.pop(context);
 
       if (response['isSuccess'] == true) {
         appNotification.showSuccess(
@@ -3349,8 +3352,8 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
         );
       }
     } catch (e) {
+      SafeNavigator.dismissCaptured(loadingNav);
       if (mounted) {
-        Navigator.pop(context);
         appNotification.showError(title: 'Lỗi', message: tr('Không thể đăng ký: $e'));
       }
     }

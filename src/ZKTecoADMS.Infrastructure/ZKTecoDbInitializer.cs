@@ -296,6 +296,27 @@ public class ZKTecoDbInitializer(
                         ALTER TABLE ""Payslips"" ADD COLUMN IF NOT EXISTS ""TravelHours"" numeric;
                         ALTER TABLE ""Payslips"" ADD COLUMN IF NOT EXISTS ""TravelSalary"" numeric;
 
+                        -- Gán khu vực bàn/phòng theo tài khoản POS (Order chỉ thấy khu được chia).
+                        CREATE TABLE IF NOT EXISTS ""PosServiceAreaAssignments"" (
+                            ""Id"" uuid NOT NULL PRIMARY KEY,
+                            ""StoreId"" uuid NOT NULL,
+                            ""UserId"" uuid NOT NULL,
+                            ""AreaId"" uuid NOT NULL,
+                            ""CanView"" boolean NOT NULL DEFAULT TRUE,
+                            ""CanOperate"" boolean NOT NULL DEFAULT TRUE,
+                            ""IsActive"" boolean NOT NULL DEFAULT TRUE,
+                            ""GrantedBy"" character varying(100),
+                            ""Note"" character varying(500),
+                            ""CreatedAt"" timestamp without time zone NOT NULL DEFAULT NOW(),
+                            ""UpdatedAt"" timestamp without time zone,
+                            ""CreatedBy"" text,
+                            ""UpdatedBy"" text
+                        );
+                        CREATE UNIQUE INDEX IF NOT EXISTS ""IX_PosServiceAreaAssignments_Store_User_Area""
+                            ON ""PosServiceAreaAssignments"" (""StoreId"", ""UserId"", ""AreaId"");
+                        CREATE INDEX IF NOT EXISTS ""IX_PosServiceAreaAssignments_Store_User""
+                            ON ""PosServiceAreaAssignments"" (""StoreId"", ""UserId"");
+
                         -- TransactionCode được sinh đếm theo StoreId (mỗi store tự đếm phiếu thu/chi
                         -- trong ngày của mình), nhưng unique index cũ lại là GLOBAL trên toàn bộ bảng
                         -- -- 2 store khác nhau tạo phiếu cùng ngày dễ ra cùng mã (VD TH-20260721-0001)

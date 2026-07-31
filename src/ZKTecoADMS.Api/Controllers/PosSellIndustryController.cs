@@ -1,8 +1,11 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using ZKTecoADMS.Api.Authorization;
 using ZKTecoADMS.Api.Controllers.Base;
+using ZKTecoADMS.Api.Hubs;
+using ZKTecoADMS.Api.Services;
 using ZKTecoADMS.Application.Constants;
 using ZKTecoADMS.Application.Models;
 using ZKTecoADMS.Domain.Entities;
@@ -18,8 +21,18 @@ namespace ZKTecoADMS.Api.Controllers;
 [ApiController]
 [Route("api/pos")]
 [Authorize]
-public partial class PosSellIndustryController(ZKTecoDbContext db) : AuthenticatedControllerBase
+public partial class PosSellIndustryController(
+    ZKTecoDbContext db,
+    IHubContext<AttendanceHub> hub) : AuthenticatedControllerBase
 {
+    void NotifyFloorChanged(
+        Guid storeId,
+        string reason,
+        Guid? orderId = null,
+        Guid? resourceId = null,
+        Guid? sessionId = null)
+        => PosFloorRealtimeHelper.Notify(hub, storeId, reason, orderId, resourceId, sessionId);
+
     bool TryGetStoreId(out Guid storeId)
     {
         storeId = CurrentStoreId ?? Guid.Empty;
@@ -289,8 +302,12 @@ public partial class PosSellIndustryController(ZKTecoDbContext db) : Authenticat
     {
         if (!TryGetStoreId(out var storeId))
             return BadRequest(AppResponse<List<AreaDto>>.Fail("Thiếu cửa hàng"));
-        var list = await db.PosServiceAreas.AsNoTracking()
-            .Where(a => a.StoreId == storeId && a.Deleted == null)
+        var q = db.PosServiceAreas.AsNoTracking()
+            .Where(a => a.StoreId == storeId && a.Deleted == null);
+        var restricted = await GetRestrictedAreaIdsAsync(storeId);
+        if (restricted != null)
+            q = q.Where(a => restricted.Contains(a.Id));
+        var list = await q
             .OrderBy(a => a.SortOrder).ThenBy(a => a.Name)
             .Select(a => new AreaDto(a.Id, a.Name, a.Code, a.SortOrder, a.AreaType, a.IsActive))
             .ToListAsync();
@@ -457,7 +474,15 @@ public partial class PosSellIndustryController(ZKTecoDbContext db) : Authenticat
         var q = db.PosServiceResources.AsNoTracking()
             .Include(r => r.Area)
             .Where(r => r.StoreId == storeId && r.Deleted == null);
-        if (areaId.HasValue) q = q.Where(r => r.AreaId == areaId);
+        var restricted = await GetRestrictedAreaIdsAsync(storeId);
+        if (restricted != null)
+            q = q.Where(r => restricted.Contains(r.AreaId));
+        if (areaId.HasValue)
+        {
+            if (restricted != null && !restricted.Contains(areaId.Value))
+                return Ok(AppResponse<List<ResourceDto>>.Success([]));
+            q = q.Where(r => r.AreaId == areaId);
+        }
 
         var resources = await q.OrderBy(r => r.SortOrder).ThenBy(r => r.Code).ToListAsync();
         var resourceIds = resources.Select(r => r.Id).ToList();
@@ -923,7 +948,7 @@ public partial class PosSellIndustryController(ZKTecoDbContext db) : Authenticat
         DateTime StartedAt, DateTime? EndedAt, string Status, int ElapsedMinutes, string? Note);
 
     [HttpPost("resource-sessions/open")]
-    [RequireAnyModulePermission(ModulePermissionAction.Edit, "PosSell", "PosProducts")]
+    [RequireAnyModulePermission(ModulePermissionAction.Create, "PosSell", "PosProducts")]
     public async Task<ActionResult<AppResponse<object>>> OpenSession([FromBody] OpenSessionDto dto)
     {
         if (!TryGetStoreId(out var storeId))
@@ -934,6 +959,8 @@ public partial class PosSellIndustryController(ZKTecoDbContext db) : Authenticat
                 && r.Deleted == null && r.IsActive);
         if (resource == null)
             return BadRequest(AppResponse<object>.Fail("Bàn/phòng không hợp lệ"));
+        if (!await CanOperateAreaAsync(storeId, resource.AreaId))
+            return BadRequest(AppResponse<object>.Fail("Bạn không được phép mở bàn ở khu vực này"));
 
         // Đặt trước còn Booked mà mở bàn trực tiếp → coi như đã nhận (tránh kẹt «đã đặt»).
         await db.PosResourceReservations
@@ -1229,6 +1256,9 @@ public partial class PosSellIndustryController(ZKTecoDbContext db) : Authenticat
             await db.SaveChangesAsync();
             await tx.CommitAsync();
 
+            NotifyFloorChanged(storeId, "openSession",
+                orderId: order.Id, resourceId: resource.Id, sessionId: session.Id);
+
             return Ok(AppResponse<object>.Success(new
             {
                 sessionId = session.Id,
@@ -1316,6 +1346,8 @@ public partial class PosSellIndustryController(ZKTecoDbContext db) : Authenticat
 
         await db.SaveChangesAsync();
         var elapsed = PosServiceBillingHelper.CalcElapsedMinutes(session.StartedAt, session.EndedAt);
+        NotifyFloorChanged(storeId, "closeSession",
+            orderId: session.SaleOrderId, resourceId: session.ResourceId, sessionId: session.Id);
         return Ok(AppResponse<object>.Success(new
         {
             sessionId = session.Id,
@@ -1416,6 +1448,7 @@ public partial class PosSellIndustryController(ZKTecoDbContext db) : Authenticat
                 && (s.Status == PosResourceSessionStatus.Open
                     || s.Status == PosResourceSessionStatus.Paused));
 
+        NotifyFloorChanged(storeId, "freeResource", resourceId: id);
         return Ok(AppResponse<object>.Success(new
         {
             resourceId = id,

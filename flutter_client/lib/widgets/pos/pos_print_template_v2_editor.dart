@@ -883,12 +883,19 @@ class _BlockPropertiesPanelState extends State<_BlockPropertiesPanel> {
           ),
         ],
         if (block.type != PosPrintBlockType.divider &&
-            block.type != PosPrintBlockType.lineItems &&
-            block.type != PosPrintBlockType.lineItemsKitchen &&
-            block.type != PosPrintBlockType.totals &&
             block.type != PosPrintBlockType.vietQr &&
             block.type != PosPrintBlockType.spacer) ...[
           const SizedBox(height: 16),
+          if (block.type == PosPrintBlockType.lineItems ||
+              block.type == PosPrintBlockType.lineItemsKitchen ||
+              block.type == PosPrintBlockType.totals)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 4),
+              child: Text(
+                tr('Áp dụng cho toàn bộ dòng trong bảng in'),
+                style: TextStyle(fontSize: 12, color: PosTheme.textSecondary),
+              ),
+            ),
           Text(tr('Cỡ chữ: ${block.style.fontSize.toInt()}')),
           Slider(
             value: block.style.fontSize.clamp(14, 48),
@@ -908,20 +915,42 @@ class _BlockPropertiesPanelState extends State<_BlockPropertiesPanel> {
                 ? null
                 : (v) => onChanged(block.copyWith(style: block.style.copyWith(bold: v))),
           ),
-          const SizedBox(height: 4),
-          Text(tr('Căn lề'), style: TextStyle(fontWeight: FontWeight.w500)),
-          const SizedBox(height: 8),
-          SegmentedButton<PosPrintTextAlign>(
-            segments: const [
-              ButtonSegment(value: PosPrintTextAlign.left, icon: Icon(Icons.format_align_left, size: 18)),
-              ButtonSegment(value: PosPrintTextAlign.center, icon: Icon(Icons.format_align_center, size: 18)),
-              ButtonSegment(value: PosPrintTextAlign.right, icon: Icon(Icons.format_align_right, size: 18)),
-            ],
-            selected: {block.style.align},
-            onSelectionChanged: readOnly
-                ? null
-                : (s) => onChanged(block.copyWith(style: block.style.copyWith(align: s.first))),
-          ),
+          if (block.type == PosPrintBlockType.totals) ...[
+            const SizedBox(height: 8),
+            Text(tr(
+                'Cỡ chữ Tổng cộng: ${(block.rightStyle ?? block.style).fontSize.toInt()}')),
+            Slider(
+              value: (block.rightStyle ?? block.style).fontSize.clamp(14, 48),
+              min: 14,
+              max: 48,
+              divisions: 17,
+              label: (block.rightStyle ?? block.style).fontSize.toInt().toString(),
+              onChanged: readOnly
+                  ? null
+                  : (v) => onChanged(block.copyWith(
+                        rightStyle: (block.rightStyle ?? block.style)
+                            .copyWith(fontSize: v, bold: true),
+                      )),
+            ),
+          ],
+          if (block.type != PosPrintBlockType.lineItems &&
+              block.type != PosPrintBlockType.lineItemsKitchen &&
+              block.type != PosPrintBlockType.totals) ...[
+            const SizedBox(height: 4),
+            Text(tr('Căn lề'), style: TextStyle(fontWeight: FontWeight.w500)),
+            const SizedBox(height: 8),
+            SegmentedButton<PosPrintTextAlign>(
+              segments: const [
+                ButtonSegment(value: PosPrintTextAlign.left, icon: Icon(Icons.format_align_left, size: 18)),
+                ButtonSegment(value: PosPrintTextAlign.center, icon: Icon(Icons.format_align_center, size: 18)),
+                ButtonSegment(value: PosPrintTextAlign.right, icon: Icon(Icons.format_align_right, size: 18)),
+              ],
+              selected: {block.style.align},
+              onSelectionChanged: readOnly
+                  ? null
+                  : (s) => onChanged(block.copyWith(style: block.style.copyWith(align: s.first))),
+            ),
+          ],
         ],
         if (block.type == PosPrintBlockType.divider) ...[
           const SizedBox(height: 8),

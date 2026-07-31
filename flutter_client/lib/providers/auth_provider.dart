@@ -86,8 +86,21 @@ class AuthProvider extends ChangeNotifier {
           if (newRefreshToken != null) {
             await _apiService.saveRefreshToken(newRefreshToken);
           }
-          _user = _decodeUserFromToken(_token!);
+          // JWT không chứa gói module — giữ allowedModules cũ rồi tải lại nền.
+          final previousModules = _user?.allowedModules;
+          final decoded = _decodeUserFromToken(_token!);
+          if (decoded != null &&
+              previousModules != null &&
+              previousModules.isNotEmpty) {
+            _user = decoded.copyWith(allowedModules: previousModules);
+          } else {
+            _user = decoded;
+          }
           notifyListeners();
+          // ignore: discarded_futures
+          _fetchAllowedModules().then((_) {
+            if (_user != null) notifyListeners();
+          });
           _refreshCompleter!.complete(true);
           return true;
         }
@@ -343,6 +356,12 @@ class AuthProvider extends ChangeNotifier {
       if (StoreRoleHelper.bypassesPackageFilter(_user!.role)) return;
 
       final modules = await _apiService.getMyModules();
+      // null = lỗi mạng/API — không xóa module đang có (tránh mất menu giữa ca).
+      if (modules == null) {
+        debugPrint(
+            '⚠️ AuthProvider: getMyModules failed — keeping existing allowedModules');
+        return;
+      }
       _user = _user!.copyWith(allowedModules: modules);
       debugPrint('✅ AuthProvider: Loaded ${modules.length} allowed modules');
     } catch (e) {

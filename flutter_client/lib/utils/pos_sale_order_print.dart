@@ -650,22 +650,31 @@ Future<bool> _tryLocalSalePrint({
     debugPrint('Local sale print (primary) failed: $e');
   }
 
-  // Fallback: UTF-8 thuần + bỏ VietQR nếu tải ảnh lỗi.
+  // Fallback chuỗi chế độ chữ: image lỗi → tcvn3 → cp1258 → utf8 (giữ dấu).
+  // Không nhảy thẳng ASCII/bỏ dấu.
   if (settings.resolvedTextMode == PosThermalTextMode.image ||
       (vietQrImageUrl != null && vietQrImageUrl.isNotEmpty)) {
-    final fallback = settings.copyWith(textMode: PosThermalTextMode.utf8);
-    try {
-      if (await attempt(fallback, qr: null)) {
-        if (showFeedback) {
-          NotificationOverlayManager().showSuccess(
-            title: printOrder.isReprint ? 'In lại hóa đơn' : 'In hóa đơn',
-            message: tr('Máy in cục bộ'),
-          );
+    const fallbackModes = [
+      PosThermalTextMode.tcvn3,
+      PosThermalTextMode.cp1258,
+      PosThermalTextMode.utf8,
+    ];
+    for (final mode in fallbackModes) {
+      if (mode == settings.resolvedTextMode) continue;
+      final fallback = settings.copyWith(textMode: mode);
+      try {
+        if (await attempt(fallback, qr: null)) {
+          if (showFeedback) {
+            NotificationOverlayManager().showSuccess(
+              title: printOrder.isReprint ? 'In lại hóa đơn' : 'In hóa đơn',
+              message: tr('Máy in cục bộ (${mode.label})'),
+            );
+          }
+          return true;
         }
-        return true;
+      } catch (e) {
+        debugPrint('Local sale print ($mode) fallback failed: $e');
       }
-    } catch (e) {
-      debugPrint('Local sale print (utf8 fallback) failed: $e');
     }
   }
 

@@ -596,12 +596,12 @@ class PosPrintAgentService {
       }
     } else if (format == 'EscPosBase64') {
       // Sunmi: ESC/POS qua printEscPos hay lỗi font tiếng Việt / in ra lệnh thô.
-      // Job test hoặc chip Sunmi → ưu tiên native.
+      // Mọi job trên máy Sunmi → ưu tiên native (test JSON hoặc test slip).
       final isTest = referenceNo.toUpperCase() == 'TEST' ||
           referenceNo.toUpperCase().startsWith('TEST');
-      if (printer.isSunmi &&
-          await PosPrinterTransport.isSunmiDevice() &&
-          isTest) {
+      final onSunmi = printer.isSunmi &&
+          await PosPrinterTransport.isSunmiDevice();
+      if (onSunmi && isTest) {
         for (var i = 0; i < copies.clamp(1, 10); i++) {
           final sent = await PosSunmiNativePrint.printTest(
             storeLabel: printer.name,
@@ -613,6 +613,17 @@ class PosPrintAgentService {
             break;
           }
         }
+      } else if (onSunmi && !isTest) {
+        // Không dump ESC/POS lên Sunmi (font/rác). Job phải là SaleOrderJson.
+        await _api.failPosPrintJob(
+          jobId,
+          _agentId!,
+          errorCode: 'UNSUPPORTED_ON_SUNMI',
+          errorMessage:
+              'Sunmi không in EscPosBase64 (lỗi font VN). Dùng SaleOrderJson / TestPrintJson.',
+        );
+        _markJobSettled(jobId);
+        return;
       } else {
         List<int> bytes;
         try {

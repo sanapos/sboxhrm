@@ -7,13 +7,16 @@ import '../../models/pos_product.dart';
 import '../../models/pos_sell_industry.dart';
 import '../../services/api_service.dart';
 import '../../utils/pos_device_identity.dart';
+import '../../utils/pos_floor_realtime.dart';
 import '../../utils/pos_table_label.dart';
 import '../../utils/responsive_helper.dart';
+import '../../utils/safe_navigator.dart';
 import '../../widgets/notification_overlay.dart';
 import '../../widgets/pos/pos_theme.dart';
 import 'pos_kitchen_void_list_screen.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 import 'package:zkteco_flutter_client/l10n/app_ui_locale.dart';
+import '../../widgets/hrm_page_chrome.dart';
 
 /// Kết quả chọn bàn/phòng từ sơ đồ.
 typedef PosFloorSelectCallback = void Function(Map<String, dynamic> result);
@@ -87,6 +90,7 @@ class _PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
   Timer? _poll;
   Timer? _clock;
   String? _deviceId;
+  final _floorRealtime = PosFloorRealtimeSubscription();
 
   bool get _isFnB => widget.sellProfile == PosSellProfile.restaurant;
   bool get _isHourly => widget.sellProfile == PosSellProfile.roomHourly;
@@ -105,12 +109,13 @@ class _PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
     super.initState();
     unawaited(_loadDeviceId());
     _reload();
-    // Bán hàng: poll nhanh để badge «chờ bếp» cập nhật kịp.
+    // Bán hàng: poll 8–12s làm fallback; SignalR PosFloorChanged reload tức thì.
+    // manageMode giữ autoRefreshSeconds (mặc định 20).
     final pollSec = widget.manageMode
         ? widget.autoRefreshSeconds
         : (widget.autoRefreshSeconds > 0
-            ? widget.autoRefreshSeconds.clamp(1, 1)
-            : 1);
+            ? widget.autoRefreshSeconds.clamp(8, 12)
+            : 10);
     if (pollSec > 0) {
       _poll = Timer.periodic(
         Duration(seconds: pollSec),
@@ -119,6 +124,9 @@ class _PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
         },
       );
     }
+    _floorRealtime.start((_) {
+      if (mounted && !_layoutEdit) _reload(silent: true);
+    });
     _clock = Timer.periodic(const Duration(seconds: 1), (_) {
       if (!mounted || _layoutEdit) return;
       if (_resources.any((r) => r.liveElapsedMinutes > 0)) {
@@ -265,6 +273,7 @@ class _PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
   void dispose() {
     _poll?.cancel();
     _clock?.cancel();
+    _floorRealtime.dispose();
     super.dispose();
   }
 
@@ -311,7 +320,9 @@ class _PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
       widget.onSelect!(result);
       return;
     }
-    Navigator.pop(context, result);
+    // Hub / nhúng sơ đồ: không pop shell (MainLayout).
+    if (widget.embedded || HrmPageChrome.isEmbedded) return;
+    SafeNavigator.popPageIfPushed(context, result);
   }
 
   Future<PosServiceResourceDto> _probeResourceLock(PosServiceResourceDto r) async {

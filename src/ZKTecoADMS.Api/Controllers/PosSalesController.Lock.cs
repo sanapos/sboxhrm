@@ -115,26 +115,41 @@ public partial class PosSalesController
             && !PosDraftLockHelper.IsHeldBy(order, actor);
         // Máy đang mở đơn (heartbeat gần đây): không cho cướp.
         // Máy đã về sơ đồ (không renew) → LockedAt cũ → cho «Lấy quyền».
-            if (stealing && force)
+        if (stealing && force)
+        {
+            // Force-take cần Approve — tránh Waiter/Order cướp khóa máy khác.
+            if (!await HasPosSellApproveAsync())
             {
-                var lockedAt = order.LockedAt ?? order.UpdatedAt ?? DateTime.UtcNow;
-                var ageSec = (DateTime.UtcNow - lockedAt).TotalSeconds;
-                var activelyHeld = ageSec < 45;
-                if (activelyHeld)
-                {
-                    var who = string.IsNullOrWhiteSpace(order.LockedByDisplayName)
-                        ? "máy khác"
-                        : order.LockedByDisplayName!;
-                    var device = string.IsNullOrWhiteSpace(order.LockedByDeviceName)
-                        ? ""
-                        : $" · {order.LockedByDeviceName}";
-                    var conflict = MapLockState(order, actor, lineCount);
-                    return Conflict(AppResponse<DraftLockStateDto>.Create(
-                        false,
-                        conflict,
-                        [$"Bàn đang mở bởi {who}{device} — nhờ máy đó thoát về sơ đồ rồi bấm Lấy quyền"]));
-                }
+                return StatusCode(StatusCodes.Status403Forbidden,
+                    AppResponse<DraftLockStateDto>.Fail(
+                        "Cần quyền duyệt PosSell để lấy quyền đơn đang khóa trên máy khác."));
             }
+
+            // Bắt buộc deviceId khi cướp khóa — chống spoof body trống.
+            if (string.IsNullOrWhiteSpace(dto?.DeviceId))
+            {
+                return BadRequest(AppResponse<DraftLockStateDto>.Fail(
+                    "Thiếu deviceId khi lấy quyền khóa đơn."));
+            }
+
+            var lockedAt = order.LockedAt ?? order.UpdatedAt ?? DateTime.UtcNow;
+            var ageSec = (DateTime.UtcNow - lockedAt).TotalSeconds;
+            var activelyHeld = ageSec < 45;
+            if (activelyHeld)
+            {
+                var who = string.IsNullOrWhiteSpace(order.LockedByDisplayName)
+                    ? "máy khác"
+                    : order.LockedByDisplayName!;
+                var device = string.IsNullOrWhiteSpace(order.LockedByDeviceName)
+                    ? ""
+                    : $" · {order.LockedByDeviceName}";
+                var conflict = MapLockState(order, actor, lineCount);
+                return Conflict(AppResponse<DraftLockStateDto>.Create(
+                    false,
+                    conflict,
+                    [$"Bàn đang mở bởi {who}{device} — nhờ máy đó thoát về sơ đồ rồi bấm Lấy quyền"]));
+            }
+        }
 
         var err = PosDraftLockHelper.TryAcquire(
             order, actor, force, bumpVersion: stealing, lineCount: lineCount);

@@ -8,7 +8,7 @@ using ZKTecoADMS.Domain.Enums;
 
 namespace ZKTecoADMS.Api.Controllers;
 
-/// <summary>Chuy?n/tách/g?p bàn, pause, báo b?p, layout so d?.</summary>
+/// <summary>Chuy?n/tï¿½ch/g?p bï¿½n, pause, bï¿½o b?p, layout so d?.</summary>
 public partial class PosSellIndustryController
 {
     public record TransferSessionDto(Guid TargetResourceId);
@@ -20,7 +20,7 @@ public partial class PosSellIndustryController
         string? DeviceId = null,
         string? DeviceName = null);
 
-    /// <summary>DTO class (không dùng positional record) — tránh JSON bind sai layoutX/Y.</summary>
+    /// <summary>DTO class (khï¿½ng dï¿½ng positional record) ï¿½ trï¿½nh JSON bind sai layoutX/Y.</summary>
     public class LayoutItemDto
     {
         public Guid Id { get; set; }
@@ -43,18 +43,22 @@ public partial class PosSellIndustryController
     public async Task<ActionResult<AppResponse<object>>> PauseSession(Guid id)
     {
         if (!TryGetStoreId(out var storeId))
-            return BadRequest(AppResponse<object>.Fail("Thi?u c?a hàng"));
+            return BadRequest(AppResponse<object>.Fail("Thi?u c?a hï¿½ng"));
         var session = await db.PosResourceSessions
             .AsTracking().FirstOrDefaultAsync(s => s.Id == id && s.StoreId == storeId && s.Deleted == null);
-        if (session == null) return NotFound(AppResponse<object>.Fail("Không tìm th?y phiên"));
+        if (session == null) return NotFound(AppResponse<object>.Fail("Khï¿½ng tï¿½m th?y phiï¿½n"));
         if (session.Status != PosResourceSessionStatus.Open)
-            return BadRequest(AppResponse<object>.Fail("Ch? t?m d?ng phiên dang m?"));
+            return BadRequest(AppResponse<object>.Fail("Chá»‰ táº¡m dá»«ng phiÃªn Ä‘ang má»Ÿ"));
+        if (!await CanOperateResourceAsync(storeId, session.ResourceId))
+            return BadRequest(AppResponse<object>.Fail("Báº¡n khÃ´ng Ä‘Æ°á»£c phÃ©p thao tÃ¡c bÃ n á»Ÿ khu vá»±c nÃ y"));
 
         session.Status = PosResourceSessionStatus.Paused;
         session.PausedAt = DateTime.UtcNow;
         session.UpdatedAt = DateTime.UtcNow;
         session.UpdatedBy = CurrentUserEmail;
         await db.SaveChangesAsync();
+        NotifyFloorChanged(storeId, "pauseSession",
+            resourceId: session.ResourceId, sessionId: session.Id);
         return Ok(AppResponse<object>.Success(new { sessionId = session.Id, status = "Paused" }));
     }
 
@@ -63,12 +67,14 @@ public partial class PosSellIndustryController
     public async Task<ActionResult<AppResponse<object>>> ResumeSession(Guid id)
     {
         if (!TryGetStoreId(out var storeId))
-            return BadRequest(AppResponse<object>.Fail("Thi?u c?a hàng"));
+            return BadRequest(AppResponse<object>.Fail("Thi?u c?a hï¿½ng"));
         var session = await db.PosResourceSessions
             .AsTracking().FirstOrDefaultAsync(s => s.Id == id && s.StoreId == storeId && s.Deleted == null);
-        if (session == null) return NotFound(AppResponse<object>.Fail("Không tìm th?y phiên"));
+        if (session == null) return NotFound(AppResponse<object>.Fail("Khï¿½ng tï¿½m th?y phiï¿½n"));
         if (session.Status != PosResourceSessionStatus.Paused)
-            return BadRequest(AppResponse<object>.Fail("Phiên không ? tr?ng thái t?m d?ng"));
+            return BadRequest(AppResponse<object>.Fail("PhiÃªn khÃ´ng á»Ÿ tráº¡ng thÃ¡i táº¡m dá»«ng"));
+        if (!await CanOperateResourceAsync(storeId, session.ResourceId))
+            return BadRequest(AppResponse<object>.Fail("Báº¡n khÃ´ng Ä‘Æ°á»£c phÃ©p thao tÃ¡c bÃ n á»Ÿ khu vá»±c nÃ y"));
 
         if (session.PausedAt.HasValue)
         {
@@ -80,6 +86,8 @@ public partial class PosSellIndustryController
         session.UpdatedAt = DateTime.UtcNow;
         session.UpdatedBy = CurrentUserEmail;
         await db.SaveChangesAsync();
+        NotifyFloorChanged(storeId, "resumeSession",
+            resourceId: session.ResourceId, sessionId: session.Id);
         return Ok(AppResponse<object>.Success(new
         {
             sessionId = session.Id,
@@ -88,7 +96,7 @@ public partial class PosSellIndustryController
         }));
     }
 
-    /// <summary>Ðóng phiên Open/Paused mà don không còn Draft — tránh bàn «tr?ng» trên UI nhung API báo dang có khách.</summary>
+    /// <summary>ï¿½ï¿½ng phiï¿½n Open/Paused mï¿½ don khï¿½ng cï¿½n Draft ï¿½ trï¿½nh bï¿½n ï¿½tr?ngï¿½ trï¿½n UI nhung API bï¿½o dang cï¿½ khï¿½ch.</summary>
     async Task<int> CloseOrphanLiveSessionsOnResourceAsync(Guid storeId, Guid resourceId)
     {
         var live = await db.PosResourceSessions
@@ -132,15 +140,15 @@ public partial class PosSellIndustryController
     public async Task<ActionResult<AppResponse<object>>> TransferSession(Guid id, [FromBody] TransferSessionDto? dto)
     {
         if (!TryGetStoreId(out var storeId))
-            return BadRequest(AppResponse<object>.Fail("Thi?u c?a hàng"));
+            return BadRequest(AppResponse<object>.Fail("Thi?u c?a hï¿½ng"));
         if (dto == null || dto.TargetResourceId == Guid.Empty)
-            return BadRequest(AppResponse<object>.Fail("Thi?u bàn dích"));
+            return BadRequest(AppResponse<object>.Fail("Thi?u bï¿½n dï¿½ch"));
 
-        // Cho phép StoreId r?ng (phiên cu) — gi?ng request-bill.
+        // Cho phï¿½p StoreId r?ng (phiï¿½n cu) ï¿½ gi?ng request-bill.
         var session = await db.PosResourceSessions
             .AsTracking().FirstOrDefaultAsync(s => s.Id == id && s.Deleted == null
                 && (s.StoreId == storeId || s.StoreId == Guid.Empty));
-        // Fallback: id có th? là resourceId (client g?i nh?m) ? l?y phiên live c?a bàn.
+        // Fallback: id cï¿½ th? lï¿½ resourceId (client g?i nh?m) ? l?y phiï¿½n live c?a bï¿½n.
         if (session == null || !IsSessionLive(session.Status))
         {
             session = await db.PosResourceSessions
@@ -151,18 +159,21 @@ public partial class PosSellIndustryController
                 .OrderByDescending(s => s.StartedAt)
                 .FirstOrDefaultAsync();
         }
-        if (session == null) return NotFound(AppResponse<object>.Fail("Không tìm th?y phiên"));
+        if (session == null) return NotFound(AppResponse<object>.Fail("Khï¿½ng tï¿½m th?y phiï¿½n"));
         if (!IsSessionLive(session.Status))
-            return BadRequest(AppResponse<object>.Fail("Phiên dã dóng"));
+            return BadRequest(AppResponse<object>.Fail("Phiï¿½n dï¿½ dï¿½ng"));
         if (session.StoreId == Guid.Empty)
             session.StoreId = storeId;
 
         var target = await db.PosServiceResources
             .AsTracking().FirstOrDefaultAsync(r => r.Id == dto.TargetResourceId && r.StoreId == storeId
                 && r.Deleted == null && r.IsActive);
-        if (target == null) return BadRequest(AppResponse<object>.Fail("Bàn dích không h?p l?"));
+        if (target == null) return BadRequest(AppResponse<object>.Fail("Bï¿½n ?ï¿½ch khï¿½ng h?p l?"));
         if (target.Id == session.ResourceId)
-            return BadRequest(AppResponse<object>.Fail("Bàn dích trùng bàn hi?n t?i"));
+            return BadRequest(AppResponse<object>.Fail("Bï¿½n ?ï¿½ch trï¿½ng bï¿½n hi?n t?i"));
+        if (!await CanOperateResourceAsync(storeId, session.ResourceId)
+            || !await CanOperateAreaAsync(storeId, target.AreaId))
+            return BadRequest(AppResponse<object>.Fail("Báº¡n khÃ´ng Ä‘Æ°á»£c phÃ©p chuyá»ƒn bÃ n ngoÃ i khu vá»±c Ä‘Æ°á»£c gÃ¡n"));
 
         await CloseOrphanLiveSessionsOnResourceAsync(storeId, target.Id);
 
@@ -170,9 +181,9 @@ public partial class PosSellIndustryController
             s.ResourceId == target.Id && s.Deleted == null
             && (s.Status == PosResourceSessionStatus.Open
                 || s.Status == PosResourceSessionStatus.Paused));
-        if (busy) return BadRequest(AppResponse<object>.Fail("Bàn dích dang có khách"));
+        if (busy) return BadRequest(AppResponse<object>.Fail("Bï¿½n dï¿½ch dang cï¿½ khï¿½ch"));
 
-        // H?y d?t tru?c còn sót trên bàn dích.
+        // H?y d?t tru?c cï¿½n sï¿½t trï¿½n bï¿½n dï¿½ch.
         await ClearBookedReservationsOnResourceAsync(storeId, target.Id, asSeated: false);
 
         var fromId = session.ResourceId;
@@ -205,7 +216,7 @@ public partial class PosSellIndustryController
         }
         target.NeedsCleaning = false;
 
-        // ???t tru?c trên bàn ngu?n (n?u còn) ? dã dùng xong du??ng chuy?n.
+        // ???t tru?c trï¿½n bï¿½n ngu?n (n?u cï¿½n) ? dï¿½ dï¿½ng xong du??ng chuy?n.
         await ClearBookedReservationsOnResourceAsync(storeId, fromId, asSeated: true);
 
         await db.SaveChangesAsync();
@@ -213,6 +224,8 @@ public partial class PosSellIndustryController
             .Where(a => a.Id == target.AreaId)
             .Select(a => a.Name)
             .FirstOrDefaultAsync();
+        NotifyFloorChanged(storeId, "transfer",
+            orderId: session.SaleOrderId, resourceId: target.Id, sessionId: session.Id);
         return Ok(AppResponse<object>.Success(new
         {
             sessionId = session.Id,
@@ -224,14 +237,14 @@ public partial class PosSellIndustryController
         }));
     }
 
-    /// <summary>Chuy?n bàn theo resourceId ngu?n (tin c?y hon sessionId trên so d?).</summary>
+    /// <summary>Chuy?n bï¿½n theo resourceId ngu?n (tin c?y hon sessionId trï¿½n so d?).</summary>
     [HttpPost("service-resources/{id:guid}/transfer")]
     [RequireModulePermission("PosSell", ModulePermissionAction.Create)]
     public async Task<ActionResult<AppResponse<object>>> TransferByResource(
         Guid id, [FromBody] TransferSessionDto? dto)
     {
         if (!TryGetStoreId(out var storeId))
-            return BadRequest(AppResponse<object>.Fail("Thi?u c?a hàng"));
+            return BadRequest(AppResponse<object>.Fail("Thi?u c?a hï¿½ng"));
         var live = await db.PosResourceSessions
             .AsTracking().Where(s => s.ResourceId == id && s.Deleted == null
                 && (s.StoreId == storeId || s.StoreId == Guid.Empty)
@@ -240,7 +253,7 @@ public partial class PosSellIndustryController
             .OrderByDescending(s => s.StartedAt)
             .FirstOrDefaultAsync();
         if (live == null)
-            return NotFound(AppResponse<object>.Fail("Bàn ngu?n không có phiên dang m?"));
+            return NotFound(AppResponse<object>.Fail("Bï¿½n ngu?n khï¿½ng cï¿½ phiï¿½n dang m?"));
         return await TransferSession(live.Id, dto);
     }
 
@@ -266,9 +279,9 @@ public partial class PosSellIndustryController
     public async Task<ActionResult<AppResponse<object>>> SplitSession(Guid id, [FromBody] SplitSessionDto dto)
     {
         if (!TryGetStoreId(out var storeId))
-            return BadRequest(AppResponse<object>.Fail("Thi?u c?a hàng"));
+            return BadRequest(AppResponse<object>.Fail("Thi?u c?a hï¿½ng"));
         if (dto.LineIds == null || dto.LineIds.Count == 0)
-            return BadRequest(AppResponse<object>.Fail("Ch??n ít nh?t m?t dòng d? tách"));
+            return BadRequest(AppResponse<object>.Fail("Ch??n ï¿½t nh?t m?t dï¿½ng d? tï¿½ch"));
 
         var session = await db.PosResourceSessions
             .AsTracking().FirstOrDefaultAsync(s => s.Id == id && s.Deleted == null
@@ -276,14 +289,19 @@ public partial class PosSellIndustryController
         if (session == null || !session.SaleOrderId.HasValue)
             return NotFound(AppResponse<object>.Fail("Kh?ng t?m th?y phi?n/don"));
         if (!IsSessionLive(session.Status))
-            return BadRequest(AppResponse<object>.Fail("Phiên dã dóng"));
+            return BadRequest(AppResponse<object>.Fail("Phiï¿½n dï¿½ dï¿½ng"));
         if (session.StoreId == Guid.Empty)
             session.StoreId = storeId;
 
         var target = await db.PosServiceResources
             .AsTracking().FirstOrDefaultAsync(r => r.Id == dto.TargetResourceId && r.StoreId == storeId
                 && r.Deleted == null && r.IsActive);
-        if (target == null) return BadRequest(AppResponse<object>.Fail("Bàn dích không h?p l?"));
+        if (target == null) return BadRequest(AppResponse<object>.Fail("Bï¿½n dï¿½ch khï¿½ng h?p l?"));
+
+        if (!await CanOperateResourceAsync(storeId, session.ResourceId)
+            || !await CanOperateAreaAsync(storeId, target.AreaId))
+            return BadRequest(AppResponse<object>.Fail(
+                "Báº¡n khÃ´ng Ä‘Æ°á»£c phÃ©p tÃ¡ch bÃ n ngoÃ i khu vá»±c Ä‘Æ°á»£c gÃ¡n"));
 
         await CloseOrphanLiveSessionsOnResourceAsync(storeId, target.Id);
 
@@ -291,7 +309,7 @@ public partial class PosSellIndustryController
             s.ResourceId == target.Id && s.Deleted == null
             && (s.Status == PosResourceSessionStatus.Open
                 || s.Status == PosResourceSessionStatus.Paused));
-        if (busy) return BadRequest(AppResponse<object>.Fail("Bàn dích dang có khách"));
+        if (busy) return BadRequest(AppResponse<object>.Fail("Bï¿½n dï¿½ch dang cï¿½ khï¿½ch"));
 
         await ClearBookedReservationsOnResourceAsync(storeId, target.Id, asSeated: false);
 
@@ -299,7 +317,7 @@ public partial class PosSellIndustryController
             .AsTracking().Include(o => o.Lines)
             .FirstOrDefaultAsync(o => o.Id == session.SaleOrderId
                 && (o.StoreId == storeId || o.StoreId == Guid.Empty));
-        if (sourceOrder == null) return NotFound(AppResponse<object>.Fail("Không tìm th?y don"));
+        if (sourceOrder == null) return NotFound(AppResponse<object>.Fail("Khï¿½ng tï¿½m th?y don"));
         if (sourceOrder.StoreId == Guid.Empty)
             sourceOrder.StoreId = storeId;
 
@@ -307,11 +325,11 @@ public partial class PosSellIndustryController
             .Where(l => l.Deleted == null && dto.LineIds.Contains(l.Id))
             .ToList();
         if (moveLines.Count == 0)
-            return BadRequest(AppResponse<object>.Fail("Không có dòng h?p l? d? tách"));
+            return BadRequest(AppResponse<object>.Fail("Khï¿½ng cï¿½ dï¿½ng h?p l? d? tï¿½ch"));
         if (moveLines.Count >= sourceOrder.Lines.Count(l => l.Deleted == null))
-            return BadRequest(AppResponse<object>.Fail("Không tách h?t món — dùng chuy?n bàn"));
+            return BadRequest(AppResponse<object>.Fail("Khï¿½ng tï¿½ch h?t mï¿½n ï¿½ dï¿½ng chuy?n bï¿½n"));
 
-        // M? phiên + don m?i trên bàn dích (tách FK: don tru?c ? phiên ? g?n l?i).
+        // M? phiï¿½n + don m?i trï¿½n bï¿½n dï¿½ch (tï¿½ch FK: don tru?c ? phiï¿½n ? g?n l?i).
         var (orderNo, invoiceSlot) = await AllocateTableDraftNoAsync(storeId);
         var now = DateTime.UtcNow;
         var newOrder = new PosSaleOrder
@@ -366,8 +384,8 @@ public partial class PosSellIndustryController
 
         foreach (var line in moveLines)
         {
-            // B?t bu?c Remove kh??i collection ngu?n — n?u không EF v?n tính dòng vào don cu
-            // và autosave client có th? ghi dè tr? món v?? bàn ngu?n.
+            // B?t bu?c Remove kh??i collection ngu?n ï¿½ n?u khï¿½ng EF v?n tï¿½nh dï¿½ng vï¿½o don cu
+            // vï¿½ autosave client cï¿½ th? ghi dï¿½ tr? mï¿½n v?? bï¿½n ngu?n.
             sourceOrder.Lines.Remove(line);
             line.SaleOrderId = newOrder.Id;
             line.UpdatedAt = now;
@@ -378,7 +396,7 @@ public partial class PosSellIndustryController
         RecalcOrderTotals(sourceOrder);
         RecalcOrderTotals(newOrder);
 
-        // Bump lockVersion don ngu?n — client cu dang gi? gi?? full s? conflict thay vì ghi dè.
+        // Bump lockVersion don ngu?n ï¿½ client cu dang gi? gi?? full s? conflict thay vï¿½ ghi dï¿½.
         sourceOrder.LockVersion = Math.Max(1, sourceOrder.LockVersion) + 1;
         sourceOrder.UpdatedAt = now;
         sourceOrder.UpdatedBy = CurrentUserEmail;
@@ -386,6 +404,8 @@ public partial class PosSellIndustryController
         target.NeedsCleaning = false;
         await db.SaveChangesAsync();
 
+        NotifyFloorChanged(storeId, "split",
+            orderId: sourceOrder.Id, resourceId: target.Id, sessionId: newSession.Id);
         return Ok(AppResponse<object>.Success(new
         {
             sourceSessionId = session.Id,
@@ -403,11 +423,11 @@ public partial class PosSellIndustryController
     public async Task<ActionResult<AppResponse<object>>> MergeSession(Guid id, [FromBody] MergeSessionDto? dto)
     {
         if (!TryGetStoreId(out var storeId))
-            return BadRequest(AppResponse<object>.Fail("Thi?u c?a hàng"));
+            return BadRequest(AppResponse<object>.Fail("Thi?u c?a hï¿½ng"));
         if (dto == null || dto.SourceSessionId == Guid.Empty)
-            return BadRequest(AppResponse<object>.Fail("Thi?u bàn ngu?n d? g?p"));
+            return BadRequest(AppResponse<object>.Fail("Thi?u bï¿½n ngu?n d? g?p"));
         if (dto.SourceSessionId == id)
-            return BadRequest(AppResponse<object>.Fail("Không g?p cùng m?t phiên"));
+            return BadRequest(AppResponse<object>.Fail("Khï¿½ng g?p cï¿½ng m?t phiï¿½n"));
 
         var targetSession = await db.PosResourceSessions
             .AsTracking().FirstOrDefaultAsync(s => s.Id == id && s.Deleted == null
@@ -416,11 +436,14 @@ public partial class PosSellIndustryController
             .AsTracking().FirstOrDefaultAsync(s => s.Id == dto.SourceSessionId && s.Deleted == null
                 && (s.StoreId == storeId || s.StoreId == Guid.Empty));
         if (targetSession == null || sourceSession == null)
-            return NotFound(AppResponse<object>.Fail("Không tìm th?y phiên"));
+            return NotFound(AppResponse<object>.Fail("Khï¿½ng tï¿½m th?y phiï¿½n"));
         if (!IsSessionLive(targetSession.Status) || !IsSessionLive(sourceSession.Status))
-            return BadRequest(AppResponse<object>.Fail("C? hai phiên ph?i dang m?"));
+            return BadRequest(AppResponse<object>.Fail("C? hai phiï¿½n ph?i dang m?"));
         if (!targetSession.SaleOrderId.HasValue || !sourceSession.SaleOrderId.HasValue)
-            return BadRequest(AppResponse<object>.Fail("Phiên thi?u don Draft"));
+            return BadRequest(AppResponse<object>.Fail("Phiï¿½n thi?u don Draft"));
+        if (!await CanOperateResourceAsync(storeId, targetSession.ResourceId)
+            || !await CanOperateResourceAsync(storeId, sourceSession.ResourceId))
+            return BadRequest(AppResponse<object>.Fail("Báº¡n khÃ´ng Ä‘Æ°á»£c phÃ©p gá»™p bÃ n ngoÃ i khu vá»±c Ä‘Æ°á»£c gÃ¡n"));
         if (targetSession.StoreId == Guid.Empty) targetSession.StoreId = storeId;
         if (sourceSession.StoreId == Guid.Empty) sourceSession.StoreId = storeId;
 
@@ -431,7 +454,7 @@ public partial class PosSellIndustryController
             .FirstOrDefaultAsync(o => o.Id == sourceSession.SaleOrderId
                 && (o.StoreId == storeId || o.StoreId == Guid.Empty));
         if (targetOrder == null || sourceOrder == null)
-            return NotFound(AppResponse<object>.Fail("Không tìm th?y don"));
+            return NotFound(AppResponse<object>.Fail("Khï¿½ng tï¿½m th?y don"));
         if (targetOrder.StoreId == Guid.Empty) targetOrder.StoreId = storeId;
         if (sourceOrder.StoreId == Guid.Empty) sourceOrder.StoreId = storeId;
 
@@ -458,8 +481,8 @@ public partial class PosSellIndustryController
         sourceOrder.LockVersion = Math.Max(1, sourceOrder.LockVersion) + 1;
         sourceOrder.UpdatedAt = now;
         sourceOrder.Note = string.IsNullOrWhiteSpace(sourceOrder.Note)
-            ? $"G?p vào {targetOrder.OrderNo}"
-            : $"{sourceOrder.Note} · G?p vào {targetOrder.OrderNo}";
+            ? $"G?p vï¿½o {targetOrder.OrderNo}"
+            : $"{sourceOrder.Note} ï¿½ G?p vï¿½o {targetOrder.OrderNo}";
 
         targetOrder.LockVersion = Math.Max(1, targetOrder.LockVersion) + 1;
         targetOrder.UpdatedAt = now;
@@ -478,6 +501,8 @@ public partial class PosSellIndustryController
         await ClearBookedReservationsOnResourceAsync(storeId, sourceSession.ResourceId, asSeated: true);
         await db.SaveChangesAsync();
 
+        NotifyFloorChanged(storeId, "merge",
+            orderId: targetOrder.Id, resourceId: targetSession.ResourceId, sessionId: targetSession.Id);
         return Ok(AppResponse<object>.Success(new
         {
             targetSessionId = targetSession.Id,
@@ -493,10 +518,10 @@ public partial class PosSellIndustryController
     public async Task<ActionResult<AppResponse<object>>> SetGuestCount(Guid id, [FromBody] GuestCountDto dto)
     {
         if (!TryGetStoreId(out var storeId))
-            return BadRequest(AppResponse<object>.Fail("Thi?u c?a hàng"));
+            return BadRequest(AppResponse<object>.Fail("Thi?u c?a hï¿½ng"));
         var session = await db.PosResourceSessions
             .AsTracking().FirstOrDefaultAsync(s => s.Id == id && s.StoreId == storeId && s.Deleted == null);
-        if (session == null) return NotFound(AppResponse<object>.Fail("Không tìm th?y phiên"));
+        if (session == null) return NotFound(AppResponse<object>.Fail("Khï¿½ng tï¿½m th?y phiï¿½n"));
         session.GuestCount = Math.Max(1, dto.GuestCount);
         session.UpdatedAt = DateTime.UtcNow;
         session.UpdatedBy = CurrentUserEmail;
@@ -509,14 +534,14 @@ public partial class PosSellIndustryController
     public async Task<ActionResult<AppResponse<object>>> RequestBill(Guid id, [FromQuery] bool requested = true)
     {
         if (!TryGetStoreId(out var storeId))
-            return BadRequest(AppResponse<object>.Fail("Thi?u c?a hàng"));
+            return BadRequest(AppResponse<object>.Fail("Thi?u c?a hï¿½ng"));
 
         var session = await db.PosResourceSessions
             .AsTracking().FirstOrDefaultAsync(s => s.Id == id && s.Deleted == null);
         if (session == null)
-            return NotFound(AppResponse<object>.Fail("Không tìm th?y phiên"));
+            return NotFound(AppResponse<object>.Fail("Khï¿½ng tï¿½m th?y phiï¿½n"));
 
-        // N?u phiên dã dóng / l?ch store ? chuy?n sang phiên Open/Paused dang s?ng c?a bàn.
+        // N?u phiï¿½n dï¿½ dï¿½ng / l?ch store ? chuy?n sang phiï¿½n Open/Paused dang s?ng c?a bï¿½n.
         var live = session;
         var isLive = (live.Status == PosResourceSessionStatus.Open
                       || live.Status == PosResourceSessionStatus.Paused)
@@ -532,7 +557,7 @@ public partial class PosSellIndustryController
                 .FirstOrDefaultAsync();
             if (live == null)
                 return BadRequest(AppResponse<object>.Fail(
-                    "Phiên bàn dã dóng — m? l?i bàn r?i in t?m tính"));
+                    "Phiï¿½n bï¿½n dï¿½ dï¿½ng ï¿½ m? l?i bï¿½n r?i in t?m tï¿½nh"));
         }
 
         if (live.StoreId == Guid.Empty)
@@ -541,6 +566,8 @@ public partial class PosSellIndustryController
         live.UpdatedAt = DateTime.UtcNow;
         live.UpdatedBy = CurrentUserEmail;
         await db.SaveChangesAsync();
+        NotifyFloorChanged(storeId, "requestBill",
+            resourceId: live.ResourceId, sessionId: live.Id);
         return Ok(AppResponse<object>.Success(new
         {
             billRequested = live.BillRequested,
@@ -549,14 +576,14 @@ public partial class PosSellIndustryController
         }));
     }
 
-    /// ??ánh d?u t?m tính theo bàn (l?y phiên Open dang s?ng) — du??ng tin c?y cho so d?.
+    /// ??ï¿½nh d?u t?m tï¿½nh theo bï¿½n (l?y phiï¿½n Open dang s?ng) ï¿½ du??ng tin c?y cho so d?.
     [HttpPost("service-resources/{id:guid}/request-bill")]
     [RequireModulePermission("PosSell", ModulePermissionAction.Create)]
     public async Task<ActionResult<AppResponse<object>>> RequestBillByResource(
         Guid id, [FromQuery] bool requested = true)
     {
         if (!TryGetStoreId(out var storeId))
-            return BadRequest(AppResponse<object>.Fail("Thi?u c?a hàng"));
+            return BadRequest(AppResponse<object>.Fail("Thi?u c?a hï¿½ng"));
 
         var live = await db.PosResourceSessions
             .AsTracking().Where(s => s.ResourceId == id && s.Deleted == null
@@ -566,7 +593,7 @@ public partial class PosSellIndustryController
             .OrderByDescending(s => s.StartedAt)
             .FirstOrDefaultAsync();
         if (live == null)
-            return NotFound(AppResponse<object>.Fail("Bàn không có phiên dang m?"));
+            return NotFound(AppResponse<object>.Fail("Bï¿½n khï¿½ng cï¿½ phiï¿½n dang m?"));
 
         if (live.StoreId == Guid.Empty)
             live.StoreId = storeId;
@@ -574,6 +601,8 @@ public partial class PosSellIndustryController
         live.UpdatedAt = DateTime.UtcNow;
         live.UpdatedBy = CurrentUserEmail;
         await db.SaveChangesAsync();
+        NotifyFloorChanged(storeId, "requestBill",
+            resourceId: live.ResourceId, sessionId: live.Id);
         return Ok(AppResponse<object>.Success(new
         {
             billRequested = live.BillRequested,
@@ -587,17 +616,17 @@ public partial class PosSellIndustryController
     public async Task<ActionResult<AppResponse<object>>> MarkCleaned(Guid id)
     {
         if (!TryGetStoreId(out var storeId))
-            return BadRequest(AppResponse<object>.Fail("Thi?u c?a hàng"));
+            return BadRequest(AppResponse<object>.Fail("Thi?u c?a hï¿½ng"));
         var resource = await db.PosServiceResources
             .AsTracking().FirstOrDefaultAsync(r => r.Id == id && r.StoreId == storeId && r.Deleted == null);
-        if (resource == null) return NotFound(AppResponse<object>.Fail("Không tìm th?y"));
+        if (resource == null) return NotFound(AppResponse<object>.Fail("Khï¿½ng tï¿½m th?y"));
 
         var now = DateTime.UtcNow;
         resource.NeedsCleaning = false;
         resource.UpdatedAt = now;
         resource.UpdatedBy = CurrentUserEmail;
 
-        // ??óng luôn phiên orphan còn sót (don dã TT) — tránh bàn k?t «c?n d??n».
+        // ??ï¿½ng luï¿½n phiï¿½n orphan cï¿½n sï¿½t (don dï¿½ TT) ï¿½ trï¿½nh bï¿½n k?t ï¿½c?n d??nï¿½.
         var live = await db.PosResourceSessions
             .AsTracking().Where(s => s.ResourceId == id && s.StoreId == storeId && s.Deleted == null
                 && (s.Status == PosResourceSessionStatus.Open
@@ -612,7 +641,7 @@ public partial class PosSellIndustryController
                     o.Id == s.SaleOrderId && o.StoreId == storeId
                     && o.Deleted == null && o.Status == PosSaleOrderStatus.Draft);
             }
-            if (orderOk) continue; // còn don t?m th?t — không dóng khi ch? «dã d??n»
+            if (orderOk) continue; // cï¿½n don t?m th?t ï¿½ khï¿½ng dï¿½ng khi ch? ï¿½dï¿½ d??nï¿½
             s.Status = PosResourceSessionStatus.Closed;
             s.EndedAt = now;
             s.UpdatedAt = now;
@@ -628,23 +657,23 @@ public partial class PosSellIndustryController
         }));
     }
 
-    /// <summary>Ðánh d?u món dã báo ch? bi?n / g?i b?p (theo dòng ho?c t?t c? chua g?i).</summary>
+    /// <summary>ï¿½ï¿½nh d?u mï¿½n dï¿½ bï¿½o ch? bi?n / g?i b?p (theo dï¿½ng ho?c t?t c? chua g?i).</summary>
     [HttpPost("resource-sessions/{id:guid}/kitchen-send")]
     [RequireModulePermission("PosSell", ModulePermissionAction.Create)]
     public async Task<ActionResult<AppResponse<object>>> KitchenSend(Guid id, [FromBody] KitchenSendDto? dto)
     {
         if (!TryGetStoreId(out var storeId))
-            return BadRequest(AppResponse<object>.Fail("Thi?u c?a hàng"));
+            return BadRequest(AppResponse<object>.Fail("Thi?u c?a hï¿½ng"));
         var session = await db.PosResourceSessions
             .AsTracking().FirstOrDefaultAsync(s => s.Id == id && s.StoreId == storeId && s.Deleted == null);
         if (session == null || !session.SaleOrderId.HasValue)
-            return NotFound(AppResponse<object>.Fail("Không tìm th?y phiên/don"));
+            return NotFound(AppResponse<object>.Fail("Khï¿½ng tï¿½m th?y phiï¿½n/don"));
 
         var order = await db.PosSaleOrders
             .AsTracking().FirstOrDefaultAsync(o => o.Id == session.SaleOrderId && o.StoreId == storeId
                 && o.Deleted == null);
         if (order == null)
-            return NotFound(AppResponse<object>.Fail("Không tìm th?y don"));
+            return NotFound(AppResponse<object>.Fail("Khï¿½ng tï¿½m th?y don"));
 
         var lockDisplay = string.IsNullOrWhiteSpace(CurrentUserEmail)
             ? CurrentUserId.ToString("N")[..8]
@@ -655,10 +684,10 @@ public partial class PosSellIndustryController
         if (lockErr != null)
             return Conflict(AppResponse<object>.Fail(lockErr));
 
-        // Ghim máy n?u khóa cu thi?u device (client m?i).
+        // Ghim mï¿½y n?u khï¿½a cu thi?u device (client m?i).
         PosDraftLockHelper.StampDeviceIfMissing(order, actor);
 
-        // H?t TTL / chua khóa ? chi?m quy?n máy dang báo b?p.
+        // H?t TTL / chua khï¿½a ? chi?m quy?n mï¿½y dang bï¿½o b?p.
         if (!PosDraftLockHelper.IsHeldBy(order, actor))
         {
             var acquireErr = PosDraftLockHelper.TryAcquire(
@@ -678,7 +707,7 @@ public partial class PosSellIndustryController
         {
             if (dto?.LineIds is { Count: > 0 } && !dto.LineIds.Contains(line.Id))
                 continue;
-            // Ch? báo ph?n chua g?i — tránh in trùng bill cùng món/qty.
+            // Ch? bï¿½o ph?n chua g?i ï¿½ trï¿½nh in trï¿½ng bill cï¿½ng mï¿½n/qty.
             var pending = line.Qty - line.KitchenSentQty;
             if (pending <= 0) continue;
             line.KitchenSentQty = line.Qty;
@@ -693,6 +722,8 @@ public partial class PosSellIndustryController
             PosDraftLockHelper.BumpVersionOnly(order, now);
 
         await db.SaveChangesAsync();
+        NotifyFloorChanged(storeId, "kitchenSend",
+            orderId: session.SaleOrderId, resourceId: session.ResourceId, sessionId: session.Id);
         return Ok(AppResponse<object>.Success(new
         {
             sentLines = sent,
@@ -702,8 +733,8 @@ public partial class PosSellIndustryController
             kitchenSentAt = now,
             lockVersion = order.LockVersion,
             message = sent == 0
-                ? "Không có món m?i — các món dã báo b?p r?i"
-                : $"Ðã báo {sent} dòng ({sentQty:0.###} ph?n) lên b?p",
+                ? "Khï¿½ng cï¿½ mï¿½n m?i ï¿½ cï¿½c mï¿½n dï¿½ bï¿½o b?p r?i"
+                : $"ï¿½ï¿½ bï¿½o {sent} dï¿½ng ({sentQty:0.###} ph?n) lï¿½n b?p",
         }));
     }
 
@@ -712,9 +743,9 @@ public partial class PosSellIndustryController
     public async Task<ActionResult<AppResponse<object>>> SaveLayout([FromBody] LayoutBatchDto? dto)
     {
         if (!TryGetStoreId(out var storeId))
-            return BadRequest(AppResponse<object>.Fail("Thi?u c?a hàng"));
+            return BadRequest(AppResponse<object>.Fail("Thi?u c?a hï¿½ng"));
         if (dto?.Items == null || dto.Items.Count == 0)
-            return BadRequest(AppResponse<object>.Fail("Không có v? trí"));
+            return BadRequest(AppResponse<object>.Fail("Khï¿½ng cï¿½ v? trï¿½"));
 
         var saved = 0;
         var now = DateTime.UtcNow;
@@ -722,7 +753,7 @@ public partial class PosSellIndustryController
         foreach (var item in dto.Items)
         {
             if (item.Id == Guid.Empty) continue;
-            // ExecuteUpdate ghi th?ng DB — không ph? thu?c change-tracker.
+            // ExecuteUpdate ghi th?ng DB ï¿½ khï¿½ng ph? thu?c change-tracker.
             var n = await db.PosServiceResources
                 .AsTracking().Where(r => r.Id == item.Id && r.StoreId == storeId && r.Deleted == null)
                 .ExecuteUpdateAsync(s => s
@@ -737,7 +768,7 @@ public partial class PosSellIndustryController
 
         if (saved == 0)
             return BadRequest(AppResponse<object>.Fail(
-                "Không kh?p bàn nào — ki?m tra id / c?a hàng"));
+                "Khï¿½ng kh?p bï¿½n nï¿½o ï¿½ ki?m tra id / c?a hï¿½ng"));
 
         return Ok(AppResponse<object>.Success(new { saved }));
     }
@@ -759,15 +790,15 @@ public partial class PosSellIndustryController
         bool Printed = true,
         string? DeviceName = null);
 
-    /// <summary>Ghi phi?u h?y món dã báo b?p (d?i soát / ch?ng gian l?n sau t?m tính).</summary>
+    /// <summary>Ghi phi?u h?y mï¿½n dï¿½ bï¿½o b?p (d?i soï¿½t / ch?ng gian l?n sau t?m tï¿½nh).</summary>
     [HttpPost("kitchen-voids")]
     [RequireModulePermission("PosSell", ModulePermissionAction.Create)]
     public async Task<ActionResult<AppResponse<object>>> CreateKitchenVoids([FromBody] KitchenVoidBatchDto dto)
     {
         if (!TryGetStoreId(out var storeId))
-            return BadRequest(AppResponse<object>.Fail("Thi?u c?a hàng"));
+            return BadRequest(AppResponse<object>.Fail("Thi?u c?a hï¿½ng"));
         if (dto.Lines == null || dto.Lines.Count == 0)
-            return BadRequest(AppResponse<object>.Fail("Không có dòng h?y"));
+            return BadRequest(AppResponse<object>.Fail("Khï¿½ng cï¿½ dï¿½ng h?y"));
 
         var afterBill = false;
         if (dto.ResourceSessionId.HasValue)
@@ -808,7 +839,7 @@ public partial class PosSellIndustryController
             });
         }
         if (rows.Count == 0)
-            return BadRequest(AppResponse<object>.Fail("Không có dòng h?y h?p l?"));
+            return BadRequest(AppResponse<object>.Fail("Khï¿½ng cï¿½ dï¿½ng h?y h?p l?"));
 
         db.PosKitchenVoidSlips.AddRange(rows);
         await db.SaveChangesAsync();
@@ -833,7 +864,7 @@ public partial class PosSellIndustryController
         [FromQuery] int take = 200)
     {
         if (!TryGetStoreId(out var storeId))
-            return BadRequest(AppResponse<object>.Fail("Thi?u c?a hàng"));
+            return BadRequest(AppResponse<object>.Fail("Thi?u c?a hï¿½ng"));
 
         var q = db.PosKitchenVoidSlips.AsNoTracking()
             .Where(x => x.StoreId == storeId && x.Deleted == null);

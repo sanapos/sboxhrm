@@ -149,11 +149,25 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
       final kind = commandType == 7
           ? DeviceSyncKind.attendances
           : DeviceSyncKind.deviceUsers;
+      // ATT: luôn kèm khoảng ngày → API /Attendances/sync gửi DATA QUERY ATTLOG
+      // (tránh nhánh __STAMP_SYNC__ khi bấm "Đồng bộ chấm công" không chọn ngày).
+      final now = DateTime.now();
+      final attFrom = kind == DeviceSyncKind.attendances
+          ? DateTime(now.year - 5, 1, 1)
+          : null;
+      final attTo = kind == DeviceSyncKind.attendances
+          ? DateTime(now.year, now.month, now.day, 23, 59, 59)
+          : null;
       unawaited(DeviceSyncProgressDialog.show(
         apiService: _apiService,
         kind: kind,
         devices: [
-          DeviceSyncTarget(deviceId: deviceId, deviceName: deviceName),
+          DeviceSyncTarget(
+            deviceId: deviceId,
+            deviceName: deviceName,
+            fromTime: attFrom,
+            toTime: attTo,
+          ),
         ],
       ));
       return _DeviceCommandOutcome(

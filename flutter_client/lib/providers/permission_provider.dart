@@ -51,8 +51,15 @@ class PermissionProvider extends ChangeNotifier {
 
       _loadError = false;
 
+      // Refresh rỗng khi đã có quyền → giữ cache (tránh mất nút/menu giữa ca).
       if (data.isEmpty) {
-        debugPrint('⚠️ PermissionProvider: API returned empty list - possible 403 or no modules');
+        debugPrint(
+            '⚠️ PermissionProvider: API returned empty list - possible 403 or no modules');
+        if (_isLoaded && _permissions.isNotEmpty) {
+          debugPrint(
+              '⚠️ PermissionProvider: Keeping last-known ${_permissions.length} modules');
+          return;
+        }
       }
 
       _permissions = {};

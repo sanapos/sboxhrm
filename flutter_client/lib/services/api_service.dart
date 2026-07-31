@@ -2727,8 +2727,9 @@ class ApiService {
 
   // ==================== STORE MODULES ====================
 
-  /// Lấy danh sách module được phép của cửa hàng hiện tại
-  Future<List<String>> getMyModules() async {
+  /// Lấy danh sách module được phép của cửa hàng hiện tại.
+  /// Trả `null` khi lỗi/không thành công — caller giữ cache cũ.
+  Future<List<String>?> getMyModules() async {
     try {
       final response = await http
           .get(
@@ -2740,10 +2741,12 @@ class ApiService {
       if (result['isSuccess'] == true && result['data'] != null) {
         return List<String>.from(result['data']);
       }
+      // Thành công nhưng data null → coi như danh sách rỗng thật.
+      if (result['isSuccess'] == true) return <String>[];
     } catch (e) {
       debugPrint('Error getting my modules: $e');
     }
-    return [];
+    return null;
   }
 
   // ==================== SETTINGS ====================
@@ -3249,25 +3252,25 @@ class ApiService {
     }
   }
 
-  /// Lấy quyền hiệu lực của user hiện tại (role + department, merged)
+  /// Lấy quyền hiệu lực của user hiện tại (role + department, merged).
+  /// Ném lỗi khi request thất bại — PermissionProvider giữ cache cũ.
   Future<List<Map<String, dynamic>>> getMyEffectivePermissions() async {
-    try {
-      final response = await _retryOnUnauthorized(() => http
-          .get(
-            Uri.parse('$baseUrl/api/permission-management/my-permissions'),
-            headers: _headers,
-          )
-          .timeout(const Duration(seconds: 15)));
-      final result = _handleResponse(response);
-      if (result['data'] != null && result['data'] is List) {
-        return List<Map<String, dynamic>>.from(
-            (result['data'] as List).map((e) => Map<String, dynamic>.from(e)));
-      }
-      return [];
-    } catch (e) {
-      debugPrint('Error getting effective permissions: $e');
-      return [];
+    final response = await _retryOnUnauthorized(() => http
+        .get(
+          Uri.parse('$baseUrl/api/permission-management/my-permissions'),
+          headers: _headers,
+        )
+        .timeout(const Duration(seconds: 15)));
+    final result = _handleResponse(response);
+    if (result['isSuccess'] != true) {
+      throw Exception(
+          result['message']?.toString() ?? 'Không tải được quyền module');
     }
+    if (result['data'] != null && result['data'] is List) {
+      return List<Map<String, dynamic>>.from(
+          (result['data'] as List).map((e) => Map<String, dynamic>.from(e)));
+    }
+    return [];
   }
 
   /// Lấy danh sách user (accounts) cho dropdown phân quyền
@@ -17112,6 +17115,54 @@ class ApiService {
       final response = await http
           .get(Uri.parse('$baseUrl/api/pos/service-areas'), headers: _headers)
           .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  /// Khu vực được gán cho tài khoản (manager). seeAll=true khi chưa gán.
+  Future<Map<String, dynamic>> getPosUserServiceAreas(String userId) async {
+    try {
+      final response = await http
+          .get(
+            Uri.parse('$baseUrl/api/pos/users/$userId/service-areas'),
+            headers: _headers,
+          )
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  /// Gán khu vực cho tài khoản. [areaIds] rỗng = xem tất cả khu.
+  Future<Map<String, dynamic>> setPosUserServiceAreas(
+    String userId,
+    List<String> areaIds,
+  ) async {
+    try {
+      final response = await http
+          .put(
+            Uri.parse('$baseUrl/api/pos/users/$userId/service-areas'),
+            headers: _headers,
+            body: jsonEncode({'areaIds': areaIds}),
+          )
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> getMyPosServiceAreas() async {
+    try {
+      final response = await http
+          .get(
+            Uri.parse('$baseUrl/api/pos/my-service-areas'),
+            headers: _headers,
+          )
+          .timeout(const Duration(seconds: 20));
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
