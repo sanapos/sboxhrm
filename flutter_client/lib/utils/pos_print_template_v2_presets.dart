@@ -10,10 +10,14 @@ abstract final class PosPrintTemplateV2Presets {
     required String printerProfile,
     String? name,
   }) {
-    final k58 = paperSize == PosPrintPaperSizes.k58;
-    final titleSize = k58 ? 34.0 : 38.0;
-    final bodySize = k58 ? 24.0 : 26.0;
-    final smallSize = k58 ? 22.0 : 24.0;
+    final isLabel = PosPrintPaperSizes.isLabelSize(paperSize) ||
+        PosPrintPaperSizes.isLabelDoc(documentType);
+    final k58 = paperSize == PosPrintPaperSizes.k58 ||
+        paperSize == PosPrintPaperSizes.label40x30 ||
+        paperSize == 'roll_1_40x30';
+    final titleSize = isLabel ? (k58 ? 28.0 : 30.0) : (k58 ? 34.0 : 38.0);
+    final bodySize = isLabel ? (k58 ? 20.0 : 22.0) : (k58 ? 24.0 : 26.0);
+    final smallSize = isLabel ? (k58 ? 16.0 : 18.0) : (k58 ? 22.0 : 24.0);
     final totalSize = k58 ? 28.0 : 30.0;
 
     if (documentType == PosPrintDocumentTypes.kitchenSlip ||
@@ -26,6 +30,28 @@ abstract final class PosPrintTemplateV2Presets {
         bodySize: bodySize,
         name: name,
         isCancel: documentType == PosPrintDocumentTypes.kitchenVoid,
+      );
+    }
+
+    if (documentType == PosPrintDocumentTypes.barcodeLabel) {
+      return _productLabelPreset(
+        paperSize: paperSize,
+        printerProfile: printerProfile,
+        titleSize: titleSize,
+        bodySize: bodySize,
+        smallSize: smallSize,
+        name: name,
+      );
+    }
+
+    if (documentType == PosPrintDocumentTypes.kitchenLabel) {
+      return _kitchenLabelPreset(
+        paperSize: paperSize,
+        printerProfile: printerProfile,
+        titleSize: titleSize,
+        bodySize: bodySize,
+        smallSize: smallSize,
+        name: name,
       );
     }
 
@@ -51,11 +77,16 @@ abstract final class PosPrintTemplateV2Presets {
             type: PosPrintBlockType.pair,
             leftField: 'Ma_Don_Hang',
             rightField: 'Ngay',
+            fieldLabels: const {
+              'Ma_Don_Hang': 'Số phiếu:',
+              'Ngay': 'Ngày:',
+            },
             style: PosPrintTextStyle(fontSize: bodySize, bold: true),
           ),
           PosPrintBlock(
             type: PosPrintBlockType.field,
             field: 'Nguoi_Ban',
+            label: 'NV:',
             style: PosPrintTextStyle(fontSize: bodySize),
           ),
           const PosPrintBlock(type: PosPrintBlockType.divider),
@@ -106,6 +137,10 @@ abstract final class PosPrintTemplateV2Presets {
           type: PosPrintBlockType.pair,
           leftField: 'Ma_Don_Hang',
           rightField: 'Ngay',
+          fieldLabels: const {
+            'Ma_Don_Hang': 'Số HĐ:',
+            'Ngay': 'Ngày:',
+          },
           style: PosPrintTextStyle(fontSize: bodySize, bold: true),
         ),
         PosPrintBlock(
@@ -116,11 +151,13 @@ abstract final class PosPrintTemplateV2Presets {
         PosPrintBlock(
           type: PosPrintBlockType.field,
           field: 'Khach_Hang',
+          label: 'KH:',
           style: PosPrintTextStyle(fontSize: bodySize),
         ),
         PosPrintBlock(
           type: PosPrintBlockType.field,
           field: 'SDT',
+          label: 'ĐT:',
           style: PosPrintTextStyle(fontSize: smallSize),
         ),
         const PosPrintBlock(type: PosPrintBlockType.divider),
@@ -138,6 +175,13 @@ abstract final class PosPrintTemplateV2Presets {
             'Khach_Thanh_Toan',
             'Tien_Thua',
           ],
+          fieldLabels: const {
+            'Tong_Tien_Hang': 'Tổng tiền hàng',
+            'Chiet_Khau_Hoa_Don': 'Chiết khấu',
+            'Tong_Cong': 'Tổng cộng',
+            'Khach_Thanh_Toan': 'Đã thanh toán',
+            'Tien_Thua': 'Tiền thừa',
+          },
           style: PosPrintTextStyle(fontSize: bodySize),
           rightStyle: PosPrintTextStyle(fontSize: totalSize, bold: true, align: PosPrintTextAlign.right),
         ),
@@ -160,6 +204,131 @@ abstract final class PosPrintTemplateV2Presets {
       ],
     );
   }
+
+  /// Tem dán sản phẩm — mã vạch + tên + giá.
+  static PosPrintTemplateV2 _productLabelPreset({
+    required String paperSize,
+    required String printerProfile,
+    required double titleSize,
+    required double bodySize,
+    required double smallSize,
+    String? name,
+  }) =>
+      PosPrintTemplateV2(
+        paperSize: paperSize,
+        printerProfile: printerProfile,
+        documentType: PosPrintDocumentTypes.barcodeLabel,
+        name: name ?? 'Tem sản phẩm ${PosPrintPaperSizes.labels[paperSize]}',
+        blocks: [
+          PosPrintBlock(
+            type: PosPrintBlockType.field,
+            field: 'Ten_Cua_Hang',
+            style: PosPrintTextStyle(
+              fontSize: smallSize,
+              bold: true,
+              align: PosPrintTextAlign.center,
+            ),
+          ),
+          PosPrintBlock(
+            type: PosPrintBlockType.field,
+            field: 'Ten_Hang_Hoa',
+            style: PosPrintTextStyle(
+              fontSize: bodySize + 2,
+              bold: true,
+              align: PosPrintTextAlign.center,
+            ),
+          ),
+          const PosPrintBlock(
+            type: PosPrintBlockType.barcode,
+            field: 'Ma_Vach',
+            barcodeHeight: 64,
+            barcodeShowText: true,
+          ),
+          PosPrintBlock(
+            type: PosPrintBlockType.field,
+            field: 'Ma_Hang',
+            label: 'Mã:',
+            style: PosPrintTextStyle(
+              fontSize: smallSize,
+              align: PosPrintTextAlign.center,
+            ),
+          ),
+          PosPrintBlock(
+            type: PosPrintBlockType.text,
+            text: tr('{Don_Gia} đ / {Don_Vi_Tinh}'),
+            style: PosPrintTextStyle(
+              fontSize: bodySize,
+              bold: true,
+              align: PosPrintTextAlign.center,
+            ),
+          ),
+        ],
+      );
+
+  /// Tem báo bếp / tem ly — 1 phần = 1 tem.
+  static PosPrintTemplateV2 _kitchenLabelPreset({
+    required String paperSize,
+    required String printerProfile,
+    required double titleSize,
+    required double bodySize,
+    required double smallSize,
+    String? name,
+  }) =>
+      PosPrintTemplateV2(
+        paperSize: paperSize,
+        printerProfile: printerProfile,
+        documentType: PosPrintDocumentTypes.kitchenLabel,
+        name: name ?? 'Tem báo bếp ${PosPrintPaperSizes.labels[paperSize]}',
+        blocks: [
+          PosPrintBlock(
+            type: PosPrintBlockType.text,
+            text: tr('*** TEM LY ***'),
+            style: PosPrintTextStyle(
+              fontSize: titleSize - 4,
+              bold: true,
+              align: PosPrintTextAlign.center,
+            ),
+          ),
+          PosPrintBlock(
+            type: PosPrintBlockType.field,
+            field: 'Ten_Ban',
+            label: 'Bàn:',
+            style: PosPrintTextStyle(fontSize: bodySize, bold: true),
+          ),
+          PosPrintBlock(
+            type: PosPrintBlockType.field,
+            field: 'Ma_Don_Hang',
+            label: 'HĐ:',
+            style: PosPrintTextStyle(fontSize: smallSize, bold: true),
+          ),
+          PosPrintBlock(
+            type: PosPrintBlockType.text,
+            text: tr('{Ngay} {Gio}'),
+            style: PosPrintTextStyle(fontSize: smallSize),
+          ),
+          const PosPrintBlock(type: PosPrintBlockType.divider),
+          PosPrintBlock(
+            type: PosPrintBlockType.field,
+            field: 'Ten_Hang_Hoa',
+            style: PosPrintTextStyle(
+              fontSize: bodySize + 4,
+              bold: true,
+              align: PosPrintTextAlign.center,
+            ),
+          ),
+          PosPrintBlock(
+            type: PosPrintBlockType.field,
+            field: 'Ghi_Chu',
+            style: PosPrintTextStyle(fontSize: smallSize),
+          ),
+          PosPrintBlock(
+            type: PosPrintBlockType.text,
+            text: tr('SL: {So_Luong} {Don_Vi_Tinh}'),
+            style: PosPrintTextStyle(fontSize: bodySize, bold: true),
+          ),
+          const PosPrintBlock(type: PosPrintBlockType.divider),
+        ],
+      );
 
   static PosPrintTemplateV2 _kitchenPreset({
     required String documentType,
@@ -210,24 +379,58 @@ abstract final class PosPrintTemplateV2Presets {
         ],
       );
 
-  static List<PosPrintTemplateV2> seedSetForDocument(String documentType) => [
+  static List<PosPrintTemplateV2> seedSetForDocument(String documentType) {
+    if (documentType == PosPrintDocumentTypes.kitchenLabel) {
+      return [
         build(
           documentType: documentType,
-          paperSize: PosPrintPaperSizes.k58,
-          printerProfile: PosPrintPrinterProfiles.sunmiK58,
-          name: 'Sunmi K58 — ${PosPrintDocumentTypes.all[documentType] ?? documentType}',
+          paperSize: PosPrintPaperSizes.label50x30,
+          printerProfile: PosPrintPrinterProfiles.genericK58,
+          name: 'Tem báo bếp 50×30',
         ),
         build(
           documentType: documentType,
-          paperSize: PosPrintPaperSizes.k80,
-          printerProfile: PosPrintPrinterProfiles.sunmiK80,
-          name: 'Sunmi K80 — ${PosPrintDocumentTypes.all[documentType] ?? documentType}',
-        ),
-        build(
-          documentType: documentType,
-          paperSize: PosPrintPaperSizes.k80,
-          printerProfile: PosPrintPrinterProfiles.zywellK80,
-          name: 'Zywell K80 — ${PosPrintDocumentTypes.all[documentType] ?? documentType}',
+          paperSize: PosPrintPaperSizes.label40x30,
+          printerProfile: PosPrintPrinterProfiles.genericK58,
+          name: 'Tem báo bếp 40×30',
         ),
       ];
+    }
+    if (documentType == PosPrintDocumentTypes.barcodeLabel) {
+      return [
+        build(
+          documentType: documentType,
+          paperSize: 'roll_1_50x30',
+          printerProfile: PosPrintPrinterProfiles.genericK58,
+          name: 'Tem sản phẩm 50×30',
+        ),
+        build(
+          documentType: documentType,
+          paperSize: 'roll_1_40x30',
+          printerProfile: PosPrintPrinterProfiles.genericK58,
+          name: 'Tem sản phẩm 40×30',
+        ),
+      ];
+    }
+    return [
+      build(
+        documentType: documentType,
+        paperSize: PosPrintPaperSizes.k58,
+        printerProfile: PosPrintPrinterProfiles.sunmiK58,
+        name: 'Sunmi K58 — ${PosPrintDocumentTypes.all[documentType] ?? documentType}',
+      ),
+      build(
+        documentType: documentType,
+        paperSize: PosPrintPaperSizes.k80,
+        printerProfile: PosPrintPrinterProfiles.sunmiK80,
+        name: 'Sunmi K80 — ${PosPrintDocumentTypes.all[documentType] ?? documentType}',
+      ),
+      build(
+        documentType: documentType,
+        paperSize: PosPrintPaperSizes.k80,
+        printerProfile: PosPrintPrinterProfiles.zywellK80,
+        name: 'Zywell K80 — ${PosPrintDocumentTypes.all[documentType] ?? documentType}',
+      ),
+    ];
+  }
 }

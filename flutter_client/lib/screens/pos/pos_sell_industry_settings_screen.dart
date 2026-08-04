@@ -1,21 +1,25 @@
 import 'package:flutter/material.dart';
 
-import '../../models/customer_display_models.dart';
 import '../../models/pos_sell_industry.dart';
 import '../../services/api_service.dart';
+import '../../utils/pos_sell_settings_helper.dart';
 import '../../widgets/notification_overlay.dart';
 import '../../widgets/pos/pos_theme.dart';
-import '../main_layout.dart' show ScreenRefreshNotifier;
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
-/// Cài đặt giao diện bán hàng theo ngành.
+/// Thiết lập hồ sơ ngành / tài nguyên (tách khỏi màn phụ & hủy-trả).
+///
+/// [section]: `profile` | `resources` | `all` (legacy).
 class PosSellIndustrySettingsScreen extends StatefulWidget {
   const PosSellIndustrySettingsScreen({
     super.key,
     this.embeddedInSettings = false,
+    this.section = 'all',
   });
 
   final bool embeddedInSettings;
+  /// `profile` | `resources` | `all`
+  final String section;
 
   @override
   State<PosSellIndustrySettingsScreen> createState() =>
@@ -24,11 +28,23 @@ class PosSellIndustrySettingsScreen extends StatefulWidget {
 
 class _PosSellIndustrySettingsScreenState
     extends State<PosSellIndustrySettingsScreen> {
-  final _api = ApiService();
+  late final PosSellSettingsHelper _helper =
+      PosSellSettingsHelper(ApiService());
   PosStoreSellSettingsDto? _settings;
   bool _loading = true;
   bool _saving = false;
   String? _error;
+
+  bool get _showProfile =>
+      widget.section == 'all' || widget.section == 'profile';
+  bool get _showResources =>
+      widget.section == 'all' || widget.section == 'resources';
+
+  String get _title => switch (widget.section) {
+        'profile' => 'Hồ sơ ngành & chế độ bán',
+        'resources' => 'Bàn / tài nguyên / tạm tính',
+        _ => 'Ngành hàng & bán hàng',
+      };
 
   @override
   void initState() {
@@ -41,20 +57,13 @@ class _PosSellIndustrySettingsScreenState
       _loading = true;
       _error = null;
     });
-    final res = await _api.getPosSellSettings();
+    final r = await _helper.load();
     if (!mounted) return;
-    if (res['isSuccess'] == true && res['data'] is Map) {
-      setState(() {
-        _settings = PosStoreSellSettingsDto.fromJson(
-            Map<String, dynamic>.from(res['data'] as Map));
-        _loading = false;
-      });
-    } else {
-      setState(() {
-        _error = res['message']?.toString() ?? 'Không tải được thiết lập';
-        _loading = false;
-      });
-    }
+    setState(() {
+      _settings = r.settings;
+      _error = r.error;
+      _loading = false;
+    });
   }
 
   Future<void> _save({
@@ -64,17 +73,11 @@ class _PosSellIndustrySettingsScreenState
     final s = _settings;
     if (s == null || _saving) return;
     setState(() => _saving = true);
-    final res = await _api.updatePosSellSettings(
-      s.toSaveBody(applyProfileDefaults: applyDefaults),
-    );
+    final r = await _helper.save(s, applyDefaults: applyDefaults);
     if (!mounted) return;
     setState(() => _saving = false);
-    if (res['isSuccess'] == true && res['data'] is Map) {
-      setState(() {
-        _settings = PosStoreSellSettingsDto.fromJson(
-            Map<String, dynamic>.from(res['data'] as Map));
-      });
-      ScreenRefreshNotifier.refreshPosSellIndustry();
+    if (r.settings != null) {
+      setState(() => _settings = r.settings);
       if (!quiet) {
         NotificationOverlayManager().showSuccess(
           title: 'Đã lưu',
@@ -82,15 +85,12 @@ class _PosSellIndustrySettingsScreenState
         );
       }
     } else {
-      final status = res['statusCode'];
-      final msg = res['message']?.toString() ?? 'Không lưu được';
       NotificationOverlayManager().showError(
-        title: status == 403 ? 'Không có quyền' : 'Lỗi',
-        message: status == 403
+        title: r.status == 403 ? 'Không có quyền' : 'Lỗi',
+        message: r.status == 403
             ? 'Tài khoản không có quyền sửa bán hàng / hàng hóa.'
-            : msg,
+            : (r.error ?? 'Không lưu được'),
       );
-      // Reload để UI khớp server nếu save fail.
       await _load();
     }
   }
@@ -140,12 +140,11 @@ class _PosSellIndustrySettingsScreenState
                 child: Row(
                   children: [
                     Expanded(
-                      child: Text(tr('Ngành hàng & bán hàng'),
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
+                      child: Text(tr(_title),
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                          )),
                     ),
                     if (_saving)
                       const SizedBox(
@@ -173,7 +172,7 @@ class _PosSellIndustrySettingsScreenState
     return Scaffold(
       backgroundColor: PosTheme.background,
       appBar: AppBar(
-        title: Text(tr('Ngành hàng & bán hàng')),
+        title: Text(tr(_title)),
         backgroundColor: PosTheme.kiotBlue,
         foregroundColor: Colors.white,
         actions: [
@@ -208,252 +207,139 @@ class _PosSellIndustrySettingsScreenState
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        Text(tr('Hồ sơ ngành'),
-          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
-        ),
-        const SizedBox(height: 8),
-        DropdownButtonFormField<PosSellProfile>(
-          value: s.sellProfile,
-          decoration: const InputDecoration(
-            border: OutlineInputBorder(),
-            isDense: true,
-          ),
-          items: PosSellProfile.values
-              .map((p) => DropdownMenuItem(value: p, child: Text(tr(p.label))))
-              .toList(),
-          onChanged: _saving ? null : _onProfileChanged,
-        ),
-        const SizedBox(height: 8),
-        Text(
-          tr('Đổi ngành sẽ lưu ngay và bật sẵn bàn/ghế, tính giờ hoặc gói buổi. '
-          'Chỉnh công tắc bên dưới cũng tự lưu.'),
-          style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-        ),
-        const Divider(height: 28),
-        Text(tr('Chế độ bán mặc định'),
-          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
-        ),
-        const SizedBox(height: 8),
-        DropdownButtonFormField<String>(
-          value: const {'quick', 'normal', 'delivery'}.contains(s.defaultSellMode)
-              ? s.defaultSellMode
-              : 'quick',
-          decoration: const InputDecoration(
-            border: OutlineInputBorder(),
-            isDense: true,
-          ),
-          items: [
-            DropdownMenuItem(value: 'quick', child: Text(tr('Bán nhanh'))),
-            DropdownMenuItem(value: 'normal', child: Text(tr('Bán thường'))),
-            DropdownMenuItem(value: 'delivery', child: Text(tr('Giao hàng'))),
-          ],
-          onChanged: _saving
-              ? null
-              : (v) {
-                  if (v == null) return;
-                  _patchAndSave((cur) => cur.copyWith(defaultSellMode: v));
-                },
-        ),
-        const Divider(height: 28),
-        SwitchListTile(
-          contentPadding: EdgeInsets.zero,
-          title: Text(tr('Sơ đồ bàn / ghế / phòng')),
-          subtitle: Text(tr('F&B, salon, karaoke')),
-          value: s.showFloorPlan,
-          onChanged: _saving
-              ? null
-              : (v) => _patchAndSave((cur) => cur.copyWith(showFloorPlan: v)),
-        ),
-        SwitchListTile(
-          contentPadding: EdgeInsets.zero,
-          title: Text(tr('Bật tài nguyên phục vụ')),
-          value: s.enableResources,
-          onChanged: _saving
-              ? null
-              : (v) =>
-                  _patchAndSave((cur) => cur.copyWith(enableResources: v)),
-        ),
-        SwitchListTile(
-          contentPadding: EdgeInsets.zero,
-          title: Text(tr('Bắt buộc chọn bàn/phòng khi bán')),
-          value: s.requireResourceOnSale,
-          onChanged: _saving
-              ? null
-              : (v) => _patchAndSave(
-                  (cur) => cur.copyWith(requireResourceOnSale: v)),
-        ),
-        SwitchListTile(
-          contentPadding: EdgeInsets.zero,
-          title: Text(tr('Dịch vụ tính theo giờ/phút')),
-          value: s.enableHourlyBilling,
-          onChanged: _saving
-              ? null
-              : (v) =>
-                  _patchAndSave((cur) => cur.copyWith(enableHourlyBilling: v)),
-        ),
-        SwitchListTile(
-          contentPadding: EdgeInsets.zero,
-          title: Text(tr('Gói buổi (Gym)')),
-          subtitle: Text(tr('Mua gói cộng buổi, check-in trừ buổi')),
-          value: s.enableSessionPacks,
-          onChanged: _saving
-              ? null
-              : (v) =>
-                  _patchAndSave((cur) => cur.copyWith(enableSessionPacks: v)),
-        ),
-        SwitchListTile(
-          contentPadding: EdgeInsets.zero,
-          title: Text(tr('Cho phép tạm tính')),
-          subtitle: Text(tr('Hiện nút Tạm tính — đánh dấu bàn và in hóa đơn tạm')),
-          value: s.allowProvisionalBill,
-          onChanged: _saving
-              ? null
-              : (v) => _patchAndSave(
-                  (cur) => cur.copyWith(allowProvisionalBill: v)),
-        ),
-        SwitchListTile(
-          contentPadding: EdgeInsets.zero,
-          title: Text(tr('Hỏi số khách khi mở bàn')),
-          subtitle: Text(tr(
-              'Bật thì hiện hộp nhập số khách khi mở bàn trống. '
-              'Tắt: mở bàn thẳng (mặc định 1 khách — sửa sau trên bàn).')),
-          value: s.promptGuestCountOnOpen,
-          onChanged: _saving
-              ? null
-              : (v) => _patchAndSave(
-                  (cur) => cur.copyWith(promptGuestCountOnOpen: v)),
-        ),
-        const Divider(height: 28),
-        Text(tr('Màn hình phụ (khách)'),
-          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
-        ),
-        const SizedBox(height: 4),
-        Text(tr('Chỉ máy có 2 màn (display phụ). Ảnh/video | hóa đơn. Không media → SBOX HRM.'),
-          style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-        ),
-        const SizedBox(height: 8),
-        ..._buildCustomerDisplayTiles(s),
-      ],
-    );
-  }
-
-  List<Widget> _buildCustomerDisplayTiles(PosStoreSellSettingsDto s) {
-    final cd = CustomerDisplayConfig.fromExtraJson(s.extraJson);
-    Future<void> patchCd(
-      CustomerDisplayConfig Function(CustomerDisplayConfig) fn,
-    ) {
-      return _patchAndSave((cur) {
-        final next = fn(CustomerDisplayConfig.fromExtraJson(cur.extraJson));
-        return cur.copyWith(extraJson: next.mergeIntoExtraJson(cur.extraJson));
-      });
-    }
-
-    return [
-      SwitchListTile(
-        contentPadding: EdgeInsets.zero,
-        title: Text(tr('Bật màn hình phụ')),
-        value: cd.enabled,
-        onChanged: _saving
-            ? null
-            : (v) => patchCd((c) => c.copyWith(enabled: v)),
-      ),
-      SwitchListTile(
-        contentPadding: EdgeInsets.zero,
-        title: Text(tr('Tự mở khi vào bán hàng')),
-        subtitle: Text(tr('Android: display phụ / Presentation · Web: popup')),
-        value: cd.autoOpenOnPos,
-        onChanged: _saving || !cd.enabled
-            ? null
-            : (v) => patchCd((c) => c.copyWith(autoOpenOnPos: v)),
-      ),
-      SwitchListTile(
-        contentPadding: EdgeInsets.zero,
-        title: Text(tr('Chiếu ảnh sản phẩm khi chờ')),
-        value: cd.useProductImages,
-        onChanged: _saving || !cd.enabled
-            ? null
-            : (v) => patchCd((c) => c.copyWith(useProductImages: v)),
-      ),
-      ListTile(
-        contentPadding: EdgeInsets.zero,
-        title: Text(tr('Thời gian đổi ảnh/video')),
-        trailing: DropdownButton<int>(
-          value: const {3, 5, 8, 10, 15, 20, 30}.contains(cd.idleSeconds)
-              ? cd.idleSeconds
-              : 8,
-          items: [
-            DropdownMenuItem(value: 3, child: Text(tr('3 giây'))),
-            DropdownMenuItem(value: 5, child: Text(tr('5 giây'))),
-            DropdownMenuItem(value: 8, child: Text(tr('8 giây'))),
-            DropdownMenuItem(value: 10, child: Text(tr('10 giây'))),
-            DropdownMenuItem(value: 15, child: Text(tr('15 giây'))),
-            DropdownMenuItem(value: 20, child: Text(tr('20 giây'))),
-            DropdownMenuItem(value: 30, child: Text(tr('30 giây'))),
-          ],
-          onChanged: _saving || !cd.enabled
-              ? null
-              : (v) {
-                  if (v == null) return;
-                  patchCd((c) => c.copyWith(idleSeconds: v));
-                },
-        ),
-      ),
-      ListTile(
-        contentPadding: EdgeInsets.zero,
-        title: Text(tr('URL video giới thiệu')),
-        subtitle: Text(
-          tr(cd.promoVideoUrls.isEmpty
-              ? 'Chưa có — nhấn để thêm (mỗi dòng một URL)'
-              : '${cd.promoVideoUrls.length} video'),
-          style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-        ),
-        trailing: const Icon(Icons.edit_outlined, size: 20),
-        onTap: _saving || !cd.enabled
-            ? null
-            : () => _editPromoVideos(cd, patchCd),
-      ),
-    ];
-  }
-
-  Future<void> _editPromoVideos(
-    CustomerDisplayConfig cd,
-    Future<void> Function(CustomerDisplayConfig Function(CustomerDisplayConfig))
-        patchCd,
-  ) async {
-    final ctrl = TextEditingController(text: tr(cd.promoVideoUrls.join('\n')));
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(tr('URL video promo')),
-        content: SizedBox(
-          width: 420,
-          child: TextField(
-            controller: ctrl,
-            maxLines: 6,
-            decoration: InputDecoration(
-              hintText: tr('https://...\nmỗi dòng một URL'),
+        if (_showProfile) ...[
+          Text(tr('Hồ sơ ngành'),
+              style:
+                  const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+          const SizedBox(height: 8),
+          DropdownButtonFormField<PosSellProfile>(
+            value: s.sellProfile,
+            decoration: const InputDecoration(
               border: OutlineInputBorder(),
+              isDense: true,
             ),
+            items: PosSellProfile.values
+                .map((p) =>
+                    DropdownMenuItem(value: p, child: Text(tr(p.label))))
+                .toList(),
+            onChanged: _saving ? null : _onProfileChanged,
           ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: Text(tr('Hủy')),
+          const SizedBox(height: 8),
+          Text(
+            tr('Đổi ngành sẽ lưu ngay và bật sẵn bàn/ghế, tính giờ hoặc gói buổi.'),
+            style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
           ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: Text(tr('Lưu')),
+          const Divider(height: 28),
+          Text(tr('Chế độ bán mặc định'),
+              style:
+                  const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+          const SizedBox(height: 8),
+          DropdownButtonFormField<String>(
+            value:
+                const {'quick', 'normal', 'delivery'}.contains(s.defaultSellMode)
+                    ? s.defaultSellMode
+                    : 'quick',
+            decoration: const InputDecoration(
+              border: OutlineInputBorder(),
+              isDense: true,
+            ),
+            items: [
+              DropdownMenuItem(value: 'quick', child: Text(tr('Bán nhanh'))),
+              DropdownMenuItem(value: 'normal', child: Text(tr('Bán thường'))),
+              DropdownMenuItem(
+                  value: 'delivery', child: Text(tr('Giao hàng'))),
+            ],
+            onChanged: _saving
+                ? null
+                : (v) {
+                    if (v == null) return;
+                    _patchAndSave((cur) => cur.copyWith(defaultSellMode: v));
+                  },
+          ),
+          if (_showResources) const Divider(height: 28),
+        ],
+        if (_showResources) ...[
+          Text(tr('Tài nguyên phục vụ'),
+              style:
+                  const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+          const SizedBox(height: 4),
+          Text(
+            tr('Công tắc tự lưu khi đổi.'),
+            style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+          ),
+          const SizedBox(height: 8),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: Text(tr('Sơ đồ bàn / ghế / phòng')),
+            subtitle: Text(tr('F&B, salon, karaoke')),
+            value: s.showFloorPlan,
+            onChanged: _saving
+                ? null
+                : (v) =>
+                    _patchAndSave((cur) => cur.copyWith(showFloorPlan: v)),
+          ),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: Text(tr('Bật tài nguyên phục vụ')),
+            value: s.enableResources,
+            onChanged: _saving
+                ? null
+                : (v) =>
+                    _patchAndSave((cur) => cur.copyWith(enableResources: v)),
+          ),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: Text(tr('Bắt buộc chọn bàn/phòng khi bán')),
+            value: s.requireResourceOnSale,
+            onChanged: _saving
+                ? null
+                : (v) => _patchAndSave(
+                    (cur) => cur.copyWith(requireResourceOnSale: v)),
+          ),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: Text(tr('Dịch vụ tính theo giờ/phút')),
+            value: s.enableHourlyBilling,
+            onChanged: _saving
+                ? null
+                : (v) => _patchAndSave(
+                    (cur) => cur.copyWith(enableHourlyBilling: v)),
+          ),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: Text(tr('Gói buổi (Gym)')),
+            subtitle: Text(tr('Mua gói cộng buổi, check-in trừ buổi')),
+            value: s.enableSessionPacks,
+            onChanged: _saving
+                ? null
+                : (v) => _patchAndSave(
+                    (cur) => cur.copyWith(enableSessionPacks: v)),
+          ),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: Text(tr('Cho phép tạm tính')),
+            subtitle: Text(
+                tr('Hiện nút Tạm tính — đánh dấu bàn và in hóa đơn tạm')),
+            value: s.allowProvisionalBill,
+            onChanged: _saving
+                ? null
+                : (v) => _patchAndSave(
+                    (cur) => cur.copyWith(allowProvisionalBill: v)),
+          ),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: Text(tr('Hỏi số khách khi mở bàn')),
+            subtitle: Text(tr(
+                'Bật thì hiện hộp nhập số khách khi mở bàn trống. '
+                'Tắt: mở bàn thẳng (mặc định 1 khách — sửa sau trên bàn).')),
+            value: s.promptGuestCountOnOpen,
+            onChanged: _saving
+                ? null
+                : (v) => _patchAndSave(
+                    (cur) => cur.copyWith(promptGuestCountOnOpen: v)),
           ),
         ],
-      ),
+      ],
     );
-    if (ok != true) return;
-    final urls = ctrl.text
-        .split(RegExp(r'[\r\n]+'))
-        .map((e) => e.trim())
-        .where((e) => e.isNotEmpty)
-        .toList();
-    await patchCd((c) => c.copyWith(promoVideoUrls: urls));
   }
 }

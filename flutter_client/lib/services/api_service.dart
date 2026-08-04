@@ -5834,6 +5834,47 @@ class ApiService {
     }
   }
 
+  /// Upload ảnh/video trình chiếu màn hình phụ (tối đa ~50MB).
+  Future<Map<String, dynamic>> uploadCustomerDisplayMedia(
+    List<int> fileBytes,
+    String fileName,
+  ) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/Upload/customer-display-media');
+      final request = http.MultipartRequest('POST', uri);
+      if (_token != null) request.headers['Authorization'] = 'Bearer $_token';
+
+      final ext = fileName.toLowerCase().split('.').last;
+      final mimeTypes = {
+        'jpg': 'image/jpeg',
+        'jpeg': 'image/jpeg',
+        'png': 'image/png',
+        'gif': 'image/gif',
+        'webp': 'image/webp',
+        'mp4': 'video/mp4',
+        'webm': 'video/webm',
+        'mov': 'video/quicktime',
+      };
+      final contentType = mimeTypes[ext] ?? 'application/octet-stream';
+      final mediaParts = contentType.split('/');
+
+      request.files.add(http.MultipartFile.fromBytes(
+        'file',
+        fileBytes,
+        filename: fileName.contains('.') ? fileName : '$fileName.mp4',
+        contentType: MediaType(mediaParts[0], mediaParts[1]),
+      ));
+      final streamedResponse =
+          await request.send().timeout(const Duration(minutes: 3));
+      final response = await http.Response.fromStream(streamedResponse)
+          .timeout(const Duration(minutes: 3));
+      return _handleResponse(response);
+    } catch (e) {
+      debugPrint('Error uploading customer-display media: $e');
+      return {'isSuccess': false, 'message': 'Lỗi tải media: $e'};
+    }
+  }
+
   Future<Map<String, dynamic>> addAssetImage({
     required String assetId,
     required String imageUrl,
@@ -9898,6 +9939,46 @@ class ApiService {
     }
 
     return '$baseUrl/$trimmed';
+  }
+
+  /// URL media màn hình phụ — không cần Bearer (public-serve whitelist).
+  String getPublicFileUrl(String? pathOrUrl) {
+    if (pathOrUrl == null || pathOrUrl.trim().isEmpty) return '';
+    var trimmed = pathOrUrl.trim();
+    // URL ngoài (CDN / mp4 trực tiếp) — giữ nguyên.
+    if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+      final lower = trimmed.toLowerCase();
+      // URL API serve cũ → đổi sang public-serve.
+      if (lower.contains('/api/upload/serve')) {
+        return trimmed.replaceFirst(
+          RegExp(r'/api/upload/serve', caseSensitive: false),
+          '/api/upload/public-serve',
+        );
+      }
+      // Host app + path stores/uploads → public-serve.
+      try {
+        final uri = Uri.parse(trimmed);
+        var p = uri.path;
+        if (p.startsWith('/')) p = p.substring(1);
+        if (p.startsWith('stores/') || p.startsWith('uploads/')) {
+          return '$baseUrl/api/upload/public-serve?path=${Uri.encodeQueryComponent(p)}';
+        }
+      } catch (_) {}
+      return trimmed;
+    }
+    if (trimmed.startsWith('/')) trimmed = trimmed.substring(1);
+    if (trimmed.startsWith('wwwroot/')) {
+      trimmed = trimmed.substring('wwwroot/'.length);
+    }
+    if (!trimmed.startsWith('stores/') &&
+        !trimmed.startsWith('uploads/') &&
+        trimmed.contains('uploads/pos-products')) {
+      trimmed = 'stores/$trimmed';
+    }
+    if (trimmed.startsWith('stores/') || trimmed.startsWith('uploads/')) {
+      return '$baseUrl/api/upload/public-serve?path=${Uri.encodeQueryComponent(trimmed)}';
+    }
+    return getFileUrl(pathOrUrl);
   }
 
   Future<Map<String, dynamic>> uploadEmployeePhoto(dynamic imageData,
@@ -15873,10 +15954,24 @@ class ApiService {
     }
   }
 
-  Future<Map<String, dynamic>> cancelPosSale(String id) async {
+  Future<Map<String, dynamic>> cancelPosSale(
+    String id, {
+    String? reason,
+    String? detailNote,
+    String? deviceName,
+  }) async {
     try {
+      final body = <String, dynamic>{
+        if (reason != null && reason.isNotEmpty) 'reason': reason,
+        if (detailNote != null && detailNote.isNotEmpty) 'detailNote': detailNote,
+        if (deviceName != null && deviceName.isNotEmpty) 'deviceName': deviceName,
+      };
       final response = await http
-          .post(Uri.parse('$baseUrl/api/pos/sales/$id/cancel'), headers: _headers)
+          .post(
+            Uri.parse('$baseUrl/api/pos/sales/$id/cancel'),
+            headers: _headers,
+            body: body.isEmpty ? null : jsonEncode(body),
+          )
           .timeout(const Duration(seconds: 60));
       return _handleResponse(response);
     } catch (e) {
@@ -17095,6 +17190,43 @@ class ApiService {
     }
   }
 
+  /// Đẩy state màn phụ lên server (máy khác mở link ?v=).
+  Future<Map<String, dynamic>> putPosCustomerDisplayState({
+    required String stateJson,
+    required String viewerCode,
+  }) async {
+    try {
+      final response = await http
+          .put(
+            Uri.parse('$baseUrl/api/pos/customer-display/state'),
+            headers: _headers,
+            body: jsonEncode({
+              'stateJson': stateJson,
+              'viewerCode': viewerCode,
+            }),
+          )
+          .timeout(const Duration(seconds: 15));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  /// Máy khác — đọc state công khai theo mã xem (không cần login).
+  Future<Map<String, dynamic>> getPosCustomerDisplayPublicState(
+      String viewerCode) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/pos/customer-display/public-state')
+          .replace(queryParameters: {'code': viewerCode});
+      final response = await http
+          .get(uri, headers: {'Content-Type': 'application/json'})
+          .timeout(const Duration(seconds: 15));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
   Future<Map<String, dynamic>> updatePosSellSettings(Map<String, dynamic> body) async {
     try {
       final response = await http
@@ -17537,6 +17669,37 @@ class ApiService {
       }
       if (voidedBy != null && voidedBy.isNotEmpty) q['voidedBy'] = voidedBy;
       final uri = Uri.parse('$baseUrl/api/pos/kitchen-voids')
+          .replace(queryParameters: q);
+      final response =
+          await http.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> getPosCancelReturnAudits({
+    DateTime? from,
+    DateTime? to,
+    String? actionType,
+    bool? afterBillOnly,
+    bool? beforeBillOnly,
+    String? actor,
+    String? search,
+    int take = 300,
+  }) async {
+    try {
+      final q = <String, String>{'take': '$take'};
+      if (from != null) q['from'] = from.toUtc().toIso8601String();
+      if (to != null) q['to'] = to.toUtc().toIso8601String();
+      if (actionType != null && actionType.isNotEmpty) {
+        q['actionType'] = actionType;
+      }
+      if (afterBillOnly == true) q['afterBillOnly'] = 'true';
+      if (beforeBillOnly == true) q['beforeBillOnly'] = 'true';
+      if (actor != null && actor.isNotEmpty) q['actor'] = actor;
+      if (search != null && search.isNotEmpty) q['search'] = search;
+      final uri = Uri.parse('$baseUrl/api/pos/cancel-return-audits')
           .replace(queryParameters: q);
       final response =
           await http.get(uri, headers: _headers).timeout(const Duration(seconds: 30));

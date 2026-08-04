@@ -141,11 +141,37 @@ public class PosKitchenVoidSlipConfiguration : IEntityTypeConfiguration<PosKitch
         builder.Property(x => x.ResourceName).HasMaxLength(120);
         builder.Property(x => x.UnitName).HasMaxLength(40);
         builder.Property(x => x.LineNote).HasMaxLength(300);
+        builder.Property(x => x.Reason).HasMaxLength(80);
+        builder.Property(x => x.DetailNote).HasMaxLength(500);
         builder.Property(x => x.VoidedBy).HasMaxLength(200);
         builder.Property(x => x.DeviceName).HasMaxLength(120);
         builder.Property(x => x.Qty).HasPrecision(18, 3);
         builder.HasIndex(x => new { x.StoreId, x.VoidedAt });
         builder.HasIndex(x => new { x.StoreId, x.AfterBillRequested, x.VoidedAt });
+        builder.HasOne(x => x.Store).WithMany().HasForeignKey(x => x.StoreId).OnDelete(DeleteBehavior.Cascade);
+    }
+}
+
+public class PosCancelReturnAuditConfiguration : IEntityTypeConfiguration<PosCancelReturnAudit>
+{
+    public void Configure(EntityTypeBuilder<PosCancelReturnAudit> builder)
+    {
+        builder.ToTable("PosCancelReturnAudits");
+        builder.HasKey(x => x.Id);
+        builder.Property(x => x.ActionType).HasMaxLength(40).IsRequired();
+        builder.Property(x => x.Reason).HasMaxLength(80);
+        builder.Property(x => x.DetailNote).HasMaxLength(500);
+        builder.Property(x => x.OrderNo).HasMaxLength(40);
+        builder.Property(x => x.ResourceName).HasMaxLength(120);
+        builder.Property(x => x.ProductName).HasMaxLength(200);
+        builder.Property(x => x.UnitName).HasMaxLength(40);
+        builder.Property(x => x.Actor).HasMaxLength(200);
+        builder.Property(x => x.DeviceName).HasMaxLength(120);
+        builder.Property(x => x.Qty).HasPrecision(18, 3);
+        builder.Property(x => x.Amount).HasPrecision(18, 2);
+        builder.HasIndex(x => new { x.StoreId, x.OccurredAt });
+        builder.HasIndex(x => new { x.StoreId, x.ActionType, x.OccurredAt });
+        builder.HasIndex(x => new { x.StoreId, x.AfterProvisionalBill, x.OccurredAt });
         builder.HasOne(x => x.Store).WithMany().HasForeignKey(x => x.StoreId).OnDelete(DeleteBehavior.Cascade);
     }
 }

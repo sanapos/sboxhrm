@@ -432,6 +432,48 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
       'canDelete',
       'canExport',
     },
+    'PosPrintTemplates': {
+      'canView',
+      'canCreate',
+      'canEdit',
+      'canDelete',
+    },
+    'PosSaleOrders': {'canView', 'canEdit'},
+    'PosSaleReturns': {
+      // Xem = menu/danh sách; Duyệt = thực hiện trả / hủy phiếu trả
+      'canView',
+      'canApprove',
+    },
+    'PosPurchaseReceipts': {
+      'canView',
+      'canCreate',
+      'canEdit',
+      'canDelete',
+    },
+    'PosPurchaseReturns': {
+      'canView',
+      'canCreate',
+      'canEdit',
+      'canDelete',
+    },
+    'PosStockCounts': {
+      'canView',
+      'canCreate',
+      'canEdit',
+      'canDelete',
+    },
+    'PosDamageIssues': {
+      'canView',
+      'canCreate',
+      'canEdit',
+      'canDelete',
+    },
+    'PosInternalUseIssues': {
+      'canView',
+      'canCreate',
+      'canEdit',
+      'canDelete',
+    },
     'PosSalesReport': {'canView', 'canExport'},
     'Settings': {'canView', 'canEdit'},
   };
@@ -2451,7 +2493,7 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
     }
   }
 
-  /// Nhãn quyền POS: Order / Thanh toán thay vì Thêm / Duyệt chung.
+  /// Nhãn quyền POS: Order / Thanh toán / Trả hàng thay vì Thêm / Duyệt chung.
   static String _posActionLabel(Object? module, String action) {
     if (module == 'PosSell') {
       switch (action) {
@@ -2461,6 +2503,14 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
           return 'Order';
         case 'canApprove':
           return 'Thanh toán';
+      }
+    }
+    if (module == 'PosSaleReturns') {
+      switch (action) {
+        case 'canView':
+          return 'Xem trả hàng';
+        case 'canApprove':
+          return 'Trả hàng';
       }
     }
     switch (action) {

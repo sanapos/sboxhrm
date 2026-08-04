@@ -23,6 +23,7 @@ import '../utils/attendance_record_resolver.dart';
 import '../utils/attendance_correction_dates.dart';
 import '../utils/report_screen_helpers.dart';
 import '../utils/salary_profile_load_utils.dart';
+import '../utils/paid_leave_schedule_utils.dart';
 import '../utils/shift_records_calculator.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
@@ -47,6 +48,7 @@ class _AttendanceSummaryScreenState extends State<AttendanceSummaryScreen> {
   List<Map<String, dynamic>> _shiftTemplates = [];
   List<Map<String, dynamic>> _shiftSalaryLevels = [];
   List<dynamic> _approvedLeaves = [];
+  List<Map<String, dynamic>> _workSchedules = [];
   String? _selectedBranchId;
   final _branchFilter = ReportBranchFilter();
   int _dayEndHour = 0;
@@ -259,6 +261,18 @@ class _AttendanceSummaryScreenState extends State<AttendanceSummaryScreen> {
           toDate: toStr,
           status: 'Pending',
         ).catchError((_) => <dynamic>[]),
+        (isEmployee
+                ? _apiService.getMyWorkSchedules(
+                    fromDate: _fromDate,
+                    toDate: _toDate,
+                    pageSize: 1000,
+                  )
+                : _apiService.getWorkSchedules(
+                    fromDate: _fromDate,
+                    toDate: _toDate,
+                    pageSize: 1000,
+                  ))
+            .catchError((_) => <String, dynamic>{}),
       ]);
 
       final phase2 = await Future.wait([
@@ -299,6 +313,11 @@ class _AttendanceSummaryScreenState extends State<AttendanceSummaryScreen> {
         ...(results[4] as List<dynamic>),
         ...(results[5] as List<dynamic>),
       ];
+      final workSchedules = extractWorkScheduleItems(
+        results[6] is Map<String, dynamic>
+            ? results[6] as Map<String, dynamic>
+            : <String, dynamic>{},
+      );
 
       if (mounted) {
         setState(() {
@@ -314,6 +333,7 @@ class _AttendanceSummaryScreenState extends State<AttendanceSummaryScreen> {
           _shiftTemplates = shiftTemplates;
           _shiftSalaryLevels = shiftSalaryLevels;
           _approvedLeaves = approvedLeaves;
+          _workSchedules = workSchedules;
           _allowManualCorrection = allowManual;
           _attendanceLoadTruncated = attLoad.truncated;
           _attendanceExpectedCount = attLoad.totalCount;
@@ -554,6 +574,7 @@ class _AttendanceSummaryScreenState extends State<AttendanceSummaryScreen> {
                     travelHoursByEmployeeKey: _travelHoursByEmployeeKey,
                     travelHoursByEmployeeDateKey: _travelHoursByEmployeeDateKey,
                     travelEligibleEmployeeKeys: _travelEligibleEmployeeKeys,
+                    workSchedules: _workSchedules,
                   ),
           ),
         ],

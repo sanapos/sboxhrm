@@ -1265,9 +1265,10 @@ public class ReportsController(
 
             foreach (var employee in employees)
             {
-                // free2: không xét đi trễ / về sớm theo ca.
+                // free2 / fullday: trễ/sớm gộp ở client (shift_records_calculator).
                 if (benefitByEmp.TryGetValue(employee.Id, out var empBen) &&
-                    string.Equals(empBen.AttendanceMode, "free2", StringComparison.OrdinalIgnoreCase))
+                    (string.Equals(empBen.AttendanceMode, "free2", StringComparison.OrdinalIgnoreCase)
+                     || string.Equals(empBen.AttendanceMode, "fullday", StringComparison.OrdinalIgnoreCase)))
                     continue;
 
                 var empAttendances = PinsForEmployee(pinToEmployeeId, employee.Id)

@@ -189,6 +189,9 @@ abstract final class PosCloudDocumentTypes {
   static const stockCount = 'StockCount';
   static const cashReceipt = 'CashReceipt';
   static const cashPayment = 'CashPayment';
+  static const kitchenSlip = 'KitchenSlip';
+  static const kitchenVoid = 'KitchenVoid';
+  static const kitchenLabel = 'KitchenLabel';
 
   static const labels = <String, String>{
     saleInvoice: 'Hóa đơn bán hàng',
@@ -199,7 +202,10 @@ abstract final class PosCloudDocumentTypes {
     purchaseReturn: 'Trả hàng nhập',
     stockIssue: 'Phiếu xuất kho',
     endOfDayReport: 'Tổng kết cuối ngày',
-    barcodeLabel: 'Tem mã vạch',
+    barcodeLabel: 'Tem sản phẩm',
+    kitchenLabel: 'Tem báo bếp',
+    kitchenSlip: 'Phiếu chế biến',
+    kitchenVoid: 'Phiếu hủy bếp',
     stockCount: 'Kiểm kho',
     cashReceipt: 'Phiếu thu',
     cashPayment: 'Phiếu chi',

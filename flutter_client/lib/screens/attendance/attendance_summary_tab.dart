@@ -20,6 +20,7 @@ import '../../utils/absence_day_actions.dart';
 import '../../utils/attendance_record_resolver.dart';
 import '../../utils/attendance_viewport_preserve.dart';
 import '../../utils/shift_records_calculator.dart';
+import '../../utils/paid_leave_schedule_utils.dart';
 import '../../utils/travel_hours_load_utils.dart';
 import '../../utils/travel_eligibility_utils.dart';
 import '../../services/api_service.dart';
@@ -125,6 +126,9 @@ class AttendanceSummaryTab extends StatefulWidget {
   /// NV được bật chấm đi đường trên thiết bị mobile.
   final Set<String> travelEligibleEmployeeKeys;
 
+  /// Lịch làm việc (WorkSchedule) — paidLeaveType=schedule.
+  final List<Map<String, dynamic>> workSchedules;
+
   const AttendanceSummaryTab({
     super.key,
     required this.attendances,
@@ -153,6 +157,7 @@ class AttendanceSummaryTab extends StatefulWidget {
     this.travelHoursByEmployeeKey = const {},
     this.travelHoursByEmployeeDateKey = const {},
     this.travelEligibleEmployeeKeys = const {},
+    this.workSchedules = const [],
   });
 
   @override
@@ -198,6 +203,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
 
   // Lookup maps for holiday/restday coefficients (built from salaryProfiles)
   Map<String, String> _employeeCodeToWeeklyOffDays = {};
+  Map<String, String> _employeeCodeToPaidLeaveType = {};
   Map<String, double> _employeeCodeToHolidayMultiplier = {};
   Map<String, int> _employeeCodeToHolidayOvertimeType = {};
   Map<String, int> _employeeCodeToShiftsPerDay = {};
@@ -206,6 +212,9 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
   Map<String, String> _employeeCodeToGuid = {};
   // Map employeeCode -> rateType (0=hourly,1=monthly,2=daily,3=shift)
   Map<String, int> _employeeCodeToRateType = {};
+  Set<String> _scheduleDayOffKeys = {};
+  Set<String> _scheduleWorkDayKeys = {};
+  Set<String> _employeesWithSchedule = {};
 
   // Map employeeCode -> branchName (built from widget.employeesList)
   Map<String, String> _codeTobranchName = {};
@@ -365,7 +374,8 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
     if (oldWidget.salaryProfiles != widget.salaryProfiles ||
         oldWidget.shiftTemplates != widget.shiftTemplates ||
         oldWidget.shiftSalaryLevels != widget.shiftSalaryLevels ||
-        oldWidget.employeesList != widget.employeesList) {
+        oldWidget.employeesList != widget.employeesList ||
+        oldWidget.workSchedules != widget.workSchedules) {
       _buildLookupMaps(); // already nulls _cachedSummaryRows
     } else if (oldWidget.attendances != widget.attendances ||
         oldWidget.holidays != widget.holidays ||
@@ -544,6 +554,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
       minHoursForWorkDay: widget.minHoursForWorkDay,
       decimalWorkDayEnabled: widget.decimalWorkDayEnabled,
       standardWorkHours: widget.standardWorkHours,
+      scheduleDayOffKeys: _scheduleDayOffKeys,
     );
     _shiftRecordByKey = dailyShiftRecordByAttendanceKey(records);
     _shiftRecordsFp = fp;
@@ -587,10 +598,23 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
         }
       }
     }
+    _employeeCodeToPaidLeaveType = {};
     for (final profile in widget.salaryProfiles) {
       if (profile is! Map<String, dynamic>) continue;
       final shiftsPerDay = (profile['shiftsPerDay'] as num?)?.toInt() ?? 1;
-      final weeklyOffDays = profile['weeklyOffDays']?.toString() ?? 'Sunday';
+      var weeklyOffDays = profile['weeklyOffDays']?.toString() ?? '';
+      var paidLeaveType = profile['paidLeaveType']?.toString() ?? '';
+      final nestedBenefit = profile['benefit'];
+      if (paidLeaveType.isEmpty && nestedBenefit is Map) {
+        paidLeaveType = nestedBenefit['paidLeaveType']?.toString() ?? '';
+      }
+      if (weeklyOffDays.isEmpty && nestedBenefit is Map) {
+        weeklyOffDays = nestedBenefit['weeklyOffDays']?.toString() ?? '';
+      }
+      if (isSchedulePaidLeaveType(paidLeaveType) ||
+          isFlatOffPaidLeaveType(paidLeaveType)) {
+        weeklyOffDays = '';
+      }
       final holidayMultiplier =
           (profile['holidayMultiplier'] as num?)?.toDouble() ?? 2.0;
       final holidayOvertimeType =
@@ -603,6 +627,10 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
           final guid = emp['id']?.toString() ?? '';
           if (code.isNotEmpty) {
             _employeeCodeToWeeklyOffDays[code] = weeklyOffDays;
+            _employeeCodeToPaidLeaveType[code] = paidLeaveType;
+            if (guid.isNotEmpty) {
+              _employeeCodeToPaidLeaveType[guid] = paidLeaveType;
+            }
             _employeeCodeToHolidayMultiplier[code] = holidayMultiplier;
             _employeeCodeToHolidayOvertimeType[code] = holidayOvertimeType;
             _employeeCodeToShiftsPerDay[code] = shiftsPerDay;
@@ -612,6 +640,15 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
         }
       }
     }
+    _scheduleDayOffKeys = buildScheduleDayOffKeys(
+      widget.workSchedules,
+      employeeCodeToGuid: _employeeCodeToGuid,
+    );
+    _scheduleWorkDayKeys = buildScheduleWorkDayKeys(
+      widget.workSchedules,
+      employeeCodeToGuid: _employeeCodeToGuid,
+    );
+    _employeesWithSchedule = buildEmployeesWithSchedule(widget.workSchedules);
     if (widget.employeesList != null) {
       for (final emp in widget.employeesList!) {
         final code = emp['employeeCode']?.toString() ?? '';
@@ -620,6 +657,10 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
         if (_employeeCodeToWeeklyOffDays.containsKey(code)) {
           _employeeCodeToWeeklyOffDays[pin] =
               _employeeCodeToWeeklyOffDays[code]!;
+        }
+        if (_employeeCodeToPaidLeaveType.containsKey(code)) {
+          _employeeCodeToPaidLeaveType[pin] =
+              _employeeCodeToPaidLeaveType[code]!;
         }
         if (_employeeCodeToHolidayMultiplier.containsKey(code)) {
           _employeeCodeToHolidayMultiplier[pin] =
@@ -638,7 +679,24 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
 
   /// Check if a date is a weekly off day for a given employee
   bool _isWeeklyOffDay(DateTime date, String employeeCode) {
-    final weeklyOff = _employeeCodeToWeeklyOffDays[employeeCode] ?? 'Sunday';
+    final guid = _employeeCodeToGuid[employeeCode];
+    final ids = <String>[
+      employeeCode,
+      if (guid != null && guid.isNotEmpty) guid,
+    ];
+    if (scheduleKeyHit(_scheduleDayOffKeys, date, ids)) return true;
+
+    final paidLeaveType = _employeeCodeToPaidLeaveType[employeeCode] ??
+        _employeeCodeToPaidLeaveType[guid ?? ''] ??
+        '';
+    if (isSchedulePaidLeaveType(paidLeaveType) ||
+        isFlatOffPaidLeaveType(paidLeaveType)) {
+      return false;
+    }
+
+    final weeklyOff =
+        (_employeeCodeToWeeklyOffDays[employeeCode] ?? '').trim();
+    if (weeklyOff.isEmpty) return false;
     final weekday = date.weekday;
     if (weeklyOff.contains('Sunday') && weekday == DateTime.sunday) return true;
     if (weeklyOff.contains('Saturday') && weekday == DateTime.saturday) {
@@ -1004,6 +1062,20 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
           _codeOrPinToApplicationUserId[code];
       final employeeGuid =
           _employeeCodeToGuid[empId] ?? _employeeCodeToGuid[hrCode];
+      final paidLeaveType = _employeeCodeToPaidLeaveType[hrCode] ??
+          _employeeCodeToPaidLeaveType[empId] ??
+          _employeeCodeToPaidLeaveType[employeeGuid ?? ''] ??
+          '';
+      final scheduleMode = isSchedulePaidLeaveType(paidLeaveType);
+      final hasAnySchedule = _employeesWithSchedule.contains(hrCode) ||
+          _employeesWithSchedule.contains(empId) ||
+          _employeesWithSchedule.contains(pin) ||
+          (employeeGuid != null &&
+              employeeGuid.isNotEmpty &&
+              _employeesWithSchedule.contains(employeeGuid)) ||
+          (applicationUserId != null &&
+              applicationUserId.isNotEmpty &&
+              _employeesWithSchedule.contains(applicationUserId));
 
       for (final date in dates) {
         final dateKey = _summaryDateKeyFmt.format(date);
@@ -1011,6 +1083,20 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
             (code.isNotEmpty && existing.contains('$code|$dateKey')) ||
             (pin.isNotEmpty && existing.contains('$pin|$dateKey'))) {
           continue;
+        }
+
+        final ids = <String>[
+          hrCode,
+          empId,
+          if (pin.isNotEmpty) pin,
+          if (employeeGuid != null && employeeGuid.isNotEmpty) employeeGuid,
+          if (applicationUserId != null && applicationUserId.isNotEmpty)
+            applicationUserId,
+        ];
+        if (scheduleMode) {
+          if (!hasAnySchedule) continue;
+          if (scheduleKeyHit(_scheduleDayOffKeys, date, ids)) continue;
+          if (!scheduleKeyHit(_scheduleWorkDayKeys, date, ids)) continue;
         }
 
         final kind = leaveCtx.leaveLookup.classify(

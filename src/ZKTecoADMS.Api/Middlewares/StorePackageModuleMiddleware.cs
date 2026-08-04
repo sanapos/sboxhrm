@@ -23,6 +23,8 @@ public class StorePackageModuleMiddleware
         "/api/settings/my-modules",
         "/api/settings/public",
         "/api/publicsettings",
+        "/api/upload/public-serve",
+        "/api/pos/customer-display/public-state",
         "/api/store/license",
         "/api/permission-management/my-permissions",
         "/api/notifications",
@@ -72,6 +74,7 @@ public class StorePackageModuleMiddleware
         ("/api/reports/executive", "Dashboard"),
         ("/api/reports/performance", "KPI"),
         ("/api/dashboard", "Dashboard"),
+        ("/api/pos/sales/return-history", "PosSaleReturns"),
         ("/api/pos/sales", "PosSell"),
         ("/api/pos/purchase/receipts", "PosPurchaseReceipts"),
         ("/api/pos/purchase/returns", "PosPurchaseReturns"),
@@ -83,6 +86,12 @@ public class StorePackageModuleMiddleware
         // Ledger / phiếu nhập nhanh / điều chỉnh tồn — thuộc kho hàng (PosProducts).
         ("/api/pos/stock", "PosProducts"),
         ("/api/pos/print-templates", "PosPrintTemplates"),
+        ("/api/pos/printers", "PosSell"),
+        ("/api/pos/print-jobs", "PosSell"),
+        ("/api/pos/product-printers", "PosSell"),
+        ("/api/pos/vouchers", "PosProducts"),
+        ("/api/pos/warranty", "PosSell"),
+        ("/api/pos/topping-groups", "PosProducts"),
         // Báo cáo: tách path — stock/EOD = PosProducts; doanh thu = PosSalesReport.
         // (Trước map cả /api/pos/reports → PosSalesReport khiến báo cáo tồn/EOD 403 sai.)
         ("/api/pos/reports/sales", "PosSalesReport"),
@@ -96,6 +105,8 @@ public class StorePackageModuleMiddleware
         ("/api/pos/catalog", "PosProducts"),
         ("/api/pos/products", "PosProducts"),
         ("/api/pos/price-lists", "PosSell"),
+        // Floor / ngành hàng / kitchen-void / cancel-return-audits / sell-settings…
+        ("/api/pos", "PosSell"),
     ];
 
     public StorePackageModuleMiddleware(RequestDelegate next, ILogger<StorePackageModuleMiddleware> logger)
@@ -164,6 +175,11 @@ public class StorePackageModuleMiddleware
 
     private static string? ResolveModule(string path)
     {
+        // Trả hàng bán: /api/pos/sales/{id}/return|returns/... (không chỉ return-history).
+        if (path.StartsWith("/api/pos/sales/", StringComparison.OrdinalIgnoreCase) &&
+            path.Contains("/return", StringComparison.OrdinalIgnoreCase))
+            return "PosSaleReturns";
+
         // Longer / more specific prefixes first (map order is not guaranteed to be path-length sorted).
         string? best = null;
         var bestLen = -1;
@@ -179,10 +195,15 @@ public class StorePackageModuleMiddleware
         return best;
     }
 
-    /// <summary>Gói chỉ có PosSell vẫn được đọc danh mục hàng / mẫu in phục vụ bán.</summary>
+    /// <summary>Gói chỉ có PosSell vẫn đọc catalog/mẫu in; trả hàng cũng mở nếu có PosSell.</summary>
     private static bool IsImplicitlyAllowed(
         string path, string method, string module, IReadOnlyList<string> allowed)
     {
+        // Gói có PosSell → coi như có Trả hàng bán (API + menu).
+        if (module.Equals("PosSaleReturns", StringComparison.OrdinalIgnoreCase) &&
+            allowed.Contains("PosSell", StringComparer.OrdinalIgnoreCase))
+            return true;
+
         if (!HttpMethods.IsGet(method) && !HttpMethods.IsHead(method))
             return false;
 

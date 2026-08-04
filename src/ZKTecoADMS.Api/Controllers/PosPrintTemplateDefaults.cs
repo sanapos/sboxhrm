@@ -19,6 +19,8 @@ public static class PosPrintTemplateDefaults
         PosPrintDocumentType.StockIssue => "PHIẾU BÁO XUẤT KHO",
         PosPrintDocumentType.KitchenSlip => "PHIẾU BÁO CHẾ BIẾN",
         PosPrintDocumentType.KitchenVoid => "PHIẾU HỦY BẾP",
+        PosPrintDocumentType.BarcodeLabel => "TEM SẢN PHẨM",
+        PosPrintDocumentType.KitchenLabel => "TEM BÁO BẾP",
         PosPrintDocumentType.CashReceipt => "PHIẾU THU",
         PosPrintDocumentType.CashPayment => "PHIẾU CHI",
         _ => "CHỨNG TỪ",
@@ -31,15 +33,77 @@ public static class PosPrintTemplateDefaults
             PosPrintPaperSize.K80 => $"Khổ K80 - Mẫu {variant}",
             PosPrintPaperSize.A5 => $"Khổ A5 - Mẫu {variant}",
             PosPrintPaperSize.A4 => $"Khổ A4 - Mẫu {variant}",
+            PosPrintPaperSize.Label50x30 => "Tem 50×30 mm",
+            PosPrintPaperSize.Label40x30 => "Tem 40×30 mm",
             _ => $"Mẫu {variant}",
         };
+
+    /// <summary>Khổ seed theo loại chứng từ — tem không dùng K58/K80.</summary>
+    public static IReadOnlyList<PosPrintPaperSize> SizesForDocument(PosPrintDocumentType docType)
+    {
+        if (docType is PosPrintDocumentType.BarcodeLabel or PosPrintDocumentType.KitchenLabel)
+        {
+            return new[] { PosPrintPaperSize.Label50x30, PosPrintPaperSize.Label40x30 };
+        }
+        return new[]
+        {
+            PosPrintPaperSize.K58,
+            PosPrintPaperSize.K80,
+            PosPrintPaperSize.A5,
+            PosPrintPaperSize.A4,
+        };
+    }
 
     public static string BuildHtml(PosPrintDocumentType docType, PosPrintPaperSize paperSize)
     {
         var title = DocumentTitle(docType);
+        if (docType == PosPrintDocumentType.BarcodeLabel)
+            return BuildProductLabelHtml(paperSize);
+        if (docType == PosPrintDocumentType.KitchenLabel)
+            return BuildKitchenLabelHtml(paperSize);
         return paperSize is PosPrintPaperSize.K58 or PosPrintPaperSize.K80
             ? BuildThermalHtml(title, paperSize)
             : BuildSheetHtml(title, paperSize);
+    }
+
+    static string LabelWidthCss(PosPrintPaperSize size) => size switch
+    {
+        PosPrintPaperSize.Label40x30 => "40mm",
+        PosPrintPaperSize.Label50x30 => "50mm",
+        PosPrintPaperSize.K58 => "58mm",
+        _ => "50mm",
+    };
+
+    static string BuildProductLabelHtml(PosPrintPaperSize size)
+    {
+        var width = LabelWidthCss(size);
+        return
+            "<div style=\"width:" + width +
+            ";max-width:100%;margin:0 auto;font-family:Arial,sans-serif;font-size:10px;color:#000;text-align:center\">" +
+            "<div style=\"font-weight:bold\">{Ten_Cua_Hang}</div>" +
+            "<div style=\"font-weight:bold;font-size:12px;margin:3px 0\">{Ten_Hang_Hoa}</div>" +
+            "<div style=\"letter-spacing:1px;font-family:monospace;border:1px solid #999;padding:6px;margin:4px 0\">|||| {Ma_Vach} ||||</div>" +
+            "<div>{Ma_Hang}</div>" +
+            "<div style=\"font-weight:bold;margin-top:3px\">{Don_Gia} đ / {Don_Vi_Tinh}</div>" +
+            "</div>";
+    }
+
+    static string BuildKitchenLabelHtml(PosPrintPaperSize size)
+    {
+        var width = LabelWidthCss(size);
+        return
+            "<div style=\"width:" + width +
+            ";max-width:100%;margin:0 auto;font-family:Arial,sans-serif;font-size:10px;color:#000\">" +
+            "<div style=\"text-align:center;font-weight:bold\">*** TEM LY ***</div>" +
+            "<div>Bàn: <b>{Ten_Ban}</b></div>" +
+            "<div>HĐ: {Ma_Don_Hang}</div>" +
+            "<div>{Ngay} {Gio}</div>" +
+            "<div style=\"margin:4px 0;border-top:1px dashed #999\"></div>" +
+            "<div style=\"font-weight:bold;font-size:13px\">{Ten_Hang_Hoa}</div>" +
+            "<div>{Ghi_Chu}</div>" +
+            "<div>SL: <b>{So_Luong}</b> {Don_Vi_Tinh}</div>" +
+            "<div style=\"margin-top:4px;border-top:1px dashed #999\"></div>" +
+            "</div>";
     }
 
     static string BuildThermalHtml(string title, PosPrintPaperSize size)

@@ -72,6 +72,15 @@ public class UploadController : AuthenticatedControllerBase
         { "image/avif", new[] { ".avif" } },
         { "image/x-icon", new[] { ".ico" } },
         { "application/pdf", new[] { ".pdf" } },
+        // Video — chỉ dùng cho màn hình phụ (customer-display).
+        { "video/mp4", new[] { ".mp4" } },
+        { "video/webm", new[] { ".webm" } },
+        { "video/quicktime", new[] { ".mov" } },
+    };
+
+    private static readonly HashSet<string> CustomerDisplayVideoExts = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".mp4", ".webm", ".mov",
     };
 
     /// <summary>
@@ -104,6 +113,10 @@ public class UploadController : AuthenticatedControllerBase
             ".avif" => bytesRead >= 12 && header[4] == 0x66 && header[5] == 0x74 && header[6] == 0x79 && header[7] == 0x70,
             // SVG, HEIC, HEIF - skip magic bytes check (text-based or complex container)
             ".svg" or ".heic" or ".heif" => true,
+            // MP4/MOV: ....ftyp ; WebM: EBML
+            ".mp4" or ".mov" => bytesRead >= 8
+                && header[4] == 0x66 && header[5] == 0x74 && header[6] == 0x79 && header[7] == 0x70,
+            ".webm" => header[0] == 0x1A && header[1] == 0x45 && header[2] == 0xDF && header[3] == 0xA3,
             _ => false,
         };
     }
@@ -117,17 +130,67 @@ public class UploadController : AuthenticatedControllerBase
         IFormFile file,
         [FromQuery] string? folder = "uploads")
     {
+        // Video chỉ qua endpoint customer-display-media (giới hạn dung lượng lớn hơn).
+        var ext = Path.GetExtension(file?.FileName ?? "").ToLowerInvariant();
+        if (CustomerDisplayVideoExts.Contains(ext))
+        {
+            return BadRequest(new
+            {
+                isSuccess = false,
+                message = "Upload video qua mục Màn hình phụ → Upload video (không dùng API ảnh chung)."
+            });
+        }
+
+        return await UploadStoreFileAsync(file, folder ?? "uploads", allowVideo: false, maxBytes: 10_000_000);
+    }
+
+    /// <summary>
+    /// Upload ảnh/video trình chiếu màn hình phụ (tối đa 50MB — khớp nginx).
+    /// </summary>
+    [HttpPost("customer-display-media")]
+    [RequestSizeLimit(50_000_000)]
+    [RequestFormLimits(MultipartBodyLengthLimit = 50_000_000)]
+    public Task<IActionResult> UploadCustomerDisplayMedia(IFormFile file)
+        => UploadStoreFileAsync(file, "customer-display", allowVideo: true, maxBytes: 50_000_000);
+
+    private async Task<IActionResult> UploadStoreFileAsync(
+        IFormFile? file,
+        string folder,
+        bool allowVideo,
+        long maxBytes)
+    {
         if (file == null || file.Length == 0)
         {
             return BadRequest(new { isSuccess = false, message = "No file provided" });
         }
 
+        if (file.Length > maxBytes)
+        {
+            return BadRequest(new
+            {
+                isSuccess = false,
+                message = $"File quá lớn (tối đa {maxBytes / (1024 * 1024)}MB)."
+            });
+        }
+
         // Validate file extension
         var allowedExtensions = AllowedMimeTypes.Values.SelectMany(e => e).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        if (!allowVideo)
+        {
+            foreach (var v in CustomerDisplayVideoExts)
+                allowedExtensions.Remove(v);
+        }
+
         var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
         if (!allowedExtensions.Contains(extension))
         {
-            return BadRequest(new { isSuccess = false, message = $"Định dạng {extension} không được hỗ trợ. Vui lòng chọn ảnh JPG, PNG, GIF, WEBP, BMP, TIFF, HEIC, SVG hoặc AVIF." });
+            return BadRequest(new
+            {
+                isSuccess = false,
+                message = allowVideo
+                    ? $"Định dạng {extension} không hỗ trợ. Ảnh JPG/PNG/WEBP hoặc video MP4/WebM."
+                    : $"Định dạng {extension} không được hỗ trợ. Vui lòng chọn ảnh JPG, PNG, GIF, WEBP, BMP, TIFF, HEIC, SVG hoặc AVIF."
+            });
         }
 
         // Validate MIME type matches extension
@@ -319,6 +382,18 @@ public class UploadController : AuthenticatedControllerBase
     [Authorize]
     [ResponseCache(Duration = 3600)]
     public IActionResult ServeFile([FromQuery] string path)
+        => ServeWwwrootFile(path, publicOnly: false);
+
+    /// <summary>
+    /// Media màn hình phụ (không login): chỉ customer-display + ảnh sản phẩm POS.
+    /// </summary>
+    [HttpGet("public-serve")]
+    [AllowAnonymous]
+    [ResponseCache(Duration = 3600)]
+    public IActionResult PublicServeFile([FromQuery] string path)
+        => ServeWwwrootFile(path, publicOnly: true);
+
+    private IActionResult ServeWwwrootFile(string? path, bool publicOnly)
     {
         if (string.IsNullOrWhiteSpace(path))
             return BadRequest(new { isSuccess = false, message = "Thiếu đường dẫn file" });
@@ -330,6 +405,9 @@ public class UploadController : AuthenticatedControllerBase
         if (!normalized.StartsWith("stores/", StringComparison.OrdinalIgnoreCase)
             && !normalized.StartsWith("uploads/", StringComparison.OrdinalIgnoreCase))
             return BadRequest(new { isSuccess = false, message = "Chỉ cho phép stores/ hoặc uploads/" });
+
+        if (publicOnly && !IsPublicDisplayPath(normalized))
+            return Unauthorized(new { isSuccess = false, message = "File không thuộc media màn hình phụ" });
 
         var fullPath = Path.GetFullPath(
             Path.Combine(_env.ContentRootPath, "wwwroot", normalized.Replace('/', Path.DirectorySeparatorChar)));
@@ -389,10 +467,22 @@ public class UploadController : AuthenticatedControllerBase
             ".webp" => "image/webp",
             ".gif" => "image/gif",
             ".bmp" => "image/bmp",
+            ".mp4" => "video/mp4",
+            ".webm" => "video/webm",
+            ".mov" => "video/quicktime",
             _ => "application/octet-stream",
         };
 
         return PhysicalFile(fullPath, contentType, enableRangeProcessing: true);
+    }
+
+    private static bool IsPublicDisplayPath(string normalized)
+    {
+        var n = normalized.Replace('\\', '/').ToLowerInvariant();
+        return n.Contains("/customer-display/", StringComparison.Ordinal)
+               || n.StartsWith("uploads/customer-display/", StringComparison.Ordinal)
+               || n.Contains("/pos-products/", StringComparison.Ordinal)
+               || n.Contains("uploads/pos-products", StringComparison.Ordinal);
     }
 
     /// <summary>

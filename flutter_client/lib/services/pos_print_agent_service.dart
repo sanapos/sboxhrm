@@ -69,6 +69,12 @@ class PosPrintAgentService {
   void nudgeClaim() => _scheduleClaim();
 
   Future<void> ensureRunning(String? storeId, {bool forceReregister = false}) async {
+    // Web không in được BT/LAN/USB — không đăng ký Agent (tránh claim rồi fail).
+    // Máy Android/tablet cạnh máy in mới chạy Agent.
+    if (kIsWeb) {
+      await stop();
+      return;
+    }
     if (storeId == null || storeId.isEmpty) return;
     final settings = await PosPrintAgentSettings.load();
     if (!settings.enabled) {

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/pos_print_template.dart';
 import '../services/api_service.dart';
 import '../widgets/notification_overlay.dart';
+import '../utils/pos_barcode_print.dart';
 import '../utils/pos_print_template_loader.dart';
 import '../utils/pos_print_template_defaults.dart';
 import '../utils/pos_print_template_renderer.dart';
@@ -44,11 +45,14 @@ class PosPrintTemplatesScreen extends StatefulWidget {
 class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
   final _api = ApiService();
   final _nameCtrl = TextEditingController();
+  final _docTypeScrollCtrl = ScrollController();
 
   String _docType = PosPrintDocumentTypes.saleInvoice;
   List<PosPrintTemplate> _templates = [];
   PosPrintTemplate? _selected;
   PosPrintTemplateV2? _v2Template;
+  /// Khi khác null: lưu HTML thuần (legacy), không encode V2.
+  String? _legacyHtml;
   bool _loading = true;
   bool _saving = false;
   bool _testingPrint = false;
@@ -67,6 +71,7 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
   @override
   void dispose() {
     _nameCtrl.dispose();
+    _docTypeScrollCtrl.dispose();
     super.dispose();
   }
 
@@ -79,7 +84,7 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
         _templates.firstOrNull;
 
     if (_selected != null) {
-      _v2Template = _v2FromTemplate(_selected);
+      _bindTemplateContent(_selected);
       _nameCtrl.text = _selected!.name;
     } else {
       _applyLocalDefault();
@@ -90,26 +95,56 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
     setState(() => _loading = false);
   }
 
-  void _applyLocalDefault({String paperSize = PosPrintPaperSizes.k80}) {
+  void _applyLocalDefault({String? paperSize}) {
     _selected = null;
+    _legacyHtml = null;
+    final paper = paperSize ??
+        (_docType == PosPrintDocumentTypes.kitchenLabel
+            ? PosPrintPaperSizes.label50x30
+            : _docType == PosPrintDocumentTypes.barcodeLabel
+                ? 'roll_1_50x30'
+                : PosPrintPaperSizes.k80);
     _v2Template = PosPrintTemplateV2Presets.build(
       documentType: _docType,
-      paperSize: paperSize,
-      printerProfile: PosPrintPrinterProfiles.sunmiK80,
-      name: posPrintDefaultTemplateName(paperSize),
+      paperSize: paper,
+      printerProfile: PosPrintPaperSizes.isLabelSize(paper)
+          ? PosPrintPrinterProfiles.genericK58
+          : PosPrintPrinterProfiles.sunmiK80,
+      name: posPrintDefaultTemplateName(paper),
     );
-    _nameCtrl.text = _v2Template!.name ?? posPrintDefaultTemplateName(paperSize);
+    _nameCtrl.text = _v2Template!.name ?? posPrintDefaultTemplateName(paper);
     _dirty = false;
   }
 
-  PosPrintTemplateV2 _v2FromTemplate(PosPrintTemplate? t) {
+  void _bindTemplateContent(PosPrintTemplate? t) {
     final parsed = PosPrintTemplateV2Codec.tryParse(t?.htmlContent);
-    if (parsed != null) return parsed;
+    if (parsed != null) {
+      _v2Template = parsed;
+      _legacyHtml = null;
+      return;
+    }
+    final raw = (t?.htmlContent ?? '').trim();
+    if (raw.isNotEmpty && !PosPrintTemplateV2Codec.isV2Content(raw)) {
+      // Giữ HTML thuần; vẫn tạo V2 preset để có thể quay lại chỉnh khối.
+      _legacyHtml = t!.htmlContent;
+      final paper = t.paperSize;
+      final profile = paper == PosPrintPaperSizes.k58
+          ? PosPrintPrinterProfiles.sunmiK58
+          : PosPrintPrinterProfiles.sunmiK80;
+      _v2Template = PosPrintTemplateV2Presets.build(
+        documentType: _docType,
+        paperSize: paper,
+        printerProfile: profile,
+        name: t.name,
+      );
+      return;
+    }
     final paper = t?.paperSize ?? PosPrintPaperSizes.k80;
     final profile = paper == PosPrintPaperSizes.k58
         ? PosPrintPrinterProfiles.sunmiK58
         : PosPrintPrinterProfiles.sunmiK80;
-    return PosPrintTemplateV2Presets.build(
+    _legacyHtml = null;
+    _v2Template = PosPrintTemplateV2Presets.build(
       documentType: _docType,
       paperSize: paper,
       printerProfile: profile,
@@ -129,13 +164,24 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
     setState(() {
       _selected = t;
       if (t != null) {
-        _v2Template = _v2FromTemplate(t);
+        _bindTemplateContent(t);
         _nameCtrl.text = t.name;
       } else {
         _applyLocalDefault();
       }
       _dirty = false;
     });
+  }
+
+  void _onLegacyHtml(String html) {
+    setState(() {
+      _legacyHtml = html;
+      _dirty = true;
+    });
+    NotificationOverlayManager().showSuccess(
+      title: 'HTML thuần',
+      message: tr('Đã gắn HTML. Bấm Lưu để ghi. In nhiệt nên dùng JSON V2.'),
+    );
   }
 
   Future<void> _confirmDiscard(VoidCallback onOk) async {
@@ -172,11 +218,15 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
       documentType: _docType,
       paperSize: _v2Template!.paperSize,
     );
+    final htmlContent = _legacyHtml?.trim().isNotEmpty == true
+        ? _legacyHtml!
+        : PosPrintTemplateV2Codec.encode(v2);
+    final apiPaper = PosPrintPaperSizes.toApiPaperSize(_docType, v2.paperSize);
     final body = _selected!.copyWith(
       name: name,
-      htmlContent: PosPrintTemplateV2Codec.encode(v2),
+      htmlContent: htmlContent,
       documentType: _docType,
-      paperSize: v2.paperSize,
+      paperSize: apiPaper,
     ).toSaveJson();
     final res = await _api.updatePosPrintTemplate(_selected!.id, body);
     if (!mounted) return;
@@ -193,6 +243,25 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
     }
   }
 
+  List<(String key, String label)> _paperOptionsForDoc() {
+    if (_docType == PosPrintDocumentTypes.kitchenLabel) {
+      return PosPrintPaperSizes.kitchenLabelSizes
+          .map((k) => (k, PosPrintPaperSizes.labels[k] ?? k))
+          .toList();
+    }
+    if (_docType == PosPrintDocumentTypes.barcodeLabel) {
+      return posBarcodeLabelTemplates
+          .map((t) => (t.id, '${t.name} (${t.sizeLabel})'))
+          .toList();
+    }
+    return [
+      (PosPrintPaperSizes.k58, PosPrintPaperSizes.labels[PosPrintPaperSizes.k58]!),
+      (PosPrintPaperSizes.k80, PosPrintPaperSizes.labels[PosPrintPaperSizes.k80]!),
+      (PosPrintPaperSizes.a5, PosPrintPaperSizes.labels[PosPrintPaperSizes.a5]!),
+      (PosPrintPaperSizes.a4, PosPrintPaperSizes.labels[PosPrintPaperSizes.a4]!),
+    ];
+  }
+
   Future<void> _addTemplate() async {
     final presetsRes = await _api.getPosPrintTemplatePresets(documentType: _docType);
     final presets = presetsRes['isSuccess'] == true && presetsRes['data'] is List
@@ -201,8 +270,20 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
             .toList()
         : <PosPrintTemplatePreset>[];
 
-    String paper = PosPrintPaperSizes.k80;
+    final paperOpts = _paperOptionsForDoc();
+    String paper = paperOpts.first.$1;
+    if (_docType == PosPrintDocumentTypes.barcodeLabel) {
+      paper = 'roll_1_50x30';
+    } else if (_docType == PosPrintDocumentTypes.kitchenLabel) {
+      paper = PosPrintPaperSizes.label50x30;
+    } else {
+      paper = PosPrintPaperSizes.k80;
+    }
+    if (!paperOpts.any((e) => e.$1 == paper)) {
+      paper = paperOpts.first.$1;
+    }
     final nameCtrl = TextEditingController(text: tr('Mẫu in mới'));
+    final isLabel = PosPrintPaperSizes.isLabelDoc(_docType);
 
     final ok = await showDialog<bool>(
       context: context,
@@ -210,7 +291,7 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
         builder: (ctx, setDlg) => AlertDialog(
           title: Text(tr('Thêm mẫu in')),
           content: SizedBox(
-            width: 420,
+            width: 460,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -221,36 +302,47 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
                   value: paper,
-                  decoration: InputDecoration(labelText: tr('Khổ giấy')),
-                  items: PosPrintPaperSizes.labels.entries
-                      .map((e) => DropdownMenuItem(value: e.key, child: Text(tr(e.value))))
+                  isExpanded: true,
+                  decoration: InputDecoration(
+                    labelText: tr(isLabel ? 'Khổ tem' : 'Khổ giấy'),
+                  ),
+                  items: paperOpts
+                      .map((e) => DropdownMenuItem(
+                            value: e.$1,
+                            child: Text(tr(e.$2), overflow: TextOverflow.ellipsis),
+                          ))
                       .toList(),
                   onChanged: (v) {
                     if (v == null) return;
                     setDlg(() => paper = v);
                   },
                 ),
-                const SizedBox(height: 12),
-                DropdownButtonFormField<String>(
-                  value: paper,
-                  decoration: InputDecoration(labelText: tr('Mẫu gợi ý')),
-                  items: presets
-                      .map((p) => DropdownMenuItem(
-                            value: p.paperSize,
-                            child: Text(tr(p.name)),
-                          ))
-                      .toList(),
-                  onChanged: (v) {
-                    if (v == null) return;
-                    final preset = presets.where((p) => p.paperSize == v).firstOrNull;
-                    setDlg(() {
-                      paper = v;
-                      if (preset != null && nameCtrl.text == 'Mẫu in mới') {
-                        nameCtrl.text = preset.name;
-                      }
-                    });
-                  },
-                ),
+                if (presets.isNotEmpty && !isLabel) ...[
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    value: presets.any((p) => p.paperSize == paper)
+                        ? paper
+                        : presets.first.paperSize,
+                    decoration: InputDecoration(labelText: tr('Mẫu gợi ý')),
+                    items: presets
+                        .map((p) => DropdownMenuItem(
+                              value: p.paperSize,
+                              child: Text(tr(p.name)),
+                            ))
+                        .toList(),
+                    onChanged: (v) {
+                      if (v == null) return;
+                      final preset =
+                          presets.where((p) => p.paperSize == v).firstOrNull;
+                      setDlg(() {
+                        paper = v;
+                        if (preset != null && nameCtrl.text == 'Mẫu in mới') {
+                          nameCtrl.text = preset.name;
+                        }
+                      });
+                    },
+                  ),
+                ],
               ],
             ),
           ),
@@ -263,19 +355,29 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
     );
     if (ok != true || !mounted) return;
 
+    final stock = posBarcodeLabelTemplateById(paper);
+    final displayName = nameCtrl.text.trim().isEmpty
+        ? (stock != null
+            ? '${stock.name} (${stock.sizeLabel})'
+            : (PosPrintPaperSizes.labels[paper] ?? paper))
+        : nameCtrl.text.trim();
+
+    final v2Paper = paper;
     final v2Preset = PosPrintTemplateV2Presets.build(
       documentType: _docType,
-      paperSize: paper,
-      printerProfile: paper == PosPrintPaperSizes.k58
-          ? PosPrintPrinterProfiles.sunmiK58
-          : PosPrintPrinterProfiles.zywellK80,
-      name: nameCtrl.text.trim().isEmpty ? PosPrintPaperSizes.labels[paper] : nameCtrl.text.trim(),
+      paperSize: v2Paper,
+      printerProfile: PosPrintPaperSizes.isLabelSize(v2Paper)
+          ? PosPrintPrinterProfiles.genericK58
+          : (v2Paper == PosPrintPaperSizes.k58
+              ? PosPrintPrinterProfiles.sunmiK58
+              : PosPrintPrinterProfiles.zywellK80),
+      name: displayName,
     );
 
     final res = await _api.createPosPrintTemplate({
-      'name': nameCtrl.text.trim().isEmpty ? PosPrintPaperSizes.labels[paper] : nameCtrl.text.trim(),
+      'name': displayName,
       'documentType': _docType,
-      'paperSize': paper,
+      'paperSize': PosPrintPaperSizes.toApiPaperSize(_docType, v2Paper),
       'htmlContent': PosPrintTemplateV2Codec.encode(v2Preset),
       'isDefault': _templates.isEmpty,
       'isActive': true,
@@ -294,9 +396,12 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
     if (v2 == null) return;
     setState(() => _testingPrint = true);
     try {
-      final isKitchen = v2.documentType == PosPrintDocumentTypes.kitchenSlip ||
-          v2.documentType == PosPrintDocumentTypes.kitchenVoid;
-      final output = isKitchen
+      final isKitchenSlip =
+          v2.documentType == PosPrintDocumentTypes.kitchenSlip ||
+              v2.documentType == PosPrintDocumentTypes.kitchenVoid;
+      final isLabel = v2.documentType == PosPrintDocumentTypes.barcodeLabel ||
+          v2.documentType == PosPrintDocumentTypes.kitchenLabel;
+      final output = isKitchenSlip
           ? PosPrintTemplateRuntime.compileKitchenSlip(
               template: v2,
               tableName: 'Bàn 05',
@@ -312,7 +417,7 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
           : PosPrintTemplateCompiler.compile(
               template: v2,
               data: posPrintSampleData(documentType: v2.documentType),
-              lineItems: posPrintSampleLines(),
+              lineItems: isLabel ? const [] : posPrintSampleLines(),
             );
 
       final settings = (await PosThermalPrinterSettings.load()).copyWith(
@@ -328,7 +433,7 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
             connectionType: PosThermalConnectionType.sunmi,
             printerBrand: PosThermalPrinterBrand.sunmi,
           ),
-          kitchenFeed: isKitchen,
+          kitchenFeed: isKitchenSlip || isLabel,
         );
         if (!mounted) return;
         if (ok) {
@@ -413,36 +518,51 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
           Material(
             color: Colors.white,
             child: Container(
-              height: 44,
-              padding: const EdgeInsets.symmetric(horizontal: 12),
+              height: 48,
               decoration: const BoxDecoration(
                 border: Border(bottom: BorderSide(color: PosTheme.border)),
               ),
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: PosPrintDocumentTypes.all.entries.map((e) {
-                    final active = e.key == _docType;
-                    return Padding(
-                      padding: const EdgeInsets.only(right: 4),
-                      child: TextButton(
-                        onPressed: () {
-                          if (e.key == _docType) return;
-                          _docType = e.key;
-                          _load();
-                        },
-                        style: TextButton.styleFrom(
-                          foregroundColor: active ? _blue : PosTheme.textPrimary,
-                          backgroundColor: active ? const Color(0xFFE8F0FE) : null,
-                        ),
-                        child: Text(tr(e.value),
+              child: Scrollbar(
+                controller: _docTypeScrollCtrl,
+                thumbVisibility: true,
+                trackVisibility: true,
+                scrollbarOrientation: ScrollbarOrientation.bottom,
+                child: SingleChildScrollView(
+                  controller: _docTypeScrollCtrl,
+                  scrollDirection: Axis.horizontal,
+                  primary: false,
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  child: Row(
+                    children: PosPrintDocumentTypes.all.entries.map((e) {
+                      final active = e.key == _docType;
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 4),
+                        child: TextButton(
+                          onPressed: () {
+                            if (e.key == _docType) return;
+                            _docType = e.key;
+                            _load();
+                          },
+                          style: TextButton.styleFrom(
+                            foregroundColor:
+                                active ? _blue : PosTheme.textPrimary,
+                            backgroundColor:
+                                active ? const Color(0xFFE8F0FE) : null,
+                            visualDensity: VisualDensity.compact,
+                          ),
+                          child: Text(
+                            tr(e.value),
                             style: TextStyle(
-                              fontWeight: active ? FontWeight.w600 : FontWeight.normal,
+                              fontWeight:
+                                  active ? FontWeight.w600 : FontWeight.normal,
                               fontSize: 13,
-                            )),
-                      ),
-                    );
-                  }).toList(),
+                            ),
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
                 ),
               ),
             ),
@@ -469,6 +589,27 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
                             onChanged: (_) => setState(() => _dirty = true),
                           ),
                         ),
+                        if (_legacyHtml != null)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: Material(
+                              color: const Color(0xFFFFF7ED),
+                              borderRadius: BorderRadius.circular(8),
+                              child: ListTile(
+                                dense: true,
+                                leading: const Icon(Icons.html, color: Color(0xFFB45309)),
+                                title: Text(tr('Đang dùng HTML thuần')),
+                                subtitle: Text(tr('Chỉnh khối V2 rồi lưu sẽ ghi đè HTML. Hoặc sửa HTML ở tab Mã nguồn.')),
+                                trailing: TextButton(
+                                  onPressed: () => setState(() {
+                                    _legacyHtml = null;
+                                    _dirty = true;
+                                  }),
+                                  child: Text(tr('Về V2')),
+                                ),
+                              ),
+                            ),
+                          ),
                         Expanded(
                           child: _v2Template == null
                               ? Center(child: Text(tr('Đang tải…')))
@@ -476,8 +617,10 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
                                   template: _v2Template!,
                                   onChanged: (v) => setState(() {
                                     _v2Template = v;
+                                    _legacyHtml = null;
                                     _dirty = true;
                                   }),
+                                  onLegacyHtml: _onLegacyHtml,
                                 ),
                         ),
                       ],
@@ -507,6 +650,26 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
               onChanged: (_) => setState(() => _dirty = true),
             ),
           ),
+          if (_legacyHtml != null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+              child: Material(
+                color: const Color(0xFFFFF7ED),
+                borderRadius: BorderRadius.circular(8),
+                child: ListTile(
+                  dense: true,
+                  leading: const Icon(Icons.html, color: Color(0xFFB45309), size: 22),
+                  title: Text(tr('HTML thuần'), style: TextStyle(fontSize: 13)),
+                  trailing: TextButton(
+                    onPressed: () => setState(() {
+                      _legacyHtml = null;
+                      _dirty = true;
+                    }),
+                    child: Text(tr('Về V2')),
+                  ),
+                ),
+              ),
+            ),
           Expanded(
             child: _v2Template == null
                 ? const Center(child: CircularProgressIndicator())
@@ -515,8 +678,10 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
                     template: _v2Template!,
                     onChanged: (v) => setState(() {
                       _v2Template = v;
+                      _legacyHtml = null;
                       _dirty = true;
                     }),
+                    onLegacyHtml: _onLegacyHtml,
                   ),
           ),
         ],

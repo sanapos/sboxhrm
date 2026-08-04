@@ -20,7 +20,7 @@ import 'pos_product_unit_view.dart';
 import 'pos_theme.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
-const _blue = Color(0xFF2563EB);
+const _blue = PosTheme.kiotBlue;
 
 /// Lưới hàng hóa bán trực tiếp — chế độ Bán thường (nhóm trái + lưới phải).
 class PosSellProductGrid extends StatefulWidget {
@@ -525,15 +525,15 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
     return 2;
   }
 
-  bool _useHorizontalCategories(double w) =>
-      Responsive.isMobile(context) || w < 520;
+  /// KiotViet: luôn dùng hàng pill danh mục (không rail trái).
+  bool _useHorizontalCategories(double w) => true;
 
   double _aspectRatioForWidth(double w, int cols) {
-    // Thấp hơn = card cao hơn — tránh tên/giá/tồn bị cắt trên web/tablet.
-    if (cols >= 5) return 0.72;
-    if (cols == 4) return 0.68;
-    if (cols == 3) return 0.66;
-    return 0.64;
+    // KiotViet: ảnh lớn + tên ngắn — tỉ lệ rộng hơn một chút.
+    if (cols >= 5) return 0.78;
+    if (cols == 4) return 0.74;
+    if (cols == 3) return 0.72;
+    return 0.70;
   }
 
   Future<void> _pickProduct(PosProduct p, {PosProductUnitView? view}) async {
@@ -725,17 +725,17 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
         return Container(
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(12),
             border: Border.all(
               color: outOfStock
                   ? const Color(0xFFFECACA)
-                  : const Color(0xFFE2E8F0),
+                  : const Color(0xFFE8E8E8),
             ),
             boxShadow: const [
               BoxShadow(
                 color: Color(0x0A000000),
-                blurRadius: 4,
-                offset: Offset(0, 1),
+                blurRadius: 6,
+                offset: Offset(0, 2),
               ),
             ],
           ),
@@ -750,43 +750,70 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
                     onTap: () => _pickProduct(p),
                     hoverColor: _blue.withValues(alpha: 0.04),
                     splashColor: _blue.withValues(alpha: 0.08),
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(6, 6, 6, 4),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          // Ảnh riêng — badge tồn chỉ đè góc ảnh, không che tên.
-                          Expanded(
-                            flex: 5,
-                            child: LayoutBuilder(
-                              builder: (context, c) {
-                                final side = (c.maxWidth < c.maxHeight
-                                        ? c.maxWidth
-                                        : c.maxHeight)
-                                    .clamp(36.0, 120.0);
-                                return Stack(
-                                  alignment: Alignment.center,
-                                  children: [
-                                    PosProductImage(
-                                      productId: p.id,
-                                      imageUrl: p.imageUrl,
-                                      updatedAt: p.updatedAt,
-                                      size: side,
-                                      borderRadius: 6,
-                                    ),
-                                    if (trackStock)
-                                      Positioned(
-                                        top: 0,
-                                        right: 0,
-                                        child: _stockBadge(qty: qty),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        // Ảnh + badge giá góc dưới trái (kiểu KiotViet).
+                        Expanded(
+                          flex: 5,
+                          child: LayoutBuilder(
+                            builder: (context, c) {
+                              final side = (c.maxWidth < c.maxHeight
+                                      ? c.maxWidth
+                                      : c.maxHeight)
+                                  .clamp(36.0, 160.0);
+                              return Stack(
+                                fit: StackFit.expand,
+                                children: [
+                                  ColoredBox(
+                                    color: const Color(0xFFF7F7F7),
+                                    child: Center(
+                                      child: PosProductImage(
+                                        productId: p.id,
+                                        imageUrl: p.imageUrl,
+                                        updatedAt: p.updatedAt,
+                                        size: side,
+                                        borderRadius: 0,
                                       ),
-                                  ],
-                                );
-                              },
-                            ),
+                                    ),
+                                  ),
+                                  if (trackStock)
+                                    Positioned(
+                                      top: 4,
+                                      right: 4,
+                                      child: _stockBadge(qty: qty),
+                                    ),
+                                  Positioned(
+                                    left: 0,
+                                    bottom: 0,
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 6, vertical: 3),
+                                      decoration: const BoxDecoration(
+                                        color: PosTheme.kiotBlue,
+                                        borderRadius: BorderRadius.only(
+                                          topRight: Radius.circular(6),
+                                        ),
+                                      ),
+                                      child: Text(
+                                        tr(_moneyFmt.format(price)),
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w700,
+                                          height: 1.1,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              );
+                            },
                           ),
-                          const SizedBox(height: 4),
-                          Text(
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(6, 6, 6, 4),
+                          child: Text(
                             tr(p.name),
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
@@ -794,44 +821,12 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
                             style: const TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w600,
-                              height: 1.2,
+                              height: 1.25,
                               color: PosTheme.textPrimary,
                             ),
                           ),
-                          const SizedBox(height: 2),
-                          Text(
-                            tr('${_moneyFmt.format(price)} đ'),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w700,
-                              color: _blue,
-                            ),
-                          ),
-                          if (trackStock) ...[
-                            const SizedBox(height: 2),
-                            Text(
-                              tr(
-                                reserved > 0
-                                    ? 'Tồn ${_qtyFmt.format(qty)} $unit · Đặt ${_qtyFmt.format(reserved)}'
-                                    : 'Tồn ${_qtyFmt.format(qty)} $unit',
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                                color: qty <= 0
-                                    ? const Color(0xFFB91C1C)
-                                    : const Color(0xFF475569),
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
@@ -1125,7 +1120,7 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
 
   Widget _horizontalCategoryStrip() {
     return SizedBox(
-      height: 40,
+      height: 46,
       child: _loadingCategories
           ? const Center(
               child: SizedBox(
@@ -1141,7 +1136,7 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
                     thumbVisibility: false,
                     child: ListView(
                       scrollDirection: Axis.horizontal,
-                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                      padding: const EdgeInsets.fromLTRB(12, 6, 4, 6),
                       children: [
                         _horizontalCategoryChip('Tất cả', null),
                         for (final node in buildPosCategoryTree(_categories))
@@ -1153,7 +1148,7 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
                 IconButton(
                   tooltip: tr('Sắp xếp menu'),
                   visualDensity: VisualDensity.compact,
-                  icon: const Icon(Icons.swap_vert, size: 22),
+                  icon: const Icon(Icons.swap_vert, size: 22, color: PosTheme.textSecondary),
                   onPressed: _openCatalogSort,
                 ),
               ],
@@ -1175,24 +1170,30 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
     final selected = _categoryId == id;
     return Padding(
       padding: const EdgeInsets.only(right: 8),
-      child: FilterChip(
-        label: Text(
-          tr(label),
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
-            color: selected ? Colors.white : PosTheme.textPrimary,
+      child: Material(
+        color: selected ? PosTheme.kiotBlue : Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(20),
+          onTap: () => _selectCategory(id),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: selected ? PosTheme.kiotBlue : const Color(0xFFD9D9D9),
+              ),
+            ),
+            child: Text(
+              tr(label),
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                color: selected ? Colors.white : PosTheme.textPrimary,
+              ),
+            ),
           ),
         ),
-        selected: selected,
-        showCheckmark: false,
-        padding: const EdgeInsets.symmetric(horizontal: 4),
-        backgroundColor: const Color(0xFFF1F5F9),
-        selectedColor: _blue,
-        side: BorderSide(
-          color: selected ? _blue : const Color(0xFFE2E8F0),
-        ),
-        onSelected: (_) => _selectCategory(id),
       ),
     );
   }

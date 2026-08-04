@@ -9,6 +9,12 @@ public static class ShiftMatchHelper
 {
     public const int DefaultMaxDistanceMinutes = 180;
 
+    /// <summary>
+    /// Ca qua đêm theo đồng hồ: giờ vào &gt; giờ ra (vd. 22:00–06:00).
+    /// Vào = ra (vd. 06:00–06:00) <b>không</b> phải qua đêm — không ghép ca 24h.
+    /// </summary>
+    public static bool IsOvernight(TimeSpan start, TimeSpan end) => start > end;
+
     public sealed record Candidate(
         Guid Id,
         TimeSpan StartTime,
@@ -116,7 +122,7 @@ public static class ShiftMatchHelper
 
     public static int MinutesLateAfterStart(TimeSpan punch, TimeSpan start, TimeSpan end)
     {
-        var overnight = start > end;
+        var overnight = IsOvernight(start, end);
         if (!overnight)
             return punch > start ? (int)(punch - start).TotalMinutes : 0;
 
@@ -158,7 +164,7 @@ public static class ShiftMatchHelper
     {
         var start = st.StartTime;
         var end = st.EndTime;
-        var overnight = start > end;
+        var overnight = IsOvernight(start, end);
         var lateGrace = Math.Max(st.LateGraceMinutes, 0);
         var earlyGrace = Math.Max(st.EarlyLeaveGraceMinutes, 0);
         var earlyCheckIn = st.EarlyCheckInMinutes > 0 ? st.EarlyCheckInMinutes : 30;
@@ -168,12 +174,32 @@ public static class ShiftMatchHelper
         int rawLateIn = 0;
         if (overnight)
         {
-            if (punchIn < start && punchIn > end)
-                rawEarlyIn = (int)(start - punchIn).TotalMinutes;
+            // Cửa sổ vào sớm [start − earlyCheckIn, start) — hỗ trợ ca gần 24h
+            // (06:00–05:59) khi khoảng (end, start) chỉ còn ~1 phút.
+            var earlyFrom = start - TimeSpan.FromMinutes(earlyCheckIn);
+            if (earlyFrom < TimeSpan.Zero)
+                earlyFrom += TimeSpan.FromDays(1);
+
+            var inEarlyWindow = earlyFrom < start
+                ? punchIn >= earlyFrom && punchIn < start
+                : punchIn >= earlyFrom || punchIn < start;
+
+            if (inEarlyWindow)
+            {
+                rawEarlyIn = punchIn <= start
+                    ? (int)(start - punchIn).TotalMinutes
+                    : (int)(start + TimeSpan.FromDays(1) - punchIn).TotalMinutes;
+            }
             else if (punchIn >= start)
                 rawLateIn = (int)(punchIn - start).TotalMinutes;
             else if (punchIn <= end)
                 rawLateIn = (int)((TimeSpan.FromDays(1) - start) + punchIn).TotalMinutes;
+            else
+            {
+                rawEarlyIn = (int)(start - punchIn).TotalMinutes;
+                if (rawEarlyIn < 0)
+                    rawEarlyIn += 1440;
+            }
         }
         else
         {
@@ -206,7 +232,7 @@ public static class ShiftMatchHelper
 
     private static int RawEarlyOutMinutes(TimeSpan punchOut, TimeSpan start, TimeSpan end)
     {
-        var overnight = start > end;
+        var overnight = IsOvernight(start, end);
         if (!overnight)
             return punchOut < end ? (int)(end - punchOut).TotalMinutes : 0;
 
@@ -220,7 +246,7 @@ public static class ShiftMatchHelper
     private static bool IsPunchOutInWindow(
         TimeSpan punch, TimeSpan start, TimeSpan end, int maxEarlyMinutes)
     {
-        var overnight = start > end;
+        var overnight = IsOvernight(start, end);
         var fallbackWindow = TimeSpan.FromHours(2);
         var earlyLimit = TimeSpan.FromMinutes(Math.Max(maxEarlyMinutes, (int)fallbackWindow.TotalMinutes));
 

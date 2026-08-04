@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 
 import '../../models/cash_transaction.dart';
 import '../../services/api_service.dart';
+import '../../widgets/cash_party_picker.dart';
 import '../../widgets/notification_overlay.dart';
 import 'pos_theme.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
@@ -168,7 +169,8 @@ class _PosCashVoucherDialogState extends State<_PosCashVoucherDialog> {
           padding: const EdgeInsets.all(20),
           child: _loadingCats
               ? const SizedBox(height: 120, child: Center(child: CircularProgressIndicator()))
-              : Column(
+              : SingleChildScrollView(
+                  child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
@@ -181,13 +183,20 @@ class _PosCashVoucherDialogState extends State<_PosCashVoucherDialog> {
                       ],
                     ),
                     const SizedBox(height: 16),
-                    TextField(
-                      controller: _contactCtrl,
-                      decoration: InputDecoration(
-                        labelText: tr(_isIncome ? 'Thu từ khách' : 'Chi cho'),
-                        border: const OutlineInputBorder(),
-                        isDense: true,
-                      ),
+                    CashPartyPicker(
+                      nameController: _contactCtrl,
+                      phoneController: _phoneCtrl,
+                      dense: true,
+                      initialKind: (widget.initialContactName ?? '')
+                              .trim()
+                              .isNotEmpty
+                          ? CashPartyKind.other
+                          : CashPartyKind.customer,
+                      enableDebtCollect:
+                          widget.type == CashTransactionType.income,
+                      onDebtCollected: (_) {
+                        if (mounted) Navigator.pop(context, true);
+                      },
                     ),
                     const SizedBox(height: 12),
                     TextField(
@@ -276,6 +285,7 @@ class _PosCashVoucherDialogState extends State<_PosCashVoucherDialog> {
                     ),
                   ],
                 ),
+              ),
         ),
       ),
     );

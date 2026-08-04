@@ -23,6 +23,7 @@ import '../utils/shift_records_calculator.dart';
 import '../utils/attendance_correction_privilege.dart';
 import '../utils/vietnamese_font.dart';
 import '../utils/salary_profile_load_utils.dart';
+import '../utils/paid_leave_schedule_utils.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// M\u00e0n h\u00ecnh t\u1ed5ng h\u1ee3p ch\u1ea5m c\u00f4ng theo ca \u2014 wrapper cho [AttendanceByShiftTab].
@@ -47,6 +48,7 @@ class _AttendanceByShiftScreenState extends State<AttendanceByShiftScreen> {
   List<Map<String, dynamic>> _salaryProfiles = [];
   List<dynamic> _holidays = [];
   List<dynamic> _approvedLeaves = [];
+  List<Map<String, dynamic>> _workSchedules = [];
   int _dayEndHour = 0;
   int _dayEndMinute = 0;
   double _minHoursForWorkDay = 0;
@@ -237,6 +239,18 @@ class _AttendanceByShiftScreenState extends State<AttendanceByShiftScreen> {
           _apiService,
           employeesList: _branchFilter.employees,
         ),
+        (isEmployee
+                ? _apiService.getMyWorkSchedules(
+                    fromDate: _fromDate,
+                    toDate: _toDate,
+                    pageSize: 1000,
+                  )
+                : _apiService.getWorkSchedules(
+                    fromDate: _fromDate,
+                    toDate: _toDate,
+                    pageSize: 1000,
+                  ))
+            .catchError((_) => <String, dynamic>{}),
       ]);
 
       final shiftsRaw = p2[0] as List;
@@ -268,6 +282,11 @@ class _AttendanceByShiftScreenState extends State<AttendanceByShiftScreen> {
       ];
       final travelMaps = p2[7] as TravelHoursMaps;
       final travelEligibleKeys = p2[8] as Set<String>;
+      final workSchedules = extractWorkScheduleItems(
+        p2[9] is Map<String, dynamic>
+            ? p2[9] as Map<String, dynamic>
+            : <String, dynamic>{},
+      );
 
       if (mounted) {
         setState(() {
@@ -278,6 +297,7 @@ class _AttendanceByShiftScreenState extends State<AttendanceByShiftScreen> {
           _salaryProfiles = salaryProfiles;
           _holidays = holidaysResult;
           _approvedLeaves = approvedLeaves;
+          _workSchedules = workSchedules;
           _dayEndHour = deh;
           _dayEndMinute = dem;
           _minHoursForWorkDay = minHoursForWorkDay;
@@ -467,6 +487,7 @@ class _AttendanceByShiftScreenState extends State<AttendanceByShiftScreen> {
                     travelHoursByEmployeeKey: _travelHoursByEmployeeKey,
                     travelHoursByEmployeeDateKey: _travelHoursByEmployeeDateKey,
                     travelEligibleEmployeeKeys: _travelEligibleEmployeeKeys,
+                    workSchedules: _workSchedules,
                   ),
                 ),
                 if (_isLoading)

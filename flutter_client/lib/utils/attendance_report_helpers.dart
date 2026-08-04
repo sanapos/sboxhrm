@@ -21,6 +21,9 @@ bool isEmployeeRestDay(
     case 'sat-afternoon-sun':
       // Chiều T7 nửa công — cả ngày T7 vẫn tính ngày làm việc sáng → chỉ CN nghỉ.
       return day.weekday == DateTime.sunday;
+    case 'schedule':
+      // Ngày nghỉ lấy từ Lịch làm việc (isDayOff) — không cố định T7/CN.
+      return false;
     case 'off-1':
     case 'off-2':
     case 'off-3':
@@ -29,7 +32,9 @@ bool isEmployeeRestDay(
       return false;
   }
 
-  final weekly = weeklyOffDays ?? 'Sunday';
+  // Không mặc định Chủ nhật khi trống (tránh OT nhầm khi làm CN).
+  final weekly = (weeklyOffDays ?? '').trim();
+  if (weekly.isEmpty) return false;
   if (weekly.contains('Sunday') && day.weekday == DateTime.sunday) return true;
   if (weekly.contains('Saturday') && day.weekday == DateTime.saturday) {
     return true;

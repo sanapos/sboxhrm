@@ -58,6 +58,64 @@ class ServicePackagesTabState extends State<ServicePackagesTab> {
     return grouped;
   }
 
+  /// Khớp PosPackageDefaults.SellModules (backend).
+  static const List<String> _posSellPreset = [
+    'PosProducts',
+    'PosSell',
+    'PosPrintTemplates',
+    'PosSaleOrders',
+    'PosSaleReturns',
+    'PosSalesReport',
+  ];
+
+  /// Khớp PosPackageDefaults.SellWarehouseModules / FullModules.
+  static const List<String> _posSellWarehousePreset = [
+    'PosProducts',
+    'PosSell',
+    'PosPrintTemplates',
+    'PosSaleOrders',
+    'PosSaleReturns',
+    'PosPurchaseReceipts',
+    'PosPurchaseReturns',
+    'PosStockCounts',
+    'PosDamageIssues',
+    'PosInternalUseIssues',
+    'PosSalesReport',
+  ];
+
+  static const List<String> _posFullPreset = _posSellWarehousePreset;
+
+  Widget _posPresetChip(
+    void Function(void Function()) setDialogState,
+    Set<String> selectedModules, {
+    required String label,
+    required List<String> codes,
+  }) {
+    final available = _availableModules
+        .map((m) => m['code']?.toString() ?? '')
+        .where((c) => c.isNotEmpty)
+        .toSet();
+    final apply = codes.where(available.contains).toList();
+    final active = apply.isNotEmpty && apply.every(selectedModules.contains);
+    return ActionChip(
+      label: Text(tr(label), style: const TextStyle(fontSize: 12)),
+      avatar: Icon(
+        active ? Icons.check_circle : Icons.point_of_sale_outlined,
+        size: 16,
+        color: active ? AdminHelpers.primary : Colors.grey.shade600,
+      ),
+      onPressed: apply.isEmpty
+          ? null
+          : () {
+              setDialogState(() {
+                // Chỉ thay nhóm POS — giữ module HRM đã chọn.
+                selectedModules.removeWhere((c) => c.startsWith('Pos'));
+                selectedModules.addAll(apply);
+              });
+            },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_isLoading) return const Center(child: CircularProgressIndicator());
@@ -399,6 +457,35 @@ class ServicePackagesTabState extends State<ServicePackagesTab> {
                           '${selectedModules.length}/${_availableModules.length}',
                           AdminHelpers.primary),
                     ]),
+                    const SizedBox(height: 8),
+                    Text(tr('Preset POS'),
+                        style: TextStyle(
+                            fontSize: 12, color: Colors.grey.shade600)),
+                    const SizedBox(height: 6),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: [
+                        _posPresetChip(
+                          setDialogState,
+                          selectedModules,
+                          label: 'POS bán hàng',
+                          codes: _posSellPreset,
+                        ),
+                        _posPresetChip(
+                          setDialogState,
+                          selectedModules,
+                          label: 'POS + kho',
+                          codes: _posSellWarehousePreset,
+                        ),
+                        _posPresetChip(
+                          setDialogState,
+                          selectedModules,
+                          label: 'POS đầy đủ',
+                          codes: _posFullPreset,
+                        ),
+                      ],
+                    ),
                     const Divider(),
                     // Module categories
                     ...grouped.entries.map((entry) {

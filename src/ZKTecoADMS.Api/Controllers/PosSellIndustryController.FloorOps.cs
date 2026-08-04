@@ -788,7 +788,9 @@ public partial class PosSellIndustryController
         Guid? ServiceResourceId = null,
         string? ResourceName = null,
         bool Printed = true,
-        string? DeviceName = null);
+        string? DeviceName = null,
+        string? Reason = null,
+        string? DetailNote = null);
 
     /// <summary>Ghi phi?u h?y m�n d� b�o b?p (d?i so�t / ch?ng gian l?n sau t?m t�nh).</summary>
     [HttpPost("kitchen-voids")]
@@ -828,6 +830,8 @@ public partial class PosSellIndustryController
                 UnitName = line.UnitName?.Trim(),
                 Qty = line.Qty,
                 LineNote = line.LineNote?.Trim(),
+                Reason = dto.Reason?.Trim(),
+                DetailNote = dto.DetailNote?.Trim(),
                 AfterBillRequested = afterBill,
                 Printed = dto.Printed,
                 VoidedAt = now,
@@ -842,6 +846,34 @@ public partial class PosSellIndustryController
             return BadRequest(AppResponse<object>.Fail("Kh�ng c� d�ng h?y h?p l?"));
 
         db.PosKitchenVoidSlips.AddRange(rows);
+        foreach (var r in rows)
+        {
+            db.PosCancelReturnAudits.Add(new PosCancelReturnAudit
+            {
+                Id = Guid.NewGuid(),
+                StoreId = storeId,
+                ActionType = "KitchenVoid",
+                Reason = r.Reason,
+                DetailNote = r.DetailNote,
+                AfterProvisionalBill = afterBill,
+                SaleOrderId = r.SaleOrderId,
+                OrderNo = r.OrderNo,
+                ResourceSessionId = r.ResourceSessionId,
+                ServiceResourceId = r.ServiceResourceId,
+                ResourceName = r.ResourceName,
+                ProductId = r.ProductId,
+                ProductName = r.ProductName,
+                UnitName = r.UnitName,
+                Qty = r.Qty,
+                Amount = 0,
+                OccurredAt = now,
+                Actor = who,
+                DeviceName = r.DeviceName,
+                IsActive = true,
+                CreatedAt = now,
+                CreatedBy = who,
+            });
+        }
         await db.SaveChangesAsync();
         return Ok(AppResponse<object>.Success(new
         {
@@ -897,6 +929,8 @@ public partial class PosSellIndustryController
                 x.UnitName,
                 x.Qty,
                 x.LineNote,
+                x.Reason,
+                x.DetailNote,
                 x.AfterBillRequested,
                 x.Printed,
                 x.VoidedAt,
@@ -913,11 +947,130 @@ public partial class PosSellIndustryController
         }));
     }
 
+    /// <summary>Lịch sử hủy món / hủy đơn / trả hàng (lọc thao tác + trước/sau tạm tính).</summary>
+    [HttpGet("cancel-return-audits")]
+    [RequireModulePermission("PosSell", ModulePermissionAction.View)]
+    public async Task<ActionResult<AppResponse<object>>> ListCancelReturnAudits(
+        [FromQuery] DateTime? from = null,
+        [FromQuery] DateTime? to = null,
+        [FromQuery] string? actionType = null,
+        [FromQuery] bool? afterBillOnly = null,
+        [FromQuery] bool? beforeBillOnly = null,
+        [FromQuery] string? actor = null,
+        [FromQuery] string? search = null,
+        [FromQuery] int take = 300)
+    {
+        if (!TryGetStoreId(out var storeId))
+            return BadRequest(AppResponse<object>.Fail("Thiếu cửa hàng"));
+
+        var q = db.PosCancelReturnAudits.AsNoTracking()
+            .Where(x => x.StoreId == storeId && x.Deleted == null);
+        if (from.HasValue) q = q.Where(x => x.OccurredAt >= from.Value.ToUniversalTime());
+        if (to.HasValue) q = q.Where(x => x.OccurredAt <= to.Value.ToUniversalTime());
+        if (!string.IsNullOrWhiteSpace(actionType))
+        {
+            var at = actionType.Trim();
+            q = q.Where(x => x.ActionType == at);
+        }
+        if (afterBillOnly == true) q = q.Where(x => x.AfterProvisionalBill);
+        if (beforeBillOnly == true) q = q.Where(x => !x.AfterProvisionalBill);
+        if (!string.IsNullOrWhiteSpace(actor))
+        {
+            var a = actor.Trim().ToLower();
+            q = q.Where(x => x.Actor != null && x.Actor.ToLower().Contains(a));
+        }
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var s = search.Trim().ToLower();
+            q = q.Where(x =>
+                (x.OrderNo != null && x.OrderNo.ToLower().Contains(s)) ||
+                (x.ResourceName != null && x.ResourceName.ToLower().Contains(s)) ||
+                (x.ProductName != null && x.ProductName.ToLower().Contains(s)) ||
+                (x.Reason != null && x.Reason.ToLower().Contains(s)) ||
+                (x.DetailNote != null && x.DetailNote.ToLower().Contains(s)));
+        }
+
+        take = Math.Clamp(take, 1, 500);
+        var list = await q.OrderByDescending(x => x.OccurredAt).Take(take)
+            .Select(x => new
+            {
+                x.Id,
+                x.ActionType,
+                x.Reason,
+                x.DetailNote,
+                x.AfterProvisionalBill,
+                x.SaleOrderId,
+                x.OrderNo,
+                x.ServiceResourceId,
+                x.ResourceName,
+                x.ProductName,
+                x.UnitName,
+                x.Qty,
+                x.Amount,
+                x.OccurredAt,
+                x.Actor,
+                x.DeviceName,
+            })
+            .ToListAsync();
+
+        return Ok(AppResponse<object>.Success(new
+        {
+            items = list,
+            kitchenVoidCount = list.Count(x => x.ActionType == "KitchenVoid"),
+            saleCancelCount = list.Count(x => x.ActionType == "SaleCancel"),
+            saleReturnCount = list.Count(x => x.ActionType == "SaleReturn"),
+            afterBillCount = list.Count(x => x.AfterProvisionalBill),
+            beforeBillCount = list.Count(x => !x.AfterProvisionalBill),
+        }));
+    }
+
     static void RecalcOrderTotals(PosSaleOrder order)
     {
         var lines = order.Lines?.Where(l => l.Deleted == null).ToList() ?? [];
         order.SubTotal = lines.Sum(l => l.LineTotal);
         order.Total = Math.Max(0, order.SubTotal - order.Discount);
         order.UpdatedAt = DateTime.UtcNow;
+    }
+
+    public record CustomerDisplayStateDto(string StateJson, string? ViewerCode = null);
+
+    /// <summary>POS đẩy trạng thái màn phụ lên server (máy khác mở link vẫn xem được).</summary>
+    [HttpPut("customer-display/state")]
+    [RequireModulePermission("PosSell", ModulePermissionAction.View)]
+    public ActionResult<AppResponse<object>> PutCustomerDisplayState([FromBody] CustomerDisplayStateDto dto)
+    {
+        if (!TryGetStoreId(out var storeId))
+            return BadRequest(AppResponse<object>.Fail("Thiếu cửa hàng"));
+        if (string.IsNullOrWhiteSpace(dto.StateJson))
+            return BadRequest(AppResponse<object>.Fail("Thiếu state"));
+
+        var code = (dto.ViewerCode ?? "").Trim();
+        if (code.Length < 4)
+            return BadRequest(AppResponse<object>.Fail("Thiếu mã xem màn phụ (viewerCode)"));
+
+        ZKTecoADMS.Api.Services.PosCustomerDisplayStateStore.Publish(storeId, code, dto.StateJson.Trim());
+        return Ok(AppResponse<object>.Success(new { ok = true }));
+    }
+
+    /// <summary>Máy đã đăng nhập — đọc state mới nhất của cửa hàng.</summary>
+    [HttpGet("customer-display/state")]
+    [RequireModulePermission("PosSell", ModulePermissionAction.View)]
+    public ActionResult<AppResponse<object>> GetCustomerDisplayState()
+    {
+        if (!TryGetStoreId(out var storeId))
+            return BadRequest(AppResponse<object>.Fail("Thiếu cửa hàng"));
+        var json = ZKTecoADMS.Api.Services.PosCustomerDisplayStateStore.GetByStore(storeId);
+        return Ok(AppResponse<object>.Success(new { stateJson = json }));
+    }
+
+    /// <summary>Máy khác mở link công khai ?v=CODE — không cần đăng nhập.</summary>
+    [HttpGet("customer-display/public-state")]
+    [Microsoft.AspNetCore.Authorization.AllowAnonymous]
+    public ActionResult<object> GetCustomerDisplayPublicState([FromQuery] string? code)
+    {
+        var json = ZKTecoADMS.Api.Services.PosCustomerDisplayStateStore.GetByViewerCode(code);
+        if (string.IsNullOrWhiteSpace(json))
+            return NotFound(new { isSuccess = false, message = "Chưa có dữ liệu màn phụ — mở bán hàng trên máy thu ngân trước" });
+        return Ok(new { isSuccess = true, data = new { stateJson = json } });
     }
 }

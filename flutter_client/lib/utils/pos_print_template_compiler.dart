@@ -64,6 +64,19 @@ class PosPrintCompiledQr {
   final String? amountText;
 }
 
+/// Khối in mã vạch CODE128.
+class PosPrintCompiledBarcode {
+  const PosPrintCompiledBarcode({
+    required this.data,
+    this.height = 60,
+    this.showText = true,
+  });
+
+  final String data;
+  final int height;
+  final bool showText;
+}
+
 /// Kết quả biên dịch mẫu V2.
 class PosPrintCompiledOutput {
   const PosPrintCompiledOutput({
@@ -83,7 +96,8 @@ class PosPrintCompiledOutput {
 
 /// Biên dịch mẫu V2 → HTML preview + dòng in nhiệt/Sunmi.
 abstract final class PosPrintTemplateCompiler {
-  static const _totalLabels = {
+  /// Nhãn mặc định cho các dòng tổng — UI / presets có thể ghi đè qua fieldLabels.
+  static const defaultTotalLabels = <String, String>{
     'Tong_Tien_Hang': 'Tổng tiền hàng',
     'Chiet_Khau_Hoa_Don': 'Chiết khấu',
     'Tong_Cong': 'Tổng cộng',
@@ -92,7 +106,37 @@ abstract final class PosPrintTemplateCompiler {
     'Tien_Thua': 'Tiền thừa',
     'Con_Lai': 'Còn lại',
     'Hinh_Thuc_Thanh_Toan': 'HTTT',
+    'Tong_Cong_Bang_Chu': 'Bằng chữ',
   };
+
+  static const defaultColumnLabels = <String, String>{
+    'Ten_Hang_Hoa': 'Tên hàng',
+    'Don_Gia': 'Đ.giá',
+    'So_Luong': 'SL',
+    'Thanh_Tien': 'TT',
+  };
+
+  static String resolveFieldLabel(
+    PosPrintBlock block,
+    String token, {
+    String? fallback,
+  }) {
+    final custom = block.fieldLabels?[token]?.trim();
+    if (custom != null && custom.isNotEmpty) return custom;
+    if (fallback != null && fallback.isNotEmpty) return fallback;
+    return defaultTotalLabels[token] ??
+        defaultColumnLabels[token] ??
+        token;
+  }
+
+  static String _withPrefix(String? label, String value) {
+    final l = (label ?? '').trim();
+    if (l.isEmpty) return value;
+    if (l.endsWith(':') || l.endsWith('：') || l.endsWith(' ')) {
+      return '$l$value';
+    }
+    return '$l: $value';
+  }
 
   static String _resolveToken(String raw, Map<String, String> data) {
     var s = raw;
@@ -128,14 +172,33 @@ abstract final class PosPrintTemplateCompiler {
             htmlBuf.write(_htmlText(t, block.style));
           }
         case PosPrintBlockType.field:
-          final t = data[block.field ?? ''] ?? '';
-          if (t.trim().isNotEmpty) {
+          final raw = data[block.field ?? ''] ?? '';
+          if (raw.trim().isNotEmpty) {
+            String? prefix = block.label?.trim();
+            if (prefix == null || prefix.isEmpty) {
+              final fieldKey = block.field;
+              if (fieldKey != null) {
+                prefix = block.fieldLabels?[fieldKey];
+              }
+            }
+            final t = _withPrefix(prefix, raw);
             steps.add(_lineFromStyle(t, block.style));
             htmlBuf.write(_htmlText(t, block.style));
           }
         case PosPrintBlockType.pair:
-          final left = data[block.leftField ?? ''] ?? block.leftField ?? '';
-          final right = data[block.rightField ?? ''] ?? block.rightField ?? '';
+          final leftKey = block.leftField ?? '';
+          final rightKey = block.rightField ?? '';
+          final leftVal = data[leftKey] ?? leftKey;
+          final rightVal = data[rightKey] ?? rightKey;
+          String? leftPrefix = block.label?.trim();
+          if (leftPrefix == null || leftPrefix.isEmpty) {
+            leftPrefix = block.fieldLabels?[leftKey];
+          }
+          final rightPrefix = block.fieldLabels?[rightKey];
+          final left = _withPrefix(leftPrefix, leftVal);
+          final right = (rightPrefix != null && rightPrefix.trim().isNotEmpty)
+              ? _withPrefix(rightPrefix, rightVal)
+              : rightVal;
           if (left.isNotEmpty || right.isNotEmpty) {
             steps.add(PosPrintCompiledPair(
               left: left,
@@ -163,6 +226,30 @@ abstract final class PosPrintTemplateCompiler {
           ));
           htmlBuf.write('<div style="border-top:1px dashed #999;margin:6px 0"></div>');
         case PosPrintBlockType.lineItems:
+          if (block.showColumnHeader) {
+            final nameH = resolveFieldLabel(block, 'Ten_Hang_Hoa',
+                fallback: defaultColumnLabels['Ten_Hang_Hoa']);
+            final priceH = resolveFieldLabel(block, 'Don_Gia',
+                fallback: defaultColumnLabels['Don_Gia']);
+            final qtyH = resolveFieldLabel(block, 'So_Luong',
+                fallback: defaultColumnLabels['So_Luong']);
+            final totalH = resolveFieldLabel(block, 'Thanh_Tien',
+                fallback: defaultColumnLabels['Thanh_Tien']);
+            final headerLeft = nameH;
+            final headerRight = '$priceH  $qtyH  $totalH';
+            steps.add(PosPrintCompiledPair(
+              left: headerLeft,
+              right: headerRight,
+              fontSize: block.style.fontSize.clamp(12.0, 48.0),
+              bold: true,
+            ));
+            htmlBuf.write(
+              '<div style="display:flex;justify-content:space-between;'
+              'font-size:${block.style.fontSize}px;font-weight:bold;'
+              'border-bottom:1px solid #ccc;margin-bottom:4px">'
+              '<span>$headerLeft</span><span>$headerRight</span></div>',
+            );
+          }
           htmlBuf.write('<!--BEGIN_ITEMS-->');
           for (final item in lineItems) {
             _appendSaleLine(steps, item, block.style);
@@ -196,7 +283,7 @@ abstract final class PosPrintTemplateCompiler {
           for (final key in block.fields ?? []) {
             final val = data[key] ?? '';
             if (val.trim().isEmpty || val == '0') continue;
-            final label = _totalLabels[key] ?? key;
+            final label = resolveFieldLabel(block, key);
             final isTotal = key == 'Tong_Cong';
             final style = isTotal ? (block.rightStyle ?? block.style) : block.style;
             final size = style.fontSize.clamp(14.0, 48.0);
@@ -231,6 +318,28 @@ abstract final class PosPrintTemplateCompiler {
               '<div style="text-align:center;margin:8px 0">'
               '<div style="border:1px dashed #999;padding:12px">[VietQR]</div>'
               '${caption.isNotEmpty ? '<div>$caption</div>' : ''}'
+              '</div>',
+            );
+          }
+        case PosPrintBlockType.barcode:
+          final codeField = block.field ?? 'Ma_Vach';
+          var code = (data[codeField] ?? '').trim();
+          if (code.isEmpty) {
+            code = (data['Ma_Hang'] ?? '').trim();
+          }
+          if (code.isNotEmpty) {
+            final h = block.barcodeHeight.clamp(40, 120);
+            steps.add(PosPrintCompiledBarcode(
+              data: code,
+              height: h,
+              showText: block.barcodeShowText,
+            ));
+            htmlBuf.write(
+              '<div style="text-align:center;margin:6px 0">'
+              '<div style="letter-spacing:1px;font-family:monospace;'
+              'border:1px solid #999;padding:10px 6px;font-size:12px">'
+              '|||| $code ||||</div>'
+              '${block.barcodeShowText ? '<div style="margin-top:2px;font-size:11px">$code</div>' : ''}'
               '</div>',
             );
           }

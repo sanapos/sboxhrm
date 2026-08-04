@@ -254,7 +254,7 @@ public static class OvertimeCalcHelper
     {
         var start = shift.StartTime;
         var end = shift.EndTime;
-        var overnight = start > end;
+        var overnight = ShiftMatchHelper.IsOvernight(start, end);
         var otThresh = shift.OvertimeMinutesThreshold > 0 ? shift.OvertimeMinutesThreshold : 30;
         var earlyThresh = shift.EarlyOvertimeMinutesThreshold > 0
             ? shift.EarlyOvertimeMinutesThreshold

@@ -304,7 +304,15 @@ class NavigationNotifier {
       goToPayroll();
     }
   }
-  static void goToSalarySettings() => goToModule('SalarySettings');
+  static void goToSalarySettings() {
+    SettingsHubScreen.pendingSubIndex.value = 20;
+    goToModule('SettingsHub');
+  }
+
+  static void goToNotificationSettings() {
+    SettingsHubScreen.pendingSubIndex.value = 21;
+    goToModule('SettingsHub');
+  }
   static void goToBonusPenalty() => goToModule('BonusPenalty');
   static void goToAttendanceSummary() => goTo(attendanceSummary);
   static void goToAttendanceByShift() => goTo(attendanceByShift);

@@ -39,6 +39,8 @@ enum PosPrintBlockType {
   totals,
   spacer,
   vietQr,
+  /// Mã vạch CODE128 từ token (Ma_Vach / Ma_Hang…).
+  barcode,
 }
 
 /// Vị trí khối VietQR so với phần tổng cộng (editor tự sắp xếp lại khối).
@@ -102,6 +104,8 @@ class PosPrintBlock {
     this.leftField,
     this.rightField,
     this.label,
+    this.fieldLabels,
+    this.showColumnHeader = false,
     this.style = const PosPrintTextStyle(),
     this.rightStyle,
     this.divider = PosPrintDividerStyle.dash,
@@ -113,6 +117,8 @@ class PosPrintBlock {
     this.qrCaption = 'Quét VietQR thanh toán',
     this.qrShowAmount = true,
     this.qrPlacement = PosPrintQrPlacement.belowTotals,
+    this.barcodeHeight = 60,
+    this.barcodeShowText = true,
   });
 
   final PosPrintBlockType type;
@@ -120,7 +126,13 @@ class PosPrintBlock {
   final String? field;
   final String? leftField;
   final String? rightField;
+  /// Nhãn hiển thị (field/pair) — vd. "KH:", "Số HĐ:".
   final String? label;
+  /// Nhãn theo token — totals / cột hàng / prefix pair.
+  /// vd. {'Tong_Cong': 'Tổng tiền', 'Ten_Hang_Hoa': 'Tên hàng'}.
+  final Map<String, String>? fieldLabels;
+  /// In dòng tiêu đề cột trước danh sách hàng.
+  final bool showColumnHeader;
   final PosPrintTextStyle style;
   final PosPrintTextStyle? rightStyle;
   final PosPrintDividerStyle divider;
@@ -135,6 +147,10 @@ class PosPrintBlock {
   final String qrCaption;
   final bool qrShowAmount;
   final PosPrintQrPlacement qrPlacement;
+  /// Chiều cao vạch barcode (dot), 40–120.
+  final int barcodeHeight;
+  /// In chữ mã dưới barcode.
+  final bool barcodeShowText;
 
   PosPrintBlock copyWith({
     PosPrintBlockType? type,
@@ -143,6 +159,10 @@ class PosPrintBlock {
     String? leftField,
     String? rightField,
     String? label,
+    bool clearLabel = false,
+    Map<String, String>? fieldLabels,
+    bool clearFieldLabels = false,
+    bool? showColumnHeader,
     PosPrintTextStyle? style,
     PosPrintTextStyle? rightStyle,
     PosPrintDividerStyle? divider,
@@ -156,6 +176,8 @@ class PosPrintBlock {
     String? qrCaption,
     bool? qrShowAmount,
     PosPrintQrPlacement? qrPlacement,
+    int? barcodeHeight,
+    bool? barcodeShowText,
   }) =>
       PosPrintBlock(
         type: type ?? this.type,
@@ -163,7 +185,9 @@ class PosPrintBlock {
         field: field ?? this.field,
         leftField: leftField ?? this.leftField,
         rightField: rightField ?? this.rightField,
-        label: label ?? this.label,
+        label: clearLabel ? null : (label ?? this.label),
+        fieldLabels: clearFieldLabels ? null : (fieldLabels ?? this.fieldLabels),
+        showColumnHeader: showColumnHeader ?? this.showColumnHeader,
         style: style ?? this.style,
         rightStyle: rightStyle ?? this.rightStyle,
         divider: divider ?? this.divider,
@@ -175,6 +199,8 @@ class PosPrintBlock {
         qrCaption: qrCaption ?? this.qrCaption,
         qrShowAmount: qrShowAmount ?? this.qrShowAmount,
         qrPlacement: qrPlacement ?? this.qrPlacement,
+        barcodeHeight: barcodeHeight ?? this.barcodeHeight,
+        barcodeShowText: barcodeShowText ?? this.barcodeShowText,
       );
 
   Map<String, dynamic> toJson() => {
@@ -183,7 +209,9 @@ class PosPrintBlock {
         if (field != null) 'field': field,
         if (leftField != null) 'leftField': leftField,
         if (rightField != null) 'rightField': rightField,
-        if (label != null) 'label': label,
+        if (label != null && label!.isNotEmpty) 'label': label,
+        if (fieldLabels != null && fieldLabels!.isNotEmpty) 'fieldLabels': fieldLabels,
+        if (showColumnHeader) 'showColumnHeader': true,
         'style': style.toJson(),
         if (rightStyle != null) 'rightStyle': rightStyle!.toJson(),
         if (type == PosPrintBlockType.divider) 'divider': divider.name,
@@ -198,6 +226,10 @@ class PosPrintBlock {
           'qrShowAmount': qrShowAmount,
           'qrPlacement': qrPlacement.name,
         },
+        if (type == PosPrintBlockType.barcode) ...{
+          'barcodeHeight': barcodeHeight,
+          'barcodeShowText': barcodeShowText,
+        },
       };
 
   factory PosPrintBlock.fromJson(Map<String, dynamic> json) {
@@ -205,6 +237,11 @@ class PosPrintBlock {
       (e) => e.name == json['type'],
       orElse: () => PosPrintBlockType.text,
     );
+    Map<String, String>? labels;
+    final rawLabels = json['fieldLabels'];
+    if (rawLabels is Map) {
+      labels = rawLabels.map((k, v) => MapEntry(k.toString(), v.toString()));
+    }
     return PosPrintBlock(
       type: type,
       text: trN(json['text']?.toString()),
@@ -212,6 +249,8 @@ class PosPrintBlock {
       leftField: json['leftField']?.toString(),
       rightField: json['rightField']?.toString(),
       label: json['label']?.toString(),
+      fieldLabels: labels,
+      showColumnHeader: json['showColumnHeader'] == true,
       style: PosPrintTextStyle.fromJson(json['style'] as Map<String, dynamic>?),
       rightStyle: json['rightStyle'] is Map
           ? PosPrintTextStyle.fromJson(json['rightStyle'] as Map<String, dynamic>)
@@ -233,6 +272,10 @@ class PosPrintBlock {
         (e) => e.name == json['qrPlacement'],
         orElse: () => PosPrintQrPlacement.belowTotals,
       ),
+      barcodeHeight:
+          (json['barcodeHeight'] is num ? (json['barcodeHeight'] as num).toInt() : null) ??
+              60,
+      barcodeShowText: json['barcodeShowText'] != false,
     );
   }
 }

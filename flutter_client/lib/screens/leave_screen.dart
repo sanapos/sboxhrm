@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../widgets/hrm_collapsible_overview.dart';
+import '../widgets/hrm_responsive_list_layout.dart';
 import '../widgets/safe_layout_widgets.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -460,17 +461,10 @@ class _LeaveScreenState extends State<LeaveScreen>
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        ConstrainedBox(
-                          constraints: BoxConstraints(
-                            maxHeight:
-                                MediaQuery.sizeOf(context).height * 0.38,
-                          ),
-                          child: SingleChildScrollView(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: _leavePageHeaderSections(theme),
-                            ),
-                          ),
+                        HrmResponsiveListLayout.shrinkWrapHeader(
+                          maxHeight:
+                              MediaQuery.sizeOf(context).height * 0.55,
+                          children: _leavePageHeaderSections(theme),
                         ),
                         _leaveTabBar(theme),
                         Expanded(
@@ -502,15 +496,12 @@ class _LeaveScreenState extends State<LeaveScreen>
                     child: LayoutBuilder(
                       builder: (context, constraints) {
                         final maxHeaderH =
-                            (constraints.maxHeight * 0.42).clamp(120.0, 420.0);
+                            (constraints.maxHeight * 0.55).clamp(160.0, 560.0);
                         return Column(
                           children: [
-                            ConstrainedBox(
-                              constraints:
-                                  BoxConstraints(maxHeight: maxHeaderH),
-                              child: SingleChildScrollView(
-                                child: _buildOverviewSection(theme),
-                              ),
+                            HrmResponsiveListLayout.shrinkWrapHeader(
+                              maxHeight: maxHeaderH,
+                              children: [_buildOverviewSection(theme)],
                             ),
                             const SizedBox(height: 12),
                             Expanded(

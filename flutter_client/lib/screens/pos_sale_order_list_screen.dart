@@ -9,6 +9,7 @@ import '../models/pos_sale_order.dart';
 import '../providers/auth_provider.dart';
 import '../providers/permission_provider.dart';
 import '../services/api_service.dart';
+import '../widgets/pos/pos_cancel_return_reason_dialog.dart';
 import '../utils/file_saver.dart' as file_saver;
 import '../utils/pos_kiot_time_range.dart';
 import '../utils/pos_sale_order_print.dart';
@@ -316,7 +317,19 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
       ),
     );
     if (ok != true || !mounted) return;
-    final res = await _api.cancelPosSale(o.id);
+    final reasonCfg = await fetchCancelReturnReasonConfig(_api);
+    if (!mounted) return;
+    final reasonResult = await showPosCancelReturnReasonDialog(
+      context,
+      config: reasonCfg,
+      title: 'Lý do hủy đơn',
+    );
+    if (reasonResult == null || !mounted) return;
+    final res = await _api.cancelPosSale(
+      o.id,
+      reason: reasonResult.reason.isEmpty ? null : reasonResult.reason,
+      detailNote: reasonResult.detailNote,
+    );
     if (!mounted) return;
     if (res['isSuccess'] == true) {
       if (res['data'] is! Map<String, dynamic>) {
@@ -1237,18 +1250,22 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              // Dòng 1: khách (cỡ nhỏ hơn để hết 1 hàng) · tổng tiền phải
               Row(
                 children: [
                   if (isCancelled) ...[
-                    Icon(Icons.cancel, size: 18, color: Colors.red.shade700),
-                    const SizedBox(width: 6),
+                    Icon(Icons.cancel, size: 16, color: Colors.red.shade700),
+                    const SizedBox(width: 4),
                   ],
                   Expanded(
                     child: Text(
                       tr(o.customerName ?? 'Khách lẻ'),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        fontSize: 15,
+                        fontSize: 13,
                         fontWeight: FontWeight.w600,
+                        height: 1.2,
                         color: isCancelled ? Colors.red.shade800 : null,
                         decoration:
                             isCancelled ? TextDecoration.lineThrough : null,
@@ -1257,19 +1274,37 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
                       ),
                     ),
                   ),
-                  posSaleOrderStatusChip(o.status, returnStatus: o.returnStatus),
                   const SizedBox(width: 8),
                   _buildOrderTotalColumn(o),
                 ],
               ),
               const SizedBox(height: 4),
+              // Dòng 2: mã đơn trái · trạng thái (dưới tổng tiền) phải
               Row(
                 children: [
                   Expanded(
                     child: Text(
-                      tr('$timeStr · ${o.orderNo}'),
+                      tr(o.orderNo),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: PosTheme.textPrimary,
+                      ),
+                    ),
+                  ),
+                  posSaleOrderStatusChip(o.status, returnStatus: o.returnStatus),
+                ],
+              ),
+              const SizedBox(height: 2),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      tr(timeStr),
+                      style: const TextStyle(
+                        fontSize: 11,
                         color: PosTheme.textSecondary,
                       ),
                     ),
@@ -1277,7 +1312,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
                   Text(
                     tr(o.paymentMethod),
                     style: const TextStyle(
-                      fontSize: 12,
+                      fontSize: 11,
                       color: PosTheme.textSecondary,
                     ),
                   ),

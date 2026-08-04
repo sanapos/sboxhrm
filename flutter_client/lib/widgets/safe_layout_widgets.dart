@@ -9,8 +9,10 @@ class SafeEqualHeightRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (children.isEmpty) return const SizedBox.shrink();
+    // Không dùng CrossAxisAlignment.stretch — trong Column/scroll unbounded
+    // stretch dễ lỗi layout (chiều cao vô hạn) → bộ lọc biến mất, chỉ còn khoảng trắng.
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         for (var i = 0; i < children.length; i++) ...[
           if (i > 0) const SizedBox(width: 8),

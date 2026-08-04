@@ -61,10 +61,10 @@ public static class ModulePermissionImplicitGrants
         "DashboardKpiPanel", "DashboardInternalNews"
     ];
 
-    /// <summary>Submodule POS — quyền gộp từ PosProducts (DB chỉ seed PosProducts + PosSalesReport).</summary>
+    /// <summary>Submodule POS — quyền gộp từ PosProducts (cùng action).</summary>
     private static readonly string[] PosSubmoduleCodes =
     [
-        "PosSell", "PosSaleOrders", "PosPurchaseReceipts", "PosPurchaseReturns",
+        "PosSell", "PosSaleOrders", "PosSaleReturns", "PosPurchaseReceipts", "PosPurchaseReturns",
         "PosStockCounts", "PosDamageIssues", "PosInternalUseIssues", "PosPrintTemplates"
     ];
 
@@ -234,6 +234,11 @@ public static class ModulePermissionImplicitGrants
             action == ModulePermissionAction.View &&
             (HasAction(map, "PosSell", ModulePermissionAction.View) ||
              HasAction(map, "PosProducts", ModulePermissionAction.View)))
+            return true;
+
+        // POS: trả hàng — có PosSell cùng action (thu ngân) vẫn trả được; hoặc gán riêng PosSaleReturns.
+        if (module.Equals("PosSaleReturns", StringComparison.Ordinal) &&
+            HasAction(map, "PosSell", action))
             return true;
 
         // POS: có quyền trên PosProducts (kho/SP) → submodule cùng action (QL hàng được bán/nhập…).

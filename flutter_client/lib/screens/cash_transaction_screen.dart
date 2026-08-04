@@ -20,6 +20,7 @@ import '../widgets/app_button.dart';
 import '../widgets/hrm_responsive_list_layout.dart';
 import '../widgets/app_scroll_safe.dart';
 import '../widgets/page_top_actions.dart';
+import '../widgets/cash_party_picker.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 class CashTransactionScreen extends StatefulWidget {
@@ -3150,37 +3151,31 @@ class _TransactionFormDialogState extends State<_TransactionFormDialog> {
                   const SizedBox(height: 16),
                 ],
 
-                // Contact info
-                ExpansionTile(
-                  title: Text(tr('Thông tin liên hệ')),
-                  tilePadding: EdgeInsets.zero,
-                  children: [
-                    TextFormField(
-                      controller: _contactNameController,
-                      decoration: InputDecoration(
-                        labelText: tr('Tên liên hệ'),
-                        prefixIcon: Icon(Icons.person),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    TextFormField(
-                      controller: _contactPhoneController,
-                      decoration: InputDecoration(
-                        labelText: tr('Số điện thoại'),
-                        prefixIcon: Icon(Icons.phone),
-                      ),
-                      keyboardType: TextInputType.phone,
-                    ),
-                    const SizedBox(height: 8),
-                    TextFormField(
-                      controller: _noteController,
-                      decoration: InputDecoration(
-                        labelText: tr('Ghi chú nội bộ'),
-                        prefixIcon: Icon(Icons.note),
-                      ),
-                      maxLines: 2,
-                    ),
-                  ],
+                // Đối tượng: KH / NV / liên hệ + công nợ
+                CashPartyPicker(
+                  nameController: _contactNameController,
+                  phoneController: _contactPhoneController,
+                  enableDebtCollect: _type == CashTransactionType.income,
+                  onDebtCollected: (_) {
+                    if (!mounted) return;
+                    Navigator.pop(context);
+                    widget.onSaved();
+                  },
+                  onDescriptionSuggested: (text) {
+                    if (_descriptionController.text.trim().isEmpty) {
+                      _descriptionController.text = text;
+                    }
+                  },
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _noteController,
+                  decoration: InputDecoration(
+                    labelText: tr('Ghi chú nội bộ'),
+                    prefixIcon: Icon(Icons.note),
+                    border: OutlineInputBorder(),
+                  ),
+                  maxLines: 2,
                 ),
                 const SizedBox(height: 16),
 
@@ -3227,7 +3222,7 @@ class _TransactionFormDialogState extends State<_TransactionFormDialog> {
     return ScrollableAlertDialog(
       title: Text(tr(dialogTitle)),
       content: SizedBox(
-        width: 400,
+        width: 480,
         child: SingleChildScrollView(child: formBody),
       ),
       actions: [

@@ -16,7 +16,10 @@ import '../models/pos_print_template.dart';
 import '../models/pos_sell_industry.dart';
 import '../models/pos_sale_order.dart';
 import '../models/pos_store_printer.dart';
+import '../models/cancel_return_reason_config.dart';
 import '../models/customer_display_models.dart';
+import '../utils/customer_display_media.dart';
+import '../widgets/pos/pos_cancel_return_reason_dialog.dart';
 import '../providers/permission_provider.dart';
 import '../providers/auth_provider.dart';
 import '../utils/responsive_helper.dart';
@@ -37,6 +40,7 @@ import '../utils/pos_sell_print_settings.dart';
 import '../utils/pos_sell_stock_patch.dart';
 import '../utils/pos_device_identity.dart';
 import '../utils/pos_floor_realtime.dart';
+import '../utils/pos_browser_fullscreen.dart';
 import '../utils/pos_sell_store_settings.dart';
 import '../utils/pos_sell_tax.dart';
 import '../utils/pos_sell_unit_views.dart';
@@ -68,10 +72,8 @@ import '../widgets/pos/pos_hub_scope.dart';
 import '../widgets/pos/pos_mobile_widgets.dart';
 import 'pos/pos_end_of_day_screen.dart';
 import 'pos/pos_resource_floor_screen.dart';
-import 'pos/pos_sell_industry_settings_screen.dart';
 import 'pos/pos_session_redeem_sheet.dart';
 import 'pos_reports_screen.dart';
-import 'pos_sale_return_screen.dart';
 import 'pos_sale_return_list_screen.dart';
 import 'pos_sale_order_list_screen.dart';
 import '../widgets/pos/pos_cash_voucher_dialog.dart';
@@ -833,6 +835,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
 
     _applyCustomerDisplayConfig(industry);
     unawaited(_bootstrapCustomerDisplay());
+    unawaited(_refreshSystemUnreadNotifications());
 
     // Không chặn UI — banner HSD / bảng giá resolve sau.
     unawaited(_loadExpiryLotSummary());
@@ -1064,6 +1067,9 @@ class _PosSellScreenState extends State<PosSellScreen> {
     if (identical(NavigationNotifier.posHandleSystemBack, _onSystemBack)) {
       NavigationNotifier.posHandleSystemBack = null;
     }
+    if (_isPosFullscreen && !kIsWeb) {
+      unawaited(SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge));
+    }
     _pendingPrintRetryTimer?.cancel();
     _stopDraftLockHeartbeat();
     _floorRealtime.dispose();
@@ -1230,6 +1236,8 @@ class _PosSellScreenState extends State<PosSellScreen> {
   bool _floorMapVisible = true;
   /// Tăng sau thanh toán để remount sơ đồ (reload trạng thái bàn).
   int _floorMapEpoch = 0;
+  /// Tổng tạm tính các bàn đang có đơn (đẩy từ sơ đồ).
+  double _floorActiveSubtotal = 0;
   /// Tablet lớn (≥1024) + F&B: true = đang ở màn thanh toán riêng (sau khi
   /// bấm "Thanh toán" từ màn chọn món), false = đang ở màn chọn món/giỏ hàng.
   bool _tabletPaymentStage = false;
@@ -1237,6 +1245,9 @@ class _PosSellScreenState extends State<PosSellScreen> {
   List<CustomerDisplayPromoItem> _customerDisplayPromos = const [];
   /// Máy có display phụ thật (Android DisplayManager). Web luôn true (popup).
   bool _hasSecondaryCustomerDisplay = kIsWeb;
+  /// Đang phóng toàn màn hình (browser fullscreen / immersive).
+  bool _isPosFullscreen = false;
+  int _systemUnreadNotifications = 0;
 
   void _scheduleCustomerDisplayPublish() {
     _customerDisplayPublishTimer?.cancel();
@@ -1254,12 +1265,21 @@ class _PosSellScreenState extends State<PosSellScreen> {
   Future<void> _refreshCustomerDisplayPromos() async {
     final cfg = CustomerDisplaySync.instance.config;
     if (!cfg.enabled) return;
+    // Resolve public-serve / Drive / Dropbox cho màn phụ.
+    String pub(String? raw) => resolveCustomerDisplayMediaUrl(_api, raw);
+
     final videos = [
       for (final u in cfg.promoVideoUrls)
-        CustomerDisplayPromoItem(title: 'Giới thiệu', videoUrl: u),
+        if (pub(u).isNotEmpty)
+          CustomerDisplayPromoItem(title: 'Giới thiệu', videoUrl: pub(u)),
+    ];
+    final customImages = [
+      for (final u in cfg.promoImageUrls)
+        if (pub(u).isNotEmpty)
+          CustomerDisplayPromoItem(title: '', imageUrl: pub(u)),
     ];
     if (!cfg.useProductImages) {
-      _customerDisplayPromos = videos;
+      _customerDisplayPromos = [...videos, ...customImages];
       await CustomerDisplaySync.instance.publishIdle(
         promoItems: _customerDisplayPromos,
       );
@@ -1293,18 +1313,22 @@ class _PosSellScreenState extends State<PosSellScreen> {
         }
       }
       for (final p in products) {
-        final img = (p.imageUrl ?? '').trim();
-        if (img.isEmpty) continue;
-        // Chỉ ảnh — không gắn tên/mã/giá (tránh chữ đè lên media màn phụ).
+        final resolved = pub(p.imageUrl);
+        if (resolved.isEmpty) continue;
         fromProducts.add(CustomerDisplayPromoItem(
           title: '',
-          imageUrl: img,
+          imageUrl: resolved,
         ));
         if (fromProducts.length >= 24) break;
       }
-      _customerDisplayPromos = [...videos, ...fromProducts];
+      // Thứ tự: video → ảnh upload → ảnh SP.
+      _customerDisplayPromos = [
+        ...videos,
+        ...customImages,
+        ...fromProducts,
+      ];
     } catch (_) {
-      _customerDisplayPromos = videos;
+      _customerDisplayPromos = [...videos, ...customImages];
     }
     await CustomerDisplaySync.instance.publishIdle(
       promoItems: _customerDisplayPromos,
@@ -1350,6 +1374,41 @@ class _PosSellScreenState extends State<PosSellScreen> {
       storeName: _warehouseBranchName,
       promoItems: _customerDisplayPromos,
     );
+  }
+
+  Future<void> _togglePosFullscreen() async {
+    if (kIsWeb) {
+      final active = await togglePosBrowserFullscreen();
+      if (!mounted) return;
+      setState(() => _isPosFullscreen = active);
+      return;
+    }
+    final next = !_isPosFullscreen;
+    if (next) {
+      await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    } else {
+      await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    }
+    if (!mounted) return;
+    setState(() => _isPosFullscreen = next);
+  }
+
+  Future<void> _refreshSystemUnreadNotifications() async {
+    try {
+      final summary = await _api.getNotificationSummary();
+      final n = summary['unreadCount'];
+      final count = n is int ? n : int.tryParse('$n') ?? 0;
+      if (!mounted) return;
+      setState(() => _systemUnreadNotifications = count);
+    } catch (_) {}
+  }
+
+  void _openSystemNotifications() {
+    if (NavigationNotifier.mainLayoutReady.value) {
+      NavigationNotifier.goToNotifications();
+      return;
+    }
+    NavigationNotifier.goToModule('Notification');
   }
 
   Future<void> _openCustomerDisplay() async {
@@ -1733,8 +1792,12 @@ class _PosSellScreenState extends State<PosSellScreen> {
     try {
     // 1) Gộp hủy → một phiếu + ghi log (in khi bấm báo bếp, không in từng lần giảm SL).
     if (cancelLines.isNotEmpty) {
-      await _voidKitchenSentLines(cancelLines);
+      final voided = await _voidKitchenSentLines(cancelLines);
       if (!mounted) return;
+      if (!voided) {
+        // User hủy dialog lý do — giữ pending hủy, không gửi món mới.
+        return;
+      }
       setState(() {
         _pendingKitchenCancels.clear();
         for (final l in _tab.cart) {
@@ -2187,9 +2250,29 @@ class _PosSellScreenState extends State<PosSellScreen> {
     }
   }
 
+  Future<CancelReturnReasonResult?> _promptKitchenVoidReason() async {
+    final reasonCfg =
+        CancelReturnReasonConfig.fromExtraJson(_industrySettings?.extraJson);
+    if (!reasonCfg.enabled) {
+      return const CancelReturnReasonResult(reason: '');
+    }
+    return showPosCancelReturnReasonDialog(
+      context,
+      config: reasonCfg,
+      title: 'Lý do hủy món bếp',
+    );
+  }
+
   /// In phiếu hủy bếp + ghi log server (đánh dấu nếu đã tạm tính).
-  Future<void> _voidKitchenSentLines(List<KitchenTicketLine> lines) async {
-    if (lines.isEmpty || !_isTableOrderMode) return;
+  /// [reasonResult] truyền sẵn nếu đã hỏi lý do trước khi sửa giỏ (tránh hủy dialog mà món đã mất).
+  /// Trả về false nếu user hủy dialog lý do (chưa ghi log / chưa in).
+  Future<bool> _voidKitchenSentLines(
+    List<KitchenTicketLine> lines, {
+    CancelReturnReasonResult? reasonResult,
+  }) async {
+    if (lines.isEmpty || !_isTableOrderMode) return true;
+    final resolved = reasonResult ?? await _promptKitchenVoidReason();
+    if (resolved == null || !mounted) return false;
     final ok = await printKitchenCompactSlip(
       tableName: formatPosTableLabel(
         areaName: _tab.serviceAreaName,
@@ -2222,9 +2305,12 @@ class _PosSellScreenState extends State<PosSellScreen> {
       ),
       'printed': ok,
       if (_posDeviceName != null) 'deviceName': _posDeviceName,
+      if (resolved.reason.isNotEmpty) 'reason': resolved.reason,
+      if ((resolved.detailNote ?? '').isNotEmpty)
+        'detailNote': resolved.detailNote,
     };
     unawaited(_api.createPosKitchenVoids(body));
-    if (!mounted) return;
+    if (!mounted) return true;
     if (ok) {
       NotificationOverlayManager().showSuccess(
         title: 'Đã in phiếu hủy bếp',
@@ -2250,6 +2336,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
         message: tr('Mở chờ in để in lại phiếu hủy bếp'),
       );
     }
+    return true;
   }
 
   int get _kitchenPendingLineCount =>
@@ -5683,6 +5770,12 @@ class _PosSellScreenState extends State<PosSellScreen> {
           )
         : null;
 
+    CancelReturnReasonResult? voidReason;
+    if (ticket != null) {
+      voidReason = await _promptKitchenVoidReason();
+      if (voidReason == null || !mounted) return;
+    }
+
     setState(() {
       if (kitchenVoid > 0) {
         line.kitchenSentQty =
@@ -5709,7 +5802,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
     });
     _scheduleDraftAutosave();
     if (ticket != null) {
-      await _voidKitchenSentLines([ticket]);
+      await _voidKitchenSentLines([ticket], reasonResult: voidReason);
     } else {
       NotificationOverlayManager().showSuccess(
         title: 'Đã trả hàng',
@@ -5731,6 +5824,8 @@ class _PosSellScreenState extends State<PosSellScreen> {
           productName: line.product.name, qty: cancelQty)) {
         return;
       }
+      final voidReason = await _promptKitchenVoidReason();
+      if (voidReason == null || !mounted) return;
       final ticket = KitchenTicketLine(
         productName: line.product.name,
         qty: cancelQty,
@@ -5748,7 +5843,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
         _syncPaidAmount();
       });
       _scheduleDraftAutosave();
-      await _voidKitchenSentLines([ticket]);
+      await _voidKitchenSentLines([ticket], reasonResult: voidReason);
       return;
     }
     setState(() {
@@ -5777,6 +5872,8 @@ class _PosSellScreenState extends State<PosSellScreen> {
             productName: line.product.name, qty: cancelQty)) {
           return;
         }
+        final voidReason = await _promptKitchenVoidReason();
+        if (voidReason == null || !mounted) return;
         final ticket = KitchenTicketLine(
           productName: line.product.name,
           qty: cancelQty,
@@ -5794,7 +5891,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
           _syncPaidAmount();
         });
         _scheduleDraftAutosave();
-        await _voidKitchenSentLines([ticket]);
+        await _voidKitchenSentLines([ticket], reasonResult: voidReason);
         return;
       }
       setState(() {
@@ -5832,6 +5929,8 @@ class _PosSellScreenState extends State<PosSellScreen> {
             productName: line.product.name, qty: cut)) {
           return;
         }
+        final voidReason = await _promptKitchenVoidReason();
+        if (voidReason == null || !mounted) return;
         final ticket = KitchenTicketLine(
           productName: line.product.name,
           qty: cut,
@@ -5858,7 +5957,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
           retryOnConflict: true,
         );
         if (!mounted) return;
-        await _voidKitchenSentLines([ticket]);
+        await _voidKitchenSentLines([ticket], reasonResult: voidReason);
         return;
       }
     }
@@ -7317,8 +7416,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
     final canCash = perm.canCreate('CashTransaction') ||
         (perm.isLoaded && perm.canView('CashTransaction'));
     final canReturn = PermissionNavigation.canNavigate(perm, 'PosSaleReturns');
-    final canReport = PermissionNavigation.canNavigate(perm, 'PosSalesReport');
-    final canEod = canReport;
+    final canEod = PermissionNavigation.canNavigate(perm, 'PosSalesReport');
     final canPosSettings = PermissionNavigation.canNavigate(perm, 'PosSell') ||
         PermissionNavigation.canNavigate(perm, 'PosProducts') ||
         PermissionNavigation.canNavigate(perm, 'SettingsHub');
@@ -7398,7 +7496,9 @@ class _PosSellScreenState extends State<PosSellScreen> {
           child: ListTile(
             dense: true,
             leading: Icon(Icons.receipt_long_outlined, size: 20),
-            title: Text(tr('Danh sách hóa đơn')),
+            title: Text(tr('Đơn hàng')),
+            subtitle: Text(tr('Danh sách hóa đơn bán'),
+                style: TextStyle(fontSize: 11)),
             contentPadding: EdgeInsets.zero,
           ),
         ),
@@ -7428,17 +7528,9 @@ class _PosSellScreenState extends State<PosSellScreen> {
             child: ListTile(
               dense: true,
               leading: Icon(Icons.summarize_outlined, size: 20),
-              title: Text(tr('Xem báo cáo cuối ngày')),
-              contentPadding: EdgeInsets.zero,
-            ),
-          ),
-        if (canReport)
-          PopupMenuItem(
-            value: 'reports',
-            child: ListTile(
-              dense: true,
-              leading: Icon(Icons.analytics_outlined, size: 20),
-              title: Text(tr('Báo cáo doanh thu / tồn kho')),
+              title: Text(tr('Cuối ngày')),
+              subtitle: Text(tr('Kết ca / cuối ngày'),
+                  style: TextStyle(fontSize: 11)),
               contentPadding: EdgeInsets.zero,
             ),
           ),
@@ -7552,10 +7644,6 @@ class _PosSellScreenState extends State<PosSellScreen> {
         await Navigator.of(context).push(
           MaterialPageRoute(builder: (_) => const PosEndOfDayScreen()),
         );
-      case 'reports':
-        await Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => const PosReportsScreen()),
-        );
       case 'return':
         await Navigator.of(context).push(
           MaterialPageRoute(builder: (_) => const PosSaleReturnListScreen()),
@@ -7604,8 +7692,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
       );
     }
 
-    // F&B mobile: sơ đồ + thanh thao tác giống tablet (in treo / đơn / menu).
-    // Trước đây AppBar floor riêng → mất phiếu in treo & menu (chỉ thấy khi vào bàn).
+    // F&B mobile: sơ đồ + thanh gọn (Home · In treo · menu).
     if (_useFloorAsPrimary &&
         _floorMapVisible &&
         Responsive.isMobile(context)) {
@@ -7627,6 +7714,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
                       _industrySettings?.promptGuestCountOnOpen == true,
                   onSelect: (result) => unawaited(_attachFloorResult(result)),
                   onResourceFreed: _onFloorResourceFreed,
+                  onActiveTotalsChanged: _onFloorActiveTotalsChanged,
                   zeroPendingKitchenResourceIds: _kitchenClearedResourceIds,
                   billRequestedResourceIds: _billRequestedResourceIds,
                   releasedOrderIds: Set<String>.from(_floorReleasedOrderIds),
@@ -7643,7 +7731,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
       ignoreFocusNodes: [_customerSearchFocus],
       onBarcode: _onBarcodeScanned,
       child: Scaffold(
-      backgroundColor: const Color(0xFFF3F4F6),
+      backgroundColor: PosTheme.background,
       body: Builder(
         builder: (context) {
           final body = LayoutBuilder(
@@ -7675,11 +7763,40 @@ class _PosSellScreenState extends State<PosSellScreen> {
                   : _buildDesktopProductPane();
               final Widget center;
               final Widget? right;
-              if (showFloor) {
-                center = const PosSellDesktopFloorHint();
-                right = null;
-              } else if (isNormal || fnb) {
-                // Bán thường / đơn bàn: tách giỏ | thanh toán khi đủ rộng.
+              if (fnb) {
+                // F&B: luôn giữ giỏ bên phải (Phòng bàn hoặc Thực đơn).
+                center = _buildDesktopCartColumn();
+                right = wide
+                    ? _buildPaymentSidebar(perm, width: double.infinity)
+                    : null;
+                if (!wide) {
+                  return Column(
+                    children: [
+                      _buildTopBar(desktopChrome: true),
+                      _buildExpiryLotBanner(),
+                      Expanded(
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Expanded(flex: 5, child: left),
+                            const VerticalDivider(
+                                width: 1,
+                                thickness: 1,
+                                color: PosTheme.border),
+                            Expanded(
+                              flex: 5,
+                              child: _buildNormalOrderPanel(perm,
+                                  compact: true),
+                            ),
+                          ],
+                        ),
+                      ),
+                      _buildBottomBar(),
+                    ],
+                  );
+                }
+              } else if (isNormal) {
+                // Bán thường: tách giỏ | thanh toán khi đủ rộng.
                 if (wide) {
                   center = _buildDesktopCartColumn();
                   right = _buildPaymentSidebar(
@@ -7769,12 +7886,119 @@ class _PosSellScreenState extends State<PosSellScreen> {
     );
   }
 
+  /// Tab Phòng bàn | Thực đơn — kiểu KiotViet (F&B).
+  Widget _buildFloorMenuModeTabs({bool compact = false}) {
+    if (!_useFloorAsPrimary) return const SizedBox.shrink();
+    final onFloor = _floorMapVisible;
+    Widget tab({
+      required bool selected,
+      required IconData icon,
+      required String label,
+      required VoidCallback onTap,
+    }) {
+      return Material(
+        color: selected ? Colors.white : Colors.transparent,
+        borderRadius: BorderRadius.circular(8),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(8),
+          onTap: onTap,
+          child: Padding(
+            padding: EdgeInsets.symmetric(
+              horizontal: compact ? 10 : 14,
+              vertical: 8,
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  icon,
+                  size: 18,
+                  color: selected ? PosTheme.kiotBlue : Colors.white,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  tr(label),
+                  style: TextStyle(
+                    color: selected ? PosTheme.kiotBlue : Colors.white,
+                    fontWeight: FontWeight.w700,
+                    fontSize: compact ? 13 : 14,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          tab(
+            selected: onFloor,
+            icon: Icons.table_restaurant_outlined,
+            label: 'Phòng bàn',
+            onTap: () {
+              if (onFloor) return;
+              setState(() {
+                _floorMapVisible = true;
+                _tabletPaymentStage = false;
+              });
+            },
+          ),
+          const SizedBox(width: 2),
+          tab(
+            selected: !onFloor,
+            icon: Icons.restaurant_menu_outlined,
+            label: 'Thực đơn',
+            onTap: () {
+              if (!onFloor) return;
+              setState(() {
+                _floorMapVisible = false;
+                _tabletPaymentStage = false;
+              });
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProductSearchField({double width = 280}) {
+    return SizedBox(
+      width: width,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: PosPurchaseProductSearchBar(
+          api: _api,
+          sellMode: true,
+          focusNode: _productSearchFocus,
+          hintText: tr(_useFloorAsPrimary ? 'Tìm món (F3)' : 'Tìm hàng hóa (F3)'),
+          onPick: (pick) => _addPick(pick),
+          onBarcodePick: (pick) => _addPick(pick, mergeIfSame: true),
+          onAddProduct: _openNewProduct,
+        ),
+      ),
+    );
+  }
+
   Widget _buildTopBar({bool desktopChrome = false}) {
+    final fnb = _useFloorAsPrimary;
+
     return Material(
       color: _kiotBlue,
       child: Container(
         height: _KiotLayout.topBarHeight,
-        padding: const EdgeInsets.fromLTRB(8, 0, 8, 0),
+        padding: const EdgeInsets.fromLTRB(8, 0, 4, 0),
         child: Row(
           children: [
             if (desktopChrome && !PosHubScope.of(context)) ...[
@@ -7787,14 +8011,17 @@ class _PosSellScreenState extends State<PosSellScreen> {
               ),
               const SizedBox(width: 4),
             ],
-            // Cụm trái (bếp/tem/tìm) + giữa (tab) + phải (in treo/menu) đều
-            // chịu được màn hẹp — tránh RenderFlex overflow.
+            if (fnb) ...[
+              _buildFloorMenuModeTabs(compact: !desktopChrome),
+              const SizedBox(width: 10),
+            ],
+            // Giữa: tìm món + (FNB: tên bàn | bán lẻ: tab HĐ)
             Expanded(
               child: SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 child: Row(
                   children: [
-                    if (_isTableOrderMode) ...[
+                    if (_isTableOrderMode && !fnb) ...[
                       IconButton(
                         visualDensity: VisualDensity.compact,
                         tooltip: tr('Đổi bàn / sơ đồ'),
@@ -7802,28 +8029,6 @@ class _PosSellScreenState extends State<PosSellScreen> {
                             size: 22, color: Colors.white),
                         onPressed: () => unawaited(_returnToFloorMap()),
                       ),
-                      if (_kitchenActionCount > 0)
-                        TextButton.icon(
-                          onPressed: (_kitchenSending ||
-                                  _checkingOut ||
-                                  _parking)
-                              ? null
-                              : () =>
-                                  unawaited(_kitchenSendCurrentTable()),
-                          icon: const Icon(Icons.soup_kitchen_outlined,
-                              size: 18, color: Colors.white),
-                          label: Text(
-                            tr(_kitchenSending
-                                ? 'Đang gửi…'
-                                : _kitchenCancelPendingCount > 0 &&
-                                        _kitchenPendingLineCount == 0
-                                    ? 'Hủy ($_kitchenCancelPendingCount)'
-                                    : 'Bếp ($_kitchenActionCount)'),
-                            style: const TextStyle(
-                                color: Colors.white, fontSize: 13),
-                          ),
-                        ),
-                      const SizedBox(width: 6),
                     ],
                     if (_printSettings.showCupLabelManualButton) ...[
                       TextButton.icon(
@@ -7846,27 +8051,25 @@ class _PosSellScreenState extends State<PosSellScreen> {
                       ),
                       const SizedBox(width: 6),
                     ],
-                    SizedBox(
-                      width: desktopChrome ? 280 : 320,
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: PosPurchaseProductSearchBar(
-                          api: _api,
-                          sellMode: true,
-                          focusNode: _productSearchFocus,
-                          hintText: tr('Tìm hàng hóa (F3)'),
-                          onPick: (pick) => _addPick(pick),
-                          onBarcodePick: (pick) =>
-                              _addPick(pick, mergeIfSame: true),
-                          onAddProduct: _openNewProduct,
-                        ),
-                      ),
-                    ),
+                    _buildProductSearchField(
+                        width: desktopChrome ? 280 : 320),
                     const SizedBox(width: 10),
-                    if (_isTableOrderMode)
+                    if (fnb) ...[
+                      if (_isTableOrderMode)
+                        ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 240),
+                          child: Text(
+                            tr('${tr('Đơn ')}${_tab.serviceResourceName ?? 'bàn'}'
+                                '${(_tab.draftOrderNo ?? '').isNotEmpty ? ' · ${_tab.draftOrderNo}' : ''}'),
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 15,
+                            ),
+                          ),
+                        ),
+                    ] else if (_isTableOrderMode)
                       ConstrainedBox(
                         constraints: const BoxConstraints(maxWidth: 220),
                         child: Text(
@@ -7915,48 +8118,98 @@ class _PosSellScreenState extends State<PosSellScreen> {
                           ),
                         ),
                       ),
-                    if (_isTableOrderMode) _buildTableGuestIconButton(),
-                    if (_pendingPrintCount > 0)
-                      Padding(
-                        padding: const EdgeInsets.only(left: 4, right: 4),
-                        child: TextButton.icon(
-                          onPressed: _openPendingPrintQueue,
-                          style: TextButton.styleFrom(
-                            backgroundColor: const Color(0xFFEA580C),
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 10),
-                            minimumSize: const Size(0, 36),
-                          ),
-                          icon: const Icon(Icons.print_disabled_outlined,
-                              size: 18),
-                          label: Text(
-                            tr('In treo ($_pendingPrintCount)'),
-                            style: const TextStyle(
-                                fontWeight: FontWeight.w700, fontSize: 13),
-                          ),
-                        ),
-                      )
-                    else
-                      PosPendingPrintIconButton(
-                        pendingCount: _pendingPrintCount,
-                        onTap: _openPendingPrintQueue,
-                      ),
-                    IconButton(
-                      visualDensity: VisualDensity.compact,
-                      tooltip: tr('Thêm'),
-                      icon: const Icon(Icons.menu,
-                          size: 24, color: Colors.white),
-                      onPressed: _openPosMenu,
-                    ),
                   ],
                 ),
               ),
+            ),
+            // Phải cố định: số khách · thông báo hệ thống · in treo · fullscreen · màn phụ · menu
+            if (_isTableOrderMode) _buildTableGuestIconButton(),
+            IconButton(
+              visualDensity: VisualDensity.compact,
+              tooltip: tr(_systemUnreadNotifications > 0
+                  ? 'Thông báo ($_systemUnreadNotifications)'
+                  : 'Thông báo hệ thống'),
+              onPressed: () {
+                unawaited(_refreshSystemUnreadNotifications());
+                _openSystemNotifications();
+              },
+              icon: Badge(
+                isLabelVisible: _systemUnreadNotifications > 0,
+                label: Text(tr(_systemUnreadNotifications > 99
+                    ? '99+'
+                    : '$_systemUnreadNotifications')),
+                child: const Icon(
+                  Icons.notifications_outlined,
+                  size: 22,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+            if (_pendingPrintCount > 0)
+              Padding(
+                padding: const EdgeInsets.only(left: 2, right: 2),
+                child: TextButton.icon(
+                  onPressed: _openPendingPrintQueue,
+                  style: TextButton.styleFrom(
+                    backgroundColor: const Color(0xFFEA580C),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    minimumSize: const Size(0, 36),
+                  ),
+                  icon: const Icon(Icons.print_disabled_outlined, size: 18),
+                  label: Text(
+                    tr('In treo ($_pendingPrintCount)'),
+                    style: const TextStyle(
+                        fontWeight: FontWeight.w700, fontSize: 13),
+                  ),
+                ),
+              )
+            else
+              PosPendingPrintIconButton(
+                pendingCount: _pendingPrintCount,
+                onTap: _openPendingPrintQueue,
+              ),
+            ..._buildTopBarScreenActions(),
+            IconButton(
+              visualDensity: VisualDensity.compact,
+              tooltip: tr('Menu'),
+              icon: const Icon(Icons.menu, size: 24, color: Colors.white),
+              onPressed: _openPosMenu,
             ),
           ],
         ),
       ),
     );
+  }
+
+  /// Phóng toàn màn hình + truyền màn hình phụ (khách).
+  List<Widget> _buildTopBarScreenActions({Color iconColor = Colors.white}) {
+    return [
+      IconButton(
+        visualDensity: VisualDensity.compact,
+        tooltip: tr(_isPosFullscreen
+            ? 'Thoát toàn màn hình'
+            : 'Phóng toàn màn hình'),
+        onPressed: () => unawaited(_togglePosFullscreen()),
+        icon: Icon(
+          _isPosFullscreen
+              ? Icons.fullscreen_exit
+              : Icons.fullscreen,
+          size: 24,
+          color: iconColor,
+        ),
+      ),
+      IconButton(
+        visualDensity: VisualDensity.compact,
+        tooltip: tr('Truyền màn hình thứ 2 (khách)'),
+        onPressed: () => unawaited(_openCustomerDisplay()),
+        icon: Icon(
+          Icons.cast_connected_outlined,
+          size: 22,
+          color: iconColor,
+        ),
+      ),
+    ];
   }
 
   Widget _invoiceTabChip(int index, {bool onBlue = true}) {
@@ -9558,14 +9811,14 @@ class _PosSellScreenState extends State<PosSellScreen> {
                 onComplete?.call();
               },
         style: FilledButton.styleFrom(
-          backgroundColor: _kiotBlue,
+          backgroundColor: PosTheme.payGreen,
           foregroundColor: Colors.white,
           // Giỏ trống / không quyền: xám rõ — tránh nhìn như nút đang bấm được.
           disabledBackgroundColor: Colors.grey.shade300,
           disabledForegroundColor: Colors.grey.shade600,
           minimumSize: Size(expanded ? double.infinity : 0, height),
           elevation: busy || _tab.cart.isEmpty || !canPay ? 0 : 2,
-          shadowColor: _kiotBlue.withValues(alpha: 0.45),
+          shadowColor: PosTheme.payGreen.withValues(alpha: 0.45),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(radius),
           ),
@@ -10225,193 +10478,28 @@ class _PosSellScreenState extends State<PosSellScreen> {
           _industrySettings?.promptGuestCountOnOpen == true,
       onSelect: (result) => unawaited(_attachFloorResult(result)),
       onResourceFreed: _onFloorResourceFreed,
+      onActiveTotalsChanged: _onFloorActiveTotalsChanged,
       zeroPendingKitchenResourceIds: _kitchenClearedResourceIds,
       billRequestedResourceIds: _billRequestedResourceIds,
       releasedOrderIds: Set<String>.from(_floorReleasedOrderIds),
     );
   }
 
-  // ─── Tablet lớn / màn ngang F&B: sơ đồ bàn → chọn món → thanh toán ───────
+  // ─── Tablet lớn / màn ngang F&B: trái = Phòng bàn|Thực đơn, phải = giỏ ───
 
   Widget _buildTabletFnbFlow(PermissionProvider perm) {
-    if (_floorMapVisible) return _buildTabletFloorStage();
     if (_tabletPaymentStage) return _buildTabletPaymentStage(perm);
-    return _buildTabletOrderStage(perm);
+    // Phòng bàn và Thực đơn cùng layout 2 cột — không chuyển full-page.
+    return _buildTabletSplitStage(perm);
   }
 
-  /// Bước 1: sơ đồ toàn bộ phòng/bàn, chiếm toàn màn hình (không chia cột).
-  /// Top bar thao tác: in treo / đơn hàng / cuối ngày — không chôn trong menu.
-  Widget _buildTabletFloorStage() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        _buildFloorOpsTopBar(),
-        _buildExpiryLotBanner(),
-        Expanded(child: _buildDesktopFloorPane()),
-      ],
-    );
-  }
-
-  /// Thanh thao tác trên sơ đồ bàn — chức năng hay dùng + phiếu in treo ra ngoài
-  /// (không chôn trong menu 3 gạch / không bắt buộc vào bàn mới thấy).
-  Widget _buildFloorOpsTopBar() {
-    final inHub = PosHubScope.of(context);
-    final perm = Provider.of<PermissionProvider>(context, listen: false);
-    final canOrders = PermissionNavigation.canNavigate(perm, 'PosSaleOrders') ||
-        PermissionNavigation.canNavigate(perm, 'PosProducts');
-    final canEod = PermissionNavigation.canNavigate(perm, 'PosSalesReport');
-    final canReturn = PermissionNavigation.canNavigate(perm, 'PosSaleReturns');
-    final pending = _pendingPrintCount;
-
-    Widget opsChip({
-      required IconData icon,
-      required String label,
-      required VoidCallback onTap,
-      Color? bg,
-      Color fg = Colors.white,
-    }) {
-      return Padding(
-        padding: const EdgeInsets.only(left: 6),
-        child: Material(
-          color: bg ?? Colors.white.withValues(alpha: 0.16),
-          borderRadius: BorderRadius.circular(8),
-          child: InkWell(
-            borderRadius: BorderRadius.circular(8),
-            onTap: onTap,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(icon, size: 18, color: fg),
-                  const SizedBox(width: 6),
-                  Text(
-                    tr(label),
-                    style: TextStyle(
-                      color: fg,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 13,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      );
-    }
-
-    return Material(
-      color: _kiotBlue,
-      child: SizedBox(
-        height: _KiotLayout.topBarHeight + 4,
-        child: Row(
-          children: [
-            const SizedBox(width: 8),
-            if (!inHub)
-              IconButton(
-                visualDensity: VisualDensity.compact,
-                tooltip: tr('Về trang chủ'),
-                icon: const Icon(Icons.home_outlined,
-                    size: 22, color: Colors.white),
-                onPressed: _goMobileSellHome,
-              ),
-            const Icon(Icons.table_restaurant_outlined,
-                size: 20, color: Colors.white),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                tr('Sơ đồ bàn'),
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 16,
-                ),
-              ),
-            ),
-            Flexible(
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                reverse: true,
-                padding: const EdgeInsets.only(right: 4),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (pending > 0)
-                      opsChip(
-                        icon: Icons.print_disabled_outlined,
-                        label: 'In treo ($pending)',
-                        bg: const Color(0xFFEA580C),
-                        onTap: _openPendingPrintQueue,
-                      )
-                    else
-                      opsChip(
-                        icon: Icons.receipt_long_outlined,
-                        label: 'In treo',
-                        onTap: _openPendingPrintQueue,
-                      ),
-                    if (canOrders)
-                      opsChip(
-                        icon: Icons.receipt_outlined,
-                        label: 'Đơn hàng',
-                        onTap: () => unawaited(_openSaleOrdersFromFloor()),
-                      ),
-                    if (canEod)
-                      opsChip(
-                        icon: Icons.summarize_outlined,
-                        label: 'Cuối ngày',
-                        onTap: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                                builder: (_) => const PosEndOfDayScreen()),
-                          );
-                        },
-                      ),
-                    if (canReturn)
-                      opsChip(
-                        icon: Icons.keyboard_return,
-                        label: 'Trả hàng',
-                        onTap: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                                builder: (_) => const PosSaleReturnScreen()),
-                          );
-                        },
-                      ),
-                    IconButton(
-                      visualDensity: VisualDensity.compact,
-                      tooltip: tr('Thêm chức năng'),
-                      icon:
-                          const Icon(Icons.menu, size: 24, color: Colors.white),
-                      onPressed: _openPosMenu,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Future<void> _openSaleOrdersFromFloor() async {
-    if (NavigationNotifier.mainLayoutReady.value) {
-      NavigationNotifier.navigateToModule.value = 'PosSaleOrders';
-      return;
-    }
-    if (!mounted) return;
-    await Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const PosSaleOrderListScreen()),
-    );
-  }
-
-  /// Bước 2: đã vào bàn — chọn món (trái, rộng) + danh sách món đã chọn (phải).
-  /// Không hiện chi tiết thanh toán ở đây — bấm "Thanh toán" mới sang bước 3.
-  Widget _buildTabletOrderStage(PermissionProvider perm) {
+  /// F&B: nửa trái sơ đồ hoặc thực đơn; nửa phải giỏ hàng (luôn giữ).
+  Widget _buildTabletSplitStage(PermissionProvider perm) {
     _recalcTotals();
     final canPay = perm.canPosPay();
+    final left = _floorMapVisible
+        ? _buildDesktopFloorPane()
+        : _buildDesktopProductPane();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -10421,8 +10509,9 @@ class _PosSellScreenState extends State<PosSellScreen> {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Expanded(flex: 5, child: _buildDesktopProductPane()),
-              const VerticalDivider(width: 1, thickness: 1, color: PosTheme.border),
+              Expanded(flex: 5, child: left),
+              const VerticalDivider(
+                  width: 1, thickness: 1, color: PosTheme.border),
               Expanded(
                 flex: 5,
                 child: ColoredBox(
@@ -10447,12 +10536,129 @@ class _PosSellScreenState extends State<PosSellScreen> {
     );
   }
 
+  /// Mobile F&B: sơ đồ full-width (giữ luồng cũ trên điện thoại).
+  Widget _buildTabletFloorStage() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _buildFloorOpsTopBar(),
+        _buildExpiryLotBanner(),
+        Expanded(child: _buildDesktopFloorPane()),
+      ],
+    );
+  }
+
+  /// Thanh sơ đồ bàn (mobile): Phòng bàn | Thực đơn + tìm món; phải = TB hệ thống · in treo · menu.
+  Widget _buildFloorOpsTopBar() {
+    final totalLabel =
+        'Tổng tạm tính ${_moneyFmt.format(_floorActiveSubtotal)}đ';
+
+    return Material(
+      color: _kiotBlue,
+      child: SizedBox(
+        height: _KiotLayout.topBarHeight + 8,
+        child: Row(
+          children: [
+            const SizedBox(width: 4),
+            IconButton(
+              visualDensity: VisualDensity.compact,
+              tooltip: tr('Về trang chủ'),
+              icon: const Icon(Icons.home_outlined,
+                  size: 22, color: Colors.white),
+              onPressed: _goMobileSellHome,
+            ),
+            _buildFloorMenuModeTabs(compact: true),
+            const SizedBox(width: 8),
+            Flexible(
+              child: _buildProductSearchField(width: 220),
+            ),
+            const SizedBox(width: 8),
+            Flexible(
+              child: Text(
+                tr(totalLabel),
+                overflow: TextOverflow.ellipsis,
+                maxLines: 1,
+                textAlign: TextAlign.right,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 14,
+                ),
+              ),
+            ),
+            IconButton(
+              visualDensity: VisualDensity.compact,
+              tooltip: tr(_systemUnreadNotifications > 0
+                  ? 'Thông báo ($_systemUnreadNotifications)'
+                  : 'Thông báo hệ thống'),
+              onPressed: () {
+                unawaited(_refreshSystemUnreadNotifications());
+                _openSystemNotifications();
+              },
+              icon: Badge(
+                isLabelVisible: _systemUnreadNotifications > 0,
+                label: Text(tr(_systemUnreadNotifications > 99
+                    ? '99+'
+                    : '$_systemUnreadNotifications')),
+                child: const Icon(
+                  Icons.notifications_outlined,
+                  size: 22,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+            PosPendingPrintIconButton(
+              pendingCount: _pendingPrintCount,
+              onTap: _openPendingPrintQueue,
+              iconColor: Colors.white,
+              compact: true,
+            ),
+            ..._buildTopBarScreenActions(),
+            IconButton(
+              visualDensity: VisualDensity.compact,
+              tooltip: tr('Menu'),
+              icon: const Icon(Icons.menu, size: 24, color: Colors.white),
+              onPressed: _openPosMenu,
+            ),
+            const SizedBox(width: 4),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _onFloorActiveTotalsChanged(double subtotal, int _) {
+    if (!mounted) return;
+    if ((subtotal - _floorActiveSubtotal).abs() < 0.009) return;
+    setState(() => _floorActiveSubtotal = subtotal);
+  }
+
+  Future<void> _openSaleOrdersFromFloor() async {
+    if (NavigationNotifier.mainLayoutReady.value) {
+      NavigationNotifier.navigateToModule.value = 'PosSaleOrders';
+      return;
+    }
+    if (!mounted) return;
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const PosSaleOrderListScreen()),
+    );
+  }
+
+  /// Legacy alias — F&B dùng [_buildTabletSplitStage].
+  Widget _buildTabletOrderStage(PermissionProvider perm) =>
+      _buildTabletSplitStage(perm);
+
   /// Đầu cột giỏ hàng: tên bàn/khu + số món — phân biệt rõ với vùng chọn món.
   Widget _buildTabletOrderCartHeader() {
     final tableLabel = [
       if ((_tab.serviceAreaName ?? '').isNotEmpty) _tab.serviceAreaName,
       if ((_tab.serviceResourceName ?? '').isNotEmpty) _tab.serviceResourceName,
     ].whereType<String>().join(' · ');
+    final title = tableLabel.isNotEmpty
+        ? tableLabel
+        : (_floorMapVisible && _useFloorAsPrimary
+            ? 'Chọn bàn để bán'
+            : 'Giỏ hàng');
     return Container(
       height: 44,
       padding: const EdgeInsets.symmetric(horizontal: 14),
@@ -10462,12 +10668,17 @@ class _PosSellScreenState extends State<PosSellScreen> {
       ),
       child: Row(
         children: [
-          const Icon(Icons.receipt_long_outlined,
-              size: 17, color: PosTheme.textSecondary),
+          Icon(
+            _isTableOrderMode
+                ? Icons.table_restaurant_outlined
+                : Icons.receipt_long_outlined,
+            size: 17,
+            color: PosTheme.textSecondary,
+          ),
           const SizedBox(width: 6),
           Expanded(
             child: Text(
-              tr(tableLabel.isEmpty ? 'Giỏ hàng' : tableLabel),
+              tr(title),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
@@ -10497,8 +10708,13 @@ class _PosSellScreenState extends State<PosSellScreen> {
     );
   }
 
-  /// Chân màn chọn món: tổng tiền + nút "Thanh toán" to, chuyển sang bước 3.
+  /// Chân màn chọn món: tổng tiền + Thanh toán (xanh lá) + Thông báo bếp (xanh dương).
   Widget _buildTabletOrderFooter({required bool canPay, required bool canOrder}) {
+    final notifyBusy = _kitchenSending || _checkingOut || _parking;
+    final canNotify = _isTableOrderMode &&
+        _kitchenActionCount > 0 &&
+        !notifyBusy &&
+        canOrder;
     return Container(
       decoration: const BoxDecoration(
         color: Colors.white,
@@ -10516,16 +10732,59 @@ class _PosSellScreenState extends State<PosSellScreen> {
             labelSize: 15,
           ),
           const SizedBox(height: 10),
-          _buildCheckoutActions(
-            canPay: canPay,
-            canOrder: canOrder,
-            busy: _provisionalPrinting || _kitchenSending,
-            onComplete: () => setState(() => _tabletPaymentStage = true),
-            height: 56,
-            radius: 10,
-            completeLabel: 'Thanh toán',
-            completeFontSize: 16,
-            showQuickPrintChips: false,
+          Row(
+            children: [
+              Expanded(
+                flex: 3,
+                child: FilledButton(
+                  onPressed: _tab.cart.isEmpty || !canPay
+                      ? null
+                      : () => setState(() => _tabletPaymentStage = true),
+                  style: PosTheme.payButtonStyle(height: 56, radius: 10),
+                  child: Text(
+                    tr('Thanh toán (F9)'),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 16,
+                    ),
+                  ),
+                ),
+              ),
+              if (_isTableOrderMode) ...[
+                const SizedBox(width: 10),
+                Expanded(
+                  flex: 2,
+                  child: FilledButton(
+                    onPressed: canNotify
+                        ? () => unawaited(_kitchenSendCurrentTable())
+                        : null,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: PosTheme.kiotBlue,
+                      foregroundColor: Colors.white,
+                      disabledBackgroundColor: Colors.grey.shade300,
+                      disabledForegroundColor: Colors.grey.shade600,
+                      minimumSize: const Size(0, 56),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    child: Text(
+                      tr(_kitchenSending
+                          ? 'Đang gửi…'
+                          : _kitchenActionCount > 0
+                              ? 'Thông báo (F10)'
+                              : 'Thông báo'),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ],
           ),
         ],
       ),
@@ -10702,12 +10961,33 @@ class _PosSellScreenState extends State<PosSellScreen> {
                   iconColor: PosTheme.textPrimary,
                   compact: true,
                 ),
+              IconButton(
+                visualDensity: VisualDensity.compact,
+                tooltip: tr(_systemUnreadNotifications > 0
+                    ? 'Thông báo ($_systemUnreadNotifications)'
+                    : 'Thông báo hệ thống'),
+                onPressed: () {
+                  unawaited(_refreshSystemUnreadNotifications());
+                  _openSystemNotifications();
+                },
+                icon: Badge(
+                  isLabelVisible: _systemUnreadNotifications > 0,
+                  label: Text(tr(_systemUnreadNotifications > 99
+                      ? '99+'
+                      : '$_systemUnreadNotifications')),
+                  child: const Icon(
+                    Icons.notifications_outlined,
+                    color: PosTheme.textPrimary,
+                  ),
+                ),
+              ),
               PosPendingPrintIconButton(
                 pendingCount: _pendingPrintCount,
                 onTap: _openPendingPrintQueue,
                 iconColor: PosTheme.textPrimary,
                 compact: true,
               ),
+              ..._buildTopBarScreenActions(iconColor: PosTheme.textPrimary),
               IconButton(
                 visualDensity: VisualDensity.compact,
                 icon: const Icon(Icons.menu, color: PosTheme.textPrimary),

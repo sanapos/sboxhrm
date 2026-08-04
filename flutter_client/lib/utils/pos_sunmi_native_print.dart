@@ -483,6 +483,8 @@ class PosSunmiNativePrint {
             );
           } else if (step is PosPrintCompiledQr) {
             await _printCompiledQr(step, layout);
+          } else if (step is PosPrintCompiledBarcode) {
+            await _printCompiledBarcode(step);
           }
         }
         await _feedPaper(feed);
@@ -817,6 +819,28 @@ class PosSunmiNativePrint {
     }
     if (qr.amountText != null && qr.amountText!.trim().isNotEmpty) {
       await _center('${qr.amountText!.trim()} đ', size: layout.bodySize, bold: true);
+    }
+  }
+
+  static Future<void> _printCompiledBarcode(PosPrintCompiledBarcode barcode) async {
+    final data = barcode.data.trim();
+    if (data.isEmpty) return;
+    try {
+      await SunmiPrinter.printBarCode(
+        data,
+        style: SunmiBarcodeStyle(
+          type: SunmiBarcodeType.CODE128,
+          height: barcode.height.clamp(40, 162),
+          size: 2,
+          textPos: barcode.showText
+              ? SunmiBarcodeTextPos.TEXT_UNDER
+              : SunmiBarcodeTextPos.NO_TEXT,
+          align: SunmiPrintAlign.CENTER,
+        ),
+      );
+    } catch (e) {
+      debugPrint('Sunmi barcode failed, fallback text: $e');
+      await _center(data, size: 22, bold: true);
     }
   }
 

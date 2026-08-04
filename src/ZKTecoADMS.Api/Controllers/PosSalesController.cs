@@ -284,7 +284,7 @@ public partial class PosSalesController(
         string? ToppingsJson = null);
 
     [HttpGet("return-history")]
-    [RequireModulePermission("PosSell", ModulePermissionAction.View)]
+    [RequireModulePermission("PosSaleReturns", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<object>>> ListReturnHistory(
         [FromQuery] string? search,
         [FromQuery] int page = 1,
@@ -1065,9 +1065,12 @@ public partial class PosSalesController(
         return Ok(AppResponse<SaleOrderDto>.Success(await MapOrderAsync(storeId, order)));
     }
 
+    public record CancelSaleDto(string? Reason = null, string? DetailNote = null, string? DeviceName = null);
+
     [HttpPost("{id:guid}/cancel")]
     [RequireModulePermission("PosSell", ModulePermissionAction.Approve)]
-    public async Task<ActionResult<AppResponse<SaleOrderDto>>> CancelSale(Guid id)
+    public async Task<ActionResult<AppResponse<SaleOrderDto>>> CancelSale(
+        Guid id, [FromBody] CancelSaleDto? dto = null)
     {
         var storeId = RequiredStoreId;
         var order = await dbContext.PosSaleOrders
@@ -1154,6 +1157,38 @@ public partial class PosSalesController(
                     return BadRequest(AppResponse<SaleOrderDto>.Fail("Không lưu được trạng thái hủy — vui lòng thử lại"));
                 }
             }
+
+            // Audit hủy đơn (lý do / trước-sau tạm tính / ai hủy).
+            var afterProv = false;
+            if (order.ResourceSessionId.HasValue)
+            {
+                afterProv = await dbContext.PosResourceSessions.AsNoTracking()
+                    .AnyAsync(s => s.Id == order.ResourceSessionId && s.StoreId == storeId
+                        && s.Deleted == null && s.BillRequested);
+            }
+            dbContext.PosCancelReturnAudits.Add(new PosCancelReturnAudit
+            {
+                Id = Guid.NewGuid(),
+                StoreId = storeId,
+                ActionType = "SaleCancel",
+                Reason = dto?.Reason?.Trim(),
+                DetailNote = dto?.DetailNote?.Trim(),
+                AfterProvisionalBill = afterProv,
+                SaleOrderId = order.Id,
+                OrderNo = order.OrderNo,
+                ResourceSessionId = order.ResourceSessionId,
+                ServiceResourceId = order.ServiceResourceId,
+                ResourceName = null,
+                Amount = order.Total,
+                Qty = order.Lines?.Where(l => l.Deleted == null).Sum(l => l.Qty) ?? 0,
+                OccurredAt = DateTime.UtcNow,
+                Actor = CurrentUserEmail,
+                DeviceName = dto?.DeviceName?.Trim(),
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow,
+                CreatedBy = CurrentUserEmail,
+            });
+            await dbContext.SaveChangesAsync();
 
             await tx.CommitAsync();
         }
@@ -1368,10 +1403,16 @@ public partial class PosSalesController(
 
     public record ReturnLineDto(Guid ProductId, decimal Qty, Guid? VariantId);
 
-    public record ReturnSaleDto(List<ReturnLineDto> Lines, string? Note, string? RefundPaymentMethod);
+    public record ReturnSaleDto(
+        List<ReturnLineDto> Lines,
+        string? Note,
+        string? RefundPaymentMethod,
+        string? Reason = null,
+        string? DetailNote = null,
+        string? DeviceName = null);
 
     [HttpPost("{id:guid}/return")]
-    [RequireModulePermission("PosSell", ModulePermissionAction.Approve)]
+    [RequireModulePermission("PosSaleReturns", ModulePermissionAction.Approve)]
     public async Task<ActionResult<AppResponse<object>>> ReturnSale(Guid id, [FromBody] ReturnSaleDto dto)
     {
         var storeId = RequiredStoreId;
@@ -1531,6 +1572,34 @@ public partial class PosSalesController(
             dbContext, order, returnNo, refundTotal, refundMethod, CurrentUserId);
         await PosSaleWarrantyHelper.MarkReturnedAsync(
             dbContext, storeId, order.Id, warrantyReturns, CurrentUserEmail);
+
+        dbContext.PosCancelReturnAudits.Add(new PosCancelReturnAudit
+        {
+            Id = Guid.NewGuid(),
+            StoreId = storeId,
+            ActionType = "SaleReturn",
+            Reason = dto.Reason?.Trim(),
+            DetailNote = string.IsNullOrWhiteSpace(dto.DetailNote)
+                ? dto.Note?.Trim()
+                : dto.DetailNote.Trim(),
+            AfterProvisionalBill = true, // trả hàng luôn trên đơn đã hoàn thành
+            SaleOrderId = order.Id,
+            OrderNo = order.OrderNo,
+            ResourceSessionId = order.ResourceSessionId,
+            ServiceResourceId = order.ServiceResourceId,
+            ProductName = string.Join(", ",
+                dto.Lines.Take(3).Select(l =>
+                    products.TryGetValue(l.ProductId, out var p) ? p.Name : "?")),
+            Qty = dto.Lines.Sum(l => l.Qty),
+            Amount = refundTotal,
+            OccurredAt = DateTime.UtcNow,
+            Actor = CurrentUserEmail,
+            DeviceName = dto.DeviceName?.Trim(),
+            IsActive = true,
+            CreatedAt = DateTime.UtcNow,
+            CreatedBy = CurrentUserEmail,
+        });
+
         await dbContext.SaveChangesAsync();
         await tx.CommitAsync();
         }
@@ -1560,7 +1629,7 @@ public partial class PosSalesController(
     }
 
     [HttpPost("{id:guid}/returns/cancel")]
-    [RequireModulePermission("PosSell", ModulePermissionAction.Approve)]
+    [RequireModulePermission("PosSaleReturns", ModulePermissionAction.Approve)]
     public async Task<ActionResult<AppResponse<SaleOrderDto>>> CancelReturn(Guid id, [FromBody] CancelSaleReturnDto dto)
     {
         var storeId = RequiredStoreId;

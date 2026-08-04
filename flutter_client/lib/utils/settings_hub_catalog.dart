@@ -120,6 +120,15 @@ class SettingsHubCatalog {
       moduleCode: 'ProductSalary',
     ),
     SettingsHubItemDef(
+      index: 20,
+      icon: Icons.price_change_outlined,
+      label: 'Thiết lập lương',
+      desc: 'Bảng lương, tham số tính lương nhân viên',
+      accent: HrmPageChrome.primaryNavy,
+      groupTitle: 'Chính sách lương',
+      moduleCode: 'SalarySettings',
+    ),
+    SettingsHubItemDef(
       index: 7,
       icon: Icons.manage_accounts,
       label: 'Tài khoản',
@@ -168,7 +177,7 @@ class SettingsHubCatalog {
       index: 16,
       icon: Icons.storefront_outlined,
       label: 'Ngành hàng & bán hàng',
-      desc: 'Hồ sơ ngành, bàn/ghế, tính giờ, gói buổi',
+      desc: 'Hồ sơ, bàn, hủy/trả, màn hình phụ',
       accent: Color(0xFF0D9488),
       groupTitle: 'POS / Bán hàng',
       moduleCode: 'PosSell',
@@ -208,6 +217,15 @@ class SettingsHubCatalog {
       accent: HrmPageChrome.primaryNavy,
       groupTitle: 'Tích hợp',
       moduleCode: 'AIGemini',
+    ),
+    SettingsHubItemDef(
+      index: 21,
+      icon: Icons.notifications_active_outlined,
+      label: 'Thiết lập thông báo',
+      desc: 'Bật/tắt thông báo chấm công & công việc',
+      accent: Color(0xFFF59E0B),
+      groupTitle: 'Tích hợp',
+      moduleCode: 'NotificationSettings',
     ),
   ];
 

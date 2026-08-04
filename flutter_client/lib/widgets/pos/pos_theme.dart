@@ -1,20 +1,24 @@
 import 'package:flutter/material.dart';
 import '../../l10n/app_tr.dart';
 
-/// Giao diện POS kiểu KiotViet (xanh lá chủ đạo).
+/// Giao diện POS kiểu KiotViet — xanh dương chrome + xanh lá thanh toán.
 abstract final class PosTheme {
-  static const Color kiotBlue = Color(0xFF0070F4);
-  static const Color kiotBlueLight = Color(0xFFE8F4FD);
+  /// Thanh top / tab active (KiotViet ~#0056B3).
+  static const Color kiotBlue = Color(0xFF0056B3);
+  static const Color kiotBlueLight = Color(0xFFE8F1FB);
   /// Microsoft Edge logo blue — bàn đang dùng trên sơ đồ.
   static const Color edgeBlue = Color(0xFF0078D4);
   static const Color edgeBlueLight = Color(0xFFDEECF9);
-  static const Color primary = Color(0xFF00B63E);
-  static const Color primaryDark = Color(0xFF009632);
+  /// Nút Thanh toán (KiotViet ~#4CB050).
+  static const Color payGreen = Color(0xFF4CB050);
+  static const Color payGreenDark = Color(0xFF3D9143);
+  static const Color primary = Color(0xFF4CB050);
+  static const Color primaryDark = Color(0xFF3D9143);
   static const Color primaryLight = Color(0xFFE8F8ED);
-  static const Color background = Color(0xFFF4F6F8);
+  static const Color background = Color(0xFFF4F4F4);
   static const Color border = Color(0xFFE0E4E8);
-  static const Color textPrimary = Color(0xFF1A1D21);
-  static const Color textSecondary = Color(0xFF6B7280);
+  static const Color textPrimary = Color(0xFF333333);
+  static const Color textSecondary = Color(0xFF888888);
 
   static const Color goodsColor = Color(0xFF2563EB);
   static const Color serviceColor = Color(0xFF7C3AED);
@@ -27,13 +31,24 @@ abstract final class PosTheme {
     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
   );
 
-  /// Nút chính mobile/tablet POS — xanh KiotViet, đủ lớn cho cảm ứng.
+  /// Nút chính mobile/tablet POS — xanh dương chrome.
   static ButtonStyle mobilePrimaryButton = FilledButton.styleFrom(
     backgroundColor: kiotBlue,
     foregroundColor: Colors.white,
     minimumSize: const Size(0, 56),
     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
   );
+
+  /// Nút thanh toán — xanh lá KiotViet.
+  static ButtonStyle payButtonStyle({double height = 50, double radius = 10}) =>
+      FilledButton.styleFrom(
+        backgroundColor: payGreen,
+        foregroundColor: Colors.white,
+        disabledBackgroundColor: Colors.grey.shade300,
+        disabledForegroundColor: Colors.grey.shade600,
+        minimumSize: Size(0, height),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(radius)),
+      );
 
   /// Hit-target tối thiểu trên tablet cảm ứng (≥10").
   static const double touchMin = 56.0;

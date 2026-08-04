@@ -53,11 +53,11 @@ Widget buildPosPrintTemplatePreview(PosPrintTemplateV2 template) {
   );
 }
 
-double _paperPreviewWidthPx(String paperSize) => switch (paperSize) {
-      PosPrintPaperSizes.k58 => 216,
-      PosPrintPaperSizes.k80 => 288,
-      _ => 288,
-    };
+double _paperPreviewWidthPx(String paperSize) {
+  final wMm = PosPrintPaperSizes.widthMm(paperSize);
+  // ~3.6 px / mm — tem nhỏ vẫn đọc được trên preview.
+  return (wMm * 3.6).clamp(140.0, 320.0);
+}
 
 double _previewFontSize(double printerFontSize, double paperPx) =>
     (printerFontSize * paperPx / 384).clamp(9.0, 22.0);
@@ -78,6 +78,12 @@ class _PreviewStep extends StatelessWidget {
     }
     if (step is PosPrintCompiledQr) {
       return _PreviewQr(qr: step as PosPrintCompiledQr, paperPx: paperPx);
+    }
+    if (step is PosPrintCompiledBarcode) {
+      return _PreviewBarcode(
+        barcode: step as PosPrintCompiledBarcode,
+        paperPx: paperPx,
+      );
     }
     return const SizedBox.shrink();
   }
@@ -199,6 +205,56 @@ class _PreviewQr extends StatelessWidget {
             Text(tr('${qr.amountText!.trim()} đ'),
               textAlign: TextAlign.center,
               style: captionStyle.copyWith(fontWeight: FontWeight.w700),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PreviewBarcode extends StatelessWidget {
+  const _PreviewBarcode({required this.barcode, required this.paperPx});
+
+  final PosPrintCompiledBarcode barcode;
+  final double paperPx;
+
+  @override
+  Widget build(BuildContext context) {
+    final h = (barcode.height * paperPx / 384).clamp(28.0, 72.0);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Column(
+        children: [
+          Container(
+            height: h,
+            width: double.infinity,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.grey.shade400),
+              color: Colors.grey.shade50,
+            ),
+            child: Text(
+              tr('|||| ${barcode.data} ||||'),
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontFamily: 'monospace',
+                fontSize: _previewFontSize(18, paperPx),
+                letterSpacing: 1.2,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          if (barcode.showText)
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Text(
+                tr(barcode.data),
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: _previewFontSize(18, paperPx),
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ),
         ],
       ),

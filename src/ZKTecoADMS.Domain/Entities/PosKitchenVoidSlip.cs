@@ -28,6 +28,12 @@ public class PosKitchenVoidSlip : AuditableEntity<Guid>
     [MaxLength(300)]
     public string? LineNote { get; set; }
 
+    /// <summary>Lý do hủy (Thao tác sai / Khách yêu cầu…).</summary>
+    [MaxLength(80)]
+    public string? Reason { get; set; }
+    [MaxLength(500)]
+    public string? DetailNote { get; set; }
+
     /// <summary>Hủy sau khi đã in / xin tạm tính — cần kiểm soát chặt.</summary>
     public bool AfterBillRequested { get; set; }
 

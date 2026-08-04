@@ -316,6 +316,12 @@ class PosThermalPrinterService {
         if (step.amountText != null && step.amountText!.trim().isNotEmpty) {
           await b.line('${step.amountText!.trim()} đ');
         }
+      } else if (step is PosPrintCompiledBarcode) {
+        b.printCode128(
+          step.data,
+          height: step.height,
+          showText: step.showText,
+        );
       }
     }
     await b.finishAsync();
@@ -907,6 +913,31 @@ class _EscPosBuilder {
   void _add(List<int> data) => _buf.addAll(data);
 
   void appendRaw(List<int> data) => _add(data);
+
+  /// ESC/POS CODE128 (GS k 73).
+  void printCode128(String data, {int height = 60, bool showText = true}) {
+    final code = data.trim();
+    if (code.isEmpty) return;
+    if (_useImageBatch) {
+      _imageLines.add(PosReceiptImageLine(
+        text: code,
+        fontSize: 20,
+        bold: true,
+        center: true,
+      ));
+      return;
+    }
+    center();
+    final h = height.clamp(1, 255);
+    _add([0x1D, 0x68, h]); // GS h n
+    _add([0x1D, 0x48, showText ? 0x02 : 0x00]); // GS H n — dưới / không
+    _add([0x1D, 0x77, 0x02]); // GS w — độ rộng module
+    final bytes = code.codeUnits.where((c) => c >= 32 && c <= 126).toList();
+    if (bytes.isEmpty) return;
+    // CODE128: m=73, n=length, data
+    _add([0x1D, 0x6B, 73, bytes.length, ...bytes]);
+    _add([0x0A]);
+  }
 
   void left() {
     _centered = false;

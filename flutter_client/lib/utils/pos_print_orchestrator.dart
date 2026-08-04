@@ -215,8 +215,6 @@ class PosPrintOrchestrator {
     bool forceCloud = false,
     bool acceptClaimedAsSuccess = true,
   }) async {
-    if (kIsWeb) return false;
-
     if (!skipDedup &&
         PosPrintDedup.shouldSkip(
           documentType: documentType,
@@ -237,8 +235,10 @@ class PosPrintOrchestrator {
     if (printer != null) {
       final n = copies.clamp(1, 10);
 
-      // Thiết bị gắn máy in → in trực tiếp, không qua cloud (trừ forceCloud).
-      if (!forceCloud && await PosPrintRole.isAgentForPrinter(printer.id)) {
+      // Agent trên thiết bị thật → in trực tiếp. Web không có BT/LAN/USB → luôn cloud.
+      if (!kIsWeb &&
+          !forceCloud &&
+          await PosPrintRole.isAgentForPrinter(printer.id)) {
         return _printDirectOnStorePrinter(
           printer: printer,
           bytes: bytes,
@@ -338,8 +338,6 @@ class PosPrintOrchestrator {
     String? successTitle,
     bool skipDedup = false,
   }) async {
-    if (kIsWeb) return false;
-
     if (!skipDedup &&
         PosPrintDedup.shouldSkip(
           documentType: documentType,
@@ -363,7 +361,8 @@ class PosPrintOrchestrator {
         final bytes = await buildBytes(printer);
         final n =
             copiesFor(documentType, printerId: printer.id, fallback: copies);
-        final isAgent = await PosPrintRole.isAgentForPrinter(printer.id);
+        final isAgent =
+            !kIsWeb && await PosPrintRole.isAgentForPrinter(printer.id);
         final ok = await dispatchEscPos(
           documentType: documentType,
           bytes: bytes,
@@ -428,8 +427,6 @@ class PosPrintOrchestrator {
     String? successTitle,
     bool skipDedup = false,
   }) async {
-    if (kIsWeb) return false;
-
     if (!skipDedup &&
         PosPrintDedup.shouldSkip(
           documentType: PosCloudDocumentTypes.saleInvoice,
@@ -455,8 +452,11 @@ class PosPrintOrchestrator {
           printerId: printer.id,
           fallback: copies,
         );
-        final isAgent = await PosPrintRole.isAgentForPrinter(printer.id);
-        final onSunmiHw = await PosPrinterTransport.isSunmiDevice();
+        // Web: luôn enqueue cloud (Agent Android nhận in). Không native/local.
+        final isAgent =
+            !kIsWeb && await PosPrintRole.isAgentForPrinter(printer.id);
+        final onSunmiHw =
+            !kIsWeb && await PosPrinterTransport.isSunmiDevice();
         final useNative = printer.isSunmi && (isAgent ? onSunmiHw : true);
 
         bool ok;
@@ -796,7 +796,7 @@ class PosPrintOrchestrator {
     bool skipDedup = false,
     bool waitForCompletion = true,
   }) async {
-    if (kIsWeb || lines.isEmpty) return false;
+    if (lines.isEmpty) return false;
 
     if (!skipDedup &&
         PosPrintDedup.shouldSkip(
@@ -807,8 +807,9 @@ class PosPrintOrchestrator {
       return true;
     }
 
-    final isAgent = await PosPrintRole.isAgentForPrinter(printer.id);
-    final onSunmiHw = await PosPrinterTransport.isSunmiDevice();
+    final isAgent =
+        !kIsWeb && await PosPrintRole.isAgentForPrinter(printer.id);
+    final onSunmiHw = !kIsWeb && await PosPrinterTransport.isSunmiDevice();
     final useNative = printer.isSunmi && (isAgent ? onSunmiHw : true);
 
     if (useNative && isAgent && onSunmiHw) {
@@ -1280,7 +1281,7 @@ class PosPrintOrchestrator {
     String? referenceNo,
     bool showFeedback = true,
   }) async {
-    if (jobs.isEmpty || kIsWeb) return false;
+    if (jobs.isEmpty) return false;
     for (var i = 0; i < jobs.length; i++) {
       final ok = await dispatchEscPos(
         documentType: PosCloudDocumentTypes.barcodeLabel,

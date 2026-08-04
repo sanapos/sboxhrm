@@ -2,14 +2,16 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../models/pos_print_template.dart';
 import '../../models/pos_product.dart';
-import '../../utils/pos_barcode_print.dart';
-import '../../utils/pos_print_orchestrator.dart';
-import '../../utils/pos_store_printer_mapper.dart';
 import '../../models/pos_store_printer.dart';
-import '../../utils/pos_label_printer_settings.dart';
+import '../../screens/pos_print_templates_screen.dart';
+import '../../utils/pos_barcode_print.dart';
 import '../../utils/pos_label_printer_service.dart';
+import '../../utils/pos_label_printer_settings.dart';
+import '../../utils/pos_print_orchestrator.dart';
 import '../../utils/pos_sell_store_settings.dart';
+import '../../utils/pos_store_printer_mapper.dart';
 import '../../utils/pos_thermal_printer_service.dart';
 import '../../utils/pos_thermal_printer_settings.dart';
 import '../../utils/responsive_helper.dart';
@@ -318,6 +320,20 @@ class _PosBarcodeLabelDialogState extends State<_PosBarcodeLabelDialog> {
                 fontWeight: FontWeight.w600,
               ),
             ),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => PosPrintTemplatesScreen(
+                    embeddedInSettings: true,
+                    initialDocumentType: PosPrintDocumentTypes.barcodeLabel,
+                  ),
+                ),
+              );
+            },
+            child: Text(tr('Mẫu in')),
           ),
           IconButton(
             onPressed: () => Navigator.pop(context),

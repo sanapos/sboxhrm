@@ -43,6 +43,7 @@ class PosResourceFloorScreen extends StatefulWidget {
     this.billRequestedResourceIds = const {},
     this.releasedOrderIds = const {},
     this.promptGuestCountOnOpen = false,
+    this.onActiveTotalsChanged,
   });
 
   /// Nhúng trong màn bán hàng (không push route).
@@ -58,6 +59,9 @@ class PosResourceFloorScreen extends StatefulWidget {
 
   /// Nút về trang chủ (khi nhúng bán hàng).
   final VoidCallback? onHome;
+
+  /// Tổng tạm tính + số bàn đang có đơn (nhúng top bar bán hàng).
+  final void Function(double subtotal, int activeCount)? onActiveTotalsChanged;
 
   /// Bàn vừa báo bếp xong — ép badge chờ bếp = 0 đến khi server khớp.
   final Set<String> zeroPendingKitchenResourceIds;
@@ -267,7 +271,26 @@ class _PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
       setState(() {
         _resources = _resources.map(_patchResourceFlags).toList();
       });
+      _notifyActiveTotals();
     }
+  }
+
+  double _lastEmittedSubtotal = -1;
+  int _lastEmittedCount = -1;
+
+  void _notifyActiveTotals() {
+    final s = _activeTablesSubtotal;
+    final n = _activeTableCount;
+    if (s == _lastEmittedSubtotal && n == _lastEmittedCount) return;
+    _lastEmittedSubtotal = s;
+    _lastEmittedCount = n;
+    final cb = widget.onActiveTotalsChanged;
+    if (cb == null) return;
+    // Tránh setState parent trong lúc build sơ đồ.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      cb(s, n);
+    });
   }
 
   @override
@@ -317,6 +340,7 @@ class _PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
       _loading = false;
       _error = null;
     });
+    _notifyActiveTotals();
   }
 
   void _emitSelect(Map<String, dynamic> result) {
@@ -3046,6 +3070,8 @@ class _PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Đồng bộ tổng tạm tính lên top bar màn bán (embedded).
+    _notifyActiveTotals();
     final body = _loading
         ? const Center(child: CircularProgressIndicator())
         : _error != null

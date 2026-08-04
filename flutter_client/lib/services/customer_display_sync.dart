@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/customer_display_models.dart';
+import 'api_service.dart';
 import 'customer_display_bridge_stub.dart'
     if (dart.library.html) 'customer_display_bridge_web.dart'
     if (dart.library.io) 'customer_display_bridge_io.dart' as bridge;
@@ -110,6 +111,7 @@ class CustomerDisplaySync extends ChangeNotifier {
     }
     final stamped = next.copyWith(
       updatedAtMs: DateTime.now().millisecondsSinceEpoch,
+      idleSeconds: _config.idleSeconds,
     );
     _state = stamped;
     notifyListeners();
@@ -119,6 +121,21 @@ class CustomerDisplaySync extends ChangeNotifier {
       await prefs.setString(_prefsKey, json);
     } catch (_) {}
     await bridge.CustomerDisplayPlatformBridge.publishNative(json);
+    // Đồng bộ server — máy khác mở /#/customer-display?v=CODE
+    final code = _config.viewerCode.trim();
+    if (code.length >= 4) {
+      unawaited(ApiService().putPosCustomerDisplayState(
+        stateJson: json,
+        viewerCode: code,
+      ));
+    }
+  }
+
+  /// Áp state từ API (máy xem từ xa).
+  void applyRemoteStateJson(String? raw) {
+    final s = CustomerDisplayState.tryDecode(raw);
+    if (s == null) return;
+    _applyIfNewer(s);
   }
 
   Future<void> publishIdle({
@@ -129,6 +146,7 @@ class CustomerDisplaySync extends ChangeNotifier {
       mode: CustomerDisplayMode.idle,
       promoItems: promoItems ?? _state.promoItems,
       storeName: storeName ?? _state.storeName,
+      idleSeconds: _config.idleSeconds,
     ));
   }
 
@@ -156,6 +174,7 @@ class CustomerDisplaySync extends ChangeNotifier {
       total: total,
       storeName: storeName ?? _state.storeName,
       promoItems: promoItems ?? _state.promoItems,
+      idleSeconds: _config.idleSeconds,
     ));
   }
 

@@ -13,9 +13,11 @@ Map<String, dynamic>? employeeBenefitToShiftProfile(
   final profile = <String, dynamic>{
     'shiftsPerDay': b['shiftsPerDay'],
     'weeklyOffDays': b['weeklyOffDays'],
+    'paidLeaveType': b['paidLeaveType'],
     'holidayMultiplier': b['holidayMultiplier'],
     'holidayOvertimeType': b['holidayOvertimeType'],
     'description': b['description'],
+    'attendanceMode': b['attendanceMode'],
   };
 
   var empId = employeeBenefit['employeeId']?.toString() ?? '';

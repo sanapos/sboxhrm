@@ -73,6 +73,8 @@ double calcCalendarStandardWorkDays({
   required int month,
   required String paidLeaveType,
   String paidDayOff = 'Sunday',
+  /// Số ngày nghỉ isDayOff trên lịch phân ca trong tháng (paidLeaveType=schedule).
+  int? scheduleDayOffCount,
 }) {
   final daysInMonth = DateTime(year, month + 1, 0).day;
   final monthStart = DateTime(year, month, 1);
@@ -114,6 +116,11 @@ double calcCalendarStandardWorkDays({
         }
       }
       break;
+    case 'schedule':
+      // Công chuẩn = số ngày tháng − ngày nghỉ trên lịch phân ca.
+      // Chưa có lịch → không trừ (tránh mặc định CN).
+      offDays = (scheduleDayOffCount ?? 0).toDouble();
+      break;
     case 'off-1':
       offDays = 1;
       break;
@@ -127,13 +134,16 @@ double calcCalendarStandardWorkDays({
       offDays = 4;
       break;
     default:
-      for (var d = monthStart;
-          !d.isAfter(monthEnd);
-          d = d.add(const Duration(days: 1))) {
-        if ((paidDayOff.contains('Sunday') && d.weekday == DateTime.sunday) ||
-            (paidDayOff.contains('Saturday') &&
-                d.weekday == DateTime.saturday)) {
-          offDays++;
+      final weekly = paidDayOff.trim();
+      if (weekly.isNotEmpty) {
+        for (var d = monthStart;
+            !d.isAfter(monthEnd);
+            d = d.add(const Duration(days: 1))) {
+          if ((weekly.contains('Sunday') && d.weekday == DateTime.sunday) ||
+              (weekly.contains('Saturday') &&
+                  d.weekday == DateTime.saturday)) {
+            offDays++;
+          }
         }
       }
   }
@@ -190,6 +200,7 @@ ResolvedStandardWorkDays resolveStandardWorkDays({
   required double rawWorkDays,
   String? paidLeaveType,
   String paidDayOff = 'Sunday',
+  int? scheduleDayOffCount,
 }) {
   final mode = parseEmployeeStandardWorkMode(benefit);
   final leaveType =
@@ -199,6 +210,7 @@ ResolvedStandardWorkDays resolveStandardWorkDays({
     month: month,
     paidLeaveType: leaveType,
     paidDayOff: paidDayOff,
+    scheduleDayOffCount: scheduleDayOffCount,
   );
   final fixedDays = parseFixedStandardWorkDays(benefit);
 

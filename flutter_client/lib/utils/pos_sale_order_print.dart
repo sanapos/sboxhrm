@@ -311,124 +311,121 @@ Future<bool> printPosSaleOrder({
   }
 
   final thermal = await PosThermalPrinterSettings.load();
-  if (!kIsWeb) {
-    await PosPrintOrchestrator.instance.refreshConfig();
-    final cloudPrinters = PosPrintOrchestrator.instance
-        .resolvePrinters(PosCloudDocumentTypes.saleInvoice);
+  await PosPrintOrchestrator.instance.refreshConfig();
+  final cloudPrinters = PosPrintOrchestrator.instance
+      .resolvePrinters(PosCloudDocumentTypes.saleInvoice);
 
-    // Ưu tiên máy in nhiệt cục bộ (Sunmi/BT/LAN) khi đã bật —
-    // tránh gửi cloud "thành công" mà thiết bị POS không in ra giấy.
-    if (thermal.enabled) {
-      final isProvisional = (documentTitle ?? '')
-          .toUpperCase()
-          .contains('TẠM');
-      var settings = await _prepareLocalThermalSettings(
-        thermal,
-        template,
-        order: isProvisional ? null : printOrder,
-      );
-      final printed = await _tryLocalSalePrint(
-        printOrder: printOrder,
-        settings: settings,
-        template: template,
-        branchName: branchName,
-        storeAddress: storeAddress,
-        storePhone: storePhone,
-        mergeSameItems: mergeSameItems,
-        vietQrImageUrl: vietQrImageUrl,
-        copies: copies,
-        showFeedback: showFeedback,
-        skipDedup: skipDedup,
-        documentTitle: documentTitle,
-      );
-      if (printed) {
-        return true;
-      }
-      // Chỉ bỏ cloud khi không còn máy Agent — Oppo vẫn phải gửi được sang Sunmi.
-      if (preferDevicePrintOnly && cloudPrinters.isEmpty) {
-        if (showFeedback) {
-          NotificationOverlayManager().showError(
-            title: 'Chưa in được',
-            message: tr(
-                'Máy in cục bộ lỗi và chưa có Print Agent. Không mở mẫu phiếu.'),
-          );
-        }
-        return false;
-      }
+  // App: ưu tiên máy in nhiệt cục bộ. Web: bỏ qua (không có BT/LAN/USB).
+  if (!kIsWeb && thermal.enabled) {
+    final isProvisional =
+        (documentTitle ?? '').toUpperCase().contains('TẠM');
+    var settings = await _prepareLocalThermalSettings(
+      thermal,
+      template,
+      order: isProvisional ? null : printOrder,
+    );
+    final printed = await _tryLocalSalePrint(
+      printOrder: printOrder,
+      settings: settings,
+      template: template,
+      branchName: branchName,
+      storeAddress: storeAddress,
+      storePhone: storePhone,
+      mergeSameItems: mergeSameItems,
+      vietQrImageUrl: vietQrImageUrl,
+      copies: copies,
+      showFeedback: showFeedback,
+      skipDedup: skipDedup,
+      documentTitle: documentTitle,
+    );
+    if (printed) {
+      return true;
     }
-
-    if (cloudPrinters.isNotEmpty) {
-      if (showFeedback) {
-        NotificationOverlayManager().show(
-          title: 'Đang gửi lệnh in…',
-          message: cloudPrinters.length == 1
-              ? '→ ${cloudPrinters.first.name}'
-              : '→ ${cloudPrinters.length} máy in',
-          duration: const Duration(seconds: 2),
-        );
-      }
-      final printed =
-          await PosPrintOrchestrator.instance.dispatchSaleOrder(
-        order: printOrder,
-        copies: copies,
-        referenceNo: printOrder.orderNo.isEmpty ? null : printOrder.orderNo,
-        referenceId: printOrder.id,
-        showFeedback: showFeedback,
-        successTitle: printOrder.isReprint ? 'In lại hóa đơn' : 'In hóa đơn',
-        skipDedup: skipDedup,
-        storeName: branchName,
-        storeAddress: storeAddress,
-        storePhone: storePhone,
-        mergeSameItems: mergeSameItems,
-        documentTitle: documentTitle,
-        buildEscPos: (printer) async {
-          var settings = toThermalSettings(printer);
-          settings = _thermalSettingsForTemplate(settings, template);
-          final isProvisional = (documentTitle ?? '')
-              .toUpperCase()
-              .contains('TẠM');
-          final kick = !isProvisional &&
-              PosPrinterPeripheral.shouldOpenDrawerForOrder(
-                settings,
-                printOrder,
-              );
-          settings = settings.copyWith(openCashDrawer: kick);
-          return PosThermalPrinterService.buildSaleOrderEscPosBytes(
-            printOrder,
-            settings: settings,
-            storeName: branchName,
-            storeAddress: storeAddress,
-            storePhone: storePhone,
-            mergeSameItems: mergeSameItems,
-            vietQrImageUrl: vietQrImageUrl,
-            slipTitle: documentTitle,
-          );
-        },
-      );
-      if (printed) {
-        return true;
-      }
-      if (preferDevicePrintOnly) {
-        if (showFeedback) {
-          NotificationOverlayManager().showError(
-            title: 'In thất bại',
-            message: tr('Không gửi được máy in — phiếu treo, không mở mẫu.'),
-          );
-        }
-        return false;
-      }
-    }
-
-    if (preferDevicePrintOnly) {
+    // Chỉ bỏ cloud khi không còn máy Agent — Oppo vẫn phải gửi được sang Sunmi.
+    if (preferDevicePrintOnly && cloudPrinters.isEmpty) {
       if (showFeedback) {
         NotificationOverlayManager().showError(
           title: 'Chưa in được',
           message: tr(
-              'Chưa cấu hình máy in nhiệt hoặc Print Agent. Vào Thiết lập in — không mở mẫu phiếu.'),
+              'Máy in cục bộ lỗi và chưa có Print Agent. Không mở mẫu phiếu.'),
         );
       }
       return false;
     }
+  }
+
+  // Cloud → Print Agent (app + web). Web bán hàng dùng đường này để giống app.
+  if (cloudPrinters.isNotEmpty) {
+    if (showFeedback) {
+      NotificationOverlayManager().show(
+        title: 'Đang gửi lệnh in…',
+        message: cloudPrinters.length == 1
+            ? '→ ${cloudPrinters.first.name}'
+            : '→ ${cloudPrinters.length} máy in',
+        duration: const Duration(seconds: 2),
+      );
+    }
+    final printed = await PosPrintOrchestrator.instance.dispatchSaleOrder(
+      order: printOrder,
+      copies: copies,
+      referenceNo: printOrder.orderNo.isEmpty ? null : printOrder.orderNo,
+      referenceId: printOrder.id,
+      showFeedback: showFeedback,
+      successTitle: printOrder.isReprint ? 'In lại hóa đơn' : 'In hóa đơn',
+      skipDedup: skipDedup,
+      storeName: branchName,
+      storeAddress: storeAddress,
+      storePhone: storePhone,
+      mergeSameItems: mergeSameItems,
+      documentTitle: documentTitle,
+      buildEscPos: (printer) async {
+        var settings = toThermalSettings(printer);
+        settings = _thermalSettingsForTemplate(settings, template);
+        final isProvisional =
+            (documentTitle ?? '').toUpperCase().contains('TẠM');
+        final kick = !isProvisional &&
+            PosPrinterPeripheral.shouldOpenDrawerForOrder(
+              settings,
+              printOrder,
+            );
+        settings = settings.copyWith(openCashDrawer: kick);
+        return PosThermalPrinterService.buildSaleOrderEscPosBytes(
+          printOrder,
+          settings: settings,
+          storeName: branchName,
+          storeAddress: storeAddress,
+          storePhone: storePhone,
+          mergeSameItems: mergeSameItems,
+          vietQrImageUrl: vietQrImageUrl,
+          slipTitle: documentTitle,
+        );
+      },
+    );
+    if (printed) {
+      return true;
+    }
+    if (preferDevicePrintOnly) {
+      if (showFeedback) {
+        NotificationOverlayManager().showError(
+          title: 'In thất bại',
+          message: tr(
+              'Không gửi được máy in / Print Agent offline — phiếu treo, không mở mẫu.'),
+        );
+      }
+      return false;
+    }
+  }
+
+  if (preferDevicePrintOnly) {
+    if (showFeedback) {
+      NotificationOverlayManager().showError(
+        title: 'Chưa in được',
+        message: tr(kIsWeb
+            ? 'Chưa cấu hình máy in cửa hàng hoặc Print Agent (Android) chưa online. Không mở mẫu phiếu.'
+            : 'Chưa cấu hình máy in nhiệt hoặc Print Agent. Vào Thiết lập in — không mở mẫu phiếu.'),
+      );
+    }
+    return false;
   }
 
   final saleDate =

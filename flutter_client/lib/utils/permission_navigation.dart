@@ -12,6 +12,11 @@ class PermissionNavigation {
     'PosSaleReturns': ['PosSell', 'PosProducts'],
   };
 
+  /// Gói có module A → coi như mở menu B (khớp middleware package).
+  static const Map<String, List<String>> _packageAliases = {
+    'PosSaleReturns': ['PosSell'],
+  };
+
   static bool canNavigate(PermissionProvider perm, String? moduleCode) {
     if (moduleCode == null || moduleCode.isEmpty) return true;
     if (PermissionModules.selfServiceModules.contains(moduleCode)) {
@@ -40,7 +45,12 @@ class PermissionNavigation {
       return false;
     }
     final code = moduleCode.toLowerCase();
-    return allowedModules.any((m) => m.toLowerCase() == code);
+    if (allowedModules.any((m) => m.toLowerCase() == code)) return true;
+    for (final alt in _packageAliases[moduleCode] ?? const []) {
+      final a = alt.toLowerCase();
+      if (allowedModules.any((m) => m.toLowerCase() == a)) return true;
+    }
+    return false;
   }
 
   /// Thông báo từ middleware gói dịch vụ — không cần hiện toast khi module đã ẩn.

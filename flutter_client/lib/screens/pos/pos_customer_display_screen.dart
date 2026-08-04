@@ -6,7 +6,10 @@ import 'package:intl/intl.dart';
 import 'package:video_player/video_player.dart';
 
 import '../../models/customer_display_models.dart';
+import '../../services/api_service.dart';
 import '../../services/customer_display_sync.dart';
+import '../../utils/customer_display_media.dart';
+import '../../utils/web_route_parser.dart';
 import '../../widgets/hrm_page_chrome.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
@@ -22,55 +25,97 @@ class PosCustomerDisplayScreen extends StatefulWidget {
 
 class _PosCustomerDisplayScreenState extends State<PosCustomerDisplayScreen> {
   final _sync = CustomerDisplaySync.instance;
+  final _api = ApiService();
   final _money = NumberFormat('#,###', 'vi_VN');
   Timer? _idleTimer;
+  Timer? _remotePoll;
   int _promoIndex = 0;
   VideoPlayerController? _video;
   String? _playingVideoUrl;
+  String? _videoError;
   String _promoFingerprint = '';
+  String? _viewerCode;
 
   static const _billBg = Color(0xFFFFFFFF);
   static const _billFg = Color(0xFF111827);
   static const _billMuted = Color(0xFF6B7280);
   static const _billLine = Color(0xFFE5E7EB);
+  static const _mediaBg = Color(0xFF0B1220);
 
   @override
   void initState() {
     super.initState();
+    _viewerCode = parseWebRouteQueryParams()['v']?.trim();
+    if ((_viewerCode ?? '').isEmpty) {
+      _viewerCode = parseWebRouteQueryParams()['code']?.trim();
+    }
     _sync.startListening();
     _sync.addListener(_onSync);
     _restartIdleTimer();
     unawaited(_ensurePromoMedia());
+    if ((_viewerCode ?? '').length >= 4) {
+      _remotePoll = Timer.periodic(const Duration(milliseconds: 450), (_) {
+        unawaited(_pollRemoteState());
+      });
+      unawaited(_pollRemoteState());
+    }
   }
 
   @override
   void dispose() {
     _idleTimer?.cancel();
+    _remotePoll?.cancel();
     _sync.removeListener(_onSync);
     _disposeVideo();
     super.dispose();
   }
 
+  Future<void> _pollRemoteState() async {
+    final code = _viewerCode;
+    if (code == null || code.length < 4) return;
+    final res = await _api.getPosCustomerDisplayPublicState(code);
+    if (!mounted) return;
+    if (res['isSuccess'] == true && res['data'] is Map) {
+      final json = (res['data'] as Map)['stateJson']?.toString();
+      _sync.applyRemoteStateJson(json);
+    }
+  }
+
   void _onSync() {
     if (!mounted) return;
     setState(() {});
-    // Chỉ đổi media khi danh sách promo đổi — tránh reset video mỗi lần cập nhật bill.
     final fp = _promoList
         .map((e) => '${e.videoUrl ?? ''}|${e.imageUrl ?? ''}')
         .join(';');
-    if (fp == _promoFingerprint) return;
+    if (fp == _promoFingerprint) {
+      // Vẫn cập nhật timer nếu idleSeconds đổi.
+      _restartIdleTimer();
+      return;
+    }
     _promoFingerprint = fp;
     _restartIdleTimer();
     unawaited(_ensurePromoMedia());
   }
 
+  int get _idleSeconds {
+    final fromState = _sync.state.idleSeconds;
+    if (fromState >= 3) return fromState.clamp(3, 60);
+    return _sync.config.idleSeconds.clamp(3, 60);
+  }
+
   void _restartIdleTimer() {
     _idleTimer?.cancel();
-    final sec = _sync.config.idleSeconds.clamp(3, 60);
+    final sec = _idleSeconds;
     _idleTimer = Timer.periodic(Duration(seconds: sec), (_) {
       if (!mounted) return;
       final items = _promoList;
       if (items.isEmpty) return;
+      // Đang phát video thành công — không nhảy slide (tránh cắt giữa chừng).
+      if (_video != null &&
+          _video!.value.isInitialized &&
+          (_playingVideoUrl ?? '').isNotEmpty) {
+        return;
+      }
       setState(() {
         _promoIndex = (_promoIndex + 1) % items.length;
       });
@@ -82,26 +127,63 @@ class _PosCustomerDisplayScreenState extends State<PosCustomerDisplayScreen> {
     final fromState = _sync.state.promoItems;
     if (fromState.isNotEmpty) return fromState;
     final videos = _sync.config.promoVideoUrls;
+    final images = _sync.config.promoImageUrls;
     return [
       for (final u in videos)
         CustomerDisplayPromoItem(title: 'Giới thiệu', videoUrl: u),
+      for (final u in images)
+        CustomerDisplayPromoItem(title: '', imageUrl: u),
     ];
+  }
+
+  String _resolveMediaUrl(String? raw) =>
+      resolveCustomerDisplayMediaUrl(_api, raw);
+
+  bool _looksLikeDirectVideo(String url) {
+    final lower = url.toLowerCase();
+    if (lower.contains('youtube.com') ||
+        lower.contains('youtu.be') ||
+        lower.contains('vimeo.com')) {
+      return false;
+    }
+    // Drive/Dropbox đã chuẩn hoá → cho phép.
+    if (lower.contains('drive.google.com') ||
+        lower.contains('dropbox')) {
+      return true;
+    }
+    return lower.contains('.mp4') ||
+        lower.contains('.webm') ||
+        lower.contains('.mov') ||
+        lower.contains('public-serve') ||
+        lower.startsWith('http');
   }
 
   Future<void> _ensurePromoMedia() async {
     final items = _promoList;
     if (items.isEmpty) {
       _disposeVideo();
+      if (mounted) setState(() => _videoError = null);
       return;
     }
     final item = items[_promoIndex % items.length];
-    final url = (item.videoUrl ?? '').trim();
-    if (url.isEmpty) {
+    final raw = (item.videoUrl ?? '').trim();
+    if (raw.isEmpty) {
       _disposeVideo();
+      if (mounted) setState(() => _videoError = null);
+      return;
+    }
+    final url = _resolveMediaUrl(raw);
+    if (url.isEmpty || !_looksLikeDirectVideo(url)) {
+      _disposeVideo();
+      if (mounted) {
+        setState(() => _videoError =
+            'Video không hợp lệ — dùng URL file .mp4/.webm (không YouTube)');
+      }
       return;
     }
     if (_video != null && _playingVideoUrl == url) return;
     _disposeVideo();
+    if (mounted) setState(() => _videoError = null);
     try {
       final c = VideoPlayerController.networkUrl(Uri.parse(url));
       await c.initialize();
@@ -114,9 +196,13 @@ class _PosCustomerDisplayScreenState extends State<PosCustomerDisplayScreen> {
       setState(() {
         _video = c;
         _playingVideoUrl = url;
+        _videoError = null;
       });
-    } catch (_) {
+    } catch (e) {
       _disposeVideo();
+      if (mounted) {
+        setState(() => _videoError = 'Không phát được video');
+      }
     }
   }
 
@@ -136,20 +222,19 @@ class _PosCustomerDisplayScreenState extends State<PosCustomerDisplayScreen> {
       body: wide
           ? Row(
               children: [
-                Expanded(flex: 6, child: _buildMediaPane(s)),
-                Expanded(flex: 4, child: _buildBillPane(s)),
+                // ~60% media — full khung, không bị bill đè.
+                Expanded(flex: 62, child: _buildMediaPane(s)),
+                Expanded(flex: 38, child: _buildBillPane(s)),
               ],
             )
           : Column(
               children: [
-                Expanded(flex: 5, child: _buildMediaPane(s)),
-                Expanded(flex: 5, child: _buildBillPane(s)),
+                Expanded(flex: 55, child: _buildMediaPane(s)),
+                Expanded(flex: 45, child: _buildBillPane(s)),
               ],
             ),
     );
   }
-
-  // ── Media (ảnh / video / brand fallback) ──────────────────────────
 
   Widget _buildMediaPane(CustomerDisplayState s) {
     final items = _promoList;
@@ -158,34 +243,47 @@ class _PosCustomerDisplayScreenState extends State<PosCustomerDisplayScreen> {
     }
     final item = items[_promoIndex % items.length];
     final hasVideo = _video != null && _video!.value.isInitialized;
-    final imageUrl = (item.imageUrl ?? '').trim();
+    final imageUrl = _resolveMediaUrl(item.imageUrl);
 
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        if (hasVideo)
-          FittedBox(
-            fit: BoxFit.cover,
-            child: SizedBox(
-              width: _video!.value.size.width,
-              height: _video!.value.size.height,
-              child: VideoPlayer(_video!),
-            ),
-          )
-        else if (imageUrl.isNotEmpty)
-          CachedNetworkImage(
-            imageUrl: imageUrl,
-            fit: BoxFit.cover,
-            errorWidget: (_, __, ___) => _buildBrandFallback(s.storeName),
-          )
-        else
-          _buildBrandFallback(s.storeName),
-      ],
+    // Nền tối + contain: ảnh/video hiện trọn, không bị cắt / che.
+    return ColoredBox(
+      color: _mediaBg,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          if (hasVideo)
+            Center(
+              child: FittedBox(
+                fit: BoxFit.contain,
+                child: SizedBox(
+                  width: _video!.value.size.width,
+                  height: _video!.value.size.height,
+                  child: VideoPlayer(_video!),
+                ),
+              ),
+            )
+          else if (imageUrl.isNotEmpty)
+            CachedNetworkImage(
+              imageUrl: imageUrl,
+              fit: BoxFit.contain,
+              width: double.infinity,
+              height: double.infinity,
+              alignment: Alignment.center,
+              errorWidget: (_, __, ___) => _buildBrandFallback(
+                s.storeName,
+                hint: 'Không tải được ảnh',
+              ),
+            )
+          else if ((_videoError ?? '').isNotEmpty)
+            _buildBrandFallback(s.storeName, hint: _videoError)
+          else
+            _buildBrandFallback(s.storeName),
+        ],
+      ),
     );
   }
 
-  /// Panel SBOX HRM — cùng palette banner chào trang chủ.
-  Widget _buildBrandFallback(String? storeName) {
+  Widget _buildBrandFallback(String? storeName, {String? hint}) {
     final store = (storeName ?? '').trim();
     return Container(
       key: const ValueKey('brand-fallback'),
@@ -225,7 +323,7 @@ class _PosCustomerDisplayScreenState extends State<PosCustomerDisplayScreen> {
             const SizedBox(height: 20),
             Text(
               tr('SBOX HRM'),
-              style: TextStyle(
+              style: const TextStyle(
                 color: Colors.white,
                 fontSize: 36,
                 fontWeight: FontWeight.w800,
@@ -241,13 +339,25 @@ class _PosCustomerDisplayScreenState extends State<PosCustomerDisplayScreen> {
                 fontSize: 18,
               ),
             ),
+            if ((hint ?? '').isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Text(
+                  tr(hint!),
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.65),
+                    fontSize: 13,
+                  ),
+                ),
+              ),
+            ],
           ],
         ),
       ),
     );
   }
-
-  // ── Bill (nền trắng, chữ đen) ─────────────────────────────────────
 
   Widget _buildBillPane(CustomerDisplayState s) {
     final active = s.isActive;

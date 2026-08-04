@@ -285,9 +285,11 @@ class PermissionProvider extends ChangeNotifier {
     if (moduleCode == 'Production' && _flag('ProductSalary', action)) {
       return true;
     }
+    // POS: submodule kho/bán gộp từ PosProducts (cùng action).
     if (moduleCode == 'PosSell' ||
         moduleCode == 'PosPrintTemplates' ||
         moduleCode == 'PosSaleOrders' ||
+        moduleCode == 'PosSaleReturns' ||
         moduleCode == 'PosPurchaseReceipts' ||
         moduleCode == 'PosPurchaseReturns' ||
         moduleCode == 'PosStockCounts' ||
@@ -295,23 +297,19 @@ class PermissionProvider extends ChangeNotifier {
         moduleCode == 'PosInternalUseIssues') {
       if (_flag('PosProducts', action)) return true;
     }
+    // Trả hàng: thu ngân PosSell cùng action vẫn được.
+    if (moduleCode == 'PosSaleReturns' && _flag('PosSell', action)) {
+      return true;
+    }
+    // Xem hàng hóa / mẫu in khi có quyền bán.
+    if ((moduleCode == 'PosProducts' || moduleCode == 'PosPrintTemplates') &&
+        (action == 'canView' || action == 'canExport') &&
+        _flag('PosSell', 'canView')) {
+      return true;
+    }
     if (moduleCode == 'PosSalesReport' &&
         (action == 'canView' || action == 'canExport')) {
       if (_flag('PosProducts', action) || _flag('PosSalesReport', action)) {
-        return true;
-      }
-    }
-    if (moduleCode == 'PosProducts' && action != 'canView') {
-      if (_anyHas(action, const [
-        'PosSell',
-        'PosPrintTemplates',
-        'PosSaleOrders',
-        'PosPurchaseReceipts',
-        'PosPurchaseReturns',
-        'PosStockCounts',
-        'PosDamageIssues',
-        'PosInternalUseIssues',
-      ])) {
         return true;
       }
     }

@@ -144,8 +144,8 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
               empSalaryProfile?['benefit']?['responsibilityAllowance'] ?? 0,
           'paidDayOff':
               empSalaryProfile?['benefit']?['weeklyOffDays'] ?? 'Sunday',
-          'attendanceType':
-              empSalaryProfile?['benefit']?['attendanceMode'] ?? 'both',
+          'attendanceType': _normalizeAttendanceModeUi(
+              empSalaryProfile?['benefit']?['attendanceMode'] ?? 'both'),
           'shifts': _parseDescriptionField(
               empSalaryProfile?['benefit']?['description'], 'shifts'),
           'shiftsPerDay': empSalaryProfile?['benefit']?['shiftsPerDay'] ?? 1,
@@ -502,11 +502,12 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                       value: 'both', child: Text(tr('Chấm vào & Chấm ra'))),
                   DropdownMenuItem(value: 'any', child: Text(tr('Chấm bất kỳ'))),
                   DropdownMenuItem(
-                      value: kOncePerShiftAttendanceMode,
-                      child: Text(tr('Chấm vào 1 lần/ca'))),
-                  DropdownMenuItem(
                       value: kFreeTwoPunchAttendanceMode,
                       child: Text(tr('Chấm 2 lần bất kỳ trong ngày'))),
+                  DropdownMenuItem(
+                      value: kFullDayShiftAttendanceMode,
+                      child: Text(tr(
+                          'Ca nguyên ngày (vd: 6h sáng vào → trước 6h sáng hôm sau ra)'))),
                   DropdownMenuItem(
                       value: 'none', child: Text(tr('Không chấm công'))),
                 ],
@@ -666,11 +667,12 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
         DropdownMenuItem(value: 'both', child: Text(tr('Chấm vào & Chấm ra'))),
         DropdownMenuItem(value: 'any', child: Text(tr('Chấm bất kỳ'))),
         DropdownMenuItem(
-            value: kOncePerShiftAttendanceMode,
-            child: Text(tr('Chấm vào 1 lần/ca'))),
-        DropdownMenuItem(
             value: kFreeTwoPunchAttendanceMode,
             child: Text(tr('Chấm 2 lần bất kỳ trong ngày'))),
+        DropdownMenuItem(
+            value: kFullDayShiftAttendanceMode,
+            child: Text(tr(
+                'Ca nguyên ngày (vd: 6h sáng vào → trước 6h sáng hôm sau ra)'))),
         DropdownMenuItem(value: 'none', child: Text(tr('Không chấm công'))),
       ],
       onChanged: (value) => setState(() => _filterAttendance = value ?? 'all'),
@@ -2102,20 +2104,27 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
     return widgets;
   }
 
+  /// `once` ≡ `checkin` — chỉ hiện một mục trên UI.
+  String _normalizeAttendanceModeUi(dynamic mode) {
+    final m = mode?.toString() ?? 'both';
+    if (m == kOncePerShiftAttendanceMode) return kCheckInOnlyAttendanceMode;
+    return m;
+  }
+
   String _getAttendanceModeName(dynamic mode) {
-    switch (mode?.toString()) {
+    switch (_normalizeAttendanceModeUi(mode)) {
       case 'checkin':
-        return 'Chấm vào';
+        return 'Chấm vào (đủ ca)';
       case 'checkout':
-        return 'Chấm ra';
+        return 'Chấm ra (đủ ca)';
       case 'both':
         return 'Chấm vào & Chấm ra';
       case 'any':
         return 'Chấm bất kỳ';
-      case kOncePerShiftAttendanceMode:
-        return 'Chấm vào 1 lần/ca';
       case kFreeTwoPunchAttendanceMode:
         return 'Chấm 2 lần bất kỳ trong ngày';
+      case kFullDayShiftAttendanceMode:
+        return 'Ca nguyên ngày (vd: 6h sáng vào → trước 6h sáng hôm sau ra)';
       case 'none':
         return 'Không chấm công';
       default:
@@ -2332,6 +2341,8 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
         return 'Thứ 7 & Chủ nhật';
       case 'sat-afternoon-sun':
         return 'Chiều thứ 7 & Chủ nhật';
+      case 'schedule':
+        return 'Theo lịch phân ca';
       case 'off-1':
         return 'Nghỉ 1 ngày/tháng';
       case 'off-2':
@@ -2854,6 +2865,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
       'saturday',
       'sat-sun',
       'sat-afternoon-sun',
+      'schedule',
       'off-1',
       'off-2',
       'off-3',
@@ -2873,15 +2885,16 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
       }
     }
 
-    String attendanceMode = benefit['attendanceMode']?.toString() ?? 'both';
+    String attendanceMode =
+        _normalizeAttendanceModeUi(benefit['attendanceMode'] ?? 'both');
     if (![
       'none',
       'checkin',
       'checkout',
       'both',
       'any',
-      kOncePerShiftAttendanceMode,
       kFreeTwoPunchAttendanceMode,
+      kFullDayShiftAttendanceMode,
     ].contains(attendanceMode)) {
       attendanceMode = 'both';
     }
@@ -3678,6 +3691,9 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                               value: 'sat-afternoon-sun',
                               child: Text(tr('Chiều thứ 7 & Chủ nhật'))),
                           DropdownMenuItem(
+                              value: 'schedule',
+                              child: Text(tr('Theo lịch phân ca'))),
+                          DropdownMenuItem(
                               value: 'off-1', child: Text(tr('Nghỉ 1 ngày/tháng'))),
                           DropdownMenuItem(
                               value: 'off-2', child: Text(tr('Nghỉ 2 ngày/tháng'))),
@@ -3699,20 +3715,25 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                           DropdownMenuItem(
                               value: 'none', child: Text(tr('Không chấm công'))),
                           DropdownMenuItem(
-                              value: 'checkin', child: Text(tr('Chấm vào'))),
+                              value: 'checkin',
+                              child: Text(tr(
+                                  'Chấm vào (đủ ca, trễ theo ca, giờ ra = hết ca)'))),
                           DropdownMenuItem(
-                              value: 'checkout', child: Text(tr('Chấm ra'))),
+                              value: 'checkout',
+                              child: Text(tr(
+                                  'Chấm ra (đủ ca, giờ vào = đầu ca, tính về sớm)'))),
                           DropdownMenuItem(
                               value: 'both', child: Text(tr('Chấm vào & Chấm ra'))),
                           DropdownMenuItem(
                               value: 'any',
                               child: Text(tr('Chấm bất kỳ trong ca'))),
                           DropdownMenuItem(
-                              value: kOncePerShiftAttendanceMode,
-                              child: Text(tr('Chấm vào 1 lần/ca (trễ theo ca, giờ ra = hết ca)'))),
-                          DropdownMenuItem(
                               value: kFreeTwoPunchAttendanceMode,
                               child: Text(tr('Chấm 2 lần bất kỳ trong ngày (không theo ca, không trễ/sớm/OT)'))),
+                          DropdownMenuItem(
+                              value: kFullDayShiftAttendanceMode,
+                              child: Text(tr(
+                                  'Ca nguyên ngày (vd: 6h sáng chấm vào và trước 6h sáng hôm sau chấm ra = 1 công)'))),
                         ],
                         onChanged: (value) => setDialogState(
                             () => attendanceMode = value ?? 'both'),
@@ -3796,9 +3817,8 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                   0;
 
               // Map paidLeaveType to weeklyOffDays for backward compatibility.
-              // off-1..off-4 = nghỉ N ngày bất kỳ/tháng (không cố định thứ) →
-              // weeklyOffDays để trống, không được coi Thứ 7/CN là ngày nghỉ cố
-              // định (tránh tính nhầm "Tăng ca ngày nghỉ" khi họ đi làm CN).
+              // off-1..off-4 / schedule = không cố định T7/CN → weeklyOffDays rỗng
+              // (tránh tính nhầm "Tăng ca ngày nghỉ" khi đi làm CN).
               String weeklyOffDays = 'Sunday';
               if (paidLeaveType == 'saturday') {
                 weeklyOffDays = 'Saturday';
@@ -3806,7 +3826,8 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                 weeklyOffDays = 'Saturday,Sunday';
               } else if (paidLeaveType == 'sat-afternoon-sun') {
                 weeklyOffDays = 'Saturday,Sunday';
-              } else if (paidLeaveType == 'off-1' ||
+              } else if (paidLeaveType == 'schedule' ||
+                  paidLeaveType == 'off-1' ||
                   paidLeaveType == 'off-2' ||
                   paidLeaveType == 'off-3' ||
                   paidLeaveType == 'off-4') {

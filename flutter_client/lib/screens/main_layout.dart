@@ -92,6 +92,8 @@ import 'pos_sale_order_list_screen.dart';
 import 'pos_sale_return_list_screen.dart';
 import 'warehouse/wh_mobile_nav.dart';
 import 'pos_reports_screen.dart';
+import 'pos/pos_cancel_return_history_screen.dart';
+import 'pos/pos_customer_debt_report_screen.dart';
 import 'pos/pos_mobile_hub_screen.dart';
 import 'shift_swap_screen.dart';
 import '../utils/permission_navigation.dart';
@@ -1544,18 +1546,40 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       themeColor: const Color(0xFF2563EB),
       moduleCode: 'PosInternalUseIssues',
     ),
+    // ══════════ BÁO CÁO ══════════
     NavItem(
       icon: Icons.analytics_outlined,
       activeIcon: Icons.analytics,
       label: 'Báo cáo POS',
       subtitle: 'Doanh thu bán hàng, tồn kho POS',
       screen: const PosReportsScreen(),
-      group: 'POS',
+      group: 'Báo cáo',
+      showInSidebar: true,
       themeColor: const Color(0xFF2563EB),
       moduleCode: 'PosSalesReport',
     ),
-
-    // ══════════ BÁO CÁO ══════════
+    NavItem(
+      icon: Icons.history,
+      activeIcon: Icons.history,
+      label: 'Báo cáo hủy / trả',
+      subtitle: 'Lịch sử hủy món, hủy đơn, trả hàng',
+      screen: const PosCancelReturnHistoryScreen(),
+      group: 'Báo cáo',
+      showInSidebar: true,
+      themeColor: const Color(0xFFEA580C),
+      moduleCode: 'PosSaleReturns',
+    ),
+    NavItem(
+      icon: Icons.account_balance_wallet_outlined,
+      activeIcon: Icons.account_balance_wallet,
+      label: 'Công nợ khách hàng',
+      subtitle: 'Báo cáo công nợ POS',
+      screen: const PosCustomerDebtReportScreen(),
+      group: 'Báo cáo',
+      showInSidebar: false,
+      themeColor: const Color(0xFF0D9488),
+      moduleCode: 'PosSalesReport',
+    ),
     NavItem(
       icon: Icons.fact_check_outlined,
       activeIcon: Icons.fact_check,
@@ -1656,7 +1680,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       icon: Icons.tune_outlined,
       activeIcon: Icons.tune,
       label: 'Thiết lập HRM',
-      subtitle: 'Ca làm, phụ cấp, bảo hiểm, thuế',
+      subtitle: 'Ca, lương, thông báo, phụ cấp, POS…',
       screen: const SettingsHubScreen(),
       group: 'Cài đặt',
       showInSidebar: false,
@@ -1698,7 +1722,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       themeColor: const Color(0xFFEC4899),
       moduleCode: 'PenaltyTickets',
     ),
-    // ══════════ THIẾT LẬP THÔNG BÁO ══════════
+    // Thiết lập thông báo → vào qua Thiết lập HRM (phân quyền module NotificationSettings).
     NavItem(
       icon: Icons.notifications_active_outlined,
       activeIcon: Icons.notifications_active,
@@ -1706,7 +1730,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       subtitle: 'Bật/tắt thông báo chấm công & công việc',
       screen: const NotificationSettingsScreen(),
       group: 'Cài đặt',
-      showInSidebar: true,
+      showInSidebar: false,
       themeColor: const Color(0xFFF59E0B),
       moduleCode: 'NotificationSettings',
     ),

@@ -96,6 +96,10 @@ abstract final class PosPrintDocumentTypes {
   static const cashPayment = 'CashPayment';
   static const kitchenSlip = 'KitchenSlip';
   static const kitchenVoid = 'KitchenVoid';
+  /// Tem dán sản phẩm (mã hàng / mã vạch / giá).
+  static const barcodeLabel = 'BarcodeLabel';
+  /// Tem báo bếp / tem ly / tem báo sản phẩm khi chế biến.
+  static const kitchenLabel = 'KitchenLabel';
 
   static const all = <String, String>{
     saleOrder: 'Đặt hàng',
@@ -112,6 +116,8 @@ abstract final class PosPrintDocumentTypes {
     cashPayment: 'Phiếu chi',
     kitchenSlip: 'Phiếu chế biến',
     kitchenVoid: 'Phiếu hủy bếp',
+    barcodeLabel: 'Tem sản phẩm',
+    kitchenLabel: 'Tem báo bếp',
   };
 }
 
@@ -120,23 +126,81 @@ abstract final class PosPrintPaperSizes {
   static const k80 = 'K80';
   static const a5 = 'A5';
   static const a4 = 'A4';
+  /// Tem nhãn 50×30 mm.
+  static const label50x30 = 'Label50x30';
+  /// Tem nhãn 40×30 mm.
+  static const label40x30 = 'Label40x30';
 
   static const labels = <String, String>{
     k58: 'Khổ K58 (58mm)',
     k80: 'Khổ K80 (80mm)',
     a5: 'Khổ A5',
     a4: 'Khổ A4',
+    label50x30: 'Tem 50×30 mm',
+    label40x30: 'Tem 40×30 mm',
   };
 
-  static double widthMm(String size) => switch (size) {
-        k58 => 58,
-        k80 => 80,
-        a5 => 148,
-        a4 => 210,
-        _ => 80,
-      };
+  /// Khổ nhiệt phiếu (không gồm tem).
+  static const receiptSizes = [k58, k80, a5, a4];
 
+  /// Khổ tem báo bếp.
+  static const kitchenLabelSizes = [label50x30, label40x30];
+
+  static bool isLabelDoc(String documentType) =>
+      documentType == PosPrintDocumentTypes.barcodeLabel ||
+      documentType == PosPrintDocumentTypes.kitchenLabel;
+
+  static bool isLabelSize(String size) =>
+      size == label50x30 ||
+      size == label40x30 ||
+      size.startsWith('roll_') ||
+      size.startsWith('sheet_') ||
+      size.startsWith('jewelry_');
+
+  static double widthMm(String size) {
+    if (size == label50x30 || size == 'roll_1_50x30') return 50;
+    if (size == label40x30 || size == 'roll_1_40x30') return 40;
+    return switch (size) {
+      k58 => 58,
+      k80 => 80,
+      a5 => 148,
+      a4 => 210,
+      _ => 50,
+    };
+  }
+
+  static double heightMm(String size) {
+    if (size == label50x30 || size == 'roll_1_50x30') return 30;
+    if (size == label40x30 || size == 'roll_1_40x30') return 30;
+    return switch (size) {
+      k58 || k80 => 0,
+      a5 => 210,
+      a4 => 297,
+      _ => 30,
+    };
+  }
+
+  /// Phiếu nhiệt cuộn (không gồm tem nhãn).
   static bool isThermal(String size) => size == k58 || size == k80;
+
+  /// Map khổ V2 (có thể là id tem barcode) → enum API.
+  static String toApiPaperSize(String documentType, String v2PaperSize) {
+    if (documentType == PosPrintDocumentTypes.kitchenLabel) {
+      if (v2PaperSize == label40x30 || v2PaperSize == 'roll_1_40x30') {
+        return label40x30;
+      }
+      return label50x30;
+    }
+    if (documentType == PosPrintDocumentTypes.barcodeLabel) {
+      if (v2PaperSize == label40x30 || v2PaperSize == 'roll_1_40x30') {
+        return label40x30;
+      }
+      // Các mẫu tem hàng hóa (roll_*/sheet_*) → API Label50x30 (chi tiết trong V2).
+      return label50x30;
+    }
+    if (labels.containsKey(v2PaperSize)) return v2PaperSize;
+    return k80;
+  }
 }
 
 /// Placeholder có thể chèn vào mẫu in.
@@ -163,12 +227,30 @@ abstract final class PosPrintTokens {
   static const line = [
     ('STT', 'STT dòng'),
     ('Ma_Hang', 'Mã hàng'),
+    ('Ma_Vach', 'Mã vạch'),
     ('Ten_Hang_Hoa', 'Tên hàng'),
     ('Don_Gia', 'Đơn giá'),
     ('So_Luong', 'Số lượng'),
     ('Don_Vi_Tinh', 'ĐVT'),
     ('Chiet_Khau', 'Chiết khấu dòng'),
     ('Thanh_Tien', 'Thành tiền dòng'),
+    ('Ten_Ban', 'Tên bàn'),
+  ];
+
+  /// Token chuyên dùng tem sản phẩm / tem bếp.
+  static const label = [
+    ('Ma_Hang', 'Mã hàng'),
+    ('Ma_Vach', 'Mã vạch'),
+    ('Ten_Hang_Hoa', 'Tên hàng'),
+    ('Don_Gia', 'Đơn giá'),
+    ('Don_Vi_Tinh', 'ĐVT'),
+    ('So_Luong', 'Số lượng'),
+    ('Ten_Ban', 'Tên bàn'),
+    ('Ma_Don_Hang', 'Mã đơn'),
+    ('Ngay', 'Ngày'),
+    ('Gio', 'Giờ'),
+    ('Ghi_Chu', 'Ghi chú / topping'),
+    ('Ten_Cua_Hang', 'Tên cửa hàng'),
   ];
 
   static const totals = [

@@ -48,7 +48,28 @@ class HrmResponsiveListLayout extends StatelessWidget {
   }
 
   /// Header (tổng quan/bộ lọc) không được chiếm quá phần này — tránh ép danh sách về 0.
-  static const double _maxHeaderFraction = 0.42;
+  static const double _maxHeaderFraction = 0.55;
+
+  /// Header shrink-wrap theo nội dung; chỉ cuộn khi vượt [maxHeight].
+  /// Tránh [SingleChildScrollView] phình hết maxHeight → khoảng trắng + cắt bộ lọc.
+  static Widget shrinkWrapHeader({
+    required double maxHeight,
+    required List<Widget> children,
+  }) {
+    if (children.isEmpty) return const SizedBox.shrink();
+    return ConstrainedBox(
+      constraints: BoxConstraints(maxHeight: maxHeight),
+      child: ListView(
+        shrinkWrap: true,
+        physics: const ClampingScrollPhysics(),
+        padding: EdgeInsets.zero,
+        children: [
+          for (final w in children)
+            SizedBox(width: double.infinity, child: w),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -75,21 +96,14 @@ class HrmResponsiveListLayout extends StatelessWidget {
     final column = LayoutBuilder(
       builder: (context, constraints) {
         final maxHeaderH =
-            (constraints.maxHeight * _maxHeaderFraction).clamp(120.0, 420.0);
+            (constraints.maxHeight * _maxHeaderFraction).clamp(160.0, 560.0);
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             if (headerSections.isNotEmpty)
-              ConstrainedBox(
-                constraints: BoxConstraints(maxHeight: maxHeaderH),
-                child: SingleChildScrollView(
-                  physics: const ClampingScrollPhysics(),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: headerSections,
-                  ),
-                ),
+              shrinkWrapHeader(
+                maxHeight: maxHeaderH,
+                children: headerSections,
               ),
             Expanded(child: desktopBody),
           ],
@@ -142,21 +156,14 @@ class HrmMobileNestedTabLayout extends StatelessWidget {
         builder: (context, constraints) {
           final maxHeaderH = (constraints.maxHeight *
                   HrmResponsiveListLayout._maxHeaderFraction)
-              .clamp(120.0, 420.0);
+              .clamp(160.0, 560.0);
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               if (headerSections.isNotEmpty)
-                ConstrainedBox(
-                  constraints: BoxConstraints(maxHeight: maxHeaderH),
-                  child: SingleChildScrollView(
-                    physics: const ClampingScrollPhysics(),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: headerSections,
-                    ),
-                  ),
+                HrmResponsiveListLayout.shrinkWrapHeader(
+                  maxHeight: maxHeaderH,
+                  children: headerSections,
                 ),
               tabBar,
               Expanded(child: tabBarView),
@@ -327,20 +334,13 @@ class HrmResponsivePageBody extends StatelessWidget {
       builder: (context, constraints) {
         final maxHeaderH = (constraints.maxHeight *
                 HrmResponsiveListLayout._maxHeaderFraction)
-            .clamp(120.0, 420.0);
+            .clamp(160.0, 560.0);
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            ConstrainedBox(
-              constraints: BoxConstraints(maxHeight: maxHeaderH),
-              child: SingleChildScrollView(
-                physics: const ClampingScrollPhysics(),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [header, ...belowHeader],
-                ),
-              ),
+            HrmResponsiveListLayout.shrinkWrapHeader(
+              maxHeight: maxHeaderH,
+              children: [header, ...belowHeader],
             ),
             Expanded(child: body),
           ],

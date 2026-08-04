@@ -31,10 +31,12 @@ import 'tax_settings_screen.dart';
 import 'device_management_settings_screen.dart';
 
 import 'product_salary_settings_screen.dart';
+import 'salary_settings_screen.dart';
+import 'notification_settings_screen.dart';
 import 'branch_management_screen.dart';
 import 'staffing_quota_settings_screen.dart';
 import 'pos_print_templates_screen.dart';
-import 'pos/pos_sell_industry_settings_screen.dart';
+import 'pos/pos_sell_industry_settings_hub_screen.dart';
 import 'pos/pos_store_settings_hub_screen.dart';
 import 'pos/pos_printer_settings_hub_screen.dart';
 import 'pos/pos_resource_floor_screen.dart';
@@ -286,7 +288,7 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
       case 15:
         return const PosPrintTemplatesScreen(embeddedInSettings: true);
       case 16:
-        return const PosSellIndustrySettingsScreen(embeddedInSettings: true);
+        return const PosSellIndustrySettingsHubScreen(embeddedInSettings: true);
       case 17:
         return const PosStoreSettingsHubScreen();
       case 18:
@@ -297,6 +299,10 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
           embedded: true,
           showAppBar: false,
         );
+      case 20:
+        return const SalarySettingsScreen();
+      case 21:
+        return const NotificationSettingsScreen();
       default:
         return const SizedBox();
     }

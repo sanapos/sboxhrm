@@ -113,7 +113,15 @@ public class PermissionConfiguration : IEntityTypeConfiguration<Permission>
             new Permission { Id = Guid.Parse("11111111-1111-1111-1111-111111111082"), Module = "DashboardInternalNews", ModuleDisplayName = "Bản tin nội bộ", Description = "Tin truyền thông trên Dashboard", DisplayOrder = 11 },
             new Permission { Id = Guid.Parse("11111111-1111-1111-1111-111111111083"), Module = "PosProducts", ModuleDisplayName = "Hàng hóa POS", Description = "Danh mục hàng hóa, tồn kho, giá bán POS", DisplayOrder = 52 },
             new Permission { Id = Guid.Parse("11111111-1111-1111-1111-111111111087"), Module = "PosSell", ModuleDisplayName = "Bán hàng POS", Description = "Order / tạm tính (Tạo) · Thanh toán (Duyệt)", DisplayOrder = 53 },
-            new Permission { Id = Guid.Parse("11111111-1111-1111-1111-111111111084"), Module = "PosSalesReport", ModuleDisplayName = "Báo cáo doanh thu POS", Description = "Thống kê doanh thu, đơn bán hàng POS", DisplayOrder = 54 }
+            new Permission { Id = Guid.Parse("11111111-1111-1111-1111-111111111088"), Module = "PosPrintTemplates", ModuleDisplayName = "Mẫu in POS", Description = "Mẫu in hóa đơn, phiếu", DisplayOrder = 54 },
+            new Permission { Id = Guid.Parse("11111111-1111-1111-1111-111111111089"), Module = "PosSaleOrders", ModuleDisplayName = "Đơn hàng POS", Description = "Danh sách đơn bán hàng", DisplayOrder = 55 },
+            new Permission { Id = Guid.Parse("11111111-1111-1111-1111-111111111090"), Module = "PosSaleReturns", ModuleDisplayName = "Trả hàng bán", Description = "Trả hàng khách, hủy phiếu trả", DisplayOrder = 56 },
+            new Permission { Id = Guid.Parse("11111111-1111-1111-1111-111111111091"), Module = "PosPurchaseReceipts", ModuleDisplayName = "Nhập hàng NCC", Description = "Phiếu nhập hàng nhà cung cấp", DisplayOrder = 57 },
+            new Permission { Id = Guid.Parse("11111111-1111-1111-1111-111111111092"), Module = "PosPurchaseReturns", ModuleDisplayName = "Trả hàng nhập", Description = "Trả hàng cho nhà cung cấp", DisplayOrder = 58 },
+            new Permission { Id = Guid.Parse("11111111-1111-1111-1111-111111111093"), Module = "PosStockCounts", ModuleDisplayName = "Kiểm kho POS", Description = "Kiểm kê tồn kho", DisplayOrder = 59 },
+            new Permission { Id = Guid.Parse("11111111-1111-1111-1111-111111111094"), Module = "PosDamageIssues", ModuleDisplayName = "Xuất hủy POS", Description = "Xuất hủy hàng hóa", DisplayOrder = 60 },
+            new Permission { Id = Guid.Parse("11111111-1111-1111-1111-111111111095"), Module = "PosInternalUseIssues", ModuleDisplayName = "Xuất dùng nội bộ", Description = "Xuất dùng nội bộ hàng hóa", DisplayOrder = 61 },
+            new Permission { Id = Guid.Parse("11111111-1111-1111-1111-111111111084"), Module = "PosSalesReport", ModuleDisplayName = "Báo cáo doanh thu POS", Description = "Thống kê doanh thu, đơn bán hàng POS", DisplayOrder = 62 }
         );
     }
 }

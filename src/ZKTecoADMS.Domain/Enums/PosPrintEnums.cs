@@ -20,6 +20,8 @@ public enum PosPrintDocumentType
     StockCount = 14,
     KitchenSlip = 15,
     KitchenVoid = 16,
+    /// <summary>Tem dán ly / tem báo sản phẩm khi chế biến.</summary>
+    KitchenLabel = 17,
 }
 
 /// <summary>Loại kết nối máy in cửa hàng.</summary>
@@ -73,4 +75,8 @@ public enum PosPrintPaperSize
     K80 = 1,
     A5 = 2,
     A4 = 3,
+    /// <summary>Tem nhãn 50×30 mm (bếp / sản phẩm).</summary>
+    Label50x30 = 4,
+    /// <summary>Tem nhãn 40×30 mm (bếp / sản phẩm).</summary>
+    Label40x30 = 5,
 }

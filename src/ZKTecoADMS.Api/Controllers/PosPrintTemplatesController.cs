@@ -89,7 +89,7 @@ public class PosPrintTemplatesController(ZKTecoDbContext dbContext) : Authentica
     public ActionResult<AppResponse<object>> Presets(
         [FromQuery] PosPrintDocumentType documentType = PosPrintDocumentType.SaleInvoice)
     {
-        var presets = Enum.GetValues<PosPrintPaperSize>()
+        var presets = PosPrintTemplateDefaults.SizesForDocument(documentType)
             .Select(s => new PrintTemplatePresetDto(
                 s.ToString(),
                 PosPrintTemplateDefaults.TemplateName(s),
@@ -212,7 +212,12 @@ public class PosPrintTemplatesController(ZKTecoDbContext dbContext) : Authentica
         var now = DateTime.UtcNow;
         var sort = 0;
         var created = 0;
-        foreach (PosPrintPaperSize size in Enum.GetValues<PosPrintPaperSize>())
+        var sizes = PosPrintTemplateDefaults.SizesForDocument(documentType);
+        var defaultSize = documentType is PosPrintDocumentType.BarcodeLabel
+            or PosPrintDocumentType.KitchenLabel
+            ? PosPrintPaperSize.Label50x30
+            : PosPrintPaperSize.K80;
+        foreach (var size in sizes)
         {
             dbContext.PosPrintTemplates.Add(new PosPrintTemplate
             {
@@ -222,7 +227,7 @@ public class PosPrintTemplatesController(ZKTecoDbContext dbContext) : Authentica
                 DocumentType = documentType,
                 PaperSize = size,
                 HtmlContent = PosPrintTemplateDefaults.BuildHtml(documentType, size),
-                IsDefault = size == PosPrintPaperSize.K80,
+                IsDefault = size == defaultSize,
                 IsActive = true,
                 SortOrder = sort++,
                 CreatedAt = now,

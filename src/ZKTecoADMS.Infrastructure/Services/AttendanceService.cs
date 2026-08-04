@@ -39,8 +39,36 @@ public class AttendanceService(
     /// </summary>
     private const string OncePerShiftAttendanceMode = "once";
 
+    /// <summary>
+    /// Alias UI «Chấm vào» — cùng ngữ nghĩa once. Khớp <c>kCheckInOnlyAttendanceMode</c> Flutter.
+    /// </summary>
+    private const string CheckInOnlyAttendanceMode = "checkin";
+
+    /// <summary>
+    /// Chỉ chấm ra: phạt về sớm, không phạt đi trễ / quên chấm. Khớp <c>kCheckOutOnlyAttendanceMode</c>.
+    /// </summary>
+    private const string CheckOutOnlyAttendanceMode = "checkout";
+
+    /// <summary>
+    /// Ca nguyên ngày (~24h): vào ngày N → ra ngày N+1 = 1 công. Công/trễ/sớm tính ở Flutter
+    /// (<c>kFullDayShiftAttendanceMode</c>); server bỏ phạt theo day_end_time (dễ lệch cặp).
+    /// </summary>
+    private const string FullDayShiftAttendanceMode = "fullday";
+
     private static bool IsOncePerShiftMode(string? mode) =>
-        string.Equals(mode, OncePerShiftAttendanceMode, StringComparison.OrdinalIgnoreCase);
+        string.Equals(mode, OncePerShiftAttendanceMode, StringComparison.OrdinalIgnoreCase)
+        || string.Equals(mode, CheckInOnlyAttendanceMode, StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsCheckOutOnlyMode(string? mode) =>
+        string.Equals(mode, CheckOutOnlyAttendanceMode, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>once / checkin / checkout — đủ 1 lần chấm/ca, không tạo ForgotCheck In/Out.</summary>
+    private static bool IsSinglePunchAttendanceMode(string? mode) =>
+        IsOncePerShiftMode(mode) || IsCheckOutOnlyMode(mode);
+
+    private static bool IsClientGroupedAttendanceMode(string? mode) =>
+        string.Equals(mode, FreeTwoPunchAttendanceMode, StringComparison.OrdinalIgnoreCase)
+        || string.Equals(mode, FullDayShiftAttendanceMode, StringComparison.OrdinalIgnoreCase);
 
     public async Task<IEnumerable<Attendance>> GetAttendanceByDeviceAsync(
         Guid deviceId, DateTime? startDate, DateTime? endDate)
@@ -364,10 +392,9 @@ public class AttendanceService(
 
         var employeeId = deviceUser.EmployeeId.Value;
 
-        // NV bật "Chấm 2 lần bất kỳ trong ngày" → không xét ca, không phạt đi trễ/về sớm.
+        // free2 / fullday: công & trễ/sớm gộp ở client — không phạt theo ca/day_end tại đây.
         if (employeeBenefits.TryGetValue(employeeId, out var employeeBenefit) &&
-            string.Equals(employeeBenefit.Benefit?.AttendanceMode, FreeTwoPunchAttendanceMode,
-                StringComparison.OrdinalIgnoreCase))
+            IsClientGroupedAttendanceMode(employeeBenefit.Benefit?.AttendanceMode))
         {
             return;
         }
@@ -419,6 +446,40 @@ public class AttendanceService(
         if (penaltySetting == null)
             return;
 
+        employeeBenefits.TryGetValue(employeeId, out var modeBenefit);
+        var attendanceMode = modeBenefit?.Benefit?.AttendanceMode;
+
+        // checkout: mọi lần chấm = ra ca — phạt về sớm, không đi trễ (máy thường gửi CheckIn).
+        if (IsCheckOutOnlyMode(attendanceMode))
+        {
+            if (IsOvertimeShiftType(matchedShiftType))
+                return;
+
+            var earlyMinutesCheckout = MinutesEarlyBeforeEnd(punchTime, shiftStart, shiftEnd);
+            if (earlyMinutesCheckout <= 0) return;
+            if (earlyMinutesCheckout <= earlyLeaveGraceMinutes) return;
+
+            var (earlyTier, earlyAmount) = CalculateEarlyPenalty(earlyMinutesCheckout, penaltySetting);
+            if (earlyAmount <= 0) return;
+            if (HasActiveTicket(existingTickets, employeeId, violationDate, PenaltyTicketType.EarlyLeave))
+                return;
+
+            var earlyRepeatCount = CountMonthRepeatViolations(existingTickets, employeeId, violationDate);
+            var earlyRepeatPenalty = CalculateRepeatPenalty(earlyRepeatCount + 1, penaltySetting);
+            var earlyDesc = $"Về sớm {earlyMinutesCheckout} phút (bậc {earlyTier}: {earlyAmount:N0}đ"
+                + (earlyRepeatPenalty > 0 ? $", tái phạm lần {earlyRepeatCount + 1}: +{earlyRepeatPenalty:N0}đ" : "")
+                + ")";
+
+            await CreatePenaltyTicketAsync(employeeId, device.StoreId, violationDate,
+                PenaltyTicketType.EarlyLeave, earlyTier, earlyMinutesCheckout, earlyAmount + earlyRepeatPenalty,
+                earlyRepeatCount + 1, earlyRepeatPenalty, shiftStart, shiftEnd, punchTime,
+                attendance, shiftIdForTicket, earlyDesc, existingTickets, ticketCountsByDate);
+
+            logger.LogInformation("{DeviceSN}: Tạo phiếu phạt về sớm (checkout) NV {Pin} - {Minutes} phút - {Amount}đ",
+                device.SerialNumber, deviceUser.Pin, earlyMinutesCheckout, earlyAmount + earlyRepeatPenalty);
+            return;
+        }
+
         if (attendance.AttendanceState == AttendanceStates.CheckIn)
         {
             // Ca Tăng ca: không phạt đi trễ (khớp logic tab Tổng hợp theo ca).
@@ -454,9 +515,8 @@ public class AttendanceService(
         }
         else if (attendance.AttendanceState == AttendanceStates.CheckOut)
         {
-            // Mode once: không chấm ra thật — bỏ phạt về sớm.
-            if (employeeBenefits.TryGetValue(employeeId, out var onceBenefit) &&
-                IsOncePerShiftMode(onceBenefit.Benefit?.AttendanceMode))
+            // Mode once/checkin: không chấm ra thật — bỏ phạt về sớm.
+            if (IsOncePerShiftMode(attendanceMode))
                 return;
 
             var earlyMinutes = MinutesEarlyBeforeEnd(punchTime, shiftStart, shiftEnd);
@@ -490,31 +550,11 @@ public class AttendanceService(
 
     /// <summary>Late minutes after shift start; supports overnight (Start &gt; End).</summary>
     private static int MinutesLateAfterStart(TimeSpan punch, TimeSpan start, TimeSpan end)
-    {
-        var overnight = start > end;
-        if (!overnight)
-            return punch > start ? (int)(punch - start).TotalMinutes : 0;
-
-        if (punch >= start)
-            return (int)(punch - start).TotalMinutes;
-        if (punch <= end)
-            return (int)((TimeSpan.FromDays(1) - start) + punch).TotalMinutes;
-        return 0;
-    }
+        => ShiftMatchHelper.MinutesLateAfterStart(punch, start, end);
 
     /// <summary>Early-leave minutes before shift end; supports overnight.</summary>
     private static int MinutesEarlyBeforeEnd(TimeSpan punch, TimeSpan start, TimeSpan end)
-    {
-        var overnight = start > end;
-        if (!overnight)
-            return punch < end ? (int)(end - punch).TotalMinutes : 0;
-
-        if (punch <= end)
-            return (int)(end - punch).TotalMinutes;
-        if (punch >= start)
-            return (int)((TimeSpan.FromDays(1) - punch) + end).TotalMinutes;
-        return 0;
-    }
+        => ShiftMatchHelper.MinutesEarlyBeforeEnd(punch, start, end);
 
     /// <summary>
     /// Tạo PenaltyTicket tự động từ chấm công. Idempotent theo (employee, date, type).
@@ -689,10 +729,10 @@ public class AttendanceService(
             if (!hrToDeviceUserIds.TryGetValue(employeeId, out var deviceUserIdsForEmp))
                 continue;
 
-            // free2: không bắt buộc đủ In/Out theo ca → bỏ ForgotCheck / UnauthorizedLeave.
-            if (employeeBenefits.TryGetValue(employeeId, out var free2Benefit) &&
-                string.Equals(free2Benefit.Benefit?.AttendanceMode, FreeTwoPunchAttendanceMode,
-                    StringComparison.OrdinalIgnoreCase))
+            // free2 / fullday / once / checkin / checkout: không bắt buộc đủ In+Out → bỏ ForgotCheck.
+            if (employeeBenefits.TryGetValue(employeeId, out var modeBenefitScan) &&
+                (IsClientGroupedAttendanceMode(modeBenefitScan.Benefit?.AttendanceMode)
+                 || IsSinglePunchAttendanceMode(modeBenefitScan.Benefit?.AttendanceMode)))
                 continue;
 
             foreach (var workDate in scanDates)

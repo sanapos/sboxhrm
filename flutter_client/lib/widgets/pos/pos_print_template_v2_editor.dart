@@ -1,15 +1,20 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../models/pos_print_template.dart';
 import '../../models/pos_print_template_v2.dart';
+import '../../utils/pos_barcode_print.dart';
 import '../../utils/pos_print_template_compiler.dart';
+import '../../utils/pos_print_template_v2_codec.dart';
 import '../../utils/pos_print_template_v2_presets.dart';
 import '../../utils/responsive_helper.dart';
 import '../../widgets/pos/pos_print_template_preview.dart';
 import '../../widgets/pos/pos_theme.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
-/// Trình soạn mẫu in V2 — block-based, chỉnh cỡ chữ / đậm / căn.
+/// Trình soạn mẫu in V2 — block-based, chỉnh cỡ chữ / đậm / căn + mã nguồn.
 class PosPrintTemplateV2Editor extends StatefulWidget {
   const PosPrintTemplateV2Editor({
     super.key,
@@ -17,14 +22,18 @@ class PosPrintTemplateV2Editor extends StatefulWidget {
     required this.onChanged,
     this.readOnly = false,
     this.compact,
+    this.onLegacyHtml,
   });
 
   final PosPrintTemplateV2 template;
   final ValueChanged<PosPrintTemplateV2> onChanged;
   final bool readOnly;
 
-  /// Mobile / màn hẹp: tab Khối · Chỉnh · Xem trước thay vì 3 cột ngang.
+  /// Mobile / màn hẹp: tab Khối · Chỉnh · Xem trước · Mã nguồn.
   final bool? compact;
+
+  /// Khi người dùng áp dụng HTML thuần (legacy) thay vì JSON V2.
+  final ValueChanged<String>? onLegacyHtml;
 
   @override
   State<PosPrintTemplateV2Editor> createState() => _PosPrintTemplateV2EditorState();
@@ -34,6 +43,8 @@ class _PosPrintTemplateV2EditorState extends State<PosPrintTemplateV2Editor>
     with SingleTickerProviderStateMixin {
   int _selectedIndex = 0;
   TabController? _mobileTabs;
+  /// desktop: 0 = trực quan, 1 = mã nguồn
+  int _desktopMode = 0;
 
   PosPrintTemplateV2 get _tpl => widget.template;
 
@@ -119,6 +130,12 @@ class _PosPrintTemplateV2EditorState extends State<PosPrintTemplateV2Editor>
         ),
       PosPrintBlockType.spacer => const PosPrintBlock(type: PosPrintBlockType.spacer),
       PosPrintBlockType.vietQr => const PosPrintBlock(type: PosPrintBlockType.vietQr),
+      PosPrintBlockType.barcode => const PosPrintBlock(
+          type: PosPrintBlockType.barcode,
+          field: 'Ma_Vach',
+          barcodeHeight: 60,
+          barcodeShowText: true,
+        ),
     };
     final nextIndex = _tpl.blocks.length;
     _update(_tpl.copyWith(blocks: [..._tpl.blocks, block]));
@@ -153,7 +170,7 @@ class _PosPrintTemplateV2EditorState extends State<PosPrintTemplateV2Editor>
   }
 
   Widget _buildMobileShell(BuildContext context) {
-    final tabs = _mobileTabs ??= TabController(length: 3, vsync: this);
+    final tabs = _mobileTabs ??= TabController(length: 4, vsync: this);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -161,6 +178,7 @@ class _PosPrintTemplateV2EditorState extends State<PosPrintTemplateV2Editor>
           color: Colors.white,
           child: TabBar(
             controller: tabs,
+            isScrollable: true,
             labelColor: PosTheme.edgeBlue,
             unselectedLabelColor: PosTheme.textSecondary,
             indicatorColor: PosTheme.edgeBlue,
@@ -169,6 +187,7 @@ class _PosPrintTemplateV2EditorState extends State<PosPrintTemplateV2Editor>
               Tab(text: tr('Khối')),
               Tab(text: tr('Chỉnh sửa')),
               Tab(text: tr('Xem trước')),
+              Tab(text: tr('Mã nguồn')),
             ],
           ),
         ),
@@ -179,6 +198,12 @@ class _PosPrintTemplateV2EditorState extends State<PosPrintTemplateV2Editor>
               _buildMobileBlocksTab(context),
               _buildMobilePropertiesTab(context),
               _buildPreviewPanel(compact: true),
+              _SourceCodePanel(
+                template: _tpl,
+                readOnly: widget.readOnly,
+                onApplyV2: (v) => _update(v),
+                onApplyLegacyHtml: widget.onLegacyHtml,
+              ),
             ],
           ),
         ),
@@ -393,6 +418,7 @@ class _PosPrintTemplateV2EditorState extends State<PosPrintTemplateV2Editor>
       ('Hàng bếp', PosPrintBlockType.lineItemsKitchen),
       ('Tổng tiền', PosPrintBlockType.totals),
       ('Mã VietQR', PosPrintBlockType.vietQr),
+      ('Mã vạch', PosPrintBlockType.barcode),
       ('Khoảng trống', PosPrintBlockType.spacer),
     ];
 
@@ -431,126 +457,213 @@ class _PosPrintTemplateV2EditorState extends State<PosPrintTemplateV2Editor>
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _buildSettingsCard(fullWidth: false),
-        const SizedBox(height: 12),
-        Expanded(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              SizedBox(
-                width: 220,
-                child: Card(
-                  margin: EdgeInsets.zero,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Padding(
-                        padding: EdgeInsets.all(10),
-                        child: Text(tr('Khối nội dung'), style: TextStyle(fontWeight: FontWeight.w600)),
-                      ),
-                      Expanded(
-                        child: ReorderableListView.builder(
-                          buildDefaultDragHandles: !widget.readOnly,
-                          itemCount: blocks.length,
-                          onReorder: widget.readOnly
-                              ? (_, __) {}
-                              : (oldIndex, newIndex) {
-                                  if (newIndex > oldIndex) newIndex--;
-                                  final list = List<PosPrintBlock>.from(blocks);
-                                  final item = list.removeAt(oldIndex);
-                                  list.insert(newIndex, item);
-                                  _update(_tpl.copyWith(blocks: list));
-                                  setState(() => _selectedIndex = newIndex);
-                                },
-                          itemBuilder: (_, i) {
-                            final b = blocks[i];
-                            final selected = i == _selectedIndex;
-                            return ListTile(
-                              key: ValueKey('block_${i}_${b.type.name}'),
-                              selected: selected,
-                              dense: true,
-                              title: Text(tr(_blockLabel(b)), style: const TextStyle(fontSize: 13)),
-                              subtitle: Text(
-                                tr(_blockMeta(b)),
-                                style: const TextStyle(fontSize: 11),
-                              ),
-                              onTap: () => _selectBlock(i),
-                              trailing: widget.readOnly
-                                  ? null
-                                  : PopupMenuButton<String>(
-                                      onSelected: (a) {
-                                        if (a == 'del') _removeBlock(i);
-                                        if (a == 'up') _moveBlock(i, -1);
-                                        if (a == 'down') _moveBlock(i, 1);
-                                      },
-                                      itemBuilder: (_) => [
-                                        PopupMenuItem(value: 'up', child: Text(tr('Lên'))),
-                                        PopupMenuItem(value: 'down', child: Text(tr('Xuống'))),
-                                        PopupMenuItem(value: 'del', child: Text(tr('Xóa'))),
-                                      ],
-                                    ),
-                            );
-                          },
-                        ),
-                      ),
-                      if (!widget.readOnly)
-                        Padding(
-                          padding: const EdgeInsets.all(8),
-                          child: Wrap(
-                            spacing: 4,
-                            runSpacing: 4,
-                            children: [
-                              _addChip('Chữ', PosPrintBlockType.text),
-                              _addChip('Trường', PosPrintBlockType.field),
-                              _addChip('Cặp', PosPrintBlockType.pair),
-                              _addChip('Kẻ', PosPrintBlockType.divider),
-                              _addChip('Hàng', PosPrintBlockType.lineItems),
-                              _addChip('Tổng', PosPrintBlockType.totals),
-                              _addChip('QR', PosPrintBlockType.vietQr),
-                            ],
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                flex: 2,
-                child: Card(
-                  margin: EdgeInsets.zero,
-                  child: sel == null
-                      ? Center(child: Text(tr('Chưa có khối')))
-                      : _BlockPropertiesPanel(
-                          key: ValueKey('desk_props_${_selectedIndex}_${sel.type.name}'),
-                          block: sel,
-                          paperSize: _tpl.paperSize,
-                          readOnly: widget.readOnly,
-                          onChanged: (b) => _updateBlock(_selectedIndex, b),
-                        ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(flex: 2, child: _buildPreviewPanel(compact: false)),
+        const SizedBox(height: 8),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: SegmentedButton<int>(
+            segments: [
+              ButtonSegment(value: 0, label: Text(tr('Trực quan')), icon: Icon(Icons.view_quilt_outlined, size: 18)),
+              ButtonSegment(value: 1, label: Text(tr('Mã nguồn')), icon: Icon(Icons.code, size: 18)),
             ],
+            selected: {_desktopMode},
+            onSelectionChanged: (s) => setState(() => _desktopMode = s.first),
           ),
+        ),
+        const SizedBox(height: 8),
+        Expanded(
+          child: _desktopMode == 1
+              ? Card(
+                  margin: EdgeInsets.zero,
+                  child: _SourceCodePanel(
+                    template: _tpl,
+                    readOnly: widget.readOnly,
+                    onApplyV2: (v) => _update(v),
+                    onApplyLegacyHtml: widget.onLegacyHtml,
+                  ),
+                )
+              : Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    SizedBox(
+                      width: 220,
+                      child: Card(
+                        margin: EdgeInsets.zero,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Padding(
+                              padding: EdgeInsets.all(10),
+                              child: Text(tr('Khối nội dung'), style: TextStyle(fontWeight: FontWeight.w600)),
+                            ),
+                            Expanded(
+                              child: ReorderableListView.builder(
+                                buildDefaultDragHandles: !widget.readOnly,
+                                itemCount: blocks.length,
+                                onReorder: widget.readOnly
+                                    ? (_, __) {}
+                                    : (oldIndex, newIndex) {
+                                        if (newIndex > oldIndex) newIndex--;
+                                        final list = List<PosPrintBlock>.from(blocks);
+                                        final item = list.removeAt(oldIndex);
+                                        list.insert(newIndex, item);
+                                        _update(_tpl.copyWith(blocks: list));
+                                        setState(() => _selectedIndex = newIndex);
+                                      },
+                                itemBuilder: (_, i) {
+                                  final b = blocks[i];
+                                  final selected = i == _selectedIndex;
+                                  return ListTile(
+                                    key: ValueKey('block_${i}_${b.type.name}'),
+                                    selected: selected,
+                                    dense: true,
+                                    title: Text(tr(_blockLabel(b)), style: const TextStyle(fontSize: 13)),
+                                    subtitle: Text(
+                                      tr(_blockMeta(b)),
+                                      style: const TextStyle(fontSize: 11),
+                                    ),
+                                    onTap: () => _selectBlock(i),
+                                    trailing: widget.readOnly
+                                        ? null
+                                        : PopupMenuButton<String>(
+                                            onSelected: (a) {
+                                              if (a == 'del') _removeBlock(i);
+                                              if (a == 'up') _moveBlock(i, -1);
+                                              if (a == 'down') _moveBlock(i, 1);
+                                            },
+                                            itemBuilder: (_) => [
+                                              PopupMenuItem(value: 'up', child: Text(tr('Lên'))),
+                                              PopupMenuItem(value: 'down', child: Text(tr('Xuống'))),
+                                              PopupMenuItem(value: 'del', child: Text(tr('Xóa'))),
+                                            ],
+                                          ),
+                                  );
+                                },
+                              ),
+                            ),
+                            if (!widget.readOnly)
+                              Padding(
+                                padding: const EdgeInsets.all(8),
+                                child: Wrap(
+                                  spacing: 4,
+                                  runSpacing: 4,
+                                  children: [
+                                    _addChip('Chữ', PosPrintBlockType.text),
+                                    _addChip('Trường', PosPrintBlockType.field),
+                                    _addChip('Cặp', PosPrintBlockType.pair),
+                                    _addChip('Kẻ', PosPrintBlockType.divider),
+                                    _addChip('Hàng', PosPrintBlockType.lineItems),
+                                    _addChip('Tổng', PosPrintBlockType.totals),
+                                    _addChip('QR', PosPrintBlockType.vietQr),
+                                    _addChip('Barcode', PosPrintBlockType.barcode),
+                                  ],
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      flex: 2,
+                      child: Card(
+                        margin: EdgeInsets.zero,
+                        child: sel == null
+                            ? Center(child: Text(tr('Chưa có khối')))
+                            : _BlockPropertiesPanel(
+                                key: ValueKey('desk_props_${_selectedIndex}_${sel.type.name}'),
+                                block: sel,
+                                paperSize: _tpl.paperSize,
+                                readOnly: widget.readOnly,
+                                onChanged: (b) => _updateBlock(_selectedIndex, b),
+                              ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(flex: 2, child: _buildPreviewPanel(compact: false)),
+                  ],
+                ),
         ),
       ],
     );
   }
 
+  List<DropdownMenuItem<String>> _paperSizeItems() {
+    final doc = _tpl.documentType;
+    if (doc == PosPrintDocumentTypes.kitchenLabel) {
+      return PosPrintPaperSizes.kitchenLabelSizes
+          .map((k) => DropdownMenuItem(
+                value: k,
+                child: Text(tr(PosPrintPaperSizes.labels[k] ?? k)),
+              ))
+          .toList();
+    }
+    if (doc == PosPrintDocumentTypes.barcodeLabel) {
+      return posBarcodeLabelTemplates
+          .map((t) => DropdownMenuItem(
+                value: t.id,
+                child: Text(
+                  tr('${t.name} (${t.sizeLabel})'),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ))
+          .toList();
+    }
+    return [
+      PosPrintPaperSizes.k58,
+      PosPrintPaperSizes.k80,
+    ]
+        .map((k) => DropdownMenuItem(
+              value: k,
+              child: Text(tr(PosPrintPaperSizes.labels[k] ?? k)),
+            ))
+        .toList();
+  }
+
+  String _resolvedPaperValue(List<DropdownMenuItem<String>> items) {
+    final keys = items.map((e) => e.value).whereType<String>().toSet();
+    if (keys.contains(_tpl.paperSize)) return _tpl.paperSize;
+    // Map Label50x30 ↔ roll_1_50x30 khi mở mẫu cũ.
+    if (_tpl.documentType == PosPrintDocumentTypes.barcodeLabel) {
+      if (_tpl.paperSize == PosPrintPaperSizes.label50x30 &&
+          keys.contains('roll_1_50x30')) {
+        return 'roll_1_50x30';
+      }
+      if (_tpl.paperSize == PosPrintPaperSizes.label40x30 &&
+          keys.contains('roll_1_40x30')) {
+        return 'roll_1_40x30';
+      }
+      return keys.contains('roll_1_50x30')
+          ? 'roll_1_50x30'
+          : (keys.firstOrNull ?? _tpl.paperSize);
+    }
+    if (_tpl.documentType == PosPrintDocumentTypes.kitchenLabel) {
+      return keys.contains(PosPrintPaperSizes.label50x30)
+          ? PosPrintPaperSizes.label50x30
+          : (keys.firstOrNull ?? PosPrintPaperSizes.label50x30);
+    }
+    return keys.contains(PosPrintPaperSizes.k80)
+        ? PosPrintPaperSizes.k80
+        : (keys.firstOrNull ?? _tpl.paperSize);
+  }
+
   Widget _buildSettingsCard({required bool fullWidth}) {
+    final paperItems = _paperSizeItems();
+    final paperValue = _resolvedPaperValue(paperItems);
+    final isLabel = PosPrintPaperSizes.isLabelDoc(_tpl.documentType);
     final paperField = DropdownButtonFormField<String>(
-      value: _tpl.paperSize,
+      value: paperValue,
       isExpanded: true,
       decoration: InputDecoration(
-        labelText: tr('Khổ giấy'),
+        labelText: tr(isLabel ? 'Khổ tem' : 'Khổ giấy'),
         isDense: true,
         border: OutlineInputBorder(),
+        helperText: _tpl.documentType == PosPrintDocumentTypes.barcodeLabel
+            ? tr('Cùng danh sách tem khi In tem hàng hóa')
+            : (_tpl.documentType == PosPrintDocumentTypes.kitchenLabel
+                ? tr('Tem báo bếp: 50×30 hoặc 40×30')
+                : null),
       ),
-      items: PosPrintPaperSizes.labels.entries
-          .where((e) => e.key == PosPrintPaperSizes.k58 || e.key == PosPrintPaperSizes.k80)
-          .map((e) => DropdownMenuItem(value: e.key, child: Text(tr(e.value))))
-          .toList(),
+      items: paperItems,
       onChanged: widget.readOnly
           ? null
           : (v) {
@@ -695,9 +808,13 @@ class _PosPrintTemplateV2EditorState extends State<PosPrintTemplateV2Editor>
         PosPrintBlockType.totals => 'Tổng cộng',
         PosPrintBlockType.spacer => 'Khoảng trống',
         PosPrintBlockType.vietQr => 'VietQR',
+        PosPrintBlockType.barcode => 'Barcode {${b.field ?? 'Ma_Vach'}}',
       };
 
   static String _blockMeta(PosPrintBlock b) {
+    if (b.type == PosPrintBlockType.barcode) {
+      return 'Cao ${b.barcodeHeight} · ${b.barcodeShowText ? 'Hiện chữ' : 'Ẩn chữ'}';
+    }
     final align = switch (b.style.align) {
       PosPrintTextAlign.center => 'Giữa',
       PosPrintTextAlign.right => 'Phải',
@@ -716,6 +833,7 @@ class _PosPrintTemplateV2EditorState extends State<PosPrintTemplateV2Editor>
         PosPrintBlockType.totals => Icons.payments_outlined,
         PosPrintBlockType.spacer => Icons.space_bar,
         PosPrintBlockType.vietQr => Icons.qr_code_2,
+        PosPrintBlockType.barcode => Icons.view_week,
       };
 }
 
@@ -739,15 +857,56 @@ class _BlockPropertiesPanel extends StatefulWidget {
 
 class _BlockPropertiesPanelState extends State<_BlockPropertiesPanel> {
   late TextEditingController _textCtrl;
+  late TextEditingController _labelCtrl;
   late TextEditingController _qrTitleCtrl;
   late TextEditingController _qrCaptionCtrl;
+  late TextEditingController _leftLabelCtrl;
+  late TextEditingController _rightLabelCtrl;
+  late Map<String, TextEditingController> _totalLabelCtrls;
+  late Map<String, TextEditingController> _colLabelCtrls;
+
+  static const _totalKeys = [
+    'Tong_Tien_Hang',
+    'Chiet_Khau_Hoa_Don',
+    'Tong_Cong',
+    'Khach_Can_Tra',
+    'Khach_Thanh_Toan',
+    'Tien_Thua',
+    'Con_Lai',
+    'Hinh_Thuc_Thanh_Toan',
+  ];
+
+  static const _colKeys = ['Ten_Hang_Hoa', 'Don_Gia', 'So_Luong', 'Thanh_Tien'];
 
   @override
   void initState() {
     super.initState();
     _textCtrl = TextEditingController(text: tr(widget.block.text ?? ''));
+    _labelCtrl = TextEditingController(text: widget.block.label ?? '');
     _qrTitleCtrl = TextEditingController(text: tr(widget.block.qrTitle ?? ''));
     _qrCaptionCtrl = TextEditingController(text: tr(widget.block.qrCaption));
+    _leftLabelCtrl = TextEditingController(
+      text: widget.block.fieldLabels?[widget.block.leftField ?? ''] ?? '',
+    );
+    _rightLabelCtrl = TextEditingController(
+      text: widget.block.fieldLabels?[widget.block.rightField ?? ''] ?? '',
+    );
+    _totalLabelCtrls = {
+      for (final k in _totalKeys)
+        k: TextEditingController(
+          text: widget.block.fieldLabels?[k] ??
+              PosPrintTemplateCompiler.defaultTotalLabels[k] ??
+              k,
+        ),
+    };
+    _colLabelCtrls = {
+      for (final k in _colKeys)
+        k: TextEditingController(
+          text: widget.block.fieldLabels?[k] ??
+              PosPrintTemplateCompiler.defaultColumnLabels[k] ??
+              k,
+        ),
+    };
   }
 
   @override
@@ -755,6 +914,10 @@ class _BlockPropertiesPanelState extends State<_BlockPropertiesPanel> {
     super.didUpdateWidget(oldWidget);
     if (widget.block.text != oldWidget.block.text && widget.block.text != _textCtrl.text) {
       _textCtrl.text = widget.block.text ?? '';
+    }
+    if (widget.block.label != oldWidget.block.label &&
+        (widget.block.label ?? '') != _labelCtrl.text) {
+      _labelCtrl.text = widget.block.label ?? '';
     }
     if (widget.block.qrTitle != oldWidget.block.qrTitle &&
         widget.block.qrTitle != _qrTitleCtrl.text) {
@@ -769,14 +932,57 @@ class _BlockPropertiesPanelState extends State<_BlockPropertiesPanel> {
   @override
   void dispose() {
     _textCtrl.dispose();
+    _labelCtrl.dispose();
     _qrTitleCtrl.dispose();
     _qrCaptionCtrl.dispose();
+    _leftLabelCtrl.dispose();
+    _rightLabelCtrl.dispose();
+    for (final c in _totalLabelCtrls.values) {
+      c.dispose();
+    }
+    for (final c in _colLabelCtrls.values) {
+      c.dispose();
+    }
     super.dispose();
   }
 
   int get _effectiveDividerChars =>
       widget.block.dividerChars ??
       PosPrintTemplateCompiler.defaultDividerChars(widget.paperSize);
+
+  Map<String, String> _mergeFieldLabels(Map<String, String> patch) {
+    final next = Map<String, String>.from(widget.block.fieldLabels ?? {});
+    for (final e in patch.entries) {
+      final v = e.value.trim();
+      if (v.isEmpty) {
+        next.remove(e.key);
+      } else {
+        next[e.key] = v;
+      }
+    }
+    return next;
+  }
+
+  void _emitTotalsFields(List<String> fields) {
+    final labels = <String, String>{};
+    for (final k in fields) {
+      final v = _totalLabelCtrls[k]?.text.trim() ?? '';
+      final def = PosPrintTemplateCompiler.defaultTotalLabels[k] ?? k;
+      if (v.isNotEmpty && v != def) labels[k] = v;
+    }
+    // Giữ nhãn cột nếu có
+    for (final k in _colKeys) {
+      final existing = widget.block.fieldLabels?[k];
+      if (existing != null && existing.trim().isNotEmpty) {
+        labels[k] = existing.trim();
+      }
+    }
+    widget.onChanged(widget.block.copyWith(
+      fields: fields,
+      fieldLabels: labels,
+      clearFieldLabels: labels.isEmpty,
+    ));
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -796,17 +1002,195 @@ class _BlockPropertiesPanelState extends State<_BlockPropertiesPanel> {
             maxLines: 3,
             decoration: InputDecoration(
               labelText: tr('Nội dung'),
-              hintText: tr('Hỗ trợ {Token}'),
+              hintText: tr('Hỗ trợ {Token} — vd. HÓA ĐƠN BÁN HÀNG'),
               border: OutlineInputBorder(),
             ),
             onChanged: (v) => onChanged(block.copyWith(text: tr(v))),
           ),
-        if (block.type == PosPrintBlockType.field)
+        if (block.type == PosPrintBlockType.field) ...[
           _tokenField('Trường dữ liệu', block.field, (v) => onChanged(block.copyWith(field: v))),
+          const SizedBox(height: 12),
+          TextField(
+            readOnly: readOnly,
+            controller: _labelCtrl,
+            decoration: InputDecoration(
+              labelText: tr('Nhãn hiển thị (tuỳ chọn)'),
+              hintText: tr('vd. KH:, Số HĐ:, Đơn hàng:'),
+              border: OutlineInputBorder(),
+              helperText: tr('Để trống = chỉ in giá trị'),
+            ),
+            onChanged: (v) => onChanged(block.copyWith(
+              label: v.trim().isEmpty ? null : v,
+              clearLabel: v.trim().isEmpty,
+            )),
+          ),
+        ],
         if (block.type == PosPrintBlockType.pair) ...[
           _tokenField('Trái', block.leftField, (v) => onChanged(block.copyWith(leftField: v))),
+          const SizedBox(height: 8),
+          TextField(
+            readOnly: readOnly,
+            controller: _leftLabelCtrl,
+            decoration: InputDecoration(
+              labelText: tr('Nhãn bên trái'),
+              hintText: tr('vd. Số HĐ:'),
+              border: OutlineInputBorder(),
+              isDense: true,
+            ),
+            onChanged: (v) {
+              final key = block.leftField ?? '';
+              if (key.isEmpty) return;
+              onChanged(block.copyWith(
+                fieldLabels: _mergeFieldLabels({key: v}),
+              ));
+            },
+          ),
           const SizedBox(height: 12),
           _tokenField('Phải', block.rightField, (v) => onChanged(block.copyWith(rightField: v))),
+          const SizedBox(height: 8),
+          TextField(
+            readOnly: readOnly,
+            controller: _rightLabelCtrl,
+            decoration: InputDecoration(
+              labelText: tr('Nhãn bên phải'),
+              hintText: tr('vd. Ngày:'),
+              border: OutlineInputBorder(),
+              isDense: true,
+            ),
+            onChanged: (v) {
+              final key = block.rightField ?? '';
+              if (key.isEmpty) return;
+              onChanged(block.copyWith(
+                fieldLabels: _mergeFieldLabels({key: v}),
+              ));
+            },
+          ),
+        ],
+        if (block.type == PosPrintBlockType.totals) ...[
+          Text(tr('Dòng tổng & nhãn hiển thị'),
+              style: const TextStyle(fontWeight: FontWeight.w600)),
+          const SizedBox(height: 4),
+          Text(
+            tr('Bật/tắt dòng và sửa chữ in (vd. Tổng cộng → Tổng tiền)'),
+            style: const TextStyle(fontSize: 12, color: PosTheme.textSecondary),
+          ),
+          const SizedBox(height: 8),
+          ..._totalKeys.map((key) {
+            final selected = (block.fields ?? const <String>[]).contains(key);
+            final def = PosPrintTemplateCompiler.defaultTotalLabels[key] ?? key;
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Checkbox(
+                    value: selected,
+                    onChanged: readOnly
+                        ? null
+                        : (v) {
+                            final cur = List<String>.from(block.fields ?? const []);
+                            if (v == true) {
+                              if (!cur.contains(key)) cur.add(key);
+                            } else {
+                              cur.remove(key);
+                            }
+                            // Giữ thứ tự theo _totalKeys
+                            cur.sort((a, b) =>
+                                _totalKeys.indexOf(a).compareTo(_totalKeys.indexOf(b)));
+                            _emitTotalsFields(cur);
+                          },
+                  ),
+                  Expanded(
+                    child: TextField(
+                      readOnly: readOnly || !selected,
+                      controller: _totalLabelCtrls[key],
+                      decoration: InputDecoration(
+                        labelText: tr(def),
+                        isDense: true,
+                        border: const OutlineInputBorder(),
+                      ),
+                      onChanged: selected
+                          ? (_) {
+                              _emitTotalsFields(
+                                List<String>.from(block.fields ?? const []),
+                              );
+                            }
+                          : null,
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }),
+        ],
+        if (block.type == PosPrintBlockType.lineItems) ...[
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: Text(tr('Hiện tiêu đề cột')),
+            subtitle: Text(tr('Tên hàng / Đ.giá / SL / TT')),
+            value: block.showColumnHeader,
+            onChanged: readOnly
+                ? null
+                : (v) => onChanged(block.copyWith(showColumnHeader: v)),
+          ),
+          if (block.showColumnHeader) ...[
+            const SizedBox(height: 8),
+            ..._colKeys.map((key) {
+              final def = PosPrintTemplateCompiler.defaultColumnLabels[key] ?? key;
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: TextField(
+                  readOnly: readOnly,
+                  controller: _colLabelCtrls[key],
+                  decoration: InputDecoration(
+                    labelText: tr(def),
+                    isDense: true,
+                    border: const OutlineInputBorder(),
+                  ),
+                  onChanged: (v) {
+                    final labels = _mergeFieldLabels({key: v});
+                    // Đồng bộ nhãn totals đã tùy chỉnh
+                    for (final tk in _totalKeys) {
+                      final t = _totalLabelCtrls[tk]?.text.trim() ?? '';
+                      final d = PosPrintTemplateCompiler.defaultTotalLabels[tk] ?? tk;
+                      if (t.isNotEmpty && t != d) labels[tk] = t;
+                    }
+                    onChanged(block.copyWith(
+                      fieldLabels: labels,
+                      clearFieldLabels: labels.isEmpty,
+                    ));
+                  },
+                ),
+              );
+            }),
+          ],
+        ],
+        if (block.type == PosPrintBlockType.barcode) ...[
+          _tokenField(
+            'Nguồn mã vạch',
+            block.field ?? 'Ma_Vach',
+            (v) => onChanged(block.copyWith(field: v)),
+          ),
+          const SizedBox(height: 12),
+          Text(tr('Chiều cao vạch: ${block.barcodeHeight}')),
+          Slider(
+            value: block.barcodeHeight.clamp(40, 120).toDouble(),
+            min: 40,
+            max: 120,
+            divisions: 8,
+            label: '${block.barcodeHeight}',
+            onChanged: readOnly
+                ? null
+                : (v) => onChanged(block.copyWith(barcodeHeight: v.round())),
+          ),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: Text(tr('Hiện chữ mã dưới barcode')),
+            value: block.barcodeShowText,
+            onChanged: readOnly
+                ? null
+                : (v) => onChanged(block.copyWith(barcodeShowText: v)),
+          ),
         ],
         if (block.type == PosPrintBlockType.vietQr) ...[
           DropdownButtonFormField<PosPrintQrPlacement>(
@@ -884,6 +1268,7 @@ class _BlockPropertiesPanelState extends State<_BlockPropertiesPanel> {
         ],
         if (block.type != PosPrintBlockType.divider &&
             block.type != PosPrintBlockType.vietQr &&
+            block.type != PosPrintBlockType.barcode &&
             block.type != PosPrintBlockType.spacer) ...[
           const SizedBox(height: 16),
           if (block.type == PosPrintBlockType.lineItems ||
@@ -1014,26 +1399,32 @@ class _BlockPropertiesPanelState extends State<_BlockPropertiesPanel> {
   }
 
   Widget _tokenField(String label, String? value, ValueChanged<String> onField) {
-    const tokens = [
-      'Ten_Cua_Hang',
-      'Tieu_De_In',
-      'Ma_Don_Hang',
-      'Ngay',
-      'Gio',
-      'Khach_Hang',
-      'Tong_Cong',
-      'Nguoi_Ban',
-      'Ten_Ban',
-      'Ghi_Chu',
+    final tokenEntries = <(String, String)>[
+      ...PosPrintTokens.store,
+      ...PosPrintTokens.order,
+      ...PosPrintTokens.customer,
+      ...PosPrintTokens.line,
+      ...PosPrintTokens.label,
+      ...PosPrintTokens.totals,
+      ('SDT', 'SĐT'),
+      ('Gio', 'Giờ'),
     ];
+    final tokens = tokenEntries.map((e) => e.$1).toSet().toList();
+    final labels = {for (final e in tokenEntries) e.$1: e.$2};
+    final current = tokens.contains(value) ? value : tokens.first;
     return DropdownButtonFormField<String>(
-      value: tokens.contains(value) ? value : tokens.first,
+      value: current,
       isExpanded: true,
       decoration: InputDecoration(
         labelText: tr(label),
         border: const OutlineInputBorder(),
       ),
-      items: tokens.map((t) => DropdownMenuItem(value: t, child: Text(tr(t)))).toList(),
+      items: tokens
+          .map((t) => DropdownMenuItem(
+                value: t,
+                child: Text(tr('${labels[t] ?? t} ($t)'), overflow: TextOverflow.ellipsis),
+              ))
+          .toList(),
       onChanged: widget.readOnly ? null : (v) => onField(v ?? tokens.first),
     );
   }
@@ -1048,5 +1439,308 @@ class _BlockPropertiesPanelState extends State<_BlockPropertiesPanel> {
         PosPrintBlockType.totals => 'Khối tổng tiền',
         PosPrintBlockType.spacer => 'Khoảng trống',
         PosPrintBlockType.vietQr => 'Mã VietQR thanh toán',
+        PosPrintBlockType.barcode => 'Mã vạch (barcode)',
       };
+}
+
+/// Tab / panel sửa mã JSON V2 hoặc HTML thuần.
+class _SourceCodePanel extends StatefulWidget {
+  const _SourceCodePanel({
+    required this.template,
+    required this.readOnly,
+    required this.onApplyV2,
+    this.onApplyLegacyHtml,
+  });
+
+  final PosPrintTemplateV2 template;
+  final bool readOnly;
+  final ValueChanged<PosPrintTemplateV2> onApplyV2;
+  final ValueChanged<String>? onApplyLegacyHtml;
+
+  @override
+  State<_SourceCodePanel> createState() => _SourceCodePanelState();
+}
+
+class _SourceCodePanelState extends State<_SourceCodePanel>
+    with SingleTickerProviderStateMixin {
+  late TabController _tabs;
+  late TextEditingController _jsonCtrl;
+  late TextEditingController _htmlCtrl;
+  String? _error;
+  String? _info;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabs = TabController(length: 2, vsync: this);
+    _jsonCtrl = TextEditingController(text: _prettyJson(widget.template));
+    _htmlCtrl = TextEditingController(
+      text: PosPrintTemplateCompiler.renderSamplePreview(widget.template),
+    );
+  }
+
+  @override
+  void didUpdateWidget(covariant _SourceCodePanel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.template != widget.template) {
+      // Chỉ sync khi người dùng không đang gõ lệch (so khớp encode).
+      final cur = _tryParseJson(_jsonCtrl.text);
+      if (cur == null || cur.encode() != widget.template.encode()) {
+        _jsonCtrl.text = _prettyJson(widget.template);
+      }
+      if (_tabs.index == 1) {
+        _htmlCtrl.text =
+            PosPrintTemplateCompiler.renderSamplePreview(widget.template);
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _tabs.dispose();
+    _jsonCtrl.dispose();
+    _htmlCtrl.dispose();
+    super.dispose();
+  }
+
+  static String _prettyJson(PosPrintTemplateV2 t) {
+    const encoder = JsonEncoder.withIndent('  ');
+    return encoder.convert(t.toJson());
+  }
+
+  PosPrintTemplateV2? _tryParseJson(String raw) {
+    var s = raw.trim();
+    if (s.startsWith(kPosPrintTemplateV2Marker)) {
+      s = s.substring(kPosPrintTemplateV2Marker.length).trim();
+    }
+    try {
+      final map = jsonDecode(s);
+      if (map is Map<String, dynamic>) {
+        return PosPrintTemplateV2.fromJson(map);
+      }
+      if (map is Map) {
+        return PosPrintTemplateV2.fromJson(Map<String, dynamic>.from(map));
+      }
+    } catch (_) {}
+    return PosPrintTemplateV2Codec.tryParse(raw);
+  }
+
+  void _applyJson() {
+    final parsed = _tryParseJson(_jsonCtrl.text);
+    if (parsed == null) {
+      setState(() {
+        _error = 'JSON không hợp lệ. Kiểm tra cú pháp hoặc dùng mẫu V2.';
+        _info = null;
+      });
+      return;
+    }
+    widget.onApplyV2(parsed);
+    setState(() {
+      _error = null;
+      _info = 'Đã áp dụng JSON V2 vào mẫu in.';
+      _htmlCtrl.text = PosPrintTemplateCompiler.renderSamplePreview(parsed);
+    });
+  }
+
+  void _applyLegacyHtml() {
+    final html = _htmlCtrl.text.trim();
+    if (html.isEmpty) {
+      setState(() {
+        _error = 'HTML trống.';
+        _info = null;
+      });
+      return;
+    }
+    if (widget.onApplyLegacyHtml == null) {
+      setState(() {
+        _error = 'Màn hình hiện tại không hỗ trợ lưu HTML thuần.';
+        _info = null;
+      });
+      return;
+    }
+    widget.onApplyLegacyHtml!(html);
+    setState(() {
+      _error = null;
+      _info =
+          'Đã chuyển sang HTML thuần. In nhiệt Sunmi/ESC nên dùng JSON V2; HTML phù hợp in trình duyệt / A4.';
+    });
+  }
+
+  void _refreshCompiledHtml() {
+    setState(() {
+      _htmlCtrl.text =
+          PosPrintTemplateCompiler.renderSamplePreview(widget.template);
+      _info = 'Đã làm mới HTML biên dịch từ khối hiện tại.';
+      _error = null;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Material(
+          color: Colors.white,
+          child: TabBar(
+            controller: _tabs,
+            labelColor: PosTheme.edgeBlue,
+            unselectedLabelColor: PosTheme.textSecondary,
+            tabs: [
+              Tab(text: tr('JSON V2')),
+              Tab(text: tr('HTML')),
+            ],
+          ),
+        ),
+        if (_error != null)
+          Material(
+            color: const Color(0xFFFEE2E2),
+            child: Padding(
+              padding: const EdgeInsets.all(10),
+              child: Text(tr(_error!), style: const TextStyle(color: Color(0xFF991B1B), fontSize: 13)),
+            ),
+          ),
+        if (_info != null)
+          Material(
+            color: const Color(0xFFDCFCE7),
+            child: Padding(
+              padding: const EdgeInsets.all(10),
+              child: Text(tr(_info!), style: const TextStyle(color: Color(0xFF166534), fontSize: 13)),
+            ),
+          ),
+        Expanded(
+          child: TabBarView(
+            controller: _tabs,
+            children: [
+              _buildJsonTab(),
+              _buildHtmlTab(),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildJsonTab() {
+    return Padding(
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            tr('Sửa cấu trúc mẫu (blocks, fieldLabels, style). Marker <!--POS_TEMPLATE_V2--> tự thêm khi lưu.'),
+            style: const TextStyle(fontSize: 12, color: PosTheme.textSecondary),
+          ),
+          const SizedBox(height: 8),
+          Expanded(
+            child: TextField(
+              readOnly: widget.readOnly,
+              controller: _jsonCtrl,
+              maxLines: null,
+              expands: true,
+              style: const TextStyle(fontFamily: 'monospace', fontSize: 12.5, height: 1.35),
+              decoration: const InputDecoration(
+                border: OutlineInputBorder(),
+                contentPadding: EdgeInsets.all(12),
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              if (!widget.readOnly)
+                FilledButton.icon(
+                  onPressed: _applyJson,
+                  icon: const Icon(Icons.check, size: 18),
+                  label: Text(tr('Áp dụng JSON')),
+                ),
+              OutlinedButton.icon(
+                onPressed: () {
+                  Clipboard.setData(ClipboardData(text: _jsonCtrl.text));
+                  setState(() {
+                    _info = 'Đã copy JSON.';
+                    _error = null;
+                  });
+                },
+                icon: const Icon(Icons.copy, size: 18),
+                label: Text(tr('Copy')),
+              ),
+              OutlinedButton.icon(
+                onPressed: () {
+                  setState(() {
+                    _jsonCtrl.text = _prettyJson(widget.template);
+                    _error = null;
+                    _info = 'Đã khôi phục từ mẫu hiện tại.';
+                  });
+                },
+                icon: const Icon(Icons.refresh, size: 18),
+                label: Text(tr('Tải lại')),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHtmlTab() {
+    return Padding(
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            tr('HTML biên dịch (xem/sửa). Token: {Ma_Don_Hang}, {Tong_Cong}… · vòng hàng: <!--BEGIN_ITEMS-->…<!--END_ITEMS-->'),
+            style: const TextStyle(fontSize: 12, color: PosTheme.textSecondary),
+          ),
+          const SizedBox(height: 8),
+          Expanded(
+            child: TextField(
+              readOnly: widget.readOnly,
+              controller: _htmlCtrl,
+              maxLines: null,
+              expands: true,
+              style: const TextStyle(fontFamily: 'monospace', fontSize: 12.5, height: 1.35),
+              decoration: const InputDecoration(
+                border: OutlineInputBorder(),
+                contentPadding: EdgeInsets.all(12),
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              OutlinedButton.icon(
+                onPressed: _refreshCompiledHtml,
+                icon: const Icon(Icons.sync, size: 18),
+                label: Text(tr('Từ khối V2')),
+              ),
+              if (!widget.readOnly && widget.onApplyLegacyHtml != null)
+                FilledButton.icon(
+                  style: FilledButton.styleFrom(backgroundColor: const Color(0xFFB45309)),
+                  onPressed: _applyLegacyHtml,
+                  icon: const Icon(Icons.html, size: 18),
+                  label: Text(tr('Lưu HTML thuần')),
+                ),
+              OutlinedButton.icon(
+                onPressed: () {
+                  Clipboard.setData(ClipboardData(text: _htmlCtrl.text));
+                  setState(() {
+                    _info = 'Đã copy HTML.';
+                    _error = null;
+                  });
+                },
+                icon: const Icon(Icons.copy, size: 18),
+                label: Text(tr('Copy')),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
 }

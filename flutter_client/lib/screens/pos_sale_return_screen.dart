@@ -9,6 +9,7 @@ import '../providers/permission_provider.dart';
 import '../services/api_service.dart';
 import '../widgets/notification_overlay.dart';
 import '../utils/pos_sell_stock_patch.dart';
+import '../widgets/pos/pos_cancel_return_reason_dialog.dart';
 import '../widgets/pos/pos_mobile_widgets.dart';
 import '../widgets/pos/pos_pick_sale_order_dialog.dart';
 import '../widgets/pos/pos_product_image.dart';
@@ -255,12 +256,24 @@ class _PosSaleReturnScreenState extends State<PosSaleReturnScreen> {
       return;
     }
 
+    final reasonCfg = await fetchCancelReturnReasonConfig(_api);
+    if (!mounted) return;
+    final reasonResult = await showPosCancelReturnReasonDialog(
+      context,
+      config: reasonCfg,
+      title: 'Lý do trả hàng',
+    );
+    if (reasonResult == null || !mounted) return;
+
     setState(() => _submitting = true);
     final note = _noteCtrl.text.trim();
     final res = await _api.returnPosSale(order.id, {
       'lines': bodyLines,
       if (note.isNotEmpty) 'note': note,
       'refundPaymentMethod': _refundPaymentMethod,
+      if (reasonResult.reason.isNotEmpty) 'reason': reasonResult.reason,
+      if ((reasonResult.detailNote ?? '').isNotEmpty)
+        'detailNote': reasonResult.detailNote,
     });
     if (!mounted) return;
     setState(() => _submitting = false);

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../widgets/hrm_collapsible_overview.dart';
+import '../widgets/hrm_responsive_list_layout.dart';
 import '../widgets/page_top_actions.dart';
 import '../models/attendance.dart';
 import '../models/device.dart';
@@ -278,19 +279,13 @@ class _PayrollScreenState extends State<PayrollScreen> {
         body: LayoutBuilder(
           builder: (context, constraints) {
             final maxHeaderH =
-                (constraints.maxHeight * 0.42).clamp(120.0, 420.0);
+                (constraints.maxHeight * 0.55).clamp(160.0, 560.0);
             return Column(
               children: [
                 if (!isMobile && chrome.isNotEmpty)
-                  ConstrainedBox(
-                    constraints: BoxConstraints(maxHeight: maxHeaderH),
-                    child: SingleChildScrollView(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: chrome,
-                      ),
-                    ),
+                  HrmResponsiveListLayout.shrinkWrapHeader(
+                    maxHeight: maxHeaderH,
+                    children: chrome,
                   ),
                 Expanded(
                   child: _isLoading

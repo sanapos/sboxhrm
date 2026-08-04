@@ -13,7 +13,7 @@ const _itemEnd = '<!--END_ITEMS-->';
 /// Dữ liệu mẫu để xem trước mẫu in.
 Map<String, String> posPrintSampleData({String documentType = PosPrintDocumentTypes.saleInvoice}) {
   final money = NumberFormat('#,##0', 'vi_VN');
-  return {
+  final base = <String, String>{
     'Ten_Cua_Hang': 'SBOX POS Demo',
     'Dia_Chi_Chi_Nhanh': '123 Nguyễn Huệ, Q.1, TP.HCM',
     'Dien_Thoai_Chi_Nhanh': '0901 234 567',
@@ -35,7 +35,34 @@ Map<String, String> posPrintSampleData({String documentType = PosPrintDocumentTy
     'Hinh_Thuc_Thanh_Toan': 'Tiền mặt',
     'Nguoi_Ban': 'NV Bán hàng',
     'Ghi_Chu': '',
+    'Ten_Ban': 'Bàn 05',
+    'Ma_Hang': 'TS-TRA-DAO',
+    'Ma_Vach': '8934567890123',
+    'Ten_Hang_Hoa': 'Trà đào cam sả size L',
+    'Don_Gia': money.format(45000),
+    'So_Luong': '1',
+    'Don_Vi_Tinh': 'ly',
   };
+  if (documentType == PosPrintDocumentTypes.barcodeLabel) {
+    return {
+      ...base,
+      'Tieu_De_In': 'TEM SẢN PHẨM',
+      'Ten_Hang_Hoa': 'Giày thể thao Nam Adidas Blue',
+      'Ma_Hang': 'GNA10001',
+      'Ma_Vach': '8934567890123',
+      'Don_Gia': money.format(350000),
+      'Don_Vi_Tinh': 'Đôi',
+    };
+  }
+  if (documentType == PosPrintDocumentTypes.kitchenLabel) {
+    return {
+      ...base,
+      'Tieu_De_In': 'TEM BÁO BẾP',
+      'Ghi_Chu': '+ Ít đá, + 50% đường',
+      'So_Luong': '1',
+    };
+  }
+  return base;
 }
 
 List<Map<String, String>> posPrintSampleLines() {

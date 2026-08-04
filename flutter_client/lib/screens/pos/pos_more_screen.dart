@@ -19,11 +19,14 @@ import 'pos_warranty_lookup_screen.dart';
 import 'pos_business_analysis_screen.dart';
 import 'pos_customer_debt_report_screen.dart';
 import 'pos_customers_screen.dart';
+import 'pos_cancel_return_history_screen.dart';
 import 'pos_end_of_day_screen.dart';
 import 'pos_goods_report_screen.dart';
 import 'pos_resource_floor_screen.dart';
 import 'pos_sales_report_screen.dart';
-import 'pos_sell_industry_settings_screen.dart';
+import 'pos_customer_display_settings_screen.dart';
+import 'pos_customer_display_settings_screen.dart';
+import 'pos_sell_industry_settings_hub_screen.dart';
 import 'pos_store_settings_hub_screen.dart';
 import 'pos_printer_settings_hub_screen.dart';
 import 'pos_vouchers_screen.dart';
@@ -79,6 +82,9 @@ class PosMoreScreen extends StatelessWidget {
                         const PosSaleOrderListScreen()),
                     _Item('Trả hàng bán', Icons.assignment_return_outlined, 'PosSaleReturns',
                         const PosSaleReturnListScreen()),
+                    _Item('Lịch sử hủy / trả', Icons.history, 'PosSell',
+                        const PosCancelReturnHistoryScreen(),
+                        altModules: const ['PosSaleOrders', 'PosSaleReturns']),
                     _Item('Nhập hàng', Icons.move_to_inbox_outlined,
                         'PosPurchaseReceipts', const WhAdaptivePurchaseReceiptList()),
                     _Item('Trả hàng nhập', Icons.undo_outlined, 'PosPurchaseReturns',
@@ -141,7 +147,14 @@ class PosMoreScreen extends StatelessWidget {
                       'Hồ sơ ngành',
                       Icons.storefront_outlined,
                       'PosSell',
-                      const PosSellIndustrySettingsScreen(),
+                      const PosSellIndustrySettingsHubScreen(),
+                      altModules: const ['PosProducts'],
+                    ),
+                    _Item(
+                      'Màn hình phụ',
+                      Icons.tv_outlined,
+                      'PosSell',
+                      const PosCustomerDisplaySettingsScreen(),
                       altModules: const ['PosProducts'],
                     ),
                     _Item(

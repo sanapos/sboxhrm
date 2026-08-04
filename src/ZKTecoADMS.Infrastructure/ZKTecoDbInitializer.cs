@@ -1176,6 +1176,46 @@ public class ZKTecoDbInitializer(
                         ON ""PosKitchenVoidSlips"" (""StoreId"", ""VoidedAt"");
                     CREATE INDEX IF NOT EXISTS ""IX_PosKitchenVoidSlips_Store_AfterBill""
                         ON ""PosKitchenVoidSlips"" (""StoreId"", ""AfterBillRequested"", ""VoidedAt"");
+                    ALTER TABLE ""PosKitchenVoidSlips"" ADD COLUMN IF NOT EXISTS ""Reason"" character varying(80) NULL;
+                    ALTER TABLE ""PosKitchenVoidSlips"" ADD COLUMN IF NOT EXISTS ""DetailNote"" character varying(500) NULL;
+
+                    CREATE TABLE IF NOT EXISTS ""PosCancelReturnAudits"" (
+                        ""Id"" uuid NOT NULL,
+                        ""StoreId"" uuid NOT NULL,
+                        ""ActionType"" character varying(40) NOT NULL,
+                        ""Reason"" character varying(80) NULL,
+                        ""DetailNote"" character varying(500) NULL,
+                        ""AfterProvisionalBill"" boolean NOT NULL DEFAULT false,
+                        ""SaleOrderId"" uuid NULL,
+                        ""OrderNo"" character varying(40) NULL,
+                        ""ResourceSessionId"" uuid NULL,
+                        ""ServiceResourceId"" uuid NULL,
+                        ""ResourceName"" character varying(120) NULL,
+                        ""ProductId"" uuid NULL,
+                        ""ProductName"" character varying(200) NULL,
+                        ""UnitName"" character varying(40) NULL,
+                        ""Qty"" numeric(18,3) NOT NULL DEFAULT 0,
+                        ""Amount"" numeric(18,2) NOT NULL DEFAULT 0,
+                        ""OccurredAt"" timestamp without time zone NOT NULL DEFAULT NOW(),
+                        ""Actor"" character varying(200) NULL,
+                        ""DeviceName"" character varying(120) NULL,
+                        ""IsActive"" boolean NOT NULL DEFAULT true,
+                        ""CreatedAt"" timestamp without time zone NOT NULL DEFAULT NOW(),
+                        ""UpdatedAt"" timestamp without time zone NULL,
+                        ""UpdatedBy"" text NULL,
+                        ""CreatedBy"" text NULL,
+                        ""LastModified"" timestamp without time zone NULL,
+                        ""LastModifiedBy"" text NULL,
+                        ""Deleted"" timestamp without time zone NULL,
+                        ""DeletedBy"" text NULL,
+                        CONSTRAINT ""PK_PosCancelReturnAudits"" PRIMARY KEY (""Id"")
+                    );
+                    CREATE INDEX IF NOT EXISTS ""IX_PosCancelReturnAudits_Store_Occurred""
+                        ON ""PosCancelReturnAudits"" (""StoreId"", ""OccurredAt"");
+                    CREATE INDEX IF NOT EXISTS ""IX_PosCancelReturnAudits_Store_Action""
+                        ON ""PosCancelReturnAudits"" (""StoreId"", ""ActionType"", ""OccurredAt"");
+                    CREATE INDEX IF NOT EXISTS ""IX_PosCancelReturnAudits_Store_AfterProv""
+                        ON ""PosCancelReturnAudits"" (""StoreId"", ""AfterProvisionalBill"", ""OccurredAt"");
 
                     -- Không còn dùng «cần dọn» — bàn trống ngay sau thanh toán.
                     UPDATE ""PosServiceResources"" SET ""NeedsCleaning"" = false WHERE ""NeedsCleaning"" = true;
@@ -2092,7 +2132,7 @@ public class ZKTecoDbInitializer(
             {
                 Id = Guid.Parse("b0000001-0000-0000-0000-000000000001"),
                 Name = basicName,
-                Description = "Bán hàng POS cơ bản: hàng hóa, bán hàng, đơn hàng, mẫu in",
+                Description = "Bán hàng POS cơ bản: hàng hóa, bán hàng, đơn hàng, trả hàng, mẫu in",
                 IsActive = true,
                 DefaultDurationDays = 30,
                 MaxUsers = 20,
@@ -2103,18 +2143,50 @@ public class ZKTecoDbInitializer(
             });
             logger.LogInformation("Seeded service package: {Name}", basicName);
         }
-        else if (StorePackageHelper.DeserializeModules(existing.AllowedModules).Count == 0)
+        else
         {
-            existing.AllowedModules = basicJson;
-            existing.UpdatedAt = DateTime.UtcNow;
-            existing.UpdatedBy = "System";
-            logger.LogInformation("Updated empty modules for package: {Name}", basicName);
+            var mods = StorePackageHelper.DeserializeModules(existing.AllowedModules);
+            if (mods.Count == 0)
+            {
+                existing.AllowedModules = basicJson;
+                existing.UpdatedAt = DateTime.UtcNow;
+                existing.UpdatedBy = "System";
+                logger.LogInformation("Updated empty modules for package: {Name}", basicName);
+            }
+            else if (!mods.Contains("PosSaleReturns", StringComparer.OrdinalIgnoreCase) &&
+                     mods.Contains("PosSell", StringComparer.OrdinalIgnoreCase))
+            {
+                // Bổ sung Trả hàng bán vào gói seed POS Cơ bản (không đụng gói custom).
+                mods.Add("PosSaleReturns");
+                existing.AllowedModules = System.Text.Json.JsonSerializer.Serialize(mods);
+                existing.Description =
+                    "Bán hàng POS cơ bản: hàng hóa, bán hàng, đơn hàng, trả hàng, mẫu in";
+                existing.UpdatedAt = DateTime.UtcNow;
+                existing.UpdatedBy = "System";
+                logger.LogInformation("Added PosSaleReturns to package: {Name}", basicName);
+            }
         }
     }
 
     #endregion
 
     #region Seed Permission Modules
+
+    /// <summary>GUID cố định khớp Flutter permission_module_catalog + PermissionConfiguration.</summary>
+    private static readonly Dictionary<string, Guid> StablePermissionIds = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["PosProducts"] = Guid.Parse("11111111-1111-1111-1111-111111111083"),
+        ["PosSell"] = Guid.Parse("11111111-1111-1111-1111-111111111087"),
+        ["PosSalesReport"] = Guid.Parse("11111111-1111-1111-1111-111111111084"),
+        ["PosPrintTemplates"] = Guid.Parse("11111111-1111-1111-1111-111111111088"),
+        ["PosSaleOrders"] = Guid.Parse("11111111-1111-1111-1111-111111111089"),
+        ["PosSaleReturns"] = Guid.Parse("11111111-1111-1111-1111-111111111090"),
+        ["PosPurchaseReceipts"] = Guid.Parse("11111111-1111-1111-1111-111111111091"),
+        ["PosPurchaseReturns"] = Guid.Parse("11111111-1111-1111-1111-111111111092"),
+        ["PosStockCounts"] = Guid.Parse("11111111-1111-1111-1111-111111111093"),
+        ["PosDamageIssues"] = Guid.Parse("11111111-1111-1111-1111-111111111094"),
+        ["PosInternalUseIssues"] = Guid.Parse("11111111-1111-1111-1111-111111111095"),
+    };
 
     private async Task SeedPermissionModulesAsync()
     {
@@ -2140,9 +2212,13 @@ public class ZKTecoDbInitializer(
             }
             else
             {
+                // Stable Ids khớp Flutter permission_module_catalog (tránh lệch GUID khi gán role).
+                var id = StablePermissionIds.TryGetValue(module, out var fixedId)
+                    ? fixedId
+                    : Guid.NewGuid();
                 context.Permissions.Add(new Permission
                 {
-                    Id = Guid.NewGuid(),
+                    Id = id,
                     Module = module,
                     ModuleDisplayName = displayName,
                     Description = description,

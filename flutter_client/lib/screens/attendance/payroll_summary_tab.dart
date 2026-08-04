@@ -25,6 +25,7 @@ import '../../utils/excel_report_builder.dart';
 import '../../widgets/synced_scroll_list_view.dart'
     show HorizontallySyncedClip;
 import '../../utils/shift_records_calculator.dart';
+import '../../utils/paid_leave_schedule_utils.dart';
 import '../../utils/allowance_calculator.dart';
 import '../../utils/travel_hours_calculator.dart';
 import '../../utils/travel_hours_load_utils.dart';
@@ -98,6 +99,9 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
   // ignore: unused_field
   List<Map<String, dynamic>> _shifts = [];
   List<Map<String, dynamic>> _holidays = [];
+  List<Map<String, dynamic>> _workSchedules = [];
+  Set<String> _scheduleDayOffKeys = {};
+  Set<String> _scheduleWorkDayKeys = {};
   List<Map<String, dynamic>> _shiftSalaryLevels = [];
   List<Map<String, dynamic>> _employeeTaxDeductions = [];
   List<Map<String, dynamic>> _kpiEmployeeTargets = [];
@@ -545,6 +549,14 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
         _loadWithTimeout(_apiService.getAllowanceSettings(), <dynamic>[]),
         _loadWithTimeout(
             _apiService.getHolidaySettings(_fromDate.year), <dynamic>[]),
+        _loadWithTimeout(
+          _apiService.getWorkSchedules(
+            fromDate: _fromDate,
+            toDate: _toDate,
+            pageSize: 1000,
+          ),
+          <String, dynamic>{},
+        ),
       ]);
 
       _insuranceSettings = results[0] is Map<String, dynamic>
@@ -580,6 +592,23 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
       _shifts = _extractList(results[5]);
       _allowanceSettings = _extractList(results[6]);
       _holidays = _extractList(results[7]);
+      _workSchedules = extractWorkScheduleItems(
+        results[8] is Map<String, dynamic>
+            ? results[8] as Map<String, dynamic>
+            : <String, dynamic>{},
+      );
+      final codeToGuid = <String, String>{
+        for (final e in _employees)
+          if (e.employeeCode.isNotEmpty) e.employeeCode: e.id,
+      };
+      _scheduleDayOffKeys = buildScheduleDayOffKeys(
+        _workSchedules,
+        employeeCodeToGuid: codeToGuid,
+      );
+      _scheduleWorkDayKeys = buildScheduleWorkDayKeys(
+        _workSchedules,
+        employeeCodeToGuid: codeToGuid,
+      );
 
       // Optional settings (timeout — tránh quay mãi khi API chậm/treo)
       final taxRes = await _loadWithTimeout(
@@ -711,6 +740,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
         final b = Map<String, dynamic>.from(benefit);
         profile['shiftsPerDay'] = b['shiftsPerDay'];
         profile['weeklyOffDays'] = b['weeklyOffDays'];
+        profile['paidLeaveType'] = b['paidLeaveType'] ?? profile['paidLeaveType'];
         profile['holidayMultiplier'] = b['holidayMultiplier'];
         profile['holidayOvertimeType'] = b['holidayOvertimeType'];
         // Bắt buộc lift — free2/once đọc từ profile['attendanceMode'].
@@ -745,6 +775,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
       minHoursForWorkDay: _minHoursForWorkDay,
       decimalWorkDayEnabled: _decimalWorkDayEnabled,
       standardWorkHours: _standardWorkHours,
+      scheduleDayOffKeys: _scheduleDayOffKeys,
     );
     _shiftRecordsByEmpKey = {};
     for (final r in _cachedShiftRecords!) {
@@ -868,12 +899,29 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
   }
 
   /// Công chuẩn lịch (tháng − nghỉ có lương). Dùng khi mode Auto.
-  double _calcStandardWorkDays(String paidLeaveType, String paidDayOff) {
+  double _calcStandardWorkDays(
+    String paidLeaveType,
+    String paidDayOff, {
+    String? employeeCode,
+    String? employeeGuid,
+  }) {
+    int? scheduleOff;
+    if (isSchedulePaidLeaveType(paidLeaveType) &&
+        (employeeCode != null || employeeGuid != null)) {
+      scheduleOff = countScheduleDayOffsInMonth(
+        _workSchedules,
+        employeeCode: employeeCode ?? '',
+        year: _fromDate.year,
+        month: _fromDate.month,
+        employeeGuid: employeeGuid,
+      );
+    }
     return calcCalendarStandardWorkDays(
       year: _fromDate.year,
       month: _fromDate.month,
       paidLeaveType: paidLeaveType,
       paidDayOff: paidDayOff,
+      scheduleDayOffCount: scheduleOff,
     );
   }
 
@@ -1118,7 +1166,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
     final double fixedShiftRate = _toDouble(benefit?['fixedShiftRate']);
 
     // Paid leave settings
-    final String paidDayOff = benefit?['weeklyOffDays']?.toString() ?? 'Sunday';
+    final String paidDayOff = benefit?['weeklyOffDays']?.toString() ?? '';
     final String paidLeaveType =
         benefit?['paidLeaveType']?.toString() ?? 'sunday';
 
@@ -1172,6 +1220,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
       salaryProfiles: _salaryProfilesForShiftCalc(),
       dayEndHour: _dayEndHour,
       dayEndMinute: _dayEndMinute,
+      scheduleDayOffKeys: _scheduleDayOffKeys,
     );
     final attStats = aggregatePayrollStatsFromShiftRecords(
       records: shiftRecords,
@@ -1223,6 +1272,13 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
           isPaidOff = d.weekday == DateTime.sunday;
           // Saturday afternoon is counted as 0.5 in standardWorkDays calculation
           break;
+        case 'schedule':
+          isPaidOff = scheduleKeyHit(
+            _scheduleDayOffKeys,
+            d,
+            [empCode, if (emp != null) emp.id],
+          );
+          break;
         case 'off-1':
         case 'off-2':
         case 'off-3':
@@ -1234,21 +1290,44 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
           isPaidOff = false;
           break;
         default:
-          // Fallback: use weeklyOffDays
-          isPaidOff =
-              (paidDayOff.contains('Sunday') && d.weekday == DateTime.sunday) ||
-                  (paidDayOff.contains('Saturday') &&
-                      d.weekday == DateTime.saturday);
+          // Fallback: use weeklyOffDays (không mặc định CN khi trống).
+          final weekly = paidDayOff.trim();
+          if (weekly.isEmpty) {
+            isPaidOff = false;
+          } else {
+            isPaidOff =
+                (weekly.contains('Sunday') && d.weekday == DateTime.sunday) ||
+                    (weekly.contains('Saturday') &&
+                        d.weekday == DateTime.saturday);
+          }
       }
 
       if (isPaidOff) {
         paidLeaveDays++;
       } else if (!daysWithWork.contains(key) && d.isBefore(DateTime.now())) {
+        // Theo lịch: chỉ đếm vắng khi có xếp ca làm và không chấm.
+        if (isSchedulePaidLeaveType(paidLeaveType)) {
+          final onWorkDay = scheduleKeyHit(
+            _scheduleWorkDayKeys,
+            d,
+            [empCode, if (emp != null) emp.id],
+          );
+          if (!onWorkDay) continue;
+        }
         absentDays++;
       }
     }
 
     // ═══ Công chuẩn & công tính lương (theo thiết lập NV) ═══
+    final scheduleOffCount = isSchedulePaidLeaveType(paidLeaveType)
+        ? countScheduleDayOffsInMonth(
+            _workSchedules,
+            employeeCode: empCode,
+            year: _fromDate.year,
+            month: _fromDate.month,
+            employeeGuid: emp?.id,
+          )
+        : null;
     final resolvedStd = resolveStandardWorkDays(
       benefit: benefit,
       year: _fromDate.year,
@@ -1256,6 +1335,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
       rawWorkDays: workDays,
       paidLeaveType: paidLeaveType,
       paidDayOff: paidDayOff,
+      scheduleDayOffCount: scheduleOffCount,
     );
     final double standardWorkDays = resolvedStd.divisor;
     double billableWorkDays = resolvedStd.billableWorkDays;

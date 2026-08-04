@@ -560,6 +560,35 @@ class _PosSellMobilePrintSettingsScreenState
                       },
                     ),
                   ),
+                  ListTile(
+                    leading: const Icon(Icons.label_outline, color: _blue),
+                    title: Text(tr('Thiết kế mẫu tem báo bếp / tem ly')),
+                    subtitle: Text(tr('Sửa nhãn, bố cục in khi báo chế biến')),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => _openTemplateEditor(
+                      documentType: PosPrintDocumentTypes.kitchenLabel,
+                    ),
+                  ),
+                ]),
+                const SizedBox(height: 16),
+                _sectionTitle('Tem dán sản phẩm'),
+                _card([
+                  Padding(
+                    padding: EdgeInsets.fromLTRB(16, 12, 16, 4),
+                    child: Text(
+                      tr('Tem mã hàng / mã vạch / giá dán lên sản phẩm. In từ danh mục hàng hóa.'),
+                      style: TextStyle(fontSize: 12, color: Colors.black54),
+                    ),
+                  ),
+                  ListTile(
+                    leading: const Icon(Icons.view_week, color: _blue),
+                    title: Text(tr('Thiết kế mẫu tem sản phẩm')),
+                    subtitle: Text(tr('Tên hàng, barcode, mã, giá')),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => _openTemplateEditor(
+                      documentType: PosPrintDocumentTypes.barcodeLabel,
+                    ),
+                  ),
                 ]),
                 const SizedBox(height: 16),
                 _sectionTitle('Phiếu báo xuất kho'),

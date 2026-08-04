@@ -93,6 +93,7 @@ class CustomerDisplayState {
     this.total = 0,
     this.promoItems = const [],
     this.storeName,
+    this.idleSeconds = 8,
     this.updatedAtMs = 0,
   });
 
@@ -107,6 +108,8 @@ class CustomerDisplayState {
   final double total;
   final List<CustomerDisplayPromoItem> promoItems;
   final String? storeName;
+  /// Đồng bộ từ POS — engine phụ không có sell-settings.
+  final int idleSeconds;
   final int updatedAtMs;
 
   bool get isActive =>
@@ -125,6 +128,7 @@ class CustomerDisplayState {
     double? total,
     List<CustomerDisplayPromoItem>? promoItems,
     String? storeName,
+    int? idleSeconds,
     int? updatedAtMs,
     bool clearTable = false,
   }) {
@@ -140,6 +144,7 @@ class CustomerDisplayState {
       total: total ?? this.total,
       promoItems: promoItems ?? this.promoItems,
       storeName: storeName ?? this.storeName,
+      idleSeconds: idleSeconds ?? this.idleSeconds,
       updatedAtMs: updatedAtMs ?? this.updatedAtMs,
     );
   }
@@ -156,6 +161,7 @@ class CustomerDisplayState {
         'total': total,
         'promoItems': promoItems.map((e) => e.toJson()).toList(),
         'storeName': storeName,
+        'idleSeconds': idleSeconds,
         'updatedAtMs': updatedAtMs,
       };
 
@@ -183,6 +189,7 @@ class CustomerDisplayState {
               CustomerDisplayPromoItem.fromJson(Map<String, dynamic>.from(e)))
           .toList(),
       storeName: j['storeName']?.toString(),
+      idleSeconds: (j['idleSeconds'] as num?)?.toInt().clamp(3, 60) ?? 8,
       updatedAtMs: (j['updatedAtMs'] as num?)?.toInt() ?? 0,
     );
   }
@@ -210,39 +217,70 @@ class CustomerDisplayConfig {
     this.idleSeconds = 8,
     this.useProductImages = true,
     this.promoVideoUrls = const [],
+    this.promoImageUrls = const [],
     this.autoOpenOnPos = false,
+    this.viewerCode = '',
   });
 
   final bool enabled;
   final int idleSeconds;
   final bool useProductImages;
   final List<String> promoVideoUrls;
+  /// Ảnh trình chiếu riêng (path stores/... hoặc URL http).
+  final List<String> promoImageUrls;
   final bool autoOpenOnPos;
+  /// Mã mở link màn phụ trên máy khác: /#/customer-display?v=CODE
+  final String viewerCode;
+
+  static String newViewerCode() {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    final r = DateTime.now().microsecondsSinceEpoch;
+    final buf = StringBuffer();
+    var x = r;
+    for (var i = 0; i < 8; i++) {
+      buf.write(chars[x % chars.length]);
+      x = (x ~/ chars.length) ^ (r >> (i * 3));
+    }
+    return buf.toString();
+  }
 
   factory CustomerDisplayConfig.fromExtraJson(String? extraJson) {
     if (extraJson == null || extraJson.trim().isEmpty) {
-      return const CustomerDisplayConfig();
+      return CustomerDisplayConfig(viewerCode: newViewerCode());
     }
     try {
       final root = jsonDecode(extraJson);
-      if (root is! Map) return const CustomerDisplayConfig();
+      if (root is! Map) {
+        return CustomerDisplayConfig(viewerCode: newViewerCode());
+      }
       final cd = root['customerDisplay'] ?? root['CustomerDisplay'];
-      if (cd is! Map) return const CustomerDisplayConfig();
+      if (cd is! Map) {
+        return CustomerDisplayConfig(viewerCode: newViewerCode());
+      }
       final m = Map<String, dynamic>.from(cd);
       final videos = (m['promoVideoUrls'] as List?)
-              ?.map((e) => e.toString())
+              ?.map((e) => e.toString().trim())
               .where((e) => e.isNotEmpty)
               .toList() ??
           const <String>[];
+      final images = (m['promoImageUrls'] as List?)
+              ?.map((e) => e.toString().trim())
+              .where((e) => e.isNotEmpty)
+              .toList() ??
+          const <String>[];
+      var code = (m['viewerCode'] ?? m['ViewerCode'] ?? '').toString().trim();
+      if (code.length < 4) code = newViewerCode();
       return CustomerDisplayConfig(
         enabled: m['enabled'] == true,
         idleSeconds: (m['idleSeconds'] as num?)?.toInt().clamp(3, 60) ?? 8,
         useProductImages: m['useProductImages'] != false,
         promoVideoUrls: videos,
+        promoImageUrls: images,
         autoOpenOnPos: m['autoOpenOnPos'] == true,
+        viewerCode: code,
       );
     } catch (_) {
-      return const CustomerDisplayConfig();
+      return CustomerDisplayConfig(viewerCode: newViewerCode());
     }
   }
 
@@ -254,12 +292,15 @@ class CustomerDisplayConfig {
         if (decoded is Map) root = Map<String, dynamic>.from(decoded);
       } catch (_) {}
     }
+    final code = viewerCode.trim().length >= 4 ? viewerCode.trim() : newViewerCode();
     root['customerDisplay'] = {
       'enabled': enabled,
       'idleSeconds': idleSeconds,
       'useProductImages': useProductImages,
       'promoVideoUrls': promoVideoUrls,
+      'promoImageUrls': promoImageUrls,
       'autoOpenOnPos': autoOpenOnPos,
+      'viewerCode': code,
     };
     return jsonEncode(root);
   }
@@ -269,14 +310,47 @@ class CustomerDisplayConfig {
     int? idleSeconds,
     bool? useProductImages,
     List<String>? promoVideoUrls,
+    List<String>? promoImageUrls,
     bool? autoOpenOnPos,
+    String? viewerCode,
   }) {
     return CustomerDisplayConfig(
       enabled: enabled ?? this.enabled,
       idleSeconds: idleSeconds ?? this.idleSeconds,
       useProductImages: useProductImages ?? this.useProductImages,
       promoVideoUrls: promoVideoUrls ?? this.promoVideoUrls,
+      promoImageUrls: promoImageUrls ?? this.promoImageUrls,
       autoOpenOnPos: autoOpenOnPos ?? this.autoOpenOnPos,
+      viewerCode: viewerCode ?? this.viewerCode,
     );
+  }
+
+  /// Chuẩn hoá link Drive/Dropbox → URL file trực tiếp (không YouTube).
+  static String normalizeExternalMediaUrl(String raw) {
+    final u = raw.trim();
+    if (u.isEmpty) return u;
+    // Google Drive: /file/d/FILE_ID/...
+    final driveFile = RegExp(r'drive\.google\.com/file/d/([a-zA-Z0-9_-]+)')
+        .firstMatch(u);
+    if (driveFile != null) {
+      final id = driveFile.group(1)!;
+      return 'https://drive.google.com/uc?export=download&confirm=t&id=$id';
+    }
+    // Google Drive: open?id= / uc?id=
+    if (u.contains('drive.google.com')) {
+      final idMatch = RegExp(r'[?&]id=([a-zA-Z0-9_-]+)').firstMatch(u);
+      if (idMatch != null) {
+        final id = idMatch.group(1)!;
+        return 'https://drive.google.com/uc?export=download&confirm=t&id=$id';
+      }
+    }
+    // Dropbox share → direct
+    if (u.contains('dropbox.com')) {
+      return u
+          .replaceAll('?dl=0', '?dl=1')
+          .replaceAll('&dl=0', '&dl=1')
+          .replaceFirst('www.dropbox.com', 'dl.dropboxusercontent.com');
+    }
+    return u;
   }
 }
