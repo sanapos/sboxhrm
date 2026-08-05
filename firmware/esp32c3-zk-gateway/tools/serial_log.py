@@ -15,8 +15,19 @@ def main() -> int:
     port = sys.argv[1] if len(sys.argv) > 1 else "COM3"
     seconds = float(sys.argv[2]) if len(sys.argv) > 2 else 15.0
 
+    # Cổng USB-serial-JTAG của C3 nối DTR/RTS vào mạch reset, mà pyserial mặc
+    # định bật cả hai chân ngay khi mở cổng — nên chỉ đọc log thôi cũng làm
+    # board khởi động lại, và mọi quan sát về độ ổn định đều thành vô nghĩa.
+    # Phải hạ hai chân này trước lúc mở, không phải sau.
+    link = serial.Serial()
+    link.port = port
+    link.baudrate = 115200
+    link.timeout = 0.2
+    link.dtr = False
+    link.rts = False
+
     try:
-        link = serial.Serial(port, 115200, timeout=0.2)
+        link.open()
     except serial.SerialException as exc:
         print(f"khong mo duoc {port}: {exc}")
         return 1
