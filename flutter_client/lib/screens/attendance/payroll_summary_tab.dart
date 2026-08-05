@@ -20,6 +20,7 @@ import '../../widgets/notification_overlay.dart';
 import '../../utils/responsive_helper.dart';
 import '../../l10n/app_localizations.dart';
 import '../../widgets/hrm_page_chrome.dart';
+import '../../widgets/hrm_collapsible_overview.dart';
 import '../../widgets/report_salary_setup_hint.dart';
 import '../../utils/excel_report_builder.dart';
 import '../../widgets/synced_scroll_list_view.dart'
@@ -129,8 +130,8 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
   bool _isFinalizing = false;
   /// NV đang hoạt động nhưng chưa có bảng lương (bị loại khỏi tổng hợp).
   int _notConfiguredSalaryCount = 0;
-  bool _showMobileSummary = false;
-  bool _payrollFiltersExpanded = false;
+  bool _showOverviewPanel = true;
+  bool _payrollFiltersExpanded = true;
   DateTime _fromDate = DateTime.now();
   DateTime _toDate = DateTime.now();
   String _searchQuery = '';
@@ -270,7 +271,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
       PayrollColumn(
         key: 'advance',
         label: _l10n.advancePaid,
-        defaultVisible: false,
+        defaultVisible: true,
       ),
       PayrollColumn(key: 'netSalary', label: _l10n.netSalary),
       PayrollColumn(
@@ -286,17 +287,55 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
     _loadColumnPreferences();
   }
 
-  List<PayrollColumn> _visiblePayrollColumns() {
-    final visible = _columns.where((c) => c.visible).toList();
-    if (!visible.any((c) => c.key == _employeeSignColumnKey)) {
-      final signCol = _columns.firstWhere(
-        (c) => c.key == _employeeSignColumnKey,
-        orElse: () => PayrollColumn(
-          key: _employeeSignColumnKey,
-          label: 'Ký tên',
-        ),
-      );
-      visible.add(signCol);
+  /// Cột lõi luôn hiện trên bảng (dù số liệu = 0).
+  static const _payrollCoreColumnKeys = {
+    'stt',
+    'name',
+    'code',
+    'netSalary',
+  };
+
+  /// Có giá trị hiển thị trong kỳ (số ≠ 0 hoặc text khác rỗng).
+  bool _columnHasDisplayData(String key, List<Map<String, dynamic>> data) {
+    if (data.isEmpty) return false;
+    for (final row in data) {
+      final v = row[key];
+      if (v == null) continue;
+      if (v is num) {
+        if (v != 0) return true;
+        continue;
+      }
+      final s = v.toString().trim();
+      if (s.isNotEmpty && s != '—' && s != '-' && s != '0' && s != '0.0') {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /// Hiện cột lõi + cột có dữ liệu trong kỳ. Ẩn cột store không dùng (toàn 0/rỗng)
+  /// để dành chỗ các cột có số liệu — kể cả khi prefs còn bật cột trống.
+  List<PayrollColumn> _visiblePayrollColumns(
+      [List<Map<String, dynamic>>? data]) {
+    final scan = data ?? _cachedPayrollData;
+    final visible = <PayrollColumn>[];
+    for (final c in _columns) {
+      if (c.key == _employeeSignColumnKey) {
+        if (c.visible) visible.add(c);
+        continue;
+      }
+      if (_payrollCoreColumnKeys.contains(c.key)) {
+        visible.add(c);
+        continue;
+      }
+      if (scan == null) {
+        // Chưa có dữ liệu: theo prefs/defaultVisible.
+        if (c.visible) visible.add(c);
+        continue;
+      }
+      if (_columnHasDisplayData(c.key, scan)) {
+        visible.add(c);
+      }
     }
     return visible;
   }
@@ -2511,7 +2550,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
         return;
       }
 
-      final visibleCols = _visiblePayrollColumns();
+      final visibleCols = _visiblePayrollColumns(data);
       final colCount = visibleCols.length;
       final wb = ExcelReportBuilder.createWorkbook(sheetName: 'Tổng hợp lương');
       final sheet = wb['Tổng hợp lương'];
@@ -2858,7 +2897,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
         return;
       }
 
-      final visibleCols = _visiblePayrollColumns();
+      final visibleCols = _visiblePayrollColumns(data);
       final sampleRows = <List<String>>[];
       for (var i = 0; i < data.length; i++) {
         sampleRows.add(visibleCols
@@ -3272,7 +3311,19 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
         ...widget.mobileLeadingSections!,
         const SizedBox(height: 12),
       ],
-      _buildToolbar(),
+      HrmCollapsibleOverview(
+        expanded: _showOverviewPanel,
+        onToggle: () =>
+            setState(() => _showOverviewPanel = !_showOverviewPanel),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _buildSummaryCards(payrollData),
+            const SizedBox(height: 12),
+            _buildToolbar(),
+          ],
+        ),
+      ),
       if (_notConfiguredSalaryCount > 0 && !_isEmployeeRole(context))
         ReportSalarySetupBanner(
           notConfiguredCount: _notConfiguredSalaryCount,
@@ -3282,46 +3333,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
       const SizedBox(height: 12),
     ];
 
-    final summaryBlock = isMobile
-        ? <Widget>[
-            InkWell(
-              onTap: () =>
-                  setState(() => _showMobileSummary = !_showMobileSummary),
-              borderRadius: BorderRadius.circular(8),
-              child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(
-                  color: Colors.blue.shade50,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.analytics_outlined,
-                        size: 16, color: Colors.blue.shade700),
-                    const SizedBox(width: 6),
-                    Text(tr('Tổng quan'),
-                        style: TextStyle(
-                            fontWeight: FontWeight.w600,
-                            fontSize: 13,
-                            color: Colors.blue.shade700)),
-                    const Spacer(),
-                    Icon(
-                        _showMobileSummary
-                            ? Icons.expand_less
-                            : Icons.expand_more,
-                        size: 20,
-                        color: Colors.blue.shade700),
-                  ],
-                ),
-              ),
-            ),
-            if (_showMobileSummary) ...[
-              const SizedBox(height: 8),
-              _buildSummaryCards(payrollData),
-            ],
-          ]
-        : <Widget>[_buildSummaryCards(payrollData)];
+    final summaryBlock = <Widget>[];
 
     Widget emptyPayrollWidget() =>
         _notConfiguredSalaryCount > 0 && !_isEmployeeRole(context)
@@ -3384,7 +3396,8 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
                 ? emptyPayrollWidget()
                 : RepaintBoundary(
                     key: _tableKey,
-                    child: _buildCompactPayrollList(payrollData),
+                    // Web/desktop: bảng đủ cột (cuộn ngang). Mobile: danh sách rút gọn.
+                    child: _buildUnifiedPayrollTable(payrollData),
                   ),
           ),
         ],
@@ -5634,7 +5647,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
       );
     }
 
-    final visibleCols = _visiblePayrollColumns();
+    final visibleCols = _visiblePayrollColumns(data);
     final totalPages = math.max(1, (data.length / _rowsPerPage).ceil());
     if (_currentPage > totalPages) _currentPage = totalPages;
     if (_currentPage < 1) _currentPage = 1;
@@ -5715,7 +5728,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
   // ──────── Vertical payroll layout (mobile) ────────
   List<PayrollColumn> _mobilePayrollDetailColumns() {
     const alwaysOnMobile = {'travelHours', 'travelSalary'};
-    final visible = _visiblePayrollColumns()
+    final visible = _visiblePayrollColumns(_cachedPayrollData)
         .where((c) => !{
               'stt',
               'name',

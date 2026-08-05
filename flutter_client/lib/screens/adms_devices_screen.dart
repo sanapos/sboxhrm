@@ -11,6 +11,7 @@ import '../widgets/notification_overlay.dart';
 import '../widgets/app_button.dart';
 import 'main_layout.dart' show ScreenRefreshNotifier;
 import '../utils/device_setup_guide.dart';
+import '../widgets/hrm_collapsible_overview.dart';
 import '../widgets/hrm_page_chrome.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
@@ -40,6 +41,7 @@ class _AdmsDevicesScreenState extends State<AdmsDevicesScreen> {
   bool _isLoading = true;
   DeviceFilter _currentFilter = DeviceFilter.all;
   String _searchQuery = '';
+  bool _showOverviewPanel = true;
   final TextEditingController _searchController = TextEditingController();
   Timer? _refreshTimer;
   @override
@@ -294,17 +296,17 @@ class _AdmsDevicesScreenState extends State<AdmsDevicesScreen> {
   Color _getFilterColor(DeviceFilter filter) {
     switch (filter) {
       case DeviceFilter.online:
-        return Colors.green;
+        return HrmPageChrome.chip;
       case DeviceFilter.offline:
-        return Colors.red;
+        return HrmPageChrome.chipDark;
       case DeviceFilter.today:
-        return Colors.blue;
+        return HrmPageChrome.chipMid;
       case DeviceFilter.thisWeek:
-        return Colors.orange;
+        return HrmPageChrome.chipLight;
       case DeviceFilter.thisMonth:
-        return Colors.purple;
+        return HrmPageChrome.chipSoft;
       default:
-        return Colors.grey;
+        return HrmPageChrome.chipMuted;
     }
   }
 
@@ -404,155 +406,153 @@ class _AdmsDevicesScreenState extends State<AdmsDevicesScreen> {
       ),
       body: Column(
         children: [
-          ...[ 
-            // Search bar
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.04),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+            child: HrmCollapsibleOverview(
+              expanded: _showOverviewPanel,
+              onToggle: () =>
+                  setState(() => _showOverviewPanel = !_showOverviewPanel),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  TextField(
+                    controller: _searchController,
+                    onChanged: _onSearchChanged,
+                    style: const TextStyle(color: Color(0xFF18181B)),
+                    decoration: InputDecoration(
+                      hintText: tr('Tìm kiếm theo SN, tên, IP, vị trí...'),
+                      hintStyle: const TextStyle(color: Color(0xFFA1A1AA)),
+                      prefixIcon:
+                          const Icon(Icons.search, color: Color(0xFFA1A1AA)),
+                      suffixIcon: _searchQuery.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(Icons.clear,
+                                  color: Color(0xFFA1A1AA)),
+                              onPressed: () {
+                                _searchController.clear();
+                                _onSearchChanged('');
+                              },
+                            )
+                          : null,
+                      filled: true,
+                      fillColor: const Color(0xFFFAFAFA),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide:
+                            const BorderSide(color: Color(0xFFE4E4E7)),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide:
+                            const BorderSide(color: Color(0xFFE4E4E7)),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide:
+                            const BorderSide(color: HrmPageChrome.primaryNavy),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 12),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    height: 50,
+                    child: ListView(
+                      scrollDirection: Axis.horizontal,
+                      children: DeviceFilter.values.map((filter) {
+                        final isSelected = _currentFilter == filter;
+                        final count = _getFilterCount(filter);
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 4, vertical: 8),
+                          child: FilterChip(
+                            selected: isSelected,
+                            label: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  _getFilterIcon(filter),
+                                  size: 16,
+                                  color: isSelected
+                                      ? Colors.white
+                                      : _getFilterColor(filter),
+                                ),
+                                const SizedBox(width: 6),
+                                Text(tr(_getFilterLabel(filter))),
+                                const SizedBox(width: 4),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: isSelected
+                                        ? Colors.white24
+                                        : _getFilterColor(filter)
+                                            .withValues(alpha: 0.1),
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: Text(
+                                    tr('$count'),
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                      color: isSelected
+                                          ? Colors.white
+                                          : _getFilterColor(filter),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            selectedColor: _getFilterColor(filter),
+                            backgroundColor: Colors.white,
+                            labelStyle: TextStyle(
+                              color: isSelected
+                                  ? Colors.white
+                                  : const Color(0xFF71717A),
+                            ),
+                            onSelected: (_) => _onFilterChanged(filter),
+                            side: BorderSide(
+                              color: isSelected
+                                  ? _getFilterColor(filter)
+                                  : const Color(0xFFE4E4E7),
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFFE4E4E7)),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.04),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        _buildStatItem('Tổng', _allDevices.length,
+                            Icons.devices, Colors.blue),
+                        _buildStatItem('Online', onlineCount, Icons.wifi,
+                            Colors.green),
+                        _buildStatItem('Offline', offlineCount,
+                            Icons.wifi_off, Colors.red),
+                        _buildStatItem('Chưa KN', neverConnectedCount,
+                            Icons.wifi_find, Colors.orange),
+                      ],
+                    ),
                   ),
                 ],
               ),
-              child: TextField(
-                controller: _searchController,
-                onChanged: _onSearchChanged,
-                style: const TextStyle(color: Color(0xFF18181B)),
-                decoration: InputDecoration(
-                  hintText: tr('Tìm kiếm theo SN, tên, IP, vị trí...'),
-                  hintStyle: const TextStyle(color: Color(0xFFA1A1AA)),
-                  prefixIcon:
-                      const Icon(Icons.search, color: Color(0xFFA1A1AA)),
-                  suffixIcon: _searchQuery.isNotEmpty
-                      ? IconButton(
-                          icon:
-                              const Icon(Icons.clear, color: Color(0xFFA1A1AA)),
-                          onPressed: () {
-                            _searchController.clear();
-                            _onSearchChanged('');
-                          },
-                        )
-                      : null,
-                  filled: true,
-                  fillColor: const Color(0xFFFAFAFA),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: Color(0xFFE4E4E7)),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: Color(0xFFE4E4E7)),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: HrmPageChrome.primaryNavy),
-                  ),
-                  contentPadding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                ),
-              ),
-            ),
-
-            // Filter chips
-            Container(
-              height: 50,
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              child: ListView(
-                scrollDirection: Axis.horizontal,
-                children: DeviceFilter.values.map((filter) {
-                  final isSelected = _currentFilter == filter;
-                  final count = _getFilterCount(filter);
-                  return Padding(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
-                    child: FilterChip(
-                      selected: isSelected,
-                      label: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            _getFilterIcon(filter),
-                            size: 16,
-                            color: isSelected
-                                ? Colors.white
-                                : _getFilterColor(filter),
-                          ),
-                          const SizedBox(width: 6),
-                          Text(tr(_getFilterLabel(filter))),
-                          const SizedBox(width: 4),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: isSelected
-                                  ? Colors.white24
-                                  : _getFilterColor(filter)
-                                      .withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Text(
-                              tr('$count'),
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold,
-                                color: isSelected
-                                    ? Colors.white
-                                    : _getFilterColor(filter),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      selectedColor: _getFilterColor(filter),
-                      backgroundColor: Colors.white,
-                      labelStyle: TextStyle(
-                        color:
-                            isSelected ? Colors.white : const Color(0xFF71717A),
-                      ),
-                      onSelected: (_) => _onFilterChanged(filter),
-                      side: BorderSide(
-                        color: isSelected
-                            ? _getFilterColor(filter)
-                            : const Color(0xFFE4E4E7),
-                      ),
-                    ),
-                  );
-                }).toList(),
-              ),
-            ),
-          ],
-
-          // Stats summary
-          Container(
-            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFFE4E4E7)),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.04),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _buildStatItem(
-                    'Tổng', _allDevices.length, Icons.devices, Colors.blue),
-                _buildStatItem('Online', onlineCount, Icons.wifi, Colors.green),
-                _buildStatItem(
-                    'Offline', offlineCount, Icons.wifi_off, Colors.red),
-                _buildStatItem('Chưa KN', neverConnectedCount, Icons.wifi_find,
-                    Colors.orange),
-              ],
             ),
           ),
 

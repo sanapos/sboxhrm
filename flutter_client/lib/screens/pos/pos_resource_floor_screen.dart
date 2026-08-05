@@ -12,6 +12,7 @@ import '../../utils/pos_table_label.dart';
 import '../../utils/responsive_helper.dart';
 import '../../utils/safe_navigator.dart';
 import '../../widgets/notification_overlay.dart';
+import '../../widgets/pos/pos_numeric_keypad.dart';
 import '../../widgets/pos/pos_theme.dart';
 import 'pos_kitchen_void_list_screen.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
@@ -44,6 +45,9 @@ class PosResourceFloorScreen extends StatefulWidget {
     this.releasedOrderIds = const {},
     this.promptGuestCountOnOpen = false,
     this.onActiveTotalsChanged,
+    this.searchQuery = '',
+    this.pendingOpenCode,
+    this.pendingOpenToken = 0,
   });
 
   /// Nhúng trong màn bán hàng (không push route).
@@ -75,11 +79,18 @@ class PosResourceFloorScreen extends StatefulWidget {
   /// Hỏi số khách khi mở bàn trống (Thiết lập ngành POS).
   final bool promptGuestCountOnOpen;
 
+  /// Lọc bàn theo tên / mã / khu (từ thanh tìm màn bán).
+  final String searchQuery;
+
+  /// Mã quét/submit từ thanh tìm — tăng [pendingOpenToken] để mở bàn khớp.
+  final String? pendingOpenCode;
+  final int pendingOpenToken;
+
   @override
-  State<PosResourceFloorScreen> createState() => _PosResourceFloorScreenState();
+  State<PosResourceFloorScreen> createState() => PosResourceFloorScreenState();
 }
 
-class _PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
+class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
   final _api = ApiService();
   final _moneyFmt = NumberFormat('#,##0', 'vi_VN');
   List<PosServiceAreaDto> _areas = [];
@@ -272,6 +283,19 @@ class _PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
         _resources = _resources.map(_patchResourceFlags).toList();
       });
       _notifyActiveTotals();
+    }
+    if (widget.pendingOpenToken != oldWidget.pendingOpenToken &&
+        (widget.pendingOpenCode ?? '').trim().isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        final ok = tryOpenByCode(widget.pendingOpenCode!);
+        if (!ok && mounted) {
+          NotificationOverlayManager().showWarning(
+            title: tr('Không tìm thấy bàn'),
+            message: tr(widget.pendingOpenCode!.trim()),
+          );
+        }
+      });
     }
   }
 
@@ -559,10 +583,11 @@ class _PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
               style: const TextStyle(fontSize: 13, color: PosTheme.textSecondary),
             ),
             const SizedBox(height: 8),
-            TextField(
+            PosNoSoftKeyboardField(
               controller: ctrl,
-              keyboardType: TextInputType.number,
+              allowDecimal: false,
               autofocus: true,
+              keypadTitle: 'Số khách',
               decoration: InputDecoration(
                 border: OutlineInputBorder(),
                 hintText: tr('VD: 4'),
@@ -1912,10 +1937,11 @@ class _PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text(tr('Số khách')),
-        content: TextField(
+        content: PosNoSoftKeyboardField(
           controller: ctrl,
-          keyboardType: TextInputType.number,
+          allowDecimal: false,
           autofocus: true,
+          keypadTitle: 'Số khách',
           decoration: const InputDecoration(border: OutlineInputBorder()),
         ),
         actions: [
@@ -2812,17 +2838,26 @@ class _PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
     );
   }
 
-  double _floorTileAspectRatio(double tileW, {bool isPhone = false}) {
-    // Mobile: ô cân đối hơn — đỡ dài quá mức so với chiều rộng.
-    if (isPhone) {
-      if (tileW < 115) return 0.82;
-      if (tileW < 140) return 0.88;
+  double _floorTileAspectRatio(double tileW, {bool compact = false}) {
+    // Ô hẹp (phone / nhiều cột): cân đối hơn.
+    if (compact || tileW < 110) {
+      if (tileW < 100) return 0.86;
+      if (tileW < 120) return 0.90;
       return 0.94;
     }
-    // Ô cao hơn để vừa: tên · giữa · tiền · khách/mã.
-    if (tileW < 115) return 0.72;
-    if (tileW < 140) return 0.78;
-    return 0.84;
+    // Ô rộng: cao hơn một chút để vừa tên · tiền · khách.
+    if (tileW < 140) return 0.80;
+    return 0.86;
+  }
+
+  /// Số cột lưới bàn theo bề rộng **ô chứa** (pane trái tablet ≠ full screen).
+  /// Không dùng breakpoint 768 — pane F&B thường 500–700px vẫn đủ 4–6 cột.
+  int _floorGridColumns(double usable, {double gap = 8}) {
+    if (usable < 300) return 2;
+    if (usable < 380) return 3;
+    // Mục tiêu ô ~100–112px → tablet nửa màn ~5–6 cột, full ~7–8.
+    const minTile = 104.0;
+    return ((usable + gap) / (minTile + gap)).floor().clamp(3, 8);
   }
 
   String? _tileReservedMeta(PosServiceResourceDto r) {
@@ -2877,10 +2912,39 @@ class _PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
     return n;
   }
 
-  /// Bán hàng / xem: lưới 3 cột theo thứ tự sơ đồ đã lưu ở Quản lý.
+  bool _resourceMatchesSearch(PosServiceResourceDto r) {
+    final q = widget.searchQuery.trim().toLowerCase();
+    if (q.isEmpty) return true;
+    return r.name.toLowerCase().contains(q) ||
+        r.code.toLowerCase().contains(q) ||
+        r.areaName.toLowerCase().contains(q);
+  }
+
+  List<PosServiceResourceDto> get _searchFilteredResources =>
+      _resources.where(_resourceMatchesSearch).toList();
+
+  /// Quét mã / gõ mã bàn → mở bàn khớp chính xác (code hoặc tên).
+  bool tryOpenByCode(String raw) {
+    final code = raw.trim().toLowerCase();
+    if (code.isEmpty) return false;
+    final exact = _resources
+        .where((r) =>
+            r.code.toLowerCase() == code || r.name.toLowerCase() == code)
+        .toList();
+    final hit = exact.length == 1
+        ? exact.first
+        : _searchFilteredResources.length == 1
+            ? _searchFilteredResources.first
+            : null;
+    if (hit == null) return false;
+    unawaited(_openResource(hit));
+    return true;
+  }
+
+  /// Bán hàng / xem: lưới theo bề rộng pane (tablet ≥4–6 cột khi đủ chỗ).
   /// Chỉ khi sắp xếp (_layoutEdit) mới dùng canvas kéo thả.
   List<PosServiceResourceDto> get _resourcesByFloorOrder {
-    final list = List<PosServiceResourceDto>.from(_resources);
+    final list = List<PosServiceResourceDto>.from(_searchFilteredResources);
     list.sort((a, b) {
       final ay = a.layoutY ?? (a.sortOrder * 1000.0);
       final by = b.layoutY ?? (b.sortOrder * 1000.0);
@@ -2897,8 +2961,7 @@ class _PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
     return list;
   }
 
-  /// Mobile: luôn 3 cột. Tablet/desktop: số cột theo bề rộng ô chứa dụng.
-  /// Khi lọc «Tất cả»: chia nhóm theo khu vực.
+  /// Số cột theo bề rộng ô chứa. Khi lọc «Tất cả»: chia nhóm theo khu vực.
   Widget _buildSellFloorGrid() {
     if (_areaFilter == null && _areas.isNotEmpty) {
       return _buildGroupedFloorList();
@@ -2914,7 +2977,7 @@ class _PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
         return a.name.compareTo(b.name);
       });
     final byArea = <String, List<PosServiceResourceDto>>{};
-    for (final r in _resources) {
+    for (final r in _searchFilteredResources) {
       byArea.putIfAbsent(r.areaId, () => []).add(r);
     }
     for (final list in byArea.values) {
@@ -2997,18 +3060,11 @@ class _PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final w = constraints.maxWidth;
-        final isPhone = w < Responsive.mobileBreakpoint;
         const gap = 8.0;
-        const minTile = 120.0;
         final usable = w.clamp(200.0, 4000.0);
-        int cols;
-        if (isPhone) {
-          cols = 3;
-        } else {
-          cols = ((usable + gap) / (minTile + gap)).floor().clamp(3, 8);
-        }
+        final cols = _floorGridColumns(usable, gap: gap);
         final tileW = (usable - gap * (cols - 1)) / cols;
-        final ratio = _floorTileAspectRatio(tileW, isPhone: isPhone);
+        final ratio = _floorTileAspectRatio(tileW, compact: cols >= 5);
         final tileH = tileW / ratio;
         final rows = (items.length / cols).ceil().clamp(1, 9999);
         final gridH = rows * tileH + (rows - 1) * gap;
@@ -3035,23 +3091,12 @@ class _PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final w = constraints.maxWidth;
-        final isPhone = w < Responsive.mobileBreakpoint;
-        // Mục tiêu: mỗi ô bàn ~120–140px (đủ tên + tiền), gap 8.
         const gap = 8.0;
-        const pad = 10.0;
-        const minTile = 120.0;
+        const pad = 8.0;
         final usable = (w - pad * 2).clamp(200.0, 4000.0);
-        int cols;
-        if (isPhone) {
-          cols = 3;
-        } else {
-          cols = ((usable + gap) / (minTile + gap)).floor();
-          cols = cols.clamp(3, 8);
-        }
-        // Trên pane hẹp (F&B desktop nửa trái ~500–700px) vẫn ≥3, thường 4–5.
+        final cols = _floorGridColumns(usable, gap: gap);
         final tileW = (usable - gap * (cols - 1)) / cols;
-        // Giữ tỉ lệ gần bàn (rộng hơn cao một chút khi ô lớn).
-        final ratio = _floorTileAspectRatio(tileW, isPhone: isPhone);
+        final ratio = _floorTileAspectRatio(tileW, compact: cols >= 5);
 
         return GridView.builder(
           padding: const EdgeInsets.fromLTRB(pad, 4, pad, 24),
@@ -3215,7 +3260,7 @@ class _PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                               ),
                             ),
                           )
-                        // Bán hàng + xem quản lý: lưới 3 cột theo thứ tự đã sắp.
+                        // Bán hàng + xem quản lý: lưới theo bề rộng pane.
                         // Chỉ chế độ sắp xếp mới dùng canvas kéo.
                         : _layoutEdit
                             ? _buildLayoutCanvas(editable: true)
@@ -3547,6 +3592,19 @@ class _PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                   ),
                 ),
               ),
+              if (allowSellActions)
+                GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => unawaited(_showSellTileActions(r)),
+                  child: Padding(
+                    padding: const EdgeInsets.only(left: 2),
+                    child: Icon(
+                      Icons.more_horiz,
+                      size: 18,
+                      color: _tileBorder(r).withValues(alpha: 0.85),
+                    ),
+                  ),
+                ),
             ],
           ),
           Expanded(child: _buildTileCenter(r, accent)),
@@ -3613,18 +3671,21 @@ class _PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
             : () => unawaited(_openResource(r)),
         onLongPress: allowManageActions
             ? () => unawaited(_showManageResourceActions(r))
-            : () {
-                if (r.isOccupied || r.isHolding) {
-                  unawaited(_showOccupiedActions(r));
-                } else if (r.isReserved) {
-                  unawaited(_showReservedActions(r));
-                } else if (r.isFree) {
-                  unawaited(_showReserveDialog(r));
-                }
-              },
+            : () => unawaited(_showSellTileActions(r)),
         child: body,
       ),
     );
+  }
+
+  /// Menu thao tác bàn (⋯ hoặc long-press) — không chỉ dựa vào giữ lâu.
+  Future<void> _showSellTileActions(PosServiceResourceDto r) async {
+    if (r.isOccupied || r.isHolding) {
+      await _showOccupiedActions(r);
+    } else if (r.isReserved) {
+      await _showReservedActions(r);
+    } else if (r.isFree) {
+      await _showReserveDialog(r);
+    }
   }
 }
 

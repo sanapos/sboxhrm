@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../providers/permission_provider.dart';
 import '../services/api_service.dart';
 import '../utils/api_datetime.dart';
+import '../utils/branch_filter_helper.dart';
 import '../utils/navigation_notifier.dart';
 import '../utils/paged_load_utils.dart';
 import '../utils/responsive_helper.dart';
@@ -11,6 +12,7 @@ import '../widgets/app_button.dart';
 import '../widgets/app_responsive_dialog.dart';
 import '../widgets/notification_overlay.dart';
 import '../widgets/hrm_page_chrome.dart';
+import '../widgets/hrm_collapsible_overview.dart';
 import '../widgets/hrm_responsive_list_layout.dart';
 import '../widgets/hrm_mini_stat_chip.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
@@ -27,7 +29,7 @@ class _OvertimeScreenState extends State<OvertimeScreen>
   final ApiService _apiService = ApiService();
   late TabController _tabController;
   bool _isLoading = false;
-  bool _showMobileSummary = false;
+  bool _showOverviewPanel = true;
   int _currentPage = 1;
   final int _pageSize = 20;
 
@@ -131,9 +133,9 @@ class _OvertimeScreenState extends State<OvertimeScreen>
                     headerSections: _overtimeHeaderSections(),
                     tabBar: TabBar(
                       controller: _tabController,
-                      labelColor: const Color(0xFFEA580C),
+                      labelColor: HrmPageChrome.primaryNavy,
                       unselectedLabelColor: Colors.grey[600],
-                      indicatorColor: const Color(0xFFEA580C),
+                      indicatorColor: HrmPageChrome.primaryNavy,
                       indicatorWeight: 3,
                       tabs: [
                         Tab(text: tr('Tất cả')),
@@ -170,13 +172,12 @@ class _OvertimeScreenState extends State<OvertimeScreen>
                   )
                 : Column(
                     children: [
-                      if (_branches.isNotEmpty) _buildBranchFilter(),
-                      _buildStatsRow(),
+                      _buildOverviewSection(),
                       TabBar(
                         controller: _tabController,
-                        labelColor: const Color(0xFFEA580C),
+                        labelColor: HrmPageChrome.primaryNavy,
                         unselectedLabelColor: Colors.grey[600],
-                        indicatorColor: const Color(0xFFEA580C),
+                        indicatorColor: HrmPageChrome.primaryNavy,
                         indicatorWeight: 3,
                         tabs: [
                           Tab(text: tr('Tất cả')),
@@ -215,7 +216,7 @@ class _OvertimeScreenState extends State<OvertimeScreen>
                   onPressed: _showCreateDialog,
                   icon: const Icon(Icons.add),
                   label: Text(tr('Đăng ký tăng ca')),
-                  backgroundColor: const Color(0xFFEA580C),
+                  backgroundColor: HrmPageChrome.primaryNavy,
                 )
               : null,
     );
@@ -224,13 +225,19 @@ class _OvertimeScreenState extends State<OvertimeScreen>
   List<Map<String, dynamic>> _filteredOvertimes(
       List<Map<String, dynamic>> list) {
     if (_selectedBranchId == null) return list;
-    final branchEmpIds = _employees
-        .where((e) => e['branchId']?.toString() == _selectedBranchId)
-        .map((e) => e['id']?.toString() ?? '')
-        .toSet();
-    return list
-        .where((ot) => branchEmpIds.contains(ot['employeeUserId']?.toString()))
-        .toList();
+    final branchIds = BranchFilterHelper.expandBranchIds(
+      _selectedBranchId!,
+      _branches,
+    );
+    final branchEmpIds =
+        BranchFilterHelper.employeeKeysForBranches(_employees, branchIds);
+    if (branchEmpIds.isEmpty) return [];
+    return list.where((ot) {
+      final key = ot['employeeUserId']?.toString() ??
+          ot['employeeId']?.toString() ??
+          '';
+      return branchEmpIds.contains(key);
+    }).toList();
   }
 
   Widget _buildBranchFilter() {
@@ -324,44 +331,24 @@ class _OvertimeScreenState extends State<OvertimeScreen>
   }
 
   List<Widget> _overtimeHeaderSections() => [
-        if (_branches.isNotEmpty) _buildBranchFilter(),
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: 4),
-          child: InkWell(
-            onTap: () =>
-                setState(() => _showMobileSummary = !_showMobileSummary),
-            borderRadius: BorderRadius.circular(8),
-            child: Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: Colors.blue.shade50,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.analytics_outlined,
-                      size: 16, color: Colors.blue.shade700),
-                  const SizedBox(width: 6),
-                  Text(tr('Tổng quan'),
-                      style: TextStyle(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 13,
-                          color: Colors.blue.shade700)),
-                  const Spacer(),
-                  Icon(
-                      _showMobileSummary
-                          ? Icons.expand_less
-                          : Icons.expand_more,
-                      size: 20,
-                      color: Colors.blue.shade700),
-                ],
-              ),
-            ),
-          ),
-        ),
-        if (_showMobileSummary) _buildStatsRow(),
+        _buildOverviewSection(),
       ];
+
+  Widget _buildOverviewSection() {
+    return HrmCollapsibleOverview(
+      expanded: _showOverviewPanel,
+      onToggle: () =>
+          setState(() => _showOverviewPanel = !_showOverviewPanel),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (BranchFilterHelper.showBranchFilter(_branches)) _buildBranchFilter(),
+          if (BranchFilterHelper.showBranchFilter(_branches)) const SizedBox(height: 10),
+          _buildStatsRow(),
+        ],
+      ),
+    );
+  }
 
   Widget _buildOvertimeList(List<Map<String, dynamic>> items,
       {required bool showActions, bool nestedTab = false}) {
@@ -649,7 +636,7 @@ class _OvertimeScreenState extends State<OvertimeScreen>
                   Icons.cancel, const Color(0xFFEF4444)),
               const SizedBox(width: 16),
               _buildStatCard('Tổng giờ', '${_statistics?['totalHours'] ?? 0}h',
-                  Icons.schedule, const Color(0xFFEA580C)),
+                  Icons.schedule, HrmPageChrome.primaryNavy),
             ],
           ),
         ],
@@ -672,13 +659,13 @@ class _OvertimeScreenState extends State<OvertimeScreen>
   Color _getStatusColor(String status) {
     switch (status.toLowerCase()) {
       case 'approved':
-        return HrmPageChrome.primaryNavy;
+        return const Color(0xFF16A34A);
       case 'rejected':
         return const Color(0xFFEF4444);
       case 'cancelled':
         return const Color(0xFFDC2626);
       case 'completed':
-        return HrmPageChrome.primaryNavy;
+        return const Color(0xFF16A34A);
       default:
         return const Color(0xFFF59E0B);
     }
@@ -823,7 +810,7 @@ class _OvertimeScreenState extends State<OvertimeScreen>
                           onPressed: () => Navigator.pop(ctx)),
                       title: Row(children: [
                         Icon(Icons.more_time,
-                            color: Color(0xFFEA580C), size: 20),
+                            color: HrmPageChrome.primaryNavy, size: 20),
                         SizedBox(width: 10),
                         Expanded(child: Text(tr('Đăng ký tăng ca')))
                       ]),
@@ -853,7 +840,7 @@ class _OvertimeScreenState extends State<OvertimeScreen>
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16)),
               title: Row(children: [
-                Icon(Icons.more_time, color: Color(0xFFEA580C)),
+                Icon(Icons.more_time, color: HrmPageChrome.primaryNavy),
                 SizedBox(width: 8),
                 Text(tr('Đăng ký tăng ca'))
               ]),

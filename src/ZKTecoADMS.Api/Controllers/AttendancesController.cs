@@ -605,38 +605,95 @@ public class AttendancesController(
                 }
             }
 
-            // Look up DeviceUser on this device for proper UID (PIN from device)
+            // DeviceUser phải thuộc đúng máy ghi chấm — không lấy DU máy khác (FK lẫn DeviceId).
             var deviceUser = await deviceUserRepository.GetSingleAsync(
                 du => du.EmployeeId == employeeId && du.DeviceId == deviceId);
-            // Fallback: try any DeviceUser for this employee
-            deviceUser ??= await deviceUserRepository.GetSingleAsync(
-                du => du.EmployeeId == employeeId);
-            
+
+            var employeeName = $"{employee.LastName} {employee.FirstName}".Trim();
+            if (string.IsNullOrWhiteSpace(employeeName))
+                employeeName = employee.EmployeeCode ?? "NV";
+
+            if (deviceUser == null)
+            {
+                var preferredPin = (employee.EmployeeCode ?? string.Empty).Trim();
+                if (preferredPin.Length > 20)
+                    preferredPin = preferredPin[..20];
+                if (string.IsNullOrWhiteSpace(preferredPin))
+                    preferredPin = employeeId.ToString("N")[..8];
+
+                // PIN đã có trên máy: gắn Employee nếu trống, hoặc cấp PIN mới nếu đang thuộc NV khác.
+                var pinOwner = await deviceUserRepository.GetSingleAsync(
+                    du => du.DeviceId == deviceId && du.Pin == preferredPin);
+                if (pinOwner != null && pinOwner.EmployeeId == null)
+                {
+                    pinOwner.EmployeeId = employeeId;
+                    if (string.IsNullOrWhiteSpace(pinOwner.Name))
+                        pinOwner.Name = employeeName;
+                    await deviceUserRepository.UpdateAsync(pinOwner);
+                    deviceUser = pinOwner;
+                }
+                else if (pinOwner == null)
+                {
+                    deviceUser = new DeviceUser
+                    {
+                        Id = Guid.NewGuid(),
+                        Pin = preferredPin,
+                        Name = employeeName.Length > 200 ? employeeName[..200] : employeeName,
+                        DeviceId = deviceId,
+                        EmployeeId = employeeId,
+                        IsActive = true,
+                        GroupId = 1,
+                        Privilege = 0,
+                        VerifyMode = 0,
+                        CreatedAt = DateTime.UtcNow
+                    };
+                    await deviceUserRepository.AddAsync(deviceUser);
+                }
+                else
+                {
+                    // preferredPin đã thuộc NV khác — tạo DU với PIN tuần tự ngắn.
+                    var onDevice = await deviceUserRepository.GetAllAsync(du => du.DeviceId == deviceId);
+                    var used = onDevice.Select(u => u.Pin).ToHashSet(StringComparer.Ordinal);
+                    var allocated = DeviceUserPinAllocator.AllocateSequential(used);
+                    deviceUser = new DeviceUser
+                    {
+                        Id = Guid.NewGuid(),
+                        Pin = allocated,
+                        Name = employeeName.Length > 200 ? employeeName[..200] : employeeName,
+                        DeviceId = deviceId,
+                        EmployeeId = employeeId,
+                        IsActive = true,
+                        GroupId = 1,
+                        Privilege = 0,
+                        VerifyMode = 0,
+                        CreatedAt = DateTime.UtcNow
+                    };
+                    await deviceUserRepository.AddAsync(deviceUser);
+                }
+            }
+
             // Auto-calculate AttendanceState based on the order of attendances in the day
             // Odd = Check-in (0), Even = Check-out (1)
             var dateOnly = request.PunchTime.Date;
-            
-            // PIN: prefer DeviceUser.Pin (actual device UID), fallback to EmployeeCode
-            var pin = deviceUser?.Pin ?? employee.EmployeeCode ?? employeeId.ToString().Substring(0, Math.Min(8, employeeId.ToString().Length));
+            var pin = deviceUser.Pin;
             var dailyAttendances = await attendanceRepository
-                .GetAllAsync(a => a.PIN == pin && 
-                               a.AttendanceTime.Date == dateOnly);
-            
+                .GetAllAsync(a => a.DeviceId == deviceId
+                               && a.PIN == pin
+                               && a.AttendanceTime.Date == dateOnly);
+
             var sortedAttendances = dailyAttendances
                 .OrderBy(a => a.AttendanceTime)
                 .ToList();
-            
+
             // Find the position of this new attendance in the timeline
             int position = sortedAttendances.Count(a => a.AttendanceTime < request.PunchTime) + 1;
-            
+
             // Odd position = Check-in (0), Even position = Check-out (1)
             var attendanceState = (position % 2 == 1) ? AttendanceStates.CheckIn : AttendanceStates.CheckOut;
 
             // WorkCode: Store employee name for manual attendance display (max 10 chars as per DB constraint)
-            // Full name stored for display purposes
-            var employeeName = $"{employee.LastName} {employee.FirstName}".Trim();
-            var workCode = employeeName.Length > 10 
-                ? employeeName.Substring(0, 10) 
+            var workCode = employeeName.Length > 10
+                ? employeeName.Substring(0, 10)
                 : employeeName;
 
             if (await attendanceRepository.ExistsAsync(a =>
@@ -651,7 +708,7 @@ public class AttendancesController(
             var attendance = new Attendance
             {
                 Id = Guid.NewGuid(),
-                EmployeeId = deviceUser?.Id, // Link to DeviceUser for proper DeviceUserName display
+                EmployeeId = deviceUser.Id, // FK DeviceUser trên đúng máy
                 DeviceId = deviceId,
                 PIN = pin,
                 AttendanceTime = request.PunchTime,

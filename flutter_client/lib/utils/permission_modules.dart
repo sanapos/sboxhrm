@@ -49,6 +49,7 @@ class PermissionModules {
     'Attendance',
     'AttendanceSummary',
     'AttendanceByShift',
+    'LateEarlyReport',
   ];
 
   static const attendanceApproval = [

@@ -5,6 +5,7 @@ import '../services/api_service.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../widgets/mobile_attendance_record_detail_sheet.dart';
 import '../widgets/punch_photo_preview.dart';
+import '../widgets/hrm_collapsible_overview.dart';
 import '../widgets/hrm_responsive_list_layout.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
@@ -28,6 +29,7 @@ class _MobileAttendanceHistoryScreenState
   final int _pageSize = 20;
   String? _statusFilter;
   bool _isLoading = false;
+  bool _showOverviewPanel = true;
 
   @override
   void initState() {
@@ -130,9 +132,7 @@ class _MobileAttendanceHistoryScreenState
         onRefresh: _loadRecords,
         child: HrmResponsiveListLayout(
           headerSections: [
-            _buildMonthSelector(),
-            _buildCalendarStrip(),
-            _buildSummaryCard(),
+            _buildOverviewSection(),
             if (_isLoading)
               const Padding(
                 padding: EdgeInsets.all(20),
@@ -146,6 +146,22 @@ class _MobileAttendanceHistoryScreenState
               : _buildRecordsList(),
           mobileSlivers: (_) => _historyMobileSlivers(),
         ),
+      ),
+    );
+  }
+
+  Widget _buildOverviewSection() {
+    return HrmCollapsibleOverview(
+      expanded: _showOverviewPanel,
+      onToggle: () =>
+          setState(() => _showOverviewPanel = !_showOverviewPanel),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _buildMonthSelector(),
+          _buildCalendarStrip(),
+          _buildSummaryCard(),
+        ],
       ),
     );
   }

@@ -165,7 +165,8 @@ class ThemeProvider extends ChangeNotifier {
   static const Color primaryColor = PosTheme.kiotBlue;
   static const Color primaryColorLight = Color(0xFF3B8CFF);
   static const Color primaryColorDark = Color(0xFF0056C7);
-  static const Color accentColor = Color(0xFFEC4899); // Pink 500 (accent)
+  /// Accent / secondary = xanh brand nhạt hơn (chip, SegmentedButton…).
+  static const Color accentColor = primaryColorLight;
 
   ThemeData get lightTheme {
     final baseTheme = ThemeData(
@@ -182,8 +183,10 @@ class ThemeProvider extends ChangeNotifier {
       primaryColor: primaryColor,
       colorScheme: const ColorScheme.light(
         primary: primaryColor,
-        secondary: Color(0xFFEC4899),
+        secondary: primaryColorLight,
         tertiary: primaryColorDark,
+        secondaryContainer: PosTheme.kiotBlueLight,
+        onSecondaryContainer: primaryColor,
         surface: Colors.white,
         surfaceTint: Colors.transparent,
         error: Color(0xFFEF4444),
@@ -328,15 +331,35 @@ class ThemeProvider extends ChangeNotifier {
         dataTextStyle: textTheme.bodySmall,
       ),
       chipTheme: ChipThemeData(
-        backgroundColor: Colors.white,
-        selectedColor: primaryColor.withValues(alpha: 0.1),
+        backgroundColor: PosTheme.kiotBlueLight,
+        selectedColor: primaryColor.withValues(alpha: 0.18),
+        checkmarkColor: primaryColor,
         labelStyle:
-            textTheme.labelMedium?.copyWith(color: const Color(0xFF18181B)),
+            textTheme.labelMedium?.copyWith(color: primaryColorDark),
         secondaryLabelStyle:
-            textTheme.labelMedium?.copyWith(color: const Color(0xFF18181B)),
+            textTheme.labelMedium?.copyWith(color: primaryColor),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(8),
-          side: const BorderSide(color: Color(0xFFE4E4E7)),
+          side: BorderSide(color: primaryColor.withValues(alpha: 0.28)),
+        ),
+      ),
+      segmentedButtonTheme: SegmentedButtonThemeData(
+        style: ButtonStyle(
+          backgroundColor: WidgetStateProperty.resolveWith((states) {
+            if (states.contains(WidgetState.selected)) {
+              return primaryColor;
+            }
+            return Colors.white;
+          }),
+          foregroundColor: WidgetStateProperty.resolveWith((states) {
+            if (states.contains(WidgetState.selected)) {
+              return Colors.white;
+            }
+            return const Color(0xFF586064);
+          }),
+          side: WidgetStateProperty.all(
+            BorderSide(color: primaryColor.withValues(alpha: 0.35)),
+          ),
         ),
       ),
       snackBarTheme: SnackBarThemeData(
@@ -428,8 +451,10 @@ class ThemeProvider extends ChangeNotifier {
       primaryColor: primaryColor,
       colorScheme: const ColorScheme.dark(
         primary: primaryColor,
-        secondary: Color(0xFFEC4899),
+        secondary: primaryColorLight,
         tertiary: Color(0xFF2D5F8B),
+        secondaryContainer: Color(0xFF1E3A5F),
+        onSecondaryContainer: primaryColorLight,
         surface: darkSurface,
         error: Color(0xFFEF4444),
         onPrimary: Colors.white,
@@ -565,11 +590,32 @@ class ThemeProvider extends ChangeNotifier {
       chipTheme: ChipThemeData(
         backgroundColor: darkCard,
         selectedColor: primaryColor.withValues(alpha: 0.2),
+        checkmarkColor: primaryColorLight,
         labelStyle: textTheme.labelMedium?.copyWith(color: darkText),
-        secondaryLabelStyle: textTheme.labelMedium?.copyWith(color: darkText),
+        secondaryLabelStyle:
+            textTheme.labelMedium?.copyWith(color: primaryColorLight),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(8),
-          side: const BorderSide(color: darkBorder),
+          side: BorderSide(color: primaryColorLight.withValues(alpha: 0.35)),
+        ),
+      ),
+      segmentedButtonTheme: SegmentedButtonThemeData(
+        style: ButtonStyle(
+          backgroundColor: WidgetStateProperty.resolveWith((states) {
+            if (states.contains(WidgetState.selected)) {
+              return primaryColor;
+            }
+            return darkCard;
+          }),
+          foregroundColor: WidgetStateProperty.resolveWith((states) {
+            if (states.contains(WidgetState.selected)) {
+              return Colors.white;
+            }
+            return darkSubtext;
+          }),
+          side: WidgetStateProperty.all(
+            BorderSide(color: primaryColorLight.withValues(alpha: 0.4)),
+          ),
         ),
       ),
       snackBarTheme: SnackBarThemeData(

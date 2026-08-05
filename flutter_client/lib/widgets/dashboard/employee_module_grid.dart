@@ -43,77 +43,77 @@ class EmployeeModuleGrid extends StatelessWidget {
     'MobileAttendance': (
       icon: Icons.phone_android_outlined,
       label: 'Chấm công',
-      color: Color(0xFF0284C7),
+      color: HrmPageChrome.primaryNavy,
     ),
     'Leave': (
       icon: Icons.beach_access_outlined,
       label: 'Nghỉ phép',
-      color: Color(0xFFF59E0B),
+      color: HrmPageChrome.primaryNavy,
     ),
     'Payslip': (
       icon: Icons.receipt_long_outlined,
       label: 'Phiếu lương',
-      color: Color(0xFF06B6D4),
+      color: HrmPageChrome.primaryNavy,
     ),
     'Payroll': (
       icon: Icons.payments_outlined,
       label: 'Bảng lương',
-      color: Color(0xFF7C3AED),
+      color: HrmPageChrome.primaryNavy,
     ),
     'ShiftSwap': (
       icon: Icons.swap_horiz_outlined,
       label: 'Đổi ca',
-      color: Color(0xFF8B5CF6),
+      color: HrmPageChrome.primaryNavy,
     ),
     'WorkSchedule': (
       icon: Icons.calendar_month_outlined,
       label: 'Lịch làm việc',
-      color: Color(0xFF2D5F8B),
+      color: HrmPageChrome.primaryNavy,
     ),
     'Attendance': (
       icon: Icons.access_time_outlined,
       label: 'Chấm công thô',
-      color: Color(0xFF0284C7),
+      color: HrmPageChrome.primaryNavy,
     ),
     'AttendanceByShift': (
       icon: Icons.view_week_outlined,
       label: 'Tổng hợp theo ca',
-      color: Color(0xFF7C3AED),
+      color: HrmPageChrome.primaryNavy,
     ),
     'AttendanceSummary': (
       icon: Icons.summarize_outlined,
       label: 'Tổng hợp công',
-      color: Color(0xFF7C3AED),
+      color: HrmPageChrome.primaryNavy,
     ),
     'Overtime': (
       icon: Icons.more_time_outlined,
       label: 'Tăng ca',
-      color: Color(0xFFEA580C),
+      color: HrmPageChrome.primaryNavy,
     ),
     'AdvanceRequests': (
       icon: Icons.money_outlined,
       label: 'Ứng lương',
-      color: Color(0xFFEC4899),
+      color: HrmPageChrome.primaryNavy,
     ),
     'BonusPenalty': (
       icon: Icons.card_giftcard_outlined,
       label: 'Thưởng / phạt',
-      color: Color(0xFFEC4899),
+      color: HrmPageChrome.primaryNavy,
     ),
     'PenaltyTickets': (
       icon: Icons.receipt_outlined,
       label: 'Phiếu phạt',
-      color: Color(0xFFEF4444),
+      color: HrmPageChrome.primaryNavy,
     ),
     'Task': (
       icon: Icons.task_alt_outlined,
       label: 'Công việc',
-      color: Color(0xFF059669),
+      color: HrmPageChrome.primaryNavy,
     ),
     'Communication': (
       icon: Icons.campaign_outlined,
       label: 'Truyền thông',
-      color: Color(0xFFEC4899),
+      color: HrmPageChrome.primaryNavy,
     ),
     'Feedback': (
       icon: Icons.feedback_outlined,
@@ -123,27 +123,27 @@ class EmployeeModuleGrid extends StatelessWidget {
     'KPI': (
       icon: Icons.trending_up_outlined,
       label: 'KPI',
-      color: Color(0xFF059669),
+      color: HrmPageChrome.primaryNavy,
     ),
     'Production': (
       icon: Icons.precision_manufacturing_outlined,
       label: 'Sản lượng',
-      color: Color(0xFF059669),
+      color: HrmPageChrome.primaryNavy,
     ),
     'FieldCheckIn': (
       icon: Icons.map_outlined,
       label: 'Bản đồ NS',
-      color: Color(0xFF059669),
+      color: HrmPageChrome.primaryNavy,
     ),
     'Meal': (
       icon: Icons.restaurant_outlined,
       label: 'Chấm cơm',
-      color: Color(0xFF059669),
+      color: HrmPageChrome.primaryNavy,
     ),
     'MobileDeviceRegistration': (
       icon: Icons.app_registration_outlined,
       label: 'Đăng ký thiết bị',
-      color: Color(0xFF0284C7),
+      color: HrmPageChrome.primaryNavy,
     ),
     'Notification': (
       icon: Icons.notifications_outlined,
@@ -297,7 +297,7 @@ class EmployeeModuleGrid extends StatelessWidget {
           style: TextStyle(
             fontSize: 15,
             fontWeight: FontWeight.w700,
-            color: Color(0xFF18181B),
+            color: HrmPageChrome.primaryNavy,
             letterSpacing: -0.2,
           ),
         ),
@@ -391,7 +391,7 @@ class _ModuleTile extends StatelessWidget {
                   style: const TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
-                    color: Color(0xFF3F3F46),
+                    color: HrmPageChrome.primaryNavy,
                     height: 1.2,
                   ),
                 ),

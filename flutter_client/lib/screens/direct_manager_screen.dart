@@ -10,6 +10,7 @@ import '../widgets/loading_widget.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/notification_overlay.dart';
 import '../utils/responsive_helper.dart';
+import '../widgets/hrm_collapsible_overview.dart';
 import '../widgets/hrm_responsive_list_layout.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
@@ -41,8 +42,7 @@ class _DirectManagerScreenState extends State<DirectManagerScreen> {
   int _pageSize = 20;
   final List<int> _pageSizeOptions = [20, 50, 100, 200];
 
-  // Mobile UI state
-  bool _showMobileSummary = false;
+  bool _showOverviewPanel = true;
 
   @override
   void initState() {
@@ -224,48 +224,25 @@ class _DirectManagerScreenState extends State<DirectManagerScreen> {
   }
 
   List<Widget> _directManagerHeaderSections(bool isMobile) => [
-        if (isMobile) ...[
-          InkWell(
-            onTap: () =>
-                setState(() => _showMobileSummary = !_showMobileSummary),
-            borderRadius: BorderRadius.circular(8),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: Colors.blue.shade50,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.analytics_outlined,
-                      size: 16, color: Colors.blue.shade700),
-                  const SizedBox(width: 6),
-                  Text(tr('Tổng quan'),
-                      style: TextStyle(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 13,
-                          color: Colors.blue.shade700)),
-                  const Spacer(),
-                  Icon(
-                      _showMobileSummary
-                          ? Icons.expand_less
-                          : Icons.expand_more,
-                      size: 20,
-                      color: Colors.blue.shade700),
-                ],
-              ),
-            ),
-          ),
-          if (_showMobileSummary) ...[
-            const SizedBox(height: 8),
-            _buildStats(isMobile),
-          ],
-        ] else
-          _buildStats(isMobile),
-        const SizedBox(height: 12),
-        _buildFilters(isMobile),
+        _buildOverviewSection(isMobile),
         const SizedBox(height: 12),
       ];
+
+  Widget _buildOverviewSection(bool isMobile) {
+    return HrmCollapsibleOverview(
+      expanded: _showOverviewPanel,
+      onToggle: () =>
+          setState(() => _showOverviewPanel = !_showOverviewPanel),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _buildStats(isMobile),
+          const SizedBox(height: 10),
+          _buildFilters(isMobile),
+        ],
+      ),
+    );
+  }
 
   List<Widget> _directManagerMobileSlivers() {
     if (_isLoading) {

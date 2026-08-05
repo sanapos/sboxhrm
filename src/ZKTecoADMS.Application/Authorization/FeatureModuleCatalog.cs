@@ -65,6 +65,7 @@ public static class FeatureModuleCatalog
         // ══════════ BÁO CÁO & LƯƠNG ══════════
         new("AttendanceSummary", "Tổng hợp chấm công", "Bảng tổng hợp công theo tháng", "Báo cáo & Lương", 29),
         new("AttendanceByShift", "Tổng hợp chấm công theo ca", "Thống kê giờ công theo ca làm", "Báo cáo & Lương", 30),
+        new("LateEarlyReport", "Đi trễ / Về sớm", "Tổng hợp phút đi trễ và về sớm theo ca", "Báo cáo & Lương", 30),
         new("Payslip", "Phiếu lương", "Phiếu lương cá nhân", "Báo cáo & Lương", 31),
         new("Payroll", "Tổng hợp lương", "Bảng lương nhân viên", "Báo cáo & Lương", 32),
         new("AttendanceReport", "Báo cáo chấm công", "Ngày, tháng, đi muộn, phòng ban", "Báo cáo", 33),

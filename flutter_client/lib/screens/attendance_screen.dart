@@ -17,6 +17,7 @@ import '../services/api_service.dart';
 import '../services/signalr_service.dart';
 import '../utils/attendance_load_utils.dart';
 import '../utils/responsive_helper.dart';
+import '../utils/branch_filter_helper.dart';
 import '../utils/safe_navigator.dart';
 import '../widgets/loading_widget.dart';
 import '../widgets/empty_state.dart';
@@ -1520,13 +1521,13 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         : '$total';
     final cards = [
       _buildStatCard('Tổng bản ghi', totalLabel, Icons.list_alt,
-          _attendanceLoadTruncated ? const Color(0xFFF59E0B) : HrmPageChrome.primaryNavy),
+          _attendanceLoadTruncated ? HrmPageChrome.chipLight : HrmPageChrome.primaryNavy),
       _buildStatCard('Vân tay', '$fingerprint', Icons.fingerprint,
           HrmPageChrome.primaryNavy),
       _buildStatCard(
           'Khuôn mặt', '$face', Icons.face, HrmPageChrome.primaryNavy),
       _buildStatCard(
-          'Thẻ từ', '$card', Icons.credit_card, const Color(0xFFF59E0B)),
+          'Thẻ từ', '$card', Icons.credit_card, HrmPageChrome.chipLight),
       _buildStatCard(
           'Thủ công', '$manual', Icons.edit_note, const Color(0xFFEF4444)),
     ];
@@ -2230,7 +2231,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       ),
     );
 
-    final chipBranch = _branches.isNotEmpty
+    final chipBranch = BranchFilterHelper.showBranchFilter(_branches)
         ? _buildAttFilterChip(
             title: 'Chi nhánh',
             value: _filterBranchLabel(),

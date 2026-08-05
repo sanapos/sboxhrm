@@ -2335,7 +2335,7 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
       case 'Admin':
         return const Color(0xFFEF4444);
       case 'Director':
-        return const Color(0xFFD97706);
+        return HrmPageChrome.chipDark;
       case 'Accountant':
         return HrmPageChrome.primaryNavy;
       case 'DepartmentHead':
@@ -2343,9 +2343,9 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
       case 'Manager':
         return HrmPageChrome.primaryNavy;
       case 'Cashier':
-        return const Color(0xFF0D9488);
+        return HrmPageChrome.chip;
       case 'Waiter':
-        return const Color(0xFF2563EB);
+        return HrmPageChrome.chipMid;
       case 'Employee':
         return HrmPageChrome.primaryNavy;
       case 'User':
@@ -2390,22 +2390,22 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
       case 'DashboardLateEarly':
       case 'DashboardKpiPanel':
       case 'DashboardInternalNews':
-        return const Color(0xFF0284C7);
+        return HrmPageChrome.chip;
       case 'Dashboard':
         return HrmPageChrome.primaryNavy;
       case 'Employee':
         return HrmPageChrome.primaryNavy;
       case 'Attendance':
-        return const Color(0xFFF59E0B);
+        return HrmPageChrome.chipLight;
       case 'Leave':
         return HrmPageChrome.primaryNavy;
       case 'Salary':
       case 'Payslip':
         return HrmPageChrome.primaryNavy;
       case 'Device':
-        return const Color(0xFFEC4899);
+        return HrmPageChrome.chipLight;
       case 'Report':
-        return const Color(0xFF2D5F8B);
+        return HrmPageChrome.chip;
       case 'Settings':
         return const Color(0xFF71717A);
       default:
@@ -2481,13 +2481,13 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
       case 'canCreate':
         return HrmPageChrome.primaryNavy;
       case 'canEdit':
-        return const Color(0xFFF59E0B);
+        return HrmPageChrome.chipLight;
       case 'canDelete':
         return const Color(0xFFEF4444);
       case 'canExport':
         return HrmPageChrome.primaryNavy;
       case 'canApprove':
-        return const Color(0xFFEC4899);
+        return HrmPageChrome.chipLight;
       default:
         return const Color(0xFF71717A);
     }

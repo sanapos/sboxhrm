@@ -13,6 +13,7 @@ import '../services/api_service.dart';
 import '../utils/api_datetime.dart';
 import '../utils/paged_load_utils.dart';
 import '../utils/store_role_helper.dart';
+import '../utils/branch_filter_helper.dart';
 import '../services/signalr_service.dart';
 import '../utils/responsive_helper.dart';
 import '../l10n/app_localizations.dart';
@@ -611,17 +612,17 @@ class _LeaveScreenState extends State<LeaveScreen>
 
     final cards = [
       _buildStatCard(_l10n.pending, '$pending', Icons.hourglass_bottom_rounded,
-          Colors.orange),
+          HrmPageChrome.chipLight),
       _buildStatCard(_l10n.approved, '$approved', Icons.check_circle_rounded,
-          Colors.green),
+          HrmPageChrome.chip),
       _buildStatCard(
-          _l10n.rejected, '$rejected', Icons.cancel_rounded, Colors.red),
+          _l10n.rejected, '$rejected', Icons.cancel_rounded, HrmPageChrome.chipDark),
       _buildStatCard(
-          'Phép năm', '$annual', Icons.beach_access_rounded, Colors.teal),
+          'Phép năm', '$annual', Icons.beach_access_rounded, HrmPageChrome.chip),
       _buildStatCard('Nghỉ lễ, Tết', '$holiday', Icons.celebration_rounded,
-          const Color(0xFFF59E0B)),
+          HrmPageChrome.chipMid),
       _buildStatCard(
-          'Có lương', '$personalPaid', Icons.paid_rounded, Colors.blue),
+          'Có lương', '$personalPaid', Icons.paid_rounded, HrmPageChrome.chipSoft),
     ];
 
     if (Responsive.isMobile(context)) {
@@ -1125,7 +1126,7 @@ class _LeaveScreenState extends State<LeaveScreen>
       ),
     );
 
-    final chipBranchOrCount = _branches.isNotEmpty
+    final chipBranchOrCount = BranchFilterHelper.showBranchFilter(_branches)
         ? _buildFilterChip(
             title: 'Chi nhánh',
             value: _filterBranchLabel(),
@@ -1172,7 +1173,7 @@ class _LeaveScreenState extends State<LeaveScreen>
                 ? 'Còn ${_myAnnualLeaveBalance!.toStringAsFixed(_myAnnualLeaveBalance!.truncateToDouble() == _myAnnualLeaveBalance ? 0 : 1)} ngày'
                 : '—',
             icon: Icons.beach_access_rounded,
-            accentColor: const Color(0xFF059669),
+            accentColor: HrmPageChrome.chip,
             onTap: null,
           );
 
@@ -1478,14 +1479,13 @@ class _LeaveScreenState extends State<LeaveScreen>
                                             padding: const EdgeInsets.symmetric(
                                                 horizontal: 6, vertical: 2),
                                             decoration: BoxDecoration(
-                                                color: Colors.purple
-                                                    .withValues(alpha: 0.1),
+                                                color: HrmPageChrome.chipBg,
                                                 borderRadius:
                                                     BorderRadius.circular(4)),
                                             child: Text(tr('½'),
-                                                style: TextStyle(
+                                                style: const TextStyle(
                                                     fontSize: 11,
-                                                    color: Colors.purple,
+                                                    color: HrmPageChrome.chip,
                                                     fontWeight:
                                                         FontWeight.w600)),
                                           )
@@ -2209,13 +2209,13 @@ class _LeaveScreenState extends State<LeaveScreen>
           _detailTableRow(
             'Tính công',
             'Có — không ghi Phép trên chấm công',
-            valueColor: const Color(0xFF059669),
+            valueColor: HrmPageChrome.chip,
           ),
         if (leave['annualBalanceApplied'] == true)
           _detailTableRow(
             'Đã trừ phép năm',
             '${leave['annualLeaveDaysDeducted'] ?? 0} ngày',
-            valueColor: const Color(0xFF0D9488),
+            valueColor: HrmPageChrome.chip,
           ),
         _detailTableRow('Trạng thái', statusInfo.label,
             valueColor: statusInfo.color),
@@ -2932,30 +2932,30 @@ class _LeaveScreenState extends State<LeaveScreen>
     switch (type) {
       case 0:
         return const _LeaveTypeInfo(
-            'Phép năm', Colors.teal, Icons.beach_access_rounded);
+            'Phép năm', HrmPageChrome.chip, Icons.beach_access_rounded);
       case 1:
         return const _LeaveTypeInfo(
-            'Nghỉ lễ, Tết', Colors.orange, Icons.celebration_rounded);
+            'Nghỉ lễ, Tết', HrmPageChrome.chipMid, Icons.celebration_rounded);
       case 2:
         return const _LeaveTypeInfo(
-            'VR có luong', Colors.blue, Icons.paid_rounded);
+            'VR có luong', HrmPageChrome.chipLight, Icons.paid_rounded);
       case 3:
         return const _LeaveTypeInfo(
-            'VR không luong', Colors.amber, Icons.money_off_rounded);
+            'VR không luong', HrmPageChrome.chipDark, Icons.money_off_rounded);
       case 4:
         return const _LeaveTypeInfo(
-            'Nghỉ ốm', Colors.red, Icons.local_hospital_rounded);
+            'Nghỉ ốm', HrmPageChrome.chipDark, Icons.local_hospital_rounded);
       case 5:
         return const _LeaveTypeInfo(
-            'Thai sản', Colors.pink, Icons.child_friendly_rounded);
+            'Thai sản', HrmPageChrome.chipSoft, Icons.child_friendly_rounded);
       case 6:
         return const _LeaveTypeInfo(
-            'Nghỉ bù', Colors.indigo, Icons.swap_horiz_rounded);
+            'Nghỉ bù', HrmPageChrome.chipMuted, Icons.swap_horiz_rounded);
       case 7:
         return const _LeaveTypeInfo(
-            'Nghỉ dài hạn', Colors.brown, Icons.hourglass_full_rounded);
+            'Nghỉ dài hạn', HrmPageChrome.chipMuted, Icons.hourglass_full_rounded);
       default:
-        return const _LeaveTypeInfo('Khác', Colors.grey, Icons.help_outline);
+        return const _LeaveTypeInfo('Khác', HrmPageChrome.chipMuted, Icons.help_outline);
     }
   }
 }

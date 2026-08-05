@@ -12,7 +12,8 @@ public record StoreSetupSeedResult(
     bool HolidaysSeeded,
     bool PenaltySeeded,
     bool AllowancesSeeded,
-    bool RolePermissionsSeeded = false);
+    bool RolePermissionsSeeded = false,
+    bool BranchSeeded = false);
 
 public record StoreSetupDeleteResult(
     string Message,
@@ -98,6 +99,49 @@ public static class StoreDefaultSetupSeeder
         }).ToList();
 
         await departmentRepository.AddRangeAsync(departments, cancellationToken);
+    }
+
+    /// <summary>
+    /// Tạo chi nhánh đầu tiên (trụ sở chính) nếu cửa hàng chưa có chi nhánh nào.
+    /// </summary>
+    public static async Task SeedDefaultBranchIfEmptyAsync(
+        IRepository<Branch> branchRepository,
+        Guid storeId,
+        string storeName,
+        string? city = null,
+        string? phone = null,
+        string createdBy = "StoreSetup",
+        CancellationToken cancellationToken = default)
+    {
+        var existing = await branchRepository.GetSingleAsync(
+            b => b.StoreId == storeId && b.Deleted == null,
+            cancellationToken: cancellationToken);
+        if (existing != null)
+            return;
+
+        var name = string.IsNullOrWhiteSpace(storeName)
+            ? "Trụ sở chính"
+            : storeName.Trim();
+        // Giữ tên ngắn nếu store name dài; vẫn gắn mô tả đầy đủ.
+        var displayName = name.Length > 200 ? name[..200] : name;
+
+        var branch = new Branch
+        {
+            Id = Guid.NewGuid(),
+            Code = "HQ",
+            Name = displayName,
+            Description = "Chi nhánh đầu tiên (trụ sở chính) — tạo khi đăng ký cửa hàng",
+            Phone = string.IsNullOrWhiteSpace(phone) ? null : phone.Trim(),
+            City = string.IsNullOrWhiteSpace(city) ? null : city.Trim(),
+            IsHeadquarter = true,
+            SortOrder = 0,
+            StoreId = storeId,
+            IsActive = true,
+            CreatedAt = DateTime.UtcNow,
+            CreatedBy = createdBy,
+        };
+
+        await branchRepository.AddAsync(branch, cancellationToken);
     }
 
     /// <summary>
@@ -331,6 +375,10 @@ public static class StoreDefaultSetupSeeder
         IRepository<Allowance> allowanceRepository,
         IRepository<Permission>? permissionRepository = null,
         IRepository<RolePermission>? rolePermissionRepository = null,
+        IRepository<Branch>? branchRepository = null,
+        string? storeName = null,
+        string? city = null,
+        string? phone = null,
         string createdBy = "StoreSetup",
         CancellationToken cancellationToken = default)
     {
@@ -344,8 +392,22 @@ public static class StoreDefaultSetupSeeder
             s => s.StoreId == storeId, cancellationToken: cancellationToken) != null;
         var hadAllowance = await allowanceRepository.GetSingleAsync(
             a => a.StoreId == storeId, cancellationToken: cancellationToken) != null;
+        var hadBranch = branchRepository == null || await branchRepository.GetSingleAsync(
+            b => b.StoreId == storeId && b.Deleted == null,
+            cancellationToken: cancellationToken) != null;
 
         await SeedDepartmentsIfEmptyAsync(departmentRepository, storeId, createdBy, cancellationToken);
+        if (branchRepository != null)
+        {
+            await SeedDefaultBranchIfEmptyAsync(
+                branchRepository,
+                storeId,
+                storeName ?? "Trụ sở chính",
+                city,
+                phone,
+                createdBy,
+                cancellationToken);
+        }
         await SeedSettingsIfEmptyAsync(
             storeId, ownerId,
             shiftTemplateRepository, holidayRepository,
@@ -369,15 +431,21 @@ public static class StoreDefaultSetupSeeder
             s => s.StoreId == storeId, cancellationToken: cancellationToken) != null;
         var allowanceAdded = !hadAllowance && await allowanceRepository.GetSingleAsync(
             a => a.StoreId == storeId, cancellationToken: cancellationToken) != null;
+        var branchAdded = !hadBranch && branchRepository != null &&
+            await branchRepository.GetSingleAsync(
+                b => b.StoreId == storeId && b.Deleted == null,
+                cancellationToken: cancellationToken) != null;
 
-        if (!deptAdded && !shiftAdded && !holidayAdded && !penaltyAdded && !allowanceAdded && !rolePermAdded)
+        if (!deptAdded && !shiftAdded && !holidayAdded && !penaltyAdded && !allowanceAdded &&
+            !rolePermAdded && !branchAdded)
         {
             return new StoreSetupSeedResult(
                 "Cửa hàng đã có đủ thiết lập. Chỉ thêm phần còn thiếu — không ghi đè dữ liệu hiện có.",
-                false, false, false, false, false, false);
+                false, false, false, false, false, false, false);
         }
 
         var parts = new List<string>();
+        if (branchAdded) parts.Add("chi nhánh");
         if (deptAdded) parts.Add("phòng ban");
         if (shiftAdded) parts.Add("ca làm");
         if (allowanceAdded) parts.Add("phụ cấp/thưởng");
@@ -389,6 +457,7 @@ public static class StoreDefaultSetupSeeder
             parts.Count > 0
                 ? $"Đã tạo mẫu thiết lập: {string.Join(", ", parts)}."
                 : "Không có mục mới được thêm.",
-            deptAdded, shiftAdded, holidayAdded, penaltyAdded, allowanceAdded, rolePermAdded);
+            deptAdded, shiftAdded, holidayAdded, penaltyAdded, allowanceAdded, rolePermAdded,
+            branchAdded);
     }
 }

@@ -21,6 +21,7 @@ import '../utils/attendance_date_range_presets.dart';
 import '../utils/attendance_correction_submit.dart';
 import '../utils/attendance_record_resolver.dart';
 import '../utils/attendance_correction_dates.dart';
+import '../utils/branch_filter_helper.dart';
 import '../utils/report_screen_helpers.dart';
 import '../utils/salary_profile_load_utils.dart';
 import '../utils/paid_leave_schedule_utils.dart';
@@ -130,7 +131,10 @@ class _AttendanceSummaryScreenState extends State<AttendanceSummaryScreen> {
     }
 
     try {
-      await _branchFilter.ensureEmployees(_apiService);
+      await _branchFilter.ensureEmployees(
+        _apiService,
+        branchId: _selectedBranchId,
+      );
       if (!mounted) return;
 
       final range = AttendanceDateRangePresets.resolve(_loadPreset);
@@ -392,7 +396,7 @@ class _AttendanceSummaryScreenState extends State<AttendanceSummaryScreen> {
                 ),
               ),
             ),
-          if (_branchFilter.branches.isNotEmpty)
+          if (BranchFilterHelper.showBranchFilter(_branchFilter.branches))
             Container(
               color: Colors.white,
               padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
@@ -432,9 +436,10 @@ class _AttendanceSummaryScreenState extends State<AttendanceSummaryScreen> {
                                     style: const TextStyle(fontSize: 13)))),
                           ],
                           onChanged: (v) async {
-                            if (v != null) {
-                              await _branchFilter.ensureEmployees(_apiService);
-                            }
+                            await _branchFilter.ensureEmployees(
+                              _apiService,
+                              branchId: v,
+                            );
                             if (mounted) setState(() => _selectedBranchId = v);
                           },
                         ),

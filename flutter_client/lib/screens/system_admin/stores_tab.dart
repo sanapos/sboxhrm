@@ -261,7 +261,7 @@ class StoresTabState extends State<StoresTab> {
       if (trialCount > 0) ...[
         const SizedBox(width: 8),
         AdminHelpers.countBadge(
-            'Dùng thử', trialCount, const Color(0xFF7C3AED)),
+            'Dùng thử', trialCount, HrmPageChrome.chipMid),
       ],
       if (usingCount > 0) ...[
         const SizedBox(width: 8),
@@ -560,7 +560,7 @@ class StoresTabState extends State<StoresTab> {
               Text(
                 tr(hasAgent ? 'Đại lý: $agentName' : 'Đại lý: Chưa gán'),
                 style: TextStyle(
-                  color: hasAgent ? const Color(0xFFEA580C) : const Color(0xFFA1A1AA),
+                  color: hasAgent ? HrmPageChrome.chipMid : const Color(0xFFA1A1AA),
                   fontSize: 11,
                 ),
                 maxLines: 1,
@@ -645,7 +645,7 @@ class StoresTabState extends State<StoresTab> {
                   AdminHelpers.primaryDark),
             if (store['servicePackageName'] != null) ...[              const SizedBox(width: 6),
               AdminHelpers.statusChip(
-                  store['servicePackageName'], const Color(0xFF7C3AED)),
+                  store['servicePackageName'], HrmPageChrome.chipMid),
             ],
             if (_getTrialStatus(store) != null) ...[              const SizedBox(width: 6),
               _getTrialStatus(store)!,
@@ -754,7 +754,7 @@ class StoresTabState extends State<StoresTab> {
                       _actionButton(
                         icon: Icons.inventory_2_outlined,
                         label: 'Đổi gói',
-                        color: const Color(0xFF0891B2),
+                        color: HrmPageChrome.chipLight,
                         onTap: () => _showAssignPackage(store),
                       ),
                       _actionButton(
@@ -763,7 +763,7 @@ class StoresTabState extends State<StoresTab> {
                                 store['agentId'].toString().isNotEmpty)
                             ? 'Đổi đại lý'
                             : 'Gán đại lý',
-                        color: const Color(0xFFEA580C),
+                        color: HrmPageChrome.chipMid,
                         onTap: () => _showAssignAgent(store),
                       ),
                     ],
@@ -813,7 +813,7 @@ class StoresTabState extends State<StoresTab> {
                     _actionButton(
                       icon: Icons.calendar_month,
                       label: _extendButtonLabel(context, store),
-                      color: const Color(0xFF7C3AED),
+                      color: HrmPageChrome.chipMid,
                       onTap: () => _showExtendDays(store),
                     ),
                     if (!widget.agentMode)
@@ -874,7 +874,7 @@ class StoresTabState extends State<StoresTab> {
         AdminActionSheetItem(
           icon: Icons.calendar_month,
           label: _extendButtonLabel(context, store),
-          color: const Color(0xFF7C3AED),
+          color: HrmPageChrome.chipMid,
           onTap: () => _showExtendDays(store),
         ),
         AdminActionSheetItem(
@@ -905,7 +905,7 @@ class StoresTabState extends State<StoresTab> {
           AdminActionSheetItem(
             icon: Icons.handshake_outlined,
             label: hasAgent ? 'Đổi đại lý' : 'Gán đại lý',
-            color: const Color(0xFFEA580C),
+            color: HrmPageChrome.chipMid,
             onTap: () => _showAssignAgent(store),
           ),
           AdminActionSheetItem(
@@ -977,7 +977,7 @@ class StoresTabState extends State<StoresTab> {
         builder: (ctx, setLocal) => ScrollableAlertDialog(
           title: Row(children: [
             Icon(Icons.handshake_outlined,
-                color: Color(0xFFEA580C), size: 22),
+                color: HrmPageChrome.chipMid, size: 22),
             SizedBox(width: 8),
             Text(tr('Gán đại lý cho cửa hàng'), style: TextStyle(fontSize: 18)),
           ]),
@@ -1026,7 +1026,7 @@ class StoresTabState extends State<StoresTab> {
               icon: const Icon(Icons.save, size: 16),
               label: Text(tr('Lưu')),
               style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFEA580C)),
+                  backgroundColor: HrmPageChrome.chipMid),
             ),
           ],
         ),
@@ -1308,7 +1308,7 @@ class StoresTabState extends State<StoresTab> {
                                   overflow: TextOverflow.ellipsis,
                                 ),
                                 style: OutlinedButton.styleFrom(
-                                  foregroundColor: const Color(0xFF7C3AED),
+                                  foregroundColor: HrmPageChrome.chipMid,
                                   minimumSize: const Size.fromHeight(44),
                                 ),
                               ),
@@ -1333,7 +1333,7 @@ class StoresTabState extends State<StoresTab> {
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                   style: FilledButton.styleFrom(
-                                    backgroundColor: const Color(0xFFEA580C),
+                                    backgroundColor: HrmPageChrome.chipMid,
                                     minimumSize: const Size.fromHeight(44),
                                   ),
                                 ),
@@ -1642,7 +1642,7 @@ class StoresTabState extends State<StoresTab> {
     final isTrial = _isTrial(store);
     if (remaining == null) {
       return isTrial
-          ? AdminHelpers.statusChip('Dùng thử', const Color(0xFF7C3AED))
+          ? AdminHelpers.statusChip('Dùng thử', HrmPageChrome.chipMid)
           : null;
     }
 
@@ -1652,7 +1652,7 @@ class StoresTabState extends State<StoresTab> {
     }
     final prefix = isTrial ? 'Dùng thử · ' : '';
     final color = remaining > 30
-        ? (isTrial ? const Color(0xFF7C3AED) : AdminHelpers.success)
+        ? (isTrial ? HrmPageChrome.chipMid : AdminHelpers.success)
         : AdminHelpers.warning;
     return AdminHelpers.statusChip('${prefix}Còn $remaining ngày', color);
   }
@@ -1717,7 +1717,7 @@ class StoresTabState extends State<StoresTab> {
         builder: (ctx, setDialogState) => ScrollableAlertDialog(
           title: Row(children: [
             const Icon(Icons.calendar_month,
-                color: Color(0xFF7C3AED), size: 22),
+                color: HrmPageChrome.chipMid, size: 22),
             const SizedBox(width: 8),
             Expanded(
                 child: Text(tr('Gia hạn — $name'),
@@ -1736,12 +1736,12 @@ class StoresTabState extends State<StoresTab> {
                     padding: const EdgeInsets.all(10),
                     margin: const EdgeInsets.only(bottom: 10),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF7C3AED).withValues(alpha: 0.08),
+                      color: HrmPageChrome.chipMid.withValues(alpha: 0.08),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Row(children: [
                       const Icon(Icons.account_balance_wallet_outlined,
-                          color: Color(0xFF7C3AED), size: 18),
+                          color: HrmPageChrome.chipMid, size: 18),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(tr('Quỹ gia hạn còn: $agentRenewalBalance ngày'),
@@ -1780,10 +1780,10 @@ class StoresTabState extends State<StoresTab> {
                           daysCtrl.text = days.toString();
                         });
                       },
-                      selectedColor: const Color(0xFF7C3AED).withValues(alpha: 0.2),
+                      selectedColor: HrmPageChrome.chipMid.withValues(alpha: 0.2),
                       labelStyle: TextStyle(
                         color: selected
-                            ? const Color(0xFF7C3AED)
+                            ? HrmPageChrome.chipMid
                             : Colors.black87,
                         fontWeight:
                             selected ? FontWeight.w600 : FontWeight.normal,
@@ -1808,7 +1808,7 @@ class StoresTabState extends State<StoresTab> {
               icon: const Icon(Icons.check, size: 16),
               label: Text(tr('Gia hạn')),
               style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF7C3AED)),
+                  backgroundColor: HrmPageChrome.chipMid),
             ),
           ],
         ),
@@ -1880,7 +1880,7 @@ class StoresTabState extends State<StoresTab> {
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDlgState) => ScrollableAlertDialog(
           title: Row(children: [
-            Icon(Icons.inventory_2_outlined, color: Color(0xFF0891B2), size: 22),
+            Icon(Icons.inventory_2_outlined, color: HrmPageChrome.chipLight, size: 22),
             SizedBox(width: 8),
             Text(tr('Đổi gói dịch vụ'), style: TextStyle(fontSize: 18)),
           ]),
@@ -1944,7 +1944,7 @@ class StoresTabState extends State<StoresTab> {
               icon: const Icon(Icons.check, size: 16),
               label: Text(tr('Xác nhận')),
               style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF0891B2)),
+                  backgroundColor: HrmPageChrome.chipLight),
             ),
           ],
         ),

@@ -10,6 +10,8 @@ import '../utils/cash_report_helpers.dart';
 import '../providers/auth_provider.dart';
 import '../utils/api_datetime.dart';
 import '../utils/vietnamese_text_fix.dart';
+import '../widgets/hrm_collapsible_overview.dart';
+import '../widgets/hrm_mini_stat_chip.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../widgets/page_top_actions.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
@@ -17,7 +19,7 @@ import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 const _cRowH = 54.0;
 const _cHdrH = 44.0;
 const _cStickyW = 168.0;
-const _cTheme = Color(0xFF0EA5E9);
+const _cTheme = HrmPageChrome.chip;
 
 class CashReportScreen extends StatefulWidget {
   const CashReportScreen({super.key});
@@ -38,6 +40,7 @@ class _CashReportScreenState extends State<CashReportScreen> {
   String? _categoryFilter;
   int? _amountMinFilter;
   bool _filtersExpanded = false;
+  bool _showOverviewPanel = true;
   bool _loading = false;
   String? _loadError;
   List<Map<String, dynamic>> _items = [];
@@ -335,9 +338,8 @@ class _CashReportScreenState extends State<CashReportScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                _buildFilters(),
+                _buildOverviewSection(),
                 reportLoadErrorBanner(_loadError),
-                _buildSummary(),
                 _buildFilterResultBar(),
                 if (_loading)
                   const Padding(
@@ -354,6 +356,26 @@ class _CashReportScreenState extends State<CashReportScreen> {
           ),
         ),
       ]),
+      ),
+    );
+  }
+
+  Widget _buildOverviewSection() {
+    return Container(
+      color: Colors.white,
+      padding: const EdgeInsets.fromLTRB(8, 6, 8, 0),
+      child: HrmCollapsibleOverview(
+        expanded: _showOverviewPanel,
+        onToggle: () =>
+            setState(() => _showOverviewPanel = !_showOverviewPanel),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _buildSummary(),
+            const SizedBox(height: 8),
+            _buildFilters(),
+          ],
+        ),
       ),
     );
   }
@@ -679,160 +701,97 @@ class _CashReportScreenState extends State<CashReportScreen> {
   Widget _buildSummary() {
     final s = _summary;
     final period = ReportDateRangePresets.presetLabel(_datePreset);
+    final items = <HrmStatItem>[
+      HrmStatItem(
+        icon: Icons.arrow_circle_down,
+        label: 'Đã thu',
+        value: '${_fmtMoney.format(s.paidIncome)}đ',
+        subtitle: '${s.paidIncomeCount} GD',
+        onTap: () => _applyStatusFilter(
+            _statusFilter == 'paid_income' ? null : 'paid_income'),
+      ),
+      HrmStatItem(
+        icon: Icons.arrow_circle_up,
+        label: 'Đã chi',
+        value: '${_fmtMoney.format(s.paidExpense)}đ',
+        subtitle: '${s.paidExpenseCount} GD',
+        onTap: () => _applyStatusFilter(
+            _statusFilter == 'paid_expense' ? null : 'paid_expense'),
+      ),
+      HrmStatItem(
+        icon: Icons.savings_outlined,
+        label: 'Số dư quỹ',
+        value: '${_fmtMoney.format(s.fundBalance)}đ',
+        subtitle: 'Đã thu − Đã chi',
+        onTap: () => _applyStatusFilter(
+            _statusFilter == 'completed' ? null : 'completed'),
+      ),
+      if (s.pendingIncome > 0 || s.pendingIncomeCount > 0)
+        HrmStatItem(
+          icon: Icons.hourglass_top,
+          label: 'Chờ thu',
+          value: '${_fmtMoney.format(s.pendingIncome)}đ',
+          subtitle: '${s.pendingIncomeCount} phiếu',
+          onTap: () => _applyStatusFilter(
+              _statusFilter == 'pending_income' ? null : 'pending_income'),
+        ),
+      if (s.pendingExpense > 0 || s.pendingExpenseCount > 0)
+        HrmStatItem(
+          icon: Icons.payments_outlined,
+          label: 'Chờ chi',
+          value: '${_fmtMoney.format(s.pendingExpense)}đ',
+          subtitle: '${s.pendingExpenseCount} phiếu',
+          onTap: () => _applyStatusFilter(
+              _statusFilter == 'pending_expense' ? null : 'pending_expense'),
+        ),
+      if (s.cancelledCount > 0)
+        HrmStatItem(
+          icon: Icons.block,
+          label: 'Đã hủy',
+          value: '${s.cancelledCount}',
+          subtitle: 'phiếu',
+          onTap: () => _applyStatusFilter(
+              _statusFilter == 'cancelled' ? null : 'cancelled'),
+        ),
+    ];
+
     return Container(
       color: Colors.white,
       margin: const EdgeInsets.only(top: 1),
-      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              const Icon(Icons.account_balance_wallet_outlined,
-                  size: 16, color: Color(0xFF0EA5E9)),
-              const SizedBox(width: 6),
-              Text(tr('Sổ quỹ · $period'),
-                  style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF111827))),
-              const Spacer(),
-              Text(tr('${_filtered.length}/${_items.length} dòng'),
-                  style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
-            ],
-          ),
-          const SizedBox(height: 8),
-          SizedBox(
-            height: 82,
-            child: ListView(
-              scrollDirection: Axis.horizontal,
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+            child: Row(
               children: [
-                _sumCard(
-                  'Đã thu',
-                  '${_fmtMoney.format(s.paidIncome)}đ',
-                  '${s.paidIncomeCount} GD',
-                  Icons.arrow_circle_down,
-                  const Color(0xFF16A34A),
-                  filter: 'paid_income',
-                ),
-                _sumCard(
-                  'Đã chi',
-                  '${_fmtMoney.format(s.paidExpense)}đ',
-                  '${s.paidExpenseCount} GD',
-                  Icons.arrow_circle_up,
-                  const Color(0xFFDC2626),
-                  filter: 'paid_expense',
-                ),
-                _sumCard(
-                  'Số dư quỹ',
-                  '${_fmtMoney.format(s.fundBalance)}đ',
-                  'Đã thu − Đã chi',
-                  Icons.savings_outlined,
-                  s.fundBalance >= 0
-                      ? const Color(0xFF0284C7)
-                      : const Color(0xFFDC2626),
-                  filter: 'completed',
-                ),
-                if (s.pendingIncome > 0 || s.pendingIncomeCount > 0)
-                  _sumCard(
-                    'Chờ thu',
-                    '${_fmtMoney.format(s.pendingIncome)}đ',
-                    '${s.pendingIncomeCount} phiếu',
-                    Icons.hourglass_top,
-                    const Color(0xFF0D9488),
-                    filter: 'pending_income',
-                  ),
-                if (s.pendingExpense > 0 || s.pendingExpenseCount > 0)
-                  _sumCard(
-                    'Chờ chi',
-                    '${_fmtMoney.format(s.pendingExpense)}đ',
-                    '${s.pendingExpenseCount} phiếu',
-                    Icons.payments_outlined,
-                    const Color(0xFFF59E0B),
-                    filter: 'pending_expense',
-                  ),
-                if (s.cancelledCount > 0)
-                  _sumCard(
-                    'Đã hủy',
-                    '${s.cancelledCount}',
-                    'phiếu',
-                    Icons.block,
-                    const Color(0xFF9CA3AF),
-                    filter: 'cancelled',
-                  ),
+                const Icon(Icons.account_balance_wallet_outlined,
+                    size: 16, color: HrmPageChrome.chip),
+                const SizedBox(width: 6),
+                Text(tr('Sổ quỹ · $period'),
+                    style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF111827))),
+                const Spacer(),
+                Text(tr('${_filtered.length}/${_items.length} dòng'),
+                    style:
+                        TextStyle(fontSize: 11, color: Colors.grey.shade600)),
               ],
             ),
           ),
-          if (_statusFilter != null) ...[
-            const SizedBox(height: 6),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: InputChip(
-                label: Text(tr('Lọc: ${cashReportStatusFilterLabel(_statusFilter!)}'),
-                    style: const TextStyle(fontSize: 11)),
-                deleteIcon: const Icon(Icons.close, size: 14),
+          HrmStatBar(items: items, padding: const EdgeInsets.fromLTRB(12, 10, 12, 10)),
+          if (_statusFilter != null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+              child: HrmBrandChip(
+                label: 'Lọc: ${cashReportStatusFilterLabel(_statusFilter!)}',
+                selected: true,
+                dense: true,
                 onDeleted: () => setState(() => _statusFilter = null),
-                visualDensity: VisualDensity.compact,
               ),
             ),
-          ],
         ],
-      ),
-    );
-  }
-
-  Widget _sumCard(
-    String title,
-    String value,
-    String subtitle,
-    IconData icon,
-    Color color, {
-    String? filter,
-  }) {
-    final selected = filter != null && _statusFilter == filter;
-    return GestureDetector(
-      onTap: filter == null
-          ? null
-          : () => _applyStatusFilter(selected ? null : filter),
-      child: Container(
-        width: 152,
-        margin: const EdgeInsets.only(right: 8),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-        decoration: BoxDecoration(
-          color: selected ? color.withValues(alpha: 0.16) : color.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-              color: selected ? color : color.withValues(alpha: 0.22),
-              width: selected ? 1.5 : 1),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Row(
-              children: [
-                Icon(icon, color: color, size: 18),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Text(tr(title),
-                      style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.grey.shade700),
-                      overflow: TextOverflow.ellipsis),
-                ),
-              ],
-            ),
-            const SizedBox(height: 4),
-            Text(tr(value),
-                style: TextStyle(
-                    fontSize: 13, fontWeight: FontWeight.bold, color: color),
-                overflow: TextOverflow.ellipsis),
-            Text(tr(subtitle),
-                style: TextStyle(fontSize: 10, color: Colors.grey.shade500),
-                overflow: TextOverflow.ellipsis),
-          ],
-        ),
       ),
     );
   }
@@ -985,7 +944,6 @@ class _CashReportScreenState extends State<CashReportScreen> {
                       final type = cashReportRowType(t);
                       final catName = fixVietnameseMojibake(
                           t['categoryName']?.toString() ?? '—');
-                      final typeColor = _typeColor(type);
                       return Container(
                         width: _cStickyW,
                         height: _cRowH,
@@ -1003,20 +961,9 @@ class _CashReportScreenState extends State<CashReportScreen> {
                                       color: Color(0xFF111827)),
                                   overflow: TextOverflow.ellipsis),
                               const SizedBox(height: 2),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 7, vertical: 1),
-                                decoration: BoxDecoration(
-                                  color: typeColor.withValues(alpha: 0.1),
-                                  borderRadius: BorderRadius.circular(10),
-                                  border: Border.all(
-                                      color: typeColor.withValues(alpha: 0.35)),
-                                ),
-                                child: Text(tr(type.label),
-                                    style: TextStyle(
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.w700,
-                                        color: typeColor)),
+                              HrmBrandChip(
+                                label: type.label,
+                                dense: true,
                               ),
                             ]),
                       );

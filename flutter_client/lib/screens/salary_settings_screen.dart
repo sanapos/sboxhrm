@@ -7,6 +7,7 @@ import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import 'package:intl/intl.dart';
 import '../services/api_service.dart';
 import '../utils/responsive_helper.dart';
+import '../utils/branch_filter_helper.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../widgets/loading_widget.dart';
 import '../widgets/empty_state.dart';
@@ -362,7 +363,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
         type: 'notConfigured',
         label: 'Chưa thiết lập',
         count: _notConfiguredCount,
-        color: const Color(0xFFF59E0B),
+        color: HrmPageChrome.chipLight,
       ),
     ];
     return SingleChildScrollView(
@@ -695,8 +696,10 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
           ? Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                _buildBranchDropdown(),
-                const SizedBox(height: 8),
+                if (BranchFilterHelper.showBranchFilter(_branches)) ...[
+                  _buildBranchDropdown(),
+                  const SizedBox(height: 8),
+                ],
                 searchBox,
                 const SizedBox(height: 8),
                 Row(
@@ -746,7 +749,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
             )
           : Column(
               children: [
-                if (_branches.isNotEmpty) ...[
+                if (BranchFilterHelper.showBranchFilter(_branches)) ...[
                   _buildBranchDropdown(),
                   const SizedBox(height: 12),
                 ],
@@ -775,7 +778,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
   }
 
   Widget _buildBranchDropdown() {
-    final hasBranches = _branches.isNotEmpty;
+    final hasBranches = BranchFilterHelper.showBranchFilter(_branches);
     return Container(
       height: 40,
       padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -1061,7 +1064,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                               fontSize: 12,
                               fontWeight: FontWeight.w600,
                               color: isConfigured
-                                  ? const Color(0xFF059669)
+                                  ? HrmPageChrome.chip
                                   : const Color(0xFF71717A),
                             ),
                           )),
@@ -1162,7 +1165,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
 
         final employees = _filteredEmployees;
         final groupByBranch =
-            _branches.isNotEmpty && _filterBranchId == null && !isMobile;
+            BranchFilterHelper.showBranchFilter(_branches) && _filterBranchId == null && !isMobile;
 
         // ── Grouped mode (desktop / chưa lọc chi nhánh) ─────
         if (groupByBranch) {
@@ -1435,7 +1438,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
                         color: isConfigured
-                            ? const Color(0xFF059669)
+                            ? HrmPageChrome.chip
                             : const Color(0xFF71717A),
                       ),
                       maxLines: 1,
@@ -1511,7 +1514,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
     required String label,
   }) {
     final color =
-        isConfigured ? HrmPageChrome.primaryNavy : const Color(0xFFF59E0B);
+        isConfigured ? HrmPageChrome.primaryNavy : HrmPageChrome.chipLight;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
@@ -1634,7 +1637,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                     Icons.card_giftcard,
                     'Phụ cấp cố định',
                     _formatCurrency(fixedAllowance),
-                    const Color(0xFFEC4899),
+                    HrmPageChrome.chipLight,
                     () => _showViewAllowanceDetail(
                           allowanceType: 0,
                           employeeId: employeeId,
@@ -1647,7 +1650,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                     Icons.calendar_view_day,
                     'Phụ cấp theo ngày',
                     _formatCurrency(dailyAllowance),
-                    const Color(0xFFF59E0B),
+                    HrmPageChrome.chipLight,
                     () => _showViewAllowanceDetail(
                           allowanceType: 1,
                           employeeId: employeeId,
@@ -1722,11 +1725,11 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
     final colors = [
       HrmPageChrome.primaryNavy,
       HrmPageChrome.primaryNavy,
-      const Color(0xFFF59E0B),
+      HrmPageChrome.chipLight,
       const Color(0xFFEF4444),
       HrmPageChrome.primaryNavy,
-      const Color(0xFFEC4899),
-      const Color(0xFF2D5F8B),
+      HrmPageChrome.chipLight,
+      HrmPageChrome.chip,
     ];
     return colors[name.hashCode.abs() % colors.length];
   }

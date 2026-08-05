@@ -13,7 +13,7 @@ import '../widgets/page_top_actions.dart';
 import '../widgets/reports/hrm_report_widgets.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
-const _theme = Color(0xFF0284C7);
+const _theme = HrmPageChrome.primaryNavy;
 
 class LeaveReportScreen extends StatefulWidget {
   const LeaveReportScreen({super.key});
@@ -37,6 +37,7 @@ class _LeaveReportScreenState extends State<LeaveReportScreen> {
   static const _pageSize = 50;
 
   bool _loading = false;
+  bool _showOverviewPanel = true;
   String? _loadError;
   List<Map<String, dynamic>> _leaves = [];
   int _totalCount = 0;
@@ -172,6 +173,8 @@ class _LeaveReportScreenState extends State<LeaveReportScreen> {
       final res = await _api.getLeaveReport(
         startDate: _from,
         endDate: _to,
+        branchId: _teamView ? _selectedBranchId : null,
+        includeChildBranches: true,
       );
       if (res['isSuccess'] == true && res['data'] is Map) {
         final data = res['data'] as Map;
@@ -399,40 +402,46 @@ class _LeaveReportScreenState extends State<LeaveReportScreen> {
                       color: _theme,
                       icon: Icons.beach_access_outlined,
                     ),
-                  ReportFilterSection(
-                    from: _from,
-                    to: _to,
-                    datePreset: _datePreset,
-                    onDateChanged: (f, t, p) => setState(() {
-                      _from = f;
-                      _to = t;
-                      _datePreset = p;
-                    }),
-                    statusFilter: _statusDrop(),
-                    statusSummary: _filterStatusSummary(),
-                    showTeamFilters: _teamView,
-                    branchFilter: _teamView ? _branchFilter : null,
-                    selectedBranchId: _selectedBranchId,
-                    onBranchChanged: (v) async {
-                      if (v != null) await _branchFilter.ensureEmployees(_api);
-                      if (mounted) setState(() => _selectedBranchId = v);
-                    },
-                    empSearch: _empSearch,
-                    onEmpSearchChanged: (v) => setState(() => _empSearch = v),
-                    empSuggestions: _empSuggestions,
-                    onApply: () {
-                      setState(() => _page = 1);
-                      _load();
-                    },
-                    onClearFilters: _teamView
-                        ? () => setState(() {
-                              _empSearch = '';
-                              _selectedBranchId = null;
-                            })
-                        : null,
+                  ReportCollapsibleChrome(
+                    expanded: _showOverviewPanel,
+                    onToggle: () => setState(
+                        () => _showOverviewPanel = !_showOverviewPanel),
+                    kpi: ReportKpiGrid(items: _buildKpis()),
+                    filter: ReportFilterSection(
+                      embedded: true,
+                      from: _from,
+                      to: _to,
+                      datePreset: _datePreset,
+                      onDateChanged: (f, t, p) => setState(() {
+                        _from = f;
+                        _to = t;
+                        _datePreset = p;
+                      }),
+                      statusFilter: _statusDrop(),
+                      statusSummary: _filterStatusSummary(),
+                      showTeamFilters: _teamView,
+                      branchFilter: _teamView ? _branchFilter : null,
+                      selectedBranchId: _selectedBranchId,
+                      onBranchChanged: (v) async {
+                        await _branchFilter.ensureEmployees(_api, branchId: v);
+                        if (mounted) setState(() => _selectedBranchId = v);
+                      },
+                      empSearch: _empSearch,
+                      onEmpSearchChanged: (v) => setState(() => _empSearch = v),
+                      empSuggestions: _empSuggestions,
+                      onApply: () {
+                        setState(() => _page = 1);
+                        _load();
+                      },
+                      onClearFilters: _teamView
+                          ? () => setState(() {
+                                _empSearch = '';
+                                _selectedBranchId = null;
+                              })
+                          : null,
+                    ),
                   ),
                   reportLoadErrorBanner(_loadError),
-                  ReportKpiGrid(items: _buildKpis()),
                   if (_teamView && _canLeaveSummary)
                     ReportViewModeTabs(
                       index: _viewTab,

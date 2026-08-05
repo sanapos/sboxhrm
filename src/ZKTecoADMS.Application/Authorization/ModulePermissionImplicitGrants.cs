@@ -20,7 +20,7 @@ public static class ModulePermissionImplicitGrants
 
     private static readonly HashSet<string> AttendanceReadModules = new(StringComparer.Ordinal)
     {
-        "Attendance", "AttendanceSummary", "AttendanceByShift"
+        "Attendance", "AttendanceSummary", "AttendanceByShift", "LateEarlyReport"
     };
 
     private static readonly HashSet<string> ApprovalAttendanceModules = new(StringComparer.Ordinal)
@@ -50,7 +50,7 @@ public static class ModulePermissionImplicitGrants
 
     private static readonly string[] ModernReportModules =
     [
-        "AttendanceReport", "LeaveReport",
+        "AttendanceReport", "LateEarlyReport", "LeaveReport",
         "CashReport", "PenaltyReport", "AdvanceReport", "BusinessTripReport", "AssetReport"
     ];
 

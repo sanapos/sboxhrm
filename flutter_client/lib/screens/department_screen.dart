@@ -9,6 +9,7 @@ import '../models/department.dart';
 import '../l10n/app_localizations.dart';
 import '../utils/responsive_helper.dart';
 import '../widgets/app_button.dart';
+import '../widgets/hrm_collapsible_overview.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../widgets/hrm_responsive_list_layout.dart';
 import '../widgets/page_top_actions.dart';
@@ -38,6 +39,7 @@ class _DepartmentScreenState extends State<DepartmentScreen>
   bool _isLoading = true;
   bool _isManager = false;
   String _searchQuery = '';
+  bool _showOverviewPanel = true;
   bool _showInactive = false;
 
   // Pagination
@@ -287,9 +289,13 @@ class _DepartmentScreenState extends State<DepartmentScreen>
         color: Colors.white,
         border: Border(bottom: BorderSide(color: Color(0xFFE4E4E7))),
       ),
-      child: Column(
-        children: [
-          if (Responsive.isMobile(context))
+      child: HrmCollapsibleOverview(
+        expanded: _showOverviewPanel,
+        onToggle: () =>
+            setState(() => _showOverviewPanel = !_showOverviewPanel),
+        child: Column(
+          children: [
+            if (Responsive.isMobile(context))
             Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -363,6 +369,7 @@ class _DepartmentScreenState extends State<DepartmentScreen>
           ),
         ],
       ),
+    ),
     );
   }
 

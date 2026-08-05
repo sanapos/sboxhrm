@@ -61,6 +61,9 @@ class PosPurchaseProductSearchBar extends StatefulWidget {
     this.restoreFocusAfterPick = true,
     this.hideSuffix = false,
     this.compactSellMobile = false,
+    this.showBrowseButton = true,
+    this.showBarcodeButton = true,
+    this.denseBar = false,
   });
 
   final ApiService api;
@@ -79,6 +82,12 @@ class PosPurchaseProductSearchBar extends StatefulWidget {
   final bool hideSuffix;
   /// Bo góc nhỏ, không icon kính lúp — giống KiotViet.
   final bool compactSellMobile;
+  /// Icon lưới chọn từ danh sách (4 ô).
+  final bool showBrowseButton;
+  /// Icon quét mã trong suffix (có thể chuyển ra thanh dưới).
+  final bool showBarcodeButton;
+  /// Thanh thấp hơn, góc 8 — tablet F&B.
+  final bool denseBar;
 
   @override
   State<PosPurchaseProductSearchBar> createState() =>
@@ -120,7 +129,12 @@ class PosPurchaseProductSearchBarState extends State<PosPurchaseProductSearchBar
   Future<void> scanBarcode() => _scanBarcode();
 
   Future<void> _restoreSearchFocus() async {
-    if (!widget.restoreFocusAfterPick) return;
+    if (!widget.restoreFocusAfterPick) {
+      // Thu ngân cảm ứng: bỏ focus để soft keyboard không bật lại sau chọn món.
+      await Future.delayed(const Duration(milliseconds: 40));
+      if (mounted && _focus.hasFocus) _focus.unfocus();
+      return;
+    }
     await Future.delayed(const Duration(milliseconds: 40));
     if (mounted) requestSearchFocus();
   }
@@ -455,72 +469,105 @@ class PosPurchaseProductSearchBarState extends State<PosPurchaseProductSearchBar
           child: TextField(
             controller: _ctrl,
             focusNode: _focus,
+            style: TextStyle(
+              fontSize: widget.denseBar || widget.compactSellMobile ? 13 : 14,
+              height: 1.2,
+            ),
             decoration: InputDecoration(
               hintText: tr(widget.hintText),
-              hintStyle: TextStyle(color: Colors.grey.shade500, fontSize: 14),
+              hintStyle: TextStyle(
+                color: Colors.grey.shade500,
+                fontSize: widget.denseBar || widget.compactSellMobile ? 13 : 14,
+              ),
               prefixIcon: widget.compactSellMobile
                   ? null
-                  : const Icon(Icons.search, size: 20, color: Colors.grey),
+                  : Icon(
+                      Icons.search,
+                      size: widget.denseBar ? 18 : 20,
+                      color: Colors.grey,
+                    ),
+              prefixIconConstraints: widget.denseBar
+                  ? const BoxConstraints(minWidth: 36, minHeight: 32)
+                  : null,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(
-                    widget.compactSellMobile ? 8 : 24),
+                    widget.compactSellMobile || widget.denseBar ? 8 : 24),
                 borderSide: BorderSide(color: Colors.grey.shade300),
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(
-                    widget.compactSellMobile ? 8 : 24),
+                    widget.compactSellMobile || widget.denseBar ? 8 : 24),
                 borderSide: BorderSide(color: Colors.grey.shade300),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(
-                    widget.compactSellMobile ? 8 : 24),
+                    widget.compactSellMobile || widget.denseBar ? 8 : 24),
                 borderSide: const BorderSide(color: _blue, width: 1.5),
               ),
               isDense: true,
               filled: true,
               fillColor: Colors.white,
               contentPadding: EdgeInsets.symmetric(
-                horizontal: widget.compactSellMobile ? 12 : 8,
-                vertical: widget.compactSellMobile ? 10 : 12,
+                horizontal: widget.compactSellMobile || widget.denseBar ? 10 : 8,
+                vertical: widget.denseBar
+                    ? 6
+                    : (widget.compactSellMobile ? 10 : 12),
               ),
-              suffixIcon: widget.hideSuffix
-                  ? PosBarcodeScanIcon(
-                      iconSize: 20,
-                      onScanned: (_) {
-                        // ignore: discarded_futures
-                        _scanBarcode();
-                      },
-                    )
-                  : Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        PosBarcodeScanIcon(
-                          iconSize: 20,
-                          onScanned: (_) {
-                            // ignore: discarded_futures
-                            _scanBarcode();
-                          },
-                        ),
-                        IconButton(
-                          tooltip: tr('Chọn từ danh sách'),
-                          icon: Icon(Icons.grid_view_rounded,
-                              size: 20, color: Colors.grey.shade600),
-                          onPressed: _openBrowseSheet,
-                        ),
-                        if (widget.onAddProduct != null)
-                          IconButton(
-                            tooltip: tr('Thêm hàng hóa mới'),
-                            icon: const Icon(Icons.add, color: _blue, size: 22),
-                            onPressed: widget.onAddProduct,
-                          ),
-                        const SizedBox(width: 4),
-                      ],
-                    ),
+              suffixIcon: _buildSuffixIcons(),
+              suffixIconConstraints: widget.denseBar
+                  ? const BoxConstraints(minWidth: 0, minHeight: 32)
+                  : null,
             ),
             onSubmitted: (_) => _submitExact(),
           ),
         ),
       ),
+    );
+  }
+
+  Widget? _buildSuffixIcons() {
+    void onScan(_) {
+      // ignore: discarded_futures
+      _scanBarcode();
+    }
+
+    if (widget.hideSuffix) {
+      if (!widget.showBarcodeButton) return null;
+      return PosBarcodeScanIcon(iconSize: 20, onScanned: onScan);
+    }
+
+    final children = <Widget>[];
+    if (widget.showBarcodeButton) {
+      children.add(PosBarcodeScanIcon(iconSize: 20, onScanned: onScan));
+    }
+    if (widget.showBrowseButton) {
+      children.add(
+        IconButton(
+          tooltip: tr('Chọn từ danh sách'),
+          visualDensity: VisualDensity.compact,
+          icon: Icon(Icons.grid_view_rounded,
+              size: 20, color: Colors.grey.shade600),
+          onPressed: _openBrowseSheet,
+        ),
+      );
+    }
+    if (widget.onAddProduct != null) {
+      children.add(
+        IconButton(
+          tooltip: tr('Thêm hàng hóa mới'),
+          visualDensity: VisualDensity.compact,
+          icon: const Icon(Icons.add, color: _blue, size: 22),
+          onPressed: widget.onAddProduct,
+        ),
+      );
+    }
+    if (children.isEmpty) return null;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        ...children,
+        const SizedBox(width: 4),
+      ],
     );
   }
 }
@@ -554,6 +601,7 @@ class _SuggestionTile extends StatelessWidget {
             PosProductImage(
               productId: p.id,
               imageUrl: p.imageUrl,
+              updatedAt: p.updatedAt,
               size: 44,
               borderRadius: 6,
             ),

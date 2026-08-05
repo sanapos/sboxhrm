@@ -6,6 +6,7 @@ using ClosedXML.Excel;
 using ZKTecoADMS.Api.Authorization;
 using ZKTecoADMS.Application.Constants;
 using ZKTecoADMS.Application.Helpers;
+using ZKTecoADMS.Application.Interfaces;
 using ZKTecoADMS.Api.Controllers.Base;
 using ZKTecoADMS.Application.Models;
 using ZKTecoADMS.Domain.Entities;
@@ -21,7 +22,8 @@ namespace ZKTecoADMS.Api.Controllers;
 [Authorize]
 public class ReportsController(
     ZKTecoDbContext dbContext,
-    ILogger<ReportsController> logger
+    ILogger<ReportsController> logger,
+    IDataScopeService dataScopeService
 ) : AuthenticatedControllerBase
 {
     // Typed projection for ShiftTemplate used by daily report — using a named record
@@ -104,6 +106,44 @@ public class ReportsController(
 
         query = await BranchQueryHelper.ApplyBranchFilterAsync(
             query, dbContext, storeId, branchId, includeChildBranches);
+
+        // Phạm vi quản lý theo chi nhánh / cấp dưới (giống EmployeesController).
+        if (!IsAdmin)
+        {
+            if (IsEmployee && !IsManager)
+            {
+                query = EmployeeId.HasValue
+                    ? query.Where(e => e.Id == EmployeeId.Value)
+                    : query.Where(_ => false);
+            }
+            else
+            {
+                var subordinateIds = await dataScopeService
+                    .GetSubordinateEmployeeIdsAsync(CurrentUserId, storeId);
+                if (subordinateIds.Count == 0)
+                    query = query.Where(_ => false);
+                else
+                    query = query.Where(e => subordinateIds.Contains(e.Id));
+
+                // Chi nhánh yêu cầu phải nằm trong phạm vi quản lý (nếu có).
+                if (branchId.HasValue)
+                {
+                    var managed = await dataScopeService
+                        .GetManagedBranchIdsAsync(CurrentUserId, storeId);
+                    if (managed.Count > 0)
+                    {
+                        var allowed = await BranchQueryHelper
+                            .GetBranchIdsIncludingChildrenAsync(
+                                dbContext, storeId, branchId.Value, includeChildBranches);
+                        allowed.IntersectWith(managed);
+                        if (allowed.Count == 0)
+                            query = query.Where(_ => false);
+                        else
+                            query = BranchQueryHelper.FilterByBranchIds(query, allowed);
+                    }
+                }
+            }
+        }
 
         var codeFilter = ReportsExportHelpers.ParseEmployeeCodes(employeeCodes);
         if (codeFilter is { Count: > 0 })

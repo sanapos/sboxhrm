@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'hrm/hrm_settings_mobile_kit.dart';
+import 'hrm_page_chrome.dart';
 import '../l10n/app_tr.dart';
 
 /// Một mục thống kê nhanh dùng cho [HrmStatBar].
@@ -9,7 +9,8 @@ class HrmStatItem {
     required this.icon,
     required this.value,
     required this.label,
-    required this.color,
+    this.color = HrmPageChrome.chip,
+    this.subtitle,
     this.onTap,
   });
 
@@ -17,22 +18,20 @@ class HrmStatItem {
   final String value;
   final String label;
   final Color color;
+  final String? subtitle;
   final VoidCallback? onTap;
 }
 
-/// Thanh chip "tổng kết nhanh" THỐNG NHẤT cho mọi màn:
-/// - Màn rộng (>= [wideBreakpoint]): các chip chia ĐỀU theo [Expanded].
-/// - Màn hẹp: cuộn ngang, mỗi chip rộng tối thiểu [minCardWidth].
-/// Mỗi chip dùng [HrmStatSummaryCard] để đồng nhất kích thước/typography.
+/// Thanh chip thống kê — chia đều chiều ngang, chiều cao gọn.
 class HrmStatBar extends StatelessWidget {
   const HrmStatBar({
     super.key,
     required this.items,
-    this.padding = const EdgeInsets.fromLTRB(16, 12, 16, 4),
-    this.gap = 10,
-    this.minCardWidth = 124,
+    this.padding = const EdgeInsets.fromLTRB(12, 6, 12, 4),
+    this.gap = 6,
+    this.minCardWidth = 120,
     this.wideBreakpoint = 560,
-    this.valueFontSize = 20,
+    this.valueFontSize = 14,
   });
 
   final List<HrmStatItem> items;
@@ -42,17 +41,19 @@ class HrmStatBar extends StatelessWidget {
   final double wideBreakpoint;
   final double valueFontSize;
 
-  Widget _card(HrmStatItem it) {
+  Widget _card(HrmStatItem it, {int index = 0}) {
+    final accent = HrmPageChrome.chipShade(index);
     final card = HrmStatSummaryCard(
       icon: it.icon,
       value: it.value,
       label: it.label,
-      color: it.color,
+      subtitle: it.subtitle,
+      color: accent,
       valueFontSize: valueFontSize,
     );
     if (it.onTap == null) return card;
     return InkWell(
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(10),
       onTap: it.onTap,
       child: card,
     );
@@ -65,42 +66,39 @@ class HrmStatBar extends StatelessWidget {
       padding: padding,
       child: LayoutBuilder(
         builder: (context, constraints) {
-          if (HrmSettingsMobileKit.active(context)) {
-            final cols = items.length <= 2 ? items.length : 2;
-            final gapW = gap;
-            final cellW = cols == 1
-                ? constraints.maxWidth
-                : (constraints.maxWidth - gapW) / cols;
-            return Wrap(
-              spacing: gapW,
-              runSpacing: gapW,
-              children: [
-                for (final it in items)
-                  SizedBox(width: cellW, child: _card(it)),
-              ],
-            );
-          }
-          final wide = constraints.maxWidth >= wideBreakpoint;
-          if (wide) {
-            return Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                for (var i = 0; i < items.length; i++) ...[
-                  if (i > 0) SizedBox(width: gap),
-                  Expanded(child: _card(items[i])),
+          final n = items.length;
+          final minRowWidth = n * 96.0 + gap * (n - 1);
+          final oneRow = n <= 1 ||
+              constraints.maxWidth >= minRowWidth ||
+              constraints.maxWidth >= wideBreakpoint ||
+              n <= 5 && constraints.maxWidth >= 480;
+          if (oneRow) {
+            return IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  for (var i = 0; i < n; i++) ...[
+                    if (i > 0) SizedBox(width: gap),
+                    Expanded(child: _card(items[i], index: i)),
+                  ],
                 ],
-              ],
+              ),
             );
           }
           return SingleChildScrollView(
             scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                for (var i = 0; i < items.length; i++) ...[
-                  if (i > 0) SizedBox(width: gap),
-                  SizedBox(width: minCardWidth, child: _card(items[i])),
+            child: IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  for (var i = 0; i < n; i++) ...[
+                    if (i > 0) SizedBox(width: gap),
+                    SizedBox(
+                        width: minCardWidth,
+                        child: _card(items[i], index: i)),
+                  ],
                 ],
-              ],
+              ),
             ),
           );
         },
@@ -109,14 +107,79 @@ class HrmStatBar extends StatelessWidget {
   }
 }
 
-/// Compact stat chip for HRM setup toolbars: icon → value → label (vertical).
+/// Chip trạng thái / nhãn — nền trắng, viền xanh, thấp gọn.
+class HrmBrandChip extends StatelessWidget {
+  const HrmBrandChip({
+    super.key,
+    required this.label,
+    this.icon,
+    this.selected = false,
+    this.dense = true,
+    this.onDeleted,
+  });
+
+  final String label;
+  final IconData? icon;
+  final bool selected;
+  final bool dense;
+  final VoidCallback? onDeleted;
+
+  @override
+  Widget build(BuildContext context) {
+    final border =
+        selected ? HrmPageChrome.chip : HrmPageChrome.chip.withValues(alpha: 0.5);
+    final fg = HrmPageChrome.chipDark;
+    final padH = dense ? 7.0 : 9.0;
+    final padV = dense ? 1.0 : 2.0;
+    final fontSize = dense ? 11.0 : 12.0;
+    final iconSize = dense ? 11.0 : 13.0;
+
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: padH, vertical: padV),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: border, width: selected ? 1.5 : 1),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          if (icon != null) ...[
+            Icon(icon, size: iconSize, color: fg),
+            SizedBox(width: dense ? 3 : 4),
+          ],
+          Text(
+            tr(label),
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: fontSize,
+              fontWeight: FontWeight.w600,
+              color: fg,
+              height: 1.15,
+            ),
+          ),
+          if (onDeleted != null) ...[
+            const SizedBox(width: 2),
+            InkWell(
+              onTap: onDeleted,
+              child: Icon(Icons.close, size: iconSize, color: fg),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// Compact stat chip — nền trắng, viền xanh, căn giữa, thấp.
 class HrmMiniStatChip extends StatelessWidget {
   const HrmMiniStatChip({
     super.key,
     required this.icon,
     required this.value,
     required this.label,
-    required this.color,
+    this.color = HrmPageChrome.chip,
     this.minWidth = 72,
   });
 
@@ -128,40 +191,43 @@ class HrmMiniStatChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final accent = HrmPageChrome.chip;
     return ConstrainedBox(
       constraints: BoxConstraints(minWidth: minWidth),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
         decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.08),
+          color: Colors.white,
           borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: accent.withValues(alpha: 0.45)),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, color: color, size: 16),
-            const SizedBox(height: 4),
+            Icon(icon, color: accent, size: 16),
+            const SizedBox(height: 3),
             Text(
               tr(value),
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.bold,
-                color: color,
+                color: HrmPageChrome.chipDark,
+                height: 1.1,
               ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 2),
             Text(
               tr(label),
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: 10,
                 height: 1.15,
-                color: color.withValues(alpha: 0.85),
+                color: HrmPageChrome.textMuted,
                 fontWeight: FontWeight.w500,
               ),
-              maxLines: 2,
+              maxLines: 1,
               overflow: TextOverflow.ellipsis,
               textAlign: TextAlign.center,
             ),
@@ -172,74 +238,89 @@ class HrmMiniStatChip extends StatelessWidget {
   }
 }
 
-/// Larger stat card for HRM setup summary rows (e.g. phụ cấp, lương).
+/// Thẻ KPI — nền trắng, viền xanh, layout ngang gọn (thấp hơn).
 class HrmStatSummaryCard extends StatelessWidget {
   const HrmStatSummaryCard({
     super.key,
     required this.icon,
     required this.value,
     required this.label,
-    required this.color,
-    this.valueFontSize = 20,
+    this.color = HrmPageChrome.chip,
+    this.subtitle,
+    this.valueFontSize = 15,
+    this.selected = false,
   });
 
   final IconData icon;
   final String value;
   final String label;
   final Color color;
+  final String? subtitle;
   final double valueFontSize;
+  final bool selected;
 
   @override
   Widget build(BuildContext context) {
+    final accent = HrmPageChrome.chip;
+    final border =
+        selected ? accent : accent.withValues(alpha: 0.45);
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withValues(alpha: 0.2)),
-        boxShadow: [
-          BoxShadow(
-            color: color.withValues(alpha: 0.08),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: border, width: selected ? 1.5 : 1),
       ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+      child: Row(
         children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(12),
+          Icon(icon, color: accent, size: 18),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  tr(label),
+                  style: const TextStyle(
+                    color: HrmPageChrome.textMuted,
+                    fontSize: 10,
+                    height: 1.1,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 1),
+                Text(
+                  tr(value),
+                  style: TextStyle(
+                    color: HrmPageChrome.chipDark,
+                    fontSize: valueFontSize,
+                    fontWeight: FontWeight.bold,
+                    height: 1.05,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                ),
+                if (subtitle != null && subtitle!.isNotEmpty) ...[
+                  Text(
+                    tr(subtitle!),
+                    style: TextStyle(
+                      color: HrmPageChrome.textMuted.withValues(alpha: 0.9),
+                      fontSize: 9,
+                      height: 1.1,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ],
             ),
-            child: Icon(icon, color: color, size: 22),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            tr(value),
-            style: TextStyle(
-              color: color,
-              fontSize: valueFontSize,
-              fontWeight: FontWeight.bold,
-            ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 4),
-          Text(
-            tr(label),
-            style: const TextStyle(
-              color: Color(0xFF71717A),
-              fontSize: 11,
-              height: 1.2,
-              fontWeight: FontWeight.w500,
-            ),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            textAlign: TextAlign.center,
           ),
         ],
       ),

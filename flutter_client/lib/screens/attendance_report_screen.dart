@@ -13,6 +13,7 @@ import '../utils/report_access_utils.dart';
 import '../utils/report_screen_helpers.dart';
 import '../utils/salary_profile_load_utils.dart';
 import '../utils/shift_records_calculator.dart';
+import '../widgets/hrm_mini_stat_chip.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../widgets/page_top_actions.dart';
 import '../widgets/pos/pos_theme.dart';
@@ -62,6 +63,7 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
   bool _empSortAscending = true;
 
   bool _loading = false;
+  bool _showOverviewPanel = true;
   String? _loadError;
 
   List<Map<String, dynamic>> _employees = [];
@@ -162,7 +164,10 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
       final auth = Provider.of<AuthProvider>(context, listen: false);
       final isEmployee = isEmployeeUserRole(auth.userRole);
 
-      await _branchFilter.ensureEmployees(_api);
+      await _branchFilter.ensureEmployees(
+        _api,
+        branchId: _teamView ? _selectedBranchId : null,
+      );
       var employees = List<Map<String, dynamic>>.from(_branchFilter.employees);
 
       if (isEmployee) {
@@ -788,55 +793,20 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
     ];
   }
 
-  /// Thanh KPI 1 hàng — thu gọn thay vì lưới 6 ô lớn.
+  /// Thanh KPI 1 hàng — nền trắng, viền xanh, thấp gọn.
   Widget _compactKpiBar(List<ReportKpiItem> items) {
     if (items.isEmpty) return const SizedBox.shrink();
-    return Container(
+    return ColoredBox(
       color: Colors.white,
-      padding: const EdgeInsets.fromLTRB(12, 8, 12, 6),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          children: [
-            for (var i = 0; i < items.length; i++) ...[
-              if (i > 0) const SizedBox(width: 8),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                decoration: BoxDecoration(
-                  color: items[i].color.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                      color: items[i].color.withValues(alpha: 0.25)),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(items[i].icon, size: 14, color: items[i].color),
-                    const SizedBox(width: 5),
-                    Text(
-                      tr(items[i].label),
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: PosTheme.textSecondary,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      tr(items[i].value),
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w800,
-                        color: items[i].color,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ],
-        ),
+      child: HrmStatBar(
+        items: [
+          for (final k in items)
+            HrmStatItem(icon: k.icon, label: k.label, value: k.value),
+        ],
+        padding: const EdgeInsets.fromLTRB(12, 6, 12, 4),
+        gap: 6,
+        valueFontSize: 14,
+        minCardWidth: 100,
       ),
     );
   }
@@ -978,172 +948,85 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
     final stdLabel = _stdWorkHours == _stdWorkHours.roundToDouble()
         ? '${_stdWorkHours.toInt()}h'
         : '${_stdWorkHours.toStringAsFixed(1)}h';
-    final items = <({String code, String label, Color bg, Color fg})>[
+    final items = <({String code, String label, Color fg})>[
       (
         code: 'X',
         label: 'Đủ công (≥ $pctLabel × $stdLabel)',
-        bg: PosTheme.primaryLight,
-        fg: PosTheme.primaryDark
+        fg: HrmPageChrome.chipDark
       ),
-      (
-        code: 'X/2',
-        label: 'Nửa công (< $pctLabel)',
-        bg: PosTheme.kiotBlueLight,
-        fg: PosTheme.kiotBlue
-      ),
-      (
-        code: 'V',
-        label: 'Vắng',
-        bg: const Color(0xFFFFEBEE),
-        fg: const Color(0xFFD32F2F)
-      ),
-      (
-        code: 'T',
-        label: 'Đi trễ',
-        bg: const Color(0xFFFFF3E0),
-        fg: const Color(0xFFE65100)
-      ),
-      (
-        code: 'S',
-        label: 'Về sớm',
-        bg: const Color(0xFFFFEBEE),
-        fg: const Color(0xFFC62828)
-      ),
-      (
-        code: '!',
-        label: 'Thiếu chấm',
-        bg: const Color(0xFFF4F6F8),
-        fg: PosTheme.textSecondary
-      ),
-      (
-        code: 'P',
-        label: 'Phép',
-        bg: PosTheme.primaryLight,
-        fg: PosTheme.primary
-      ),
-      (
-        code: 'C',
-        label: 'Chờ phép',
-        bg: const Color(0xFFFFF8E1),
-        fg: const Color(0xFFF9A825)
-      ),
-      (
-        code: 'N',
-        label: 'Nghỉ tuần',
-        bg: const Color(0xFFF3E8FF),
-        fg: PosTheme.serviceColor
-      ),
-      (
-        code: 'L',
-        label: 'Ngày lễ',
-        bg: const Color(0xFFFFF3E0),
-        fg: PosTheme.comboColor
-      ),
+      (code: 'X/2', label: 'Nửa công (< $pctLabel)', fg: HrmPageChrome.chip),
+      (code: 'V', label: 'Vắng', fg: HrmPageChrome.chipMid),
+      (code: 'T', label: 'Đi trễ', fg: HrmPageChrome.chipLight),
+      (code: 'S', label: 'Về sớm', fg: HrmPageChrome.chipSoft),
+      (code: '!', label: 'Thiếu chấm', fg: HrmPageChrome.chipMuted),
+      (code: 'P', label: 'Phép', fg: HrmPageChrome.chip),
+      (code: 'C', label: 'Chờ phép', fg: HrmPageChrome.chipSoft),
+      (code: 'N', label: 'Nghỉ tuần', fg: HrmPageChrome.chipMuted),
+      (code: 'L', label: 'Ngày lễ', fg: HrmPageChrome.chipMid),
     ];
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
+      padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
       child: Container(
-        padding: const EdgeInsets.all(10),
+        padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: PosTheme.border),
+          border: Border.all(color: HrmPageChrome.chip.withValues(alpha: 0.45)),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Container(
-                  width: 3,
-                  height: 14,
-                  decoration: BoxDecoration(
-                    color: PosTheme.primary,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Text(tr('Chú thích'),
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: PosTheme.textPrimary,
-                  ),
-                ),
-              ],
+            Text(
+              tr('Chú thích'),
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: HrmPageChrome.chipDark,
+              ),
             ),
-            const SizedBox(height: 10),
-            LayoutBuilder(
-              builder: (context, constraints) {
-                final w = constraints.maxWidth;
-                final cols = w >= 900
-                    ? 5
-                    : w >= 640
-                        ? 4
-                        : w >= 420
-                            ? 3
-                            : 2;
-                return GridView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: items.length,
-                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: cols,
-                    mainAxisExtent: 48,
-                    crossAxisSpacing: 8,
-                    mainAxisSpacing: 8,
+            const SizedBox(height: 6),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                for (final it in items)
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: HrmPageChrome.chip.withValues(alpha: 0.45),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          tr(it.code),
+                          style: TextStyle(
+                            color: it.fg,
+                            fontSize: it.code.length > 2 ? 10 : 11,
+                            fontWeight: FontWeight.w800,
+                            height: 1.1,
+                          ),
+                        ),
+                        const SizedBox(width: 5),
+                        Text(
+                          tr(it.label),
+                          style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: HrmPageChrome.textMuted,
+                            height: 1.1,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                  itemBuilder: (context, i) {
-                    final it = items[i];
-                    return Container(
-                      decoration: BoxDecoration(
-                        color: PosTheme.background,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: PosTheme.border),
-                      ),
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 32,
-                            height: 32,
-                            alignment: Alignment.center,
-                            decoration: BoxDecoration(
-                              color: it.bg,
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(
-                                color: it.fg.withValues(alpha: 0.22),
-                              ),
-                            ),
-                            child: Text(
-                              tr(it.code),
-                              style: TextStyle(
-                                color: it.fg,
-                                fontSize: it.code.length > 2 ? 10 : 12,
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              tr(it.label),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                color: PosTheme.textPrimary,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
-                );
-              },
+              ],
             ),
           ],
         ),
@@ -1195,52 +1078,58 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
               child: ListView(
                 physics: const AlwaysScrollableScrollPhysics(),
                 children: [
-                  ReportFilterSection(
-                    from: _from,
-                    to: _to,
-                    datePreset: _datePreset,
-                    onDateChanged: (f, t, p) => setState(() {
-                      _from = f;
-                      _to = t;
-                      _datePreset = p;
-                    }),
-                    statusFilter: _employeeDropdown(),
-                    statusSummary: _selectedEmployeeId != null
-                        ? 'NV đã chọn'
-                        : 'Bảng lịch chấm công',
-                    showTeamFilters: _teamView,
-                    branchFilter: _teamView ? _branchFilter : null,
-                    selectedBranchId: _selectedBranchId,
-                    onBranchChanged: (v) async {
-                      if (v != null) await _branchFilter.ensureEmployees(_api);
-                      if (mounted) {
-                        setState(() {
-                          _selectedBranchId = v;
-                          _page = 1;
-                        });
-                      }
-                    },
-                    empSearch: _empSearch,
-                    onEmpSearchChanged: (v) => setState(() {
-                      _empSearch = v;
-                      _page = 1;
-                    }),
-                    empSuggestions: _empSuggestions,
-                    onApply: () {
-                      setState(() => _page = 1);
-                      _load();
-                    },
-                    onClearFilters: _teamView
-                        ? () => setState(() {
-                              _empSearch = '';
-                              _selectedBranchId = null;
-                              _selectedEmployeeId = null;
-                              _page = 1;
-                            })
-                        : null,
+                  ReportCollapsibleChrome(
+                    expanded: _showOverviewPanel,
+                    onToggle: () => setState(
+                        () => _showOverviewPanel = !_showOverviewPanel),
+                    kpi: _compactKpiBar(_buildKpis()),
+                    filter: ReportFilterSection(
+                      embedded: true,
+                      from: _from,
+                      to: _to,
+                      datePreset: _datePreset,
+                      onDateChanged: (f, t, p) => setState(() {
+                        _from = f;
+                        _to = t;
+                        _datePreset = p;
+                      }),
+                      statusFilter: _employeeDropdown(),
+                      statusSummary: _selectedEmployeeId != null
+                          ? 'NV đã chọn'
+                          : 'Bảng lịch chấm công',
+                      showTeamFilters: _teamView,
+                      branchFilter: _teamView ? _branchFilter : null,
+                      selectedBranchId: _selectedBranchId,
+                      onBranchChanged: (v) async {
+                        await _branchFilter.ensureEmployees(_api, branchId: v);
+                        if (mounted) {
+                          setState(() {
+                            _selectedBranchId = v;
+                            _page = 1;
+                          });
+                        }
+                      },
+                      empSearch: _empSearch,
+                      onEmpSearchChanged: (v) => setState(() {
+                        _empSearch = v;
+                        _page = 1;
+                      }),
+                      empSuggestions: _empSuggestions,
+                      onApply: () {
+                        setState(() => _page = 1);
+                        _load();
+                      },
+                      onClearFilters: _teamView
+                          ? () => setState(() {
+                                _empSearch = '';
+                                _selectedBranchId = null;
+                                _selectedEmployeeId = null;
+                                _page = 1;
+                              })
+                          : null,
+                    ),
                   ),
                   reportLoadErrorBanner(_loadError),
-                  _compactKpiBar(_buildKpis()),
                   _calendarLegend(),
                   if (_loading)
                     const Padding(
@@ -1415,7 +1304,7 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
                           _dayCells['$keyId|${_fmtDate.format(d)}'];
                       return SizedBox(
                         width: dayW,
-                        height: 44,
+                        height: 36,
                         child: Center(child: _buildDayCell(cell)),
                       );
                     }),
@@ -1436,80 +1325,73 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
     final late = (cell['lateMinutes'] as int?) ?? 0;
     final early = (cell['earlyMinutes'] as int?) ?? 0;
 
-    Color bg;
     Color fg;
     String label;
+    var bordered = true;
 
     switch (st) {
       case 'present':
         if (late > 0) {
-          bg = const Color(0xFFFFF3E0);
-          fg = const Color(0xFFE65100);
+          fg = HrmPageChrome.chipLight;
           label = 'T$late';
         } else if (early > 0) {
-          bg = const Color(0xFFFFEBEE);
-          fg = const Color(0xFFC62828);
+          fg = HrmPageChrome.chipSoft;
           label = 'S$early';
         } else {
-          bg = PosTheme.primaryLight;
-          fg = PosTheme.primaryDark;
+          fg = HrmPageChrome.chipDark;
           label = 'X';
         }
         break;
       case 'halfDay':
-        bg = late > 0 ? const Color(0xFFFFF3E0) : PosTheme.kiotBlueLight;
-        fg = late > 0 ? const Color(0xFFE65100) : PosTheme.kiotBlue;
+        fg = late > 0 ? HrmPageChrome.chipLight : HrmPageChrome.chip;
         label = 'X/2';
         break;
       case 'missingPunch':
-        bg = PosTheme.background;
-        fg = PosTheme.textSecondary;
+        fg = HrmPageChrome.chipMuted;
         label = '!';
         break;
       case 'unpaidAbsent':
-        bg = const Color(0xFFFFEBEE);
-        fg = const Color(0xFFD32F2F);
+        fg = HrmPageChrome.chipMid;
         label = 'V';
         break;
       case 'approvedLeave':
-        bg = PosTheme.primaryLight;
-        fg = PosTheme.primary;
+        fg = HrmPageChrome.chip;
         label = 'P';
         break;
       case 'pendingLeave':
-        bg = const Color(0xFFFFF8E1);
-        fg = const Color(0xFFF9A825);
+        fg = HrmPageChrome.chipSoft;
         label = 'C';
         break;
       case 'weeklyOff':
-        bg = const Color(0xFFF3E8FF);
-        fg = PosTheme.serviceColor;
+        fg = HrmPageChrome.chipMuted;
         label = 'N';
         break;
       case 'holiday':
-        bg = const Color(0xFFFFF3E0);
-        fg = PosTheme.comboColor;
+        fg = HrmPageChrome.chipMid;
         label = 'L';
         break;
       case 'future':
-        bg = PosTheme.background;
         fg = const Color(0xFFA1A1AA);
         label = '·';
+        bordered = false;
         break;
       default:
-        bg = Colors.transparent;
         fg = Colors.grey;
         label = '';
+        bordered = false;
     }
 
     final tip = _buildCellTooltip(cell);
     final box = Container(
-      width: 36,
-      height: 34,
+      width: 34,
+      height: 26,
       alignment: Alignment.center,
       decoration: BoxDecoration(
-        color: bg,
+        color: bordered ? Colors.white : Colors.transparent,
         borderRadius: BorderRadius.circular(6),
+        border: bordered
+            ? Border.all(color: HrmPageChrome.chip.withValues(alpha: 0.45))
+            : null,
       ),
       child: Text(
         tr(label),
@@ -1517,6 +1399,7 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
           color: fg,
           fontSize: label.length > 3 ? 9 : 11,
           fontWeight: FontWeight.w700,
+          height: 1.0,
         ),
       ),
     );

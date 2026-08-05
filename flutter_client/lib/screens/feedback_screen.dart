@@ -50,9 +50,9 @@ class _FeedbackScreenState extends State<FeedbackScreen>
     'Closed': 'Đã đóng',
   };
   static const _statusColors = {
-    'Pending': Color(0xFFF59E0B),
+    'Pending': HrmPageChrome.chipLight,
     'InProgress': Color(0xFF3B82F6),
-    'Resolved': Color(0xFF10B981),
+    'Resolved': HrmPageChrome.chipMid,
     'Closed': Color(0xFF6B7280),
   };
   static const _categoryLabels = {
@@ -841,13 +841,13 @@ class _FeedbackScreenState extends State<FeedbackScreen>
                     Row(
                       children: [
                         const Icon(Icons.reply, size: 16,
-                            color: Color(0xFF059669)),
+                            color: HrmPageChrome.chip),
                         const SizedBox(width: 6),
                         Text(tr('${tr('Phản hồi')}${respondedByName != null ? ' từ $respondedByName' : ''}'),
                           style: const TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.w600,
-                              color: Color(0xFF059669)),
+                              color: HrmPageChrome.chip),
                         ),
                         if (respondedAt != null) ...[
                           const Spacer(),

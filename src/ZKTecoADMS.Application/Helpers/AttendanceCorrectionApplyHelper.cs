@@ -192,50 +192,106 @@ public sealed class AttendanceCorrectionApplyHelper(
                         correction.EmployeeUserId,
                         cancellationToken);
 
+                    var device = correction.StoreId.HasValue
+                        ? await deviceRepository.GetSingleAsync(
+                            d => d.StoreId == correction.StoreId.Value,
+                            cancellationToken: cancellationToken)
+                        : await deviceRepository.GetSingleAsync(
+                            d => true, cancellationToken: cancellationToken);
+                    var deviceId = device?.Id ?? Guid.Empty;
+                    if (deviceId == Guid.Empty)
+                        throw new InvalidOperationException(
+                            "Không tìm thấy thiết bị chấm công để ghi bản ghi mới");
+
                     DeviceUser? deviceUser = null;
                     if (employee != null)
                     {
                         deviceUser = await deviceUserRepository.GetSingleAsync(
-                            du => du.EmployeeId == employee.Id,
+                            du => du.EmployeeId == employee.Id && du.DeviceId == deviceId,
                             cancellationToken: cancellationToken);
                     }
 
-                    Guid deviceId;
-                    if (deviceUser != null)
+                    var empName = employee != null
+                        ? $"{employee.LastName} {employee.FirstName}".Trim()
+                        : (correction.EmployeeCode ?? "NV");
+                    if (string.IsNullOrWhiteSpace(empName))
+                        empName = correction.EmployeeCode ?? "NV";
+
+                    if (deviceUser == null)
                     {
-                        deviceId = deviceUser.DeviceId;
-                    }
-                    else
-                    {
-                        var device = correction.StoreId.HasValue
-                            ? await deviceRepository.GetSingleAsync(
-                                d => d.StoreId == correction.StoreId.Value,
-                                cancellationToken: cancellationToken)
-                            : await deviceRepository.GetSingleAsync(
-                                d => true, cancellationToken: cancellationToken);
-                        deviceId = device?.Id ?? Guid.Empty;
-                        if (deviceId == Guid.Empty)
-                            throw new InvalidOperationException(
-                                "Không tìm thấy thiết bị chấm công để ghi bản ghi mới");
+                        var preferredPin = (employee?.EmployeeCode ?? correction.EmployeeCode ?? "0").Trim();
+                        if (preferredPin.Length > 20)
+                            preferredPin = preferredPin[..20];
+                        if (string.IsNullOrWhiteSpace(preferredPin))
+                            preferredPin = "0";
+
+                        var pinOwner = await deviceUserRepository.GetSingleAsync(
+                            du => du.DeviceId == deviceId && du.Pin == preferredPin,
+                            cancellationToken: cancellationToken);
+
+                        if (pinOwner != null
+                            && employee != null
+                            && (pinOwner.EmployeeId == null || pinOwner.EmployeeId == employee.Id))
+                        {
+                            if (pinOwner.EmployeeId == null)
+                            {
+                                pinOwner.EmployeeId = employee.Id;
+                                if (string.IsNullOrWhiteSpace(pinOwner.Name))
+                                    pinOwner.Name = empName;
+                                await deviceUserRepository.UpdateAsync(pinOwner, cancellationToken);
+                            }
+                            deviceUser = pinOwner;
+                        }
+                        else if (pinOwner == null)
+                        {
+                            deviceUser = new DeviceUser
+                            {
+                                Id = Guid.NewGuid(),
+                                Pin = preferredPin,
+                                Name = empName.Length > 200 ? empName[..200] : empName,
+                                DeviceId = deviceId,
+                                EmployeeId = employee?.Id,
+                                IsActive = true,
+                                GroupId = 1,
+                                Privilege = 0,
+                                VerifyMode = 0,
+                                CreatedAt = DateTime.UtcNow
+                            };
+                            await deviceUserRepository.AddAsync(deviceUser, cancellationToken);
+                        }
+                        else
+                        {
+                            var onDevice = await deviceUserRepository.GetAllAsync(
+                                du => du.DeviceId == deviceId,
+                                cancellationToken: cancellationToken);
+                            var used = onDevice.Select(u => u.Pin).ToHashSet(StringComparer.Ordinal);
+                            var allocated = DeviceUserPinAllocator.AllocateSequential(used);
+                            deviceUser = new DeviceUser
+                            {
+                                Id = Guid.NewGuid(),
+                                Pin = allocated,
+                                Name = empName.Length > 200 ? empName[..200] : empName,
+                                DeviceId = deviceId,
+                                EmployeeId = employee?.Id,
+                                IsActive = true,
+                                GroupId = 1,
+                                Privilege = 0,
+                                VerifyMode = 0,
+                                CreatedAt = DateTime.UtcNow
+                            };
+                            await deviceUserRepository.AddAsync(deviceUser, cancellationToken);
+                        }
                     }
 
-                    var pin = deviceUser?.Pin ?? correction.EmployeeCode;
-                    if (string.IsNullOrEmpty(pin))
-                        pin = employee?.EmployeeCode ?? "0";
-
-                    string? workCode = null;
-                    if (employee != null)
-                    {
-                        var empName = $"{employee.LastName} {employee.FirstName}".Trim();
-                        workCode = empName.Length > 10 ? empName.Substring(0, 10) : empName;
-                    }
+                    var pin = deviceUser.Pin;
+                    string? workCode = empName.Length > 10 ? empName.Substring(0, 10) : empName;
 
                     var punchState = ResolvePunchState(correction.NewPunchType);
 
                     var newAttendance = new Attendance
                     {
                         Id = Guid.NewGuid(),
-                        EmployeeId = deviceUser?.Id ?? employee?.Id,
+                        EmployeeId = deviceUser.Id, // chỉ FK DeviceUser, không gán Employee.Id
                         DeviceId = deviceId,
                         PIN = pin,
                         AttendanceTime = correction.NewDate.Value.Date.Add(correction.NewTime.Value),

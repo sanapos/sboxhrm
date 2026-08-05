@@ -11,6 +11,8 @@ import 'package:excel/excel.dart' as excel_lib;
 import '../services/api_service.dart';
 import '../utils/number_formatter.dart';
 import '../utils/responsive_helper.dart';
+import '../utils/branch_filter_helper.dart';
+import '../widgets/hrm_collapsible_overview.dart';
 import '../widgets/hrm_responsive_list_layout.dart';
 import '../widgets/notification_overlay.dart';
 import 'package:provider/provider.dart';
@@ -27,11 +29,11 @@ class KpiScreen extends StatefulWidget {
 
 class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
   static const _accent = HrmPageChrome.primaryNavy;
-  static const _green = Color(0xFF10B981);
+  static const _green = HrmPageChrome.chipMid;
   static const _blue = Color(0xFF3B82F6);
-  static const _amber = Color(0xFFF59E0B);
+  static const _amber = HrmPageChrome.chipLight;
   static const _red = Color(0xFFEF4444);
-  static const _purple = Color(0xFF8B5CF6);
+  static const _purple = HrmPageChrome.chipSoft;
 
   final ApiService _api = ApiService();
   final _cur = NumberFormat('#,###', 'vi_VN');
@@ -63,6 +65,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
 
   // --- Mobile UI ---
   bool _showKpiFilters = false;
+  bool _showOverviewPanel = true;
   // --- Export ---
   final GlobalKey _dashboardKey = GlobalKey();
   final GlobalKey _targetsKey = GlobalKey();
@@ -204,13 +207,13 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
         decoration: BoxDecoration(
-          color: const Color(0xFF059669).withValues(alpha: 0.1),
+          color: HrmPageChrome.chip.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(6),
-          border: Border.all(color: const Color(0xFF059669).withValues(alpha: 0.25)),
+          border: Border.all(color: HrmPageChrome.chip.withValues(alpha: 0.25)),
         ),
         child: Text(tr('Đã tính'),
             style: TextStyle(
-                color: Color(0xFF059669),
+                color: HrmPageChrome.chip,
                 fontSize: 10,
                 fontWeight: FontWeight.w600)),
       );
@@ -487,7 +490,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
       decoration: BoxDecoration(
         color: active
             ? _accent.withValues(alpha: 0.12)
-            : (done ? const Color(0xFF059669).withValues(alpha: 0.08) : Colors.white),
+            : (done ? HrmPageChrome.chip.withValues(alpha: 0.08) : Colors.white),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
           color: active
@@ -499,7 +502,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
         mainAxisSize: MainAxisSize.min,
         children: [
           if (done)
-            const Icon(Icons.check_circle, size: 14, color: Color(0xFF059669))
+            const Icon(Icons.check_circle, size: 14, color: HrmPageChrome.chip)
           else
             Text(tr('${step + 1}'),
                 style: TextStyle(
@@ -520,7 +523,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
       width: 16,
       height: 2,
       margin: const EdgeInsets.symmetric(horizontal: 2),
-      color: active ? const Color(0xFF059669) : const Color(0xFFE4E4E7),
+      color: active ? HrmPageChrome.chip : const Color(0xFFE4E4E7),
     );
   }
 
@@ -693,12 +696,13 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
     );
   }
 
-  Widget _buildFilterSection(ThemeData theme, {List<Widget>? footerActions}) {
+  Widget _buildFilterSection(ThemeData theme,
+      {List<Widget>? footerActions, bool embeddedInOverview = false}) {
     final isMobile = Responsive.isMobile(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (isMobile)
+        if (isMobile && !embeddedInOverview)
           Material(
             color: Colors.white,
             borderRadius: BorderRadius.circular(10),
@@ -747,10 +751,10 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
               ),
             ),
           )
-        else
+        else if (!embeddedInOverview)
           _sectionLabel('Bộ lọc',
               subtitle: 'Chi nhánh, phòng ban, nhân viên'),
-        if (!isMobile || _showKpiFilters) ...[
+        if (embeddedInOverview || !isMobile || _showKpiFilters) ...[
           if (isMobile) const SizedBox(height: 8),
           _buildFilterRow(theme),
           if (_hasActiveFilters && isMobile)
@@ -784,7 +788,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
             Icon(Icons.filter_list_rounded,
                 size: 18, color: HrmPageChrome.textMuted),
             const SizedBox(width: 8),
-          if (_branches.isNotEmpty) ...[
+          if (BranchFilterHelper.showBranchFilter(_branches)) ...[
             Expanded(
               child: DropdownButtonFormField<String?>(
                 key: ValueKey('branch_$_filterBranchId'),
@@ -1319,7 +1323,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                       Text(tr('Tiến độ ngày: ${dayPct.toStringAsFixed(0)}%'),
                           style: const TextStyle(
                               fontSize: 11,
-                              color: Color(0xFFD97706),
+                              color: HrmPageChrome.chipDark,
                               fontWeight: FontWeight.w600)),
                     ]),
                     Row(mainAxisSize: MainAxisSize.min, children: [
@@ -1439,7 +1443,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                             if (behindSchedule)
                               Text(tr('Kỳ vọng: ${_cur.format(expectedValue)}'),
                                   style: const TextStyle(
-                                      color: Color(0xFFD97706), fontSize: 10)),
+                                      color: HrmPageChrome.chipDark, fontSize: 10)),
                           ]),
                     );
                   }
@@ -1520,7 +1524,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                               child: Container(
                                 width: 2,
                                 decoration: BoxDecoration(
-                                    color: const Color(0xFFD97706),
+                                    color: HrmPageChrome.chipDark,
                                     borderRadius: BorderRadius.circular(1)),
                               ),
                             ),
@@ -1551,7 +1555,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                                 Text(tr('Kỳ vọng: ${_cur.format(expectedValue)}'),
                                     textAlign: TextAlign.right,
                                     style: const TextStyle(
-                                        color: Color(0xFFD97706),
+                                        color: HrmPageChrome.chipDark,
                                         fontSize: 10)),
                             ],
                           )),
@@ -2528,13 +2532,13 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
   Color _periodStatusColor(int s) {
     switch (s) {
       case 0:
-        return const Color(0xFF059669);
+        return HrmPageChrome.chip;
       case 1:
         return const Color(0xFFB45309);
       case 2:
         return _accent;
       case 3:
-        return const Color(0xFF059669);
+        return HrmPageChrome.chip;
       default:
         return HrmPageChrome.textMuted;
     }
@@ -2787,17 +2791,24 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
       ),
       Padding(
         padding: EdgeInsets.symmetric(horizontal: hPad),
-        child: _buildFilterSection(theme),
-      ),
-      const SizedBox(height: 10),
-      Padding(
-        padding: EdgeInsets.symmetric(horizontal: hPad),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _sectionLabel('Thống kê nhanh'),
-            _buildTargetMiniStats(filtered, compact: isMobile),
-          ],
+        child: HrmCollapsibleOverview(
+          expanded: _showOverviewPanel,
+          onToggle: () =>
+              setState(() => _showOverviewPanel = !_showOverviewPanel),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _sectionLabel('Thống kê nhanh'),
+                  _buildTargetMiniStats(filtered, compact: isMobile),
+                ],
+              ),
+              const SizedBox(height: 10),
+              _buildFilterSection(theme, embeddedInOverview: true),
+            ],
+          ),
         ),
       ),
       const SizedBox(height: 8),

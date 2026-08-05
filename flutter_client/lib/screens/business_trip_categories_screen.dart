@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../widgets/pos/pos_theme.dart';
 
 import '../providers/permission_provider.dart';
 import '../services/api_service.dart';
@@ -7,7 +8,7 @@ import '../widgets/loading_widget.dart';
 import '../widgets/notification_overlay.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
-const _theme = Color(0xFF0EA5E9);
+const _theme = PosTheme.kiotBlue;
 
 /// Quản lý loại chi phí công tác (thêm / sửa tên / xóa).
 class BusinessTripCategoriesScreen extends StatefulWidget {

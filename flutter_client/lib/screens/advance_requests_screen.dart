@@ -12,10 +12,13 @@ import '../utils/number_formatter.dart';
 import '../widgets/loading_widget.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/hrm_page_chrome.dart';
+import '../widgets/hrm_mini_stat_chip.dart';
+import '../widgets/hrm_collapsible_overview.dart';
 import '../widgets/hrm_responsive_list_layout.dart';
 import '../widgets/notification_overlay.dart';
 import '../widgets/safe_layout_widgets.dart';
 import '../utils/responsive_helper.dart';
+import '../utils/branch_filter_helper.dart';
 import 'package:provider/provider.dart';
 import '../providers/permission_provider.dart';
 import '../providers/auth_provider.dart';
@@ -56,8 +59,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
   String _sortColumn = 'requestDate';
   bool _sortAscending = false;
 
-  // Mobile UI state
-  bool _showMobileSummary = false;
+  bool _showOverviewPanel = true;
 
   // Pagination
   int _currentPage = 1;
@@ -1249,7 +1251,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
     }
     switch (request.status) {
       case AdvanceRequestStatus.pending:
-        return const Color(0xFFF59E0B);
+        return HrmPageChrome.chipLight;
       case AdvanceRequestStatus.approved:
         return HrmPageChrome.primaryNavy;
       case AdvanceRequestStatus.rejected:
@@ -1399,18 +1401,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
         const SizedBox(width: 10),
         Expanded(
             child: Text(tr('Chi tiết ứng lương'), style: TextStyle(fontSize: 17))),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-          decoration: BoxDecoration(
-            color: statusColor.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Text(tr(statusLabel),
-              style: TextStyle(
-                  color: statusColor,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 12)),
-        ),
+        HrmBrandChip(label: statusLabel, icon: _getStatusIcon(request)),
       ],
     );
 
@@ -1902,48 +1893,25 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
   }
 
   List<Widget> _advancePageHeaderSections(bool isMobile) => [
-        if (isMobile) ...[
-          InkWell(
-            onTap: () =>
-                setState(() => _showMobileSummary = !_showMobileSummary),
-            borderRadius: BorderRadius.circular(8),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: Colors.blue.shade50,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.analytics_outlined,
-                      size: 16, color: Colors.blue.shade700),
-                  const SizedBox(width: 6),
-                  Text(tr('Tổng quan'),
-                      style: TextStyle(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 13,
-                          color: Colors.blue.shade700)),
-                  const Spacer(),
-                  Icon(
-                      _showMobileSummary
-                          ? Icons.expand_less
-                          : Icons.expand_more,
-                      size: 20,
-                      color: Colors.blue.shade700),
-                ],
-              ),
-            ),
-          ),
-          if (_showMobileSummary) ...[
-            const SizedBox(height: 8),
-            _buildStatsRow(),
-          ],
-        ] else
-          _buildStatsRow(),
-        const SizedBox(height: 12),
-        _buildFilters(),
+        _buildOverviewSection(),
         const SizedBox(height: 12),
       ];
+
+  Widget _buildOverviewSection() {
+    return HrmCollapsibleOverview(
+      expanded: _showOverviewPanel,
+      onToggle: () =>
+          setState(() => _showOverviewPanel = !_showOverviewPanel),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _buildStatsRow(),
+          const SizedBox(height: 10),
+          _buildFilters(),
+        ],
+      ),
+    );
+  }
 
   List<Widget> _advanceMobileSlivers() {
     if (_isLoading) {
@@ -1990,116 +1958,35 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
 
   // ── Stats Row ──
   Widget _buildStatsRow() {
-    final cards = [
-      (
-        label: _l10n.pending,
-        count: _pendingList.length,
-        amount: _sumAmount(_pendingList),
-        icon: Icons.hourglass_empty,
-        color: const Color(0xFFF59E0B)
-      ),
-      (
-        label: _l10n.pendingPayment,
-        count: _waitingPaymentList.length,
-        amount: _sumAmount(_waitingPaymentList),
-        icon: Icons.payment,
-        color: HrmPageChrome.primaryNavy
-      ),
-      (
-        label: _l10n.rejected,
-        count: _rejectedList.length,
-        amount: _sumAmount(_rejectedList),
-        icon: Icons.cancel,
-        color: const Color(0xFFEF4444)
-      ),
-      (
-        label: _l10n.paid,
-        count: _paidList.length,
-        amount: _sumAmount(_paidList),
-        icon: Icons.check_circle,
-        color: HrmPageChrome.primaryNavy
-      ),
-    ];
-    return LayoutBuilder(builder: (context, constraints) {
-      if (constraints.maxWidth < 500) {
-        return Column(
-          children: cards
-              .map((c) => Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: _buildStatCard(
-                        c.label, c.count, c.amount, c.icon, c.color,
-                        fullWidth: true),
-                  ))
-              .toList(),
-        );
-      }
-      return Row(
-        children: [
-          for (int i = 0; i < cards.length; i++) ...[
-            if (i > 0) const SizedBox(width: 12),
-            _buildStatCard(cards[i].label, cards[i].count, cards[i].amount,
-                cards[i].icon, cards[i].color),
-          ],
-        ],
-      );
-    });
-  }
-
-  Widget _buildStatCard(
-      String label, int count, double amount, IconData icon, Color color,
-      {bool fullWidth = false}) {
-    final content = Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withValues(alpha: 0.2)),
-        boxShadow: [
-          BoxShadow(
-              color: color.withValues(alpha: 0.08),
-              blurRadius: 8,
-              offset: const Offset(0, 2))
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(8)),
-            child: Icon(icon, size: 20, color: color),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(tr('$count'),
-                    style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: color)),
-                Text(tr(label),
-                    style: TextStyle(fontSize: 11, color: Colors.grey[600])),
-                const SizedBox(height: 2),
-                Text(
-                  tr(_currencyFormat.format(amount)),
-                  style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: color.withValues(alpha: 0.7)),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
+    final fmt = NumberFormat('#,##0', 'vi_VN');
+    return HrmStatBar(
+      items: [
+        HrmStatItem(
+          icon: Icons.hourglass_empty,
+          label: _l10n.pending,
+          value: '${_pendingList.length}',
+          subtitle: '${fmt.format(_sumAmount(_pendingList))}đ',
+        ),
+        HrmStatItem(
+          icon: Icons.payment,
+          label: _l10n.pendingPayment,
+          value: '${_waitingPaymentList.length}',
+          subtitle: '${fmt.format(_sumAmount(_waitingPaymentList))}đ',
+        ),
+        HrmStatItem(
+          icon: Icons.cancel,
+          label: _l10n.rejected,
+          value: '${_rejectedList.length}',
+          subtitle: '${fmt.format(_sumAmount(_rejectedList))}đ',
+        ),
+        HrmStatItem(
+          icon: Icons.check_circle,
+          label: _l10n.paid,
+          value: '${_paidList.length}',
+          subtitle: '${fmt.format(_sumAmount(_paidList))}đ',
+        ),
+      ],
     );
-    if (fullWidth) return content;
-    return Expanded(child: content);
   }
 
   // ── Filters ──
@@ -2179,7 +2066,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
       ),
     );
 
-    final branchDropdown = _branches.isNotEmpty
+    final branchDropdown = BranchFilterHelper.showBranchFilter(_branches)
         ? _buildDropdown<String?>(
             value: _selectedBranchId,
             width: isMobile ? 140 : 160,
@@ -2430,7 +2317,6 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
 
   // ── Mobile Card List ──
   Widget _buildAdvanceRequestMobileCard(AdvanceRequest r) {
-        final statusColor = _getStatusColor(r);
         return Padding(
           padding: const EdgeInsets.only(bottom: 10),
           child: Container(
@@ -2491,25 +2377,9 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                             ],
                           ),
                         ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                              color: statusColor.withValues(alpha: 0.12),
-                              borderRadius: BorderRadius.circular(12)),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(_getStatusIcon(r),
-                                  size: 12, color: statusColor),
-                              const SizedBox(width: 4),
-                              Text(tr(_getStatusLabel(r)),
-                                  style: TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.bold,
-                                      color: statusColor)),
-                            ],
-                          ),
+                        HrmBrandChip(
+                          label: _getStatusLabel(r),
+                          icon: _getStatusIcon(r),
                         ),
                       ],
                     ),
@@ -2580,7 +2450,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                                 if (r.status == AdvanceRequestStatus.pending &&
                                     _canCancelAdvance(r, p)) ...[
                                   const SizedBox(width: 6),
-                                  _miniBtn(Icons.block, const Color(0xFFF59E0B),
+                                  _miniBtn(Icons.block, HrmPageChrome.chipLight,
                                       'Hủy', () => _cancelRequest(r)),
                                 ],
                                 if (r.status == AdvanceRequestStatus.approved &&
@@ -2588,7 +2458,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                                     p.canApprove('AdvanceRequests')) ...[
                                   _miniBtn(
                                       Icons.undo,
-                                      const Color(0xFFF59E0B),
+                                      HrmPageChrome.chipLight,
                                       _l10n.reverseApproval,
                                       () => _undoApprove(r)),
                                   const SizedBox(width: 6),
@@ -2761,25 +2631,9 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                         ),
                       ),
                       DataCell(
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                              color: statusColor.withValues(alpha: 0.12),
-                              borderRadius: BorderRadius.circular(12)),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(_getStatusIcon(r),
-                                  size: 12, color: statusColor),
-                              const SizedBox(width: 4),
-                              Text(tr(_getStatusLabel(r)),
-                                  style: TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.bold,
-                                      color: statusColor)),
-                            ],
-                          ),
+                        HrmBrandChip(
+                          label: _getStatusLabel(r),
+                          icon: _getStatusIcon(r),
                         ),
                       ),
                       DataCell(Text(
@@ -2817,13 +2671,13 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
         if (r.status == AdvanceRequestStatus.pending &&
             _canCancelAdvance(r, p)) ...[
           const SizedBox(width: 4),
-          _miniBtn(Icons.block, const Color(0xFFF59E0B), 'Hủy',
+          _miniBtn(Icons.block, HrmPageChrome.chipLight, 'Hủy',
               () => _cancelRequest(r)),
         ],
         if (r.status == AdvanceRequestStatus.approved &&
             !r.isPaid &&
             p.canApprove('AdvanceRequests')) ...[
-          _miniBtn(Icons.undo, const Color(0xFFF59E0B), _l10n.reverseApproval,
+          _miniBtn(Icons.undo, HrmPageChrome.chipLight, _l10n.reverseApproval,
               () => _undoApprove(r)),
           const SizedBox(width: 4),
           _miniBtn(Icons.payment, HrmPageChrome.primaryNavy, _l10n.payment,

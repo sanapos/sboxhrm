@@ -10,7 +10,9 @@ import 'package:share_plus/share_plus.dart';
 import '../services/api_service.dart';
 import '../models/meal.dart';
 import '../utils/responsive_helper.dart';
+import '../utils/branch_filter_helper.dart';
 import '../widgets/notification_overlay.dart';
+import '../widgets/hrm_collapsible_overview.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../widgets/page_top_actions.dart';
 import 'package:provider/provider.dart';
@@ -70,6 +72,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
 
   // Common
   bool _isLoading = true;
+  bool _showOverviewPanel = true;
 
   static DateTime _getMonday(DateTime date) {
     return date.subtract(Duration(days: date.weekday - 1));
@@ -751,7 +754,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                           Text(tr(cat),
                               style: const TextStyle(
                                   fontWeight: FontWeight.w600,
-                                  color: Color(0xFF0284C7),
+                                  color: HrmPageChrome.chip,
                                   fontSize: 13)),
                           const Spacer(),
                           GestureDetector(
@@ -776,7 +779,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                                   ? 'Bỏ chọn'
                                   : 'Chọn hết'),
                               style: const TextStyle(
-                                  fontSize: 12, color: Color(0xFF0284C7)),
+                                  fontSize: 12, color: HrmPageChrome.chip),
                             ),
                           ),
                         ],
@@ -1036,7 +1039,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                         Text(tr(cat),
                             style: const TextStyle(
                                 fontWeight: FontWeight.w600,
-                                color: Color(0xFF0284C7),
+                                color: HrmPageChrome.chip,
                                 fontSize: 13)),
                         const Spacer(),
                         GestureDetector(
@@ -1060,7 +1063,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                                 ? 'Bỏ chọn'
                                 : 'Chọn hết'),
                             style: const TextStyle(
-                                fontSize: 12, color: Color(0xFF0284C7)),
+                                fontSize: 12, color: HrmPageChrome.chip),
                           ),
                         ),
                       ]),
@@ -1379,7 +1382,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                                       Text(tr(catEntry.key),
                                           style: const TextStyle(
                                               fontWeight: FontWeight.bold,
-                                              color: Color(0xFF0284C7))),
+                                              color: HrmPageChrome.chip)),
                                       const SizedBox(width: 8),
                                       Text(tr('(${catEntry.value.length})'),
                                           style: const TextStyle(
@@ -1493,7 +1496,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                             .length;
                         return ListTile(
                           leading: const Icon(Icons.folder_outlined,
-                              color: Color(0xFF0284C7)),
+                              color: HrmPageChrome.chip),
                           title: Text(tr(cat)),
                           subtitle: Text(tr('$dishCount món'),
                               style: const TextStyle(fontSize: 12)),
@@ -1547,7 +1550,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                         value: '__new__',
                         child: Text(tr('+ Thêm nhóm mới...'),
                             style: TextStyle(
-                                color: Color(0xFF0284C7),
+                                color: HrmPageChrome.chip,
                                 fontWeight: FontWeight.w500))),
                   ],
                   onChanged: (v) {
@@ -1692,12 +1695,12 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
 
   Color _sessionColor(String sessionId) {
     const colors = [
-      Color(0xFF10B981),
+      HrmPageChrome.chipMid,
       Color(0xFF3B82F6),
-      Color(0xFFF59E0B),
-      Color(0xFF8B5CF6),
+      HrmPageChrome.chipLight,
+      HrmPageChrome.chipSoft,
       Color(0xFFEF4444),
-      Color(0xFF06B6D4),
+      HrmPageChrome.chipSoft,
     ];
     final idx = _sessions.indexWhere((s) => s.id == sessionId);
     return colors[(idx < 0 ? 0 : idx) % colors.length];
@@ -1821,6 +1824,18 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
     );
   }
 
+  Widget _buildMealOverviewSection({required Widget child}) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      child: HrmCollapsibleOverview(
+        expanded: _showOverviewPanel,
+        onToggle: () =>
+            setState(() => _showOverviewPanel = !_showOverviewPanel),
+        child: child,
+      ),
+    );
+  }
+
   // ==================== TAB 1: DASHBOARD ====================
 
   Widget _buildDashboardTab() {
@@ -1848,97 +1863,108 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
     return RefreshIndicator(
       onRefresh: _loadEstimate,
       child: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(0, 0, 0, 16),
         children: [
-          // Date header
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 4),
-              child: Row(
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.chevron_left),
-                    tooltip: tr('Ngày trước'),
-                    onPressed: () {
-                      setState(() => _selectedDate =
-                          _selectedDate.subtract(const Duration(days: 1)));
-                      _loadCurrentTab();
-                    },
-                  ),
-                  Expanded(
-                    child: Column(
+          _buildMealOverviewSection(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Row(
                       children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Icon(Icons.calendar_today,
-                                size: 16, color: Color(0xFF0284C7)),
-                            const SizedBox(width: 6),
-                            Flexible(
-                              child: Text(
-                                tr(DateFormat('EEEE, dd/MM/yyyy', 'vi')
-                                    .format(summary.date)),
-                                style: const TextStyle(
-                                    fontWeight: FontWeight.bold),
-                                textAlign: TextAlign.center,
-                              ),
-                            ),
-                          ],
+                        IconButton(
+                          icon: const Icon(Icons.chevron_left),
+                          tooltip: tr('Ngày trước'),
+                          onPressed: () {
+                            setState(() => _selectedDate =
+                                _selectedDate.subtract(const Duration(days: 1)));
+                            _loadCurrentTab();
+                          },
                         ),
-                        const SizedBox(height: 2),
-                        Text(tr('Ước tính: ${summary.totalEstimated} | Thực tế: ${summary.totalActual}'),
-                          style:
-                              const TextStyle(color: Colors.grey, fontSize: 12),
+                        Expanded(
+                          child: Column(
+                            children: [
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  const Icon(Icons.calendar_today,
+                                      size: 16, color: HrmPageChrome.chip),
+                                  const SizedBox(width: 6),
+                                  Flexible(
+                                    child: Text(
+                                      tr(DateFormat('EEEE, dd/MM/yyyy', 'vi')
+                                          .format(summary.date)),
+                                      style: const TextStyle(
+                                          fontWeight: FontWeight.bold),
+                                      textAlign: TextAlign.center,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 2),
+                              Text(tr('Ước tính: ${summary.totalEstimated} | Thực tế: ${summary.totalActual}'),
+                                style: const TextStyle(
+                                    color: Colors.grey, fontSize: 12),
+                              ),
+                            ],
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.chevron_right),
+                          tooltip: tr('Ngày sau'),
+                          onPressed: () {
+                            setState(() => _selectedDate =
+                                _selectedDate.add(const Duration(days: 1)));
+                            _loadCurrentTab();
+                          },
                         ),
                       ],
                     ),
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.chevron_right),
-                    tooltip: tr('Ngày sau'),
-                    onPressed: () {
-                      setState(() => _selectedDate =
-                          _selectedDate.add(const Duration(days: 1)));
-                      _loadCurrentTab();
-                    },
-                  ),
-                ],
-              ),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _summaryCard(
+                        'Ước tính',
+                        summary.totalEstimated.toString(),
+                        Icons.people,
+                        const Color(0xFF3B82F6),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _summaryCard(
+                        'Thực ăn',
+                        summary.totalActual.toString(),
+                        Icons.restaurant,
+                        HrmPageChrome.chipMid,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _summaryCard(
+                        'Còn lại',
+                        (summary.totalEstimated - summary.totalActual)
+                            .toString(),
+                        Icons.hourglass_bottom,
+                        HrmPageChrome.chipLight,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
           ),
           const SizedBox(height: 16),
-          // Overall summary cards
-          Row(
-            children: [
-              Expanded(
-                child: _summaryCard(
-                  'Ước tính',
-                  summary.totalEstimated.toString(),
-                  Icons.people,
-                  const Color(0xFF3B82F6),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _summaryCard(
-                  'Thực ăn',
-                  summary.totalActual.toString(),
-                  Icons.restaurant,
-                  const Color(0xFF10B981),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _summaryCard(
-                  'Còn lại',
-                  (summary.totalEstimated - summary.totalActual).toString(),
-                  Icons.hourglass_bottom,
-                  const Color(0xFFF59E0B),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 24),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
           // Today's menu section
           _buildTodayMenuSection(),
           const SizedBox(height: 24),
@@ -1946,6 +1972,9 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           const SizedBox(height: 12),
           ...summary.sessions.map(_buildSessionCard),
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -2000,7 +2029,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
     return Card(
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: const BorderSide(color: Color(0xFF0284C7), width: 1),
+        side: const BorderSide(color: HrmPageChrome.chip, width: 1),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -2009,7 +2038,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
             width: double.infinity,
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: const BoxDecoration(
-              color: Color(0xFF0284C7),
+              color: HrmPageChrome.chip,
               borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
             ),
             child: Row(
@@ -2038,14 +2067,14 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                               horizontal: 8, vertical: 3),
                           decoration: BoxDecoration(
                             color:
-                                const Color(0xFF0284C7).withValues(alpha: 0.1),
+                                HrmPageChrome.chip.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(
                             tr(menu.mealSessionName ?? 'Buổi ăn'),
                             style: const TextStyle(
                                 fontWeight: FontWeight.w600,
-                                color: Color(0xFF0284C7),
+                                color: HrmPageChrome.chip,
                                 fontSize: 13),
                           ),
                         ),
@@ -2070,7 +2099,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                                 width: 6,
                                 height: 6,
                                 decoration: const BoxDecoration(
-                                    color: Color(0xFF10B981),
+                                    color: HrmPageChrome.chipMid,
                                     shape: BoxShape.circle),
                               ),
                               const SizedBox(width: 10),
@@ -2083,14 +2112,14 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                                   padding: const EdgeInsets.symmetric(
                                       horizontal: 6, vertical: 2),
                                   decoration: BoxDecoration(
-                                    color: const Color(0xFF10B981)
+                                    color: HrmPageChrome.chipMid
                                         .withValues(alpha: 0.08),
                                     borderRadius: BorderRadius.circular(6),
                                   ),
                                   child: Text(tr(item.category!),
                                       style: const TextStyle(
                                           fontSize: 11,
-                                          color: Color(0xFF10B981),
+                                          color: HrmPageChrome.chipMid,
                                           fontWeight: FontWeight.w500)),
                                 ),
                             ],
@@ -2143,7 +2172,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                 padding: const EdgeInsets.only(top: 4),
                 child: Text(tr('Giá: ${_formatCurrency(est.pricePerMeal)}/suất'),
                     style: const TextStyle(
-                        color: Color(0xFFF59E0B), fontSize: 13)),
+                        color: HrmPageChrome.chipLight, fontSize: 13)),
               ),
             const SizedBox(height: 12),
             ClipRRect(
@@ -2153,24 +2182,24 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                 minHeight: 12,
                 backgroundColor: Colors.grey[200],
                 valueColor: AlwaysStoppedAnimation(percent < 0.7
-                    ? const Color(0xFF10B981)
-                    : const Color(0xFFF59E0B)),
+                    ? HrmPageChrome.chipMid
+                    : HrmPageChrome.chipLight),
               ),
             ),
             const SizedBox(height: 8),
             Row(
               children: [
                 _miniStat('Đăng ký', est.registeredCount.toString(),
-                    const Color(0xFF8B5CF6)),
+                    HrmPageChrome.chipSoft),
                 const SizedBox(width: 12),
                 _miniStat('Ước tính', est.estimatedCount.toString(),
                     const Color(0xFF3B82F6)),
                 const SizedBox(width: 12),
                 _miniStat('Thực tế', est.actualCount.toString(),
-                    const Color(0xFF10B981)),
+                    HrmPageChrome.chipMid),
                 const SizedBox(width: 12),
                 _miniStat(
-                    'Còn', est.remaining.toString(), const Color(0xFFF59E0B)),
+                    'Còn', est.remaining.toString(), HrmPageChrome.chipLight),
               ],
             ),
             // Today's menu inline
@@ -2180,14 +2209,14 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                   style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
-                      color: Color(0xFF0284C7))),
+                      color: HrmPageChrome.chip)),
               const SizedBox(height: 4),
               ...todayMenus.expand((menu) => menu.items.map((item) => Padding(
                     padding: const EdgeInsets.only(left: 8, top: 2),
                     child: Row(
                       children: [
                         const Icon(Icons.circle,
-                            size: 5, color: Color(0xFF10B981)),
+                            size: 5, color: HrmPageChrome.chipMid),
                         const SizedBox(width: 6),
                         Text(tr(item.dishName),
                             style: const TextStyle(fontSize: 13)),
@@ -2228,77 +2257,79 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
         .canCreate('Meal');
     return Column(
       children: [
-        // Filters
-        Padding(
-          padding: const EdgeInsets.all(12),
-          child: Row(
+        _buildMealOverviewSection(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Expanded(
-                child: InputDecorator(
-                  decoration: InputDecoration(
-                      labelText: tr('Ngày'),
-                      border: OutlineInputBorder(),
-                      contentPadding:
-                          EdgeInsets.symmetric(horizontal: 12, vertical: 8)),
-                  child: InkWell(
-                    onTap: _pickDate,
-                    child: Text(tr(DateFormat('dd/MM/yyyy').format(_selectedDate))),
+              Row(
+                children: [
+                  Expanded(
+                    child: InputDecorator(
+                      decoration: InputDecoration(
+                          labelText: tr('Ngày'),
+                          border: OutlineInputBorder(),
+                          contentPadding: EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 8)),
+                      child: InkWell(
+                        onTap: _pickDate,
+                        child: Text(
+                            tr(DateFormat('dd/MM/yyyy').format(_selectedDate))),
+                      ),
+                    ),
                   ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: DropdownButtonFormField<String?>(
-                  initialValue: _filterSessionId,
-                  decoration: InputDecoration(
-                      labelText: tr('Buổi ăn'),
-                      border: OutlineInputBorder(),
-                      contentPadding:
-                          EdgeInsets.symmetric(horizontal: 12, vertical: 8)),
-                  items: [
-                    DropdownMenuItem(value: null, child: Text(tr('Tất cả'))),
-                    ..._sessions.map((s) =>
-                        DropdownMenuItem(value: s.id, child: Text(tr(s.name)))),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: DropdownButtonFormField<String?>(
+                      initialValue: _filterSessionId,
+                      decoration: InputDecoration(
+                          labelText: tr('Buổi ăn'),
+                          border: OutlineInputBorder(),
+                          contentPadding: EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 8)),
+                      items: [
+                        DropdownMenuItem(
+                            value: null, child: Text(tr('Tất cả'))),
+                        ..._sessions.map((s) => DropdownMenuItem(
+                            value: s.id, child: Text(tr(s.name)))),
+                      ],
+                      onChanged: (v) {
+                        setState(() {
+                          _filterSessionId = v;
+                          _currentPage = 1;
+                        });
+                        _loadRecords();
+                      },
+                    ),
+                  ),
+                  if (canManage) ...[
+                    const SizedBox(width: 8),
+                    IconButton.filled(
+                      icon: const Icon(Icons.add),
+                      tooltip: tr('Thêm chấm cơm'),
+                      onPressed: _showAddRecordDialog,
+                    ),
                   ],
-                  onChanged: (v) {
-                    setState(() {
-                      _filterSessionId = v;
-                      _currentPage = 1;
-                    });
-                    _loadRecords();
-                  },
-                ),
+                ],
               ),
-              if (canManage) ...[
-                const SizedBox(width: 8),
-                IconButton.filled(
-                  icon: const Icon(Icons.add),
-                  tooltip: tr('Thêm chấm cơm'),
-                  onPressed: _showAddRecordDialog,
+              const SizedBox(height: 8),
+              TextField(
+                decoration: InputDecoration(
+                  hintText: tr('Tìm theo tên nhân viên...'),
+                  prefixIcon: const Icon(Icons.search, size: 20),
+                  border: const OutlineInputBorder(),
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  isDense: true,
+                  suffixIcon: _recordSearch.isNotEmpty
+                      ? IconButton(
+                          icon: const Icon(Icons.clear, size: 18),
+                          onPressed: () => setState(() => _recordSearch = ''),
+                        )
+                      : null,
                 ),
-              ],
+                onChanged: (v) => setState(() => _recordSearch = v),
+              ),
             ],
-          ),
-        ),
-        // Search
-        Padding(
-          padding: const EdgeInsets.fromLTRB(12, 0, 12, 4),
-          child: TextField(
-            decoration: InputDecoration(
-              hintText: tr('Tìm theo tên nhân viên...'),
-              prefixIcon: const Icon(Icons.search, size: 20),
-              border: const OutlineInputBorder(),
-              contentPadding:
-                  const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              isDense: true,
-              suffixIcon: _recordSearch.isNotEmpty
-                  ? IconButton(
-                      icon: const Icon(Icons.clear, size: 18),
-                      onPressed: () => setState(() => _recordSearch = ''),
-                    )
-                  : null,
-            ),
-            onChanged: (v) => setState(() => _recordSearch = v),
           ),
         ),
         // Record count
@@ -2429,108 +2460,106 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
   Widget _buildSummaryTab() {
     return Column(
       children: [
-        // Date range filter
-        Padding(
-          padding: const EdgeInsets.all(12),
-          child: Row(
+        _buildMealOverviewSection(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Expanded(
-                child: InkWell(
-                  onTap: _pickSummaryRange,
-                  child: InputDecorator(
-                    decoration: InputDecoration(
-                        labelText: tr('Khoảng thời gian'),
-                        border: OutlineInputBorder(),
-                        contentPadding:
-                            EdgeInsets.symmetric(horizontal: 12, vertical: 8)),
-                    child: Text(
-                      tr('${DateFormat('dd/MM/yyyy').format(_summaryFrom)} - ${DateFormat('dd/MM/yyyy').format(_summaryTo)}'),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              FilledButton.icon(
-                icon: const Icon(Icons.search),
-                label: Text(tr('Xem')),
-                onPressed: _loadEmployeeSummary,
-              ),
-            ],
-          ),
-        ),
-        // Search
-        Padding(
-          padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-          child:
-              Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            TextField(
-              decoration: InputDecoration(
-                hintText: tr('Tìm theo tên / mã nhân viên...'),
-                prefixIcon: const Icon(Icons.search, size: 20),
-                border: const OutlineInputBorder(),
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                isDense: true,
-                suffixIcon: _summarySearch.isNotEmpty
-                    ? IconButton(
-                        icon: const Icon(Icons.clear, size: 18),
-                        onPressed: () => setState(() => _summarySearch = ''),
-                      )
-                    : null,
-              ),
-              onChanged: (v) => setState(() => _summarySearch = v),
-            ),
-            if (_branches.isNotEmpty) ...[
-              const SizedBox(height: 6),
-              Container(
-                height: 40,
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF8FAFC),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: const Color(0xFFE4E4E7)),
-                ),
-                child: Row(children: [
-                  const Icon(Icons.account_tree_outlined,
-                      size: 16, color: Color(0xFF6B7280)),
-                  const SizedBox(width: 8),
+              Row(
+                children: [
                   Expanded(
-                    child: DropdownButtonHideUnderline(
-                      child: DropdownButton<String?>(
-                        value: _selectedBranchId,
-                        isExpanded: true,
-                        isDense: true,
-                        style: const TextStyle(
-                            fontSize: 13, color: Color(0xFF111827)),
-                        icon: const Icon(Icons.keyboard_arrow_down,
-                            size: 18, color: Color(0xFF9CA3AF)),
-                        items: [
-                          DropdownMenuItem<String?>(
-                              value: null,
-                              child: Text(tr('Tất cả chi nhánh'),
-                                  style: TextStyle(fontSize: 13))),
-                          ..._branches.map((b) => DropdownMenuItem<String?>(
-                              value: b['id']?.toString(),
-                              child: Text(tr(b['name']?.toString() ?? ''),
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(fontSize: 13)))),
-                        ],
-                        onChanged: (v) => setState(() => _selectedBranchId = v),
+                    child: InkWell(
+                      onTap: _pickSummaryRange,
+                      child: InputDecorator(
+                        decoration: InputDecoration(
+                            labelText: tr('Khoảng thời gian'),
+                            border: OutlineInputBorder(),
+                            contentPadding: EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 8)),
+                        child: Text(
+                          tr('${DateFormat('dd/MM/yyyy').format(_summaryFrom)} - ${DateFormat('dd/MM/yyyy').format(_summaryTo)}'),
+                        ),
                       ),
                     ),
                   ),
-                  if (_selectedBranchId != null)
-                    InkWell(
-                      onTap: () => setState(() => _selectedBranchId = null),
-                      child: const Padding(
-                          padding: EdgeInsets.all(4),
-                          child: Icon(Icons.close,
-                              size: 14, color: Color(0xFF9CA3AF))),
-                    ),
-                ]),
+                  const SizedBox(width: 12),
+                  FilledButton.icon(
+                    icon: const Icon(Icons.search),
+                    label: Text(tr('Xem')),
+                    onPressed: _loadEmployeeSummary,
+                  ),
+                ],
               ),
+              const SizedBox(height: 8),
+              TextField(
+                decoration: InputDecoration(
+                  hintText: tr('Tìm theo tên / mã nhân viên...'),
+                  prefixIcon: const Icon(Icons.search, size: 20),
+                  border: const OutlineInputBorder(),
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  isDense: true,
+                  suffixIcon: _summarySearch.isNotEmpty
+                      ? IconButton(
+                          icon: const Icon(Icons.clear, size: 18),
+                          onPressed: () => setState(() => _summarySearch = ''),
+                        )
+                      : null,
+                ),
+                onChanged: (v) => setState(() => _summarySearch = v),
+              ),
+              if (BranchFilterHelper.showBranchFilter(_branches)) ...[
+                const SizedBox(height: 6),
+                Container(
+                  height: 40,
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFFE4E4E7)),
+                  ),
+                  child: Row(children: [
+                    const Icon(Icons.account_tree_outlined,
+                        size: 16, color: Color(0xFF6B7280)),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<String?>(
+                          value: _selectedBranchId,
+                          isExpanded: true,
+                          isDense: true,
+                          style: const TextStyle(
+                              fontSize: 13, color: Color(0xFF111827)),
+                          icon: const Icon(Icons.keyboard_arrow_down,
+                              size: 18, color: Color(0xFF9CA3AF)),
+                          items: [
+                            DropdownMenuItem<String?>(
+                                value: null,
+                                child: Text(tr('Tất cả chi nhánh'),
+                                    style: TextStyle(fontSize: 13))),
+                            ..._branches.map((b) => DropdownMenuItem<String?>(
+                                value: b['id']?.toString(),
+                                child: Text(tr(b['name']?.toString() ?? ''),
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(fontSize: 13)))),
+                          ],
+                          onChanged: (v) =>
+                              setState(() => _selectedBranchId = v),
+                        ),
+                      ),
+                    ),
+                    if (_selectedBranchId != null)
+                      InkWell(
+                        onTap: () => setState(() => _selectedBranchId = null),
+                        child: const Padding(
+                            padding: EdgeInsets.all(4),
+                            child: Icon(Icons.close,
+                                size: 14, color: Color(0xFF9CA3AF))),
+                      ),
+                  ]),
+                ),
+              ],
             ],
-          ]),
+          ),
         ),
         // Summary list
         Expanded(
@@ -2593,7 +2622,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                                     children: [
                                       CircleAvatar(
                                         backgroundColor:
-                                            const Color(0xFF0284C7),
+                                            HrmPageChrome.chip,
                                         child: Text(
                                           tr(s.employeeName.isNotEmpty
                                               ? s.employeeName[0].toUpperCase()
@@ -2630,7 +2659,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                                                     .withValues(alpha: 0.15),
                                                 valueColor:
                                                     const AlwaysStoppedAnimation(
-                                                        Color(0xFF10B981)),
+                                                        HrmPageChrome.chipMid),
                                               ),
                                             ),
                                             const SizedBox(height: 2),
@@ -2654,7 +2683,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                                                 fontSize: 15,
                                                 color: s.balance > 0
                                                     ? Colors.red
-                                                    : const Color(0xFF10B981)),
+                                                    : HrmPageChrome.chipMid),
                                           ),
                                           Text(
                                             tr(s.balance > 0
@@ -2688,7 +2717,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                     style: const TextStyle(fontWeight: FontWeight.bold)),
                 Text(tr('Suất: ${_employeeSummaries.fold<int>(0, (sum, e) => sum + e.totalMeals)}'),
                   style: const TextStyle(
-                      fontWeight: FontWeight.bold, color: Color(0xFF0284C7)),
+                      fontWeight: FontWeight.bold, color: HrmPageChrome.chip),
                 ),
                 Text(tr('Nợ: ${_formatCurrency(_employeeSummaries.fold<double>(0, (sum, e) => sum + e.balance))}'),
                   style: const TextStyle(
@@ -2715,7 +2744,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
         itemBuilder: (_, i) {
           final d = emp.details[i];
           return ListTile(
-            leading: const Icon(Icons.restaurant, color: Color(0xFF10B981)),
+            leading: const Icon(Icons.restaurant, color: HrmPageChrome.chipMid),
             title: Text(tr(d.mealSessionName)),
             subtitle: Text(tr(DateFormat('dd/MM/yyyy').format(d.date))),
             trailing: Text(tr(DateFormat('HH:mm').format(d.mealTime))),
@@ -2898,7 +2927,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                                 borderRadius: BorderRadius.circular(12),
                                 side: today
                                     ? const BorderSide(
-                                        color: Color(0xFF0284C7), width: 1.5)
+                                        color: HrmPageChrome.chip, width: 1.5)
                                     : BorderSide.none,
                               ),
                               child: Theme(
@@ -2920,7 +2949,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                                         padding: const EdgeInsets.symmetric(
                                             horizontal: 8, vertical: 2),
                                         decoration: BoxDecoration(
-                                          color: const Color(0xFF0284C7)
+                                          color: HrmPageChrome.chip
                                               .withValues(alpha: 0.1),
                                           borderRadius:
                                               BorderRadius.circular(12),
@@ -2928,7 +2957,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                                         child: Text(tr('${dayMenus.length} buổi'),
                                             style: const TextStyle(
                                                 fontSize: 11,
-                                                color: Color(0xFF0284C7),
+                                                color: HrmPageChrome.chip,
                                                 fontWeight: FontWeight.w500)),
                                       ),
                                     ],
@@ -2954,7 +2983,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
       width: 40,
       height: 40,
       decoration: BoxDecoration(
-        color: isToday ? const Color(0xFF0284C7) : Colors.grey[200],
+        color: isToday ? HrmPageChrome.chip : Colors.grey[200],
         borderRadius: BorderRadius.circular(10),
       ),
       child: Center(
@@ -2986,21 +3015,21 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
             Container(
               padding: const EdgeInsets.fromLTRB(12, 8, 4, 6),
               decoration: BoxDecoration(
-                color: const Color(0xFF0284C7).withValues(alpha: 0.06),
+                color: HrmPageChrome.chip.withValues(alpha: 0.06),
                 borderRadius:
                     const BorderRadius.vertical(top: Radius.circular(10)),
               ),
               child: Row(
                 children: [
                   const Icon(Icons.restaurant,
-                      size: 18, color: Color(0xFF0284C7)),
+                      size: 18, color: HrmPageChrome.chip),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       tr(menu.mealSessionName ?? 'Buổi ăn'),
                       style: const TextStyle(
                           fontWeight: FontWeight.w600,
-                          color: Color(0xFF0284C7),
+                          color: HrmPageChrome.chip,
                           fontSize: 14),
                     ),
                   ),
@@ -3045,7 +3074,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                           width: 6,
                           height: 6,
                           decoration: const BoxDecoration(
-                              color: Color(0xFF10B981), shape: BoxShape.circle),
+                              color: HrmPageChrome.chipMid, shape: BoxShape.circle),
                         ),
                         const SizedBox(width: 10),
                         Expanded(
@@ -3056,14 +3085,14 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 6, vertical: 2),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF10B981)
+                              color: HrmPageChrome.chipMid
                                   .withValues(alpha: 0.08),
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: Text(tr(item.category!),
                                 style: const TextStyle(
                                     fontSize: 11,
-                                    color: Color(0xFF10B981),
+                                    color: HrmPageChrome.chipMid,
                                     fontWeight: FontWeight.w500)),
                           ),
                       ],
@@ -3162,7 +3191,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                     icon: const Icon(Icons.calculate),
                     label: Text(tr('Tính tiền cơm tháng')),
                     style: FilledButton.styleFrom(
-                        backgroundColor: const Color(0xFFF59E0B)),
+                        backgroundColor: HrmPageChrome.chipLight),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -3237,7 +3266,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                                     CircleAvatar(
                                       backgroundColor: d.balance > 0
                                           ? const Color(0xFFEF4444)
-                                          : const Color(0xFF10B981),
+                                          : HrmPageChrome.chipMid,
                                       child: Text(
                                         tr(d.employeeName.isNotEmpty
                                             ? d.employeeName[0].toUpperCase()
@@ -3274,7 +3303,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                                                   .withValues(alpha: 0.15),
                                               valueColor:
                                                   const AlwaysStoppedAnimation(
-                                                      Color(0xFF10B981)),
+                                                      HrmPageChrome.chipMid),
                                             ),
                                           ),
                                           const SizedBox(height: 2),
@@ -3298,7 +3327,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                                               fontSize: 15,
                                               color: d.balance > 0
                                                   ? Colors.red
-                                                  : const Color(0xFF10B981)),
+                                                  : HrmPageChrome.chipMid),
                                         ),
                                         Text(
                                           tr(d.balance > 0
@@ -3324,7 +3353,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                                                     padding: EdgeInsets.all(4),
                                                     child: Icon(Icons.payment,
                                                         color:
-                                                            Color(0xFF10B981),
+                                                            HrmPageChrome.chipMid,
                                                         size: 22),
                                                   ),
                                                 ),
@@ -3399,7 +3428,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
           return ListTile(
             leading: CircleAvatar(
               backgroundColor:
-                  isPayment ? const Color(0xFF10B981) : const Color(0xFFEF4444),
+                  isPayment ? HrmPageChrome.chipMid : const Color(0xFFEF4444),
               child: Icon(isPayment ? Icons.arrow_downward : Icons.arrow_upward,
                   color: Colors.white, size: 18),
             ),
@@ -3407,7 +3436,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
               style: TextStyle(
                   fontWeight: FontWeight.bold,
                   color: isPayment
-                      ? const Color(0xFF10B981)
+                      ? HrmPageChrome.chipMid
                       : const Color(0xFFEF4444)),
             ),
             subtitle: Text(
@@ -3452,7 +3481,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                           Text(tr(_formatCurrency(debt.totalPaid)),
                               style: const TextStyle(
                                   fontWeight: FontWeight.bold,
-                                  color: Color(0xFF10B981))),
+                                  color: HrmPageChrome.chipMid)),
                           Text(tr('Đã trả'),
                               style:
                                   TextStyle(fontSize: 12, color: Colors.grey)),

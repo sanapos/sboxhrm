@@ -20,6 +20,7 @@ import '../services/signalr_service.dart';
 import '../utils/responsive_helper.dart';
 import '../widgets/app_button.dart';
 import '../widgets/notification_overlay.dart';
+import '../widgets/hrm_collapsible_overview.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../widgets/app_scroll_safe.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
@@ -70,6 +71,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
   List<Attendance> _attendances = [];
   List<dynamic> _devices = [];
   bool _isLoading = false;
+  bool _showOverviewPanel = true;
   int _totalCount = 0;
   int _currentPage = 1;
   int _pageSize = 50;
@@ -1916,7 +1918,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
     switch (state) {
       case Attendance.travelStartState:
       case Attendance.travelArriveState:
-        return const Color(0xFF0EA5E9);
+        return HrmPageChrome.chipLight;
       case 0:
         return Colors.green;
       case 1:
@@ -1990,8 +1992,16 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
               if (_showRealtimeBanner) _buildRealtimeBanner(theme),
 
               // ── Filter bar ──
-              
-                _buildFilterBar(theme),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: HrmCollapsibleOverview(
+                  expanded: _showOverviewPanel,
+                  onToggle: () =>
+                      setState(() => _showOverviewPanel = !_showOverviewPanel),
+                  title: 'Bộ lọc',
+                  child: _buildFilterBar(theme),
+                ),
+              ),
 
               // ── Data table ──
               Expanded(

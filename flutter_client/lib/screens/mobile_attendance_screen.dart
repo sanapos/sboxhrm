@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart'
     show kIsWeb, defaultTargetPlatform, TargetPlatform;
 import 'package:provider/provider.dart';
+import '../widgets/hrm_page_chrome.dart';
 import 'dart:convert';
 import 'dart:async';
 import 'dart:math' as math;
@@ -1622,11 +1623,11 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
           Positioned(
               bottom: 100,
               left: -40,
-              child: _bgOrb(160, const Color(0xFF8B5CF6), 0.1)),
+              child: _bgOrb(160, HrmPageChrome.chipSoft, 0.1)),
           Positioned(
               top: 300,
               right: -30,
-              child: _bgOrb(120, const Color(0xFF06B6D4), 0.08)),
+              child: _bgOrb(120, HrmPageChrome.chipSoft, 0.08)),
           SafeArea(
             child: SingleChildScrollView(
               physics: const BouncingScrollPhysics(),
@@ -1672,7 +1673,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(14),
               gradient: const LinearGradient(
-                  colors: [Color(0xFF3B82F6), Color(0xFF8B5CF6)]),
+                  colors: [Color(0xFF3B82F6), HrmPageChrome.chipSoft]),
             ),
             child: Center(
               child: Text(
@@ -1750,7 +1751,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
     final weekdays = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
 
     final List<Color> activeGradient = isCheckIn
-        ? [const Color(0xFF3B82F6), const Color(0xFF2563EB)]
+        ? [const Color(0xFF3B82F6), HrmPageChrome.chipMid]
         : [const Color(0xFFEF4444), const Color(0xFFDC2626)];
     final List<Color> disabledGradient = [
       const Color(0xFF334155),
@@ -1793,7 +1794,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
             // Clock (cập nhật qua Timer — không dùng Stream trong build)
             ShaderMask(
               shaderCallback: (bounds) => const LinearGradient(
-                colors: [Color(0xFF60A5FA), Color(0xFFA78BFA)],
+                colors: [Color(0xFF60A5FA), HrmPageChrome.chipMuted],
               ).createShader(bounds),
               child: Text(
                 tr('${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}'),
@@ -1956,8 +1957,8 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
       required String hint,
       required bool needsFaceScan}) {
     final barColor = isEnabled
-        ? (needsFaceScan ? const Color(0xFF0EA5E9) : const Color(0xFF22C55E))
-        : const Color(0xFFF59E0B);
+        ? (needsFaceScan ? HrmPageChrome.chipLight : const Color(0xFF22C55E))
+        : HrmPageChrome.chipLight;
 
     return Container(
       width: double.infinity,
@@ -2060,7 +2061,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
           decoration: BoxDecoration(
             color: ready
                 ? const Color(0xFF16A34A).withValues(alpha: 0.1)
-                : const Color(0xFFF59E0B).withValues(alpha: 0.08),
+                : HrmPageChrome.chipLight.withValues(alpha: 0.08),
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
                 color: ready
@@ -2075,12 +2076,12 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color:
-                      ready ? const Color(0xFF22C55E) : const Color(0xFFF59E0B),
+                      ready ? const Color(0xFF22C55E) : HrmPageChrome.chipLight,
                   boxShadow: [
                     BoxShadow(
                         color: (ready
                                 ? const Color(0xFF22C55E)
-                                : const Color(0xFFF59E0B))
+                                : HrmPageChrome.chipLight)
                             .withValues(alpha: 0.4),
                         blurRadius: 6)
                   ],
@@ -2152,7 +2153,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
   Widget _buildMiniChip(String label, bool ok, {bool pending = false}) {
     final chipColor = ok
         ? const Color(0xFF22C55E)
-        : (pending ? const Color(0xFFF59E0B) : const Color(0xFFEF4444));
+        : (pending ? HrmPageChrome.chipLight : const Color(0xFFEF4444));
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -2214,7 +2215,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
               child: _buildTravelPunchButton(
                 label: 'Ra tăng ca',
                 icon: Icons.free_breakfast_outlined,
-                color: const Color(0xFFF59E0B),
+                color: HrmPageChrome.chipLight,
                 enabled: outEnabled,
                 onTap: () => _autoSubmitAttendance(
                   punchType: mobilePunchMealOut,
@@ -2241,7 +2242,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 10,
-              color: const Color(0xFFF59E0B).withValues(alpha: 0.85),
+              color: HrmPageChrome.chipLight.withValues(alpha: 0.85),
               fontWeight: FontWeight.w500,
             ),
           ),
@@ -2284,7 +2285,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
               child: _buildTravelPunchButton(
                 label: 'Bắt đầu đi',
                 icon: Icons.directions_car_rounded,
-                color: const Color(0xFF0EA5E9),
+                color: HrmPageChrome.chipLight,
                 enabled: startEnabled,
                 onTap: () => _autoSubmitAttendance(
                   punchType: mobilePunchTravelStart,
@@ -2311,7 +2312,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 10,
-              color: const Color(0xFF0EA5E9).withValues(alpha: 0.85),
+              color: HrmPageChrome.chipLight.withValues(alpha: 0.85),
               fontWeight: FontWeight.w500,
             ),
           ),
@@ -2387,7 +2388,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
     final statusColor = gpsOk
         ? const Color(0xFF22C55E)
         : _isGettingLocation
-            ? const Color(0xFFF59E0B)
+            ? HrmPageChrome.chipLight
             : const Color(0xFF64748B);
 
     return ClipRRect(
@@ -2481,7 +2482,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
     final statusColor = _isWifiVerified
         ? const Color(0xFF22C55E)
         : _isCheckingWifi
-            ? const Color(0xFFF59E0B)
+            ? HrmPageChrome.chipLight
             : const Color(0xFF64748B);
 
     return ClipRRect(
@@ -2676,14 +2677,14 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
     IconData icon;
     if (isTravel) {
       color = record.punchType == mobilePunchTravelStart
-          ? const Color(0xFF0EA5E9)
+          ? HrmPageChrome.chipLight
           : const Color(0xFF14B8A6);
       icon = record.punchType == mobilePunchTravelStart
           ? Icons.directions_car_rounded
           : Icons.place_rounded;
     } else if (isLunchOt) {
       color = record.punchType == mobilePunchMealOut
-          ? const Color(0xFFF59E0B)
+          ? HrmPageChrome.chipLight
           : const Color(0xFF84CC16);
       icon = record.punchType == mobilePunchMealOut
           ? Icons.free_breakfast_outlined
@@ -2753,12 +2754,12 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
             decoration: BoxDecoration(
               color: approved
                   ? const Color(0xFF22C55E).withValues(alpha: 0.1)
-                  : const Color(0xFFF59E0B).withValues(alpha: 0.1),
+                  : HrmPageChrome.chipLight.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(8),
               border: Border.all(
                   color: (approved
                           ? const Color(0xFF22C55E)
-                          : const Color(0xFFF59E0B))
+                          : HrmPageChrome.chipLight)
                       .withValues(alpha: 0.15)),
             ),
             child: Text(

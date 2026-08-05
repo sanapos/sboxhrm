@@ -19,6 +19,7 @@ import '../widgets/app_scroll_safe.dart';
 import '../widgets/hrm_mini_stat_chip.dart';
 import '../utils/responsive_helper.dart';
 import '../utils/employee_work_status.dart';
+import '../utils/branch_filter_helper.dart';
 import '../widgets/loading_widget.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/app_button.dart';
@@ -455,7 +456,11 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
       } else {
         await _loadDepartments();
         await _loadBranches();
-        final data = await _apiService.getEmployees(pageSize: 200);
+        final data = await _apiService.getEmployees(
+          pageSize: 200,
+          branchId: _filterBranchId,
+          includeChildBranches: true,
+        );
         if (mounted) {
           setState(() {
             _employees = data.map((e) => Employee.fromJson(e)).toList();
@@ -548,8 +553,12 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
       final matchesStatus =
           _filterStatus == 'Tất cả' || emp.workStatusDisplay == _filterStatus;
 
-      final matchesBranch =
-          _filterBranchId == null || emp.branchId == _filterBranchId;
+      final matchesBranch = _filterBranchId == null ||
+          (emp.branchId != null &&
+              BranchFilterHelper.expandBranchIds(
+                _filterBranchId!,
+                _branches,
+              ).contains(emp.branchId));
 
       return matchesSearch &&
           matchesDepartment &&
@@ -1440,7 +1449,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
       ),
     );
 
-    final chipBranch = _branches.isNotEmpty
+    final chipBranch = BranchFilterHelper.showBranchFilter(_branches)
         ? _buildEmpFilterChip(
             title: 'Chi nhánh',
             value: _filterBranchLabel(),
@@ -1451,18 +1460,18 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
               options: [
                 (
                   label: 'Tất cả chi nhánh',
-                  onPick: () => setState(() {
+                  onPick: () {
                     _filterBranchId = null;
-                    _applyFilters();
-                  }),
+                    _loadEmployees();
+                  },
                 ),
                 ..._branches.map(
                   (b) => (
                     label: b['name']?.toString() ?? '',
-                    onPick: () => setState(() {
+                    onPick: () {
                       _filterBranchId = b['id']?.toString();
-                      _applyFilters();
-                    }),
+                      _loadEmployees();
+                    },
                   ),
                 ),
               ],
@@ -1520,7 +1529,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
       case 'Đang thử việc':
         return HrmPageChrome.primaryNavy;
       case 'Nghỉ phép':
-        return const Color(0xFFF59E0B);
+        return HrmPageChrome.chipLight;
       case 'Đã nghỉ việc':
         return const Color(0xFFEF4444);
       default:
@@ -1536,7 +1545,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
       _buildStatCard('Đang làm', '$activeCount', Icons.check_circle_outline,
           HrmPageChrome.primaryNavy),
       _buildStatCard('Thử việc', '$probationCount', Icons.hourglass_bottom,
-          const Color(0xFFF59E0B)),
+          HrmPageChrome.chipLight),
       _buildStatCard(_l10n.department, '$deptCount', Icons.business_outlined,
           HrmPageChrome.primaryNavy),
     ];
@@ -1650,7 +1659,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
           ),
         );
 
-    if (_groupByBranch && _branches.isNotEmpty) {
+    if (_groupByBranch && BranchFilterHelper.showBranchFilter(_branches)) {
       final Map<String, List<Employee>> groupMap = {};
       for (final e in _filteredEmployees) {
         final key = e.branchId ?? '__none__';
@@ -1724,7 +1733,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
     final endIndex = (startIndex + _pageSize).clamp(0, totalCount);
     final displayList =
         _filteredEmployees.sublist(startIndex.clamp(0, totalCount), endIndex);
-    final showBranchCol = _branches.isNotEmpty;
+    final showBranchCol = BranchFilterHelper.showBranchFilter(_branches);
 
     DataColumn col(String label, {double? width}) => DataColumn(
           label: SizedBox(
@@ -4634,7 +4643,7 @@ class _CccdQrScannerDialogState extends State<_CccdQrScannerDialog> {
                               decoration: BoxDecoration(
                                 border: Border.all(
                                   color: _hasScanned
-                                      ? const Color(0xFF059669)
+                                      ? HrmPageChrome.chip
                                       : Colors.white.withValues(alpha: 0.6),
                                   width: 2,
                                 ),
@@ -4643,7 +4652,7 @@ class _CccdQrScannerDialogState extends State<_CccdQrScannerDialog> {
                               child: _hasScanned
                                   ? const Center(
                                       child: Icon(Icons.check_circle,
-                                          color: Color(0xFF059669), size: 48),
+                                          color: HrmPageChrome.chip, size: 48),
                                     )
                                   : null,
                             ),
@@ -4681,11 +4690,11 @@ class _CccdQrScannerDialogState extends State<_CccdQrScannerDialog> {
                   ? Column(
                       children: [
                         const Icon(Icons.check_circle,
-                            color: Color(0xFF059669), size: 24),
+                            color: HrmPageChrome.chip, size: 24),
                         const SizedBox(height: 6),
                         Text(tr('Đã quét thành công!'),
                           style: TextStyle(
-                            color: Color(0xFF059669),
+                            color: HrmPageChrome.chip,
                             fontWeight: FontWeight.w700,
                             fontSize: 14,
                           ),

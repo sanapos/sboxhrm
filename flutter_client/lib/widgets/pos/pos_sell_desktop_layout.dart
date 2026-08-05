@@ -20,6 +20,7 @@ class PosSellDesktopLayout extends StatelessWidget {
     required this.centerPane,
     this.rightPane,
     this.combineOrderAndPay = false,
+    this.floorPrimary = false,
   });
 
   final Widget topBar;
@@ -38,6 +39,9 @@ class PosSellDesktopLayout extends StatelessWidget {
   /// Tablet hẹp: gộp cart+pay vào center, không hiện right.
   final bool combineOrderAndPay;
 
+  /// Đang hiện sơ đồ bàn — ưu tiên bề rộng cột trái.
+  final bool floorPrimary;
+
   static bool useThreeColumns(double width) =>
       width >= Responsive.tabletBreakpoint;
 
@@ -46,12 +50,12 @@ class PosSellDesktopLayout extends StatelessWidget {
 
   /// Flex trái / giữa / phải theo độ rộng.
   static (int, int, int) flexFor(double width, {bool floorPrimary = false}) {
-    // Ưu tiên cột đơn hàng (giữa) rộng hơn để SL / ĐVT / giá không bị chật.
+    // Sơ đồ bàn: trái rộng hơn để xếp nhiều cột bàn trên tablet.
     if (width >= Responsive.largeBreakpoint) {
-      return floorPrimary ? (4, 5, 3) : (4, 5, 3);
+      return floorPrimary ? (5, 4, 3) : (4, 5, 3);
     }
     if (width >= Responsive.tabletBreakpoint) {
-      return floorPrimary ? (4, 5, 3) : (4, 5, 3);
+      return floorPrimary ? (5, 4, 3) : (4, 5, 3);
     }
     return (1, 1, 0);
   }
@@ -64,7 +68,9 @@ class PosSellDesktopLayout extends StatelessWidget {
         final three = useThreeColumns(w) &&
             !combineOrderAndPay &&
             rightPane != null;
-        final flex = flexFor(w);
+        final flex = flexFor(w, floorPrimary: floorPrimary);
+        final leftFlex2 = floorPrimary ? 6 : 5;
+        final rightFlex2 = floorPrimary ? 4 : 5;
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -94,13 +100,13 @@ class PosSellDesktopLayout extends StatelessWidget {
                   : Row(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        Expanded(flex: 5, child: leftPane),
+                        Expanded(flex: leftFlex2, child: leftPane),
                         VerticalDivider(
                           width: 1,
                           thickness: 1,
                           color: PosTheme.border,
                         ),
-                        Expanded(flex: 5, child: centerPane),
+                        Expanded(flex: rightFlex2, child: centerPane),
                       ],
                     ),
             ),

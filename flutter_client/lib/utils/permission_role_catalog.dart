@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'dashboard_permission_modules.dart';
 import 'permission_module_catalog.dart';
 import 'permission_module_labels.dart';
+import '../widgets/hrm_page_chrome.dart';
 
 /// Nhóm chức năng — khớp menu app (`main_layout.dart`, `settings_hub_screen.dart`).
 class PermissionUiGroup {
@@ -55,7 +56,7 @@ class PermissionRoleCatalog {
       title: 'Tổng quan (Dashboard)',
       description: 'Từng khối trên bảng điều khiển',
       icon: Icons.dashboard_customize_outlined,
-      color: Color(0xFF0284C7),
+      color: HrmPageChrome.chip,
       moduleCodes: DashboardPermissionModules.allWidgets,
     ),
     PermissionUiGroup(
@@ -63,7 +64,7 @@ class PermissionRoleCatalog {
       title: 'Hồ sơ nhân sự',
       description: 'Nhân viên, phòng ban, thiết lập lương, tài liệu',
       icon: Icons.people_outline,
-      color: Color(0xFF0284C7),
+      color: HrmPageChrome.chip,
       moduleCodes: [
         'Employee',
         'Department',
@@ -98,7 +99,7 @@ class PermissionRoleCatalog {
       title: 'Báo cáo & lương',
       description: 'Tổng hợp công, phiếu lương, báo cáo thống kê',
       icon: Icons.assessment_outlined,
-      color: Color(0xFF7C3AED),
+      color: HrmPageChrome.chipMid,
       moduleCodes: [
         'AttendanceSummary',
         'AttendanceByShift',
@@ -118,7 +119,7 @@ class PermissionRoleCatalog {
       title: 'Tài chính',
       description: 'Thưởng, phạt, ứng lương, thu chi, tài khoản NH',
       icon: Icons.account_balance_wallet_outlined,
-      color: Color(0xFFEC4899),
+      color: HrmPageChrome.chipLight,
       moduleCodes: [
         'BonusPenalty',
         'PenaltyTickets',
@@ -133,7 +134,7 @@ class PermissionRoleCatalog {
       title: 'POS / Bán hàng',
       description: 'Order, thu ngân, hàng hóa, kho, trả hàng, báo cáo',
       icon: Icons.point_of_sale_outlined,
-      color: Color(0xFF2563EB),
+      color: HrmPageChrome.chipMid,
       moduleCodes: [
         'PosSell',
         'PosProducts',
@@ -153,7 +154,7 @@ class PermissionRoleCatalog {
       title: 'Quản lý vận hành',
       description: 'Chấm cơm, tài sản, công việc, KPI, sản lượng',
       icon: Icons.business_center_outlined,
-      color: Color(0xFF059669),
+      color: HrmPageChrome.chip,
       moduleCodes: [
         'Meal',
         'Asset',

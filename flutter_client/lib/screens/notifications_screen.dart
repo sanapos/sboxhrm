@@ -14,9 +14,11 @@ import '../utils/notification_navigation.dart';
 import '../utils/admin_navigation.dart';
 import '../services/api_service.dart';
 import '../services/signalr_service.dart';
+import '../widgets/hrm_collapsible_overview.dart';
 import '../widgets/hrm_responsive_list_layout.dart';
 import 'main_layout.dart' show ScreenRefreshNotifier;
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
+import '../widgets/hrm_page_chrome.dart';
 
 class NotificationsScreen extends StatefulWidget {
   final bool adminPortalMode;
@@ -43,6 +45,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   int _currentPage = 1;
   final int _pageSize = 20;
   bool _hasMore = true;
+  bool _showOverviewPanel = true;
 
   /// Read filter: null = all, true = unread, false = read
   bool? _readFilter;
@@ -477,13 +480,13 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     }
     switch (n.type) {
       case NotificationType.warning:
-        return const Color(0xFFF59E0B);
+        return HrmPageChrome.chipLight;
       case NotificationType.error:
         return const Color(0xFFEF4444);
       case NotificationType.success:
         return const Color(0xFF22C55E);
       default:
-        return const Color(0xFF6366F1);
+        return HrmPageChrome.chipMid;
     }
   }
 
@@ -644,12 +647,18 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   Widget _buildFilterBar() {
     return Container(
       color: Colors.white,
-      child: Column(
-        children: [
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            child: Row(children: [
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+      child: HrmCollapsibleOverview(
+        expanded: _showOverviewPanel,
+        onToggle: () =>
+            setState(() => _showOverviewPanel = !_showOverviewPanel),
+        title: 'Bộ lọc',
+        child: Column(
+          children: [
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(vertical: 2),
+              child: Row(children: [
               _chip('Tất cả', _readFilter == null, () {
                 setState(() => _readFilter = null);
                 _loadData();
@@ -691,7 +700,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                   _entityFilter == 'other',
                   () => setState(() => _entityFilter =
                       _entityFilter == 'other' ? null : 'other'),
-                  activeColor: const Color(0xFF6366F1)),
+                  activeColor: HrmPageChrome.chipMid),
               if (widget.adminPortalMode) ...[
                 const SizedBox(width: 6),
                 _iconChip(
@@ -700,7 +709,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                     _entityFilter == 'store',
                     () => setState(() => _entityFilter =
                         _entityFilter == 'store' ? null : 'store'),
-                    activeColor: const Color(0xFF2563EB)),
+                    activeColor: HrmPageChrome.chipMid),
                 const SizedBox(width: 6),
                 _iconChip(
                     Icons.vpn_key,
@@ -731,6 +740,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           Container(height: 1, color: Colors.grey.shade200),
         ],
       ),
+    ),
     );
   }
 

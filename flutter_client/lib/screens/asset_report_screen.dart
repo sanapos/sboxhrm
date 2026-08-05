@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../widgets/hrm_collapsible_overview.dart';
+import '../widgets/hrm_mini_stat_chip.dart';
 import '../widgets/hrm_page_chrome.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -15,7 +17,7 @@ import '../utils/responsive_helper.dart';
 import 'package:excel/excel.dart' as excel_lib;
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
-const _theme = Color(0xFF059669);
+const _theme = HrmPageChrome.primaryNavy;
 const _rowH = 52.0;
 const _hdrH = 42.0;
 
@@ -46,6 +48,7 @@ class _AssetReportScreenState extends State<AssetReportScreen>
   int _warrantyDays = 30;
   bool _includeExpiredWarranty = false;
   bool _filtersExpanded = false;
+  bool _showOverviewPanel = true;
 
   bool _loading = false;
   Map<String, dynamic> _summary = {};
@@ -332,7 +335,7 @@ class _AssetReportScreenState extends State<AssetReportScreen>
                     ? _buildMobileBody()
                     : Column(
                     children: [
-                      _buildFilters(),
+                      _buildOverviewSection(),
                       Material(
                         color: Colors.white,
                         child: TabBar(
@@ -381,7 +384,7 @@ class _AssetReportScreenState extends State<AssetReportScreen>
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _buildMobileSectionChips(),
-        _buildMobileFilters(),
+        _buildMobileOverviewSection(),
         Expanded(child: _buildActiveTabContent()),
       ],
     );
@@ -446,44 +449,80 @@ class _AssetReportScreenState extends State<AssetReportScreen>
     }
   }
 
-  Widget _buildMobileFilters() {
+  List<HrmStatItem> _summaryStatItems() {
+    return [
+      HrmStatItem(
+        label: 'Tổng TS',
+        value: '${_summary['totalAssets'] ?? 0}',
+        icon: Icons.inventory,
+      ),
+      HrmStatItem(
+        label: 'Đang dùng',
+        value: '${_summary['activeAssets'] ?? 0}',
+        icon: Icons.check_circle_outline,
+        onTap: () => _jumpToTab(1, statusFilter: 0),
+      ),
+      HrmStatItem(
+        label: 'Trong kho',
+        value: '${_summary['inStockAssets'] ?? 0}',
+        icon: Icons.warehouse_outlined,
+        onTap: () => _jumpToTab(1, statusFilter: 5),
+      ),
+      HrmStatItem(
+        label: 'Đã cấp',
+        value: '${_summary['assignedAssets'] ?? 0}',
+        icon: Icons.person_outline,
+        onTap: () => _jumpToTab(2),
+      ),
+      HrmStatItem(
+        label: 'BH sắp hết',
+        value: '${_summary['warrantyExpiringSoon'] ?? 0}',
+        icon: Icons.warning_amber,
+        onTap: () => _jumpToTab(6),
+      ),
+    ];
+  }
+
+  Widget _buildOverviewSection() {
+    return Container(
+      color: Colors.white,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      child: HrmCollapsibleOverview(
+        expanded: _showOverviewPanel,
+        onToggle: () =>
+            setState(() => _showOverviewPanel = !_showOverviewPanel),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (_tabs.index == 0 && _summary.isNotEmpty) ...[
+              HrmStatBar(items: _summaryStatItems(), valueFontSize: 14),
+              const SizedBox(height: 8),
+            ],
+            _buildFiltersContent(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMobileOverviewSection() {
     final showDate =
         _tabs.index == 3 || _tabs.index == 4 || _tabs.index == 5;
     return Container(
       color: Colors.white,
       margin: const EdgeInsets.only(bottom: 1),
-      child: Theme(
-        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-        child: ExpansionTile(
-          initiallyExpanded: _filtersExpanded,
-          onExpansionChanged: (v) => setState(() => _filtersExpanded = v),
-          tilePadding: const EdgeInsets.symmetric(horizontal: 12),
-          childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
-          title: Row(
-            children: [
-              const Icon(Icons.tune, size: 18, color: Color(0xFF6B7280)),
-              const SizedBox(width: 6),
-              Text(tr('Bộ lọc'),
-                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-              if (_activeFilterCount > 0) ...[
-                const SizedBox(width: 8),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: _theme.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Text(tr('$_activeFilterCount'),
-                      style: const TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          color: _theme)),
-                ),
-              ],
-            ],
-          ),
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+      child: HrmCollapsibleOverview(
+        expanded: _showOverviewPanel,
+        onToggle: () =>
+            setState(() => _showOverviewPanel = !_showOverviewPanel),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            if (_tabs.index == 0 && _summary.isNotEmpty) ...[
+              HrmStatBar(items: _summaryStatItems(), valueFontSize: 14),
+              const SizedBox(height: 8),
+            ],
             if (showDate) ...[
               ReportDateRangeFilterBar(
                 from: _from,
@@ -514,6 +553,38 @@ class _AssetReportScreenState extends State<AssetReportScreen>
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildFiltersContent() {
+    final showDate =
+        _tabs.index == 3 || _tabs.index == 4 || _tabs.index == 5;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (showDate) ...[
+          ReportDateRangeFilterBar(
+            from: _from,
+            to: _to,
+            preset: _datePreset,
+            onChanged: (f, t, p) {
+              setState(() {
+                _from = f;
+                _to = t;
+                _datePreset = p;
+              });
+              _loadTab(_tabs.index);
+            },
+          ),
+          const SizedBox(height: 8),
+        ],
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: _filterFieldsForTab(compact: false),
+        ),
+      ],
     );
   }
 
@@ -761,89 +832,35 @@ class _AssetReportScreenState extends State<AssetReportScreen>
     return SizedBox(width: width, child: field);
   }
 
-  Widget _buildFilters() {
-    final showDate =
-        _tabs.index == 3 || _tabs.index == 4 || _tabs.index == 5;
-    return Container(
-      color: Colors.white,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          if (showDate) ...[
-            ReportDateRangeFilterBar(
-              from: _from,
-              to: _to,
-              preset: _datePreset,
-              onChanged: (f, t, p) {
-                setState(() {
-                  _from = f;
-                  _to = t;
-                  _datePreset = p;
-                });
-                _loadTab(_tabs.index);
-              },
-            ),
-            const SizedBox(height: 8),
-          ],
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: _filterFieldsForTab(compact: false),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildSummaryTab() {
     if (_summary.isEmpty) {
       return Center(child: Text(tr('Không có dữ liệu')));
     }
-    final cards = [
-      ('Tổng TS', '${_summary['totalAssets'] ?? 0}', Icons.inventory, null),
-      ('Đang dùng', '${_summary['activeAssets'] ?? 0}',
-          Icons.check_circle_outline, 0),
-      ('Trong kho', '${_summary['inStockAssets'] ?? 0}',
-          Icons.warehouse_outlined, 5),
-      ('Đã cấp', '${_summary['assignedAssets'] ?? 0}', Icons.person_outline, null),
-      ('BH sắp hết', '${_summary['warrantyExpiringSoon'] ?? 0}',
-          Icons.warning_amber, null),
-    ];
     return ListView(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.fromLTRB(0, 4, 0, 12),
       children: [
-        if (_useTableLayout)
-          Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            children: cards
-                .map((c) => _statCard(c.$1, c.$2, c.$3, c.$4))
-                .toList(),
-          )
-        else
-          SizedBox(
-            height: 88,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              padding: Responsive.horizontalScrollPadding,
-              clipBehavior: Clip.none,
-              itemCount: cards.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 8),
-              itemBuilder: (_, i) {
-                final c = cards[i];
-                return _statCard(c.$1, c.$2, c.$3, c.$4, narrow: true);
-              },
-            ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 4, 12, 0),
+          child: Column(
+            children: [
+              _moneyCard(
+                  'Tổng giá mua', _money(_summary['totalPurchaseValue'])),
+              _moneyCard(
+                  'Giá trị hiện tại', _money(_summary['totalCurrentValue'])),
+            ],
           ),
+        ),
         const SizedBox(height: 12),
-        _moneyCard('Tổng giá mua', _money(_summary['totalPurchaseValue'])),
-        _moneyCard('Giá trị hiện tại', _money(_summary['totalCurrentValue'])),
-        const SizedBox(height: 16),
-        _groupSection('Theo trạng thái', _summary['byStatus']),
-        _groupSection('Theo loại', _summary['byType']),
-        _groupSection('Theo danh mục', _summary['byCategory']),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: Column(
+            children: [
+              _groupSection('Theo trạng thái', _summary['byStatus']),
+              _groupSection('Theo loại', _summary['byType']),
+              _groupSection('Theo danh mục', _summary['byCategory']),
+            ],
+          ),
+        ),
       ],
     );
   }
@@ -853,61 +870,28 @@ class _AssetReportScreenState extends State<AssetReportScreen>
     _tabs.animateTo(index);
   }
 
-  Widget _statCard(String label, String value, IconData icon, int? statusFilter,
-      {bool narrow = false}) {
-    return GestureDetector(
-      onTap: () {
-        if (label == 'BH sắp hết') {
-          _jumpToTab(6);
-        } else if (label == 'Đã cấp') {
-          _jumpToTab(2);
-        } else if (statusFilter != null) {
-          _jumpToTab(1, statusFilter: statusFilter);
-        }
-      },
-      child: Container(
-      width: narrow ? 128 : 150,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
-        boxShadow: [
-          BoxShadow(
-              color: Colors.black.withValues(alpha: 0.05),
-              blurRadius: 6,
-              offset: const Offset(0, 2))
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, color: _theme, size: 22),
-          const SizedBox(height: 8),
-          Text(tr(value),
-              style: const TextStyle(
-                  fontSize: 22, fontWeight: FontWeight.bold, color: _theme)),
-          Text(tr(label), style: TextStyle(fontSize: 12, color: Colors.grey[600])),
-        ],
-      ),
-    ),
-    );
-  }
-
   Widget _moneyCard(String label, double value) {
     return Container(
-      padding: const EdgeInsets.all(14),
+      margin: const EdgeInsets.only(bottom: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: HrmPageChrome.chip.withValues(alpha: 0.45)),
       ),
       child: Row(
         children: [
           Text(tr(label),
-              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+              style: const TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
+                  color: HrmPageChrome.textMuted)),
           const Spacer(),
           Text(tr('${_fmtMoney.format(value)} đ'),
               style: const TextStyle(
-                  fontWeight: FontWeight.bold, color: _theme, fontSize: 16)),
+                  fontWeight: FontWeight.bold,
+                  color: HrmPageChrome.chipDark,
+                  fontSize: 14)),
         ],
       ),
     );

@@ -18,7 +18,7 @@ import '../widgets/app_scroll_safe.dart';
 import '../widgets/hrm_mini_stat_chip.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
-const _theme = Color(0xFF7C3AED);
+const _theme = HrmPageChrome.primaryNavy;
 
 class DownloadedDocumentsScreen extends StatefulWidget {
   const DownloadedDocumentsScreen({super.key});
@@ -55,8 +55,19 @@ class _DownloadedDocumentsScreenState extends State<DownloadedDocumentsScreen> {
 
   Future<void> _reload() async {
     setState(() => _loading = true);
-    await _svc.ensureLoaded(rescan: true);
-    if (mounted) setState(() => _loading = false);
+    try {
+      await _svc.ensureLoaded(rescan: true);
+    } catch (e) {
+      debugPrint('DownloadedDocumentsScreen._reload: $e');
+      if (mounted) {
+        NotificationOverlayManager().showError(
+          title: 'Lỗi',
+          message: tr('Không tải được danh sách tài liệu'),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
   }
 
   void _applyDatePreset(String preset) {
@@ -224,11 +235,19 @@ class _DownloadedDocumentsScreenState extends State<DownloadedDocumentsScreen> {
                     child: list.isEmpty
                         ? ListView(
                             children: [
-                              SizedBox(height: 120),
+                              const SizedBox(height: 120),
                               Center(
-                                child: Text(tr('Chưa có tệp tải xuống.\nXuất Excel/ảnh từ báo cáo sẽ hiện tại đây.'),
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(color: Color(0xFF71717A)),
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 24),
+                                  child: Text(
+                                    tr(kIsWeb
+                                        ? 'Trên web, tệp xuất Excel/ảnh được tải thẳng vào thư mục Tải về của trình duyệt.\nMở thư mục Downloads để xem — danh sách trong app chỉ có trên điện thoại/máy tính cài app.'
+                                        : 'Chưa có tệp tải xuống.\nXuất Excel/ảnh từ báo cáo sẽ hiện tại đây.'),
+                                    textAlign: TextAlign.center,
+                                    style: const TextStyle(
+                                        color: Color(0xFF71717A)),
+                                  ),
                                 ),
                               ),
                             ],

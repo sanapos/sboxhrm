@@ -1,5 +1,9 @@
 /// Helpers for branch-scoped filtering on the client (attendance logs, etc.).
 class BranchFilterHelper {
+  /// Chỉ hiện bộ lọc chi nhánh khi có từ 2 CN trở lên (1 CN thì ẩn mặc định).
+  static bool showBranchFilter(Iterable? branches) =>
+      branches != null && branches.length >= 2;
+
   /// Expands [rootBranchId] ?? to include all descendant branch IDs.
   static Set<String> expandBranchIds(
     String rootBranchId,

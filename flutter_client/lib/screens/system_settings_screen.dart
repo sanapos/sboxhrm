@@ -503,7 +503,7 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
     final thresholdEnabled = !_decimalWorkDayEnabled;
     return _buildSettingCard(
       icon: Icons.hourglass_bottom,
-      iconColor: const Color(0xFF059669),
+      iconColor: HrmPageChrome.chip,
       title: 'Quy tắc tính công',
       subtitle: 'Theo tổng giờ làm trong ngày (không tính từng ca riêng)',
       child: Column(
@@ -642,9 +642,9 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
               });
             }
           : null,
-      selectedColor: const Color(0xFF059669).withValues(alpha: 0.15),
+      selectedColor: HrmPageChrome.chip.withValues(alpha: 0.15),
       labelStyle: TextStyle(
-        color: selected ? const Color(0xFF059669) : const Color(0xFF52525B),
+        color: selected ? HrmPageChrome.chip : const Color(0xFF52525B),
         fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
         fontSize: 12,
       ),
@@ -889,7 +889,7 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.info_outline, color: Color(0xFFF59E0B), size: 16),
+          const Icon(Icons.info_outline, color: HrmPageChrome.chipLight, size: 16),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
@@ -940,7 +940,7 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
   Widget _buildRoundingRuleCard() {
     return _buildSettingCard(
       icon: Icons.tune,
-      iconColor: const Color(0xFF7C3AED),
+      iconColor: HrmPageChrome.chipMid,
       title: 'Làm tròn giờ công',
       subtitle: 'Quy tắc làm tròn khi tính giờ công',
       child: Column(
@@ -958,7 +958,7 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
             child: Row(
               children: [
                 const Icon(Icons.construction_outlined,
-                    color: Color(0xFFD97706), size: 16),
+                    color: HrmPageChrome.chipDark, size: 16),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(tr('Đặt được lưu, nhưng chưa áp dụng vào tính toán giờ công. Sẽ được kết nối vào engine tính lương.'),
@@ -984,12 +984,12 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
                       const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                   decoration: BoxDecoration(
                     color: isSelected
-                        ? const Color(0xFF7C3AED).withValues(alpha: 0.08)
+                        ? HrmPageChrome.chipMid.withValues(alpha: 0.08)
                         : Colors.transparent,
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(
                       color: isSelected
-                          ? const Color(0xFF7C3AED).withValues(alpha: 0.4)
+                          ? HrmPageChrome.chipMid.withValues(alpha: 0.4)
                           : Colors.grey.shade200,
                     ),
                   ),
@@ -1001,7 +1001,7 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
                             : Icons.radio_button_unchecked,
                         size: 20,
                         color: isSelected
-                            ? const Color(0xFF7C3AED)
+                            ? HrmPageChrome.chipMid
                             : Colors.grey.shade400,
                       ),
                       const SizedBox(width: 10),
@@ -1067,7 +1067,7 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
   Widget _buildManualCorrectionAndCutoffCard() {
     return _buildSettingCard(
       icon: Icons.edit_calendar,
-      iconColor: const Color(0xFFD97706),
+      iconColor: HrmPageChrome.chipDark,
       title: 'Chấm công bù & Chốt công',
       subtitle: 'Quy tắc bổ sung và chu kỳ tính lương',
       child: Column(
@@ -1120,10 +1120,10 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFD97706).withValues(alpha: 0.05),
+                  color: HrmPageChrome.chipDark.withValues(alpha: 0.05),
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
-                      color: const Color(0xFFD97706).withValues(alpha: 0.2)),
+                      color: HrmPageChrome.chipDark.withValues(alpha: 0.2)),
                 ),
                 child: Text(tr('Ngày $_payrollCutoffDay'),
                   style: const TextStyle(
@@ -1141,7 +1141,7 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
                         ? () => setState(() => _payrollCutoffDay++)
                         : null,
                     icon: const Icon(Icons.add_circle_outline),
-                    color: const Color(0xFFD97706),
+                    color: HrmPageChrome.chipDark,
                     iconSize: 20,
                   ),
                   IconButton(
@@ -1149,7 +1149,7 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
                         ? () => setState(() => _payrollCutoffDay--)
                         : null,
                     icon: const Icon(Icons.remove_circle_outline),
-                    color: const Color(0xFFD97706),
+                    color: HrmPageChrome.chipDark,
                     iconSize: 20,
                   ),
                 ],
@@ -1164,11 +1164,11 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
                 .map((d) => ActionChip(
                       label: Text(tr('Ngày $d')),
                       backgroundColor: _payrollCutoffDay == d
-                          ? const Color(0xFFD97706).withValues(alpha: 0.1)
+                          ? HrmPageChrome.chipDark.withValues(alpha: 0.1)
                           : Colors.grey.shade100,
                       labelStyle: TextStyle(
                         color: _payrollCutoffDay == d
-                            ? const Color(0xFFD97706)
+                            ? HrmPageChrome.chipDark
                             : const Color(0xFF52525B),
                         fontWeight: _payrollCutoffDay == d
                             ? FontWeight.w600
@@ -1177,7 +1177,7 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
                       ),
                       side: BorderSide(
                         color: _payrollCutoffDay == d
-                            ? const Color(0xFFD97706).withValues(alpha: 0.3)
+                            ? HrmPageChrome.chipDark.withValues(alpha: 0.3)
                             : Colors.grey.shade300,
                       ),
                       onPressed: () => setState(() => _payrollCutoffDay = d),
@@ -1202,7 +1202,7 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
   Widget _buildLeaveApprovalCard() {
     return _buildSettingCard(
       icon: Icons.event_busy,
-      iconColor: const Color(0xFF059669),
+      iconColor: HrmPageChrome.chip,
       title: 'Phê duyệt nghỉ phép',
       subtitle: 'Cài đặt quy trình phê duyệt đơn nghỉ phép',
       child: Column(
@@ -1229,12 +1229,12 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
                       const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                   decoration: BoxDecoration(
                     color: isSelected
-                        ? const Color(0xFF059669).withValues(alpha: 0.08)
+                        ? HrmPageChrome.chip.withValues(alpha: 0.08)
                         : Colors.transparent,
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(
                       color: isSelected
-                          ? const Color(0xFF059669).withValues(alpha: 0.4)
+                          ? HrmPageChrome.chip.withValues(alpha: 0.4)
                           : Colors.grey.shade200,
                     ),
                   ),
@@ -1246,14 +1246,14 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
                             : Icons.radio_button_unchecked,
                         size: 20,
                         color: isSelected
-                            ? const Color(0xFF059669)
+                            ? HrmPageChrome.chip
                             : Colors.grey.shade400,
                       ),
                       const SizedBox(width: 10),
                       Icon(opt['icon'] as IconData,
                           size: 18,
                           color: isSelected
-                              ? const Color(0xFF059669)
+                              ? HrmPageChrome.chip
                               : Colors.grey.shade500),
                       const SizedBox(width: 8),
                       Expanded(

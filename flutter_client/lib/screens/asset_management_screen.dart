@@ -15,6 +15,7 @@ import '../utils/responsive_helper.dart';
 import '../widgets/loading_widget.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/notification_overlay.dart';
+import '../widgets/hrm_collapsible_overview.dart';
 import '../widgets/hrm_responsive_list_layout.dart';
 import '../widgets/app_scroll_safe.dart';
 import '../widgets/hrm_mini_stat_chip.dart';
@@ -64,7 +65,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
   AssetType? _typeFilter;
   String? _categoryFilter;
   bool _showFilters = false;
-  bool _showMobileSummary = false;
+  bool _showOverviewPanel = true;
 
   // Selection
   final Set<String> _selectedAssetIds = {};
@@ -530,45 +531,27 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
   }
 
   List<Widget> _productTabHeaderSections(bool isMobile) => [
-        if (isMobile) ...[
-          InkWell(
-            onTap: () =>
-                setState(() => _showMobileSummary = !_showMobileSummary),
-            borderRadius: BorderRadius.circular(8),
-            child: Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: Colors.blue.shade50,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.analytics_outlined,
-                      size: 16, color: Colors.blue.shade700),
-                  const SizedBox(width: 6),
-                  Text(tr('Tổng quan'),
-                      style: TextStyle(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 13,
-                          color: Colors.blue.shade700)),
-                  const Spacer(),
-                  Icon(
-                      _showMobileSummary
-                          ? Icons.expand_less
-                          : Icons.expand_more,
-                      size: 20,
-                      color: Colors.blue.shade700),
-                ],
-              ),
-            ),
-          ),
-          if (_showMobileSummary) _buildStatCards(),
-        ] else
-          _buildStatCards(),
+        _buildOverviewSection(),
         _buildToolbar(),
-        if (_showFilters) _buildFilterBar(),
       ];
+
+  Widget _buildOverviewSection() {
+    return HrmCollapsibleOverview(
+      expanded: _showOverviewPanel,
+      onToggle: () =>
+          setState(() => _showOverviewPanel = !_showOverviewPanel),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _buildStatCards(),
+          if (_showFilters) ...[
+            const SizedBox(height: 10),
+            _buildFilterBar(),
+          ],
+        ],
+      ),
+    );
+  }
 
   List<Widget> _productTabMobileSlivers() {
     return [
@@ -1284,130 +1267,57 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
   // ==================== STAT CARDS ====================
   Widget _buildStatCards() {
     final stats = _statistics;
-    return Container(
-      padding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
-      child: LayoutBuilder(builder: (context, constraints) {
-        final chips = [
-          _buildStatChip('Tổng', stats?.totalAssets ?? 0, HrmPageChrome.primaryNavy, Icons.inventory_2),
-          _buildStatChip('Đang dùng', stats?.activeAssets ?? 0, HrmPageChrome.primaryNavy, Icons.check_circle),
-          _buildStatChip('Trong kho', stats?.inStockAssets ?? 0, HrmPageChrome.primaryNavy, Icons.warehouse),
-          _buildStatChip('Đã cấp', stats?.assignedAssets ?? 0, const Color(0xFFF59E0B), Icons.person),
-          _buildStatChip('Bảo trì', stats?.maintenanceAssets ?? 0, HrmPageChrome.primaryNavy, Icons.build),
-          _buildStatChip('Hỏng', stats?.brokenAssets ?? 0, const Color(0xFFEF4444), Icons.error),
-        ];
-
-        if (constraints.maxWidth < 500) {
-          return Column(children: [
-            Wrap(spacing: 8, runSpacing: 8, children: chips),
-            const SizedBox(height: 8),
-            // Value summary
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: const Color(0xFFE4E4E7)),
-              ),
-              child: Row(
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(tr('Tổng giá trị'), style: TextStyle(fontSize: 11, color: Color(0xFFA1A1AA))),
-                      const SizedBox(height: 2),
-                      Text(
-                        tr(_currencyFormat.format(stats?.totalPurchaseValue ?? 0)),
-                        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF18181B)),
-                      ),
-                    ],
-                  ),
-                  if ((stats?.warrantyExpiringSoon ?? 0) > 0) ...[
-                    const Spacer(),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFEF3C7),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.warning_amber, size: 14, color: Color(0xFFF59E0B)),
-                          const SizedBox(width: 4),
-                          Text(tr('${stats!.warrantyExpiringSoon} sắp hết BH'),
-                            style: const TextStyle(fontSize: 11, color: Color(0xFFB45309), fontWeight: FontWeight.w500),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ],
+    final items = <HrmStatItem>[
+      HrmStatItem(
+          icon: Icons.inventory_2,
+          value: '${stats?.totalAssets ?? 0}',
+          label: 'Tổng'),
+      HrmStatItem(
+          icon: Icons.check_circle,
+          value: '${stats?.activeAssets ?? 0}',
+          label: 'Đang dùng'),
+      HrmStatItem(
+          icon: Icons.warehouse,
+          value: '${stats?.inStockAssets ?? 0}',
+          label: 'Trong kho'),
+      HrmStatItem(
+          icon: Icons.person,
+          value: '${stats?.assignedAssets ?? 0}',
+          label: 'Đã cấp'),
+      HrmStatItem(
+          icon: Icons.build,
+          value: '${stats?.maintenanceAssets ?? 0}',
+          label: 'Bảo trì'),
+      HrmStatItem(
+          icon: Icons.error,
+          value: '${stats?.brokenAssets ?? 0}',
+          label: 'Hỏng'),
+      HrmStatItem(
+          icon: Icons.payments_outlined,
+          value: _currencyFormat.format(stats?.totalPurchaseValue ?? 0),
+          label: 'Tổng giá trị'),
+    ];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        HrmStatBar(
+          items: items,
+          padding: const EdgeInsets.fromLTRB(12, 6, 12, 4),
+          valueFontSize: 14,
+        ),
+        if ((stats?.warrantyExpiringSoon ?? 0) > 0)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: HrmBrandChip(
+                label: '${stats!.warrantyExpiringSoon} sắp hết BH',
+                icon: Icons.warning_amber,
+                dense: true,
               ),
             ),
-          ]);
-        }
-        return Row(
-          children: [
-            for (int i = 0; i < chips.length; i++) ...[
-              if (i > 0) const SizedBox(width: 12),
-              chips[i],
-            ],
-            const Spacer(),
-            // Value summary
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: const Color(0xFFE4E4E7)),
-              ),
-              child: Row(
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Text(tr('Tổng giá trị'), style: TextStyle(fontSize: 11, color: Color(0xFFA1A1AA))),
-                      const SizedBox(height: 2),
-                      Text(
-                        tr(_currencyFormat.format(stats?.totalPurchaseValue ?? 0)),
-                        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF18181B)),
-                      ),
-                    ],
-                  ),
-                  if ((stats?.warrantyExpiringSoon ?? 0) > 0) ...[
-                    const SizedBox(width: 16),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFEF3C7),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.warning_amber, size: 14, color: Color(0xFFF59E0B)),
-                          const SizedBox(width: 4),
-                          Text(tr('${stats!.warrantyExpiringSoon} sắp hết BH'),
-                            style: const TextStyle(fontSize: 11, color: Color(0xFFB45309), fontWeight: FontWeight.w500),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ],
-        );
-      }),
-    );
-  }
-
-  Widget _buildStatChip(String label, int count, Color color, IconData icon) {
-    return HrmStatSummaryCard(
-      icon: icon,
-      value: '$count',
-      label: label,
-      color: color,
+          ),
+      ],
     );
   }
 
@@ -1445,7 +1355,10 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
           : Colors.white,
       borderRadius: BorderRadius.circular(10),
       child: InkWell(
-        onTap: () => setState(() => _showFilters = !_showFilters),
+        onTap: () => setState(() {
+          _showFilters = !_showFilters;
+          if (_showFilters) _showOverviewPanel = true;
+        }),
         borderRadius: BorderRadius.circular(10),
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -1850,17 +1763,9 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
   }
 
   Widget _buildStatusBadge(AssetStatus status) {
-    final color = _getStatusColor(status);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(6),
-      ),
-      child: Text(
-        tr(getAssetStatusLabel(status)),
-        style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w600),
-      ),
+    return HrmBrandChip(
+      label: getAssetStatusLabel(status),
+      dense: true,
     );
   }
 

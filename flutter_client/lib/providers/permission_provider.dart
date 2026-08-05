@@ -231,6 +231,13 @@ class PermissionProvider extends ChangeNotifier {
         (action == 'canView' || action == 'canExport')) {
       if (_anyHas(action, PermissionModules.attendanceRead)) return true;
     }
+    if (moduleCode == 'LateEarlyReport' &&
+        (action == 'canView' || action == 'canExport')) {
+      if (_flag('AttendanceByShift', action) ||
+          _flag('AttendanceSummary', action)) {
+        return true;
+      }
+    }
     if (moduleCode == 'LeaveReport' &&
         (action == 'canView' || action == 'canExport')) {
       if (_flag('Leave', action)) return true;

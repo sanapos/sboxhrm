@@ -1,6 +1,5 @@
 import 'dart:convert';
 
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/pos_product.dart';
@@ -25,7 +24,6 @@ class PosSellCatalogSnapshot {
 }
 
 /// Cache catalog bán hàng theo storeId — hiển thị ngay, sync nền sau TTL.
-/// Web: bỏ qua disk cache (SharedPreferences meta only / no-op) để tránh dart:io.
 class PosSellCatalogCache {
   PosSellCatalogCache._();
   static final PosSellCatalogCache instance = PosSellCatalogCache._();
@@ -35,7 +33,7 @@ class PosSellCatalogCache {
   String? _lastStoreId;
 
   Future<PosSellCatalogSnapshot?> read(String storeId) async {
-    if (storeId.isEmpty || kIsWeb) return null;
+    if (storeId.isEmpty) return null;
     try {
       final prefs = await SharedPreferences.getInstance();
       final metaKey = '$_metaPrefix$storeId';
@@ -72,7 +70,6 @@ class PosSellCatalogCache {
   }
 
   Future<bool> shouldSync(String storeId) async {
-    if (kIsWeb) return true;
     final snap = await read(storeId);
     if (snap == null) return true;
     return !snap.isFresh;
@@ -83,7 +80,7 @@ class PosSellCatalogCache {
     required List<PosProduct> items,
     DateTime? catalogVersion,
   }) async {
-    if (storeId.isEmpty || kIsWeb) return;
+    if (storeId.isEmpty) return;
     _lastStoreId = storeId;
     try {
       final payload = jsonEncode({
@@ -113,9 +110,7 @@ class PosSellCatalogCache {
       final metaKey = '$_metaPrefix$storeId';
       await prefs.remove('${metaKey}_at');
       await prefs.remove('${metaKey}_ver');
-      if (!kIsWeb) {
-        await cache_io.deleteCatalogJson(storeId);
-      }
+      await cache_io.deleteCatalogJson(storeId);
       if (_lastStoreId == storeId) _lastStoreId = null;
     } catch (_) {}
   }

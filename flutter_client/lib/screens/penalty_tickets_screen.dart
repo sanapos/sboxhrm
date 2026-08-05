@@ -6,7 +6,9 @@ import 'package:intl/intl.dart';
 import '../services/api_service.dart';
 import '../utils/api_datetime.dart';
 import '../utils/responsive_helper.dart';
+import '../utils/branch_filter_helper.dart';
 import '../widgets/hrm_page_chrome.dart';
+import '../widgets/hrm_collapsible_overview.dart';
 import '../widgets/hrm_responsive_list_layout.dart';
 import '../widgets/notification_overlay.dart';
 import 'package:provider/provider.dart';
@@ -66,7 +68,7 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
   final Set<String> _selectedIds = {};
   bool get _isSelectionMode => _selectedIds.isNotEmpty;
 
-  bool _showMobileSummary = false;
+  bool _showOverviewPanel = true;
 
   @override
   void initState() {
@@ -1400,47 +1402,25 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
   }
 
   List<Widget> _penaltyPageHeaderSections(bool isMobile) => [
-        if (isMobile) ...[
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
-            child: InkWell(
-              onTap: () =>
-                  setState(() => _showMobileSummary = !_showMobileSummary),
-              borderRadius: BorderRadius.circular(8),
-              child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(
-                    color: Colors.blue.shade50,
-                    borderRadius: BorderRadius.circular(8)),
-                child: Row(
-                  children: [
-                    Icon(Icons.analytics_outlined,
-                        size: 16, color: Colors.blue.shade700),
-                    const SizedBox(width: 6),
-                    Text(tr('Tổng quan'),
-                        style: TextStyle(
-                            fontWeight: FontWeight.w600,
-                            fontSize: 13,
-                            color: Colors.blue.shade700)),
-                    const Spacer(),
-                    Icon(
-                        _showMobileSummary
-                            ? Icons.expand_less
-                            : Icons.expand_more,
-                        size: 20,
-                        color: Colors.blue.shade700),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          if (_showMobileSummary) _buildStatsCards(),
-        ] else
-          _buildStatsCards(),
-        _buildFilterBar(),
+        _buildOverviewSection(),
         if (_isSelectionMode) _buildBulkActionBar(),
       ];
+
+  Widget _buildOverviewSection() {
+    return HrmCollapsibleOverview(
+      expanded: _showOverviewPanel,
+      onToggle: () =>
+          setState(() => _showOverviewPanel = !_showOverviewPanel),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _buildStatsCards(),
+          const SizedBox(height: 10),
+          _buildFilterBar(),
+        ],
+      ),
+    );
+  }
 
   List<Widget> _penaltyMobileSlivers() {
     if (_filteredTickets.isEmpty) {
@@ -1824,7 +1804,7 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
             ],
           ),
           const SizedBox(height: 8),
-          if (_branches.isNotEmpty)
+          if (BranchFilterHelper.showBranchFilter(_branches))
             Container(
               height: 40,
               padding: const EdgeInsets.symmetric(horizontal: 12),

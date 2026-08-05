@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import '../widgets/pos/pos_theme.dart';
 
 import '../providers/permission_provider.dart';
 import '../services/api_service.dart';
@@ -16,7 +17,7 @@ import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 export '../utils/business_trip_status.dart';
 
-const _theme = Color(0xFF0EA5E9);
+const _theme = PosTheme.kiotBlue;
 
 String advanceStatusLabel(dynamic s) {
   final v = parseTripStatus(s) ?? (s is int ? s : int.tryParse(s?.toString() ?? ''));

@@ -12,7 +12,7 @@ import '../widgets/page_top_actions.dart';
 import '../widgets/reports/hrm_report_widgets.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
-const _theme = Color(0xFF0EA5E9);
+const _theme = HrmPageChrome.primaryNavy;
 
 class BusinessTripReportScreen extends StatefulWidget {
   const BusinessTripReportScreen({super.key});
@@ -36,6 +36,7 @@ class _BusinessTripReportScreenState extends State<BusinessTripReportScreen> {
   int _viewTab = 0;
 
   bool _loading = false;
+  bool _showOverviewPanel = true;
   String? _loadError;
   List<Map<String, dynamic>> _cases = [];
   List<Map<String, dynamic>> _byEmployee = [];
@@ -388,41 +389,48 @@ class _BusinessTripReportScreenState extends State<BusinessTripReportScreen> {
               child: ListView(
                 physics: const AlwaysScrollableScrollPhysics(),
                 children: [
-                  ReportFilterSection(
-                    from: _from,
-                    to: _to,
-                    datePreset: _datePreset,
-                    onDateChanged: (f, t, p) => setState(() {
-                      _from = f;
-                      _to = t;
-                      _datePreset = p;
-                    }),
-                    statusFilter: _statusDrop(),
-                    statusSummary: _statusFilter != null
-                        ? tripStatusLabel(_statusFilter)
-                        : null,
-                    showTeamFilters: _teamView,
-                    branchFilter: _teamView ? _branchFilter : null,
-                    selectedBranchId: _selectedBranchId,
-                    onBranchChanged: (v) async {
-                      if (v != null) await _branchFilter.ensureEmployees(_api);
-                      if (mounted) setState(() => _selectedBranchId = v);
-                    },
-                    empSearch: _empSearch,
-                    onEmpSearchChanged: (v) => setState(() => _empSearch = v),
-                    empSuggestions: _empSuggestions,
-                    onApply: _load,
-                    onClearFilters: _teamView
-                        ? () => setState(() {
-                              _empSearch = '';
-                              _selectedBranchId = null;
-                              _statusFilter = null;
-                              _selectedCategoryKey = null;
-                            })
-                        : () => setState(() {
-                              _statusFilter = null;
-                              _selectedCategoryKey = null;
-                            }),
+                  ReportCollapsibleChrome(
+                    expanded: _showOverviewPanel,
+                    onToggle: () => setState(
+                        () => _showOverviewPanel = !_showOverviewPanel),
+                    kpi: ReportKpiGrid(items: _buildKpis()),
+                    filter: ReportFilterSection(
+                      embedded: true,
+                      from: _from,
+                      to: _to,
+                      datePreset: _datePreset,
+                      onDateChanged: (f, t, p) => setState(() {
+                        _from = f;
+                        _to = t;
+                        _datePreset = p;
+                      }),
+                      statusFilter: _statusDrop(),
+                      statusSummary: _statusFilter != null
+                          ? tripStatusLabel(_statusFilter)
+                          : null,
+                      showTeamFilters: _teamView,
+                      branchFilter: _teamView ? _branchFilter : null,
+                      selectedBranchId: _selectedBranchId,
+                      onBranchChanged: (v) async {
+                        await _branchFilter.ensureEmployees(_api, branchId: v);
+                        if (mounted) setState(() => _selectedBranchId = v);
+                      },
+                      empSearch: _empSearch,
+                      onEmpSearchChanged: (v) => setState(() => _empSearch = v),
+                      empSuggestions: _empSuggestions,
+                      onApply: _load,
+                      onClearFilters: _teamView
+                          ? () => setState(() {
+                                _empSearch = '';
+                                _selectedBranchId = null;
+                                _statusFilter = null;
+                                _selectedCategoryKey = null;
+                              })
+                          : () => setState(() {
+                                _statusFilter = null;
+                                _selectedCategoryKey = null;
+                              }),
+                    ),
                   ),
                   if (_selectedCategoryKey != null)
                     Padding(
@@ -439,7 +447,6 @@ class _BusinessTripReportScreenState extends State<BusinessTripReportScreen> {
                       ),
                     ),
                   reportLoadErrorBanner(_loadError),
-                  ReportKpiGrid(items: _buildKpis()),
                   if (_teamView &&
                       (_summaryWithInvoice > 0 || _summaryWithoutInvoice > 0))
                     Padding(

@@ -17,6 +17,8 @@ import '../widgets/empty_state.dart';
 import '../widgets/notification_overlay.dart';
 import '../widgets/app_button.dart';
 import '../widgets/hrm_page_chrome.dart';
+import '../widgets/hrm_collapsible_overview.dart';
+import '../utils/branch_filter_helper.dart';
 import '../widgets/hrm_responsive_list_layout.dart';
 import '../widgets/page_top_actions.dart';
 import '../widgets/app_responsive_dialog.dart';
@@ -207,8 +209,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
   int _pageSize = 50;
   final List<int> _pageSizeOptions = [20, 50, 100, 200];
 
-  // Mobile UI state
-  bool _showMobileSummary = false;
+  bool _showOverviewPanel = true;
   DeviceUsersOverviewFilter _overviewFilter = DeviceUsersOverviewFilter.all;
 
   @override
@@ -1349,87 +1350,41 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
   List<Widget> _buildUsersPageHeaderSections(
       int linkedCount, int unlinkedCount, int onlineDevices) {
     return [
-      if (Responsive.isMobile(context)) ...[
-        InkWell(
-          onTap: () =>
-              setState(() => _showMobileSummary = !_showMobileSummary),
-          borderRadius: BorderRadius.circular(8),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              color: Colors.blue.shade50,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Row(
-              children: [
-                Icon(Icons.analytics_outlined,
-                    size: 16, color: Colors.blue.shade700),
-                const SizedBox(width: 6),
-                Text(tr('Tổng quan'),
-                    style: TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 13,
-                        color: Colors.blue.shade700)),
-                const Spacer(),
-                Icon(
-                    _showMobileSummary
-                        ? Icons.expand_less
-                        : Icons.expand_more,
-                    size: 20,
-                    color: Colors.blue.shade700),
-              ],
-            ),
-          ),
-        ),
-        if (_showMobileSummary) ...[
-          const SizedBox(height: 8),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                SizedBox(
-                    width: 120,
-                    child: _buildStatCard(
-                        _l10n.totalUsers,
-                        '${_deviceUsers.length}',
-                        Icons.people_outline,
-                        HrmPageChrome.primaryNavy,
-                        filter: DeviceUsersOverviewFilter.all)),
-                const SizedBox(width: 10),
-                SizedBox(
-                    width: 120,
-                    child: _buildStatCard(
-                        _l10n.linkedUsers,
-                        '$linkedCount',
-                        Icons.link,
-                        HrmPageChrome.primaryNavy,
-                        filter: DeviceUsersOverviewFilter.linked)),
-                const SizedBox(width: 10),
-                SizedBox(
-                    width: 120,
-                    child: _buildStatCard(
-                        _l10n.unlinkedUsers,
-                        '$unlinkedCount',
-                        Icons.link_off,
-                        const Color(0xFFF59E0B),
-                        filter: DeviceUsersOverviewFilter.unlinked)),
-                const SizedBox(width: 10),
-                SizedBox(
-                    width: 120,
-                    child: _buildStatCard(
-                        _l10n.onlineDevices,
-                        '$onlineDevices/${_devices.length}',
-                        Icons.router,
-                        HrmPageChrome.primaryNavy,
-                        filter: DeviceUsersOverviewFilter.onOnlineDevice)),
-              ],
-            ),
-          ),
+      _buildUsersOverviewSection(linkedCount, unlinkedCount, onlineDevices),
+      const SizedBox(height: 12),
+    ];
+  }
+
+  Widget _buildUsersOverviewSection(
+      int linkedCount, int unlinkedCount, int onlineDevices) {
+    return HrmCollapsibleOverview(
+      expanded: _showOverviewPanel,
+      onToggle: () =>
+          setState(() => _showOverviewPanel = !_showOverviewPanel),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _buildUsersStatsRow(linkedCount, unlinkedCount, onlineDevices),
+          if (_buildActiveOverviewFilterBanner() != null) ...[
+            const SizedBox(height: 8),
+            _buildActiveOverviewFilterBanner()!,
+          ],
+          const SizedBox(height: 10),
+          _buildFilters(),
         ],
-      ] else ...[
-        Row(
+      ),
+    );
+  }
+
+  Widget _buildUsersStatsRow(
+      int linkedCount, int unlinkedCount, int onlineDevices) {
+    if (Responsive.isMobile(context)) {
+      return SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
           children: [
-            Expanded(
+            SizedBox(
+                width: 120,
                 child: _buildStatCard(
                     _l10n.totalUsers,
                     '${_deviceUsers.length}',
@@ -1437,7 +1392,8 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                     HrmPageChrome.primaryNavy,
                     filter: DeviceUsersOverviewFilter.all)),
             const SizedBox(width: 10),
-            Expanded(
+            SizedBox(
+                width: 120,
                 child: _buildStatCard(
                     _l10n.linkedUsers,
                     '$linkedCount',
@@ -1445,15 +1401,17 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                     HrmPageChrome.primaryNavy,
                     filter: DeviceUsersOverviewFilter.linked)),
             const SizedBox(width: 10),
-            Expanded(
+            SizedBox(
+                width: 120,
                 child: _buildStatCard(
                     _l10n.unlinkedUsers,
                     '$unlinkedCount',
                     Icons.link_off,
-                    const Color(0xFFF59E0B),
+                    HrmPageChrome.chipLight,
                     filter: DeviceUsersOverviewFilter.unlinked)),
             const SizedBox(width: 10),
-            Expanded(
+            SizedBox(
+                width: 120,
                 child: _buildStatCard(
                     _l10n.onlineDevices,
                     '$onlineDevices/${_devices.length}',
@@ -1462,13 +1420,43 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                     filter: DeviceUsersOverviewFilter.onOnlineDevice)),
           ],
         ),
+      );
+    }
+    return Row(
+      children: [
+        Expanded(
+            child: _buildStatCard(
+                _l10n.totalUsers,
+                '${_deviceUsers.length}',
+                Icons.people_outline,
+                HrmPageChrome.primaryNavy,
+                filter: DeviceUsersOverviewFilter.all)),
+        const SizedBox(width: 10),
+        Expanded(
+            child: _buildStatCard(
+                _l10n.linkedUsers,
+                '$linkedCount',
+                Icons.link,
+                HrmPageChrome.primaryNavy,
+                filter: DeviceUsersOverviewFilter.linked)),
+        const SizedBox(width: 10),
+        Expanded(
+            child: _buildStatCard(
+                _l10n.unlinkedUsers,
+                '$unlinkedCount',
+                Icons.link_off,
+                HrmPageChrome.chipLight,
+                filter: DeviceUsersOverviewFilter.unlinked)),
+        const SizedBox(width: 10),
+        Expanded(
+            child: _buildStatCard(
+                _l10n.onlineDevices,
+                '$onlineDevices/${_devices.length}',
+                Icons.router,
+                HrmPageChrome.primaryNavy,
+                filter: DeviceUsersOverviewFilter.onOnlineDevice)),
       ],
-      if (_buildActiveOverviewFilterBanner() != null)
-        _buildActiveOverviewFilterBanner()!,
-      const SizedBox(height: 12),
-      _buildFilters(),
-      const SizedBox(height: 12),
-    ];
+    );
   }
 
   Widget _buildUsersListDesktopBody() {
@@ -1550,7 +1538,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
 
   List<Widget> _mobileUserListSlivers(List<DeviceUser> users) {
     const pad = EdgeInsets.symmetric(horizontal: 12, vertical: 8);
-    if (_branches.isEmpty) {
+    if (!BranchFilterHelper.showBranchFilter(_branches)) {
       return HrmScrollSlivers.fromListViewBuilder(
         itemCount: users.length,
         padding: pad,
@@ -1735,7 +1723,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
   }
 
   Widget _buildMobileUserList(List<DeviceUser> users) {
-    if (_branches.isEmpty) {
+    if (!BranchFilterHelper.showBranchFilter(_branches)) {
       return _buildMobileUserListRaw(users);
     }
     // Group by branch
@@ -1858,7 +1846,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                             size: 14,
                             color: user.employeeId != null
                                 ? const Color(0xFF16A34A)
-                                : const Color(0xFFEA580C),
+                                : HrmPageChrome.chipMid,
                           ),
                           const SizedBox(width: 4),
                           Expanded(
@@ -1870,7 +1858,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                                 fontSize: 12,
                                 color: user.employeeId != null
                                     ? const Color(0xFF16A34A)
-                                    : const Color(0xFFEA580C),
+                                    : HrmPageChrome.chipMid,
                                 fontWeight: user.employeeId != null
                                     ? FontWeight.w500
                                     : FontWeight.normal,
@@ -1902,7 +1890,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                             size: 12,
                             color: user.cardNumber != null &&
                                     user.cardNumber!.isNotEmpty
-                                ? const Color(0xFF2563EB)
+                                ? HrmPageChrome.chipMid
                                 : const Color(0xFFD4D4D8)),
                         const SizedBox(width: 2),
                         Text(tr('Thẻ'),
@@ -1910,20 +1898,20 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                                 fontSize: 10,
                                 color: user.cardNumber != null &&
                                         user.cardNumber!.isNotEmpty
-                                    ? const Color(0xFF2563EB)
+                                    ? HrmPageChrome.chipMid
                                     : const Color(0xFFA1A1AA))),
                         const SizedBox(width: 8),
                         Icon(Icons.fingerprint,
                             size: 12,
                             color: user.fingerprintCount > 0
-                                ? const Color(0xFFEA580C)
+                                ? HrmPageChrome.chipMid
                                 : const Color(0xFFD4D4D8)),
                         const SizedBox(width: 2),
                         Text(tr('${user.fingerprintCount} vân tay'),
                             style: TextStyle(
                                 fontSize: 10,
                                 color: user.fingerprintCount > 0
-                                    ? const Color(0xFFEA580C)
+                                    ? HrmPageChrome.chipMid
                                     : const Color(0xFFA1A1AA))),
                       ]),
                     ],
@@ -1998,7 +1986,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
 
   List<DataRow> _buildDesktopRows(List<DeviceUser> users) {
     const int colCount = 9;
-    if (_branches.isEmpty) return _buildUserDataRows(users);
+    if (!BranchFilterHelper.showBranchFilter(_branches)) return _buildUserDataRows(users);
 
     final Map<String, List<DeviceUser>> groupMap = {};
     for (final u in users) {
@@ -2092,7 +2080,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
               child: Text(tr('${user.fingerprintCount}'),
                   style: TextStyle(
                       color: user.fingerprintCount > 0
-                          ? const Color(0xFFEA580C)
+                          ? HrmPageChrome.chipMid
                           : Colors.grey)))),
         ],
       );

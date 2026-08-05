@@ -29,6 +29,7 @@ class PermissionModuleLabels {
     'WorkSchedule': 'Lịch làm việc',
     'AttendanceSummary': 'Tổng hợp chấm công',
     'AttendanceByShift': 'Tổng hợp chấm công theo ca',
+    'LateEarlyReport': 'Đi trễ / Về sớm',
     'AttendanceCorrection': 'Chỉnh sửa chấm công',
     'AttendanceApproval': 'Duyệt chấm công',
     'MobileAttendanceApproval': 'Duyệt chấm công Mobile',

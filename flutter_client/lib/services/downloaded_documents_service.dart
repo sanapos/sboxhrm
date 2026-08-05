@@ -1,10 +1,15 @@
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 
 import '../models/downloaded_document.dart';
+
+// dart:io chỉ dùng ngoài web (conditional qua helper nội bộ).
+import 'downloaded_documents_io.dart'
+    if (dart.library.html) 'downloaded_documents_io_stub.dart'
+    if (dart.library.js_interop) 'downloaded_documents_io_stub.dart'
+    as dio;
 
 /// Chỉ mục file tải/xuất **nội bộ từng máy** (thư mục app + quét SBOX HRM).
 /// Không gọi API, không đồng bộ thiết bị khác, không dùng phân quyền module.
@@ -19,80 +24,99 @@ class DownloadedDocumentsService {
 
   List<DownloadedDocument> get items => List.unmodifiable(_items);
 
-  Future<Directory> _storageDir() async {
-    final base = await getApplicationDocumentsDirectory();
-    final dir = Directory('${base.path}/sbox_downloads');
-    if (!await dir.exists()) await dir.create(recursive: true);
-    return dir;
-  }
+  /// Web không có thư mục tải xuống cục bộ kiểu app — luôn rỗng, không IO.
+  bool get isUnsupportedPlatform => kIsWeb;
 
-  Future<File> _indexFile() async {
-    final dir = await _storageDir();
-    return File('${dir.path}/$_indexFileName');
+  Future<String> _storagePath() async {
+    final base = await getApplicationDocumentsDirectory();
+    return '${base.path}/sbox_downloads';
   }
 
   Future<void> _persist() async {
-    final file = await _indexFile();
-    final list = _items.map((e) => e.toJson()).toList();
-    await file.writeAsString(jsonEncode(list));
+    if (kIsWeb) return;
+    try {
+      final dirPath = await _storagePath();
+      await dio.ensureDir(dirPath);
+      await dio.writeString(
+        '$dirPath/$_indexFileName',
+        jsonEncode(_items.map((e) => e.toJson()).toList()),
+      );
+    } catch (e) {
+      debugPrint('DownloadedDocumentsService._persist: $e');
+    }
   }
 
   Future<void> ensureLoaded({bool rescan = false}) async {
+    if (kIsWeb) {
+      _items = [];
+      _loaded = true;
+      return;
+    }
     if (_loaded && !rescan) return;
-    final file = await _indexFile();
-    if (await file.exists()) {
-      try {
-        final raw = jsonDecode(await file.readAsString());
-        if (raw is List) {
-          _items = raw
-              .whereType<Map>()
-              .map((e) => DownloadedDocument.fromJson(
-                  Map<String, dynamic>.from(e)))
-              .where((d) => File(d.localPath).existsSync())
-              .toList();
+    try {
+      final dirPath = await _storagePath();
+      await dio.ensureDir(dirPath);
+      final indexPath = '$dirPath/$_indexFileName';
+      final rawText = await dio.readStringIfExists(indexPath);
+      if (rawText != null && rawText.isNotEmpty) {
+        try {
+          final raw = jsonDecode(rawText);
+          if (raw is List) {
+            _items = raw
+                .whereType<Map>()
+                .map((e) => DownloadedDocument.fromJson(
+                    Map<String, dynamic>.from(e)))
+                .where((d) => dio.fileExists(d.localPath))
+                .toList();
+          }
+        } catch (e) {
+          debugPrint('DownloadedDocumentsService load error: $e');
+          _items = [];
         }
-      } catch (e) {
-        debugPrint('DownloadedDocumentsService load error: $e');
+      } else {
         _items = [];
       }
-    } else {
+      if (rescan || _items.isEmpty) {
+        await _importFromPublicFolders();
+      }
+      _items.sort((a, b) => b.downloadedAt.compareTo(a.downloadedAt));
+      await _persist();
+    } catch (e) {
+      debugPrint('DownloadedDocumentsService.ensureLoaded: $e');
       _items = [];
+    } finally {
+      _loaded = true;
     }
-    if (rescan || _items.isEmpty) {
-      await _importFromPublicFolders();
-    }
-    _items.sort((a, b) => b.downloadedAt.compareTo(a.downloadedAt));
-    _loaded = true;
-    await _persist();
   }
 
   Future<void> _importFromPublicFolders() async {
-    if (kIsWeb || !Platform.isAndroid) return;
+    if (kIsWeb || !dio.isAndroid) return;
     final dirs = [
-      Directory('/storage/emulated/0/Download/SBOX HRM'),
-      Directory('/storage/emulated/0/Pictures/SBOX HRM'),
+      '/storage/emulated/0/Download/SBOX HRM',
+      '/storage/emulated/0/Pictures/SBOX HRM',
     ];
     final knownNames = _items.map((e) => e.fileName).toSet();
-    for (final dir in dirs) {
-      if (!await dir.exists()) continue;
-      await for (final entity in dir.list(recursive: false)) {
-        if (entity is! File) continue;
-        final name = entity.path.split(Platform.pathSeparator).last;
+    for (final dirPath in dirs) {
+      if (!await dio.dirExists(dirPath)) continue;
+      final files = await dio.listFiles(dirPath);
+      for (final entityPath in files) {
+        final name = dio.basename(entityPath);
         if (knownNames.contains(name)) continue;
-        final ext = name.contains('.') ? name.split('.').last.toLowerCase() : '';
+        final ext =
+            name.contains('.') ? name.split('.').last.toLowerCase() : '';
         if (!['xlsx', 'xls', 'csv', 'png', 'jpg', 'jpeg', 'pdf'].contains(ext)) {
           continue;
         }
         try {
-          final bytes = await entity.readAsBytes();
+          final bytes = await dio.readBytes(entityPath);
           final mime = _mimeFromName(name);
           await register(
             bytes: bytes,
             filename: name,
             mimeType: mime,
             category: DownloadDocCategories.inferFromFileName(name),
-            downloadedAt: await entity.lastModified(),
-            externalUri: entity.path,
+            downloadedAt: await dio.lastModified(entityPath),
+            externalUri: entityPath,
           );
           knownNames.add(name);
         } catch (_) {}
@@ -131,10 +155,11 @@ class DownloadedDocumentsService {
     if (kIsWeb) return null;
     try {
       final safeName = _safeFileName(filename);
-      final dir = await _storageDir();
+      final dirPath = await _storagePath();
+      await dio.ensureDir(dirPath);
       final id = '${DateTime.now().millisecondsSinceEpoch}_${safeName.hashCode}';
-      final stored = File('${dir.path}/${id}_$safeName');
-      await stored.writeAsBytes(bytes);
+      final storedPath = '$dirPath/${id}_$safeName';
+      await dio.writeBytes(storedPath, bytes);
       final cat = category?.isNotEmpty == true
           ? category!
           : DownloadDocCategories.inferFromFileName(
@@ -144,7 +169,7 @@ class DownloadedDocumentsService {
         id: id,
         fileName: safeName,
         displayName: safeName,
-        localPath: stored.path,
+        localPath: storedPath,
         mimeType: mimeType,
         category: cat,
         sourceModule: sourceModule,
@@ -166,6 +191,7 @@ class DownloadedDocumentsService {
   }
 
   Future<bool> rename(String id, String newDisplayName) async {
+    if (kIsWeb) return false;
     await ensureLoaded();
     final idx = _items.indexWhere((e) => e.id == id);
     if (idx < 0) return false;
@@ -177,14 +203,14 @@ class DownloadedDocumentsService {
       base = '$base$ext';
     }
     base = _safeFileName(base);
-    final dir = await _storageDir();
-    final newFile = File('${dir.path}/${doc.id}_$base');
+    final dirPath = await _storagePath();
+    final newPath = '$dirPath/${doc.id}_$base';
     try {
-      await File(doc.localPath).rename(newFile.path);
+      await dio.renameFile(doc.localPath, newPath);
       _items[idx] = doc.copyWith(
         fileName: base,
         displayName: base,
-        localPath: newFile.path,
+        localPath: newPath,
       );
       await _persist();
       return true;
@@ -195,13 +221,13 @@ class DownloadedDocumentsService {
   }
 
   Future<bool> delete(String id) async {
+    if (kIsWeb) return false;
     await ensureLoaded();
     final idx = _items.indexWhere((e) => e.id == id);
     if (idx < 0) return false;
     final doc = _items[idx];
     try {
-      final f = File(doc.localPath);
-      if (await f.exists()) await f.delete();
+      await dio.deleteFileIfExists(doc.localPath);
     } catch (_) {}
     _items.removeAt(idx);
     await _persist();
@@ -225,9 +251,7 @@ class DownloadedDocumentsService {
       list = list.where((e) => e.isImage).toList();
     }
     if (from != null) {
-      list = list
-          .where((e) => !e.downloadedAt.isBefore(from))
-          .toList();
+      list = list.where((e) => !e.downloadedAt.isBefore(from)).toList();
     }
     if (to != null) {
       final end = DateTime(to.year, to.month, to.day, 23, 59, 59);

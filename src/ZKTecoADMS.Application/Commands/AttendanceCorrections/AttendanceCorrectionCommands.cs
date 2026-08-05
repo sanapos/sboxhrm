@@ -792,34 +792,88 @@ public class UndoApproveAttendanceCorrectionHandler(
         if (employee == null)
             return null;
 
-        DeviceUser? deviceUser = await deviceUserRepository.GetSingleAsync(
-            du => du.EmployeeId == employee.Id, cancellationToken: cancellationToken);
+        var device = correction.StoreId.HasValue
+            ? await deviceRepository.GetSingleAsync(
+                d => d.StoreId == correction.StoreId.Value, cancellationToken: cancellationToken)
+            : await deviceRepository.GetSingleAsync(d => true, cancellationToken: cancellationToken);
+        if (device == null)
+            return null;
+        var deviceId = device.Id;
 
-        Guid deviceId;
-        if (deviceUser != null)
-            deviceId = deviceUser.DeviceId;
-        else
+        var deviceUser = await deviceUserRepository.GetSingleAsync(
+            du => du.EmployeeId == employee.Id && du.DeviceId == deviceId,
+            cancellationToken: cancellationToken);
+
+        var empName = $"{employee.LastName} {employee.FirstName}".Trim();
+        if (string.IsNullOrWhiteSpace(empName))
+            empName = employee.EmployeeCode ?? "NV";
+
+        if (deviceUser == null)
         {
-            var device = correction.StoreId.HasValue
-                ? await deviceRepository.GetSingleAsync(
-                    d => d.StoreId == correction.StoreId.Value, cancellationToken: cancellationToken)
-                : await deviceRepository.GetSingleAsync(d => true, cancellationToken: cancellationToken);
-            if (device == null)
-                return null;
-            deviceId = device.Id;
+            var preferredPin = (employee.EmployeeCode ?? correction.EmployeeCode ?? "0").Trim();
+            if (preferredPin.Length > 20)
+                preferredPin = preferredPin[..20];
+            if (string.IsNullOrWhiteSpace(preferredPin))
+                preferredPin = "0";
+
+            var pinOwner = await deviceUserRepository.GetSingleAsync(
+                du => du.DeviceId == deviceId && du.Pin == preferredPin,
+                cancellationToken: cancellationToken);
+            if (pinOwner != null && (pinOwner.EmployeeId == null || pinOwner.EmployeeId == employee.Id))
+            {
+                if (pinOwner.EmployeeId == null)
+                {
+                    pinOwner.EmployeeId = employee.Id;
+                    if (string.IsNullOrWhiteSpace(pinOwner.Name))
+                        pinOwner.Name = empName;
+                    await deviceUserRepository.UpdateAsync(pinOwner, cancellationToken);
+                }
+                deviceUser = pinOwner;
+            }
+            else if (pinOwner == null)
+            {
+                deviceUser = new DeviceUser
+                {
+                    Id = Guid.NewGuid(),
+                    Pin = preferredPin,
+                    Name = empName.Length > 200 ? empName[..200] : empName,
+                    DeviceId = deviceId,
+                    EmployeeId = employee.Id,
+                    IsActive = true,
+                    GroupId = 1,
+                    CreatedAt = DateTime.UtcNow
+                };
+                await deviceUserRepository.AddAsync(deviceUser, cancellationToken);
+            }
+            else
+            {
+                var onDevice = await deviceUserRepository.GetAllAsync(
+                    du => du.DeviceId == deviceId, cancellationToken: cancellationToken);
+                var used = onDevice.Select(u => u.Pin).ToHashSet(StringComparer.Ordinal);
+                var allocated = DeviceUserPinAllocator.AllocateSequential(used);
+                deviceUser = new DeviceUser
+                {
+                    Id = Guid.NewGuid(),
+                    Pin = allocated,
+                    Name = empName.Length > 200 ? empName[..200] : empName,
+                    DeviceId = deviceId,
+                    EmployeeId = employee.Id,
+                    IsActive = true,
+                    GroupId = 1,
+                    CreatedAt = DateTime.UtcNow
+                };
+                await deviceUserRepository.AddAsync(deviceUser, cancellationToken);
+            }
         }
 
-        var pin = deviceUser?.Pin ?? correction.EmployeeCode;
-        if (string.IsNullOrEmpty(pin))
-            pin = employee.EmployeeCode ?? "0";
-
+        var pin = deviceUser.Pin;
         var punchState = ResolvePunchStateFromOldType(correction.OldType);
         var punchTime = correction.OldDate!.Value.Date.Add(correction.OldTime!.Value);
 
         return new Attendance
         {
             Id = correction.AttendanceId ?? Guid.NewGuid(),
-            EmployeeId = deviceUser?.Id ?? employee.Id,
+            EmployeeId = deviceUser.Id,
             DeviceId = deviceId,
             PIN = pin,
             AttendanceTime = punchTime,

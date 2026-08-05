@@ -19,6 +19,7 @@ import '../../models/device.dart';
 import '../../services/api_service.dart';
 import '../../widgets/notification_overlay.dart';
 import '../../widgets/attendance_frozen_employee_name_cell.dart';
+import '../../widgets/hrm_collapsible_overview.dart';
 import '../../widgets/hrm_page_chrome.dart';
 import '../../widgets/attendance_correction_reason_field.dart';
 import '../../widgets/attendance_delete_confirm_dialog.dart';
@@ -112,7 +113,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
   Set<String> _selectedEmployeeIds = {};
   // 'all' | 'valid' | 'late' | 'early' | 'late_early' | 'missing' | 'complete' | 'ot'
   String _shiftFilter = 'all';
-  bool _showMobileSummary = false;
+  bool _showOverviewPanel = true;
 
   // Sorting
   final bool _sortAscending = false;
@@ -1037,7 +1038,24 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
 
     final isMobileLayout = MediaQuery.sizeOf(context).width < 600;
 
-    Widget buildMobileHeader() {
+    Widget buildOverviewSection() {
+      return HrmCollapsibleOverview(
+        expanded: _showOverviewPanel,
+        onToggle: () =>
+            setState(() => _showOverviewPanel = !_showOverviewPanel),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _buildStatsRow(totalRecords, uniqueEmployees, totalHours,
+                totalLate, totalEarly, totalOT),
+            const SizedBox(height: 10),
+            _buildFilters(range),
+          ],
+        ),
+      );
+    }
+
+    Widget buildPageHeader() {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -1045,45 +1063,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
             ...widget.mobileLeadingSections!,
             const SizedBox(height: 12),
           ],
-          InkWell(
-            onTap: () =>
-                setState(() => _showMobileSummary = !_showMobileSummary),
-            borderRadius: BorderRadius.circular(8),
-            child: Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: Colors.blue.shade50,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.analytics_outlined,
-                      size: 16, color: Colors.blue.shade700),
-                  const SizedBox(width: 6),
-                  Text(tr('Tổng quan'),
-                      style: TextStyle(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 13,
-                          color: Colors.blue.shade700)),
-                  const Spacer(),
-                  Icon(
-                      _showMobileSummary
-                          ? Icons.expand_less
-                          : Icons.expand_more,
-                      size: 20,
-                      color: Colors.blue.shade700),
-                ],
-              ),
-            ),
-          ),
-          if (_showMobileSummary) ...[
-            const SizedBox(height: 8),
-            _buildStatsRow(totalRecords, uniqueEmployees, totalHours,
-                totalLate, totalEarly, totalOT),
-          ],
-          const SizedBox(height: 12),
-          _buildFilters(range),
+          buildOverviewSection(),
           const SizedBox(height: 12),
         ],
       );
@@ -1100,7 +1080,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
         slivers: [
           SliverPadding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-            sliver: SliverToBoxAdapter(child: buildMobileHeader()),
+            sliver: SliverToBoxAdapter(child: buildPageHeader()),
           ),
           if (records.isEmpty)
             SliverPadding(
@@ -1122,16 +1102,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
         SliverPadding(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
           sliver: SliverToBoxAdapter(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _buildStatsRow(totalRecords, uniqueEmployees, totalHours,
-                    totalLate, totalEarly, totalOT),
-                const SizedBox(height: 12),
-                _buildFilters(range),
-                const SizedBox(height: 12),
-              ],
-            ),
+            child: buildPageHeader(),
           ),
         ),
         ..._buildTableSlivers(records),
@@ -2019,7 +1990,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
       style: TextStyle(
         fontSize: 12,
         fontWeight: bold ? FontWeight.w700 : FontWeight.w600,
-        color: const Color(0xFF0EA5E9),
+        color: HrmPageChrome.chipLight,
       ),
     );
   }
@@ -2059,7 +2030,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
       _buildModernStatCard('Tổng giờ', '${totalHours.toStringAsFixed(1)}h',
           Icons.schedule, HrmPageChrome.primaryNavy),
       _buildModernStatCard('Đi trễ', '$totalLate', Icons.timer_off_outlined,
-          const Color(0xFFF59E0B)),
+          HrmPageChrome.chipLight),
       _buildModernStatCard(
           'Về sớm', '$totalEarly', Icons.exit_to_app, const Color(0xFFEF4444)),
       _buildModernStatCard(
@@ -2618,13 +2589,13 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Icon(Icons.fullscreen,
-                                  size: 18, color: Color(0xFF2563EB)),
+                                  size: 18, color: HrmPageChrome.chipMid),
                               SizedBox(width: 6),
                               Text(tr('Toàn màn hình'),
                                 style: TextStyle(
                                   fontSize: 12,
                                   fontWeight: FontWeight.w600,
-                                  color: Color(0xFF2563EB),
+                                  color: HrmPageChrome.chipMid,
                                 ),
                               ),
                             ],
@@ -4277,7 +4248,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
           style: TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w600,
-            color: isIn ? const Color(0xFF059669) : const Color(0xFFDC2626),
+            color: isIn ? HrmPageChrome.chip : const Color(0xFFDC2626),
           ),
         );
       }
@@ -4791,10 +4762,10 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
       isWeeklyOff: _isWeeklyOffDay(date, empCode),
     );
     final label = switch (kind) {
-      AbsenceCellKind.holiday => ('Lễ', const Color(0xFFEA580C)),
-      AbsenceCellKind.weeklyOff => ('Nghỉ', const Color(0xFF8B5CF6)),
-      AbsenceCellKind.approvedLeave => ('Phép', const Color(0xFF0891B2)),
-      AbsenceCellKind.pendingLeave => ('Chờ phép', const Color(0xFFD97706)),
+      AbsenceCellKind.holiday => ('Lễ', HrmPageChrome.chipMid),
+      AbsenceCellKind.weeklyOff => ('Nghỉ', HrmPageChrome.chipSoft),
+      AbsenceCellKind.approvedLeave => ('Phép', HrmPageChrome.chipLight),
+      AbsenceCellKind.pendingLeave => ('Chờ phép', HrmPageChrome.chipDark),
       AbsenceCellKind.unpaidAbsent => ('Vắng', const Color(0xFFEF4444)),
     };
     return mobileAttendanceAbsenceLabel(
@@ -5178,7 +5149,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
           ? const Color(0xFFA1A1AA)
           : (expected > 0 && work >= expected
               ? const Color(0xFF16A34A)
-              : const Color(0xFF7C3AED));
+              : HrmPageChrome.chipMid);
 
       return Padding(
         padding: const EdgeInsets.only(bottom: 10),
@@ -5259,14 +5230,14 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                             color: const Color(0xFFFEF3C7),
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(
-                                color: const Color(0xFFF59E0B)
+                                color: HrmPageChrome.chipLight
                                     .withValues(alpha: 0.35)),
                           ),
                           child: Text(tr('Trễ $lateDays'),
                             style: const TextStyle(
                               fontSize: 9,
                               fontWeight: FontWeight.w700,
-                              color: Color(0xFFD97706),
+                              color: HrmPageChrome.chipDark,
                             ),
                           ),
                         ),
@@ -5303,14 +5274,14 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                         icon: Icons.schedule_rounded,
                         label: 'Giờ làm',
                         value: hours > 0 ? _formatHoursMinutes(hours) : '—',
-                        color: const Color(0xFF2563EB),
+                        color: HrmPageChrome.chipMid,
                       ),
                       const SizedBox(width: 6),
                       _mobileShiftMetricChip(
                         icon: Icons.directions_car_rounded,
                         label: 'Đi đường',
                         value: travel > 0 ? _formatHoursMinutes(travel) : '—',
-                        color: const Color(0xFFEA580C),
+                        color: HrmPageChrome.chipMid,
                       ),
                       const SizedBox(width: 6),
                       _mobileShiftMetricChip(
@@ -5335,7 +5306,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                         icon: Icons.more_time_rounded,
                         label: 'Đi trễ',
                         value: lateMin > 0 ? '${lateMin}p' : '—',
-                        color: const Color(0xFFF59E0B),
+                        color: HrmPageChrome.chipLight,
                       ),
                       const SizedBox(width: 6),
                       _mobileShiftMetricChip(
@@ -5353,7 +5324,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                         icon: Icons.bolt_rounded,
                         label: 'Tăng ca',
                         value: otMin > 0 ? '${otMin}p' : '—',
-                        color: const Color(0xFF8B5CF6),
+                        color: HrmPageChrome.chipSoft,
                       ),
                     ],
                   ),
@@ -5440,7 +5411,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                       style: const TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w800,
-                        color: Color(0xFF2563EB),
+                        color: HrmPageChrome.chipMid,
                       ),
                     ),
                     Text(tr('tổng giờ'),
@@ -5452,7 +5423,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                       style: const TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w800,
-                        color: Color(0xFF7C3AED),
+                        color: HrmPageChrome.chipMid,
                       ),
                     ),
                     Text(tr('tổng công ca'),
@@ -5470,13 +5441,13 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                 children: [
                   if (grandLate > 0)
                     _shiftSummaryBadge(
-                        'Đi trễ ${grandLate}p', const Color(0xFFF59E0B)),
+                        'Đi trễ ${grandLate}p', HrmPageChrome.chipLight),
                   if (grandEarly > 0)
                     _shiftSummaryBadge(
                         'Về sớm ${grandEarly}p', const Color(0xFFEF4444)),
                   if (grandOt > 0)
                     _shiftSummaryBadge(
-                        'Tăng ca ${grandOt}p', const Color(0xFF8B5CF6)),
+                        'Tăng ca ${grandOt}p', HrmPageChrome.chipSoft),
                 ],
               ),
             ],

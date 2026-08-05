@@ -47,9 +47,7 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
   static const _textMuted = Color(0xFF71717A);
 
   final List<Color> _badgeColors = [
-    const Color(0xFFEF4444), const Color(0xFFF59E0B), HrmPageChrome.primaryNavy,
-    HrmPageChrome.primaryNavy, HrmPageChrome.primaryNavy, const Color(0xFFEC4899),
-    const Color(0xFF2D5F8B), HrmPageChrome.primaryNavy,
+    ...HrmPageChrome.chipShades,
   ];
 
   static const List<String> _categories = [
@@ -161,8 +159,8 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
 
   Color _getCategoryColor(String cat) {
     switch (cat) {
-      case 'Ngày nghỉ bù': return const Color(0xFFF59E0B);
-      case 'Ngày nghỉ hàng tuần': return const Color(0xFF2D5F8B);
+      case 'Ngày nghỉ bù': return HrmPageChrome.chipLight;
+      case 'Ngày nghỉ hàng tuần': return HrmPageChrome.chip;
       case 'Ngày đặc biệt công ty': return HrmPageChrome.primaryNavy;
       default: return const Color(0xFFEF4444);
     }
@@ -352,7 +350,7 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
           Row(
             children: [
               if (!embedded && !isMobile) ...[
-                const Icon(Icons.celebration, color: Color(0xFFF59E0B), size: 24),
+                const Icon(Icons.celebration, color: HrmPageChrome.chipLight, size: 24),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(tr('Thiết lập ngày lễ'),
@@ -864,7 +862,7 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
                 Container(
                   width: 42, height: 42,
                   decoration: BoxDecoration(
-                    gradient: const LinearGradient(colors: [Color(0xFFF59E0B), Color(0xFFFBBF24)]),
+                    gradient: const LinearGradient(colors: [HrmPageChrome.chipLight, Color(0xFFFBBF24)]),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: const Center(child: Icon(Icons.celebration, color: Colors.white, size: 22)),
@@ -1099,7 +1097,7 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
             Icons.swap_horiz,
             '${_holidays.where((h) => _getCategory(h) == 'Ngày nghỉ bù').length}',
             'Nghỉ bù',
-            const Color(0xFFF59E0B)),
+            HrmPageChrome.chipLight),
       ],
       minCardWidth: 120,
       gap: 10,
@@ -1215,7 +1213,7 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
                           if (!isEditing) ...[
                             _dialogField('Chọn từ danh sách ngày lễ Việt Nam', Container(
                               padding: const EdgeInsets.symmetric(horizontal: 12),
-                              decoration: BoxDecoration(border: Border.all(color: const Color(0xFFF59E0B)), borderRadius: BorderRadius.circular(8)),
+                              decoration: BoxDecoration(border: Border.all(color: HrmPageChrome.chipLight), borderRadius: BorderRadius.circular(8)),
                               child: DropdownButtonHideUnderline(
                                 child: DropdownButton<String>(
                                   value: selectedPreset,
@@ -1480,7 +1478,7 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
                     decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: _borderColor))),
                     child: Row(
                       children: [
-                        Icon(isEditing ? Icons.edit : Icons.add_circle, color: const Color(0xFFF59E0B), size: 22),
+                        Icon(isEditing ? Icons.edit : Icons.add_circle, color: HrmPageChrome.chipLight, size: 22),
                         const SizedBox(width: 10),
                         Text(tr(isEditing ? 'Sửa ngày lễ' : 'Thêm ngày lễ'), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: _textDark)),
                         const Spacer(),
@@ -1674,7 +1672,7 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
                         Navigator.pop(ctx);
                       },
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFF59E0B),
+                        backgroundColor: HrmPageChrome.chipLight,
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),

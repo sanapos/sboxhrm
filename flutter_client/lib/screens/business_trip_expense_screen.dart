@@ -15,7 +15,7 @@ import '../utils/responsive_helper.dart';
 import 'business_trip_categories_screen.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
-const _theme = Color(0xFF0EA5E9);
+const _theme = HrmPageChrome.primaryNavy;
 
 List<Map<String, dynamic>> _parseCaseItems(dynamic data) {
   dynamic raw;

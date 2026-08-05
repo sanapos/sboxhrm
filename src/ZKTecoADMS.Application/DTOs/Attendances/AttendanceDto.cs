@@ -21,5 +21,6 @@ public record AttendanceDto(
     double? Latitude = null,
     double? Longitude = null,
     string? LocationName = null,
-    string? SitePhotoUrl = null
+    string? SitePhotoUrl = null,
+    Guid? DeviceId = null
 );

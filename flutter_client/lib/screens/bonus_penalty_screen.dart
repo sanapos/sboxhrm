@@ -6,8 +6,11 @@ import '../services/api_service.dart';
 import '../utils/api_datetime.dart';
 import '../utils/number_formatter.dart';
 import '../widgets/hrm_page_chrome.dart';
+import '../widgets/hrm_mini_stat_chip.dart';
 import '../widgets/notification_overlay.dart';
 import '../utils/responsive_helper.dart';
+import '../utils/branch_filter_helper.dart';
+import '../widgets/hrm_collapsible_overview.dart';
 import '../widgets/hrm_responsive_list_layout.dart';
 import 'package:provider/provider.dart';
 import '../providers/permission_provider.dart';
@@ -55,8 +58,7 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
   final Set<String> _selectedIds = {};
   bool _isSelectMode = false;
 
-  // Mobile UI state
-  bool _showMobileSummary = false;
+  bool _showOverviewPanel = true;
 
   final _currencyFormat = NumberFormat('#,###', 'vi_VN');
 
@@ -419,48 +421,25 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
   }
 
   List<Widget> _bonusPenaltyHeaderSections(bool isMobile) => [
-        _buildFilterBar(),
-        if (isMobile) ...[
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-            child: InkWell(
-              onTap: () =>
-                  setState(() => _showMobileSummary = !_showMobileSummary),
-              borderRadius: BorderRadius.circular(8),
-              child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(
-                  color: Colors.blue.shade50,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.analytics_outlined,
-                        size: 16, color: Colors.blue.shade700),
-                    const SizedBox(width: 6),
-                    Text(tr('Tổng quan'),
-                        style: TextStyle(
-                            fontWeight: FontWeight.w600,
-                            fontSize: 13,
-                            color: Colors.blue.shade700)),
-                    const Spacer(),
-                    Icon(
-                        _showMobileSummary
-                            ? Icons.expand_less
-                            : Icons.expand_more,
-                        size: 20,
-                        color: Colors.blue.shade700),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          if (_showMobileSummary) _buildSummaryCards(),
-        ] else
-          _buildSummaryCards(),
+        _buildOverviewSection(),
         if (_isSelectMode) _buildBatchActionBar(),
       ];
+
+  Widget _buildOverviewSection() {
+    return HrmCollapsibleOverview(
+      expanded: _showOverviewPanel,
+      onToggle: () =>
+          setState(() => _showOverviewPanel = !_showOverviewPanel),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _buildSummaryCards(),
+          const SizedBox(height: 10),
+          _buildFilterBar(),
+        ],
+      ),
+    );
+  }
 
   Widget _buildNestedTransactionTab(List<Map<String, dynamic>> items,
       {required bool isBonus}) {
@@ -710,7 +689,7 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
                 if (!_bonusOnly) typeDropdown,
                 searchField,
                 selectBtn,
-                if (_branches.isNotEmpty)
+                if (BranchFilterHelper.showBranchFilter(_branches))
                   DropdownButtonFormField<String?>(
                     key: ValueKey('branch_$_selectedBranchId'),
                     initialValue: _selectedBranchId,
@@ -742,7 +721,7 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
                 typeDropdown,
                 const SizedBox(width: 12),
                 searchField,
-                if (_branches.isNotEmpty) ...[
+                if (BranchFilterHelper.showBranchFilter(_branches)) ...[
                   const SizedBox(width: 12),
                   SizedBox(
                     width: 180,
@@ -908,123 +887,44 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
 
   Widget _buildSummaryCards() {
     final isBonus = _tabController.index == 0;
-
-    final List<
-        ({
-          Color bgColor,
-          Color fgColor,
-          IconData icon,
-          String title,
-          String amount,
-          String? subtitle
-        })> items;
-    if (isBonus) {
-      items = [
-        (
-          bgColor: Colors.green.shade50,
-          fgColor: Colors.green.shade700,
-          icon: Icons.trending_up,
-          title: _l10n.totalBonus,
-          amount: '${_currencyFormat.format(_totalBonus)} đ',
-          subtitle: '${_bonusTransactions.length} khoản'
-        ),
-        (
-          bgColor: Colors.blue.shade50,
-          fgColor: Colors.blue.shade700,
-          icon: Icons.check_circle,
-          title: _l10n.paid,
-          amount: '${_currencyFormat.format(_paidBonusAmount)} đ',
-          subtitle: null
-        ),
-        (
-          bgColor: Colors.orange.shade50,
-          fgColor: Colors.orange.shade700,
-          icon: Icons.hourglass_empty,
-          title: _l10n.pendingPayment,
-          amount: '${_currencyFormat.format(_unpaidBonusAmount)} đ',
-          subtitle: null
-        ),
-      ];
-    } else {
-      items = [
-        (
-          bgColor: Colors.red.shade50,
-          fgColor: Colors.red.shade700,
-          icon: Icons.trending_down,
-          title: _l10n.totalPenalty,
-          amount: '${_currencyFormat.format(_totalPenalty)} đ',
-          subtitle: '${_penaltyTransactions.length} khoản'
-        ),
-        (
-          bgColor: Colors.blue.shade50,
-          fgColor: Colors.blue.shade700,
-          icon: Icons.check_circle,
-          title: _l10n.penaltyCollected,
-          amount: '${_currencyFormat.format(_paidPenaltyAmount)} đ',
-          subtitle: null
-        ),
-        (
-          bgColor: Colors.orange.shade50,
-          fgColor: Colors.orange.shade700,
-          icon: Icons.hourglass_empty,
-          title: _l10n.penaltyPending,
-          amount: '${_currencyFormat.format(_unpaidPenaltyAmount)} đ',
-          subtitle: null
-        ),
-      ];
-    }
-
-    Widget buildCard(int i, {bool expanded = true}) {
-      final c = items[i];
-      final card = Card(
-        color: c.bgColor,
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(children: [
-                Icon(c.icon, color: c.fgColor),
-                const SizedBox(width: 8),
-                Expanded(
-                    child: Text(tr(c.title),
-                        style: TextStyle(
-                            color: c.fgColor, fontWeight: FontWeight.w600))),
-              ]),
-              const SizedBox(height: 8),
-              Text(tr(c.amount),
-                  style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: c.fgColor)),
-              if (c.subtitle != null)
-                Text(tr(c.subtitle!),
-                    style: TextStyle(
-                        color: c.fgColor.withValues(alpha: 0.6), fontSize: 12)),
-            ],
-          ),
-        ),
-      );
-      return expanded ? Expanded(child: card) : card;
-    }
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-      child: LayoutBuilder(builder: (context, constraints) {
-        if (constraints.maxWidth < 500) {
-          return Column(children: [
-            for (int i = 0; i < items.length; i++)
-              buildCard(i, expanded: false),
-          ]);
-        }
-        return Row(children: [
-          for (int i = 0; i < items.length; i++) ...[
-            if (i > 0) const SizedBox(width: 12),
-            buildCard(i),
-          ],
-        ]);
-      }),
-    );
+    final items = isBonus
+        ? [
+            HrmStatItem(
+              icon: Icons.trending_up,
+              label: _l10n.totalBonus,
+              value: '${_currencyFormat.format(_totalBonus)} đ',
+              subtitle: '${_bonusTransactions.length} khoản',
+            ),
+            HrmStatItem(
+              icon: Icons.check_circle,
+              label: _l10n.paid,
+              value: '${_currencyFormat.format(_paidBonusAmount)} đ',
+            ),
+            HrmStatItem(
+              icon: Icons.hourglass_empty,
+              label: _l10n.pendingPayment,
+              value: '${_currencyFormat.format(_unpaidBonusAmount)} đ',
+            ),
+          ]
+        : [
+            HrmStatItem(
+              icon: Icons.trending_down,
+              label: _l10n.totalPenalty,
+              value: '${_currencyFormat.format(_totalPenalty)} đ',
+              subtitle: '${_penaltyTransactions.length} khoản',
+            ),
+            HrmStatItem(
+              icon: Icons.check_circle,
+              label: _l10n.penaltyCollected,
+              value: '${_currencyFormat.format(_paidPenaltyAmount)} đ',
+            ),
+            HrmStatItem(
+              icon: Icons.hourglass_empty,
+              label: _l10n.penaltyPending,
+              value: '${_currencyFormat.format(_unpaidPenaltyAmount)} đ',
+            ),
+          ];
+    return HrmStatBar(items: items);
   }
 
   Widget _buildPaginationControls() {
@@ -1225,27 +1125,21 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
         final isPaid = _isCashPaid(paymentMethod);
         final isSalary = _isSalaryDisbursement(paymentMethod);
 
-        Color statusColor;
-        String statusLabel;
+        final String statusLabel;
         switch (status) {
           case 'Completed':
             if (isPaid) {
-              statusColor = Colors.blue;
               statusLabel = isBonus ? _l10n.paid : _l10n.penaltyCollected;
             } else if (isSalary) {
-              statusColor = Colors.purple;
               statusLabel = 'Chi vào lương';
             } else {
-              statusColor = Colors.green;
               statusLabel = _l10n.approved;
             }
             break;
           case 'Cancelled':
-            statusColor = const Color(0xFFDC2626);
             statusLabel = _l10n.cancelled;
             break;
           default:
-            statusColor = Colors.orange;
             statusLabel = _l10n.pending;
         }
 
@@ -1341,40 +1235,12 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
                             style: TextStyle(
                                 fontSize: 12, color: Colors.grey.shade500)),
                         const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: statusColor.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Text(tr(statusLabel),
-                              style: TextStyle(
-                                  fontSize: 11,
-                                  color: statusColor,
-                                  fontWeight: FontWeight.w600)),
-                        ),
+                        HrmBrandChip(label: statusLabel),
                         if (isPaid || isSalary) ...[
                           const SizedBox(width: 6),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: isSalary
-                                  ? Colors.purple.shade50
-                                  : Colors.indigo.shade50,
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(
-                              tr(_paymentMethodLabel(
-                                  isSalary ? _salaryDisbursement : paymentMethod)),
-                              style: TextStyle(
-                                fontSize: 10,
-                                color: isSalary
-                                    ? Colors.purple.shade700
-                                    : Colors.indigo.shade700,
-                              ),
-                            ),
+                          HrmBrandChip(
+                            label: _paymentMethodLabel(
+                                isSalary ? _salaryDisbursement : paymentMethod),
                           ),
                         ],
                       ],
@@ -1475,19 +1341,15 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
         parseApiCalendarDate(tx['transactionDate']) ?? DateTime.now();
     final desc = tx['description']?.toString() ?? '';
 
-    Color statusColor;
-    String statusLabel;
+    final String statusLabel;
     switch (status) {
       case 'Completed':
-        statusColor = Colors.green;
         statusLabel = _l10n.approved;
         break;
       case 'Cancelled':
-        statusColor = const Color(0xFFDC2626);
         statusLabel = _l10n.cancelled;
         break;
       default:
-        statusColor = Colors.orange;
         statusLabel = _l10n.pending;
     }
 
@@ -1550,17 +1412,7 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
                   color: isBonus ? Colors.green.shade700 : Colors.red.shade700),
             ),
             const SizedBox(height: 2),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-              decoration: BoxDecoration(
-                  color: statusColor.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8)),
-              child: Text(tr(statusLabel),
-                  style: TextStyle(
-                      fontSize: 10,
-                      color: statusColor,
-                      fontWeight: FontWeight.w600)),
-            ),
+            HrmBrandChip(label: statusLabel),
           ]),
         ]),
       ),

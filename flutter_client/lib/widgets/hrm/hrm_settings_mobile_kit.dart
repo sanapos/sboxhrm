@@ -182,6 +182,7 @@ class HrmSettingsFilterChips extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final border = PosTheme.kiotBlue.withValues(alpha: 0.45);
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       clipBehavior: Clip.none,
@@ -190,31 +191,76 @@ class HrmSettingsFilterChips extends StatelessWidget {
           for (final opt in options)
             Padding(
               padding: const EdgeInsets.only(right: 6),
-              child: FilterChip(
-                label: Text(tr(opt.label), style: const TextStyle(fontSize: 12)),
-                selected: selected == opt.value,
-                onSelected: (_) => onSelected(opt.value),
-                selectedColor: PosTheme.kiotBlueLight,
-                checkmarkColor: PosTheme.kiotBlue,
-                labelStyle: TextStyle(
-                  color: selected == opt.value
-                      ? PosTheme.kiotBlue
-                      : PosTheme.textSecondary,
-                  fontWeight: selected == opt.value
-                      ? FontWeight.w600
-                      : FontWeight.w500,
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(12),
+                  onTap: () => onSelected(opt.value),
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: selected == opt.value
+                          ? PosTheme.kiotBlue
+                          : Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: selected == opt.value
+                            ? PosTheme.kiotBlue
+                            : border,
+                      ),
+                    ),
+                    child: Text(
+                      tr(opt.label),
+                      style: TextStyle(
+                        fontSize: 12,
+                        height: 1.15,
+                        fontWeight: FontWeight.w600,
+                        color: selected == opt.value
+                            ? Colors.white
+                            : PosTheme.kiotBlue,
+                      ),
+                    ),
+                  ),
                 ),
-                padding: const EdgeInsets.symmetric(horizontal: 4),
-                visualDensity: VisualDensity.compact,
               ),
             ),
           if (onClear != null)
-            ActionChip(
-              label: Text(tr(clearLabel), style: const TextStyle(fontSize: 12)),
-              avatar: const Icon(Icons.filter_alt_off, size: 16),
-              onPressed: onClear,
-              padding: const EdgeInsets.symmetric(horizontal: 4),
-              visualDensity: VisualDensity.compact,
+            Padding(
+              padding: const EdgeInsets.only(left: 2),
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(12),
+                  onTap: onClear,
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: border),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.close,
+                            size: 14, color: PosTheme.kiotBlue),
+                        const SizedBox(width: 3),
+                        Text(
+                          tr(clearLabel),
+                          style: const TextStyle(
+                            fontSize: 12,
+                            height: 1.15,
+                            fontWeight: FontWeight.w600,
+                            color: PosTheme.kiotBlue,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
             ),
         ],
       ),

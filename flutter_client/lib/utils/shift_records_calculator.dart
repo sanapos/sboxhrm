@@ -2135,8 +2135,10 @@ List<DailyShiftLateEntry> computeDailyShiftLateEntries({
   List<Map<String, dynamic>> shiftTemplates = const [],
   List<Map<String, dynamic>> shiftSalaryLevels = const [],
   List<Map<String, dynamic>> salaryProfiles = const [],
+  List<Map<String, dynamic>>? employeesList,
   int dayEndHour = 0,
   int dayEndMinute = 0,
+  Set<String> scheduleDayOffKeys = const {},
 }) {
   final pairs = computeDailyShiftPairs(
     attendances: attendances,
@@ -2145,8 +2147,10 @@ List<DailyShiftLateEntry> computeDailyShiftLateEntries({
     shiftTemplates: shiftTemplates,
     shiftSalaryLevels: shiftSalaryLevels,
     salaryProfiles: salaryProfiles,
+    employeesList: employeesList,
     dayEndHour: dayEndHour,
     dayEndMinute: dayEndMinute,
+    scheduleDayOffKeys: scheduleDayOffKeys,
   );
   return pairs
       .where((p) => p.lateMinutes > 0 || p.earlyMinutes > 0)

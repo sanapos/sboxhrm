@@ -9,6 +9,7 @@ import '../utils/api_datetime.dart';
 import '../widgets/notification_overlay.dart';
 import '../widgets/app_scroll_safe.dart';
 import '../widgets/hrm_page_chrome.dart';
+import '../utils/branch_filter_helper.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 class ShiftRegistrationScreen extends StatefulWidget {
@@ -188,7 +189,7 @@ class _ShiftRegistrationScreenState extends State<ShiftRegistrationScreen> {
       body: Column(
         children: [
           _buildWeekNavigator(),
-          if (_branches.isNotEmpty)
+          if (BranchFilterHelper.showBranchFilter(_branches))
             Container(
               color: Colors.white,
               padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),

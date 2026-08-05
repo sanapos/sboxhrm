@@ -6,6 +6,7 @@ import '../services/api_service.dart';
 import '../providers/auth_provider.dart';
 import '../providers/permission_provider.dart';
 import '../utils/responsive_helper.dart';
+import '../widgets/hrm_collapsible_overview.dart';
 import '../widgets/hrm/hrm_settings_mobile_kit.dart';
 import '../widgets/hrm_mini_stat_chip.dart';
 import '../widgets/hrm_page_chrome.dart';
@@ -36,6 +37,7 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
   int _currentTab = 0;
   String _searchQuery = '';
   bool? _filterActive;
+  bool _showOverviewPanel = true;
   bool _isManager = false;
 
   PermissionProvider get _perm =>
@@ -277,10 +279,11 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
                       ),
             ],
           ),
-          ...[ 
-            const SizedBox(height: 8),
-            // Search & filter
-            Row(
+          HrmCollapsibleOverview(
+            expanded: _showOverviewPanel,
+            onToggle: () =>
+                setState(() => _showOverviewPanel = !_showOverviewPanel),
+            child: Row(
               children: [
                 Expanded(
                   child: SizedBox(
@@ -322,7 +325,7 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
                 ),
               ],
             ),
-          ],
+          ),
         ],
       ),
     );
@@ -1239,6 +1242,14 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
     await _loadBranchSelect();
     if (!mounted) return;
 
+    List<Map<String, dynamic>> managerCandidates = [];
+    try {
+      final emps = await _api.getEmployeesForSelect(pageSize: 500);
+      managerCandidates =
+          emps.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+    } catch (_) {}
+    if (!mounted) return;
+
     final isEdit = branch != null;
     final codeCtrl = TextEditingController(text: tr(branch?.code ?? ''));
     final nameCtrl = TextEditingController(text: tr(branch?.name ?? ''));
@@ -1258,6 +1269,17 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
         TextEditingController(text: tr(branch?.sortOrder.toString() ?? '0'));
     bool isHeadquarter = branch?.isHeadquarter ?? false;
     String? parentBranchId = branch?.parentBranchId;
+    String? managerId = branch?.managerId;
+    // Keep current manager in list even if not in select page.
+    if (managerId != null &&
+        managerId.isNotEmpty &&
+        !managerCandidates.any((e) => e['id']?.toString() == managerId)) {
+      managerCandidates.insert(0, {
+        'id': managerId,
+        'fullName': branch?.managerName ?? 'Quản lý hiện tại',
+        'employeeCode': '',
+      });
+    }
     bool saving = false;
 
     final formKey = GlobalKey<FormState>();
@@ -1382,6 +1404,33 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
                     onChanged: (v) => setDialogState(() => parentBranchId = v),
                   ),
                   const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    initialValue: managerId,
+                    isExpanded: true,
+                    decoration: _inputDecoration(
+                        'Quản lý chi nhánh', Icons.person_outline),
+                    items: [
+                      DropdownMenuItem(
+                          value: null, child: Text(tr('-- Chưa gán --'))),
+                      ...managerCandidates
+                          .where((e) =>
+                              (e['id']?.toString() ?? '').isNotEmpty)
+                          .map((e) {
+                        final id = e['id']!.toString();
+                        final name = e['fullName']?.toString() ??
+                            e['name']?.toString() ??
+                            '';
+                        final code = e['employeeCode']?.toString() ?? '';
+                        final label = code.isEmpty ? name : '$code - $name';
+                        return DropdownMenuItem(
+                          value: id,
+                          child: Text(tr(label), overflow: TextOverflow.ellipsis),
+                        );
+                      }),
+                    ],
+                    onChanged: (v) => setDialogState(() => managerId = v),
+                  ),
+                  const SizedBox(height: 12),
                   // Headquarters toggle
                   SwitchListTile(
                     title: Text(tr('Trụ sở chính')),
@@ -1481,6 +1530,7 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
                         : int.tryParse(maxEmpCtrl.text.trim()),
                     'sortOrder': int.tryParse(sortOrderCtrl.text.trim()) ?? 0,
                     'parentBranchId': parentBranchId,
+                    'managerId': managerId,
                     'isHeadquarter': isHeadquarter,
                   };
 

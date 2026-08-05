@@ -7,6 +7,7 @@ import '../services/api_service.dart';
 import '../utils/number_formatter.dart';
 import '../utils/responsive_helper.dart';
 import '../widgets/notification_overlay.dart';
+import '../widgets/hrm_collapsible_overview.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../widgets/page_top_actions.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
@@ -36,6 +37,7 @@ class _OrgChartScreenState extends State<OrgChartScreen> with SingleTickerProvid
 
   bool _loading = false;
   int _currentTab = 0;
+  bool _showOverviewPanel = true;
 
   @override
   void initState() {
@@ -218,7 +220,13 @@ class _OrgChartScreenState extends State<OrgChartScreen> with SingleTickerProvid
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Stats cards
-            if (_stats != null) _buildStatsRow(),
+            if (_stats != null)
+              HrmCollapsibleOverview(
+                expanded: _showOverviewPanel,
+                onToggle: () =>
+                    setState(() => _showOverviewPanel = !_showOverviewPanel),
+                child: _buildStatsRow(),
+              ),
             const SizedBox(height: 16),
             // Tree
             if (_orgTree.isEmpty)

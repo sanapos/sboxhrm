@@ -21,6 +21,29 @@ class HrmPageChrome {
   static const Color textDark = PosTheme.textPrimary;
   static const Color textMuted = PosTheme.textSecondary;
 
+  /// Chip / badge brand — cùng xanh, độ đậm nhạt khác (không dùng hồng/cam/tím).
+  static const Color chipDark = Color(0xFF003B80);
+  static const Color chip = primaryNavy; // #0056B3
+  static const Color chipMid = Color(0xFF1A6FD4);
+  static const Color chipLight = Color(0xFF3B8CFF);
+  static const Color chipSoft = Color(0xFF6BA3E8);
+  static const Color chipMuted = Color(0xFF8BB4E8);
+  static const Color chipBg = PosTheme.kiotBlueLight;
+
+  static const List<Color> chipShades = [
+    chipDark,
+    chip,
+    chipMid,
+    chipLight,
+    chipSoft,
+    chipMuted,
+    Color(0xFF004A9F),
+    Color(0xFF2B7DE9),
+  ];
+
+  static Color chipShade(int index) =>
+      chipShades[index.abs() % chipShades.length];
+
   /// Hub sub-page is open — [main_layout] already shows back + title.
   static bool get isEmbedded => SettingsHubScreen.isEmbeddedSubPage;
 
@@ -88,46 +111,40 @@ class HrmPageChrome {
     if (cards.isEmpty) return const SizedBox.shrink();
     return LayoutBuilder(
       builder: (context, constraints) {
-        if (HrmSettingsMobileKit.active(context)) {
-          final cols = cards.length <= 2
-              ? cards.length
-              : (constraints.maxWidth >= 720 ? 3 : 2);
-          return Wrap(
-            spacing: gap,
-            runSpacing: gap,
-            children: [
-              for (var i = 0; i < cards.length; i++)
-                SizedBox(
-                  width: cols == 1
-                      ? constraints.maxWidth
-                      : (constraints.maxWidth - gap * (cols - 1)) / cols,
-                  child: cards[i],
-                ),
-            ],
-          );
-        }
-        if (constraints.maxWidth < 560) {
-          return SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            padding: Responsive.horizontalScrollPadding,
-            clipBehavior: Clip.none,
+        final n = cards.length;
+        // Đủ chỗ → luôn 1 hàng chia đều (tránh 3+1 / 2+2 xuống dòng vô lý).
+        final minRowWidth = n * 96.0 + gap * (n - 1);
+        final oneRow = n <= 1 ||
+            constraints.maxWidth >= minRowWidth ||
+            constraints.maxWidth >= 520;
+        if (oneRow) {
+          return IntrinsicHeight(
             child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                for (var i = 0; i < cards.length; i++) ...[
+                for (var i = 0; i < n; i++) ...[
                   if (i > 0) SizedBox(width: gap),
-                  SizedBox(width: minCardWidth, child: cards[i]),
+                  Expanded(child: cards[i]),
                 ],
               ],
             ),
           );
         }
-        return Row(
-          children: [
-            for (var i = 0; i < cards.length; i++) ...[
-              if (i > 0) SizedBox(width: gap + 4),
-              Expanded(child: cards[i]),
-            ],
-          ],
+        return SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          padding: Responsive.horizontalScrollPadding,
+          clipBehavior: Clip.none,
+          child: IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                for (var i = 0; i < n; i++) ...[
+                  if (i > 0) SizedBox(width: gap),
+                  SizedBox(width: minCardWidth, child: cards[i]),
+                ],
+              ],
+            ),
+          ),
         );
       },
     );

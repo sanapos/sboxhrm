@@ -7,6 +7,7 @@ import '../providers/auth_provider.dart';
 import '../services/api_service.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../widgets/notification_overlay.dart';
+import 'branch_filter_helper.dart';
 import 'vietnamese_font.dart';
 import 'excel_report_builder.dart';
 import 'excel_bytes_utils.dart';
@@ -240,6 +241,7 @@ class ReportBranchFilter {
   bool branchesLoaded = false;
   bool employeesLoaded = false;
   bool employeesLoading = false;
+  String? _employeesLoadedForBranch;
 
   Future<void> loadBranches(ApiService api) async {
     if (branchesLoaded) return;
@@ -253,40 +255,56 @@ class ReportBranchFilter {
     branchesLoaded = true;
   }
 
-  Future<void> ensureEmployees(ApiService api) async {
-    if (employeesLoaded || employeesLoading) return;
+  /// Tải NV — khi [branchId] đổi sẽ tải lại theo chi nhánh (+ con) từ server.
+  Future<void> ensureEmployees(ApiService api, {String? branchId}) async {
+    final key = branchId ?? '';
+    if (employeesLoaded &&
+        !employeesLoading &&
+        _employeesLoadedForBranch == key) {
+      return;
+    }
     employeesLoading = true;
     try {
-      final emps = await api.getEmployeesForSelect(pageSize: 500);
+      final emps = await api.getEmployeesForSelect(
+        pageSize: 500,
+        branchId: branchId,
+        includeChildBranches: true,
+      );
       employees =
           emps.map((e) => Map<String, dynamic>.from(e as Map)).toList();
-      if (employees.isEmpty) {
+      if (employees.isEmpty && branchId == null) {
         final me = await api.getMyEmployee();
         if (me['isSuccess'] == true && me['data'] is Map) {
           employees = [Map<String, dynamic>.from(me['data'] as Map)];
         }
       }
       employeesLoaded = true;
+      _employeesLoadedForBranch = key;
     } catch (_) {}
     employeesLoading = false;
   }
 
+  Set<String> _branchIdsIncludingChildren(String? branchId) {
+    if (branchId == null || branchId.isEmpty) return {};
+    return BranchFilterHelper.expandBranchIds(
+      branchId,
+      branches,
+      includeChildren: true,
+    );
+  }
+
   Set<String> userIdsForBranch(String? branchId) {
     if (branchId == null) return {};
-    return employees
-        .where((e) => e['branchId']?.toString() == branchId)
-        .map((e) => e['id']?.toString() ?? '')
-        .where((s) => s.isNotEmpty)
-        .toSet();
+    final ids = _branchIdsIncludingChildren(branchId);
+    if (ids.isEmpty) return {};
+    return BranchFilterHelper.employeeKeysForBranches(employees, ids);
   }
 
   Set<String> codesForBranch(String? branchId) {
     if (branchId == null) return {};
-    return employees
-        .where((e) => e['branchId']?.toString() == branchId)
-        .map((e) => e['employeeCode']?.toString() ?? '')
-        .where((s) => s.isNotEmpty)
-        .toSet();
+    final ids = _branchIdsIncludingChildren(branchId);
+    if (ids.isEmpty) return {};
+    return BranchFilterHelper.employeeCodesInBranches(employees, ids);
   }
 }
 

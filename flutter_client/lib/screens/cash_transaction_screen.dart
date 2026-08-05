@@ -3,6 +3,7 @@ import 'package:excel/excel.dart' as excel_lib;
 import 'package:flutter/material.dart';
 import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import '../widgets/hrm_page_chrome.dart';
+import '../widgets/hrm_mini_stat_chip.dart';
 import 'package:flutter/services.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:intl/intl.dart';
@@ -17,6 +18,7 @@ import '../widgets/notification_overlay.dart';
 import '../utils/responsive_helper.dart';
 import '../utils/navigation_notifier.dart';
 import '../widgets/app_button.dart';
+import '../widgets/hrm_collapsible_overview.dart';
 import '../widgets/hrm_responsive_list_layout.dart';
 import '../widgets/app_scroll_safe.dart';
 import '../widgets/page_top_actions.dart';
@@ -59,8 +61,7 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
   String? _categoryFilter;
   CashTransactionStatus? _statusFilter;
 
-  // Mobile UI state
-  bool _showMobileSummary = false;
+  bool _showOverviewPanel = true;
 
   // Inline summary for transactions tab
   CashTransactionSummary? _inlineSummary;
@@ -1148,47 +1149,24 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
 
   List<Widget> _cashTransactionsHeaderSections(bool isMobile) => [
         _buildViewModeBar(),
-        _buildFilterBar(),
-        if (isMobile) ...[
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-            child: InkWell(
-              onTap: () =>
-                  setState(() => _showMobileSummary = !_showMobileSummary),
-              borderRadius: BorderRadius.circular(8),
-              child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(
-                  color: Colors.blue.shade50,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.analytics_outlined,
-                        size: 16, color: Colors.blue.shade700),
-                    const SizedBox(width: 6),
-                    Text(tr('Tổng quan'),
-                        style: TextStyle(
-                            fontWeight: FontWeight.w600,
-                            fontSize: 13,
-                            color: Colors.blue.shade700)),
-                    const Spacer(),
-                    Icon(
-                        _showMobileSummary
-                            ? Icons.expand_less
-                            : Icons.expand_more,
-                        size: 20,
-                        color: Colors.blue.shade700),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          if (_showMobileSummary) _buildInlineSummaryRow(),
-        ] else
-          _buildInlineSummaryRow(),
+        _buildOverviewSection(),
       ];
+
+  Widget _buildOverviewSection() {
+    return HrmCollapsibleOverview(
+      expanded: _showOverviewPanel,
+      onToggle: () =>
+          setState(() => _showOverviewPanel = !_showOverviewPanel),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _buildInlineSummaryRow(),
+          const SizedBox(height: 10),
+          _buildFilterBar(),
+        ],
+      ),
+    );
+  }
 
   List<Widget> _cashTransactionsMobileSlivers() {
     if (_transactions.isEmpty) {
@@ -1416,214 +1394,54 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
     if (_inlineSummary == null) return const SizedBox.shrink();
 
     final s = _inlineSummary!;
-
-    Widget incomeCard = Card(
-      color: Colors.green.shade50,
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(children: [
-              Icon(Icons.arrow_downward, color: Colors.green.shade700, size: 16),
-              const SizedBox(width: 6),
-              Text(tr('Thu'), style: TextStyle(
-                color: Colors.green.shade700, fontWeight: FontWeight.w600, fontSize: 13)),
-            ]),
-            const SizedBox(height: 4),
-            Text(tr(_currencyFormat.format(s.totalIncome)),
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold,
-                color: Colors.green.shade700)),
-            Text(tr('${s.incomeTransactions} giao dịch'), style: TextStyle(
-              color: Colors.green.shade400, fontSize: 11)),
-          ],
-        ),
+    final items = <HrmStatItem>[
+      HrmStatItem(
+        icon: Icons.arrow_downward,
+        label: 'Thu',
+        value: _currencyFormat.format(s.totalIncome),
+        subtitle: '${s.incomeTransactions} giao dịch',
       ),
-    );
-
-    Widget expenseCard = Card(
-      color: Colors.red.shade50,
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(children: [
-              Icon(Icons.arrow_upward, color: Colors.red.shade700, size: 16),
-              const SizedBox(width: 6),
-              Text(tr('Chi'), style: TextStyle(
-                color: Colors.red.shade700, fontWeight: FontWeight.w600, fontSize: 13)),
-            ]),
-            const SizedBox(height: 4),
-            Text(tr(_currencyFormat.format(s.totalExpense)),
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold,
-                color: Colors.red.shade700)),
-            Text(tr('${s.expenseTransactions} giao dịch'), style: TextStyle(
-              color: Colors.red.shade400, fontSize: 11)),
-          ],
-        ),
+      HrmStatItem(
+        icon: Icons.arrow_upward,
+        label: 'Chi',
+        value: _currencyFormat.format(s.totalExpense),
+        subtitle: '${s.expenseTransactions} giao dịch',
       ),
-    );
-
-    Widget balanceCard = Card(
-      color: s.balance >= 0 ? Colors.blue.shade50 : Colors.orange.shade50,
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(children: [
-              Icon(s.balance >= 0 ? Icons.trending_up : Icons.trending_down,
-                color: s.balance >= 0 ? Colors.blue.shade700 : Colors.orange.shade700, size: 16),
-              const SizedBox(width: 6),
-              Text(tr('Số dư'), style: TextStyle(
-                color: s.balance >= 0 ? Colors.blue.shade700 : Colors.orange.shade700,
-                fontWeight: FontWeight.w600, fontSize: 13)),
-            ]),
-            const SizedBox(height: 4),
-            Text(tr(_currencyFormat.format(s.balance)),
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold,
-                color: s.balance >= 0 ? Colors.blue.shade700 : Colors.orange.shade700)),
-            Text(tr(_datePresetLabel), style: TextStyle(
-              color: Colors.grey.shade400, fontSize: 11)),
-          ],
-        ),
+      HrmStatItem(
+        icon: s.balance >= 0 ? Icons.trending_up : Icons.trending_down,
+        label: 'Số dư',
+        value: _currencyFormat.format(s.balance),
+        subtitle: _datePresetLabel,
       ),
-    );
-
-    Widget pendingIncomeCard = Card(
-      color: Colors.teal.shade50,
-      child: InkWell(
-        onTap: () {
-          setState(() => _statusFilter = CashTransactionStatus.waitingPayment);
-          _onFiltersChanged();
-        },
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(children: [
-                Icon(Icons.hourglass_top, color: Colors.teal.shade700, size: 16),
-                const SizedBox(width: 6),
-                Text(tr('Chờ thu'),
-                    style: TextStyle(
-                        color: Colors.teal.shade700,
-                        fontWeight: FontWeight.w600,
-                        fontSize: 13)),
-              ]),
-              const SizedBox(height: 4),
-              Text(tr(_currencyFormat.format(s.pendingIncomeAmount)),
-                  style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.teal.shade700)),
-              Text(tr('${s.pendingIncomeCount} phiếu'),
-                  style: TextStyle(color: Colors.teal.shade400, fontSize: 11)),
-            ],
-          ),
+      if (s.pendingTransactions > 0) ...[
+        HrmStatItem(
+          icon: Icons.hourglass_top,
+          label: 'Chờ thu',
+          value: _currencyFormat.format(s.pendingIncomeAmount),
+          subtitle: '${s.pendingIncomeCount} phiếu',
+          onTap: () {
+            setState(
+                () => _statusFilter = CashTransactionStatus.waitingPayment);
+            _onFiltersChanged();
+          },
         ),
-      ),
-    );
-
-    Widget pendingExpenseCard = Card(
-      color: Colors.amber.shade50,
-      child: InkWell(
-        onTap: () {
-          setState(() => _statusFilter = CashTransactionStatus.waitingPayment);
-          _onFiltersChanged();
-        },
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(children: [
-                Icon(Icons.payments_outlined,
-                    color: Colors.amber.shade800, size: 16),
-                const SizedBox(width: 6),
-                Text(tr('Chờ chi'),
-                    style: TextStyle(
-                        color: Colors.amber.shade800,
-                        fontWeight: FontWeight.w600,
-                        fontSize: 13)),
-              ]),
-              const SizedBox(height: 4),
-              Text(tr(_currencyFormat.format(s.pendingExpenseAmount)),
-                  style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.amber.shade800)),
-              Text(tr('${s.pendingExpenseCount} phiếu'),
-                  style:
-                      TextStyle(color: Colors.amber.shade600, fontSize: 11)),
-            ],
-          ),
+        HrmStatItem(
+          icon: Icons.payments_outlined,
+          label: 'Chờ chi',
+          value: _currencyFormat.format(s.pendingExpenseAmount),
+          subtitle: '${s.pendingExpenseCount} phiếu',
+          onTap: () {
+            setState(
+                () => _statusFilter = CashTransactionStatus.waitingPayment);
+            _onFiltersChanged();
+          },
         ),
-      ),
-    );
+      ],
+    ];
 
-    final hasPending = s.pendingTransactions > 0;
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: LayoutBuilder(builder: (context, constraints) {
-        final narrow = constraints.maxWidth < 500;
-        final completedRow = narrow
-            ? Column(
-                children: [
-                  incomeCard,
-                  const SizedBox(height: 4),
-                  expenseCard,
-                  const SizedBox(height: 4),
-                  balanceCard,
-                ],
-              )
-            : Row(
-                children: [
-                  Expanded(child: incomeCard),
-                  const SizedBox(width: 8),
-                  Expanded(child: expenseCard),
-                  const SizedBox(width: 8),
-                  Expanded(child: balanceCard),
-                ],
-              );
-
-        if (!hasPending) return completedRow;
-
-        final pendingRow = narrow
-            ? Column(
-                children: [
-                  pendingIncomeCard,
-                  const SizedBox(height: 4),
-                  pendingExpenseCard,
-                ],
-              )
-            : Row(
-                children: [
-                  Expanded(child: pendingIncomeCard),
-                  const SizedBox(width: 8),
-                  Expanded(child: pendingExpenseCard),
-                ],
-              );
-
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            completedRow,
-            const SizedBox(height: 8),
-            Text(tr('Phiếu chờ thanh toán'),
-                style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.grey.shade600)),
-            const SizedBox(height: 4),
-            pendingRow,
-          ],
-        );
-      }),
+    return HrmStatBar(
+      items: items,
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
     );
   }
 
@@ -2202,44 +2020,14 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
   }
 
   Widget _buildStatusChip(CashTransactionStatus status) {
-    Color color;
-    switch (status) {
-      case CashTransactionStatus.completed:
-        color = Colors.green;
-        break;
-      case CashTransactionStatus.pending:
-        color = Colors.orange;
-        break;
-      case CashTransactionStatus.waitingPayment:
-        color = Colors.blue;
-        break;
-      case CashTransactionStatus.cancelled:
-        color = Colors.red;
-        break;
-    }
-
-    return Chip(
-      label: Text(tr(status.label)),
-      backgroundColor: color.withAlpha(30),
-      labelStyle: TextStyle(color: color, fontSize: 11),
-      padding: EdgeInsets.zero,
-      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-      visualDensity: VisualDensity.compact,
-    );
+    return HrmBrandChip(label: status.label, dense: true);
   }
 
   Widget _buildPaymentMethodChip(PaymentMethodType method) {
-    return Chip(
-      avatar: Icon(
-        _getPaymentMethodIcon(method),
-        size: 14,
-      ),
-      label: Text(tr(method.label)),
-      backgroundColor: Colors.grey.withAlpha(30),
-      labelStyle: const TextStyle(fontSize: 11),
-      padding: EdgeInsets.zero,
-      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-      visualDensity: VisualDensity.compact,
+    return HrmBrandChip(
+      label: method.label,
+      icon: _getPaymentMethodIcon(method),
+      dense: true,
     );
   }
 
@@ -2777,45 +2565,12 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
     IconData icon,
     String subtitle,
   ) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(icon, color: color, size: 20),
-                const SizedBox(width: 8),
-                Text(
-                  tr(title),
-                  style: TextStyle(
-                    color: Colors.grey[600],
-                    fontSize: 14,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text(
-              tr(_currencyFormat.format(amount)),
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: color,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              tr(subtitle),
-              style: TextStyle(
-                color: Colors.grey[500],
-                fontSize: 12,
-              ),
-            ),
-          ],
-        ),
-      ),
+    return HrmStatSummaryCard(
+      icon: icon,
+      value: _currencyFormat.format(amount),
+      label: title,
+      subtitle: subtitle,
+      color: HrmPageChrome.chip,
     );
   }
 

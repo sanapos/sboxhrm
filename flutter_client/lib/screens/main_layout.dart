@@ -74,6 +74,7 @@ import 'advance_report_screen.dart';
 import 'business_trip_report_screen.dart';
 import 'leave_report_screen.dart';
 import 'attendance_report_screen.dart';
+import 'late_early_report_screen.dart';
 import 'asset_report_screen.dart';
 import 'downloaded_documents_screen.dart';
 import 'agent_license_keys_screen.dart';
@@ -1173,7 +1174,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       screen: const DeviceUsersScreen(),
       group: 'Chấm công',
       showInSidebar: false,
-      themeColor: const Color(0xFF0284C7),
+      themeColor: HrmPageChrome.primaryNavy,
       moduleCode: 'DeviceUser',
     ),
     NavItem(
@@ -1195,7 +1196,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       screen: const LeaveScreen(),
       group: 'Chấm công',
       showInSidebar: false,
-      themeColor: const Color(0xFF0284C7),
+      themeColor: HrmPageChrome.primaryNavy,
       moduleCode: 'Leave',
     ),
     NavItem(
@@ -1219,7 +1220,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       screen: const AttendanceScreen(),
       group: 'Chấm công',
       showInSidebar: false,
-      themeColor: const Color(0xFF0284C7),
+      themeColor: HrmPageChrome.primaryNavy,
       moduleCode: 'Attendance',
     ),
     NavItem(
@@ -1230,7 +1231,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       screen: const WorkScheduleScreen(),
       group: 'Chấm công',
       showInSidebar: false,
-      themeColor: const Color(0xFF0284C7),
+      themeColor: HrmPageChrome.primaryNavy,
       moduleCode: 'WorkSchedule',
     ),
     NavItem(
@@ -1240,7 +1241,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       subtitle: 'Bảng tổng hợp công theo tháng',
       screen: const AttendanceSummaryScreen(),
       group: 'Báo cáo',
-      themeColor: const Color(0xFF7C3AED),
+      themeColor: HrmPageChrome.primaryNavy,
       moduleCode: 'AttendanceSummary',
     ),
     NavItem(
@@ -1250,8 +1251,18 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       subtitle: 'Thống kê giờ công theo ca làm',
       screen: const AttendanceByShiftScreen(),
       group: 'Báo cáo',
-      themeColor: const Color(0xFF7C3AED),
+      themeColor: HrmPageChrome.primaryNavy,
       moduleCode: 'AttendanceByShift',
+    ),
+    NavItem(
+      icon: Icons.timer_off_outlined,
+      activeIcon: Icons.timer_off,
+      label: 'Đi trễ / Về sớm',
+      subtitle: 'Tổng hợp theo ca — phút trễ & về sớm',
+      screen: const LateEarlyReportScreen(),
+      group: 'Báo cáo',
+      themeColor: HrmPageChrome.primaryNavy,
+      moduleCode: 'LateEarlyReport',
     ),
     NavItem(
       icon: Icons.fact_check_outlined,
@@ -1261,7 +1272,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       screen: const AttendanceApprovalScreen(),
       group: 'Chấm công',
       showInSidebar: false,
-      themeColor: const Color(0xFF0284C7),
+      themeColor: HrmPageChrome.primaryNavy,
       moduleCode: 'AttendanceApproval',
     ),
     NavItem(
@@ -1272,7 +1283,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       screen: const ScheduleApprovalScreen(),
       group: 'Chấm công',
       showInSidebar: false,
-      themeColor: const Color(0xFF0284C7),
+      themeColor: HrmPageChrome.primaryNavy,
       moduleCode: 'ScheduleApproval',
     ),
     NavItem(
@@ -1282,7 +1293,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       subtitle: 'Phiếu lương cá nhân',
       screen: const PayslipScreen(),
       group: 'Báo cáo',
-      themeColor: const Color(0xFF7C3AED),
+      themeColor: HrmPageChrome.primaryNavy,
       moduleCode: 'Payslip',
     ),
     NavItem(
@@ -1292,7 +1303,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       subtitle: 'Bảng lương nhân viên',
       screen: const PayrollScreen(),
       group: 'Báo cáo',
-      themeColor: const Color(0xFF7C3AED),
+      themeColor: HrmPageChrome.primaryNavy,
       moduleCode: 'Payroll',
     ),
 
@@ -1303,7 +1314,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       subtitle: 'Đăng ký thiết bị & khuôn mặt',
       screen: const MobileDeviceRegistrationScreen(),
       group: 'Chấm công',
-      themeColor: const Color(0xFF0284C7),
+      themeColor: HrmPageChrome.primaryNavy,
       moduleCode: 'MobileDeviceRegistration',
     ),
     NavItem(
@@ -1313,7 +1324,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       subtitle: 'Chấm công bằng điện thoại',
       screen: const MobileAttendanceScreen(),
       group: 'Chấm công',
-      themeColor: const Color(0xFF0284C7),
+      themeColor: HrmPageChrome.primaryNavy,
       moduleCode: 'MobileAttendance',
     ),
     NavItem(
@@ -1323,7 +1334,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       subtitle: 'Quản lý suất ăn',
       screen: const MealTrackingScreen(),
       group: 'Quản lý Vận hành',
-      themeColor: const Color(0xFF059669),
+      themeColor: HrmPageChrome.primaryNavy,
       moduleCode: 'Meal',
     ),
 
@@ -1336,7 +1347,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       screen: const BonusPenaltyScreen(bonusOnly: true),
       group: 'Tài chính',
       showInSidebar: true,
-      themeColor: const Color(0xFFEC4899),
+      themeColor: HrmPageChrome.primaryNavy,
       moduleCode: 'BonusPenalty',
     ),
     NavItem(
@@ -1347,7 +1358,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       screen: const AdvanceRequestsScreen(),
       group: 'Tài chính',
       showInSidebar: true,
-      themeColor: const Color(0xFFEC4899),
+      themeColor: HrmPageChrome.primaryNavy,
       moduleCode: 'AdvanceRequests',
     ),
     NavItem(
@@ -1358,7 +1369,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       screen: const BusinessTripExpenseScreen(),
       group: 'Tài chính',
       showInSidebar: true,
-      themeColor: const Color(0xFF0EA5E9),
+      themeColor: HrmPageChrome.primaryNavy,
       moduleCode: 'BusinessTripExpense',
     ),
     NavItem(
@@ -1369,7 +1380,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       screen: const CashTransactionScreen(),
       group: 'Tài chính',
       showInSidebar: false,
-      themeColor: const Color(0xFFEC4899),
+      themeColor: HrmPageChrome.primaryNavy,
       moduleCode: 'CashTransaction',
     ),
 
@@ -1382,7 +1393,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       screen: const AssetManagementScreen(),
       group: 'Quản lý Vận hành',
       showInSidebar: false,
-      themeColor: const Color(0xFF059669),
+      themeColor: HrmPageChrome.primaryNavy,
       moduleCode: 'Asset',
     ),
     NavItem(
@@ -1393,7 +1404,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       screen: const TaskManagementScreen(),
       group: 'Quản lý Vận hành',
       showInSidebar: false,
-      themeColor: const Color(0xFF059669),
+      themeColor: HrmPageChrome.primaryNavy,
       moduleCode: 'Task',
     ),
     NavItem(
@@ -1403,7 +1414,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       subtitle: 'Tin tức, thông báo, nội quy nội bộ',
       screen: const CommunicationScreen(),
       group: 'Quản lý Vận hành',
-      themeColor: const Color(0xFF059669),
+      themeColor: HrmPageChrome.primaryNavy,
       moduleCode: 'Communication',
     ),
 
@@ -1415,7 +1426,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       subtitle: 'Chỉ tiêu, đánh giá hiệu suất',
       screen: const KpiScreen(),
       group: 'Quản lý Vận hành',
-      themeColor: const Color(0xFF059669),
+      themeColor: HrmPageChrome.primaryNavy,
       moduleCode: 'KPI',
     ),
 
@@ -1427,7 +1438,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       subtitle: 'Nhập sản lượng, tính lương sản phẩm',
       screen: const ProductionOutputScreen(),
       group: 'Quản lý Vận hành',
-      themeColor: const Color(0xFF059669),
+      themeColor: HrmPageChrome.primaryNavy,
       moduleCode: 'Production',
     ),
 
@@ -1451,7 +1462,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       subtitle: 'Vị trí trực tuyến NV chấm ngoài CT trên bản đồ',
       screen: const FieldCheckInScreen(),
       group: 'Quản lý Vận hành',
-      themeColor: const Color(0xFF059669),
+      themeColor: HrmPageChrome.primaryNavy,
       moduleCode: 'FieldCheckIn',
     ),
 
@@ -1463,7 +1474,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       subtitle: 'Danh mục sản phẩm, tồn kho, giá bán',
       screen: const PosProductsScreen(),
       group: 'POS',
-      themeColor: const Color(0xFF2563EB),
+      themeColor: HrmPageChrome.primaryNavy,
       moduleCode: 'PosProducts',
     ),
     NavItem(
@@ -1473,7 +1484,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       subtitle: 'Màn hình bán hàng POS, giỏ hàng, thanh toán',
       screen: const PosSellScreen(),
       group: 'POS',
-      themeColor: const Color(0xFF2563EB),
+      themeColor: HrmPageChrome.primaryNavy,
       moduleCode: 'PosSell',
     ),
     NavItem(
@@ -1483,7 +1494,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       subtitle: 'Quản lý đơn hàng, hóa đơn bán hàng',
       screen: const PosSaleOrderListScreen(),
       group: 'POS',
-      themeColor: const Color(0xFF2563EB),
+      themeColor: HrmPageChrome.primaryNavy,
       moduleCode: 'PosSaleOrders',
     ),
     NavItem(
@@ -1493,7 +1504,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       subtitle: 'Lịch sử phiếu trả hàng khách',
       screen: const PosSaleReturnListScreen(),
       group: 'POS',
-      themeColor: const Color(0xFF2563EB),
+      themeColor: HrmPageChrome.primaryNavy,
       moduleCode: 'PosSaleReturns',
     ),
     NavItem(
@@ -1503,7 +1514,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       subtitle: 'Phiếu nhập hàng nhà cung cấp (PN)',
       screen: const WhAdaptivePurchaseReceiptList(),
       group: 'POS',
-      themeColor: const Color(0xFF2563EB),
+      themeColor: HrmPageChrome.primaryNavy,
       moduleCode: 'PosPurchaseReceipts',
     ),
     NavItem(
@@ -1513,7 +1524,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       subtitle: 'Trả hàng cho nhà cung cấp (THN)',
       screen: const WhAdaptivePurchaseReturnList(),
       group: 'POS',
-      themeColor: const Color(0xFF2563EB),
+      themeColor: HrmPageChrome.primaryNavy,
       moduleCode: 'PosPurchaseReturns',
     ),
     NavItem(
@@ -1523,7 +1534,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       subtitle: 'Phiếu kiểm kê, cân bằng tồn kho (KK)',
       screen: const WhAdaptiveStockCountList(),
       group: 'POS',
-      themeColor: const Color(0xFF2563EB),
+      themeColor: HrmPageChrome.primaryNavy,
       moduleCode: 'PosStockCounts',
     ),
     NavItem(
@@ -1533,7 +1544,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       subtitle: 'Phiếu xuất hủy hàng hóa (XH)',
       screen: const WhAdaptiveDamageIssueList(),
       group: 'POS',
-      themeColor: const Color(0xFF2563EB),
+      themeColor: HrmPageChrome.primaryNavy,
       moduleCode: 'PosDamageIssues',
     ),
     NavItem(
@@ -1543,7 +1554,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       subtitle: 'Phiếu xuất dùng nội bộ (XDNB)',
       screen: const WhAdaptiveInternalUseList(),
       group: 'POS',
-      themeColor: const Color(0xFF2563EB),
+      themeColor: HrmPageChrome.primaryNavy,
       moduleCode: 'PosInternalUseIssues',
     ),
     // ══════════ BÁO CÁO ══════════
@@ -1555,7 +1566,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       screen: const PosReportsScreen(),
       group: 'Báo cáo',
       showInSidebar: true,
-      themeColor: const Color(0xFF2563EB),
+      themeColor: HrmPageChrome.primaryNavy,
       moduleCode: 'PosSalesReport',
     ),
     NavItem(
@@ -1566,7 +1577,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       screen: const PosCancelReturnHistoryScreen(),
       group: 'Báo cáo',
       showInSidebar: true,
-      themeColor: const Color(0xFFEA580C),
+      themeColor: HrmPageChrome.primaryNavy,
       moduleCode: 'PosSaleReturns',
     ),
     NavItem(
@@ -1577,7 +1588,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       screen: const PosCustomerDebtReportScreen(),
       group: 'Báo cáo',
       showInSidebar: false,
-      themeColor: const Color(0xFF0D9488),
+      themeColor: HrmPageChrome.primaryNavy,
       moduleCode: 'PosSalesReport',
     ),
     NavItem(
@@ -1587,7 +1598,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       subtitle: 'Vắng không chấm, đi trễ / về sớm',
       screen: const AttendanceReportScreen(),
       group: 'Báo cáo',
-      themeColor: const Color(0xFF0284C7),
+      themeColor: HrmPageChrome.primaryNavy,
       moduleCode: 'AttendanceReport',
     ),
     NavItem(
@@ -1597,7 +1608,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       subtitle: 'Thống kê phiếu phạt nhân viên',
       screen: const PenaltyReportScreen(),
       group: 'Báo cáo',
-      themeColor: const Color(0xFFEC4899),
+      themeColor: HrmPageChrome.primaryNavy,
       moduleCode: 'PenaltyReport',
     ),
     NavItem(
@@ -1607,7 +1618,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       subtitle: 'Tổng hợp thu chi, quỹ tiền mặt',
       screen: const CashReportScreen(),
       group: 'Báo cáo',
-      themeColor: const Color(0xFF0EA5E9),
+      themeColor: HrmPageChrome.primaryNavy,
       moduleCode: 'CashReport',
     ),
     NavItem(
@@ -1617,7 +1628,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       subtitle: 'Thống kê yêu cầu ứng lương',
       screen: const AdvanceReportScreen(),
       group: 'Báo cáo',
-      themeColor: const Color(0xFFF59E0B),
+      themeColor: HrmPageChrome.primaryNavy,
       moduleCode: 'AdvanceReport',
     ),
     NavItem(
@@ -1627,7 +1638,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       subtitle: 'Tổng hợp ứng công tác, hoạch toán chi phí',
       screen: const BusinessTripReportScreen(),
       group: 'Báo cáo',
-      themeColor: const Color(0xFF0EA5E9),
+      themeColor: HrmPageChrome.primaryNavy,
       moduleCode: 'BusinessTripReport',
     ),
     NavItem(
@@ -1637,7 +1648,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       subtitle: 'Thống kê đơn nghỉ phép',
       screen: const LeaveReportScreen(),
       group: 'Báo cáo',
-      themeColor: const Color(0xFF0284C7),
+      themeColor: HrmPageChrome.primaryNavy,
       moduleCode: 'LeaveReport',
     ),
     NavItem(
@@ -1647,7 +1658,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       subtitle: 'Danh mục, cấp phát, kho, kiểm kê',
       screen: const AssetReportScreen(),
       group: 'Báo cáo',
-      themeColor: const Color(0xFF059669),
+      themeColor: HrmPageChrome.primaryNavy,
       moduleCode: 'AssetReport',
     ),
     // Không moduleCode: chỉ mục file local trên máy, không API / không phân quyền.
@@ -1659,7 +1670,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       screen: const DownloadedDocumentsScreen(),
       group: 'Báo cáo',
       showInSidebar: false,
-      themeColor: const Color(0xFF7C3AED),
+      themeColor: HrmPageChrome.primaryNavy,
     ),
 
     // ══════════ ĐẠI LÝ ══════════
@@ -1671,7 +1682,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       screen: const AgentLicenseKeysScreen(),
       group: 'Đại lý',
       showInSidebar: true,
-      themeColor: const Color(0xFFF59E0B),
+      themeColor: HrmPageChrome.primaryNavy,
       requiredRole: 'Agent',
     ),
 
@@ -1684,7 +1695,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       screen: const SettingsHubScreen(),
       group: 'Cài đặt',
       showInSidebar: false,
-      themeColor: const Color(0xFF64748B),
+      themeColor: HrmPageChrome.primaryNavy,
       moduleCode: 'SettingsHub',
     ),
     NavItem(
@@ -1695,7 +1706,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       screen: const SettingsScreen(),
       group: 'Cài đặt',
       showInSidebar: false,
-      themeColor: const Color(0xFF64748B),
+      themeColor: HrmPageChrome.primaryNavy,
       moduleCode: 'Settings',
     ),
     NavItem(
@@ -1706,7 +1717,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       screen: const SystemAdminScreen(),
       group: 'Cài đặt',
       showInSidebar: true,
-      themeColor: const Color(0xFF64748B),
+      themeColor: HrmPageChrome.primaryNavy,
       adminOnly: true,
       moduleCode: 'SystemAdmin',
     ),
@@ -1719,7 +1730,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       screen: const PenaltyTicketsScreen(),
       group: 'Tài chính',
       showInSidebar: false,
-      themeColor: const Color(0xFFEC4899),
+      themeColor: HrmPageChrome.primaryNavy,
       moduleCode: 'PenaltyTickets',
     ),
     // Thiết lập thông báo → vào qua Thiết lập HRM (phân quyền module NotificationSettings).
@@ -1731,7 +1742,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       screen: const NotificationSettingsScreen(),
       group: 'Cài đặt',
       showInSidebar: false,
-      themeColor: const Color(0xFFF59E0B),
+      themeColor: HrmPageChrome.primaryNavy,
       moduleCode: 'NotificationSettings',
     ),
     NavItem(
@@ -1742,7 +1753,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       screen: const ShiftSwapScreen(),
       group: 'Chấm công',
       showInSidebar: false,
-      themeColor: const Color(0xFF0284C7),
+      themeColor: HrmPageChrome.primaryNavy,
       moduleCode: 'ShiftSwap',
     ),
   ];
@@ -2816,7 +2827,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                       final index = entry.key;
                       final item = entry.value;
                       final isSelected = _selectedIndex == index;
-                      final accentColor = item.themeColor ?? groupColor;
+                      final accentColor = HrmPageChrome.primaryNavy;
 
                       final navWidget = Padding(
                         padding: EdgeInsets.symmetric(
@@ -3470,6 +3481,7 @@ class NavItem {
     'WorkSchedule': (l) => l.workSchedule,
     'AttendanceSummary': (l) => l.attendanceSummary,
     'AttendanceByShift': (l) => l.attendanceByShift,
+    'LateEarlyReport': (l) => l.lateEarlyReport,
     'AttendanceApproval': (l) => l.attendanceApproval,
     'ScheduleApproval': (l) => l.scheduleApproval,
     'Payroll': (l) => l.payrollSummary,
@@ -3569,13 +3581,13 @@ class _HomeMenuScreen extends StatefulWidget {
   };
 
   static const _groupColors = {
-    'Hồ sơ nhân sự': HrmPageChrome.primaryNavy, // Navy
-    'Chấm công': Color(0xFF0284C7), // Sky 600
-    'Tài chính': Color(0xFFEC4899), // Pink 500
-    'Quản lý Vận hành': Color(0xFF059669), // Emerald 600
-    'POS': Color(0xFF2563EB), // Blue 600
-    'Báo cáo': Color(0xFF7C3AED), // Violet 600
-    'Cài đặt': Color(0xFF64748B), // Slate 500
+    'Hồ sơ nhân sự': HrmPageChrome.primaryNavy,
+    'Chấm công': HrmPageChrome.primaryNavy,
+    'Tài chính': HrmPageChrome.primaryNavy,
+    'Quản lý Vận hành': HrmPageChrome.primaryNavy,
+    'POS': HrmPageChrome.primaryNavy,
+    'Báo cáo': HrmPageChrome.primaryNavy,
+    'Cài đặt': HrmPageChrome.primaryNavy,
   };
 
   static const _groupDescriptions = {
@@ -4119,7 +4131,7 @@ class _HomeMenuScreenState extends State<_HomeMenuScreen> {
                           children: items.map((entry) {
                             final item = entry.value;
                             final index = entry.key;
-                            final itemColor = item.themeColor ?? groupColor;
+                            final itemColor = HrmPageChrome.primaryNavy;
                             final l = AppLocalizations.of(context);
                             return Padding(
                               padding: const EdgeInsets.only(bottom: 8),
@@ -4143,7 +4155,7 @@ class _HomeMenuScreenState extends State<_HomeMenuScreen> {
                         children: items.map((entry) {
                           final item = entry.value;
                           final index = entry.key;
-                          final itemColor = item.themeColor ?? groupColor;
+                          final itemColor = HrmPageChrome.primaryNavy;
                           final cardWidth = (constraints.maxWidth -
                                   (crossAxisCount - 1) * 10) /
                               crossAxisCount;

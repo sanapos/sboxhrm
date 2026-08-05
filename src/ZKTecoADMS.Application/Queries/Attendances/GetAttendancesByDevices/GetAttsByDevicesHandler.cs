@@ -1,4 +1,3 @@
-using Microsoft.EntityFrameworkCore;
 using ZKTecoADMS.Application.DTOs.Attendances;
 using ZKTecoADMS.Application.Interfaces;
 using ZKTecoADMS.Domain.Entities;
@@ -9,7 +8,9 @@ namespace ZKTecoADMS.Application.Queries.Attendances.GetAttendancesByDevices;
 public class GetAttsByDevicesHandler(
     IRepositoryPagedQuery<Attendance> attRepository,
     IRepository<Employee> employeeRepository,
-    IRepository<MobileAttendanceRecord> mobileAttendanceRepository
+    IRepository<MobileAttendanceRecord> mobileAttendanceRepository,
+    IRepository<Device> deviceRepository,
+    IRepository<DeviceUser> deviceUserRepository
 ) : ICommandHandler<GetAttsByDevicesQuery, AppResponse<PagedResult<AttendanceDto>>>
 {
     public async Task<AppResponse<PagedResult<AttendanceDto>>> Handle(GetAttsByDevicesQuery request, CancellationToken cancellationToken)
@@ -61,7 +62,8 @@ public class GetAttsByDevicesHandler(
                 null,
                 null,
                 null,
-                null
+                null,
+                a.DeviceId
             ),
             applyOrdering: q => q.OrderBy(a => a.AttendanceTime).ThenBy(a => a.Id),
             cancellationToken: cancellationToken);
@@ -100,29 +102,162 @@ public class GetAttsByDevicesHandler(
         }
 
         // Fallback: ảnh chụp sau chấm — ghép theo PIN + thời gian khi thiếu liên kết Id.
-        await ApplySitePhotoFallbackByPinAndTimeAsync(dtoList, cancellationToken);
-        var manualAttendances = dtoList.Where(a => (int)a.VerifyMode == 100).ToList();
-        if (manualAttendances.Any())
-        {
-            var pins = manualAttendances.Select(a => a.Pin).Distinct().ToList();
-            var employees = await employeeRepository.GetAllAsync(e => pins.Contains(e.EmployeeCode ?? ""));
-            var employeeDict = employees.ToDictionary(e => e.EmployeeCode ?? "", e => $"{e.LastName} {e.FirstName}".Trim());
-            
-            for (int i = 0; i < dtoList.Count; i++)
-            {
-                var dto = dtoList[i];
-                if ((int)dto.VerifyMode == 100 && dto.Pin != null && employeeDict.TryGetValue(dto.Pin, out var fullName))
-                {
-                    // Replace with full name
-                    dtoList[i] = dto with { UserName = fullName, EmployeeCode = dto.Pin };
-                }
-            }
-            
-        }
+        var storeIds = await ResolveStoreIdsAsync(deviceIds, cancellationToken);
+        await ApplySitePhotoFallbackByPinAndTimeAsync(dtoList, storeIds, cancellationToken);
+        await EnrichManualAttendanceNamesAsync(dtoList, deviceIds, storeIds, cancellationToken);
 
         // Luôn trả dtoList (GPS/ảnh hiện trường từ mobile); trước đây chỉ gán lại khi có chấm thủ công.
         atts = new PagedResult<AttendanceDto>(dtoList, atts);
         return AppResponse<PagedResult<AttendanceDto>>.Success(atts);
+    }
+
+    private async Task<List<Guid>> ResolveStoreIdsAsync(
+        IReadOnlyList<Guid>? deviceIds,
+        CancellationToken cancellationToken)
+    {
+        if (deviceIds is not { Count: > 0 })
+            return [];
+
+        var devices = await deviceRepository.GetAllAsync(
+            d => deviceIds.Contains(d.Id),
+            cancellationToken: cancellationToken);
+        return devices
+            .Where(d => d.StoreId.HasValue)
+            .Select(d => d.StoreId!.Value)
+            .Distinct()
+            .ToList();
+    }
+
+    private async Task EnrichManualAttendanceNamesAsync(
+        List<AttendanceDto> dtoList,
+        IReadOnlyList<Guid>? deviceIds,
+        IReadOnlyList<Guid> storeIds,
+        CancellationToken cancellationToken)
+    {
+        var manualAttendances = dtoList.Where(a => (int)a.VerifyMode == 100).ToList();
+        if (manualAttendances.Count == 0)
+            return;
+
+        var pins = manualAttendances
+            .Select(a => a.Pin)
+            .Where(p => !string.IsNullOrWhiteSpace(p))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        if (pins.Count == 0)
+            return;
+
+        // 1) Ưu tiên DeviceUser trên đúng máy của dòng chấm (PIN có thể khác EmployeeCode).
+        var scopedDeviceIds = deviceIds is { Count: > 0 }
+            ? deviceIds.ToList()
+            : manualAttendances
+                .Where(a => a.DeviceId.HasValue)
+                .Select(a => a.DeviceId!.Value)
+                .Distinct()
+                .ToList();
+
+        // Key: "{deviceId}|{pin}" — pin so sánh không phân biệt hoa thường.
+        var byDevicePin = new Dictionary<string, (string FullName, string? EmployeeCode)>(StringComparer.OrdinalIgnoreCase);
+        if (scopedDeviceIds.Count > 0)
+        {
+            var deviceUsers = await deviceUserRepository.GetAllAsync(
+                du => scopedDeviceIds.Contains(du.DeviceId)
+                      && pins.Contains(du.Pin),
+                includeProperties: [nameof(DeviceUser.Employee)],
+                cancellationToken: cancellationToken);
+
+            foreach (var du in deviceUsers)
+            {
+                if (string.IsNullOrWhiteSpace(du.Pin))
+                    continue;
+                string fullName;
+                string? code = null;
+                if (du.Employee != null)
+                {
+                    fullName = $"{du.Employee.LastName} {du.Employee.FirstName}".Trim();
+                    code = du.Employee.EmployeeCode;
+                }
+                else
+                {
+                    fullName = du.Name?.Trim() ?? string.Empty;
+                }
+
+                if (string.IsNullOrWhiteSpace(fullName))
+                    continue;
+
+                var key = $"{du.DeviceId:D}|{du.Pin.Trim()}";
+                byDevicePin.TryAdd(key, (fullName, code));
+            }
+        }
+
+        // 2) Fallback: Employee theo StoreId của các máy đang query (mã unique trong store).
+        Dictionary<string, string> byStoreCode = new(StringComparer.OrdinalIgnoreCase);
+        if (storeIds.Count > 0)
+        {
+            var employees = await employeeRepository.GetAllAsync(
+                e => e.StoreId.HasValue
+                     && storeIds.Contains(e.StoreId.Value)
+                     && e.EmployeeCode != null
+                     && pins.Contains(e.EmployeeCode),
+                cancellationToken: cancellationToken);
+
+            byStoreCode = employees
+                .Where(e => !string.IsNullOrWhiteSpace(e.EmployeeCode))
+                .GroupBy(e => e.EmployeeCode!.Trim(), StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(
+                    g => g.Key,
+                    g =>
+                    {
+                        // Khi admin query nhiều store cùng lúc vẫn có thể trùng mã —
+                        // ưu tiên bản ghi có tên đầy đủ; không crash.
+                        var e = g.OrderByDescending(x =>
+                                !string.IsNullOrWhiteSpace(x.FirstName)
+                                || !string.IsNullOrWhiteSpace(x.LastName))
+                            .First();
+                        return $"{e.LastName} {e.FirstName}".Trim();
+                    },
+                    StringComparer.OrdinalIgnoreCase);
+        }
+
+        for (var i = 0; i < dtoList.Count; i++)
+        {
+            var dto = dtoList[i];
+            if ((int)dto.VerifyMode != 100 || string.IsNullOrWhiteSpace(dto.Pin))
+                continue;
+
+            var pin = dto.Pin.Trim();
+            string? fullName = null;
+            string? employeeCode = dto.EmployeeCode;
+
+            if (dto.DeviceId.HasValue
+                && byDevicePin.TryGetValue($"{dto.DeviceId.Value:D}|{pin}", out var fromDu)
+                && !string.IsNullOrWhiteSpace(fromDu.FullName))
+            {
+                fullName = fromDu.FullName;
+                employeeCode ??= fromDu.EmployeeCode ?? pin;
+            }
+            else if (byStoreCode.TryGetValue(pin, out var fromEmp)
+                     && !string.IsNullOrWhiteSpace(fromEmp))
+            {
+                fullName = fromEmp;
+                employeeCode ??= pin;
+            }
+
+            if (string.IsNullOrWhiteSpace(fullName))
+                continue;
+
+            // Chỉ ghi đè khi tên đang là placeholder / WorkCode cắt ngắn.
+            var current = dto.UserName?.Trim() ?? string.Empty;
+            var shouldReplace = string.IsNullOrWhiteSpace(current)
+                || string.Equals(current, "Thủ công", StringComparison.OrdinalIgnoreCase)
+                || (dto.WorkCode != null
+                    && string.Equals(current, dto.WorkCode.Trim(), StringComparison.OrdinalIgnoreCase)
+                    && fullName.Length > current.Length);
+
+            if (!shouldReplace && !string.IsNullOrWhiteSpace(dto.EmployeeCode))
+                continue;
+
+            dtoList[i] = dto with { UserName = fullName, EmployeeCode = employeeCode ?? pin };
+        }
     }
 
     private static string? NormalizeSitePhotoUrl(string? path)
@@ -148,6 +283,7 @@ public class GetAttsByDevicesHandler(
 
     private async Task ApplySitePhotoFallbackByPinAndTimeAsync(
         List<AttendanceDto> dtoList,
+        IReadOnlyList<Guid> storeIds,
         CancellationToken cancellationToken)
     {
         var targets = dtoList
@@ -164,12 +300,24 @@ public class GetAttsByDevicesHandler(
         if (pins.Count == 0)
             return;
 
+        // Chỉ map PIN → ApplicationUser trong các store đang query (tránh PIN "1" lấy user store khác).
+        var employeeFilter = storeIds.Count > 0
+            ? (System.Linq.Expressions.Expression<Func<Employee, bool>>)(e =>
+                e.StoreId.HasValue
+                && storeIds.Contains(e.StoreId.Value)
+                && pins.Contains(e.EmployeeCode ?? ""))
+            : e => pins.Contains(e.EmployeeCode ?? "");
+
         var employees = await employeeRepository.GetAllAsync(
-            e => pins.Contains(e.EmployeeCode ?? ""),
+            employeeFilter,
             cancellationToken: cancellationToken);
         var pinToUserId = employees
             .Where(e => e.ApplicationUserId.HasValue && !string.IsNullOrWhiteSpace(e.EmployeeCode))
-            .ToDictionary(e => e.EmployeeCode!, e => e.ApplicationUserId!.Value.ToString());
+            .GroupBy(e => e.EmployeeCode!.Trim(), StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(
+                g => g.Key,
+                g => g.First().ApplicationUserId!.Value.ToString(),
+                StringComparer.OrdinalIgnoreCase);
 
         var from = targets.Min(d => d.AttendanceTime).AddMinutes(-15);
         var to = targets.Max(d => d.AttendanceTime).AddMinutes(15);

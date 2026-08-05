@@ -906,15 +906,18 @@ class ApiService {
     int? page,
     int? pageSize,
     String? branchId,
+    bool includeChildBranches = true,
     bool excludeResigned = false,
   }) async {
     final size = pageSize ?? 500;
     if (page != null) {
-      return _getEmployeesPage(page, size, branchId, excludeResigned);
+      return _getEmployeesPage(
+          page, size, branchId, includeChildBranches, excludeResigned);
     }
     final all = <dynamic>[];
     for (var p = 1; p <= 50; p++) {
-      final items = await _getEmployeesPage(p, size, branchId, excludeResigned);
+      final items = await _getEmployeesPage(
+          p, size, branchId, includeChildBranches, excludeResigned);
       if (items.isEmpty) break;
       all.addAll(items);
       if (items.length < size) break;
@@ -927,11 +930,13 @@ class ApiService {
     int? page,
     int? pageSize,
     String? branchId,
+    bool includeChildBranches = true,
   }) =>
       getEmployees(
         page: page,
         pageSize: pageSize,
         branchId: branchId,
+        includeChildBranches: includeChildBranches,
         excludeResigned: true,
       );
 
@@ -939,11 +944,15 @@ class ApiService {
     int page,
     int pageSize,
     String? branchId,
+    bool includeChildBranches,
     bool excludeResigned,
   ) async {
     try {
       final params = paginationQueryParams(page, pageSize);
-      if (branchId != null) params['branchId'] = branchId;
+      if (branchId != null) {
+        params['branchId'] = branchId;
+        params['includeChildBranches'] = includeChildBranches.toString();
+      }
       if (excludeResigned) params['excludeResigned'] = 'true';
       final uri = Uri.parse('$baseUrl/api/employees')
           .replace(queryParameters: params);
@@ -7883,8 +7892,22 @@ class ApiService {
     }
   }
 
+  void _putReportsBranchFilter(
+    Map<String, String> params,
+    String? branchId, {
+    bool includeChildBranches = true,
+  }) {
+    final v = branchId?.trim();
+    if (v == null || v.isEmpty) return;
+    params['branchId'] = v;
+    params['includeChildBranches'] = includeChildBranches.toString();
+  }
+
   Future<Map<String, dynamic>> getDailyAttendanceReport(
-      {dynamic date, String? departmentId}) async {
+      {dynamic date,
+      String? departmentId,
+      String? branchId,
+      bool includeChildBranches = true}) async {
     try {
       final params = <String, String>{};
       if (date != null) {
@@ -7893,6 +7916,8 @@ class ApiService {
             : date.toString();
       }
       _putReportsDepartmentFilter(params, departmentId);
+      _putReportsBranchFilter(params, branchId,
+          includeChildBranches: includeChildBranches);
       // Work-day window comes solely from AppSettings day_end_time on the server.
       final uri = Uri.parse('$baseUrl/api/Reports/attendance/daily')
           .replace(queryParameters: params.isNotEmpty ? params : null);
@@ -7904,12 +7929,18 @@ class ApiService {
   }
 
   Future<Map<String, dynamic>> getMonthlyAttendanceReport(
-      {int? month, int? year, String? departmentId}) async {
+      {int? month,
+      int? year,
+      String? departmentId,
+      String? branchId,
+      bool includeChildBranches = true}) async {
     try {
       final params = <String, String>{};
       if (month != null) params['month'] = month.toString();
       if (year != null) params['year'] = year.toString();
       _putReportsDepartmentFilter(params, departmentId);
+      _putReportsBranchFilter(params, branchId,
+          includeChildBranches: includeChildBranches);
       final uri = Uri.parse('$baseUrl/api/Reports/attendance/monthly')
           .replace(queryParameters: params.isNotEmpty ? params : null);
       final response = await http.get(uri, headers: _headers);
@@ -7923,6 +7954,8 @@ class ApiService {
       {dynamic fromDate,
       dynamic toDate,
       String? departmentId,
+      String? branchId,
+      bool includeChildBranches = true,
       dynamic startDate,
       dynamic endDate}) async {
     try {
@@ -7938,6 +7971,8 @@ class ApiService {
             td is DateTime ? td.toIso8601String() : td.toString();
       }
       _putReportsDepartmentFilter(params, departmentId);
+      _putReportsBranchFilter(params, branchId,
+          includeChildBranches: includeChildBranches);
       final uri = Uri.parse('$baseUrl/api/Reports/late-early')
           .replace(queryParameters: params.isNotEmpty ? params : null);
       final response = await http.get(uri, headers: _headers);
@@ -7972,7 +8007,10 @@ class ApiService {
   }
 
   Future<Map<String, dynamic>> exportDailyReport(
-      {dynamic date, String? departmentId}) async {
+      {dynamic date,
+      String? departmentId,
+      String? branchId,
+      bool includeChildBranches = true}) async {
     try {
       final params = <String, String>{};
       if (date != null) {
@@ -7981,6 +8019,8 @@ class ApiService {
             : date.toString();
       }
       _putReportsDepartmentFilter(params, departmentId);
+      _putReportsBranchFilter(params, branchId,
+          includeChildBranches: includeChildBranches);
       final uri = Uri.parse('$baseUrl/api/Reports/export/daily')
           .replace(queryParameters: params.isNotEmpty ? params : null);
       final response = await http.get(uri, headers: _headers);
@@ -7997,12 +8037,18 @@ class ApiService {
   }
 
   Future<Map<String, dynamic>> exportMonthlyReport(
-      {int? month, int? year, String? departmentId}) async {
+      {int? month,
+      int? year,
+      String? departmentId,
+      String? branchId,
+      bool includeChildBranches = true}) async {
     try {
       final params = <String, String>{};
       if (month != null) params['month'] = month.toString();
       if (year != null) params['year'] = year.toString();
       _putReportsDepartmentFilter(params, departmentId);
+      _putReportsBranchFilter(params, branchId,
+          includeChildBranches: includeChildBranches);
       final uri = Uri.parse('$baseUrl/api/Reports/export/monthly')
           .replace(queryParameters: params.isNotEmpty ? params : null);
       final response = await http.get(uri, headers: _headers);
@@ -8023,7 +8069,9 @@ class ApiService {
       dynamic toDate,
       String? departmentId,
       dynamic startDate,
-      dynamic endDate}) async {
+      dynamic endDate,
+      String? branchId,
+      bool includeChildBranches = true}) async {
     try {
       final params = <String, String>{};
       final fd = fromDate ?? startDate;
@@ -8037,6 +8085,8 @@ class ApiService {
             td is DateTime ? td.toIso8601String() : td.toString();
       }
       _putReportsDepartmentFilter(params, departmentId);
+      _putReportsBranchFilter(params, branchId,
+          includeChildBranches: includeChildBranches);
       final uri = Uri.parse('$baseUrl/api/Reports/export/late-early')
           .replace(queryParameters: params.isNotEmpty ? params : null);
       final response = await http.get(uri, headers: _headers);
@@ -8053,7 +8103,10 @@ class ApiService {
   }
 
   Future<Map<String, dynamic>> exportDailyReportExcel(
-      {dynamic date, String? departmentId}) async {
+      {dynamic date,
+      String? departmentId,
+      String? branchId,
+      bool includeChildBranches = true}) async {
     final params = <String, String>{};
     if (date != null) {
       params['date'] = date is DateTime
@@ -8061,6 +8114,8 @@ class ApiService {
           : date.toString();
     }
     _putReportsDepartmentFilter(params, departmentId);
+    _putReportsBranchFilter(params, branchId,
+        includeChildBranches: includeChildBranches);
     return _getExcelExport(
       Uri.parse('$baseUrl/api/Reports/export/excel/daily')
           .replace(queryParameters: params.isNotEmpty ? params : null),
@@ -8068,11 +8123,17 @@ class ApiService {
   }
 
   Future<Map<String, dynamic>> exportMonthlyReportExcel(
-      {int? month, int? year, String? departmentId}) async {
+      {int? month,
+      int? year,
+      String? departmentId,
+      String? branchId,
+      bool includeChildBranches = true}) async {
     final params = <String, String>{};
     if (month != null) params['month'] = month.toString();
     if (year != null) params['year'] = year.toString();
     _putReportsDepartmentFilter(params, departmentId);
+    _putReportsBranchFilter(params, branchId,
+        includeChildBranches: includeChildBranches);
     return _getExcelExport(
       Uri.parse('$baseUrl/api/Reports/export/excel/monthly')
           .replace(queryParameters: params.isNotEmpty ? params : null),
@@ -8084,7 +8145,9 @@ class ApiService {
       dynamic toDate,
       String? departmentId,
       dynamic startDate,
-      dynamic endDate}) async {
+      dynamic endDate,
+      String? branchId,
+      bool includeChildBranches = true}) async {
     final params = <String, String>{};
     final fd = fromDate ?? startDate;
     final td = toDate ?? endDate;
@@ -8097,6 +8160,8 @@ class ApiService {
           td is DateTime ? td.toIso8601String() : td.toString();
     }
     _putReportsDepartmentFilter(params, departmentId);
+    _putReportsBranchFilter(params, branchId,
+        includeChildBranches: includeChildBranches);
     return _getExcelExport(
       Uri.parse('$baseUrl/api/Reports/export/excel/late-early')
           .replace(queryParameters: params.isNotEmpty ? params : null),
@@ -8118,6 +8183,8 @@ class ApiService {
       {dynamic startDate,
       dynamic endDate,
       String? department,
+      String? branchId,
+      bool includeChildBranches = true,
       int? minOvertimeMinutes}) async {
     try {
       final params = <String, String>{};
@@ -8132,6 +8199,8 @@ class ApiService {
             : endDate.toString();
       }
       if (department != null) params['department'] = department;
+      _putReportsBranchFilter(params, branchId,
+          includeChildBranches: includeChildBranches);
       if (minOvertimeMinutes != null) {
         params['minOvertimeMinutes'] = minOvertimeMinutes.toString();
       }
@@ -8145,7 +8214,11 @@ class ApiService {
   }
 
   Future<Map<String, dynamic>> exportOvertimeReportExcel(
-      {dynamic startDate, dynamic endDate, String? department}) async {
+      {dynamic startDate,
+      dynamic endDate,
+      String? department,
+      String? branchId,
+      bool includeChildBranches = true}) async {
     final params = <String, String>{};
     if (startDate != null) {
       params['startDate'] = startDate is DateTime
@@ -8158,6 +8231,8 @@ class ApiService {
           : endDate.toString();
     }
     _putReportsDepartmentFilter(params, department);
+    _putReportsBranchFilter(params, branchId,
+        includeChildBranches: includeChildBranches);
     return _getExcelExport(
       Uri.parse('$baseUrl/api/Reports/export/excel/overtime')
           .replace(queryParameters: params.isNotEmpty ? params : null),
@@ -8165,7 +8240,11 @@ class ApiService {
   }
 
   Future<Map<String, dynamic>> getLeaveReport(
-      {dynamic startDate, dynamic endDate, String? department}) async {
+      {dynamic startDate,
+      dynamic endDate,
+      String? department,
+      String? branchId,
+      bool includeChildBranches = true}) async {
     try {
       final params = <String, String>{};
       if (startDate != null) {
@@ -8179,6 +8258,8 @@ class ApiService {
             : endDate.toString();
       }
       if (department != null) params['department'] = department;
+      _putReportsBranchFilter(params, branchId,
+          includeChildBranches: includeChildBranches);
       final uri = Uri.parse('$baseUrl/api/Reports/leave-summary')
           .replace(queryParameters: params.isNotEmpty ? params : null);
       final response = await http.get(uri, headers: _headers);
@@ -8189,7 +8270,11 @@ class ApiService {
   }
 
   Future<Map<String, dynamic>> exportLeaveReportExcel(
-      {dynamic startDate, dynamic endDate, String? department}) async {
+      {dynamic startDate,
+      dynamic endDate,
+      String? department,
+      String? branchId,
+      bool includeChildBranches = true}) async {
     final params = <String, String>{};
     if (startDate != null) {
       params['startDate'] = startDate is DateTime
@@ -8202,6 +8287,8 @@ class ApiService {
           : endDate.toString();
     }
     _putReportsDepartmentFilter(params, department);
+    _putReportsBranchFilter(params, branchId,
+        includeChildBranches: includeChildBranches);
     return _getExcelExport(
       Uri.parse('$baseUrl/api/Reports/export/excel/leave-summary')
           .replace(queryParameters: params.isNotEmpty ? params : null),

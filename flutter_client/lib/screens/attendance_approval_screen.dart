@@ -15,6 +15,8 @@ import '../widgets/app_button.dart';
 import '../utils/responsive_helper.dart';
 import '../utils/vietnamese_font.dart';
 import '../utils/api_datetime.dart';
+import '../utils/branch_filter_helper.dart';
+import '../widgets/hrm_collapsible_overview.dart';
 import '../widgets/hrm_responsive_list_layout.dart';
 import '../widgets/page_top_actions.dart';
 import 'package:provider/provider.dart';
@@ -50,6 +52,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
   List<Map<String, dynamic>> _employees = [];
   int _totalCount = 0;
   bool _isLoading = true;
+  bool _showOverviewPanel = true;
 
   // Filters (-1 = all, 0 = pending, 1 = approved, 2 = rejected)
   int _statusFilter = -1;
@@ -1351,7 +1354,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
       headerSections: [
         _buildStatusTabs(),
         const SizedBox(height: 6),
-        _buildFilters(),
+        _buildOverviewSection(),
         const SizedBox(height: 6),
       ],
       desktopBody: _isLoading
@@ -1459,6 +1462,15 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
     );
   }
 
+  Widget _buildOverviewSection() {
+    return HrmCollapsibleOverview(
+      expanded: _showOverviewPanel,
+      onToggle: () =>
+          setState(() => _showOverviewPanel = !_showOverviewPanel),
+      child: _buildFilters(),
+    );
+  }
+
   Widget _buildFilters() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -1479,7 +1491,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
         runSpacing: 12,
         crossAxisAlignment: WrapCrossAlignment.center,
         children: [
-          if (_branches.isNotEmpty) _buildBranchChip(),
+          if (BranchFilterHelper.showBranchFilter(_branches)) _buildBranchChip(),
           _buildDropdown<String>(
             value: _selectedDatePreset,
             items: [

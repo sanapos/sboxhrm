@@ -9,6 +9,7 @@ import '../models/field_checkin.dart';
 import '../providers/auth_provider.dart';
 import '../services/api_service.dart';
 import '../utils/store_role_helper.dart';
+import '../widgets/hrm_collapsible_overview.dart';
 import '../widgets/hrm_page_chrome.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
@@ -73,6 +74,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen> {
   bool _silentRefreshing = false;
   bool _mapFullscreen = false;
   String _searchQuery = '';
+  bool _showOverviewPanel = true;
   _StaffMapFilter _statusFilter = _StaffMapFilter.all;
   List<Map<String, dynamic>> _employees = [];
   final Set<String> _selectedIds = {};
@@ -386,9 +388,13 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen> {
   Widget _buildSearchAndFilters() {
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-      child: Column(
-        children: [
-          TextField(
+      child: HrmCollapsibleOverview(
+        expanded: _showOverviewPanel,
+        onToggle: () =>
+            setState(() => _showOverviewPanel = !_showOverviewPanel),
+        child: Column(
+          children: [
+            TextField(
             controller: _searchController,
             onChanged: (v) => setState(() => _searchQuery = v),
             decoration: InputDecoration(
@@ -435,7 +441,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen> {
                   onSelected: (_) =>
                       setState(() => _statusFilter = _StaffMapFilter.online),
                   visualDensity: VisualDensity.compact,
-                  selectedColor: const Color(0xFFE8F5E9),
+                  selectedColor: HrmPageChrome.chipBg,
                 ),
                 const SizedBox(width: 6),
                 FilterChip(
@@ -450,6 +456,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen> {
           ),
         ],
       ),
+    ),
     );
   }
 
@@ -458,10 +465,10 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        color: online ? const Color(0xFFE8F5E9) : Colors.grey.shade100,
+        color: online ? HrmPageChrome.chipBg : Colors.grey.shade100,
         borderRadius: BorderRadius.circular(10),
         border: Border.all(
-          color: online ? const Color(0xFF38A169) : Colors.grey.shade400,
+          color: online ? HrmPageChrome.chip : Colors.grey.shade400,
         ),
       ),
       child: Row(
@@ -471,7 +478,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen> {
             width: 7,
             height: 7,
             decoration: BoxDecoration(
-              color: online ? const Color(0xFF38A169) : Colors.grey.shade500,
+              color: online ? HrmPageChrome.chip : Colors.grey.shade500,
               shape: BoxShape.circle,
             ),
           ),
@@ -481,7 +488,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen> {
             style: TextStyle(
               fontSize: 10,
               fontWeight: FontWeight.w600,
-              color: online ? const Color(0xFF276749) : Colors.grey.shade700,
+              color: online ? HrmPageChrome.chipDark : Colors.grey.shade700,
             ),
           ),
         ],

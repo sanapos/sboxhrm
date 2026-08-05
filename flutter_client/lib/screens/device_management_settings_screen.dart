@@ -8,6 +8,7 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 import '../services/api_service.dart';
 import '../utils/device_setup_guide.dart';
 import '../utils/responsive_helper.dart';
+import '../widgets/hrm_collapsible_overview.dart';
 import '../widgets/hrm_mini_stat_chip.dart';
 import '../widgets/hrm/hrm_settings_mobile_kit.dart';
 import '../widgets/hrm_page_chrome.dart';
@@ -31,6 +32,7 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
   bool _isLoading = true;
   String _searchQuery = '';
   String _statusFilter = 'all'; // all, online, offline
+  bool _showOverviewPanel = true;
   @override
   void initState() {
     super.initState();
@@ -787,10 +789,7 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
                     const SizedBox(height: 16),
                     _buildSetupGuideCard(),
                     const SizedBox(height: 20),
-                    _buildSummaryCards(),
-                    const SizedBox(height: 20),
-                    
-                    _buildToolbar(),
+                    _buildOverviewSection(),
                     const SizedBox(height: 16),
                     _buildDeviceGrid(),
                   ],
@@ -921,45 +920,37 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
     );
   }
 
-  Widget _buildSummaryCards() {
-    final cards = [
-      _buildStatCard('Tổng thiết bị', _totalCount, Icons.devices, HrmPageChrome.primaryNavy),
-      _buildStatCard('Đang online', _onlineCount, Icons.wifi, HrmPageChrome.primaryNavy),
-      _buildStatCard('Offline', _offlineCount, Icons.wifi_off, const Color(0xFFEF4444)),
-    ];
-    if (Responsive.isMobile(context)) {
-      return SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        padding: Responsive.horizontalScrollPadding,
-        clipBehavior: Clip.none,
-        child: Row(
-          children: [
-            for (var i = 0; i < cards.length; i++) ...[
-              if (i > 0) const SizedBox(width: 10),
-              SizedBox(width: 140, child: cards[i]),
-            ],
-          ],
-        ),
-      );
-    }
-    return Row(
-      children: [
-        Expanded(child: cards[0]),
-        const SizedBox(width: 14),
-        Expanded(child: cards[1]),
-        const SizedBox(width: 14),
-        Expanded(child: cards[2]),
-      ],
+  Widget _buildOverviewSection() {
+    return HrmCollapsibleOverview(
+      expanded: _showOverviewPanel,
+      onToggle: () =>
+          setState(() => _showOverviewPanel = !_showOverviewPanel),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _buildSummaryCards(),
+          const SizedBox(height: 10),
+          _buildToolbar(),
+        ],
+      ),
     );
   }
 
-  Widget _buildStatCard(String label, int count, IconData icon, Color color) {
-    return HrmStatSummaryCard(
-      icon: icon,
-      value: '$count',
-      label: label,
-      color: color,
-      valueFontSize: Responsive.isMobile(context) ? 18 : 22,
+  Widget _buildSummaryCards() {
+    return HrmStatBar(
+      items: [
+        HrmStatItem(
+            icon: Icons.devices,
+            label: 'Tổng thiết bị',
+            value: '$_totalCount'),
+        HrmStatItem(
+            icon: Icons.wifi, label: 'Đang online', value: '$_onlineCount'),
+        HrmStatItem(
+            icon: Icons.wifi_off, label: 'Offline', value: '$_offlineCount'),
+      ],
+      padding: EdgeInsets.zero,
+      gap: 6,
+      valueFontSize: 14,
     );
   }
 
@@ -1013,25 +1004,30 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
 
   Widget _buildFilterChip(String label, String value, int count) {
     final isActive = _statusFilter == value;
-    final color = value == 'online' ? HrmPageChrome.primaryNavy : value == 'offline' ? const Color(0xFFEF4444) : HrmPageChrome.primaryNavy;
+    final color = HrmPageChrome.chip;
     return InkWell(
       onTap: () => setState(() => _statusFilter = value),
-      borderRadius: BorderRadius.circular(10),
+      borderRadius: BorderRadius.circular(12),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
         decoration: BoxDecoration(
-          color: isActive ? color.withValues(alpha: 0.1) : Colors.transparent,
-          borderRadius: BorderRadius.circular(10),
+          color: isActive ? color : Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isActive ? color : color.withValues(alpha: 0.45),
+          ),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(tr(label), style: TextStyle(fontSize: 13, fontWeight: isActive ? FontWeight.w600 : FontWeight.w500, color: isActive ? color : const Color(0xFF71717A))),
-            const SizedBox(width: 6),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-              decoration: BoxDecoration(color: isActive ? color.withValues(alpha: 0.15) : const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(8)),
-              child: Text(tr('$count'), style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: isActive ? color : const Color(0xFFA1A1AA))),
+            Text(
+              tr('$label $count'),
+              style: TextStyle(
+                fontSize: 12,
+                height: 1.15,
+                fontWeight: FontWeight.w600,
+                color: isActive ? Colors.white : color,
+              ),
             ),
           ],
         ),
@@ -1067,57 +1063,23 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
       );
     }
 
-    if (HrmSettingsMobileKit.active(context)) {
-      return HrmSettingsEntityGrid(
-        itemCount: devices.length,
-        columns: 2,
-        childAspectRatio: 1.35,
-        itemBuilder: (context, i) {
-          final device = devices[i];
-          final online = _isOnline(device);
-          final statusColor =
-              online ? HrmPageChrome.primaryNavy : const Color(0xFFEF4444);
-          return HrmSettingsEntityTile(
-            title: device['deviceName'] ?? 'Không tên',
-            subtitle: device['serialNumber']?.toString(),
-            meta: device['ipAddress']?.toString(),
-            icon: Icons.fingerprint,
-            iconColor: statusColor,
-            badge: online ? 'Online' : 'Offline',
-            badgeColor: online ? const Color(0xFF16A34A) : const Color(0xFFEF4444),
-            onTap: () => _showDeviceDetail(device),
-          );
-        },
-      );
-    }
-
-    if (Responsive.isMobile(context)) {
-      return Column(
-        children: List.generate(devices.length, (i) => Padding(
-          padding: const EdgeInsets.only(bottom: 10, left: 12, right: 12),
+    // Mỗi máy 1 dòng — tránh lưới 2 cột làm thẻ cao/lãng phí chỗ.
+    return Column(
+      children: List.generate(
+        devices.length,
+        (i) => Padding(
+          padding: const EdgeInsets.only(bottom: 8),
           child: Container(
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFFE4E4E7)),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.05),
-                  blurRadius: 6,
-                  offset: const Offset(0, 2),
-                ),
-              ],
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                  color: HrmPageChrome.chip.withValues(alpha: 0.45)),
             ),
             child: _buildDeviceDeckItem(devices[i]),
           ),
-        )),
-      );
-    }
-
-    return Wrap(
-      spacing: 14,
-      runSpacing: 14,
-      children: devices.map((d) => _buildDeviceCard(d)).toList(),
+        ),
+      ),
     );
   }
 
@@ -1153,11 +1115,7 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
               ),
             ]),
           ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-            decoration: BoxDecoration(color: online ? Colors.green.withValues(alpha: 0.1) : Colors.red.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
-            child: Text(tr(online ? 'Online' : 'Offline'), style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: online ? Colors.green : Colors.red)),
-          ),
+          HrmBrandChip(label: online ? 'Online' : 'Offline'),
         ]),
       ),
     );

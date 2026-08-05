@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../models/pos_product.dart';
 import '../../services/api_service.dart';
+import '../../services/pos_product_image_cache.dart';
 import '../../services/pos_sell_catalog_cache.dart';
 import '../../screens/main_layout.dart' show ScreenRefreshNotifier;
 import '../../utils/pos_category_tree.dart';
@@ -11,7 +14,6 @@ import '../../utils/pos_price_list_resolver.dart';
 import '../../utils/pos_purchase_product_lookup.dart';
 import '../../utils/pos_sell_stock_patch.dart';
 import '../../utils/pos_sell_unit_views.dart';
-import '../../utils/responsive_helper.dart';
 import 'pos_catalog_sort_sheet.dart';
 import 'pos_mobile_widgets.dart';
 import '../pos_barcode_scanner.dart';
@@ -73,6 +75,7 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
   final Map<String, List<PosProductUnitView>> _unitViewsCache = {};
   final Map<String, Future<List<PosProductUnitView>>> _unitViewsLoading = {};
   Map<String, double> _lastPriceOverrides = const {};
+  Timer? _searchDebounce;
 
   Future<List<PosProductUnitView>> _viewsFor(PosProduct p) {
     if (!identical(_lastPriceOverrides, widget.priceOverrides)) {
@@ -92,10 +95,42 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
     });
   }
 
+  List<PosProductUnitView>? _viewsCachedSync(PosProduct p) {
+    if (!identical(_lastPriceOverrides, widget.priceOverrides)) {
+      _unitViewsCache.clear();
+      _lastPriceOverrides = widget.priceOverrides;
+    }
+    return _unitViewsCache[p.id];
+  }
+
   void _prefetchPageUnitViews() {
     for (final p in _pageItems) {
       _viewsFor(p);
     }
+    _prefetchPageImages();
+  }
+
+  void _prefetchPageImages() {
+    final items = _pageItems.take(24).toList();
+    var i = 0;
+    Future<void> pump() async {
+      while (i < items.length) {
+        final batch = <Future<void>>[];
+        for (var n = 0; n < 4 && i < items.length; n++, i++) {
+          final p = items[i];
+          batch.add(PosProductImageCacheManager.instance.prefetchProduct(
+            api: widget.api,
+            productId: p.id,
+            imageUrl: p.imageUrl,
+            updatedAt: p.updatedAt,
+          ));
+        }
+        await Future.wait(batch);
+      }
+    }
+
+    // ignore: discarded_futures
+    pump();
   }
 
   @override
@@ -118,6 +153,7 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
   void dispose() {
     ScreenRefreshNotifier.posSellProductGrid.removeListener(_onExternalRefresh);
     ScreenRefreshNotifier.posSellStockPatch.removeListener(_onStockPatch);
+    _searchDebounce?.cancel();
     _categoryScroll.dispose();
     _gridScroll.dispose();
     _searchCtrl.dispose();
@@ -229,14 +265,18 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
   }
 
   void _onSearchChanged(String raw) {
-    final next = raw.trim();
-    if (next == _searchQuery) return;
-    setState(() {
-      _searchQuery = next;
-      _products = _filterByCategory(_allProducts);
-      _page = 0;
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 200), () {
+      if (!mounted) return;
+      final next = raw.trim();
+      if (next == _searchQuery) return;
+      setState(() {
+        _searchQuery = next;
+        _products = _filterByCategory(_allProducts);
+        _page = 0;
+      });
+      _prefetchPageUnitViews();
     });
-    _prefetchPageUnitViews();
   }
 
   Widget _buildSearchBar() {
@@ -683,6 +723,10 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
   }
 
   Widget _buildUnitBar(PosProduct p) {
+    final cached = _viewsCachedSync(p);
+    if (cached != null) {
+      return _unitBar(p, cached);
+    }
     return FutureBuilder<List<PosProductUnitView>>(
       future: _viewsFor(p),
       builder: (context, snap) {
@@ -704,11 +748,7 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
     );
   }
 
-  Widget _productCard(PosProduct p) {
-    return FutureBuilder<List<PosProductUnitView>>(
-      future: _viewsFor(p),
-      builder: (context, snap) {
-        final views = snap.data;
+  Widget _productCardContent(PosProduct p, List<PosProductUnitView>? views) {
         final view = views != null && views.isNotEmpty
             ? (pickDefaultSellUnitView(p, views) ?? views.first)
             : null;
@@ -835,7 +875,16 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
             ],
           ),
         );
-      },
+  }
+
+  Widget _productCard(PosProduct p) {
+    final cached = _viewsCachedSync(p);
+    if (cached != null) {
+      return _productCardContent(p, cached);
+    }
+    return FutureBuilder<List<PosProductUnitView>>(
+      future: _viewsFor(p),
+      builder: (context, snap) => _productCardContent(p, snap.data),
     );
   }
 
@@ -884,16 +933,18 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Expanded(
-          child: Scrollbar(
-            controller: _gridScroll,
-            thumbVisibility: true,
-            child: ListView.separated(
+          child: RepaintBoundary(
+            child: Scrollbar(
               controller: _gridScroll,
-              padding: const EdgeInsets.only(bottom: 8),
-              itemCount: pageItems.length,
-              separatorBuilder: (_, __) =>
-                  const Divider(height: 1, indent: 70, color: PosTheme.border),
-              itemBuilder: (_, i) => _sellListRow(pageItems[i]),
+              thumbVisibility: true,
+              child: ListView.separated(
+                controller: _gridScroll,
+                padding: const EdgeInsets.only(bottom: 8),
+                itemCount: pageItems.length,
+                separatorBuilder: (_, __) =>
+                    const Divider(height: 1, indent: 70, color: PosTheme.border),
+                itemBuilder: (_, i) => _sellListRow(pageItems[i]),
+              ),
             ),
           ),
         ),
@@ -940,13 +991,9 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
     }
   }
 
-  Widget _sellListRow(PosProduct p) {
+  Widget _sellListRowContent(PosProduct p, List<PosProductUnitView>? views) {
     final selectedQty = _qtyInCart(p.id);
     final isSelected = selectedQty > 0;
-    return FutureBuilder<List<PosProductUnitView>>(
-      future: _viewsFor(p),
-      builder: (context, snap) {
-        final views = snap.data;
         final view = views != null && views.isNotEmpty
             ? (pickDefaultSellUnitView(p, views) ?? views.first)
             : null;
@@ -1012,7 +1059,16 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
               ? null
               : () => widget.onDecrement!(p),
         );
-      },
+  }
+
+  Widget _sellListRow(PosProduct p) {
+    final cached = _viewsCachedSync(p);
+    if (cached != null) {
+      return _sellListRowContent(p, cached);
+    }
+    return FutureBuilder<List<PosProductUnitView>>(
+      future: _viewsFor(p),
+      builder: (context, snap) => _sellListRowContent(p, snap.data),
     );
   }
 
@@ -1061,23 +1117,25 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Expanded(
-          child: Scrollbar(
-            controller: _gridScroll,
-            thumbVisibility: true,
-            child: GridView.builder(
+          child: RepaintBoundary(
+            child: Scrollbar(
               controller: _gridScroll,
-              padding: const EdgeInsets.fromLTRB(10, 6, 10, 6),
-              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: cols,
-                childAspectRatio: _aspectRatioForWidth(gridWidth, cols),
-                crossAxisSpacing: 8,
-                mainAxisSpacing: 8,
+              thumbVisibility: true,
+              child: GridView.builder(
+                controller: _gridScroll,
+                padding: const EdgeInsets.fromLTRB(10, 6, 10, 6),
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: cols,
+                  childAspectRatio: _aspectRatioForWidth(gridWidth, cols),
+                  crossAxisSpacing: 8,
+                  mainAxisSpacing: 8,
+                ),
+                itemCount: _pageItems.length,
+                itemBuilder: (_, i) {
+                  final p = _pageItems[i];
+                  return _productCard(p);
+                },
               ),
-              itemCount: _pageItems.length,
-              itemBuilder: (_, i) {
-                final p = _pageItems[i];
-                return _productCard(p);
-              },
             ),
           ),
         ),

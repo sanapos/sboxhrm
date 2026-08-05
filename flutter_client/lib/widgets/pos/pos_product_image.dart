@@ -1,14 +1,12 @@
 import 'dart:typed_data';
 
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
 
 import '../../services/api_service.dart';
+import '../../services/pos_product_image_cache.dart';
 import 'pos_theme.dart';
 
-/// Ảnh sản phẩm POS — tải qua HTTP + Bearer (ổn định trên web; CachedNetworkImage
-/// hay fail khi cache/header trên browser).
+/// Ảnh sản phẩm POS — memory + disk cache (Android) + HTTP Bearer.
 class PosProductImage extends StatelessWidget {
   const PosProductImage({
     super.key,
@@ -42,11 +40,13 @@ class PosProductImage extends StatelessWidget {
     return ClipRRect(
       borderRadius: BorderRadius.circular(borderRadius),
       child: _PosProductImageLoader(
+        productId: productId,
         paths: [
           if (hasUrl) url,
           if (hasId) ApiService.posProductImagePath(productId!),
         ],
         cacheEpoch: updatedAt?.millisecondsSinceEpoch ?? 0,
+        updatedAt: updatedAt,
         apiService: _api,
         size: size,
         fit: fit,
@@ -72,16 +72,20 @@ class PosProductImage extends StatelessWidget {
 
 class _PosProductImageLoader extends StatefulWidget {
   const _PosProductImageLoader({
+    required this.productId,
     required this.paths,
     required this.cacheEpoch,
+    required this.updatedAt,
     required this.apiService,
     required this.size,
     required this.fit,
     required this.placeholder,
   });
 
+  final String? productId;
   final List<String> paths;
   final int cacheEpoch;
+  final DateTime? updatedAt;
   final ApiService apiService;
   final double size;
   final BoxFit fit;
@@ -96,9 +100,6 @@ class _PosProductImageLoaderState extends State<_PosProductImageLoader> {
   bool _failed = false;
   Object? _loadToken;
 
-  static final Map<String, Uint8List> _memoryCache = {};
-  static const _maxMemoryEntries = 120;
-
   @override
   void initState() {
     super.initState();
@@ -109,72 +110,58 @@ class _PosProductImageLoaderState extends State<_PosProductImageLoader> {
   void didUpdateWidget(covariant _PosProductImageLoader oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.paths.join('|') != widget.paths.join('|') ||
-        oldWidget.cacheEpoch != widget.cacheEpoch) {
+        oldWidget.cacheEpoch != widget.cacheEpoch ||
+        oldWidget.productId != widget.productId) {
       _bytes = null;
       _failed = false;
       _load();
     }
   }
 
-  String _cacheKey(String path) => '${path}_${widget.cacheEpoch}';
-
   Future<void> _load() async {
     final token = Object();
     _loadToken = token;
+    final cache = PosProductImageCacheManager.instance;
+    final headers = <String, String>{
+      ...?widget.apiService.imageAuthHeaders,
+    };
 
     for (final path in widget.paths) {
-      final key = _cacheKey(path);
-      final cached = _memoryCache[key];
-      if (cached != null && cached.isNotEmpty) {
+      final url = widget.apiService.getFileUrl(path);
+      if (url.isEmpty) continue;
+      final key = PosProductImageCacheManager.cacheKey(
+        productId: widget.productId,
+        updatedAt: widget.updatedAt,
+        path: path,
+        cacheEpoch: widget.cacheEpoch,
+      );
+      final mem = cache.memoryGet(key);
+      if (mem != null && mem.isNotEmpty) {
         if (!mounted || !identical(_loadToken, token)) return;
         setState(() {
-          _bytes = cached;
+          _bytes = mem;
           _failed = false;
         });
         return;
       }
-
-      final url = widget.apiService.getFileUrl(path);
-      if (url.isEmpty) continue;
-
-      try {
-        final headers = <String, String>{
-          ...?widget.apiService.imageAuthHeaders,
-        };
-        // Web: tránh cache browser trả 401 cũ khi token đổi.
-        final uri = kIsWeb
-            ? Uri.parse(url).replace(
-                queryParameters: {
-                  ...Uri.parse(url).queryParameters,
-                  '_': widget.cacheEpoch.toString(),
-                },
-              )
-            : Uri.parse(url);
-        final response = await http
-            .get(uri, headers: headers)
-            .timeout(const Duration(seconds: 25));
-        if (!mounted || !identical(_loadToken, token)) return;
-        if (response.statusCode == 200 && response.bodyBytes.isNotEmpty) {
-          _putMemory(key, response.bodyBytes);
-          setState(() {
-            _bytes = response.bodyBytes;
-            _failed = false;
-          });
-          return;
-        }
-      } catch (_) {}
+      final bytes = await cache.loadBytes(
+        url: url,
+        key: key,
+        headers: headers,
+        cacheEpoch: widget.cacheEpoch,
+      );
+      if (!mounted || !identical(_loadToken, token)) return;
+      if (bytes != null && bytes.isNotEmpty) {
+        setState(() {
+          _bytes = bytes;
+          _failed = false;
+        });
+        return;
+      }
     }
 
     if (!mounted || !identical(_loadToken, token)) return;
     setState(() => _failed = true);
-  }
-
-  void _putMemory(String key, Uint8List bytes) {
-    if (_memoryCache.length >= _maxMemoryEntries) {
-      final first = _memoryCache.keys.first;
-      _memoryCache.remove(first);
-    }
-    _memoryCache[key] = bytes;
   }
 
   @override

@@ -25,6 +25,8 @@ import '../../utils/travel_hours_load_utils.dart';
 import '../../utils/travel_eligibility_utils.dart';
 import '../../services/api_service.dart';
 import '../../widgets/attendance_frozen_employee_name_cell.dart';
+import '../../widgets/hrm_collapsible_overview.dart';
+import '../../widgets/hrm_mini_stat_chip.dart';
 import '../../widgets/hrm_page_chrome.dart';
 import '../../widgets/attendance_correction_reason_field.dart';
 import '../../widgets/attendance_delete_confirm_dialog.dart';
@@ -171,7 +173,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
   int _rowsPerPage = 50;
   int _currentPage = 0;
   bool _isExporting = false;
-  bool _showMobileSummary = false;
+  bool _showOverviewPanel = true;
   final GlobalKey _tableKey = GlobalKey();
   String _shiftFilter = 'all'; // 'all' | 'missing' | 'complete'
 
@@ -1316,7 +1318,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
       style: TextStyle(
         fontSize: 12,
         fontWeight: bold ? FontWeight.w700 : FontWeight.w600,
-        color: const Color(0xFF0EA5E9),
+        color: HrmPageChrome.chipLight,
       ),
     );
   }
@@ -1413,72 +1415,18 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
 
     final isMobileLayout = MediaQuery.sizeOf(context).width < 600;
 
-    Widget buildMobileOverviewCard() {
-      return Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.04),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
+    Widget buildOverviewSection() {
+      return HrmCollapsibleOverview(
+        expanded: _showOverviewPanel,
+        onToggle: () =>
+            setState(() => _showOverviewPanel = !_showOverviewPanel),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            InkWell(
-              onTap: () =>
-                  setState(() => _showMobileSummary = !_showMobileSummary),
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(12),
-              ),
-              child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                decoration: BoxDecoration(
-                  color: Colors.blue.shade50,
-                  borderRadius: BorderRadius.vertical(
-                    top: const Radius.circular(12),
-                    bottom: _showMobileSummary
-                        ? Radius.zero
-                        : const Radius.circular(12),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.analytics_outlined,
-                        size: 16, color: Colors.blue.shade700),
-                    const SizedBox(width: 6),
-                    Text(tr('Tổng quan'),
-                        style: TextStyle(
-                            fontWeight: FontWeight.w600,
-                            fontSize: 13,
-                            color: Colors.blue.shade700)),
-                    const Spacer(),
-                    Icon(
-                        _showMobileSummary
-                            ? Icons.expand_less
-                            : Icons.expand_more,
-                        size: 20,
-                        color: Colors.blue.shade700),
-                  ],
-                ),
-              ),
-            ),
-            if (_showMobileSummary) ...[
-              Padding(
-                padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
-                child: _buildStatsRow(
-                    totalRows, uniqueEmployees, totalHours, totalShifts),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(12, 8, 12, 10),
-                child: _buildFilters(range, embedded: true),
-              ),
-            ],
+            _buildStatsRow(
+                totalRows, uniqueEmployees, totalHours, totalShifts),
+            const SizedBox(height: 10),
+            _buildFilters(range, embedded: true),
           ],
         ),
       );
@@ -1518,7 +1466,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                     ...widget.mobileLeadingSections!,
                     const SizedBox(height: 12),
                   ],
-                  buildMobileOverviewCard(),
+                  buildOverviewSection(),
                   const SizedBox(height: 8),
                 ],
               ),
@@ -1560,10 +1508,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                _buildStatsRow(
-                    totalRows, uniqueEmployees, totalHours, totalShifts),
-                const SizedBox(height: 12),
-                _buildFilters(range),
+                buildOverviewSection(),
                 const SizedBox(height: 12),
               ],
             ),
@@ -2030,152 +1975,29 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
     ];
   }
 
-  /// Stats cards row
+  /// Stats cards row — nền trắng, viền xanh, thấp gọn.
   Widget _buildStatsRow(
       int totalRows, int uniqueEmployees, double totalHours, int totalShifts) {
-    final cards = [
-      _buildModernStatCard(
-          'Bản ghi', '$totalRows', Icons.list_alt, HrmPageChrome.primaryNavy),
-      _buildModernStatCard('Nhân viên', '$uniqueEmployees', Icons.people,
-          HrmPageChrome.primaryNavy),
-      _buildModernStatCard(
-          'Tổng giờ',
-          '${_formatHours(totalHours)} (${totalHours.toStringAsFixed(1)}h)',
-          Icons.schedule,
-          HrmPageChrome.primaryNavy),
-      _buildModernStatCard(
-          'Số ca', '$totalShifts', Icons.work_history, const Color(0xFFF59E0B)),
-    ];
-    final isMobile = MediaQuery.of(context).size.width < 768;
-    if (isMobile) {
-      Widget chipRow(Widget a, Widget b) => Row(
-            children: [
-              Expanded(child: a),
-              const SizedBox(width: 10),
-              Expanded(child: b),
-            ],
-          );
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          chipRow(cards[0], cards[1]),
-          const SizedBox(height: 10),
-          chipRow(cards[2], cards[3]),
-        ],
-      );
-    }
-    return Row(
-      children: cards
-          .map((c) => Expanded(
-              child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 5),
-                  child: c)))
-          .toList(),
-    );
-  }
-
-  Widget _buildModernStatCard(
-      String label, String value, IconData icon, Color color) {
-    final isMobile = MediaQuery.of(context).size.width < 768;
-    if (isMobile) {
-      return Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: [
-            BoxShadow(
-              color: color.withValues(alpha: 0.08),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
+    return HrmStatBar(
+      items: [
+        HrmStatItem(
+            icon: Icons.list_alt, label: 'Bản ghi', value: '$totalRows'),
+        HrmStatItem(
+            icon: Icons.people,
+            label: 'Nhân viên',
+            value: '$uniqueEmployees'),
+        HrmStatItem(
+          icon: Icons.schedule,
+          label: 'Tổng giờ',
+          value:
+              '${_formatHours(totalHours)} (${totalHours.toStringAsFixed(1)}h)',
         ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Icon(icon, color: color, size: 20),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              tr(value),
-              textAlign: TextAlign.center,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: color,
-                height: 1.15,
-              ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              tr(label),
-              textAlign: TextAlign.center,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: Colors.grey.shade600,
-                fontSize: 11,
-                fontWeight: FontWeight.w500,
-                height: 1.2,
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: color.withValues(alpha: 0.08),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(icon, color: color, size: 18),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(tr(label),
-                    style:
-                        TextStyle(color: Colors.grey.shade500, fontSize: 11)),
-                const SizedBox(height: 2),
-                Text(tr(value),
-                    style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.bold,
-                        color: color),
-                    overflow: TextOverflow.ellipsis),
-              ],
-            ),
-          ),
-        ],
-      ),
+        HrmStatItem(
+            icon: Icons.work_history, label: 'Số ca', value: '$totalShifts'),
+      ],
+      padding: EdgeInsets.zero,
+      gap: 6,
+      valueFontSize: 14,
     );
   }
 
@@ -2474,13 +2296,13 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(Icons.fullscreen,
-                                size: 18, color: Color(0xFF2563EB)),
+                                size: 18, color: HrmPageChrome.chipMid),
                             SizedBox(width: 6),
                             Text(tr('Toàn màn hình'),
                               style: TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w600,
-                                color: Color(0xFF2563EB),
+                                color: HrmPageChrome.chipMid,
                               ),
                             ),
                           ],
@@ -3842,10 +3664,10 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
       isWeeklyOff: _isWeeklyOffDay(date, empCode),
     );
     final label = switch (kind) {
-      AbsenceCellKind.holiday => ('Lễ', const Color(0xFFEA580C)),
-      AbsenceCellKind.weeklyOff => ('Nghỉ', const Color(0xFF8B5CF6)),
-      AbsenceCellKind.approvedLeave => ('Phép', const Color(0xFF0891B2)),
-      AbsenceCellKind.pendingLeave => ('Chờ phép', const Color(0xFFD97706)),
+      AbsenceCellKind.holiday => ('Lễ', HrmPageChrome.chipMid),
+      AbsenceCellKind.weeklyOff => ('Nghỉ', HrmPageChrome.chipSoft),
+      AbsenceCellKind.approvedLeave => ('Phép', HrmPageChrome.chipLight),
+      AbsenceCellKind.pendingLeave => ('Chờ phép', HrmPageChrome.chipDark),
       AbsenceCellKind.unpaidAbsent => ('Vắng', const Color(0xFFEF4444)),
     };
     return mobileAttendanceAbsenceLabel(
@@ -4192,7 +4014,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
           ? const Color(0xFFA1A1AA)
           : (expected > 0 && work >= expected
               ? const Color(0xFF16A34A)
-              : const Color(0xFF7C3AED));
+              : HrmPageChrome.chipMid);
 
       return Padding(
         padding: const EdgeInsets.only(bottom: 10),
@@ -4278,14 +4100,14 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                         icon: Icons.schedule_rounded,
                         label: 'Giờ làm',
                         value: hours > 0 ? _formatHours(hours) : '—',
-                        color: const Color(0xFF2563EB),
+                        color: HrmPageChrome.chipMid,
                       ),
                       const SizedBox(width: 8),
                       _mobileEmployeeMetricChip(
                         icon: Icons.directions_car_rounded,
                         label: 'Đi đường',
                         value: travel > 0 ? _formatHours(travel) : '—',
-                        color: const Color(0xFFEA580C),
+                        color: HrmPageChrome.chipMid,
                       ),
                       const SizedBox(width: 8),
                       _mobileEmployeeMetricChip(
@@ -4387,7 +4209,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                   style: const TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w800,
-                    color: Color(0xFF2563EB),
+                    color: HrmPageChrome.chipMid,
                   ),
                 ),
                 Text(tr('tổng giờ'),
@@ -4398,7 +4220,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                   style: const TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w800,
-                    color: Color(0xFF7C3AED),
+                    color: HrmPageChrome.chipMid,
                   ),
                 ),
                 Text(tr('tổng công'),
@@ -5398,7 +5220,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
           style: TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w600,
-            color: isIn ? const Color(0xFF059669) : const Color(0xFFDC2626),
+            color: isIn ? HrmPageChrome.chip : const Color(0xFFDC2626),
           ),
         ),
       );

@@ -18,6 +18,7 @@ import 'main_layout.dart' show ScreenRefreshNotifier;
 import '../widgets/notification_overlay.dart';
 import '../utils/attendance_load_utils.dart';
 import '../utils/attendance_date_range_presets.dart';
+import '../utils/branch_filter_helper.dart';
 import '../utils/report_screen_helpers.dart';
 import '../utils/shift_records_calculator.dart';
 import '../utils/attendance_correction_privilege.dart';
@@ -123,7 +124,10 @@ class _AttendanceByShiftScreenState extends State<AttendanceByShiftScreen> {
     }
 
     try {
-      await _branchFilter.ensureEmployees(_apiService);
+      await _branchFilter.ensureEmployees(
+        _apiService,
+        branchId: _selectedBranchId,
+      );
       final List<Device> devices;
       if (isEmployee) {
         devices = [];
@@ -355,7 +359,7 @@ class _AttendanceByShiftScreenState extends State<AttendanceByShiftScreen> {
                 ),
               ),
             ),
-          if (_branchFilter.branches.isNotEmpty)
+          if (BranchFilterHelper.showBranchFilter(_branchFilter.branches))
             Container(
               color: Colors.white,
               padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
@@ -396,9 +400,10 @@ class _AttendanceByShiftScreenState extends State<AttendanceByShiftScreen> {
                                     style: const TextStyle(fontSize: 13)))),
                           ],
                           onChanged: (v) async {
-                            if (v != null) {
-                              await _branchFilter.ensureEmployees(_apiService);
-                            }
+                            await _branchFilter.ensureEmployees(
+                              _apiService,
+                              branchId: v,
+                            );
                             if (mounted) setState(() => _selectedBranchId = v);
                           },
                         ),

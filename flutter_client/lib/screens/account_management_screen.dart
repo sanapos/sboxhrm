@@ -9,6 +9,7 @@ import '../services/api_service.dart';
 import '../utils/responsive_helper.dart';
 import '../widgets/hrm/hrm_settings_mobile_kit.dart';
 import '../widgets/hrm_mini_stat_chip.dart';
+import '../widgets/hrm_collapsible_overview.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../widgets/loading_widget.dart';
 import '../widgets/empty_state.dart';
@@ -36,6 +37,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
   String _selectedStatus = 'all';
   /// all | missing_or_resigned
   String _selectedHrFilter = 'all';
+  bool _showOverviewPanel = true;
   /// Renders two fields side-by-side on desktop, stacked on mobile.
   List<Widget> _buildFieldPair(
       {required bool isMobile, required Widget first, required Widget second}) {
@@ -311,7 +313,14 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                   if (!HrmSettingsMobileKit.active(context))
                     const SizedBox(height: 24),
 
-                  HrmPageChrome.horizontalStatCards(
+                  HrmCollapsibleOverview(
+                    expanded: _showOverviewPanel,
+                    onToggle: () => setState(
+                        () => _showOverviewPanel = !_showOverviewPanel),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        HrmPageChrome.horizontalStatCards(
                     minCardWidth: 128,
                     cards: [
                       _buildStatCard(Icons.group, '$_totalAccounts',
@@ -324,51 +333,11 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                           HrmPageChrome.primaryNavy),
                     ],
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 10),
 
-                  // Filter bar
+                  // Filter bar — 1 hàng cuộn ngang (thống nhất trang chức năng khác)
                   if (HrmSettingsMobileKit.active(context)) ...[
-                    HrmSettingsFilterChips(
-                      options: const [
-                        HrmSettingsFilterChipOption(
-                            value: 'all', label: 'Tất cả'),
-                        HrmSettingsFilterChipOption(
-                            value: 'Admin', label: 'Quản trị'),
-                        HrmSettingsFilterChipOption(
-                            value: 'Manager', label: 'Quản lý'),
-                        HrmSettingsFilterChipOption(
-                            value: 'Employee', label: 'Nhân viên'),
-                      ],
-                      selected: _selectedRole,
-                      onSelected: (v) => setState(() => _selectedRole = v),
-                    ),
-                    const SizedBox(height: 8),
-                    HrmSettingsFilterChips(
-                      options: const [
-                        HrmSettingsFilterChipOption(
-                            value: 'all', label: 'Tất cả'),
-                        HrmSettingsFilterChipOption(
-                            value: 'active', label: 'Hoạt động'),
-                        HrmSettingsFilterChipOption(
-                            value: 'inactive', label: 'Ngừng hoạt động'),
-                      ],
-                      selected: _selectedStatus,
-                      onSelected: (v) => setState(() => _selectedStatus = v),
-                    ),
-                    const SizedBox(height: 8),
-                    HrmSettingsFilterChips(
-                      options: const [
-                        HrmSettingsFilterChipOption(
-                            value: 'all', label: 'Tất cả HS'),
-                        HrmSettingsFilterChipOption(
-                            value: 'missing_or_resigned',
-                            label: 'Không còn HS / Nghỉ việc'),
-                      ],
-                      selected: _selectedHrFilter,
-                      onSelected: (v) =>
-                          setState(() => _selectedHrFilter = v),
-                      onClear: _clearFilters,
-                    ),
+                    _buildAccountFilterChipBar(),
                   ] else
                     Container(
                       padding: const EdgeInsets.all(16),
@@ -603,6 +572,9 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                         ],
                       ),
                     ),
+                      ],
+                    ),
+                  ),
                   const SizedBox(height: 24),
 
                   // Account table / card list
@@ -678,13 +650,13 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
       margin: const EdgeInsets.only(top: 4),
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        color: const Color(0xFFF59E0B).withValues(alpha: 0.12),
+        color: HrmPageChrome.chipLight.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(4),
       ),
       child: Text(
         tr(label),
         style: TextStyle(
-          color: const Color(0xFFD97706),
+          color: HrmPageChrome.chipDark,
           fontSize: fontSize,
           fontWeight: FontWeight.w600,
         ),
@@ -752,36 +724,9 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
             style: const TextStyle(color: Color(0xFF71717A), fontSize: 13))),
         DataCell(Text(tr(account['phoneNumber'] ?? ''),
             style: const TextStyle(color: Color(0xFF71717A), fontSize: 13))),
-        DataCell(Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-          decoration: BoxDecoration(
-            color: (roleInfo['color'] as Color).withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(5),
-          ),
-          child: Text(tr(roleInfo['label'] as String),
-              style: TextStyle(
-                  color: roleInfo['color'] as Color,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w500)),
-        )),
-        DataCell(Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-          decoration: BoxDecoration(
-            color: isActive
-                ? const Color(0xFF22C55E).withValues(alpha: 0.1)
-                : const Color(0xFFEF4444).withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(5),
-          ),
-          child: Text(
-            tr(isActive ? 'Hoạt động' : 'Ngừng hoạt động'),
-            style: TextStyle(
-                color: isActive
-                    ? const Color(0xFF22C55E)
-                    : const Color(0xFFEF4444),
-                fontSize: 11,
-                fontWeight: FontWeight.w500),
-          ),
-        )),
+        DataCell(HrmBrandChip(label: roleInfo['label'] as String)),
+        DataCell(HrmBrandChip(
+            label: isActive ? 'Hoạt động' : 'Ngừng hoạt động')),
         DataCell(Text(
           tr(lastLogin != null ? _formatDate(lastLogin) : '—'),
           style: const TextStyle(color: Color(0xFFA1A1AA), fontSize: 12),
@@ -817,7 +762,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                   size: 18,
                 ),
                 color: isActive
-                    ? const Color(0xFFF59E0B)
+                    ? HrmPageChrome.chipLight
                     : const Color(0xFF22C55E),
                 tooltip: tr(isActive ? 'Vô hiệu hóa' : 'Kích hoạt lại'),
                 padding: EdgeInsets.zero,
@@ -848,6 +793,82 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
     );
   }
 
+  /// Một hàng lọc ngang — vai trò / trạng thái / HS, không xếp 3 dòng.
+  Widget _buildAccountFilterChipBar() {
+    Widget chip(String label, bool selected, VoidCallback onTap) {
+      final border = HrmPageChrome.chip.withValues(alpha: 0.45);
+      return Padding(
+        padding: const EdgeInsets.only(right: 6),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(12),
+            onTap: onTap,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: selected ? HrmPageChrome.chip : Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                    color: selected ? HrmPageChrome.chip : border),
+              ),
+              child: Text(
+                tr(label),
+                style: TextStyle(
+                  fontSize: 12,
+                  height: 1.15,
+                  fontWeight: FontWeight.w600,
+                  color: selected ? Colors.white : HrmPageChrome.chip,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    Widget sep() => Container(
+          margin: const EdgeInsets.only(right: 8, left: 2),
+          width: 1,
+          height: 18,
+          color: const Color(0xFFE4E4E7),
+        );
+
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      clipBehavior: Clip.none,
+      child: Row(
+        children: [
+          chip('Tất cả', _selectedRole == 'all',
+              () => setState(() => _selectedRole = 'all')),
+          chip('Quản trị', _selectedRole == 'Admin',
+              () => setState(() => _selectedRole = 'Admin')),
+          chip('Quản lý', _selectedRole == 'Manager',
+              () => setState(() => _selectedRole = 'Manager')),
+          chip('Nhân viên', _selectedRole == 'Employee',
+              () => setState(() => _selectedRole = 'Employee')),
+          sep(),
+          chip('Đang hoạt động', _selectedStatus == 'active',
+              () => setState(() => _selectedStatus = 'active')),
+          chip('Ngừng', _selectedStatus == 'inactive',
+              () => setState(() => _selectedStatus = 'inactive')),
+          if (_selectedStatus != 'all')
+            chip('Mọi TT', false,
+                () => setState(() => _selectedStatus = 'all')),
+          sep(),
+          chip(
+              'Không còn HS / Nghỉ việc',
+              _selectedHrFilter == 'missing_or_resigned',
+              () => setState(() => _selectedHrFilter =
+                  _selectedHrFilter == 'missing_or_resigned'
+                      ? 'all'
+                      : 'missing_or_resigned')),
+          chip('Xóa lọc', false, _clearFilters),
+        ],
+      ),
+    );
+  }
+
   String _formatDate(DateTime dateTime) {
     return '${dateTime.day.toString().padLeft(2, '0')}/${dateTime.month.toString().padLeft(2, '0')}/${dateTime.year} ${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}:${dateTime.second.toString().padLeft(2, '0')}';
   }
@@ -855,19 +876,19 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
   Map<String, dynamic> _getRoleDisplayInfo(String role) {
     switch (role) {
       case 'Admin':
-        return {'label': 'Quản trị viên', 'color': const Color(0xFFEF4444)};
+        return {'label': 'Quản trị viên', 'color': HrmPageChrome.chipDark};
       case 'Director':
-        return {'label': 'Giám đốc', 'color': const Color(0xFF7C3AED)};
+        return {'label': 'Giám đốc', 'color': HrmPageChrome.chipMid};
       case 'Manager':
         return {'label': 'Quản lý', 'color': HrmPageChrome.primaryNavy};
       case 'DepartmentHead':
-        return {'label': 'Trưởng phòng', 'color': const Color(0xFF2563EB)};
+        return {'label': 'Trưởng phòng', 'color': HrmPageChrome.chipMid};
       case 'Accountant':
         return {'label': 'Kế toán', 'color': HrmPageChrome.primaryNavy};
       case 'Cashier':
-        return {'label': 'Thu ngân', 'color': const Color(0xFF0D9488)};
+        return {'label': 'Thu ngân', 'color': HrmPageChrome.chip};
       case 'Waiter':
-        return {'label': 'Order', 'color': const Color(0xFF2563EB)};
+        return {'label': 'Order', 'color': HrmPageChrome.chipMid};
       case 'Employee':
         return {'label': 'Nhân viên', 'color': HrmPageChrome.primaryNavy};
       case 'User':
@@ -966,41 +987,9 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
         crossAxisAlignment: CrossAxisAlignment.end,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-            decoration: BoxDecoration(
-              color: (roleInfo['color'] as Color).withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(5),
-            ),
-            child: Text(
-              tr(roleInfo['label'] as String),
-              style: TextStyle(
-                color: roleInfo['color'] as Color,
-                fontSize: 10,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
+          HrmBrandChip(label: roleInfo['label'] as String),
           const SizedBox(height: 4),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-            decoration: BoxDecoration(
-              color: isActive
-                  ? const Color(0xFF22C55E).withValues(alpha: 0.1)
-                  : const Color(0xFFEF4444).withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(4),
-            ),
-            child: Text(
-              tr(isActive ? 'Hoạt động' : 'Ngừng hoạt động'),
-              style: TextStyle(
-                color: isActive
-                    ? const Color(0xFF22C55E)
-                    : const Color(0xFFEF4444),
-                fontSize: 10,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
+          HrmBrandChip(label: isActive ? 'Hoạt động' : 'Ngừng hoạt động'),
           _buildHrIssueBadge(account, fontSize: 9),
         ],
       ),
@@ -1119,13 +1108,13 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFF59E0B).withValues(alpha: 0.12),
+                        color: HrmPageChrome.chipLight.withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Text(
                         tr(_hrIssueLabel(account)!),
                         style: const TextStyle(
-                          color: Color(0xFFD97706),
+                          color: HrmPageChrome.chipDark,
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
                         ),
@@ -1209,11 +1198,11 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                     label: Text(tr(isActive ? 'Vô hiệu hóa' : 'Kích hoạt lại')),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: isActive
-                          ? const Color(0xFFF59E0B)
+                          ? HrmPageChrome.chipLight
                           : const Color(0xFF22C55E),
                       side: BorderSide(
                         color: isActive
-                            ? const Color(0xFFF59E0B)
+                            ? HrmPageChrome.chipLight
                             : const Color(0xFF22C55E),
                       ),
                       padding: const EdgeInsets.symmetric(vertical: 12),
@@ -1582,22 +1571,22 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
       {
         'value': 'Admin',
         'label': 'Quản trị viên',
-        'color': const Color(0xFFEF4444)
+        'color': HrmPageChrome.chipDark
       },
       {
         'value': 'Director',
         'label': 'Giám đốc',
-        'color': const Color(0xFF7C3AED)
+        'color': HrmPageChrome.chipMid
       },
       {
         'value': 'Manager',
         'label': 'Quản lý',
-        'color': HrmPageChrome.primaryNavy
+        'color': HrmPageChrome.chip
       },
       {
         'value': 'DepartmentHead',
         'label': 'Trưởng phòng',
-        'color': const Color(0xFF2563EB)
+        'color': HrmPageChrome.chipMid
       },
       {
         'value': 'Accountant',
@@ -1607,12 +1596,12 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
       {
         'value': 'Cashier',
         'label': 'Thu ngân',
-        'color': const Color(0xFF0D9488)
+        'color': HrmPageChrome.chip
       },
       {
         'value': 'Waiter',
         'label': 'Order',
-        'color': const Color(0xFF2563EB)
+        'color': HrmPageChrome.chipMid
       },
       {
         'value': 'Employee',
@@ -2426,7 +2415,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
             onPressed: () => Navigator.pop(context, true),
             style: FilledButton.styleFrom(
               backgroundColor: isActive
-                  ? const Color(0xFFF59E0B)
+                  ? HrmPageChrome.chipLight
                   : const Color(0xFF22C55E),
             ),
             child: Text(tr(isActive ? 'Vô hiệu hóa' : 'Kích hoạt')),

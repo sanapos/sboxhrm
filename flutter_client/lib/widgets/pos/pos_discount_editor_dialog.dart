@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import 'pos_numeric_keypad.dart';
 import 'pos_theme.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
@@ -133,10 +134,11 @@ Future<PosDiscountEditResult?> showPosDiscountEditorDialog({
                   ],
                 ),
                 const SizedBox(height: 10),
-                TextField(
+                PosNoSoftKeyboardField(
                   controller: ctrl,
                   autofocus: true,
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  allowDecimal: true,
+                  keypadTitle: isPercent ? 'Chiết khấu %' : 'Chiết khấu tiền',
                   decoration: InputDecoration(
                     labelText: tr(isPercent ? 'Phần trăm (%)' : 'Số tiền (đ)'),
                     border: const OutlineInputBorder(),

@@ -847,7 +847,7 @@ class AppLocalizations {
       'reportType': 'Loại báo cáo',
       'dailyReport': 'Hàng ngày',
       'monthlyReport': 'Hàng tháng',
-      'lateEarlyReport': 'Đi muộn/về sớm',
+      'lateEarlyReport': 'Đi trễ / Về sớm',
       'byDeptReport': 'Theo phòng ban',
       'period': 'Thời gian',
       'year': 'Năm',

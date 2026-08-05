@@ -6,12 +6,14 @@ import '../services/api_service.dart';
 import '../models/hrm.dart';
 import '../models/employee.dart';
 import '../utils/responsive_helper.dart';
+import '../utils/branch_filter_helper.dart';
 import '../widgets/loading_widget.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/notification_overlay.dart';
 import 'package:provider/provider.dart';
 import '../providers/permission_provider.dart';
 import '../widgets/hrm_page_chrome.dart';
+import '../widgets/hrm_collapsible_overview.dart';
 import '../widgets/hrm_fab_clearance.dart';
 import '../widgets/app_scroll_safe.dart';
 import '../widgets/shift_swap_panel.dart';
@@ -72,6 +74,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
 
   DateTime _selectedWeekStart = _getWeekStart(DateTime.now());
   String? _selectedStatusFilter;
+  bool _showOverviewPanel = true;
 
   String _effectiveUserId(Employee e) => e.id;
 
@@ -522,7 +525,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                       padding: const EdgeInsets.symmetric(
                           horizontal: 6, vertical: 1),
                       decoration: BoxDecoration(
-                          color: const Color(0xFFF59E0B),
+                          color: HrmPageChrome.chipLight,
                           borderRadius: BorderRadius.circular(8)),
                       child: Text(tr('${_getPendingCount()}'),
                           style: const TextStyle(
@@ -561,7 +564,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                       padding: const EdgeInsets.symmetric(
                           horizontal: 6, vertical: 1),
                       decoration: BoxDecoration(
-                          color: const Color(0xFF8B5CF6),
+                          color: HrmPageChrome.chipSoft,
                           borderRadius: BorderRadius.circular(8)),
                       child: Text(tr('$_swapPendingCount'),
                           style: const TextStyle(
@@ -617,6 +620,30 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
   }
 
   // ==================== WEEK SELECTOR ====================
+  Widget _buildScheduleOverview({
+    bool hideStatusFilter = false,
+    Widget? stats,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: HrmCollapsibleOverview(
+        expanded: _showOverviewPanel,
+        onToggle: () =>
+            setState(() => _showOverviewPanel = !_showOverviewPanel),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _buildWeekSelector(hideStatusFilter: hideStatusFilter),
+            if (stats != null) ...[
+              const SizedBox(height: 8),
+              stats,
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildWeekSelector({bool hideStatusFilter = false}) {
     final weekEnd = _selectedWeekStart.add(const Duration(days: 6));
     final weekNumber = _getWeekNumber(_selectedWeekStart);
@@ -693,7 +720,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                   Expanded(child: _buildStatusFilterDropdown()),
                 ],
               ]),
-              if (_branches.isNotEmpty) ...[
+              if (BranchFilterHelper.showBranchFilter(_branches)) ...[
                 const SizedBox(height: 8),
                 Container(
                   padding:
@@ -800,7 +827,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                   ),
                   if (!hideStatusFilter)
                     SizedBox(width: 180, child: _buildStatusFilterDropdown()),
-                  if (_branches.isNotEmpty)
+                  if (BranchFilterHelper.showBranchFilter(_branches))
                     SizedBox(
                       width: 180,
                       child: Container(
@@ -879,7 +906,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
         filled: true,
         fillColor: const Color(0xFFFAFAFA),
         prefixIcon:
-            const Icon(Icons.filter_list, size: 18, color: Color(0xFFF59E0B)),
+            const Icon(Icons.filter_list, size: 18, color: HrmPageChrome.chipLight),
         isDense: true,
       ),
       hint: Text(tr('Tất cả'), style: TextStyle(fontSize: 13)),
@@ -903,7 +930,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _buildWeekSelector(hideStatusFilter: true),
+        _buildScheduleOverview(hideStatusFilter: true),
         if (pending.isNotEmpty) _buildPendingBulkBar(pending),
         Expanded(
           child: pending.isEmpty
@@ -929,16 +956,16 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            const Color(0xFFF59E0B).withValues(alpha: 0.12),
+            HrmPageChrome.chipLight.withValues(alpha: 0.12),
             const Color(0xFFFEF3C7).withValues(alpha: 0.5),
           ],
         ),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.35)),
+        border: Border.all(color: HrmPageChrome.chipLight.withValues(alpha: 0.35)),
       ),
       child: Row(
         children: [
-          const Icon(Icons.hourglass_top, color: Color(0xFFD97706), size: 22),
+          const Icon(Icons.hourglass_top, color: HrmPageChrome.chipDark, size: 22),
           const SizedBox(width: 10),
           Expanded(
             child: Column(
@@ -1006,7 +1033,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                 padding:
                     const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF59E0B).withValues(alpha: 0.15),
+                  color: HrmPageChrome.chipLight.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
@@ -1014,7 +1041,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                   style: const TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 12,
-                    color: Color(0xFFD97706),
+                    color: HrmPageChrome.chipDark,
                   ),
                 ),
               ),
@@ -1231,7 +1258,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
 
     return Column(
       children: [
-        _buildWeekSelector(),
+        _buildScheduleOverview(),
         if (pendingCount > 0)
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
@@ -1250,7 +1277,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                   child: Row(
                     children: [
                       const Icon(Icons.lightbulb_outline,
-                          size: 18, color: Color(0xFFD97706)),
+                          size: 18, color: HrmPageChrome.chipDark),
                       const SizedBox(width: 10),
                       Expanded(
                         child: Text(tr('$pendingCount đăng ký chờ duyệt — chuyển sang tab Chờ duyệt để xử lý nhanh'),
@@ -1261,7 +1288,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                         ),
                       ),
                       const Icon(Icons.chevron_right,
-                          size: 18, color: Color(0xFFD97706)),
+                          size: 18, color: HrmPageChrome.chipDark),
                     ],
                   ),
                 ),
@@ -1357,7 +1384,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                 ),
                 if (allPending.isNotEmpty)
                   _buildCountBadge(
-                      '${allPending.length} chờ', const Color(0xFFF59E0B)),
+                      '${allPending.length} chờ', HrmPageChrome.chipLight),
                 if (allProcessed.isNotEmpty)
                   _buildCountBadge(
                       '${allProcessed.length} đã xử lý',
@@ -1440,7 +1467,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
             ],
             if (_canApprove && allProcessed.isNotEmpty)
               ListTile(
-                leading: const Icon(Icons.undo, color: Color(0xFFF59E0B)),
+                leading: const Icon(Icons.undo, color: HrmPageChrome.chipLight),
                 title: Text(tr('Hoàn duyệt tất cả')),
                 onTap: () {
                   Navigator.pop(ctx);
@@ -1490,7 +1517,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
             Container(
               padding: const EdgeInsets.all(6),
               decoration: BoxDecoration(
-                  color: const Color(0xFFF59E0B),
+                  color: HrmPageChrome.chipLight,
                   borderRadius: BorderRadius.circular(8)),
               child:
                   const Icon(Icons.beach_access, color: Colors.white, size: 18),
@@ -1502,7 +1529,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                         TextStyle(fontWeight: FontWeight.bold, fontSize: 14))),
             if (pending.isNotEmpty && _canApprove) ...[
               _buildCountBadge(
-                  '${pending.length} chờ', const Color(0xFFF59E0B)),
+                  '${pending.length} chờ', HrmPageChrome.chipLight),
               const SizedBox(width: 6),
               _batchBtn('Duyệt tất cả', Icons.check, HrmPageChrome.primaryNavy,
                   () => _approveAllForShift(pending),
@@ -1616,7 +1643,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                         style: const TextStyle(
                             fontSize: 9,
                             fontWeight: FontWeight.bold,
-                            color: Color(0xFFF59E0B))),
+                            color: HrmPageChrome.chipLight)),
                   ),
               ]),
             ),
@@ -1695,7 +1722,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
               ],
               if (pending.isNotEmpty)
                 _buildCountBadge(
-                    '${pending.length} chờ', const Color(0xFFF59E0B)),
+                    '${pending.length} chờ', HrmPageChrome.chipLight),
               if (pending.length > 1 && _canApprove) ...[
                 const SizedBox(width: 6),
                 InkWell(
@@ -1783,8 +1810,8 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
         statusLabel = 'Từ chối';
         break;
       default:
-        statusBg = const Color(0xFFF59E0B).withValues(alpha: 0.08);
-        statusText = const Color(0xFFF59E0B);
+        statusBg = HrmPageChrome.chipLight.withValues(alpha: 0.08);
+        statusText = HrmPageChrome.chipLight;
         statusIcon = Icons.hourglass_empty;
         statusLabel = 'Chờ duyệt';
     }
@@ -1870,7 +1897,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
             ),
             if (_canApprove) ...[
               const SizedBox(width: 5),
-              _actionIcon(Icons.undo, const Color(0xFFF59E0B),
+              _actionIcon(Icons.undo, HrmPageChrome.chipLight,
                   () => _undoRegistrationApproval(reg.id), 'Hoàn duyệt')
             ],
             if (_canDelete) ...[
@@ -1999,7 +2026,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                           Text(tr('+$pending chờ'),
                               style: const TextStyle(
                                   fontSize: 8,
-                                  color: Color(0xFFF59E0B),
+                                  color: HrmPageChrome.chipLight,
                                   fontWeight: FontWeight.w600)),
                         // Per-day batch approve button
                         if (pending > 0 && _canApprove) ...[
@@ -2077,7 +2104,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                           style: const TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.bold,
-                              color: Color(0xFFF59E0B))),
+                              color: HrmPageChrome.chipLight)),
                     if (approvedCount == 0 && pendingCount == 0)
                       Text(tr('-'),
                           style: TextStyle(
@@ -2166,8 +2193,8 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
         tooltip = 'Từ chối';
         break;
       default:
-        bgColor = const Color(0xFFF59E0B).withValues(alpha: 0.08);
-        statusColor = const Color(0xFFF59E0B);
+        bgColor = HrmPageChrome.chipLight.withValues(alpha: 0.08);
+        statusColor = HrmPageChrome.chipLight;
         statusIcon = Icons.hourglass_empty;
         tooltip = 'Chờ duyệt';
     }
@@ -2242,7 +2269,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                               child: Container(
                                   padding: const EdgeInsets.all(3),
                                   decoration: BoxDecoration(
-                                      color: const Color(0xFFF59E0B),
+                                      color: HrmPageChrome.chipLight,
                                       borderRadius: BorderRadius.circular(4)),
                                   child: const Icon(Icons.undo,
                                       color: Colors.white, size: 12)))),
@@ -2304,10 +2331,12 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
 
     return Column(
       children: [
-        _buildWeekSelector(),
+        _buildScheduleOverview(
+          stats: filteredSummaries.isNotEmpty
+              ? _buildStatsOverview(filteredSummaries)
+              : null,
+        ),
         if (unregistered.isNotEmpty) _buildUnregisteredSection(unregistered),
-        if (filteredSummaries.isNotEmpty)
-          _buildStatsOverview(filteredSummaries),
         if (filteredSummaries.isEmpty && unregistered.isEmpty)
           const Expanded(
               child: EmptyState(
@@ -2560,7 +2589,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
           Row(children: [
             _statBox('Tổng ĐK', '$totalRegs', Colors.white),
             _statBox('Đã duyệt', '$totalApproved', const Color(0xFF22C55E)),
-            _statBox('Chờ duyệt', '$totalPending', const Color(0xFFF59E0B)),
+            _statBox('Chờ duyệt', '$totalPending', HrmPageChrome.chipLight),
             _statBox('Từ chối', '$totalRejected', const Color(0xFFEF4444)),
           ]),
           const SizedBox(height: 12),
@@ -2695,7 +2724,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
       borderColor = const Color(0xFFEF4444);
       warningText = '⚠ Chưa được xếp ca nào';
     } else if (isUnder) {
-      borderColor = const Color(0xFFF59E0B);
+      borderColor = HrmPageChrome.chipLight;
       warningText = '⚠ Ít ca hơn trung bình';
     } else if (isOver) {
       borderColor = const Color(0xFF3B82F6);
@@ -2772,7 +2801,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
               valueColor: AlwaysStoppedAnimation(isZero
                   ? const Color(0xFFEF4444)
                   : isUnder
-                      ? const Color(0xFFF59E0B)
+                      ? HrmPageChrome.chipLight
                       : isOver
                           ? const Color(0xFF3B82F6)
                           : const Color(0xFF22C55E)),
@@ -2786,7 +2815,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
           const SizedBox(width: 6),
           _miniCountChip('${summary.approved} duyệt', const Color(0xFF22C55E)),
           const SizedBox(width: 6),
-          _miniCountChip('${summary.pending} chờ', const Color(0xFFF59E0B)),
+          _miniCountChip('${summary.pending} chờ', HrmPageChrome.chipLight),
           if (summary.rejected > 0) ...[
             const SizedBox(width: 6),
             _miniCountChip('${summary.rejected} TC', const Color(0xFFEF4444)),
@@ -2897,7 +2926,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
             if (isZero) {
               barColor = const Color(0xFFEF4444);
             } else if (isUnder) {
-              barColor = const Color(0xFFF59E0B);
+              barColor = HrmPageChrome.chipLight;
             } else if (isOver) {
               barColor = const Color(0xFF3B82F6);
             }
@@ -2909,7 +2938,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
               statusColor = const Color(0xFFEF4444);
             } else if (isUnder) {
               statusText = '🟡 Ít ca';
-              statusColor = const Color(0xFFF59E0B);
+              statusColor = HrmPageChrome.chipLight;
             } else if (isOver) {
               statusText = '🔵 Nhiều ca';
               statusColor = const Color(0xFF3B82F6);
@@ -2974,7 +3003,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                     style: TextStyle(
                         fontSize: 13,
                         color: s.pending > 0
-                            ? const Color(0xFFF59E0B)
+                            ? HrmPageChrome.chipLight
                             : const Color(0xFFA1A1AA),
                         fontWeight: s.pending > 0
                             ? FontWeight.w600
@@ -3307,7 +3336,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
         'Xác nhận hoàn duyệt',
         'Bạn có chắc chắn muốn hoàn duyệt ${regs.length} đăng ký?',
         'Hoàn duyệt',
-        const Color(0xFFF59E0B));
+        HrmPageChrome.chipLight);
     if (confirmed != true) return;
     setState(() => _isLoading = true);
     try {

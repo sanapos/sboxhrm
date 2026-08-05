@@ -1,11 +1,47 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../../utils/branch_filter_helper.dart';
 import '../../utils/report_screen_helpers.dart';
-import '../../utils/responsive_helper.dart';
 import '../../utils/vietnamese_font.dart';
+import '../hrm_collapsible_overview.dart';
+import '../hrm_mini_stat_chip.dart';
 import '../hrm_page_chrome.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
+
+/// Bọc KPI + bộ lọc báo cáo — thu gọn còn 1 hàng như Hồ sơ nhân sự.
+class ReportCollapsibleChrome extends StatelessWidget {
+  final bool expanded;
+  final VoidCallback onToggle;
+  final Widget? kpi;
+  final Widget filter;
+  final List<Widget> betweenKpiAndFilter;
+
+  const ReportCollapsibleChrome({
+    super.key,
+    required this.expanded,
+    required this.onToggle,
+    required this.filter,
+    this.kpi,
+    this.betweenKpiAndFilter = const [],
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return HrmCollapsibleOverview(
+      expanded: expanded,
+      onToggle: onToggle,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (kpi != null) kpi!,
+          ...betweenKpiAndFilter,
+          filter,
+        ],
+      ),
+    );
+  }
+}
 
 /// Một chỉ số KPI trên báo cáo.
 class ReportKpiItem {
@@ -22,7 +58,7 @@ class ReportKpiItem {
   });
 }
 
-/// Lưới KPI — 2 cột mobile, 4 cột desktop.
+/// Lưới KPI — nền trắng, viền xanh, chia đều, chiều cao thấp (dùng [HrmStatBar]).
 class ReportKpiGrid extends StatelessWidget {
   final List<ReportKpiItem> items;
 
@@ -31,57 +67,20 @@ class ReportKpiGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (items.isEmpty) return const SizedBox.shrink();
-    final cross = Responsive.isMobile(context) ? 2 : items.length.clamp(2, 4);
-    return Container(
+    return ColoredBox(
       color: Colors.white,
-      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-      child: GridView.builder(
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: cross,
-          mainAxisSpacing: 8,
-          crossAxisSpacing: 8,
-          childAspectRatio: Responsive.isMobile(context) ? 2.4 : 2.8,
-        ),
-        itemCount: items.length,
-        itemBuilder: (_, i) {
-          final k = items[i];
-          return Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-            decoration: BoxDecoration(
-              color: k.color.withValues(alpha: 0.07),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: k.color.withValues(alpha: 0.2)),
+      child: HrmStatBar(
+        items: [
+          for (final k in items)
+            HrmStatItem(
+              icon: k.icon,
+              label: k.label,
+              value: k.value,
             ),
-            child: Row(
-              children: [
-                Icon(k.icon, color: k.color, size: 22),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(tr(k.label),
-                          style: vietnameseTextStyle(TextStyle(
-                              fontSize: 10, color: Colors.grey.shade700)),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis),
-                      Text(tr(k.value),
-                          style: vietnameseTextStyle(TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.bold,
-                              color: k.color)),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          );
-        },
+        ],
+        padding: const EdgeInsets.fromLTRB(12, 6, 12, 4),
+        gap: 6,
+        valueFontSize: 14,
       ),
     );
   }
@@ -173,6 +172,7 @@ class ReportViewModeTabs extends StatelessWidget {
           (label: 'Chi tiết', icon: Icons.list_alt),
           (label: 'Theo NV', icon: Icons.people_outline),
         ];
+    const brand = HrmPageChrome.primaryNavy;
     return Container(
       color: Colors.white,
       padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
@@ -188,9 +188,24 @@ class ReportViewModeTabs extends StatelessWidget {
         ],
         selected: {index},
         onSelectionChanged: (s) => onChanged(s.first),
-        style: const ButtonStyle(
+        style: ButtonStyle(
           visualDensity: VisualDensity.compact,
           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          backgroundColor: WidgetStateProperty.resolveWith((states) {
+            if (states.contains(WidgetState.selected)) {
+              return brand;
+            }
+            return Colors.white;
+          }),
+          foregroundColor: WidgetStateProperty.resolveWith((states) {
+            if (states.contains(WidgetState.selected)) {
+              return Colors.white;
+            }
+            return const Color(0xFF586064);
+          }),
+          side: WidgetStateProperty.all(
+            BorderSide(color: brand.withValues(alpha: 0.35)),
+          ),
         ),
       ),
     );
@@ -293,17 +308,7 @@ class ReportTimelineCard extends StatelessWidget {
 }
 
 Widget _statusChip(String label, Color color) {
-  return Container(
-    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-    decoration: BoxDecoration(
-      color: color.withValues(alpha: 0.1),
-      borderRadius: BorderRadius.circular(20),
-      border: Border.all(color: color.withValues(alpha: 0.35)),
-    ),
-    child: Text(tr(label),
-        style: vietnameseTextStyle(TextStyle(
-            fontSize: 11, fontWeight: FontWeight.w600, color: color))),
-  );
+  return HrmBrandChip(label: label);
 }
 
 /// Thẻ nhóm theo nhân viên (tab Theo NV).
@@ -393,7 +398,8 @@ class ReportEmployeeSummaryCard extends StatelessWidget {
   }
 }
 
-/// Bộ lọc chung: thu gọn mặc định, bấm mở ra để chỉnh.
+/// Bộ lọc chung. [embedded]=true khi nằm trong [ReportCollapsibleChrome]
+/// (không còn ExpansionTile lồng — tránh thu gọn kép).
 class ReportFilterSection extends StatefulWidget {
   final DateTime from;
   final DateTime to;
@@ -410,6 +416,7 @@ class ReportFilterSection extends StatefulWidget {
   final List<String> empSuggestions;
   final VoidCallback onApply;
   final VoidCallback? onClearFilters;
+  final bool embedded;
 
   const ReportFilterSection({
     super.key,
@@ -428,6 +435,7 @@ class ReportFilterSection extends StatefulWidget {
     this.empSuggestions = const [],
     required this.onApply,
     this.onClearFilters,
+    this.embedded = false,
   });
 
   @override
@@ -461,10 +469,73 @@ class _ReportFilterSectionState extends State<ReportFilterSection> {
     return parts.join(' · ');
   }
 
+  List<Widget> _filterBody(bool hasExtraFilters) {
+    return [
+      ReportDateRangeFilterBar(
+        from: widget.from,
+        to: widget.to,
+        preset: widget.datePreset,
+        compact: true,
+        onChanged: widget.onDateChanged,
+      ),
+      const SizedBox(height: 10),
+      widget.statusFilter,
+      if (widget.showTeamFilters) ...[
+        if (widget.branchFilter != null &&
+            BranchFilterHelper.showBranchFilter(
+                widget.branchFilter!.branches)) ...[
+          const SizedBox(height: 8),
+          _branchDropdown(),
+        ],
+        const SizedBox(height: 8),
+        _empSearchField(),
+      ],
+      const SizedBox(height: 10),
+      Row(
+        children: [
+          if (widget.onClearFilters != null && hasExtraFilters)
+            TextButton.icon(
+              onPressed: widget.onClearFilters,
+              icon: const Icon(Icons.filter_alt_off, size: 15),
+              label: Text(tr('Xóa lọc'),
+                  style: vietnameseTextStyle(const TextStyle(fontSize: 12))),
+            ),
+          const Spacer(),
+          FilledButton.icon(
+            icon: const Icon(Icons.search, size: 16),
+            label: Text(tr('Áp dụng'),
+                style: vietnameseTextStyle(const TextStyle(fontSize: 13))),
+            style: FilledButton.styleFrom(
+              backgroundColor: HrmPageChrome.primaryNavy,
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            ),
+            onPressed: widget.onApply,
+          ),
+        ],
+      ),
+    ];
+  }
+
   @override
   Widget build(BuildContext context) {
     final hasExtraFilters = widget.empSearch.isNotEmpty ||
         widget.selectedBranchId != null;
+    final body = _filterBody(hasExtraFilters);
+
+    if (widget.embedded) {
+      return Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          border: Border(bottom: BorderSide(color: Color(0xFFE4E4E7))),
+        ),
+        padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: body,
+        ),
+      );
+    }
 
     return Container(
       decoration: const BoxDecoration(
@@ -492,51 +563,7 @@ class _ReportFilterSectionState extends State<ReportFilterSection> {
             color: Colors.grey[600],
             size: 22,
           ),
-          children: [
-            ReportDateRangeFilterBar(
-              from: widget.from,
-              to: widget.to,
-              preset: widget.datePreset,
-              compact: true,
-              onChanged: widget.onDateChanged,
-            ),
-            const SizedBox(height: 10),
-            widget.statusFilter,
-            if (widget.showTeamFilters) ...[
-              if (widget.branchFilter != null &&
-                  widget.branchFilter!.branches.isNotEmpty) ...[
-                const SizedBox(height: 8),
-                _branchDropdown(),
-              ],
-              const SizedBox(height: 8),
-              _empSearchField(),
-            ],
-            const SizedBox(height: 10),
-            Row(
-              children: [
-                if (widget.onClearFilters != null && hasExtraFilters)
-                  TextButton.icon(
-                    onPressed: widget.onClearFilters,
-                    icon: const Icon(Icons.filter_alt_off, size: 15),
-                    label: Text(tr('Xóa lọc'),
-                        style:
-                            vietnameseTextStyle(const TextStyle(fontSize: 12))),
-                  ),
-                const Spacer(),
-                FilledButton.icon(
-                  icon: const Icon(Icons.search, size: 16),
-                  label: Text(tr('Áp dụng'),
-                      style: vietnameseTextStyle(const TextStyle(fontSize: 13))),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: HrmPageChrome.primaryNavy,
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 14, vertical: 10),
-                  ),
-                  onPressed: widget.onApply,
-                ),
-              ],
-            ),
-          ],
+          children: body,
         ),
       ),
     );

@@ -126,9 +126,9 @@ Color shiftSwapStatusColor(dynamic status) {
       return const Color(0xFFEF4444);
     case '1':
     case 'TargetAccepted':
-      return const Color(0xFF8B5CF6);
+      return HrmPageChrome.chipSoft;
     default:
-      return const Color(0xFFF59E0B);
+      return HrmPageChrome.chipLight;
   }
 }
 

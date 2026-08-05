@@ -19,11 +19,13 @@ import 'package:provider/provider.dart';
 import '../providers/permission_provider.dart';
 import '../providers/auth_provider.dart';
 import 'main_layout.dart';
+import '../widgets/hrm_collapsible_overview.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../widgets/hrm_fab_clearance.dart';
 import '../widgets/shift_swap_ui.dart';
 import '../utils/leave_salary_shifts.dart';
 import '../utils/staffing_quota_utils.dart';
+import '../utils/branch_filter_helper.dart';
 import '../utils/navigation_notifier.dart';
 import 'settings_hub_screen.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
@@ -66,6 +68,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
   String? _selectedBranchId;
   bool _isLoading = true;
   DateTime _selectedWeekStart = _getWeekStart(DateTime.now());
+  bool _showOverviewPanel = true;
   String? _selectedEmployeeId;
 
   // Pagination
@@ -78,7 +81,13 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
   List<Employee> get _filteredEmployees {
     var list = _employees;
     if (_selectedBranchId != null) {
-      list = list.where((e) => e.branchId == _selectedBranchId).toList();
+      final ids = BranchFilterHelper.expandBranchIds(
+        _selectedBranchId!,
+        _branches,
+      );
+      list = list
+          .where((e) => e.branchId != null && ids.contains(e.branchId))
+          .toList();
     }
     if (_selectedDepartment == null) return list;
     return list.where((e) => e.department == _selectedDepartment).toList();
@@ -494,7 +503,15 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
       backgroundColor: HrmPageChrome.background,
       body: Column(
         children: [
-          _buildWeekSelector(),
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: HrmCollapsibleOverview(
+              expanded: _showOverviewPanel,
+              onToggle: () =>
+                  setState(() => _showOverviewPanel = !_showOverviewPanel),
+              child: _buildWeekSelector(),
+            ),
+          ),
           _buildTabBar(),
           Expanded(
             child: HrmFabClearance(
@@ -576,7 +593,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                   padding:
                       const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF59E0B),
+                    color: HrmPageChrome.chipLight,
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Text(
@@ -637,12 +654,12 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
               runSpacing: 6,
               children: [
                 _buildLegendDot(HrmPageChrome.primaryNavy, 'Đã xếp lịch'),
-                _buildLegendDot(const Color(0xFF059669), 'Đã duyệt'),
-                _buildLegendDot(const Color(0xFFD97706), 'Chờ duyệt'),
-                _buildLegendDot(const Color(0xFF8B5CF6), 'Chưa gửi'),
+                _buildLegendDot(HrmPageChrome.chip, 'Đã duyệt'),
+                _buildLegendDot(HrmPageChrome.chipDark, 'Chờ duyệt'),
+                _buildLegendDot(HrmPageChrome.chipSoft, 'Chưa gửi'),
                 if (_staffingQuotas.isNotEmpty) ...[
                   _buildLegendDot(const Color(0xFF3B82F6), 'Thiếu nhân sự'),
-                  _buildLegendDot(const Color(0xFFF59E0B), 'Gần/vượt định mức'),
+                  _buildLegendDot(HrmPageChrome.chipLight, 'Gần/vượt định mức'),
                 ],
               ],
             ),
@@ -669,12 +686,12 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                 onPressed: () => NavigationNotifier.goTo(
                     NavigationNotifier.scheduleApproval),
                 icon: const Icon(Icons.assignment_turned_in,
-                    size: 16, color: Color(0xFFF59E0B)),
+                    size: 16, color: HrmPageChrome.chipLight),
                 label: Text(tr('Duyệt lịch làm việc'),
                     style: TextStyle(
-                        color: Color(0xFFF59E0B), fontWeight: FontWeight.w600)),
+                        color: HrmPageChrome.chipLight, fontWeight: FontWeight.w600)),
                 style: OutlinedButton.styleFrom(
-                  side: const BorderSide(color: Color(0xFFF59E0B)),
+                  side: const BorderSide(color: HrmPageChrome.chipLight),
                   padding:
                       const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 ),
@@ -694,7 +711,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     _buildExportHeader(
-                        'ĐĂNG KÝ CHỜ DUYỆT', const Color(0xFFF59E0B)),
+                        'ĐĂNG KÝ CHỜ DUYỆT', HrmPageChrome.chipLight),
                     _buildPendingGrid(),
                     _buildCompactLegend(),
                   ]),
@@ -1050,10 +1067,10 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                     runSpacing: 6,
                     children: [
                       _buildLegendDot(HrmPageChrome.primaryNavy, 'Đã xếp lịch'),
-                      _buildLegendDot(const Color(0xFF059669), 'Đã duyệt'),
-                      _buildLegendDot(const Color(0xFFD97706), 'Chờ duyệt'),
+                      _buildLegendDot(HrmPageChrome.chip, 'Đã duyệt'),
+                      _buildLegendDot(HrmPageChrome.chipDark, 'Chờ duyệt'),
                       _buildLegendDot(const Color(0xFFEF4444), 'Từ chối'),
-                      _buildLegendDot(const Color(0xFF8B5CF6), 'Đăng ký mới'),
+                      _buildLegendDot(HrmPageChrome.chipSoft, 'Đăng ký mới'),
                     ],
                   ),
                 ),
@@ -1126,24 +1143,24 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
       icon = const Icon(Icons.check, size: 18, color: HrmPageChrome.primaryNavy);
     } else if (reg != null &&
         reg.status == ScheduleRegistrationStatus.approved) {
-      bgColor = const Color(0xFF059669).withValues(alpha: 0.12);
-      borderColor = const Color(0xFF059669);
-      icon = const Icon(Icons.check_circle, size: 18, color: Color(0xFF059669));
+      bgColor = HrmPageChrome.chip.withValues(alpha: 0.12);
+      borderColor = HrmPageChrome.chip;
+      icon = const Icon(Icons.check_circle, size: 18, color: HrmPageChrome.chip);
     } else if (reg != null &&
         reg.status == ScheduleRegistrationStatus.pending) {
       bgColor = const Color(0xFFFEF3C7);
-      borderColor = const Color(0xFFD97706);
+      borderColor = HrmPageChrome.chipDark;
       icon =
-          const Icon(Icons.hourglass_empty, size: 16, color: Color(0xFFD97706));
+          const Icon(Icons.hourglass_empty, size: 16, color: HrmPageChrome.chipDark);
     } else if (reg != null &&
         reg.status == ScheduleRegistrationStatus.rejected) {
       bgColor = const Color(0xFFFEE2E2);
       borderColor = const Color(0xFFEF4444);
       icon = const Icon(Icons.close, size: 16, color: Color(0xFFEF4444));
     } else if (hasPendingLocal) {
-      bgColor = const Color(0xFF8B5CF6).withValues(alpha: 0.12);
-      borderColor = const Color(0xFF8B5CF6);
-      icon = const Icon(Icons.add_circle, size: 18, color: Color(0xFF8B5CF6));
+      bgColor = HrmPageChrome.chipSoft.withValues(alpha: 0.12);
+      borderColor = HrmPageChrome.chipSoft;
+      icon = const Icon(Icons.add_circle, size: 18, color: HrmPageChrome.chipSoft);
     } else {
       bgColor = isToday ? const Color(0xFFF1F5F9) : Colors.white;
       borderColor = const Color(0xFFE4E4E7);
@@ -1235,7 +1252,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
             const SizedBox(height: 12),
             Row(children: [
               const Icon(Icons.hourglass_empty,
-                  color: Color(0xFFD97706), size: 20),
+                  color: HrmPageChrome.chipDark, size: 20),
               const SizedBox(width: 8),
               Expanded(
                   child: Text(tr('${shift.name} - ${day.day}/${day.month}'),
@@ -1244,13 +1261,13 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                    color: const Color(0xFFFEF3C7),
+                    color: HrmPageChrome.chipBg,
                     borderRadius: BorderRadius.circular(8)),
                 child: Text(tr('Chờ duyệt'),
                     style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
-                        color: Color(0xFFD97706))),
+                        color: HrmPageChrome.chipDark)),
               ),
             ]),
             if (_canCancelRegistration) ...[
@@ -1356,7 +1373,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
               Icon(isScheduled ? Icons.check : Icons.check_circle,
                   color: isScheduled
                       ? HrmPageChrome.primaryNavy
-                      : const Color(0xFF059669),
+                      : HrmPageChrome.chip,
                   size: 20),
               const SizedBox(width: 8),
               Expanded(
@@ -1377,7 +1394,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                         fontWeight: FontWeight.w600,
                         color: isScheduled
                             ? HrmPageChrome.primaryNavy
-                            : const Color(0xFF059669))),
+                            : HrmPageChrome.chip)),
               ),
             ]),
             const SizedBox(height: 4),
@@ -1399,7 +1416,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
             }),
             const SizedBox(height: 6),
             _actionTile(Icons.event_busy, 'Xin nghỉ phép',
-                'Gửi đơn xin nghỉ phép ca này', const Color(0xFFF59E0B), () {
+                'Gửi đơn xin nghỉ phép ca này', HrmPageChrome.chipLight, () {
               Navigator.pop(ctx);
               _showLeaveShiftDialog(shift, day);
             }),
@@ -1653,11 +1670,11 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
     final reasonCtrl = TextEditingController();
 
     final leaveTypes = [
-      (0, 'Phép năm', Icons.beach_access_rounded, Colors.teal),
-      (2, 'Việc riêng có lương', Icons.paid_rounded, Colors.blue),
-      (3, 'Việc riêng không lương', Icons.money_off_rounded, Colors.amber),
-      (4, 'Ốm đau', Icons.local_hospital_rounded, Colors.red),
-      (6, 'Nghỉ bù', Icons.swap_horiz_rounded, Colors.indigo),
+      (0, 'Phép năm', Icons.beach_access_rounded, HrmPageChrome.chip),
+      (2, 'Việc riêng có lương', Icons.paid_rounded, HrmPageChrome.chipLight),
+      (3, 'Việc riêng không lương', Icons.money_off_rounded, HrmPageChrome.chipDark),
+      (4, 'Ốm đau', Icons.local_hospital_rounded, HrmPageChrome.chipMid),
+      (6, 'Nghỉ bù', Icons.swap_horiz_rounded, HrmPageChrome.chipSoft),
     ];
 
     showDialog(
@@ -1667,7 +1684,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: Row(children: [
-            Icon(Icons.event_busy, color: Color(0xFFF59E0B)),
+            Icon(Icons.event_busy, color: HrmPageChrome.chip),
             SizedBox(width: 8),
             Expanded(
                 child: Text(tr('Xin nghỉ phép'), style: TextStyle(fontSize: 16))),
@@ -1681,7 +1698,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                   width: double.infinity,
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                      color: const Color(0xFFFEF3C7),
+                      color: HrmPageChrome.chipBg,
                       borderRadius: BorderRadius.circular(10)),
                   child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1759,7 +1776,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
               icon: const Icon(Icons.send, size: 16),
               label: Text(tr('Gửi đơn')),
               style: FilledButton.styleFrom(
-                  backgroundColor: const Color(0xFFF59E0B)),
+                  backgroundColor: HrmPageChrome.chipLight),
             ),
           ],
         );
@@ -1826,7 +1843,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
             IconData statusIcon;
             switch (reg.status) {
               case ScheduleRegistrationStatus.approved:
-                statusColor = const Color(0xFF059669);
+                statusColor = HrmPageChrome.chip;
                 statusText = 'Đã duyệt';
                 statusIcon = Icons.check_circle;
                 break;
@@ -1836,7 +1853,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                 statusIcon = Icons.cancel;
                 break;
               default:
-                statusColor = const Color(0xFFD97706);
+                statusColor = HrmPageChrome.chipDark;
                 statusText = 'Chờ duyệt';
                 statusIcon = Icons.hourglass_empty;
             }
@@ -1910,10 +1927,10 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                       child: Container(
                         padding: const EdgeInsets.all(4),
                         decoration: BoxDecoration(
-                            color: const Color(0xFFFEF3C7),
+                            color: HrmPageChrome.chipBg,
                             borderRadius: BorderRadius.circular(6)),
                         child: const Icon(Icons.event_busy,
-                            size: 14, color: Color(0xFFF59E0B)),
+                            size: 14, color: HrmPageChrome.chipLight),
                       ),
                     ),
                     const SizedBox(width: 4),
@@ -2009,7 +2026,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
       ],
     );
 
-    final branchDropdown = _branches.isNotEmpty
+    final branchDropdown = BranchFilterHelper.showBranchFilter(_branches)
         ? DropdownButtonFormField<String?>(
             initialValue: _selectedBranchId,
             isExpanded: true,
@@ -2259,19 +2276,19 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
       _buildCopyButton(
         icon: Icons.notifications_active,
         label: 'Nhắc đăng ký',
-        color: const Color(0xFFD97706),
+        color: HrmPageChrome.chipDark,
         onTap: _showSendReminderDialog,
       ),
       _buildCopyButton(
         icon: Icons.group_add,
         label: 'Yêu cầu bổ sung ca',
-        color: const Color(0xFF059669),
+        color: HrmPageChrome.chip,
         onTap: _showRequestCoverageDialog,
       ),
       _buildCopyButton(
         icon: Icons.tune,
         label: 'Định mức nhân sự',
-        color: const Color(0xFF7C3AED),
+        color: HrmPageChrome.chipMid,
         onTap: _showStaffingQuotaDialog,
       ),
     ];
@@ -3628,7 +3645,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                 _buildGuideSection(
                   '5. Trạng thái đăng ký',
                   Icons.info_outline,
-                  const Color(0xFFF59E0B),
+                  HrmPageChrome.chipLight,
                   [
                     '🟡 Chờ gửi: Đăng ký chưa gửi (có thể xóa/sửa).',
                     '🟠 Chờ duyệt: Đã gửi, chờ quản lý duyệt.',
@@ -3760,7 +3777,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
           // Header
           Container(
             decoration: BoxDecoration(
-              color: const Color(0xFFF59E0B).withValues(alpha: 0.08),
+              color: HrmPageChrome.chipLight.withValues(alpha: 0.08),
               borderRadius:
                   const BorderRadius.vertical(top: Radius.circular(12)),
             ),
@@ -3793,7 +3810,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                         padding: const EdgeInsets.symmetric(vertical: 6),
                         decoration: BoxDecoration(
                           color: isToday
-                              ? const Color(0xFFF59E0B).withValues(alpha: 0.12)
+                              ? HrmPageChrome.chipLight.withValues(alpha: 0.12)
                               : null,
                           border: di < 6
                               ? const Border(
@@ -3930,23 +3947,23 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
     // Build status dots
     final dots = <Widget>[];
     if (schedules.isNotEmpty) dots.add(_statusDot(HrmPageChrome.primaryNavy));
-    if (approvedRegs.isNotEmpty) dots.add(_statusDot(const Color(0xFF059669)));
-    if (pendingRegs.isNotEmpty) dots.add(_statusDot(const Color(0xFFD97706)));
-    if (localPending.isNotEmpty) dots.add(_statusDot(const Color(0xFF8B5CF6)));
+    if (approvedRegs.isNotEmpty) dots.add(_statusDot(HrmPageChrome.chip));
+    if (pendingRegs.isNotEmpty) dots.add(_statusDot(HrmPageChrome.chipDark));
+    if (localPending.isNotEmpty) dots.add(_statusDot(HrmPageChrome.chipSoft));
     if (rejectedRegs.isNotEmpty) dots.add(_statusDot(const Color(0xFFEF4444)));
 
     // Primary color
     Color borderColor;
     Color bgColor;
     if (pendingRegs.isNotEmpty || localPending.isNotEmpty) {
-      borderColor = const Color(0xFFD97706);
+      borderColor = HrmPageChrome.chipDark;
       bgColor = const Color(0xFFFEF3C7);
     } else if (schedules.isNotEmpty) {
       borderColor = HrmPageChrome.primaryNavy;
       bgColor = HrmPageChrome.primaryNavy.withValues(alpha: 0.08);
     } else if (approvedRegs.isNotEmpty) {
-      borderColor = const Color(0xFF059669);
-      bgColor = const Color(0xFF059669).withValues(alpha: 0.08);
+      borderColor = HrmPageChrome.chip;
+      bgColor = HrmPageChrome.chip.withValues(alpha: 0.08);
     } else {
       borderColor = const Color(0xFFEF4444);
       bgColor = const Color(0xFFFEE2E2);
@@ -4027,7 +4044,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             decoration: BoxDecoration(
-              color: const Color(0xFFF59E0B).withValues(alpha: 0.08),
+              color: HrmPageChrome.chipLight.withValues(alpha: 0.08),
               borderRadius:
                   const BorderRadius.vertical(top: Radius.circular(12)),
             ),
@@ -4100,12 +4117,12 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                 String suffix;
                 switch (r.status) {
                   case ScheduleRegistrationStatus.pending:
-                    c = const Color(0xFFD97706);
+                    c = HrmPageChrome.chipDark;
                     ic = Icons.hourglass_empty;
                     suffix = ' (chờ)';
                     break;
                   case ScheduleRegistrationStatus.approved:
-                    c = const Color(0xFF059669);
+                    c = HrmPageChrome.chip;
                     ic = Icons.check_circle;
                     suffix = ' (duyệt)';
                     break;
@@ -4134,7 +4151,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
               }
               for (final p in localPending) {
                 if (p['isDayOff'] == true) {
-                  chips.add(_empChip('Nghỉ (chưa gửi)', const Color(0xFF8B5CF6),
+                  chips.add(_empChip('Nghỉ (chưa gửi)', HrmPageChrome.chipSoft,
                       Icons.schedule_send));
                 } else {
                   final shift = p['shiftId'] != null
@@ -4149,7 +4166,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                               createdAt: DateTime.now()))
                       : null;
                   chips.add(_empChip('${shift?.name ?? 'Ca'} (chưa gửi)',
-                      const Color(0xFF8B5CF6), Icons.schedule_send));
+                      HrmPageChrome.chipSoft, Icons.schedule_send));
                 }
               }
 
@@ -4188,7 +4205,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                         child: Container(
                           padding: const EdgeInsets.all(4),
                           decoration: BoxDecoration(
-                              color: const Color(0xFFF59E0B)
+                              color: HrmPageChrome.chipLight
                                   .withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(6)),
                           child: const Icon(Icons.edit_calendar,
@@ -4544,7 +4561,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                     orElse: () => Employee.empty());
                 names.add({
                   'name': emp.fullName,
-                  'color': const Color(0xFF059669),
+                  'color': HrmPageChrome.chip,
                   'icon': Icons.verified,
                   'isDayOff': r.isDayOff
                 });
@@ -5002,7 +5019,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
           // Header row: corner + day columns
           Container(
             decoration: BoxDecoration(
-              color: const Color(0xFF0891B2).withValues(alpha: 0.08),
+              color: HrmPageChrome.chipLight.withValues(alpha: 0.08),
               borderRadius:
                   const BorderRadius.vertical(top: Radius.circular(12)),
             ),
@@ -5019,7 +5036,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                       style: TextStyle(
                           fontSize: 10,
                           fontWeight: FontWeight.w700,
-                          color: Color(0xFF0891B2)),
+                          color: HrmPageChrome.chipLight),
                       textAlign: TextAlign.center),
                 ),
                 ...List.generate(7, (di) {
@@ -5035,7 +5052,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                         padding: const EdgeInsets.symmetric(vertical: 6),
                         decoration: BoxDecoration(
                           color: isToday
-                              ? const Color(0xFF0891B2).withValues(alpha: 0.12)
+                              ? HrmPageChrome.chipLight.withValues(alpha: 0.12)
                               : null,
                           border: di < 6
                               ? const Border(
@@ -5049,7 +5066,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                                   fontSize: 11,
                                   fontWeight: FontWeight.w700,
                                   color: isToday
-                                      ? const Color(0xFF0891B2)
+                                      ? HrmPageChrome.chipLight
                                       : (isSun
                                           ? const Color(0xFFEF4444)
                                           : const Color(0xFF71717A)),
@@ -5058,7 +5075,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                                 style: TextStyle(
                                   fontSize: 10,
                                   color: isToday
-                                      ? const Color(0xFF0891B2)
+                                      ? HrmPageChrome.chipLight
                                       : const Color(0xFF71717A),
                                 )),
                           ],
@@ -5158,7 +5175,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             decoration: BoxDecoration(
-              color: const Color(0xFF0891B2).withValues(alpha: 0.08),
+              color: HrmPageChrome.chipLight.withValues(alpha: 0.08),
               borderRadius:
                   const BorderRadius.vertical(top: Radius.circular(12)),
             ),
@@ -5174,7 +5191,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(color: const Color(0xFFE4E4E7))),
                     child: const Icon(Icons.arrow_back,
-                        size: 18, color: Color(0xFF0891B2)),
+                        size: 18, color: HrmPageChrome.chipLight),
                   ),
                 ),
                 const SizedBox(width: 10),
@@ -5183,7 +5200,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                       style: const TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w700,
-                          color: Color(0xFF0891B2))),
+                          color: HrmPageChrome.chipLight)),
                 ),
               ],
             ),
@@ -5226,14 +5243,14 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 8, vertical: 4),
                             decoration: BoxDecoration(
-                                color: const Color(0xFF0891B2)
+                                color: HrmPageChrome.chipLight
                                     .withValues(alpha: 0.1),
                                 borderRadius: BorderRadius.circular(6)),
                             child: Text(tr(shift.name),
                                 style: const TextStyle(
                                     fontSize: 12,
                                     fontWeight: FontWeight.w700,
-                                    color: Color(0xFF0891B2))),
+                                    color: HrmPageChrome.chipLight)),
                           ),
                           const SizedBox(width: 8),
                           Text(
@@ -5246,7 +5263,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                               style: const TextStyle(
                                   fontSize: 11,
                                   fontWeight: FontWeight.w700,
-                                  color: Color(0xFF0891B2))),
+                                  color: HrmPageChrome.chipLight)),
                           if (canEdit) ...[
                             const SizedBox(width: 6),
                             InkWell(
@@ -5256,11 +5273,11 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                               child: Container(
                                 padding: const EdgeInsets.all(4),
                                 decoration: BoxDecoration(
-                                    color: const Color(0xFF0891B2)
+                                    color: HrmPageChrome.chipLight
                                         .withValues(alpha: 0.1),
                                     borderRadius: BorderRadius.circular(6)),
                                 child: const Icon(Icons.person_add,
-                                    size: 16, color: Color(0xFF0891B2)),
+                                    size: 16, color: HrmPageChrome.chipLight),
                               ),
                             ),
                           ],
@@ -5303,7 +5320,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                               IconData ic;
                               switch (reg.status) {
                                 case ScheduleRegistrationStatus.approved:
-                                  c = const Color(0xFF059669);
+                                  c = HrmPageChrome.chip;
                                   ic = Icons.check_circle;
                                   break;
                                 case ScheduleRegistrationStatus.rejected:
@@ -5311,7 +5328,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                                   ic = Icons.cancel;
                                   break;
                                 default:
-                                  c = const Color(0xFFD97706);
+                                  c = HrmPageChrome.chipDark;
                                   ic = Icons.hourglass_empty;
                               }
                               return _empChip(emp.fullName, c, ic);
@@ -5323,7 +5340,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                                       _effectiveUserId(e) == reg['employeeId'],
                                   orElse: () => Employee.empty());
                               return _empChip(emp.fullName,
-                                  const Color(0xFF8B5CF6), Icons.add_circle);
+                                  HrmPageChrome.chipSoft, Icons.add_circle);
                             }),
                           ],
                         ),
@@ -5412,14 +5429,14 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
         bgColor = HrmPageChrome.primaryNavy.withValues(alpha: 0.08);
         borderColor = HrmPageChrome.primaryNavy;
       } else if (approvedCount > 0) {
-        bgColor = const Color(0xFF059669).withValues(alpha: 0.08);
-        borderColor = const Color(0xFF059669);
+        bgColor = HrmPageChrome.chip.withValues(alpha: 0.08);
+        borderColor = HrmPageChrome.chip;
       } else if (pendingCount > 0) {
         bgColor = const Color(0xFFFEF3C7);
-        borderColor = const Color(0xFFD97706);
+        borderColor = HrmPageChrome.chipDark;
       } else {
-        bgColor = const Color(0xFF8B5CF6).withValues(alpha: 0.08);
-        borderColor = const Color(0xFF8B5CF6);
+        bgColor = HrmPageChrome.chipSoft.withValues(alpha: 0.08);
+        borderColor = HrmPageChrome.chipSoft;
       }
 
       // Override colors for quota violations
@@ -5428,7 +5445,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
         borderColor = const Color(0xFF3B82F6);
       } else if (aboveMax || nearMax) {
         bgColor = const Color(0xFFFEF3C7);
-        borderColor = const Color(0xFFF59E0B);
+        borderColor = HrmPageChrome.chipLight;
       }
 
       content = Column(
@@ -5447,7 +5464,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                 const Padding(
                     padding: EdgeInsets.only(right: 2),
                     child: Icon(Icons.arrow_upward,
-                        size: 10, color: Color(0xFFF59E0B))),
+                        size: 10, color: HrmPageChrome.chipLight)),
               Text(tr('$totalCount'),
                   style: TextStyle(
                       fontWeight: FontWeight.w800,
@@ -5455,7 +5472,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                       color: belowWarning
                           ? const Color(0xFF3B82F6)
                           : (aboveMax || nearMax
-                              ? const Color(0xFFF59E0B)
+                              ? HrmPageChrome.chipLight
                               : borderColor))),
               if (quota != null && maxForDay > 0)
                 Text(tr('/$maxForDay'),
@@ -5468,9 +5485,9 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               if (confirmedCount > 0) _statusDot(HrmPageChrome.primaryNavy),
-              if (approvedCount > 0) _statusDot(const Color(0xFF059669)),
-              if (pendingCount > 0) _statusDot(const Color(0xFFD97706)),
-              if (localCount > 0) _statusDot(const Color(0xFF8B5CF6)),
+              if (approvedCount > 0) _statusDot(HrmPageChrome.chip),
+              if (pendingCount > 0) _statusDot(HrmPageChrome.chipDark),
+              if (localCount > 0) _statusDot(HrmPageChrome.chipSoft),
             ],
           ),
         ],
@@ -5565,7 +5582,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                     String label;
                     switch (reg.status) {
                       case ScheduleRegistrationStatus.approved:
-                        c = const Color(0xFF059669);
+                        c = HrmPageChrome.chip;
                         ic = Icons.check_circle;
                         label = 'Duyệt';
                         break;
@@ -5575,7 +5592,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                         label = 'Từ chối';
                         break;
                       default:
-                        c = const Color(0xFFD97706);
+                        c = HrmPageChrome.chipDark;
                         ic = Icons.hourglass_empty;
                         label = 'Chờ duyệt';
                     }
@@ -5588,13 +5605,13 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                       style: TextStyle(
                           fontWeight: FontWeight.w600,
                           fontSize: 12,
-                          color: Color(0xFF8B5CF6))),
+                          color: HrmPageChrome.chipSoft)),
                   const SizedBox(height: 4),
                   ...pendingLocal.map((reg) {
                     final emp = _employees.firstWhere(
                         (e) => _effectiveUserId(e) == reg['employeeId'],
                         orElse: () => Employee.empty());
-                    return _detailEmpRow(emp.fullName, const Color(0xFF8B5CF6),
+                    return _detailEmpRow(emp.fullName, HrmPageChrome.chipSoft,
                         Icons.add_circle);
                   }),
                 ],
@@ -5683,10 +5700,10 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                 Container(
                   padding: const EdgeInsets.all(6),
                   decoration: BoxDecoration(
-                      color: const Color(0xFF0891B2).withValues(alpha: 0.1),
+                      color: HrmPageChrome.chipLight.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(8)),
                   child: const Icon(Icons.person_add,
-                      color: Color(0xFF0891B2), size: 18),
+                      color: HrmPageChrome.chipLight, size: 18),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
@@ -5739,12 +5756,12 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                           allSelected
                               ? Icons.check_box
                               : Icons.check_box_outline_blank,
-                          color: const Color(0xFF0891B2),
+                          color: HrmPageChrome.chipLight,
                           size: 20),
                       const SizedBox(width: 4),
                       Text(tr(allSelected ? 'Bỏ chọn tất cả' : 'Chọn tất cả'),
                           style: const TextStyle(
-                              fontSize: 12, color: Color(0xFF0891B2))),
+                              fontSize: 12, color: HrmPageChrome.chipLight)),
                     ]),
                   ),
                   const Spacer(),
@@ -5753,12 +5770,12 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                       padding: const EdgeInsets.symmetric(
                           horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
-                          color: const Color(0xFF0891B2).withValues(alpha: 0.1),
+                          color: HrmPageChrome.chipLight.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(12)),
                       child: Text(tr('Đã chọn: ${selectedIds.length}'),
                           style: const TextStyle(
                               fontSize: 12,
-                              color: Color(0xFF0891B2),
+                              color: HrmPageChrome.chipLight,
                               fontWeight: FontWeight.bold)),
                     ),
                 ]),
@@ -5791,7 +5808,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                                           ? Icons.check_box
                                           : Icons.check_box_outline_blank,
                                       color: isSelected
-                                          ? const Color(0xFF0891B2)
+                                          ? HrmPageChrome.chipLight
                                           : Colors.grey[400],
                                     ),
                               title: Text(tr(emp.fullName),
@@ -5799,7 +5816,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                                     color: isAssigned
                                         ? Colors.grey
                                         : isSelected
-                                            ? const Color(0xFF0891B2)
+                                            ? HrmPageChrome.chipLight
                                             : null,
                                     fontSize: 13,
                                     fontWeight: isSelected
@@ -5824,7 +5841,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                                     )
                                   : isSelected
                                       ? const Icon(Icons.check_circle,
-                                          color: Color(0xFF0891B2))
+                                          color: HrmPageChrome.chipLight)
                                       : null,
                               onTap: isAssigned
                                   ? null
@@ -5865,7 +5882,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                 icon: const Icon(Icons.check, size: 18),
                 label: Text(tr('${tr('Thêm ')}${selectedIds.isEmpty ? '' : '(${selectedIds.length})'}')),
                 style: FilledButton.styleFrom(
-                  backgroundColor: const Color(0xFF0891B2),
+                  backgroundColor: HrmPageChrome.chipLight,
                   disabledBackgroundColor: Colors.grey[300],
                 ),
               ),
@@ -6003,7 +6020,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
             decoration: BoxDecoration(
               gradient: const LinearGradient(
-                colors: [HrmPageChrome.primaryNavy, Color(0xFF059669)],
+                colors: [HrmPageChrome.primaryNavy, HrmPageChrome.chip],
               ),
               borderRadius: BorderRadius.circular(8),
             ),
@@ -6119,7 +6136,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
         switch (firstReg.status) {
           case ScheduleRegistrationStatus.pending:
             bgColor = const Color(0xFFFEF3C7);
-            borderColor = const Color(0xFFF59E0B);
+            borderColor = HrmPageChrome.chipLight;
             statusText = 'Chờ duyệt';
             break;
           case ScheduleRegistrationStatus.rejected:
@@ -6631,7 +6648,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
               // Status summary
               _buildStatusBadge(
                   'Chờ duyệt',
-                  const Color(0xFFF59E0B),
+                  HrmPageChrome.chipLight,
                   weekRegs
                       .where(
                           (r) => r.status == ScheduleRegistrationStatus.pending)
@@ -6687,7 +6704,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                 statusText = 'Từ chối';
                 break;
               default:
-                statusColor = const Color(0xFFF59E0B);
+                statusColor = HrmPageChrome.chipLight;
                 statusIcon = Icons.hourglass_empty;
                 statusText = 'Chờ duyệt';
             }
@@ -7108,7 +7125,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                       ],
                     )),
                 _buildCompactLegendDot(HrmPageChrome.primaryNavy, 'Đã duyệt'),
-                _buildCompactLegendDot(const Color(0xFFF59E0B), 'Chờ duyệt'),
+                _buildCompactLegendDot(HrmPageChrome.chipLight, 'Chờ duyệt'),
                 _buildCompactLegendDot(const Color(0xFFEF4444), 'Từ chối'),
                 _buildCompactLegendDot(const Color(0xFFFFC107), 'Chờ gửi'),
               ],
@@ -7230,7 +7247,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
               ),
               _buildLegendItem(
                 const LinearGradient(
-                    colors: [HrmPageChrome.primaryNavy, Color(0xFF059669)]),
+                    colors: [HrmPageChrome.primaryNavy, HrmPageChrome.chip]),
                 'Nghỉ phép',
               ),
               _buildLegendItemWithBorder(
@@ -7240,7 +7257,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
               ),
               _buildLegendItemWithBorder(
                 const Color(0xFFFEF3C7),
-                const Color(0xFFF59E0B),
+                HrmPageChrome.chipLight,
                 'Chờ duyệt (đã gửi)',
               ),
               _buildLegendItemWithBorder(
@@ -7358,7 +7375,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       _buildExportHeader(
-                          'THEO CA LÀM VIỆC', const Color(0xFF0891B2)),
+                          'THEO CA LÀM VIỆC', HrmPageChrome.chipLight),
                       _buildShiftCentricExportView(),
                       const SizedBox(height: 8),
                       _buildCompactLegend(),
@@ -7437,7 +7454,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                 padding:
                     const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF0891B2).withValues(alpha: 0.1),
+                  color: HrmPageChrome.chipLight.withValues(alpha: 0.1),
                   borderRadius:
                       const BorderRadius.vertical(top: Radius.circular(8)),
                 ),
@@ -7445,7 +7462,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                     style: const TextStyle(
                         fontWeight: FontWeight.w700,
                         fontSize: 13,
-                        color: Color(0xFF0891B2))),
+                        color: HrmPageChrome.chipLight)),
               ),
               // Shift rows for this day
               ..._shifts.map((shift) {
@@ -7510,7 +7527,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                               style: const TextStyle(
                                   fontSize: 11,
                                   fontWeight: FontWeight.w700,
-                                  color: Color(0xFF0891B2)))),
+                                  color: HrmPageChrome.chipLight))),
                     ],
                   ),
                 );
@@ -7980,7 +7997,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
 
   List<DataRow> _buildScheduleDesktopRows(
       List<Employee> employees, List<DateTime> days) {
-    if (_branches.isEmpty) {
+    if (!BranchFilterHelper.showBranchFilter(_branches)) {
       return _buildScheduleEmployeeRows(employees, days);
     }
     final primary = Theme.of(context).primaryColor;
@@ -8083,7 +8100,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                 style: TextStyle(color: Colors.grey[400]))),
       );
     }
-    if (_branches.isNotEmpty) {
+    if (BranchFilterHelper.showBranchFilter(_branches)) {
       final groups = _groupEmployeesByBranch(pageEmps);
       return Column(
         children: [
@@ -8157,7 +8174,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
             final dayOff = schedules.where((s) => s.isDayOff).firstOrNull;
             if (dayOff != null) {
               shiftLabel = dayOff.note ?? 'Nghỉ phép';
-              shiftColor = const Color(0xFF059669);
+              shiftColor = HrmPageChrome.chip;
               bgColor = const Color(0xFFD1FAE5);
             } else {
               final names = schedules.map((s) {
@@ -8182,7 +8199,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
             final first = submittedRegs.first;
             if (first.status == ScheduleRegistrationStatus.pending) {
               shiftLabel = 'Chờ duyệt';
-              shiftColor = const Color(0xFFF59E0B);
+              shiftColor = HrmPageChrome.chipLight;
               bgColor = const Color(0xFFFEF3C7);
             } else if (first.status == ScheduleRegistrationStatus.rejected) {
               shiftLabel = 'Từ chối';
@@ -8439,7 +8456,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                                   style: const TextStyle(
                                       fontWeight: FontWeight.w700,
                                       fontSize: 13,
-                                      color: Color(0xFF0891B2))),
+                                      color: HrmPageChrome.chipLight)),
                               Text(
                                   tr('${_formatTime(shift.startTime)} - ${_formatTime(shift.endTime)}'),
                                   style: const TextStyle(
@@ -8451,7 +8468,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                             horizontal: 10, vertical: 4),
                         decoration: BoxDecoration(
                           color: totalEmployees > 0
-                              ? const Color(0xFF0891B2).withValues(alpha: 0.1)
+                              ? HrmPageChrome.chipLight.withValues(alpha: 0.1)
                               : Colors.grey.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(12),
                         ),
@@ -8460,7 +8477,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                                 fontSize: 12,
                                 fontWeight: FontWeight.bold,
                                 color: totalEmployees > 0
-                                    ? const Color(0xFF0891B2)
+                                    ? HrmPageChrome.chipLight
                                     : Colors.grey)),
                       ),
                     ],
@@ -8478,7 +8495,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
 
   List<DataRow> _buildApprovedDesktopRows(
       List<Employee> employees, List<DateTime> days) {
-    if (_branches.isEmpty) {
+    if (!BranchFilterHelper.showBranchFilter(_branches)) {
       return _buildApprovedEmployeeRows(employees, days);
     }
     final primary = Theme.of(context).primaryColor;
@@ -8634,7 +8651,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                 style: TextStyle(color: Colors.grey[400]))),
       );
     }
-    if (_branches.isNotEmpty) {
+    if (BranchFilterHelper.showBranchFilter(_branches)) {
       final groups = _groupEmployeesByBranch(pageEmps);
       return Column(
         children: [
@@ -8718,7 +8735,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
             final hasLeave =
                 items.any((i) => i == 'Nghỉ' || i.contains('Nghỉ'));
             if (hasLeave && items.length == 1) {
-              shiftColor = const Color(0xFF059669);
+              shiftColor = HrmPageChrome.chip;
               bgColor = const Color(0xFFD1FAE5);
             } else {
               shiftColor = HrmPageChrome.primaryNavy;
@@ -8892,7 +8909,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: Row(children: [
-            Icon(Icons.notifications_active, color: Color(0xFFD97706)),
+            Icon(Icons.notifications_active, color: HrmPageChrome.chipDark),
             SizedBox(width: 8),
             Expanded(
                 child: Text(tr('Nhắc nhở đăng ký lịch'),
@@ -8970,7 +8987,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                   : const Icon(Icons.send, size: 16),
               label: Text(tr('Gửi nhắc nhở')),
               style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFD97706),
+                  backgroundColor: HrmPageChrome.chipDark,
                   foregroundColor: Colors.white),
             ),
           ],
@@ -8999,7 +9016,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: Row(children: [
-            Icon(Icons.group_add, color: Color(0xFF059669)),
+            Icon(Icons.group_add, color: HrmPageChrome.chip),
             SizedBox(width: 8),
             Expanded(
                 child: Text(tr('Yêu cầu bổ sung ca'),
@@ -9157,7 +9174,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                   : const Icon(Icons.send, size: 16),
               label: Text(tr('Gửi yêu cầu')),
               style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF059669),
+                  backgroundColor: HrmPageChrome.chip,
                   foregroundColor: Colors.white),
             ),
           ],

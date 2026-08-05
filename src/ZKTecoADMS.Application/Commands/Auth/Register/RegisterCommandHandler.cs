@@ -19,6 +19,7 @@ public class RegisterCommandHandler(
     UserManager<ApplicationUser> userManager,
     IRepository<Store> storeRepository,
     IRepository<Department> departmentRepository,
+    IRepository<Branch> branchRepository,
     IRepository<ShiftTemplate> shiftTemplateRepository,
     IRepository<Holiday> holidayRepository,
     IRepository<PenaltySetting> penaltySettingRepository,
@@ -162,6 +163,22 @@ public class RegisterCommandHandler(
             catch (Exception ex)
             {
                 logger.LogWarning(ex, "Could not seed default departments for store {StoreId}", storeId);
+            }
+
+            try
+            {
+                await StoreDefaultSetupSeeder.SeedDefaultBranchIfEmptyAsync(
+                    branchRepository,
+                    storeId,
+                    request.StoreName,
+                    city: request.Province,
+                    phone: request.PhoneNumber,
+                    createdBy: "Register",
+                    cancellationToken: cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Could not seed default branch for store {StoreId}", storeId);
             }
 
             var user = new ApplicationUser
@@ -321,6 +338,9 @@ public class RegisterCommandHandler(
     {
         try
         {
+            await branchRepository.DeleteAsync(
+                b => b.StoreId == storeId,
+                cancellationToken);
             await departmentRepository.DeleteAsync(
                 d => d.StoreId == storeId,
                 cancellationToken);

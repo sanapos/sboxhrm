@@ -11,6 +11,7 @@ import '../widgets/notification_overlay.dart';
 import 'package:provider/provider.dart';
 import '../providers/permission_provider.dart';
 import '../utils/attendance_correction_privilege.dart';
+import '../utils/branch_filter_helper.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 import 'package:zkteco_flutter_client/l10n/app_ui_locale.dart';
 
@@ -293,11 +294,12 @@ class _MobileAttendanceApprovalScreenState
       child: Row(
         children: [
           Expanded(child: _buildApprovalTabBar()),
-          IconButton(
-            tooltip: tr('Bộ lọc'),
-            icon: const Icon(Icons.filter_list, color: Color(0xFF71717A)),
-            onPressed: _showFilterDialog,
-          ),
+          if (BranchFilterHelper.showBranchFilter(_branches))
+            IconButton(
+              tooltip: tr('Bộ lọc'),
+              icon: const Icon(Icons.filter_list, color: Color(0xFF71717A)),
+              onPressed: _showFilterDialog,
+            ),
           const SizedBox(width: 4),
         ],
       ),
@@ -1239,7 +1241,7 @@ class _MobileAttendanceApprovalScreenState
                     fontWeight: FontWeight.bold,
                     color: Color(0xFF18181B))),
             const SizedBox(height: 16),
-            if (_branches.isEmpty)
+            if (!BranchFilterHelper.showBranchFilter(_branches))
               Text(tr('Không có chi nhánh'))
             else ...[
               ListTile(

@@ -21,6 +21,7 @@ namespace ZKTecoADMS.Api.Controllers;
 public class StoreSetupController(
     ZKTecoDbContext dbContext,
     IRepository<Department> departmentRepository,
+    IRepository<Branch> branchRepository,
     IRepository<ShiftTemplate> shiftTemplateRepository,
     IRepository<Holiday> holidayRepository,
     IRepository<PenaltySetting> penaltySettingRepository,
@@ -60,6 +61,10 @@ public class StoreSetupController(
                 allowanceRepository,
                 permissionRepository,
                 rolePermissionRepository,
+                branchRepository,
+                store.Name,
+                store.Province,
+                store.Phone,
                 "StoreSetup",
                 ct);
 

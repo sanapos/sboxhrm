@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../widgets/hrm_page_chrome.dart';
+
 /// Nhóm hiển thị theo pháp luật VN.
 enum LeaveLegalCategory {
   employerPaid,
@@ -9,10 +11,10 @@ enum LeaveLegalCategory {
 
 /// Nguồn chi trả (khớp API `paymentSource`).
 enum LeavePaymentSource {
-  employerPaid(0, 'DN trả lương', Color(0xFF0D9488), Icons.account_balance_wallet_rounded),
-  unpaid(1, 'Không lương', Color(0xFFD97706), Icons.money_off_rounded),
-  socialInsurance(2, 'Trợ cấp BHXH', Color(0xFF2563EB), Icons.health_and_safety_rounded),
-  employerBhxh(3, 'DN + đối soát BHXH', Color(0xFFDB2777), Icons.family_restroom_rounded);
+  employerPaid(0, 'DN trả lương', HrmPageChrome.chip, Icons.account_balance_wallet_rounded),
+  unpaid(1, 'Không lương', HrmPageChrome.chipDark, Icons.money_off_rounded),
+  socialInsurance(2, 'Trợ cấp BHXH', HrmPageChrome.chipLight, Icons.health_and_safety_rounded),
+  employerBhxh(3, 'DN + đối soát BHXH', HrmPageChrome.chipMid, Icons.family_restroom_rounded);
 
   const LeavePaymentSource(this.value, this.label, this.color, this.icon);
   final int value;
@@ -103,9 +105,9 @@ class LeaveCatalog {
       };
 
   static Color categoryColor(LeaveLegalCategory c) => switch (c) {
-        LeaveLegalCategory.employerPaid => const Color(0xFF0D9488),
-        LeaveLegalCategory.unpaid => const Color(0xFFD97706),
-        LeaveLegalCategory.socialInsurance => const Color(0xFF2563EB),
+        LeaveLegalCategory.employerPaid => HrmPageChrome.chip,
+        LeaveLegalCategory.unpaid => HrmPageChrome.chipDark,
+        LeaveLegalCategory.socialInsurance => HrmPageChrome.chipLight,
       };
 
   static const List<LeaveCatalogEntry> all = [
@@ -117,7 +119,7 @@ class LeaveCatalog {
       subtitle: '100% lương HĐLĐ · trừ quỹ phép',
       legalHint: 'Theo lịch đã thỏa thuận hoặc quy định nội bộ.',
       icon: Icons.beach_access_rounded,
-      color: Color(0xFF0D9488),
+      color: HrmPageChrome.chip,
     ),
     LeaveCatalogEntry(
       leaveType: 1,
@@ -127,7 +129,7 @@ class LeaveCatalog {
       subtitle: 'Hưởng đủ lương ngày lễ',
       legalHint: 'Ngày lễ quốc gia theo Bộ luật Lao động.',
       icon: Icons.celebration_rounded,
-      color: Color(0xFFEA580C),
+      color: HrmPageChrome.chipMid,
     ),
     LeaveCatalogEntry(
       leaveType: 2,
@@ -137,7 +139,7 @@ class LeaveCatalog {
       subtitle: 'Tang, hôn nhân, con ốm…',
       legalHint: 'Theo BLLĐ và nội quy công ty.',
       icon: Icons.paid_rounded,
-      color: Color(0xFF2563EB),
+      color: HrmPageChrome.chipLight,
     ),
     LeaveCatalogEntry(
       leaveType: 6,
@@ -147,7 +149,7 @@ class LeaveCatalog {
       subtitle: 'Bù tăng ca / làm thêm',
       legalHint: 'Ghi nhận theo chính sách nghỉ bù của DN.',
       icon: Icons.swap_horiz_rounded,
-      color: Color(0xFF4F46E5),
+      color: HrmPageChrome.chipSoft,
     ),
     LeaveCatalogEntry(
       leaveType: 3,
@@ -157,7 +159,7 @@ class LeaveCatalog {
       subtitle: 'Không tính vào lương',
       legalHint: 'Cần thỏa thuận với quản lý.',
       icon: Icons.money_off_rounded,
-      color: Color(0xFFD97706),
+      color: HrmPageChrome.chipDark,
     ),
     LeaveCatalogEntry(
       leaveType: 7,
@@ -167,7 +169,7 @@ class LeaveCatalog {
       subtitle: 'Không lương / chế độ riêng',
       legalHint: 'Áp dụng theo nội quy hoặc thỏa thuận dài hạn.',
       icon: Icons.hourglass_full_rounded,
-      color: Color(0xFF78716C),
+      color: HrmPageChrome.chipMuted,
     ),
     LeaveCatalogEntry(
       leaveType: 4,
@@ -179,7 +181,7 @@ class LeaveCatalog {
       legalHint:
           'Cần giấy nghỉ hợp lệ. Không đồng thời nhận lương DN cho cùng ngày nghỉ.',
       icon: Icons.local_hospital_rounded,
-      color: Color(0xFFDC2626),
+      color: Color(0xFF003B80),
       requiresBhxhNote: true,
     ),
     LeaveCatalogEntry(
@@ -192,7 +194,7 @@ class LeaveCatalog {
       legalHint:
           'Chọn khi NV dùng phép năm thay vì chế độ ốm BHXH. Mỗi ngày chỉ một chế độ.',
       icon: Icons.beach_access_outlined,
-      color: Color(0xFF0891B2),
+      color: HrmPageChrome.chip,
     ),
     LeaveCatalogEntry(
       leaveType: 5,
@@ -203,7 +205,7 @@ class LeaveCatalog {
       legalHint:
           'DN đảm bảo thu nhập theo BLLĐ; đối soát trợ cấp thai sản từ BHXH.',
       icon: Icons.child_friendly_rounded,
-      color: Color(0xFFDB2777),
+      color: HrmPageChrome.chipLight,
       requiresBhxhNote: true,
     ),
   ];

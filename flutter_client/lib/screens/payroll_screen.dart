@@ -14,6 +14,7 @@ import 'package:provider/provider.dart';
 import '../providers/permission_provider.dart';
 import '../providers/auth_provider.dart';
 import '../utils/salary_profile_load_utils.dart';
+import '../utils/branch_filter_helper.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// Màn hình Tổng hợp lương
@@ -66,11 +67,13 @@ class _PayrollScreenState extends State<PayrollScreen> {
 
   List<Attendance> get _filteredAttendances {
     if (_selectedBranchId == null) return _attendances;
-    final branchCodes = _employeesList
-        .where((e) => e['branchId']?.toString() == _selectedBranchId)
-        .map((e) => e['employeeCode']?.toString() ?? '')
-        .where((c) => c.isNotEmpty)
-        .toSet();
+    final branchIds = BranchFilterHelper.expandBranchIds(
+      _selectedBranchId!,
+      _branches,
+    );
+    final branchCodes =
+        BranchFilterHelper.employeeCodesInBranches(_employeesList, branchIds);
+    if (branchCodes.isEmpty) return [];
     return _attendances
         .where((a) => branchCodes.contains(a.employeeId))
         .toList();
@@ -128,7 +131,7 @@ class _PayrollScreenState extends State<PayrollScreen> {
   }
 
   List<Widget> _payrollPageChromeSections(bool isMobile) {
-    if (_branches.isEmpty) return const [];
+    if (!BranchFilterHelper.showBranchFilter(_branches)) return const [];
     return [
       Padding(
         padding: EdgeInsets.fromLTRB(

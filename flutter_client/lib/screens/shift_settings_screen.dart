@@ -8,6 +8,7 @@ import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import '../services/api_service.dart';
 import '../utils/number_formatter.dart';
 import '../utils/responsive_helper.dart';
+import '../utils/branch_filter_helper.dart';
 import '../models/hrm.dart';
 import '../models/employee.dart';
 import '../widgets/app_button.dart';
@@ -49,14 +50,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
   static const _textMuted = Color(0xFF71717A);
 
   final List<Color> _badgeColors = [
-    HrmPageChrome.primaryNavy,
-    HrmPageChrome.primaryNavy,
-    const Color(0xFFF59E0B),
-    HrmPageChrome.primaryNavy,
-    const Color(0xFFEC4899),
-    const Color(0xFFEF4444),
-    const Color(0xFF2D5F8B),
-    HrmPageChrome.primaryNavy,
+    ...HrmPageChrome.chipShades,
   ];
 
   final List<String> _shiftTypes = ['Hành chính', 'Tăng ca', 'Qua đêm'];
@@ -137,7 +131,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
   Color _getShiftTypeColor(String type) {
     switch (type) {
       case 'Tăng ca':
-        return const Color(0xFFF59E0B);
+        return HrmPageChrome.chipLight;
       case 'Qua đêm':
         return HrmPageChrome.primaryNavy;
       default:
@@ -350,12 +344,12 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             const Icon(Icons.menu_book_outlined,
-                size: 16, color: Color(0xFFEA580C)),
+                size: 16, color: HrmPageChrome.chipMid),
             if (!compact) ...[
               const SizedBox(width: 6),
               Text(tr('Hướng dẫn'),
                   style: TextStyle(
-                      color: Color(0xFFEA580C),
+                      color: HrmPageChrome.chipMid,
                       fontWeight: FontWeight.w600,
                       fontSize: 13)),
             ],
@@ -613,7 +607,6 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
   Widget _buildTableRow(Shift shift, int index, bool isSelected) {
     final color = _badgeColors[index % _badgeColors.length];
     final shiftType = _getShiftType(shift);
-    final typeColor = _getShiftTypeColor(shiftType);
     final workHours = _calculateWorkHours(shift.startTime, shift.endTime);
 
     final tooltipMsg =
@@ -737,61 +730,24 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
               // Type
               Expanded(
                 flex: 2,
-                child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                      color: typeColor.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(6)),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(_getShiftTypeIcon(shiftType),
-                          size: 13, color: typeColor),
-                      const SizedBox(width: 4),
-                      Flexible(
-                          child: Text(tr(shiftType),
-                              style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600,
-                                  color: typeColor),
-                              overflow: TextOverflow.ellipsis)),
-                    ],
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: HrmBrandChip(
+                    label: shiftType,
+                    icon: _getShiftTypeIcon(shiftType),
                   ),
                 ),
               ),
               // Status
               Expanded(
                 flex: 2,
-                child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: shift.isActive
-                        ? HrmPageChrome.primaryNavy.withValues(alpha: 0.1)
-                        : Colors.grey.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                          shift.isActive
-                              ? Icons.check_circle
-                              : Icons.pause_circle,
-                          size: 13,
-                          color: shift.isActive
-                              ? HrmPageChrome.primaryNavy
-                              : Colors.grey),
-                      const SizedBox(width: 4),
-                      Text(tr(shift.isActive ? 'Kích hoạt' : 'Tạm dừng'),
-                          style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                              color: shift.isActive
-                                  ? HrmPageChrome.primaryNavy
-                                  : Colors.grey)),
-                    ],
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: HrmBrandChip(
+                    label: shift.isActive ? 'Kích hoạt' : 'Tạm dừng',
+                    icon: shift.isActive
+                        ? Icons.check_circle
+                        : Icons.pause_circle,
                   ),
                 ),
               ),
@@ -1343,8 +1299,8 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                       label: Text(tr('Lương ca'),
                           style: TextStyle(fontSize: 13)),
                       style: OutlinedButton.styleFrom(
-                        foregroundColor: const Color(0xFFF59E0B),
-                        side: const BorderSide(color: Color(0xFFF59E0B)),
+                        foregroundColor: HrmPageChrome.chipLight,
+                        side: const BorderSide(color: HrmPageChrome.chipLight),
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(8)),
@@ -1457,7 +1413,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
             Icons.more_time,
             '${_shifts.where((s) => _getShiftType(s) == 'Tăng ca').length}',
             'Tăng ca',
-            const Color(0xFFF59E0B)),
+            HrmPageChrome.chipLight),
         _buildStatCard(
             Icons.nightlight_round,
             '${_shifts.where((s) => _getShiftType(s) == 'Qua đêm').length}',
@@ -1519,7 +1475,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Row(
           children: [
-            Icon(Icons.menu_book, color: Color(0xFFEA580C)),
+            Icon(Icons.menu_book, color: HrmPageChrome.chipMid),
             SizedBox(width: 8),
             Expanded(
               child: Text(tr('Hướng dẫn thiết lập ca & chấm công'),
@@ -1552,7 +1508,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                 _buildGuideSection(
                   '2. Ý nghĩa các thông số chấm công',
                   Icons.tune,
-                  const Color(0xFF0EA5E9),
+                  HrmPageChrome.chipLight,
                   [
                     'Cho phép chấm sớm: cửa sổ ghép ca. Chấm sớm hơn ngưỡng này → không khớp ca.',
                     'Cho phép chấm trễ / về sớm: giới hạn tối đa vẫn còn thuộc ca.',
@@ -1566,7 +1522,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                 _buildGuideSection(
                   '3. Ví dụ cấu hình (ca 07:00–11:00)',
                   Icons.lightbulb_outline,
-                  const Color(0xFFF59E0B),
+                  HrmPageChrome.chipLight,
                   [
                     'Cho phép chấm sớm = 60 phút → nhận chấm từ 06:00.',
                     'Tăng ca trước ca = 30 phút → vào 06:15 tính OT 45p; vào 06:31 không tính OT.',
@@ -1585,7 +1541,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                 _buildGuideSection(
                   '4. Cách chấm công cho nhân viên (ca hành chính)',
                   Icons.fingerprint,
-                  const Color(0xFF059669),
+                  HrmPageChrome.chip,
                   [
                     'Ca bình thường: Vào đầu ca → Ra cuối ca (1 cặp Vào/Ra).',
                     'Làm OT sau ca (khuyến nghị): Không chấm Ra lúc hết ca — chỉ Ra khi xong OT.',
@@ -1605,7 +1561,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                 _buildGuideSection(
                   '5. Khi muốn chấm Ra đúng giờ tan ca rồi làm OT tiếp',
                   Icons.more_time,
-                  const Color(0xFFEA580C),
+                  HrmPageChrome.chipMid,
                   [
                     'Tạo thêm ca loại «Tăng ca» (VD 11:30–13:00) và gán cho nhân viên.',
                     'Nhân viên: Vào/Ra ca hành chính → rồi Vào/Ra ca tăng ca riêng.',
@@ -1628,7 +1584,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                 _buildGuideSection(
                   '7. Checklist nhanh cho quản lý',
                   Icons.checklist,
-                  const Color(0xFF7C3AED),
+                  HrmPageChrome.chipMid,
                   [
                     'Đã tạo đủ ca HC (và ca Tăng ca nếu cần OT tách riêng).',
                     'Đã gán ca cho nhân viên / lịch làm việc.',
@@ -2173,7 +2129,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                                 Row(
                                   children: [
                                     const Icon(Icons.free_breakfast,
-                                        color: Color(0xFFEA580C), size: 20),
+                                        color: HrmPageChrome.chipMid, size: 20),
                                     const SizedBox(width: 8),
                                     Expanded(
                                       child: Text(
@@ -2200,7 +2156,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                                         color: Color(0xFF64748B)),
                                   ),
                                   value: hasLunchBreak,
-                                  activeThumbColor: const Color(0xFFEA580C),
+                                  activeThumbColor: HrmPageChrome.chipMid,
                                   onChanged: (v) {
                                     setDialogState(() {
                                       hasLunchBreak = v;
@@ -2683,7 +2639,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Icon(Icons.warning_amber_rounded,
-                    color: Color(0xFFEA580C), size: 18),
+                    color: HrmPageChrome.chipMid, size: 18),
                 SizedBox(width: 8),
                 Expanded(
                   child: Text(tr('Cần tăng Cho phép chấm sớm'),
@@ -2713,7 +2669,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
               child: TextButton(
                 onPressed: onApplySuggested,
                 style: TextButton.styleFrom(
-                  foregroundColor: const Color(0xFFEA580C),
+                  foregroundColor: HrmPageChrome.chipMid,
                   padding:
                       const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   minimumSize: Size.zero,
@@ -2840,7 +2796,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
             icon: const Icon(Icons.add, size: 16),
             label: Text(tr('Thêm mức lương'), style: TextStyle(fontSize: 13)),
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFF59E0B),
+              backgroundColor: HrmPageChrome.chipLight,
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
               shape: RoundedRectangleBorder(
@@ -3086,7 +3042,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                     child: Row(
                       children: [
                         const Icon(Icons.payments,
-                            color: Color(0xFFF59E0B), size: 22),
+                            color: HrmPageChrome.chipLight, size: 22),
                         const SizedBox(width: 10),
                         Expanded(
                           child: Column(
@@ -3302,7 +3258,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                 const SizedBox(height: 4),
                 Text(tr('Bỏ trống = áp dụng cho tất cả nhân viên'),
                     style: TextStyle(fontSize: 12, color: Colors.grey[400])),
-                if (_branches.isNotEmpty) ...[
+                if (BranchFilterHelper.showBranchFilter(_branches)) ...[
                   const SizedBox(height: 8),
                   Container(
                     height: 38,
@@ -3594,7 +3550,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                             icon: saveIcon,
                             label: saveLabel,
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFFF59E0B),
+                              backgroundColor: HrmPageChrome.chipLight,
                               foregroundColor: Colors.white,
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 24, vertical: 12),
@@ -3628,7 +3584,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                     child: Row(
                       children: [
                         Icon(isEditing ? Icons.edit : Icons.add_circle,
-                            color: const Color(0xFFF59E0B), size: 22),
+                            color: HrmPageChrome.chipLight, size: 22),
                         const SizedBox(width: 10),
                         Text(tr(isEditing ? 'Sửa mức lương' : 'Thêm mức lương'),
                             style: const TextStyle(
@@ -3669,7 +3625,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                           icon: saveIcon,
                           label: saveLabel,
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFFF59E0B),
+                            backgroundColor: HrmPageChrome.chipLight,
                             foregroundColor: Colors.white,
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 24, vertical: 12),

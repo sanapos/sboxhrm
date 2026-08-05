@@ -1575,7 +1575,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           floatingActionButton: caps.showAiFab
               ? FloatingActionButton.extended(
                   onPressed: () => showAiAssistant(context),
-                  backgroundColor: const Color(0xFF8B5CF6),
+                  backgroundColor: HrmPageChrome.chipSoft,
                   foregroundColor: Colors.white,
                   icon: const Icon(Icons.auto_awesome_rounded),
                   label: Text(tr('Trợ lý AI')),
@@ -1599,7 +1599,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.info_outline, color: Color(0xFF0284C7)),
+          const Icon(Icons.info_outline, color: HrmPageChrome.chip),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -1729,7 +1729,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return (
       greeting: _l10n.goodEvening,
       icon: Icons.nightlight_round,
-      accent: const Color(0xFFA78BFA),
+      accent: HrmPageChrome.chipMuted,
     );
   }
 
@@ -1907,7 +1907,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             Icons.cake_outlined,
             'Sinh nhật',
             '${_todayBirthdays.length}',
-            const Color(0xFFEC4899),
+            HrmPageChrome.chipLight,
             'birthday_detail'));
         break;
       case 'docs_detail':
@@ -1915,7 +1915,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             Icons.assignment_late_outlined,
             'HĐ hết hạn',
             '${_expiringDocs.length + _expiredContracts.length}',
-            const Color(0xFFEA580C),
+            HrmPageChrome.chipMid,
             'docs_detail'));
         break;
       case 'pending_all':
@@ -2010,9 +2010,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final actions = <_QuickAction>[
       if (caps.quickLeave)
         _QuickAction(Icons.beach_access_rounded, 'Xin nghỉ',
-            const Color(0xFFF59E0B), () => NavigationNotifier.goToLeaves()),
+            PosTheme.kiotBlue, () => NavigationNotifier.goToLeaves()),
       if (caps.quickShiftSwap)
-        _QuickAction(Icons.swap_horiz_rounded, 'Đổi ca', const Color(0xFF8B5CF6),
+        _QuickAction(Icons.swap_horiz_rounded, 'Đổi ca', PosTheme.kiotBlue,
             () {
           final perm =
               Provider.of<PermissionProvider>(context, listen: false);
@@ -2025,7 +2025,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         }),
       if (caps.quickPayroll)
         _QuickAction(Icons.payments_rounded, 'Phiếu lương',
-            const Color(0xFF06B6D4), () {
+            PosTheme.kiotBlue, () {
           final perm =
               Provider.of<PermissionProvider>(context, listen: false);
           NavigationNotifier.goToPayModule(
@@ -2036,11 +2036,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
         _QuickAction(
             Icons.campaign_rounded,
             'Truyền thông',
-            const Color(0xFFEC4899),
+            PosTheme.kiotBlue,
             () => NavigationNotifier.goToCommunication()),
       if (caps.quickAi)
         _QuickAction(Icons.auto_awesome_rounded, 'Trợ lý AI',
-            const Color(0xFF6366F1), () => showAiAssistant(context)),
+            PosTheme.kiotBlue, () => showAiAssistant(context)),
     ];
 
     if (actions.isEmpty) return const SizedBox.shrink();
@@ -2579,10 +2579,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
     const palette = [
       Color(0xFF22C55E),
       Color(0xFF3B82F6),
-      Color(0xFF8B5CF6),
-      Color(0xFFF59E0B),
-      Color(0xFF10B981),
-      Color(0xFFEC4899),
+      HrmPageChrome.chipSoft,
+      HrmPageChrome.chipLight,
+      HrmPageChrome.chipMid,
+      HrmPageChrome.chipLight,
     ];
 
     Widget chip(IconData icon, String label, int count, Color color,
@@ -2806,7 +2806,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             Icons.beach_access_outlined,
             'Nghỉ phép',
             '${_absentWithPermission.length}',
-            const Color(0xFFF59E0B),
+            HrmPageChrome.chipLight,
             'leave_today'),
       if (caps.insightPending)
         _InsightChipData(Icons.pending_actions_outlined, 'Chờ duyệt',
@@ -2816,17 +2816,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
             Icons.cake_outlined,
             'Sinh nhật',
             '${_todayBirthdays.length}',
-            const Color(0xFFEC4899),
+            HrmPageChrome.chipLight,
             'birthday_detail'),
       if (caps.insightOvertime)
         _InsightChipData(Icons.av_timer_outlined, 'OT chờ duyệt', '$otCount',
-            const Color(0xFF8B5CF6), 'overtime_detail'),
+            HrmPageChrome.chipSoft, 'overtime_detail'),
       if (caps.insightTask)
         _InsightChipData(
             Icons.task_alt_outlined,
             'Công việc',
             taskTotal > 0 ? '$taskDone/$taskTotal' : '0',
-            const Color(0xFF2D5F8B),
+            HrmPageChrome.chip,
             'task_detail'),
       if (caps.insightPenalty)
         _InsightChipData(Icons.gavel_outlined, 'Vi phạm', '$penaltyCount',
@@ -2836,14 +2836,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
             Icons.assignment_late_outlined,
             'HĐ hết hạn',
             '${_expiringDocs.length + _expiredContracts.length}',
-            const Color(0xFFEA580C),
+            HrmPageChrome.chipMid,
             'docs_detail'),
       if (caps.insightAdvance)
         _InsightChipData(
             Icons.account_balance_wallet_outlined,
             'Ứng lương',
             '${_pendingAdvances.length}',
-            const Color(0xFF10B981),
+            HrmPageChrome.chipMid,
             'advance_detail'),
       if (caps.insightNewHires)
         _InsightChipData(
@@ -3963,7 +3963,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         // ── Đơn nghỉ phép ──
         if (leaves.isNotEmpty) ...[
           sectionHeader(
-              'Đơn nghỉ phép', leaves.length, const Color(0xFFF59E0B)),
+              'Đơn nghỉ phép', leaves.length, HrmPageChrome.chipLight),
           ...leaves.map((item) {
             final name =
                 (item['employeeName'] ?? item['fullName'] ?? '').toString();
@@ -3998,7 +3998,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               item: item,
               typeKey: 'leave',
               typeLabel: 'Nghỉ phép',
-              color: const Color(0xFFF59E0B),
+              color: HrmPageChrome.chipLight,
               title: name.isEmpty ? 'N/A' : name,
               subtitle: subtitle,
               dateStr: fmtDateRange(item['startDate'], item['endDate']),
@@ -4011,7 +4011,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         // ── Chỉnh sửa CC ──
         if (corrections.isNotEmpty) ...[
           sectionHeader('Chỉnh sửa chấm công', corrections.length,
-              const Color(0xFF6366F1)),
+              HrmPageChrome.chipMid),
           ...corrections.map((item) {
             final name =
                 (item['employeeName'] ?? item['fullName'] ?? '').toString();
@@ -4024,7 +4024,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               item: item,
               typeKey: 'correction',
               typeLabel: 'Chỉnh CC',
-              color: const Color(0xFF6366F1),
+              color: HrmPageChrome.chipMid,
               title: name.isEmpty ? 'N/A' : name,
               subtitle:
                   [action, newTime].where((s) => s.isNotEmpty).join(' → '),
@@ -4035,7 +4035,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ],
         // ── Đổi ca ──
         if (swaps.isNotEmpty) ...[
-          sectionHeader('Đổi ca', swaps.length, const Color(0xFF8B5CF6)),
+          sectionHeader('Đổi ca', swaps.length, HrmPageChrome.chipSoft),
           ...swaps.map((item) {
             final requester =
                 (item['requesterName'] ?? item['employeeName'] ?? '')
@@ -4053,7 +4053,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               item: item,
               typeKey: 'swap',
               typeLabel: 'Đổi ca',
-              color: const Color(0xFF8B5CF6),
+              color: HrmPageChrome.chipSoft,
               title: requester.isEmpty ? 'N/A' : requester,
               subtitle: target.isNotEmpty ? 'Đổi với: $target' : '',
               dateStr: shiftFrom.isNotEmpty || shiftTo.isNotEmpty
@@ -4067,7 +4067,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ],
         // ── Ứng lương ──
         if (advances.isNotEmpty) ...[
-          sectionHeader('Ứng lương', advances.length, const Color(0xFF0EA5E9)),
+          sectionHeader('Ứng lương', advances.length, HrmPageChrome.chipLight),
           ...advances.map((item) {
             final name =
                 (item['employeeName'] ?? item['fullName'] ?? '').toString();
@@ -4079,7 +4079,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               item: item,
               typeKey: 'advance',
               typeLabel: 'Ứng lương',
-              color: const Color(0xFF0EA5E9),
+              color: HrmPageChrome.chipLight,
               title: name.isEmpty ? 'N/A' : name,
               subtitle: [dept, '${_fmtMoney(amt.toDouble())}đ']
                   .where((s) => s.isNotEmpty)
@@ -4174,29 +4174,29 @@ class _DashboardScreenState extends State<DashboardScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               margin: const EdgeInsets.only(bottom: 12),
               decoration: BoxDecoration(
-                color: const Color(0xFF10B981).withValues(alpha: .08),
+                color: HrmPageChrome.chipMid.withValues(alpha: .08),
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(
-                    color: const Color(0xFF10B981).withValues(alpha: .2)),
+                    color: HrmPageChrome.chipMid.withValues(alpha: .2)),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Row(children: [
                     const Icon(Icons.account_balance_wallet_outlined,
-                        size: 16, color: Color(0xFF10B981)),
+                        size: 16, color: HrmPageChrome.chipMid),
                     const SizedBox(width: 6),
                     Text(tr('${advances.length} phiếu chờ duyệt'),
                         style: const TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w600,
-                            color: Color(0xFF10B981))),
+                            color: HrmPageChrome.chipMid)),
                   ]),
                   Text(tr('${_fmtMoney(totalAmount)}đ'),
                       style: const TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.bold,
-                          color: Color(0xFF059669))),
+                          color: HrmPageChrome.chip)),
                 ],
               ),
             ),
@@ -4306,7 +4306,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(
-                        color: const Color(0xFF10B981).withValues(alpha: .2)),
+                        color: HrmPageChrome.chipMid.withValues(alpha: .2)),
                   ),
                   child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -4319,7 +4319,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 7, vertical: 2),
                               decoration: BoxDecoration(
-                                color: const Color(0xFF10B981)
+                                color: HrmPageChrome.chipMid
                                     .withValues(alpha: .12),
                                 borderRadius: BorderRadius.circular(5),
                               ),
@@ -4327,7 +4327,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                   style: TextStyle(
                                       fontSize: 10,
                                       fontWeight: FontWeight.w700,
-                                      color: Color(0xFF10B981))),
+                                      color: HrmPageChrome.chipMid)),
                             ),
                             const SizedBox(width: 8),
                             Expanded(
@@ -4342,7 +4342,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 8, vertical: 3),
                               decoration: BoxDecoration(
-                                color: const Color(0xFF059669)
+                                color: HrmPageChrome.chip
                                     .withValues(alpha: .1),
                                 borderRadius: BorderRadius.circular(7),
                               ),
@@ -4350,7 +4350,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                   style: const TextStyle(
                                       fontSize: 11,
                                       fontWeight: FontWeight.bold,
-                                      color: Color(0xFF059669))),
+                                      color: HrmPageChrome.chip)),
                             ),
                           ]),
                         ),
@@ -4607,7 +4607,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           color: Colors.white,
           borderRadius: BorderRadius.circular(10),
           border:
-              Border.all(color: const Color(0xFFF59E0B).withValues(alpha: .2)),
+              Border.all(color: HrmPageChrome.chipLight.withValues(alpha: .2)),
         ),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
@@ -4619,7 +4619,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ? fullName.characters.first.toUpperCase()
                     : '?'),
                 style: const TextStyle(
-                    color: Color(0xFFD97706),
+                    color: HrmPageChrome.chipDark,
                     fontWeight: FontWeight.bold,
                     fontSize: 13),
               ),
@@ -4643,14 +4643,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF59E0B).withValues(alpha: .12),
+                  color: HrmPageChrome.chipLight.withValues(alpha: .12),
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(tr(daysStr),
                     style: const TextStyle(
                         fontSize: 10,
                         fontWeight: FontWeight.w600,
-                        color: Color(0xFFD97706))),
+                        color: HrmPageChrome.chipDark)),
               ),
           ]),
           if (dateRange.isNotEmpty) ...[
@@ -4693,14 +4693,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF59E0B).withValues(alpha: .12),
+                  color: HrmPageChrome.chipLight.withValues(alpha: .12),
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(tr('${entry.value.length}'),
                     style: const TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
-                        color: Color(0xFFD97706))),
+                        color: HrmPageChrome.chipDark)),
               ),
               const SizedBox(width: 8),
               Text(tr(entry.key),
@@ -4730,7 +4730,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       final dept = (d['department'] ?? '').toString();
       final days = (d['daysUntilExpiry'] as num?)?.toInt() ?? 0;
       final accent =
-          isExpired ? const Color(0xFFEF4444) : const Color(0xFFF59E0B);
+          isExpired ? const Color(0xFFEF4444) : HrmPageChrome.chipLight;
       final badge = isExpired
           ? '${(-days)} ngày trước'
           : (days == 0 ? 'Hôm nay' : '$days ngày');
@@ -4834,7 +4834,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       children: [
         if (expiring.isNotEmpty) ...[
           sectionHeader('Cần gia hạn (trong 30 ngày)', expiring.length,
-              const Color(0xFFF59E0B)),
+              HrmPageChrome.chipLight),
           ...expiring.map((d) => Padding(
                 padding: const EdgeInsets.only(bottom: 6),
                 child: contractRow(d),
@@ -4882,7 +4882,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     upcoming.sort((a, b) =>
         (a['_birthdayDay'] as int).compareTo(b['_birthdayDay'] as int));
 
-    const pink = Color(0xFFEC4899);
+    const pink = HrmPageChrome.chipLight;
     const green = Color(0xFF22C55E);
     const grey = Color(0xFF94A3B8);
 
@@ -5041,10 +5041,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final completed = _toInt(_overtimeStats['completedCount'] ?? 0);
     return Column(children: [
       _detailStatRow(Icons.receipt_long_outlined, 'Tổng đơn OT', '$total',
-          const Color(0xFF8B5CF6)),
+          HrmPageChrome.chipSoft),
       const SizedBox(height: 8),
       _detailStatRow(Icons.timer_outlined, 'Tổng giờ OT',
-          '${hours.toStringAsFixed(1)} giờ', const Color(0xFF8B5CF6)),
+          '${hours.toStringAsFixed(1)} giờ', HrmPageChrome.chipSoft),
       const SizedBox(height: 8),
       _detailStatRow(Icons.check_circle_outline, 'Đã duyệt', '$approved',
           const Color(0xFF22C55E)),
@@ -5053,7 +5053,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           Icons.task_alt, 'Hoàn thành', '$completed', HrmPageChrome.primaryNavy),
       const SizedBox(height: 8),
       _detailStatRow(Icons.pending_outlined, 'Chờ duyệt', '$pending',
-          const Color(0xFFF59E0B)),
+          HrmPageChrome.chipLight),
     ]);
   }
 
@@ -5104,7 +5104,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     return Column(children: [
       tappableRow(Icons.checklist, 'Tổng công việc', '$total',
-          const Color(0xFF2D5F8B)),
+          HrmPageChrome.chip),
       const SizedBox(height: 8),
       tappableRow(Icons.radio_button_unchecked, 'Chờ làm', '$todo',
           const Color(0xFF71717A),
@@ -5112,11 +5112,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
       if (assigned > 0) ...[
         const SizedBox(height: 8),
         tappableRow(Icons.assignment_late_outlined, 'Chờ xác nhận', '$assigned',
-            const Color(0xFFF59E0B),
+            HrmPageChrome.chipLight,
             statusIndex: WorkTaskStatus.assigned.index),
       ],
       const SizedBox(height: 8),
-      tappableRow(Icons.autorenew, 'Đang làm', '$inProg', const Color(0xFFF59E0B),
+      tappableRow(Icons.autorenew, 'Đang làm', '$inProg', HrmPageChrome.chipLight,
           statusIndex: WorkTaskStatus.inProgress.index),
       const SizedBox(height: 8),
       tappableRow(Icons.check_circle, 'Hoàn thành', '$done',
@@ -5136,7 +5136,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           valueColor: AlwaysStoppedAnimation(rate >= 80
               ? const Color(0xFF22C55E)
               : rate >= 50
-                  ? const Color(0xFFF59E0B)
+                  ? HrmPageChrome.chipLight
                   : const Color(0xFFEF4444)),
         ),
       ),
@@ -5201,7 +5201,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           HrmPageChrome.primaryNavy, '3'),
       const SizedBox(height: 8),
       tappableRow(Icons.pending_outlined, 'Chờ xử lý', '$pending',
-          const Color(0xFFF59E0B), '0'),
+          HrmPageChrome.chipLight, '0'),
       const SizedBox(height: 8),
       tappableRow(Icons.cancel_outlined, 'Đã hủy', '$cancelled',
           const Color(0xFF71717A), '2'),
@@ -5240,7 +5240,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           net >= 0 ? const Color(0xFF16A34A) : const Color(0xFFDC2626)),
       const SizedBox(height: 8),
       _detailStatRow(
-          Icons.receipt, 'Số giao dịch', '$txCount', const Color(0xFF2D5F8B)),
+          Icons.receipt, 'Số giao dịch', '$txCount', HrmPageChrome.chip),
     ]);
   }
 
@@ -5475,10 +5475,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
     const palette = [
       Color(0xFF22C55E),
       Color(0xFF3B82F6),
-      Color(0xFF8B5CF6),
-      Color(0xFFF59E0B),
-      Color(0xFF10B981),
-      Color(0xFFEC4899),
+      HrmPageChrome.chipSoft,
+      HrmPageChrome.chipLight,
+      HrmPageChrome.chipMid,
+      HrmPageChrome.chipLight,
     ];
 
     final double total = _totalEmployees > 0 ? _totalEmployees.toDouble() : 1.0;
@@ -5488,7 +5488,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final Color mainColor = rate >= 85
         ? const Color(0xFF22C55E)
         : rate >= 70
-            ? const Color(0xFFF59E0B)
+            ? HrmPageChrome.chipLight
             : const Color(0xFFEF4444);
 
     // Build sections with touch-aware radius
@@ -5679,11 +5679,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
       _HeroKpi(_presentShiftLabel, '$_presentCount', Icons.how_to_reg_rounded,
           const Color(0xFF22C55E), 'present'),
       _HeroKpi('Đi trễ / Về sớm', '$_lateCount', Icons.schedule_rounded,
-          const Color(0xFFF59E0B), 'late'),
+          HrmPageChrome.chipLight, 'late'),
       _HeroKpi('Vắng', '$_absentCount', Icons.person_off_rounded,
           const Color(0xFFEF4444), 'absent'),
       _HeroKpi('Vào / Ra', '$_checkIns / $_checkOuts', Icons.swap_horiz_rounded,
-          const Color(0xFF2D5F8B), 'inout'),
+          HrmPageChrome.chip, 'inout'),
       _HeroKpi('Thiết bị', '$_onlineDevices/$_totalDevices',
           Icons.router_rounded, HrmPageChrome.primaryNavy, 'devices'),
     ];
@@ -6130,7 +6130,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       ),
                       // Legend
                       Row(mainAxisSize: MainAxisSize.min, children: [
-                        _totalLegendDot(const Color(0xFFF59E0B), 'Lịch'),
+                        _totalLegendDot(HrmPageChrome.chipLight, 'Lịch'),
                         const SizedBox(width: 8),
                         _totalLegendDot(const Color(0xFF22C55E), 'Đã vào'),
                       ]),
@@ -6921,7 +6921,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                       padding: const EdgeInsets.symmetric(
                                           horizontal: 10, vertical: 4),
                                       decoration: BoxDecoration(
-                                        color: const Color(0xFF2D5F8B)
+                                        color: HrmPageChrome.chip
                                             .withValues(alpha: 0.10),
                                         borderRadius: BorderRadius.circular(20),
                                       ),
@@ -6930,13 +6930,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                           children: [
                                             const Icon(Icons.work_outline,
                                                 size: 13,
-                                                color: Color(0xFF2D5F8B)),
+                                                color: HrmPageChrome.chip),
                                             const SizedBox(width: 4),
                                             Text(tr(shiftName),
                                                 style: const TextStyle(
                                                     fontSize: 12,
                                                     fontWeight: FontWeight.bold,
-                                                    color: Color(0xFF2D5F8B))),
+                                                    color: HrmPageChrome.chip)),
                                           ]),
                                     ),
                                     const SizedBox(width: 8),
@@ -6945,7 +6945,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                     if (lateInShift > 0) ...[
                                       const SizedBox(width: 6),
                                       _lateBadge('⏰ $lateInShift trễ',
-                                          const Color(0xFFF59E0B)),
+                                          HrmPageChrome.chipLight),
                                     ],
                                     if (earlyInShift > 0) ...[
                                       const SizedBox(width: 4),
@@ -6959,7 +6959,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                     final hasIssue = emp.lateMinutes > 0 ||
                                         emp.earlyMinutes > 0;
                                     final borderColor = hasIssue
-                                        ? const Color(0xFFF59E0B)
+                                        ? HrmPageChrome.chipLight
                                             .withValues(alpha: 0.40)
                                         : const Color(0xFF22C55E)
                                             .withValues(alpha: 0.25);
@@ -6967,7 +6967,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                         ? const Color(0xFFFFFBEB)
                                         : const Color(0xFFF0FDF4);
                                     final avatarColor = hasIssue
-                                        ? const Color(0xFFF59E0B)
+                                        ? HrmPageChrome.chipLight
                                         : const Color(0xFF22C55E);
 
                                     return Container(
@@ -7197,11 +7197,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
                           color:
-                              const Color(0xFFF59E0B).withValues(alpha: 0.14),
+                              HrmPageChrome.chipLight.withValues(alpha: 0.14),
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: const Icon(Icons.schedule_rounded,
-                            color: Color(0xFFD97706), size: 20),
+                            color: HrmPageChrome.chipDark, size: 20),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
@@ -7231,7 +7231,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
                   child: Row(children: [
                     _inOutChip('⏰ Đi trễ: $totalLateCount ca', totalLateCount,
-                        const Color(0xFFF59E0B)),
+                        HrmPageChrome.chipLight),
                     const SizedBox(width: 8),
                     _inOutChip('🚪 Về sớm: $totalEarlyCount ca',
                         totalEarlyCount, const Color(0xFFEF4444)),
@@ -7279,7 +7279,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(12),
                                 side: BorderSide(
-                                    color: const Color(0xFFF59E0B)
+                                    color: HrmPageChrome.chipLight
                                         .withValues(alpha: 0.35)),
                               ),
                               color: const Color(0xFFFFFBEB),
@@ -7293,14 +7293,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                       left: 12, right: 12, bottom: 10),
                                   leading: CircleAvatar(
                                     radius: 20,
-                                    backgroundColor: const Color(0xFFF59E0B)
+                                    backgroundColor: HrmPageChrome.chipLight
                                         .withValues(alpha: 0.18),
                                     child: Text(
                                       tr(g.name.isNotEmpty
                                           ? g.name[0].toUpperCase()
                                           : '?'),
                                       style: const TextStyle(
-                                          color: Color(0xFFD97706),
+                                          color: HrmPageChrome.chipDark,
                                           fontWeight: FontWeight.bold,
                                           fontSize: 14),
                                     ),
@@ -7320,7 +7320,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                     if (totLate > 0) ...[
                                       const SizedBox(width: 6),
                                       _lateBadge('⏰ ${fmtMin(totLate)}',
-                                          const Color(0xFFF59E0B)),
+                                          HrmPageChrome.chipLight),
                                     ],
                                     if (totEarly > 0) ...[
                                       const SizedBox(width: 4),
@@ -7371,17 +7371,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
         color: const Color(0xFFFFFBEB),
         borderRadius: BorderRadius.circular(12),
         border:
-            Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.35)),
+            Border.all(color: HrmPageChrome.chipLight.withValues(alpha: 0.35)),
       ),
       child: Row(
         children: [
           CircleAvatar(
             radius: 20,
-            backgroundColor: const Color(0xFFF59E0B).withValues(alpha: 0.18),
+            backgroundColor: HrmPageChrome.chipLight.withValues(alpha: 0.18),
             child: Text(
               tr(name.isNotEmpty ? name[0].toUpperCase() : '?'),
               style: const TextStyle(
-                  color: Color(0xFFD97706),
+                  color: HrmPageChrome.chipDark,
                   fontWeight: FontWeight.bold,
                   fontSize: 14),
             ),
@@ -7448,7 +7448,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   fontWeight: FontWeight.w600)),
         ]),
         if (lateMin > 0)
-          _lateBadge('⏰ Trễ ${fmtMin(lateMin)}', const Color(0xFFF59E0B)),
+          _lateBadge('⏰ Trễ ${fmtMin(lateMin)}', HrmPageChrome.chipLight),
         if (earlyMin > 0)
           _lateBadge('🚪 Sớm ${fmtMin(earlyMin)}', const Color(0xFFEF4444)),
       ],
@@ -7562,11 +7562,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
                           color:
-                              const Color(0xFF2D5F8B).withValues(alpha: 0.12),
+                              HrmPageChrome.chip.withValues(alpha: 0.12),
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: const Icon(Icons.swap_horiz_rounded,
-                            color: Color(0xFF2D5F8B), size: 20),
+                            color: HrmPageChrome.chip, size: 20),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
@@ -7600,7 +7600,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         '✅ Đủ cặp', completeCount, const Color(0xFF22C55E)),
                     const SizedBox(width: 8),
                     _inOutChip(
-                        '⚠️ Thiếu ra', missingCount, const Color(0xFFF59E0B)),
+                        '⚠️ Thiếu ra', missingCount, HrmPageChrome.chipLight),
                   ]),
                 ),
                 const Divider(height: 1),
@@ -7619,7 +7619,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           itemBuilder: (_, i) {
                             final r = rows[i];
                             final color = r.missing
-                                ? const Color(0xFFF59E0B)
+                                ? HrmPageChrome.chipLight
                                 : const Color(0xFF22C55E);
                             return Container(
                               padding: const EdgeInsets.symmetric(
@@ -7693,13 +7693,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                     else
                                       Row(children: [
                                         Icon(Icons.warning_amber_rounded,
-                                            size: 13, color: Color(0xFFF59E0B)),
+                                            size: 13, color: HrmPageChrome.chipLight),
                                         SizedBox(width: 3),
                                         Text(tr('Chưa ra'),
                                             style: TextStyle(
                                                 fontSize: 12,
                                                 fontWeight: FontWeight.w600,
-                                                color: Color(0xFFF59E0B))),
+                                                color: HrmPageChrome.chipLight)),
                                       ]),
                                   ],
                                 ),
@@ -8230,7 +8230,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final isLate = p.lateMinutes > 0;
     final isEarly = p.earlyMinutes > 0;
     final color =
-        (isLate || isEarly) ? const Color(0xFFF59E0B) : const Color(0xFF22C55E);
+        (isLate || isEarly) ? HrmPageChrome.chipLight : const Color(0xFF22C55E);
     final statusParts = <String>[];
     if (isLate) statusParts.add('Trễ ${p.lateMinutes}p');
     if (isEarly) statusParts.add('Sớm ${p.earlyMinutes}p');
@@ -8301,7 +8301,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 a.attendanceState == 2 ||
                 a.attendanceState == 4));
     final color = isTravel
-        ? const Color(0xFF0EA5E9)
+        ? HrmPageChrome.chipLight
         : (checkIn == true
             ? const Color(0xFF22C55E)
             : const Color(0xFFEF4444));
@@ -8386,7 +8386,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         status.contains('muộn') || status.contains('trễ') || status == 'late';
     final isEarlyLeave = status.contains('sớm') || status.contains('early');
     final statusColor = (isLate || isEarlyLeave)
-        ? const Color(0xFFF59E0B)
+        ? HrmPageChrome.chipLight
         : HrmPageChrome.primaryNavy;
     final statusText = isLate && isEarlyLeave
         ? '${_l10n.late} + Về sớm'
@@ -8458,7 +8458,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       badge: '${withPerm.length + withoutPerm.length} người',
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         _sectionLabel('${_l10n.authorized} (${withPerm.length})',
-            const Color(0xFFF59E0B)),
+            HrmPageChrome.chipLight),
         if (withPerm.isEmpty)
           _emptyRow('Không có')
         else
@@ -8502,7 +8502,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Widget _absentRow(String name, String detail, bool hasPermission) {
     final color =
-        hasPermission ? const Color(0xFFF59E0B) : const Color(0xFFEF4444);
+        hasPermission ? HrmPageChrome.chipLight : const Color(0xFFEF4444);
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 3),
       child: Row(children: [
@@ -8529,7 +8529,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       return _DashCard(
         icon: Icons.timer_off_outlined,
         title: _l10n.lateEarly,
-        color: const Color(0xFFF59E0B),
+        color: HrmPageChrome.chipLight,
         badge: '${entries.length} ca',
         child: Column(children: [
           ...entries.take(8).map((e) {
@@ -8543,7 +8543,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             return Padding(
               padding: const EdgeInsets.symmetric(vertical: 3),
               child: Row(children: [
-                const Icon(Icons.schedule, size: 16, color: Color(0xFFF59E0B)),
+                const Icon(Icons.schedule, size: 16, color: HrmPageChrome.chipLight),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Column(
@@ -8573,7 +8573,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     child: Text(tr(lateLabel),
                         style: const TextStyle(
                             fontSize: 11,
-                            color: Color(0xFFD97706),
+                            color: HrmPageChrome.chipDark,
                             fontWeight: FontWeight.w600)),
                   ),
               ]),
@@ -8593,7 +8593,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return _DashCard(
       icon: Icons.timer_off_outlined,
       title: _l10n.lateEarly,
-      color: const Color(0xFFF59E0B),
+      color: HrmPageChrome.chipLight,
       badge: '${_lateEmployees.length} người',
       child: Column(children: [
         if (_lateEmployees.isEmpty)
@@ -8621,7 +8621,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             return Padding(
               padding: const EdgeInsets.symmetric(vertical: 3),
               child: Row(children: [
-                const Icon(Icons.schedule, size: 16, color: Color(0xFFF59E0B)),
+                const Icon(Icons.schedule, size: 16, color: HrmPageChrome.chipLight),
                 const SizedBox(width: 8),
                 Expanded(
                     child: Column(
@@ -8645,7 +8645,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     child: Text(tr(lateLabel),
                         style: const TextStyle(
                             fontSize: 11,
-                            color: Color(0xFFD97706),
+                            color: HrmPageChrome.chipDark,
                             fontWeight: FontWeight.w600)),
                   ),
               ]),
@@ -8664,13 +8664,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return _DashCard(
       icon: Icons.cake_outlined,
       title: _l10n.birthday,
-      color: const Color(0xFFEC4899),
+      color: HrmPageChrome.chipLight,
       badge: totalBirthdays > 0
           ? '$totalBirthdays ${_l10n.birthdayThisMonth}'
           : null,
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         if (today.isNotEmpty) ...[
-          _sectionLabel('🎂 Hôm nay', const Color(0xFFEC4899)),
+          _sectionLabel('🎂 Hôm nay', HrmPageChrome.chipLight),
           ...today.map((e) {
             final ln = (e['lastName'] ?? '').toString().trim();
             final fn = (e['firstName'] ?? '').toString().trim();
@@ -8709,7 +8709,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
                       gradient: const LinearGradient(
-                          colors: [Color(0xFFEC4899), Color(0xFFF472B6)]),
+                          colors: [HrmPageChrome.chipLight, Color(0xFFF472B6)]),
                       borderRadius: BorderRadius.circular(12)),
                   child: Text(tr(_l10n.today),
                       style: const TextStyle(
@@ -8807,7 +8807,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     if (hour >= 6 && hour < 14) {
       currentShift = 'Ca sáng';
       shiftIcon = Icons.wb_sunny;
-      shiftColor = const Color(0xFFF59E0B);
+      shiftColor = HrmPageChrome.chipLight;
     } else if (hour >= 14 && hour < 22) {
       currentShift = 'Ca chiều';
       shiftIcon = Icons.wb_twilight;
@@ -8877,7 +8877,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             final rateColor = rate >= 0.8
                 ? HrmPageChrome.primaryNavy
                 : rate >= 0.5
-                    ? const Color(0xFFF59E0B)
+                    ? HrmPageChrome.chipLight
                     : const Color(0xFFEF4444);
             return Padding(
               padding: const EdgeInsets.symmetric(vertical: 5),
@@ -8969,7 +8969,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return _DashCard(
       icon: Icons.speed_outlined,
       title: _l10n.kpiToDate,
-      color: const Color(0xFF2D5F8B),
+      color: HrmPageChrome.chip,
       badge: hasKpiDashboard ? periodName : null,
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         // KPI Dashboard summary
@@ -8978,12 +8978,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
               gradient: LinearGradient(colors: [
-                const Color(0xFF2D5F8B).withValues(alpha: 0.08),
-                const Color(0xFF2D5F8B).withValues(alpha: 0.03),
+                HrmPageChrome.chip.withValues(alpha: 0.08),
+                HrmPageChrome.chip.withValues(alpha: 0.03),
               ]),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                  color: const Color(0xFF2D5F8B).withValues(alpha: 0.15)),
+                  color: HrmPageChrome.chip.withValues(alpha: 0.15)),
             ),
             child: Column(children: [
               Row(children: [
@@ -8994,7 +8994,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         avgScore >= 80
                             ? HrmPageChrome.primaryNavy
                             : avgScore >= 50
-                                ? const Color(0xFFF59E0B)
+                                ? HrmPageChrome.chipLight
                                 : const Color(0xFFEF4444))),
                 Container(width: 1, height: 36, color: const Color(0xFFE4E4E7)),
                 Expanded(
@@ -9028,7 +9028,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         if (_kpiResults.isEmpty && !hasKpiDashboard)
           _emptyState('Chưa có dữ liệu KPI')
         else if (_kpiResults.isNotEmpty) ...[
-          _sectionLabel(_l10n.topKpiEmployees, const Color(0xFF2D5F8B)),
+          _sectionLabel(_l10n.topKpiEmployees, HrmPageChrome.chip),
           ..._kpiResults.take(5).map((k) {
             final name =
                 (k['employeeName'] ?? k['kpiConfigName'] ?? k['name'] ?? 'N/A')
@@ -9052,7 +9052,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               kpiColor = HrmPageChrome.primaryNavy;
               kpiLabel = 'Tốt';
             } else if (pct >= 50) {
-              kpiColor = const Color(0xFFF59E0B);
+              kpiColor = HrmPageChrome.chipLight;
               kpiLabel = 'Trung bình';
             } else {
               kpiColor = const Color(0xFFEF4444);
@@ -9146,15 +9146,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 case 'Policy':
                   typeLabel = 'Chính sách';
                   typeIcon = Icons.policy;
-                  typeColor = const Color(0xFFF59E0B);
+                  typeColor = HrmPageChrome.chipLight;
                 case 'Training':
                   typeLabel = 'Đào tạo';
                   typeIcon = Icons.school;
-                  typeColor = const Color(0xFF2D5F8B);
+                  typeColor = HrmPageChrome.chip;
                 case 'Culture':
                   typeLabel = 'Văn hóa';
                   typeIcon = Icons.diversity_3;
-                  typeColor = const Color(0xFFEC4899);
+                  typeColor = HrmPageChrome.chipLight;
                 case 'Recruitment':
                   typeLabel = 'Tuyển dụng';
                   typeIcon = Icons.person_add;
@@ -9421,29 +9421,29 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return _DashCard(
       icon: Icons.pending_actions_outlined,
       title: 'Phê duyệt chờ xử lý',
-      color: const Color(0xFFF59E0B),
+      color: HrmPageChrome.chipLight,
       badge: totalPending > 0 ? '$totalPending đơn' : null,
       child: Column(children: [
         _approvalRow(Icons.event_busy, 'Đơn nghỉ phép', leaveCount,
-            const Color(0xFFF59E0B),
+            HrmPageChrome.chipLight,
             onTap: leaveCount > 0
                 ? () => NavigationNotifier.goToLeaves(pendingOnly: true)
                 : null),
         const SizedBox(height: 8),
         _approvalRow(Icons.edit_note, 'Chỉnh sửa chấm công', correctionCount,
-            const Color(0xFF2D5F8B),
+            HrmPageChrome.chip,
             onTap: correctionCount > 0
                 ? NavigationNotifier.goToAttendanceCorrections
                 : null),
         const SizedBox(height: 8),
         _approvalRow(Icons.swap_horiz, 'Đổi ca làm việc', swapCount,
-            const Color(0xFFEC4899),
+            HrmPageChrome.chipLight,
             onTap: swapCount > 0
                 ? () => NavigationNotifier.goToScheduleApproval(tab: 3)
                 : null),
         const SizedBox(height: 8),
         _approvalRow(Icons.account_balance_wallet_outlined, 'Yêu cầu ứng lương',
-            advanceCount, const Color(0xFF10B981),
+            advanceCount, HrmPageChrome.chipMid,
             onTap: advanceCount > 0
                 ? () => NavigationNotifier.goToAdvanceRequestsNav(
                     pendingOnly: true)
@@ -9474,23 +9474,23 @@ class _DashboardScreenState extends State<DashboardScreen> {
             child: Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: const Color(0xFFF59E0B).withValues(alpha: 0.08),
+              color: HrmPageChrome.chipLight.withValues(alpha: 0.08),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                  color: const Color(0xFFF59E0B).withValues(alpha: 0.2)),
+                  color: HrmPageChrome.chipLight.withValues(alpha: 0.2)),
             ),
             child: Row(children: [
               const Icon(Icons.warning_amber_rounded,
-                  size: 18, color: Color(0xFFD97706)),
+                  size: 18, color: HrmPageChrome.chipDark),
               const SizedBox(width: 8),
               Expanded(
                   child: Text(tr('$totalPending đơn cần được xử lý'),
                       style: const TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
-                          color: Color(0xFFD97706)))),
+                          color: HrmPageChrome.chipDark))),
               const Icon(Icons.chevron_right,
-                  size: 18, color: Color(0xFFD97706)),
+                  size: 18, color: HrmPageChrome.chipDark),
             ]),
           ),
           ),
@@ -9561,7 +9561,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return _DashCard(
       icon: Icons.task_alt_outlined,
       title: 'Tổng quan công việc',
-      color: const Color(0xFF2D5F8B),
+      color: HrmPageChrome.chip,
       badge: total > 0 ? '$total việc' : null,
       child: total == 0
           ? _emptyState('Chưa có dữ liệu công việc')
@@ -9580,7 +9580,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   'Đang làm',
                   '$inProgress',
                   Icons.play_circle_outline,
-                  const Color(0xFF2D5F8B),
+                  HrmPageChrome.chip,
                   onTap: () => _openTaskManagement(
                       status: WorkTaskStatus.inProgress),
                 ),
@@ -9619,7 +9619,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       if (inProgress > 0)
                         Expanded(
                             flex: inProgress,
-                            child: Container(color: const Color(0xFF2D5F8B))),
+                            child: Container(color: HrmPageChrome.chip)),
                       if (todo > 0)
                         Expanded(
                             flex: todo,
@@ -9729,14 +9729,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
             Container(width: 1, height: 36, color: const Color(0xFFE4E4E7)),
             Expanded(
                 child: _kpiSummaryItem(
-                    'Số NV', '$totalEmployees', const Color(0xFF2D5F8B))),
+                    'Số NV', '$totalEmployees', HrmPageChrome.chip)),
             Container(width: 1, height: 36, color: const Color(0xFFE4E4E7)),
             Expanded(
                 child: _kpiSummaryItem(
                     'Chờ duyệt',
                     '$pending',
                     pending > 0
-                        ? const Color(0xFFF59E0B)
+                        ? HrmPageChrome.chipLight
                         : const Color(0xFFA1A1AA))),
           ]),
         ),
@@ -9842,7 +9842,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ]),
         ),
         const SizedBox(height: 12),
-        _penaltyTypeRow('Đi trễ', lateCount, const Color(0xFFF59E0B)),
+        _penaltyTypeRow('Đi trễ', lateCount, HrmPageChrome.chipLight),
         const SizedBox(height: 6),
         _penaltyTypeRow('Vắng mặt', absentCount, const Color(0xFFEF4444)),
         const SizedBox(height: 6),
@@ -10023,7 +10023,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return _DashCard(
       icon: Icons.calendar_month_outlined,
       title: 'Chấm công tháng ${_now.month}',
-      color: const Color(0xFF2D5F8B),
+      color: HrmPageChrome.chip,
       badge: avgAttendanceRate > 0
           ? '${avgAttendanceRate.toStringAsFixed(1)}%'
           : null,
@@ -10038,19 +10038,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
               Icons.pie_chart_outline,
               avgAttendanceRate >= 80
                   ? HrmPageChrome.primaryNavy
-                  : const Color(0xFFF59E0B)),
+                  : HrmPageChrome.chipLight),
         ]),
         const SizedBox(height: 8),
         Row(children: [
           _monthStatBox(
-              'Đi trễ', '$totalLate', Icons.schedule, const Color(0xFFF59E0B)),
+              'Đi trễ', '$totalLate', Icons.schedule, HrmPageChrome.chipLight),
           const SizedBox(width: 8),
           _monthStatBox('Vắng', '$totalAbsent', Icons.person_off,
               const Color(0xFFEF4444)),
         ]),
         if (items.isNotEmpty) ...[
           const SizedBox(height: 14),
-          _sectionLabel('NV nhiều ngày vắng nhất', const Color(0xFF2D5F8B)),
+          _sectionLabel('NV nhiều ngày vắng nhất', HrmPageChrome.chip),
           ...items
               .whereType<Map<String, dynamic>>()
               .where(
@@ -10126,7 +10126,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       final isUrgent = !isExpired && daysLeft <= 7;
       final statusColor = isExpired
           ? const Color(0xFFEF4444)
-          : (isUrgent ? const Color(0xFFEF4444) : const Color(0xFFF59E0B));
+          : (isUrgent ? const Color(0xFFEF4444) : HrmPageChrome.chipLight);
       final statusText = isExpired
           ? '${(-daysLeft)} ngày trước'
           : (daysLeft == 0 ? 'Hôm nay' : '$daysLeft ngày');
@@ -10175,7 +10175,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return _DashCard(
       icon: Icons.assignment_late_outlined,
       title: 'Hợp đồng hết hạn',
-      color: const Color(0xFFD97706),
+      color: HrmPageChrome.chipDark,
       badge: total > 0 ? '$total NV' : null,
       child: total == 0
           ? _emptyState('Không có hợp đồng cần xử lý')
@@ -10189,7 +10189,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w600,
-                            color: Color(0xFFF59E0B))),
+                            color: HrmPageChrome.chipLight)),
                   ),
                   ..._expiringDocs.take(3).map((d) => contractTile(d)),
                 ],
@@ -10405,13 +10405,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return _DashCard(
       icon: Icons.event_note_outlined,
       title: 'Phân tích nghỉ phép',
-      color: const Color(0xFFF59E0B),
+      color: HrmPageChrome.chipLight,
       badge: '$leaveTotal đơn',
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
           _leaveStatBox('Đã duyệt', '$approved', const Color(0xFF22C55E)),
           const SizedBox(width: 8),
-          _leaveStatBox('Chờ duyệt', '$pending', const Color(0xFFF59E0B)),
+          _leaveStatBox('Chờ duyệt', '$pending', HrmPageChrome.chipLight),
           const SizedBox(width: 8),
           _leaveStatBox(
               'Ngày phép đã dùng', '$annualUsed', HrmPageChrome.primaryNavy),
@@ -10426,7 +10426,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           const SizedBox(height: 6),
           ...leaveTypes.map((e) {
             final pct = leaveTotal > 0 ? e.value / leaveTotal : 0.0;
-            const barColor = Color(0xFFF59E0B);
+            const barColor = HrmPageChrome.chipLight;
             return Padding(
               padding: const EdgeInsets.symmetric(vertical: 3),
               child: Row(children: [
@@ -10454,7 +10454,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         style: const TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w600,
-                            color: Color(0xFFF59E0B)),
+                            color: HrmPageChrome.chipLight),
                         textAlign: TextAlign.right)),
               ]),
             );
@@ -10699,14 +10699,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
           child: Ink(
             decoration: BoxDecoration(
               gradient: const LinearGradient(
-                colors: [Color(0xFF0284C7), Color(0xFF0369A1)],
+                colors: [HrmPageChrome.chip, Color(0xFF0369A1)],
                 begin: Alignment.centerLeft,
                 end: Alignment.centerRight,
               ),
               borderRadius: BorderRadius.circular(14),
               boxShadow: [
                 BoxShadow(
-                  color: const Color(0xFF0284C7).withValues(alpha: 0.28),
+                  color: HrmPageChrome.chip.withValues(alpha: 0.28),
                   blurRadius: 12,
                   offset: const Offset(0, 4),
                 ),
@@ -10768,7 +10768,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return _DashCard(
       icon: Icons.view_week_rounded,
       title: 'Tổng hợp chấm công theo ca',
-      color: const Color(0xFF7C3AED),
+      color: HrmPageChrome.chipMid,
       badge: _employeeStatsPeriodLabel(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -10851,7 +10851,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 icon: const Icon(Icons.open_in_new_rounded, size: 16),
                 label: Text(tr('Mở báo cáo theo ca')),
                 style: TextButton.styleFrom(
-                  foregroundColor: const Color(0xFF7C3AED),
+                  foregroundColor: HrmPageChrome.chipMid,
                   textStyle: const TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
@@ -10958,7 +10958,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   style: const TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
-                    color: Color(0xFF2D5F8B),
+                    color: HrmPageChrome.chip,
                   ),
                 ),
               ),
@@ -11003,7 +11003,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     style: const TextStyle(
                       fontSize: 10,
                       fontWeight: FontWeight.w600,
-                      color: Color(0xFFF59E0B),
+                      color: HrmPageChrome.chipLight,
                     ),
                   ),
                 ],
@@ -11037,7 +11037,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return _DashCard(
       icon: Icons.list_alt_rounded,
       title: 'Chấm công thô chi tiết',
-      color: const Color(0xFF0284C7),
+      color: HrmPageChrome.chip,
       badge: punches.isEmpty
           ? _employeeStatsPeriodLabel()
           : '${punches.length} bản ghi',
@@ -11069,7 +11069,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         : 'Xem thêm (${punches.length - previewCount} bản ghi)'),
                   ),
                   style: TextButton.styleFrom(
-                    foregroundColor: const Color(0xFF0284C7),
+                    foregroundColor: HrmPageChrome.chip,
                     textStyle: const TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
@@ -11088,7 +11088,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 icon: const Icon(Icons.open_in_new_rounded, size: 16),
                 label: Text(tr('Mở chấm công thô')),
                 style: TextButton.styleFrom(
-                  foregroundColor: const Color(0xFF0284C7),
+                  foregroundColor: HrmPageChrome.chip,
                   textStyle: const TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
@@ -11107,12 +11107,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final isCheckIn = !isTravel && punch.attendanceState == 0;
     final isCheckOut = !isTravel && punch.attendanceState == 1;
     final badgeColor = isTravel
-        ? const Color(0xFF0EA5E9)
+        ? HrmPageChrome.chipLight
         : isCheckIn
             ? const Color(0xFF22C55E)
             : isCheckOut
                 ? HrmPageChrome.primaryNavy
-                : const Color(0xFFF59E0B);
+                : HrmPageChrome.chipLight;
     final timeText = formatAttendanceWallClock(
       punch.attendanceTime,
       pattern: 'dd/MM/yyyy HH:mm:ss',
@@ -11183,7 +11183,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
           if (punch.isFromMobile)
             const Icon(Icons.phone_android_rounded,
-                size: 16, color: Color(0xFF0284C7)),
+                size: 16, color: HrmPageChrome.chip),
         ],
       ),
     );
@@ -11216,7 +11216,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         break;
       case 'not-started':
         statusText = 'Chưa chấm công';
-        statusColor = const Color(0xFFF59E0B);
+        statusColor = HrmPageChrome.chipLight;
         statusIcon = Icons.access_time_filled;
         break;
       default:
@@ -11283,7 +11283,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             _buildTimeBox(
               'Chấm gần nhất (${lastPunchIsOut ? 'Ra' : 'Vào'})',
               _fmtAttendanceTime(lastPunch),
-              const Color(0xFF2D5F8B),
+              HrmPageChrome.chip,
             ),
           ],
           if (todayShift != null) ...[
@@ -11357,7 +11357,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return _DashCard(
       icon: Icons.bar_chart_rounded,
       title: 'Thống kê chấm công',
-      color: const Color(0xFF2D5F8B),
+      color: HrmPageChrome.chip,
       badge: periodLabel,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -11386,11 +11386,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
             children: [
               Expanded(
                   child: _employeeStatTile(
-                      'Đi trễ', '$lateCnt', 'lần', const Color(0xFFF59E0B))),
+                      'Đi trễ', '$lateCnt', 'lần', HrmPageChrome.chipLight)),
               const SizedBox(width: 10),
               Expanded(
                   child: _employeeStatTile('TB giờ/ngày', avgHours, '',
-                      const Color(0xFF2D5F8B))),
+                      HrmPageChrome.chip)),
             ],
           ),
           const SizedBox(height: 12),
@@ -11398,14 +11398,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
             width: double.infinity,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             decoration: BoxDecoration(
-              color: const Color(0xFF2D5F8B).withValues(alpha: 0.06),
+              color: HrmPageChrome.chip.withValues(alpha: 0.06),
               borderRadius: BorderRadius.circular(10),
             ),
             child: Text(tr('Tỷ lệ có mặt: ${rate.toStringAsFixed(1)}%'),
               style: const TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
-                color: Color(0xFF2D5F8B),
+                color: HrmPageChrome.chip,
               ),
             ),
           ),
@@ -11429,7 +11429,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         fontWeight: FontWeight.w600,
         color: selected ? Colors.white : const Color(0xFF52525B),
       ),
-      selectedColor: const Color(0xFF2D5F8B),
+      selectedColor: HrmPageChrome.chip,
       backgroundColor: const Color(0xFFF4F4F5),
       padding: const EdgeInsets.symmetric(horizontal: 4),
       visualDensity: VisualDensity.compact,
@@ -11506,7 +11506,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             _emptyRow('Không có ca hôm nay'),
           if (nextShift != null) ...[
             const Divider(height: 16),
-            _shiftRow('Ca tiếp theo', nextShift, const Color(0xFF2D5F8B)),
+            _shiftRow('Ca tiếp theo', nextShift, HrmPageChrome.chip),
           ],
         ],
       ),
@@ -11553,7 +11553,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return _DashCard(
       icon: Icons.event_note_rounded,
       title: 'Đơn nghỉ phép gần đây',
-      color: const Color(0xFF7C3AED),
+      color: HrmPageChrome.chipMid,
       badge: '${_todayLeaves.length}',
       child: _todayLeaves.isEmpty
           ? _emptyState('Chưa có đơn nghỉ phép')
@@ -11573,7 +11573,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     stColor = const Color(0xFFEF4444);
                     break;
                   default:
-                    stColor = const Color(0xFFF59E0B);
+                    stColor = HrmPageChrome.chipLight;
                 }
                 return Container(
                   margin: const EdgeInsets.only(bottom: 8),

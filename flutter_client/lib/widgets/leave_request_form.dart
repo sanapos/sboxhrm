@@ -10,6 +10,7 @@ import '../utils/responsive_helper.dart';
 import 'employee_search_picker.dart';
 import 'notification_overlay.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
+import 'hrm_page_chrome.dart';
 
 import './pos/pos_theme.dart';
 export '../features/leave/leave_catalog.dart' show normalizeLeaveType;
@@ -214,7 +215,7 @@ class _LeaveRequestFormDialogState extends State<LeaveRequestFormDialog> {
                 insufficient ? Icons.warning_amber_rounded : Icons.beach_access,
                 color: insufficient
                     ? const Color(0xFFDC2626)
-                    : const Color(0xFF059669),
+                    : HrmPageChrome.chip,
                 size: 22,
               ),
               const SizedBox(width: 10),

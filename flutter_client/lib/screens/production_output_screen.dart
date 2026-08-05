@@ -10,6 +10,7 @@ import '../utils/file_saver.dart' as file_saver;
 import '../services/api_service.dart';
 import '../utils/responsive_helper.dart';
 import '../utils/report_screen_helpers.dart';
+import '../utils/branch_filter_helper.dart';
 import '../widgets/notification_overlay.dart';
 import '../widgets/app_scroll_safe.dart';
 import 'package:provider/provider.dart';
@@ -609,7 +610,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                   _reloadCurrentTab();
                 },
               )),
-          if (_branches.isNotEmpty) ...[
+          if (BranchFilterHelper.showBranchFilter(_branches)) ...[
             const SizedBox(width: 6),
             SizedBox(
                 width: 120,
@@ -971,7 +972,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                   ],
                 ),
                 const SizedBox(height: 12),
-                if (_branches.isNotEmpty) ...[
+                if (BranchFilterHelper.showBranchFilter(_branches)) ...[
                   DropdownButtonFormField<String?>(
                     key: ValueKey('sheet-branch-$branchId'),
                     initialValue: branchId,

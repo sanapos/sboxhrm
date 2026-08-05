@@ -39,6 +39,7 @@ class _PenaltyReportScreenState extends State<PenaltyReportScreen> {
   static const _pageSize = 50;
 
   bool _loading = false;
+  bool _showOverviewPanel = true;
   String? _loadError;
   List<Map<String, dynamic>> _tickets = [];
   int _totalCount = 0;
@@ -277,40 +278,46 @@ class _PenaltyReportScreenState extends State<PenaltyReportScreen> {
               child: ListView(
                 physics: const AlwaysScrollableScrollPhysics(),
                 children: [
-                  ReportFilterSection(
-                    from: _from,
-                    to: _to,
-                    datePreset: _datePreset,
-                    onDateChanged: (f, t, p) => setState(() {
-                      _from = f;
-                      _to = t;
-                      _datePreset = p;
-                    }),
-                    statusFilter: _statusDrop(),
-                    statusSummary: _filterStatusSummary(),
-                    showTeamFilters: _teamView,
-                    branchFilter: _teamView ? _branchFilter : null,
-                    selectedBranchId: _selectedBranchId,
-                    onBranchChanged: (v) async {
-                      if (v != null) await _branchFilter.ensureEmployees(_api);
-                      if (mounted) setState(() => _selectedBranchId = v);
-                    },
-                    empSearch: _empSearch,
-                    onEmpSearchChanged: (v) => setState(() => _empSearch = v),
-                    empSuggestions: _empSuggestions,
-                    onApply: () {
-                      setState(() => _page = 1);
-                      _load();
-                    },
-                    onClearFilters: _teamView
-                        ? () => setState(() {
-                              _empSearch = '';
-                              _selectedBranchId = null;
-                            })
-                        : null,
+                  ReportCollapsibleChrome(
+                    expanded: _showOverviewPanel,
+                    onToggle: () => setState(
+                        () => _showOverviewPanel = !_showOverviewPanel),
+                    kpi: ReportKpiGrid(items: _buildKpis()),
+                    filter: ReportFilterSection(
+                      embedded: true,
+                      from: _from,
+                      to: _to,
+                      datePreset: _datePreset,
+                      onDateChanged: (f, t, p) => setState(() {
+                        _from = f;
+                        _to = t;
+                        _datePreset = p;
+                      }),
+                      statusFilter: _statusDrop(),
+                      statusSummary: _filterStatusSummary(),
+                      showTeamFilters: _teamView,
+                      branchFilter: _teamView ? _branchFilter : null,
+                      selectedBranchId: _selectedBranchId,
+                      onBranchChanged: (v) async {
+                        await _branchFilter.ensureEmployees(_api, branchId: v);
+                        if (mounted) setState(() => _selectedBranchId = v);
+                      },
+                      empSearch: _empSearch,
+                      onEmpSearchChanged: (v) => setState(() => _empSearch = v),
+                      empSuggestions: _empSuggestions,
+                      onApply: () {
+                        setState(() => _page = 1);
+                        _load();
+                      },
+                      onClearFilters: _teamView
+                          ? () => setState(() {
+                                _empSearch = '';
+                                _selectedBranchId = null;
+                              })
+                          : null,
+                    ),
                   ),
                   reportLoadErrorBanner(_loadError),
-                  ReportKpiGrid(items: _buildKpis()),
                   if (_teamView)
                     ReportViewModeTabs(
                       index: _viewTab,
