@@ -264,6 +264,7 @@ workflows:
         - appstore_credentials
       vars:
         BUNDLE_ID: "vn.sana.sbox"
+        API_BASE_URL: "https://sbox.sana.vn"
 
     scripts:
       - name: Disable Shorebird (plain Flutter IPA only)
