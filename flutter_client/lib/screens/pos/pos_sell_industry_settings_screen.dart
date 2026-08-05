@@ -338,6 +338,18 @@ class _PosSellIndustrySettingsScreenState
                 : (v) => _patchAndSave(
                     (cur) => cur.copyWith(promptGuestCountOnOpen: v)),
           ),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: Text(tr('Cho phép bán khi hết hàng / tồn âm')),
+            subtitle: Text(tr(
+                'Bật: vẫn thêm món và thanh toán khi tồn khả dụng không đủ '
+                '(kho có thể âm). Tắt: chặn thêm/thanh toán khi hết hàng.')),
+            value: s.allowNegativeStock,
+            onChanged: _saving
+                ? null
+                : (v) => _patchAndSave(
+                    (cur) => cur.copyWith(allowNegativeStock: v)),
+          ),
         ],
       ],
     );

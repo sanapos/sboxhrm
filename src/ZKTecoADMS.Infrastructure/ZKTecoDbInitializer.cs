@@ -1117,6 +1117,7 @@ public class ZKTecoDbInitializer(
                     ALTER TABLE ""PosResourceSessions"" ADD COLUMN IF NOT EXISTS ""AccumulatedPauseMinutes"" integer NOT NULL DEFAULT 0;
                     ALTER TABLE ""PosResourceSessions"" ADD COLUMN IF NOT EXISTS ""GuestCount"" integer NOT NULL DEFAULT 1;
                     ALTER TABLE ""PosResourceSessions"" ADD COLUMN IF NOT EXISTS ""BillRequested"" boolean NOT NULL DEFAULT false;
+                    ALTER TABLE ""PosSaleOrderLines"" ADD COLUMN IF NOT EXISTS ""UnitId"" uuid NULL;
                     ALTER TABLE ""PosSaleOrderLines"" ADD COLUMN IF NOT EXISTS ""KitchenSentQty"" numeric(18,3) NOT NULL DEFAULT 0;
                     ALTER TABLE ""PosSaleOrderLines"" ADD COLUMN IF NOT EXISTS ""KitchenSentAt"" timestamp without time zone NULL;
                     ALTER TABLE ""PosSaleOrderLines"" ADD COLUMN IF NOT EXISTS ""ToppingsJson"" text NULL;
@@ -1141,6 +1142,7 @@ public class ZKTecoDbInitializer(
                         END IF;
                     END $$;
                     ALTER TABLE ""PosStoreSellSettings"" ADD COLUMN IF NOT EXISTS ""PromptGuestCountOnOpen"" boolean NOT NULL DEFAULT false;
+                    ALTER TABLE ""PosStoreSellSettings"" ADD COLUMN IF NOT EXISTS ""AllowNegativeStock"" boolean NOT NULL DEFAULT false;
                     ALTER TABLE ""PosSaleOrders"" ADD COLUMN IF NOT EXISTS ""VatAmount"" numeric(18,2) NOT NULL DEFAULT 0;
 
                     CREATE TABLE IF NOT EXISTS ""PosKitchenVoidSlips"" (

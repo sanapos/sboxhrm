@@ -250,6 +250,24 @@ PosProductUnitView resolveUnitView(
   );
 }
 
+/// Tồn khả dụng bán (ĐVT của [view]): (OnHand − Reserved) quy về ĐVT hiển thị.
+double resolvePosSellAvailableQty(PosProduct product, PosProductUnitView view) {
+  if (product.productType == PosProductType.service) {
+    return double.infinity;
+  }
+  if (product.productType == PosProductType.combo) {
+    return product.sellableQty ?? product.onHandQty;
+  }
+  final reserved = product.reservedQty;
+  if (reserved <= 0) return view.onHandQty;
+  final onHand = product.onHandQty;
+  if (onHand <= 0) return 0;
+  // view.onHandQty đã theo ĐVT chip — scale reserved theo cùng tỷ lệ.
+  final scale = view.onHandQty / onHand;
+  final availBase = (onHand - reserved).clamp(0.0, double.infinity);
+  return availBase * scale;
+}
+
 /// Tồn hiển thị trên lưới bán — khớp kho hàng (SP gốc + biến thể + ĐVT + combo).
 double resolvePosSellListStockQty(
   PosProduct product,
@@ -286,6 +304,7 @@ double resolvePosSellListStockQty(
 }
 
 /// Hết hàng trên lưới bán khi mọi ĐVT/biến thể đều 0 (trừ dịch vụ).
+/// Dùng tồn khả dụng (trừ reserved) khi có thể.
 bool isPosSellOutOfStock(PosProduct product, List<PosProductUnitView> views) {
   if (product.productType == PosProductType.service) {
     return false;
@@ -295,7 +314,17 @@ bool isPosSellOutOfStock(PosProduct product, List<PosProductUnitView> views) {
     if (lines == null || lines.isEmpty) return true;
     return resolvePosSellListStockQty(product, views) <= 0;
   }
-  return resolvePosSellListStockQty(product, views) <= 0;
+  if (views.isEmpty) {
+    return (product.onHandQty - product.reservedQty) <= 0;
+  }
+  final maxAvail = views.fold<double>(
+    0,
+    (m, v) {
+      final a = resolvePosSellAvailableQty(product, v);
+      return a > m ? a : m;
+    },
+  );
+  return maxAvail <= 0;
 }
 
 /// Chip ĐVT/biến thể có tồn > 0 — ưu tiên khi thêm vào giỏ từ lưới.

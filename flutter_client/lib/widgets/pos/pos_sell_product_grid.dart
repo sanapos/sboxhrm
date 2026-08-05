@@ -36,6 +36,7 @@ class PosSellProductGrid extends StatefulWidget {
     this.sellListLayout = false,
     this.cartQtyByProductId = const {},
     this.priceOverrides = const {},
+    this.allowNegativeStock = false,
   });
 
   final ApiService api;
@@ -51,6 +52,8 @@ class PosSellProductGrid extends StatefulWidget {
   final Map<String, double> cartQtyByProductId;
   /// Giá theo bảng giá đang chọn (khóa từ posPriceListItemKey).
   final Map<String, double> priceOverrides;
+  /// Thiết lập ngành: cho phép bán khi hết hàng / tồn âm.
+  final bool allowNegativeStock;
 
   @override
   State<PosSellProductGrid> createState() => PosSellProductGridState();
@@ -579,6 +582,15 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
   Future<void> _pickProduct(PosProduct p, {PosProductUnitView? view}) async {
     final views = await _viewsFor(p);
     if (!mounted || views.isEmpty) return;
+    if (!widget.allowNegativeStock && isPosSellOutOfStock(p, views)) {
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        SnackBar(
+          content: Text('${p.name}: hết hàng'),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
     final v = view ?? pickDefaultSellUnitView(p, views) ?? views.first;
     widget.onPick(PosPurchaseLookupPick(
       product: p,

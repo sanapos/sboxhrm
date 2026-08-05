@@ -19,17 +19,67 @@ internal static class PosSaleStockHelper
     public static string CancelReturnNotePrefix(string orderNo) => $"Hủy đơn: {orderNo}";
 
     /// <summary>Mở rộng dòng bán + topping (mỗi topping trừ = qty dòng cha).</summary>
-    public static List<(Guid ProductId, decimal Qty, Guid? VariantId)> ExpandStockInputsWithToppings(
-        IEnumerable<(Guid ProductId, decimal Qty, Guid? VariantId, string? ToppingsJson)> lines)
+    public static List<(Guid ProductId, decimal Qty, Guid? VariantId, Guid? UnitId)> ExpandStockInputsWithToppings(
+        IEnumerable<(Guid ProductId, decimal Qty, Guid? VariantId, Guid? UnitId, string? ToppingsJson)> lines)
     {
-        var result = new List<(Guid ProductId, decimal Qty, Guid? VariantId)>();
+        var result = new List<(Guid ProductId, decimal Qty, Guid? VariantId, Guid? UnitId)>();
         foreach (var l in lines)
         {
-            result.Add((l.ProductId, l.Qty, l.VariantId));
+            result.Add((l.ProductId, l.Qty, l.VariantId, l.UnitId));
             foreach (var tid in ParseToppingProductIds(l.ToppingsJson))
-                result.Add((tid, l.Qty, null));
+                result.Add((tid, l.Qty, null, null));
         }
         return result;
+    }
+
+    /// <summary>1 ĐVT bán = ConversionRate × đơn vị cơ bản. Không có UnitId → qty đã là cơ bản.</summary>
+    public static decimal QtyInBase(decimal qty, Guid? unitId, IReadOnlyDictionary<Guid, decimal> unitRates)
+    {
+        if (!unitId.HasValue) return qty;
+        if (!unitRates.TryGetValue(unitId.Value, out var rate) || rate <= 0) return qty;
+        return qty * rate;
+    }
+
+    public static async Task<Dictionary<Guid, decimal>> LoadUnitConversionRatesAsync(
+        ZKTecoDbContext db, IEnumerable<Guid?> unitIds)
+    {
+        var ids = unitIds.Where(id => id.HasValue).Select(id => id!.Value).Distinct().ToList();
+        if (ids.Count == 0) return new Dictionary<Guid, decimal>();
+        return await db.PosProductUnits.AsNoTracking()
+            .Where(u => ids.Contains(u.Id) && u.Deleted == null)
+            .ToDictionaryAsync(
+                u => u.Id,
+                u => u.ConversionRate <= 0 ? 1m : u.ConversionRate);
+    }
+
+    /// <summary>Tồn khả dụng = OnHand − Reserved (không âm hiển thị khi kiểm tra).</summary>
+    public static decimal AvailableOnHand(PosProduct p) => p.OnHandQty - p.ReservedQty;
+
+    /// <summary>Gắn UnitId từ UnitName cho dòng draft cũ (chưa lưu UnitId).</summary>
+    public static async Task EnsureLineUnitIdsAsync(
+        ZKTecoDbContext db, IEnumerable<PosSaleOrderLine> lines)
+    {
+        var need = lines
+            .Where(l => !l.UnitId.HasValue && !string.IsNullOrWhiteSpace(l.UnitName))
+            .ToList();
+        if (need.Count == 0) return;
+
+        var productIds = need.Select(l => l.ProductId).Distinct().ToList();
+        var units = await db.PosProductUnits.AsNoTracking()
+            .Where(u => productIds.Contains(u.ProductId) && u.Deleted == null)
+            .Select(u => new { u.Id, u.ProductId, u.UnitName, u.IsBaseUnit, u.ConversionRate })
+            .ToListAsync();
+
+        foreach (var line in need)
+        {
+            var name = line.UnitName!.Trim();
+            var match = units.FirstOrDefault(u =>
+                u.ProductId == line.ProductId &&
+                string.Equals(u.UnitName, name, StringComparison.OrdinalIgnoreCase));
+            if (match == null) continue;
+            // ĐVT gốc (rate 1) không cần UnitId để quy đổi — nhưng gắn vẫn ổn.
+            line.UnitId = match.Id;
+        }
     }
 
     public static IReadOnlyList<Guid> ParseToppingProductIds(string? toppingsJson)
@@ -370,12 +420,14 @@ internal static class PosSaleStockHelper
     public static async Task<(SaleStockPlan? plan, string? error)> PrepareSaleStockAsync(
         ZKTecoDbContext db,
         Guid storeId,
-        IEnumerable<(Guid ProductId, decimal Qty, Guid? VariantId)> lineInputs)
+        IEnumerable<(Guid ProductId, decimal Qty, Guid? VariantId, Guid? UnitId)> lineInputs,
+        bool allowNegativeStock = false)
     {
         var inputs = lineInputs.ToList();
         var productIds = inputs.Select(l => l.ProductId).Distinct().ToList();
         var variantIds = inputs.Where(l => l.VariantId.HasValue)
             .Select(l => l.VariantId!.Value).Distinct().ToList();
+        var unitRates = await LoadUnitConversionRatesAsync(db, inputs.Select(l => l.UnitId));
 
     var products = await db.PosProducts.AsTracking()
             .Where(p => productIds.Contains(p.Id) && p.StoreId == storeId && p.Deleted == null)
@@ -433,6 +485,11 @@ internal static class PosSaleStockHelper
                     return (null, $"«{p.Name}» có hàng cùng loại — vui lòng chọn loại cụ thể");
             }
 
+            // Qty dòng là ĐVT bán — quy về cơ bản khi có UnitId (không có VariantId).
+            var lineBaseQty = line.VariantId.HasValue
+                ? line.Qty
+                : QtyInBase(line.Qty, line.UnitId, unitRates);
+
             if (line.VariantId.HasValue)
             {
                 if (!variants.TryGetValue(line.VariantId.Value, out var v))
@@ -454,7 +511,7 @@ internal static class PosSaleStockHelper
                         return (null, "Thành phần combo không hợp lệ");
                     if (comp.ProductType == PosProductType.Service)
                         return (null, $"Combo «{p.Name}» có thành phần dịch vụ «{comp.Name}» — không trừ được tồn");
-                    var need = cl.Qty * line.Qty;
+                    var need = cl.Qty * lineBaseQty;
                     stockNeeds[cl.ComponentProductId] = stockNeeds.GetValueOrDefault(cl.ComponentProductId) + need;
                 }
             }
@@ -464,43 +521,48 @@ internal static class PosSaleStockHelper
             }
             else
             {
-                stockNeeds[p.Id] = stockNeeds.GetValueOrDefault(p.Id) + line.Qty;
+                stockNeeds[p.Id] = stockNeeds.GetValueOrDefault(p.Id) + lineBaseQty;
             }
         }
 
-        foreach (var (vid, need) in variantStockNeeds)
+        if (!allowNegativeStock)
         {
-            var v = variants[vid];
-            var p = products[v.ProductId];
-            var baseNeed = PosVariantStockHelper.StockDeltaInBase(v, need);
-            if (p.TrackExpiry)
+            foreach (var (vid, need) in variantStockNeeds)
             {
-                var lotQty = await PosStockLotHelper.GetAvailableLotQtyAsync(db, storeId, p.Id, vid);
-                if (lotQty < baseNeed)
-                    return (null, $"Không đủ tồn lô/HSD: {v.Name} (cần {baseNeed}, còn {lotQty})");
+                var v = variants[vid];
+                var p = products[v.ProductId];
+                var baseNeed = PosVariantStockHelper.StockDeltaInBase(v, need);
+                if (p.TrackExpiry)
+                {
+                    var lotQty = await PosStockLotHelper.GetAvailableLotQtyAsync(db, storeId, p.Id, vid);
+                    if (lotQty < baseNeed)
+                        return (null, $"Không đủ tồn lô/HSD: {v.Name} (cần {baseNeed}, còn {lotQty})");
+                }
+                if (PosVariantStockHelper.IsUnitOnlyVariant(v.AttributeJson))
+                {
+                    var avail = AvailableOnHand(p);
+                    if (avail < baseNeed)
+                        return (null, $"Không đủ tồn kho: {p.Name} (cần {baseNeed}, còn {avail})");
+                }
+                else if (v.OnHandQty < need)
+                {
+                    return (null, $"Không đủ tồn kho: {v.Name} (cần {need}, còn {v.OnHandQty})");
+                }
             }
-            if (PosVariantStockHelper.IsUnitOnlyVariant(v.AttributeJson))
-            {
-                if (p.OnHandQty < baseNeed)
-                    return (null, $"Không đủ tồn kho: {p.Name} (cần {baseNeed}, còn {p.OnHandQty})");
-            }
-            else if (v.OnHandQty < need)
-            {
-                return (null, $"Không đủ tồn kho: {v.Name} (cần {need}, còn {v.OnHandQty})");
-            }
-        }
 
-        foreach (var (pid, need) in stockNeeds)
-        {
-            var p = products[pid];
-            if (p.TrackExpiry)
+            foreach (var (pid, need) in stockNeeds)
             {
-                var lotQty = await PosStockLotHelper.GetAvailableLotQtyAsync(db, storeId, pid, null);
-                if (lotQty < need)
-                    return (null, $"Không đủ tồn lô/HSD: {p.Name} (cần {need}, còn {lotQty})");
+                var p = products[pid];
+                if (p.TrackExpiry)
+                {
+                    var lotQty = await PosStockLotHelper.GetAvailableLotQtyAsync(db, storeId, pid, null);
+                    if (lotQty < need)
+                        return (null, $"Không đủ tồn lô/HSD: {p.Name} (cần {need}, còn {lotQty})");
+                }
+                var avail = AvailableOnHand(p);
+                if (avail < need)
+                    return (null, $"Không đủ tồn kho: {p.Name} (cần {need}, còn {avail})");
             }
-            if (p.OnHandQty < need)
-                return (null, $"Không đủ tồn kho: {p.Name} (cần {need}, còn {p.OnHandQty})");
         }
 
         return (new SaleStockPlan
@@ -519,17 +581,24 @@ internal static class PosSaleStockHelper
         SaleStockPlan plan,
         string? createdBy)
     {
+        var unitRates = await LoadUnitConversionRatesAsync(db, lines.Select(l => l.UnitId));
         foreach (var line in lines)
         {
             var p = plan.Products[line.ProductId];
             plan.Variants.TryGetValue(line.VariantId ?? Guid.Empty, out var soldVariant);
             if (line.VariantId == null) soldVariant = null;
 
+            // Variant: Qty theo ĐVT biến thể (StockDeltaInBase tự quy đổi).
+            // Không variant: Qty × ConversionRate của PosProductUnit → cơ bản.
+            var deductQty = soldVariant != null
+                ? line.Qty
+                : QtyInBase(line.Qty, line.UnitId, unitRates);
+
             if (soldVariant != null)
             {
                 var note = $"Bán hàng POS — {soldVariant.SkuCode}";
                 await ApplyFefoSaleDeductionAsync(
-                    db, storeId, order, p, soldVariant, line.Qty, note, createdBy, plan);
+                    db, storeId, order, p, soldVariant, deductQty, note, createdBy, plan);
             }
             else if (p.ProductType == PosProductType.Combo &&
                      plan.ComboLinesMap.TryGetValue(p.Id, out var comboLines))
@@ -537,7 +606,7 @@ internal static class PosSaleStockHelper
                 foreach (var cl in comboLines)
                 {
                     var comp = plan.Products[cl.ComponentProductId];
-                    var deduct = cl.Qty * line.Qty;
+                    var deduct = cl.Qty * deductQty;
                     await ApplyFefoComboComponentSaleAsync(
                         db, storeId, order, comp, deduct,
                         $"Bán combo: {p.Name}", createdBy);
@@ -550,10 +619,10 @@ internal static class PosSaleStockHelper
             else
             {
                 await ApplyFefoSaleDeductionAsync(
-                    db, storeId, order, p, null, line.Qty, "Bán hàng POS", createdBy, plan);
+                    db, storeId, order, p, null, deductQty, "Bán hàng POS", createdBy, plan);
             }
 
-            // Topping gắn dòng: trừ tồn SP topping (1 phần / 1 đơn vị món).
+            // Topping gắn dòng: trừ tồn SP topping (1 phần / 1 ĐVT bán của món).
             foreach (var toppingId in ParseToppingProductIds(line.ToppingsJson))
             {
                 if (!plan.Products.TryGetValue(toppingId, out var toppingProduct)) continue;

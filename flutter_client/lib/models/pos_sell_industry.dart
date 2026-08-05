@@ -132,6 +132,7 @@ class PosStoreSellSettingsDto {
     this.allowProvisionalBill = false,
     this.enableMultiDeviceDraftLock = false,
     this.promptGuestCountOnOpen = false,
+    this.allowNegativeStock = false,
     this.extraJson,
   });
 
@@ -148,6 +149,8 @@ class PosStoreSellSettingsDto {
   final bool enableMultiDeviceDraftLock;
   /// Hỏi số khách khi mở bàn trống.
   final bool promptGuestCountOnOpen;
+  /// Cho phép bán khi tồn khả dụng &lt; số cần (OnHand có thể âm).
+  final bool allowNegativeStock;
   final String? extraJson;
 
   factory PosStoreSellSettingsDto.fromJson(Map<String, dynamic> json) =>
@@ -175,6 +178,8 @@ class PosStoreSellSettingsDto {
                 json['EnableMultiDeviceDraftLock'] == true,
         promptGuestCountOnOpen: json['promptGuestCountOnOpen'] == true ||
             json['PromptGuestCountOnOpen'] == true,
+        allowNegativeStock: json['allowNegativeStock'] == true ||
+            json['AllowNegativeStock'] == true,
         extraJson: (json['extraJson'] ?? json['ExtraJson'])?.toString(),
       );
 
@@ -191,6 +196,7 @@ class PosStoreSellSettingsDto {
       'allowProvisionalBill': allowProvisionalBill,
       'enableMultiDeviceDraftLock': enableMultiDeviceDraftLock,
       'promptGuestCountOnOpen': promptGuestCountOnOpen,
+      'allowNegativeStock': allowNegativeStock,
       if (extraJson != null) 'extraJson': extraJson,
       'applyProfileDefaults': applyProfileDefaults,
     };
@@ -273,6 +279,7 @@ class PosStoreSellSettingsDto {
     bool? allowProvisionalBill,
     bool? enableMultiDeviceDraftLock,
     bool? promptGuestCountOnOpen,
+    bool? allowNegativeStock,
     String? extraJson,
   }) =>
       PosStoreSellSettingsDto(
@@ -290,6 +297,7 @@ class PosStoreSellSettingsDto {
             enableMultiDeviceDraftLock ?? this.enableMultiDeviceDraftLock,
         promptGuestCountOnOpen:
             promptGuestCountOnOpen ?? this.promptGuestCountOnOpen,
+        allowNegativeStock: allowNegativeStock ?? this.allowNegativeStock,
         extraJson: extraJson ?? this.extraJson,
       );
 }

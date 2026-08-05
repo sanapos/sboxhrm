@@ -1198,6 +1198,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
             requireResourceOnSale: prev.requireResourceOnSale,
             enableMultiDeviceDraftLock: prev.enableMultiDeviceDraftLock,
             promptGuestCountOnOpen: prev.promptGuestCountOnOpen,
+            allowNegativeStock: prev.allowNegativeStock,
           )
         : dto;
 
@@ -3064,12 +3065,16 @@ class _PosSellScreenState extends State<PosSellScreen> {
     return buildComboOnlyReservation(lines);
   }
 
+  bool get _allowNegativeStock =>
+      _industrySettings?.allowNegativeStock == true;
+
   bool _validateStockQty(
     PosProduct p,
     PosProductUnitView view,
     double requiredQty, {
     bool warnLow = true,
   }) {
+    if (_allowNegativeStock) return true;
     if (p.productType == PosProductType.service) {
       return true;
     }
@@ -3091,27 +3096,67 @@ class _PosSellScreenState extends State<PosSellScreen> {
     }
     final comboReserved = _comboOnlyReservation()[p.id] ?? 0;
     final needTotal = requiredQty + comboReserved;
-    if (view.onHandQty < needTotal) {
+    final available = resolvePosSellAvailableQty(p, view);
+    if (available < needTotal) {
       NotificationOverlayManager().showError(
-        title: view.onHandQty <= 0 ? 'Hết hàng' : 'Không đủ tồn',
+        title: available <= 0 ? 'Hết hàng' : 'Không đủ tồn',
         message: comboReserved > 0
-            ? '${p.name} (${view.label}): còn ${_qtyFmt.format(view.onHandQty)}, '
+            ? '${p.name} (${view.label}): còn ${_qtyFmt.format(available)}, '
                 'cần ${_qtyFmt.format(requiredQty)}'
                 ' (+${_qtyFmt.format(comboReserved)} trong combo)'
-            : '${p.name} (${view.label}): còn ${_qtyFmt.format(view.onHandQty)}, '
+            : '${p.name} (${view.label}): còn ${_qtyFmt.format(available)}, '
                 'cần ${_qtyFmt.format(requiredQty)}',
       );
       return false;
     }
     if (warnLow &&
         p.minStockQty > 0 &&
-        view.onHandQty - needTotal < p.minStockQty &&
-        view.onHandQty > 0) {
+        available - needTotal < p.minStockQty &&
+        available > 0) {
       NotificationOverlayManager().showWarning(
         title: 'Sắp hết hàng',
-        message: tr('${p.name} sẽ còn ${_qtyFmt.format(view.onHandQty - needTotal)} sau khi bán'),
+        message: tr(
+            '${p.name} sẽ còn ${_qtyFmt.format(available - needTotal)} sau khi bán'),
       );
     }
+    return true;
+  }
+
+  /// Làm mới OnHand/Reserved từ server trước khi thanh toán.
+  Future<bool> _refreshCartStockBeforeCheckout() async {
+    final ids = _tab.cart.map((l) => l.product.id).toSet().toList();
+    if (ids.isEmpty) return true;
+    final responses = await Future.wait(ids.map((id) => _api.getPosProduct(id)));
+    if (!mounted) return false;
+    final byId = <String, PosProduct>{};
+    for (var i = 0; i < ids.length; i++) {
+      final res = responses[i];
+      if (res['isSuccess'] == true && res['data'] is Map) {
+        byId[ids[i]] =
+            PosProduct.fromJson(Map<String, dynamic>.from(res['data'] as Map));
+      }
+    }
+    final overrides = _currentPriceOverrides;
+    for (final line in _tab.cart) {
+      final freshProduct = byId[line.product.id];
+      if (freshProduct == null) continue;
+      line.product = freshProduct;
+      var views = posProductHasEmbeddedSellViews(freshProduct)
+          ? buildPosSellUnitViewsFromProduct(freshProduct)
+          : await loadPosSellUnitViews(_api, freshProduct);
+      if (!mounted) return false;
+      views = applyPosPriceListToViews(views, freshProduct, overrides);
+      final match = views
+              .where((v) =>
+                  v.viewKey == line.activeViewKey ||
+                  (v.variantId == line.variantId && v.unitId == line.unitId))
+              .firstOrNull ??
+          (views.isNotEmpty ? views.first : null);
+      if (match == null) continue;
+      line.unitViews = views;
+      line.activeViewKey = match.viewKey;
+    }
+    if (mounted) setState(() {});
     return true;
   }
 
@@ -6539,6 +6584,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
         return;
       }
 
+      if (!await _refreshCartStockBeforeCheckout()) return;
       if (!_validateFullCartStock()) return;
 
       await _ensureDeviceReady();
@@ -10385,6 +10431,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
                 storeId: _storeId,
                 sellListLayout: true,
                 priceOverrides: _currentPriceOverrides,
+                allowNegativeStock: _allowNegativeStock,
                 // Chỉ hiện SL đang chọn nháp — không lấy từ đơn (không sync list).
                 cartQtyByProductId: Map<String, double>.from(_pickerDraftQty),
                 onPick: (pick) async {
@@ -10609,6 +10656,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
         api: _api,
         storeId: _storeId,
         priceOverrides: _currentPriceOverrides,
+        allowNegativeStock: _allowNegativeStock,
         onPick: (pick) => _addPick(pick),
       ),
     );

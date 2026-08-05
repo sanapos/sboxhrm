@@ -53,6 +53,7 @@ public partial class PosSellIndustryController(
         bool AllowProvisionalBill,
         bool EnableMultiDeviceDraftLock,
         bool PromptGuestCountOnOpen,
+        bool AllowNegativeStock,
         string? ExtraJson);
 
     public record SellSettingsSaveDto(
@@ -66,6 +67,7 @@ public partial class PosSellIndustryController(
         bool? AllowProvisionalBill = null,
         bool? EnableMultiDeviceDraftLock = null,
         bool? PromptGuestCountOnOpen = null,
+        bool? AllowNegativeStock = null,
         string? ExtraJson = null,
         bool? ApplyProfileDefaults = null);
 
@@ -127,6 +129,8 @@ public partial class PosSellIndustryController(
                 s.EnableMultiDeviceDraftLock = dto.EnableMultiDeviceDraftLock.Value;
             if (dto.PromptGuestCountOnOpen.HasValue)
                 s.PromptGuestCountOnOpen = dto.PromptGuestCountOnOpen.Value;
+            if (dto.AllowNegativeStock.HasValue)
+                s.AllowNegativeStock = dto.AllowNegativeStock.Value;
         }
         else
         {
@@ -140,6 +144,8 @@ public partial class PosSellIndustryController(
                 s.EnableMultiDeviceDraftLock = dto.EnableMultiDeviceDraftLock.Value;
             if (dto.PromptGuestCountOnOpen.HasValue)
                 s.PromptGuestCountOnOpen = dto.PromptGuestCountOnOpen.Value;
+            if (dto.AllowNegativeStock.HasValue)
+                s.AllowNegativeStock = dto.AllowNegativeStock.Value;
         }
 
         if (!string.IsNullOrWhiteSpace(dto.DefaultSellMode))
@@ -204,7 +210,8 @@ public partial class PosSellIndustryController(
         s.Id, s.SellProfile.ToString(), s.DefaultSellMode,
         s.EnableResources, s.EnableHourlyBilling, s.EnableSessionPacks,
         s.RequireResourceOnSale, s.ShowFloorPlan, s.AllowProvisionalBill,
-        s.EnableMultiDeviceDraftLock, s.PromptGuestCountOnOpen, s.ExtraJson);
+        s.EnableMultiDeviceDraftLock, s.PromptGuestCountOnOpen,
+        s.AllowNegativeStock, s.ExtraJson);
 
     // ── Areas / resources ─────────────────────────────────────────────────────
 

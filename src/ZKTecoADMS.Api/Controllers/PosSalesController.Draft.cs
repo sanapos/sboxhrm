@@ -512,10 +512,19 @@ public partial class PosSalesController
             return Conflict(AppResponse<SaleOrderDto>.Create(false, conflictMapped, [lockErr]));
         }
 
-        var lineInputs = order.Lines.Select(l => (l.ProductId, l.Qty, l.VariantId, l.ToppingsJson)).ToList();
+        var allowNegComplete = await dbContext.PosStoreSellSettings.AsNoTracking()
+            .Where(s => s.StoreId == storeId && s.Deleted == null)
+            .Select(s => s.AllowNegativeStock)
+            .FirstOrDefaultAsync();
+        // Draft cũ chỉ có UnitName — resolve UnitId để quy đổi tồn đúng.
+        await PosSaleStockHelper.EnsureLineUnitIdsAsync(dbContext, order.Lines);
+        var lineInputs = order.Lines
+            .Select(l => (l.ProductId, l.Qty, l.VariantId, l.UnitId, l.ToppingsJson))
+            .ToList();
         // Validate stock sớm (ngoài tx) để trả lỗi nhanh; prepare thật nằm trong RR tx bên dưới.
         var (_, earlyStockErr) = await PosSaleStockHelper.PrepareSaleStockAsync(
-            dbContext, storeId, PosSaleStockHelper.ExpandStockInputsWithToppings(lineInputs));
+            dbContext, storeId, PosSaleStockHelper.ExpandStockInputsWithToppings(lineInputs),
+            allowNegativeStock: allowNegComplete);
         if (earlyStockErr != null) return BadRequest(AppResponse<SaleOrderDto>.Fail(earlyStockErr));
         // Bỏ entity tracked từ prepare sớm — tránh OnHand cũ dính change tracker.
         dbContext.ChangeTracker.Clear();
@@ -587,10 +596,12 @@ public partial class PosSalesController
             try
             {
                 // Prepare tồn TRONG RepeatableRead — tránh đọc OnHand ngoài tx rồi ghi đè mất cập nhật đồng thời.
+                await PosSaleStockHelper.EnsureLineUnitIdsAsync(dbContext, order.Lines);
                 string? stockErr;
                 (plan, stockErr) = await PosSaleStockHelper.PrepareSaleStockAsync(
                     dbContext, storeId, PosSaleStockHelper.ExpandStockInputsWithToppings(
-                        order.Lines.Select(l => (l.ProductId, l.Qty, l.VariantId, l.ToppingsJson)).ToList()));
+                        order.Lines.Select(l => (l.ProductId, l.Qty, l.VariantId, l.UnitId, l.ToppingsJson)).ToList()),
+                    allowNegativeStock: allowNegComplete);
                 if (stockErr != null)
                 {
                     await tx.RollbackAsync();
@@ -839,11 +850,13 @@ public partial class PosSalesController
         SaleStockPlan? plan = null;
         if (complete)
         {
+            var allowNeg = sellSettings?.AllowNegativeStock == true;
             var lineInputs = dto.Lines
-                .Select(l => (l.ProductId, l.Qty, l.VariantId, l.ToppingsJson))
+                .Select(l => (l.ProductId, l.Qty, l.VariantId, l.UnitId, l.ToppingsJson))
                 .ToList();
             var (p, stockErr) = await PosSaleStockHelper.PrepareSaleStockAsync(
-                dbContext, storeId, PosSaleStockHelper.ExpandStockInputsWithToppings(lineInputs));
+                dbContext, storeId, PosSaleStockHelper.ExpandStockInputsWithToppings(lineInputs),
+                allowNegativeStock: allowNeg);
             if (stockErr != null) return (null, null, stockErr);
             plan = p;
         }
@@ -1119,6 +1132,7 @@ public partial class PosSalesController
                 VariantId = soldVariant?.Id,
                 ProductName = lineName,
                 UnitName = unitName,
+                UnitId = line.UnitId,
                 Qty = lineQty,
                 UnitPrice = unitPrice,
                 DiscountAmount = discAmt,

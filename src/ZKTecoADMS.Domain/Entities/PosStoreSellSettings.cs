@@ -35,6 +35,12 @@ public class PosStoreSellSettings : AuditableEntity<Guid>
     /// <summary>Hỏi số khách khi mở bàn trống trên sơ đồ.</summary>
     public bool PromptGuestCountOnOpen { get; set; }
 
+    /// <summary>
+    /// Cho phép bán khi tồn khả dụng &lt; 0 (OnHand có thể âm sau trừ).
+    /// Tắt (mặc định): chặn thanh toán nếu không đủ tồn.
+    /// </summary>
+    public bool AllowNegativeStock { get; set; }
+
     /// <summary>JSON flags mở rộng (tùy ngành).</summary>
     [MaxLength(4000)]
     public string? ExtraJson { get; set; }

@@ -29,6 +29,9 @@ public class PosSaleOrderLine : AuditableEntity<Guid>
     [MaxLength(100)]
     public string? UnitName { get; set; }
 
+    /// <summary>ĐVT bán (PosProductUnit) — dùng quy đổi tồn về đơn vị cơ bản.</summary>
+    public Guid? UnitId { get; set; }
+
     public decimal Qty { get; set; }
     public decimal UnitPrice { get; set; }
     /// <summary>Chiết khấu dòng (VNĐ).</summary>
