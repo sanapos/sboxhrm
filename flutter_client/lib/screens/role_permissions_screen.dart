@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../providers/auth_provider.dart';
 import '../providers/permission_provider.dart';
 import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import '../services/api_service.dart';
@@ -7,8 +8,10 @@ import '../screens/settings_hub_screen.dart';
 import '../utils/dashboard_permission_modules.dart';
 import '../utils/permission_module_catalog.dart';
 import '../utils/permission_module_labels.dart';
+import '../utils/permission_navigation.dart';
 import '../utils/permission_role_catalog.dart';
 import '../utils/responsive_helper.dart';
+import '../utils/store_role_helper.dart';
 import '../widgets/hrm/hrm_settings_mobile_kit.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../widgets/loading_widget.dart';
@@ -39,6 +42,9 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
 
   /// Back của Settings Hub khi drill-down danh sách quyền (mobile + embedded).
   VoidCallback? _savedHubBack;
+
+  /// Fingerprint gói dịch vụ — rebuild catalog khi `allowedModules` tải xong.
+  String? _packageModsKey;
 
   @override
   void initState() {
@@ -78,6 +84,46 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
   static bool _isLegacyDashboardModule(String? module) =>
       module == DashboardPermissionModules.legacyDashboard ||
       DashboardPermissionModules.allWidgets.contains(module ?? '');
+
+  /// Luôn hiện trên UI phân quyền (đang ở màn này / quản trị tài khoản).
+  static const _alwaysShowInPermissionUi = {'Role', 'UserManagement'};
+
+  /// Chỉ hiện module thuộc gói dịch vụ cửa hàng (giống sidebar).
+  bool _isModuleInServicePackage(String? module) {
+    if (module == null || module.isEmpty) return false;
+    if (_alwaysShowInPermissionUi.contains(module)) return true;
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    if (StoreRoleHelper.bypassesPackageFilter(auth.userRole)) return true;
+    final allowed = auth.currentUser?.allowedModules;
+    // Chưa tải my-modules — tạm hiện đủ; khi có gói sẽ lọc lại.
+    if (allowed == null) return true;
+    return PermissionNavigation.isAllowedByPackageOrRole(
+      module,
+      allowedModules: allowed,
+      perm: _perm,
+      bypassPackageFilter: false,
+    );
+  }
+
+  List<PermissionUiGroup> get _packageVisibleGroups => PermissionRoleCatalog
+      .groups
+      .where((g) => g.moduleCodes.any(_isModuleInServicePackage))
+      .toList();
+
+  void _syncModulesWithPackage() {
+    final key =
+        Provider.of<AuthProvider>(context, listen: false)
+            .currentUser
+            ?.allowedModules
+            ?.join('|');
+    if (key == _packageModsKey) return;
+    _packageModsKey = key;
+    setState(() {
+      _modules = _ensureUiModules(
+        _modules.isNotEmpty ? _modules : _getAllModules(),
+      );
+    });
+  }
 
   static const List<String> _systemRoleOrder = [
     'Admin',
@@ -171,7 +217,9 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
       }
     }
 
-    final list = byModule.values.toList();
+    final list = byModule.values
+        .where((m) => _isModuleInServicePackage(m['module'] as String?))
+        .toList();
     list.sort((a, b) =>
         ((a['displayOrder'] as int?) ?? 999)
             .compareTo((b['displayOrder'] as int?) ?? 999));
@@ -1027,7 +1075,9 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
           _selectedRolePermissions!['permissions'] ?? []);
 
   List<Map<String, dynamic>> _visiblePermissions() {
-    var list = PermissionRoleCatalog.sortForUi(_allPermissions());
+    var list = PermissionRoleCatalog.sortForUi(_allPermissions())
+        .where((p) => _isModuleInServicePackage(p['module'] as String?))
+        .toList();
     if (_filterGroupId != null) {
       final g = PermissionRoleCatalog.groupById(_filterGroupId!);
       if (g != null) {
@@ -1046,11 +1096,14 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
   void _applyGroup(String groupId, PermissionBundleLevel level) {
     final g = PermissionRoleCatalog.groupById(groupId);
     if (g == null || _selectedRolePermissions == null) return;
+    final codes =
+        g.moduleCodes.where(_isModuleInServicePackage).toList(growable: false);
+    if (codes.isEmpty) return;
     setState(() {
       final permissions = _allPermissions();
       PermissionRoleCatalog.applyToPermissionsList(
         permissions,
-        moduleCodes: g.moduleCodes,
+        moduleCodes: codes,
         level: level,
         moduleSupports: _moduleSupports,
       );
@@ -1098,7 +1151,7 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
                     onSelected: (_) => setState(() => _filterGroupId = null),
                   ),
                   const SizedBox(width: 6),
-                  for (final g in PermissionRoleCatalog.groups)
+                  for (final g in _packageVisibleGroups)
                     Padding(
                       padding: const EdgeInsets.only(right: 6),
                       child: FilterChip(
@@ -1206,7 +1259,7 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
     }
 
     final sectionOrder = [
-      ...PermissionRoleCatalog.groups.map((g) => g.id),
+      ..._packageVisibleGroups.map((g) => g.id),
       'other',
     ];
 
@@ -1507,6 +1560,11 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    context.watch<AuthProvider>();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _syncModulesWithPackage();
+    });
+
     final saveAction = _selectedRolePermissions != null && _perm.canEdit('Role')
         ? Padding(
             padding: const EdgeInsets.only(right: 16),
@@ -1818,7 +1876,7 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
                   children: [
                     _buildGroupFilterBar(),
                     for (final gid in [
-                      ...PermissionRoleCatalog.groups.map((g) => g.id),
+                      ..._packageVisibleGroups.map((g) => g.id),
                       'other',
                     ]) ...[
                       if (visible.any((p) =>

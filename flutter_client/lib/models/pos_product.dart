@@ -390,6 +390,8 @@ class PosProduct {
   final String serviceBillingMode;
   final int? minBillMinutes;
   final int? billRoundMinutes;
+  final int? graceMinutes;
+  final int? roundAfterMinutes;
   final int? defaultDurationMinutes;
   final int sessionPackCount;
   final bool isTopping;
@@ -451,6 +453,8 @@ class PosProduct {
     this.serviceBillingMode = 'Flat',
     this.minBillMinutes,
     this.billRoundMinutes,
+    this.graceMinutes,
+    this.roundAfterMinutes,
     this.defaultDurationMinutes,
     this.sessionPackCount = 0,
     this.isTopping = false,
@@ -581,6 +585,11 @@ class PosProduct {
       billRoundMinutes:
           (json['billRoundMinutes'] ?? json['BillRoundMinutes'] as num?)
               ?.toInt(),
+      graceMinutes:
+          (json['graceMinutes'] ?? json['GraceMinutes'] as num?)?.toInt(),
+      roundAfterMinutes:
+          (json['roundAfterMinutes'] ?? json['RoundAfterMinutes'] as num?)
+              ?.toInt(),
       defaultDurationMinutes: (json['defaultDurationMinutes'] ??
               json['DefaultDurationMinutes'] as num?)
           ?.toInt(),
@@ -666,6 +675,8 @@ class PosProduct {
       'serviceBillingMode': serviceBillingMode,
       if (minBillMinutes != null) 'minBillMinutes': minBillMinutes,
       if (billRoundMinutes != null) 'billRoundMinutes': billRoundMinutes,
+      if (graceMinutes != null) 'graceMinutes': graceMinutes,
+      if (roundAfterMinutes != null) 'roundAfterMinutes': roundAfterMinutes,
       if (defaultDurationMinutes != null)
         'defaultDurationMinutes': defaultDurationMinutes,
       'sessionPackCount': sessionPackCount,

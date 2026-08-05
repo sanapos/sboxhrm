@@ -254,15 +254,11 @@ class _PosPurchaseReceiptEditorScreenState
 
   Future<void> _openAddSupplier() async {
     if (_readOnly) return;
-    final created = await showDialog<dynamic>(
-      context: context,
-      builder: (_) => const PosSupplierFormDialog(),
-    );
+    final created = await PosSupplierFormDialog.open(context);
     if (created == null || !mounted) return;
     await _loadSuppliers();
-    if (created is Map && created['id'] != null) {
-      setState(() => _supplierId = created['id'].toString());
-    }
+    if (!mounted) return;
+    setState(() => _supplierId = created.id);
   }
 
   Future<void> _loadReceipt(String id) async {
@@ -886,6 +882,13 @@ class _PosPurchaseReceiptEditorScreenState
     if (_lines.isEmpty) {
       NotificationOverlayManager()
           .showWarning(title: 'Phiếu trống', message: tr('Thêm ít nhất một dòng hàng'));
+      return;
+    }
+    if (_supplierId == null || _supplierId!.isEmpty) {
+      NotificationOverlayManager().showWarning(
+        title: 'Thiếu nhà cung cấp',
+        message: tr('Chọn hoặc thêm nhà cung cấp trước khi lưu'),
+      );
       return;
     }
     if (complete) {

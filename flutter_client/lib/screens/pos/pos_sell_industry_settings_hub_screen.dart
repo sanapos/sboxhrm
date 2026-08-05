@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../../models/pos_sell_industry.dart';
+import '../../utils/pos_sell_settings_helper.dart';
+import '../../services/api_service.dart';
 import '../../widgets/pos/pos_theme.dart';
 import 'pos_cancel_return_history_screen.dart';
 import 'pos_cancel_return_settings_screen.dart';
@@ -9,7 +12,7 @@ import 'pos_sell_industry_settings_screen.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// Hub tách «Ngành hàng & bán hàng» thành các nhóm chức năng.
-class PosSellIndustrySettingsHubScreen extends StatelessWidget {
+class PosSellIndustrySettingsHubScreen extends StatefulWidget {
   const PosSellIndustrySettingsHubScreen({
     super.key,
     this.embeddedInSettings = false,
@@ -17,8 +20,37 @@ class PosSellIndustrySettingsHubScreen extends StatelessWidget {
 
   final bool embeddedInSettings;
 
+  @override
+  State<PosSellIndustrySettingsHubScreen> createState() =>
+      _PosSellIndustrySettingsHubScreenState();
+}
+
+class _PosSellIndustrySettingsHubScreenState
+    extends State<PosSellIndustrySettingsHubScreen> {
+  PosStoreSellSettingsDto? _settings;
+
+  bool get _showFloorManage {
+    final s = _settings;
+    if (s == null) return false;
+    return s.enableResources || s.showFloorPlan;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final r = await PosSellSettingsHelper(ApiService()).load();
+    if (!mounted) return;
+    setState(() => _settings = r.settings);
+  }
+
   void _open(BuildContext context, Widget screen) {
-    Navigator.of(context).push(MaterialPageRoute(builder: (_) => screen));
+    Navigator.of(context).push(MaterialPageRoute(builder: (_) => screen)).then((_) {
+      if (mounted) _load();
+    });
   }
 
   @override
@@ -51,16 +83,22 @@ class PosSellIndustrySettingsHubScreen extends StatelessWidget {
             const PosSellIndustrySettingsScreen(section: 'resources'),
           ),
         ),
-        _tile(
-          context,
-          icon: Icons.map_outlined,
-          title: 'Quản lý bàn / phòng',
-          subtitle: 'Thêm sửa khu vực, bàn ghế trên sơ đồ',
-          onTap: () => _open(
+        if (_showFloorManage)
+          _tile(
             context,
-            const PosResourceFloorScreen(manageMode: true),
+            icon: Icons.map_outlined,
+            title: 'Quản lý bàn / phòng',
+            subtitle: 'Thêm sửa khu vực, bàn ghế trên sơ đồ',
+            onTap: () => _open(
+              context,
+              PosResourceFloorScreen(
+                manageMode: true,
+                sellProfile: _settings?.sellProfile,
+                allowProvisionalBill:
+                    _settings?.allowProvisionalBill != false,
+              ),
+            ),
           ),
-        ),
         _tile(
           context,
           icon: Icons.rule_folder_outlined,
@@ -94,7 +132,7 @@ class PosSellIndustrySettingsHubScreen extends StatelessWidget {
       ],
     );
 
-    if (embeddedInSettings) {
+    if (widget.embeddedInSettings) {
       return ColoredBox(
         color: PosTheme.background,
         child: Column(

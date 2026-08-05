@@ -16,6 +16,7 @@ import '../pos_sell_screen.dart';
 import '../warehouse/wh_mobile_hub_screen.dart';
 import '../warehouse/wh_mobile_nav.dart';
 import 'pos_warranty_lookup_screen.dart';
+import 'pos_appointment_day_screen.dart';
 import 'pos_business_analysis_screen.dart';
 import 'pos_customer_debt_report_screen.dart';
 import 'pos_customers_screen.dart';
@@ -24,7 +25,6 @@ import 'pos_end_of_day_screen.dart';
 import 'pos_goods_report_screen.dart';
 import 'pos_resource_floor_screen.dart';
 import 'pos_sales_report_screen.dart';
-import 'pos_customer_display_settings_screen.dart';
 import 'pos_customer_display_settings_screen.dart';
 import 'pos_sell_industry_settings_hub_screen.dart';
 import 'pos_store_settings_hub_screen.dart';
@@ -104,9 +104,9 @@ class PosMoreScreen extends StatelessWidget {
                     _Item('Bảng giá', Icons.price_change_outlined, 'PosProducts',
                         const PosPriceListsScreen(),
                         altModules: const ['PosSell']),
-                    _Item('Tra cứu BH', Icons.verified_outlined, 'PosSell',
+                    _Item('Tra cứu BH', Icons.verified_outlined, 'PosWarranty',
                         const PosWarrantyLookupScreen(),
-                        altModules: const ['PosProducts']),
+                        altModules: const ['PosSell', 'PosProducts']),
                     _Item('Kiểm kho', Icons.fact_check_outlined, 'PosStockCounts',
                         const WhAdaptiveStockCountList()),
                     _Item('Xuất hủy', Icons.delete_forever_outlined,
@@ -121,8 +121,9 @@ class PosMoreScreen extends StatelessWidget {
                   perm,
                   title: 'Khách hàng',
                   items: [
-                    _Item('Khách hàng', Icons.people_outline, 'PosProducts',
-                        const PosCustomersScreen()),
+                    _Item('Khách hàng', Icons.people_outline, 'PosCustomers',
+                        const PosCustomersScreen(),
+                        altModules: const ['PosSell', 'PosProducts']),
                     _Item('Công nợ KH', Icons.account_balance_wallet_outlined,
                         'PosSalesReport', const PosCustomerDebtReportScreen()),
                     _Item('Voucher', Icons.confirmation_number_outlined, 'PosProducts',
@@ -153,9 +154,16 @@ class PosMoreScreen extends StatelessWidget {
                     _Item(
                       'Màn hình phụ',
                       Icons.tv_outlined,
-                      'PosSell',
+                      'PosCustomerDisplay',
                       const PosCustomerDisplaySettingsScreen(),
-                      altModules: const ['PosProducts'],
+                      altModules: const ['PosSell'],
+                    ),
+                    _Item(
+                      'Đặt bàn / lịch hẹn',
+                      Icons.event_available_outlined,
+                      'PosBooking',
+                      const PosAppointmentDayScreen(),
+                      altModules: const ['PosSell'],
                     ),
                     _Item(
                       'Thiết lập cửa hàng',

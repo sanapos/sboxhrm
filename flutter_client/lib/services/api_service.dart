@@ -15951,6 +15951,77 @@ class ApiService {
     }
   }
 
+  Future<Map<String, dynamic>> createPosPurchaseSupplierGroup(String name) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/api/pos/purchase/suppliers/groups'),
+            headers: _headers,
+            body: jsonEncode({'name': name}),
+          )
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> getPosPurchaseSupplierHistory(String id) async {
+    try {
+      final response = await http
+          .get(
+            Uri.parse('$baseUrl/api/pos/purchase/suppliers/$id/history'),
+            headers: _headers,
+          )
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> deactivatePosPurchaseSupplier(String id) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/api/pos/purchase/suppliers/$id/deactivate'),
+            headers: _headers,
+          )
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> activatePosPurchaseSupplier(String id) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/api/pos/purchase/suppliers/$id/activate'),
+            headers: _headers,
+          )
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> deletePosPurchaseSupplier(String id) async {
+    try {
+      final response = await http
+          .delete(
+            Uri.parse('$baseUrl/api/pos/purchase/suppliers/$id'),
+            headers: _headers,
+          )
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
   Future<Map<String, dynamic>> getPosSale(
     String id, {
     String? deviceId,
@@ -17864,12 +17935,60 @@ class ApiService {
     }
   }
 
-  Future<Map<String, dynamic>> cancelPosResourceReservation(String id) async {
+  Future<Map<String, dynamic>> getPosResourceReservations({
+    String? resourceId,
+    DateTime? day,
+    bool includeClosed = false,
+  }) async {
+    try {
+      final q = <String, String>{};
+      if (resourceId != null && resourceId.isNotEmpty) {
+        q['resourceId'] = resourceId;
+      }
+      if (day != null) q['day'] = day.toUtc().toIso8601String();
+      if (includeClosed) q['includeClosed'] = 'true';
+      final uri = Uri.parse('$baseUrl/api/pos/resource-reservations')
+          .replace(queryParameters: q.isEmpty ? null : q);
+      final response =
+          await http.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> collectPosResourceReservationDeposit(
+    String id,
+    Map<String, dynamic> body,
+  ) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/api/pos/resource-reservations/$id/deposit'),
+            headers: _headers,
+            body: jsonEncode(body),
+          )
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> cancelPosResourceReservation(
+    String id, {
+    bool forfeitDeposit = true,
+    bool refundDeposit = false,
+  }) async {
     try {
       final response = await http
           .post(
             Uri.parse('$baseUrl/api/pos/resource-reservations/$id/cancel'),
             headers: _headers,
+            body: jsonEncode({
+              'forfeitDeposit': forfeitDeposit,
+              'refundDeposit': refundDeposit,
+            }),
           )
           .timeout(const Duration(seconds: 30));
       return _handleResponse(response);
@@ -17883,6 +18002,20 @@ class ApiService {
       final response = await http
           .post(
             Uri.parse('$baseUrl/api/pos/resource-reservations/$id/seat'),
+            headers: _headers,
+          )
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> expirePosResourceReservationNoShows() async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/api/pos/resource-reservations/expire-noshow'),
             headers: _headers,
           )
           .timeout(const Duration(seconds: 30));

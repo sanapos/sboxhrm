@@ -19,6 +19,44 @@ class PosSupplierFormDialog extends StatefulWidget {
   final PosSupplierFull? supplier;
   final List<PosSupplierGroup> groups;
 
+  /// Mở dialog (tự load nhóm) — trả [PosSupplierFull] khi tạo/sửa thành công.
+  static Future<PosSupplierFull?> open(
+    BuildContext context, {
+    PosSupplierFull? supplier,
+  }) async {
+    final api = ApiService();
+    var groups = <PosSupplierGroup>[];
+    final gRes = await api.getPosPurchaseSupplierGroups();
+    if (gRes['isSuccess'] == true && gRes['data'] is List) {
+      groups = (gRes['data'] as List)
+          .map((e) => PosSupplierGroup.fromJson(
+                Map<String, dynamic>.from(e as Map),
+              ))
+          .toList();
+    }
+    if (!context.mounted) return null;
+    final raw = await showDialog<dynamic>(
+      context: context,
+      builder: (_) => PosSupplierFormDialog(
+        supplier: supplier,
+        groups: groups,
+      ),
+    );
+    if (raw is! Map) return null;
+    try {
+      return PosSupplierFull.fromJson(Map<String, dynamic>.from(raw));
+    } catch (_) {
+      final id = (raw['id'] ?? raw['Id'])?.toString();
+      final name = (raw['name'] ?? raw['Name'] ?? '').toString();
+      if (id == null || id.isEmpty) return null;
+      return PosSupplierFull(
+        id: id,
+        supplierCode: (raw['supplierCode'] ?? raw['SupplierCode'] ?? '').toString(),
+        name: name,
+      );
+    }
+  }
+
   @override
   State<PosSupplierFormDialog> createState() => _PosSupplierFormDialogState();
 }

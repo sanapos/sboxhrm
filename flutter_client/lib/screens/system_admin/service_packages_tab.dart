@@ -66,6 +66,10 @@ class ServicePackagesTabState extends State<ServicePackagesTab> {
     'PosSaleOrders',
     'PosSaleReturns',
     'PosSalesReport',
+    'PosCustomers',
+    'PosBooking',
+    'PosWarranty',
+    'PosCustomerDisplay',
   ];
 
   /// Khớp PosPackageDefaults.SellWarehouseModules / FullModules.
@@ -81,6 +85,10 @@ class ServicePackagesTabState extends State<ServicePackagesTab> {
     'PosDamageIssues',
     'PosInternalUseIssues',
     'PosSalesReport',
+    'PosCustomers',
+    'PosBooking',
+    'PosWarranty',
+    'PosCustomerDisplay',
   ];
 
   static const List<String> _posFullPreset = _posSellWarehousePreset;

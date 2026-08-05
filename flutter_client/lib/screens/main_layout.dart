@@ -91,10 +91,14 @@ import 'pos_products_screen.dart';
 import 'pos_sell_screen.dart';
 import 'pos_sale_order_list_screen.dart';
 import 'pos_sale_return_list_screen.dart';
+import 'pos_supplier_list_screen.dart';
 import 'warehouse/wh_mobile_nav.dart';
 import 'pos_reports_screen.dart';
 import 'pos/pos_cancel_return_history_screen.dart';
 import 'pos/pos_customer_debt_report_screen.dart';
+import 'pos/pos_customers_screen.dart';
+import 'pos/pos_appointment_day_screen.dart';
+import 'pos/pos_warranty_lookup_screen.dart';
 import 'pos/pos_mobile_hub_screen.dart';
 import 'shift_swap_screen.dart';
 import '../utils/permission_navigation.dart';
@@ -1506,6 +1510,46 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       group: 'POS',
       themeColor: HrmPageChrome.primaryNavy,
       moduleCode: 'PosSaleReturns',
+    ),
+    NavItem(
+      icon: Icons.event_available_outlined,
+      activeIcon: Icons.event_available,
+      label: 'Đặt bàn / lịch hẹn',
+      subtitle: 'Đặt trước bàn ghế, lịch salon, cọc, nhận khách',
+      screen: const PosAppointmentDayScreen(),
+      group: 'POS',
+      themeColor: HrmPageChrome.primaryNavy,
+      moduleCode: 'PosBooking',
+    ),
+    NavItem(
+      icon: Icons.people_outline,
+      activeIcon: Icons.people,
+      label: 'Khách hàng POS',
+      subtitle: 'CRM khách bán hàng, điểm, công nợ',
+      screen: const PosCustomersScreen(),
+      group: 'POS',
+      themeColor: HrmPageChrome.primaryNavy,
+      moduleCode: 'PosCustomers',
+    ),
+    NavItem(
+      icon: Icons.verified_outlined,
+      activeIcon: Icons.verified,
+      label: 'Bảo hành POS',
+      subtitle: 'Tra cứu bảo hành sản phẩm',
+      screen: const PosWarrantyLookupScreen(),
+      group: 'POS',
+      themeColor: HrmPageChrome.primaryNavy,
+      moduleCode: 'PosWarranty',
+    ),
+    NavItem(
+      icon: Icons.local_shipping_outlined,
+      activeIcon: Icons.local_shipping,
+      label: 'Nhà cung cấp',
+      subtitle: 'Danh sách NCC, nợ và lịch sử nhập/trả',
+      screen: const PosSupplierListScreen(),
+      group: 'POS',
+      themeColor: HrmPageChrome.primaryNavy,
+      moduleCode: 'PosPurchaseReceipts',
     ),
     NavItem(
       icon: Icons.shopping_cart_outlined,

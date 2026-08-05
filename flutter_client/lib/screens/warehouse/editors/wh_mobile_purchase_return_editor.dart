@@ -7,6 +7,7 @@ import '../../../utils/pos_purchase_product_lookup.dart';
 import '../../../widgets/loading_widget.dart';
 import '../../../widgets/notification_overlay.dart';
 import '../../../widgets/pos/pos_purchase_product_search_bar.dart';
+import '../../../widgets/pos/pos_supplier_form_dialog.dart';
 import '../../../widgets/pos_barcode_scanner.dart';
 import '../../../widgets/warehouse/wh_mobile_components.dart';
 import '../../../widgets/warehouse/wh_mobile_theme.dart';
@@ -82,12 +83,7 @@ class _WhMobilePurchaseReturnEditorState extends State<WhMobilePurchaseReturnEdi
   }
 
   Future<void> _bootstrap() async {
-    final sup = await _api.getPosPurchaseSuppliers(pageSize: 200);
-    if (mounted && sup['isSuccess'] == true && sup['data'] is Map) {
-      _suppliers = ((sup['data'] as Map)['items'] as List? ?? [])
-          .map((e) => PosSupplierFull.fromJson(e as Map<String, dynamic>))
-          .toList();
-    }
+    await _loadSuppliers();
     if (_returnId != null && _returnId!.isNotEmpty) {
       final res = await _api.getPosPurchaseReturn(_returnId!);
       if (mounted && res['isSuccess'] == true) {
@@ -111,6 +107,27 @@ class _WhMobilePurchaseReturnEditorState extends State<WhMobilePurchaseReturnEdi
       }
     }
     if (mounted) setState(() => _loading = false);
+  }
+
+  Future<void> _loadSuppliers() async {
+    final sup = await _api.getPosPurchaseSuppliers(pageSize: 200);
+    if (!mounted || sup['isSuccess'] != true || sup['data'] is! Map) return;
+    setState(() {
+      _suppliers = ((sup['data'] as Map)['items'] as List? ?? [])
+          .map((e) => PosSupplierFull.fromJson(
+                Map<String, dynamic>.from(e as Map),
+              ))
+          .toList();
+    });
+  }
+
+  Future<void> _openAddSupplier() async {
+    if (_readOnly) return;
+    final created = await PosSupplierFormDialog.open(context);
+    if (created == null || !mounted) return;
+    await _loadSuppliers();
+    if (!mounted) return;
+    setState(() => _supplierId = created.id);
   }
 
   Future<void> _pickProduct(PosPurchaseLookupPick pick) async {
@@ -210,13 +227,35 @@ class _WhMobilePurchaseReturnEditorState extends State<WhMobilePurchaseReturnEdi
               ),
               children: [
                 WhGlassCard(
-                  child: DropdownButtonFormField<String>(
-                    value: _supplierId,
-                    decoration: WhMobileTheme.fieldDecoration(label: 'Nhà cung cấp *'),
-                    items: _suppliers
-                        .map((s) => DropdownMenuItem(value: s.id, child: Text(tr(s.name))))
-                        .toList(),
-                    onChanged: _readOnly ? null : (v) => setState(() => _supplierId = v),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: DropdownButtonFormField<String>(
+                          value: _supplierId,
+                          decoration: WhMobileTheme.fieldDecoration(
+                              label: 'Nhà cung cấp *'),
+                          items: _suppliers
+                              .map((s) => DropdownMenuItem(
+                                    value: s.id,
+                                    child: Text(tr(s.name)),
+                                  ))
+                              .toList(),
+                          onChanged: _readOnly
+                              ? null
+                              : (v) => setState(() => _supplierId = v),
+                        ),
+                      ),
+                      if (!_readOnly) ...[
+                        const SizedBox(width: 6),
+                        IconButton(
+                          tooltip: tr('Thêm NCC'),
+                          onPressed: _openAddSupplier,
+                          icon: const Icon(Icons.add_business_outlined),
+                          color: WhMobileTheme.primary,
+                        ),
+                      ],
+                    ],
                   ),
                 ),
                 const SizedBox(height: WhMobileTheme.gap),

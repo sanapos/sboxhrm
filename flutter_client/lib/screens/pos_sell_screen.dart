@@ -402,6 +402,12 @@ class _SellInvoiceTab {
   String? serviceResourceName;
   String? serviceAreaName;
   int tableGuestCount = 0;
+  /// Pause phiên bàn — đồng bộ billing timed.
+  int accumulatedPauseMinutes = 0;
+  DateTime? sessionPausedAt;
+  bool sessionIsPaused = false;
+  /// Giá giờ mặc định của bàn (khi SP PerHour giá 0).
+  double? serviceDefaultHourlyRate;
 
   /// Đơn gắn bàn/phòng (BAN*) — không thuộc mô hình Hóa đơn 1/2/3.
   bool get isTableBound {
@@ -490,6 +496,10 @@ class _SellInvoiceTab {
     serviceResourceName = null;
     serviceAreaName = null;
     tableGuestCount = 0;
+    accumulatedPauseMinutes = 0;
+    sessionPausedAt = null;
+    sessionIsPaused = false;
+    serviceDefaultHourlyRate = null;
     _voucherCtrl.clear();
     _pointsCtrl.clear();
     _noteCtrl.clear();
@@ -1075,6 +1085,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
       unawaited(SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge));
     }
     _pendingPrintRetryTimer?.cancel();
+    _timedBillingTimer?.cancel();
     _stopDraftLockHeartbeat();
     _floorRealtime.dispose();
     _draftAutosaveTimer?.cancel();
@@ -1199,6 +1210,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
             enableMultiDeviceDraftLock: prev.enableMultiDeviceDraftLock,
             promptGuestCountOnOpen: prev.promptGuestCountOnOpen,
             allowNegativeStock: prev.allowNegativeStock,
+            defaultHourlyProductId: prev.defaultHourlyProductId,
           )
         : dto;
 
@@ -1206,9 +1218,17 @@ class _PosSellScreenState extends State<PosSellScreen> {
         (effective.sellProfile == PosSellProfile.restaurant ||
             effective.sellProfile == PosSellProfile.roomHourly ||
             effective.sellProfile == PosSellProfile.salon);
+    final leavingTables = prev != null &&
+        (prev.enableResources || prev.showFloorPlan) &&
+        !effective.enableResources &&
+        !effective.showFloorPlan;
     setState(() {
       _industrySettings = effective;
       if (useFloor && !_isTableOrderMode) _floorMapVisible = true;
+      if (leavingTables || !useFloor) {
+        _detachTableBindingsAfterIndustryLeave();
+        _floorMapVisible = false;
+      }
       switch (effective.defaultSellMode) {
         case 'normal':
           _sellMode = _SellMode.normal;
@@ -1223,9 +1243,29 @@ class _PosSellScreenState extends State<PosSellScreen> {
     _scheduleCustomerDisplayPublish();
   }
 
+  /// F&B → bán lẻ: bỏ gắn bàn trên tab để không kẹt UI đơn bàn.
+  void _detachTableBindingsAfterIndustryLeave() {
+    for (final t in _tabs) {
+      t.serviceResourceId = null;
+      t.resourceSessionId = null;
+      t.serviceStartedAt = null;
+      t.serviceResourceName = null;
+      t.serviceAreaName = null;
+      t.tableGuestCount = 0;
+      t.accumulatedPauseMinutes = 0;
+      t.sessionPausedAt = null;
+      t.sessionIsPaused = false;
+      t.serviceDefaultHourlyRate = null;
+    }
+  }
+
   void _onSellIndustryChanged() {
     unawaited(_loadIndustrySettings());
   }
+
+  bool get _industryUsesTables =>
+      _industrySettings?.enableResources == true ||
+      _industrySettings?.showFloorPlan == true;
 
   bool get _showFloorPlan =>
       _industrySettings?.showFloorPlan == true ||
@@ -1473,6 +1513,30 @@ class _PosSellScreenState extends State<PosSellScreen> {
     final guestCount = guestRaw is num
         ? guestRaw.toInt()
         : int.tryParse('$guestRaw') ?? 0;
+    final pauseAccumRaw = result['accumulatedPauseMinutes'];
+    final pauseAccum = pauseAccumRaw is num
+        ? pauseAccumRaw.toInt()
+        : int.tryParse('$pauseAccumRaw') ?? 0;
+    final pausedAt = parsePosApiUtc(result['pausedAt']?.toString());
+    final isPaused = result['isPaused'] == true;
+    final rateRaw = result['defaultHourlyRate'];
+    final defaultRate = rateRaw is num
+        ? rateRaw.toDouble()
+        : double.tryParse('$rateRaw');
+    final paidRaw = result['paidAmount'] ?? result['depositApplied'];
+    final paidFromDeposit = paidRaw is num
+        ? paidRaw.toDouble()
+        : double.tryParse('$paidRaw');
+
+    void applyPauseMeta(_SellInvoiceTab tab) {
+      tab.accumulatedPauseMinutes = pauseAccum;
+      tab.sessionPausedAt = pausedAt;
+      tab.sessionIsPaused = isPaused;
+      if (defaultRate != null) tab.serviceDefaultHourlyRate = defaultRate;
+      if (paidFromDeposit != null && paidFromDeposit > 0) {
+        tab.paidAmount = paidFromDeposit;
+      }
+    }
     if (orderId != null && orderId.isNotEmpty) {
       _floorReleasedOrderIds.remove(orderId);
       _suspendDraftAutosave = true;
@@ -1514,6 +1578,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
         if (startedAt != null) _tab.serviceStartedAt = startedAt;
         _tab.serviceStartedAt ??= DateTime.now().toUtc();
         if (guestCount > 0) _tab.tableGuestCount = guestCount;
+        applyPauseMeta(_tab);
         _tab.localDirty = false;
         _floorMapVisible = false;
         _tabletPaymentStage = false;
@@ -1522,6 +1587,19 @@ class _PosSellScreenState extends State<PosSellScreen> {
       // Giữ suspend=true cho tới khi verify xong — chặn autosave đè giỏ.
       await _verifyTableCartHydrated(orderId);
       if (!mounted) return;
+      if (paidFromDeposit != null && paidFromDeposit > 0) {
+        setState(() {
+          _tab.paymentsManuallyEdited = true;
+          final cash = _SellPaymentLine(sourceKey: _PosPaymentSource.cashKey);
+          cash.amount = paidFromDeposit;
+          cash.amountCtrl.text = _moneyFmt.format(paidFromDeposit);
+          _tab.paymentLines
+            ..clear()
+            ..add(cash);
+          _tab.paidAmount = paidFromDeposit;
+          _tab._paidCtrl.text = _moneyFmt.format(paidFromDeposit);
+        });
+      }
       setState(() => _suspendDraftAutosave = false);
       _refreshTimedLineQtys();
       _scheduleCustomerDisplayPublish();
@@ -1537,6 +1615,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
         _tab.serviceAreaName = areaName;
         _tab.serviceStartedAt = startedAt ?? DateTime.now().toUtc();
         if (guestCount > 0) _tab.tableGuestCount = guestCount;
+        applyPauseMeta(_tab);
         _floorMapVisible = false;
         _tabletPaymentStage = false;
         _mobileProductPickerOpen = false;
@@ -1547,7 +1626,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
   }
 
   /// Đang trong đơn của một bàn/phòng (không còn dùng tab Hóa đơn 1/2/3).
-  bool get _isTableOrderMode => _tab.isTableBound;
+  bool get _isTableOrderMode => _industryUsesTables && _tab.isTableBound;
 
   Widget _buildTableGuestIconButton({
     Color iconColor = Colors.white,
@@ -1720,6 +1799,8 @@ class _PosSellScreenState extends State<PosSellScreen> {
           sellProfile: _industrySettings?.sellProfile,
           promptGuestCountOnOpen:
               _industrySettings?.promptGuestCountOnOpen == true,
+          allowProvisionalBill:
+              _industrySettings?.allowProvisionalBill != false,
           onResourceFreed: _onFloorResourceFreed,
           zeroPendingKitchenResourceIds: _kitchenClearedResourceIds,
           billRequestedResourceIds: _billRequestedResourceIds,
@@ -1779,6 +1860,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
 
   Future<void> _kitchenSendCurrentTable() async {
     if (_kitchenSending || _checkingOut || _parking) return;
+    if (_industrySettings?.sellProfile != PosSellProfile.restaurant) return;
     final sid = _tab.resourceSessionId;
     if (sid == null || sid.isEmpty) {
       NotificationOverlayManager().showWarning(
@@ -2123,6 +2205,8 @@ class _PosSellScreenState extends State<PosSellScreen> {
     }
     if (_tab.cart.isEmpty) return;
     if (!await _ensureCanEditActiveDraft()) return;
+
+    _refreshTimedLineQtys();
 
     setState(() => _provisionalPrinting = true);
     try {
@@ -2499,12 +2583,19 @@ class _PosSellScreenState extends State<PosSellScreen> {
     for (final line in _tab.cart) {
       if (!line.product.isTimedService) continue;
       final mode = PosServiceBillingMode.parse(line.product.serviceBillingMode);
-      final elapsed = PosServiceBillingCalc.elapsedMinutes(started, null);
+      final elapsed = PosServiceBillingCalc.elapsedMinutes(
+        started,
+        null,
+        accumulatedPauseMinutes: _tab.accumulatedPauseMinutes,
+        pausedAt: _tab.sessionIsPaused ? _tab.sessionPausedAt : null,
+      );
       final billable = PosServiceBillingCalc.billableMinutes(
         elapsed: elapsed,
         mode: mode,
         minBillMinutes: line.product.minBillMinutes,
         billRoundMinutes: line.product.billRoundMinutes,
+        graceMinutes: line.product.graceMinutes,
+        roundAfterMinutes: line.product.roundAfterMinutes,
       );
       final qty = PosServiceBillingCalc.billableQty(
         mode: mode,
@@ -2519,6 +2610,25 @@ class _PosSellScreenState extends State<PosSellScreen> {
     if (changed && mounted) {
       setState(() => _syncPaidAmount());
     }
+    _ensureTimedBillingTimer();
+  }
+
+  Timer? _timedBillingTimer;
+
+  void _ensureTimedBillingTimer() {
+    final need = _industrySettings?.enableHourlyBilling == true &&
+        _tab.serviceStartedAt != null &&
+        _tab.cart.any((l) => l.product.isTimedService) &&
+        !_tab.sessionIsPaused;
+    if (!need) {
+      _timedBillingTimer?.cancel();
+      _timedBillingTimer = null;
+      return;
+    }
+    _timedBillingTimer ??= Timer.periodic(const Duration(seconds: 15), (_) {
+      if (!mounted) return;
+      _refreshTimedLineQtys();
+    });
   }
 
   Future<void> _openSessionRedeem() async {
@@ -3344,19 +3454,33 @@ class _PosSellScreenState extends State<PosSellScreen> {
           _tab.serviceStartedAt != null &&
           addQty == 1) {
         final mode = PosServiceBillingMode.parse(p.serviceBillingMode);
-        final elapsed =
-            PosServiceBillingCalc.elapsedMinutes(_tab.serviceStartedAt!, null);
+        final elapsed = PosServiceBillingCalc.elapsedMinutes(
+          _tab.serviceStartedAt!,
+          null,
+          accumulatedPauseMinutes: _tab.accumulatedPauseMinutes,
+          pausedAt: _tab.sessionIsPaused ? _tab.sessionPausedAt : null,
+        );
         final billable = PosServiceBillingCalc.billableMinutes(
           elapsed: elapsed,
           mode: mode,
           minBillMinutes: p.minBillMinutes,
           billRoundMinutes: p.billRoundMinutes,
+          graceMinutes: p.graceMinutes,
+          roundAfterMinutes: p.roundAfterMinutes,
         );
         qty = PosServiceBillingCalc.billableQty(
           mode: mode,
           billableMinutes: billable,
           fallbackQty: 1,
         );
+      }
+      var unitPrice = view.basePrice;
+      if (p.isTimedService &&
+          PosServiceBillingMode.parse(p.serviceBillingMode) ==
+              PosServiceBillingMode.perHour &&
+          unitPrice <= 0 &&
+          (_tab.serviceDefaultHourlyRate ?? 0) > 0) {
+        unitPrice = _tab.serviceDefaultHourlyRate!;
       }
       final line = _SellCartLine(
         rowId: _nextCartRowId++,
@@ -3367,7 +3491,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
         activeViewKey: view.viewKey,
         unitLabel: view.label,
         displayCode: view.displayCode,
-        unitPrice: view.basePrice,
+        unitPrice: unitPrice,
         unitViews: views,
         qty: qty,
         vatRate: p.vatExempt ? 0 : p.vatRate,
@@ -3379,6 +3503,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
     });
     HapticFeedback.lightImpact();
     if (autosave) _scheduleDraftAutosave();
+    _ensureTimedBillingTimer();
     await _maybeWarnProductExpiry(p, variantId: view.variantId);
     final line = focusLine;
     if (line != null &&
@@ -6404,12 +6529,19 @@ class _PosSellScreenState extends State<PosSellScreen> {
         };
         if (c.product.isTimedService && started != null) {
           final mode = PosServiceBillingMode.parse(c.product.serviceBillingMode);
-          final elapsed = PosServiceBillingCalc.elapsedMinutes(started, null);
+          final elapsed = PosServiceBillingCalc.elapsedMinutes(
+            started,
+            complete ? DateTime.now().toUtc() : null,
+            accumulatedPauseMinutes: tab.accumulatedPauseMinutes,
+            pausedAt: tab.sessionIsPaused ? tab.sessionPausedAt : null,
+          );
           final billable = PosServiceBillingCalc.billableMinutes(
             elapsed: elapsed,
             mode: mode,
             minBillMinutes: c.product.minBillMinutes,
             billRoundMinutes: c.product.billRoundMinutes,
+            graceMinutes: c.product.graceMinutes,
+            roundAfterMinutes: c.product.roundAfterMinutes,
           );
           line['durationMinutes'] = elapsed;
           line['billableMinutes'] = billable;
@@ -7852,6 +7984,8 @@ class _PosSellScreenState extends State<PosSellScreen> {
                   sellProfile: _industrySettings?.sellProfile,
                   promptGuestCountOnOpen:
                       _industrySettings?.promptGuestCountOnOpen == true,
+                  allowProvisionalBill:
+                      _industrySettings?.allowProvisionalBill != false,
                   searchQuery: _floorSearchQuery,
                   pendingOpenCode: _floorPendingOpenCode,
                   pendingOpenToken: _floorPendingOpenToken,
@@ -8537,9 +8671,45 @@ class _PosSellScreenState extends State<PosSellScreen> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           if (_tab.draftOrderId != null) _buildDraftSyncStatusBar(),
+          _buildMissingTimedServiceBanner(),
           Expanded(child: _buildKiotCartList()),
           if (showFooterTotal) _buildCartFooter(),
         ],
+      ),
+    );
+  }
+
+  bool get _missingTimedServiceWarning {
+    if (_industrySettings?.enableHourlyBilling != true) return false;
+    if (!_tab.isTableBound && (_tab.serviceResourceId ?? '').isEmpty) {
+      return false;
+    }
+    return !_tab.cart.any((l) => l.product.isTimedService);
+  }
+
+  Widget _buildMissingTimedServiceBanner() {
+    if (!_missingTimedServiceWarning) return const SizedBox.shrink();
+    return Material(
+      color: const Color(0xFFFFF7ED),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        child: Row(
+          children: [
+            const Icon(Icons.timer_off_outlined,
+                size: 18, color: Color(0xFFC2410C)),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                tr('Chưa có dịch vụ tính giờ trên đơn — thêm SP theo giờ hoặc cấu hình SP mặc định khi mở bàn.'),
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: Color(0xFF9A3412),
+                  height: 1.25,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -10671,6 +10841,8 @@ class _PosSellScreenState extends State<PosSellScreen> {
       sellProfile: _industrySettings?.sellProfile,
       promptGuestCountOnOpen:
           _industrySettings?.promptGuestCountOnOpen == true,
+      allowProvisionalBill:
+          _industrySettings?.allowProvisionalBill != false,
       searchQuery: _floorSearchQuery,
       pendingOpenCode: _floorPendingOpenCode,
       pendingOpenToken: _floorPendingOpenToken,
@@ -11007,7 +11179,9 @@ class _PosSellScreenState extends State<PosSellScreen> {
                   ),
                 ),
               ),
-              if (_isTableOrderMode) ...[
+              if (_isTableOrderMode &&
+                  _industrySettings?.sellProfile ==
+                      PosSellProfile.restaurant) ...[
                 const SizedBox(width: 10),
                 Expanded(
                   flex: 2,
@@ -11204,9 +11378,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
               ),
               if (!tableMode &&
                   (_tab.resourceSessionId ?? '').isNotEmpty &&
-                  (_industrySettings?.sellProfile ==
-                          PosSellProfile.restaurant ||
-                      (_tab.cart.isNotEmpty)))
+                  _industrySettings?.sellProfile == PosSellProfile.restaurant)
                 IconButton(
                   visualDensity: VisualDensity.compact,
                   tooltip: tr('Báo chế biến'),
@@ -11422,42 +11594,45 @@ class _PosSellScreenState extends State<PosSellScreen> {
               ),
             ),
             if (tableMode) ...[
-              const SizedBox(width: 8),
-              Expanded(
-                flex: 2,
-                child: OutlinedButton.icon(
-                  onPressed: _kitchenActionCount == 0 ||
-                          _kitchenSending ||
-                          _checkingOut ||
-                          _parking
-                      ? null
-                      : () => unawaited(_kitchenSendCurrentTable()),
-                  icon: const Icon(Icons.soup_kitchen_outlined, size: 18),
-                  label: Text(
-                    tr(_kitchenActionCount == 0
-                        ? 'Đã báo bếp'
-                        : _kitchenCancelPendingCount > 0 &&
-                                _kitchenPendingLineCount == 0
-                            ? 'Gửi hủy (${_kitchenCancelPendingCount})'
-                            : _kitchenCancelPendingCount > 0
-                                ? 'Báo/hủy ($_kitchenActionCount)'
-                                : 'Báo bếp ($_kitchenPendingLineCount)'),
-                    style: const TextStyle(fontSize: 13),
-                  ),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFFB45309),
-                    side: BorderSide(
-                      color: _kitchenActionCount == 0
-                          ? PosTheme.border
-                          : const Color(0xFFB45309),
+              if (_industrySettings?.sellProfile ==
+                  PosSellProfile.restaurant) ...[
+                const SizedBox(width: 8),
+                Expanded(
+                  flex: 2,
+                  child: OutlinedButton.icon(
+                    onPressed: _kitchenActionCount == 0 ||
+                            _kitchenSending ||
+                            _checkingOut ||
+                            _parking
+                        ? null
+                        : () => unawaited(_kitchenSendCurrentTable()),
+                    icon: const Icon(Icons.soup_kitchen_outlined, size: 18),
+                    label: Text(
+                      tr(_kitchenActionCount == 0
+                          ? 'Đã báo bếp'
+                          : _kitchenCancelPendingCount > 0 &&
+                                  _kitchenPendingLineCount == 0
+                              ? 'Gửi hủy (${_kitchenCancelPendingCount})'
+                              : _kitchenCancelPendingCount > 0
+                                  ? 'Báo/hủy ($_kitchenActionCount)'
+                                  : 'Báo bếp ($_kitchenPendingLineCount)'),
+                      style: const TextStyle(fontSize: 13),
                     ),
-                    padding: const EdgeInsets.symmetric(vertical: 10),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFFB45309),
+                      side: BorderSide(
+                        color: _kitchenActionCount == 0
+                            ? PosTheme.border
+                            : const Color(0xFFB45309),
+                      ),
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
                     ),
                   ),
                 ),
-              ),
+              ],
               if (_printSettings.showCupLabelManualButton) ...[
                 const SizedBox(width: 8),
                 Expanded(

@@ -10,6 +10,10 @@ class PermissionNavigation {
 
   static const Map<String, List<String>> _viewAliases = {
     'PosSaleReturns': ['PosSell', 'PosProducts'],
+    'PosCustomers': ['PosSell'],
+    'PosBooking': ['PosSell'],
+    'PosWarranty': ['PosSell'],
+    'PosCustomerDisplay': ['PosSell'],
   };
 
   /// Gói có module A → coi như mở menu B (khớp middleware package).
@@ -134,6 +138,14 @@ class PermissionNavigation {
         return 'Xuất dùng nội bộ';
       case 'PosSalesReport':
         return 'Báo cáo POS';
+      case 'PosBooking':
+        return 'Đặt bàn / lịch hẹn';
+      case 'PosCustomers':
+        return 'Khách hàng POS';
+      case 'PosWarranty':
+        return 'Bảo hành POS';
+      case 'PosCustomerDisplay':
+        return 'Màn hình phụ';
       case 'PenaltyReport':
         return 'Báo cáo phạt';
       case 'CashReport':

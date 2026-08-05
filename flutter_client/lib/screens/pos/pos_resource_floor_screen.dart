@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../../models/pos_customer.dart';
 import '../../models/pos_product.dart';
 import '../../models/pos_sell_industry.dart';
 import '../../services/api_service.dart';
@@ -14,6 +15,7 @@ import '../../utils/safe_navigator.dart';
 import '../../widgets/notification_overlay.dart';
 import '../../widgets/pos/pos_numeric_keypad.dart';
 import '../../widgets/pos/pos_theme.dart';
+import 'pos_appointment_day_screen.dart';
 import 'pos_kitchen_void_list_screen.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 import 'package:zkteco_flutter_client/l10n/app_ui_locale.dart';
@@ -44,6 +46,7 @@ class PosResourceFloorScreen extends StatefulWidget {
     this.billRequestedResourceIds = const {},
     this.releasedOrderIds = const {},
     this.promptGuestCountOnOpen = false,
+    this.allowProvisionalBill = true,
     this.onActiveTotalsChanged,
     this.searchQuery = '',
     this.pendingOpenCode,
@@ -79,6 +82,9 @@ class PosResourceFloorScreen extends StatefulWidget {
   /// Hỏi số khách khi mở bàn trống (Thiết lập ngành POS).
   final bool promptGuestCountOnOpen;
 
+  /// Cho phép tạm tính (Thiết lập ngành POS).
+  final bool allowProvisionalBill;
+
   /// Lọc bàn theo tên / mã / khu (từ thanh tìm màn bán).
   final String searchQuery;
 
@@ -109,6 +115,10 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
 
   bool get _isFnB => widget.sellProfile == PosSellProfile.restaurant;
   bool get _isHourly => widget.sellProfile == PosSellProfile.roomHourly;
+  bool get _isSalon => widget.sellProfile == PosSellProfile.salon;
+  bool get _warnMissingTimed =>
+      widget.sellProfile == PosSellProfile.roomHourly ||
+      widget.sellProfile == PosSellProfile.salon;
 
   /// Bàn máy này đang **sửa** (có khóa), không tính bàn tạm rời.
   List<PosServiceResourceDto> get _tablesHeldByMe => _resources
@@ -182,6 +192,7 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
         capacity: r.capacity,
         sortOrder: r.sortOrder,
         defaultHourlyRate: r.defaultHourlyRate,
+        defaultServiceProductId: r.defaultServiceProductId,
         isActive: r.isActive,
         occupancyStatus: forceBill ? 'BillRequested' : r.occupancyStatus,
         openSessionId: r.openSessionId,
@@ -205,6 +216,9 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
         reservationGuestCount: r.reservationGuestCount,
         reservationPreOrderCount: r.reservationPreOrderCount,
         reservationReservedUntil: r.reservationReservedUntil,
+        reservationDepositPaid: r.reservationDepositPaid,
+        reservationDepositAmount: r.reservationDepositAmount,
+        reservationDepositStatus: r.reservationDepositStatus,
         lockedByDeviceId: r.lockedByDeviceId,
         lockedByDeviceName: r.lockedByDeviceName,
         lockedByDisplayName: r.lockedByDisplayName,
@@ -233,6 +247,7 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
           capacity: out.capacity,
           sortOrder: out.sortOrder,
           defaultHourlyRate: out.defaultHourlyRate,
+          defaultServiceProductId: out.defaultServiceProductId,
           isActive: out.isActive,
           occupancyStatus: out.lineCount > 0 ? 'Occupied' : 'Parked',
           openSessionId: out.openSessionId,
@@ -256,6 +271,9 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
           reservationGuestCount: out.reservationGuestCount,
           reservationPreOrderCount: out.reservationPreOrderCount,
           reservationReservedUntil: out.reservationReservedUntil,
+          reservationDepositPaid: out.reservationDepositPaid,
+          reservationDepositAmount: out.reservationDepositAmount,
+          reservationDepositStatus: out.reservationDepositStatus,
           lockedByDeviceId: null,
           lockedByDeviceName: null,
           lockedByDisplayName: null,
@@ -421,6 +439,7 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
       capacity: r.capacity,
       sortOrder: r.sortOrder,
       defaultHourlyRate: r.defaultHourlyRate,
+      defaultServiceProductId: r.defaultServiceProductId,
       isActive: r.isActive,
       occupancyStatus: r.occupancyStatus,
       openSessionId: r.openSessionId,
@@ -444,6 +463,9 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
       reservationGuestCount: r.reservationGuestCount,
       reservationPreOrderCount: r.reservationPreOrderCount,
       reservationReservedUntil: r.reservationReservedUntil,
+      reservationDepositPaid: r.reservationDepositPaid,
+      reservationDepositAmount: r.reservationDepositAmount,
+      reservationDepositStatus: r.reservationDepositStatus,
       lockedByDeviceId: sessionOpen ? lockedDev : null,
       lockedByDeviceName: sessionOpen ? lockedName : null,
       lockedByDisplayName: sessionOpen ? lockedWho : null,
@@ -461,16 +483,27 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
 
   void _emitViewOnlyTable(PosServiceResourceDto r) {
     if (r.openOrderId == null || r.openOrderId!.isEmpty) return;
-    _emitSelect({
-      'saleOrderId': r.openOrderId,
-      'sessionId': r.openSessionId,
-      'resourceId': r.id,
-      'resourceName': r.name,
-      'areaName': r.areaName,
-      'startedAt': r.sessionStartedAt?.toUtc().toIso8601String(),
-      'guestCount': r.guestCount,
-    });
+    _emitSelect(_tableSelectPayload(r));
   }
+
+  Map<String, dynamic> _tableSelectPayload(
+    PosServiceResourceDto r, {
+    Map<String, dynamic>? extra,
+  }) =>
+      {
+        'saleOrderId': r.openOrderId,
+        'sessionId': r.openSessionId,
+        'resourceId': r.id,
+        'resourceName': r.name,
+        'areaName': r.areaName,
+        'startedAt': r.sessionStartedAt?.toUtc().toIso8601String(),
+        'guestCount': r.guestCount,
+        'accumulatedPauseMinutes': r.accumulatedPauseMinutes,
+        'pausedAt': r.pausedAt?.toUtc().toIso8601String(),
+        'isPaused': r.isPaused,
+        'defaultHourlyRate': r.defaultHourlyRate,
+        if (extra != null) ...extra,
+      };
 
   Future<void> _openResource(
     PosServiceResourceDto r, {
@@ -498,16 +531,7 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
       // Bàn chờ / tạm rời (không ai đang sửa): vào thẳng + lấy quyền — không dialog.
       if (r.hasParkedBill && !r.isActivelyOpen) {
         if (r.openOrderId != null && r.openOrderId!.isNotEmpty) {
-          _emitSelect({
-            'saleOrderId': r.openOrderId,
-            'sessionId': r.openSessionId,
-            'resourceId': r.id,
-            'resourceName': r.name,
-            'areaName': r.areaName,
-            'startedAt': r.sessionStartedAt?.toUtc().toIso8601String(),
-            'guestCount': r.guestCount,
-            'forceClaim': true,
-          });
+          _emitSelect(_tableSelectPayload(r, extra: {'forceClaim': true}));
           return;
         }
       }
@@ -544,15 +568,7 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
           await _startResourceSession(freed);
           return;
         }
-        _emitSelect({
-          'saleOrderId': r.openOrderId,
-          'sessionId': r.openSessionId,
-          'resourceId': r.id,
-          'resourceName': r.name,
-          'areaName': r.areaName,
-          'startedAt': r.sessionStartedAt?.toUtc().toIso8601String(),
-          'guestCount': r.guestCount,
-        });
+        _emitSelect(_tableSelectPayload(r));
       } else {
         // Occupied/Holding không có openOrderId (draft mồ côi) → OpenSession gắn lại.
         await _startResourceSession(r);
@@ -626,19 +642,24 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
       return;
     }
     final data = res['data'] as Map? ?? {};
-    _emitSelect({
-      'saleOrderId': data['saleOrderId']?.toString(),
-      'sessionId': data['sessionId']?.toString(),
-      'resourceId': r.id,
-      'resourceName': r.name,
-      'areaName': r.areaName,
-      'orderNo': data['orderNo']?.toString(),
-      'startedAt': data['startedAt']?.toString(),
-      'guestCount': (data['guestCount'] as num?)?.toInt() ?? guestCount,
-    });
+    _emitSelect(_tableSelectPayload(
+      r,
+      extra: {
+        'saleOrderId': data['saleOrderId']?.toString(),
+        'sessionId': data['sessionId']?.toString(),
+        'orderNo': data['orderNo']?.toString(),
+        'startedAt': data['startedAt']?.toString(),
+        'guestCount': (data['guestCount'] as num?)?.toInt() ?? guestCount,
+        'accumulatedPauseMinutes': 0,
+        'isPaused': false,
+        'pausedAt': null,
+      },
+    ));
   }
 
   Future<void> _showReservedActions(PosServiceResourceDto r) async {
+    final depositHeld = (r.reservationDepositStatus ?? '').toLowerCase() == 'held' &&
+        r.reservationDepositPaid > 0;
     final action = await showModalBottomSheet<String>(
       context: context,
       backgroundColor: Colors.white,
@@ -663,18 +684,33 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                   'Đến ${DateFormat('dd/MM HH:mm').format(r.reservationReservedUntil!.toLocal())}',
                 if (r.reservationPreOrderCount > 0)
                   '${r.reservationPreOrderCount} món đặt trước',
+                if (r.reservationDepositPaid > 0)
+                  'Cọc ${_moneyFmt.format(r.reservationDepositPaid)}đ'
+                      '${r.reservationDepositStatus != null ? ' (${r.reservationDepositStatus})' : ''}',
               ].join(' · '))),
             ),
             const Divider(height: 1),
             ListTile(
               leading: const Icon(Icons.login, color: PosTheme.kiotBlue),
               title: Text(tr('Khách đến — nhận bàn')),
-              subtitle: Text(tr('Mở bàn + đưa món đặt trước vào đơn')),
+              subtitle: Text(tr(depositHeld
+                  ? 'Mở bàn, đưa món đặt trước, trừ cọc vào đơn'
+                  : 'Mở bàn + đưa món đặt trước vào đơn')),
               onTap: () => Navigator.pop(ctx, 'seat'),
             ),
+            if (!depositHeld)
+              ListTile(
+                leading: const Icon(Icons.payments_outlined,
+                    color: Color(0xFF059669)),
+                title: Text(tr('Thu cọc giữ chỗ')),
+                onTap: () => Navigator.pop(ctx, 'deposit'),
+              ),
             ListTile(
               leading: const Icon(Icons.cancel_outlined, color: Colors.red),
               title: Text(tr('Hủy đặt bàn')),
+              subtitle: depositHeld
+                  ? Text(tr('Chọn hoàn cọc hoặc mất cọc'))
+                  : null,
               onTap: () => Navigator.pop(ctx, 'cancel'),
             ),
             const SizedBox(height: 8),
@@ -683,10 +719,45 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
       ),
     );
     if (action == null || !mounted) return;
+    if (action == 'deposit') {
+      await _collectDepositForResource(r);
+      return;
+    }
     if (action == 'cancel') {
       final rid = r.reservationId;
       if (rid == null || rid.isEmpty) return;
-      final res = await _api.cancelPosResourceReservation(rid);
+      var refund = false;
+      var forfeit = true;
+      if (depositHeld) {
+        final choice = await showDialog<String>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: Text(tr('Hủy đặt — xử lý cọc')),
+            content: Text(tr(
+                'Đã thu cọc ${_moneyFmt.format(r.reservationDepositPaid)}đ. '
+                'Hoàn lại cho khách hay giữ (mất cọc)?')),
+            actions: [
+              TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: Text(tr('Không hủy'))),
+              TextButton(
+                  onPressed: () => Navigator.pop(ctx, 'refund'),
+                  child: Text(tr('Hoàn cọc'))),
+              FilledButton(
+                  onPressed: () => Navigator.pop(ctx, 'forfeit'),
+                  child: Text(tr('Mất cọc'))),
+            ],
+          ),
+        );
+        if (choice == null) return;
+        refund = choice == 'refund';
+        forfeit = choice == 'forfeit';
+      }
+      final res = await _api.cancelPosResourceReservation(
+        rid,
+        forfeitDeposit: forfeit,
+        refundDeposit: refund,
+      );
       if (!mounted) return;
       if (res['isSuccess'] == true) {
         NotificationOverlayManager().showSuccess(
@@ -715,17 +786,218 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
         return;
       }
       final data = res['data'] as Map? ?? {};
-      _emitSelect({
-        'saleOrderId': data['saleOrderId']?.toString(),
-        'sessionId': data['sessionId']?.toString(),
-        'resourceId': r.id,
-        'resourceName': r.name,
-        'areaName': r.areaName,
-        'orderNo': data['orderNo']?.toString(),
-        'startedAt': data['startedAt']?.toString(),
-        'guestCount': data['guestCount'],
-      });
+      _emitSelect(_tableSelectPayload(
+        r,
+        extra: {
+          'saleOrderId': data['saleOrderId']?.toString(),
+          'sessionId': data['sessionId']?.toString(),
+          'orderNo': data['orderNo']?.toString(),
+          'startedAt': data['startedAt']?.toString(),
+          'guestCount': data['guestCount'],
+          'paidAmount': data['paidAmount'],
+          'depositApplied': data['depositApplied'],
+          'customerId': data['customerId']?.toString(),
+          'accumulatedPauseMinutes': 0,
+          'isPaused': false,
+          'pausedAt': null,
+          'defaultHourlyRate':
+              data['defaultHourlyRate'] ?? r.defaultHourlyRate,
+        },
+      ));
     }
+  }
+
+  Future<void> _collectDepositForResource(PosServiceResourceDto r) async {
+    final rid = r.reservationId;
+    if (rid == null || rid.isEmpty) return;
+    final amountCtrl = TextEditingController(
+      text: r.reservationDepositAmount > r.reservationDepositPaid
+          ? '${(r.reservationDepositAmount - r.reservationDepositPaid).round()}'
+          : '',
+    );
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(tr('Thu cọc — ${r.name}')),
+        content: TextField(
+          controller: amountCtrl,
+          keyboardType: TextInputType.number,
+          autofocus: true,
+          decoration: InputDecoration(
+            labelText: tr('Số tiền cọc'),
+            border: OutlineInputBorder(),
+            suffixText: 'đ',
+          ),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text(tr('Huỷ'))),
+          FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: Text(tr('Thu cọc'))),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    final amount =
+        double.tryParse(amountCtrl.text.trim().replaceAll(',', '')) ?? 0;
+    if (amount <= 0) {
+      NotificationOverlayManager().showWarning(
+        title: 'Thiếu số tiền',
+        message: tr('Nhập số tiền cọc > 0'),
+      );
+      return;
+    }
+    final res = await _api.collectPosResourceReservationDeposit(rid, {
+      'amount': amount,
+      'paymentMethod': 'Tiền mặt',
+    });
+    if (!mounted) return;
+    if (res['isSuccess'] == true) {
+      NotificationOverlayManager().showSuccess(
+        title: 'Đã thu cọc',
+        message: '${_moneyFmt.format(amount)}đ · ${r.name}',
+      );
+      await _reload();
+    } else {
+      NotificationOverlayManager().showError(
+        title: 'Lỗi',
+        message: res['message']?.toString() ?? 'Không thu được cọc',
+      );
+    }
+  }
+
+  Future<void> _openAppointmentCalendar({String? resourceId}) async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute(
+        builder: (_) => PosAppointmentDayScreen(
+          initialResourceId: resourceId,
+          onSeated: (payload) {
+            final rid = payload['resourceId']?.toString();
+            final match = _resources.where((x) => x.id == rid).toList();
+            if (match.isEmpty) {
+              _emitSelect(payload);
+              return;
+            }
+            _emitSelect(_tableSelectPayload(match.first, extra: payload));
+          },
+        ),
+      ),
+    );
+    if (mounted) await _reload();
+  }
+
+  Future<void> _showTodayReservations() async {
+    final now = DateTime.now();
+    final day = DateTime.utc(now.year, now.month, now.day);
+    final res = await _api.getPosResourceReservations(day: day);
+    if (!mounted) return;
+    final raw = res['data'];
+    final list = <PosResourceReservationDto>[];
+    if (raw is List) {
+      for (final e in raw) {
+        if (e is Map) {
+          list.add(PosResourceReservationDto.fromJson(
+              Map<String, dynamic>.from(e)));
+        }
+      }
+    }
+    if (!mounted) return;
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) => DraggableScrollableSheet(
+        expand: false,
+        initialChildSize: 0.55,
+        minChildSize: 0.35,
+        maxChildSize: 0.9,
+        builder: (ctx, scroll) => Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 14, 8, 8),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      tr('Đặt trước hôm nay (${list.length})'),
+                      style: const TextStyle(
+                          fontSize: 16, fontWeight: FontWeight.w700),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    icon: const Icon(Icons.close),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1),
+            Expanded(
+              child: list.isEmpty
+                  ? Center(
+                      child: Text(tr('Chưa có đặt trước trong ngày'),
+                          style: TextStyle(color: PosTheme.textSecondary)))
+                  : ListView.separated(
+                      controller: scroll,
+                      itemCount: list.length,
+                      separatorBuilder: (_, __) => const Divider(height: 1),
+                      itemBuilder: (_, i) {
+                        final b = list[i];
+                        final start = b.reservedAt?.toLocal();
+                        final until = b.reservedUntil?.toLocal();
+                        final table = b.areaName == null || b.areaName!.isEmpty
+                            ? b.resourceName
+                            : '${b.areaName} · ${b.resourceName}';
+                        final timeLabel = start == null
+                            ? (until == null
+                                ? null
+                                : DateFormat('HH:mm').format(until))
+                            : until == null
+                                ? DateFormat('HH:mm').format(start)
+                                : '${DateFormat('HH:mm').format(start)}–${DateFormat('HH:mm').format(until)}';
+                        return ListTile(
+                          title: Text(tr('${b.customerName} — $table')),
+                          subtitle: Text(tr([
+                            if (timeLabel != null) timeLabel,
+                            if ((b.serviceProductName ?? '').isNotEmpty)
+                              b.serviceProductName!,
+                            if ((b.assignedEmployeeName ?? '').isNotEmpty)
+                              b.assignedEmployeeName!,
+                            if ((b.phone ?? '').isNotEmpty) b.phone!,
+                            if (!b.isTimedSlot) '${b.guestCount} khách',
+                            if (b.preOrderCount > 0)
+                              '${b.preOrderCount} món',
+                            if (b.depositPaid > 0)
+                              'Cọc ${_moneyFmt.format(b.depositPaid)}đ',
+                          ].join(' · '))),
+                          trailing: const Icon(Icons.chevron_right),
+                          onTap: () {
+                            Navigator.pop(ctx);
+                            if (_isSalon) {
+                              unawaited(_openAppointmentCalendar(
+                                  resourceId: b.resourceId));
+                              return;
+                            }
+                            final match = _resources
+                                .where((x) => x.id == b.resourceId)
+                                .toList();
+                            if (match.isNotEmpty) {
+                              unawaited(_showReservedActions(match.first));
+                            }
+                          },
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Future<void> _showReserveDialog(PosServiceResourceDto r) async {
@@ -733,6 +1005,9 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
     final phoneCtrl = TextEditingController();
     final guestCtrl = TextEditingController(text: tr('2'));
     final noteCtrl = TextEditingController();
+    final depositCtrl = TextEditingController();
+    final depositPaidCtrl = TextEditingController();
+    String? customerId;
     final preItems = <Map<String, dynamic>>[];
     // Mặc định: hôm nay, giờ hiện tại làm tròn +1 giờ.
     final now = DateTime.now();
@@ -753,6 +1028,26 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: TextButton.icon(
+                      onPressed: () async {
+                        final c = await _pickCustomerForReserve();
+                        if (c == null) return;
+                        setLocal(() {
+                          customerId = c.id;
+                          nameCtrl.text = c.name;
+                          if ((c.phone ?? '').isNotEmpty) {
+                            phoneCtrl.text = c.phone!;
+                          }
+                        });
+                      },
+                      icon: const Icon(Icons.person_search_outlined, size: 18),
+                      label: Text(tr(customerId == null
+                          ? 'Chọn khách CRM'
+                          : 'Đổi khách CRM')),
+                    ),
+                  ),
                   TextField(
                     controller: nameCtrl,
                     decoration: InputDecoration(
@@ -835,6 +1130,36 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                       style: TextStyle(
                           fontSize: 12, color: PosTheme.textSecondary),
                     ),
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: depositCtrl,
+                          keyboardType: TextInputType.number,
+                          decoration: InputDecoration(
+                            labelText: tr('Cọc yêu cầu'),
+                            border: OutlineInputBorder(),
+                            isDense: true,
+                            suffixText: 'đ',
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: TextField(
+                          controller: depositPaidCtrl,
+                          keyboardType: TextInputType.number,
+                          decoration: InputDecoration(
+                            labelText: tr('Đã thu ngay'),
+                            border: OutlineInputBorder(),
+                            isDense: true,
+                            suffixText: 'đ',
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 10),
                   TextField(
@@ -947,14 +1272,22 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
       arriveTime.hour,
       arriveTime.minute,
     );
+    final depositAmount =
+        double.tryParse(depositCtrl.text.trim().replaceAll(',', '')) ?? 0;
+    final depositPaid =
+        double.tryParse(depositPaidCtrl.text.trim().replaceAll(',', '')) ?? 0;
     final res = await _api.createPosResourceReservation({
       'resourceId': r.id,
       'customerName': name,
       'phone': phoneCtrl.text.trim().isEmpty ? null : phoneCtrl.text.trim(),
+      if (customerId != null) 'customerId': customerId,
       'guestCount': guests < 1 ? 1 : guests,
       'reservedUntil': arriveLocal.toUtc().toIso8601String(),
       'note': noteCtrl.text.trim().isEmpty ? null : noteCtrl.text.trim(),
       if (preItems.isNotEmpty) 'preOrderItems': preItems,
+      if (depositAmount > 0) 'depositAmount': depositAmount,
+      if (depositPaid > 0) 'depositPaid': depositPaid,
+      if (depositPaid > 0) 'depositPaymentMethod': 'Tiền mặt',
     });
     if (!mounted) return;
     if (res['isSuccess'] == true) {
@@ -970,6 +1303,102 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
         message: res['message']?.toString() ?? 'Lỗi',
       );
     }
+  }
+
+  Future<PosCustomer?> _pickCustomerForReserve() async {
+    final searchCtrl = TextEditingController();
+    var hits = <PosCustomer>[];
+    var loading = false;
+
+    return showDialog<PosCustomer>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setLocal) {
+          Future<void> search() async {
+            setLocal(() => loading = true);
+            final res = await _api.getPosCustomers(
+              search: searchCtrl.text.trim(),
+              pageSize: 20,
+            );
+            final raw = res['data'];
+            final items = raw is Map
+                ? (raw['items'] ?? raw['Items'])
+                : raw is List
+                    ? raw
+                    : null;
+            final next = <PosCustomer>[];
+            if (items is List) {
+              for (final e in items) {
+                if (e is Map) {
+                  next.add(PosCustomer.fromJson(Map<String, dynamic>.from(e)));
+                }
+              }
+            }
+            if (ctx.mounted) {
+              setLocal(() {
+                hits = next;
+                loading = false;
+              });
+            }
+          }
+
+          return AlertDialog(
+            title: Text(tr('Chọn khách hàng')),
+            content: SizedBox(
+              width: 360,
+              height: 360,
+              child: Column(
+                children: [
+                  TextField(
+                    controller: searchCtrl,
+                    decoration: InputDecoration(
+                      labelText: tr('Tìm tên / SĐT'),
+                      border: OutlineInputBorder(),
+                      suffixIcon: IconButton(
+                        icon: const Icon(Icons.search),
+                        onPressed: () => unawaited(search()),
+                      ),
+                    ),
+                    onSubmitted: (_) => unawaited(search()),
+                  ),
+                  const SizedBox(height: 8),
+                  Expanded(
+                    child: loading
+                        ? const Center(child: CircularProgressIndicator())
+                        : hits.isEmpty
+                            ? Center(
+                                child: Text(tr('Nhập từ khóa rồi tìm'),
+                                    style: TextStyle(
+                                        color: PosTheme.textSecondary)))
+                            : ListView.builder(
+                                itemCount: hits.length,
+                                itemBuilder: (_, i) {
+                                  final c = hits[i];
+                                  return ListTile(
+                                    dense: true,
+                                    title: Text(tr(c.name)),
+                                    subtitle: Text(tr(
+                                        [c.phone, c.customerCode]
+                                            .where((e) =>
+                                                (e ?? '').trim().isNotEmpty)
+                                            .join(' · '))),
+                                    onTap: () => Navigator.pop(ctx, c),
+                                  );
+                                },
+                              ),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: Text(tr('Đóng'))),
+            ],
+          );
+        },
+      ),
+    );
   }
 
   /// Chọn món từ menu (danh mục + tìm kiếm) — gắn productId để nhận bàn đưa vào đơn.
@@ -1223,7 +1652,7 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                 subtitle: Text(tr('Đóng phiên — bàn chưa gọi món')),
                 onTap: () => Navigator.pop(ctx, 'free'),
               ),
-            if (_isFnB || r.pendingKitchenCount > 0)
+            if (_isFnB)
               ListTile(
                 leading: const Icon(Icons.soup_kitchen_outlined),
                 title: Text(
@@ -1268,16 +1697,17 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
               title: Text(tr('Số khách')),
               onTap: () => Navigator.pop(ctx, 'guests'),
             ),
-            ListTile(
-              leading: Icon(
-                r.isBillRequested
-                    ? Icons.request_quote
-                    : Icons.request_quote_outlined,
+            if (widget.allowProvisionalBill)
+              ListTile(
+                leading: Icon(
+                  r.isBillRequested
+                      ? Icons.request_quote
+                      : Icons.request_quote_outlined,
+                ),
+                title: Text(
+                    tr(r.isBillRequested ? 'Huỷ tạm tính' : 'Tạm tính')),
+                onTap: () => Navigator.pop(ctx, 'bill'),
               ),
-              title: Text(
-                  tr(r.isBillRequested ? 'Huỷ tạm tính' : 'Tạm tính')),
-              onTap: () => Navigator.pop(ctx, 'bill'),
-            ),
             if (widget.manageMode)
               ListTile(
                 leading:
@@ -1356,6 +1786,7 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
             capacity: x.capacity,
             sortOrder: x.sortOrder,
             defaultHourlyRate: x.defaultHourlyRate,
+          defaultServiceProductId: x.defaultServiceProductId,
             isActive: x.isActive,
             occupancyStatus: x.occupancyStatus,
             openSessionId: x.openSessionId,
@@ -1379,6 +1810,9 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
             reservationGuestCount: x.reservationGuestCount,
             reservationPreOrderCount: x.reservationPreOrderCount,
             reservationReservedUntil: x.reservationReservedUntil,
+            reservationDepositPaid: x.reservationDepositPaid,
+            reservationDepositAmount: x.reservationDepositAmount,
+            reservationDepositStatus: x.reservationDepositStatus,
           );
         }).toList();
       });
@@ -1569,6 +2003,7 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
               capacity: x.capacity,
               sortOrder: x.sortOrder,
               defaultHourlyRate: x.defaultHourlyRate,
+          defaultServiceProductId: x.defaultServiceProductId,
               isActive: x.isActive,
               occupancyStatus: 'Free',
               openSessionId: null,
@@ -1599,6 +2034,7 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
               capacity: x.capacity,
               sortOrder: x.sortOrder,
               defaultHourlyRate: x.defaultHourlyRate,
+          defaultServiceProductId: x.defaultServiceProductId,
               isActive: x.isActive,
               occupancyStatus:
                   r.lineCount > 0 || r.subtotal > 0 ? 'Occupied' : 'Holding',
@@ -1739,13 +2175,13 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
       final data2 = res['data'] as Map? ?? {};
       final newOrderId = data2['newSaleOrderId']?.toString();
       if (newOrderId != null && newOrderId.isNotEmpty) {
-        _emitSelect({
-          'saleOrderId': newOrderId,
-          'sessionId': data2['newSessionId']?.toString(),
-          'resourceId': target.id,
-          'resourceName': target.name,
-          'areaName': target.areaName,
-        });
+        _emitSelect(_tableSelectPayload(
+          target,
+          extra: {
+            'saleOrderId': newOrderId,
+            'sessionId': data2['newSessionId']?.toString(),
+          },
+        ));
       }
     } else {
       NotificationOverlayManager().showError(
@@ -1836,6 +2272,7 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
               capacity: x.capacity,
               sortOrder: x.sortOrder,
               defaultHourlyRate: x.defaultHourlyRate,
+          defaultServiceProductId: x.defaultServiceProductId,
               isActive: x.isActive,
               occupancyStatus: 'Free',
               openSessionId: null,
@@ -1866,6 +2303,7 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
               capacity: x.capacity,
               sortOrder: x.sortOrder,
               defaultHourlyRate: x.defaultHourlyRate,
+          defaultServiceProductId: x.defaultServiceProductId,
               isActive: x.isActive,
               occupancyStatus: 'Occupied',
               openSessionId: sid,
@@ -1961,6 +2399,7 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
   }
 
   Future<void> _toggleBill(PosServiceResourceDto r) async {
+    if (!widget.allowProvisionalBill && !r.isBillRequested) return;
     final sid = r.openSessionId;
     if (sid == null) return;
     await _api.requestPosResourceBill(sid, requested: !r.isBillRequested);
@@ -2016,6 +2455,7 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
           capacity: x.capacity,
           sortOrder: x.sortOrder,
           defaultHourlyRate: x.defaultHourlyRate,
+          defaultServiceProductId: x.defaultServiceProductId,
           isActive: x.isActive,
           occupancyStatus: 'Free',
           openSessionId: null,
@@ -2039,6 +2479,9 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
           reservationGuestCount: x.reservationGuestCount,
           reservationPreOrderCount: x.reservationPreOrderCount,
           reservationReservedUntil: x.reservationReservedUntil,
+          reservationDepositPaid: x.reservationDepositPaid,
+          reservationDepositAmount: x.reservationDepositAmount,
+          reservationDepositStatus: x.reservationDepositStatus,
         );
 
     void markFreeLocal() {
@@ -2268,6 +2711,15 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                             icon: const Icon(Icons.add),
                             label: Text(tr('Thêm')),
                           ),
+                          const SizedBox(width: 4),
+                          TextButton.icon(
+                            onPressed: () async {
+                              Navigator.pop(ctx);
+                              await _showQuickCreateTables();
+                            },
+                            icon: const Icon(Icons.playlist_add),
+                            label: Text(tr('Tạo nhanh')),
+                          ),
                           const Spacer(),
                           FilledButton(
                             onPressed: () async {
@@ -2312,6 +2764,342 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
   }
 
   Future<void> _addResource() => _showResourceEditor();
+
+  /// Tạo nhanh: nhập tên nhóm + số bàn → tự sinh mã/tên Bàn 1…N.
+  Future<void> _showQuickCreateTables() async {
+    var initialGroup = '';
+    if (_areaFilter != null) {
+      for (final a in _areas) {
+        if (a.id == _areaFilter) {
+          initialGroup = a.name;
+          break;
+        }
+      }
+    }
+    final groupCtrl = TextEditingController(text: tr(initialGroup));
+    var count = 8;
+    var startNo = 1;
+    var capacity = 4;
+    var kind = switch (widget.sellProfile) {
+      PosSellProfile.salon => PosResourceKind.chair,
+      PosSellProfile.roomHourly => PosResourceKind.room,
+      _ => PosResourceKind.table,
+    };
+    final countCtrl = TextEditingController(text: '$count');
+    final startCtrl = TextEditingController(text: '$startNo');
+    final capacityCtrl = TextEditingController(text: '$capacity');
+
+    String kindLabel(PosResourceKind k) => switch (k) {
+          PosResourceKind.chair => 'Ghế',
+          PosResourceKind.room => 'Phòng',
+          PosResourceKind.other => 'Ô',
+          PosResourceKind.table => 'Bàn',
+        };
+
+    List<({String code, String name, int no})> previewFor(
+      String groupName,
+      int n,
+      int start,
+      PosResourceKind k,
+    ) {
+      final label = kindLabel(k);
+      final prefix = _quickTableCodePrefix(groupName);
+      final existingCodes = {
+        for (final r in _resources) r.code.trim().toUpperCase(),
+      };
+      final out = <({String code, String name, int no})>[];
+      var no = start < 1 ? 1 : start;
+      var safety = 0;
+      while (out.length < n && safety < 500) {
+        safety++;
+        final code = '$prefix${no.toString().padLeft(2, '0')}';
+        if (existingCodes.contains(code.toUpperCase()) ||
+            out.any((e) => e.code.toUpperCase() == code.toUpperCase())) {
+          no++;
+          continue;
+        }
+        out.add((code: code, name: '$label $no', no: no));
+        no++;
+      }
+      return out;
+    }
+
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setLocal) {
+          final groupName = groupCtrl.text.trim();
+          final preview = groupName.isEmpty
+              ? const <({String code, String name, int no})>[]
+              : previewFor(groupName, count, startNo, kind);
+          return AlertDialog(
+            title: Text(tr('Tạo bàn nhanh')),
+            content: SizedBox(
+              width: 420,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    TextField(
+                      controller: groupCtrl,
+                      autofocus: true,
+                      decoration: InputDecoration(
+                        labelText: tr('Tên nhóm'),
+                        hintText: tr('VD: Tầng 1, Khu A, Sân thượng…'),
+                        border: const OutlineInputBorder(),
+                        isDense: true,
+                      ),
+                      onChanged: (_) => setLocal(() {}),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(tr('Số bàn trong nhóm'),
+                        style: const TextStyle(
+                            fontSize: 13, fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 6),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: [
+                        for (final n in const [4, 6, 8, 10, 12, 16, 20])
+                          ChoiceChip(
+                            label: Text('$n'),
+                            selected: count == n,
+                            onSelected: (_) {
+                              setLocal(() {
+                                count = n;
+                                countCtrl.text = '$n';
+                              });
+                            },
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: countCtrl,
+                            keyboardType: TextInputType.number,
+                            decoration: InputDecoration(
+                              labelText: tr('Hoặc nhập số'),
+                              border: const OutlineInputBorder(),
+                              isDense: true,
+                            ),
+                            onChanged: (v) {
+                              final n = int.tryParse(v.trim());
+                              if (n != null && n >= 1 && n <= 99) {
+                                setLocal(() => count = n);
+                              }
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: TextField(
+                            controller: startCtrl,
+                            keyboardType: TextInputType.number,
+                            decoration: InputDecoration(
+                              labelText: tr('Số bắt đầu'),
+                              border: const OutlineInputBorder(),
+                              isDense: true,
+                            ),
+                            onChanged: (v) {
+                              final n = int.tryParse(v.trim());
+                              if (n != null && n >= 1 && n <= 999) {
+                                setLocal(() => startNo = n);
+                              }
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    DropdownButtonFormField<PosResourceKind>(
+                      value: kind,
+                      decoration: InputDecoration(
+                        labelText: tr('Loại'),
+                        border: const OutlineInputBorder(),
+                        isDense: true,
+                      ),
+                      items: PosResourceKind.values
+                          .map((k) => DropdownMenuItem(
+                                value: k,
+                                child: Text(tr(k.label)),
+                              ))
+                          .toList(),
+                      onChanged: (v) => setLocal(() => kind = v ?? kind),
+                    ),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: capacityCtrl,
+                      keyboardType: TextInputType.number,
+                      decoration: InputDecoration(
+                        labelText: tr('Sức chứa mỗi bàn'),
+                        border: const OutlineInputBorder(),
+                        isDense: true,
+                      ),
+                    ),
+                    if (preview.isNotEmpty) ...[
+                      const SizedBox(height: 14),
+                      Text(
+                        tr('Sẽ tạo ${preview.length} bàn'),
+                        style: const TextStyle(
+                            fontWeight: FontWeight.w700, fontSize: 13),
+                      ),
+                      const SizedBox(height: 6),
+                      Container(
+                        constraints: const BoxConstraints(maxHeight: 140),
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF5F7FA),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: const Color(0xFFE5E7EB)),
+                        ),
+                        child: SingleChildScrollView(
+                          child: Text(
+                            preview
+                                .map((e) => '${e.name}  (${e.code})')
+                                .join('\n'),
+                            style: const TextStyle(
+                                fontSize: 13, height: 1.35),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: Text(tr('Huỷ')),
+              ),
+              FilledButton(
+                onPressed: groupName.isEmpty || preview.isEmpty
+                    ? null
+                    : () => Navigator.pop(ctx, true),
+                child: Text(tr('Tạo')),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+
+    final groupName = groupCtrl.text.trim();
+    count = int.tryParse(countCtrl.text.trim()) ?? count;
+    startNo = int.tryParse(startCtrl.text.trim()) ?? startNo;
+    capacity = int.tryParse(capacityCtrl.text.trim()) ?? capacity;
+    if (capacity < 1) capacity = 1;
+    if (count < 1) count = 1;
+    if (count > 99) count = 99;
+    if (ok != true || groupName.isEmpty) return;
+
+    final preview = previewFor(groupName, count, startNo, kind);
+    if (preview.isEmpty) {
+      NotificationOverlayManager().showWarning(
+        title: 'Không tạo được',
+        message: tr('Không sinh được mã bàn — thử đổi số bắt đầu'),
+      );
+      return;
+    }
+
+    // Nhóm trùng tên (không phân biệt hoa thường) → dùng lại; không thì tạo mới.
+    PosServiceAreaDto? area;
+    final groupKey = groupName.toLowerCase();
+    for (final a in _areas) {
+      if (a.name.trim().toLowerCase() == groupKey) {
+        area = a;
+        break;
+      }
+    }
+    if (area == null) {
+      final areaRes = await _api.createPosServiceArea({'name': groupName});
+      if (!mounted) return;
+      if (areaRes['isSuccess'] != true || areaRes['data'] is! Map) {
+        NotificationOverlayManager().showError(
+          title: 'Lỗi tạo nhóm',
+          message: areaRes['message']?.toString() ?? 'Không tạo được nhóm',
+        );
+        return;
+      }
+      area = PosServiceAreaDto.fromJson(
+          Map<String, dynamic>.from(areaRes['data'] as Map));
+    }
+    final targetArea = area!;
+
+    const tileW = 120.0;
+    const tileH = 100.0;
+    const gap = 16.0;
+    const stepX = tileW + gap;
+    const stepY = tileH + gap;
+    final baseIndex = _resources.length;
+    var created = 0;
+    String? lastErr;
+    for (var i = 0; i < preview.length; i++) {
+      final item = preview[i];
+      final col = (baseIndex + i) % 4;
+      final row = (baseIndex + i) ~/ 4;
+      final body = <String, dynamic>{
+        'areaId': targetArea.id,
+        'code': item.code,
+        'name': item.name,
+        'resourceKind': kind.apiValue,
+        'capacity': capacity,
+        'sortOrder': baseIndex + i,
+        'isActive': true,
+        'layoutX': col * stepX,
+        'layoutY': row * stepY,
+        'layoutW': tileW,
+        'layoutH': tileH,
+      };
+      final res = await _api.createPosServiceResource(body);
+      if (res['isSuccess'] == true) {
+        created++;
+      } else {
+        lastErr = res['message']?.toString();
+        break;
+      }
+    }
+
+    if (!mounted) return;
+    _areaFilter = targetArea.id;
+    await _reload();
+    if (created > 0) {
+      NotificationOverlayManager().showSuccess(
+        title: 'Đã tạo bàn nhanh',
+        message: tr('$created bàn trong «${targetArea.name}»'),
+      );
+    }
+    if (created < preview.length) {
+      NotificationOverlayManager().showError(
+        title: 'Tạo chưa đủ',
+        message: lastErr ??
+            tr('Chỉ tạo được $created/${preview.length} bàn'),
+      );
+    }
+  }
+
+  /// Tiền tố mã bàn từ tên nhóm (VD: "Tầng 1" → "T1", "Khu A" → "KA").
+  String _quickTableCodePrefix(String groupName) {
+    final raw = groupName.trim();
+    if (raw.isEmpty) return 'B';
+    final digits = RegExp(r'\d+').allMatches(raw).map((m) => m.group(0)!).join();
+    final letters = raw
+        .replaceAll(RegExp(r'[^a-zA-ZÀ-ỹ]'), ' ')
+        .split(RegExp(r'\s+'))
+        .where((w) => w.isNotEmpty)
+        .map((w) => w[0].toUpperCase())
+        .join();
+    var prefix = '$letters$digits';
+    if (prefix.isEmpty) {
+      prefix = raw.length <= 3 ? raw.toUpperCase() : raw.substring(0, 3).toUpperCase();
+    }
+    if (prefix.length > 6) prefix = prefix.substring(0, 6);
+    return prefix;
+  }
 
   Future<void> _showManageResourceActions(PosServiceResourceDto r) async {
     if (_layoutEdit) return;
@@ -2421,6 +3209,37 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
     final nameCtrl = TextEditingController(text: tr(existing?.name ?? ''));
     final capacityCtrl =
         TextEditingController(text: tr(capacity.toString()));
+    final rateCtrl = TextEditingController(
+      text: existing?.defaultHourlyRate == null
+          ? ''
+          : '${existing!.defaultHourlyRate!.round()}',
+    );
+    String? defaultServiceProductId = existing?.defaultServiceProductId;
+    List<PosProduct> timedProducts = [];
+    final timedRes = await _api.getPosProducts(
+      productType: PosProductType.service,
+      pageSize: 200,
+      sortBy: PosProductSortBy.name,
+      sortDesc: false,
+    );
+    if (!mounted) return;
+    final timedRaw = timedRes['data'];
+    final timedItems = timedRaw is Map
+        ? (timedRaw['items'] ?? timedRaw['Items'])
+        : timedRaw is List
+            ? timedRaw
+            : null;
+    if (timedItems is List) {
+      for (final e in timedItems) {
+        if (e is! Map) continue;
+        final p = PosProduct.fromJson(Map<String, dynamic>.from(e));
+        if (p.isTimedService) timedProducts.add(p);
+      }
+    }
+    if (defaultServiceProductId != null &&
+        !timedProducts.any((p) => p.id == defaultServiceProductId)) {
+      defaultServiceProductId = null;
+    }
 
     final ok = await showDialog<bool>(
       context: context,
@@ -2506,6 +3325,41 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                     isDense: true,
                   ),
                 ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: rateCtrl,
+                  keyboardType: TextInputType.number,
+                  decoration: InputDecoration(
+                    labelText: tr('Giá giờ mặc định (bi-a / karaoke)'),
+                    hintText: tr('Khi SP theo giờ chưa có giá'),
+                    border: OutlineInputBorder(),
+                    isDense: true,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                DropdownButtonFormField<String?>(
+                  value: defaultServiceProductId,
+                  decoration: InputDecoration(
+                    labelText: tr('SP tính giờ khi mở bàn'),
+                    hintText: tr('Ghi đè SP mặc định cửa hàng'),
+                    border: OutlineInputBorder(),
+                    isDense: true,
+                  ),
+                  items: [
+                    DropdownMenuItem<String?>(
+                      value: null,
+                      child: Text(tr('— Dùng mặc định cửa hàng —')),
+                    ),
+                    ...timedProducts.map(
+                      (p) => DropdownMenuItem<String?>(
+                        value: p.id,
+                        child: Text(tr(p.name), overflow: TextOverflow.ellipsis),
+                      ),
+                    ),
+                  ],
+                  onChanged: (v) =>
+                      setLocal(() => defaultServiceProductId = v),
+                ),
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
                   title: Text(tr('Đang hoạt động')),
@@ -2538,6 +3392,7 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
     }
     capacity = int.tryParse(capacityCtrl.text.trim()) ?? capacity;
     if (capacity < 1) capacity = 1;
+    final rate = double.tryParse(rateCtrl.text.trim().replaceAll(',', ''));
 
     final body = <String, dynamic>{
       'areaId': areaId,
@@ -2547,6 +3402,8 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
       'capacity': capacity,
       'sortOrder': existing?.sortOrder ?? _resources.length,
       'isActive': isActive,
+      'defaultHourlyRate': (rate != null && rate > 0) ? rate : null,
+      'defaultServiceProductId': defaultServiceProductId,
       if (existing?.layoutX != null) 'layoutX': existing!.layoutX,
       if (existing?.layoutY != null) 'layoutY': existing!.layoutY,
       'layoutW': existing?.layoutW ?? 120,
@@ -2734,6 +3591,7 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
 
     if (_isWaitingTable(r)) {
       final guests = r.guestCount > 0 ? '${r.guestCount}' : '–';
+      final missingTimed = _warnMissingTimed;
       return Row(
         children: [
           Expanded(
@@ -2755,17 +3613,29 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
           ),
           Expanded(
             flex: 2,
-            child: Text(tr('Bàn chờ'),
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-                color: accent,
-              ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(tr(missingTimed ? 'Thiếu SP giờ' : 'Bàn chờ'),
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: missingTimed ? const Color(0xFFC2410C) : accent,
+                  ),
+                ),
+              ],
             ),
           ),
           Expanded(
-            child: Icon(_kindIcon(r.resourceKind), size: 26, color: accent.withValues(alpha: 0.75)),
+            child: Icon(
+              missingTimed
+                  ? Icons.timer_off_outlined
+                  : _kindIcon(r.resourceKind),
+              size: 26,
+              color: (missingTimed ? const Color(0xFFC2410C) : accent)
+                  .withValues(alpha: 0.75),
+            ),
           ),
         ],
       );
@@ -2871,6 +3741,9 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
       parts.add(r.reservationCustomerName!.trim());
     }
     if (r.reservationPreOrderCount > 0) parts.add('${r.reservationPreOrderCount} món');
+    if (r.reservationDepositPaid > 0) {
+      parts.add('Cọc ${_moneyFmt.format(r.reservationDepositPaid)}');
+    }
     return parts.isEmpty ? null : parts.join(' · ');
   }
 
@@ -3179,6 +4052,40 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                                   horizontal: 10, vertical: 10),
                               visualDensity: VisualDensity.standard,
                             ),
+                            const SizedBox(width: 4),
+                            ActionChip(
+                              avatar:
+                                  const Icon(Icons.playlist_add, size: 18),
+                              label: Text(tr('Tạo nhanh'),
+                                  style: TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 14)),
+                              onPressed: () =>
+                                  unawaited(_showQuickCreateTables()),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 10, vertical: 10),
+                              visualDensity: VisualDensity.standard,
+                            ),
+                          ] else ...[
+                            const SizedBox(width: 8),
+                            ActionChip(
+                              avatar: Icon(
+                                  _isSalon
+                                      ? Icons.calendar_month_outlined
+                                      : Icons.event_note_outlined,
+                                  size: 18),
+                              label: Text(
+                                  tr(_isSalon ? 'Lịch hẹn' : 'Đặt hôm nay'),
+                                  style: TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 14)),
+                              onPressed: () => unawaited(_isSalon
+                                  ? _openAppointmentCalendar()
+                                  : _showTodayReservations()),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 10, vertical: 10),
+                              visualDensity: VisualDensity.standard,
+                            ),
                           ],
                         ],
                       ),
@@ -3250,13 +4157,27 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                         ? Center(
                             child: Padding(
                               padding: const EdgeInsets.all(24),
-                              child: Text(
-                                tr(widget.manageMode
-                                    ? 'Chưa có bàn/phòng.\nThêm khu vực rồi thêm bàn.'
-                                    : 'Chưa có bàn/phòng.\nVào Nhiều hơn → Quản lý bàn/phòng để thiết lập.'),
-                                textAlign: TextAlign.center,
-                                style: const TextStyle(
-                                    color: PosTheme.textSecondary),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    tr(widget.manageMode
+                                        ? 'Chưa có bàn/phòng.\nDùng «Tạo bàn nhanh» hoặc thêm từng bàn.'
+                                        : 'Chưa có bàn/phòng.\nVào Nhiều hơn → Quản lý bàn/phòng để thiết lập.'),
+                                    textAlign: TextAlign.center,
+                                    style: const TextStyle(
+                                        color: PosTheme.textSecondary),
+                                  ),
+                                  if (widget.manageMode) ...[
+                                    const SizedBox(height: 16),
+                                    FilledButton.icon(
+                                      onPressed: () =>
+                                          unawaited(_showQuickCreateTables()),
+                                      icon: const Icon(Icons.playlist_add),
+                                      label: Text(tr('Tạo bàn nhanh')),
+                                    ),
+                                  ],
+                                ],
                               ),
                             ),
                           )
@@ -3337,11 +4258,25 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                     icon: const Icon(Icons.layers_outlined),
                   ),
                   IconButton(
+                    tooltip: tr('Tạo bàn nhanh'),
+                    onPressed: () => unawaited(_showQuickCreateTables()),
+                    icon: const Icon(Icons.playlist_add),
+                  ),
+                  IconButton(
                     tooltip: tr('Thêm bàn'),
                     onPressed: _addResource,
                     icon: const Icon(Icons.add),
                   ),
                 ],
+                IconButton(
+                  tooltip: tr(_isSalon ? 'Lịch hẹn' : 'Đặt hôm nay'),
+                  onPressed: () => unawaited(_isSalon
+                      ? _openAppointmentCalendar()
+                      : _showTodayReservations()),
+                  icon: Icon(_isSalon
+                      ? Icons.calendar_month_outlined
+                      : Icons.event_note_outlined),
+                ),
                 IconButton(
                   tooltip: tr('Tải lại'),
                   onPressed: _reload,
@@ -3684,7 +4619,11 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
     } else if (r.isReserved) {
       await _showReservedActions(r);
     } else if (r.isFree) {
-      await _showReserveDialog(r);
+      if (_isSalon) {
+        await _openAppointmentCalendar(resourceId: r.id);
+      } else {
+        await _showReserveDialog(r);
+      }
     }
   }
 }

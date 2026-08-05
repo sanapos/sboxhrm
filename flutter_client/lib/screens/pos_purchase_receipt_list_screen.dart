@@ -87,13 +87,19 @@ class _PosPurchaseReceiptListScreenState
   }
 
   Future<void> _loadSuppliers() async {
-    final res = await _api.getPosSuppliers();
+    final res = await _api.getPosPurchaseSuppliers(pageSize: 200);
     if (!mounted || res['isSuccess'] != true) return;
-    final list = (res['data'] as List?)
-            ?.map((e) => PosSupplierFull.fromJson(e as Map<String, dynamic>))
-            .toList() ??
-        [];
-    setState(() => _suppliers = list);
+    final raw = res['data'];
+    final list = raw is Map
+        ? ((raw['items'] as List?) ?? [])
+        : (raw is List ? raw : <dynamic>[]);
+    setState(() {
+      _suppliers = list
+          .map((e) => PosSupplierFull.fromJson(
+                Map<String, dynamic>.from(e as Map),
+              ))
+          .toList();
+    });
   }
 
   Future<void> _load({int page = 1}) async {

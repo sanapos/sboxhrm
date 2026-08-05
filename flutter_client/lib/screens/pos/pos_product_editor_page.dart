@@ -17,6 +17,7 @@ import '../../widgets/notification_overlay.dart';
 import '../main_layout.dart' show ScreenRefreshNotifier;
 import '../../utils/number_formatter.dart';
 import '../../widgets/pos/pos_catalog_manage.dart';
+import '../../widgets/pos/pos_supplier_form_dialog.dart';
 import '../../widgets/pos/pos_product_image.dart';
 import '../../widgets/pos/pos_unit_attribute_setup_dialog.dart';
 import '../../widgets/pos/pos_product_unit_view.dart';
@@ -254,6 +255,8 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
   PosServiceBillingMode _serviceBillingMode = PosServiceBillingMode.flat;
   late final TextEditingController _minBillMinutesCtrl;
   late final TextEditingController _billRoundMinutesCtrl;
+  late final TextEditingController _graceMinutesCtrl;
+  late final TextEditingController _roundAfterMinutesCtrl;
   late final TextEditingController _defaultDurationMinutesCtrl;
   late final TextEditingController _sessionPackCountCtrl;
 
@@ -471,6 +474,12 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
     _billRoundMinutesCtrl = TextEditingController(
       text: tr(p?.billRoundMinutes != null ? '${p!.billRoundMinutes}' : ''),
     );
+    _graceMinutesCtrl = TextEditingController(
+      text: tr(p?.graceMinutes != null ? '${p!.graceMinutes}' : ''),
+    );
+    _roundAfterMinutesCtrl = TextEditingController(
+      text: tr(p?.roundAfterMinutes != null ? '${p!.roundAfterMinutes}' : ''),
+    );
     _defaultDurationMinutesCtrl = TextEditingController(
       text: tr(p?.defaultDurationMinutes != null
           ? '${p!.defaultDurationMinutes}'
@@ -594,6 +603,10 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
           data.minBillMinutes != null ? '${data.minBillMinutes}' : '';
       _billRoundMinutesCtrl.text =
           data.billRoundMinutes != null ? '${data.billRoundMinutes}' : '';
+      _graceMinutesCtrl.text =
+          data.graceMinutes != null ? '${data.graceMinutes}' : '';
+      _roundAfterMinutesCtrl.text =
+          data.roundAfterMinutes != null ? '${data.roundAfterMinutes}' : '';
       _defaultDurationMinutesCtrl.text = data.defaultDurationMinutes != null
           ? '${data.defaultDurationMinutes}'
           : '';
@@ -778,6 +791,8 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
     _expiryWarningDaysCtrl.dispose();
     _minBillMinutesCtrl.dispose();
     _billRoundMinutesCtrl.dispose();
+    _graceMinutesCtrl.dispose();
+    _roundAfterMinutesCtrl.dispose();
     _defaultDurationMinutesCtrl.dispose();
     _sessionPackCountCtrl.dispose();
     super.dispose();
@@ -915,6 +930,8 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
         'serviceBillingMode': _serviceBillingMode.apiValue,
         'minBillMinutes': int.tryParse(_minBillMinutesCtrl.text.trim()),
         'billRoundMinutes': int.tryParse(_billRoundMinutesCtrl.text.trim()),
+        'graceMinutes': int.tryParse(_graceMinutesCtrl.text.trim()),
+        'roundAfterMinutes': int.tryParse(_roundAfterMinutesCtrl.text.trim()),
         'defaultDurationMinutes':
             int.tryParse(_defaultDurationMinutesCtrl.text.trim()),
         'sessionPackCount':
@@ -1166,6 +1183,18 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
       final item = PosCatalogItem.fromJson(res['data'] as Map<String, dynamic>);
       setState(() => onPicked(item));
     }
+  }
+
+  /// Tạo NCC form đầy đủ (cùng API phiếu nhập) — không chỉ tên.
+  Future<void> _openCreateSupplierFull() async {
+    final created = await PosSupplierFormDialog.open(context);
+    if (created == null || !mounted) return;
+    setState(() {
+      if (!_suppliers.any((s) => s.id == created.id)) {
+        _suppliers.add(PosCatalogItem(id: created.id, name: created.name));
+      }
+      _supplierId = created.id;
+    });
   }
 
   Future<void> _generateVariants() async {
@@ -1790,14 +1819,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
             value: _supplierId,
             items: _suppliers,
             onChanged: (v) => setState(() => _supplierId = v),
-            onCreate: () => _quickCreate(
-              'nhà cung cấp',
-              _api.createPosSupplier,
-              (item) {
-                _suppliers.add(item);
-                _supplierId = item.id;
-              },
-            ),
+            onCreate: _openCreateSupplierFull,
             manageKind: PosCatalogKind.supplier,
           ),
       ],
@@ -1901,6 +1923,32 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                             decoration: PosTheme.inputDecoration(
                               label: 'Làm tròn (phút)',
                               hint: 'VD 15',
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: _graceMinutesCtrl,
+                            keyboardType: TextInputType.number,
+                            decoration: PosTheme.inputDecoration(
+                              label: 'Phút miễn (grace)',
+                              hint: 'VD 5–10',
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: TextField(
+                            controller: _roundAfterMinutesCtrl,
+                            keyboardType: TextInputType.number,
+                            decoration: PosTheme.inputDecoration(
+                              label: 'Làm tròn sau (phút)',
+                              hint: '0 = luôn làm tròn',
                             ),
                           ),
                         ),
@@ -3295,14 +3343,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
             value: _supplierId,
             items: _suppliers,
             onChanged: (v) => setState(() => _supplierId = v),
-            onCreate: () => _quickCreate(
-              'nhà cung cấp',
-              _api.createPosSupplier,
-              (item) {
-                _suppliers.add(item);
-                _supplierId = item.id;
-              },
-            ),
+            onCreate: _openCreateSupplierFull,
             manageKind: PosCatalogKind.supplier,
           ),
           const SizedBox(height: 8),

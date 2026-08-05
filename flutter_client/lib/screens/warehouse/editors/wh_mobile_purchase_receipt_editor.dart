@@ -9,6 +9,7 @@ import '../../../utils/pos_sell_stock_patch.dart';
 import '../../../widgets/loading_widget.dart';
 import '../../../widgets/notification_overlay.dart';
 import '../../../widgets/pos/pos_purchase_product_search_bar.dart';
+import '../../../widgets/pos/pos_supplier_form_dialog.dart';
 import '../../../widgets/pos_barcode_scanner.dart';
 import '../../../widgets/warehouse/wh_mobile_components.dart';
 import '../../../widgets/warehouse/wh_mobile_theme.dart';
@@ -91,36 +92,55 @@ class _WhMobilePurchaseReceiptEditorState extends State<WhMobilePurchaseReceiptE
   }
 
   Future<void> _bootstrap() async {
-    final sup = await _api.getPosPurchaseSuppliers(pageSize: 200);
-    if (mounted && sup['isSuccess'] == true && sup['data'] is Map) {
-      _suppliers = ((sup['data'] as Map)['items'] as List? ?? [])
-          .map((e) => PosSupplierFull.fromJson(e as Map<String, dynamic>))
-          .toList();
-    }
+    await _loadSuppliers();
     if (_receiptId != null && _receiptId!.isNotEmpty) {
-      final res = await _api.getPosPurchaseReceipt(_receiptId!);
-      if (mounted && res['isSuccess'] == true) {
-        final r = PosPurchaseReceipt.fromJson(res['data'] as Map<String, dynamic>);
-        _receiptNo = r.receiptNo;
-        _status = r.status;
-        _supplierId = r.supplierId;
-        _noteCtrl.text = r.note ?? '';
-        _paidCtrl.text = r.paidAmount.toStringAsFixed(0);
-        _importDate = r.importDate ?? DateTime.now();
-        _lines
-          ..clear()
-          ..addAll(r.lines.map((l) => _Line(
-                productId: l.productId,
-                variantId: l.variantId,
-                name: l.productName,
-                code: l.productCode,
-                unit: l.unitName,
-                qty: l.qty,
-                cost: l.costPrice,
-              )));
-      }
+      await _loadReceipt(_receiptId!);
     }
     if (mounted) setState(() => _loading = false);
+  }
+
+  Future<void> _loadSuppliers() async {
+    final sup = await _api.getPosPurchaseSuppliers(pageSize: 200);
+    if (!mounted || sup['isSuccess'] != true || sup['data'] is! Map) return;
+    setState(() {
+      _suppliers = ((sup['data'] as Map)['items'] as List? ?? [])
+          .map((e) => PosSupplierFull.fromJson(
+                Map<String, dynamic>.from(e as Map),
+              ))
+          .toList();
+    });
+  }
+
+  Future<void> _openAddSupplier() async {
+    if (_readOnly) return;
+    final created = await PosSupplierFormDialog.open(context);
+    if (created == null || !mounted) return;
+    await _loadSuppliers();
+    if (!mounted) return;
+    setState(() => _supplierId = created.id);
+  }
+
+  Future<void> _loadReceipt(String id) async {
+    final res = await _api.getPosPurchaseReceipt(id);
+    if (!mounted || res['isSuccess'] != true) return;
+    final r = PosPurchaseReceipt.fromJson(res['data'] as Map<String, dynamic>);
+    _receiptNo = r.receiptNo;
+    _status = r.status;
+    _supplierId = r.supplierId;
+    _noteCtrl.text = r.note ?? '';
+    _paidCtrl.text = r.paidAmount.toStringAsFixed(0);
+    _importDate = r.importDate ?? DateTime.now();
+    _lines
+      ..clear()
+      ..addAll(r.lines.map((l) => _Line(
+            productId: l.productId,
+            variantId: l.variantId,
+            name: l.productName,
+            code: l.productCode,
+            unit: l.unitName,
+            qty: l.qty,
+            cost: l.costPrice,
+          )));
   }
 
   Future<void> _pickProduct(PosPurchaseLookupPick pick) async {
@@ -242,13 +262,35 @@ class _WhMobilePurchaseReceiptEditorState extends State<WhMobilePurchaseReceiptE
                 WhGlassCard(
                   child: Column(
                     children: [
-                      DropdownButtonFormField<String>(
-                        value: _supplierId,
-                        decoration: WhMobileTheme.fieldDecoration(label: 'Nhà cung cấp *'),
-                        items: _suppliers
-                            .map((s) => DropdownMenuItem(value: s.id, child: Text(tr(s.name))))
-                            .toList(),
-                        onChanged: _readOnly ? null : (v) => setState(() => _supplierId = v),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: DropdownButtonFormField<String>(
+                              value: _supplierId,
+                              decoration: WhMobileTheme.fieldDecoration(
+                                  label: 'Nhà cung cấp *'),
+                              items: _suppliers
+                                  .map((s) => DropdownMenuItem(
+                                        value: s.id,
+                                        child: Text(tr(s.name)),
+                                      ))
+                                  .toList(),
+                              onChanged: _readOnly
+                                  ? null
+                                  : (v) => setState(() => _supplierId = v),
+                            ),
+                          ),
+                          if (!_readOnly) ...[
+                            const SizedBox(width: 6),
+                            IconButton(
+                              tooltip: tr('Thêm NCC'),
+                              onPressed: _openAddSupplier,
+                              icon: const Icon(Icons.add_business_outlined),
+                              color: WhMobileTheme.primary,
+                            ),
+                          ],
+                        ],
                       ),
                       const SizedBox(height: 10),
                       DropdownButtonFormField<String>(

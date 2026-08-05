@@ -38,6 +38,15 @@ class PosThermalPrinterService {
   static final _qty = NumberFormat('#,##0.##', 'vi_VN');
 
   static final _date = DateFormat('dd/MM/yyyy HH:mm');
+
+  static String _fmtTimedMinutes(int minutes) {
+    if (minutes <= 0) return '0p';
+    final h = minutes ~/ 60;
+    final m = minutes % 60;
+    if (h > 0 && m > 0) return '${h}h${m.toString().padLeft(2, '0')}';
+    if (h > 0) return '${h}h';
+    return '${m}p';
+  }
   static final _dateOnly = DateFormat('dd/MM/yyyy');
 
 
@@ -602,6 +611,34 @@ class PosThermalPrinterService {
         (slipTitle ?? '').toUpperCase().contains('TẠM');
     if (outAt != null && !isWarehouseSlip && !isProvisionalTitle) {
       await b.line('Giờ ra: ${_date.format(outAt)}');
+    }
+    final timedDuration = order.lines
+        .map((l) => l.durationMinutes)
+        .whereType<int>()
+        .fold<int?>(null, (a, b) => a == null ? b : (a > b ? a : b));
+    final timedBillable = order.lines
+        .map((l) => l.billableMinutes)
+        .whereType<int>()
+        .fold<int?>(null, (a, b) => a == null ? b : (a > b ? a : b));
+    if (timedDuration != null || timedBillable != null || inAt != null) {
+      final wall = (inAt != null)
+          ? (() {
+              final end = outAt ?? DateTime.now();
+              final m = end.difference(inAt).inMinutes;
+              return m < 0 ? 0 : m;
+            })()
+          : timedDuration;
+      final bill = timedBillable ?? wall;
+      if (wall != null && wall > 0) {
+        final wallLabel = _fmtTimedMinutes(wall);
+        if (bill != null && bill != wall) {
+          await b.line('Thời lượng: $wallLabel (tính ${_fmtTimedMinutes(bill)})');
+        } else {
+          await b.line('Thời lượng: $wallLabel');
+        }
+      } else if (bill != null && bill > 0) {
+        await b.line('Thời lượng tính: ${_fmtTimedMinutes(bill)}');
+      }
     }
 
     final tableLines = formatPosTablePrintLines(

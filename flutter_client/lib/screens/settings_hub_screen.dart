@@ -29,6 +29,7 @@ import 'shift_settings_screen.dart';
 import 'system_settings_screen.dart';
 import 'tax_settings_screen.dart';
 import 'device_management_settings_screen.dart';
+import 'gateway/zk_gateway_list_screen.dart';
 
 import 'product_salary_settings_screen.dart';
 import 'salary_settings_screen.dart';
@@ -40,6 +41,9 @@ import 'pos/pos_sell_industry_settings_hub_screen.dart';
 import 'pos/pos_store_settings_hub_screen.dart';
 import 'pos/pos_printer_settings_hub_screen.dart';
 import 'pos/pos_resource_floor_screen.dart';
+import 'pos/pos_appointment_day_screen.dart';
+import 'pos/pos_customer_display_settings_screen.dart';
+import 'pos/pos_customers_screen.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 class SettingsHubScreen extends StatefulWidget {
@@ -283,6 +287,8 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
         return const AiSettingsScreen();
       case 12:
         return const DeviceManagementSettingsScreen();
+      case 25:
+        return const ZkGatewayListScreen();
       case 14:
         return const StaffingQuotaSettingsScreen();
       case 15:
@@ -303,6 +309,12 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
         return const SalarySettingsScreen();
       case 21:
         return const NotificationSettingsScreen();
+      case 22:
+        return const PosAppointmentDayScreen();
+      case 23:
+        return const PosCustomerDisplaySettingsScreen();
+      case 24:
+        return const PosCustomersScreen();
       default:
         return const SizedBox();
     }

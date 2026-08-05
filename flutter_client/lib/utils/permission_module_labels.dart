@@ -52,6 +52,10 @@ class PermissionModuleLabels {
     'PosDamageIssues': 'Xuất hủy POS',
     'PosInternalUseIssues': 'Xuất dùng nội bộ',
     'PosSalesReport': 'Báo cáo doanh thu POS',
+    'PosBooking': 'Đặt bàn / lịch hẹn',
+    'PosCustomers': 'Khách hàng POS',
+    'PosWarranty': 'Bảo hành POS',
+    'PosCustomerDisplay': 'Màn hình phụ POS',
     // Tài chính
     'BonusPenalty': 'Phiếu thưởng',
     'PenaltyTickets': 'Phiếu phạt',

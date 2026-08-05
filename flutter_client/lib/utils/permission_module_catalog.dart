@@ -95,7 +95,12 @@ class PermissionModuleCatalog {
     'PosDamageIssues': '11111111-1111-1111-1111-111111111094',
     'PosInternalUseIssues': '11111111-1111-1111-1111-111111111095',
     'PosSalesReport': '11111111-1111-1111-1111-111111111084',
+    'PosBooking': '11111111-1111-1111-1111-111111111097',
+    'PosCustomers': '11111111-1111-1111-1111-111111111098',
+    'PosWarranty': '11111111-1111-1111-1111-111111111099',
+    'PosCustomerDisplay': '11111111-1111-1111-1111-111111111100',
     'BusinessTripExpense': '11111111-1111-1111-1111-111111111085',
+    'GoogleDrive': '11111111-1111-1111-1111-111111111066',
   };
 
   static Map<String, String> buildLookup([

@@ -133,6 +133,7 @@ class PosStoreSellSettingsDto {
     this.enableMultiDeviceDraftLock = false,
     this.promptGuestCountOnOpen = false,
     this.allowNegativeStock = false,
+    this.defaultHourlyProductId,
     this.extraJson,
   });
 
@@ -151,6 +152,8 @@ class PosStoreSellSettingsDto {
   final bool promptGuestCountOnOpen;
   /// Cho phép bán khi tồn khả dụng &lt; số cần (OnHand có thể âm).
   final bool allowNegativeStock;
+  /// SP dịch vụ tính giờ mặc định khi mở bàn.
+  final String? defaultHourlyProductId;
   final String? extraJson;
 
   factory PosStoreSellSettingsDto.fromJson(Map<String, dynamic> json) =>
@@ -180,6 +183,9 @@ class PosStoreSellSettingsDto {
             json['PromptGuestCountOnOpen'] == true,
         allowNegativeStock: json['allowNegativeStock'] == true ||
             json['AllowNegativeStock'] == true,
+        defaultHourlyProductId: (json['defaultHourlyProductId'] ??
+                json['DefaultHourlyProductId'])
+            ?.toString(),
         extraJson: (json['extraJson'] ?? json['ExtraJson'])?.toString(),
       );
 
@@ -197,6 +203,8 @@ class PosStoreSellSettingsDto {
       'enableMultiDeviceDraftLock': enableMultiDeviceDraftLock,
       'promptGuestCountOnOpen': promptGuestCountOnOpen,
       'allowNegativeStock': allowNegativeStock,
+      'defaultHourlyProductId': defaultHourlyProductId,
+      'setDefaultHourlyProductId': true,
       if (extraJson != null) 'extraJson': extraJson,
       'applyProfileDefaults': applyProfileDefaults,
     };
@@ -280,6 +288,8 @@ class PosStoreSellSettingsDto {
     bool? enableMultiDeviceDraftLock,
     bool? promptGuestCountOnOpen,
     bool? allowNegativeStock,
+    String? defaultHourlyProductId,
+    bool clearDefaultHourlyProductId = false,
     String? extraJson,
   }) =>
       PosStoreSellSettingsDto(
@@ -298,6 +308,9 @@ class PosStoreSellSettingsDto {
         promptGuestCountOnOpen:
             promptGuestCountOnOpen ?? this.promptGuestCountOnOpen,
         allowNegativeStock: allowNegativeStock ?? this.allowNegativeStock,
+        defaultHourlyProductId: clearDefaultHourlyProductId
+            ? null
+            : (defaultHourlyProductId ?? this.defaultHourlyProductId),
         extraJson: extraJson ?? this.extraJson,
       );
 }
@@ -341,6 +354,7 @@ class PosServiceResourceDto {
     this.capacity = 1,
     this.sortOrder = 0,
     this.defaultHourlyRate,
+    this.defaultServiceProductId,
     this.isActive = true,
     this.occupancyStatus = 'Free',
     this.openSessionId,
@@ -370,6 +384,11 @@ class PosServiceResourceDto {
     this.lockExpiresAt,
     this.tableSessionOpen = false,
     this.hasParkedBill = false,
+    this.accumulatedPauseMinutes = 0,
+    this.pausedAt,
+    this.reservationDepositPaid = 0,
+    this.reservationDepositAmount = 0,
+    this.reservationDepositStatus,
   });
 
   final String id;
@@ -381,6 +400,7 @@ class PosServiceResourceDto {
   final int capacity;
   final int sortOrder;
   final double? defaultHourlyRate;
+  final String? defaultServiceProductId;
   final bool isActive;
   final String occupancyStatus;
   final String? openSessionId;
@@ -412,6 +432,13 @@ class PosServiceResourceDto {
   final bool tableSessionOpen;
   /// Còn phiên/đơn nhưng đã nhả khóa (tạm rời sơ đồ).
   final bool hasParkedBill;
+  /// Tổng phút tạm dừng đã chốt (resume).
+  final int accumulatedPauseMinutes;
+  /// Đang pause — mốc bắt đầu khoảng pause hiện tại.
+  final DateTime? pausedAt;
+  final double reservationDepositPaid;
+  final double reservationDepositAmount;
+  final String? reservationDepositStatus;
 
   bool get hasActiveLock => tableSessionOpen;
 
@@ -483,6 +510,7 @@ class PosServiceResourceDto {
         capacity: capacity,
         sortOrder: sortOrder,
         defaultHourlyRate: defaultHourlyRate,
+        defaultServiceProductId: defaultServiceProductId,
         isActive: isActive,
         occupancyStatus: occupancyStatus,
         openSessionId: openSessionId,
@@ -512,6 +540,11 @@ class PosServiceResourceDto {
         lockExpiresAt: lockExpiresAt,
         tableSessionOpen: tableSessionOpen,
         hasParkedBill: hasParkedBill,
+        accumulatedPauseMinutes: accumulatedPauseMinutes,
+        pausedAt: pausedAt,
+        reservationDepositPaid: reservationDepositPaid,
+        reservationDepositAmount: reservationDepositAmount,
+        reservationDepositStatus: reservationDepositStatus,
       );
 
   String get elapsedLabel {
@@ -523,10 +556,18 @@ class PosServiceResourceDto {
     return '${m}p';
   }
 
-  /// Thời gian sử dụng thực — tính từ [sessionStartedAt], chỉ khi đã có món.
+  /// Thời gian sử dụng thực — trừ pause; đóng băng khi đang tạm dừng.
   int get liveElapsedMinutes {
     if (sessionStartedAt == null || lineCount <= 0) return 0;
-    return PosServiceBillingCalc.elapsedMinutes(sessionStartedAt!, null);
+    if (isPaused && pausedAt == null && elapsedMinutes > 0) {
+      return elapsedMinutes;
+    }
+    return PosServiceBillingCalc.elapsedMinutes(
+      sessionStartedAt!,
+      null,
+      accumulatedPauseMinutes: accumulatedPauseMinutes,
+      pausedAt: isPaused ? pausedAt : null,
+    );
   }
 
   factory PosServiceResourceDto.fromJson(Map<String, dynamic> json) {
@@ -562,8 +603,11 @@ class PosServiceResourceDto {
           (json['resourceKind'] ?? json['ResourceKind'])?.toString()),
       capacity: i(json['capacity'] ?? json['Capacity'], 1),
       sortOrder: i(json['sortOrder'] ?? json['SortOrder']),
-      defaultHourlyRate:
+        defaultHourlyRate:
           d(json['defaultHourlyRate'] ?? json['DefaultHourlyRate']),
+      defaultServiceProductId: (json['defaultServiceProductId'] ??
+              json['DefaultServiceProductId'])
+          ?.toString(),
       isActive: json['isActive'] != false && json['IsActive'] != false,
       occupancyStatus:
           (json['occupancyStatus'] ?? json['OccupancyStatus'] ?? 'Free')
@@ -614,6 +658,134 @@ class PosServiceResourceDto {
           json['TableSessionOpen'] == true,
       hasParkedBill:
           json['hasParkedBill'] == true || json['HasParkedBill'] == true,
+      accumulatedPauseMinutes: i(
+          json['accumulatedPauseMinutes'] ?? json['AccumulatedPauseMinutes']),
+      pausedAt: dt(json['pausedAt'] ?? json['PausedAt']),
+      reservationDepositPaid: d(json['reservationDepositPaid'] ??
+              json['ReservationDepositPaid']) ??
+          0,
+      reservationDepositAmount: d(json['reservationDepositAmount'] ??
+              json['ReservationDepositAmount']) ??
+          0,
+      reservationDepositStatus: (json['reservationDepositStatus'] ??
+              json['ReservationDepositStatus'])
+          ?.toString(),
+    );
+  }
+}
+
+/// Đặt trước bàn/phòng (list API).
+class PosResourceReservationDto {
+  PosResourceReservationDto({
+    required this.id,
+    required this.resourceId,
+    required this.resourceCode,
+    required this.resourceName,
+    this.areaName,
+    required this.customerName,
+    this.phone,
+    this.customerId,
+    this.guestCount = 1,
+    this.reservedAt,
+    this.reservedUntil,
+    this.status = 'Booked',
+    this.note,
+    this.preOrderCount = 0,
+    this.depositAmount = 0,
+    this.depositPaid = 0,
+    this.depositStatus = 'None',
+    this.depositPaymentMethod,
+    this.durationMinutes,
+    this.serviceProductId,
+    this.serviceProductName,
+    this.assignedEmployeeId,
+    this.assignedEmployeeName,
+    this.isTimedSlot = false,
+  });
+
+  final String id;
+  final String resourceId;
+  final String resourceCode;
+  final String resourceName;
+  final String? areaName;
+  final String customerName;
+  final String? phone;
+  final String? customerId;
+  final int guestCount;
+  final DateTime? reservedAt;
+  final DateTime? reservedUntil;
+  final String status;
+  final String? note;
+  final int preOrderCount;
+  final double depositAmount;
+  final double depositPaid;
+  final String depositStatus;
+  final String? depositPaymentMethod;
+  final int? durationMinutes;
+  final String? serviceProductId;
+  final String? serviceProductName;
+  final String? assignedEmployeeId;
+  final String? assignedEmployeeName;
+  final bool isTimedSlot;
+
+  bool get isBooked => status.toLowerCase() == 'booked';
+  bool get hasDepositHeld =>
+      depositStatus.toLowerCase() == 'held' && depositPaid > 0;
+
+  factory PosResourceReservationDto.fromJson(Map<String, dynamic> json) {
+    DateTime? dt(dynamic v) => parsePosApiUtc(v?.toString());
+    double d(dynamic v) =>
+        v == null ? 0 : (v is num ? v.toDouble() : double.tryParse('$v') ?? 0);
+    int i(dynamic v, [int def = 0]) =>
+        v == null ? def : (v is num ? v.toInt() : int.tryParse('$v') ?? def);
+    int? iNull(dynamic v) =>
+        v == null ? null : (v is num ? v.toInt() : int.tryParse('$v'));
+
+    final duration = iNull(json['durationMinutes'] ?? json['DurationMinutes']);
+    final timedFlag = json['isTimedSlot'] ?? json['IsTimedSlot'];
+    final timed = timedFlag is bool
+        ? timedFlag
+        : timedFlag?.toString().toLowerCase() == 'true' ||
+            (duration != null && duration > 0);
+
+    return PosResourceReservationDto(
+      id: (json['id'] ?? json['Id'] ?? '').toString(),
+      resourceId: (json['resourceId'] ?? json['ResourceId'] ?? '').toString(),
+      resourceCode:
+          (json['resourceCode'] ?? json['ResourceCode'] ?? '').toString(),
+      resourceName:
+          (json['resourceName'] ?? json['ResourceName'] ?? '').toString(),
+      areaName: (json['areaName'] ?? json['AreaName'])?.toString(),
+      customerName:
+          (json['customerName'] ?? json['CustomerName'] ?? '').toString(),
+      phone: (json['phone'] ?? json['Phone'])?.toString(),
+      customerId: (json['customerId'] ?? json['CustomerId'])?.toString(),
+      guestCount: i(json['guestCount'] ?? json['GuestCount'], 1),
+      reservedAt: dt(json['reservedAt'] ?? json['ReservedAt']),
+      reservedUntil: dt(json['reservedUntil'] ?? json['ReservedUntil']),
+      status: (json['status'] ?? json['Status'] ?? 'Booked').toString(),
+      note: (json['note'] ?? json['Note'])?.toString(),
+      preOrderCount: i(json['preOrderCount'] ?? json['PreOrderCount']),
+      depositAmount: d(json['depositAmount'] ?? json['DepositAmount']),
+      depositPaid: d(json['depositPaid'] ?? json['DepositPaid']),
+      depositStatus:
+          (json['depositStatus'] ?? json['DepositStatus'] ?? 'None').toString(),
+      depositPaymentMethod: (json['depositPaymentMethod'] ??
+              json['DepositPaymentMethod'])
+          ?.toString(),
+      durationMinutes: duration,
+      serviceProductId:
+          (json['serviceProductId'] ?? json['ServiceProductId'])?.toString(),
+      serviceProductName: (json['serviceProductName'] ??
+              json['ServiceProductName'])
+          ?.toString(),
+      assignedEmployeeId: (json['assignedEmployeeId'] ??
+              json['AssignedEmployeeId'])
+          ?.toString(),
+      assignedEmployeeName: (json['assignedEmployeeName'] ??
+              json['AssignedEmployeeName'])
+          ?.toString(),
+      isTimedSlot: timed,
     );
   }
 }
@@ -679,7 +851,12 @@ DateTime? parsePosApiUtc(String? raw) {
 
 /// Tính phút / qty phía client (đồng bộ helper server).
 class PosServiceBillingCalc {
-  static int elapsedMinutes(DateTime startedAt, DateTime? endedAt) {
+  static int elapsedMinutes(
+    DateTime startedAt,
+    DateTime? endedAt, {
+    int accumulatedPauseMinutes = 0,
+    DateTime? pausedAt,
+  }) {
     final end = endedAt?.toUtc() ?? DateTime.now().toUtc();
     // JSON không có Z → parse thành local; chuyển UTC trước khi trừ.
     final start = startedAt.isUtc ? startedAt : startedAt.toUtc();
@@ -700,8 +877,26 @@ class PosServiceBillingCalc {
       );
     }
     if (end.isBefore(startUtc)) return 0;
-    return end.difference(startUtc).inMinutes +
+    var raw = end.difference(startUtc).inMinutes +
         (end.difference(startUtc).inSeconds % 60 > 0 ? 1 : 0);
+    var pause = accumulatedPauseMinutes < 0 ? 0 : accumulatedPauseMinutes;
+    if (pausedAt != null) {
+      final p = pausedAt.isUtc ? pausedAt : pausedAt.toUtc();
+      if (!end.isBefore(p)) {
+        pause += end.difference(p).inMinutes;
+      }
+    }
+    final net = raw - pause;
+    return net < 0 ? 0 : net;
+  }
+
+  static String formatDurationLabel(int minutes) {
+    if (minutes <= 0) return '0p';
+    final h = minutes ~/ 60;
+    final m = minutes % 60;
+    if (h > 0 && m > 0) return '${h}h${m.toString().padLeft(2, '0')}';
+    if (h > 0) return '${h}h';
+    return '${m}p';
   }
 
   static int billableMinutes({
@@ -709,13 +904,20 @@ class PosServiceBillingCalc {
     required PosServiceBillingMode mode,
     int? minBillMinutes,
     int? billRoundMinutes,
+    int? graceMinutes,
+    int? roundAfterMinutes,
   }) {
     if (!mode.isTimed) return elapsed.clamp(0, 999999);
-    var minutes = elapsed.clamp(0, 999999);
+    final raw = elapsed.clamp(0, 999999);
+    final grace = graceMinutes ?? 0;
+    var minutes = (raw - (grace > 0 ? grace : 0)).clamp(0, 999999);
     final min = minBillMinutes ?? 0;
     if (min > 0 && minutes < min) minutes = min;
     final round = billRoundMinutes ?? 0;
-    if (round > 0 && minutes > 0) {
+    final roundAfter = roundAfterMinutes ?? 0;
+    final applyRound =
+        round > 0 && minutes > 0 && (roundAfter <= 0 || raw > roundAfter);
+    if (applyRound) {
       final blocks = (minutes / round).ceil();
       minutes = blocks * round;
     }
