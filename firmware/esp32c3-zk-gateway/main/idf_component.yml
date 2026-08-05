@@ -1,0 +1,5 @@
+dependencies:
+  # mDNS không còn nằm trong core ESP-IDF 5.x, phải lấy từ component registry.
+  espressif/mdns: "^1.2.0"
+  idf:
+    version: ">=5.0"

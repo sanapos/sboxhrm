@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SBOX ZK Gateway</title>
+<style>
+:root{
+  --bg:#0b101b;--bg2:#0f1626;--card:#151d30;--card2:#111827;--line:#25304a;
+  --fg:#eaf0fb;--mut:#8a97b4;--ok:#2ecc71;--bad:#ff5a5f;--warn:#ffab2e;--acc:#4f8ef7;--acc2:#7b5cff
+}
+*{box-sizing:border-box}
+body{margin:0;background:radial-gradient(1200px 600px at 80% -10%,#1a2340 0,transparent 60%),var(--bg);
+  color:var(--fg);font:15px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased}
+.wrap{max-width:920px;margin:0 auto;padding:22px 16px 70px}
+.head{display:flex;align-items:center;gap:14px;margin-bottom:22px}
+.logo{width:46px;height:46px;border-radius:12px;flex:0 0 auto;display:grid;place-items:center;
+  background:linear-gradient(135deg,var(--acc),var(--acc2));font-weight:800;font-size:20px;color:#fff;box-shadow:0 6px 20px rgba(79,142,247,.35)}
+h1{font-size:20px;margin:0;font-weight:700}
+.sub{color:var(--mut);font-size:13px;margin-top:2px}
+.card{background:linear-gradient(180deg,var(--card),var(--card2));border:1px solid var(--line);
+  border-radius:16px;padding:18px;margin-bottom:16px;box-shadow:0 8px 24px rgba(0,0,0,.25)}
+.card h2{font-size:12px;margin:0 0 14px;letter-spacing:1.2px;text-transform:uppercase;color:var(--mut);font-weight:700}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px}
+.kv{background:#0d1424;border:1px solid var(--line);border-radius:11px;padding:11px 13px}
+.kv .k{color:var(--mut);font-size:11.5px;text-transform:uppercase;letter-spacing:.4px}
+.kv .v{font-weight:600;margin-top:4px;word-break:break-word;font-size:14.5px}
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:7px;vertical-align:1px;box-shadow:0 0 0 3px rgba(255,255,255,.04)}
+.on{background:var(--ok)}.off{background:var(--bad)}.idle{background:var(--mut)}
+.pill{display:inline-block;font-size:11px;padding:2px 8px;border-radius:999px;background:#1c2740;color:var(--mut);margin-left:6px}
+label{display:block;font-size:13px;color:var(--mut);margin:0 0 6px;font-weight:500}
+.field{margin-bottom:14px}
+input,select{width:100%;background:#0b1120;border:1px solid var(--line);color:var(--fg);border-radius:10px;padding:10px 12px;font:inherit;transition:border-color .15s}
+input:focus,select:focus{outline:none;border-color:var(--acc);box-shadow:0 0 0 3px rgba(79,142,247,.15)}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+button{background:linear-gradient(135deg,var(--acc),var(--acc2));color:#fff;border:0;border-radius:10px;padding:11px 18px;font:inherit;font-weight:600;cursor:pointer;transition:.15s}
+button:hover{filter:brightness(1.08);transform:translateY(-1px)}
+button.ghost{background:#1b2540;color:var(--fg);border:1px solid var(--line)}
+button.wide{width:100%}
+button:disabled{opacity:.5;cursor:default;transform:none}
+.btns{display:flex;flex-wrap:wrap;gap:9px}
+.err{background:linear-gradient(180deg,#3a1d21,#2c1518);border:1px solid #6b2c33;color:#ffb9b9;border-radius:11px;padding:11px 13px;font-size:13.5px;margin-bottom:14px}
+.hint{color:var(--mut);font-size:12px;margin-top:6px}
+.wifi-input{display:flex;gap:9px}
+.wifi-input input{flex:1}
+.aplist{margin-top:10px;border:1px solid var(--line);border-radius:11px;overflow:hidden;display:none}
+.aplist.show{display:block}
+.ap{display:flex;align-items:center;gap:11px;padding:11px 13px;cursor:pointer;border-bottom:1px solid var(--line);transition:background .12s}
+.ap:last-child{border-bottom:0}
+.ap:hover{background:#18223a}
+.ap .name{flex:1;font-weight:600}
+.ap .lock{color:var(--mut);font-size:12px}
+.bars{display:inline-flex;align-items:flex-end;gap:2px;height:16px}
+.bars i{width:3px;background:var(--mut);border-radius:1px}
+.bars i.a{background:var(--ok)}
+.sec{color:var(--mut)}
+#toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(90px);background:#1a2743;border:1px solid var(--acc);padding:12px 22px;border-radius:11px;transition:.28s;opacity:0;box-shadow:0 10px 30px rgba(0,0,0,.4);z-index:9}
+#toast.show{transform:translateX(-50%);opacity:1}
+.tabs{display:flex;gap:6px;margin-bottom:16px;background:#0d1424;padding:5px;border-radius:12px;border:1px solid var(--line)}
+.tabs button{flex:1;background:transparent;color:var(--mut);box-shadow:none;padding:9px}
+.tabs button.active{background:#1c2740;color:var(--fg)}
+.tabs button:hover{transform:none;filter:none}
+.tab{display:none}.tab.active{display:block}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="head">
+    <div class="logo">SB</div>
+    <div>
+      <h1>SBOX ZK Gateway</h1>
+      <div class="sub">Cầu nối máy chấm công ZKTeco (TCP 4370) ⇄ máy chủ ADMS</div>
+    </div>
+  </div>
+
+  <div id="errbox"></div>
+
+  <div class="tabs">
+    <button id="t-status" class="active" onclick="tab('status')">Trạng thái</button>
+    <button id="t-config" onclick="tab('config')">Cấu hình</button>
+    <button id="t-tools" onclick="tab('tools')">Công cụ</button>
+  </div>
+
+  <!-- TAB TRANG THAI -->
+  <div id="tab-status" class="tab active">
+    <div class="card">
+      <h2>Tổng quan</h2>
+      <div class="grid" id="status"></div>
+    </div>
+  </div>
+
+  <!-- TAB CAU HINH -->
+  <div id="tab-config" class="tab">
+    <div class="card">
+      <h2>Kết nối WiFi</h2>
+      <form id="cfg" onsubmit="save(event)">
+        <div class="field">
+          <label>Tên gợi nhớ của thiết bị này</label>
+          <input name="gwName" placeholder="VD: Cửa trước - tầng 1" maxlength="40">
+          <div class="hint">Tên này hiện trong app để phân biệt khi có nhiều gateway.</div>
+        </div>
+        <div class="field">
+          <label>Tên WiFi (SSID) — phân biệt chữ HOA/thường</label>
+          <div class="wifi-input">
+            <input name="wifiSsid" autocomplete="off" placeholder="Bấm Quét rồi chọn mạng">
+            <button type="button" class="ghost" onclick="scan()" id="scanBtn">Quét</button>
+          </div>
+          <div class="aplist" id="aplist"></div>
+          <div class="hint">Nên bấm <b>Quét</b> và chọn đúng tên trong danh sách để tránh gõ nhầm hoa/thường.</div>
+        </div>
+        <div class="field">
+          <label>Mật khẩu WiFi</label>
+          <input name="wifiPass" type="password" placeholder="để trống nếu không đổi">
+        </div>
+
+        <h2 style="margin-top:6px">Máy chấm công</h2>
+        <div class="row">
+          <div class="field">
+            <label>IP máy trong mạng LAN</label>
+            <input name="deviceIp" placeholder="192.168.1.35" required>
+          </div>
+          <div class="field">
+            <label>Cổng</label>
+            <input name="devicePort" type="number" min="1" max="65535">
+          </div>
+        </div>
+        <div class="row">
+          <div class="field">
+            <label>Comm Key</label>
+            <input name="commKey" type="number" min="0">
+            <div class="hint">Để 0 nếu máy không đặt mật khẩu kết nối.</div>
+          </div>
+          <div class="field">
+            <label>Số seri gửi lên máy chủ</label>
+            <input name="snOverride" placeholder="trống = dùng SN của máy">
+          </div>
+        </div>
+
+        <h2 style="margin-top:6px">Máy chủ &amp; đồng bộ</h2>
+        <div class="field">
+          <label>Địa chỉ máy chủ ADMS</label>
+          <input name="serverUrl" placeholder="https://sboxhrm.com" required>
+        </div>
+        <div class="row">
+          <div class="field">
+            <label>Chu kỳ hỏi lệnh (giây)</label>
+            <input name="pollInterval" type="number" min="5" max="3600">
+          </div>
+          <div class="field">
+            <label>Chu kỳ kiểm tra bản ghi mới (giây)</label>
+            <input name="attlogInterval" type="number" min="10" max="3600">
+          </div>
+        </div>
+        <div class="row">
+          <div class="field">
+            <label>Lần đầu chỉ lấy log trong (ngày)</label>
+            <input name="backfillDays" type="number" min="0" max="3650">
+            <div class="hint">0 = lấy toàn bộ lịch sử còn trên máy.</div>
+          </div>
+          <div class="field">
+            <label>Múi giờ máy chấm công</label>
+            <input name="tzOffset" type="number" min="-12" max="14">
+          </div>
+        </div>
+        <div class="field">
+          <label>Tự chỉnh đồng hồ máy chấm công theo giờ chuẩn</label>
+          <select name="syncClock"><option value="true">Có</option><option value="false">Không</option></select>
+        </div>
+
+        <button type="submit" class="wide">Lưu cấu hình</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- TAB CONG CU -->
+  <div id="tab-tools" class="tab">
+    <div class="card">
+      <h2>Thao tác</h2>
+      <div class="btns">
+        <button class="ghost" onclick="act('resync')">Đồng bộ lại toàn bộ chấm công</button>
+        <button class="ghost" onclick="act('users')">Đẩy danh sách nhân viên</button>
+        <button class="ghost" onclick="act('clock')">Chỉnh giờ máy chấm công</button>
+        <button class="ghost" onclick="act('resetmark')">Xoá mốc đồng bộ</button>
+        <button class="ghost" onclick="act('reboot')">Khởi động lại gateway</button>
+      </div>
+      <div class="hint">“Xoá mốc đồng bộ” buộc gateway gửi lại mọi bản ghi còn trên máy; máy chủ tự loại bản trùng.</div>
+    </div>
+    <div class="card">
+      <h2>Cập nhật firmware</h2>
+      <div class="field"><input type="file" id="fw" accept=".bin"></div>
+      <button class="ghost" onclick="ota()">Nạp firmware</button>
+      <div class="hint">Chọn tệp <code>zk_gateway.bin</code>. Thiết bị tự khởi động lại sau khi nạp xong.</div>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+const $ = s => document.querySelector(s);
+function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove('show'),2600)}
+function esc(s){return String(s??'').replace(/[<>&"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]))}
+function dot(v){return '<span class="dot '+(v?'on':'off')+'"></span>'}
+function ago(ms,up){if(!ms)return 'chưa có';const d=Math.max(0,up*1000-ms);return Math.round(d/1000)+'s trước'}
+
+function tab(name){
+  for(const n of ['status','config','tools']){
+    $('#tab-'+n).classList.toggle('active', n===name);
+    $('#t-'+n).classList.toggle('active', n===name);
+  }
+}
+
+async function refresh(){
+  let s;
+  try{ s = await (await fetch('/api/status')).json(); }catch(e){ return }
+  $('#errbox').innerHTML = s.error ? '<div class="err">⚠ '+esc(s.error)+'</div>' : '';
+  const rows = [
+    ['WiFi', dot(s.wifi.connected)+(s.wifi.connected? esc(s.wifi.ip)+' <span class="pill">'+s.wifi.rssi+' dBm</span>' :'chưa kết nối')],
+    ['Máy chấm công', dot(s.device.online)+(s.device.online?'đang kết nối':'không liên lạc được')],
+    ['Máy chủ ADMS', dot(s.server.online)+(s.server.online?'đã kết nối':'chưa kết nối')],
+    ['Số seri máy', esc(s.device.serial)||'chưa đọc được'],
+    ['Firmware máy', esc(s.device.firmware)||'-'],
+    ['Nền tảng máy', esc(s.device.platform)||'-'],
+    ['Nhân viên trên máy', s.device.users],
+    ['Bản ghi trên máy', s.device.records],
+    ['Đã đẩy lên máy chủ', s.sync.uploadedTotal+' bản ghi'],
+    ['Lô gần nhất', s.sync.uploadedLast+' bản ghi'],
+    ['Lệnh đã thực thi', s.sync.commands],
+    ['Lần hỏi lệnh gần nhất', ago(s.sync.lastCycleMs, s.uptime)],
+    ['Thời gian chạy', Math.floor(s.uptime/3600)+'h '+Math.floor(s.uptime%3600/60)+'m'],
+    ['RAM còn trống', Math.round(s.heap/1024)+' KB'],
+    ['Điểm phát cấu hình', s.wifi.ap ? esc(s.wifi.apSsid)+' đang bật' : 'tắt'],
+    ['Phiên bản firmware', esc(s.version)]
+  ];
+  $('#status').innerHTML = rows.map(r=>'<div class="kv"><div class="k">'+r[0]+'</div><div class="v">'+r[1]+'</div></div>').join('');
+}
+
+async function loadCfg(){
+  const c = await (await fetch('/api/config')).json();
+  const f = $('#cfg');
+  for(const k in c){ if(f[k] && k!=='hasWifiPass' && k!=='syncClock') f[k].value = c[k]; }
+  f.syncClock.value = String(c.syncClock);
+  if(c.hasWifiPass) f.wifiPass.placeholder = 'đã lưu - để trống nếu không đổi';
+}
+
+async function save(e){
+  e.preventDefault();
+  const f = e.target, o = {};
+  for(const el of f.elements){
+    if(!el.name) continue;
+    o[el.name] = el.type==='number' ? Number(el.value||0)
+               : el.name==='syncClock' ? el.value==='true'
+               : el.value;
+  }
+  const r = await fetch('/api/config',{method:'POST',body:JSON.stringify(o)});
+  toast(r.ok ? 'Đã lưu cấu hình' : 'Lưu thất bại');
+  if(r.ok) setTimeout(loadCfg, 500);
+}
+
+async function act(what){
+  const r = await fetch('/api/action?do='+what,{method:'POST'});
+  toast(r.ok ? 'Đã gửi yêu cầu' : 'Không thực hiện được');
+}
+
+function bars(rssi){
+  const n = rssi>=-55?4 : rssi>=-67?3 : rssi>=-78?2 : 1;
+  let h='<span class="bars">';
+  for(let i=1;i<=4;i++) h+='<i class="'+(i<=n?'a':'')+'" style="height:'+(i*4)+'px"></i>';
+  return h+'</span>';
+}
+
+async function scan(){
+  const btn=$('#scanBtn'); btn.disabled=true; btn.textContent='...';
+  try{
+    const list = await (await fetch('/api/scan')).json();
+    const seen={}, uniq=[];
+    for(const a of list.sort((x,y)=>y.rssi-x.rssi)){ if(a.ssid && !seen[a.ssid]){seen[a.ssid]=1;uniq.push(a)} }
+    const box=$('#aplist');
+    box.innerHTML = uniq.map(a=>
+      '<div class="ap" onclick="pick(this)" data-ssid="'+esc(a.ssid)+'">'+
+        bars(a.rssi)+
+        '<span class="name">'+esc(a.ssid)+'</span>'+
+        (a.secure?'<span class="lock">🔒</span>':'<span class="lock sec">mở</span>')+
+      '</div>').join('') || '<div class="ap"><span class="name sec">Không thấy mạng nào</span></div>';
+    box.classList.add('show');
+    toast('Tìm thấy '+uniq.length+' mạng');
+  }catch(e){ toast('Quét thất bại'); }
+  btn.disabled=false; btn.textContent='Quét';
+}
+
+function pick(el){
+  $('#cfg').wifiSsid.value = el.dataset.ssid;
+  $('#aplist').classList.remove('show');
+  $('#cfg').wifiPass.focus();
+}
+
+async function ota(){
+  const f = $('#fw').files[0];
+  if(!f){ toast('Hãy chọn tệp firmware'); return }
+  toast('Đang nạp, không tắt nguồn...');
+  const r = await fetch('/api/ota',{method:'POST',body:f});
+  toast(r.ok ? 'Nạp xong, đang khởi động lại' : 'Nạp thất bại');
+}
+
+loadCfg(); refresh(); setInterval(refresh, 3000);
+</script>
+</body>
+</html>

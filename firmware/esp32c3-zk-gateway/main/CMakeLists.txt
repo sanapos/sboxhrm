@@ -1,0 +1,30 @@
+idf_component_register(
+    SRCS
+        "main.c"
+        "app_config.c"
+        "wifi_mgr.c"
+        "web_portal.c"
+        "zk_proto.c"
+        "zk_client.c"
+        "adms_client.c"
+        "cmd_exec.c"
+        "gateway.c"
+        "discovery.c"
+    INCLUDE_DIRS "."
+    EMBED_TXTFILES "portal.html"
+    REQUIRES
+        nvs_flash
+        esp_wifi
+        esp_netif
+        esp_event
+        esp_http_client
+        esp_http_server
+        esp_timer
+        esp-tls
+        esp_app_format
+        app_update
+        mbedtls
+        lwip
+        json
+        espressif__mdns
+)
