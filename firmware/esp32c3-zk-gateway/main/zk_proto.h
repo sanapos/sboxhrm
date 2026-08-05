@@ -72,6 +72,8 @@ typedef struct {
     uint16_t reply_id;
     uint32_t comm_key;
     int timeout_ms;                       /* thời gian chờ nhận mặc định của phiên */
+    char ip[16];                          /* giữ lại để mở lại được phiên khi cần */
+    uint16_t port;
 
     uint16_t resp_cmd;                    /* mã lệnh của gói trả lời gần nhất */
     uint8_t reply[ZK_REPLY_BUF_MAX];      /* phần data của gói trả lời gần nhất */
@@ -83,6 +85,11 @@ typedef esp_err_t (*zk_sink_fn)(void *ctx, const uint8_t *data, size_t len);
 
 esp_err_t zk_open(zk_conn_t *c, const char *ip, uint16_t port, uint32_t comm_key, int timeout_ms);
 void zk_close(zk_conn_t *c);
+
+/* Dựng lại phiên tới cùng máy. Máy ngừng trả lời sau vài thao tác (rõ nhất là
+ * sau khi đóng giao diện đăng ký vân tay) và cách duy nhất để dùng tiếp là nối
+ * lại từ đầu. */
+esp_err_t zk_reopen(zk_conn_t *c);
 
 /* Gửi một lệnh và đọc đúng một gói trả lời vào c->reply. */
 esp_err_t zk_cmd(zk_conn_t *c, uint16_t cmd, const void *data, size_t len);

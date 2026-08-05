@@ -174,6 +174,12 @@ Kết quả được xác định bằng cách **đếm lại số mẫu vân ta
 trong gói sự kiện. Lý do: các gói đó cũng phát ra khi quét lỗi, nên suy từ mã sẽ báo thành
 công sai — điều tệ hơn nhiều so với báo thất bại sai.
 
+Phép đếm đó phải chạy trên **một phiên TCP mới**: sau khi rời giao diện đăng ký, máy ngừng
+trả lời hẳn trên phiên cũ, mọi lệnh gửi tiếp đều hết thời gian chờ. Nếu đếm trên phiên cũ
+thì lượt đăng ký thành công thật vẫn bị báo thất bại — đúng lỗi đã gặp trên ZLM60 Ver 6.60.
+Nối lại xong mới đếm, thời gian trả kết quả cũng giảm còn khoảng một nửa vì không phải chờ
+hết các lượt timeout.
+
 Khi lệnh có `OVERWRITE=1` (máy chủ luôn gửi cờ này), gateway xoá mẫu cũ của đúng ngón đó
 trước khi mở đăng ký, để đăng ký thành công thì số mẫu chắc chắn tăng đúng 1. Đánh đổi phải
 biết: **quét không thành công thì ngón đó mất mẫu cũ** và người dùng phải đăng ký lại. Bỏ cờ

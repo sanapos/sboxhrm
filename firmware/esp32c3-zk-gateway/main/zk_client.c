@@ -662,6 +662,16 @@ esp_err_t zk_enroll_finger(zk_conn_t *c, const char *user_id, int finger_index,
     }
 
     zk_set_recv_timeout(c, c->timeout_ms);
+
+    /* Máy ngừng trả lời hẳn sau khi rời giao diện đăng ký: mọi lệnh gửi tiếp
+     * trên phiên này đều hết thời gian chờ, kể cả phép đếm dùng để kết luận. Đó
+     * là lý do một lượt quét thành công thật vẫn bị báo thất bại. Phải nối lại
+     * trước khi đếm. */
+    if (zk_reopen(c) != ESP_OK) {
+        ESP_LOGE(TAG, "khong noi lai duoc may sau khi dang ky, khong the kiem chung ket qua");
+        return ESP_FAIL;
+    }
+
     zk_cancel_capture(c);
     zk_refresh_data(c);
 

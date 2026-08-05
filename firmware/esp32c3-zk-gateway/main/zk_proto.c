@@ -337,6 +337,8 @@ esp_err_t zk_open(zk_conn_t *c, const char *ip, uint16_t port, uint32_t comm_key
     c->sock = -1;
     c->comm_key = comm_key;
     c->timeout_ms = timeout_ms;
+    c->port = port;
+    snprintf(c->ip, sizeof(c->ip), "%s", ip != NULL ? ip : "");
 
     esp_err_t err = connect_with_timeout(ip, port, timeout_ms, &c->sock);
     if (err != ESP_OK) {
@@ -381,6 +383,22 @@ void zk_close(zk_conn_t *c)
         c->sock = -1;
     }
     c->session_id = 0;
+}
+
+esp_err_t zk_reopen(zk_conn_t *c)
+{
+    char ip[sizeof(c->ip)];
+    snprintf(ip, sizeof(ip), "%s", c->ip);
+    uint16_t port = c->port;
+    uint32_t comm_key = c->comm_key;
+    int timeout_ms = c->timeout_ms;
+
+    /* Xoá session_id để zk_close khỏi gửi EXIT: phía kia đã im nên gói đó chỉ
+     * ngồi chờ hết thời gian chờ rồi thôi. */
+    c->session_id = 0;
+    zk_close(c);
+
+    return zk_open(c, ip, port, comm_key, timeout_ms);
 }
 
 typedef struct {
