@@ -153,9 +153,10 @@ workflows:
       app_store_connect:
         auth: integration
         submit_to_testflight: true
-        submit_to_app_store: true
-        cancel_previous_submissions: true
-        release_type: MANUAL
+        # Dừng ở TestFlight, giống bản codemagic.yaml ở gốc repo. Hai file này
+        # phải khớp nhau vì Codemagic chỉ đọc một file, và lần trước chúng lệch
+        # nhau đã làm mất biến API_BASE_URL của workflow ios-debug.
+        submit_to_app_store: false
 
   android-release:
     name: Android Release (AAB)
