@@ -173,9 +173,10 @@ workflows:
         key_id: $APP_STORE_CONNECT_KEY_IDENTIFIER
         issuer_id: $APP_STORE_CONNECT_ISSUER_ID
         submit_to_testflight: true
-        submit_to_app_store: true
-        cancel_previous_submissions: true
-        release_type: MANUAL
+        # Dừng ở TestFlight. Bật submit_to_app_store nghĩa là mỗi lần build là
+        # tự vào hàng đợi duyệt, kèm huỷ bản đang chờ — dùng workflow
+        # ios-app-store-submit khi thật sự muốn phát hành.
+        submit_to_app_store: false
 
   ios-app-store-submit:
     name: iOS Submit App Store Review
