@@ -1,4 +1,5 @@
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart'
+    show defaultTargetPlatform, kIsWeb, TargetPlatform;
 import 'package:flutter/material.dart';
 
 import '../../l10n/app_tr.dart';
@@ -372,10 +373,15 @@ class _ZkGatewayListScreenState extends State<ZkGatewayListScreen> {
             ),
           ),
           const SizedBox(height: 16),
-          const GatewayNoteBox(
-            text: 'Điện thoại phải ở cùng WiFi với gateway. Một số router bật '
-                'chế độ cách ly thiết bị làm dò tìm không thấy - khi đó dùng '
-                'nút bàn phím ở góc trên để nhập IP trực tiếp.',
+          GatewayNoteBox(
+            text: !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS
+                ? 'Điện thoại phải ở cùng WiFi với gateway. Lần đầu iPhone sẽ '
+                    'hỏi quyền truy cập mạng nội bộ - chọn Cho phép rồi bấm dò '
+                    'lại, vì lần dò đang chạy lúc hỏi sẽ không thấy gì. Nếu đã '
+                    'lỡ từ chối, bật lại ở Cài đặt > SBOX HRM > Mạng cục bộ.'
+                : 'Điện thoại phải ở cùng WiFi với gateway. Một số router bật '
+                    'chế độ cách ly thiết bị làm dò tìm không thấy - khi đó dùng '
+                    'nút bàn phím ở góc trên để nhập IP trực tiếp.',
             icon: Icons.help_outline,
           ),
         ],
