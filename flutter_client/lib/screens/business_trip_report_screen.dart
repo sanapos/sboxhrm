@@ -48,6 +48,7 @@ class _BusinessTripReportScreenState extends State<BusinessTripReportScreen> {
   double _summaryWithInvoice = 0;
   double _summaryWithoutInvoice = 0;
   int _expenseLineCount = 0;
+  final _pngKey = GlobalKey();
 
   bool get _teamView {
     final role = Provider.of<AuthProvider>(context, listen: false).userRole;
@@ -360,6 +361,20 @@ class _BusinessTripReportScreenState extends State<BusinessTripReportScreen> {
     );
   }
 
+  Future<void> _exportPng() async {
+    await ClientPngExport.capture(
+      context: context,
+      key: _pngKey,
+      filePrefix: 'CongTac',
+    );
+  }
+
+  bool get _pngExportEmpty {
+    if (_viewTab == 1) return _byCategory.isEmpty;
+    if (_teamView && _viewTab == 2) return _byEmployee.isEmpty;
+    return _filtered.isEmpty;
+  }
+
   @override
   Widget build(BuildContext context) {
     final canExport = Provider.of<PermissionProvider>(context, listen: false)
@@ -369,9 +384,16 @@ class _BusinessTripReportScreenState extends State<BusinessTripReportScreen> {
       actions: [
         if (canExport)
           HrmTopBarAction(
+            icon: Icons.image_outlined,
+            label: 'Xuất PNG',
+            onPressed: _pngExportEmpty ? null : _exportPng,
+            pinOnMobile: false,
+          ),
+        if (canExport)
+          HrmTopBarAction(
             icon: Icons.file_download_outlined,
             label: 'Xuất Excel',
-            onPressed: _exportExcel,
+            onPressed: _pngExportEmpty ? null : _exportExcel,
           ),
         HrmTopBarAction(
           icon: Icons.refresh,
@@ -389,6 +411,11 @@ class _BusinessTripReportScreenState extends State<BusinessTripReportScreen> {
               child: ListView(
                 physics: const AlwaysScrollableScrollPhysics(),
                 children: [
+                  RepaintBoundary(
+                    key: _pngKey,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
                   ReportCollapsibleChrome(
                     expanded: _showOverviewPanel,
                     onToggle: () => setState(
@@ -488,6 +515,9 @@ class _BusinessTripReportScreenState extends State<BusinessTripReportScreen> {
                     _buildByEmployee()
                   else
                     _buildBody(),
+                      ],
+                    ),
+                  ),
                 ],
               ),
             ),

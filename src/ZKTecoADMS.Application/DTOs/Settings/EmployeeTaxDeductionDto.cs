@@ -9,6 +9,8 @@ public class EmployeeTaxDeductionDto
     public int NumberOfDependents { get; set; }
     public decimal MandatoryInsurance { get; set; }
     public decimal OtherExemptions { get; set; }
+    public string? DependentRegistrationFormUrl { get; set; }
+    public string? DependentDocumentsJson { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }
 }
@@ -19,4 +21,6 @@ public class CreateOrUpdateEmployeeTaxDeductionDto
     public int NumberOfDependents { get; set; }
     public decimal MandatoryInsurance { get; set; }
     public decimal OtherExemptions { get; set; }
+    public string? DependentRegistrationFormUrl { get; set; }
+    public string? DependentDocumentsJson { get; set; }
 }

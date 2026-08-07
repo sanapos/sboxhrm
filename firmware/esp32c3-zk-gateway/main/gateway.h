@@ -31,7 +31,13 @@ void gateway_status_snapshot(gw_status_t *out);
 void gateway_request_full_resync(void);
 void gateway_request_user_sync(void);
 void gateway_request_clock_sync(void);
+void gateway_request_identify(void);
+void gateway_clear_device_identity(void);
 
 /* Được cmd_exec gọi khi server yêu cầu kéo dữ liệu; dùng lại phiên ZK đang mở. */
 esp_err_t gateway_upload_attendance(zk_conn_t *c, bool full_resync);
 esp_err_t gateway_upload_users(zk_conn_t *c);
+
+/* Máy ZK chỉ cho một phiên TCP. Web portal và vòng đồng bộ dùng chung khoá này. */
+typedef esp_err_t (*gateway_device_fn)(zk_conn_t *c, void *ctx);
+esp_err_t gateway_run_on_device(gateway_device_fn fn, void *ctx);

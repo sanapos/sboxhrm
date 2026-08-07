@@ -73,6 +73,7 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
   double _stdWorkHours = 8;
   /// % đủ 1 công (thiết lập hệ thống).
   double _minWorkDayPercent = 80;
+  final _pngKey = GlobalKey();
 
   bool get _teamView {
     final role = Provider.of<AuthProvider>(context, listen: false).userRole;
@@ -852,6 +853,14 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
     );
   }
 
+  Future<void> _exportPng() async {
+    await ClientPngExport.capture(
+      context: context,
+      key: _pngKey,
+      filePrefix: 'ChamCong',
+    );
+  }
+
   double _cellWorkCredit(Map<String, dynamic>? cell) {
     if (cell == null) return 0;
     final st = cell['status']?.toString() ?? '';
@@ -1058,9 +1067,16 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
       actions: [
         if (canExport)
           HrmTopBarAction(
+            icon: Icons.image_outlined,
+            label: 'Xuất PNG',
+            onPressed: calEmps.isEmpty ? null : _exportPng,
+            pinOnMobile: false,
+          ),
+        if (canExport)
+          HrmTopBarAction(
             icon: Icons.file_download_outlined,
             label: 'Xuất Excel',
-            onPressed: _exportExcel,
+            onPressed: calEmps.isEmpty ? null : _exportExcel,
           ),
         HrmTopBarAction(
           icon: Icons.refresh,
@@ -1078,6 +1094,11 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
               child: ListView(
                 physics: const AlwaysScrollableScrollPhysics(),
                 children: [
+                  RepaintBoundary(
+                    key: _pngKey,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
                   ReportCollapsibleChrome(
                     expanded: _showOverviewPanel,
                     onToggle: () => setState(
@@ -1147,6 +1168,9 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
                     )
                   else
                     _buildCalendarTable(pageRows),
+                      ],
+                    ),
+                  ),
                 ],
               ),
             ),

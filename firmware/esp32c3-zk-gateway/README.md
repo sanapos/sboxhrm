@@ -70,7 +70,7 @@ kênh hỏng theo một cách khác:
 
 | Kênh | Chi tiết | Khi nào cần |
 |---|---|---|
-| mDNS | `sbox-gateway-XXXX.local`, dịch vụ `_sboxgw._tcp` cổng 80 | Máy tính, iPhone trong mạng thường |
+| mDNS | `sboxadms.local`, dịch vụ `_sboxgw._tcp` cổng 80 | Máy tính, iPhone trong mạng thường |
 | Quảng bá UDP | App gửi `SBOX_DISCOVER` tới cổng `51820`, thiết bị trả một dòng JSON | Khi router chặn multicast giữa các client |
 
 Rất nhiều router bật chế độ cách ly thiết bị làm mDNS im lặng hoàn toàn, lúc đó kênh UDP vẫn

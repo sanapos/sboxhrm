@@ -10,6 +10,7 @@ using ZKTecoADMS.Application.DTOs.Permissions;
 using ZKTecoADMS.Application.Models;
 using ZKTecoADMS.Domain.Entities;
 using ZKTecoADMS.Infrastructure;
+using ZKTecoADMS.Infrastructure.Helpers;
 
 namespace ZKTecoADMS.Api.Controllers;
 
@@ -43,6 +44,7 @@ public class PermissionManagementController(
             .ToListAsync();
 
         var allModules = await context.Permissions.OrderBy(p => p.DisplayOrder).ToListAsync();
+        allModules = await FilterPermissionEntitiesByStorePackageAsync(allModules);
 
         if (permissions.Count == 0)
         {
@@ -100,6 +102,9 @@ public class PermissionManagementController(
             CanApprove = p.CanApprove
         }).ToList();
 
+        // Chỉ trả về module thuộc gói — quyền ngoài gói giữ nguyên trong DB, không hiện UI.
+        modulePermissions = await FilterModulesByStorePackageAsync(modulePermissions);
+
         var result = new RolePermissionGroupDto
         {
             RoleName = roleName,
@@ -121,6 +126,7 @@ public class PermissionManagementController(
     public async Task<ActionResult<AppResponse<List<RolePermissionGroupDto>>>> GetAllPermissions()
     {
         var allModules = await context.Permissions.OrderBy(p => p.DisplayOrder).ToListAsync();
+        allModules = await FilterPermissionEntitiesByStorePackageAsync(allModules);
 
         // Pre-load all role permissions for the store in one query
         var allPermissions = await context.RolePermissions
@@ -197,6 +203,8 @@ public class PermissionManagementController(
                 CanApprove = p.CanApprove
             }).OrderBy(p => p.DisplayOrder).ToList();
 
+            modulePermissions = await FilterModulesByStorePackageAsync(modulePermissions);
+
             var displayName = permissions.FirstOrDefault()?.RoleDisplayName;
             if (string.IsNullOrWhiteSpace(displayName))
                 displayName = GetRoleDisplayName(roleName);
@@ -243,13 +251,13 @@ public class PermissionManagementController(
     }
 
     /// <summary>
-    /// Lấy danh sách modules có thể phân quyền
+    /// Lấy danh sách modules có thể phân quyền (theo gói dịch vụ cửa hàng)
     /// </summary>
     [HttpGet("modules")]
     [RequireModulePermission("Role", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<List<PermissionDto>>>> GetAvailableModules()
     {
-        var modules = await context.Permissions
+        var all = await context.Permissions
             .OrderBy(p => p.DisplayOrder)
             .Select(p => new PermissionDto
             {
@@ -260,6 +268,8 @@ public class PermissionManagementController(
                 DisplayOrder = p.DisplayOrder
             })
             .ToListAsync();
+
+        var modules = await FilterModulesByStorePackageAsync(all);
 
         return Ok(AppResponse<List<PermissionDto>>.Success(modules));
     }
@@ -415,8 +425,9 @@ public class PermissionManagementController(
 
         context.RolePermissions.RemoveRange(existingPermissions);
 
-        // Tạo permissions mặc định
+        // Tạo permissions mặc định theo gói dịch vụ
         var allModules = await context.Permissions.OrderBy(p => p.DisplayOrder).ToListAsync();
+        allModules = await FilterPermissionEntitiesByStorePackageAsync(allModules);
         await CreateDefaultPermissionsForRole(roleName, allModules);
 
         return Ok(AppResponse<bool>.Success(true));
@@ -425,6 +436,40 @@ public class PermissionManagementController(
     #endregion
 
     #region Helper Methods
+
+    private async Task<HashSet<string>> ResolveStorePackageModuleSetAsync()
+    {
+        var allowed = await StorePackageHelper.ResolveAllowedModulesAsync(context, RequiredStoreId);
+        return allowed.ToHashSet(StringComparer.OrdinalIgnoreCase);
+    }
+
+    private static bool IsModuleInStorePackage(string? module, HashSet<string> allowed)
+    {
+        if (string.IsNullOrWhiteSpace(module)) return false;
+        if (FeatureModuleCatalog.IsSelfService(module)) return true;
+        // Luôn cho phép cấu hình phân quyền / tài khoản trên UI quản trị
+        if (module.Equals("Role", StringComparison.OrdinalIgnoreCase)) return true;
+        if (module.Equals("UserManagement", StringComparison.OrdinalIgnoreCase)) return true;
+        return allowed.Contains(module);
+    }
+
+    private async Task<List<Permission>> FilterPermissionEntitiesByStorePackageAsync(List<Permission> modules)
+    {
+        var allowed = await ResolveStorePackageModuleSetAsync();
+        return modules.Where(m => IsModuleInStorePackage(m.Module, allowed)).ToList();
+    }
+
+    private async Task<List<PermissionDto>> FilterModulesByStorePackageAsync(List<PermissionDto> modules)
+    {
+        var allowed = await ResolveStorePackageModuleSetAsync();
+        return modules.Where(m => IsModuleInStorePackage(m.Module, allowed)).ToList();
+    }
+
+    private async Task<List<ModulePermissionDto>> FilterModulesByStorePackageAsync(List<ModulePermissionDto> modules)
+    {
+        var allowed = await ResolveStorePackageModuleSetAsync();
+        return modules.Where(m => IsModuleInStorePackage(m.Module, allowed)).ToList();
+    }
 
     private async Task<List<RolePermission>> CreateDefaultPermissionsForRole(string roleName, List<Permission> modules)
     {

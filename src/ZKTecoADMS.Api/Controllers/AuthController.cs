@@ -104,7 +104,7 @@ public class AuthController(IMediator _bus, UserManager<ApplicationUser> _userMa
     }
 
     /// <summary>
-    /// Quên mật khẩu - gửi link reset qua email
+    /// Quên mật khẩu — gửi mã OTP 6 số qua email (hiệu lực 5 phút).
     /// </summary>
     [HttpPost]
     [AllowAnonymous]

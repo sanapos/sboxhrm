@@ -312,14 +312,23 @@ public class PosPrintDispatchService(
 
     public async Task<PosPrintJob?> MarkPrintingAsync(Guid jobId, Guid agentId, CancellationToken ct = default)
     {
-        var job = await db.PosPrintJobs.FirstOrDefaultAsync(j => j.Id == jobId && j.AgentId == agentId, ct);
-        if (job == null || job.Status is not (PosPrintJobStatus.Claimed or PosPrintJobStatus.Queued)) return null;
+        var now = DateTime.UtcNow;
+        var updated = await db.PosPrintJobs
+            .Where(j => j.Id == jobId && j.AgentId == agentId &&
+                        (j.Status == PosPrintJobStatus.Claimed || j.Status == PosPrintJobStatus.Queued))
+            .ExecuteUpdateAsync(setters => setters
+                .SetProperty(j => j.Status, PosPrintJobStatus.Printing)
+                .SetProperty(j => j.StartedAt, now)
+                .SetProperty(j => j.UpdatedAt, now), ct);
 
-        job.Status = PosPrintJobStatus.Printing;
-        job.StartedAt = DateTime.UtcNow;
-        job.UpdatedAt = DateTime.UtcNow;
-        await db.SaveChangesAsync(ct);
+        if (updated == 0)
+        {
+            var existing = await db.PosPrintJobs.AsNoTracking()
+                .FirstOrDefaultAsync(j => j.Id == jobId && j.AgentId == agentId, ct);
+            return existing?.Status == PosPrintJobStatus.Printing ? existing : null;
+        }
 
+        var job = await db.PosPrintJobs.FirstAsync(j => j.Id == jobId, ct);
         var printer = await db.PosStorePrinters.FirstAsync(p => p.Id == job.PrinterId, ct);
         await BroadcastJobAsync("PrintJobStatusChanged", job, printer, ct);
         return job;
@@ -327,20 +336,45 @@ public class PosPrintDispatchService(
 
     public async Task<PosPrintJob?> CompleteJobAsync(Guid jobId, Guid agentId, CancellationToken ct = default)
     {
-        var job = await db.PosPrintJobs.FirstOrDefaultAsync(j => j.Id == jobId && j.AgentId == agentId, ct);
-        if (job == null) return null;
+        var now = DateTime.UtcNow;
 
-        job.Status = PosPrintJobStatus.Completed;
-        job.CompletedAt = DateTime.UtcNow;
-        job.UpdatedAt = DateTime.UtcNow;
-        job.ErrorCode = null;
-        job.ErrorMessage = null;
+        // Đã complete rồi → idempotent OK (tránh Agent retry báo lỗi).
+        var existing = await db.PosPrintJobs.FirstOrDefaultAsync(j => j.Id == jobId, ct);
+        if (existing == null) return null;
+        if (existing.Status == PosPrintJobStatus.Completed) return existing;
 
+        if (existing.AgentId != null && existing.AgentId != agentId)
+            return null;
+
+        if (existing.Status is not (PosPrintJobStatus.Claimed or PosPrintJobStatus.Printing
+            or PosPrintJobStatus.Queued))
+            return null;
+
+        var updated = await db.PosPrintJobs
+            .Where(j => j.Id == jobId &&
+                        (j.AgentId == null || j.AgentId == agentId) &&
+                        (j.Status == PosPrintJobStatus.Claimed
+                         || j.Status == PosPrintJobStatus.Printing
+                         || j.Status == PosPrintJobStatus.Queued))
+            .ExecuteUpdateAsync(setters => setters
+                .SetProperty(j => j.Status, PosPrintJobStatus.Completed)
+                .SetProperty(j => j.AgentId, agentId)
+                .SetProperty(j => j.CompletedAt, now)
+                .SetProperty(j => j.UpdatedAt, now)
+                .SetProperty(j => j.ErrorCode, (string?)null)
+                .SetProperty(j => j.ErrorMessage, (string?)null), ct);
+
+        if (updated == 0)
+        {
+            existing = await db.PosPrintJobs.FirstOrDefaultAsync(j => j.Id == jobId, ct);
+            return existing?.Status == PosPrintJobStatus.Completed ? existing : null;
+        }
+
+        var job = await db.PosPrintJobs.FirstAsync(j => j.Id == jobId, ct);
         var printer = await db.PosStorePrinters.FirstAsync(p => p.Id == job.PrinterId, ct);
         printer.HealthStatus = PosPrinterHealthStatus.Online;
-        printer.LastSeenAt = DateTime.UtcNow;
+        printer.LastSeenAt = now;
         printer.LastErrorMessage = null;
-
         await db.SaveChangesAsync(ct);
         await BroadcastJobAsync("PrintJobStatusChanged", job, printer, ct);
         return job;

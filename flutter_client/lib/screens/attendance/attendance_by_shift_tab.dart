@@ -33,7 +33,7 @@ import '../../utils/attendance_viewport_preserve.dart';
 import '../../utils/shift_records_calculator.dart';
 import '../../utils/paid_leave_schedule_utils.dart';
 import '../../utils/travel_hours_load_utils.dart';
-import '../../utils/travel_eligibility_utils.dart';
+import '../../widgets/travel_day_slips_sheet.dart';
 import '../../utils/mobile_attendance_vertical_layout.dart';
 import '../../widgets/synced_scroll_list_view.dart'
     show SyncedScrollListView, linkHorizontalScrollControllers;
@@ -1945,18 +1945,15 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
   }
 
   double _travelHoursForShiftRecord(_DailyShiftRecord r) {
-    if (!isEmployeeTravelEligible(
-      eligibleKeys: widget.travelEligibleEmployeeKeys,
-      employeeId: r.employeeId,
-      employeeCode: r.employeeCode,
-    )) {
-      return 0;
-    }
+    final emp = _employeeMapForShiftRecord(r);
     return lookupTravelHoursForDay(
       widget.travelHoursByEmployeeDateKey,
       date: r.date,
       employeeId: r.employeeId,
       employeeCode: r.employeeCode,
+      applicationUserId: emp?['applicationUserId']?.toString(),
+      employeeGuid: emp?['id']?.toString(),
+      pin: emp?['pin']?.toString(),
     );
   }
 
@@ -1964,35 +1961,109 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
     required String employeeId,
     required String employeeCode,
   }) {
-    if (!isEmployeeTravelEligible(
-      eligibleKeys: widget.travelEligibleEmployeeKeys,
-      employeeId: employeeId,
-      employeeCode: employeeCode,
-    )) {
-      return 0;
-    }
+    final emp = _employeeMapForKeys(employeeId, employeeCode);
     return lookupTravelHoursTotal(
       widget.travelHoursByEmployeeKey,
       employeeId: employeeId,
       employeeCode: employeeCode,
+      applicationUserId: emp?['applicationUserId']?.toString(),
+      employeeGuid: emp?['id']?.toString(),
+      pin: emp?['pin']?.toString(),
     );
   }
 
-  Widget _buildTravelHoursCell(double hours, {bool bold = false}) {
-    if (hours <= 0) {
-      return Text(tr('—'),
-          textAlign: TextAlign.center,
-          style: TextStyle(fontSize: 11, color: Color(0xFFA1A1AA)));
+  Map<String, dynamic>? _employeeMapForShiftRecord(_DailyShiftRecord r) =>
+      _employeeMapForKeys(r.employeeId, r.employeeCode);
+
+  Map<String, dynamic>? _employeeMapForKeys(
+      String employeeId, String employeeCode) {
+    final list = widget.employeesList;
+    if (list == null || list.isEmpty) return null;
+    for (final e in list) {
+      final id = e['id']?.toString() ?? '';
+      final code = e['employeeCode']?.toString() ?? '';
+      final pin = e['pin']?.toString() ?? '';
+      final uid = e['applicationUserId']?.toString() ?? '';
+      if (id == employeeId ||
+          code == employeeId ||
+          code == employeeCode ||
+          pin == employeeId ||
+          pin == employeeCode ||
+          uid == employeeId) {
+        return e;
+      }
     }
-    return Text(
-      tr(_formatHoursMinutes(hours)),
+    return null;
+  }
+
+  Widget _buildTravelHoursCell(
+    double hours, {
+    bool bold = false,
+    _DailyShiftRecord? record,
+  }) {
+    final canManageTravel = widget.allowCorrection &&
+        record != null &&
+        (widget.employeesList?.isNotEmpty ?? false);
+    final label = hours <= 0
+        ? (canManageTravel ? '+' : '—')
+        : _formatHoursMinutes(hours);
+    final color = hours <= 0
+        ? (canManageTravel ? HrmPageChrome.primaryNavy : const Color(0xFFA1A1AA))
+        : HrmPageChrome.chipLight;
+
+    final text = Text(
+      tr(label),
       textAlign: TextAlign.center,
       style: TextStyle(
-        fontSize: 12,
-        fontWeight: bold ? FontWeight.w700 : FontWeight.w600,
-        color: HrmPageChrome.chipLight,
+        fontSize: hours <= 0 && canManageTravel ? 14 : 12,
+        fontWeight: bold || canManageTravel ? FontWeight.w700 : FontWeight.w600,
+        color: color,
       ),
     );
+
+    if (!canManageTravel) return text;
+
+    return InkWell(
+      onTap: () => _showTravelSlipsForShiftDay(record),
+      borderRadius: BorderRadius.circular(6),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
+        child: text,
+      ),
+    );
+  }
+
+  Future<void> _showTravelSlipsForShiftDay(_DailyShiftRecord record) async {
+    final emps = widget.employeesList;
+    if (emps == null || emps.isEmpty) return;
+
+    String? empId;
+    for (final e in emps) {
+      final id = e['id']?.toString() ?? '';
+      final code = e['employeeCode']?.toString() ?? '';
+      final pin = e['pin']?.toString() ?? '';
+      final uid = e['applicationUserId']?.toString() ?? '';
+      if (id == record.employeeId ||
+          code == record.employeeId ||
+          code == record.employeeCode ||
+          pin == record.employeeId ||
+          uid == record.employeeId) {
+        empId = id.isNotEmpty ? id : record.employeeId;
+        break;
+      }
+    }
+    empId ??= record.employeeId;
+
+    final ok = await showTravelDaySlipsSheet(
+      context,
+      api: ApiService(),
+      employees: emps,
+      employeeId: empId,
+      employeeName: record.employeeName,
+      day: record.date,
+      canEdit: widget.allowCorrection,
+    );
+    if (ok) _notifyDataChanged();
   }
 
   Widget _buildColumnHeaderWithTotal(String title, String total, Color color) {
@@ -4414,7 +4485,8 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
                 color: r.workHours > 0 ? Colors.green : Colors.grey))),
-        _shiftTableCell(_buildTravelHoursCell(_travelHoursForShiftRecord(r))),
+        _shiftTableCell(_buildTravelHoursCell(_travelHoursForShiftRecord(r),
+            record: r)),
         _shiftTableCell(Text(
             tr(r.decimalHours > 0 ? r.decimalHours.toStringAsFixed(2) : '—'),
             textAlign: TextAlign.center,
@@ -4847,7 +4919,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
         travelHours: record != null
             ? (_travelHoursForShiftRecord(record) > 0
                 ? _formatHoursMinutes(_travelHoursForShiftRecord(record))
-                : '—')
+                : (widget.allowCorrection ? '+' : '—'))
             : '—',
         late: record != null
             ? _verticalShiftMinutesLabel(record.lateMinutes)

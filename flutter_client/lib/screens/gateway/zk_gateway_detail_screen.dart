@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../l10n/app_tr.dart';
 import '../../models/zk_gateway.dart';
@@ -163,6 +165,31 @@ class _ZkGatewayDetailScreenState extends State<ZkGatewayDetailScreen> {
     await _refresh(silent: true);
   }
 
+  String get _portalIp =>
+      (_status?.wifiIp.isNotEmpty == true) ? _status!.wifiIp : _info.ip;
+
+  Future<void> _openPortal({bool useHost = false}) async {
+    final url = useHost
+        ? ZkGatewayClient.portalUrl
+        : ZkGatewayClient.portalUrlForIp(_portalIp);
+    final uri = Uri.tryParse(url);
+    if (uri == null) return;
+    final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!ok && mounted) {
+      appNotification.showError(
+        title: tr('Không mở được trình duyệt'),
+        message: tr('Hãy mở tay: $url'),
+      );
+    }
+  }
+
+  Future<void> _copyPortalLink() async {
+    final url = ZkGatewayClient.portalUrlForIp(_portalIp);
+    await Clipboard.setData(ClipboardData(text: url));
+    if (!mounted) return;
+    appNotification.showSuccess(title: tr('Đã sao chép'), message: url);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -207,6 +234,8 @@ class _ZkGatewayDetailScreenState extends State<ZkGatewayDetailScreen> {
               _errorCard()
             else if (_status != null) ...[
               _connectionCard(_status!),
+              const SizedBox(height: 14),
+              _webPortalCard(),
               const SizedBox(height: 14),
               _deviceCard(_status!),
               const SizedBox(height: 14),
@@ -285,6 +314,41 @@ class _ZkGatewayDetailScreenState extends State<ZkGatewayDetailScreen> {
     );
   }
 
+  Widget _webPortalCard() {
+    final ipUrl = ZkGatewayClient.portalUrlForIp(_portalIp);
+    return _card(title: 'Trang web trên mạch', children: [
+      Text(
+        tr('Mở Safari/Chrome để cấu hình đầy đủ: nhân viên, vân tay, mở cửa, '
+            'xuất chấm công CSV.'),
+        style: const TextStyle(
+          fontSize: 12.5,
+          height: 1.45,
+          color: HrmPageChrome.textMuted,
+        ),
+      ),
+      const SizedBox(height: 12),
+      _actionRow(
+        icon: Icons.open_in_browser,
+        label: 'Mở web theo IP',
+        desc: ipUrl,
+        onTap: () => _openPortal(),
+      ),
+      _actionRow(
+        icon: Icons.language,
+        label: 'Mở http://sboxadms.local',
+        desc: 'Tên cố định trong mạng nội bộ',
+        onTap: () => _openPortal(useHost: true),
+      ),
+      _actionRow(
+        icon: Icons.copy,
+        label: 'Sao chép link web',
+        desc: ipUrl,
+        onTap: _copyPortalLink,
+        last: true,
+      ),
+    ]);
+  }
+
   Widget _connectionCard(ZkGatewayStatus s) {
     return _card(title: 'Kết nối', children: [
       Wrap(
@@ -353,8 +417,9 @@ class _ZkGatewayDetailScreenState extends State<ZkGatewayDetailScreen> {
       ]),
       const SizedBox(height: 12),
       GatewayNoteBox(
-        text: 'Mở http://${s.wifiIp.isEmpty ? _info.ip : s.wifiIp} trên trình duyệt '
-            'để nạp firmware mới cho gateway.',
+        text: 'Mở ${ZkGatewayClient.portalUrl} hoặc '
+            'http://${s.wifiIp.isEmpty ? _info.ip : s.wifiIp} trên trình duyệt '
+            'để nạp firmware / quản lý máy chấm công.',
         icon: Icons.system_update_alt,
       ),
     ]);

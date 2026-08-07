@@ -238,6 +238,15 @@ class PermissionProvider extends ChangeNotifier {
         return true;
       }
     }
+    if (moduleCode == 'TravelHoursReport' &&
+        (action == 'canView' || action == 'canExport')) {
+      if (_flag('AttendanceByShift', action) ||
+          _flag('AttendanceSummary', action) ||
+          _flag('MobileAttendance', action) ||
+          _flag('LateEarlyReport', action)) {
+        return true;
+      }
+    }
     if (moduleCode == 'LeaveReport' &&
         (action == 'canView' || action == 'canExport')) {
       if (_flag('Leave', action)) return true;

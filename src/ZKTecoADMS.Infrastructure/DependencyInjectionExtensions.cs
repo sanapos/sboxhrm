@@ -256,6 +256,7 @@ public static class DependencyInjectionExtensions
         
         // Email Service
         services.AddScoped<IEmailService, EmailService>();
+        services.AddSingleton<IPasswordOtpStore, PasswordOtpStore>();
 
         // Notification target resolver
         services.AddScoped<ZKTecoADMS.Application.Interfaces.INotificationTargetResolver,

@@ -41,6 +41,7 @@ class _AdvanceReportScreenState extends State<AdvanceReportScreen> {
   int _totalCount = 0;
   int? _summaryTotalRequests;
   List<Map<String, dynamic>> _byEmployee = [];
+  final _pngKey = GlobalKey();
 
   bool get _teamView {
     final role =
@@ -278,6 +279,14 @@ class _AdvanceReportScreenState extends State<AdvanceReportScreen> {
     );
   }
 
+  Future<void> _exportPng() async {
+    await ClientPngExport.capture(
+      context: context,
+      key: _pngKey,
+      filePrefix: 'TamUng',
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final canExport = Provider.of<PermissionProvider>(context, listen: false)
@@ -287,9 +296,16 @@ class _AdvanceReportScreenState extends State<AdvanceReportScreen> {
       actions: [
         if (canExport)
           HrmTopBarAction(
+            icon: Icons.image_outlined,
+            label: 'Xuất PNG',
+            onPressed: _filtered.isEmpty ? null : _exportPng,
+            pinOnMobile: false,
+          ),
+        if (canExport)
+          HrmTopBarAction(
             icon: Icons.file_download_outlined,
             label: 'Xuất Excel',
-            onPressed: _exportExcel,
+            onPressed: _filtered.isEmpty ? null : _exportExcel,
           ),
         HrmTopBarAction(
           icon: Icons.refresh,
@@ -307,6 +323,11 @@ class _AdvanceReportScreenState extends State<AdvanceReportScreen> {
               child: ListView(
                 physics: const AlwaysScrollableScrollPhysics(),
                 children: [
+                  RepaintBoundary(
+                    key: _pngKey,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
                   ReportCollapsibleChrome(
                     expanded: _showOverviewPanel,
                     onToggle: () => setState(
@@ -364,6 +385,9 @@ class _AdvanceReportScreenState extends State<AdvanceReportScreen> {
                     _buildByEmployee()
                   else
                     _buildBody(),
+                      ],
+                    ),
+                  ),
                 ],
               ),
             ),

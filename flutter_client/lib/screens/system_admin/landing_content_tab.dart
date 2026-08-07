@@ -1235,10 +1235,21 @@ class _GuideSubTabState extends State<_GuideSubTab>
                         readOnly: !context.systemAdminCanEdit,
                         maxLines: 4,
                         decoration: InputDecoration(
-                          labelText: tr('Các bước (mỗi dòng một ý)'),
+                          labelText: tr('Các bước (mỗi dòng một ý — nên bắt đầu bằng Bước 1, Bước 2…)'),
                           isDense: true,
                           border: OutlineInputBorder(),
                           alignLabelWithHint: true,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: step.keywordsCtrl,
+                        readOnly: !context.systemAdminCanEdit,
+                        decoration: InputDecoration(
+                          labelText: tr('Từ khóa tìm kiếm (cách nhau bằng dấu phẩy)'),
+                          isDense: true,
+                          border: OutlineInputBorder(),
+                          hintText: tr('vd: máy chấm công, vân tay, ADMS'),
                         ),
                       ),
                       const SizedBox(height: 8),
@@ -1299,12 +1310,14 @@ class _GuideStepEditor {
     required String tip,
     required List<String> imageUrls,
     required String videoUrl,
+    required List<String> keywords,
   })  : titleCtrl = TextEditingController(text: tr(title)),
         descCtrl = TextEditingController(text: tr(desc)),
         bulletsCtrl = TextEditingController(text: tr(bullets.join('\n'))),
         tipCtrl = TextEditingController(text: tr(tip)),
         imageUrlsCtrl = TextEditingController(text: tr(imageUrls.join('\n'))),
-        videoUrlCtrl = TextEditingController(text: tr(videoUrl));
+        videoUrlCtrl = TextEditingController(text: tr(videoUrl)),
+        keywordsCtrl = TextEditingController(text: tr(keywords.join(', ')));
 
   factory _GuideStepEditor.fromStep(LandingUsageGuideStep step) {
     return _GuideStepEditor(
@@ -1317,6 +1330,7 @@ class _GuideStepEditor {
       tip: step.tip,
       imageUrls: step.imageUrls,
       videoUrl: step.videoUrl,
+      keywords: step.keywords,
     );
   }
 
@@ -1329,6 +1343,7 @@ class _GuideStepEditor {
   final TextEditingController tipCtrl;
   final TextEditingController imageUrlsCtrl;
   final TextEditingController videoUrlCtrl;
+  final TextEditingController keywordsCtrl;
 
   void dispose() {
     titleCtrl.dispose();
@@ -1337,6 +1352,7 @@ class _GuideStepEditor {
     tipCtrl.dispose();
     imageUrlsCtrl.dispose();
     videoUrlCtrl.dispose();
+    keywordsCtrl.dispose();
   }
 
   LandingUsageGuideStep toStep() {
@@ -1350,6 +1366,11 @@ class _GuideStepEditor {
         .map((e) => e.trim())
         .where((e) => e.isNotEmpty)
         .toList();
+    final keywords = keywordsCtrl.text
+        .split(RegExp(r'[,;|/]+'))
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toList();
     return LandingUsageGuideStep(
       id: id,
       icon: icon,
@@ -1360,6 +1381,7 @@ class _GuideStepEditor {
       tip: tipCtrl.text.trim(),
       imageUrls: imageUrls,
       videoUrl: videoUrlCtrl.text.trim(),
+      keywords: keywords,
     );
   }
 }

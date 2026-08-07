@@ -27,7 +27,7 @@ public partial class PosCustomersController(ZKTecoDbContext dbContext) : Authent
         string? Province, string? Ward, string? CompanyName, string? TaxCode, string? Note);
 
     [HttpGet]
-    [RequireModulePermission("PosProducts", ModulePermissionAction.View)]
+    [RequireModulePermission("PosCustomers", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<object>>> List(
         [FromQuery] string? search,
         [FromQuery] decimal? debtFrom,
@@ -72,7 +72,7 @@ public partial class PosCustomersController(ZKTecoDbContext dbContext) : Authent
     }
 
     [HttpGet("{id:guid}")]
-    [RequireModulePermission("PosProducts", ModulePermissionAction.View)]
+    [RequireModulePermission("PosCustomers", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<CustomerDto>>> Get(Guid id)
     {
         var storeId = RequiredStoreId;
@@ -83,7 +83,7 @@ public partial class PosCustomersController(ZKTecoDbContext dbContext) : Authent
     }
 
     [HttpPost]
-    [RequireModulePermission("PosProducts", ModulePermissionAction.Create)]
+    [RequireModulePermission("PosCustomers", ModulePermissionAction.Create)]
     public async Task<ActionResult<AppResponse<CustomerDto>>> Create([FromBody] CustomerSaveDto dto)
     {
         var storeId = RequiredStoreId;
@@ -115,7 +115,7 @@ public partial class PosCustomersController(ZKTecoDbContext dbContext) : Authent
     }
 
     [HttpPut("{id:guid}")]
-    [RequireModulePermission("PosProducts", ModulePermissionAction.Edit)]
+    [RequireModulePermission("PosCustomers", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<CustomerDto>>> Update(Guid id, [FromBody] CustomerSaveDto dto)
     {
         var storeId = RequiredStoreId;
@@ -142,7 +142,7 @@ public partial class PosCustomersController(ZKTecoDbContext dbContext) : Authent
     }
 
     [HttpDelete("{id:guid}")]
-    [RequireModulePermission("PosProducts", ModulePermissionAction.Edit)]
+    [RequireModulePermission("PosCustomers", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<bool>>> Delete(Guid id)
     {
         var storeId = RequiredStoreId;

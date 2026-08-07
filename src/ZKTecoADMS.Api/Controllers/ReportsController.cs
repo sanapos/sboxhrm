@@ -1688,7 +1688,9 @@ public class ReportsController(
             ShiftMatchHelper.Candidate ToCandidate(ShiftTemplate s) => new(
                 s.Id, s.StartTime, s.EndTime,
                 s.LateGraceMinutes, s.EarlyLeaveGraceMinutes,
-                s.MaximumAllowedLateMinutes > 0 ? s.MaximumAllowedLateMinutes : 30,
+                // OT: nới cửa sổ đi muộn khi khớp ca — tránh Ca hành chính (maxLate=15)
+                // bị loại → gán nhầm Ca sáng 4h và tính cả buổi chiều thành OT.
+                Math.Max(s.MaximumAllowedLateMinutes > 0 ? s.MaximumAllowedLateMinutes : 30, 180),
                 s.EarlyCheckInMinutes > 0 ? s.EarlyCheckInMinutes : 30,
                 s.MaximumAllowedEarlyLeaveMinutes > 0 ? s.MaximumAllowedEarlyLeaveMinutes : 120,
                 s.ShiftType, s.Name,
@@ -1716,7 +1718,14 @@ public class ReportsController(
                     }
                 }
                 if (candidates.Count == 0)
-                    candidates = shiftTemplates.Select(ToCandidate).ToList();
+                {
+                    // Không fallback toàn bộ mẫu ca (Ca sáng 4h + Tang ca) — gây OT ảo
+                    // khi NV chưa gán ca trên hồ sơ lương / lịch. Chỉ ca hành chính.
+                    candidates = shiftTemplates
+                        .Where(s => !OvertimeCalcHelper.IsOvertimeShiftType(s.ShiftType))
+                        .Select(ToCandidate)
+                        .ToList();
+                }
 
                 var weeklyOff = (benefit?.WeeklyOffDays ?? "")
                     .Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)

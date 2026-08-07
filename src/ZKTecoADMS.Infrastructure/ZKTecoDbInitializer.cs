@@ -1143,6 +1143,10 @@ public class ZKTecoDbInitializer(
                     END $$;
                     ALTER TABLE ""PosStoreSellSettings"" ADD COLUMN IF NOT EXISTS ""PromptGuestCountOnOpen"" boolean NOT NULL DEFAULT false;
                     ALTER TABLE ""PosStoreSellSettings"" ADD COLUMN IF NOT EXISTS ""AllowNegativeStock"" boolean NOT NULL DEFAULT false;
+                    ALTER TABLE ""PosStoreSellSettings"" ADD COLUMN IF NOT EXISTS ""DefaultHourlyProductId"" uuid NULL;
+                    ALTER TABLE ""PosServiceResources"" ADD COLUMN IF NOT EXISTS ""DefaultServiceProductId"" uuid NULL;
+                    ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""GraceMinutes"" integer NULL;
+                    ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""RoundAfterMinutes"" integer NULL;
                     ALTER TABLE ""PosSaleOrders"" ADD COLUMN IF NOT EXISTS ""VatAmount"" numeric(18,2) NOT NULL DEFAULT 0;
 
                     CREATE TABLE IF NOT EXISTS ""PosKitchenVoidSlips"" (
@@ -1325,6 +1329,19 @@ public class ZKTecoDbInitializer(
                     );
                     CREATE INDEX IF NOT EXISTS ""IX_PosResourceReservations_Store_Resource_Status""
                         ON ""PosResourceReservations"" (""StoreId"", ""ResourceId"", ""Status"");
+                    ALTER TABLE ""PosResourceReservations"" ADD COLUMN IF NOT EXISTS ""DepositAmount"" numeric(18,2) NOT NULL DEFAULT 0;
+                    ALTER TABLE ""PosResourceReservations"" ADD COLUMN IF NOT EXISTS ""DepositPaid"" numeric(18,2) NOT NULL DEFAULT 0;
+                    ALTER TABLE ""PosResourceReservations"" ADD COLUMN IF NOT EXISTS ""DepositStatus"" integer NOT NULL DEFAULT 0;
+                    ALTER TABLE ""PosResourceReservations"" ADD COLUMN IF NOT EXISTS ""DepositPaymentMethod"" character varying(50) NULL;
+                    ALTER TABLE ""PosResourceReservations"" ADD COLUMN IF NOT EXISTS ""DepositPaidAt"" timestamp without time zone NULL;
+                    ALTER TABLE ""PosResourceReservations"" ADD COLUMN IF NOT EXISTS ""DepositAppliedOrderId"" uuid NULL;
+                    ALTER TABLE ""PosResourceReservations"" ADD COLUMN IF NOT EXISTS ""DurationMinutes"" integer NULL;
+                    ALTER TABLE ""PosResourceReservations"" ADD COLUMN IF NOT EXISTS ""ServiceProductId"" uuid NULL;
+                    ALTER TABLE ""PosResourceReservations"" ADD COLUMN IF NOT EXISTS ""AssignedEmployeeId"" uuid NULL;
+                    CREATE INDEX IF NOT EXISTS ""IX_PosResourceReservations_Store_Status_Until""
+                        ON ""PosResourceReservations"" (""StoreId"", ""Status"", ""ReservedUntil"");
+                    CREATE INDEX IF NOT EXISTS ""IX_PosResourceReservations_Store_Employee_Slot""
+                        ON ""PosResourceReservations"" (""StoreId"", ""AssignedEmployeeId"", ""Status"", ""ReservedAt"");
 
                     ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""SortOrder"" integer NOT NULL DEFAULT 0;
                     CREATE INDEX IF NOT EXISTS ""IX_PosProducts_Store_SortOrder""
@@ -1737,6 +1754,7 @@ public class ZKTecoDbInitializer(
             await SeedShiftTemplatesAsync();
             await SeedHolidaysAsync();
             await SeedPermissionModulesAsync();
+            await SyncEmployeeRolePermissionsAsync();
             await SeedServicePackagesAsync();
 
             await context.SaveChangesAsync();
@@ -2155,18 +2173,57 @@ public class ZKTecoDbInitializer(
                 existing.UpdatedBy = "System";
                 logger.LogInformation("Updated empty modules for package: {Name}", basicName);
             }
-            else if (!mods.Contains("PosSaleReturns", StringComparer.OrdinalIgnoreCase) &&
-                     mods.Contains("PosSell", StringComparer.OrdinalIgnoreCase))
+            else if (mods.Contains("PosSell", StringComparer.OrdinalIgnoreCase))
             {
-                // Bổ sung Trả hàng bán vào gói seed POS Cơ bản (không đụng gói custom).
-                mods.Add("PosSaleReturns");
-                existing.AllowedModules = System.Text.Json.JsonSerializer.Serialize(mods);
-                existing.Description =
-                    "Bán hàng POS cơ bản: hàng hóa, bán hàng, đơn hàng, trả hàng, mẫu in";
-                existing.UpdatedAt = DateTime.UtcNow;
-                existing.UpdatedBy = "System";
-                logger.LogInformation("Added PosSaleReturns to package: {Name}", basicName);
+                var added = false;
+                if (!mods.Contains("PosSaleReturns", StringComparer.OrdinalIgnoreCase))
+                {
+                    mods.Add("PosSaleReturns");
+                    added = true;
+                }
+                foreach (var addon in PosPackageDefaults.SellAddonModules)
+                {
+                    if (mods.Contains(addon, StringComparer.OrdinalIgnoreCase)) continue;
+                    mods.Add(addon);
+                    added = true;
+                }
+                if (added)
+                {
+                    existing.AllowedModules = System.Text.Json.JsonSerializer.Serialize(mods);
+                    existing.Description =
+                        "Bán hàng POS cơ bản: hàng hóa, bán hàng, đơn hàng, trả hàng, CRM, đặt bàn, BH, màn phụ";
+                    existing.UpdatedAt = DateTime.UtcNow;
+                    existing.UpdatedBy = "System";
+                    logger.LogInformation("Patched POS addon modules on package: {Name}", basicName);
+                }
             }
+        }
+
+        // Mọi gói đang có PosSell → bổ sung 4 addon tách riêng (không gãy cửa hàng cũ).
+        await PatchPosSellAddonModulesAsync();
+    }
+
+    private async Task PatchPosSellAddonModulesAsync()
+    {
+        var packages = await context.ServicePackages
+            .Where(p => p.IsActive)
+            .ToListAsync();
+        foreach (var pkg in packages)
+        {
+            var mods = StorePackageHelper.DeserializeModules(pkg.AllowedModules);
+            if (!mods.Contains("PosSell", StringComparer.OrdinalIgnoreCase)) continue;
+            var changed = false;
+            foreach (var addon in PosPackageDefaults.SellAddonModules)
+            {
+                if (mods.Contains(addon, StringComparer.OrdinalIgnoreCase)) continue;
+                mods.Add(addon);
+                changed = true;
+            }
+            if (!changed) continue;
+            pkg.AllowedModules = System.Text.Json.JsonSerializer.Serialize(mods);
+            pkg.UpdatedAt = DateTime.UtcNow;
+            pkg.UpdatedBy = "System";
+            logger.LogInformation("Added POS sell addons to package: {Name}", pkg.Name);
         }
     }
 
@@ -2188,6 +2245,10 @@ public class ZKTecoDbInitializer(
         ["PosStockCounts"] = Guid.Parse("11111111-1111-1111-1111-111111111093"),
         ["PosDamageIssues"] = Guid.Parse("11111111-1111-1111-1111-111111111094"),
         ["PosInternalUseIssues"] = Guid.Parse("11111111-1111-1111-1111-111111111095"),
+        ["PosBooking"] = Guid.Parse("11111111-1111-1111-1111-111111111097"),
+        ["PosCustomers"] = Guid.Parse("11111111-1111-1111-1111-111111111098"),
+        ["PosWarranty"] = Guid.Parse("11111111-1111-1111-1111-111111111099"),
+        ["PosCustomerDisplay"] = Guid.Parse("11111111-1111-1111-1111-111111111100"),
     };
 
     private async Task SeedPermissionModulesAsync()
@@ -2262,6 +2323,94 @@ public class ZKTecoDbInitializer(
         else
         {
             logger.LogInformation("Permission modules already up to date ({Count} modules)", requiredModules.Length);
+        }
+    }
+
+    /// <summary>
+    /// Đồng bộ RolePermissions cho role Employee theo ModulePermissionDefaults (mọi store).
+    /// Ghi đè quyền cũ — seed-if-empty không cập nhật cửa hàng đã có dữ liệu.
+    /// </summary>
+    private async Task SyncEmployeeRolePermissionsAsync()
+    {
+        const string roleName = nameof(Roles.Employee);
+        var modules = await context.Permissions.AsNoTracking().ToListAsync();
+        if (modules.Count == 0) return;
+
+        var storeIds = await context.Stores.AsNoTracking().Select(s => s.Id).ToListAsync();
+        var scopes = storeIds.Select(id => (Guid?)id).ToList();
+        if (await context.RolePermissions.AnyAsync(rp => rp.RoleName == roleName && rp.StoreId == null))
+            scopes.Add(null);
+
+        var updated = 0;
+        var inserted = 0;
+        var now = DateTime.UtcNow;
+
+        foreach (var storeId in scopes)
+        {
+            var existing = await context.RolePermissions
+                .Where(rp => rp.RoleName == roleName && rp.StoreId == storeId)
+                .ToListAsync();
+            var byPermissionId = existing.ToDictionary(rp => rp.PermissionId);
+
+            foreach (var module in modules)
+            {
+                var (canView, canCreate, canEdit, canDelete, canExport, canApprove) =
+                    ModulePermissionDefaults.Get(roleName, module.Module);
+                if (byPermissionId.TryGetValue(module.Id, out var row))
+                {
+                    if (row.CanView == canView
+                        && row.CanCreate == canCreate
+                        && row.CanEdit == canEdit
+                        && row.CanDelete == canDelete
+                        && row.CanExport == canExport
+                        && row.CanApprove == canApprove)
+                    {
+                        continue;
+                    }
+
+                    row.CanView = canView;
+                    row.CanCreate = canCreate;
+                    row.CanEdit = canEdit;
+                    row.CanDelete = canDelete;
+                    row.CanExport = canExport;
+                    row.CanApprove = canApprove;
+                    row.UpdatedAt = now;
+                    row.UpdatedBy = "System";
+                    updated++;
+                }
+                else
+                {
+                    context.RolePermissions.Add(new RolePermission
+                    {
+                        Id = Guid.NewGuid(),
+                        StoreId = storeId,
+                        RoleName = roleName,
+                        RoleDisplayName = "Nhân viên",
+                        PermissionId = module.Id,
+                        CanView = canView,
+                        CanCreate = canCreate,
+                        CanEdit = canEdit,
+                        CanDelete = canDelete,
+                        CanExport = canExport,
+                        CanApprove = canApprove,
+                        CreatedAt = now,
+                        CreatedBy = "System"
+                    });
+                    inserted++;
+                }
+            }
+        }
+
+        if (updated > 0 || inserted > 0)
+        {
+            await context.SaveChangesAsync();
+            logger.LogInformation(
+                "Employee RolePermissions synced: {Updated} updated, {Inserted} inserted across {StoreCount} stores.",
+                updated, inserted, storeIds.Count);
+        }
+        else
+        {
+            logger.LogInformation("Employee RolePermissions already match defaults.");
         }
     }
 

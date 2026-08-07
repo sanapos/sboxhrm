@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 import '../utils/file_saver.dart' as file_saver;
@@ -899,11 +900,80 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
 
       if (mounted) {
         NotificationOverlayManager().showSuccess(
-            title: 'Xuất Excel',
-            message: tr('Đã xuất Excel: $fileName (${data.length} bản ghi)'));
+          title: 'Đã xuất Excel',
+          message: tr('$fileName · ${data.length} bản ghi'),
+        );
       }
     } catch (e) {
-      _showError('Lỗi xuất Excel: $e');
+      if (mounted) {
+        NotificationOverlayManager().showError(
+          title: 'Xuất Excel thất bại',
+          message: e.toString(),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isExporting = false);
+    }
+  }
+
+  /// CSV: STT, Pin, Tên nhân viên, Thứ, Ngày, Giờ, Kiểu chấm, Loại xác thực
+  Future<void> _exportToCsv() async {
+    final data = _filteredAttendances;
+    if (data.isEmpty) {
+      NotificationOverlayManager().showWarning(
+        title: 'Không có dữ liệu',
+        message: tr('Không có bản ghi chấm công để xuất'),
+      );
+      return;
+    }
+
+    setState(() => _isExporting = true);
+    try {
+      String esc(String? v) {
+        final s = v ?? '';
+        if (s.contains(',') || s.contains('"') || s.contains('\n')) {
+          return '"${s.replaceAll('"', '""')}"';
+        }
+        return s;
+      }
+
+      final buf = StringBuffer();
+      buf.writeln(
+          'STT,Pin,Tên nhân viên,Thứ,Ngày,Giờ,Kiểu chấm,Loại xác thực');
+      for (var i = 0; i < data.length; i++) {
+        final att = data[i];
+        final pin = att.pin ?? att.employeeId ?? '';
+        final name = att.employeeName ?? att.deviceUserName ?? '';
+        buf.writeln([
+          '${i + 1}',
+          esc(pin),
+          esc(name),
+          esc(_getDayOfWeek(att.attendanceTime)),
+          esc(_dateFormat.format(att.attendanceTime)),
+          esc(_timeFormat.format(att.attendanceTime)),
+          esc(_displayStateText(att)),
+          esc(_getVerifyModeText(att.verifyMode)),
+        ].join(','));
+      }
+
+      final bytes = utf8.encode('\uFEFF${buf.toString()}');
+      final fileName =
+          'ChamCong_${DateFormat('ddMMyyyy_HHmm').format(DateTime.now())}.csv';
+      await file_saver.saveFileBytes(bytes, fileName, 'text/csv; charset=utf-8');
+
+      if (mounted) {
+        NotificationOverlayManager().showSuccess(
+          title: 'Đã xuất CSV',
+          message: tr('$fileName · ${data.length} bản ghi'),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        NotificationOverlayManager().showError(
+          title: 'Xuất CSV thất bại',
+          message: e.toString(),
+        );
+      }
     } finally {
       if (mounted) setState(() => _isExporting = false);
     }
@@ -2178,6 +2248,9 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
           PopupMenuButton<String>(
             onSelected: (value) {
               switch (value) {
+                case 'csv':
+                  _exportToCsv();
+                  break;
                 case 'excel':
                   _exportToExcel();
                   break;
@@ -2198,6 +2271,17 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
                     child: CircularProgressIndicator(strokeWidth: 2))
                 : Icon(Icons.download, color: Colors.blue.shade700),
             itemBuilder: (context) => [
+              PopupMenuItem(
+                value: 'csv',
+                child: Row(
+                  children: [
+                    Icon(Icons.description,
+                        color: Colors.teal.shade700, size: 20),
+                    const SizedBox(width: 12),
+                    Text(tr('Xuất CSV')),
+                  ],
+                ),
+              ),
               PopupMenuItem(
                 value: 'excel',
                 child: Row(

@@ -181,3 +181,37 @@ const char *app_config_effective_serial(void)
     }
     return s_detected_sn;
 }
+
+const char *app_config_detected_serial(void)
+{
+    return s_detected_sn;
+}
+
+esp_err_t app_config_clear_detected_serial(void)
+{
+    if (s_detected_sn[0] == '\0') {
+        return ESP_OK;
+    }
+    s_detected_sn[0] = '\0';
+
+    nvs_handle_t h;
+    esp_err_t err = nvs_open(NS, NVS_READWRITE, &h);
+    if (err != ESP_OK) {
+        return err;
+    }
+    nvs_erase_key(h, "dsn");
+    err = nvs_commit(h);
+    nvs_close(h);
+    ESP_LOGW(TAG, "da xoa SN cu, se doc lai tu may cham cong moi");
+    return err;
+}
+
+bool app_config_device_target_changed(const app_config_t *before, const app_config_t *after)
+{
+    if (before == NULL || after == NULL) {
+        return false;
+    }
+    return strcmp(before->device_ip, after->device_ip) != 0 ||
+           before->device_port != after->device_port ||
+           before->comm_key != after->comm_key;
+}

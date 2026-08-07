@@ -19,6 +19,18 @@ class ZkGatewayClient {
   /// Địa chỉ mặc định của ESP khi đang ở chế độ điểm phát cấu hình.
   static const apAddress = '192.168.4.1';
 
+  /// Hostname mDNS cố định của trang web cấu hình (sau khi gateway đã vào WiFi nhà).
+  static const portalHost = 'sboxadms.local';
+
+  /// URL trang web cấu hình khi đã cùng WiFi với gateway.
+  static String get portalUrl => 'http://$portalHost';
+
+  /// URL trang web khi điện thoại đang nối sóng AP của gateway.
+  static String get apPortalUrl => 'http://$apAddress';
+
+  /// URL trang web theo IP LAN (khi biết địa chỉ cụ thể).
+  static String portalUrlForIp(String ip) => 'http://$ip';
+
   /// Cổng và chuỗi hỏi phải khớp `discovery.h` trong firmware.
   static const _discoveryPort = 51820;
   static const _discoveryProbe = 'SBOX_DISCOVER';

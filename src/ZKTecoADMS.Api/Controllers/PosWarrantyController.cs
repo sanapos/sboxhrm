@@ -35,7 +35,7 @@ public class PosWarrantyController(ZKTecoDbContext dbContext) : AuthenticatedCon
         string? Note);
 
     [HttpGet("lookup")]
-    [RequireModulePermission("PosSell", ModulePermissionAction.View)]
+    [RequireModulePermission("PosWarranty", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<object>>> Lookup(
         [FromQuery] string? serial,
         [FromQuery] string? phone,
@@ -76,7 +76,7 @@ public class PosWarrantyController(ZKTecoDbContext dbContext) : AuthenticatedCon
     }
 
     [HttpGet("expiring")]
-    [RequireModulePermission("PosSell", ModulePermissionAction.View)]
+    [RequireModulePermission("PosWarranty", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<object>>> Expiring(
         [FromQuery] int days = 30,
         [FromQuery] bool includeExpired = false)
@@ -111,7 +111,7 @@ public class PosWarrantyController(ZKTecoDbContext dbContext) : AuthenticatedCon
     }
 
     [HttpGet]
-    [RequireModulePermission("PosSell", ModulePermissionAction.View)]
+    [RequireModulePermission("PosWarranty", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<object>>> List(
         [FromQuery] string? search,
         [FromQuery] string? status,

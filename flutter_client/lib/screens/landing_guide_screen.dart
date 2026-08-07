@@ -151,16 +151,52 @@ class LandingGuidePanel extends StatefulWidget {
 class _LandingGuidePanelState extends State<LandingGuidePanel> {
   int _section = 0;
   int _active = -1;
+  final _searchCtrl = TextEditingController();
+  final _searchFocus = FocusNode();
+  String _query = '';
+  bool _showSuggestions = false;
 
   List<LandingUsageGuideStep> get _steps =>
       _section == 0 ? widget.guideData.basic : widget.guideData.advanced;
 
   String get _sectionKey => _section == 0 ? 'basic' : 'advanced';
 
+  List<LandingGuideSearchHit> get _searchHits =>
+      widget.guideData.search(_query);
+
+  List<String> get _visibleSuggestionChips {
+    final q = _query.trim();
+    final all = LandingGuideData.suggestionKeywords;
+    if (q.isEmpty) return all.take(10).toList();
+    final foldQ = q.toLowerCase();
+    return all
+        .where((k) => k.toLowerCase().contains(foldQ) || foldQ.contains(k.toLowerCase()))
+        .take(10)
+        .toList();
+  }
+
   @override
   void initState() {
     super.initState();
     _applyDeepLink(widget.initialLink, notify: false);
+    _searchCtrl.addListener(() {
+      final next = _searchCtrl.text;
+      if (next == _query) return;
+      setState(() {
+        _query = next;
+        _showSuggestions = true;
+      });
+    });
+    _searchFocus.addListener(() {
+      setState(() => _showSuggestions = _searchFocus.hasFocus);
+    });
+  }
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    _searchFocus.dispose();
+    super.dispose();
   }
 
   @override
@@ -198,7 +234,51 @@ class _LandingGuidePanelState extends State<LandingGuidePanel> {
     );
   }
 
+  void _openHit(LandingGuideSearchHit hit) {
+    setState(() {
+      _section = hit.sectionIndex;
+      _active = hit.stepIndex;
+      _showSuggestions = false;
+      _searchCtrl.text = hit.step.title;
+      _query = hit.step.title;
+    });
+    _searchFocus.unfocus();
+    final sectionKey = hit.sectionIndex == 0 ? 'basic' : 'advanced';
+    LandingGuideUrl.syncToBrowser(
+      section: sectionKey,
+      stepId: hit.step.id,
+    );
+  }
+
+  void _applyKeyword(String keyword) {
+    _searchCtrl.text = keyword;
+    _searchCtrl.selection = TextSelection.collapsed(offset: keyword.length);
+    setState(() {
+      _query = keyword;
+      _showSuggestions = true;
+    });
+    final hits = widget.guideData.search(keyword);
+    if (hits.length == 1) {
+      _openHit(hits.first);
+    }
+  }
+
+  void _clearSearch() {
+    _searchCtrl.clear();
+    setState(() {
+      _query = '';
+      _showSuggestions = _searchFocus.hasFocus;
+    });
+  }
+
   void _closeStep() => setState(() => _active = -1);
+
+  void _goAdjacent(int delta) {
+    if (_active < 0) return;
+    final next = _active + delta;
+    if (next < 0 || next >= _steps.length) return;
+    _openStep(next);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -221,16 +301,177 @@ class _LandingGuidePanelState extends State<LandingGuidePanel> {
           const SizedBox(height: 8),
           _GuideSectionSubtext(
             isBasic
-                ? 'Theo đúng menu phần mềm SBOX HRM · Từ đăng ký đến báo cáo · Hỗ trợ cài đặt từ xa'
-                : 'Vận hành sau triển khai: lịch ca, KPI, phép, tài sản, truyền thông và hơn thế nữa',
+                ? 'Làm theo từng bước · Theo đúng menu SBOX HRM · Hỗ trợ cài đặt từ xa'
+                : 'Vận hành sau triển khai: lịch ca, KPI, phép, tài sản, POS và hơn thế nữa',
           ),
-          const SizedBox(height: 28),
+          const SizedBox(height: 20),
+          _buildSearchBar(),
+          const SizedBox(height: 20),
           _buildSectionTabs(),
-          const SizedBox(height: 32),
+          const SizedBox(height: 28),
           widget.isMobile ? _buildMobile() : _buildDesktop(),
           const SizedBox(height: 32),
         ],
       ),
+    );
+  }
+
+  Widget _buildSearchBar() {
+    final hits = _searchHits;
+    final chips = _visibleSuggestionChips;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        TextField(
+          controller: _searchCtrl,
+          focusNode: _searchFocus,
+          style: const TextStyle(color: Colors.white, fontSize: 14),
+          cursorColor: const Color(0xFF0C56D0),
+          decoration: InputDecoration(
+            hintText: tr('Tìm hướng dẫn: máy chấm công, lương, nghỉ phép…'),
+            hintStyle: TextStyle(
+              color: Colors.white.withValues(alpha: 0.4),
+              fontSize: 13.5,
+            ),
+            prefixIcon: Icon(
+              Icons.search_rounded,
+              color: Colors.white.withValues(alpha: 0.55),
+            ),
+            suffixIcon: _query.isEmpty
+                ? null
+                : IconButton(
+                    tooltip: tr('Xóa'),
+                    onPressed: _clearSearch,
+                    icon: Icon(
+                      Icons.close_rounded,
+                      color: Colors.white.withValues(alpha: 0.55),
+                    ),
+                  ),
+            filled: true,
+            fillColor: Colors.white.withValues(alpha: 0.06),
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: BorderSide(
+                color: Colors.white.withValues(alpha: 0.12),
+              ),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: BorderSide(
+                color: Colors.white.withValues(alpha: 0.12),
+              ),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: const BorderSide(color: Color(0xFF0C56D0), width: 1.4),
+            ),
+          ),
+          onSubmitted: (_) {
+            if (hits.isNotEmpty) _openHit(hits.first);
+          },
+        ),
+        if (_showSuggestions) ...[
+          const SizedBox(height: 10),
+          if (chips.isNotEmpty)
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                Text(
+                  tr('Gợi ý: '),
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.45),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                ...chips.map(
+                  (k) => ActionChip(
+                    label: Text(tr(k), style: const TextStyle(fontSize: 12)),
+                    backgroundColor: Colors.white.withValues(alpha: 0.08),
+                    side: BorderSide(
+                      color: Colors.white.withValues(alpha: 0.14),
+                    ),
+                    labelStyle: const TextStyle(color: Colors.white70),
+                    onPressed: () => _applyKeyword(k),
+                    visualDensity: VisualDensity.compact,
+                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                ),
+              ],
+            ),
+          if (_query.trim().isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Container(
+              constraints: const BoxConstraints(maxHeight: 280),
+              decoration: BoxDecoration(
+                color: const Color(0xFF12182A),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.12),
+                ),
+              ),
+              child: hits.isEmpty
+                  ? Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Text(
+                        tr('Không tìm thấy mục phù hợp. Thử từ khóa khác hoặc chọn gợi ý bên trên.'),
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.55),
+                          fontSize: 13,
+                          height: 1.45,
+                        ),
+                      ),
+                    )
+                  : ListView.separated(
+                      shrinkWrap: true,
+                      padding: const EdgeInsets.symmetric(vertical: 6),
+                      itemCount: hits.length,
+                      separatorBuilder: (_, __) => Divider(
+                        height: 1,
+                        color: Colors.white.withValues(alpha: 0.08),
+                      ),
+                      itemBuilder: (context, i) {
+                        final hit = hits[i];
+                        return ListTile(
+                          dense: true,
+                          leading: CircleAvatar(
+                            radius: 16,
+                            backgroundColor:
+                                hit.step.accent.withValues(alpha: 0.25),
+                            child: Icon(hit.step.icon,
+                                size: 16, color: hit.step.accent),
+                          ),
+                          title: Text(
+                            tr(hit.step.title),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 13.5,
+                            ),
+                          ),
+                          subtitle: Text(
+                            tr('${hit.sectionLabel} · ${hit.matchedIn}'),
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.45),
+                              fontSize: 11.5,
+                            ),
+                          ),
+                          trailing: const Icon(
+                            Icons.arrow_forward_ios_rounded,
+                            size: 12,
+                            color: Colors.white38,
+                          ),
+                          onTap: () => _openHit(hit),
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ],
+      ],
     );
   }
 
@@ -383,10 +624,11 @@ class _LandingGuidePanelState extends State<LandingGuidePanel> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.touch_app_rounded,
+            Icon(Icons.search_rounded,
                 size: 40, color: Colors.white.withValues(alpha: 0.35)),
             const SizedBox(height: 16),
-            Text(tr('${tr('Chọn một bước bên ')}${mobile ? 'trên' : 'trái'} để xem hướng dẫn chi tiết'),
+            Text(
+              tr('Tìm theo từ khóa phía trên, hoặc chọn một bước bên ${mobile ? 'dưới' : 'trái'} để xem hướng dẫn chi tiết từng bước'),
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: Colors.white.withValues(alpha: 0.55),
@@ -401,8 +643,12 @@ class _LandingGuidePanelState extends State<LandingGuidePanel> {
     return _GuideStepDetail(
       key: ValueKey('$_section-$_active'),
       step: _steps[_active],
+      stepNumber: _active + 1,
+      stepTotal: _steps.length,
       sectionKey: _sectionKey,
       mobile: mobile,
+      onPrev: _active > 0 ? () => _goAdjacent(-1) : null,
+      onNext: _active < _steps.length - 1 ? () => _goAdjacent(1) : null,
     );
   }
 
@@ -467,8 +713,13 @@ class _LandingGuidePanelState extends State<LandingGuidePanel> {
                     child: _GuideStepDetail(
                       key: ValueKey('m-$_section-$i'),
                       step: s,
+                      stepNumber: i + 1,
+                      stepTotal: _steps.length,
                       sectionKey: _sectionKey,
                       mobile: true,
+                      onPrev: i > 0 ? () => _goAdjacent(-1) : null,
+                      onNext:
+                          i < _steps.length - 1 ? () => _goAdjacent(1) : null,
                     ),
                   ),
                 ],
@@ -485,13 +736,21 @@ class _GuideStepDetail extends StatelessWidget {
   const _GuideStepDetail({
     super.key,
     required this.step,
+    required this.stepNumber,
+    required this.stepTotal,
     required this.sectionKey,
     required this.mobile,
+    this.onPrev,
+    this.onNext,
   });
 
   final LandingUsageGuideStep step;
+  final int stepNumber;
+  final int stepTotal;
   final String sectionKey;
   final bool mobile;
+  final VoidCallback? onPrev;
+  final VoidCallback? onNext;
 
   Future<void> _copyShareLink(BuildContext context) async {
     final link = LandingGuideUrl.buildLink(
@@ -586,9 +845,71 @@ class _GuideStepDetail extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 16),
+        Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                color: step.accent.withValues(alpha: 0.18),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                tr('Mục $stepNumber / $stepTotal'),
+                style: TextStyle(
+                  color: step.accent,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                tr(step.title),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                  height: 1.25,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
         Text(tr(step.desc),
             style: const TextStyle(
                 color: Colors.white70, fontSize: 14, height: 1.65)),
+        if (step.keywords.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: step.keywords
+                .take(8)
+                .map(
+                  (k) => Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.06),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.1),
+                      ),
+                    ),
+                    child: Text(
+                      tr(k),
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.55),
+                        fontSize: 11,
+                      ),
+                    ),
+                  ),
+                )
+                .toList(),
+          ),
+        ],
         if (step.imageUrls.isNotEmpty) ...[
           const SizedBox(height: 18),
           Wrap(
@@ -650,26 +971,60 @@ class _GuideStepDetail extends StatelessWidget {
           ),
         ],
         const SizedBox(height: 20),
-        ...step.bullets.map((b) => Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child:
-                  Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(
+          tr('Làm lần lượt các bước sau'),
+          style: TextStyle(
+            color: Colors.white.withValues(alpha: 0.9),
+            fontSize: 14,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        const SizedBox(height: 12),
+        ...step.bullets.asMap().entries.map((e) {
+          final i = e.key;
+          final b = e.value;
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
                 Container(
-                  margin: const EdgeInsets.only(top: 4),
-                  width: 6,
-                  height: 6,
-                  decoration:
-                      BoxDecoration(color: step.accent, shape: BoxShape.circle),
+                  width: 26,
+                  height: 26,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: step.accent.withValues(alpha: 0.2),
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: step.accent.withValues(alpha: 0.55),
+                    ),
+                  ),
+                  child: Text(
+                    '${i + 1}',
+                    style: TextStyle(
+                      color: step.accent,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 12,
+                    ),
+                  ),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
-                    child: Text(tr(b),
-                        style: const TextStyle(
-                            color: Colors.white70, fontSize: 13, height: 1.5))),
-              ]),
-            )),
+                  child: Text(
+                    tr(b),
+                    style: const TextStyle(
+                      color: Colors.white70,
+                      fontSize: 13.5,
+                      height: 1.55,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        }),
         if (step.tip.isNotEmpty) ...[
-          const SizedBox(height: 16),
+          const SizedBox(height: 8),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             decoration: BoxDecoration(
@@ -686,6 +1041,36 @@ class _GuideStepDetail extends StatelessWidget {
                       style: TextStyle(
                           color: step.accent, fontSize: 12.5, height: 1.5))),
             ]),
+          ),
+        ],
+        if (onPrev != null || onNext != null) ...[
+          const SizedBox(height: 20),
+          Row(
+            children: [
+              if (onPrev != null)
+                OutlinedButton.icon(
+                  onPressed: onPrev,
+                  icon: const Icon(Icons.arrow_back_rounded, size: 16),
+                  label: Text(tr('Bước trước')),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.white70,
+                    side: BorderSide(
+                      color: Colors.white.withValues(alpha: 0.2),
+                    ),
+                  ),
+                ),
+              const Spacer(),
+              if (onNext != null)
+                FilledButton.icon(
+                  onPressed: onNext,
+                  icon: const Icon(Icons.arrow_forward_rounded, size: 16),
+                  label: Text(tr('Bước tiếp')),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: step.accent,
+                    foregroundColor: Colors.white,
+                  ),
+                ),
+            ],
           ),
         ],
       ],

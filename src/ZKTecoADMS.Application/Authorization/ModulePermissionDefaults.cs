@@ -118,6 +118,10 @@ public static class ModulePermissionDefaults
         "posproducts" => (true, false, false, false, false, false),
         "posprinttemplates" => (true, false, false, false, false, false),
         "possaleorders" => (true, false, false, false, false, false),
+        "poscustomers" => (true, true, true, false, false, false),
+        "posbooking" => (true, true, false, false, false, false),
+        "poswarranty" => (true, false, false, false, false, false),
+        "poscustomerdisplay" => (true, true, false, false, false, false),
         _ => (false, false, false, false, false, false)
     };
 
@@ -131,28 +135,40 @@ public static class ModulePermissionDefaults
         "posproducts" => (true, false, false, false, false, false),
         "posprinttemplates" => (true, false, false, false, false, false),
         "possaleorders" => (true, false, false, false, false, false),
+        "poscustomers" => (true, false, false, false, false, false),
+        "posbooking" => (true, true, false, false, false, false),
+        "poswarranty" => (true, false, false, false, false, false),
+        "poscustomerdisplay" => (true, false, false, false, false, false),
         _ => (false, false, false, false, false, false)
     };
 
+    /// <summary>
+    /// Nhân viên — chỉ self-service cá nhân.
+    /// Không Payroll (tránh implicit grant mở rộng), không báo cáo quản trị, không thiết bị/cài đặt hệ thống.
+    /// </summary>
     private static (bool, bool, bool, bool, bool, bool) EmployeeDefaults(string m) => m switch
     {
-        // Mẫu quyền Nhân viên (đồng bộ cấu hình cửa hàng truongphat)
         "notification" => (true, false, false, false, false, false),
-        _ when IsDashboardFamily(m) || m is "home"
+        _ when IsDashboardFamily(m) || m is "home" or "settings"
             => (true, false, false, false, false, false),
-        "employee" or "department" or "communication" or "kpi" or "attendancereport"
-            or "penaltytickets" or "production" or "mobiledeviceregistration"
-            or "penaltyreport" or "advancereport" or "businesstripreport" or "leavereport" or "shift"
-            or "orgchart" or "bonuspenalty" or "payslip" or "attendance"
+
+        // Hồ sơ / chấm công / lương phiếu / phạt của mình (API vẫn scope theo EmployeeId)
+        "employee" or "attendance" or "attendancesummary" or "attendancebyshift"
+            or "payslip" or "penaltytickets" or "bonuspenalty" or "mobiledeviceregistration"
+            or "communication"
             => (true, false, false, false, false, false),
-        "attendancesummary" or "attendancebyshift" or "payroll"
-            => (true, false, false, false, true, false),
+
+        // Đăng ký / yêu cầu
         "leave" or "overtime" or "shiftswap" or "advancerequests" or "businesstripexpense"
-            or "attendanceapproval" or "feedback" or "mobileattendance"
+            or "attendanceapproval" or "feedback" or "mobileattendance" or "workschedule"
             => (true, true, false, false, false, false),
-        "workschedule" => (true, true, true, true, false, false),
+
+        // Công việc được giao
         "task" => (true, false, true, false, false, false),
-        "fieldcheckin" => (true, true, true, false, false, false),
+
+        // Suất ăn cá nhân (nếu module có trong gói)
+        "meal" => (true, true, false, false, false, false),
+
         _ => (false, false, false, false, false, false)
     };
 

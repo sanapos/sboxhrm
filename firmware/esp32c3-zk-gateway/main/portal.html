@@ -61,6 +61,16 @@ button:disabled{opacity:.5;cursor:default;transform:none}
 .tabs button.active{background:#1c2740;color:var(--fg)}
 .tabs button:hover{transform:none;filter:none}
 .tab{display:none}.tab.active{display:block}
+.danger{background:linear-gradient(135deg,#c0392b,#922b21)}
+.danger:hover{filter:brightness(1.06)}
+select option{background:#0b1120;color:var(--fg)}
+table{width:100%;border-collapse:collapse;font-size:13.5px}
+th,td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:left}
+th{color:var(--mut);font-size:11px;text-transform:uppercase;letter-spacing:.4px}
+tr:hover td{background:#121a2c}
+.small{font-size:12px;color:var(--mut)}
+.progress{height:8px;background:#0b1120;border-radius:999px;overflow:hidden;margin-top:8px}
+.progress i{display:block;height:100%;background:linear-gradient(90deg,var(--acc),var(--acc2));width:0;transition:width .3s}
 </style>
 </head>
 <body>
@@ -78,6 +88,7 @@ button:disabled{opacity:.5;cursor:default;transform:none}
   <div class="tabs">
     <button id="t-status" class="active" onclick="tab('status')">Trạng thái</button>
     <button id="t-config" onclick="tab('config')">Cấu hình</button>
+    <button id="t-device" onclick="tab('device')">Máy chấm công</button>
     <button id="t-tools" onclick="tab('tools')">Công cụ</button>
   </div>
 
@@ -133,6 +144,7 @@ button:disabled{opacity:.5;cursor:default;transform:none}
           <div class="field">
             <label>Số seri gửi lên máy chủ</label>
             <input name="snOverride" placeholder="trống = dùng SN của máy">
+            <div class="hint" id="snHint">SN đọc từ máy: <span id="detectedSn">-</span></div>
           </div>
         </div>
 
@@ -172,6 +184,113 @@ button:disabled{opacity:.5;cursor:default;transform:none}
     </div>
   </div>
 
+  <!-- TAB MAY CHAM CONG -->
+  <div id="tab-device" class="tab">
+    <div class="card">
+      <h2>Nhân viên trên máy</h2>
+      <div class="btns" style="margin-bottom:12px">
+        <button class="ghost" onclick="loadUsers()">Tải lại</button>
+        <a href="/api/device/attlog.csv" download="cham-cong.csv"><button type="button" class="ghost">Tải CSV chấm công</button></a>
+      </div>
+      <div style="overflow-x:auto">
+        <table>
+          <thead><tr><th>PIN</th><th>Tên</th><th>Quyền</th><th></th></tr></thead>
+          <tbody id="userRows"><tr><td colspan="4" class="small">Bấm Tải lại để xem danh sách</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Thêm / sửa nhân viên</h2>
+      <div class="row">
+        <div class="field"><label>Mã PIN</label><input id="uPin" placeholder="VD: 1001"></div>
+        <div class="field"><label>Tên hiển thị</label><input id="uName" placeholder="Nguyễn Văn A"></div>
+      </div>
+      <button onclick="saveUser()">Lưu lên máy</button>
+    </div>
+    <div class="card">
+      <h2>Điều khiển máy</h2>
+      <div class="row">
+        <div class="field">
+          <label>Thời gian mở cửa</label>
+          <select id="unlockSec">
+            <option value="3">3 giây</option>
+            <option value="5" selected>5 giây</option>
+            <option value="10">10 giây</option>
+            <option value="15">15 giây</option>
+          </select>
+        </div>
+        <div class="field" style="display:flex;align-items:flex-end">
+          <button class="ghost wide" onclick="devCtrl('unlock')">Mở cửa</button>
+        </div>
+      </div>
+      <div class="btns" style="margin-top:4px">
+        <button class="ghost" onclick="devCtrl('refresh')">Làm mới dữ liệu trên máy</button>
+        <button class="ghost" onclick="devCtrl('restart')">Khởi động lại máy chấm công</button>
+        <button class="ghost" onclick="devCtrl('clear_attlog')">Xóa log chấm công trên máy</button>
+      </div>
+      <div class="hint">“Mở cửa” gửi lệnh mở khóa/relay — dùng khi máy nối cổng ra cửa.</div>
+      <hr style="border:0;border-top:1px solid var(--line);margin:16px 0">
+      <div class="field">
+        <label>Khôi phục cài đặt gốc máy chấm công</label>
+        <button class="danger" onclick="factoryReset()">Xóa toàn bộ dữ liệu trên máy</button>
+        <div class="hint">Xóa hết nhân viên, vân tay và log chấm công trên máy. <b>Không thể hoàn tác.</b> Số seri máy giữ nguyên.</div>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Đăng ký vân tay</h2>
+      <div class="row">
+        <div class="field">
+          <label>Nhân viên</label>
+          <select id="ePin"><option value="">— Chọn nhân viên —</option></select>
+        </div>
+        <div class="field">
+          <label>Ngón tay</label>
+          <select id="eFid">
+            <option value="0">Ngón cái phải</option>
+            <option value="1">Ngón trỏ phải</option>
+            <option value="2">Ngón giữa phải</option>
+            <option value="3">Ngón áp út phải</option>
+            <option value="4">Ngón út phải</option>
+            <option value="5">Ngón cái trái</option>
+            <option value="6">Ngón trỏ trái</option>
+            <option value="7">Ngón giữa trái</option>
+            <option value="8">Ngón áp út trái</option>
+            <option value="9">Ngón út trái</option>
+          </select>
+        </div>
+      </div>
+      <button id="enrollBtn" onclick="startEnroll()">Bắt đầu đăng ký</button>
+      <div class="progress" id="enrollBar" style="display:none"><i id="enrollProg"></i></div>
+      <div class="hint" id="enrollMsg">Chọn nhân viên và ngón tay, rồi đặt ngón lên máy khi đèn sáng (tối đa 45 giây).</div>
+    </div>
+    <div class="card">
+      <h2>Xóa mẫu vân tay</h2>
+      <div class="row">
+        <div class="field">
+          <label>Nhân viên</label>
+          <select id="fPin"><option value="">— Chọn nhân viên —</option></select>
+        </div>
+        <div class="field">
+          <label>Ngón tay</label>
+          <select id="fFid">
+            <option value="-1">Toàn bộ ngón</option>
+            <option value="0">Ngón cái phải</option>
+            <option value="1">Ngón trỏ phải</option>
+            <option value="2">Ngón giữa phải</option>
+            <option value="3">Ngón áp út phải</option>
+            <option value="4">Ngón út phải</option>
+            <option value="5">Ngón cái trái</option>
+            <option value="6">Ngón trỏ trái</option>
+            <option value="7">Ngón giữa trái</option>
+            <option value="8">Ngón áp út trái</option>
+            <option value="9">Ngón út trái</option>
+          </select>
+        </div>
+      </div>
+      <button class="ghost" onclick="deleteFinger()">Xóa mẫu vân tay</button>
+    </div>
+  </div>
+
   <!-- TAB CONG CU -->
   <div id="tab-tools" class="tab">
     <div class="card">
@@ -180,6 +299,7 @@ button:disabled{opacity:.5;cursor:default;transform:none}
         <button class="ghost" onclick="act('resync')">Đồng bộ lại toàn bộ chấm công</button>
         <button class="ghost" onclick="act('users')">Đẩy danh sách nhân viên</button>
         <button class="ghost" onclick="act('clock')">Chỉnh giờ máy chấm công</button>
+        <button class="ghost" onclick="act('identify')">Đọc lại số seri máy</button>
         <button class="ghost" onclick="act('resetmark')">Xoá mốc đồng bộ</button>
         <button class="ghost" onclick="act('reboot')">Khởi động lại gateway</button>
       </div>
@@ -198,16 +318,18 @@ button:disabled{opacity:.5;cursor:default;transform:none}
 
 <script>
 const $ = s => document.querySelector(s);
+let userList = [];
 function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove('show'),2600)}
 function esc(s){return String(s??'').replace(/[<>&"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]))}
 function dot(v){return '<span class="dot '+(v?'on':'off')+'"></span>'}
 function ago(ms,up){if(!ms)return 'chưa có';const d=Math.max(0,up*1000-ms);return Math.round(d/1000)+'s trước'}
 
 function tab(name){
-  for(const n of ['status','config','tools']){
+  for(const n of ['status','config','device','tools']){
     $('#tab-'+n).classList.toggle('active', n===name);
     $('#t-'+n).classList.toggle('active', n===name);
   }
+  if(name==='device') loadUsers();
 }
 
 async function refresh(){
@@ -218,7 +340,8 @@ async function refresh(){
     ['WiFi', dot(s.wifi.connected)+(s.wifi.connected? esc(s.wifi.ip)+' <span class="pill">'+s.wifi.rssi+' dBm</span>' :'chưa kết nối')],
     ['Máy chấm công', dot(s.device.online)+(s.device.online?'đang kết nối':'không liên lạc được')],
     ['Máy chủ ADMS', dot(s.server.online)+(s.server.online?'đã kết nối':'chưa kết nối')],
-    ['Số seri máy', esc(s.device.serial)||'chưa đọc được'],
+    ['SN đọc từ máy', esc(s.device.detectedSerial)||'chưa đọc được'],
+    ['SN gửi lên máy chủ', esc(s.device.effectiveSerial)||'chưa có'],
     ['Firmware máy', esc(s.device.firmware)||'-'],
     ['Nền tảng máy', esc(s.device.platform)||'-'],
     ['Nhân viên trên máy', s.device.users],
@@ -241,6 +364,7 @@ async function loadCfg(){
   for(const k in c){ if(f[k] && k!=='hasWifiPass' && k!=='syncClock') f[k].value = c[k]; }
   f.syncClock.value = String(c.syncClock);
   if(c.hasWifiPass) f.wifiPass.placeholder = 'đã lưu - để trống nếu không đổi';
+  $('#detectedSn').textContent = c.detectedSerial || 'chưa đọc được';
 }
 
 async function save(e){
@@ -254,7 +378,7 @@ async function save(e){
   }
   const r = await fetch('/api/config',{method:'POST',body:JSON.stringify(o)});
   toast(r.ok ? 'Đã lưu cấu hình' : 'Lưu thất bại');
-  if(r.ok) setTimeout(loadCfg, 500);
+  if(r.ok){ setTimeout(loadCfg, 500); setTimeout(refresh, 1500); }
 }
 
 async function act(what){
@@ -292,6 +416,109 @@ function pick(el){
   $('#cfg').wifiSsid.value = el.dataset.ssid;
   $('#aplist').classList.remove('show');
   $('#cfg').wifiPass.focus();
+}
+
+function fillUserSelects(list){
+  userList = Array.isArray(list) ? list : [];
+  const opts = userList.map(u=>'<option value="'+esc(u.pin)+'">'+esc(u.pin)+' — '+esc(u.name)+'</option>').join('');
+  for(const id of ['ePin','fPin']){
+    const sel = $('#'+id);
+    const cur = sel.value;
+    sel.innerHTML = '<option value="">— Chọn nhân viên —</option>'+opts;
+    if(cur && userList.some(u=>u.pin===cur)) sel.value = cur;
+  }
+}
+
+async function loadUsers(){
+  const tb = $('#userRows');
+  tb.innerHTML = '<tr><td colspan="4" class="small">Đang tải...</td></tr>';
+  try{
+    const list = await (await fetch('/api/device/users')).json();
+    fillUserSelects(list);
+    if(!Array.isArray(list) || !list.length){
+      tb.innerHTML = '<tr><td colspan="4" class="small">Không có nhân viên hoặc không kết nối được máy</td></tr>';
+      return;
+    }
+    tb.innerHTML = list.map(u=>'<tr><td>'+esc(u.pin)+'</td><td>'+esc(u.name)+'</td><td>'+u.privilege+
+      '</td><td><button class="ghost" style="padding:4px 10px" data-pin="'+esc(u.pin)+'" onclick="delUser(this.dataset.pin)">Xóa</button></td></tr>').join('');
+  }catch(e){
+    fillUserSelects([]);
+    tb.innerHTML = '<tr><td colspan="4" class="small">Lỗi kết nối máy chấm công</td></tr>';
+  }
+}
+
+async function saveUser(){
+  const pin=$('#uPin').value.trim(), name=$('#uName').value.trim();
+  if(!pin){ toast('Nhập mã PIN'); return }
+  const r = await fetch('/api/device/users',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({pin, name: name||pin})});
+  toast(r.ok?'Đã lưu nhân viên':'Lưu thất bại');
+  if(r.ok) loadUsers();
+}
+
+async function delUser(pin){
+  if(!confirm('Xóa nhân viên '+pin+' trên máy?')) return;
+  const r = await fetch('/api/device/users?pin='+encodeURIComponent(pin),{method:'DELETE'});
+  toast(r.ok?'Đã xóa':'Xóa thất bại');
+  if(r.ok) loadUsers();
+}
+
+async function devCtrl(action){
+  const body = {action};
+  if(action==='unlock') body.seconds = Number($('#unlockSec').value||5);
+  const r = await fetch('/api/device/control',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  const ok = r.ok;
+  let msg = ok ? 'Đã gửi lệnh' : 'Không thực hiện được';
+  try{ const j = await r.json(); if(j.message) msg = j.message; }catch(e){}
+  toast(msg);
+  if(ok) setTimeout(refresh, 1500);
+}
+
+async function factoryReset(){
+  if(!confirm('XÓA TOÀN BỘ dữ liệu trên máy chấm công?\n\nNhân viên, vân tay và log sẽ mất vĩnh viễn.')) return;
+  if(!confirm('Xác nhận lần cuối: bạn chắc chắn muốn khôi phục cài đặt gốc?')) return;
+  await devCtrl('factory_reset');
+  setTimeout(loadUsers, 2000);
+}
+
+async function deleteFinger(){
+  const pin = $('#fPin').value;
+  if(!pin){ toast('Chọn nhân viên'); return }
+  const fid = Number($('#fFid').value);
+  const fidLabel = $('#fFid').selectedOptions[0].textContent;
+  if(!confirm('Xóa mẫu vân tay '+fidLabel+' của '+pin+'?')) return;
+  let url = '/api/device/finger?pin='+encodeURIComponent(pin);
+  if(fid >= 0) url += '&fid='+fid;
+  const r = await fetch(url,{method:'DELETE'});
+  toast(r.ok?'Đã xóa mẫu vân tay':'Xóa thất bại');
+  if(r.ok) refresh();
+}
+
+let enrollTimer=null;
+async function startEnroll(){
+  const pin=$('#ePin').value;
+  if(!pin){ toast('Chọn nhân viên'); return }
+  const btn=$('#enrollBtn'); btn.disabled=true;
+  $('#enrollBar').style.display='block'; $('#enrollProg').style.width='5%';
+  $('#enrollMsg').textContent='Đang chờ quét vân tay trên máy...';
+  const r = await fetch('/api/device/enroll',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({pin, fid:Number($('#eFid').value||0), overwrite:true})});
+  if(!r.ok){ btn.disabled=false; toast('Không bắt đầu được'); return }
+  let t=0;
+  clearInterval(enrollTimer);
+  enrollTimer=setInterval(async()=>{
+    t+=2; $('#enrollProg').style.width=Math.min(95,t/45*100)+'%';
+    try{
+      const s = await (await fetch('/api/device/enroll')).json();
+      if(s.running) return;
+      clearInterval(enrollTimer);
+      btn.disabled=false;
+      $('#enrollProg').style.width='100%';
+      $('#enrollMsg').textContent = s.message || (s.result>0?'Thành công':'Thất bại');
+      toast(s.result>0?'Đăng ký vân tay xong':'Đăng ký không thành công');
+      refresh();
+    }catch(e){}
+  },2000);
 }
 
 async function ota(){

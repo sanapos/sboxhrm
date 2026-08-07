@@ -10,6 +10,7 @@ idf_component_register(
         "cmd_exec.c"
         "gateway.c"
         "discovery.c"
+        "device_api.c"
     INCLUDE_DIRS "."
     EMBED_TXTFILES "portal.html"
     REQUIRES

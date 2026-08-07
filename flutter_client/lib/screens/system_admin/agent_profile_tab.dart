@@ -125,6 +125,13 @@ class AgentProfileTabState extends State<AgentProfileTab> {
               );
               return;
             }
+            if (newPassword == current) {
+              NotificationOverlayManager().showWarning(
+                title: 'Không hợp lệ',
+                message: tr('Mật khẩu mới phải khác mật khẩu hiện tại'),
+              );
+              return;
+            }
             if (newPassword != confirm) {
               NotificationOverlayManager().showWarning(
                 title: 'Không khớp',

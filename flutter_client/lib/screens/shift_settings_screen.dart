@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../providers/permission_provider.dart';
 import '../widgets/app_scroll_safe.dart';
@@ -240,7 +241,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
   }
 
   String _calculateWorkHours(String startTime, String endTime,
-      {TimeOfDay? lunchStart, TimeOfDay? lunchEnd}) {
+      {TimeOfDay? lunchStart, TimeOfDay? lunchEnd, int breakMinutes = 0}) {
     try {
       final sp = startTime.split(':');
       final ep = endTime.split(':');
@@ -260,12 +261,27 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
           lunchStart: lunchStart,
           lunchEnd: lunchEnd,
         );
+      } else if (breakMinutes > 0) {
+        diff -= breakMinutes;
       }
       if (diff < 0) diff = 0;
       return '${(diff ~/ 60).toString().padLeft(2, '0')}:${(diff % 60).toString().padLeft(2, '0')}';
     } catch (_) {
       return '--:--';
     }
+  }
+
+  /// Tổng giờ hiển thị trên danh sách/chi tiết — trừ nghỉ giữa ca nếu có.
+  String _workHoursForShift(Shift shift) {
+    final lunchStart = _timeOfDayFromShiftString(shift.lunchBreakStartTime);
+    final lunchEnd = _timeOfDayFromShiftString(shift.lunchBreakEndTime);
+    return _calculateWorkHours(
+      shift.startTime,
+      shift.endTime,
+      lunchStart: lunchStart,
+      lunchEnd: lunchEnd,
+      breakMinutes: shift.breakMinutes ?? 0,
+    );
   }
 
   TimeOfDay? _timeOfDayFromShiftString(String? t) {
@@ -607,7 +623,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
   Widget _buildTableRow(Shift shift, int index, bool isSelected) {
     final color = _badgeColors[index % _badgeColors.length];
     final shiftType = _getShiftType(shift);
-    final workHours = _calculateWorkHours(shift.startTime, shift.endTime);
+    final workHours = _workHoursForShift(shift);
 
     final tooltipMsg =
         'Chấm sớm: ${shift.earlyCheckInMinutes ?? 30}p  •  Trễ TĐ: ${shift.maximumAllowedLateMinutes ?? 30}p  •  Về sớm TĐ: ${shift.maximumAllowedEarlyLeaveMinutes ?? 30}p\n'
@@ -966,7 +982,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
     final color = _badgeColors[index % _badgeColors.length];
     final shiftType = _getShiftType(shift);
     final typeColor = _getShiftTypeColor(shiftType);
-    final workHours = _calculateWorkHours(shift.startTime, shift.endTime);
+    final workHours = _workHoursForShift(shift);
 
     return InkWell(
       onTap: () => _showMobileDetailSheet(shift),
@@ -1075,7 +1091,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
     final shiftType = _getShiftType(shift);
     final typeColor = _getShiftTypeColor(shiftType);
     final color = _badgeColors[_shifts.indexOf(shift) % _badgeColors.length];
-    final workHours = _calculateWorkHours(shift.startTime, shift.endTime);
+    final workHours = _workHoursForShift(shift);
 
     return Container(
       color: Colors.white,
@@ -2685,69 +2701,10 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
   }
 
   Widget _minuteField(String label, int value, ValueChanged<int> onChanged) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          tr(label),
-          style: const TextStyle(fontSize: 11, color: _textMuted),
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-        ),
-        const SizedBox(height: 4),
-        Container(
-          decoration: BoxDecoration(
-              border: Border.all(color: _borderColor),
-              borderRadius: BorderRadius.circular(8)),
-          child: Row(
-            children: [
-              InkWell(
-                onTap: () {
-                  if (value > 0) onChanged(value - 5);
-                },
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
-                  child: Icon(Icons.remove,
-                      size: 14,
-                      color: value > 0 ? _primaryColor : Colors.grey[300]),
-                ),
-              ),
-              Expanded(
-                child: Center(
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          tr('$value'),
-                          style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        Text(tr(' phút'),
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: Colors.grey[600],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              InkWell(
-                onTap: () => onChanged(value + 5),
-                child: const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 6, vertical: 8),
-                  child: Icon(Icons.add, size: 14, color: _primaryColor),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
+    return _MinuteStepperField(
+      label: label,
+      value: value,
+      onChanged: onChanged,
     );
   }
 
@@ -3677,6 +3634,153 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
           })
         ],
       ),
+    );
+  }
+}
+
+/// Ô phút: bấm +/- (bước 5) và gõ số cụ thể.
+class _MinuteStepperField extends StatefulWidget {
+  final String label;
+  final int value;
+  final ValueChanged<int> onChanged;
+  final int step;
+  final int min;
+  final int max;
+
+  const _MinuteStepperField({
+    required this.label,
+    required this.value,
+    required this.onChanged,
+    this.step = 5,
+    this.min = 0,
+    this.max = 999,
+  });
+
+  @override
+  State<_MinuteStepperField> createState() => _MinuteStepperFieldState();
+}
+
+class _MinuteStepperFieldState extends State<_MinuteStepperField> {
+  late final TextEditingController _controller;
+  late final FocusNode _focus;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: '${widget.value}');
+    _focus = FocusNode()..addListener(_onFocusChange);
+  }
+
+  void _onFocusChange() {
+    if (!_focus.hasFocus) _commit();
+  }
+
+  @override
+  void didUpdateWidget(covariant _MinuteStepperField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.value != widget.value && !_focus.hasFocus) {
+      _controller.text = '${widget.value}';
+    }
+  }
+
+  void _commit() {
+    final parsed = int.tryParse(_controller.text.trim());
+    final next = (parsed ?? widget.value).clamp(widget.min, widget.max);
+    if (_controller.text != '$next') {
+      _controller.text = '$next';
+    }
+    if (next != widget.value) widget.onChanged(next);
+  }
+
+  void _step(int delta) {
+    final next = (widget.value + delta).clamp(widget.min, widget.max);
+    _controller.text = '$next';
+    if (next != widget.value) widget.onChanged(next);
+  }
+
+  @override
+  void dispose() {
+    _focus.removeListener(_onFocusChange);
+    _focus.dispose();
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          tr(widget.label),
+          style: const TextStyle(fontSize: 11, color: Color(0xFF71717A)),
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+        ),
+        const SizedBox(height: 4),
+        Container(
+          decoration: BoxDecoration(
+            border: Border.all(color: const Color(0xFFE4E4E7)),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Row(
+            children: [
+              InkWell(
+                onTap: widget.value > widget.min
+                    ? () => _step(-widget.step)
+                    : null,
+                child: Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+                  child: Icon(
+                    Icons.remove,
+                    size: 14,
+                    color: widget.value > widget.min
+                        ? HrmPageChrome.primaryNavy
+                        : Colors.grey[300],
+                  ),
+                ),
+              ),
+              Expanded(
+                child: TextField(
+                  controller: _controller,
+                  focusNode: _focus,
+                  keyboardType: TextInputType.number,
+                  textAlign: TextAlign.center,
+                  inputFormatters: [
+                    FilteringTextInputFormatter.digitsOnly,
+                    LengthLimitingTextInputFormatter(3),
+                  ],
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  decoration: InputDecoration(
+                    isDense: true,
+                    border: InputBorder.none,
+                    contentPadding:
+                        const EdgeInsets.symmetric(vertical: 8, horizontal: 2),
+                    suffixText: tr('phút'),
+                    suffixStyle: TextStyle(
+                      fontSize: 11,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                  onSubmitted: (_) => _commit(),
+                ),
+              ),
+              InkWell(
+                onTap: () => _step(widget.step),
+                child: const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+                  child: Icon(Icons.add,
+                      size: 14, color: HrmPageChrome.primaryNavy),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

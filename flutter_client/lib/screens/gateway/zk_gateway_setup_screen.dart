@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../l10n/app_tr.dart';
 import '../../models/zk_gateway.dart';
@@ -499,9 +500,43 @@ class _ZkGatewaySetupScreenState extends State<ZkGatewaySetupScreen> {
             icon: Icons.warning_amber_rounded,
             color: Color(0xFFF59E0B),
           ),
+          const SizedBox(height: 10),
+          const GatewayNoteBox(
+            text: 'Nếu app không thấy thiết bị (thường gặp trên iPhone), mở Safari '
+                'tới http://192.168.4.1 để cấu hình trực tiếp trên mạch.',
+            icon: Icons.open_in_browser,
+          ),
         ]),
         const SizedBox(height: 14),
         _primaryButton('Tôi đã kết nối, kiểm tra', _probeDevice, icon: Icons.search),
+        const SizedBox(height: 8),
+        OutlinedButton.icon(
+          onPressed: _busy
+              ? null
+              : () async {
+                  final uri = Uri.parse(ZkGatewayClient.apPortalUrl);
+                  final ok = await launchUrl(
+                    uri,
+                    mode: LaunchMode.externalApplication,
+                  );
+                  if (!ok && mounted) {
+                    appNotification.showError(
+                      title: tr('Không mở được trình duyệt'),
+                      message: tr('Hãy mở tay: ${ZkGatewayClient.apPortalUrl}'),
+                    );
+                  }
+                },
+          icon: const Icon(Icons.open_in_browser, size: 18),
+          label: Text(tr('Mở web cấu hình (192.168.4.1)')),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: HrmPageChrome.primaryNavy,
+            minimumSize: const Size(double.infinity, 44),
+            side: const BorderSide(color: Color(0xFFCBD5E1)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+        ),
         const SizedBox(height: 8),
         TextButton(
           onPressed: _busy ? null : () => setState(() => _step = 0),

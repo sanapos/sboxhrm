@@ -53,6 +53,10 @@ public class PosServiceResource : AuditableEntity<Guid>
     /// <summary>Giá mặc định theo giờ (RoomHourly) — có thể ghi đè bằng SP dịch vụ.</summary>
     public decimal? DefaultHourlyRate { get; set; }
 
+    /// <summary>SP dịch vụ tính giờ tự thêm khi mở bàn/phòng (ưu tiên hơn settings cửa hàng).</summary>
+    public Guid? DefaultServiceProductId { get; set; }
+    public virtual PosProduct? DefaultServiceProduct { get; set; }
+
     /// <summary>Vị trí trên sơ đồ (px logic, 0 = auto grid).</summary>
     public double? LayoutX { get; set; }
     public double? LayoutY { get; set; }
@@ -135,4 +139,37 @@ public class PosResourceReservation : AuditableEntity<Guid>
     public string? Note { get; set; }
 
     public Guid? SeatedSessionId { get; set; }
+
+    /// <summary>Số tiền cọc yêu cầu / dự kiến.</summary>
+    public decimal DepositAmount { get; set; }
+
+    /// <summary>Số tiền cọc đã thu.</summary>
+    public decimal DepositPaid { get; set; }
+
+    public PosReservationDepositStatus DepositStatus { get; set; } =
+        PosReservationDepositStatus.None;
+
+    [MaxLength(50)]
+    public string? DepositPaymentMethod { get; set; }
+
+    public DateTime? DepositPaidAt { get; set; }
+
+    /// <summary>Đơn Draft/Completed đã trừ cọc (khi seat).</summary>
+    public Guid? DepositAppliedOrderId { get; set; }
+
+    /// <summary>
+    /// Lịch hẹn có khung giờ (salon): ReservedAt = bắt đầu, ReservedUntil = kết thúc.
+    /// Null/0 = đặt bàn cổ điển (1 Booked / resource).
+    /// </summary>
+    public int? DurationMinutes { get; set; }
+
+    /// <summary>SP dịch vụ gắn lịch hẹn (cắt tóc, nail…).</summary>
+    public Guid? ServiceProductId { get; set; }
+    public virtual PosProduct? ServiceProduct { get; set; }
+
+    /// <summary>NV phụ trách (stylist / kỹ thuật viên).</summary>
+    public Guid? AssignedEmployeeId { get; set; }
+    public virtual Employee? AssignedEmployee { get; set; }
+
+    public bool IsTimedSlot => DurationMinutes is > 0;
 }

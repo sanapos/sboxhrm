@@ -263,10 +263,31 @@ public partial class PosSellIndustryController
         var status = asSeated
             ? PosResourceReservationStatus.Seated
             : PosResourceReservationStatus.Cancelled;
-        await db.PosResourceReservations
+
+        // Classic (không duration) hoặc timed đang/đã bắt đầu trong cửa sổ gần → clear.
+        // Timed tương lai giữ nguyên để salon multi-slot không mất lịch.
+        var candidates = await db.PosResourceReservations
             .Where(x => x.ResourceId == resourceId && x.Deleted == null
                 && (x.StoreId == storeId || x.StoreId == Guid.Empty)
                 && x.Status == PosResourceReservationStatus.Booked)
+            .Select(x => new { x.Id, x.ReservedAt, x.ReservedUntil, x.DurationMinutes })
+            .ToListAsync();
+
+        var clearIds = candidates
+            .Where(x =>
+            {
+                if (x.DurationMinutes is null or <= 0) return true;
+                var end = x.ReservedUntil ?? x.ReservedAt.AddMinutes(x.DurationMinutes.Value);
+                // Đang trong slot hoặc slot đã bắt đầu ≤ 30' trước (khách đến sớm / muộn ít).
+                return x.ReservedAt <= now.AddMinutes(30) && now < end.AddMinutes(ReservationNoShowGraceMinutes);
+            })
+            .Select(x => x.Id)
+            .ToList();
+
+        if (clearIds.Count == 0) return;
+
+        await db.PosResourceReservations
+            .Where(x => clearIds.Contains(x.Id))
             .ExecuteUpdateAsync(s => s
                 .SetProperty(x => x.Status, status)
                 .SetProperty(x => x.UpdatedAt, now)
@@ -343,7 +364,7 @@ public partial class PosSellIndustryController
             CustomerId = sourceOrder.CustomerId,
             CustomerName = sourceOrder.CustomerName,
             ServiceResourceId = target.Id,
-            ServiceStartedAt = now,
+            ServiceStartedAt = sourceOrder.ServiceStartedAt ?? session.StartedAt,
             SaleDate = now,
             SalesChannel = sourceOrder.SalesChannel ?? "T?i ch?",
             PriceListId = sourceOrder.PriceListId,
@@ -370,8 +391,12 @@ public partial class PosSellIndustryController
             ResourceId = target.Id,
             SaleOrderId = newOrder.Id,
             CustomerId = sourceOrder.CustomerId,
-            StartedAt = now,
-            Status = PosResourceSessionStatus.Open,
+            StartedAt = session.StartedAt,
+            Status = session.Status == PosResourceSessionStatus.Paused
+                ? PosResourceSessionStatus.Paused
+                : PosResourceSessionStatus.Open,
+            PausedAt = session.PausedAt,
+            AccumulatedPauseMinutes = session.AccumulatedPauseMinutes,
             GuestCount = 1,
             IsActive = true,
             CreatedBy = CurrentUserEmail,
@@ -388,6 +413,7 @@ public partial class PosSellIndustryController
             // v� autosave client c� th? ghi d� tr? m�n v?? b�n ngu?n.
             sourceOrder.Lines.Remove(line);
             line.SaleOrderId = newOrder.Id;
+            line.ServiceStartedAt ??= session.StartedAt;
             line.UpdatedAt = now;
             line.UpdatedBy = CurrentUserEmail;
             newOrder.Lines.Add(line);
@@ -459,11 +485,22 @@ public partial class PosSellIndustryController
         if (sourceOrder.StoreId == Guid.Empty) sourceOrder.StoreId = storeId;
 
         var now = DateTime.UtcNow;
+        // Chốt pause bàn nguồn (đang đóng); bàn đích giữ pause hiện tại nếu đang tạm dừng.
+        PosServiceBillingHelper.FinalizeOpenPause(sourceSession, now);
+        if (sourceSession.StartedAt < targetSession.StartedAt)
+        {
+            targetSession.StartedAt = sourceSession.StartedAt;
+            targetOrder.ServiceStartedAt =
+                sourceOrder.ServiceStartedAt ?? sourceSession.StartedAt;
+        }
+        targetSession.AccumulatedPauseMinutes += sourceSession.AccumulatedPauseMinutes;
+
         var moveLines = sourceOrder.Lines.Where(l => l.Deleted == null).ToList();
         foreach (var line in moveLines)
         {
             sourceOrder.Lines.Remove(line);
             line.SaleOrderId = targetOrder.Id;
+            line.ServiceStartedAt ??= sourceSession.StartedAt;
             line.UpdatedAt = now;
             line.UpdatedBy = CurrentUserEmail;
             targetOrder.Lines.Add(line);
@@ -534,7 +571,9 @@ public partial class PosSellIndustryController
     public async Task<ActionResult<AppResponse<object>>> RequestBill(Guid id, [FromQuery] bool requested = true)
     {
         if (!TryGetStoreId(out var storeId))
-            return BadRequest(AppResponse<object>.Fail("Thi?u c?a h�ng"));
+            return BadRequest(AppResponse<object>.Fail("Thiếu cửa hàng"));
+        if (requested && await RequireProvisionalBillAsync(storeId) is { } denied)
+            return denied;
 
         var session = await db.PosResourceSessions
             .AsTracking().FirstOrDefaultAsync(s => s.Id == id && s.Deleted == null);
@@ -583,7 +622,9 @@ public partial class PosSellIndustryController
         Guid id, [FromQuery] bool requested = true)
     {
         if (!TryGetStoreId(out var storeId))
-            return BadRequest(AppResponse<object>.Fail("Thi?u c?a h�ng"));
+            return BadRequest(AppResponse<object>.Fail("Thiếu cửa hàng"));
+        if (requested && await RequireProvisionalBillAsync(storeId) is { } denied)
+            return denied;
 
         var live = await db.PosResourceSessions
             .AsTracking().Where(s => s.ResourceId == id && s.Deleted == null
@@ -663,7 +704,9 @@ public partial class PosSellIndustryController
     public async Task<ActionResult<AppResponse<object>>> KitchenSend(Guid id, [FromBody] KitchenSendDto? dto)
     {
         if (!TryGetStoreId(out var storeId))
-            return BadRequest(AppResponse<object>.Fail("Thi?u c?a h�ng"));
+            return BadRequest(AppResponse<object>.Fail("Thiếu cửa hàng"));
+        if (await RequireRestaurantKitchenAsync(storeId) is { } denied)
+            return denied;
         var session = await db.PosResourceSessions
             .AsTracking().FirstOrDefaultAsync(s => s.Id == id && s.StoreId == storeId && s.Deleted == null);
         if (session == null || !session.SaleOrderId.HasValue)
@@ -1036,7 +1079,7 @@ public partial class PosSellIndustryController
 
     /// <summary>POS đẩy trạng thái màn phụ lên server (máy khác mở link vẫn xem được).</summary>
     [HttpPut("customer-display/state")]
-    [RequireModulePermission("PosSell", ModulePermissionAction.View)]
+    [RequireModulePermission("PosCustomerDisplay", ModulePermissionAction.Create)]
     public ActionResult<AppResponse<object>> PutCustomerDisplayState([FromBody] CustomerDisplayStateDto dto)
     {
         if (!TryGetStoreId(out var storeId))
@@ -1054,7 +1097,7 @@ public partial class PosSellIndustryController
 
     /// <summary>Máy đã đăng nhập — đọc state mới nhất của cửa hàng.</summary>
     [HttpGet("customer-display/state")]
-    [RequireModulePermission("PosSell", ModulePermissionAction.View)]
+    [RequireModulePermission("PosCustomerDisplay", ModulePermissionAction.View)]
     public ActionResult<AppResponse<object>> GetCustomerDisplayState()
     {
         if (!TryGetStoreId(out var storeId))

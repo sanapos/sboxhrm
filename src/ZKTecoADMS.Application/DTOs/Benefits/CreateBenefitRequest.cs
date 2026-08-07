@@ -59,6 +59,15 @@ public class CreateBenefitRequest
     public string? TravelSalaryMode { get; set; }
     public decimal? TravelFixedHourlyRate { get; set; }
 
+    /// <summary>Có tính đi trễ/về sớm khi tăng ca ngày nghỉ. Mặc định true.</summary>
+    public bool? ApplyLateEarlyOnRestDayOt { get; set; }
+
+    /// <summary>Tăng ca ngày nghỉ chỉ tính giờ OT, không cộng công. Mặc định false.</summary>
+    public bool? RestDayOtHoursOnly { get; set; }
+
+    /// <summary>Đơn giá giờ OT theo luật: base | completion | base_plus_completion.</summary>
+    public string? OvertimeHourlyBaseMode { get; set; }
+
     /// <summary>Auto | FixedCustom | Fixed25…Fixed28</summary>
     public string? StandardWorkMode { get; set; }
     public int? FixedStandardWorkDays { get; set; }

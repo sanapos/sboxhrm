@@ -49,6 +49,7 @@ class _CashReportScreenState extends State<CashReportScreen> {
   String _empSearch = '';
   Map<String, double> _runningBalances = {};
   final _listSectionKey = GlobalKey();
+  final _pngKey = GlobalKey();
 
   List<Map<String, dynamic>> get _filtered {
     Iterable<Map<String, dynamic>> rows = _items.where(
@@ -290,6 +291,14 @@ class _CashReportScreenState extends State<CashReportScreen> {
     );
   }
 
+  Future<void> _exportPng() async {
+    await ClientPngExport.capture(
+      context: context,
+      key: _pngKey,
+      filePrefix: 'QuyTien',
+    );
+  }
+
   String _paymentLabel(dynamic v) {
     final val = (v is num) ? v.toInt() : int.tryParse(v?.toString() ?? '') ?? 1;
     try {
@@ -319,9 +328,16 @@ class _CashReportScreenState extends State<CashReportScreen> {
       actions: [
         if (canExport)
           HrmTopBarAction(
+            icon: Icons.image_outlined,
+            label: 'Xuất PNG',
+            onPressed: _filtered.isEmpty ? null : _exportPng,
+            pinOnMobile: false,
+          ),
+        if (canExport)
+          HrmTopBarAction(
             icon: Icons.file_download_outlined,
             label: 'Xuất Excel',
-            onPressed: _exportExcel,
+            onPressed: _filtered.isEmpty ? null : _exportExcel,
           ),
         HrmTopBarAction(
           icon: Icons.refresh,
@@ -335,23 +351,26 @@ class _CashReportScreenState extends State<CashReportScreen> {
         Expanded(
           child: SingleChildScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _buildOverviewSection(),
-                reportLoadErrorBanner(_loadError),
-                _buildFilterResultBar(),
-                if (_loading)
-                  const Padding(
-                    padding: EdgeInsets.all(48),
-                    child: Center(child: CircularProgressIndicator()),
-                  )
-                else
-                  KeyedSubtree(
-                    key: _listSectionKey,
-                    child: _buildListSection(),
-                  ),
-              ],
+            child: RepaintBoundary(
+              key: _pngKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _buildOverviewSection(),
+                  reportLoadErrorBanner(_loadError),
+                  _buildFilterResultBar(),
+                  if (_loading)
+                    const Padding(
+                      padding: EdgeInsets.all(48),
+                      child: Center(child: CircularProgressIndicator()),
+                    )
+                  else
+                    KeyedSubtree(
+                      key: _listSectionKey,
+                      child: _buildListSection(),
+                    ),
+                ],
+              ),
             ),
           ),
         ),

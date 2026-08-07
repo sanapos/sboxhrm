@@ -1,5 +1,8 @@
+import 'dart:ui' as ui;
+
 import 'package:excel/excel.dart' as excel_lib;
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
@@ -438,5 +441,50 @@ class ClientExcelExport {
     if (v is num) return excel_lib.DoubleCellValue(v.toDouble());
     if (v is bool) return excel_lib.BoolCellValue(v);
     return excel_lib.TextCellValue(v.toString());
+  }
+}
+
+/// Chụp [RepaintBoundary] (qua [GlobalKey]) thành file PNG.
+class ClientPngExport {
+  static Future<bool> capture({
+    required BuildContext context,
+    required GlobalKey key,
+    required String filePrefix,
+    double pixelRatio = 2.5,
+  }) async {
+    try {
+      final boundary =
+          key.currentContext?.findRenderObject() as RenderRepaintBoundary?;
+      if (boundary == null) {
+        NotificationOverlayManager().showWarning(
+            title: 'Xuất PNG',
+            message: tr('Không tìm thấy nội dung báo cáo để chụp'));
+        return false;
+      }
+      final image = await boundary.toImage(pixelRatio: pixelRatio);
+      final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+      if (byteData == null) {
+        NotificationOverlayManager().showError(
+            title: 'Xuất PNG', message: tr('Không thể tạo ảnh'));
+        return false;
+      }
+      final pngBytes = byteData.buffer.asUint8List();
+      final fileName = normalizeExportFileName(
+        '${filePrefix}_${DateFormat('ddMMyyyy_HHmm').format(DateTime.now())}.png',
+      );
+      await file_saver.saveAndOpenFileBytes(pngBytes, fileName, 'image/png');
+      if (context.mounted) {
+        NotificationOverlayManager().showSuccess(
+            title: 'Xuất PNG',
+            message: tr('Đã lưu vào Ảnh/SBOX HRM: $fileName'));
+      }
+      return true;
+    } catch (e) {
+      if (context.mounted) {
+        NotificationOverlayManager()
+            .showError(title: 'Xuất PNG', message: tr('Lỗi xuất PNG: $e'));
+      }
+      return false;
+    }
   }
 }

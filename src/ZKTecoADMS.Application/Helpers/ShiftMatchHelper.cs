@@ -136,6 +136,16 @@ public static class ShiftMatchHelper
     public static int MinutesEarlyBeforeEnd(TimeSpan punch, TimeSpan start, TimeSpan end)
         => RawEarlyOutMinutes(punch, start, end);
 
+    /// <summary>Độ dài ca (phút) — ưu tiên ca dài hơn khi điểm phạt bằng nhau (tránh Ca sáng 4h thắng ca hành chính 9.5h).</summary>
+    public static int ShiftDurationMinutes(Candidate c)
+    {
+        var start = (int)c.StartTime.TotalMinutes;
+        var end = (int)c.EndTime.TotalMinutes;
+        if (IsOvernight(c.StartTime, c.EndTime))
+            return Math.Max(1, (1440 - start) + end);
+        return Math.Max(1, end - start);
+    }
+
     private static Fit? PickBest(
         IReadOnlyList<Candidate> ids,
         TimeSpan punchIn,
@@ -152,7 +162,12 @@ public static class ShiftMatchHelper
                     && fit.EffectiveLateIn < best.EffectiveLateIn)
                 || (fit.PenaltyScore == best.PenaltyScore
                     && fit.EffectiveLateIn == best.EffectiveLateIn
-                    && fit.DistanceToStart < best.DistanceToStart))
+                    && fit.DistanceToStart < best.DistanceToStart)
+                // Hòa điểm: chọn ca dài hơn (Ca hành chính > Ca sáng cùng giờ vào).
+                || (fit.PenaltyScore == best.PenaltyScore
+                    && fit.EffectiveLateIn == best.EffectiveLateIn
+                    && fit.DistanceToStart == best.DistanceToStart
+                    && ShiftDurationMinutes(fit.Shift) > ShiftDurationMinutes(best.Shift)))
             {
                 best = fit;
             }

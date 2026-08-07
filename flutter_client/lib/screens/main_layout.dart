@@ -75,6 +75,7 @@ import 'business_trip_report_screen.dart';
 import 'leave_report_screen.dart';
 import 'attendance_report_screen.dart';
 import 'late_early_report_screen.dart';
+import 'travel_hours_report_screen.dart';
 import 'asset_report_screen.dart';
 import 'downloaded_documents_screen.dart';
 import 'agent_license_keys_screen.dart';
@@ -200,6 +201,28 @@ class ScreenRefreshNotifier {
     posSellStockPatch.value = List<PosSellStockLineDelta>.from(lines);
   }
 
+  /// Ghi patch vào cache catalog — khi lưới bán chưa mount (F&B sơ đồ / tablet TT)
+  /// vẫn trừ đúng tồn khi mở lại thực đơn trong TTL 20 phút.
+  static Future<void> _applyStockLinesToSellCatalogCache(
+    List<PosSellStockLineDelta> lines, {
+    String? storeId,
+  }) async {
+    final id = (storeId ?? PosSellCatalogCache.instance.lastStoreId)?.trim() ?? '';
+    if (id.isEmpty || lines.isEmpty) return;
+    try {
+      final snap = await PosSellCatalogCache.instance.read(id);
+      if (snap == null || snap.items.isEmpty) return;
+      final updated = snap.items
+          .map((p) => applyPosSellStockLines(p, lines))
+          .toList(growable: false);
+      await PosSellCatalogCache.instance.write(
+        id,
+        items: updated,
+        catalogVersion: snap.catalogVersion,
+      );
+    } catch (_) {}
+  }
+
   static void refreshPosSaleOrders() {
     posSaleOrders.value++;
   }
@@ -229,15 +252,28 @@ class ScreenRefreshNotifier {
     }
   }
 
-  /// [sellStockLines]: patch tồn lưới bán hàng (trả hàng/nhập/hủy). Bán patch trực tiếp từ giỏ.
+  /// [sellStockLines]: patch tồn lưới bán hàng (bán / trả / nhập / hủy).
   /// Mặc định không reload catalog khi đã có patch — tránh refresh storm.
   static void refreshPosAfterStockChange({
     List<PosSellStockLineDelta>? sellStockLines,
     bool? reloadSellCatalog,
+    String? storeId,
   }) {
     final hasPatch = sellStockLines != null && sellStockLines.isNotEmpty;
     if (hasPatch) {
-      patchPosSellStockLines(sellStockLines!);
+      final lines = List<PosSellStockLineDelta>.from(sellStockLines!);
+      // Listener lưới (nếu mount) áp dụng ngay + ghi cache + clear notifier.
+      patchPosSellStockLines(lines);
+      // F&B/tablet: lưới dispose → notifier còn lines → ghi cache rồi clear
+      // để remount không trừ lần 2.
+      if (posSellStockPatch.value != null) {
+        unawaited(_applyStockLinesToSellCatalogCache(lines, storeId: storeId)
+            .whenComplete(() {
+          if (posSellStockPatch.value != null) {
+            posSellStockPatch.value = null;
+          }
+        }));
+      }
     }
     final reloadCatalog = reloadSellCatalog ?? !hasPatch;
     _pendingPosRefresh = _PendingPosStockRefresh(reloadCatalog: reloadCatalog);
@@ -1269,6 +1305,16 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       moduleCode: 'LateEarlyReport',
     ),
     NavItem(
+      icon: Icons.directions_car_outlined,
+      activeIcon: Icons.directions_car,
+      label: 'Báo cáo đi đường',
+      subtitle: 'Chi tiết giờ đi đường mobile — bổ sung thủ công',
+      screen: const TravelHoursReportScreen(),
+      group: 'Báo cáo',
+      themeColor: HrmPageChrome.primaryNavy,
+      moduleCode: 'TravelHoursReport',
+    ),
+    NavItem(
       icon: Icons.fact_check_outlined,
       activeIcon: Icons.fact_check,
       label: 'Duyệt chấm công',
@@ -2133,22 +2179,10 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
             builder: (context, _) {
               final acts = PageTopActions.instance.actions;
               if (acts.isEmpty) return const SizedBox.shrink();
-              return ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 220),
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  reverse: true,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      for (var i = 0; i < acts.length; i++) ...[
-                        if (i > 0) const SizedBox(width: 4),
-                        acts[i],
-                      ],
-                      const SizedBox(width: 4),
-                    ],
-                  ),
-                ),
+              return PageTopActionsBar(
+                actions: acts,
+                maxWidth: 220,
+                reverse: true,
               );
             },
           ),
@@ -3081,18 +3115,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                 if (acts.isEmpty) return const SizedBox.shrink();
                 return Align(
                   alignment: Alignment.centerRight,
-                  child: SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        for (var i = 0; i < acts.length; i++) ...[
-                          if (i > 0) const SizedBox(width: 6),
-                          acts[i],
-                        ],
-                      ],
-                    ),
-                  ),
+                  child: PageTopActionsBar(actions: acts),
                 );
               },
             ),
@@ -3526,6 +3549,7 @@ class NavItem {
     'AttendanceSummary': (l) => l.attendanceSummary,
     'AttendanceByShift': (l) => l.attendanceByShift,
     'LateEarlyReport': (l) => l.lateEarlyReport,
+    'TravelHoursReport': (l) => l.travelHoursReport,
     'AttendanceApproval': (l) => l.attendanceApproval,
     'ScheduleApproval': (l) => l.scheduleApproval,
     'Payroll': (l) => l.payrollSummary,

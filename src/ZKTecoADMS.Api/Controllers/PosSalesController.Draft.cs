@@ -1008,6 +1008,36 @@ public partial class PosSalesController
         var lines = new List<PosSaleOrderLine>();
         decimal subTotal = 0;
         decimal lineDiscountTotal = 0;
+
+        // Pause phiên bàn — trừ khỏi phút tính giờ (draft + thanh toán).
+        var sessionPauseAccum = 0;
+        DateTime? sessionPausedAt = null;
+        PosResourceSession? billingSession = null;
+        if (order.ResourceSessionId.HasValue)
+        {
+            billingSession = await dbContext.PosResourceSessions.AsTracking()
+                .FirstOrDefaultAsync(s => s.Id == order.ResourceSessionId
+                    && s.StoreId == storeId && s.Deleted == null);
+        }
+        else if (order.ServiceResourceId.HasValue)
+        {
+            billingSession = await dbContext.PosResourceSessions.AsTracking()
+                .Where(s => s.ResourceId == order.ServiceResourceId
+                    && s.StoreId == storeId && s.Deleted == null
+                    && (s.Status == PosResourceSessionStatus.Open
+                        || s.Status == PosResourceSessionStatus.Paused))
+                .OrderByDescending(s => s.StartedAt)
+                .FirstOrDefaultAsync();
+        }
+        if (billingSession != null)
+        {
+            if (complete)
+                PosServiceBillingHelper.FinalizeOpenPause(billingSession, DateTime.UtcNow);
+            sessionPauseAccum = billingSession.AccumulatedPauseMinutes;
+            if (!complete && billingSession.Status == PosResourceSessionStatus.Paused)
+                sessionPausedAt = billingSession.PausedAt;
+        }
+
         foreach (var line in dto.Lines)
         {
             if (!products.TryGetValue(line.ProductId, out var p))
@@ -1098,13 +1128,16 @@ public partial class PosSalesController
             {
                 var started = lineStarted ?? order.ServiceStartedAt ?? DateTime.UtcNow;
                 var ended = lineEnded ?? (complete ? DateTime.UtcNow : (DateTime?)null);
-                var elapsed = PosServiceBillingHelper.CalcElapsedMinutes(started, ended);
+                var elapsed = PosServiceBillingHelper.CalcElapsedMinutes(
+                    started, ended, sessionPauseAccum, sessionPausedAt);
                 if (durationMinutes is null or <= 0) durationMinutes = elapsed;
                 billableMinutes = PosServiceBillingHelper.CalcBillableMinutes(
                     durationMinutes ?? elapsed,
                     p.ServiceBillingMode,
                     p.MinBillMinutes,
-                    p.BillRoundMinutes);
+                    p.BillRoundMinutes,
+                    p.GraceMinutes,
+                    p.RoundAfterMinutes);
                 lineQty = PosServiceBillingHelper.CalcBillableQty(
                     p.ServiceBillingMode, billableMinutes.Value, line.Qty);
                 lineStarted ??= started;
@@ -1268,6 +1301,7 @@ public partial class PosSalesController
                         && s.Deleted == null);
                 if (sess != null && sess.Status != PosResourceSessionStatus.Closed)
                 {
+                    PosServiceBillingHelper.FinalizeOpenPause(sess, DateTime.UtcNow);
                     sess.Status = PosResourceSessionStatus.Closed;
                     sess.EndedAt = DateTime.UtcNow;
                     sess.UpdatedAt = DateTime.UtcNow;
@@ -1296,6 +1330,7 @@ public partial class PosSalesController
                     .ToListAsync();
                 foreach (var sess in live)
                 {
+                    PosServiceBillingHelper.FinalizeOpenPause(sess, DateTime.UtcNow);
                     sess.Status = PosResourceSessionStatus.Closed;
                     sess.EndedAt = DateTime.UtcNow;
                     sess.UpdatedAt = DateTime.UtcNow;

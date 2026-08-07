@@ -83,7 +83,12 @@
 	<key>NSLocationAlwaysUsageDescription</key>
 	<string>Ứng dụng cần quyền vị trí để xác nhận địa điểm chấm công, kể cả khi chạy nền</string>
 	<key>NSLocalNetworkUsageDescription</key>
-	<string>Ứng dụng cần truy cập mạng nội bộ để kết nối WiFi chấm công</string>
+	<string>Ứng dụng cần truy cập mạng nội bộ để tìm và cấu hình gateway chấm công WiFi (ESP32) trong cùng WiFi nhà.</string>
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_sboxgw._tcp</string>
+		<string>_http._tcp</string>
+	</array>
 	<key>NSFaceIDUsageDescription</key>
 	<string>Ứng dụng sử dụng Face ID để xác thực</string>
 	<key>NSAppTransportSecurity</key>

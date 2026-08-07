@@ -628,8 +628,14 @@ class _LoginScreenState extends State<LoginScreen>
                           children: [
                             _buildLabel('MẬT KHẨU'),
                             TextButton(
-                              onPressed: () => Navigator.of(context)
-                                  .pushNamed('/forgot-password'),
+                              onPressed: () => Navigator.of(context).pushNamed(
+                                '/forgot-password',
+                                arguments: {
+                                  'storeCode':
+                                      _storeCodeController.text.trim(),
+                                  'email': _emailController.text.trim(),
+                                },
+                              ),
                               style: TextButton.styleFrom(
                                 foregroundColor: const Color(0xFF0C56D0),
                                 padding: EdgeInsets.zero,

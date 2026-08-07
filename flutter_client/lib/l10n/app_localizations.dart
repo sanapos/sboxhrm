@@ -387,6 +387,7 @@ class AppLocalizations {
   String get dailyReport => get('dailyReport');
   String get monthlyReport => get('monthlyReport');
   String get lateEarlyReport => get('lateEarlyReport');
+  String get travelHoursReport => get('travelHoursReport');
   String get byDeptReport => get('byDeptReport');
   String get period => get('period');
   String get year => get('year');
@@ -848,6 +849,7 @@ class AppLocalizations {
       'dailyReport': 'Hàng ngày',
       'monthlyReport': 'Hàng tháng',
       'lateEarlyReport': 'Đi trễ / Về sớm',
+      'travelHoursReport': 'Báo cáo đi đường',
       'byDeptReport': 'Theo phòng ban',
       'period': 'Thời gian',
       'year': 'Năm',
@@ -1306,6 +1308,7 @@ class AppLocalizations {
       'dailyReport': 'Daily',
       'monthlyReport': 'Monthly',
       'lateEarlyReport': 'Late / Early Leave',
+      'travelHoursReport': 'Travel hours report',
       'byDeptReport': 'By Department',
       'period': 'Period',
       'year': 'Year',

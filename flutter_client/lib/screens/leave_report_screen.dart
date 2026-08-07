@@ -44,6 +44,7 @@ class _LeaveReportScreenState extends State<LeaveReportScreen> {
   int? _summaryTotalRequests;
   List<Map<String, dynamic>> _byEmployee = [];
   String? _annualBalanceText;
+  final _pngKey = GlobalKey();
 
   bool get _teamView {
     final role =
@@ -367,6 +368,14 @@ class _LeaveReportScreenState extends State<LeaveReportScreen> {
     );
   }
 
+  Future<void> _exportPng() async {
+    await ClientPngExport.capture(
+      context: context,
+      key: _pngKey,
+      filePrefix: 'NghiPhep',
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final canExport = Provider.of<PermissionProvider>(context, listen: false)
@@ -376,9 +385,16 @@ class _LeaveReportScreenState extends State<LeaveReportScreen> {
       actions: [
         if (canExport)
           HrmTopBarAction(
+            icon: Icons.image_outlined,
+            label: 'Xuất PNG',
+            onPressed: _filtered.isEmpty ? null : _exportPng,
+            pinOnMobile: false,
+          ),
+        if (canExport)
+          HrmTopBarAction(
             icon: Icons.file_download_outlined,
             label: 'Xuất Excel',
-            onPressed: _exportExcel,
+            onPressed: _filtered.isEmpty ? null : _exportExcel,
           ),
         HrmTopBarAction(
           icon: Icons.refresh,
@@ -396,6 +412,11 @@ class _LeaveReportScreenState extends State<LeaveReportScreen> {
               child: ListView(
                 physics: const AlwaysScrollableScrollPhysics(),
                 children: [
+                  RepaintBoundary(
+                    key: _pngKey,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
                   if (!_teamView && _annualBalanceText != null)
                     ReportPersonalInsightBanner(
                       message: _annualBalanceText!,
@@ -459,6 +480,9 @@ class _LeaveReportScreenState extends State<LeaveReportScreen> {
                     _buildByEmployee()
                   else
                     _buildBody(),
+                      ],
+                    ),
+                  ),
                 ],
               ),
             ),

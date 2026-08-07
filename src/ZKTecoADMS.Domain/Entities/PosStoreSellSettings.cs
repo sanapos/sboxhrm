@@ -41,6 +41,10 @@ public class PosStoreSellSettings : AuditableEntity<Guid>
     /// </summary>
     public bool AllowNegativeStock { get; set; }
 
+    /// <summary>SP dịch vụ tính giờ mặc định khi mở bàn (RoomHourly / salon).</summary>
+    public Guid? DefaultHourlyProductId { get; set; }
+    public virtual PosProduct? DefaultHourlyProduct { get; set; }
+
     /// <summary>JSON flags mở rộng (tùy ngành).</summary>
     [MaxLength(4000)]
     public string? ExtraJson { get; set; }

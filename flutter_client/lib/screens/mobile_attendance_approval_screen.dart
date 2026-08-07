@@ -45,38 +45,89 @@ class _MobileAttendanceApprovalScreenState
   List<Map<String, dynamic>> _branches = [];
   List<Map<String, dynamic>> _employeesList = [];
 
-  List<MobileAttendanceRecord> get _filteredPendingRecords {
-    if (_selectedBranchId == null) return _pendingRecords;
-    final ids = _employeesList
-        .where((e) => e['branchId']?.toString() == _selectedBranchId)
-        .map((e) => e['id']?.toString() ?? '')
-        .toSet();
-    return _pendingRecords
-        .where((r) => ids.contains(r.odooEmployeeId))
-        .toList();
+  /// all | checkin | checkout | travel | travel_start | travel_arrive | meal
+  String _punchKindFilter = 'all';
+  String _empSearch = '';
+  DateTime? _filterFrom;
+  DateTime? _filterTo;
+  bool _filtersExpanded = true;
+  final _empSearchCtrl = TextEditingController();
+  final _empFocus = FocusNode();
+
+  List<MobileAttendanceRecord> _applyCommonFilters(
+      List<MobileAttendanceRecord> source) {
+    var list = source;
+    if (_selectedBranchId != null) {
+      final ids = _employeesList
+          .where((e) => e['branchId']?.toString() == _selectedBranchId)
+          .map((e) => e['id']?.toString() ?? '')
+          .where((id) => id.isNotEmpty)
+          .toSet();
+      // Also match applicationUserId
+      final userIds = _employeesList
+          .where((e) => e['branchId']?.toString() == _selectedBranchId)
+          .expand((e) => [
+                e['id']?.toString() ?? '',
+                e['applicationUserId']?.toString() ?? '',
+                e['employeeCode']?.toString() ?? '',
+              ])
+          .where((id) => id.isNotEmpty)
+          .toSet();
+      list = list
+          .where((r) =>
+              ids.contains(r.odooEmployeeId) ||
+              userIds.contains(r.odooEmployeeId))
+          .toList();
+    }
+    if (_empSearch.trim().isNotEmpty) {
+      final q = _empSearch.trim().toLowerCase();
+      list = list
+          .where((r) =>
+              r.employeeName.toLowerCase().contains(q) ||
+              r.odooEmployeeId.toLowerCase().contains(q))
+          .toList();
+    }
+    switch (_punchKindFilter) {
+      case 'checkin':
+        list = list.where((r) => r.punchType == 0).toList();
+        break;
+      case 'checkout':
+        list = list.where((r) => r.punchType == 1).toList();
+        break;
+      case 'travel':
+        list = list.where((r) => r.punchType == 2 || r.punchType == 3).toList();
+        break;
+      case 'travel_start':
+        list = list.where((r) => r.punchType == 2).toList();
+        break;
+      case 'travel_arrive':
+        list = list.where((r) => r.punchType == 3).toList();
+        break;
+      case 'meal':
+        list = list.where((r) => r.punchType == 4 || r.punchType == 5).toList();
+        break;
+    }
+    if (_filterFrom != null) {
+      final from = DateTime(
+          _filterFrom!.year, _filterFrom!.month, _filterFrom!.day);
+      list = list.where((r) => !r.punchTime.isBefore(from)).toList();
+    }
+    if (_filterTo != null) {
+      final to = DateTime(
+          _filterTo!.year, _filterTo!.month, _filterTo!.day, 23, 59, 59);
+      list = list.where((r) => !r.punchTime.isAfter(to)).toList();
+    }
+    return list;
   }
 
-  List<MobileAttendanceRecord> get _filteredApprovedRecords {
-    if (_selectedBranchId == null) return _approvedRecords;
-    final ids = _employeesList
-        .where((e) => e['branchId']?.toString() == _selectedBranchId)
-        .map((e) => e['id']?.toString() ?? '')
-        .toSet();
-    return _approvedRecords
-        .where((r) => ids.contains(r.odooEmployeeId))
-        .toList();
-  }
+  List<MobileAttendanceRecord> get _filteredPendingRecords =>
+      _applyCommonFilters(_pendingRecords);
 
-  List<MobileAttendanceRecord> get _filteredRejectedRecords {
-    if (_selectedBranchId == null) return _rejectedRecords;
-    final ids = _employeesList
-        .where((e) => e['branchId']?.toString() == _selectedBranchId)
-        .map((e) => e['id']?.toString() ?? '')
-        .toSet();
-    return _rejectedRecords
-        .where((r) => ids.contains(r.odooEmployeeId))
-        .toList();
-  }
+  List<MobileAttendanceRecord> get _filteredApprovedRecords =>
+      _applyCommonFilters(_approvedRecords);
+
+  List<MobileAttendanceRecord> get _filteredRejectedRecords =>
+      _applyCommonFilters(_rejectedRecords);
 
   // Summary tab state
   DateTime _summaryFrom = DateTime.now().subtract(const Duration(days: 6));
@@ -114,6 +165,8 @@ class _MobileAttendanceApprovalScreenState
   @override
   void dispose() {
     _tabController.dispose();
+    _empSearchCtrl.dispose();
+    _empFocus.dispose();
     super.dispose();
   }
 
@@ -291,24 +344,14 @@ class _MobileAttendanceApprovalScreenState
 
     final tabBarRow = Container(
       color: Colors.white,
-      child: Row(
-        children: [
-          Expanded(child: _buildApprovalTabBar()),
-          if (BranchFilterHelper.showBranchFilter(_branches))
-            IconButton(
-              tooltip: tr('Bộ lọc'),
-              icon: const Icon(Icons.filter_list, color: Color(0xFF71717A)),
-              onPressed: _showFilterDialog,
-            ),
-          const SizedBox(width: 4),
-        ],
-      ),
+      child: _buildApprovalTabBar(),
     );
 
     final body = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         tabBarRow,
+        _buildInlineFilterPanel(),
         Expanded(child: tabBarView),
       ],
     );
@@ -1211,61 +1254,429 @@ class _MobileAttendanceApprovalScreenState
     );
   }
 
-  void _showFilterDialog() {
-    showAppSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                    color: Colors.grey.shade300,
-                    borderRadius: BorderRadius.circular(2)),
+  bool get _hasActiveFilters =>
+      _selectedBranchId != null ||
+      _empSearch.trim().isNotEmpty ||
+      _punchKindFilter != 'all' ||
+      _filterFrom != null ||
+      _filterTo != null;
+
+  String get _punchKindLabel {
+    switch (_punchKindFilter) {
+      case 'checkin':
+        return 'Chấm vào';
+      case 'checkout':
+        return 'Chấm ra';
+      case 'travel':
+        return 'Đi đường';
+      case 'travel_start':
+        return 'Bắt đầu đi';
+      case 'travel_arrive':
+        return 'Đến điểm làm';
+      case 'meal':
+        return 'Tăng ca trưa';
+      default:
+        return 'Tất cả loại';
+    }
+  }
+
+  String _filterSummaryLine() {
+    final parts = <String>[];
+    if (_empSearch.trim().isNotEmpty) parts.add(_empSearch.trim());
+    if (_punchKindFilter != 'all') parts.add(_punchKindLabel);
+    if (_filterFrom != null || _filterTo != null) {
+      final f = _filterFrom != null
+          ? DateFormat('dd/MM').format(_filterFrom!)
+          : '…';
+      final t =
+          _filterTo != null ? DateFormat('dd/MM').format(_filterTo!) : '…';
+      parts.add('$f–$t');
+    }
+    if (_selectedBranchId != null) {
+      final name = _branches
+          .where((b) => b['id']?.toString() == _selectedBranchId)
+          .map((b) => b['name']?.toString() ?? '')
+          .firstWhere((n) => n.isNotEmpty, orElse: () => 'Chi nhánh');
+      parts.add(name);
+    }
+    if (parts.isEmpty) return 'Không lọc · chạm để mở bộ lọc';
+    return parts.join(' · ');
+  }
+
+  List<String> get _employeeNameSuggestions {
+    final names = <String>{};
+    for (final e in _employeesList) {
+      final n = (e['fullName'] ??
+              '${e['lastName'] ?? ''} ${e['firstName'] ?? ''}'.trim())
+          .toString()
+          .trim();
+      if (n.isNotEmpty) names.add(n);
+    }
+    for (final r in [
+      ..._pendingRecords,
+      ..._approvedRecords,
+      ..._rejectedRecords
+    ]) {
+      final n = r.employeeName.trim();
+      if (n.isNotEmpty) names.add(n);
+    }
+    final list = names.toList()..sort();
+    return list;
+  }
+
+  void _clearAllFilters() {
+    setState(() {
+      _empSearch = '';
+      _empSearchCtrl.clear();
+      _punchKindFilter = 'all';
+      _selectedBranchId = null;
+      _filterFrom = null;
+      _filterTo = null;
+      _currentPage = 1;
+    });
+  }
+
+  Widget _buildInlineFilterPanel() {
+    final dateFmt = DateFormat('dd/MM/yyyy');
+    return Material(
+      color: Colors.white,
+      elevation: 0,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          InkWell(
+            onTap: () => setState(() => _filtersExpanded = !_filtersExpanded),
+            child: Container(
+              padding: const EdgeInsets.fromLTRB(14, 10, 8, 10),
+              decoration: const BoxDecoration(
+                border: Border(
+                  bottom: BorderSide(color: Color(0xFFE4E4E7)),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.tune_rounded,
+                    size: 18,
+                    color: _hasActiveFilters
+                        ? HrmPageChrome.primaryNavy
+                        : const Color(0xFF71717A),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          tr(_filtersExpanded ? 'Bộ lọc' : 'Bộ lọc (đã thu)'),
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF18181B),
+                          ),
+                        ),
+                        if (!_filtersExpanded) ...[
+                          const SizedBox(height: 2),
+                          Text(
+                            tr(_filterSummaryLine()),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: _hasActiveFilters
+                                  ? HrmPageChrome.primaryNavy
+                                  : const Color(0xFF71717A),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  if (_hasActiveFilters)
+                    TextButton(
+                      onPressed: _clearAllFilters,
+                      style: TextButton.styleFrom(
+                        visualDensity: VisualDensity.compact,
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                      ),
+                      child: Text(tr('Xóa lọc'),
+                          style: const TextStyle(fontSize: 12)),
+                    ),
+                  TextButton.icon(
+                    onPressed: () =>
+                        setState(() => _filtersExpanded = !_filtersExpanded),
+                    icon: Icon(
+                      _filtersExpanded
+                          ? Icons.expand_less
+                          : Icons.expand_more,
+                      size: 20,
+                    ),
+                    label: Text(
+                      tr(_filtersExpanded ? 'Thu lại' : 'Mở lọc'),
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                    style: TextButton.styleFrom(
+                      foregroundColor: HrmPageChrome.primaryNavy,
+                      visualDensity: VisualDensity.compact,
+                    ),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 20),
-            Text(tr('Lọc chi nhánh'),
-                style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF18181B))),
-            const SizedBox(height: 16),
-            if (!BranchFilterHelper.showBranchFilter(_branches))
-              Text(tr('Không có chi nhánh'))
-            else ...[
-              ListTile(
-                title: Text(tr('Tất cả chi nhánh')),
-                leading: const Icon(Icons.all_inclusive),
-                selected: _selectedBranchId == null,
-                onTap: () {
-                  setState(() => _selectedBranchId = null);
-                  Navigator.pop(ctx);
-                },
-              ),
-              ..._branches.map((b) => ListTile(
-                    title: Text(tr(b['name']?.toString() ?? '')),
-                    leading: const Icon(Icons.account_tree_outlined),
-                    selected: _selectedBranchId == b['id']?.toString(),
-                    onTap: () {
-                      setState(() => _selectedBranchId = b['id']?.toString());
-                      Navigator.pop(ctx);
+          ),
+          if (_filtersExpanded)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  RawAutocomplete<String>(
+                    textEditingController: _empSearchCtrl,
+                    focusNode: _empFocus,
+                    optionsBuilder: (value) {
+                      final q = value.text.trim().toLowerCase();
+                      final all = _employeeNameSuggestions;
+                      if (q.isEmpty) return all.take(40);
+                      return all
+                          .where((n) => n.toLowerCase().contains(q))
+                          .take(40);
                     },
-                  )),
-            ],
-            const SizedBox(height: 10),
-          ],
-        ),
+                    onSelected: (name) {
+                      setState(() {
+                        _empSearch = name;
+                        _empSearchCtrl.text = name;
+                        _currentPage = 1;
+                      });
+                      _empFocus.unfocus();
+                    },
+                    fieldViewBuilder:
+                        (context, controller, focusNode, onSubmit) {
+                      return TextField(
+                        controller: controller,
+                        focusNode: focusNode,
+                        decoration: InputDecoration(
+                          labelText: tr('Nhân viên'),
+                          hintText: tr('Gõ hoặc chọn tên…'),
+                          prefixIcon:
+                              const Icon(Icons.person_search, size: 20),
+                          suffixIcon: controller.text.isNotEmpty
+                              ? IconButton(
+                                  icon: const Icon(Icons.clear, size: 18),
+                                  onPressed: () {
+                                    controller.clear();
+                                    setState(() {
+                                      _empSearch = '';
+                                      _currentPage = 1;
+                                    });
+                                  },
+                                )
+                              : IconButton(
+                                  icon: const Icon(Icons.arrow_drop_down),
+                                  tooltip: tr('Danh sách nhân viên'),
+                                  onPressed: () {
+                                    focusNode.requestFocus();
+                                    // Trigger options by slight text change
+                                    final t = controller.text;
+                                    controller.value = TextEditingValue(
+                                      text: t,
+                                      selection: TextSelection.collapsed(
+                                          offset: t.length),
+                                    );
+                                  },
+                                ),
+                          isDense: true,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 12),
+                        ),
+                        onChanged: (v) => setState(() {
+                          _empSearch = v;
+                          _currentPage = 1;
+                        }),
+                      );
+                    },
+                    optionsViewBuilder: (context, onSelected, options) {
+                      final opts = options.toList();
+                      if (opts.isEmpty) {
+                        return const SizedBox.shrink();
+                      }
+                      return Align(
+                        alignment: Alignment.topLeft,
+                        child: Material(
+                          elevation: 6,
+                          borderRadius: BorderRadius.circular(10),
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(
+                                maxHeight: 280, maxWidth: 420),
+                            child: ListView.builder(
+                              padding: EdgeInsets.zero,
+                              shrinkWrap: true,
+                              itemCount: opts.length,
+                              itemBuilder: (context, i) {
+                                final name = opts[i];
+                                return ListTile(
+                                  dense: true,
+                                  leading: const Icon(Icons.person_outline,
+                                      size: 18),
+                                  title: Text(tr(name),
+                                      style: const TextStyle(fontSize: 13)),
+                                  onTap: () => onSelected(name),
+                                );
+                              },
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 10),
+                  Text(tr('Loại chấm'),
+                      style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.grey.shade700)),
+                  const SizedBox(height: 6),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: [
+                      for (final e in [
+                        ('all', 'Tất cả'),
+                        ('checkin', 'Chấm vào'),
+                        ('checkout', 'Chấm ra'),
+                        ('travel', 'Đi đường'),
+                        ('travel_start', 'Bắt đầu đi'),
+                        ('travel_arrive', 'Đến điểm'),
+                        ('meal', 'Tăng ca trưa'),
+                      ])
+                        FilterChip(
+                          selected: _punchKindFilter == e.$1,
+                          label: Text(tr(e.$2),
+                              style: const TextStyle(fontSize: 12)),
+                          onSelected: (_) => setState(() {
+                            _punchKindFilter = e.$1;
+                            _currentPage = 1;
+                          }),
+                          selectedColor:
+                              HrmPageChrome.primaryNavy.withValues(alpha: 0.14),
+                          checkmarkColor: HrmPageChrome.primaryNavy,
+                          visualDensity: VisualDensity.compact,
+                          materialTapTargetSize:
+                              MaterialTapTargetSize.shrinkWrap,
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () async {
+                            final d = await showDatePicker(
+                              context: context,
+                              initialDate: _filterFrom ??
+                                  DateTime.now()
+                                      .subtract(const Duration(days: 7)),
+                              firstDate: DateTime(2020),
+                              lastDate:
+                                  DateTime.now().add(const Duration(days: 1)),
+                            );
+                            if (d == null) return;
+                            setState(() {
+                              _filterFrom = d;
+                              _currentPage = 1;
+                            });
+                          },
+                          icon: const Icon(Icons.calendar_today, size: 16),
+                          label: Text(
+                            tr(_filterFrom != null
+                                ? 'Từ ${dateFmt.format(_filterFrom!)}'
+                                : 'Từ ngày'),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 12),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () async {
+                            final d = await showDatePicker(
+                              context: context,
+                              initialDate: _filterTo ?? DateTime.now(),
+                              firstDate: DateTime(2020),
+                              lastDate:
+                                  DateTime.now().add(const Duration(days: 1)),
+                            );
+                            if (d == null) return;
+                            setState(() {
+                              _filterTo = d;
+                              _currentPage = 1;
+                            });
+                          },
+                          icon: const Icon(Icons.event, size: 16),
+                          label: Text(
+                            tr(_filterTo != null
+                                ? 'Đến ${dateFmt.format(_filterTo!)}'
+                                : 'Đến ngày'),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 12),
+                          ),
+                        ),
+                      ),
+                      if (_filterFrom != null || _filterTo != null) ...[
+                        const SizedBox(width: 4),
+                        IconButton(
+                          tooltip: tr('Xóa ngày'),
+                          onPressed: () => setState(() {
+                            _filterFrom = null;
+                            _filterTo = null;
+                            _currentPage = 1;
+                          }),
+                          icon: const Icon(Icons.close, size: 18),
+                        ),
+                      ],
+                    ],
+                  ),
+                  if (BranchFilterHelper.showBranchFilter(_branches)) ...[
+                    const SizedBox(height: 10),
+                    DropdownButtonFormField<String?>(
+                      value: _selectedBranchId,
+                      isExpanded: true,
+                      decoration: InputDecoration(
+                        labelText: tr('Chi nhánh'),
+                        isDense: true,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      items: [
+                        DropdownMenuItem(
+                            value: null, child: Text(tr('Tất cả chi nhánh'))),
+                        ..._branches.map((b) => DropdownMenuItem(
+                              value: b['id']?.toString(),
+                              child: Text(tr(b['name']?.toString() ?? '')),
+                            )),
+                      ],
+                      onChanged: (v) => setState(() {
+                        _selectedBranchId = v;
+                        _currentPage = 1;
+                      }),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          const Divider(height: 1, color: Color(0xFFE4E4E7)),
+        ],
       ),
     );
   }

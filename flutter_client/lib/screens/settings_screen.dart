@@ -581,6 +581,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
               );
               return;
             }
+            if (newPassword == current) {
+              appNotification.showWarning(
+                title: 'Không hợp lệ',
+                message: tr('Mật khẩu mới phải khác mật khẩu hiện tại'),
+              );
+              return;
+            }
             if (newPassword != confirm) {
               appNotification.showWarning(
                 title: 'Không khớp',

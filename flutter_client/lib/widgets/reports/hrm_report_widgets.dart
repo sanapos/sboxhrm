@@ -417,6 +417,8 @@ class ReportFilterSection extends StatefulWidget {
   final VoidCallback onApply;
   final VoidCallback? onClearFilters;
   final bool embedded;
+  /// Khi false: không hiện nút Áp dụng (lọc tức thì / auto-load).
+  final bool showApplyButton;
 
   const ReportFilterSection({
     super.key,
@@ -436,6 +438,7 @@ class ReportFilterSection extends StatefulWidget {
     required this.onApply,
     this.onClearFilters,
     this.embedded = false,
+    this.showApplyButton = true,
   });
 
   @override
@@ -491,29 +494,42 @@ class _ReportFilterSectionState extends State<ReportFilterSection> {
         _empSearchField(),
       ],
       const SizedBox(height: 10),
-      Row(
-        children: [
-          if (widget.onClearFilters != null && hasExtraFilters)
-            TextButton.icon(
-              onPressed: widget.onClearFilters,
-              icon: const Icon(Icons.filter_alt_off, size: 15),
-              label: Text(tr('Xóa lọc'),
-                  style: vietnameseTextStyle(const TextStyle(fontSize: 12))),
-            ),
-          const Spacer(),
-          FilledButton.icon(
-            icon: const Icon(Icons.search, size: 16),
-            label: Text(tr('Áp dụng'),
-                style: vietnameseTextStyle(const TextStyle(fontSize: 13))),
-            style: FilledButton.styleFrom(
-              backgroundColor: HrmPageChrome.primaryNavy,
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            ),
-            onPressed: widget.onApply,
+      if (widget.showApplyButton ||
+          (widget.onClearFilters != null && hasExtraFilters))
+        Row(
+          children: [
+            if (widget.onClearFilters != null && hasExtraFilters)
+              TextButton.icon(
+                onPressed: widget.onClearFilters,
+                icon: const Icon(Icons.filter_alt_off, size: 15),
+                label: Text(tr('Xóa lọc'),
+                    style: vietnameseTextStyle(const TextStyle(fontSize: 12))),
+              ),
+            const Spacer(),
+            if (widget.showApplyButton)
+              FilledButton.icon(
+                icon: const Icon(Icons.search, size: 16),
+                label: Text(tr('Áp dụng'),
+                    style: vietnameseTextStyle(const TextStyle(fontSize: 13))),
+                style: FilledButton.styleFrom(
+                  backgroundColor: HrmPageChrome.primaryNavy,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                ),
+                onPressed: widget.onApply,
+              ),
+          ],
+        )
+      else if (widget.onClearFilters != null && hasExtraFilters)
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton.icon(
+            onPressed: widget.onClearFilters,
+            icon: const Icon(Icons.filter_alt_off, size: 15),
+            label: Text(tr('Xóa lọc'),
+                style: vietnameseTextStyle(const TextStyle(fontSize: 12))),
           ),
-        ],
-      ),
+        ),
     ];
   }
 

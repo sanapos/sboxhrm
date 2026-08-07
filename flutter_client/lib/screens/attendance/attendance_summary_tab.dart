@@ -22,7 +22,6 @@ import '../../utils/attendance_viewport_preserve.dart';
 import '../../utils/shift_records_calculator.dart';
 import '../../utils/paid_leave_schedule_utils.dart';
 import '../../utils/travel_hours_load_utils.dart';
-import '../../utils/travel_eligibility_utils.dart';
 import '../../services/api_service.dart';
 import '../../widgets/attendance_frozen_employee_name_cell.dart';
 import '../../widgets/hrm_collapsible_overview.dart';
@@ -1258,16 +1257,6 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
   }
 
   double _travelHoursForSummary(_DailySummary s) {
-    if (!isEmployeeTravelEligible(
-      eligibleKeys: widget.travelEligibleEmployeeKeys,
-      employeeId: s.employeeId,
-      employeeCode: s.employeeCode,
-      applicationUserId: s.applicationUserId,
-      employeeGuid: s.employeeGuid,
-      pin: s.pin,
-    )) {
-      return 0;
-    }
     return lookupTravelHoursForDay(
       widget.travelHoursByEmployeeDateKey,
       date: s.date,
@@ -1286,16 +1275,6 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
     String? employeeGuid,
     String? pin,
   }) {
-    if (!isEmployeeTravelEligible(
-      eligibleKeys: widget.travelEligibleEmployeeKeys,
-      employeeId: employeeId,
-      employeeCode: employeeCode,
-      applicationUserId: applicationUserId,
-      employeeGuid: employeeGuid,
-      pin: pin,
-    )) {
-      return 0;
-    }
     return lookupTravelHoursTotal(
       widget.travelHoursByEmployeeKey,
       employeeId: employeeId,

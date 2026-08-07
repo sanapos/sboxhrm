@@ -16,6 +16,8 @@ Map<String, dynamic>? employeeBenefitToShiftProfile(
     'paidLeaveType': b['paidLeaveType'],
     'holidayMultiplier': b['holidayMultiplier'],
     'holidayOvertimeType': b['holidayOvertimeType'],
+    'applyLateEarlyOnRestDayOt': b['applyLateEarlyOnRestDayOt'] ?? true,
+    'restDayOtHoursOnly': b['restDayOtHoursOnly'] ?? false,
     'description': b['description'],
     'attendanceMode': b['attendanceMode'],
   };

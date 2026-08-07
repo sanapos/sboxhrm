@@ -6938,7 +6938,7 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
     /// <summary>Sửa giờ chấm (ưu tiên đi đường) — quản lý điều chỉnh giờ đi đường đã duyệt.</summary>
     [HttpPut("records/{recordId}")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
-    [RequireAnyModulePermission(ModulePermissionAction.Edit, "MobileAttendance", "MobileAttendanceApproval")]
+    [RequireAnyModulePermission(ModulePermissionAction.Edit, "MobileAttendance", "MobileAttendanceApproval", "AttendanceByShift", "TravelHoursReport")]
     public async Task<ActionResult> UpdateRecord(Guid recordId, [FromBody] UpdateMobileAttendanceRecordRequest request)
     {
         if (request.PunchTime == null)
@@ -7010,7 +7010,7 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
     /// <summary>Xóa (soft) bản ghi chấm mobile — dùng để hủy giờ đi đường đã ghi nhầm.</summary>
     [HttpDelete("records/{recordId}")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
-    [RequireAnyModulePermission(ModulePermissionAction.Delete, "MobileAttendance", "MobileAttendanceApproval")]
+    [RequireAnyModulePermission(ModulePermissionAction.Edit, "MobileAttendance", "MobileAttendanceApproval", "AttendanceByShift", "TravelHoursReport")]
     public async Task<ActionResult> DeleteRecord(Guid recordId)
     {
         var storeId = RequiredStoreId;
@@ -7040,6 +7040,213 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
         }
 
         return Ok(AppResponse<object>.Success(new { id = record.Id.ToString(), deleted = true }));
+    }
+
+    /// <summary>
+    /// Quản lý bổ sung cặp chấm đi đường (Bắt đầu đi + Đến điểm làm), trạng thái đã duyệt.
+    /// Có thể gắn vào phiếu thiếu: ExistingStartRecordId / ExistingArriveRecordId
+    /// (chỉ tạo chấm còn thiếu, không nhân đôi dòng cũ).
+    /// </summary>
+    [HttpPost("manual-travel")]
+    [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireAnyModulePermission(ModulePermissionAction.Edit, "MobileAttendance", "MobileAttendanceApproval", "AttendanceByShift", "TravelHoursReport")]
+    public async Task<ActionResult> CreateManualTravel([FromBody] ManualTravelAttendanceRequest request)
+    {
+        if (request == null || string.IsNullOrWhiteSpace(request.EmployeeId))
+            return BadRequest(AppResponse<object>.Fail("Thiếu nhân viên"));
+        if (request.StartTime == null || request.ArriveTime == null)
+            return BadRequest(AppResponse<object>.Fail("Thiếu giờ bắt đầu đi hoặc đến điểm làm"));
+
+        var start = request.StartTime.Value;
+        var arrive = request.ArriveTime.Value;
+        if (arrive < start)
+            return BadRequest(AppResponse<object>.Fail("Giờ đến điểm làm phải sau giờ bắt đầu đi"));
+        if ((arrive - start).TotalHours > 24)
+            return BadRequest(AppResponse<object>.Fail("Khoảng đi đường không được vượt quá 24 giờ"));
+
+        var storeId = RequiredStoreId;
+        var (odooId, resolvedName) = await ResolveCanonicalEmployeeIdAsync(storeId, request.EmployeeId.Trim());
+        if (string.IsNullOrWhiteSpace(odooId))
+            return BadRequest(AppResponse<object>.Fail("Không tìm thấy nhân viên trong cửa hàng"));
+
+        Employee? employee = null;
+        if (Guid.TryParse(odooId, out var empGuid))
+        {
+            employee = await _dbContext.Employees.AsNoTracking()
+                .FirstOrDefaultAsync(e => e.StoreId == storeId && e.Id == empGuid && e.Deleted == null);
+        }
+        if (employee == null)
+            return BadRequest(AppResponse<object>.Fail("Không tìm thấy nhân viên trong cửa hàng"));
+
+        var employeeName = !string.IsNullOrWhiteSpace(resolvedName)
+            ? resolvedName!
+            : $"{employee.LastName} {employee.FirstName}".Trim();
+        if (string.IsNullOrWhiteSpace(employeeName))
+            employeeName = employee.EmployeeCode ?? odooId;
+
+        var note = string.IsNullOrWhiteSpace(request.Note)
+            ? $"[Bổ sung thủ công bởi {CurrentUserEmail}]"
+            : $"{request.Note.Trim()}\n[Bổ sung thủ công bởi {CurrentUserEmail}]";
+        var now = DateTime.UtcNow;
+
+        MobileAttendanceRecord MakeRecord(int punchType, DateTime punchTime) => new()
+        {
+            Id = Guid.NewGuid(),
+            StoreId = storeId,
+            OdooEmployeeId = odooId,
+            EmployeeName = employeeName,
+            PunchTime = punchTime,
+            PunchType = punchType,
+            VerifyMethod = "manual",
+            Status = "approved",
+            ApprovedBy = CurrentUserEmail,
+            ApprovedAt = now,
+            Note = note,
+            DeviceId = "MANUAL",
+            DeviceName = "Bổ sung thủ công",
+            IsActive = true,
+            CreatedBy = CurrentUserEmail,
+            CreatedAt = now,
+        };
+
+        async Task<MobileAttendanceRecord?> LoadExistingAsync(string? idRaw, int expectedPunchType)
+        {
+            if (string.IsNullOrWhiteSpace(idRaw) || !Guid.TryParse(idRaw.Trim(), out var id))
+                return null;
+            var rec = await _dbContext.MobileAttendanceRecords
+                .FirstOrDefaultAsync(r => r.Id == id && r.StoreId == storeId && r.IsActive);
+            if (rec == null)
+                throw new InvalidOperationException("Không tìm thấy phiếu đi đường để bổ sung");
+            if (!string.Equals(rec.OdooEmployeeId, odooId, StringComparison.OrdinalIgnoreCase))
+                throw new InvalidOperationException("Phiếu đi đường không thuộc nhân viên đã chọn");
+            if (rec.PunchType != expectedPunchType)
+                throw new InvalidOperationException(
+                    expectedPunchType == 2
+                        ? "Phiếu hiện tại không phải Bắt đầu đi"
+                        : "Phiếu hiện tại không phải Đến điểm làm");
+            return rec;
+        }
+
+        MobileAttendanceRecord? startRecord;
+        MobileAttendanceRecord? arriveRecord;
+        try
+        {
+            startRecord = await LoadExistingAsync(request.ExistingStartRecordId, 2);
+            arriveRecord = await LoadExistingAsync(request.ExistingArriveRecordId, 3);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(AppResponse<object>.Fail(ex.Message));
+        }
+
+        // Tự gắn vào phiếu "Bắt đầu đi" còn thiếu đến điểm nếu trùng giờ (tránh nhân đôi dòng).
+        if (startRecord == null)
+        {
+            var dayFrom = start.Date;
+            var dayTo = dayFrom.AddDays(1);
+            var dayTravel = await _dbContext.MobileAttendanceRecords
+                .Where(r => r.StoreId == storeId
+                            && r.IsActive
+                            && r.OdooEmployeeId == odooId
+                            && (r.PunchType == 2 || r.PunchType == 3)
+                            && r.PunchTime >= dayFrom
+                            && r.PunchTime < dayTo)
+                .OrderBy(r => r.PunchTime)
+                .ThenBy(r => r.CreatedAt)
+                .ToListAsync();
+
+            MobileAttendanceRecord? pending = null;
+            var unpairedStarts = new List<MobileAttendanceRecord>();
+            foreach (var r in dayTravel)
+            {
+                if (r.PunchType == 2)
+                {
+                    if (pending != null) unpairedStarts.Add(pending);
+                    pending = r;
+                }
+                else if (r.PunchType == 3)
+                {
+                    if (pending != null) pending = null;
+                }
+            }
+            if (pending != null) unpairedStarts.Add(pending);
+
+            startRecord = unpairedStarts.FirstOrDefault(s =>
+                Math.Abs((s.PunchTime - start).TotalMinutes) < 1.0);
+        }
+
+        var createStart = startRecord == null;
+        var createArrive = arriveRecord == null;
+        if (!createStart && !createArrive)
+            return BadRequest(AppResponse<object>.Fail("Cặp đi đường đã đủ, không cần bổ sung"));
+
+        if (!createStart && startRecord != null && startRecord.PunchTime != start)
+        {
+            startRecord.PunchTime = start;
+            startRecord.Note = string.IsNullOrWhiteSpace(startRecord.Note)
+                ? note
+                : $"{startRecord.Note}\n{note}";
+            startRecord.Status = "approved";
+            startRecord.ApprovedBy = CurrentUserEmail;
+            startRecord.ApprovedAt = now;
+            startRecord.UpdatedBy = CurrentUserEmail;
+            startRecord.UpdatedAt = now;
+        }
+
+        if (!createArrive && arriveRecord != null && arriveRecord.PunchTime != arrive)
+        {
+            arriveRecord.PunchTime = arrive;
+            arriveRecord.Note = string.IsNullOrWhiteSpace(arriveRecord.Note)
+                ? note
+                : $"{arriveRecord.Note}\n{note}";
+            arriveRecord.Status = "approved";
+            arriveRecord.ApprovedBy = CurrentUserEmail;
+            arriveRecord.ApprovedAt = now;
+            arriveRecord.UpdatedBy = CurrentUserEmail;
+            arriveRecord.UpdatedAt = now;
+        }
+
+        if (createStart) startRecord = MakeRecord(2, start);
+        if (createArrive) arriveRecord = MakeRecord(3, arrive);
+
+        // Lưu phiếu mobile trước (commit). Sync AttendanceLogs tách riêng —
+        // tránh Postgres abort transaction khi trùng UX_Attendance_Device_Pin_Time.
+        if (createStart) _dbContext.MobileAttendanceRecords.Add(startRecord!);
+        if (createArrive) _dbContext.MobileAttendanceRecords.Add(arriveRecord!);
+        await _dbContext.SaveChangesAsync();
+
+        try
+        {
+            var syncStart = await SyncMobileRecordToAttendanceLog(startRecord!);
+            var syncArrive = await SyncMobileRecordToAttendanceLog(arriveRecord!);
+            if (!syncStart || !syncArrive)
+            {
+                _logger.LogWarning(
+                    "Manual travel saved but AttendanceLog sync incomplete: startOk={StartOk}, arriveOk={ArriveOk}, emp={Emp}",
+                    syncStart, syncArrive, odooId);
+            }
+        }
+        catch (Exception syncEx)
+        {
+            _logger.LogWarning(syncEx,
+                "Manual travel saved; AttendanceLog sync threw for emp {Emp}", odooId);
+            try { _dbContext.ChangeTracker.Clear(); } catch { /* ignore */ }
+        }
+
+        var hours = (arriveRecord!.PunchTime - startRecord!.PunchTime).TotalMinutes / 60.0;
+        return Ok(AppResponse<object>.Success(new
+        {
+            startId = startRecord.Id.ToString(),
+            arriveId = arriveRecord.Id.ToString(),
+            employeeId = odooId,
+            employeeName,
+            startTime = startRecord.PunchTime,
+            arriveTime = arriveRecord.PunchTime,
+            hours,
+            status = "approved",
+            reusedStart = !createStart,
+            reusedArrive = !createArrive,
+        }));
     }
 
     private async Task RemoveSyncedAttendanceForMobileRecordAsync(Guid mobileRecordId)
@@ -7146,16 +7353,23 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
         [FromQuery] DateTime? toDate,
 
 
-        [FromQuery] string? status)
+        [FromQuery] string? status,
+
+
+        /// <summary>Comma-separated punch types (0..5). E.g. "2,3" for travel only.</summary>
+        [FromQuery] string? punchTypes,
+
+
+        [FromQuery] int pageSize = 200)
 
 
     {
 
 
-        _logger.LogWarning("ðŸ“‹ HISTORY: empId={EmpId}, from={From}, to={To}, status={Status}",
+        _logger.LogWarning("ðŸ“‹ HISTORY: empId={EmpId}, from={From}, to={To}, status={Status}, punchTypes={PunchTypes}, pageSize={PageSize}",
 
 
-            employeeId, fromDate, toDate, status);
+            employeeId, fromDate, toDate, status, punchTypes, pageSize);
 
 
         var storeId = RequiredStoreId;
@@ -7200,13 +7414,32 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
 
 
 
+
+
+        if (!string.IsNullOrWhiteSpace(punchTypes))
+        {
+            var types = punchTypes
+                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Select(s => int.TryParse(s, out var t) ? t : (int?)null)
+                .Where(t => t.HasValue)
+                .Select(t => t!.Value)
+                .Distinct()
+                .ToList();
+            if (types.Count > 0)
+                query = query.Where(r => types.Contains(r.PunchType));
+        }
+
+
+        var take = Math.Clamp(pageSize <= 0 ? 200 : pageSize, 1, 5000);
+
+
         var records = await query
 
 
             .OrderByDescending(r => r.PunchTime)
 
 
-            .Take(200)
+            .Take(take)
 
 
             .Select(r => new
@@ -8631,83 +8864,28 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
             // Chấm đi đường (2/3) ghi vào chấm công thô với AttendanceState riêng — không tính vào giờ ca.
 
 
-            // Kiểm tra đã sync chưa
-
-
-            var alreadySynced = await _dbContext.AttendanceLogs
-
-
-                .AnyAsync(a => a.MobileAttendanceRecordId == record.Id);
-
-
-            if (alreadySynced) return true;
-
-
-
-
-
             var mobileDevice = await GetOrCreateMobileDeviceForStoreAsync(record.StoreId);
 
-
-
-
-
             // Tìm DeviceUser qua Employee.ApplicationUserId == OdooEmployeeId
-
-
             Guid? deviceUserId = null;
-
-
             string pin = record.OdooEmployeeId;
 
-
-
-
-
             Employee? employee = null;
-
-
             if (Guid.TryParse(record.OdooEmployeeId, out var appUserId))
-
-
             {
-
-
                 employee = await _dbContext.Employees
-
-
                     .Include(e => e.DeviceUsers)
-
-
                     .FirstOrDefaultAsync(e => e.StoreId == record.StoreId
-
-
                         && (e.ApplicationUserId == appUserId || e.Id == appUserId));
-
-
             }
-
 
             if (employee == null && !string.IsNullOrWhiteSpace(record.OdooEmployeeId))
-
-
             {
-
-
                 employee = await _dbContext.Employees
-
-
                     .Include(e => e.DeviceUsers)
-
-
                     .FirstOrDefaultAsync(e => e.StoreId == record.StoreId
-
-
                         && e.EmployeeCode == record.OdooEmployeeId);
-
-
             }
-
 
             if (employee == null && Guid.TryParse(record.OdooEmployeeId, out var userIdForPin))
             {
@@ -8724,106 +8902,33 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
             }
 
             if (employee != null)
-
-
             {
-
-
                 pin = employee.EmployeeCode ?? record.OdooEmployeeId;
 
+                var deviceUser = employee.DeviceUsers
+                    .FirstOrDefault(du => du.DeviceId == mobileDevice.Id);
 
+                if (deviceUser == null)
+                    deviceUser = employee.DeviceUsers.FirstOrDefault();
 
-
-
-                    // Tìm DeviceUser liên kết với employee trên device MOBILE
-
-
-                    var deviceUser = employee.DeviceUsers
-
-
-                        .FirstOrDefault(du => du.DeviceId == mobileDevice.Id);
-
-
-
-
-
-                    if (deviceUser == null)
-
-
+                if (deviceUser == null)
+                {
+                    deviceUser = new DeviceUser
                     {
+                        Id = Guid.NewGuid(),
+                        Pin = pin.Length > 20 ? pin[..20] : pin,
+                        Name = record.EmployeeName,
+                        DeviceId = mobileDevice.Id,
+                        EmployeeId = employee.Id,
+                        IsActive = true,
+                        CreatedBy = "system",
+                    };
+                    _dbContext.DeviceUsers.Add(deviceUser);
+                    await _dbContext.SaveChangesAsync();
+                }
 
-
-                        // Tìm DeviceUser bất kỳ của employee
-
-
-                        deviceUser = employee.DeviceUsers.FirstOrDefault();
-
-
-                    }
-
-
-
-
-
-                    if (deviceUser == null)
-
-
-                    {
-
-
-                        // Tạo DeviceUser mới trên device MOBILE
-
-
-                        deviceUser = new DeviceUser
-
-
-                        {
-
-
-                            Id = Guid.NewGuid(),
-
-
-                            Pin = pin.Length > 20 ? pin[..20] : pin,
-
-
-                            Name = record.EmployeeName,
-
-
-                            DeviceId = mobileDevice.Id,
-
-
-                            EmployeeId = employee.Id,
-
-
-                            IsActive = true,
-
-
-                            CreatedBy = "system",
-
-
-                        };
-
-
-                        _dbContext.DeviceUsers.Add(deviceUser);
-
-
-                        await _dbContext.SaveChangesAsync();
-
-
-                    }
-
-
-
-
-
-                    deviceUserId = deviceUser.Id;
-
-
-                    pin = deviceUser.Pin;
-
-
-
-
+                deviceUserId = deviceUser.Id;
+                pin = deviceUser.Pin;
             }
 
             if (deviceUserId == null && !string.IsNullOrWhiteSpace(pin))
@@ -8855,97 +8960,140 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
                 }
             }
 
-
-
-
-
-            // Truncate pin to fit varchar(20) constraint
-
-
             if (pin.Length > 20) pin = pin[..20];
 
-
-
-
-
-            // Map VerifyMethod → VerifyModes
-
-
             var verifyMode = record.VerifyMethod switch
-
-
             {
-
-
                 "face" or "face_gps" or "face_wifi" or "face_gps_wifi" => VerifyModes.Face,
-
-
                 _ => VerifyModes.Manual,
-
-
             };
-
-
-
-
 
             var isTravel = record.PunchType is 2 or 3;
+            var resolvedState = await ResolveMobileAttendanceStateAsync(employee, record.PunchType);
+            var travelNote = record.PunchType == 2
+                ? "Mobile đi đường: Bắt đầu đi"
+                : "Mobile đi đường: Đến điểm làm";
+            var plainNote = $"Mobile: {record.VerifyMethod}";
+            // Truncate giây — khớp UX_Attendance_Device_Pin_Time (tránh lệch ticks/Kind).
+            var punchTime = new DateTime(
+                record.PunchTime.Year, record.PunchTime.Month, record.PunchTime.Day,
+                record.PunchTime.Hour, record.PunchTime.Minute, record.PunchTime.Second,
+                DateTimeKind.Unspecified);
+            var punchTimeEnd = punchTime.AddSeconds(1);
 
-
-            var attendance = new Attendance
-
-
+            // Đã sync theo MobileAttendanceRecordId → cập nhật metadata/giờ.
+            var linked = await _dbContext.AttendanceLogs
+                .FirstOrDefaultAsync(a => a.MobileAttendanceRecordId == record.Id);
+            if (linked != null)
             {
+                if (linked.AttendanceTime != punchTime)
+                {
+                    var clashAtNewTime = await _dbContext.AttendanceLogs.AnyAsync(a =>
+                        a.Id != linked.Id
+                        && a.DeviceId == mobileDevice.Id
+                        && a.PIN == pin
+                        && a.AttendanceTime >= punchTime
+                        && a.AttendanceTime < punchTimeEnd);
+                    if (!clashAtNewTime)
+                        linked.AttendanceTime = punchTime;
+                }
+                linked.AttendanceState = resolvedState;
+                linked.VerifyMode = verifyMode;
+                if (deviceUserId.HasValue) linked.EmployeeId = deviceUserId;
+                if (isTravel)
+                {
+                    linked.WorkCode = "TRAVEL";
+                    linked.Note = travelNote;
+                }
+                else if (string.IsNullOrWhiteSpace(linked.Note))
+                {
+                    linked.Note = plainNote;
+                }
+                await _dbContext.SaveChangesAsync();
+            }
+            else
+            {
+                // Trùng UX_Attendance_Device_Pin_Time → gắn bản ghi mobile, không insert mới.
+                var existingSameKey = await _dbContext.AttendanceLogs
+                    .FirstOrDefaultAsync(a =>
+                        a.DeviceId == mobileDevice.Id
+                        && a.PIN == pin
+                        && a.AttendanceTime >= punchTime
+                        && a.AttendanceTime < punchTimeEnd);
+                if (existingSameKey != null)
+                {
+                    existingSameKey.MobileAttendanceRecordId = record.Id;
+                    existingSameKey.AttendanceState = resolvedState;
+                    existingSameKey.VerifyMode = verifyMode;
+                    existingSameKey.AttendanceTime = punchTime;
+                    if (deviceUserId.HasValue) existingSameKey.EmployeeId = deviceUserId;
+                    if (isTravel)
+                    {
+                        existingSameKey.WorkCode = "TRAVEL";
+                        existingSameKey.Note = travelNote;
+                    }
+                    else if (string.IsNullOrWhiteSpace(existingSameKey.Note))
+                    {
+                        existingSameKey.Note = plainNote;
+                    }
+                    await _dbContext.SaveChangesAsync();
+                }
+                else
+                {
+                    var newLog = new Attendance
+                    {
+                        Id = Guid.NewGuid(),
+                        DeviceId = mobileDevice.Id,
+                        EmployeeId = deviceUserId,
+                        PIN = pin,
+                        VerifyMode = verifyMode,
+                        AttendanceState = resolvedState,
+                        AttendanceTime = punchTime,
+                        WorkCode = isTravel ? "TRAVEL" : null,
+                        Note = isTravel ? travelNote : plainNote,
+                        MobileAttendanceRecordId = record.Id,
+                    };
+                    _dbContext.AttendanceLogs.Add(newLog);
+                    try
+                    {
+                        await _dbContext.SaveChangesAsync();
+                    }
+                    catch (DbUpdateException)
+                    {
+                        // Race / lệch thời gian → gắn vào bản ghi đã có.
+                        _dbContext.ChangeTracker.Clear();
+                        var raced = await _dbContext.AttendanceLogs
+                            .FirstOrDefaultAsync(a =>
+                                a.DeviceId == mobileDevice.Id
+                                && a.PIN == pin
+                                && a.AttendanceTime >= punchTime
+                                && a.AttendanceTime < punchTimeEnd);
+                        if (raced == null) throw;
+                        raced.MobileAttendanceRecordId = record.Id;
+                        raced.AttendanceState = resolvedState;
+                        raced.VerifyMode = verifyMode;
+                        raced.AttendanceTime = punchTime;
+                        if (deviceUserId.HasValue) raced.EmployeeId = deviceUserId;
+                        if (isTravel)
+                        {
+                            raced.WorkCode = "TRAVEL";
+                            raced.Note = travelNote;
+                        }
+                        await _dbContext.SaveChangesAsync();
+                    }
+                }
+            }
 
-
-                Id = Guid.NewGuid(),
-
-
-                DeviceId = mobileDevice.Id,
-
-
-                EmployeeId = deviceUserId,
-
-
-                PIN = pin,
-
-
-                VerifyMode = verifyMode,
-
-
-                AttendanceState = await ResolveMobileAttendanceStateAsync(employee, record.PunchType),
-
-
-                AttendanceTime = record.PunchTime,
-
-
-                WorkCode = isTravel ? "TRAVEL" : null,
-
-
-                Note = isTravel
-                    ? (record.PunchType == 2
-                        ? "Mobile đi đường: Bắt đầu đi"
-                        : "Mobile đi đường: Đến điểm làm")
-                    : $"Mobile: {record.VerifyMethod}",
-
-
-                MobileAttendanceRecordId = record.Id,
-
-
-            };
-
-
-
-
-
-            _dbContext.AttendanceLogs.Add(attendance);
-
-
-            await _dbContext.SaveChangesAsync();
-
-
-
-
+            Attendance? attendanceForNotify = await _dbContext.AttendanceLogs
+                .FirstOrDefaultAsync(a => a.MobileAttendanceRecordId == record.Id);
+            if (attendanceForNotify == null)
+            {
+                _logger.LogWarning(
+                    "Sync mobile {MobileRecordId}: no AttendanceLog after upsert",
+                    record.Id);
+                return false;
+            }
+            var attendance = attendanceForNotify;
 
             // Send real-time notification for mobile attendance
 
@@ -9034,6 +9182,7 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
 
             _logger.LogError(ex, "Failed to sync mobile record {MobileRecordId} to AttendanceLogs", record.Id);
 
+            try { _dbContext.ChangeTracker.Clear(); } catch { /* ignore */ }
 
             return false;
 
@@ -9459,6 +9608,18 @@ public class UpdateMobileAttendanceRecordRequest
 {
     public DateTime? PunchTime { get; set; }
     public string? Note { get; set; }
+}
+
+public class ManualTravelAttendanceRequest
+{
+    public string? EmployeeId { get; set; }
+    public DateTime? StartTime { get; set; }
+    public DateTime? ArriveTime { get; set; }
+    public string? Note { get; set; }
+    /// <summary>Gắn vào phiếu Bắt đầu đi đã có (chỉ tạo Đến điểm làm).</summary>
+    public string? ExistingStartRecordId { get; set; }
+    /// <summary>Gắn vào phiếu Đến điểm làm đã có (chỉ tạo Bắt đầu đi).</summary>
+    public string? ExistingArriveRecordId { get; set; }
 }
 
 

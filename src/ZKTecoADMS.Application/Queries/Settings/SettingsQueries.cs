@@ -1,4 +1,5 @@
 using ZKTecoADMS.Application.DTOs.Settings;
+using ZKTecoADMS.Application.Helpers;
 
 namespace ZKTecoADMS.Application.Queries.Settings;
 
@@ -134,33 +135,19 @@ public class CalculateTaxHandler(
             var taxableIncome = request.GrossIncome - totalInsurance - personalDeduction - dependentDeduction;
             taxableIncome = Math.Max(0, taxableIncome);
 
-            // Calculate tax using progressive brackets
+            // Calculate tax using progressive brackets (5 bậc 2026 / tương thích 7 bậc cũ)
+            var totalTax = PitTaxCalculator.Calculate(taxSettings, taxableIncome);
             var taxBrackets = new List<TaxBracketCalculationDto>();
-            decimal totalTax = 0;
-            decimal remainingIncome = taxableIncome;
-
-            // Bracket 1
-            var bracket1Amount = Math.Min(remainingIncome, taxSettings.TaxBracket1Max);
-            if (bracket1Amount > 0)
+            if (totalTax > 0)
             {
-                var tax1 = bracket1Amount * taxSettings.TaxRate1 / 100;
-                taxBrackets.Add(new TaxBracketCalculationDto { Level = 1, TaxRate = taxSettings.TaxRate1, TaxableAmount = bracket1Amount, TaxAmount = tax1 });
-                totalTax += tax1;
-                remainingIncome -= bracket1Amount;
+                taxBrackets.Add(new TaxBracketCalculationDto
+                {
+                    Level = 0,
+                    TaxRate = 0,
+                    TaxableAmount = taxableIncome,
+                    TaxAmount = totalTax
+                });
             }
-
-            // Bracket 2
-            var bracket2Max = taxSettings.TaxBracket2Max - taxSettings.TaxBracket1Max;
-            var bracket2Amount = Math.Min(remainingIncome, bracket2Max);
-            if (bracket2Amount > 0)
-            {
-                var tax2 = bracket2Amount * taxSettings.TaxRate2 / 100;
-                taxBrackets.Add(new TaxBracketCalculationDto { Level = 2, TaxRate = taxSettings.TaxRate2, TaxableAmount = bracket2Amount, TaxAmount = tax2 });
-                totalTax += tax2;
-                remainingIncome -= bracket2Amount;
-            }
-
-            // Continue for other brackets...
             
             var result = new TaxCalculationDto
             {

@@ -101,7 +101,10 @@ public class StorePackageModuleMiddleware
         ("/api/pos/reports/stock", "PosProducts"),
         ("/api/pos/reports/end-of-day", "PosProducts"),
         ("/api/pos/reports", "PosSalesReport"),
-        ("/api/pos/customers", "PosProducts"),
+        ("/api/pos/customers", "PosCustomers"),
+        ("/api/pos/resource-reservations", "PosBooking"),
+        ("/api/pos/warranty", "PosWarranty"),
+        ("/api/pos/customer-display", "PosCustomerDisplay"),
         ("/api/pos/catalog", "PosProducts"),
         ("/api/pos/products", "PosProducts"),
         ("/api/pos/price-lists", "PosSell"),
@@ -222,6 +225,14 @@ public class StorePackageModuleMiddleware
                 PosPackageDefaults.SellPrintTemplatesReadPrefix,
                 StringComparison.OrdinalIgnoreCase);
         }
+
+        // Thu ngân cần tra khách / bảo hành khi bán dù gói chưa tick CRM/BH (chỉ GET).
+        if (module.Equals("PosCustomers", StringComparison.OrdinalIgnoreCase) &&
+            path.StartsWith("/api/pos/customers", StringComparison.OrdinalIgnoreCase))
+            return true;
+        if (module.Equals("PosWarranty", StringComparison.OrdinalIgnoreCase) &&
+            path.StartsWith("/api/pos/warranty", StringComparison.OrdinalIgnoreCase))
+            return true;
 
         return false;
     }

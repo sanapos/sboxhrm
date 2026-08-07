@@ -15,7 +15,9 @@ import '../utils/responsive_helper.dart';
 import '../utils/salary_profile_load_utils.dart';
 import '../utils/shift_records_calculator.dart';
 import '../utils/vietnamese_font.dart';
+import '../widgets/app_responsive_dialog.dart';
 import '../widgets/hrm_page_chrome.dart';
+import '../widgets/notification_overlay.dart';
 import '../widgets/page_top_actions.dart';
 import '../widgets/reports/hrm_report_widgets.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
@@ -45,6 +47,8 @@ class _LateEarlyReportScreenState extends State<LateEarlyReportScreen> {
   String _datePreset = 'this_month';
   /// all | late | early
   String _kindFilter = 'all';
+  /// all | fined | unfined
+  String _penaltyFilter = 'all';
   int _minMinutes = 1;
   String _empSearch = '';
   String? _selectedBranchId;
@@ -56,6 +60,14 @@ class _LateEarlyReportScreenState extends State<LateEarlyReportScreen> {
   bool _showOverviewPanel = true;
   String? _loadError;
   List<DailyShiftLateEntry> _entries = [];
+  List<Map<String, dynamic>> _penaltyTickets = [];
+  Map<String, dynamic> _penaltySettings = {};
+  /// Mã NV / PIN → GUID nhân viên (tạo phiếu phạt).
+  final Map<String, String> _empCodeToGuid = {};
+  /// Giải trình nháp khi chưa có phiếu: `code|yyyy-MM-dd|Late|EarlyLeave`
+  final Map<String, String> _draftExplanations = {};
+  bool _actionBusy = false;
+  final _pngKey = GlobalKey();
 
   bool get _teamView {
     final role = Provider.of<AuthProvider>(context, listen: false).userRole;
@@ -142,6 +154,14 @@ class _LateEarlyReportScreenState extends State<LateEarlyReportScreen> {
                 : _api.getWorkSchedules(
                     fromDate: _from, toDate: _to, pageSize: 1000))
             .catchError((_) => <String, dynamic>{}),
+        _api
+            .getPenaltyTickets(
+              fromDate: _from,
+              toDate: _to,
+              pageSize: 2000,
+            )
+            .catchError((_) => <String, dynamic>{}),
+        _api.getPenaltySettings().catchError((_) => <String, dynamic>{}),
       ]);
 
       final shifts = (p2[0] as List)
@@ -160,6 +180,48 @@ class _LateEarlyReportScreenState extends State<LateEarlyReportScreen> {
             : <String, dynamic>{},
       );
       final dayOffKeys = buildScheduleDayOffKeys(schedules);
+
+      final ticketRaw = p2[4] as Map<String, dynamic>;
+      final tickets = <Map<String, dynamic>>[];
+      final ticketData = ticketRaw['data'];
+      final ticketItems = ticketData is Map
+          ? (ticketData['items'] ?? ticketData['data'])
+          : (ticketRaw['items'] ?? ticketData);
+      if (ticketItems is List) {
+        for (final t in ticketItems) {
+          if (t is Map) tickets.add(Map<String, dynamic>.from(t));
+        }
+      }
+
+      final settingsRaw = p2[5] as Map<String, dynamic>;
+      final settings = settingsRaw['data'] is Map<String, dynamic>
+          ? Map<String, dynamic>.from(settingsRaw['data'] as Map)
+          : (settingsRaw.isNotEmpty
+              ? Map<String, dynamic>.from(settingsRaw)
+              : <String, dynamic>{});
+
+      final codeToGuid = <String, String>{};
+      for (final e in _branchFilter.employees) {
+        final id = e['id']?.toString() ?? '';
+        final code = e['employeeCode']?.toString() ??
+            e['code']?.toString() ??
+            e['pin']?.toString() ??
+            '';
+        if (id.isEmpty) continue;
+        if (code.isNotEmpty) codeToGuid[code] = id;
+        codeToGuid[id] = id;
+      }
+      for (final p in profiles) {
+        final id = p['employeeId']?.toString() ??
+            p['id']?.toString() ??
+            '';
+        final code = p['employeeCode']?.toString() ??
+            p['code']?.toString() ??
+            '';
+        if (id.isEmpty) continue;
+        if (code.isNotEmpty) codeToGuid[code] = id;
+        codeToGuid[id] = id;
+      }
 
       final attendances = attLoad.items;
 
@@ -181,6 +243,11 @@ class _LateEarlyReportScreenState extends State<LateEarlyReportScreen> {
       if (!mounted) return;
       setState(() {
         _entries = entries;
+        _penaltyTickets = tickets;
+        _penaltySettings = settings;
+        _empCodeToGuid
+          ..clear()
+          ..addAll(codeToGuid);
         _page = 1;
         _loading = false;
         if (attLoad.truncated) {
@@ -249,6 +316,12 @@ class _LateEarlyReportScreenState extends State<LateEarlyReportScreen> {
           .toList();
     }
 
+    if (_penaltyFilter == 'fined') {
+      list = list.where(_isFullyPenalized).toList();
+    } else if (_penaltyFilter == 'unfined') {
+      list = list.where((e) => !_isFullyPenalized(e)).toList();
+    }
+
     list = List.of(list)
       ..sort((a, b) {
         final d = b.date.compareTo(a.date);
@@ -258,10 +331,541 @@ class _LateEarlyReportScreenState extends State<LateEarlyReportScreen> {
     return list;
   }
 
+  String _empKey(DailyShiftLateEntry e) =>
+      e.employeeCode.isNotEmpty ? e.employeeCode : e.employeeId;
+
+  String _dayStr(DateTime d) =>
+      '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
+  String _draftKey(DailyShiftLateEntry e, String type) =>
+      '${_empKey(e)}|${_dayStr(e.date)}|$type';
+
+  bool _isCancelledStatus(String? st) {
+    final s = (st ?? '').toLowerCase();
+    return s == 'cancelled' || s == '2';
+  }
+
+  bool _isActiveTicket(Map<String, dynamic> t) =>
+      !_isCancelledStatus(t['status']?.toString());
+
+  bool _ticketMatchesEmp(Map<String, dynamic> t, DailyShiftLateEntry e) {
+    final tid = t['employeeId']?.toString() ?? '';
+    final tcode = t['employeeCode']?.toString() ?? '';
+    final code = e.employeeCode;
+    final id = e.employeeId;
+    final guid = _resolveEmployeeGuid(e);
+    if (tcode.isNotEmpty &&
+        (tcode == code || tcode == id)) {
+      return true;
+    }
+    if (tid.isEmpty) return false;
+    return tid == code ||
+        tid == id ||
+        tid == guid ||
+        _empCodeToGuid[code] == tid ||
+        _empCodeToGuid[id] == tid;
+  }
+
+  bool _ticketMatchesDay(Map<String, dynamic> t, DateTime day) {
+    final vd = t['violationDate'];
+    DateTime? d;
+    if (vd is DateTime) {
+      d = vd;
+    } else if (vd != null) {
+      d = DateTime.tryParse(vd.toString());
+    }
+    if (d == null) return false;
+    return d.year == day.year && d.month == day.month && d.day == day.day;
+  }
+
+  String _normalizeType(String? type) {
+    final t = (type ?? '').toLowerCase();
+    if (t == 'late' || t == '1') return 'Late';
+    if (t == 'earlyleave' || t == 'early' || t == '2') return 'EarlyLeave';
+    return type ?? '';
+  }
+
+  List<Map<String, dynamic>> _ticketsFor(
+    DailyShiftLateEntry e, {
+    String? type,
+    bool activeOnly = false,
+  }) {
+    return _penaltyTickets.where((t) {
+      if (!_ticketMatchesEmp(t, e)) return false;
+      if (!_ticketMatchesDay(t, e.date)) return false;
+      if (activeOnly && !_isActiveTicket(t)) return false;
+      if (type != null) {
+        if (_normalizeType(t['type']?.toString()) != type) return false;
+      } else {
+        final nt = _normalizeType(t['type']?.toString());
+        final okLate = e.lateMinutes > 0 && nt == 'Late';
+        final okEarly = e.earlyMinutes > 0 && nt == 'EarlyLeave';
+        if (!okLate && !okEarly) return false;
+      }
+      return true;
+    }).toList();
+  }
+
+  List<String> _neededTypes(DailyShiftLateEntry e) {
+    final types = <String>[];
+    if (e.lateMinutes > 0) types.add('Late');
+    if (e.earlyMinutes > 0) types.add('EarlyLeave');
+    return types;
+  }
+
+  bool _hasActiveType(DailyShiftLateEntry e, String type) =>
+      _ticketsFor(e, type: type, activeOnly: true).isNotEmpty;
+
+  bool _isFullyPenalized(DailyShiftLateEntry e) {
+    final needed = _neededTypes(e);
+    if (needed.isEmpty) return false;
+    return needed.every((t) => _hasActiveType(e, t));
+  }
+
+  bool _hasAnyActivePenalty(DailyShiftLateEntry e) =>
+      _neededTypes(e).any((t) => _hasActiveType(e, t));
+
+  String _penaltyLabel(DailyShiftLateEntry e) {
+    final needed = _neededTypes(e);
+    if (needed.isEmpty) return '—';
+    final done = needed.where((t) => _hasActiveType(e, t)).length;
+    if (done == 0) return 'Chưa phạt';
+    if (done == needed.length) return 'Đã phạt';
+    return 'Một phần';
+  }
+
+  Color _penaltyLabelColor(DailyShiftLateEntry e) {
+    final label = _penaltyLabel(e);
+    if (label == 'Đã phạt') return const Color(0xFF047857);
+    if (label == 'Một phần') return const Color(0xFFB45309);
+    return const Color(0xFF6B7280);
+  }
+
+  bool _isAutoDescription(String? desc) {
+    if (desc == null || desc.trim().isEmpty) return true;
+    final d = desc.trim().toLowerCase();
+    return d.startsWith('đi trễ') ||
+        d.startsWith('về sớm') ||
+        d.startsWith('di tre') ||
+        d.startsWith('ve som');
+  }
+
+  String _explanationText(DailyShiftLateEntry e) {
+    final parts = <String>[];
+    for (final type in _neededTypes(e)) {
+      final draft = _draftExplanations[_draftKey(e, type)];
+      if (draft != null && draft.trim().isNotEmpty) {
+        parts.add(draft.trim());
+        continue;
+      }
+      final tickets = _ticketsFor(e, type: type);
+      String? found;
+      for (final t in tickets) {
+        final cancel = t['cancellationReason']?.toString().trim();
+        if (cancel != null && cancel.isNotEmpty) {
+          found = cancel;
+          break;
+        }
+      }
+      if (found == null) {
+        for (final t in tickets) {
+          final desc = t['description']?.toString().trim();
+          if (desc != null &&
+              desc.isNotEmpty &&
+              !_isAutoDescription(desc)) {
+            found = desc;
+            break;
+          }
+        }
+      }
+      if (found != null && found.isNotEmpty) parts.add(found);
+    }
+    if (parts.isEmpty) return '';
+    return parts.toSet().join(' · ');
+  }
+
+  String? _resolveEmployeeGuid(DailyShiftLateEntry e) {
+    for (final key in [e.employeeId, e.employeeCode]) {
+      if (key.isEmpty) continue;
+      final g = _empCodeToGuid[key];
+      if (g != null && g.isNotEmpty) return g;
+      if (key.contains('-') && key.length > 30) return key; // GUID-like
+    }
+    return null;
+  }
+
+  double _toDouble(dynamic v, [double fallback = 0]) {
+    if (v == null) return fallback;
+    if (v is num) return v.toDouble();
+    return double.tryParse(v.toString()) ?? fallback;
+  }
+
+  int _toInt(dynamic v, [int fallback = 0]) {
+    if (v == null) return fallback;
+    if (v is num) return v.toInt();
+    return int.tryParse(v.toString()) ?? fallback;
+  }
+
+  double _amountFor(String type, int minutes) {
+    if (minutes <= 0) return 0;
+    final isLate = type == 'Late';
+    final m1 = _toInt(
+        _penaltySettings[isLate ? 'lateMinutes1' : 'earlyMinutes1'], 15);
+    final m2 = _toInt(
+        _penaltySettings[isLate ? 'lateMinutes2' : 'earlyMinutes2'], 30);
+    final m3 = _toInt(
+        _penaltySettings[isLate ? 'lateMinutes3' : 'earlyMinutes3'], 60);
+    final p1 = _toDouble(
+        _penaltySettings[isLate ? 'latePenalty1' : 'earlyPenalty1']);
+    final p2 = _toDouble(
+        _penaltySettings[isLate ? 'latePenalty2' : 'earlyPenalty2']);
+    final p3 = _toDouble(
+        _penaltySettings[isLate ? 'latePenalty3' : 'earlyPenalty3']);
+    if (minutes >= m3 && p3 > 0) return p3;
+    if (minutes >= m2 && p2 > 0) return p2;
+    if (minutes >= m1 && p1 > 0) return p1;
+    // Legacy flat
+    final flat = _toDouble(_penaltySettings[
+        isLate ? 'lateDeduction' : 'earlyLeaveDeduction']);
+    return flat > 0 ? flat : 0;
+  }
+
+  String _money(double v) {
+    final n = NumberFormat('#,###', 'vi_VN').format(v.round());
+    return '$nđ';
+  }
+
+  Future<void> _applyPenalty(DailyShiftLateEntry e) async {
+    if (_actionBusy) return;
+    final canApprove =
+        context.read<PermissionProvider>().canApprove('PenaltyTickets');
+    final needed = _neededTypes(e)
+        .where((t) => !_hasActiveType(e, t))
+        .toList();
+    if (needed.isEmpty) {
+      appNotification.showWarning(
+          title: 'Đã phạt', message: tr('Các lỗi của dòng này đã có phiếu phạt'));
+      return;
+    }
+    final guid = _resolveEmployeeGuid(e);
+    if (guid == null || guid.isEmpty) {
+      appNotification.showWarning(
+          title: 'Không tạo được phiếu',
+          message: tr('Không xác định được hồ sơ nhân viên'));
+      return;
+    }
+
+    final lines = <String>[];
+    final payloads = <Map<String, dynamic>>[];
+    for (final type in needed) {
+      final mins = type == 'Late' ? e.lateMinutes : e.earlyMinutes;
+      final amount = _amountFor(type, mins);
+      if (amount <= 0) {
+        appNotification.showWarning(
+            title: 'Chưa cấu hình mức phạt',
+            message: tr(
+                'Vào Thiết lập phạt để cấu hình bậc phạt đi trễ / về sớm'));
+        return;
+      }
+      final label = type == 'Late' ? 'Đi trễ' : 'Về sớm';
+      final draft = _draftExplanations[_draftKey(e, type)]?.trim();
+      final desc = (draft != null && draft.isNotEmpty)
+          ? draft
+          : '$label $mins phút — ${e.employeeName}';
+      lines.add('$label $mins phút → ${_money(amount)}');
+      payloads.add({
+        'employeeId': guid,
+        'type': type,
+        'amount': amount,
+        'violationDate': e.date.toIso8601String(),
+        'minutesLateOrEarly': mins,
+        'description': desc,
+      });
+    }
+
+    final explanationCtrl = TextEditingController(
+      text: _explanationText(e),
+    );
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => ScrollableAlertDialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text(tr('Tạo phiếu phạt'),
+            style: const TextStyle(fontWeight: FontWeight.bold)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(tr('${e.employeeName} · ${_dateFmt.format(e.date)}'),
+                style: vietnameseTextStyle(
+                    const TextStyle(fontWeight: FontWeight.w600))),
+            const SizedBox(height: 8),
+            ...lines.map((l) => Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: Text(tr(l), style: vietnameseTextStyle()),
+                )),
+            const SizedBox(height: 12),
+            TextField(
+              controller: explanationCtrl,
+              decoration: InputDecoration(
+                labelText: tr('Giải trình / ghi chú'),
+                hintText: tr('Lý do đi trễ / về sớm (nếu có)'),
+                border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8)),
+              ),
+              maxLines: 3,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(tr('Hủy'),
+                style: const TextStyle(color: Color(0xFF71717A))),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(backgroundColor: _theme),
+            child: Text(tr('Phạt')),
+          ),
+        ],
+      ),
+    );
+    final note = explanationCtrl.text.trim();
+    explanationCtrl.dispose();
+    if (confirmed != true) return;
+
+    setState(() => _actionBusy = true);
+    try {
+      for (final p in payloads) {
+        if (note.isNotEmpty) p['description'] = note;
+        final res = await _api.createPenaltyTicket(p);
+        if (res['isSuccess'] != true) {
+          appNotification.showError(
+              title: 'Lỗi', message: res['message'] ?? 'Không tạo được phiếu');
+          return;
+        }
+        final id = res['data']?['id']?.toString();
+        if (id != null && canApprove) {
+          await _api.approvePenaltyTicket(id);
+        }
+        final type = p['type']?.toString() ?? '';
+        _draftExplanations.remove(_draftKey(e, type));
+      }
+      appNotification.showSuccess(
+          title: 'Thành công', message: tr('Đã tạo phiếu phạt'));
+      await _reloadTicketsOnly();
+    } catch (err) {
+      appNotification.showError(title: 'Lỗi', message: '$err');
+    } finally {
+      if (mounted) setState(() => _actionBusy = false);
+    }
+  }
+
+  Future<void> _cancelPenalty(DailyShiftLateEntry e) async {
+    if (_actionBusy) return;
+    final active = <Map<String, dynamic>>[];
+    for (final type in _neededTypes(e)) {
+      active.addAll(_ticketsFor(e, type: type, activeOnly: true));
+    }
+    if (active.isEmpty) {
+      appNotification.showWarning(
+          title: 'Chưa phạt', message: tr('Chưa có phiếu phạt để hủy'));
+      return;
+    }
+
+    final reasonCtrl = TextEditingController(text: _explanationText(e));
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => ScrollableAlertDialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text(tr('Hủy phiếu phạt'),
+            style: const TextStyle(fontWeight: FontWeight.bold)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              tr('Hủy ${active.length} phiếu · ${e.employeeName} · ${_dateFmt.format(e.date)}'),
+              style: vietnameseTextStyle(),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: reasonCtrl,
+              decoration: InputDecoration(
+                labelText: tr('Giải trình / lý do hủy'),
+                border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8)),
+              ),
+              maxLines: 3,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(tr('Không'),
+                style: const TextStyle(color: Color(0xFF71717A))),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            child: Text(tr('Hủy phạt')),
+          ),
+        ],
+      ),
+    );
+    final reason = reasonCtrl.text.trim();
+    reasonCtrl.dispose();
+    if (confirmed != true) return;
+
+    setState(() => _actionBusy = true);
+    try {
+      for (final t in active) {
+        final id = t['id']?.toString();
+        if (id == null) continue;
+        final res =
+            await _api.cancelPenaltyTicket(id, reason: reason);
+        if (res['isSuccess'] != true) {
+          appNotification.showError(
+              title: 'Lỗi', message: res['message'] ?? 'Không hủy được');
+          return;
+        }
+      }
+      appNotification.showSuccess(
+          title: 'Thành công', message: tr('Đã hủy phiếu phạt'));
+      await _reloadTicketsOnly();
+    } catch (err) {
+      appNotification.showError(title: 'Lỗi', message: '$err');
+    } finally {
+      if (mounted) setState(() => _actionBusy = false);
+    }
+  }
+
+  Future<void> _editExplanation(DailyShiftLateEntry e) async {
+    final ctrl = TextEditingController(text: _explanationText(e));
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => ScrollableAlertDialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text(tr('Giải trình'),
+            style: const TextStyle(fontWeight: FontWeight.bold)),
+        content: TextField(
+          controller: ctrl,
+          autofocus: true,
+          decoration: InputDecoration(
+            labelText: tr('Giải trình của nhân sự'),
+            hintText: tr('Lý do đi trễ / về sớm'),
+            border:
+                OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+          maxLines: 4,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(tr('Hủy')),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(backgroundColor: _theme),
+            child: Text(tr('Lưu')),
+          ),
+        ],
+      ),
+    );
+    final text = ctrl.text.trim();
+    ctrl.dispose();
+    if (ok != true) return;
+
+    setState(() {
+      for (final type in _neededTypes(e)) {
+        if (text.isEmpty) {
+          _draftExplanations.remove(_draftKey(e, type));
+        } else {
+          _draftExplanations[_draftKey(e, type)] = text;
+        }
+      }
+    });
+
+    // Đồng bộ lên phiếu Pending nếu có
+    final pending = _ticketsFor(e, activeOnly: true)
+        .where((t) {
+          final st = (t['status']?.toString() ?? '').toLowerCase();
+          return st == 'pending' || st == '0';
+        })
+        .toList();
+    for (final t in pending) {
+      final id = t['id']?.toString();
+      if (id == null) continue;
+      await _api.updatePenaltyTicket(id, {
+        'description': text.isEmpty
+            ? (t['description'] ?? '')
+            : text,
+      });
+    }
+    if (pending.isNotEmpty) await _reloadTicketsOnly();
+  }
+
+  Future<void> _reloadTicketsOnly() async {
+    try {
+      final ticketRaw = await _api.getPenaltyTickets(
+        fromDate: _from,
+        toDate: _to,
+        pageSize: 2000,
+      );
+      final tickets = <Map<String, dynamic>>[];
+      final ticketData = ticketRaw['data'];
+      final ticketItems = ticketData is Map
+          ? (ticketData['items'] ?? ticketData['data'])
+          : (ticketRaw['items'] ?? ticketData);
+      if (ticketItems is List) {
+        for (final t in ticketItems) {
+          if (t is Map) tickets.add(Map<String, dynamic>.from(t));
+        }
+      }
+      if (mounted) setState(() => _penaltyTickets = tickets);
+    } catch (_) {}
+  }
+
+  /// Tổng số lần vi phạm (trễ hoặc sớm) của NV trong kỳ đã lọc.
+  Map<String, int> get _violationCountByEmp {
+    final map = <String, int>{};
+    for (final e in _filteredEntries) {
+      final k = _empKey(e);
+      map[k] = (map[k] ?? 0) + 1;
+    }
+    return map;
+  }
+
+  /// Thứ tự lần vi phạm theo thời gian tăng dần trong kỳ (1 = lần đầu, ≥2 = tái phạm).
+  Map<DailyShiftLateEntry, int> get _occurrenceIndexByEntry {
+    final chronological = List<DailyShiftLateEntry>.from(_filteredEntries)
+      ..sort((a, b) {
+        final d = a.date.compareTo(b.date);
+        if (d != 0) return d;
+        final ai = a.checkIn ?? a.checkOut ?? a.date;
+        final bi = b.checkIn ?? b.checkOut ?? b.date;
+        return ai.compareTo(bi);
+      });
+    final counters = <String, int>{};
+    final out = <DailyShiftLateEntry, int>{};
+    for (final e in chronological) {
+      final k = _empKey(e);
+      final n = (counters[k] ?? 0) + 1;
+      counters[k] = n;
+      out[e] = n;
+    }
+    return out;
+  }
+
   List<_EmpAgg> get _byEmployee {
     final map = <String, _EmpAgg>{};
     for (final e in _filteredEntries) {
-      final key = e.employeeCode.isNotEmpty ? e.employeeCode : e.employeeId;
+      final key = _empKey(e);
       final agg = map.putIfAbsent(
         key,
         () => _EmpAgg(
@@ -269,6 +873,7 @@ class _LateEarlyReportScreenState extends State<LateEarlyReportScreen> {
           name: e.employeeName,
         ),
       );
+      agg.totalEvents++;
       if (e.lateMinutes > 0) {
         agg.lateCount++;
         agg.lateMinutes += e.lateMinutes;
@@ -280,9 +885,11 @@ class _LateEarlyReportScreenState extends State<LateEarlyReportScreen> {
     }
     final list = map.values.toList()
       ..sort((a, b) {
-        final t = (b.lateMinutes + b.earlyMinutes)
-            .compareTo(a.lateMinutes + a.earlyMinutes);
+        final t = b.totalEvents.compareTo(a.totalEvents);
         if (t != 0) return t;
+        final m = (b.lateMinutes + b.earlyMinutes)
+            .compareTo(a.lateMinutes + a.earlyMinutes);
+        if (m != 0) return m;
         return a.name.compareTo(b.name);
       });
     return list;
@@ -295,10 +902,11 @@ class _LateEarlyReportScreenState extends State<LateEarlyReportScreen> {
         rows.fold<int>(0, (s, e) => s + (e.lateMinutes > 0 ? e.lateMinutes : 0));
     final earlyMin = rows.fold<int>(
         0, (s, e) => s + (e.earlyMinutes > 0 ? e.earlyMinutes : 0));
-    final empCount = rows
-        .map((e) => e.employeeCode.isNotEmpty ? e.employeeCode : e.employeeId)
-        .toSet()
-        .length;
+    final counts = _violationCountByEmp;
+    final empCount = counts.length;
+    final repeatEmp = counts.values.where((c) => c >= 2).length;
+    final avgLate =
+        lateEvents > 0 ? (lateMin / lateEvents).round() : 0;
     return [
       ReportKpiItem(
         label: 'Lần đi trễ',
@@ -307,8 +915,8 @@ class _LateEarlyReportScreenState extends State<LateEarlyReportScreen> {
         color: _lateColor,
       ),
       ReportKpiItem(
-        label: 'Tổng phút trễ',
-        value: '$lateMin',
+        label: 'TB phút/lần trễ',
+        value: lateEvents > 0 ? '${avgLate}p' : '—',
         icon: Icons.hourglass_bottom,
         color: _theme,
       ),
@@ -324,16 +932,86 @@ class _LateEarlyReportScreenState extends State<LateEarlyReportScreen> {
         icon: _teamView ? Icons.people_outline : Icons.hourglass_top,
         color: _theme,
       ),
+      if (_teamView)
+        ReportKpiItem(
+          label: 'NV tái phạm',
+          value: '$repeatEmp',
+          icon: Icons.replay,
+          color: const Color(0xFFB45309),
+        ),
     ];
   }
 
+  Widget _analysisBanner(List<DailyShiftLateEntry> rows) {
+    if (rows.isEmpty || !_teamView) return const SizedBox.shrink();
+    final counts = _violationCountByEmp;
+    final repeatEmp = counts.entries.where((e) => e.value >= 2).toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    final top = _byEmployee.take(3).toList();
+    if (repeatEmp.isEmpty && top.isEmpty) return const SizedBox.shrink();
+
+    String nameOf(String key) {
+      final hit = rows.where((e) => _empKey(e) == key);
+      return hit.isEmpty ? key : hit.first.employeeName;
+    }
+
+    final tips = <String>[];
+    if (repeatEmp.isNotEmpty) {
+      final topRepeat = repeatEmp.take(2).map((e) {
+        final n = nameOf(e.key);
+        return '$n (${e.value} lần)';
+      }).join(', ');
+      tips.add('Tái phạm nhiều: $topRepeat');
+    }
+    if (top.isNotEmpty) {
+      tips.add(
+          'Cần chú ý: ${top.map((e) => '${e.name} (${e.totalEvents} lần)').join(', ')}');
+    }
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+        decoration: BoxDecoration(
+          color: const Color(0xFFFFFBEB),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: const Color(0xFFFDE68A)),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Icon(Icons.analytics_outlined,
+                size: 18, color: Color(0xFFB45309)),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                tr(tips.join(' · ')),
+                style: vietnameseTextStyle(const TextStyle(
+                  fontSize: 12,
+                  height: 1.35,
+                  color: Color(0xFF92400E),
+                )),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Future<void> _exportExcel() async {
+    final occ = _occurrenceIndexByEntry;
+    final totals = _violationCountByEmp;
     final rows = _viewTab == 0
         ? _filteredEntries
             .asMap()
             .entries
             .map((e) {
               final r = e.value;
+              final key = _empKey(r);
+              final n = occ[r] ?? 1;
+              final total = totals[key] ?? 1;
               return <dynamic>[
                 e.key + 1,
                 _dateFmt.format(r.date),
@@ -344,6 +1022,10 @@ class _LateEarlyReportScreenState extends State<LateEarlyReportScreen> {
                 r.checkOut != null ? _timeFmt.format(r.checkOut!) : '',
                 r.lateMinutes > 0 ? r.lateMinutes : '',
                 r.earlyMinutes > 0 ? r.earlyMinutes : '',
+                '$n/$total',
+                total >= 2 ? 'Có' : '',
+                _penaltyLabel(r),
+                _explanationText(r),
               ];
             })
             .toList()
@@ -356,10 +1038,12 @@ class _LateEarlyReportScreenState extends State<LateEarlyReportScreen> {
                 e.key + 1,
                 r.name,
                 r.code,
+                r.totalEvents,
                 r.lateCount,
                 r.lateMinutes,
                 r.earlyCount,
                 r.earlyMinutes,
+                r.totalEvents >= 2 ? r.totalEvents - 1 : 0,
               ];
             })
             .toList();
@@ -380,18 +1064,32 @@ class _LateEarlyReportScreenState extends State<LateEarlyReportScreen> {
               'Giờ ra',
               'Đi trễ (phút)',
               'Về sớm (phút)',
+              'Lần trong kỳ',
+              'Tái phạm',
+              'Đã phạt',
+              'Giải trình',
             ]
           : [
               'STT',
               'Nhân viên',
               'Mã NV',
+              'Tổng lần',
               'Số lần trễ',
               'Tổng phút trễ',
               'Số lần về sớm',
               'Tổng phút sớm',
+              'Số lần tái phạm',
             ],
       rows: rows,
       periodLabel: reportPeriodSubtitle(_from, _to, team: _teamView),
+    );
+  }
+
+  Future<void> _exportPng() async {
+    await ClientPngExport.capture(
+      context: context,
+      key: _pngKey,
+      filePrefix: 'DiTreVeSom',
     );
   }
 
@@ -406,6 +1104,13 @@ class _LateEarlyReportScreenState extends State<LateEarlyReportScreen> {
 
     return RegisterPageTopActions(
       actions: [
+        if (canExport)
+          HrmTopBarAction(
+            icon: Icons.image_outlined,
+            label: 'Xuất PNG',
+            onPressed: filtered.isEmpty ? null : _exportPng,
+            pinOnMobile: false,
+          ),
         if (canExport)
           HrmTopBarAction(
             icon: Icons.file_download_outlined,
@@ -430,6 +1135,11 @@ class _LateEarlyReportScreenState extends State<LateEarlyReportScreen> {
                   child: ListView(
                     physics: const AlwaysScrollableScrollPhysics(),
                     children: [
+                      RepaintBoundary(
+                        key: _pngKey,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
                       ReportCollapsibleChrome(
                         expanded: _showOverviewPanel,
                         onToggle: () => setState(
@@ -487,15 +1197,20 @@ class _LateEarlyReportScreenState extends State<LateEarlyReportScreen> {
                         ],
                         filter: ReportFilterSection(
                           embedded: true,
+                          showApplyButton: false,
                           from: _from,
                           to: _to,
                           datePreset: _datePreset,
-                          onDateChanged: (f, t, p) => setState(() {
-                            _from = f;
-                            _to = t;
-                            _datePreset = p;
-                          }),
-                          statusFilter: _kindDrop(),
+                          onDateChanged: (f, t, p) {
+                            setState(() {
+                              _from = f;
+                              _to = t;
+                              _datePreset = p;
+                              _page = 1;
+                            });
+                            _load();
+                          },
+                          statusFilter: _kindChips(),
                           statusSummary: _kindSummary(),
                           showTeamFilters: _teamView,
                           branchFilter: _teamView ? _branchFilter : null,
@@ -504,33 +1219,38 @@ class _LateEarlyReportScreenState extends State<LateEarlyReportScreen> {
                             await _branchFilter.ensureEmployees(_api,
                                 branchId: v);
                             if (mounted) {
-                              setState(() => _selectedBranchId = v);
+                              setState(() {
+                                _selectedBranchId = v;
+                                _page = 1;
+                              });
                             }
                           },
                           empSearch: _empSearch,
-                          onEmpSearchChanged: (v) =>
-                              setState(() => _empSearch = v),
+                          onEmpSearchChanged: (v) => setState(() {
+                            _empSearch = v;
+                            _page = 1;
+                          }),
                           empSuggestions: _entries
                               .map((e) => e.employeeName)
                               .where((n) => n.isNotEmpty)
                               .toSet()
                               .toList()
                             ..sort(),
-                          onApply: () {
-                            setState(() => _page = 1);
-                            _load();
-                          },
+                          onApply: () {},
                           onClearFilters: _teamView
                               ? () => setState(() {
                                     _empSearch = '';
                                     _selectedBranchId = null;
                                     _kindFilter = 'all';
+                                    _penaltyFilter = 'all';
                                     _minMinutes = 1;
+                                    _page = 1;
                                   })
                               : null,
                         ),
                       ),
                       reportLoadErrorBanner(_loadError),
+                      if (!_loading) _analysisBanner(filtered),
                       if (_teamView)
                         ReportViewModeTabs(
                           index: _viewTab,
@@ -546,7 +1266,7 @@ class _LateEarlyReportScreenState extends State<LateEarlyReportScreen> {
                       if (_loading)
                         const Padding(
                           padding: EdgeInsets.all(48),
-                          child: const Center(
+                          child: Center(
                             child: CircularProgressIndicator(
                               color: HrmPageChrome.primaryNavy,
                             ),
@@ -560,6 +1280,9 @@ class _LateEarlyReportScreenState extends State<LateEarlyReportScreen> {
                           useTable: useTable && !isMobile,
                         ),
                       if (!isMobile) const SizedBox(height: 12),
+                          ],
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -579,47 +1302,88 @@ class _LateEarlyReportScreenState extends State<LateEarlyReportScreen> {
   }
 
   String? _kindSummary() {
+    final parts = <String>[];
     switch (_kindFilter) {
       case 'late':
-        return 'Chỉ đi trễ';
+        parts.add('Chỉ đi trễ');
+        break;
       case 'early':
-        return 'Chỉ về sớm';
-      default:
-        return null;
+        parts.add('Chỉ về sớm');
+        break;
     }
+    switch (_penaltyFilter) {
+      case 'fined':
+        parts.add('Đã phạt');
+        break;
+      case 'unfined':
+        parts.add('Chưa phạt');
+        break;
+    }
+    return parts.isEmpty ? null : parts.join(' · ');
   }
 
-  Widget _kindDrop() {
-    return Container(
-      height: 40,
-      padding: const EdgeInsets.symmetric(horizontal: 10),
-      decoration: BoxDecoration(
-        border: Border.all(color: const Color(0xFFD1D5DB)),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<String>(
-          value: _kindFilter,
-          isExpanded: true,
-          style: vietnameseTextStyle(
-              const TextStyle(fontSize: 12, color: Color(0xFF111827))),
-          items: [
-            DropdownMenuItem(
-                value: 'all',
-                child: Text(tr('Trễ & sớm'), style: vietnameseTextStyle())),
-            DropdownMenuItem(
-                value: 'late',
-                child: Text(tr('Chỉ đi trễ'), style: vietnameseTextStyle())),
-            DropdownMenuItem(
-                value: 'early',
-                child: Text(tr('Chỉ về sớm'), style: vietnameseTextStyle())),
-          ],
-          onChanged: (v) => setState(() {
-            _kindFilter = v ?? 'all';
-            _page = 1;
-          }),
+  Widget _kindChips() {
+    Widget chip(String value, String label, {required bool selected, required VoidCallback onTap}) {
+      return FilterChip(
+        label: Text(tr(label),
+            style: vietnameseTextStyle(TextStyle(
+              fontSize: 12,
+              fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+              color: selected ? _theme : const Color(0xFF374151),
+            ))),
+        selected: selected,
+        onSelected: (_) => onTap(),
+        selectedColor: _theme.withValues(alpha: 0.12),
+        checkmarkColor: _theme,
+        side: BorderSide(
+          color: selected ? _theme : const Color(0xFFD1D5DB),
         ),
-      ),
+        visualDensity: VisualDensity.compact,
+        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      );
+    }
+
+    return Wrap(
+      spacing: 8,
+      runSpacing: 6,
+      children: [
+        chip('all', 'Trễ & sớm',
+            selected: _kindFilter == 'all',
+            onTap: () => setState(() {
+                  _kindFilter = 'all';
+                  _page = 1;
+                })),
+        chip('late', 'Chỉ đi trễ',
+            selected: _kindFilter == 'late',
+            onTap: () => setState(() {
+                  _kindFilter = 'late';
+                  _page = 1;
+                })),
+        chip('early', 'Chỉ về sớm',
+            selected: _kindFilter == 'early',
+            onTap: () => setState(() {
+                  _kindFilter = 'early';
+                  _page = 1;
+                })),
+        chip('pen_all', 'Tất cả phạt',
+            selected: _penaltyFilter == 'all',
+            onTap: () => setState(() {
+                  _penaltyFilter = 'all';
+                  _page = 1;
+                })),
+        chip('fined', 'Đã phạt',
+            selected: _penaltyFilter == 'fined',
+            onTap: () => setState(() {
+                  _penaltyFilter = 'fined';
+                  _page = 1;
+                })),
+        chip('unfined', 'Chưa phạt',
+            selected: _penaltyFilter == 'unfined',
+            onTap: () => setState(() {
+                  _penaltyFilter = 'unfined';
+                  _page = 1;
+                })),
+      ],
     );
   }
 
@@ -653,6 +1417,11 @@ class _LateEarlyReportScreenState extends State<LateEarlyReportScreen> {
 
   Widget _buildDesktopDetailTable(
       List<DailyShiftLateEntry> rows, int totalCount) {
+    final occ = _occurrenceIndexByEntry;
+    final totals = _violationCountByEmp;
+    final perm = Provider.of<PermissionProvider>(context, listen: false);
+    final canFine = perm.canCreate('PenaltyTickets');
+    final canCancel = perm.canApprove('PenaltyTickets');
     final cols = <DataColumn>[
       const DataColumn(label: Text('STT')),
       const DataColumn(label: Text('Ngày')),
@@ -663,6 +1432,11 @@ class _LateEarlyReportScreenState extends State<LateEarlyReportScreen> {
       const DataColumn(label: Text('Ra')),
       const DataColumn(label: Text('Trễ (p)')),
       const DataColumn(label: Text('Sớm (p)')),
+      if (_teamView) const DataColumn(label: Text('Tái phạm')),
+      const DataColumn(label: Text('Đã phạt')),
+      const DataColumn(label: Text('Giải trình')),
+      if (_teamView && (canFine || canCancel))
+        const DataColumn(label: Text('Thao tác')),
     ];
     final start = (_page - 1) * _pageSize;
     return Container(
@@ -688,8 +1462,8 @@ class _LateEarlyReportScreenState extends State<LateEarlyReportScreen> {
             scrollDirection: Axis.horizontal,
             child: DataTable(
               headingRowHeight: 40,
-              dataRowMinHeight: 40,
-              dataRowMaxHeight: 52,
+              dataRowMinHeight: 44,
+              dataRowMaxHeight: 64,
               columns: cols
                   .map((c) => DataColumn(
                         label: DefaultTextStyle(
@@ -702,6 +1476,13 @@ class _LateEarlyReportScreenState extends State<LateEarlyReportScreen> {
               rows: rows.asMap().entries.map((e) {
                 final i = e.key;
                 final r = e.value;
+                final key = _empKey(r);
+                final n = occ[r] ?? 1;
+                final total = totals[key] ?? 1;
+                final isRepeat = n >= 2;
+                final explain = _explanationText(r);
+                final needFine = !_isFullyPenalized(r);
+                final canCancelRow = _hasAnyActivePenalty(r);
                 return DataRow(cells: [
                   DataCell(Text('${start + i + 1}')),
                   DataCell(Text(_dateFmt.format(r.date))),
@@ -734,6 +1515,85 @@ class _LateEarlyReportScreenState extends State<LateEarlyReportScreen> {
                           : FontWeight.normal,
                     ),
                   )),
+                  if (_teamView)
+                    DataCell(Text(
+                      '$n/$total',
+                      style: TextStyle(
+                        color: isRepeat
+                            ? const Color(0xFFB45309)
+                            : const Color(0xFF6B7280),
+                        fontWeight:
+                            isRepeat ? FontWeight.w700 : FontWeight.w500,
+                      ),
+                    )),
+                  DataCell(Text(
+                    tr(_penaltyLabel(r)),
+                    style: TextStyle(
+                      color: _penaltyLabelColor(r),
+                      fontWeight: FontWeight.w700,
+                      fontSize: 12,
+                    ),
+                  )),
+                  DataCell(
+                    InkWell(
+                      onTap: () => _editExplanation(r),
+                      child: SizedBox(
+                        width: 160,
+                        child: Text(
+                          explain.isEmpty ? tr('Nhập giải trình…') : explain,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: vietnameseTextStyle(TextStyle(
+                            fontSize: 12,
+                            color: explain.isEmpty
+                                ? const Color(0xFF9CA3AF)
+                                : const Color(0xFF374151),
+                            fontStyle: explain.isEmpty
+                                ? FontStyle.italic
+                                : FontStyle.normal,
+                          )),
+                        ),
+                      ),
+                    ),
+                  ),
+                  if (_teamView && (canFine || canCancel))
+                    DataCell(Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (canFine && needFine)
+                          TextButton(
+                            onPressed:
+                                _actionBusy ? null : () => _applyPenalty(r),
+                            style: TextButton.styleFrom(
+                              foregroundColor: _theme,
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 8),
+                              minimumSize: Size.zero,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            ),
+                            child: Text(tr('Phạt'),
+                                style: vietnameseTextStyle(const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700))),
+                          ),
+                        if (canCancel && canCancelRow)
+                          TextButton(
+                            onPressed:
+                                _actionBusy ? null : () => _cancelPenalty(r),
+                            style: TextButton.styleFrom(
+                              foregroundColor: Colors.red.shade700,
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 8),
+                              minimumSize: Size.zero,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            ),
+                            child: Text(tr('Hủy phạt'),
+                                style: vietnameseTextStyle(const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700))),
+                          ),
+                      ],
+                    )),
                 ]);
               }).toList(),
             ),
@@ -744,26 +1604,84 @@ class _LateEarlyReportScreenState extends State<LateEarlyReportScreen> {
   }
 
   Widget _mobileDetailCard(DailyShiftLateEntry r) {
+    final occ = _occurrenceIndexByEntry;
+    final totals = _violationCountByEmp;
+    final n = occ[r] ?? 1;
+    final total = totals[_empKey(r)] ?? 1;
+    final explain = _explanationText(r);
+    final perm = Provider.of<PermissionProvider>(context, listen: false);
+    final canFine = perm.canCreate('PenaltyTickets');
+    final canCancel = perm.canApprove('PenaltyTickets');
+    final needFine = !_isFullyPenalized(r);
+    final canCancelRow = _hasAnyActivePenalty(r);
     final parts = <String>[
       if (r.shiftName.isNotEmpty) r.shiftName,
       if (r.checkIn != null) 'Vào ${_timeFmt.format(r.checkIn!)}',
       if (r.checkOut != null) 'Ra ${_timeFmt.format(r.checkOut!)}',
+      if (_teamView) 'Lần $n/$total trong kỳ',
+      _penaltyLabel(r),
+      if (explain.isNotEmpty) 'GT: $explain',
     ];
-    return ReportTimelineCard(
-      title: _teamView ? r.employeeName : (r.shiftName.isEmpty ? 'Ca' : r.shiftName),
-      trailing: _dateFmt.format(r.date),
-      subtitle: [
-        if (_teamView && r.employeeCode.isNotEmpty) 'Mã ${r.employeeCode}',
-        ...parts,
-      ].where((s) => s.isNotEmpty).join(' · '),
-      accentColor: r.lateMinutes > 0 ? _lateColor : _earlyColor,
-      statusLabel: r.lateMinutes > 0 && r.earlyMinutes > 0
-          ? 'Trễ ${r.lateMinutes}p · Sớm ${r.earlyMinutes}p'
-          : (r.lateMinutes > 0
-              ? 'Đi trễ ${r.lateMinutes} phút'
-              : 'Về sớm ${r.earlyMinutes} phút'),
-      statusColor: r.lateMinutes > 0 ? _lateColor : _earlyColor,
-      icon: r.lateMinutes > 0 ? Icons.timer_off : Icons.logout,
+    final lateEarly = r.lateMinutes > 0 && r.earlyMinutes > 0
+        ? 'Trễ ${r.lateMinutes}p · Sớm ${r.earlyMinutes}p'
+        : (r.lateMinutes > 0
+            ? 'Đi trễ ${r.lateMinutes} phút'
+            : 'Về sớm ${r.earlyMinutes} phút');
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        ReportTimelineCard(
+          title: _teamView
+              ? r.employeeName
+              : (r.shiftName.isEmpty ? 'Ca' : r.shiftName),
+          trailing: _dateFmt.format(r.date),
+          subtitle: [
+            if (_teamView && r.employeeCode.isNotEmpty) 'Mã ${r.employeeCode}',
+            ...parts,
+          ].where((s) => s.isNotEmpty).join(' · '),
+          accentColor: r.lateMinutes > 0 ? _lateColor : _earlyColor,
+          statusLabel: _teamView && n >= 2
+              ? '$lateEarly · Tái phạm'
+              : lateEarly,
+          statusColor: n >= 2
+              ? const Color(0xFFB45309)
+              : (r.lateMinutes > 0 ? _lateColor : _earlyColor),
+          icon: r.lateMinutes > 0 ? Icons.timer_off : Icons.logout,
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+          child: Wrap(
+            spacing: 4,
+            children: [
+              TextButton.icon(
+                onPressed: () => _editExplanation(r),
+                icon: const Icon(Icons.edit_note, size: 16),
+                label: Text(tr('Giải trình'),
+                    style: vietnameseTextStyle(const TextStyle(fontSize: 12))),
+              ),
+              if (_teamView && canFine && needFine)
+                TextButton.icon(
+                  onPressed: _actionBusy ? null : () => _applyPenalty(r),
+                  icon: const Icon(Icons.gavel, size: 16),
+                  label: Text(tr('Phạt'),
+                      style: vietnameseTextStyle(const TextStyle(
+                          fontSize: 12, fontWeight: FontWeight.w700))),
+                ),
+              if (_teamView && canCancel && canCancelRow)
+                TextButton.icon(
+                  onPressed: _actionBusy ? null : () => _cancelPenalty(r),
+                  icon:
+                      Icon(Icons.undo, size: 16, color: Colors.red.shade700),
+                  label: Text(tr('Hủy phạt'),
+                      style: vietnameseTextStyle(TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.red.shade700))),
+                ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
@@ -791,6 +1709,8 @@ class _LateEarlyReportScreenState extends State<LateEarlyReportScreen> {
               'STT',
               'Nhân viên',
               'Mã',
+              'Tổng lần',
+              'Tái phạm',
               'Lần trễ',
               'Phút trễ',
               'Lần sớm',
@@ -805,12 +1725,23 @@ class _LateEarlyReportScreenState extends State<LateEarlyReportScreen> {
             rows: list.asMap().entries.map((e) {
               final i = e.key;
               final r = e.value;
+              final repeats = r.totalEvents >= 2 ? r.totalEvents - 1 : 0;
               return DataRow(cells: [
                 DataCell(Text('${i + 1}')),
                 DataCell(SizedBox(
                     width: 160,
                     child: Text(r.name, overflow: TextOverflow.ellipsis))),
                 DataCell(Text(r.code)),
+                DataCell(Text('${r.totalEvents}',
+                    style: const TextStyle(fontWeight: FontWeight.w700))),
+                DataCell(Text(
+                  repeats > 0 ? '$repeats' : '—',
+                  style: TextStyle(
+                    color: repeats > 0 ? const Color(0xFFB45309) : null,
+                    fontWeight:
+                        repeats > 0 ? FontWeight.w700 : FontWeight.normal,
+                  ),
+                )),
                 DataCell(Text('${r.lateCount}')),
                 DataCell(Text('${r.lateMinutes}',
                     style: const TextStyle(
@@ -827,22 +1758,29 @@ class _LateEarlyReportScreenState extends State<LateEarlyReportScreen> {
     }
     return Column(
       children: list
-          .map((e) => ReportEmployeeSummaryCard(
-                name: e.name,
-                meta: e.code.isNotEmpty ? 'Mã ${e.code}' : null,
-                primaryValue: e.lateMinutes > 0
-                    ? 'Trễ ${e.lateMinutes}p (${e.lateCount} lần)'
-                    : '—',
-                secondaryValue: e.earlyMinutes > 0
-                    ? 'Sớm ${e.earlyMinutes}p (${e.earlyCount} lần)'
-                    : 'Không về sớm',
-                accentColor: _theme,
-                onTap: () => setState(() {
-                  _viewTab = 0;
-                  _empSearch = e.name;
-                  _page = 1;
-                }),
-              ))
+          .map((e) {
+            final repeats = e.totalEvents >= 2 ? e.totalEvents - 1 : 0;
+            return ReportEmployeeSummaryCard(
+              name: e.name,
+              meta: [
+                if (e.code.isNotEmpty) 'Mã ${e.code}',
+                '${e.totalEvents} lần trong kỳ',
+                if (repeats > 0) 'Tái phạm $repeats',
+              ].join(' · '),
+              primaryValue: e.lateMinutes > 0
+                  ? 'Trễ ${e.lateMinutes}p (${e.lateCount} lần)'
+                  : '—',
+              secondaryValue: e.earlyMinutes > 0
+                  ? 'Sớm ${e.earlyMinutes}p (${e.earlyCount} lần)'
+                  : 'Không về sớm',
+              accentColor: repeats > 0 ? const Color(0xFFB45309) : _theme,
+              onTap: () => setState(() {
+                _viewTab = 0;
+                _empSearch = e.name;
+                _page = 1;
+              }),
+            );
+          })
           .toList(),
     );
   }
@@ -851,6 +1789,7 @@ class _LateEarlyReportScreenState extends State<LateEarlyReportScreen> {
 class _EmpAgg {
   final String code;
   final String name;
+  int totalEvents = 0;
   int lateCount = 0;
   int lateMinutes = 0;
   int earlyCount = 0;

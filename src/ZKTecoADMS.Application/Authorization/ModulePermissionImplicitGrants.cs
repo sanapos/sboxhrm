@@ -20,7 +20,7 @@ public static class ModulePermissionImplicitGrants
 
     private static readonly HashSet<string> AttendanceReadModules = new(StringComparer.Ordinal)
     {
-        "Attendance", "AttendanceSummary", "AttendanceByShift", "LateEarlyReport"
+        "Attendance", "AttendanceSummary", "AttendanceByShift", "LateEarlyReport", "TravelHoursReport"
     };
 
     private static readonly HashSet<string> ApprovalAttendanceModules = new(StringComparer.Ordinal)
@@ -65,7 +65,8 @@ public static class ModulePermissionImplicitGrants
     private static readonly string[] PosSubmoduleCodes =
     [
         "PosSell", "PosSaleOrders", "PosSaleReturns", "PosPurchaseReceipts", "PosPurchaseReturns",
-        "PosStockCounts", "PosDamageIssues", "PosInternalUseIssues", "PosPrintTemplates"
+        "PosStockCounts", "PosDamageIssues", "PosInternalUseIssues", "PosPrintTemplates",
+        "PosBooking", "PosCustomers", "PosWarranty", "PosCustomerDisplay",
     ];
 
     public static bool TryGrant(
@@ -238,6 +239,11 @@ public static class ModulePermissionImplicitGrants
 
         // POS: trả hàng — có PosSell cùng action (thu ngân) vẫn trả được; hoặc gán riêng PosSaleReturns.
         if (module.Equals("PosSaleReturns", StringComparison.Ordinal) &&
+            HasAction(map, "PosSell", action))
+            return true;
+
+        // Addon tách từ PosSell: thu ngân vẫn dùng CRM / booking / BH / màn phụ khi có PosSell.
+        if ((module is "PosCustomers" or "PosBooking" or "PosWarranty" or "PosCustomerDisplay") &&
             HasAction(map, "PosSell", action))
             return true;
 

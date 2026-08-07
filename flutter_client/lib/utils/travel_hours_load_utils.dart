@@ -120,9 +120,13 @@ Future<TravelHoursMaps> loadTravelHoursMaps({
 }) async {
   try {
     final toEnd = DateTime(toDate.year, toDate.month, toDate.day, 23, 59, 59);
+    // Chỉ lấy punch đi đường (2/3); pageSize cao vì history mặc định Take(200)
+    // sẽ bỏ sót khi cửa hàng có nhiều chấm mobile trong tháng.
     final res = await api.getMobileAttendanceHistory(
       fromDate: DateTime(fromDate.year, fromDate.month, fromDate.day),
       toDate: toEnd,
+      punchTypes: '2,3',
+      pageSize: 5000,
     );
     if (res['isSuccess'] != true) return TravelHoursMaps.empty;
     final raw = res['data'];

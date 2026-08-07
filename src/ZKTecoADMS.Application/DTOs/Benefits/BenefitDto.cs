@@ -65,6 +65,15 @@ public class BenefitDto
     /// <summary>off | base_per_8h | completion_per_8h | base_plus_completion_per_8h | fixed — null = bật (base_per_8h)</summary>
     public string? TravelSalaryMode { get; set; }
     public decimal? TravelFixedHourlyRate { get; set; }
+
+    /// <summary>Có tính đi trễ/về sớm khi tăng ca ngày nghỉ. Mặc định true.</summary>
+    public bool ApplyLateEarlyOnRestDayOt { get; set; } = true;
+
+    /// <summary>Tăng ca ngày nghỉ chỉ tính giờ OT, không cộng công. Mặc định false.</summary>
+    public bool RestDayOtHoursOnly { get; set; }
+
+    /// <summary>Đơn giá giờ OT theo luật: base | completion | base_plus_completion.</summary>
+    public string? OvertimeHourlyBaseMode { get; set; }
     
     public string? StandardWorkMode { get; set; }
     public int? FixedStandardWorkDays { get; set; }

@@ -97,6 +97,7 @@ public class PermissionConfiguration : IEntityTypeConfiguration<Permission>
             new Permission { Id = Guid.Parse("11111111-1111-1111-1111-111111111068"), Module = "ProductSalary", ModuleDisplayName = "Lương sản phẩm", Description = "Nhóm sản phẩm, sản phẩm, đơn giá theo bậc", DisplayOrder = 44 },
             new Permission { Id = Guid.Parse("11111111-1111-1111-1111-111111111069"), Module = "Feedback", ModuleDisplayName = "Phản ánh / Ý kiến", Description = "Phản ánh, góp ý ẩn danh hoặc công khai", DisplayOrder = 45 },
             new Permission { Id = Guid.Parse("11111111-1111-1111-1111-111111111096"), Module = "LateEarlyReport", ModuleDisplayName = "Đi trễ / Về sớm", Description = "Tổng hợp phút đi trễ và về sớm theo ca", DisplayOrder = 49 },
+            new Permission { Id = Guid.Parse("11111111-1111-1111-1111-111111111101"), Module = "TravelHoursReport", ModuleDisplayName = "Báo cáo đi đường", Description = "Chi tiết giờ đi đường mobile, bổ sung thủ công", DisplayOrder = 49 },
             new Permission { Id = Guid.Parse("11111111-1111-1111-1111-111111111070"), Module = "PenaltyReport", ModuleDisplayName = "Báo cáo phạt", Description = "Thống kê phiếu phạt, kỷ luật", DisplayOrder = 50 },
             new Permission { Id = Guid.Parse("11111111-1111-1111-1111-111111111071"), Module = "AdvanceReport", ModuleDisplayName = "Báo cáo ứng lương", Description = "Thống kê ứng lương, tạm ứng", DisplayOrder = 51 },
             new Permission { Id = Guid.Parse("11111111-1111-1111-1111-111111111072"), Module = "LeaveReport", ModuleDisplayName = "Báo cáo nghỉ phép", Description = "Thống kê nghỉ phép, ngày nghỉ", DisplayOrder = 52 },
@@ -122,7 +123,11 @@ public class PermissionConfiguration : IEntityTypeConfiguration<Permission>
             new Permission { Id = Guid.Parse("11111111-1111-1111-1111-111111111093"), Module = "PosStockCounts", ModuleDisplayName = "Kiểm kho POS", Description = "Kiểm kê tồn kho", DisplayOrder = 59 },
             new Permission { Id = Guid.Parse("11111111-1111-1111-1111-111111111094"), Module = "PosDamageIssues", ModuleDisplayName = "Xuất hủy POS", Description = "Xuất hủy hàng hóa", DisplayOrder = 60 },
             new Permission { Id = Guid.Parse("11111111-1111-1111-1111-111111111095"), Module = "PosInternalUseIssues", ModuleDisplayName = "Xuất dùng nội bộ", Description = "Xuất dùng nội bộ hàng hóa", DisplayOrder = 61 },
-            new Permission { Id = Guid.Parse("11111111-1111-1111-1111-111111111084"), Module = "PosSalesReport", ModuleDisplayName = "Báo cáo doanh thu POS", Description = "Thống kê doanh thu, đơn bán hàng POS", DisplayOrder = 62 }
+            new Permission { Id = Guid.Parse("11111111-1111-1111-1111-111111111084"), Module = "PosSalesReport", ModuleDisplayName = "Báo cáo doanh thu POS", Description = "Thống kê doanh thu, đơn bán hàng POS", DisplayOrder = 62 },
+            new Permission { Id = Guid.Parse("11111111-1111-1111-1111-111111111097"), Module = "PosBooking", ModuleDisplayName = "Đặt bàn / lịch hẹn", Description = "Đặt trước bàn/ghế, lịch hẹn salon, cọc, nhận khách", DisplayOrder = 63 },
+            new Permission { Id = Guid.Parse("11111111-1111-1111-1111-111111111098"), Module = "PosCustomers", ModuleDisplayName = "Khách hàng POS", Description = "CRM khách bán hàng, công nợ, điểm", DisplayOrder = 64 },
+            new Permission { Id = Guid.Parse("11111111-1111-1111-1111-111111111099"), Module = "PosWarranty", ModuleDisplayName = "Bảo hành POS", Description = "Tra cứu / danh sách bảo hành sản phẩm", DisplayOrder = 65 },
+            new Permission { Id = Guid.Parse("11111111-1111-1111-1111-111111111100"), Module = "PosCustomerDisplay", ModuleDisplayName = "Màn hình phụ POS", Description = "Customer display, media quảng cáo khi bán", DisplayOrder = 66 }
         );
     }
 }

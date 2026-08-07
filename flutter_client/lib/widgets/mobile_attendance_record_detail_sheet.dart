@@ -89,10 +89,9 @@ class _MobileAttendanceRecordDetailBodyState
   bool _saving = false;
 
   bool get _isPending => _record.status == 'pending';
-  bool get _canManage =>
-      widget.canManageRecord && _record.status != 'rejected';
-  bool get _canEdit => _canManage && widget.canEditRecord;
-  bool get _canDelete => _canManage && widget.canDeleteRecord;
+  bool get _canEdit =>
+      widget.canEditRecord && _record.status != 'rejected';
+  bool get _canDelete => widget.canDeleteRecord;
 
   @override
   void initState() {

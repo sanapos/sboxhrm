@@ -30,6 +30,7 @@ class PermissionModuleLabels {
     'AttendanceSummary': 'Tổng hợp chấm công',
     'AttendanceByShift': 'Tổng hợp chấm công theo ca',
     'LateEarlyReport': 'Đi trễ / Về sớm',
+    'TravelHoursReport': 'Báo cáo đi đường',
     'AttendanceCorrection': 'Chỉnh sửa chấm công',
     'AttendanceApproval': 'Duyệt chấm công',
     'MobileAttendanceApproval': 'Duyệt chấm công Mobile',

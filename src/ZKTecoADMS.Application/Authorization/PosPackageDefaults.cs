@@ -13,6 +13,10 @@ public static class PosPackageDefaults
         "PosPrintTemplates",
         "PosSaleOrders",
         "PosSaleReturns",
+        "PosCustomers",
+        "PosBooking",
+        "PosWarranty",
+        "PosCustomerDisplay",
     ];
 
     /// <summary>Bán hàng + báo cáo doanh thu.</summary>
@@ -24,6 +28,10 @@ public static class PosPackageDefaults
         "PosSaleOrders",
         "PosSaleReturns",
         "PosSalesReport",
+        "PosCustomers",
+        "PosBooking",
+        "PosWarranty",
+        "PosCustomerDisplay",
     ];
 
     /// <summary>Bán hàng + kho (nhập / trả NCC / kiểm / xuất).</summary>
@@ -40,17 +48,31 @@ public static class PosPackageDefaults
         "PosDamageIssues",
         "PosInternalUseIssues",
         "PosSalesReport",
+        "PosCustomers",
+        "PosBooking",
+        "PosWarranty",
+        "PosCustomerDisplay",
     ];
 
     /// <summary>Toàn bộ module POS trong catalog.</summary>
     public static readonly string[] FullModules = SellWarehouseModules;
+
+    /// <summary>
+    /// Addon tách từ PosSell — khi gói đã có PosSell thì seed bổ sung để không gãy cửa hàng cũ.
+    /// </summary>
+    public static readonly string[] SellAddonModules =
+    [
+        "PosCustomers",
+        "PosBooking",
+        "PosWarranty",
+        "PosCustomerDisplay",
+    ];
 
     /// <summary>GET paths mapped to PosProducts but allowed when package only has PosSell.</summary>
     public static readonly string[] SellCatalogReadPrefixes =
     [
         "/api/pos/products",
         "/api/pos/catalog",
-        "/api/pos/customers",
         "/api/pos/price-lists",
     ];
 

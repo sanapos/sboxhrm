@@ -32,6 +32,9 @@ class PosSellCatalogCache {
   static const _metaPrefix = 'pos_sell_catalog_v1_';
   String? _lastStoreId;
 
+  /// Store gần nhất đã đọc/ghi cache — dùng patch tồn khi lưới bán chưa mount.
+  String? get lastStoreId => _lastStoreId;
+
   Future<PosSellCatalogSnapshot?> read(String storeId) async {
     if (storeId.isEmpty) return null;
     try {
@@ -59,6 +62,7 @@ class PosSellCatalogCache {
       if (versionRaw != null) {
         catalogVersion = DateTime.tryParse(versionRaw.toString());
       }
+      _lastStoreId = storeId;
       return PosSellCatalogSnapshot(
         items: items,
         cachedAt: DateTime.fromMillisecondsSinceEpoch(cachedAtMs),

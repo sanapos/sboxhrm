@@ -351,6 +351,59 @@ int _effectiveShiftDurationMinutes(
   return effective > 0 ? effective : rawDurationMin;
 }
 
+int _hoursToOtMinutes(double hours) {
+  if (hours <= 0) return 0;
+  return (hours * 60).round().clamp(0, 24 * 60);
+}
+
+/// Phút làm thực tế sau khi trừ phần nghỉ giữa ca chồng lên khoảng chấm.
+int _netWorkedMinutesAfterLunch({
+  required DateTime punchIn,
+  required DateTime punchOut,
+  required Map<String, dynamic> shift,
+}) {
+  var out = punchOut;
+  if (out.isBefore(punchIn) || out.isAtSameMomentAs(punchIn)) {
+    out = out.add(const Duration(days: 1));
+  }
+  final actual = out.difference(punchIn).inMinutes;
+  if (actual <= 0) return 0;
+
+  final startStr = shift['lunchBreakStartTime']?.toString() ?? '';
+  final endStr = shift['lunchBreakEndTime']?.toString() ?? '';
+  var lunchDeduct = 0;
+  if (startStr.isNotEmpty && endStr.isNotEmpty) {
+    final lunchStartMin = _parseTimeSpanToMinutes(startStr);
+    final lunchEndMin = _parseTimeSpanToMinutes(endStr);
+    if (lunchEndMin > lunchStartMin) {
+      final day = DateTime(punchIn.year, punchIn.month, punchIn.day);
+      var lunchStart = day.add(Duration(minutes: lunchStartMin));
+      var lunchEnd = day.add(Duration(minutes: lunchEndMin));
+      // Ca qua đêm: nếu vào sau nửa đêm, khung nghỉ thuộc ngày bắt đầu ca.
+      if (punchIn.hour < 12 &&
+          _parseTimeSpanToMinutes(shift['startTime']?.toString()) >
+              _parseTimeSpanToMinutes(shift['endTime']?.toString())) {
+        lunchStart = lunchStart.subtract(const Duration(days: 1));
+        lunchEnd = lunchEnd.subtract(const Duration(days: 1));
+      }
+      final overlapStart =
+          punchIn.isAfter(lunchStart) ? punchIn : lunchStart;
+      final overlapEnd = out.isBefore(lunchEnd) ? out : lunchEnd;
+      if (overlapEnd.isAfter(overlapStart)) {
+        lunchDeduct = overlapEnd.difference(overlapStart).inMinutes;
+      }
+    }
+  } else {
+    final breakMin = (shift['breakTimeMinutes'] as num?)?.toInt() ?? 0;
+    if (breakMin > 0 && actual > breakMin) {
+      lunchDeduct = breakMin;
+    }
+  }
+
+  final net = actual - lunchDeduct;
+  return net > 0 ? net : 0;
+}
+
 /// Tính phút tăng ca trong khung nghỉ giữa ca (MealOut/MealIn, BreakOut/BreakIn hoặc Vào/Ra thường).
 int computeLunchOvertimeMinutes({
   required List<Attendance> dayAttendances,
@@ -960,6 +1013,17 @@ Map<String, dynamic>? findBestMatchingShift({
   if (candidateIds.isEmpty) return null;
   if (shiftTemplateMap.isEmpty) return null;
 
+  int shiftDurationMin(Map<String, dynamic> st) {
+    final start = _parseTimeSpanToMinutes(st['startTime']?.toString());
+    final end = _parseTimeSpanToMinutes(st['endTime']?.toString());
+    if (start > end) {
+      final d = (1440 - start) + end;
+      return d > 0 ? d : 1;
+    }
+    final d = end - start;
+    return d > 0 ? d : 1;
+  }
+
   _ShiftPunchFit? pickBest(Iterable<String> ids) {
     _ShiftPunchFit? best;
     for (final stId in ids) {
@@ -978,7 +1042,12 @@ Map<String, dynamic>? findBestMatchingShift({
               fit.effectiveLateIn < best.effectiveLateIn) ||
           (fit.penaltyScore == best.penaltyScore &&
               fit.effectiveLateIn == best.effectiveLateIn &&
-              fit.distanceToStart < best.distanceToStart)) {
+              fit.distanceToStart < best.distanceToStart) ||
+          // Hòa điểm: ưu tiên ca dài hơn (Ca hành chính > Ca sáng cùng giờ vào).
+          (fit.penaltyScore == best.penaltyScore &&
+              fit.effectiveLateIn == best.effectiveLateIn &&
+              fit.distanceToStart == best.distanceToStart &&
+              shiftDurationMin(fit.shift) > shiftDurationMin(best.shift))) {
         best = fit;
       }
     }
@@ -1028,6 +1097,10 @@ class _ShiftLookups {
   final Map<String, String> employeeCodeToWeeklyOffDays;
   final Map<String, double> employeeCodeToHolidayMultiplier;
   final Map<String, int> employeeCodeToHolidayOvertimeType;
+  /// Benefit.applyLateEarlyOnRestDayOt — mặc định true.
+  final Map<String, bool> employeeCodeToApplyLateEarlyOnRestDayOt;
+  /// Benefit.restDayOtHoursOnly — mặc định false.
+  final Map<String, bool> employeeCodeToRestDayOtHoursOnly;
   /// Benefit.attendanceMode — 'none'/'checkin'/'checkout'/'both'/'any'/free2/once/fullday.
   final Map<String, String> employeeGuidToAttendanceMode;
   final Map<String, String> employeeCodeToPaidLeaveType;
@@ -1042,10 +1115,28 @@ class _ShiftLookups {
     required this.employeeCodeToWeeklyOffDays,
     required this.employeeCodeToHolidayMultiplier,
     required this.employeeCodeToHolidayOvertimeType,
+    required this.employeeCodeToApplyLateEarlyOnRestDayOt,
+    required this.employeeCodeToRestDayOtHoursOnly,
     required this.employeeGuidToAttendanceMode,
     required this.employeeCodeToPaidLeaveType,
     required this.scheduleDayOffKeys,
   });
+
+  bool applyLateEarlyOnRestDayOt(String employeeCode) {
+    final guid = employeeCodeToGuid[employeeCode];
+    return employeeCodeToApplyLateEarlyOnRestDayOt[employeeCode] ??
+        (guid != null
+            ? employeeCodeToApplyLateEarlyOnRestDayOt[guid]
+            : null) ??
+        true;
+  }
+
+  bool restDayOtHoursOnly(String employeeCode) {
+    final guid = employeeCodeToGuid[employeeCode];
+    return employeeCodeToRestDayOtHoursOnly[employeeCode] ??
+        (guid != null ? employeeCodeToRestDayOtHoursOnly[guid] : null) ??
+        false;
+  }
 
   String? attendanceModeOf(String empGuid, String employeeCode) =>
       employeeGuidToAttendanceMode[empGuid] ??
@@ -1090,6 +1181,8 @@ class _ShiftLookups {
     final employeeCodeToWeeklyOffDays = <String, String>{};
     final employeeCodeToHolidayMultiplier = <String, double>{};
     final employeeCodeToHolidayOvertimeType = <String, int>{};
+    final employeeCodeToApplyLateEarlyOnRestDayOt = <String, bool>{};
+    final employeeCodeToRestDayOtHoursOnly = <String, bool>{};
     final employeeGuidToShiftTemplateIds = <String, List<String>>{};
     final employeeGuidToAttendanceMode = <String, String>{};
     final employeeCodeToPaidLeaveType = <String, String>{};
@@ -1124,6 +1217,26 @@ class _ShiftLookups {
           (profile['holidayMultiplier'] as num?)?.toDouble() ?? 2.0;
       final holidayOvertimeType =
           (profile['holidayOvertimeType'] as num?)?.toInt() ?? 1;
+      bool applyLateEarlyRest = true;
+      final rawApply = profile['applyLateEarlyOnRestDayOt'] ??
+          (nestedBenefit is Map
+              ? nestedBenefit['applyLateEarlyOnRestDayOt']
+              : null);
+      if (rawApply is bool) {
+        applyLateEarlyRest = rawApply;
+      } else if (rawApply != null) {
+        final s = rawApply.toString().toLowerCase();
+        if (s == 'false' || s == '0') applyLateEarlyRest = false;
+      }
+      bool restDayHoursOnly = false;
+      final rawHoursOnly = profile['restDayOtHoursOnly'] ??
+          (nestedBenefit is Map ? nestedBenefit['restDayOtHoursOnly'] : null);
+      if (rawHoursOnly is bool) {
+        restDayHoursOnly = rawHoursOnly;
+      } else if (rawHoursOnly != null) {
+        final s = rawHoursOnly.toString().toLowerCase();
+        if (s == 'true' || s == '1') restDayHoursOnly = true;
+      }
       // attendanceMode: field → nested benefit → description attendanceType.
       String? modeRaw = profile['attendanceMode']?.toString();
       if (modeRaw == null || modeRaw.isEmpty) {
@@ -1155,6 +1268,10 @@ class _ShiftLookups {
             employeeCodeToPaidLeaveType[guid] = paidLeaveType;
             employeeCodeToHolidayMultiplier[code] = holidayMultiplier;
             employeeCodeToHolidayOvertimeType[code] = holidayOvertimeType;
+            employeeCodeToApplyLateEarlyOnRestDayOt[code] = applyLateEarlyRest;
+            employeeCodeToApplyLateEarlyOnRestDayOt[guid] = applyLateEarlyRest;
+            employeeCodeToRestDayOtHoursOnly[code] = restDayHoursOnly;
+            employeeCodeToRestDayOtHoursOnly[guid] = restDayHoursOnly;
             employeeGuidToAttendanceMode[guid] = attendanceMode;
           }
         }
@@ -1211,6 +1328,16 @@ class _ShiftLookups {
           employeeCodeToHolidayOvertimeType[pin] =
               employeeCodeToHolidayOvertimeType[code]!;
         }
+        if (!employeeCodeToApplyLateEarlyOnRestDayOt.containsKey(pin) &&
+            employeeCodeToApplyLateEarlyOnRestDayOt.containsKey(code)) {
+          employeeCodeToApplyLateEarlyOnRestDayOt[pin] =
+              employeeCodeToApplyLateEarlyOnRestDayOt[code]!;
+        }
+        if (!employeeCodeToRestDayOtHoursOnly.containsKey(pin) &&
+            employeeCodeToRestDayOtHoursOnly.containsKey(code)) {
+          employeeCodeToRestDayOtHoursOnly[pin] =
+              employeeCodeToRestDayOtHoursOnly[code]!;
+        }
       }
     }
 
@@ -1223,6 +1350,9 @@ class _ShiftLookups {
       employeeCodeToWeeklyOffDays: employeeCodeToWeeklyOffDays,
       employeeCodeToHolidayMultiplier: employeeCodeToHolidayMultiplier,
       employeeCodeToHolidayOvertimeType: employeeCodeToHolidayOvertimeType,
+      employeeCodeToApplyLateEarlyOnRestDayOt:
+          employeeCodeToApplyLateEarlyOnRestDayOt,
+      employeeCodeToRestDayOtHoursOnly: employeeCodeToRestDayOtHoursOnly,
       employeeGuidToAttendanceMode: employeeGuidToAttendanceMode,
       employeeCodeToPaidLeaveType: employeeCodeToPaidLeaveType,
       scheduleDayOffKeys: scheduleDayOffKeys,
@@ -1460,8 +1590,20 @@ List<DailyShiftRecord> _computeFullDayRecordsForEmployee({
       final s = _parseTimeSpanToMinutes(shift['startTime']?.toString());
       final e = _parseTimeSpanToMinutes(shift['endTime']?.toString());
       if (s >= 0 && e >= 0) {
-        final dur = e < s ? (24 * 60 - s) + e : e - s;
-        workHours = dur / 60.0;
+        final rawDur = e < s ? (24 * 60 - s) + e : e - s;
+        // Có vi phạm → giờ thực tế trừ nghỉ; hợp lệ → giờ ca hiệu lực (đã trừ nghỉ).
+        if (late > 0 || early > 0) {
+          workHours = _netWorkedMinutesAfterLunch(
+                punchIn: punchIn,
+                punchOut: punchOut!,
+                shift: shift,
+              ) /
+              60.0;
+        } else {
+          workHours =
+              _effectiveShiftDurationMinutes(shift, rawDurationMin: rawDur) /
+                  60.0;
+        }
       }
     } else if (hasMissing) {
       workHours = 0.0;
@@ -1475,12 +1617,14 @@ List<DailyShiftRecord> _computeFullDayRecordsForEmployee({
         lookups.employeeCodeToHolidayOvertimeType[employeeCode] ?? 1;
     final holidayMultiplier =
         lookups.employeeCodeToHolidayMultiplier[employeeCode] ?? 2.0;
+    final restDayHoursOnly =
+        isRestDay && lookups.restDayOtHoursOnly(employeeCode);
     final baseWorkHours = workHours;
     if ((isRestDay || isHoliday) && workCount > 0) {
       if (isHoliday) {
         workCount *= holidayRate;
         workHours *= holidayRate;
-      } else if (isRestDay && holidayOvertimeType == 1) {
+      } else if (isRestDay && holidayOvertimeType == 1 && !restDayHoursOnly) {
         workCount *= holidayMultiplier;
         workHours *= holidayMultiplier;
       }
@@ -1488,15 +1632,29 @@ List<DailyShiftRecord> _computeFullDayRecordsForEmployee({
 
     String status;
     Color statusColor;
+    var overtimeMinutes = 0;
     if (hasMissing || workCount == 0) {
-      status = 'Thiếu chấm';
-      statusColor = Colors.grey;
+      if (restDayHoursOnly && baseWorkHours > 0 && !hasMissing) {
+        status = 'Tăng ca ngày nghỉ';
+        statusColor = Colors.purple;
+        workCount = 0;
+        overtimeMinutes = _hoursToOtMinutes(baseWorkHours);
+        workHours = 0;
+      } else {
+        status = 'Thiếu chấm';
+        statusColor = Colors.grey;
+      }
     } else if (isHoliday) {
       status = 'Tăng ca ngày lễ';
       statusColor = Colors.deepOrange;
     } else if (isRestDay) {
       status = 'Tăng ca ngày nghỉ';
       statusColor = Colors.purple;
+      if (restDayHoursOnly) {
+        workCount = 0;
+        overtimeMinutes = _hoursToOtMinutes(baseWorkHours);
+        workHours = 0;
+      }
     } else if (late > 0 && early > 0) {
       status = 'Đi trễ - Về sớm';
       statusColor = Colors.red;
@@ -1527,9 +1685,9 @@ List<DailyShiftRecord> _computeFullDayRecordsForEmployee({
       shiftNames: shiftNames,
       lateMinutes: late,
       earlyMinutes: early,
-      overtimeMinutes: 0,
+      overtimeMinutes: overtimeMinutes,
       workHours: workHours,
-      decimalHours: actualHours,
+      decimalHours: workHours,
       baseWorkHours: baseWorkHours,
       status: status,
       statusColor: statusColor,
@@ -1668,11 +1826,13 @@ List<DailyShiftRecord> computeDailyShiftRecords({
             lookups.employeeCodeToHolidayOvertimeType[employeeCode] ?? 1;
         final holidayMultiplier =
             lookups.employeeCodeToHolidayMultiplier[employeeCode] ?? 2.0;
+        final restDayHoursOnly =
+            isRestDay && lookups.restDayOtHoursOnly(employeeCode);
         if ((isRestDay || isHoliday) && workCount > 0) {
           if (isHoliday) {
             workCount *= holidayRate;
             workHours *= holidayRate;
-          } else if (isRestDay && holidayOvertimeType == 1) {
+          } else if (isRestDay && holidayOvertimeType == 1 && !restDayHoursOnly) {
             workCount *= holidayMultiplier;
             workHours *= holidayMultiplier;
           }
@@ -1681,6 +1841,7 @@ List<DailyShiftRecord> computeDailyShiftRecords({
         // Status lễ/nghỉ giống path ca — payroll gộp OT qua baseWorkHours.
         String status;
         Color statusColor;
+        var overtimeMinutes = 0;
         if (!credited) {
           status = 'Thiếu chấm';
           statusColor = Colors.grey;
@@ -1690,6 +1851,11 @@ List<DailyShiftRecord> computeDailyShiftRecords({
         } else if (isRestDay) {
           status = 'Tăng ca ngày nghỉ';
           statusColor = Colors.purple;
+          if (restDayHoursOnly) {
+            workCount = 0;
+            overtimeMinutes = _hoursToOtMinutes(baseWorkHours);
+            workHours = 0;
+          }
         } else {
           status = 'Hợp lệ';
           statusColor = Colors.green;
@@ -1710,7 +1876,7 @@ List<DailyShiftRecord> computeDailyShiftRecords({
           shiftNames: const [],
           lateMinutes: 0,
           earlyMinutes: 0,
-          overtimeMinutes: 0,
+          overtimeMinutes: overtimeMinutes,
           workHours: workHours,
           decimalHours: workHours,
           baseWorkHours: baseWorkHours,
@@ -1725,7 +1891,6 @@ List<DailyShiftRecord> computeDailyShiftRecords({
       int totalEarly = 0;
       int totalOT = 0;
       double totalWorkHours = 0;
-      double totalDecimalHours = 0;
       bool hasMissingPunch = false;
       final shiftNames = <String>[];
       final missingOutShiftNames = <String>[];
@@ -1944,15 +2109,35 @@ List<DailyShiftRecord> computeDailyShiftRecords({
 
           if (earlyCalc > 0) totalEarly += earlyCalc;
 
-          if (lateCalc <= 0 && earlyCalc <= 0 && extraMin <= 0) {
+          final netWorkedMin = _netWorkedMinutesAfterLunch(
+            punchIn: punchIn,
+            punchOut: effectiveOut,
+            shift: matchedShift,
+          );
+          final restDaySkipLateEarly = lookups.isWeeklyOffDay(date, employeeCode) &&
+              !lookups.applyLateEarlyOnRestDayOt(employeeCode);
+
+          if (restDaySkipLateEarly) {
+            // Tăng ca ngày nghỉ: không tính đi trễ/về sớm — giờ = thực tế trừ nghỉ.
+            if (lateCalc > 0) {
+              totalLate = (totalLate - lateCalc).clamp(0, 24 * 60);
+            }
+            if (earlyCalc > 0) {
+              totalEarly = (totalEarly - earlyCalc).clamp(0, 24 * 60);
+            }
+            lateCalc = 0;
+            earlyCalc = 0;
+            totalWorkHours += netWorkedMin / 60.0;
+          } else if (lateCalc <= 0 && earlyCalc <= 0 && extraMin <= 0) {
+            // Đủ ca hợp lệ → giờ công chuẩn (đã trừ nghỉ giữa ca).
             totalWorkHours += shiftDurationMin / 60.0;
           } else {
-            totalWorkHours += actualWorkedMinutes / 60.0;
+            // Có đi trễ / về sớm / OT sau ca → giờ thực tế vẫn phải trừ nghỉ giữa ca.
+            totalWorkHours += netWorkedMin / 60.0;
           }
-          totalDecimalHours += actualWorkedMinutes / 60.0;
+          // Giờ thập phân = cùng nguồn với tổng giờ (đổi đơn vị hiển thị, không tính lại).
         } else {
           totalWorkHours += actualWorkedMinutes / 60.0;
-          totalDecimalHours += actualWorkedMinutes / 60.0;
         }
       }
 
@@ -1961,7 +2146,7 @@ List<DailyShiftRecord> computeDailyShiftRecords({
           lookups.employeeGuidToHoursPerWorkDay[employeeCode] ??
           standardWorkHours;
       var totalWorkCount = computeDayWorkCredit(
-        actualHours: totalDecimalHours,
+        actualHours: totalWorkHours,
         hoursPerWorkDay: hoursPerDay,
         minPercent: percent,
         decimalWorkDayEnabled: decimalWorkDayEnabled,
@@ -1984,25 +2169,25 @@ List<DailyShiftRecord> computeDailyShiftRecords({
           lookups.employeeCodeToHolidayOvertimeType[employeeCode] ?? 1;
       final holidayMultiplier =
           lookups.employeeCodeToHolidayMultiplier[employeeCode] ?? 2.0;
+      final restDayHoursOnly =
+          isRestDay && lookups.restDayOtHoursOnly(employeeCode);
 
       final baseWorkHours = totalWorkHours;
       if ((isRestDay || isHoliday) && totalWorkCount > 0) {
         if (isHoliday) {
           totalWorkCount *= holidayRate;
           totalWorkHours *= holidayRate;
-          totalDecimalHours *= holidayRate;
-        } else if (isRestDay) {
-          if (holidayOvertimeType == 1) {
-            totalWorkCount *= holidayMultiplier;
-            totalWorkHours *= holidayMultiplier;
-            totalDecimalHours *= holidayMultiplier;
-          }
+        } else if (isRestDay &&
+            holidayOvertimeType == 1 &&
+            !restDayHoursOnly) {
+          totalWorkCount *= holidayMultiplier;
+          totalWorkHours *= holidayMultiplier;
         }
       }
 
       String status;
       Color statusColor;
-      if (hasMissingPunch && totalWorkCount == 0) {
+      if (hasMissingPunch && totalWorkCount == 0 && !(restDayHoursOnly && baseWorkHours > 0)) {
         status = 'Thiếu chấm';
         statusColor = Colors.grey;
       } else if (isHoliday && totalWorkCount > 0) {
@@ -2010,9 +2195,15 @@ List<DailyShiftRecord> computeDailyShiftRecords({
         statusColor = Colors.deepOrange;
         if (totalLate > 0) status = 'Đi trễ - $status';
         if (totalEarly > 0) status = '$status - Về sớm';
-      } else if (isRestDay && totalWorkCount > 0) {
+      } else if (isRestDay && (totalWorkCount > 0 || (restDayHoursOnly && baseWorkHours > 0))) {
         status = 'Tăng ca ngày nghỉ';
         statusColor = Colors.purple;
+        if (restDayHoursOnly) {
+          totalWorkCount = 0;
+          // Đưa giờ làm ngày nghỉ vào cột Tăng ca — không hiện ở Tổng giờ/Công.
+          totalOT += _hoursToOtMinutes(baseWorkHours);
+          totalWorkHours = 0;
+        }
         if (totalLate > 0) status = 'Đi trễ - $status';
         if (totalEarly > 0) status = '$status - Về sớm';
       } else if (totalLate > 0 && totalEarly > 0) {
@@ -2063,7 +2254,7 @@ List<DailyShiftRecord> computeDailyShiftRecords({
         earlyMinutes: totalEarly,
         overtimeMinutes: totalOT,
         workHours: totalWorkHours,
-        decimalHours: totalDecimalHours,
+        decimalHours: totalWorkHours,
         baseWorkHours: baseWorkHours,
         status: status,
         statusColor: statusColor,

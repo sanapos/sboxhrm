@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart'
     show defaultTargetPlatform, kIsWeb, TargetPlatform;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../l10n/app_tr.dart';
 import '../../models/zk_gateway.dart';
@@ -68,24 +70,50 @@ class _ZkGatewayListScreenState extends State<ZkGatewayListScreen> {
     await _discover();
   }
 
-  /// Cho nhập tay IP khi router chặn quảng bá giữa các client (AP isolation).
+  Future<void> _openWeb(String url) async {
+    final uri = Uri.tryParse(url);
+    if (uri == null) return;
+    final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!ok && mounted) {
+      appNotification.showError(
+        title: tr('Không mở được trình duyệt'),
+        message: tr('Hãy mở tay địa chỉ: $url'),
+      );
+    }
+  }
+
+  Future<void> _copyLink(String url) async {
+    await Clipboard.setData(ClipboardData(text: url));
+    if (!mounted) return;
+    appNotification.showSuccess(
+      title: tr('Đã sao chép'),
+      message: url,
+    );
+  }
+
+  /// Cho nhập tay IP/hostname khi iOS hoặc router chặn dò tìm UDP.
   Future<void> _addByIp() async {
-    final ctrl = TextEditingController();
-    final ip = await showDialog<String>(
+    final ctrl = TextEditingController(text: ZkGatewayClient.portalHost);
+    final host = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text(tr('Nhập địa chỉ gateway')),
         content: Column(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             TextField(
               controller: ctrl,
               autofocus: true,
-              decoration: InputDecoration(hintText: tr('192.168.1.36')),
+              decoration: InputDecoration(
+                hintText: tr('sboxadms.local hoặc 192.168.1.36'),
+                labelText: tr('Hostname hoặc IP'),
+              ),
             ),
             const SizedBox(height: 10),
             Text(
-              tr('Dùng khi mạng chặn dò tìm tự động.'),
+              tr('Trên iPhone, nếu dò tìm không thấy thì nhập sboxadms.local '
+                  'hoặc IP LAN của mạch, rồi bấm Kết nối trong app hoặc Mở web.'),
               style: const TextStyle(fontSize: 12, color: HrmPageChrome.textMuted),
             ),
           ],
@@ -95,6 +123,15 @@ class _ZkGatewayListScreenState extends State<ZkGatewayListScreen> {
             onPressed: () => Navigator.pop(ctx),
             child: Text(tr('Huỷ')),
           ),
+          TextButton(
+            onPressed: () {
+              final h = ctrl.text.trim();
+              if (h.isEmpty) return;
+              Navigator.pop(ctx);
+              _openWeb(h.startsWith('http') ? h : 'http://$h');
+            },
+            child: Text(tr('Mở web')),
+          ),
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
             child: Text(tr('Kết nối')),
@@ -102,10 +139,17 @@ class _ZkGatewayListScreenState extends State<ZkGatewayListScreen> {
         ],
       ),
     );
-    if (ip == null || ip.isEmpty) return;
+    if (host == null || host.isEmpty) return;
+
+    final target = host
+        .replaceFirst(RegExp(r'^https?://', caseSensitive: false), '')
+        .split('/')
+        .first
+        .trim();
+    if (target.isEmpty) return;
 
     try {
-      final info = await _client.fetchInfo(ip);
+      final info = await _client.fetchInfo(target);
       if (!mounted) return;
       await _openDetail(info);
     } catch (e) {
@@ -249,7 +293,129 @@ class _ZkGatewayListScreenState extends State<ZkGatewayListScreen> {
                 ),
               ),
             ),
+          const SizedBox(height: 12),
+          _webAccessCard(),
         ],
+      ),
+    );
+  }
+
+  /// iPhone thường không dò được UDP/mDNS; mở Safari tới web server ESP là lối đi ổn định.
+  Widget _webAccessCard() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            tr('Trang web cấu hình trên mạch'),
+            style: const TextStyle(
+              fontSize: 13.5,
+              fontWeight: FontWeight.w800,
+              color: HrmPageChrome.textDark,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            tr('Khi iPhone không tìm thấy thiết bị, mở Safari tới địa chỉ dưới đây '
+                '(điện thoại phải cùng WiFi với gateway).'),
+            style: const TextStyle(
+              fontSize: 12.2,
+              height: 1.45,
+              color: HrmPageChrome.textMuted,
+            ),
+          ),
+          const SizedBox(height: 12),
+          _linkRow(
+            label: ZkGatewayClient.portalUrl,
+            subtitle: tr('Sau khi gateway đã vào WiFi nhà'),
+            onOpen: () => _openWeb(ZkGatewayClient.portalUrl),
+            onCopy: () => _copyLink(ZkGatewayClient.portalUrl),
+          ),
+          const SizedBox(height: 8),
+          _linkRow(
+            label: ZkGatewayClient.apPortalUrl,
+            subtitle: tr('Lần đầu: đang nối sóng SBOX-Gateway-xxxx'),
+            onOpen: () => _openWeb(ZkGatewayClient.apPortalUrl),
+            onCopy: () => _copyLink(ZkGatewayClient.apPortalUrl),
+          ),
+          const SizedBox(height: 10),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: _addByIp,
+              icon: const Icon(Icons.language, size: 18),
+              label: Text(tr('Mở / kết nối theo IP hoặc tên')),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: HrmPageChrome.primaryNavy,
+                side: const BorderSide(color: Color(0xFFCBD5E1)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _linkRow({
+    required String label,
+    required String subtitle,
+    required VoidCallback onOpen,
+    required VoidCallback onCopy,
+  }) {
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(10),
+      child: InkWell(
+        onTap: onOpen,
+        borderRadius: BorderRadius.circular(10),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 10, 6, 10),
+          child: Row(
+            children: [
+              const Icon(Icons.open_in_browser, size: 20, color: HrmPageChrome.primaryNavy),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      label,
+                      style: const TextStyle(
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w700,
+                        color: HrmPageChrome.primaryNavy,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: const TextStyle(
+                        fontSize: 11.5,
+                        color: HrmPageChrome.textMuted,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              IconButton(
+                tooltip: tr('Sao chép'),
+                onPressed: onCopy,
+                icon: const Icon(Icons.copy, size: 17),
+                color: HrmPageChrome.textMuted,
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -301,8 +467,9 @@ class _ZkGatewayListScreenState extends State<ZkGatewayListScreen> {
           ),
           const SizedBox(height: 16),
           const GatewayNoteBox(
-            text: 'Cách khác: mở trực tiếp địa chỉ IP của gateway trên trình '
-                'duyệt để vào trang cấu hình của chính thiết bị.',
+            text: 'Cách khác: trên điện thoại cùng WiFi, mở Safari tới '
+                'http://sboxadms.local hoặc IP của gateway để vào trang cấu hình '
+                'trên chính mạch ESP.',
             icon: Icons.open_in_browser,
           ),
         ],
@@ -375,14 +542,24 @@ class _ZkGatewayListScreenState extends State<ZkGatewayListScreen> {
           const SizedBox(height: 16),
           GatewayNoteBox(
             text: !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS
-                ? 'Điện thoại phải ở cùng WiFi với gateway. Lần đầu iPhone sẽ '
-                    'hỏi quyền truy cập mạng nội bộ - chọn Cho phép rồi bấm dò '
-                    'lại, vì lần dò đang chạy lúc hỏi sẽ không thấy gì. Nếu đã '
-                    'lỡ từ chối, bật lại ở Cài đặt > SBOX HRM > Mạng cục bộ.'
+                ? 'Điện thoại phải ở cùng WiFi với gateway. iPhone thường không '
+                    'dò thấy thiết bị bằng UDP — hãy mở Safari tới '
+                    'http://sboxadms.local (hoặc bấm link web cấu hình phía trên). '
+                    'Nếu lần đầu bị hỏi quyền mạng nội bộ, chọn Cho phép rồi dò lại. '
+                    'Đã từ chối thì bật lại ở Cài đặt > SBOX HRM > Mạng cục bộ.'
                 : 'Điện thoại phải ở cùng WiFi với gateway. Một số router bật '
-                    'chế độ cách ly thiết bị làm dò tìm không thấy - khi đó dùng '
-                    'nút bàn phím ở góc trên để nhập IP trực tiếp.',
+                    'chế độ cách ly thiết bị làm dò tìm không thấy — khi đó mở '
+                    'http://sboxadms.local hoặc nhập IP bằng nút bàn phím góc trên.',
             icon: Icons.help_outline,
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () => _openWeb(ZkGatewayClient.portalUrl),
+              icon: const Icon(Icons.open_in_browser, size: 18),
+              label: Text(tr('Mở trang web cấu hình')),
+            ),
           ),
         ],
       ),

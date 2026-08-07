@@ -31,8 +31,11 @@ import '../../utils/allowance_calculator.dart';
 import '../../utils/travel_hours_calculator.dart';
 import '../../utils/travel_hours_load_utils.dart';
 import '../../utils/travel_salary_utils.dart';
-import '../../utils/travel_eligibility_utils.dart';
 import '../../utils/standard_work_days_utils.dart';
+import '../../utils/attendance_bootstrap_loader.dart';
+import '../../utils/salary_profile_load_utils.dart';
+import '../../utils/overtime_hourly_base_utils.dart';
+import '../../utils/pit_tax_utils.dart';
 import '../../models/mobile_attendance.dart';
 import '../../utils/mobile_attendance_vertical_layout.dart';
 import '../main_layout.dart' show NavigationNotifier;
@@ -96,6 +99,8 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
   Map<String, dynamic> _taxSettings = {};
   List<Map<String, dynamic>> _allowanceSettings = [];
   List<Map<String, dynamic>> _transactions = [];
+  /// Phiếu phạt chấm công (đi trễ/về sớm/…) trong kỳ — tránh trừ trùng với latePenalty.
+  List<Map<String, dynamic>> _penaltyTickets = [];
   List<Map<String, dynamic>> _advanceRequests = [];
   // ignore: unused_field
   List<Map<String, dynamic>> _shifts = [];
@@ -121,7 +126,6 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
   List<DailyShiftRecord>? _cachedShiftRecords;
   Map<String, List<DailyShiftRecord>>? _shiftRecordsByEmpKey;
   Map<String, double> _travelHoursByEmpKey = {};
-  Set<String> _travelEligibleKeys = {};
   TravelSalaryMode _travelSalaryMode = TravelSalaryMode.basePer8h;
   double _travelFixedHourlyRate = 0;
 
@@ -225,6 +229,8 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
         label: _l10n.overtime,
         defaultVisible: false,
       ),
+      PayrollColumn(key: 'travelHours', label: 'Đi đường (giờ)'),
+      PayrollColumn(key: 'travelSalary', label: 'Lương đi đường'),
       PayrollColumn(key: 'baseSalary', label: _l10n.baseSalary),
       PayrollColumn(key: 'workSalary', label: 'Lương theo công'),
       PayrollColumn(key: 'completionSalary', label: _l10n.completionSalary),
@@ -244,17 +250,10 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
         defaultVisible: false,
       ),
       PayrollColumn(key: 'otSalary', label: _l10n.overtimeSalary),
-      PayrollColumn(key: 'travelHours', label: 'Đi đường (giờ)'),
-      PayrollColumn(key: 'travelSalary', label: 'Lương đi đường'),
       PayrollColumn(key: 'allowanceFixed', label: 'PC cố định'),
       PayrollColumn(key: 'allowanceDaily', label: 'PC theo ngày'),
       PayrollColumn(key: 'totalAllowance', label: 'Tổng PC kỳ'),
       PayrollColumn(key: 'bonus', label: _l10n.bonusAmount),
-      PayrollColumn(
-        key: 'penalty',
-        label: _l10n.penaltyAmount,
-        defaultVisible: false,
-      ),
       PayrollColumn(
         key: 'kpiSalary',
         label: _l10n.kpiSalary,
@@ -265,9 +264,15 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
         label: 'Sản lượng',
         defaultVisible: false,
       ),
+      // Tổng lương trước các khoản trừ / thực nhận
+      PayrollColumn(key: 'totalSalary', label: _l10n.totalSalary),
+      PayrollColumn(
+        key: 'penalty',
+        label: _l10n.penaltyAmount,
+        defaultVisible: false,
+      ),
       PayrollColumn(key: 'bhxh', label: 'BHXH', defaultVisible: false),
       PayrollColumn(key: 'pit', label: 'TNCN', defaultVisible: false),
-      PayrollColumn(key: 'totalSalary', label: _l10n.totalSalary),
       PayrollColumn(
         key: 'advance',
         label: _l10n.advancePaid,
@@ -280,6 +285,23 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
         defaultVisible: false,
       ),
     ];
+  }
+
+  /// Đảm bảo Đi đường / Lương đi đường đứng trước Lương cơ bản (kể cả prefs cũ).
+  void _ensureTravelColumnsBeforeBaseSalary() {
+    const travelKeys = ['travelHours', 'travelSalary'];
+    final travelCols = <PayrollColumn>[];
+    for (final key in travelKeys) {
+      final idx = _columns.indexWhere((c) => c.key == key);
+      if (idx >= 0) travelCols.add(_columns.removeAt(idx));
+    }
+    if (travelCols.isEmpty) return;
+    final baseIdx = _columns.indexWhere((c) => c.key == 'baseSalary');
+    if (baseIdx < 0) {
+      _columns.addAll(travelCols);
+      return;
+    }
+    _columns.insertAll(baseIdx, travelCols);
   }
 
   void _initColumns() {
@@ -343,7 +365,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
   Future<void> _loadColumnPreferences() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final saved = prefs.getString('payroll_columns_v10');
+      final saved = prefs.getString('payroll_columns_v11');
       if (saved != null) {
         final List<dynamic> list = jsonDecode(saved);
         // Rebuild _columns in saved order, preserving visibility
@@ -361,6 +383,8 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
         // Append any new columns not in saved preferences
         orderedCols.addAll(remaining);
         _columns = orderedCols;
+        _ensureTravelColumnsBeforeBaseSalary();
+        await _saveColumnPreferences();
       }
     } catch (_) {}
   }
@@ -370,7 +394,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
       final prefs = await SharedPreferences.getInstance();
       final list =
           _columns.map((c) => {'key': c.key, 'visible': c.visible}).toList();
-      await prefs.setString('payroll_columns_v10', jsonEncode(list));
+      await prefs.setString('payroll_columns_v11', jsonEncode(list));
     } catch (_) {}
   }
 
@@ -459,6 +483,25 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
     return role.toLowerCase() == 'employee';
   }
 
+  /// Màn cha tải đúng 1 tháng (picker 8/2026). Kỳ lọc tab («Tháng trước»,
+  /// tuần, tùy chọn…) có thể lệch → phải tải log riêng cho kỳ đó.
+  bool _parentAttendancesCoverPeriod(DateTime fromDay, DateTime toEnd) {
+    final pFrom = DateTime(
+      widget.fromDate.year,
+      widget.fromDate.month,
+      widget.fromDate.day,
+    );
+    final pTo = DateTime(
+      widget.toDate.year,
+      widget.toDate.month,
+      widget.toDate.day,
+      23,
+      59,
+      59,
+    );
+    return !fromDay.isBefore(pFrom) && !toEnd.isAfter(pTo);
+  }
+
   Future<void> _loadPeriodAttendances() async {
     final fromDay = DateTime(_fromDate.year, _fromDate.month, _fromDate.day);
     final toEnd = DateTime(
@@ -470,11 +513,38 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
       59,
     );
 
-    // Chỉ dùng log màn cha đã tải — không gọi lại /api/attendances/devices (tránh quay hàng trăm trang).
-    _periodAttendances = widget.attendances.where((a) {
-      final t = a.attendanceTime;
-      return !t.isBefore(fromDay) && !t.isAfter(toEnd);
-    }).toList();
+    List<Attendance> filterParent() => widget.attendances.where((a) {
+          final t = a.attendanceTime;
+          return !t.isBefore(fromDay) && !t.isAfter(toEnd);
+        }).toList();
+
+    if (_parentAttendancesCoverPeriod(fromDay, toEnd)) {
+      _periodAttendances = filterParent();
+      return;
+    }
+
+    // Kỳ lệch tháng màn cha (vd. chọn «Tháng trước» khi picker đang tháng hiện tại).
+    try {
+      final preferSelf = mounted &&
+          isEmployeeUserRole(
+            Provider.of<AuthProvider>(context, listen: false).user?.role,
+          );
+      final bootstrap = await loadAttendanceBootstrap(
+        _apiService,
+        fromDate: fromDay,
+        toDate: toEnd,
+        loadShiftMeta: false,
+        preferSelfServiceApi: preferSelf,
+      );
+      _periodAttendances = bootstrap.attendances;
+      if (_dayEndHour == 0 && _dayEndMinute == 0) {
+        _dayEndHour = bootstrap.dayEndHour;
+        _dayEndMinute = bootstrap.dayEndMinute;
+      }
+    } catch (e) {
+      debugPrint('Payroll period attendances reload failed: $e');
+      _periodAttendances = filterParent();
+    }
   }
 
   Future<void> _loadTravelMobileRecords() async {
@@ -501,22 +571,26 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
 
   double _travelHoursForEmployee(Employee? emp) {
     if (emp == null) return 0;
-    if (!isEmployeeTravelEligible(
-      eligibleKeys: _travelEligibleKeys,
-      employeeId: emp.id,
-      employeeCode: emp.employeeCode,
-      applicationUserId: emp.applicationUserId,
-      pin: emp.pin,
-    )) {
-      return 0;
-    }
     final id = emp.id.trim();
     if (id.isNotEmpty) {
       final byId = _travelHoursByEmpKey[id];
       if (byId != null && byId > 0) return byId;
     }
     final code = emp.employeeCode.trim();
-    if (code.isNotEmpty) return _travelHoursByEmpKey[code] ?? 0;
+    if (code.isNotEmpty) {
+      final byCode = _travelHoursByEmpKey[code];
+      if (byCode != null && byCode > 0) return byCode;
+    }
+    final pin = (emp.pin ?? '').trim();
+    if (pin.isNotEmpty) {
+      final byPin = _travelHoursByEmpKey[pin];
+      if (byPin != null && byPin > 0) return byPin;
+    }
+    final uid = (emp.applicationUserId ?? '').trim();
+    if (uid.isNotEmpty) {
+      final byUid = _travelHoursByEmpKey[uid];
+      if (byUid != null && byUid > 0) return byUid;
+    }
     return 0;
   }
 
@@ -577,7 +651,12 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
         _loadWithTimeout(_apiService.getSalarySettings(), {}),
         _loadWithTimeout(_apiService.getPenaltySettings(), {}),
         _loadWithTimeout(
-          _apiService.getTransactions(fromDate: _fromDate, toDate: _toDate),
+          _apiService.getTransactions(
+            fromDate: _fromDate,
+            toDate: DateTime(
+                _toDate.year, _toDate.month, _toDate.day, 23, 59, 59),
+            pageSize: 2000,
+          ),
           <String, dynamic>{},
         ),
         _loadWithTimeout(
@@ -593,6 +672,14 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
             fromDate: _fromDate,
             toDate: _toDate,
             pageSize: 1000,
+          ),
+          <String, dynamic>{},
+        ),
+        _loadWithTimeout(
+          _apiService.getPenaltyTickets(
+            fromDate: _fromDate,
+            toDate: _toDate,
+            pageSize: 2000,
           ),
           <String, dynamic>{},
         ),
@@ -636,6 +723,9 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
             ? results[8] as Map<String, dynamic>
             : <String, dynamic>{},
       );
+      final ticketResult = results[9] as Map<String, dynamic>;
+      _penaltyTickets =
+          _extractList(ticketResult['items'] ?? ticketResult['data']);
       final codeToGuid = <String, String>{
         for (final e in _employees)
           if (e.employeeCode.isNotEmpty) e.employeeCode: e.id,
@@ -728,17 +818,6 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
       }
 
       await _loadPeriodAttendances();
-      _travelEligibleKeys = await loadTravelEligibleEmployeeKeys(
-        _apiService,
-        employeesList: _employees
-            .map((e) => {
-                  'id': e.id,
-                  'employeeCode': e.employeeCode,
-                  'applicationUserId': e.applicationUserId,
-                  'pin': e.pin,
-                })
-            .toList(),
-      );
       await _loadTravelMobileRecords();
     } catch (e) {
       debugPrint('Error loading payroll data: $e');
@@ -780,8 +859,18 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
         profile['shiftsPerDay'] = b['shiftsPerDay'];
         profile['weeklyOffDays'] = b['weeklyOffDays'];
         profile['paidLeaveType'] = b['paidLeaveType'] ?? profile['paidLeaveType'];
-        profile['holidayMultiplier'] = b['holidayMultiplier'];
+        profile['holidayMultiplier'] = b['holidayMultiplier'] ??
+            _toDouble(_salarySettings['weekendRate'], 2.0);
         profile['holidayOvertimeType'] = b['holidayOvertimeType'];
+        profile['applyLateEarlyOnRestDayOt'] =
+            b['applyLateEarlyOnRestDayOt'] ?? true;
+        profile['restDayOtHoursOnly'] = b['restDayOtHoursOnly'] ?? false;
+        profile['otRateWeekday'] =
+            b['otRateWeekday'] ?? b['OTRateWeekday'] ?? b['oTRateWeekday'];
+        profile['otRateWeekend'] =
+            b['otRateWeekend'] ?? b['OTRateWeekend'] ?? b['oTRateWeekend'];
+        profile['otRateHoliday'] =
+            b['otRateHoliday'] ?? b['OTRateHoliday'] ?? b['oTRateHoliday'];
         // Bắt buộc lift — free2/once đọc từ profile['attendanceMode'].
         profile['attendanceMode'] =
             b['attendanceMode'] ?? profile['attendanceMode'];
@@ -1476,6 +1565,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
     );
     final otRateWeekday =
         benefitOtWeekday > 0 ? benefitOtWeekday : storeOtWeekday;
+    // Ưu tiên hệ số cửa hàng khi NV không ghi đè OTRate* — đổi ở «Hệ số TC» áp dụng ngay.
     final otRateWeekend =
         benefitOtWeekend > 0 ? benefitOtWeekend : storeOtWeekend;
     final otRateHoliday =
@@ -1483,21 +1573,46 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
 
     double otSalary = 0;
     if (hourlyOtType == 0) {
-      otSalary = (otHoursWeekday + otHoursWeekend + otHoursHoliday) *
-          hourlyOtFixedRate;
-    } else if (hourlyOtType == 1) {
-      otSalary += otHoursWeekday * hourlyRate * otRateWeekday;
-      otSalary += otHoursWeekend * hourlyRate * otRateWeekend;
-      // holidayOtType==0 dùng đơn giá ngày cố định — không nhân hệ số giờ lần nữa.
+      // Đơn giá giờ cố định — trừ giờ đã trả theo đơn giá ngày (nếu có).
+      var fixedHourHours = otHoursWeekday;
       if (holidayOtType != 0) {
-        otSalary += otHoursHoliday * hourlyRate * otRateHoliday;
+        fixedHourHours += otHoursWeekend + otHoursHoliday;
+      }
+      otSalary = fixedHourHours * hourlyOtFixedRate;
+    } else if (hourlyOtType == 1) {
+      final otHourlyBaseMode = parseOvertimeHourlyBaseMode(
+        benefit?['overtimeHourlyBaseMode'] ??
+            benefit?['OvertimeHourlyBaseMode'],
+      );
+      final otHourlyRate = rateType == 1
+          ? computeOvertimeHourlyRate(
+              mode: otHourlyBaseMode,
+              baseSalary: baseSalary,
+              completionSalary: completionSalary,
+              standardWorkDays: standardWorkDays,
+              standardDayHours: standardDayHours,
+              fallbackHourlyRate: hourlyRate,
+            )
+          : hourlyRate;
+      otSalary += otHoursWeekday * otHourlyRate * otRateWeekday;
+      // Ngày nghỉ: theo luật → × weekendRate; cố định ngày → không nhân giờ ở đây.
+      if (holidayOtType != 0) {
+        otSalary += otHoursWeekend * otHourlyRate * otRateWeekend;
+      }
+      // Ngày lễ: theo luật → × holidayRate; cố định ngày → không nhân giờ lần nữa.
+      if (holidayOtType != 0) {
+        otSalary += otHoursHoliday * otHourlyRate * otRateHoliday;
       }
     }
 
     double holidayDaySalary = 0;
-    if (holidayOtType == 0 && otHoursHoliday > 0) {
-      final holidayWorkDays = (otHoursHoliday / standardDayHours).ceil();
-      holidayDaySalary = holidayOtDailyRate * holidayWorkDays;
+    if (holidayOtType == 0) {
+      // «Cố định ngày» cho tăng ca ngày nghỉ / ngày lễ.
+      final restAndHolidayHours = otHoursWeekend + otHoursHoliday;
+      if (restAndHolidayHours > 0 && standardDayHours > 0) {
+        final days = (restAndHolidayHours / standardDayHours).ceil();
+        holidayDaySalary = holidayOtDailyRate * days;
+      }
     }
     otSalary += holidayDaySalary;
 
@@ -1547,7 +1662,8 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
       final txType = tx['type']?.toString().toLowerCase() ?? '';
       final amount = _toDouble(tx['amount']);
       final status = tx['status']?.toString().toLowerCase() ?? '';
-      if (status == 'rejected' || status == 'cancelled') continue;
+      // Chỉ trừ/cộng phiếu đã duyệt (không lấy Pending).
+      if (status != 'approved' && status != 'completed') continue;
       // Bỏ qua thưởng/phạt đã chi tiền mặt; giữ thưởng chi vào lương (PaymentMethod=Salary)
       final txPaymentMethod = tx['paymentMethod']?.toString() ?? '';
       final isCashPaid =
@@ -1558,6 +1674,42 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
       } else if (txType == 'penalty' || txType == 'fine' || txType == 'phạt') {
         penaltyTotal += amount.abs(); // Ensure positive for deduction
       }
+    }
+
+    // Ngày đã có phiếu phạt chấm công (Pending/Approved/AutoApproved) → không tính lại latePenalty.
+    final ticketKeys = <String>{};
+    for (final t in _penaltyTickets) {
+      final st = t['status']?.toString() ?? '';
+      if (st == 'Cancelled' || st.toLowerCase() == 'cancelled') continue;
+      final tid = t['employeeId']?.toString() ?? '';
+      if (tid.isEmpty) continue;
+      if (tid != empId && tid != empCode) continue;
+      final vd = t['violationDate'];
+      DateTime? day;
+      if (vd is DateTime) {
+        day = vd;
+      } else if (vd != null) {
+        day = DateTime.tryParse(vd.toString());
+      }
+      if (day == null) continue;
+      final type = t['type']?.toString() ?? '';
+      final dk =
+          '${day.year.toString().padLeft(4, '0')}-${day.month.toString().padLeft(2, '0')}-${day.day.toString().padLeft(2, '0')}';
+      ticketKeys.add('$tid|$dk|$type');
+      if (empId != null && empId.isNotEmpty) {
+        ticketKeys.add('$empId|$dk|$type');
+      }
+      if (empCode.isNotEmpty) ticketKeys.add('$empCode|$dk|$type');
+    }
+
+    bool hasTicket(String type, DateTime day) {
+      final dk =
+          '${day.year.toString().padLeft(4, '0')}-${day.month.toString().padLeft(2, '0')}-${day.day.toString().padLeft(2, '0')}';
+      for (final id in [empId, empCode]) {
+        if (id == null || id.isEmpty) continue;
+        if (ticketKeys.contains('$id|$dk|$type')) return true;
+      }
+      return false;
     }
 
     // ═══ Late/early penalties from PenaltySetting (API: lateMinutes1/latePenalty1…) ═══
@@ -1594,11 +1746,11 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
     if (hasLateTiers || hasEarlyTiers) {
       for (final r in shiftRecords) {
         if (_isHoliday(r.date) || _isWeekend(r.date)) continue;
-        if (hasLateTiers) {
+        if (hasLateTiers && !hasTicket('Late', r.date)) {
           latePenaltyTotal += tierAmount(
               r.lateMinutes, lateMin1, lateMin2, lateMin3, latePen1, latePen2, latePen3);
         }
-        if (hasEarlyTiers) {
+        if (hasEarlyTiers && !hasTicket('EarlyLeave', r.date)) {
           latePenaltyTotal += tierAmount(
               r.earlyMinutes, earlyMin1, earlyMin2, earlyMin3, earlyPen1, earlyPen2, earlyPen3);
         }
@@ -1608,10 +1760,41 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
       final double penaltyPerLate = _toDouble(_penaltySettings['lateDeduction']);
       final double penaltyPerEarly =
           _toDouble(_penaltySettings['earlyLeaveDeduction']);
+      var lateCountAdj = lateCount;
+      var earlyCountAdj = earlyCount;
+      // Approximate: if any Late tickets exist for emp, prefer tickets over flat count.
+      final hasAnyLateTicket = _penaltyTickets.any((t) {
+        final st = t['status']?.toString() ?? '';
+        if (st == 'Cancelled') return false;
+        final tid = t['employeeId']?.toString() ?? '';
+        final type = t['type']?.toString() ?? '';
+        return type == 'Late' && (tid == empId || tid == empCode);
+      });
+      final hasAnyEarlyTicket = _penaltyTickets.any((t) {
+        final st = t['status']?.toString() ?? '';
+        if (st == 'Cancelled') return false;
+        final tid = t['employeeId']?.toString() ?? '';
+        final type = t['type']?.toString() ?? '';
+        return type == 'EarlyLeave' && (tid == empId || tid == empCode);
+      });
+      if (hasAnyLateTicket) lateCountAdj = 0;
+      if (hasAnyEarlyTicket) earlyCountAdj = 0;
       latePenaltyTotal =
-          (penaltyPerLate * lateCount) + (penaltyPerEarly * earlyCount);
+          (penaltyPerLate * lateCountAdj) + (penaltyPerEarly * earlyCountAdj);
     }
-    latePenaltyTotal += unauthorizedLeavePenalty * absentDays;
+    // Vắng: chỉ tính setting nếu ngày đó chưa có phiếu UnauthorizedLeave.
+    if (unauthorizedLeavePenalty > 0 && absentDays > 0) {
+      var absentAdj = absentDays;
+      final unauthorizedTicketDays = _penaltyTickets.where((t) {
+        final st = t['status']?.toString() ?? '';
+        if (st == 'Cancelled') return false;
+        final tid = t['employeeId']?.toString() ?? '';
+        final type = t['type']?.toString() ?? '';
+        return type == 'UnauthorizedLeave' && (tid == empId || tid == empCode);
+      }).length;
+      absentAdj = (absentAdj - unauthorizedTicketDays).clamp(0, absentDays);
+      latePenaltyTotal += unauthorizedLeavePenalty * absentAdj;
+    }
 
     // ═══ Insurance (BHXH, BHYT, BHTN, Đoàn phí) ═══
     // Use correct field names from InsuranceSetting entity (camelCase from C#)
@@ -1648,9 +1831,9 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
     final double taxableIncome = grossIncome - totalInsurance;
     double pit = 0;
     final double personalDeduction =
-        _toDouble(_taxSettings['personalDeduction'], 11000000);
+        _toDouble(_taxSettings['personalDeduction'], PitTaxDefaults.personalDeduction);
     final double dependentDeduction =
-        _toDouble(_taxSettings['dependentDeduction'], 4400000);
+        _toDouble(_taxSettings['dependentDeduction'], PitTaxDefaults.dependentDeduction);
 
     // Get dependents from employee tax deductions
     int dependents = 0;
@@ -1794,7 +1977,9 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
       'earlyMinutes': earlyMinutes,
       'absentDays': absentDays,
       'baseSalary': baseSalary,
-      'completionSalary': completionSalary,
+      // Cột bảng = số đã tính theo công (khớp Tổng lương). Mức cấu hình xem chi tiết.
+      'completionSalary': completionSalaryEarned,
+      'completionSalaryConfigured': completionSalary,
       'completionSalaryEarned': completionSalaryEarned,
       'dailySalary': dailySalary,
       'shiftSalary': shiftSalary,
@@ -1810,7 +1995,8 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
       'otherAllowance': 0,
       'totalAllowance': totalAllowance,
       'bonus': bonusTotal,
-      'penalty': penaltyTotal,
+      'penalty': penaltyTotal + latePenaltyTotal,
+      'penaltyTransactions': penaltyTotal,
       'kpiSalary': kpiSalaryAmount,
       'productionAmount': productionAmount,
       'commission': commissionAmount,
@@ -1865,33 +2051,9 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
     return commission;
   }
 
-  // ──────── PIT calculation (progressive tax Vietnam) ────────
+  // ──────── PIT calculation (biểu thuế từ thiết lập cửa hàng) ────────
   double _calculatePIT(double taxableIncome) {
-    // Vietnamese progressive PIT rates
-    if (taxableIncome <= 0) return 0;
-    double tax = 0;
-    double remaining = taxableIncome;
-
-    final brackets = [
-      [5000000.0, 0.05],
-      [5000000.0, 0.10],
-      [8000000.0, 0.15],
-      [14000000.0, 0.20],
-      [20000000.0, 0.25],
-      [28000000.0, 0.30],
-      [double.infinity, 0.35],
-    ];
-
-    for (final bracket in brackets) {
-      final limit = bracket[0];
-      final rate = bracket[1];
-      if (remaining <= 0) break;
-      final taxable = remaining > limit ? limit : remaining;
-      tax += taxable * rate;
-      remaining -= taxable;
-    }
-
-    return tax;
+    return calculateProgressivePit(taxableIncome, _taxSettings);
   }
 
   // ──────── Build payroll rows ────────
@@ -2117,7 +2279,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
           skipped.add(row['name']?.toString() ?? code);
           continue;
         }
-        final penalty = _toDouble(row['penalty']) + _toDouble(row['latePenalty']);
+        final penalty = _toDouble(row['penalty']);
         final advance = _toDouble(row['advance']);
         final unionFee = _toDouble(row['unionFeePart']);
         final rateType = _toInt(row['rateType'], 1);
@@ -3127,7 +3289,9 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
           _detailRow('Lương cơ bản', _fmtCurrency(row['baseSalary'])),
           _detailRow('Lương theo công', _fmtCurrency(row['workSalary'])),
           _detailRow(
-              'Lương hoàn thành (mức tháng)', _fmtCurrency(row['completionSalary'])),
+              'Lương hoàn thành (mức tháng)',
+              _fmtCurrency(row['completionSalaryConfigured'] ??
+                  row['completionSalary'])),
           _detailRow('Lương HT theo công',
               _fmtCurrency(row['completionSalaryEarned'])),
           _detailRow('Lương theo ngày', _fmtCurrency(row['dailySalary'])),
@@ -3145,9 +3309,11 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
           _detailRow('Thưởng', _fmtCurrency(row['bonus']), color: Colors.green),
         ]),
         _detailSection('Khấu trừ', [
-          _detailRow('Phạt giao dịch', _fmtDeduction(row['penalty']),
+          _detailRow('Phạt giao dịch', _fmtDeduction(row['penaltyTransactions'] ?? row['penalty']),
               color: Colors.red),
-          _detailRow('Phạt đi trễ', _fmtDeduction(row['latePenalty']),
+          _detailRow('Phạt đi trễ / vắng', _fmtDeduction(row['latePenalty']),
+              color: Colors.red),
+          _detailRow('Tổng phạt', _fmtDeduction(row['penalty']),
               color: Colors.red),
           _detailRow('Mức đóng bảo hiểm', _fmtCurrency(row['insuranceSalary'])),
           _detailRow('BHXH (${(_insuranceSettings['bhxhEmployeeRate'] ?? 8)}%)',
@@ -4062,11 +4228,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
     final totalBonus = data.fold<double>(
         0, (s, r) => s + ((r['bonus'] as num?) ?? 0).toDouble());
     final totalPenalty = data.fold<double>(
-        0,
-        (s, r) =>
-            s +
-            ((r['penalty'] as num?) ?? 0).toDouble() +
-            ((r['latePenalty'] as num?) ?? 0).toDouble());
+        0, (s, r) => s + ((r['penalty'] as num?) ?? 0).toDouble());
     final totalIns = data.fold<double>(
         0, (s, r) => s + ((r['totalInsurance'] as num?) ?? 0).toDouble());
     final totalAdv = data.fold<double>(

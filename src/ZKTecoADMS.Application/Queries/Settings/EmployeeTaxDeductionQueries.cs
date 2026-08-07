@@ -15,9 +15,10 @@ public class GetEmployeeTaxDeductionsHandler(
     {
         try
         {
-            // Get only active employees belonging to this store and managed by current user
+            // Tất cả NV đang làm việc của cửa hàng (không lọc ManagerId —
+            // admin/HR cần thấy đủ danh sách để khai NPT).
             var employees = await employeeRepository.GetAllAsync(
-                filter: e => e.StoreId == request.StoreId && e.WorkStatus == EmployeeWorkStatus.Active && e.ManagerId == request.UserId,
+                filter: e => e.StoreId == request.StoreId && e.WorkStatus == EmployeeWorkStatus.Active,
                 cancellationToken: cancellationToken);
 
             // Get existing deduction records for this store

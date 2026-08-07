@@ -103,11 +103,11 @@ public class SettingsController(IMediator mediator, ZKTecoDbContext dbContext) :
         await UpsertStoreSettingAsync(storeId.Value, "work_end_time",
             request.WorkEndTime ?? "18:00", "Giờ ra ca mặc định");
         await UpsertStoreSettingAsync(storeId.Value, "overtime_rate",
-            request.OvertimeRate?.ToString() ?? "1.5", "Hệ số tăng ca ngày thường");
+            (request.OvertimeRate ?? 1.5).ToString(CultureInfo.InvariantCulture), "Hệ số tăng ca ngày thường");
         await UpsertStoreSettingAsync(storeId.Value, "weekend_rate",
-            request.WeekendRate?.ToString() ?? "2.0", "Hệ số tăng ca cuối tuần");
+            (request.WeekendRate ?? 2.0).ToString(CultureInfo.InvariantCulture), "Hệ số tăng ca cuối tuần / ngày nghỉ");
         await UpsertStoreSettingAsync(storeId.Value, "holiday_rate",
-            request.HolidayRate?.ToString() ?? "3.0", "Hệ số tăng ca ngày lễ");
+            (request.HolidayRate ?? 3.0).ToString(CultureInfo.InvariantCulture), "Hệ số tăng ca ngày lễ");
         if (!string.IsNullOrWhiteSpace(request.TravelSalaryMode))
         {
             await UpsertStoreSettingAsync(storeId.Value, "travel_salary_mode",
@@ -171,7 +171,10 @@ public class SettingsController(IMediator mediator, ZKTecoDbContext dbContext) :
     };
 
     private static double ParseDouble(IReadOnlyDictionary<string, string?> map, string key, double fallback) =>
-        map.TryGetValue(key, out var v) && double.TryParse(v, out var d) ? d : fallback;
+        map.TryGetValue(key, out var v) &&
+        double.TryParse(v, NumberStyles.Any, CultureInfo.InvariantCulture, out var d)
+            ? d
+            : fallback;
 
     private static int ParseInt(IReadOnlyDictionary<string, string?> map, string key, int fallback) =>
         map.TryGetValue(key, out var v) && int.TryParse(v, out var i) ? i : fallback;
@@ -368,7 +371,9 @@ public class SettingsController(IMediator mediator, ZKTecoDbContext dbContext) :
             request.EmployeeId,
             request.NumberOfDependents,
             request.MandatoryInsurance,
-            request.OtherExemptions);
+            request.OtherExemptions,
+            request.DependentRegistrationFormUrl,
+            request.DependentDocumentsJson);
 
         var result = await mediator.Send(command);
         return Ok(result);

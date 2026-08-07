@@ -101,6 +101,15 @@ public class PosProduct : AuditableEntity<Guid>
     /// <summary>Làm tròn phút (vd 15 → mỗi 15 phút).</summary>
     public int? BillRoundMinutes { get; set; }
 
+    /// <summary>Phút đầu miễn / không tính (vd 5–10 bi-a).</summary>
+    public int? GraceMinutes { get; set; }
+
+    /// <summary>
+    /// Chỉ áp BillRoundMinutes khi thời lượng thực (trước grace) vượt ngưỡng này.
+    /// Null/0 = luôn làm tròn khi có BillRoundMinutes.
+    /// </summary>
+    public int? RoundAfterMinutes { get; set; }
+
     /// <summary>Thời lượng mặc định khi thêm vào giỏ (phút).</summary>
     public int? DefaultDurationMinutes { get; set; }
 

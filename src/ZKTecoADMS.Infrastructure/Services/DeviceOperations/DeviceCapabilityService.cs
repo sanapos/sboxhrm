@@ -28,6 +28,20 @@ public class DeviceCapabilityService(
                 "[Capability] Assigned profile {Profile} for SN={SN} Platform={Platform} FW={FW}",
                 profile, device.SerialNumber, info.Platform, info.FirmwareVersion);
         }
+        else
+        {
+            // Sửa PullDeny gắn nhầm (SN 131* + ZLM60/8300) → profile đúng.
+            var resolved = AdmsEngineProfiles.ResolveProfile(info.Platform, info.FirmwareVersion, device.SerialNumber);
+            if (string.Equals(info.EngineProfile, AdmsEngineProfiles.PullDeny, StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(resolved, AdmsEngineProfiles.PullDeny, StringComparison.OrdinalIgnoreCase))
+            {
+                AdmsEngineProfiles.ApplyProfileDefaults(info, resolved);
+                await deviceInfoRepository.AddOrUpdateAsync(info);
+                logger.LogInformation(
+                    "[Capability] Corrected PullDeny→{Profile} for SN={SN} Platform={Platform} FW={FW}",
+                    resolved, device.SerialNumber, info.Platform, info.FirmwareVersion);
+            }
+        }
 
         return info;
     }
@@ -63,10 +77,13 @@ public class DeviceCapabilityService(
             info.DevSupportData = platform;
 
         var profile = AdmsEngineProfiles.ResolveProfile(info.Platform, info.FirmwareVersion, device.SerialNumber);
-        // Do not overwrite a learned PullDeny with Default when SN pattern still says PullDeny
+        // Do not overwrite a learned PullDeny with Default when SN pattern still says PullDeny.
+        // Nhưng phải sửa PullDeny gắn nhầm (SN 131* + ZLM60/Ver6 → TftLegacy).
         if (string.IsNullOrWhiteSpace(info.EngineProfile)
             || info.EngineProfile == AdmsEngineProfiles.Default
-            || profile == AdmsEngineProfiles.PullDeny)
+            || profile == AdmsEngineProfiles.PullDeny
+            || (string.Equals(info.EngineProfile, AdmsEngineProfiles.PullDeny, StringComparison.OrdinalIgnoreCase)
+                && profile != AdmsEngineProfiles.PullDeny))
         {
             AdmsEngineProfiles.ApplyProfileDefaults(info, profile);
         }

@@ -6,7 +6,14 @@ namespace ZKTecoADMS.Api.Controllers;
 /// <summary>Tính phút / số lượng cho dịch vụ theo giờ.</summary>
 public static class PosServiceBillingHelper
 {
-    public static int CalcElapsedMinutes(DateTime startedAt, DateTime? endedAt)
+    /// <summary>
+    /// Phút sử dụng thực = (end − start) − pause đã cộng − pause đang mở (PausedAt → end).
+    /// </summary>
+    public static int CalcElapsedMinutes(
+        DateTime startedAt,
+        DateTime? endedAt,
+        int accumulatedPauseMinutes = 0,
+        DateTime? pausedAt = null)
     {
         // timestamp without time zone thường mất Kind — coi là UTC nếu Unspecified.
         var start = startedAt.Kind == DateTimeKind.Unspecified
@@ -17,24 +24,61 @@ public static class PosServiceBillingHelper
             ? DateTime.SpecifyKind(endRaw, DateTimeKind.Utc)
             : endRaw.ToUniversalTime();
         if (end < start) return 0;
-        return (int)Math.Ceiling((end - start).TotalMinutes);
+
+        var raw = (int)Math.Ceiling((end - start).TotalMinutes);
+        var pause = Math.Max(0, accumulatedPauseMinutes);
+        if (pausedAt.HasValue)
+        {
+            var pauseStart = pausedAt.Value.Kind == DateTimeKind.Unspecified
+                ? DateTime.SpecifyKind(pausedAt.Value, DateTimeKind.Utc)
+                : pausedAt.Value.ToUniversalTime();
+            if (pauseStart < end)
+                pause += (int)Math.Max(0, (end - pauseStart).TotalMinutes);
+        }
+
+        return Math.Max(0, raw - pause);
+    }
+
+    /// <summary>Chốt pause đang mở vào Accumulated trước khi đóng phiên / tính tiền.</summary>
+    public static void FinalizeOpenPause(PosResourceSession session, DateTime? endedAt = null)
+    {
+        if (!session.PausedAt.HasValue) return;
+        var end = endedAt ?? DateTime.UtcNow;
+        var pauseStart = session.PausedAt.Value.Kind == DateTimeKind.Unspecified
+            ? DateTime.SpecifyKind(session.PausedAt.Value, DateTimeKind.Utc)
+            : session.PausedAt.Value.ToUniversalTime();
+        var endUtc = end.Kind == DateTimeKind.Unspecified
+            ? DateTime.SpecifyKind(end, DateTimeKind.Utc)
+            : end.ToUniversalTime();
+        if (endUtc > pauseStart)
+            session.AccumulatedPauseMinutes += (int)Math.Max(0, (endUtc - pauseStart).TotalMinutes);
+        session.PausedAt = null;
     }
 
     public static int CalcBillableMinutes(
         int elapsedMinutes,
         PosServiceBillingMode mode,
         int? minBillMinutes,
-        int? billRoundMinutes)
+        int? billRoundMinutes,
+        int? graceMinutes = null,
+        int? roundAfterMinutes = null)
     {
         if (mode is PosServiceBillingMode.Flat or PosServiceBillingMode.PerSession)
             return Math.Max(0, elapsedMinutes);
 
-        var minutes = Math.Max(0, elapsedMinutes);
+        var raw = Math.Max(0, elapsedMinutes);
+        var grace = graceMinutes is > 0 ? graceMinutes.Value : 0;
+        var minutes = Math.Max(0, raw - grace);
+
         var min = minBillMinutes is > 0 ? minBillMinutes.Value : 0;
         if (minutes < min) minutes = min;
 
         var round = billRoundMinutes is > 0 ? billRoundMinutes.Value : 0;
-        if (round > 0 && minutes > 0)
+        var roundAfter = roundAfterMinutes is > 0 ? roundAfterMinutes.Value : 0;
+        // Làm tròn block chỉ khi thời lượng thực vượt ngưỡng (hoặc không cấu hình ngưỡng).
+        var applyRound = round > 0 && minutes > 0
+            && (roundAfter <= 0 || raw > roundAfter);
+        if (applyRound)
         {
             var blocks = (int)Math.Ceiling(minutes / (double)round);
             minutes = blocks * round;

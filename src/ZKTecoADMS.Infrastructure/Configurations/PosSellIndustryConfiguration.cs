@@ -91,7 +91,16 @@ public class PosResourceReservationConfiguration : IEntityTypeConfiguration<PosR
         builder.Property(x => x.Phone).HasMaxLength(30);
         builder.Property(x => x.Note).HasMaxLength(500);
         builder.Property(x => x.PreOrderJson).HasColumnType("text");
+        builder.Property(x => x.DepositAmount).HasPrecision(18, 2);
+        builder.Property(x => x.DepositPaid).HasPrecision(18, 2);
+        builder.Property(x => x.DepositPaymentMethod).HasMaxLength(50);
         builder.HasIndex(x => new { x.StoreId, x.ResourceId, x.Status });
+        builder.HasIndex(x => new { x.StoreId, x.Status, x.ReservedUntil });
+        builder.HasIndex(x => new { x.StoreId, x.AssignedEmployeeId, x.Status, x.ReservedAt });
+        builder.HasOne(x => x.ServiceProduct).WithMany().HasForeignKey(x => x.ServiceProductId)
+            .OnDelete(DeleteBehavior.SetNull);
+        builder.HasOne(x => x.AssignedEmployee).WithMany().HasForeignKey(x => x.AssignedEmployeeId)
+            .OnDelete(DeleteBehavior.SetNull);
         builder.HasOne(x => x.Store).WithMany().HasForeignKey(x => x.StoreId).OnDelete(DeleteBehavior.Cascade);
         builder.HasOne(x => x.Resource).WithMany().HasForeignKey(x => x.ResourceId)
             .OnDelete(DeleteBehavior.Restrict);

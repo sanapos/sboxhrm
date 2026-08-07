@@ -69,6 +69,8 @@ public partial class PosProductsController(
         string ServiceBillingMode = "Flat",
         int? MinBillMinutes = null,
         int? BillRoundMinutes = null,
+        int? GraceMinutes = null,
+        int? RoundAfterMinutes = null,
         int? DefaultDurationMinutes = null,
         int SessionPackCount = 0,
         bool IsTopping = false,
@@ -137,6 +139,8 @@ public partial class PosProductsController(
         PosServiceBillingMode ServiceBillingMode = PosServiceBillingMode.Flat,
         int? MinBillMinutes = null,
         int? BillRoundMinutes = null,
+        int? GraceMinutes = null,
+        int? RoundAfterMinutes = null,
         int? DefaultDurationMinutes = null,
         int SessionPackCount = 0,
         bool IsTopping = false,
@@ -578,6 +582,8 @@ public partial class PosProductsController(
                 : PosServiceBillingMode.Flat,
             MinBillMinutes = dto.MinBillMinutes,
             BillRoundMinutes = dto.BillRoundMinutes,
+            GraceMinutes = dto.GraceMinutes,
+            RoundAfterMinutes = dto.RoundAfterMinutes,
             DefaultDurationMinutes = dto.DefaultDurationMinutes,
             SessionPackCount = Math.Max(0, dto.SessionPackCount),
             IsTopping = dto.IsTopping,
@@ -688,6 +694,8 @@ public partial class PosProductsController(
             : PosServiceBillingMode.Flat;
         entity.MinBillMinutes = dto.MinBillMinutes;
         entity.BillRoundMinutes = dto.BillRoundMinutes;
+        entity.GraceMinutes = dto.GraceMinutes;
+        entity.RoundAfterMinutes = dto.RoundAfterMinutes;
         entity.DefaultDurationMinutes = dto.DefaultDurationMinutes;
         entity.SessionPackCount = Math.Max(0, dto.SessionPackCount);
         entity.IsTopping = dto.IsTopping;
@@ -957,6 +965,7 @@ public partial class PosProductsController(
             p.DefaultPrinterId, p.DefaultPrinter?.Name,
             p.WarrantyMonths, p.RequiresSerial, p.TrackExpiry, p.ExpiryWarningDays,
             p.ServiceBillingMode.ToString(), p.MinBillMinutes, p.BillRoundMinutes,
+            p.GraceMinutes, p.RoundAfterMinutes,
             p.DefaultDurationMinutes, p.SessionPackCount,
             p.IsTopping, p.AllowToppings, p.AutoOpenToppingPopup, toppingOpts,
             groupIds, toppingGroups);
@@ -1187,6 +1196,8 @@ public partial class PosProductsController(
             entity.ServiceBillingMode = PosServiceBillingMode.Flat;
             entity.MinBillMinutes = null;
             entity.BillRoundMinutes = null;
+            entity.GraceMinutes = null;
+            entity.RoundAfterMinutes = null;
             entity.DefaultDurationMinutes = null;
             entity.SessionPackCount = Math.Max(0, entity.SessionPackCount);
         }
@@ -1196,6 +1207,8 @@ public partial class PosProductsController(
             entity.ServiceBillingMode = PosServiceBillingMode.Flat;
             entity.MinBillMinutes = null;
             entity.BillRoundMinutes = null;
+            entity.GraceMinutes = null;
+            entity.RoundAfterMinutes = null;
             entity.DefaultDurationMinutes = null;
             entity.SessionPackCount = Math.Max(0, entity.SessionPackCount);
         }

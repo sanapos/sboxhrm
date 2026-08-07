@@ -59,6 +59,9 @@ public class CreateBenefitCommand : ICommand<AppResponse<BenefitDto>>
     public string? PaidLeaveType { get; set; }
     public string? TravelSalaryMode { get; set; }
     public decimal? TravelFixedHourlyRate { get; set; }
+    public bool? ApplyLateEarlyOnRestDayOt { get; set; }
+    public bool? RestDayOtHoursOnly { get; set; }
+    public string? OvertimeHourlyBaseMode { get; set; }
     public string? StandardWorkMode { get; set; }
     public int? FixedStandardWorkDays { get; set; }
     public bool? DeductIfBelowFixedStandard { get; set; }

@@ -14,6 +14,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "gateway.h"
+#include "device_api.h"
 #include "wifi_mgr.h"
 
 static const char *TAG = "web";
@@ -85,14 +86,15 @@ static esp_err_t status_get(httpd_req_t *req)
     const esp_app_desc_t *app = esp_app_get_description();
     int64_t uptime_s = esp_timer_get_time() / 1000000;
 
-    char *json = malloc(1024);
+    char *json = malloc(1152);
     if (json == NULL) {
         return httpd_resp_send_500(req);
     }
 
-    snprintf(json, 1024,
+    snprintf(json, 1152,
              "{\"wifi\":{\"connected\":%s,\"ip\":\"%s\",\"rssi\":%d,\"ap\":%s,\"apSsid\":\"%s\"},"
-             "\"device\":{\"online\":%s,\"serial\":\"%s\",\"firmware\":\"%s\",\"platform\":\"%s\","
+             "\"device\":{\"online\":%s,\"serial\":\"%s\",\"detectedSerial\":\"%s\","
+             "\"effectiveSerial\":\"%s\",\"firmware\":\"%s\",\"platform\":\"%s\","
              "\"users\":%u,\"fingers\":%u,\"records\":%u},"
              "\"server\":{\"online\":%s},"
              "\"sync\":{\"uploadedTotal\":%u,\"uploadedLast\":%u,\"commands\":%u,"
@@ -101,7 +103,9 @@ static esp_err_t status_get(httpd_req_t *req)
              "\"resetReason\":\"%s\",\"version\":\"%s\"}",
              wifi_mgr_is_connected() ? "true" : "false", wifi_mgr_sta_ip(),
              wifi_mgr_rssi(), wifi_mgr_ap_active() ? "true" : "false", wifi_mgr_ap_ssid(),
-             st.device_online ? "true" : "false", st.serial, st.firmware, st.platform,
+             st.device_online ? "true" : "false", st.serial,
+             app_config_detected_serial(), app_config_effective_serial(),
+             st.firmware, st.platform,
              (unsigned)st.dev_users, (unsigned)st.dev_fingers, (unsigned)st.dev_records,
              st.server_online ? "true" : "false",
              (unsigned)st.uploaded_total, (unsigned)st.uploaded_last, (unsigned)st.commands_done,
@@ -119,15 +123,17 @@ static esp_err_t config_get(httpd_req_t *req)
 {
     const app_config_t *cfg = app_config_get();
 
-    char json[832];
+    char json[960];
     snprintf(json, sizeof(json),
              "{\"gwName\":\"%s\",\"wifiSsid\":\"%s\",\"hasWifiPass\":%s,\"deviceIp\":\"%s\","
              "\"devicePort\":%u,"
-             "\"commKey\":%u,\"serverUrl\":\"%s\",\"snOverride\":\"%s\",\"pollInterval\":%u,"
+             "\"commKey\":%u,\"serverUrl\":\"%s\",\"snOverride\":\"%s\",\"detectedSerial\":\"%s\","
+             "\"effectiveSerial\":\"%s\",\"pollInterval\":%u,"
              "\"attlogInterval\":%u,\"backfillDays\":%u,\"tzOffset\":%d,\"syncClock\":%s}",
              cfg->gw_name, cfg->wifi_ssid, cfg->wifi_pass[0] != '\0' ? "true" : "false",
              cfg->device_ip, cfg->device_port, (unsigned)cfg->comm_key, cfg->server_url,
-             cfg->sn_override, cfg->poll_interval_s, cfg->attlog_interval_s,
+             cfg->sn_override, app_config_detected_serial(), app_config_effective_serial(),
+             cfg->poll_interval_s, cfg->attlog_interval_s,
              cfg->backfill_days, cfg->tz_offset_h, cfg->sync_device_clock ? "true" : "false");
 
     return send_json(req, json);
@@ -203,6 +209,7 @@ static esp_err_t config_post(httpd_req_t *req)
     }
 
     app_config_t cfg = *app_config_get();
+    const app_config_t old_cfg = cfg;
     char old_ssid[CFG_STR_LEN];
     char old_pass[CFG_STR_LEN];
     strlcpy(old_ssid, cfg.wifi_ssid, sizeof(old_ssid));
@@ -248,6 +255,18 @@ static esp_err_t config_post(httpd_req_t *req)
     if (err != ESP_OK) {
         httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "khong luu duoc cau hinh");
         return ESP_FAIL;
+    }
+
+    bool device_changed = app_config_device_target_changed(&old_cfg, &cfg);
+    if (device_changed) {
+        app_config_clear_detected_serial();
+        app_config_reset_mark();
+        gateway_request_identify();
+        gateway_request_full_resync();
+        gateway_request_user_sync();
+        gateway_clear_device_identity();
+        ESP_LOGW(TAG, "doi may cham cong %s:%u -> %s:%u, doc lai SN",
+                 old_cfg.device_ip, old_cfg.device_port, cfg.device_ip, cfg.device_port);
     }
 
     bool wifi_changed = strcmp(old_ssid, cfg.wifi_ssid) != 0 || strcmp(old_pass, cfg.wifi_pass) != 0;
@@ -313,6 +332,8 @@ static esp_err_t action_post(httpd_req_t *req)
     } else if (strcmp(what, "resetmark") == 0) {
         app_config_reset_mark();
         gateway_request_full_resync();
+    } else if (strcmp(what, "identify") == 0) {
+        gateway_request_identify();
     } else if (strcmp(what, "reboot") == 0) {
         xTaskCreate(reboot_task, "reboot", 2048, NULL, 5, NULL);
     } else {
@@ -377,7 +398,7 @@ static esp_err_t ota_post(httpd_req_t *req)
 esp_err_t web_portal_start(void)
 {
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
-    config.max_uri_handlers = 12;
+    config.max_uri_handlers = 22;
     config.stack_size = 6144;
     config.lru_purge_enable = true;
     config.recv_wait_timeout = 20;
@@ -404,6 +425,8 @@ esp_err_t web_portal_start(void)
     for (size_t i = 0; i < sizeof(routes) / sizeof(routes[0]); i++) {
         httpd_register_uri_handler(server, &routes[i]);
     }
+
+    device_api_register(server);
 
     ESP_LOGI(TAG, "trang cau hinh da san sang");
     return ESP_OK;

@@ -32,6 +32,18 @@ public class EmployeeTaxDeduction : Entity<Guid>
     public decimal OtherExemptions { get; set; }
 
     /// <summary>
+    /// URL phiếu đăng ký người phụ thuộc (PDF/ảnh).
+    /// </summary>
+    [MaxLength(1000)]
+    public string? DependentRegistrationFormUrl { get; set; }
+
+    /// <summary>
+    /// JSON danh sách hồ sơ giấy tờ NPT:
+    /// [{ "fileName", "url", "note", "uploadedAt" }]
+    /// </summary>
+    public string? DependentDocumentsJson { get; set; }
+
+    /// <summary>
     /// Cửa hàng
     /// </summary>
     public Guid? StoreId { get; set; }

@@ -2817,6 +2817,42 @@ class ApiService {
     }
   }
 
+  /// Quản lý bổ sung cặp chấm đi đường (đã duyệt).
+  /// [existingStartRecordId] / [existingArriveRecordId]: gắn vào phiếu thiếu, không tạo trùng.
+  Future<Map<String, dynamic>> createManualTravelAttendance({
+    required String employeeId,
+    required DateTime startTime,
+    required DateTime arriveTime,
+    String? note,
+    String? existingStartRecordId,
+    String? existingArriveRecordId,
+  }) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/api/mobile-attendance/manual-travel'),
+            headers: _headers,
+            body: json.encode({
+              'employeeId': employeeId,
+              'startTime': startTime.toIso8601String(),
+              'arriveTime': arriveTime.toIso8601String(),
+              if (note != null && note.isNotEmpty) 'note': note,
+              if (existingStartRecordId != null &&
+                  existingStartRecordId.isNotEmpty)
+                'existingStartRecordId': existingStartRecordId,
+              if (existingArriveRecordId != null &&
+                  existingArriveRecordId.isNotEmpty)
+                'existingArriveRecordId': existingArriveRecordId,
+            }),
+          )
+          .timeout(const Duration(seconds: 20));
+      return _handleResponse(response);
+    } catch (e) {
+      debugPrint('Error creating manual travel attendance: $e');
+      return _connectionFailure(e);
+    }
+  }
+
   Future<Map<String, dynamic>> deleteMobileAttendanceRecord(
       String recordId) async {
     try {
@@ -4366,6 +4402,9 @@ class ApiService {
     DateTime? fromDate,
     DateTime? toDate,
     String? status,
+    /// Comma-separated punch types, e.g. "2,3" for travel.
+    String? punchTypes,
+    int? pageSize,
   }) async {
     try {
       final queryParams = <String, String>{};
@@ -4375,6 +4414,12 @@ class ApiService {
       }
       if (toDate != null) queryParams['toDate'] = toDate.toIso8601String();
       if (status != null) queryParams['status'] = status;
+      if (punchTypes != null && punchTypes.trim().isNotEmpty) {
+        queryParams['punchTypes'] = punchTypes.trim();
+      }
+      if (pageSize != null && pageSize > 0) {
+        queryParams['pageSize'] = pageSize.toString();
+      }
 
       final uri = Uri.parse('$baseUrl/api/mobile-attendance/history').replace(
           queryParameters: queryParams.isNotEmpty ? queryParams : null);
@@ -5819,13 +5864,14 @@ class ApiService {
 
       final ext = fileName.toLowerCase().split('.').last;
       final mimeTypes = {
+        'pdf': 'application/pdf',
         'jpg': 'image/jpeg',
         'jpeg': 'image/jpeg',
         'png': 'image/png',
         'gif': 'image/gif',
         'webp': 'image/webp',
       };
-      final contentType = mimeTypes[ext] ?? 'image/jpeg';
+      final contentType = mimeTypes[ext] ?? 'application/octet-stream';
       final mediaParts = contentType.split('/');
 
       request.files.add(http.MultipartFile.fromBytes(

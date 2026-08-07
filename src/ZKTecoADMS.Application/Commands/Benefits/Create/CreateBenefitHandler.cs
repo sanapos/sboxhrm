@@ -21,6 +21,14 @@ public class CreateSalaryProfileHandler(
         var salaryProfile = request.Adapt<Benefit>();
         salaryProfile.StoreId = request.StoreId;
         salaryProfile.IsActive = true;
+        salaryProfile.ApplyLateEarlyOnRestDayOt =
+            request.ApplyLateEarlyOnRestDayOt ?? true;
+        salaryProfile.RestDayOtHoursOnly = request.RestDayOtHoursOnly ?? false;
+        if (!string.IsNullOrWhiteSpace(request.OvertimeHourlyBaseMode))
+        {
+            salaryProfile.OvertimeHourlyBaseMode =
+                request.OvertimeHourlyBaseMode.Trim().ToLowerInvariant();
+        }
         if (!string.IsNullOrWhiteSpace(request.StandardWorkMode) &&
             Enum.TryParse<StandardWorkMode>(request.StandardWorkMode, ignoreCase: true, out var workMode))
         {

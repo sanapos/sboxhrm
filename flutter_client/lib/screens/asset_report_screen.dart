@@ -63,6 +63,7 @@ class _AssetReportScreenState extends State<AssetReportScreen>
   Map<String, dynamic> _warrantySummary = {};
   List<Map<String, dynamic>> _categories = [];
   List<Map<String, dynamic>> _inventories = [];
+  final _pngKey = GlobalKey();
 
   @override
   void initState() {
@@ -304,6 +305,14 @@ class _AssetReportScreenState extends State<AssetReportScreen>
     );
   }
 
+  Future<void> _exportPng() async {
+    await ClientPngExport.capture(
+      context: context,
+      key: _pngKey,
+      filePrefix: 'TaiSan',
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final canExport = context.watch<PermissionProvider>().canExport('AssetReport') ||
@@ -311,6 +320,13 @@ class _AssetReportScreenState extends State<AssetReportScreen>
 
     return RegisterPageTopActions(
       actions: [
+        if (canExport)
+          HrmTopBarAction(
+            icon: Icons.image_outlined,
+            label: 'Xuất PNG',
+            onPressed: _exportPng,
+            pinOnMobile: false,
+          ),
         if (canExport && _tabs.index == 1)
           HrmTopBarAction(
             icon: Icons.download,
@@ -331,46 +347,49 @@ class _AssetReportScreenState extends State<AssetReportScreen>
             child: _loading
                 ? const Center(
                     child: CircularProgressIndicator(color: _theme))
-                : !_useTableLayout
-                    ? _buildMobileBody()
-                    : Column(
-                    children: [
-                      _buildOverviewSection(),
-                      Material(
-                        color: Colors.white,
-                        child: TabBar(
-                          controller: _tabs,
-                          isScrollable: true,
-                          labelColor: _theme,
-                          unselectedLabelColor: Colors.grey[600],
-                          indicatorColor: _theme,
-                          tabAlignment: TabAlignment.start,
-                          tabs: [
-                            Tab(text: tr('Tổng hợp')),
-                            Tab(text: tr('Danh mục')),
-                            Tab(text: tr('Cấp phát')),
-                            Tab(text: tr('Chuyển giao')),
-                            Tab(text: tr('Nhập/xuất kho')),
-                            Tab(text: tr('Kiểm kê CL')),
-                            Tab(text: tr('Bảo hành')),
-                          ],
-                        ),
-                      ),
-                      Expanded(
-                        child: TabBarView(
-                                controller: _tabs,
-                                children: [
-                                  _buildSummaryTab(),
-                                  _buildRegisterTab(),
-                                  _buildAssignmentsTab(),
-                                  _buildTransfersTab(),
-                                  _buildStockLedgerTab(),
-                                  _buildInventoryVarianceTab(),
-                                  _buildWarrantyTab(),
-                                ],
+                : RepaintBoundary(
+                    key: _pngKey,
+                    child: !_useTableLayout
+                        ? _buildMobileBody()
+                        : Column(
+                            children: [
+                              _buildOverviewSection(),
+                              Material(
+                                color: Colors.white,
+                                child: TabBar(
+                                  controller: _tabs,
+                                  isScrollable: true,
+                                  labelColor: _theme,
+                                  unselectedLabelColor: Colors.grey[600],
+                                  indicatorColor: _theme,
+                                  tabAlignment: TabAlignment.start,
+                                  tabs: [
+                                    Tab(text: tr('Tổng hợp')),
+                                    Tab(text: tr('Danh mục')),
+                                    Tab(text: tr('Cấp phát')),
+                                    Tab(text: tr('Chuyển giao')),
+                                    Tab(text: tr('Nhập/xuất kho')),
+                                    Tab(text: tr('Kiểm kê CL')),
+                                    Tab(text: tr('Bảo hành')),
+                                  ],
+                                ),
                               ),
-                      ),
-                    ],
+                              Expanded(
+                                child: TabBarView(
+                                  controller: _tabs,
+                                  children: [
+                                    _buildSummaryTab(),
+                                    _buildRegisterTab(),
+                                    _buildAssignmentsTab(),
+                                    _buildTransfersTab(),
+                                    _buildStockLedgerTab(),
+                                    _buildInventoryVarianceTab(),
+                                    _buildWarrantyTab(),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
                   ),
           ),
         ],

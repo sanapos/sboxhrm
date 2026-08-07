@@ -5,7 +5,7 @@
 /* Giúp app điện thoại tìm thấy gateway trong mạng LAN mà không cần biết IP.
  *
  * Hai kênh song song vì mỗi kênh hỏng theo cách khác nhau:
- *  - mDNS: tên sbox-gateway-XXXX.local và dịch vụ _sboxgw._tcp. Gọn nhưng
+ *  - mDNS: tên sboxadms.local và dịch vụ _sboxgw._tcp. Gọn nhưng
  *    nhiều router/AP chặn multicast giữa các client.
  *  - Quảng bá UDP: app gửi "SBOX_DISCOVER" tới địa chỉ broadcast, thiết bị
  *    trả lời một dòng JSON. Chạy được cả khi mDNS bị chặn.

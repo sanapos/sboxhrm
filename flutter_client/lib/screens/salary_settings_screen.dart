@@ -19,6 +19,7 @@ import 'allowance_settings_screen.dart';
 import '../utils/allowance_calculator.dart';
 import '../utils/travel_salary_utils.dart';
 import '../utils/standard_work_days_utils.dart';
+import '../utils/overtime_hourly_base_utils.dart';
 import '../utils/shift_records_calculator.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
@@ -300,6 +301,233 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
   static String _salaryRateTypeKey(dynamic v) =>
       _parseSalaryRateType(v).toString();
 
+  double _storeOtRate(String key, double fallback) {
+    final v = _storeSalarySettings[key];
+    if (v is num && v > 0) return v.toDouble();
+    final parsed = double.tryParse(v?.toString().replaceAll(',', '.') ?? '');
+    return (parsed != null && parsed > 0) ? parsed : fallback;
+  }
+
+  double _toDoubleOr(dynamic v, double fallback) {
+    if (v is num && v > 0) return v.toDouble();
+    final parsed = double.tryParse(v?.toString().replaceAll(',', '.') ?? '');
+    return (parsed != null && parsed > 0) ? parsed : fallback;
+  }
+
+  Future<void> _showStoreOtRatesDialog() async {
+    final canEdit = Provider.of<PermissionProvider>(context, listen: false)
+        .canEdit('SalarySettings');
+    final weekdayCtrl = TextEditingController(
+      text: _formatOtRate(_storeOtRate('overtimeRate', 1.5)),
+    );
+    final weekendCtrl = TextEditingController(
+      text: _formatOtRate(_storeOtRate('weekendRate', 2.0)),
+    );
+    final holidayCtrl = TextEditingController(
+      text: _formatOtRate(_storeOtRate('holidayRate', 3.0)),
+    );
+
+    double parseRate(TextEditingController c, double fallback) {
+      final raw = c.text.trim().replaceAll(',', '.');
+      final v = double.tryParse(raw);
+      if (v == null || v <= 0) return fallback;
+      return v.clamp(1.0, 10.0);
+    }
+
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) {
+          return ScrollableAlertDialog(
+            title: Row(
+              children: [
+                Icon(Icons.tune, color: HrmPageChrome.primaryNavy, size: 22),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(tr('Hệ số tăng ca theo luật'),
+                      style: const TextStyle(
+                          fontSize: 17, fontWeight: FontWeight.w700)),
+                ),
+              ],
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  tr('Áp dụng khi hồ sơ NV chọn «Hệ số tăng ca theo luật». '
+                      'Tiền OT = giờ OT × lương giờ × hệ số.'),
+                  style: TextStyle(
+                      fontSize: 13, color: Colors.grey[700], height: 1.35),
+                ),
+                const SizedBox(height: 16),
+                _buildOtRateField(
+                  label: 'Ngày thường (làm thêm giờ)',
+                  hint: 'Luật VN: 1.5',
+                  controller: weekdayCtrl,
+                  enabled: canEdit,
+                ),
+                const SizedBox(height: 12),
+                _buildOtRateField(
+                  label: 'Ngày nghỉ / cuối tuần',
+                  hint: 'Luật VN: 2.0',
+                  controller: weekendCtrl,
+                  enabled: canEdit,
+                ),
+                const SizedBox(height: 12),
+                _buildOtRateField(
+                  label: 'Ngày lễ',
+                  hint: 'Luật VN: 3.0',
+                  controller: holidayCtrl,
+                  enabled: canEdit,
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                  ),
+                  child: Text(
+                    tr('Ví dụ: DN trả OT ngày thường ×1.5, ngày nghỉ ×2 → giữ '
+                        '1.5 và 2. Đổi hệ số ở đây áp dụng cả cửa hàng.'),
+                    style: TextStyle(
+                        fontSize: 12, color: Colors.grey[700], height: 1.35),
+                  ),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: Text(tr('Đóng')),
+              ),
+              if (canEdit)
+                FilledButton(
+                  onPressed: () => Navigator.pop(ctx, true),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: HrmPageChrome.primaryNavy,
+                  ),
+                  child: Text(tr('Lưu')),
+                ),
+            ],
+          );
+        },
+      ),
+    );
+
+    if (saved != true || !canEdit || !mounted) {
+      weekdayCtrl.dispose();
+      weekendCtrl.dispose();
+      holidayCtrl.dispose();
+      return;
+    }
+
+    final overtimeRate = parseRate(weekdayCtrl, 1.5);
+    final weekendRate = parseRate(weekendCtrl, 2.0);
+    final holidayRate = parseRate(holidayCtrl, 3.0);
+    weekdayCtrl.dispose();
+    weekendCtrl.dispose();
+    holidayCtrl.dispose();
+
+    try {
+      final payload = Map<String, dynamic>.from(_storeSalarySettings)
+        ..['overtimeRate'] = overtimeRate
+        ..['weekendRate'] = weekendRate
+        ..['holidayRate'] = holidayRate;
+      final resp = await _apiService.saveSalarySettings(payload);
+      if (resp['isSuccess'] == true) {
+        final data = resp['data'];
+        setState(() {
+          if (data is Map) {
+            _storeSalarySettings = Map<String, dynamic>.from(data);
+          } else {
+            _storeSalarySettings = payload;
+          }
+        });
+        if (mounted) {
+          NotificationOverlayManager().showSuccess(
+            title: 'Đã lưu',
+            message: tr(
+                'Hệ số TC: ngày thường ×$overtimeRate · ngày nghỉ ×$weekendRate · lễ ×$holidayRate'),
+          );
+        }
+      } else {
+        if (mounted) {
+          NotificationOverlayManager().showError(
+            title: 'Lỗi',
+            message: resp['message']?.toString() ?? 'Không lưu được hệ số tăng ca',
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        NotificationOverlayManager().showError(
+          title: 'Lỗi',
+          message: tr('$e'),
+        );
+      }
+    }
+  }
+
+  String _formatOtRate(double v) {
+    if (v == v.roundToDouble()) return v.toInt().toString();
+    return v.toStringAsFixed(2).replaceAll(RegExp(r'0+$'), '').replaceAll(RegExp(r'\.$'), '');
+  }
+
+  Widget _buildOtRateField({
+    required String label,
+    required String hint,
+    required TextEditingController controller,
+    required bool enabled,
+  }) {
+    return TextFormField(
+      controller: controller,
+      enabled: enabled,
+      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+      decoration: InputDecoration(
+        labelText: tr(label),
+        hintText: tr(hint),
+        suffixText: '×',
+        border: const OutlineInputBorder(),
+        isDense: true,
+      ),
+    );
+  }
+
+  Widget _buildStoreOtRatesHint() {
+    final w = _formatOtRate(_storeOtRate('overtimeRate', 1.5));
+    final e = _formatOtRate(_storeOtRate('weekendRate', 2.0));
+    final h = _formatOtRate(_storeOtRate('holidayRate', 3.0));
+    return InkWell(
+      onTap: _showStoreOtRatesDialog,
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          color: const Color(0xFFEFF6FF),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: const Color(0xFFBFDBFE)),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.info_outline, size: 16, color: Color(0xFF1D4ED8)),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                tr('Hệ số cửa hàng: ngày thường ×$w · ngày nghỉ ×$e · lễ ×$h. Chạm để sửa.'),
+                style: const TextStyle(
+                    fontSize: 12, color: Color(0xFF1E3A8A), height: 1.3),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isMobile = Responsive.isMobile(context);
@@ -335,6 +563,11 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
             showLabel: true,
             onPressed: () => _showAddEmployeeDialog(),
           ),
+        HrmTopBarAction(
+          icon: Icons.tune,
+          label: 'Hệ số TC',
+          onPressed: () => _showStoreOtRatesDialog(),
+        ),
       ],
       child: Scaffold(
       backgroundColor: HrmPageChrome.background,
@@ -2008,6 +2241,14 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                 (benefit?['hourlyOvertimeFixedRate'] as num?)?.toDouble() ??
                     0)));
       }
+      if ((benefit?['hourlyOvertimeType'] ?? 1).toString() == '1') {
+        widgets.add(_buildDetailItem(
+            'Đơn giá giờ TC theo',
+            overtimeHourlyBaseModeLabel(
+                benefit?['overtimeHourlyBaseMode']?.toString() ??
+                    benefit?['OvertimeHourlyBaseMode']?.toString() ??
+                    '')));
+      }
     } else if (salaryTypeKey == '2') {
       // Lương ngày
       widgets.add(_buildDetailItem(
@@ -2793,6 +3034,14 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
     final holidayOvertimeDailyRateController = TextEditingController(
         text: tr(_formatNumber(
             (benefit['holidayOvertimeDailyRate'] as num?)?.toDouble() ?? 0)));
+    bool applyLateEarlyOnRestDayOt =
+        benefit['applyLateEarlyOnRestDayOt'] != false &&
+            benefit['ApplyLateEarlyOnRestDayOt'] != false;
+    bool restDayOtHoursOnly = benefit['restDayOtHoursOnly'] == true ||
+        benefit['RestDayOtHoursOnly'] == true;
+    var overtimeHourlyBaseMode = parseOvertimeHourlyBaseMode(
+      benefit['overtimeHourlyBaseMode'] ?? benefit['OvertimeHourlyBaseMode'],
+    );
 
     // Hourly overtime
     String hourlyOvertimeType = (benefit['hourlyOvertimeType'] ?? 1).toString();
@@ -3075,6 +3324,49 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                                 keyboardType: TextInputType.number)),
                       ],
                     ],
+                  ),
+                  if (holidayOvertimeType == '1' || hourlyOvertimeType == '1') ...[
+                    const SizedBox(height: 8),
+                    _buildStoreOtRatesHint(),
+                  ],
+                  const SizedBox(height: 12),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    dense: true,
+                    title: Text(
+                      tr('Tính đi trễ / về sớm khi tăng ca ngày nghỉ'),
+                      style: const TextStyle(
+                          fontSize: 13, fontWeight: FontWeight.w600),
+                    ),
+                    subtitle: Text(
+                      tr(applyLateEarlyOnRestDayOt
+                          ? 'Bật: ngày nghỉ vẫn ghi nhận đi trễ/về sớm theo ca'
+                          : 'Tắt: ngày nghỉ chỉ tính giờ làm, không phạt trễ/sớm'),
+                      style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                    ),
+                    value: applyLateEarlyOnRestDayOt,
+                    activeThumbColor: HrmPageChrome.primaryNavy,
+                    onChanged: (v) =>
+                        setDialogState(() => applyLateEarlyOnRestDayOt = v),
+                  ),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    dense: true,
+                    title: Text(
+                      tr('Ngày nghỉ chỉ tính giờ tăng ca (không tính công)'),
+                      style: const TextStyle(
+                          fontSize: 13, fontWeight: FontWeight.w600),
+                    ),
+                    subtitle: Text(
+                      tr(restDayOtHoursOnly
+                          ? 'Bật: làm ngày nghỉ → giờ OT, công = 0'
+                          : 'Tắt: làm ngày nghỉ vẫn cộng công (nhân hệ số nếu theo luật)'),
+                      style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                    ),
+                    value: restDayOtHoursOnly,
+                    activeThumbColor: HrmPageChrome.primaryNavy,
+                    onChanged: (v) =>
+                        setDialogState(() => restDayOtHoursOnly = v),
                   ),
                   const SizedBox(height: 16),
 
@@ -3464,6 +3756,34 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                         completionSalaryController,
                         insuranceSalaryController),
                   ],
+                ],
+
+                // Đơn giá giờ OT khi chọn «hệ số theo luật» (mọi loại lương).
+                if (hourlyOvertimeType == '1') ...[
+                  const SizedBox(height: 8),
+                  _buildDropdownField(
+                    label: 'Đơn giá giờ tăng ca tính theo:',
+                    value: overtimeHourlyBaseMode,
+                    items: [
+                      DropdownMenuItem(
+                          value: OvertimeHourlyBaseModes.base,
+                          child: Text(tr('Lương cơ bản'))),
+                      DropdownMenuItem(
+                          value: OvertimeHourlyBaseModes.completion,
+                          child: Text(tr('Lương hoàn thành'))),
+                      DropdownMenuItem(
+                          value: OvertimeHourlyBaseModes.basePlusCompletion,
+                          child: Text(tr('Lương cơ bản + hoàn thành'))),
+                    ],
+                    onChanged: (value) => setDialogState(() =>
+                        overtimeHourlyBaseMode =
+                            parseOvertimeHourlyBaseMode(value)),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    tr('Công thức: (mức chọn) ÷ công chuẩn ÷ giờ chuẩn/ngày, rồi × hệ số TC'),
+                    style: const TextStyle(fontSize: 11, color: Color(0xFF71717A)),
+                  ),
                 ],
 
                 const SizedBox(height: 16),
@@ -3870,11 +4190,18 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                         holidayOvertimeDailyRateController.text
                             .replaceAll('.', '')) ??
                     0,
+                'applyLateEarlyOnRestDayOt': applyLateEarlyOnRestDayOt,
+                'restDayOtHoursOnly': restDayOtHoursOnly,
+                'overtimeHourlyBaseMode': overtimeHourlyBaseMode,
                 'hourlyOvertimeType': int.parse(hourlyOvertimeType),
                 'hourlyOvertimeFixedRate': double.tryParse(
                         hourlyOvertimeFixedRateController.text
                             .replaceAll('.', '')) ??
                     0,
+                // Hệ số ngày nghỉ (hiển thị công) — lấy từ cửa hàng khi chọn theo luật.
+                'holidayMultiplier': holidayOvertimeType == '1'
+                    ? _storeOtRate('weekendRate', 2.0)
+                    : _toDoubleOr(benefit['holidayMultiplier'], 2.0),
                 'socialInsuranceType': int.parse(socialInsuranceType),
                 'insuranceSalary': _calculateInsuranceSalary(
                   socialInsuranceType,

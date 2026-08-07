@@ -76,15 +76,22 @@ public class UpdateBenefitHandler(
         salaryProfile.PaidLeaveType = request.PaidLeaveType;
         salaryProfile.TravelSalaryMode = request.TravelSalaryMode;
         salaryProfile.TravelFixedHourlyRate = request.TravelFixedHourlyRate;
+        if (request.ApplyLateEarlyOnRestDayOt.HasValue)
+            salaryProfile.ApplyLateEarlyOnRestDayOt = request.ApplyLateEarlyOnRestDayOt.Value;
+        if (request.RestDayOtHoursOnly.HasValue)
+            salaryProfile.RestDayOtHoursOnly = request.RestDayOtHoursOnly.Value;
+        if (request.OvertimeHourlyBaseMode != null)
+            salaryProfile.OvertimeHourlyBaseMode =
+                string.IsNullOrWhiteSpace(request.OvertimeHourlyBaseMode)
+                    ? null
+                    : request.OvertimeHourlyBaseMode.Trim().ToLowerInvariant();
         if (!string.IsNullOrWhiteSpace(request.StandardWorkMode) &&
             Enum.TryParse<StandardWorkMode>(request.StandardWorkMode, ignoreCase: true, out var workMode))
         {
             salaryProfile.StandardWorkMode = workMode;
         }
         if (request.FixedStandardWorkDays.HasValue)
-        {
             salaryProfile.FixedStandardWorkDays = Math.Clamp(request.FixedStandardWorkDays.Value, 1, 31);
-        }
         if (request.DeductIfBelowFixedStandard.HasValue)
             salaryProfile.DeductIfBelowFixedStandard = request.DeductIfBelowFixedStandard.Value;
         if (request.AddIfAboveFixedStandard.HasValue)

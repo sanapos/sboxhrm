@@ -104,7 +104,16 @@ class ZKTecoApp extends StatelessWidget {
               final token = parseAgentRegistrationToken() ?? '';
               return AgentRegisterScreen(token: token);
             },
-            '/forgot-password': (context) => const ForgotPasswordScreen(),
+            '/forgot-password': (context) {
+              final args = ModalRoute.of(context)?.settings.arguments;
+              if (args is Map) {
+                return ForgotPasswordScreen(
+                  initialStoreCode: args['storeCode']?.toString(),
+                  initialEmail: args['email']?.toString(),
+                );
+              }
+              return const ForgotPasswordScreen();
+            },
             '/admin': (context) => const _AdminRouteGuard(),
             '/login-app': (context) => const LoginScreen(),
             '/landing': (context) => const WebStaticHomeRedirect(),

@@ -4,6 +4,26 @@ import 'package:flutter/material.dart';
 
 import 'device_setup_guide.dart';
 
+/// Kết quả tìm kiếm một mục hướng dẫn.
+class LandingGuideSearchHit {
+  const LandingGuideSearchHit({
+    required this.sectionIndex,
+    required this.stepIndex,
+    required this.step,
+    required this.matchedIn,
+  });
+
+  /// 0 = Triển khai (basic), 1 = Nâng cao (advanced).
+  final int sectionIndex;
+  final int stepIndex;
+  final LandingUsageGuideStep step;
+
+  /// Ví dụ: "Tiêu đề", "Từ khóa", "Nội dung".
+  final String matchedIn;
+
+  String get sectionLabel => sectionIndex == 0 ? 'Triển khai' : 'Nâng cao';
+}
+
 /// Một bước hướng dẫn trên landing (có metadata hiển thị + nội dung chỉnh từ CMS).
 class LandingUsageGuideStep {
   const LandingUsageGuideStep({
@@ -16,6 +36,7 @@ class LandingUsageGuideStep {
     required this.accent,
     this.imageUrls = const [],
     this.videoUrl = '',
+    this.keywords = const [],
   });
 
   final String id;
@@ -28,6 +49,9 @@ class LandingUsageGuideStep {
   final List<String> imageUrls;
   final String videoUrl;
 
+  /// Từ khóa giúp khách tìm nhanh (CMS có thể bổ sung).
+  final List<String> keywords;
+
   LandingUsageGuideStep copyWith({
     String? title,
     String? desc,
@@ -35,6 +59,7 @@ class LandingUsageGuideStep {
     List<String>? bullets,
     List<String>? imageUrls,
     String? videoUrl,
+    List<String>? keywords,
   }) {
     return LandingUsageGuideStep(
       id: id,
@@ -46,6 +71,7 @@ class LandingUsageGuideStep {
       accent: accent,
       imageUrls: imageUrls ?? this.imageUrls,
       videoUrl: videoUrl ?? this.videoUrl,
+      keywords: keywords ?? this.keywords,
     );
   }
 
@@ -57,6 +83,7 @@ class LandingUsageGuideStep {
         if (bullets.isNotEmpty) 'bullets': bullets,
         if (imageUrls.isNotEmpty) 'imageUrls': imageUrls,
         if (videoUrl.isNotEmpty) 'videoUrl': videoUrl,
+        if (keywords.isNotEmpty) 'keywords': keywords,
       };
 
   static List<String> _parseImageUrls(dynamic raw) {
@@ -95,6 +122,21 @@ class LandingUsageGuideStep {
           .toList();
     }
     final images = _parseImageUrls(json['imageUrls'] ?? json['imageUrl']);
+    List<String>? keywords;
+    final rawKw = json['keywords'] ?? json['tags'];
+    if (rawKw is List) {
+      final parsed = rawKw
+          .map((e) => e.toString().trim())
+          .where((e) => e.isNotEmpty)
+          .toList();
+      if (parsed.isNotEmpty) keywords = parsed;
+    } else if (rawKw is String && rawKw.trim().isNotEmpty) {
+      keywords = rawKw
+          .split(RegExp(r'[,;|/]+'))
+          .map((e) => e.trim())
+          .where((e) => e.isNotEmpty)
+          .toList();
+    }
     return fallback.copyWith(
       title: (title != null && title.isNotEmpty) ? title : null,
       desc: (desc != null && desc.isNotEmpty) ? desc : null,
@@ -102,6 +144,7 @@ class LandingUsageGuideStep {
       bullets: bullets,
       imageUrls: images.isNotEmpty ? images : null,
       videoUrl: videoUrl != null ? videoUrl : null,
+      keywords: keywords,
     );
   }
 }
@@ -127,9 +170,264 @@ class LandingGuideData {
   String toJsonString() => jsonEncode(toJson());
 
   static LandingGuideData get defaults => LandingGuideData(
-        basic: LandingUsageGuide.basicSteps,
-        advanced: LandingUsageGuide.advancedSteps,
+        basic: _withKeywords(LandingUsageGuide.basicSteps, _basicKeywords),
+        advanced:
+            _withKeywords(LandingUsageGuide.advancedSteps, _advancedKeywords),
       );
+
+  static List<LandingUsageGuideStep> _withKeywords(
+    List<LandingUsageGuideStep> steps,
+    Map<String, List<String>> map,
+  ) {
+    return steps
+        .map((s) {
+          final kw = map[s.id];
+          if (kw == null || kw.isEmpty) return s;
+          if (s.keywords.isNotEmpty) {
+            final merged = {...s.keywords, ...kw}.toList();
+            return s.copyWith(keywords: merged);
+          }
+          return s.copyWith(keywords: kw);
+        })
+        .toList();
+  }
+
+  /// Gợi ý từ khóa phổ biến trên thanh tìm kiếm.
+  static const suggestionKeywords = <String>[
+    'Đăng ký',
+    'Mã cửa hàng',
+    'Nhân viên',
+    'Import Excel',
+    'Ca làm việc',
+    'Lịch làm việc',
+    'Máy chấm công',
+    'Vân tay',
+    'Chấm công mobile',
+    'Phân quyền',
+    'Lương',
+    'Tính lương',
+    'Phạt đi trễ',
+    'Ứng lương',
+    'Nghỉ phép',
+    'Đổi ca',
+    'Báo cáo',
+    'KPI',
+    'POS',
+    'Công tác',
+    'Quên mật khẩu',
+  ];
+
+  List<LandingGuideSearchHit> search(String query, {int limit = 12}) {
+    final q = _fold(query.trim());
+    if (q.isEmpty) return const [];
+    final hits = <LandingGuideSearchHit>[];
+    void scan(int section, List<LandingUsageGuideStep> steps) {
+      for (var i = 0; i < steps.length; i++) {
+        final s = steps[i];
+        final match = _matchStep(s, q);
+        if (match == null) continue;
+        hits.add(LandingGuideSearchHit(
+          sectionIndex: section,
+          stepIndex: i,
+          step: s,
+          matchedIn: match,
+        ));
+      }
+    }
+
+    scan(0, basic);
+    scan(1, advanced);
+    hits.sort((a, b) {
+      final ra = _rank(a.matchedIn);
+      final rb = _rank(b.matchedIn);
+      if (ra != rb) return ra.compareTo(rb);
+      return a.step.title.compareTo(b.step.title);
+    });
+    if (hits.length <= limit) return hits;
+    return hits.sublist(0, limit);
+  }
+
+  static int _rank(String matchedIn) {
+    switch (matchedIn) {
+      case 'Từ khóa':
+        return 0;
+      case 'Tiêu đề':
+        return 1;
+      case 'Mô tả':
+        return 2;
+      default:
+        return 3;
+    }
+  }
+
+  static String? _matchStep(LandingUsageGuideStep s, String q) {
+    for (final kw in s.keywords) {
+      if (_fold(kw).contains(q)) return 'Từ khóa';
+    }
+    if (_fold(s.title).contains(q)) return 'Tiêu đề';
+    if (_fold(s.desc).contains(q)) return 'Mô tả';
+    if (_fold(s.tip).contains(q)) return 'Mẹo';
+    for (final b in s.bullets) {
+      if (_fold(b).contains(q)) return 'Các bước';
+    }
+    return null;
+  }
+
+  /// Bỏ dấu tiếng Việt để tìm "cham cong" vẫn ra "chấm công".
+  static String _fold(String input) {
+    const map = <String, String>{
+      'à': 'a', 'á': 'a', 'ạ': 'a', 'ả': 'a', 'ã': 'a',
+      'â': 'a', 'ầ': 'a', 'ấ': 'a', 'ậ': 'a', 'ẩ': 'a', 'ẫ': 'a',
+      'ă': 'a', 'ằ': 'a', 'ắ': 'a', 'ặ': 'a', 'ẳ': 'a', 'ẵ': 'a',
+      'è': 'e', 'é': 'e', 'ẹ': 'e', 'ẻ': 'e', 'ẽ': 'e',
+      'ê': 'e', 'ề': 'e', 'ế': 'e', 'ệ': 'e', 'ể': 'e', 'ễ': 'e',
+      'ì': 'i', 'í': 'i', 'ị': 'i', 'ỉ': 'i', 'ĩ': 'i',
+      'ò': 'o', 'ó': 'o', 'ọ': 'o', 'ỏ': 'o', 'õ': 'o',
+      'ô': 'o', 'ồ': 'o', 'ố': 'o', 'ộ': 'o', 'ổ': 'o', 'ỗ': 'o',
+      'ơ': 'o', 'ờ': 'o', 'ớ': 'o', 'ợ': 'o', 'ở': 'o', 'ỡ': 'o',
+      'ù': 'u', 'ú': 'u', 'ụ': 'u', 'ủ': 'u', 'ũ': 'u',
+      'ư': 'u', 'ừ': 'u', 'ứ': 'u', 'ự': 'u', 'ử': 'u', 'ữ': 'u',
+      'ỳ': 'y', 'ý': 'y', 'ỵ': 'y', 'ỷ': 'y', 'ỹ': 'y',
+      'đ': 'd',
+    };
+    final buf = StringBuffer();
+    for (final r in input.toLowerCase().runes) {
+      final ch = String.fromCharCode(r);
+      buf.write(map[ch] ?? ch);
+    }
+    return buf.toString();
+  }
+
+  static const _basicKeywords = <String, List<String>>{
+    'getting_started': [
+      'bắt đầu',
+      'checklist',
+      '7 ngày',
+      'triển khai',
+      'hướng dẫn nhanh',
+    ],
+    'register': [
+      'đăng ký',
+      'mã cửa hàng',
+      'tài khoản',
+      'quên mật khẩu',
+      'sboxhrm',
+    ],
+    'org_structure': [
+      'phòng ban',
+      'chức vụ',
+      'chi nhánh',
+      'cơ cấu',
+      'tổ chức',
+    ],
+    'employees': [
+      'nhân viên',
+      'hồ sơ',
+      'import excel',
+      'mã nhân viên',
+      'pin',
+    ],
+    'shifts': ['ca làm việc', 'thiết lập ca', 'ân hạn', 'ot', 'tăng ca'],
+    'salary': [
+      'lương',
+      'thiết lập lương',
+      'kiểu chấm công',
+      'phụ cấp',
+      'tính công',
+    ],
+    'work_schedule_basic': [
+      'lịch làm việc',
+      'phân ca',
+      'đăng ký lịch',
+      'lịch tuần',
+    ],
+    'device_connect': [
+      'máy chấm công',
+      'zkteco',
+      'adms',
+      'kết nối máy',
+      'serial',
+    ],
+    'device_users': [
+      'vân tay',
+      'khuôn mặt',
+      'đồng bộ',
+      'nhân sự chấm công',
+      'face',
+    ],
+    'mobile_attendance': [
+      'chấm công mobile',
+      'gps',
+      'wifi',
+      'điện thoại',
+      'duyệt chấm',
+    ],
+    'employee_account': [
+      'tài khoản',
+      'phân quyền',
+      'đăng nhập',
+      'vai trò',
+      'nhân viên',
+    ],
+    'penalty_ticket': [
+      'phiếu phạt',
+      'đi trễ',
+      'về sớm',
+      'phạt',
+      'tái phạm',
+    ],
+    'advance': ['ứng lương', 'tạm ứng', 'ứng tiền'],
+    'bonus_ticket': ['thưởng', 'phiếu thưởng', 'thưởng nóng'],
+    'cash': ['thu chi', 'quỹ', 'tiền mặt', 'sổ quỹ'],
+    'first_payroll': [
+      'tính lương',
+      'chốt lương',
+      'bảng lương',
+      'tổng hợp lương',
+      'cuối tháng',
+    ],
+    'reports': [
+      'báo cáo',
+      'xuất excel',
+      'tổng hợp chấm công',
+      'báo cáo phạt',
+    ],
+  };
+
+  static const _advancedKeywords = <String, List<String>>{
+    'attendance_modes': [
+      'kiểu chấm công',
+      'checkin',
+      'chỉ chấm vào',
+      'thiếu chấm',
+      'mode',
+    ],
+    'work_schedule': ['lịch làm việc', 'sao chép tuần', 'duyệt lịch'],
+    'shift_swap': ['đổi ca', 'đổi lịch', 'swap'],
+    'holidays': ['ngày lễ', 'nghỉ lễ', 'ot ngày lễ'],
+    'leave': ['nghỉ phép', 'đơn nghỉ', 'quỹ phép', 'phép năm'],
+    'insurance_tax': ['bảo hiểm', 'bhxh', 'thuế', 'tncn'],
+    'kpi': ['kpi', 'chỉ tiêu', 'hiệu suất'],
+    'bonus': ['thưởng', 'chính sách thưởng'],
+    'penalty': ['chính sách phạt', 'quên chấm', 'ân hạn'],
+    'production': ['sản lượng', 'lương sản phẩm', 'khoán'],
+    'asset': ['tài sản', 'cấp phát', 'thu hồi'],
+    'field_checkin': [
+      'bản đồ',
+      'hiện trường',
+      'gps ngoài',
+      'field checkin',
+    ],
+    'tasks': ['công việc', 'task', 'giao việc'],
+    'business_trip': ['công tác', 'công tác phí', 'tạm ứng công tác'],
+    'meal': ['chấm cơm', 'suất ăn', 'ăn ca'],
+    'communication': ['truyền thông', 'thông báo nội bộ', 'tin tức'],
+    'feedback': ['góp ý', 'khiếu nại', 'phản ánh'],
+    'notifications': ['thông báo', 'push', 'nhắc việc'],
+    'pos_setup': ['pos', 'bán hàng', 'thiết lập pos', 'ngành hàng'],
+    'pos_sales': ['pos', 'bán hàng', 'hóa đơn', 'thu ngân', 'order'],
+    'pos_inventory': ['kho', 'nhập hàng', 'tồn kho', 'kiểm kho'],
+  };
 
   static LandingGuideData fromApiJson(dynamic raw) {
     final base = defaults;
@@ -237,18 +535,18 @@ class LandingUsageGuide {
       icon: Icons.app_registration_rounded,
       title: 'Đăng ký phần mềm',
       desc:
-          'Tạo cửa hàng trên sboxhrm.com để nhận mã cửa hàng và tài khoản quản trị. Mã cửa hàng dùng mỗi lần đăng nhập web hoặc app.',
+          'Tạo cửa hàng trên sboxhrm.com để nhận mã cửa hàng và tài khoản quản trị. Làm lần lượt các bước dưới đây — mất khoảng 5–10 phút.',
       bullets: [
-        'Mở sboxhrm.com → chọn Đăng ký / Đăng ký doanh nghiệp',
-        'Điền: tên cửa hàng, mã đăng nhập cửa hàng, email, SĐT, mật khẩu admin',
-        'Mã cửa hàng: viết thường a–z và 0–9, liền nhau, không dấu, tối đa 20 ký tự (vd: comganam)',
-        'Chọn gói dịch vụ theo nhu cầu; hoàn tất để kích hoạt',
-        'Lưu lại mã cửa hàng — gửi cho nhân viên khi họ đăng nhập app',
-        'Đăng nhập: nhập Mã cửa hàng + Email/Tên đăng nhập + Mật khẩu',
-        'Quên mật khẩu: dùng chức năng quên mật khẩu trên màn đăng nhập (cần email thật)',
+        'Bước 1 — Mở trình duyệt, vào sboxhrm.com → chọn Đăng ký / Đăng ký doanh nghiệp',
+        'Bước 2 — Điền tên cửa hàng, mã đăng nhập cửa hàng, email, SĐT, mật khẩu admin',
+        'Bước 3 — Đặt mã cửa hàng: chữ thường a–z và số 0–9, liền nhau, không dấu, tối đa 20 ký tự (vd: comganam)',
+        'Bước 4 — Chọn gói dịch vụ phù hợp → hoàn tất đăng ký để kích hoạt',
+        'Bước 5 — Lưu mã cửa hàng (ghi ra giấy hoặc Zalo) — nhân viên cần mã này mỗi lần đăng nhập',
+        'Bước 6 — Đăng nhập lần đầu: Mã cửa hàng + Email/Tên đăng nhập + Mật khẩu',
+        'Bước 7 — Nếu quên mật khẩu: dùng Quên mật khẩu trên màn đăng nhập (cần email thật đã đăng ký)',
       ],
       tip:
-          'Dùng email và SĐT thật để nhận hỗ trợ kích hoạt và khôi phục tài khoản nhanh.',
+          'Dùng email và SĐT thật để nhận hỗ trợ kích hoạt và khôi phục tài khoản nhanh. Hotline: 0973 024 042.',
       accent: Color(0xFF0C56D0),
     ),
     const LandingUsageGuideStep(
@@ -275,13 +573,13 @@ class LandingUsageGuide {
       desc:
           'Tạo hồ sơ nhân sự làm nền cho chấm công, lương và tài khoản app. Mã nhân viên phải thống nhất giữa hồ sơ và máy chấm công.',
       bullets: [
-        'Menu: Hồ sơ nhân sự → Thêm nhân viên',
-        'Bắt buộc: họ tên, mã nhân viên (PIN), phòng ban / chức vụ',
-        'Nên có: SĐT, ngày vào làm, trạng thái đang làm việc',
-        'Import Excel: tải mẫu trong màn hình → điền → tải lên (thêm hàng loạt)',
-        'Kiểm tra trùng mã nhân viên trước khi đồng bộ xuống máy',
-        'NV nghỉ việc: cập nhật trạng thái / nghỉ việc — không xóa nếu đã có dữ liệu chấm công',
-        'Bước sau: gán Thiết lập lương và phân ca trên Lịch làm việc',
+        'Bước 1 — Vào menu Hồ sơ nhân sự → Thêm nhân viên (hoặc Import Excel nếu thêm hàng loạt)',
+        'Bước 2 — Nhập bắt buộc: họ tên, mã nhân viên (PIN), phòng ban, chức vụ',
+        'Bước 3 — Bổ sung nên có: SĐT, ngày vào làm, trạng thái Đang làm việc',
+        'Bước 4 — Nếu Import Excel: tải mẫu trong màn hình → điền đúng cột → tải lên → kiểm tra kết quả',
+        'Bước 5 — Kiểm tra không trùng mã nhân viên trước khi đồng bộ xuống máy',
+        'Bước 6 — Gán Thiết lập lương và phân ca trên Lịch làm việc (các bước tiếp theo)',
+        'Bước 7 — NV nghỉ việc: cập nhật trạng thái nghỉ — không xóa nếu đã có dữ liệu chấm công',
       ],
       tip:
           'Mã nhân viên trên máy ZKTeco phải trùng mã trong hồ sơ thì log chấm công mới khớp tên.',
@@ -294,16 +592,16 @@ class LandingUsageGuide {
       desc:
           'Định nghĩa khung giờ làm (ca sáng, ca đêm, ca OT…). Ca quyết định tính đi trễ, về sớm, công và tăng ca.',
       bullets: [
-        'Cài đặt → Thiết lập ca → Thêm ca',
-        'Nhập tên ca, giờ bắt đầu / kết thúc (hỗ trợ ca qua đêm, vd 21:30–06:00)',
-        'Cấu hình: phút ân hạn đi trễ, ân hạn về sớm, ngưỡng tính tăng ca',
-        'Phân biệt ca hành chính và ca Tăng ca (OT) nếu cửa hàng dùng',
-        'Gán ca vào mẫu lương / nhân viên tại Thiết lập lương (ô Ca làm việc)',
-        'Phân lịch cụ thể theo ngày tại menu Lịch làm việc',
-        'Trong màn Thiết lập ca có nút hướng dẫn chi tiết OT / grace — mở khi cần',
+        'Bước 1 — Vào Cài đặt → Thiết lập ca → Thêm ca',
+        'Bước 2 — Nhập tên ca, giờ bắt đầu / kết thúc (hỗ trợ ca qua đêm, vd 21:30–06:00)',
+        'Bước 3 — Cấu hình phút ân hạn đi trễ, ân hạn về sớm, ngưỡng tính tăng ca',
+        'Bước 4 — Phân biệt ca hành chính và ca Tăng ca (OT) nếu cửa hàng dùng',
+        'Bước 5 — Gán ca vào mẫu lương / nhân viên tại Thiết lập lương (ô Ca làm việc)',
+        'Bước 6 — Phân lịch cụ thể theo ngày tại menu Lịch làm việc',
+        'Bước 7 — Mở nút hướng dẫn trong màn Thiết lập ca khi cần chi tiết OT / grace',
       ],
       tip:
-          'Dùng «Nhân bản ca» để clone ca tương tự. ân hạn đi trễ (vd 10 phút) tránh phạt oan khi vào sớm vài phút sau giờ.',
+          'Dùng «Nhân bản ca» để clone ca tương tự. Ân hạn đi trễ (vd 10 phút) tránh phạt oan khi vào sớm vài phút sau giờ.',
       accent: Color(0xFF6A1B9A),
     ),
     const LandingUsageGuideStep(
@@ -349,15 +647,15 @@ class LandingUsageGuide {
       icon: Icons.router_rounded,
       title: 'Kết nối máy chấm công ZKTeco',
       desc:
-          'Cấu hình hai phía: máy trỏ về máy chủ ADMS cloud; phần mềm khai báo serial để nhận log real-time.',
+          'Cấu hình hai phía: máy trỏ về máy chủ ADMS cloud; phần mềm khai báo serial để nhận log real-time. Làm đúng thứ tự để tránh máy Offline.',
       bullets: [
-        'Trên máy ZKTeco: ${DeviceSetupGuide.menuPath}',
-        'Địa chỉ máy chủ: ${DeviceSetupGuide.serverHost} · Port: ${DeviceSetupGuide.serverPort}',
-        'Bật Cloud / ADMS theo hướng dẫn trên máy; lưu và khởi động lại nếu máy yêu cầu',
-        'Trên SBOX: Cài đặt → Máy chấm công → Thêm máy (nhập SN hoặc quét mã)',
-        'Theo dõi trạng thái Online / Offline trên danh sách máy',
-        'Máy online sẽ tự đẩy ATTLOG; kiểm tra tại Chấm công thô',
-        'Firewall/mạng cửa hàng phải cho máy ra internet (HTTPS/ADMS)',
+        'Bước 1 — Trên máy ZKTeco: vào ${DeviceSetupGuide.menuPath}',
+        'Bước 2 — Nhập Địa chỉ máy chủ: ${DeviceSetupGuide.serverHost} · Port: ${DeviceSetupGuide.serverPort}',
+        'Bước 3 — Bật Cloud / ADMS theo hướng dẫn trên máy; lưu và khởi động lại nếu máy yêu cầu',
+        'Bước 4 — Trên SBOX: Cài đặt → Máy chấm công → Thêm máy (nhập SN hoặc quét mã)',
+        'Bước 5 — Kiểm tra trạng thái Online trên danh sách máy (có thể mất 1–2 phút)',
+        'Bước 6 — Cho NV chấm thử → mở Chấm công thô xác nhận có ATTLOG',
+        'Bước 7 — Nếu Offline: kiểm tra mạng cửa hàng cho máy ra internet (HTTPS/ADMS) hoặc gọi hotline',
       ],
       tip:
           'Chưa kết nối được? Gọi hotline 0973 024 042 — hỗ trợ từ xa qua Zalo.',
@@ -491,15 +789,15 @@ class LandingUsageGuide {
       icon: Icons.fact_check_rounded,
       title: 'Chốt công & bảng lương tháng đầu',
       desc:
-          'Quy trình cuối kỳ để kiểm tra chấm công rồi chốt lương lần đầu — giảm sai sót khi mới triển khai.',
+          'Quy trình cuối kỳ để kiểm tra chấm công rồi chốt lương lần đầu — làm đúng thứ tự để giảm sai sót khi mới triển khai.',
       bullets: [
-        '1) Kiểm tra Chấm công thô: đủ log, đúng NV, không trùng bất thường',
-        '2) Mở Tổng hợp theo ca / Tổng hợp chấm công: kiểm tra công, phút trễ/sớm, thiếu chấm',
-        '3) Duyệt xong nghỉ phép, đổi ca, phiếu thưởng / phạt / ứng trong kỳ',
-        '4) Vào Tính lương / Tổng hợp lương → chọn kỳ → tải lại dữ liệu',
-        '5) Rà từng NV: công, phụ cấp, BHXH, thuế, ứng, thưởng, phạt',
-        '6) Xuất Excel / in phiếu lương; gửi NV kiểm tra trên app',
-        '7) Chỉ chỉnh sửa lịch/ca trước khi chốt — sau chốt nên khóa kỳ nếu có',
+        'Bước 1 — Kiểm tra Chấm công thô: đủ log, đúng NV, không trùng bất thường',
+        'Bước 2 — Mở Tổng hợp theo ca / Tổng hợp chấm công: kiểm tra công, phút trễ/sớm, thiếu chấm',
+        'Bước 3 — Duyệt xong nghỉ phép, đổi ca, phiếu thưởng / phạt / ứng trong kỳ',
+        'Bước 4 — Vào Tính lương / Tổng hợp lương → chọn kỳ → tải lại dữ liệu',
+        'Bước 5 — Rà từng NV: công, phụ cấp, BHXH, thuế, ứng, thưởng, phạt',
+        'Bước 6 — Xuất Excel / in phiếu lương; gửi NV kiểm tra trên app',
+        'Bước 7 — Chỉ chỉnh sửa lịch/ca trước khi chốt — sau chốt nên khóa kỳ nếu có',
       ],
       tip:
           'Tháng đầu nên chấm thử 3–5 ngày rồi xem Tổng hợp theo ca trước khi tin tưởng tự động hoàn toàn.',
@@ -601,12 +899,12 @@ class LandingUsageGuide {
       desc:
           'Nhân viên tạo đơn nghỉ; quản lý duyệt. Phép được trừ quỹ phép và phản ánh vào công tùy loại phép.',
       bullets: [
-        'Menu: Nghỉ phép → tạo đơn (loại phép, từ ngày–đến ngày, lý do)',
-        'NV tạo trên app; quản lý duyệt / từ chối / hủy',
-        'Theo dõi số ngày phép còn lại (nếu cấu hình quỹ phép)',
-        'Phép đã duyệt thường không bị tính nghỉ không phép',
-        'Báo cáo → Báo cáo nghỉ phép',
-        'Mở hướng dẫn pháp lý/nghiệp vụ trên màn Nghỉ phép khi cần',
+        'Bước 1 — NV vào menu Nghỉ phép → tạo đơn (loại phép, từ ngày–đến ngày, lý do)',
+        'Bước 2 — Gửi đơn; quản lý nhận thông báo trên web/app',
+        'Bước 3 — Quản lý duyệt / từ chối / hủy đơn',
+        'Bước 4 — Kiểm tra số ngày phép còn lại (nếu cấu hình quỹ phép)',
+        'Bước 5 — Đối chiếu Tổng hợp chấm công: phép đã duyệt không tính nghỉ không phép',
+        'Bước 6 — Xem Báo cáo → Báo cáo nghỉ phép; mở hướng dẫn pháp lý trên màn Nghỉ phép khi cần',
       ],
       tip: 'Phiếu từ chối hoặc hủy không tính vào báo cáo nghỉ phép.',
       accent: Color(0xFF0284C7),

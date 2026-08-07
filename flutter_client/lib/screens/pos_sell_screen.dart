@@ -6822,8 +6822,13 @@ class _PosSellScreenState extends State<PosSellScreen> {
         }
       });
       _scheduleCustomerDisplayPublish();
-      _patchLocalStock(soldLines);
-      ScreenRefreshNotifier.refreshPosAfterStockChange(reloadSellCatalog: false);
+      // Patch qua notifier + cache catalog (không chỉ GlobalKey — F&B/tablet
+      // dispose lưới khi về sơ đồ / màn TT nên currentState thường null).
+      ScreenRefreshNotifier.refreshPosAfterStockChange(
+        sellStockLines: soldLines,
+        reloadSellCatalog: false,
+        storeId: _storeId,
+      );
 
       // Slot TMP: nạp nền. F&B về sơ đồ — không chặn.
       if (!useFloor) {
@@ -6873,16 +6878,34 @@ class _PosSellScreenState extends State<PosSellScreen> {
     }
   }
 
+  /// Quy đổi SL bán → ĐVT cơ bản (khớp server QtyInBase) để patch tồn lưới đúng.
+  /// Biến thể unit-only: để nguyên — `applyPosSellStockLine` tự nhân `_conversion`.
+  double _cartLineQtyInBase(_SellCartLine l) {
+    if (l.variantId != null && l.variantId!.isNotEmpty) {
+      return l.qty;
+    }
+    final unitId = l.unitId;
+    if (unitId != null && unitId.isNotEmpty) {
+      final u = l.product.units?.where((x) => x.id == unitId).firstOrNull;
+      if (u != null) {
+        final rate = u.conversionRate > 0 ? u.conversionRate : 1;
+        return l.qty * rate;
+      }
+    }
+    return l.qty;
+  }
+
   List<PosSellStockLineDelta> _cartStockLinesFromCart() {
     final raw = <PosSellStockLineDelta>[];
     for (final l in _tab.cart) {
       if (l.product.productType == PosProductType.service) continue;
+      final baseQty = _cartLineQtyInBase(l);
       if (l.product.productType == PosProductType.combo) {
         for (final cl in l.product.comboLines ?? const <PosComboLine>[]) {
           raw.add(
             PosSellStockLineDelta(
               productId: cl.componentProductId,
-              qty: cl.qty * l.qty,
+              qty: cl.qty * baseQty,
             ),
           );
         }
@@ -6892,7 +6915,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
         PosSellStockLineDelta(
           productId: l.product.id,
           variantId: l.variantId,
-          qty: l.qty,
+          qty: baseQty,
         ),
       );
       for (final t in l.toppings) {
@@ -6900,22 +6923,6 @@ class _PosSellScreenState extends State<PosSellScreen> {
       }
     }
     return mergeStockLineDeltas(raw);
-  }
-
-  void _patchLocalStock(List<PosSellStockLineDelta> lines) {
-    if (lines.isEmpty) return;
-    _productGridKey.currentState?.applyStockLinePatches(lines);
-    if (!mounted) return;
-    setState(() {
-      for (final line in _tab.cart) {
-        line.product = applyPosSellStockLines(line.product, lines);
-        line.unitViews = applyPosPriceListToViews(
-          buildPosSellUnitViewsFromProduct(line.product),
-          line.product,
-          _currentPriceOverrides,
-        );
-      }
-    });
   }
 
   void _syncCartStockFromPatch() {

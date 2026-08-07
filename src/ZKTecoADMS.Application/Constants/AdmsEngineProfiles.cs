@@ -28,8 +28,12 @@ public static class AdmsEngineProfiles
 
     public static string ResolveProfile(string? platform, string? firmware, string? serialNumber)
     {
-        var p = platform ?? string.Empty;
-        var fw = firmware ?? string.Empty;
+        // Options/DeviceInfo đôi khi ghi Ver_6.60_Apr... thay vì "Ver 6.60 Apr..."
+        static string Norm(string? s) =>
+            (s ?? string.Empty).Replace('_', ' ');
+
+        var p = Norm(platform);
+        var fw = Norm(firmware);
 
         // Android / visible-light face terminals (e.g. ZAM70 2FA) — check before SN OEM heuristics.
         if (p.Contains("Android", StringComparison.OrdinalIgnoreCase)
@@ -43,15 +47,27 @@ public static class AdmsEngineProfiles
         }
 
         // OEM fingerprint series (demo 131* ZLM31) often deny QUERY/ENROLL_FP.
-        if (!string.IsNullOrWhiteSpace(serialNumber) && serialNumber.StartsWith("131", StringComparison.Ordinal)
-            && !fw.Contains("ZAM", StringComparison.OrdinalIgnoreCase))
+        // Không áp cho máy TFT/ZLM60 Ver 6.x/8.x (vd. K30/8300) — vẫn đăng ký vân tay được.
+        // SN 131* chỉ là heuristic OEM demo cũ; platform/firmware mới hơn phải thắng.
+        var isLegacyTftOrZlm60 =
+            p.Contains("ZLM60", StringComparison.OrdinalIgnoreCase)
+            || p.Contains("ZEM5", StringComparison.OrdinalIgnoreCase)
+            || p.Contains("ZEM6", StringComparison.OrdinalIgnoreCase)
+            || fw.StartsWith("Ver 6.", StringComparison.OrdinalIgnoreCase)
+            || fw.Contains("ZLM60", StringComparison.OrdinalIgnoreCase);
+
+        if (!string.IsNullOrWhiteSpace(serialNumber)
+            && serialNumber.StartsWith("131", StringComparison.Ordinal)
+            && !fw.Contains("ZAM", StringComparison.OrdinalIgnoreCase)
+            && !isLegacyTftOrZlm60)
         {
             return PullDeny;
         }
 
         if (p.Contains("ZEM5", StringComparison.OrdinalIgnoreCase)
             || p.Contains("ZEM6", StringComparison.OrdinalIgnoreCase)
-            || fw.StartsWith("Ver 6.", StringComparison.OrdinalIgnoreCase))
+            || fw.StartsWith("Ver 6.", StringComparison.OrdinalIgnoreCase)
+            || p.Contains("ZLM60", StringComparison.OrdinalIgnoreCase))
         {
             return TftLegacy;
         }
@@ -68,6 +84,7 @@ public static class AdmsEngineProfiles
 
     public static void ApplyProfileDefaults(Domain.Entities.DeviceInfo info, string profile)
     {
+        var previous = info.EngineProfile;
         info.EngineProfile = profile;
         switch (profile)
         {
@@ -101,6 +118,14 @@ public static class AdmsEngineProfiles
             case TftLegacy:
                 // TFT cũ: USER ADD hay lỗi; DATA UPDATE thường OK; QUERY tùy máy
                 info.SupportsFaceUpdate ??= false;
+                // Thoát PullDeny nhầm (SN 131* + ZLM60/8300): mở lại enroll FP trừ khi đã học false từ lệnh thật.
+                if (string.Equals(previous, PullDeny, StringComparison.OrdinalIgnoreCase)
+                    && info.SupportsEnrollFingerprint == false)
+                {
+                    info.SupportsEnrollFingerprint = null;
+                }
+                // Mặc định cho phép thử đăng ký vân tay từ xa trên TFT/ZLM60.
+                info.SupportsEnrollFingerprint ??= true;
                 break;
             case Linux:
                 info.SupportsUserQuery ??= true;

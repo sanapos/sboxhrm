@@ -8,7 +8,9 @@ public record CreateOrUpdateEmployeeTaxDeductionCommand(
     Guid EmployeeId,
     int NumberOfDependents,
     decimal MandatoryInsurance,
-    decimal OtherExemptions) : ICommand<AppResponse<EmployeeTaxDeductionDto>>;
+    decimal OtherExemptions,
+    string? DependentRegistrationFormUrl = null,
+    string? DependentDocumentsJson = null) : ICommand<AppResponse<EmployeeTaxDeductionDto>>;
 
 public class CreateOrUpdateEmployeeTaxDeductionHandler(
     IRepository<EmployeeTaxDeduction> repository,
@@ -34,6 +36,14 @@ public class CreateOrUpdateEmployeeTaxDeductionHandler(
                 existing.NumberOfDependents = request.NumberOfDependents;
                 existing.MandatoryInsurance = request.MandatoryInsurance;
                 existing.OtherExemptions = request.OtherExemptions;
+                if (request.DependentRegistrationFormUrl != null)
+                    existing.DependentRegistrationFormUrl = string.IsNullOrWhiteSpace(request.DependentRegistrationFormUrl)
+                        ? null
+                        : request.DependentRegistrationFormUrl.Trim();
+                if (request.DependentDocumentsJson != null)
+                    existing.DependentDocumentsJson = string.IsNullOrWhiteSpace(request.DependentDocumentsJson)
+                        ? null
+                        : request.DependentDocumentsJson;
                 await repository.UpdateAsync(existing, cancellationToken);
             }
             else
@@ -44,6 +54,12 @@ public class CreateOrUpdateEmployeeTaxDeductionHandler(
                     NumberOfDependents = request.NumberOfDependents,
                     MandatoryInsurance = request.MandatoryInsurance,
                     OtherExemptions = request.OtherExemptions,
+                    DependentRegistrationFormUrl = string.IsNullOrWhiteSpace(request.DependentRegistrationFormUrl)
+                        ? null
+                        : request.DependentRegistrationFormUrl.Trim(),
+                    DependentDocumentsJson = string.IsNullOrWhiteSpace(request.DependentDocumentsJson)
+                        ? null
+                        : request.DependentDocumentsJson,
                     StoreId = request.StoreId
                 };
                 existing = await repository.AddAsync(existing, cancellationToken);

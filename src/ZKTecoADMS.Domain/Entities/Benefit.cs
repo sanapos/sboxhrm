@@ -136,6 +136,25 @@ public class Benefit : AuditableEntity<Guid>
     public decimal? TravelFixedHourlyRate { get; set; }
 
     /// <summary>
+    /// Có tính đi trễ / về sớm khi làm tăng ca ngày nghỉ (weekly off).
+    /// Mặc định true (giữ hành vi cũ).
+    /// </summary>
+    public bool ApplyLateEarlyOnRestDayOt { get; set; } = true;
+
+    /// <summary>
+    /// Tăng ca ngày nghỉ chỉ tính giờ OT, không cộng công.
+    /// Mặc định false (giữ hành vi cũ: nhân công theo hệ số).
+    /// </summary>
+    public bool RestDayOtHoursOnly { get; set; }
+
+    /// <summary>
+    /// Đơn giá giờ tăng ca (khi HourlyOvertimeType = theo luật):
+    /// base | completion | base_plus_completion. Null/empty = base (LCB).
+    /// </summary>
+    [MaxLength(40)]
+    public string? OvertimeHourlyBaseMode { get; set; }
+
+    /// <summary>
     /// Cửa hàng sở hữu profile lương này
     /// </summary>
     public Guid? StoreId { get; set; }

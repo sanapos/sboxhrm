@@ -54,6 +54,7 @@ public partial class PosSellIndustryController(
         bool EnableMultiDeviceDraftLock,
         bool PromptGuestCountOnOpen,
         bool AllowNegativeStock,
+        Guid? DefaultHourlyProductId,
         string? ExtraJson);
 
     public record SellSettingsSaveDto(
@@ -68,6 +69,8 @@ public partial class PosSellIndustryController(
         bool? EnableMultiDeviceDraftLock = null,
         bool? PromptGuestCountOnOpen = null,
         bool? AllowNegativeStock = null,
+        Guid? DefaultHourlyProductId = null,
+        bool SetDefaultHourlyProductId = false,
         string? ExtraJson = null,
         bool? ApplyProfileDefaults = null);
 
@@ -111,52 +114,167 @@ public partial class PosSellIndustryController(
             return BadRequest(AppResponse<SellSettingsDto>.Fail(
                 $"Hồ sơ ngành không hợp lệ: {dto.SellProfile ?? "(null)"}"));
 
-        s.SellProfile = profile;
-
-        // Mặc định: đổi ngành → áp defaults. Gửi applyProfileDefaults=false để chỉ sửa cờ.
+        // Preview cờ sau khi đổi — chặn tắt bàn khi còn phiên mở.
+        var preview = new PosStoreSellSettings
+        {
+            SellProfile = profile,
+            EnableResources = s.EnableResources,
+            EnableHourlyBilling = s.EnableHourlyBilling,
+            EnableSessionPacks = s.EnableSessionPacks,
+            RequireResourceOnSale = s.RequireResourceOnSale,
+            ShowFloorPlan = s.ShowFloorPlan,
+            AllowProvisionalBill = s.AllowProvisionalBill,
+            EnableMultiDeviceDraftLock = s.EnableMultiDeviceDraftLock,
+            PromptGuestCountOnOpen = s.PromptGuestCountOnOpen,
+            AllowNegativeStock = s.AllowNegativeStock,
+        };
         var applyDefaults = dto.ApplyProfileDefaults != false;
         if (applyDefaults)
+            PosServiceBillingHelper.ApplyProfileDefaults(preview);
+        ApplySellSettingsFlags(preview, dto, applyDefaults);
+
+        if (s.EnableResources && !preview.EnableResources)
         {
+            var openCount = await CountLiveResourceSessionsAsync(storeId);
+            if (openCount > 0)
+            {
+                return BadRequest(AppResponse<SellSettingsDto>.Fail(
+                    $"Còn {openCount} bàn/phiên đang mở. Thanh toán hoặc đóng bàn trước khi đổi sang chế độ không dùng bàn."));
+            }
+        }
+
+        s.SellProfile = profile;
+        if (applyDefaults)
             PosServiceBillingHelper.ApplyProfileDefaults(s);
-            // Cho phép client gửi kèm cờ (sau khi đã withProfileDefaults) — ưu tiên client nếu có.
-            if (dto.EnableResources.HasValue) s.EnableResources = dto.EnableResources.Value;
-            if (dto.EnableHourlyBilling.HasValue) s.EnableHourlyBilling = dto.EnableHourlyBilling.Value;
-            if (dto.EnableSessionPacks.HasValue) s.EnableSessionPacks = dto.EnableSessionPacks.Value;
-            if (dto.RequireResourceOnSale.HasValue) s.RequireResourceOnSale = dto.RequireResourceOnSale.Value;
-            if (dto.ShowFloorPlan.HasValue) s.ShowFloorPlan = dto.ShowFloorPlan.Value;
-            if (dto.AllowProvisionalBill.HasValue) s.AllowProvisionalBill = dto.AllowProvisionalBill.Value;
-            if (dto.EnableMultiDeviceDraftLock.HasValue)
-                s.EnableMultiDeviceDraftLock = dto.EnableMultiDeviceDraftLock.Value;
-            if (dto.PromptGuestCountOnOpen.HasValue)
-                s.PromptGuestCountOnOpen = dto.PromptGuestCountOnOpen.Value;
-            if (dto.AllowNegativeStock.HasValue)
-                s.AllowNegativeStock = dto.AllowNegativeStock.Value;
-        }
-        else
-        {
-            if (dto.EnableResources.HasValue) s.EnableResources = dto.EnableResources.Value;
-            if (dto.EnableHourlyBilling.HasValue) s.EnableHourlyBilling = dto.EnableHourlyBilling.Value;
-            if (dto.EnableSessionPacks.HasValue) s.EnableSessionPacks = dto.EnableSessionPacks.Value;
-            if (dto.RequireResourceOnSale.HasValue) s.RequireResourceOnSale = dto.RequireResourceOnSale.Value;
-            if (dto.ShowFloorPlan.HasValue) s.ShowFloorPlan = dto.ShowFloorPlan.Value;
-            if (dto.AllowProvisionalBill.HasValue) s.AllowProvisionalBill = dto.AllowProvisionalBill.Value;
-            if (dto.EnableMultiDeviceDraftLock.HasValue)
-                s.EnableMultiDeviceDraftLock = dto.EnableMultiDeviceDraftLock.Value;
-            if (dto.PromptGuestCountOnOpen.HasValue)
-                s.PromptGuestCountOnOpen = dto.PromptGuestCountOnOpen.Value;
-            if (dto.AllowNegativeStock.HasValue)
-                s.AllowNegativeStock = dto.AllowNegativeStock.Value;
-        }
+        ApplySellSettingsFlags(s, dto, applyDefaults);
 
         if (!string.IsNullOrWhiteSpace(dto.DefaultSellMode))
             s.DefaultSellMode = dto.DefaultSellMode.Trim().ToLowerInvariant();
         if (dto.ExtraJson != null) s.ExtraJson = dto.ExtraJson;
+        if (dto.SetDefaultHourlyProductId)
+        {
+            var pid = dto.DefaultHourlyProductId;
+            if (pid is null || pid == Guid.Empty)
+                s.DefaultHourlyProductId = null;
+            else
+            {
+                var ok = await db.PosProducts.AnyAsync(p =>
+                    p.Id == pid && p.StoreId == storeId && p.Deleted == null
+                    && p.ProductType == PosProductType.Service
+                    && (p.ServiceBillingMode == PosServiceBillingMode.PerHour
+                        || p.ServiceBillingMode == PosServiceBillingMode.PerMinute));
+                if (!ok)
+                    return BadRequest(AppResponse<SellSettingsDto>.Fail(
+                        "SP tính giờ mặc định không hợp lệ (cần dịch vụ PerHour/PerMinute)"));
+                s.DefaultHourlyProductId = pid;
+            }
+        }
 
         s.IsActive = true;
         s.UpdatedAt = DateTime.UtcNow;
         s.UpdatedBy = CurrentUserEmail;
         await db.SaveChangesAsync();
         return Ok(AppResponse<SellSettingsDto>.Success(MapSettings(s)));
+    }
+
+    static void ApplySellSettingsFlags(
+        PosStoreSellSettings s, SellSettingsSaveDto dto, bool applyDefaults)
+    {
+        // applyDefaults: client có thể gửi kèm cờ sau withProfileDefaults — ưu tiên nếu có.
+        // !applyDefaults: chỉ patch các cờ được gửi.
+        if (applyDefaults || dto.EnableResources.HasValue)
+        {
+            if (dto.EnableResources.HasValue) s.EnableResources = dto.EnableResources.Value;
+        }
+        if (applyDefaults || dto.EnableHourlyBilling.HasValue)
+        {
+            if (dto.EnableHourlyBilling.HasValue) s.EnableHourlyBilling = dto.EnableHourlyBilling.Value;
+        }
+        if (applyDefaults || dto.EnableSessionPacks.HasValue)
+        {
+            if (dto.EnableSessionPacks.HasValue) s.EnableSessionPacks = dto.EnableSessionPacks.Value;
+        }
+        if (applyDefaults || dto.RequireResourceOnSale.HasValue)
+        {
+            if (dto.RequireResourceOnSale.HasValue) s.RequireResourceOnSale = dto.RequireResourceOnSale.Value;
+        }
+        if (applyDefaults || dto.ShowFloorPlan.HasValue)
+        {
+            if (dto.ShowFloorPlan.HasValue) s.ShowFloorPlan = dto.ShowFloorPlan.Value;
+        }
+        if (applyDefaults || dto.AllowProvisionalBill.HasValue)
+        {
+            if (dto.AllowProvisionalBill.HasValue) s.AllowProvisionalBill = dto.AllowProvisionalBill.Value;
+        }
+        if (applyDefaults || dto.EnableMultiDeviceDraftLock.HasValue)
+        {
+            if (dto.EnableMultiDeviceDraftLock.HasValue)
+                s.EnableMultiDeviceDraftLock = dto.EnableMultiDeviceDraftLock.Value;
+        }
+        if (applyDefaults || dto.PromptGuestCountOnOpen.HasValue)
+        {
+            if (dto.PromptGuestCountOnOpen.HasValue)
+                s.PromptGuestCountOnOpen = dto.PromptGuestCountOnOpen.Value;
+        }
+        if (applyDefaults || dto.AllowNegativeStock.HasValue)
+        {
+            if (dto.AllowNegativeStock.HasValue)
+                s.AllowNegativeStock = dto.AllowNegativeStock.Value;
+        }
+    }
+
+    async Task<int> CountLiveResourceSessionsAsync(Guid storeId) =>
+        await db.PosResourceSessions.AsNoTracking().CountAsync(s =>
+            s.StoreId == storeId && s.Deleted == null
+            && (s.Status == PosResourceSessionStatus.Open
+                || s.Status == PosResourceSessionStatus.Paused));
+
+    async Task<PosStoreSellSettings?> LoadSellSettingsAsync(Guid storeId) =>
+        await db.PosStoreSellSettings.AsNoTracking()
+            .FirstOrDefaultAsync(x => x.StoreId == storeId && x.Deleted == null);
+
+    async Task<ActionResult?> RequireResourcesEnabledAsync(Guid storeId)
+    {
+        var s = await LoadSellSettingsAsync(storeId);
+        if (s == null || !s.EnableResources)
+        {
+            return BadRequest(AppResponse<object>.Fail(
+                "Hồ sơ ngành hiện tại không bật bàn/tài nguyên phục vụ."));
+        }
+        return null;
+    }
+
+    async Task<ActionResult?> RequireRestaurantKitchenAsync(Guid storeId)
+    {
+        var s = await LoadSellSettingsAsync(storeId);
+        if (s == null || s.SellProfile != PosSellProfile.Restaurant)
+        {
+            return BadRequest(AppResponse<object>.Fail(
+                "Báo chế biến chỉ dùng với hồ sơ Nhà hàng / F&B."));
+        }
+        return null;
+    }
+
+    async Task<ActionResult?> RequireProvisionalBillAsync(Guid storeId)
+    {
+        var s = await LoadSellSettingsAsync(storeId);
+        if (s == null || !s.AllowProvisionalBill)
+        {
+            return BadRequest(AppResponse<object>.Fail(
+                "Hồ sơ ngành hiện tại không cho phép tạm tính."));
+        }
+        return null;
+    }
+
+    async Task<ActionResult?> RequireSessionPacksAsync(Guid storeId)
+    {
+        var s = await LoadSellSettingsAsync(storeId);
+        if (s == null || !s.EnableSessionPacks)
+        {
+            return BadRequest(AppResponse<object>.Fail(
+                "Hồ sơ ngành hiện tại không bật gói buổi."));
+        }
+        return null;
     }
 
     static bool TryParseSellProfile(string? raw, out PosSellProfile profile)
@@ -211,7 +329,7 @@ public partial class PosSellIndustryController(
         s.EnableResources, s.EnableHourlyBilling, s.EnableSessionPacks,
         s.RequireResourceOnSale, s.ShowFloorPlan, s.AllowProvisionalBill,
         s.EnableMultiDeviceDraftLock, s.PromptGuestCountOnOpen,
-        s.AllowNegativeStock, s.ExtraJson);
+        s.AllowNegativeStock, s.DefaultHourlyProductId, s.ExtraJson);
 
     // ── Areas / resources ─────────────────────────────────────────────────────
 
@@ -268,7 +386,13 @@ public partial class PosSellIndustryController(
         /// <summary>Máy đang giữ khóa sửa đơn (≠ phiên mở bàn).</summary>
         bool TableSessionOpen = false,
         /// <summary>Còn phiên/đơn nhưng không ai đang sửa (đã về sơ đồ).</summary>
-        bool HasParkedBill = false);
+        bool HasParkedBill = false,
+        int AccumulatedPauseMinutes = 0,
+        DateTime? PausedAt = null,
+        Guid? DefaultServiceProductId = null,
+        decimal ReservationDepositPaid = 0,
+        decimal ReservationDepositAmount = 0,
+        string? ReservationDepositStatus = null);
 
     /// <summary>Khóa còn TTL nhưng heartbeat (LockedAt) quá cũ → coi là tạm rời.</summary>
     const int ActiveTableEditSeconds = 45;
@@ -293,6 +417,7 @@ public partial class PosSellIndustryController(
         public int Capacity { get; set; } = 1;
         public int SortOrder { get; set; }
         public decimal? DefaultHourlyRate { get; set; }
+        public Guid? DefaultServiceProductId { get; set; }
         public bool IsActive { get; set; } = true;
         public double? LayoutX { get; set; }
         public double? LayoutY { get; set; }
@@ -480,6 +605,9 @@ public partial class PosSellIndustryController(
     {
         if (!TryGetStoreId(out var storeId))
             return BadRequest(AppResponse<List<ResourceDto>>.Fail("Thiếu cửa hàng"));
+
+        await ExpireOverdueReservationsAsync(storeId);
+
         var q = db.PosServiceResources.AsNoTracking()
             .Include(r => r.Area)
             .Where(r => r.StoreId == storeId && r.Deleted == null);
@@ -645,7 +773,7 @@ public partial class PosSellIndustryController(
             .OrderByDescending(x => x.ReservedAt)
             .ToListAsync();
 
-        // Heal: đã từng có phiên sau lúc đặt → không còn hiện «đã đặt».
+        // Heal: classic / timed đang chồng phiên → Seated. Không đụng lịch timed tương lai.
         if (reservations.Count > 0)
         {
             var bookResourceIds = reservations.Select(b => b.ResourceId).Distinct().ToList();
@@ -653,14 +781,15 @@ public partial class PosSellIndustryController(
                 .Where(s => bookResourceIds.Contains(s.ResourceId) && s.Deleted == null)
                 .Select(s => new { s.ResourceId, s.StartedAt })
                 .ToListAsync();
+            var nowHealBook = DateTime.UtcNow;
             var staleIds = reservations
                 .Where(b => sessionsAfterBook.Any(s =>
-                    s.ResourceId == b.ResourceId && s.StartedAt >= b.ReservedAt.AddMinutes(-1)))
+                    s.ResourceId == b.ResourceId
+                    && ReservationConflictsWithLiveSession(b, s.StartedAt, nowHealBook)))
                 .Select(b => b.Id)
                 .ToList();
             if (staleIds.Count > 0)
             {
-                var nowHealBook = DateTime.UtcNow;
                 await db.PosResourceReservations
                     .Where(x => staleIds.Contains(x.Id) && x.Deleted == null
                         && x.Status == PosResourceReservationStatus.Booked)
@@ -673,8 +802,9 @@ public partial class PosSellIndustryController(
             }
         }
 
+        var nowFloor = DateTime.UtcNow;
         var reserveByResource = reservations.GroupBy(x => x.ResourceId)
-            .ToDictionary(g => g.Key, g => g.First());
+            .ToDictionary(g => g.Key, g => PickFloorBooking(g, nowFloor)!);
 
         var list = resources.Select(r =>
         {
@@ -694,9 +824,11 @@ public partial class PosSellIndustryController(
             Guid? displayOrderId = sess?.SaleOrderId;
             if (sess != null)
             {
-                elapsed = PosServiceBillingHelper.CalcElapsedMinutes(sess.StartedAt, null)
-                    - sess.AccumulatedPauseMinutes;
-                if (elapsed < 0) elapsed = 0;
+                elapsed = PosServiceBillingHelper.CalcElapsedMinutes(
+                    sess.StartedAt,
+                    null,
+                    sess.AccumulatedPauseMinutes,
+                    sess.Status == PosResourceSessionStatus.Paused ? sess.PausedAt : null);
                 if (sess.SaleOrderId.HasValue &&
                     orderMeta.TryGetValue(sess.SaleOrderId.Value, out var meta))
                 {
@@ -792,7 +924,13 @@ public partial class PosSellIndustryController(
                 booking?.GuestCount ?? 0, preOrderCount,
                 booking?.ReservedUntil,
                 lockedByDeviceId, lockedByDeviceName, lockedByDisplayName, lockExpiresAt,
-                tableSessionOpen, hasParkedBill);
+                tableSessionOpen, hasParkedBill,
+                sess?.AccumulatedPauseMinutes ?? 0,
+                sess?.Status == PosResourceSessionStatus.Paused ? sess.PausedAt : null,
+                r.DefaultServiceProductId,
+                booking?.DepositPaid ?? 0,
+                booking?.DepositAmount ?? 0,
+                booking?.DepositStatus.ToString());
         }).ToList();
 
         return Ok(AppResponse<List<ResourceDto>>.Success(list));
@@ -820,6 +958,22 @@ public partial class PosSellIndustryController(
         if (dup) return BadRequest(AppResponse<object>.Fail("Mã bàn/phòng đã tồn tại"));
 
         var kind = ParseResourceKind(dto.ResourceKind);
+        Guid? defaultServiceProductId = dto.DefaultServiceProductId is null
+            || dto.DefaultServiceProductId == Guid.Empty
+            ? null
+            : dto.DefaultServiceProductId;
+        if (defaultServiceProductId.HasValue)
+        {
+            var productOk = await db.PosProducts.AnyAsync(p =>
+                p.Id == defaultServiceProductId && p.StoreId == storeId && p.Deleted == null
+                && p.ProductType == PosProductType.Service
+                && (p.ServiceBillingMode == PosServiceBillingMode.PerHour
+                    || p.ServiceBillingMode == PosServiceBillingMode.PerMinute));
+            if (!productOk)
+                return BadRequest(AppResponse<object>.Fail(
+                    "SP tính giờ của bàn không hợp lệ (cần dịch vụ PerHour/PerMinute)"));
+        }
+
         var entity = new PosServiceResource
         {
             Id = Guid.NewGuid(),
@@ -831,6 +985,7 @@ public partial class PosSellIndustryController(
             Capacity = Math.Max(1, dto.Capacity),
             SortOrder = dto.SortOrder,
             DefaultHourlyRate = dto.DefaultHourlyRate,
+            DefaultServiceProductId = defaultServiceProductId,
             IsActive = dto.IsActive,
             LayoutX = dto.LayoutX,
             LayoutY = dto.LayoutY,
@@ -875,6 +1030,21 @@ public partial class PosSellIndustryController(
         var by = CurrentUserEmail;
         var layoutW = dto.LayoutW ?? 120;
         var layoutH = dto.LayoutH ?? 100;
+        Guid? defaultServiceProductId = dto.DefaultServiceProductId is null
+            || dto.DefaultServiceProductId == Guid.Empty
+            ? null
+            : dto.DefaultServiceProductId;
+        if (defaultServiceProductId.HasValue)
+        {
+            var productOk = await db.PosProducts.AnyAsync(p =>
+                p.Id == defaultServiceProductId && p.StoreId == storeId && p.Deleted == null
+                && p.ProductType == PosProductType.Service
+                && (p.ServiceBillingMode == PosServiceBillingMode.PerHour
+                    || p.ServiceBillingMode == PosServiceBillingMode.PerMinute));
+            if (!productOk)
+                return BadRequest(AppResponse<object>.Fail(
+                    "SP tính giờ của bàn không hợp lệ (cần dịch vụ PerHour/PerMinute)"));
+        }
 
         // ExecuteUpdate — ghi thẳng DB (cùng cách đã sửa layoutX/Y).
         var n = await db.PosServiceResources
@@ -887,6 +1057,7 @@ public partial class PosSellIndustryController(
                 .SetProperty(r => r.Capacity, capacity)
                 .SetProperty(r => r.SortOrder, dto.SortOrder)
                 .SetProperty(r => r.DefaultHourlyRate, dto.DefaultHourlyRate)
+                .SetProperty(r => r.DefaultServiceProductId, defaultServiceProductId)
                 .SetProperty(r => r.IsActive, dto.IsActive)
                 .SetProperty(r => r.LayoutW, layoutW)
                 .SetProperty(r => r.LayoutH, layoutH)
@@ -962,6 +1133,8 @@ public partial class PosSellIndustryController(
     {
         if (!TryGetStoreId(out var storeId))
             return BadRequest(AppResponse<object>.Fail("Thiếu cửa hàng"));
+        if (await RequireResourcesEnabledAsync(storeId) is { } denied)
+            return denied;
         var resource = await db.PosServiceResources
             .AsTracking()
             .FirstOrDefaultAsync(r => r.Id == dto.ResourceId && r.StoreId == storeId
@@ -971,16 +1144,8 @@ public partial class PosSellIndustryController(
         if (!await CanOperateAreaAsync(storeId, resource.AreaId))
             return BadRequest(AppResponse<object>.Fail("Bạn không được phép mở bàn ở khu vực này"));
 
-        // Đặt trước còn Booked mà mở bàn trực tiếp → coi như đã nhận (tránh kẹt «đã đặt»).
-        await db.PosResourceReservations
-            .Where(x => x.ResourceId == resource.Id && x.Deleted == null
-                && (x.StoreId == storeId || x.StoreId == Guid.Empty)
-                && x.Status == PosResourceReservationStatus.Booked)
-            .ExecuteUpdateAsync(s => s
-                .SetProperty(x => x.Status, PosResourceReservationStatus.Seated)
-                .SetProperty(x => x.UpdatedAt, DateTime.UtcNow)
-                .SetProperty(x => x.UpdatedBy, CurrentUserEmail)
-                .SetProperty(x => x.Deleted, DateTime.UtcNow));
+        // Classic / timed đang diễn ra → Seated. Giữ nguyên lịch timed tương lai trên ghế.
+        await ClearBookedReservationsOnResourceAsync(storeId, resource.Id, asSeated: true);
 
         var existing = await db.PosResourceSessions
             .AsTracking()
@@ -1108,6 +1273,7 @@ public partial class PosSellIndustryController(
                     {
                         PosDraftLockHelper.TryAcquire(
                             existingOrder, resumeActor, force: false, bumpVersion: false, lineCount: 0);
+                        await TryAutoAddHourlyLineAsync(storeId, resource, existingOrder, existing.StartedAt);
                     }
                     await db.SaveChangesAsync();
                     return Ok(AppResponse<object>.Success(new
@@ -1262,6 +1428,7 @@ public partial class PosSellIndustryController(
             // Bước 3: cập nhật ngược ResourceSessionId trên đơn.
             order.ResourceSessionId = session.Id;
             order.UpdatedAt = now;
+            await TryAutoAddHourlyLineAsync(storeId, resource, order, now);
             await db.SaveChangesAsync();
             await tx.CommitAsync();
 
@@ -1289,6 +1456,79 @@ public partial class PosSellIndustryController(
                 : "Không mở được bàn. Thử lại hoặc tải lại sơ đồ.";
             return BadRequest(AppResponse<object>.Fail(msg));
         }
+    }
+
+    /// <summary>
+    /// Tự thêm SP tính giờ khi mở bàn trống (resource override → settings cửa hàng).
+    /// Bỏ qua nếu đã có dòng timed hoặc chưa cấu hình / tắt hourly.
+    /// </summary>
+    async Task TryAutoAddHourlyLineAsync(
+        Guid storeId, PosServiceResource resource, PosSaleOrder order, DateTime startedAt)
+    {
+        var settings = await db.PosStoreSellSettings.AsNoTracking()
+            .FirstOrDefaultAsync(x => x.StoreId == storeId && x.Deleted == null);
+        if (settings?.EnableHourlyBilling != true) return;
+
+        var productId = resource.DefaultServiceProductId ?? settings.DefaultHourlyProductId;
+        if (productId is null || productId == Guid.Empty) return;
+
+        var lineProductIds = await db.PosSaleOrderLines.AsNoTracking()
+            .Where(l => l.SaleOrderId == order.Id && l.Deleted == null)
+            .Select(l => l.ProductId)
+            .ToListAsync();
+        if (lineProductIds.Count > 0)
+        {
+            var hasTimed = await db.PosProducts.AsNoTracking().AnyAsync(p =>
+                lineProductIds.Contains(p.Id)
+                && p.ProductType == PosProductType.Service
+                && (p.ServiceBillingMode == PosServiceBillingMode.PerHour
+                    || p.ServiceBillingMode == PosServiceBillingMode.PerMinute));
+            if (hasTimed) return;
+        }
+
+        var product = await db.PosProducts.AsNoTracking().FirstOrDefaultAsync(p =>
+            p.Id == productId && p.StoreId == storeId && p.Deleted == null && p.IsActive
+            && p.ProductType == PosProductType.Service
+            && (p.ServiceBillingMode == PosServiceBillingMode.PerHour
+                || p.ServiceBillingMode == PosServiceBillingMode.PerMinute));
+        if (product == null) return;
+
+        var unitPrice = product.BasePrice;
+        if (unitPrice <= 0 && resource.DefaultHourlyRate is > 0)
+            unitPrice = resource.DefaultHourlyRate.Value;
+
+        var billable = PosServiceBillingHelper.CalcBillableMinutes(
+            0,
+            product.ServiceBillingMode,
+            product.MinBillMinutes,
+            product.BillRoundMinutes,
+            product.GraceMinutes,
+            product.RoundAfterMinutes);
+        var qty = PosServiceBillingHelper.CalcBillableQty(
+            product.ServiceBillingMode, billable, 1m);
+        var lineTotal = PosServiceBillingHelper.CalcLineTotal(qty, unitPrice, 0);
+
+        db.PosSaleOrderLines.Add(new PosSaleOrderLine
+        {
+            Id = Guid.NewGuid(),
+            StoreId = storeId,
+            SaleOrderId = order.Id,
+            ProductId = product.Id,
+            ProductName = product.Name,
+            UnitName = product.BaseUnitName,
+            Qty = qty,
+            UnitPrice = unitPrice,
+            DiscountAmount = 0,
+            LineTotal = lineTotal,
+            DurationMinutes = billable,
+            BillableMinutes = billable,
+            ServiceStartedAt = startedAt,
+            IsActive = true,
+            CreatedBy = CurrentUserEmail,
+            CreatedAt = DateTime.UtcNow,
+        });
+        order.SubTotal += lineTotal;
+        order.UpdatedAt = DateTime.UtcNow;
     }
 
     [HttpPost("resource-sessions/{id:guid}/close")]
@@ -1487,7 +1727,9 @@ public partial class PosSellIndustryController(
             s.Id, s.ResourceId, s.Resource?.Code ?? "", s.Resource?.Name ?? "",
             s.SaleOrderId, s.SaleOrder?.OrderNo, s.CustomerId, s.Customer?.Name ?? s.SaleOrder?.CustomerName,
             s.StartedAt, s.EndedAt, s.Status.ToString(),
-            PosServiceBillingHelper.CalcElapsedMinutes(s.StartedAt, null),
+            PosServiceBillingHelper.CalcElapsedMinutes(
+                s.StartedAt, null, s.AccumulatedPauseMinutes,
+                s.Status == PosResourceSessionStatus.Paused ? s.PausedAt : null),
             s.Note)).ToList();
         return Ok(AppResponse<List<SessionDto>>.Success(dtos));
     }
@@ -1553,6 +1795,8 @@ public partial class PosSellIndustryController(
     {
         if (!TryGetStoreId(out var storeId))
             return BadRequest(AppResponse<object>.Fail("Thiếu cửa hàng"));
+        if (await RequireSessionPacksAsync(storeId) is { } denied)
+            return denied;
         var sessions = Math.Max(1, dto.Sessions);
         // DbContext mặc định NoTracking — bắt buộc AsTracking để SaveChangesAsync thực sự trừ buổi.
         var balance = await db.PosCustomerSessionBalances.AsTracking()
@@ -1599,6 +1843,10 @@ public partial class PosSellIndustryController(
         string? actorEmail)
     {
         if (!order.CustomerId.HasValue) return;
+
+        var settings = await dbContext.PosStoreSellSettings.AsNoTracking()
+            .FirstOrDefaultAsync(x => x.StoreId == storeId && x.Deleted == null);
+        if (settings == null || !settings.EnableSessionPacks) return;
 
         var productIds = lines.Select(l => l.ProductId).Distinct().ToList();
         var packs = await dbContext.PosProducts.AsNoTracking()

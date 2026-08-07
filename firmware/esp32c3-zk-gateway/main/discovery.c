@@ -6,7 +6,6 @@
 
 #include "app_config.h"
 #include "esp_log.h"
-#include "esp_mac.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "gateway.h"
@@ -19,9 +18,7 @@ static char s_host[32];
 
 static void build_host(void)
 {
-    uint8_t mac[6];
-    esp_read_mac(mac, ESP_MAC_WIFI_STA);
-    snprintf(s_host, sizeof(s_host), "sbox-gateway-%02x%02x", mac[4], mac[5]);
+    strlcpy(s_host, "sboxadms", sizeof(s_host));
 }
 
 /* Một dòng JSON đủ để app dựng thẻ thiết bị mà chưa cần gọi /api/status. */

@@ -46,3 +46,10 @@ esp_err_t app_config_reset_mark(void);
 /* SN đã phát hiện từ máy chấm công, lưu lại để dùng khi máy tạm mất kết nối. */
 esp_err_t app_config_save_serial(const char *serial);
 const char *app_config_effective_serial(void);
+const char *app_config_detected_serial(void);
+
+/* Xoá SN đã đọc từ máy cũ — gọi khi đổi IP/cổng/Comm Key máy chấm công. */
+esp_err_t app_config_clear_detected_serial(void);
+
+/* true nếu thông số kết nối tới máy chấm công khác bản trước đó. */
+bool app_config_device_target_changed(const app_config_t *before, const app_config_t *after);

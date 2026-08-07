@@ -29,10 +29,12 @@ static const char *TAG = "gw";
 
 static gw_status_t s_status;
 static SemaphoreHandle_t s_lock;
+static SemaphoreHandle_t s_device_lock;
 
 static volatile bool s_req_full;
 static volatile bool s_req_users;
 static volatile bool s_req_clock;
+static volatile bool s_req_identify;
 
 static uint32_t s_last_seen_records = UINT32_MAX; /* ép quét ngay lần đầu */
 static attlog_mark_t s_mark;
@@ -94,6 +96,23 @@ void gateway_request_clock_sync(void)
     s_req_clock = true;
 }
 
+void gateway_request_identify(void)
+{
+    s_req_identify = true;
+}
+
+void gateway_clear_device_identity(void)
+{
+    status_lock();
+    s_status.serial[0] = '\0';
+    s_status.firmware[0] = '\0';
+    s_status.platform[0] = '\0';
+    s_status.dev_users = 0;
+    s_status.dev_fingers = 0;
+    s_status.dev_records = 0;
+    status_unlock();
+}
+
 /* ------------------------------------------------------------------ */
 /* Phiên làm việc với máy chấm công                                    */
 /* ------------------------------------------------------------------ */
@@ -122,6 +141,40 @@ static void zk_session_close(zk_conn_t *c)
     zk_close(c);
 }
 
+static bool device_session_begin(zk_conn_t *c, TickType_t wait)
+{
+    if (s_device_lock == NULL || xSemaphoreTake(s_device_lock, wait) != pdTRUE) {
+        return false;
+    }
+    if (zk_session_open(c) != ESP_OK) {
+        xSemaphoreGive(s_device_lock);
+        return false;
+    }
+    return true;
+}
+
+static void device_session_end(zk_conn_t *c)
+{
+    zk_session_close(c);
+    xSemaphoreGive(s_device_lock);
+}
+
+esp_err_t gateway_run_on_device(gateway_device_fn fn, void *ctx)
+{
+    if (fn == NULL) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    zk_conn_t c;
+    if (!device_session_begin(&c, pdMS_TO_TICKS(90000))) {
+        return ESP_ERR_TIMEOUT;
+    }
+
+    esp_err_t err = fn(&c, ctx);
+    device_session_end(&c);
+    return err;
+}
+
 /* ------------------------------------------------------------------ */
 /* Nhận diện máy                                                       */
 /* ------------------------------------------------------------------ */
@@ -140,7 +193,7 @@ static void sanitize_for_query(char *s)
 static esp_err_t identify_device(void)
 {
     zk_conn_t c;
-    if (zk_session_open(&c) != ESP_OK) {
+    if (!device_session_begin(&c, pdMS_TO_TICKS(8000))) {
         return ESP_FAIL;
     }
 
@@ -154,7 +207,7 @@ static esp_err_t identify_device(void)
     zk_get_option(&c, "~Platform", platform, sizeof(platform));
     zk_get_sizes(&c, &sizes);
 
-    zk_session_close(&c);
+    device_session_end(&c);
 
     if (serial[0] == '\0') {
         status_error("khong doc duoc so seri cua may cham cong");
@@ -450,8 +503,7 @@ static void run_commands(const char *resp)
         adms_cmd_t cmd;
         if (line_len > 0 && cmd_parse_line(p, line_len, &cmd)) {
             if (!opened) {
-                if (zk_session_open(&c) != ESP_OK) {
-                    /* Máy không phản hồi: báo lỗi để server biết lệnh chưa chạy. */
+                if (!device_session_begin(&c, pdMS_TO_TICKS(15000))) {
                     adms_ack_command(app_config_effective_serial(), cmd.id, -2, "DEVICE_OFFLINE");
                     return;
                 }
@@ -479,7 +531,7 @@ static void run_commands(const char *resp)
     }
 
     if (opened) {
-        zk_session_close(&c);
+        device_session_end(&c);
     }
 }
 
@@ -601,7 +653,7 @@ static void do_attendance_cycle(void)
     }
 
     zk_conn_t c;
-    if (zk_session_open(&c) != ESP_OK) {
+    if (!device_session_begin(&c, 0)) {
         return;
     }
 
@@ -615,7 +667,7 @@ static void do_attendance_cycle(void)
 
         /* Không có bản ghi mới thì bỏ qua — tránh kéo cả log mỗi vòng. */
         if (!full && sizes.records == s_last_seen_records) {
-            zk_session_close(&c);
+            device_session_end(&c);
             return;
         }
     }
@@ -627,19 +679,19 @@ static void do_attendance_cycle(void)
         }
     }
 
-    zk_session_close(&c);
+    device_session_end(&c);
 }
 
 static void do_user_cycle(void)
 {
     zk_conn_t c;
-    if (zk_session_open(&c) != ESP_OK) {
+    if (!device_session_begin(&c, 0)) {
         return;
     }
     if (gateway_upload_users(&c) == ESP_OK) {
         s_req_users = false;
     }
-    zk_session_close(&c);
+    device_session_end(&c);
 }
 
 static void do_clock_sync(void)
@@ -660,7 +712,7 @@ static void do_clock_sync(void)
     gmtime_r(&local, &tm_local);
 
     zk_conn_t c;
-    if (zk_session_open(&c) != ESP_OK) {
+    if (!device_session_begin(&c, 0)) {
         return;
     }
     if (zk_set_time(&c, &tm_local) == ESP_OK) {
@@ -669,7 +721,7 @@ static void do_clock_sync(void)
                  tm_local.tm_hour, tm_local.tm_min, tm_local.tm_sec);
         s_req_clock = false;
     }
-    zk_session_close(&c);
+    device_session_end(&c);
 }
 
 /* ------------------------------------------------------------------ */
@@ -708,11 +760,10 @@ static void gateway_task(void *arg)
         const app_config_t *cfg = app_config_get();
         int64_t now = esp_timer_get_time() / 1000;
 
-        /* Chạy nhận diện khi chưa biết SN, và thêm một lần mỗi lần khởi động
-         * kể cả khi SN đã có trong NVS: firmware/nền tảng không được lưu lại
-         * nên phải đọc lại từ máy, nếu không trang trạng thái sẽ bỏ trống. */
-        if (app_config_effective_serial()[0] == '\0' || !identified_this_boot) {
-            if (now - last_identify < 15000 && last_identify != 0) {
+        /* Chạy nhận diện khi chưa biết SN, sau khi đổi máy chấm công, và thêm một
+         * lần mỗi lần khởi động: firmware/nền tảng không lưu NVS nên phải đọc lại. */
+        if (s_req_identify || app_config_effective_serial()[0] == '\0' || !identified_this_boot) {
+            if (now - last_identify < 15000 && last_identify != 0 && !s_req_identify) {
                 continue;
             }
             last_identify = now;
@@ -720,7 +771,9 @@ static void gateway_task(void *arg)
                 continue;
             }
             identified_this_boot = true;
+            s_req_identify = false;
             last_register = 0; /* đăng ký lại ngay khi vừa biết SN */
+            s_last_seen_records = 0;
         }
 
         const char *sn = app_config_effective_serial();
@@ -755,6 +808,7 @@ static void gateway_task(void *arg)
 void gateway_start(void)
 {
     s_lock = xSemaphoreCreateMutex();
+    s_device_lock = xSemaphoreCreateMutex();
     strlcpy(s_status.serial, app_config_effective_serial(), sizeof(s_status.serial));
     xTaskCreate(gateway_task, "gateway", 8192, NULL, 5, NULL);
 }
