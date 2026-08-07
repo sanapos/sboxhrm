@@ -1,0 +1,3 @@
+﻿class SettingsHubSidebarConfig {
+  const SettingsHubSidebarConfig();
+}

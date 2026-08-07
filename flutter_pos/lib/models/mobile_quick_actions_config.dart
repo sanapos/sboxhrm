@@ -1,0 +1,3 @@
+﻿class MobileQuickActionsConfig {
+  const MobileQuickActionsConfig();
+}
