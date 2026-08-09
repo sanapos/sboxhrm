@@ -73,6 +73,108 @@ static void status_clear_error(void)
     status_unlock();
 }
 
+#define ALERT_DEBOUNCE_MS (10 * 60 * 1000)
+#define SYNC_SLOW_MS      45000
+#define SYNC_SLOW_RECORDS 8000
+
+typedef struct {
+    char code[24];
+    int64_t last_ms;
+} alert_debounce_t;
+
+static alert_debounce_t s_alert_debounce[6];
+
+static bool alert_should_send(const char *code)
+{
+    int64_t now = esp_timer_get_time() / 1000;
+    int free_slot = -1;
+    for (int i = 0; i < (int)(sizeof(s_alert_debounce) / sizeof(s_alert_debounce[0])); i++) {
+        if (s_alert_debounce[i].code[0] == '\0') {
+            if (free_slot < 0) {
+                free_slot = i;
+            }
+            continue;
+        }
+        if (strcmp(s_alert_debounce[i].code, code) == 0) {
+            if (now - s_alert_debounce[i].last_ms < ALERT_DEBOUNCE_MS) {
+                return false;
+            }
+            s_alert_debounce[i].last_ms = now;
+            return true;
+        }
+    }
+    if (free_slot >= 0) {
+        strlcpy(s_alert_debounce[free_slot].code, code, sizeof(s_alert_debounce[free_slot].code));
+        s_alert_debounce[free_slot].last_ms = now;
+        return true;
+    }
+    /* Đầy bảng — ghi đè slot 0. */
+    strlcpy(s_alert_debounce[0].code, code, sizeof(s_alert_debounce[0].code));
+    s_alert_debounce[0].last_ms = now;
+    return true;
+}
+
+void gateway_report_alert(const char *code, const char *msg, uint32_t records, int64_t duration_ms)
+{
+    if (code == NULL || code[0] == '\0') {
+        return;
+    }
+    if (!wifi_mgr_is_connected() || !app_config_is_provisioned()) {
+        return;
+    }
+    const char *sn = app_config_effective_serial();
+    if (sn[0] == '\0') {
+        return;
+    }
+    if (!alert_should_send(code)) {
+        ESP_LOGI(TAG, "bo qua canh bao %s (debounce)", code);
+        return;
+    }
+
+    char body[384];
+    snprintf(body, sizeof(body),
+             "CODE=%s\nMSG=%s\nRECORDS=%u\nDURATION_MS=%lld\n",
+             code,
+             msg != NULL ? msg : "",
+             (unsigned)records,
+             (long long)duration_ms);
+    /* MSG không được chứa xuống dòng — cắt gọn. */
+    for (char *p = body; *p; p++) {
+        if (*p == '\r') {
+            *p = ' ';
+        }
+    }
+
+    esp_err_t err = adms_post_errorlog(sn, body);
+    if (err != ESP_OK) {
+        ESP_LOGW(TAG, "gui canh bao %s that bai: %s", code, esp_err_to_name(err));
+    }
+}
+
+static void note_device_link(bool online, const char *err_msg)
+{
+    static bool s_have_prev;
+    static bool s_prev_online;
+
+    if (!s_have_prev) {
+        s_have_prev = true;
+        s_prev_online = online;
+        if (!online && err_msg != NULL && err_msg[0] != '\0') {
+            gateway_report_alert("ZK_OFFLINE", err_msg, s_status.dev_records, 0);
+        }
+        return;
+    }
+
+    if (s_prev_online && !online) {
+        gateway_report_alert("ZK_OFFLINE",
+                             err_msg != NULL && err_msg[0] ? err_msg : "mat ket noi may cham cong",
+                             s_status.dev_records, 0);
+    } else if (!s_prev_online && online) {
+        gateway_report_alert("ZK_ONLINE", "may cham cong da ket noi lai", s_status.dev_records, 0);
+    }
+    s_prev_online = online;
+}
+
 void gateway_status_snapshot(gw_status_t *out)
 {
     status_lock();
@@ -127,7 +229,13 @@ static esp_err_t zk_session_open(zk_conn_t *c)
     status_unlock();
 
     if (err != ESP_OK) {
-        status_error("khong ket noi duoc may cham cong %s:%u", cfg->device_ip, cfg->device_port);
+        char msg[128];
+        snprintf(msg, sizeof(msg), "khong ket noi duoc may cham cong %s:%u",
+                 cfg->device_ip, (unsigned)cfg->device_port);
+        status_error("%s", msg);
+        note_device_link(false, msg);
+    } else {
+        note_device_link(true, NULL);
     }
     return err;
 }
@@ -657,7 +765,7 @@ static void do_attendance_cycle(void)
         return;
     }
 
-    zk_sizes_t sizes;
+    zk_sizes_t sizes = {0};
     if (zk_get_sizes(&c, &sizes) == ESP_OK) {
         status_lock();
         s_status.dev_users = sizes.users;
@@ -672,11 +780,26 @@ static void do_attendance_cycle(void)
         }
     }
 
-    if (gateway_upload_attendance(&c, full) == ESP_OK) {
+    int64_t t0 = esp_timer_get_time() / 1000;
+    esp_err_t err = gateway_upload_attendance(&c, full);
+    int64_t elapsed = esp_timer_get_time() / 1000 - t0;
+
+    if (err == ESP_OK) {
         s_last_seen_records = sizes.records;
         if (full) {
             s_req_full = false;
         }
+        if (elapsed >= SYNC_SLOW_MS || sizes.records >= SYNC_SLOW_RECORDS) {
+            char msg[160];
+            snprintf(msg, sizeof(msg),
+                     "dong bo mat %lld ms, %u ban ghi tren may - nen xoa log dinh ky",
+                     (long long)elapsed, (unsigned)sizes.records);
+            gateway_report_alert("SYNC_SLOW", msg, sizes.records, elapsed);
+        }
+    } else {
+        gateway_report_alert("SYNC_FAILED",
+                             s_status.last_error[0] ? s_status.last_error : "dong bo that bai",
+                             sizes.records, elapsed);
     }
 
     device_session_end(&c);
@@ -722,6 +845,96 @@ static void do_clock_sync(void)
         s_req_clock = false;
     }
     device_session_end(&c);
+}
+
+/* Xóa toàn bộ ATTLOG trên máy theo lịch tháng. Máy ZK không hỗ trợ xóa theo
+ * khoảng ngày — chỉ CLEAR hết. An toàn: đẩy log lên server trước, chỉ xóa khi
+ * upload OK; mỗi YYYYMM chỉ xóa một lần. */
+static void maybe_auto_clear_attlog(void)
+{
+    const app_config_t *cfg = app_config_get();
+    if (!cfg->auto_clear_attlog) {
+        return;
+    }
+
+    time_t now = time(NULL);
+    if (now < 1700000000) {
+        return;
+    }
+
+    time_t local = now + (time_t)cfg->tz_offset_h * 3600;
+    struct tm tm_local;
+    gmtime_r(&local, &tm_local);
+
+    int year = tm_local.tm_year + 1900;
+    int mon = tm_local.tm_mon + 1;
+    uint32_t yyyymm = (uint32_t)year * 100u + (uint32_t)mon;
+    if (yyyymm == app_config_last_auto_clear_ym()) {
+        return;
+    }
+
+    uint8_t day = cfg->auto_clear_day;
+    if (day < 1) {
+        day = 1;
+    } else if (day > 28) {
+        day = 28;
+    }
+
+    /* Đến hạn khi đã qua (hoặc đúng) ngày/giờ đã chọn trong tháng hiện tại.
+     * Nếu ESP tắt đúng ngày lịch, lần bật lại sau đó trong cùng tháng vẫn chạy. */
+    int due_min = (int)day * 24 * 60 + (int)cfg->auto_clear_hour * 60 + (int)cfg->auto_clear_min;
+    int now_min = tm_local.tm_mday * 24 * 60 + tm_local.tm_hour * 60 + tm_local.tm_min;
+    if (now_min < due_min) {
+        return;
+    }
+
+    /* Thất bại (mất máy/server) thì thử lại sau 5 phút, không đập liên tục. */
+    static int64_t s_last_try_ms;
+    int64_t now_ms = esp_timer_get_time() / 1000;
+    if (s_last_try_ms != 0 && now_ms - s_last_try_ms < 5 * 60 * 1000) {
+        return;
+    }
+    s_last_try_ms = now_ms;
+
+    ESP_LOGW(TAG, "toi lich xoa log dinh ky (%u/%u %02u:%02u), dong bo truoc khi xoa",
+             (unsigned)day, (unsigned)mon,
+             (unsigned)cfg->auto_clear_hour, (unsigned)cfg->auto_clear_min);
+
+    zk_conn_t c;
+    if (!device_session_begin(&c, pdMS_TO_TICKS(8000))) {
+        status_error("xoa log dinh ky: khong ket noi may cham cong");
+        return;
+    }
+
+    /* Đẩy mọi bản ghi còn lại trước — nếu fail thì không xóa. */
+    esp_err_t err = gateway_upload_attendance(&c, false);
+    if (err != ESP_OK) {
+        device_session_end(&c);
+        status_error("xoa log dinh ky: dong bo that bai, chua xoa");
+        return;
+    }
+
+    err = zk_clear_attlog(&c);
+    device_session_end(&c);
+    if (err != ESP_OK) {
+        status_error("xoa log dinh ky: CLEAR LOG that bai");
+        return;
+    }
+
+    app_config_reset_mark();
+    s_mark.last_zk_time = 0;
+    s_mark.last_count = 0;
+    s_last_seen_records = 0;
+    app_config_save_last_auto_clear_ym(yyyymm);
+
+    status_lock();
+    s_status.dev_records = 0;
+    s_status.last_auto_clear_ym = yyyymm;
+    status_unlock();
+    status_clear_error();
+
+    ESP_LOGW(TAG, "da xoa log cham cong dinh ky thang %u (du lieu van con tren server)",
+             (unsigned)yyyymm);
 }
 
 /* ------------------------------------------------------------------ */
@@ -802,6 +1015,8 @@ static void gateway_task(void *arg)
             last_clock = now;
             do_clock_sync();
         }
+
+        maybe_auto_clear_attlog();
     }
 }
 
@@ -810,5 +1025,6 @@ void gateway_start(void)
     s_lock = xSemaphoreCreateMutex();
     s_device_lock = xSemaphoreCreateMutex();
     strlcpy(s_status.serial, app_config_effective_serial(), sizeof(s_status.serial));
+    s_status.last_auto_clear_ym = app_config_last_auto_clear_ym();
     xTaskCreate(gateway_task, "gateway", 8192, NULL, 5, NULL);
 }

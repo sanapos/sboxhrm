@@ -28,6 +28,9 @@ esp_err_t adms_post_attlog(const char *sn, const char *body, const char *stamp);
 /* POST /iclock/cdata?SN=..&table=OPERLOG — danh sách nhân viên đọc từ máy */
 esp_err_t adms_post_operlog(const char *sn, const char *body);
 
+/* POST /iclock/cdata?SN=..&table=ERRORLOG — cảnh báo sức khỏe gateway */
+esp_err_t adms_post_errorlog(const char *sn, const char *body);
+
 /* GET /iclock/getrequest?SN=..&INFO=.. -> "OK" hoặc các dòng "C:<id>:<lenh>" */
 esp_err_t adms_get_request(const char *sn, const char *info, char *resp, size_t resp_cap,
                            adms_result_t *out);

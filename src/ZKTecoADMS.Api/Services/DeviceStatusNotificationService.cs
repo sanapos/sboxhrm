@@ -160,6 +160,70 @@ public class DeviceStatusNotificationService : IDeviceStatusNotificationService
         }
     }
 
+    public async Task NotifyDeviceAlertAsync(Device device, string code, string message, int records = 0, long durationMs = 0)
+    {
+        try
+        {
+            var (title, eventType, type, status) = MapAlert(code);
+            var name = device.DeviceName ?? device.SerialNumber;
+            var detail = string.IsNullOrWhiteSpace(message)
+                ? title
+                : $"{message}";
+            if (records > 0)
+                detail += $" (log trên máy: {records:N0})";
+            if (durationMs > 0)
+                detail += $" (mất {durationMs / 1000.0:0.#}s)";
+
+            var fullMessage = $"Gateway '{name}': {detail}";
+
+            var notification = new DeviceStatusNotification(
+                DeviceId: device.Id.ToString(),
+                SerialNumber: device.SerialNumber,
+                DeviceName: name,
+                Location: device.Location,
+                Status: status,
+                EventType: eventType,
+                Timestamp: DateTime.UtcNow,
+                Message: fullMessage
+            );
+
+            var (adminUserIds, rolesByUserId) = await GetAdminUsersAsync(device);
+            await SendDeviceStatusToTargetsAsync(notification, adminUserIds, device);
+
+            await SendAndSaveNotificationAsync(
+                title: title,
+                message: fullMessage,
+                type: type,
+                adminUserIds: adminUserIds,
+                rolesByUserId: rolesByUserId,
+                relatedEntityId: device.Id,
+                relatedEntityType: "Device",
+                storeId: device.StoreId
+            );
+
+            _logger.LogInformation(
+                "📡 Device ALERT {Code}: {DeviceName}, Targets={Count}",
+                code, name, adminUserIds.Count);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to send device alert {Code} for {SN}", code, device.SerialNumber);
+        }
+    }
+
+    private static (string Title, string EventType, NotificationType Type, string Status) MapAlert(string code)
+    {
+        return (code ?? "").Trim().ToUpperInvariant() switch
+        {
+            "ZK_OFFLINE" => ("Mất kết nối máy chấm công", "ZkOffline", NotificationType.Warning, "ZkOffline"),
+            "ZK_ONLINE" => ("Máy chấm công đã kết nối lại", "ZkOnline", NotificationType.Success, "Online"),
+            "COMM_ERROR" => ("Lỗi giao tiếp máy chấm công", "CommError", NotificationType.Warning, "CommError"),
+            "SYNC_SLOW" => ("Đồng bộ quá lâu — nên xóa bớt log trên máy", "SyncSlow", NotificationType.Warning, "SyncSlow"),
+            "SYNC_FAILED" => ("Đồng bộ chấm công thất bại", "SyncFailed", NotificationType.Error, "SyncFailed"),
+            _ => ("Cảnh báo gateway chấm công", "GatewayAlert", NotificationType.Warning, "Alert"),
+        };
+    }
+
     /// <summary>
     /// Get admin user IDs in the same store + all SuperAdmins, filtered by notification preferences
     /// </summary>

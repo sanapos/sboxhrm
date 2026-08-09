@@ -16,11 +16,13 @@ class ZkGatewayInfo {
     this.serial = '',
     this.deviceIp = '',
     this.version = '',
+    this.appSha = '',
     this.apSsid = '',
     this.provisioned = false,
     this.wifiConnected = true,
     this.deviceOnline = false,
     this.serverOnline = false,
+    this.locked = false,
   });
 
   final String ip;
@@ -33,12 +35,16 @@ class ZkGatewayInfo {
   final String serial;
   final String deviceIp;
   final String version;
+
+  /// 16 hex đầu SHA app partition (từ `/api/info`).
+  final String appSha;
   final String apSsid;
 
   final bool provisioned;
   final bool wifiConnected;
   final bool deviceOnline;
   final bool serverOnline;
+  final bool locked;
 
   static const productId = 'sbox-zk-gateway';
 
@@ -61,26 +67,31 @@ class ZkGatewayInfo {
       serial: json['serial']?.toString() ?? '',
       deviceIp: json['deviceIp']?.toString() ?? '',
       version: json['version']?.toString() ?? '',
+      appSha: json['appSha']?.toString() ?? '',
       apSsid: json['apSsid']?.toString() ?? '',
       provisioned: json['provisioned'] == true,
       wifiConnected: json['wifiConnected'] != false,
       deviceOnline: json['deviceOnline'] == true,
       serverOnline: json['serverOnline'] == true,
+      locked: json['locked'] == true,
     );
   }
 
-  ZkGatewayInfo copyWith({String? ip, String? name}) => ZkGatewayInfo(
+  ZkGatewayInfo copyWith({String? ip, String? name, bool? locked, String? version, String? appSha}) =>
+      ZkGatewayInfo(
         ip: ip ?? this.ip,
         host: host,
         name: name ?? this.name,
         serial: serial,
         deviceIp: deviceIp,
-        version: version,
+        version: version ?? this.version,
+        appSha: appSha ?? this.appSha,
         apSsid: apSsid,
         provisioned: provisioned,
         wifiConnected: wifiConnected,
         deviceOnline: deviceOnline,
         serverOnline: serverOnline,
+        locked: locked ?? this.locked,
       );
 }
 
@@ -107,6 +118,7 @@ class ZkGatewayStatus {
     required this.uptimeSeconds,
     required this.freeHeap,
     required this.version,
+    this.lastAutoClearYm = 0,
   });
 
   final bool wifiConnected;
@@ -127,6 +139,7 @@ class ZkGatewayStatus {
   final int uploadedTotal;
   final int uploadedLast;
   final int commands;
+  final int lastAutoClearYm;
 
   final String error;
   final int uptimeSeconds;
@@ -156,6 +169,7 @@ class ZkGatewayStatus {
       uploadedTotal: _toInt(sync['uploadedTotal']),
       uploadedLast: _toInt(sync['uploadedLast']),
       commands: _toInt(sync['commands']),
+      lastAutoClearYm: _toInt(sync['lastAutoClearYm']),
       error: json['error']?.toString() ?? '',
       uptimeSeconds: _toInt(json['uptime']),
       freeHeap: _toInt(json['heap']),
@@ -180,6 +194,11 @@ class ZkGatewayConfig {
     this.backfillDays = 30,
     this.tzOffset = 7,
     this.syncClock = true,
+    this.autoClearAttlog = false,
+    this.autoClearDay = 1,
+    this.autoClearHour = 2,
+    this.autoClearMin = 0,
+    this.lastAutoClearYm = 0,
   });
 
   String gwName;
@@ -195,6 +214,11 @@ class ZkGatewayConfig {
   int backfillDays;
   int tzOffset;
   bool syncClock;
+  bool autoClearAttlog;
+  int autoClearDay;
+  int autoClearHour;
+  int autoClearMin;
+  final int lastAutoClearYm;
 
   factory ZkGatewayConfig.fromJson(Map<String, dynamic> json) {
     return ZkGatewayConfig(
@@ -211,6 +235,23 @@ class ZkGatewayConfig {
       backfillDays: _toInt(json['backfillDays']),
       tzOffset: _toInt(json['tzOffset']),
       syncClock: json['syncClock'] != false,
+      autoClearAttlog: json['autoClearAttlog'] == true,
+      autoClearDay: () {
+        final d = _toInt(json['autoClearDay']);
+        if (d < 1 || d > 28) return 1;
+        return d;
+      }(),
+      autoClearHour: () {
+        final h = _toInt(json['autoClearHour']);
+        if (h < 0 || h > 23) return 2;
+        return h;
+      }(),
+      autoClearMin: () {
+        final m = _toInt(json['autoClearMin']);
+        if (m < 0 || m > 59) return 0;
+        return m;
+      }(),
+      lastAutoClearYm: _toInt(json['lastAutoClearYm']),
     );
   }
 
@@ -224,13 +265,22 @@ class ZkGatewayConfig {
       'deviceIp': deviceIp,
       'devicePort': devicePort,
       'commKey': commKey,
-      'serverUrl': serverUrl,
+      // serverUrl cố định trong firmware — không gửi để tránh hiểu nhầm có thể đổi.
       'snOverride': snOverride,
       'pollInterval': pollInterval,
       'attlogInterval': attlogInterval,
       'backfillDays': backfillDays,
       'tzOffset': tzOffset,
       'syncClock': syncClock,
+    };
+  }
+
+  Map<String, dynamic> toAutoClearPayload() {
+    return {
+      'autoClearAttlog': autoClearAttlog,
+      'autoClearDay': autoClearDay.clamp(1, 28),
+      'autoClearHour': autoClearHour.clamp(0, 23),
+      'autoClearMin': autoClearMin.clamp(0, 59),
     };
   }
 }

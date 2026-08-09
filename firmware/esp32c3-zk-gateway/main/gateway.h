@@ -21,6 +21,7 @@ typedef struct {
     uint32_t commands_done;
     int64_t last_cycle_ms;
     int64_t last_upload_ms;
+    uint32_t last_auto_clear_ym; /* YYYYMM lần xóa định kỳ gần nhất, 0 = chưa */
     char last_error[128];
 } gw_status_t;
 
@@ -37,6 +38,9 @@ void gateway_clear_device_identity(void);
 /* Được cmd_exec gọi khi server yêu cầu kéo dữ liệu; dùng lại phiên ZK đang mở. */
 esp_err_t gateway_upload_attendance(zk_conn_t *c, bool full_resync);
 esp_err_t gateway_upload_users(zk_conn_t *c);
+
+/* Gửi cảnh báo ERRORLOG lên server (debounce theo mã). */
+void gateway_report_alert(const char *code, const char *msg, uint32_t records, int64_t duration_ms);
 
 /* Máy ZK chỉ cho một phiên TCP. Web portal và vòng đồng bộ dùng chung khoá này. */
 typedef esp_err_t (*gateway_device_fn)(zk_conn_t *c, void *ctx);

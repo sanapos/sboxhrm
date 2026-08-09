@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:network_info_plus/network_info_plus.dart';
 
 import '../models/zk_gateway.dart';
 
@@ -12,11 +13,12 @@ import '../models/zk_gateway.dart';
 ///
 ///  - **Quảng bá** (một gói tới `x.y.z.255`): nhanh, nhưng iOS 14 trở lên chặn
 ///    hẳn broadcast nếu app không có entitlement
-///    `com.apple.developer.networking.multicast` — thứ phải xin Apple duyệt
-///    riêng. Vì vậy trên iPhone đường này luôn im lặng.
+///    `com.apple.developer.networking.multicast`.
 ///  - **Quét từng địa chỉ** (gói unicast tới `x.y.z.1..254`): tốn 254 gói nhỏ
-///    nhưng là unicast nên iOS cho qua, chỉ cần quyền mạng nội bộ. Firmware trả
-///    lời đúng địa chỉ đã hỏi nên không phải sửa gì phía mạch.
+///    nhưng là unicast nên iOS cho qua khi đã có quyền Local Network.
+///
+/// Trên iOS, [ZkGatewayClient.discover] còn gọi thêm HTTP tới `sboxadms.local`
+/// (cùng đường Safari dùng) để kích hoạt quyền Local Network / Bonjour.
 Future<List<ZkGatewayInfo>> discoverGateways({
   required Duration duration,
   required String probe,
@@ -55,6 +57,11 @@ Future<List<ZkGatewayInfo>> discoverGateways({
     final sweep = _sweepTargets(interfaces);
     final deadline = DateTime.now().add(duration);
 
+    debugPrint(
+      'discoverGateways: ifaces=${interfaces.length} '
+      'broadcast=${broadcast.length} sweep=${sweep.length}',
+    );
+
     // Gửi lặp lại vì UDP không bảo đảm tới đích.
     while (DateTime.now().isBefore(deadline)) {
       for (final target in broadcast) {
@@ -80,8 +87,10 @@ Future<List<ZkGatewayInfo>> discoverGateways({
   return list;
 }
 
-/// Địa chỉ IPv4 của máy trên các mạng thật (bỏ loopback và link-local 169.254,
-/// vì hai loại đó không dẫn tới mạch nào).
+/// Địa chỉ IPv4 của máy trên các mạng thật (bỏ loopback và link-local 169.254).
+///
+/// Bổ sung IP WiFi từ [NetworkInfo] vì trên iOS `NetworkInterface.list` đôi khi
+/// trống → không có sweep unicast → chỉ còn broadcast bị chặn.
 Future<List<String>> _localIPv4() async {
   final out = <String>[];
   try {
@@ -96,13 +105,25 @@ Future<List<String>> _localIPv4() async {
       }
     }
   } catch (_) {
-    // Không liệt kê được thì chỉ còn trông vào broadcast toàn cục.
+    // Không liệt kê được thì thử WiFi IP bên dưới.
   }
+
+  try {
+    final wifiIp = await NetworkInfo().getWifiIP();
+    if (wifiIp != null &&
+        wifiIp.contains('.') &&
+        !wifiIp.startsWith('169.254.') &&
+        !out.contains(wifiIp)) {
+      out.add(wifiIp);
+    }
+  } catch (_) {
+    // Quyền / nền tảng không hỗ trợ.
+  }
+
   return out;
 }
 
-/// Broadcast toàn cục cộng broadcast riêng của từng subnet: Android thường
-/// chặn 255.255.255.255 nhưng vẫn cho x.y.z.255 đi qua.
+/// Broadcast toàn cục cộng broadcast riêng của từng subnet.
 List<InternetAddress> _broadcastTargets(List<String> localIPv4) {
   final targets = <InternetAddress>[InternetAddress('255.255.255.255')];
   for (final ip in localIPv4) {
@@ -115,9 +136,7 @@ List<InternetAddress> _broadcastTargets(List<String> localIPv4) {
   return targets;
 }
 
-/// Toàn bộ địa chỉ trong cùng dải /24 với máy, trừ chính nó và hai địa chỉ
-/// đầu/cuối. Chỉ quét /24: mạng gia đình và văn phòng nhỏ đều vậy, còn quét
-/// rộng hơn thì quá lâu để chờ trong màn hình cài đặt.
+/// Toàn bộ địa chỉ trong cùng dải /24 với máy (trừ chính nó).
 List<InternetAddress> _sweepTargets(List<String> localIPv4) {
   final seen = <String>{};
   final targets = <InternetAddress>[];
@@ -133,8 +152,6 @@ List<InternetAddress> _sweepTargets(List<String> localIPv4) {
   return targets;
 }
 
-/// Rải gói theo từng cụm nhỏ. Bắn liền 254 gói dễ làm tràn bộ đệm gửi của
-/// socket, lúc đó phần đuôi rơi mất và đúng mạch cần tìm có thể nằm ở đó.
 Future<void> _sweepOnce(
   RawDatagramSocket sock,
   List<int> payload,
@@ -150,7 +167,7 @@ Future<void> _sweepOnce(
       try {
         sock.send(payload, targets[k], port);
       } catch (_) {
-        // Địa chỉ không gửi được thì bỏ qua, còn cả dải phía sau.
+        // Địa chỉ không gửi được thì bỏ qua.
       }
     }
     await Future.delayed(const Duration(milliseconds: 12));

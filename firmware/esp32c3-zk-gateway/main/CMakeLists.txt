@@ -11,6 +11,7 @@ idf_component_register(
         "gateway.c"
         "discovery.c"
         "device_api.c"
+        "portal_auth.c"
     INCLUDE_DIRS "."
     EMBED_TXTFILES "portal.html"
     REQUIRES

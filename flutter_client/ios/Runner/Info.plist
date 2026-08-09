@@ -83,7 +83,7 @@
 	<key>NSLocationAlwaysUsageDescription</key>
 	<string>Ứng dụng cần quyền vị trí để xác nhận địa điểm chấm công, kể cả khi chạy nền</string>
 	<key>NSLocalNetworkUsageDescription</key>
-	<string>Ứng dụng cần truy cập mạng nội bộ để tìm và cấu hình gateway chấm công WiFi (ESP32) trong cùng WiFi nhà.</string>
+	<string>Ứng dụng cần truy cập mạng nội bộ (Local Network) để tìm gateway chấm công qua Bonjour/mDNS (sboxadms.local) và UDP trong cùng WiFi nhà. Hãy cho phép khi hệ thống hỏi.</string>
 	<key>NSBonjourServices</key>
 	<array>
 		<string>_sboxgw._tcp</string>

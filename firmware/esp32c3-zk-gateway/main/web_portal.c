@@ -16,6 +16,7 @@
 #include "gateway.h"
 #include "device_api.h"
 #include "wifi_mgr.h"
+#include "portal_auth.h"
 
 static const char *TAG = "web";
 
@@ -80,25 +81,28 @@ static const char *reset_reason_text(void)
 
 static esp_err_t status_get(httpd_req_t *req)
 {
+    if (portal_auth_guard(req) != ESP_OK) {
+        return ESP_FAIL;
+    }
     gw_status_t st;
     gateway_status_snapshot(&st);
 
     const esp_app_desc_t *app = esp_app_get_description();
     int64_t uptime_s = esp_timer_get_time() / 1000000;
 
-    char *json = malloc(1152);
+    char *json = malloc(1280);
     if (json == NULL) {
         return httpd_resp_send_500(req);
     }
 
-    snprintf(json, 1152,
+    snprintf(json, 1280,
              "{\"wifi\":{\"connected\":%s,\"ip\":\"%s\",\"rssi\":%d,\"ap\":%s,\"apSsid\":\"%s\"},"
              "\"device\":{\"online\":%s,\"serial\":\"%s\",\"detectedSerial\":\"%s\","
              "\"effectiveSerial\":\"%s\",\"firmware\":\"%s\",\"platform\":\"%s\","
              "\"users\":%u,\"fingers\":%u,\"records\":%u},"
              "\"server\":{\"online\":%s},"
              "\"sync\":{\"uploadedTotal\":%u,\"uploadedLast\":%u,\"commands\":%u,"
-             "\"lastCycleMs\":%lld,\"lastUploadMs\":%lld},"
+             "\"lastCycleMs\":%lld,\"lastUploadMs\":%lld,\"lastAutoClearYm\":%u},"
              "\"error\":\"%s\",\"uptime\":%lld,\"heap\":%u,\"heapMin\":%u,"
              "\"resetReason\":\"%s\",\"version\":\"%s\"}",
              wifi_mgr_is_connected() ? "true" : "false", wifi_mgr_sta_ip(),
@@ -110,6 +114,7 @@ static esp_err_t status_get(httpd_req_t *req)
              st.server_online ? "true" : "false",
              (unsigned)st.uploaded_total, (unsigned)st.uploaded_last, (unsigned)st.commands_done,
              (long long)st.last_cycle_ms, (long long)st.last_upload_ms,
+             (unsigned)st.last_auto_clear_ym,
              st.last_error, (long long)uptime_s, (unsigned)esp_get_free_heap_size(),
              (unsigned)esp_get_minimum_free_heap_size(), reset_reason_text(),
              app != NULL ? app->version : "?");
@@ -121,20 +126,28 @@ static esp_err_t status_get(httpd_req_t *req)
 
 static esp_err_t config_get(httpd_req_t *req)
 {
+    if (portal_auth_guard(req) != ESP_OK) {
+        return ESP_FAIL;
+    }
     const app_config_t *cfg = app_config_get();
 
-    char json[960];
+    char json[1120];
     snprintf(json, sizeof(json),
              "{\"gwName\":\"%s\",\"wifiSsid\":\"%s\",\"hasWifiPass\":%s,\"deviceIp\":\"%s\","
              "\"devicePort\":%u,"
              "\"commKey\":%u,\"serverUrl\":\"%s\",\"snOverride\":\"%s\",\"detectedSerial\":\"%s\","
              "\"effectiveSerial\":\"%s\",\"pollInterval\":%u,"
-             "\"attlogInterval\":%u,\"backfillDays\":%u,\"tzOffset\":%d,\"syncClock\":%s}",
+             "\"attlogInterval\":%u,\"backfillDays\":%u,\"tzOffset\":%d,\"syncClock\":%s,"
+             "\"autoClearAttlog\":%s,\"autoClearDay\":%u,\"autoClearHour\":%u,\"autoClearMin\":%u,"
+             "\"lastAutoClearYm\":%u}",
              cfg->gw_name, cfg->wifi_ssid, cfg->wifi_pass[0] != '\0' ? "true" : "false",
              cfg->device_ip, cfg->device_port, (unsigned)cfg->comm_key, cfg->server_url,
              cfg->sn_override, app_config_detected_serial(), app_config_effective_serial(),
              cfg->poll_interval_s, cfg->attlog_interval_s,
-             cfg->backfill_days, cfg->tz_offset_h, cfg->sync_device_clock ? "true" : "false");
+             cfg->backfill_days, cfg->tz_offset_h, cfg->sync_device_clock ? "true" : "false",
+             cfg->auto_clear_attlog ? "true" : "false",
+             (unsigned)cfg->auto_clear_day, (unsigned)cfg->auto_clear_hour,
+             (unsigned)cfg->auto_clear_min, (unsigned)app_config_last_auto_clear_ym());
 
     return send_json(req, json);
 }
@@ -159,12 +172,12 @@ static esp_err_t info_get(httpd_req_t *req)
         }
     }
 
-    char json[640];
+    char json[720];
     snprintf(json, sizeof(json),
              "{\"product\":\"sbox-zk-gateway\",\"version\":\"%s\",\"build\":\"%s %s\","
              "\"appSha\":\"%s\",\"name\":\"%s\","
              "\"serial\":\"%s\",\"ip\":\"%s\",\"apSsid\":\"%s\",\"provisioned\":%s,"
-             "\"wifiConnected\":%s,\"deviceOnline\":%s,\"serverOnline\":%s}",
+             "\"wifiConnected\":%s,\"deviceOnline\":%s,\"serverOnline\":%s,\"locked\":%s}",
              app != NULL ? app->version : "?",
              app != NULL ? app->date : "?", app != NULL ? app->time : "?",
              sha, cfg->gw_name,
@@ -172,7 +185,8 @@ static esp_err_t info_get(httpd_req_t *req)
              app_config_is_provisioned() ? "true" : "false",
              wifi_mgr_is_connected() ? "true" : "false",
              st.device_online ? "true" : "false",
-             st.server_online ? "true" : "false");
+             st.server_online ? "true" : "false",
+             portal_password_enabled() ? "true" : "false");
 
     return send_json(req, json);
 }
@@ -195,6 +209,9 @@ static void json_copy_int(cJSON *root, const char *key, long *dst)
 
 static esp_err_t config_post(httpd_req_t *req)
 {
+    if (portal_auth_guard(req) != ESP_OK) {
+        return ESP_FAIL;
+    }
     char *body = read_body(req, 2048);
     if (body == NULL) {
         httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "than yeu cau khong hop le");
@@ -218,7 +235,7 @@ static esp_err_t config_post(httpd_req_t *req)
     json_copy_str(root, "gwName", cfg.gw_name, sizeof(cfg.gw_name));
     json_copy_str(root, "wifiSsid", cfg.wifi_ssid, sizeof(cfg.wifi_ssid));
     json_copy_str(root, "deviceIp", cfg.device_ip, sizeof(cfg.device_ip));
-    json_copy_str(root, "serverUrl", cfg.server_url, sizeof(cfg.server_url));
+    /* serverUrl cố định APP_FIXED_SERVER_URL — bỏ qua nếu client gửi. */
     json_copy_str(root, "snOverride", cfg.sn_override, sizeof(cfg.sn_override));
 
     /* Mật khẩu chỉ ghi đè khi người dùng thực sự nhập giá trị mới. */
@@ -239,6 +256,15 @@ static esp_err_t config_post(httpd_req_t *req)
     if (cJSON_IsBool(sync_clock)) {
         cfg.sync_device_clock = cJSON_IsTrue(sync_clock);
     }
+
+    cJSON *auto_clear = cJSON_GetObjectItemCaseSensitive(root, "autoClearAttlog");
+    if (cJSON_IsBool(auto_clear)) {
+        cfg.auto_clear_attlog = cJSON_IsTrue(auto_clear);
+    }
+    v = cfg.auto_clear_day;  json_copy_int(root, "autoClearDay", &v);  cfg.auto_clear_day = (uint8_t)v;
+    v = cfg.auto_clear_hour;json_copy_int(root, "autoClearHour", &v);cfg.auto_clear_hour = (uint8_t)v;
+    v = cfg.auto_clear_min; json_copy_int(root, "autoClearMin", &v); cfg.auto_clear_min = (uint8_t)v;
+
     cJSON_Delete(root);
 
     if (cfg.device_port == 0) {
@@ -249,6 +275,15 @@ static esp_err_t config_post(httpd_req_t *req)
     }
     if (cfg.attlog_interval_s < 10) {
         cfg.attlog_interval_s = 10;
+    }
+    if (cfg.auto_clear_day < 1 || cfg.auto_clear_day > 28) {
+        cfg.auto_clear_day = 1;
+    }
+    if (cfg.auto_clear_hour > 23) {
+        cfg.auto_clear_hour = 2;
+    }
+    if (cfg.auto_clear_min > 59) {
+        cfg.auto_clear_min = 0;
     }
 
     esp_err_t err = app_config_save(&cfg);
@@ -280,6 +315,9 @@ static esp_err_t config_post(httpd_req_t *req)
 
 static esp_err_t scan_get(httpd_req_t *req)
 {
+    if (portal_auth_guard(req) != ESP_OK) {
+        return ESP_FAIL;
+    }
     const int max = 16;
     wifi_ap_record_t *aps = calloc(max, sizeof(wifi_ap_record_t));
     if (aps == NULL) {
@@ -317,6 +355,9 @@ static void reboot_task(void *arg)
 
 static esp_err_t action_post(httpd_req_t *req)
 {
+    if (portal_auth_guard(req) != ESP_OK) {
+        return ESP_FAIL;
+    }
     char query[64] = {0};
     char what[32] = {0};
     if (httpd_req_get_url_query_str(req, query, sizeof(query)) == ESP_OK) {
@@ -346,6 +387,9 @@ static esp_err_t action_post(httpd_req_t *req)
 
 static esp_err_t ota_post(httpd_req_t *req)
 {
+    if (portal_auth_guard(req) != ESP_OK) {
+        return ESP_FAIL;
+    }
     const esp_partition_t *target = esp_ota_get_next_update_partition(NULL);
     if (target == NULL) {
         httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "khong co phan vung OTA");
@@ -398,7 +442,7 @@ static esp_err_t ota_post(httpd_req_t *req)
 esp_err_t web_portal_start(void)
 {
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
-    config.max_uri_handlers = 22;
+    config.max_uri_handlers = 32;
     config.stack_size = 6144;
     config.lru_purge_enable = true;
     config.recv_wait_timeout = 20;
@@ -426,6 +470,7 @@ esp_err_t web_portal_start(void)
         httpd_register_uri_handler(server, &routes[i]);
     }
 
+    portal_auth_register(server);
     device_api_register(server);
 
     ESP_LOGI(TAG, "trang cau hinh da san sang");

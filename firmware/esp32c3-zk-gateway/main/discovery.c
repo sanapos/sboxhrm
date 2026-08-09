@@ -10,6 +10,7 @@
 #include "freertos/task.h"
 #include "gateway.h"
 #include "mdns.h"
+#include "portal_auth.h"
 #include "wifi_mgr.h"
 
 static const char *TAG = "disco";
@@ -31,12 +32,13 @@ static int build_announce(char *out, size_t cap)
     return snprintf(out, cap,
                     "{\"product\":\"sbox-zk-gateway\",\"host\":\"%s\",\"ip\":\"%s\","
                     "\"name\":\"%s\",\"serial\":\"%s\",\"deviceIp\":\"%s\","
-                    "\"deviceOnline\":%s,\"serverOnline\":%s,\"provisioned\":%s}",
+                    "\"deviceOnline\":%s,\"serverOnline\":%s,\"provisioned\":%s,\"locked\":%s}",
                     s_host, wifi_mgr_sta_ip(), cfg->gw_name,
                     app_config_effective_serial(), cfg->device_ip,
                     st.device_online ? "true" : "false",
                     st.server_online ? "true" : "false",
-                    app_config_is_provisioned() ? "true" : "false");
+                    app_config_is_provisioned() ? "true" : "false",
+                    portal_password_enabled() ? "true" : "false");
 }
 
 /* Nhiều router chặn multicast giữa các client nên mDNS một mình là không đủ.

@@ -16,10 +16,9 @@ static const char *TAG = "adms";
 
 static void build_url(char *dst, size_t cap, const char *path_and_query)
 {
-    const app_config_t *cfg = app_config_get();
-    size_t len = strlcpy(dst, cfg->server_url, cap);
+    size_t len = strlcpy(dst, APP_FIXED_SERVER_URL, cap);
 
-    /* bỏ dấu / thừa ở cuối server_url */
+    /* bỏ dấu / thừa ở cuối */
     while (len > 0 && dst[len - 1] == '/') {
         dst[--len] = '\0';
     }
@@ -204,6 +203,22 @@ esp_err_t adms_post_operlog(const char *sn, const char *body)
 
     char resp[32];
     return http_do(url, HTTP_METHOD_POST, body, strlen(body), resp, sizeof(resp), NULL);
+}
+
+esp_err_t adms_post_errorlog(const char *sn, const char *body)
+{
+    char path[128];
+    snprintf(path, sizeof(path), "/iclock/cdata?SN=%s&table=ERRORLOG&Stamp=9999", sn);
+
+    char url[sizeof(path) + CFG_URL_LEN];
+    build_url(url, sizeof(url), path);
+
+    char resp[32];
+    esp_err_t err = http_do(url, HTTP_METHOD_POST, body, strlen(body), resp, sizeof(resp), NULL);
+    if (err == ESP_OK) {
+        ESP_LOGW(TAG, "da gui canh bao ERRORLOG (%d byte)", (int)strlen(body));
+    }
+    return err;
 }
 
 esp_err_t adms_get_request(const char *sn, const char *info, char *resp, size_t resp_cap,

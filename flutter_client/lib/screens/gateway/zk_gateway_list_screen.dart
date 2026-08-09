@@ -41,7 +41,7 @@ class _ZkGatewayListScreenState extends State<ZkGatewayListScreen> {
   Future<void> _discover() async {
     if (kIsWeb) return;
     setState(() => _scanning = true);
-    final found = await _client.discover(duration: const Duration(seconds: 4));
+    final found = await _client.discover();
     if (!mounted) return;
     setState(() {
       _gateways = found;
@@ -150,6 +150,11 @@ class _ZkGatewayListScreenState extends State<ZkGatewayListScreen> {
 
     try {
       final info = await _client.fetchInfo(target);
+      if (info.ip.isNotEmpty) {
+        await _client.rememberHost(info.ip);
+      } else {
+        await _client.rememberHost(target);
+      }
       if (!mounted) return;
       await _openDetail(info);
     } catch (e) {
@@ -490,7 +495,7 @@ class _ZkGatewayListScreenState extends State<ZkGatewayListScreen> {
           ),
           const SizedBox(height: 14),
           Text(
-            tr('Đang dò tìm gateway trong mạng...'),
+            tr('Đang dò tìm gateway (Bonjour + UDP)...'),
             style: const TextStyle(
               fontSize: 13.5,
               color: HrmPageChrome.textMuted,
@@ -542,11 +547,12 @@ class _ZkGatewayListScreenState extends State<ZkGatewayListScreen> {
           const SizedBox(height: 16),
           GatewayNoteBox(
             text: !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS
-                ? 'Điện thoại phải ở cùng WiFi với gateway. iPhone thường không '
-                    'dò thấy thiết bị bằng UDP — hãy mở Safari tới '
-                    'http://sboxadms.local (hoặc bấm link web cấu hình phía trên). '
-                    'Nếu lần đầu bị hỏi quyền mạng nội bộ, chọn Cho phép rồi dò lại. '
-                    'Đã từ chối thì bật lại ở Cài đặt > SBOX HRM > Mạng cục bộ.'
+                ? 'Điện thoại phải cùng WiFi với gateway. App dò bằng Bonjour '
+                    '(sboxadms.local / _sboxgw._tcp) giống Safari, cộng UDP. '
+                    'Lần đầu iOS hỏi quyền Mạng cục bộ — chọn Cho phép rồi bấm dò lại. '
+                    'Nếu đã từ chối: Cài đặt → SBOX HRM → Mạng cục bộ → bật. '
+                    'Vẫn không thấy thì mở Safari tới http://sboxadms.local '
+                    'hoặc nhập IP bằng nút bàn phím.'
                 : 'Điện thoại phải ở cùng WiFi với gateway. Một số router bật '
                     'chế độ cách ly thiết bị làm dò tìm không thấy — khi đó mở '
                     'http://sboxadms.local hoặc nhập IP bằng nút bàn phím góc trên.',

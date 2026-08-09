@@ -235,3 +235,8 @@ Phía app tương ứng nằm ở `flutter_client/lib/screens/gateway/` (giao di
 `lib/services/zk_gateway_client.dart` (gọi API) và `lib/models/zk_gateway.dart` (dữ liệu).
 Phần dò tìm tách thành `zk_gateway_discovery_io.dart` / `_stub.dart` sau conditional import,
 vì `dart:io` không tồn tại trên web và chỉ cần import là bản build web đứt.
+
+## Bảo mật & triển khai nhiều điểm
+
+Xem [SECURITY.md](SECURITY.md): server ADMS **cố định** `https://sboxhrm.com`, Flash Encryption /
+Secure Boot khi sản xuất, OTA dual-bank để cập nhật hiện trường.

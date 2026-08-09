@@ -11,6 +11,8 @@ static const char *NS = "zkgw";
 
 static app_config_t s_cfg;
 static char s_detected_sn[CFG_STR_LEN];
+static uint32_t s_last_auto_clear_ym;
+static char s_portal_pass_hash[65];
 
 static void load_str(nvs_handle_t h, const char *key, char *dst, size_t cap, const char *def)
 {
@@ -29,7 +31,16 @@ static void apply_defaults(app_config_t *cfg)
     cfg->backfill_days = 30;
     cfg->tz_offset_h = 7;
     cfg->sync_device_clock = true;
-    strlcpy(cfg->server_url, "https://sboxhrm.com", sizeof(cfg->server_url));
+    cfg->auto_clear_attlog = false;
+    cfg->auto_clear_day = 1;
+    cfg->auto_clear_hour = 2;
+    cfg->auto_clear_min = 0;
+    strlcpy(cfg->server_url, APP_FIXED_SERVER_URL, sizeof(cfg->server_url));
+}
+
+static void force_fixed_server_url(app_config_t *cfg)
+{
+    strlcpy(cfg->server_url, APP_FIXED_SERVER_URL, sizeof(cfg->server_url));
 }
 
 esp_err_t app_config_init(void)
@@ -55,9 +66,10 @@ esp_err_t app_config_init(void)
     load_str(h, "ssid", s_cfg.wifi_ssid, sizeof(s_cfg.wifi_ssid), "");
     load_str(h, "pass", s_cfg.wifi_pass, sizeof(s_cfg.wifi_pass), "");
     load_str(h, "devip", s_cfg.device_ip, sizeof(s_cfg.device_ip), "");
-    load_str(h, "url", s_cfg.server_url, sizeof(s_cfg.server_url), s_cfg.server_url);
+    /* Bỏ qua NVS "url" — luôn khóa sboxhrm.com. */
     load_str(h, "sn", s_cfg.sn_override, sizeof(s_cfg.sn_override), "");
     load_str(h, "dsn", s_detected_sn, sizeof(s_detected_sn), "");
+    load_str(h, "ppass", s_portal_pass_hash, sizeof(s_portal_pass_hash), "");
 
     nvs_get_u16(h, "devport", &s_cfg.device_port);
     nvs_get_u32(h, "ckey", &s_cfg.comm_key);
@@ -70,9 +82,29 @@ esp_err_t app_config_init(void)
     nvs_get_u8(h, "syncclk", &sync_clock);
     s_cfg.sync_device_clock = sync_clock != 0;
 
+    uint8_t auto_clear = s_cfg.auto_clear_attlog ? 1 : 0;
+    nvs_get_u8(h, "aclr", &auto_clear);
+    s_cfg.auto_clear_attlog = auto_clear != 0;
+    nvs_get_u8(h, "aclr_d", &s_cfg.auto_clear_day);
+    nvs_get_u8(h, "aclr_h", &s_cfg.auto_clear_hour);
+    nvs_get_u8(h, "aclr_m", &s_cfg.auto_clear_min);
+    nvs_get_u32(h, "aclr_ym", &s_last_auto_clear_ym);
+
+    if (s_cfg.auto_clear_day < 1 || s_cfg.auto_clear_day > 28) {
+        s_cfg.auto_clear_day = 1;
+    }
+    if (s_cfg.auto_clear_hour > 23) {
+        s_cfg.auto_clear_hour = 2;
+    }
+    if (s_cfg.auto_clear_min > 59) {
+        s_cfg.auto_clear_min = 0;
+    }
+
+    force_fixed_server_url(&s_cfg);
+
     nvs_close(h);
 
-    ESP_LOGI(TAG, "cau hinh: ssid=%s may=%s:%u server=%s",
+    ESP_LOGI(TAG, "cau hinh: ssid=%s may=%s:%u server=%s (co dinh)",
              s_cfg.wifi_ssid, s_cfg.device_ip, s_cfg.device_port, s_cfg.server_url);
     return ESP_OK;
 }
@@ -84,7 +116,7 @@ const app_config_t *app_config_get(void)
 
 bool app_config_is_provisioned(void)
 {
-    return s_cfg.wifi_ssid[0] != '\0' && s_cfg.device_ip[0] != '\0' && s_cfg.server_url[0] != '\0';
+    return s_cfg.wifi_ssid[0] != '\0' && s_cfg.device_ip[0] != '\0';
 }
 
 esp_err_t app_config_save(const app_config_t *cfg)
@@ -95,25 +127,53 @@ esp_err_t app_config_save(const app_config_t *cfg)
         return err;
     }
 
-    nvs_set_str(h, "gwname", cfg->gw_name);
-    nvs_set_str(h, "ssid", cfg->wifi_ssid);
-    nvs_set_str(h, "pass", cfg->wifi_pass);
-    nvs_set_str(h, "devip", cfg->device_ip);
-    nvs_set_str(h, "url", cfg->server_url);
-    nvs_set_str(h, "sn", cfg->sn_override);
-    nvs_set_u16(h, "devport", cfg->device_port);
-    nvs_set_u32(h, "ckey", cfg->comm_key);
-    nvs_set_u16(h, "poll", cfg->poll_interval_s);
-    nvs_set_u16(h, "attint", cfg->attlog_interval_s);
-    nvs_set_u16(h, "backfill", cfg->backfill_days);
-    nvs_set_i8(h, "tz", cfg->tz_offset_h);
-    nvs_set_u8(h, "syncclk", cfg->sync_device_clock ? 1 : 0);
+    app_config_t fixed = *cfg;
+    force_fixed_server_url(&fixed);
+
+    nvs_set_str(h, "gwname", fixed.gw_name);
+    nvs_set_str(h, "ssid", fixed.wifi_ssid);
+    nvs_set_str(h, "pass", fixed.wifi_pass);
+    nvs_set_str(h, "devip", fixed.device_ip);
+    nvs_erase_key(h, "url"); /* dọn URL cũ nếu từng lưu */
+    nvs_set_str(h, "sn", fixed.sn_override);
+    nvs_set_u16(h, "devport", fixed.device_port);
+    nvs_set_u32(h, "ckey", fixed.comm_key);
+    nvs_set_u16(h, "poll", fixed.poll_interval_s);
+    nvs_set_u16(h, "attint", fixed.attlog_interval_s);
+    nvs_set_u16(h, "backfill", fixed.backfill_days);
+    nvs_set_i8(h, "tz", fixed.tz_offset_h);
+    nvs_set_u8(h, "syncclk", fixed.sync_device_clock ? 1 : 0);
+    nvs_set_u8(h, "aclr", fixed.auto_clear_attlog ? 1 : 0);
+    nvs_set_u8(h, "aclr_d", fixed.auto_clear_day);
+    nvs_set_u8(h, "aclr_h", fixed.auto_clear_hour);
+    nvs_set_u8(h, "aclr_m", fixed.auto_clear_min);
 
     err = nvs_commit(h);
     nvs_close(h);
 
     if (err == ESP_OK) {
-        s_cfg = *cfg;
+        s_cfg = fixed;
+    }
+    return err;
+}
+
+uint32_t app_config_last_auto_clear_ym(void)
+{
+    return s_last_auto_clear_ym;
+}
+
+esp_err_t app_config_save_last_auto_clear_ym(uint32_t yyyymm)
+{
+    nvs_handle_t h;
+    esp_err_t err = nvs_open(NS, NVS_READWRITE, &h);
+    if (err != ESP_OK) {
+        return err;
+    }
+    nvs_set_u32(h, "aclr_ym", yyyymm);
+    err = nvs_commit(h);
+    nvs_close(h);
+    if (err == ESP_OK) {
+        s_last_auto_clear_ym = yyyymm;
     }
     return err;
 }
@@ -214,4 +274,34 @@ bool app_config_device_target_changed(const app_config_t *before, const app_conf
     return strcmp(before->device_ip, after->device_ip) != 0 ||
            before->device_port != after->device_port ||
            before->comm_key != after->comm_key;
+}
+
+const char *app_config_portal_pass_hash(void)
+{
+    return s_portal_pass_hash;
+}
+
+esp_err_t app_config_save_portal_pass_hash(const char *hash_hex)
+{
+    if (hash_hex == NULL) {
+        hash_hex = "";
+    }
+    if (strlen(hash_hex) > 64) {
+        return ESP_ERR_INVALID_ARG;
+    }
+    strlcpy(s_portal_pass_hash, hash_hex, sizeof(s_portal_pass_hash));
+
+    nvs_handle_t h;
+    esp_err_t err = nvs_open(NS, NVS_READWRITE, &h);
+    if (err != ESP_OK) {
+        return err;
+    }
+    if (s_portal_pass_hash[0] == '\0') {
+        nvs_erase_key(h, "ppass");
+    } else {
+        nvs_set_str(h, "ppass", s_portal_pass_hash);
+    }
+    err = nvs_commit(h);
+    nvs_close(h);
+    return err;
 }

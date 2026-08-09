@@ -151,7 +151,9 @@ tr:hover td{background:#121a2c}
         <h2 style="margin-top:6px">Máy chủ &amp; đồng bộ</h2>
         <div class="field">
           <label>Địa chỉ máy chủ ADMS</label>
-          <input name="serverUrl" placeholder="https://sboxhrm.com" required>
+          <input name="serverUrl" value="https://sboxhrm.com" readonly
+                 style="opacity:.75;background:#f3f4f6">
+          <div class="hint">Cố định trong firmware — không đổi được (bảo vệ dịch vụ).</div>
         </div>
         <div class="row">
           <div class="field">
@@ -178,6 +180,32 @@ tr:hover td{background:#121a2c}
           <label>Tự chỉnh đồng hồ máy chấm công theo giờ chuẩn</label>
           <select name="syncClock"><option value="true">Có</option><option value="false">Không</option></select>
         </div>
+
+        <h2 style="margin-top:6px">Xóa log trên máy định kỳ</h2>
+        <div class="hint" style="margin-bottom:10px">
+          Máy ZK chỉ xóa <b>toàn bộ</b> log (không chọn theo khoảng ngày). Gateway sẽ
+          <b>đồng bộ lên server trước</b>, rồi mới xóa. Dữ liệu trên sboxhrm.com vẫn giữ.
+          Ngày tối đa 28 để mọi tháng đều chạy được.
+        </div>
+        <div class="field">
+          <label>Bật xóa log định kỳ mỗi tháng</label>
+          <select name="autoClearAttlog"><option value="false">Tắt</option><option value="true">Bật</option></select>
+        </div>
+        <div class="row">
+          <div class="field">
+            <label>Ngày trong tháng</label>
+            <input name="autoClearDay" type="number" min="1" max="28" value="1">
+          </div>
+          <div class="field">
+            <label>Giờ</label>
+            <input name="autoClearHour" type="number" min="0" max="23" value="2">
+          </div>
+          <div class="field">
+            <label>Phút</label>
+            <input name="autoClearMin" type="number" min="0" max="59" value="0">
+          </div>
+        </div>
+        <div class="hint" id="lastAutoClearHint">Lần xóa gần nhất: chưa có</div>
 
         <button type="submit" class="wide">Lưu cấu hình</button>
       </form>
@@ -350,6 +378,9 @@ async function refresh(){
     ['Lô gần nhất', s.sync.uploadedLast+' bản ghi'],
     ['Lệnh đã thực thi', s.sync.commands],
     ['Lần hỏi lệnh gần nhất', ago(s.sync.lastCycleMs, s.uptime)],
+    ['Xóa log định kỳ gần nhất', (s.sync.lastAutoClearYm
+      ? ('tháng '+String(s.sync.lastAutoClearYm).slice(4)+'/'+String(s.sync.lastAutoClearYm).slice(0,4))
+      : 'chưa có')],
     ['Thời gian chạy', Math.floor(s.uptime/3600)+'h '+Math.floor(s.uptime%3600/60)+'m'],
     ['RAM còn trống', Math.round(s.heap/1024)+' KB'],
     ['Điểm phát cấu hình', s.wifi.ap ? esc(s.wifi.apSsid)+' đang bật' : 'tắt'],
@@ -361,19 +392,27 @@ async function refresh(){
 async function loadCfg(){
   const c = await (await fetch('/api/config')).json();
   const f = $('#cfg');
-  for(const k in c){ if(f[k] && k!=='hasWifiPass' && k!=='syncClock') f[k].value = c[k]; }
+  for(const k in c){
+    if(f[k] && k!=='hasWifiPass' && k!=='syncClock' && k!=='autoClearAttlog' && k!=='lastAutoClearYm' && k!=='serverUrl') f[k].value = c[k];
+  }
+  if(f.serverUrl) f.serverUrl.value = 'https://sboxhrm.com';
   f.syncClock.value = String(c.syncClock);
+  f.autoClearAttlog.value = String(!!c.autoClearAttlog);
   if(c.hasWifiPass) f.wifiPass.placeholder = 'đã lưu - để trống nếu không đổi';
   $('#detectedSn').textContent = c.detectedSerial || 'chưa đọc được';
+  const ym = c.lastAutoClearYm|0;
+  $('#lastAutoClearHint').textContent = ym
+    ? ('Lần xóa gần nhất: tháng ' + String(ym).slice(4) + '/' + String(ym).slice(0,4))
+    : 'Lần xóa gần nhất: chưa có';
 }
 
 async function save(e){
   e.preventDefault();
   const f = e.target, o = {};
   for(const el of f.elements){
-    if(!el.name) continue;
+    if(!el.name || el.name==='serverUrl') continue;
     o[el.name] = el.type==='number' ? Number(el.value||0)
-               : el.name==='syncClock' ? el.value==='true'
+               : (el.name==='syncClock' || el.name==='autoClearAttlog') ? el.value==='true'
                : el.value;
   }
   const r = await fetch('/api/config',{method:'POST',body:JSON.stringify(o)});

@@ -23,6 +23,7 @@ public class PostStrategyContext
             "FINGERTMP" => new PostBiometricStrategy(serviceProvider), // Fingerprint templates
             "BIODATA" => new PostBiometricStrategy(serviceProvider),   // Biometric data (face/fingerprint)
             "OPTIONS" => new PostOptionsStrategy(serviceProvider),     // Device info from PUSH devices
+            "ERRORLOG" => new PostErrorLogStrategy(serviceProvider),   // ESP32 gateway health alerts
             _ => new PostBiometricStrategy(serviceProvider)
         };
         

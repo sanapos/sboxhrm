@@ -1348,7 +1348,7 @@ class ApiService {
             headers: _headers,
             body: json.encode({'records': records}),
           )
-          .timeout(const Duration(seconds: 30));
+          .timeout(const Duration(seconds: 120));
 
       debugPrint('📥 Import response: ${response.statusCode}');
       final data = _handleResponse(response);
@@ -1358,6 +1358,7 @@ class ApiService {
           'success': true,
           'imported': data['data']?['imported'] ?? records.length,
           'failed': data['data']?['failed'] ?? 0,
+          'skipped': data['data']?['skipped'] ?? 0,
           'errors': data['data']?['errors'] ?? [],
         };
       }
@@ -15117,6 +15118,98 @@ class ApiService {
     );
   }
 
+  // ==================== HKD BOOKS (TT 152/2025) ====================
+
+  Future<Map<String, dynamic>> getHkdSettings() async {
+    try {
+      final response = await http
+          .get(Uri.parse('$baseUrl/api/hkd/settings'), headers: _headers)
+          .timeout(const Duration(seconds: 15));
+      final result = _handleResponse(response);
+      if (result['isSuccess'] == true && result['data'] is Map) {
+        return Map<String, dynamic>.from(result['data'] as Map);
+      }
+      return {};
+    } catch (e) {
+      debugPrint('Error getHkdSettings: $e');
+      return {};
+    }
+  }
+
+  Future<Map<String, dynamic>> saveHkdSettings(
+      Map<String, dynamic> body) async {
+    try {
+      final response = await http
+          .put(
+            Uri.parse('$baseUrl/api/hkd/settings'),
+            headers: _headers,
+            body: json.encode(body),
+          )
+          .timeout(const Duration(seconds: 20));
+      final result = _handleResponse(response);
+      if (result['isSuccess'] == true && result['data'] is Map) {
+        return Map<String, dynamic>.from(result['data'] as Map);
+      }
+      throw Exception(result['message'] ?? 'Không lưu được hồ sơ HKD');
+    } catch (e) {
+      debugPrint('Error saveHkdSettings: $e');
+      rethrow;
+    }
+  }
+
+  Future<Map<String, dynamic>> exportHkdRevenueBookExcel({
+    required String book,
+    DateTime? from,
+    DateTime? to,
+  }) async {
+    final q = <String, String>{'book': book};
+    if (from != null) q['from'] = from.toIso8601String();
+    if (to != null) q['to'] = to.toIso8601String();
+    return _getExcelExport(
+      Uri.parse('$baseUrl/api/hkd/books/revenue/export/excel')
+          .replace(queryParameters: q),
+    );
+  }
+
+  Future<Map<String, dynamic>> exportHkdCashBookExcel({
+    DateTime? from,
+    DateTime? to,
+  }) async {
+    final q = <String, String>{};
+    if (from != null) q['from'] = from.toIso8601String();
+    if (to != null) q['to'] = to.toIso8601String();
+    return _getExcelExport(
+      Uri.parse('$baseUrl/api/hkd/books/cash/export/excel')
+          .replace(queryParameters: q.isEmpty ? null : q),
+    );
+  }
+
+  Future<Map<String, dynamic>> exportHkdIncomeExpenseBookExcel({
+    DateTime? from,
+    DateTime? to,
+  }) async {
+    final q = <String, String>{};
+    if (from != null) q['from'] = from.toIso8601String();
+    if (to != null) q['to'] = to.toIso8601String();
+    return _getExcelExport(
+      Uri.parse('$baseUrl/api/hkd/books/income-expense/export/excel')
+          .replace(queryParameters: q.isEmpty ? null : q),
+    );
+  }
+
+  Future<Map<String, dynamic>> exportHkdInventoryBookExcel({
+    DateTime? from,
+    DateTime? to,
+  }) async {
+    final q = <String, String>{};
+    if (from != null) q['from'] = from.toIso8601String();
+    if (to != null) q['to'] = to.toIso8601String();
+    return _getExcelExport(
+      Uri.parse('$baseUrl/api/hkd/books/inventory/export/excel')
+          .replace(queryParameters: q.isEmpty ? null : q),
+    );
+  }
+
   Future<Map<String, dynamic>> createPosStockIssue(
       Map<String, dynamic> body) async {
     try {
@@ -16355,6 +16448,7 @@ class ApiService {
     String id, {
     required String deviceId,
     required String deviceName,
+    Duration timeout = const Duration(seconds: 20),
   }) async {
     try {
       final response = await http
@@ -16366,7 +16460,7 @@ class ApiService {
               'deviceName': deviceName,
             }),
           )
-          .timeout(const Duration(seconds: 20));
+          .timeout(timeout);
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -16887,6 +16981,23 @@ class ApiService {
     try {
       final response = await http
           .delete(Uri.parse('$baseUrl/api/pos/printers/$id'), headers: _headers)
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  /// Đồng bộ máy in nội bộ thiết bị → server (gán món dùng chung).
+  Future<Map<String, dynamic>> upsertPosDeviceLocalPrinter(
+      Map<String, dynamic> body) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/api/pos/printers/device-local'),
+            headers: _headers,
+            body: jsonEncode(body),
+          )
           .timeout(const Duration(seconds: 30));
       return _handleResponse(response);
     } catch (e) {
@@ -18097,6 +18208,53 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
+    }
+  }
+
+  // ==================== ZK GATEWAY FIRMWARE (OTA) ====================
+
+  /// Bản firmware ESP32 gateway mới nhất trên server (Admin+).
+  Future<Map<String, dynamic>> getZkGatewayRelease() async {
+    try {
+      final response = await _retryOnUnauthorized(
+        () => _get(Uri.parse('$baseUrl/api/app/zk-gateway-release')),
+      );
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e, fallback: 'Không lấy được thông tin firmware gateway.');
+    }
+  }
+
+  /// Tải `zk_gateway.bin` từ server (Admin+). Trả null nếu lỗi / file quá nhỏ.
+  Future<Map<String, dynamic>> downloadZkGatewayFirmware() async {
+    try {
+      final response = await _retryOnUnauthorized(
+        () => http
+            .get(
+              Uri.parse('$baseUrl/api/app/zk-gateway-bin'),
+              headers: _binaryDownloadHeaders,
+            )
+            .timeout(const Duration(minutes: 2)),
+      );
+      if (response.statusCode >= 200 &&
+          response.statusCode < 300 &&
+          response.bodyBytes.length >= 100000) {
+        return {
+          'isSuccess': true,
+          'data': response.bodyBytes,
+          'bytes': response.bodyBytes.length,
+        };
+      }
+      final body = utf8.decode(response.bodyBytes, allowMalformed: true);
+      return {
+        'isSuccess': false,
+        'message': body.trim().isNotEmpty
+            ? body.trim()
+            : 'Tải firmware thất bại (${response.statusCode})',
+        'statusCode': response.statusCode,
+      };
+    } catch (e) {
+      return _connectionFailure(e, fallback: 'Không tải được firmware gateway.');
     }
   }
 }

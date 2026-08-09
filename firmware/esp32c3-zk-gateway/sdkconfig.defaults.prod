@@ -1,0 +1,19 @@
+# Production-only overrides. Do NOT enable on everyday development boards.
+# Usage:
+#   idf.py -D SDKCONFIG_DEFAULTS="sdkconfig.defaults;sdkconfig.defaults.prod" reconfigure
+#   idf.py build flash
+#
+# Requires secure_boot_signing_key.pem next to the project (never commit).
+
+CONFIG_SECURE_BOOT=y
+CONFIG_SECURE_BOOT_V2_ENABLED=y
+CONFIG_SECURE_BOOT_BUILD_SIGNED_BINARIES=y
+CONFIG_SECURE_BOOT_SIGNING_KEY="secure_boot_signing_key.pem"
+
+CONFIG_SECURE_FLASH_ENC_ENABLED=y
+CONFIG_SECURE_FLASH_ENCRYPTION_MODE_RELEASE=y
+CONFIG_SECURE_FLASH_CHECK_ENC_EN_IN_APP=y
+
+# Keep UART download disabled after first encrypt in the field if policy requires:
+# CONFIG_SECURE_UART_ROM_DL_MODE=y
+# CONFIG_SECURE_DISABLE_ROM_DL_MODE=y

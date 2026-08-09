@@ -21,4 +21,9 @@ public interface IDeviceStatusNotificationService
     /// Notify all clients when a new device is detected (pending approval)
     /// </summary>
     Task NotifyNewDeviceDetectedAsync(Device device);
+
+    /// <summary>
+    /// Cảnh báo từ gateway ESP32: mất máy chấm công LAN, lỗi giao tiếp, sync quá lâu...
+    /// </summary>
+    Task NotifyDeviceAlertAsync(Device device, string code, string message, int records = 0, long durationMs = 0);
 }

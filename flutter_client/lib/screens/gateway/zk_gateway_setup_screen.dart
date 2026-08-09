@@ -33,7 +33,8 @@ class _ZkGatewaySetupScreenState extends State<ZkGatewaySetupScreen> {
   final _passCtrl = TextEditingController();
   final _deviceIpCtrl = TextEditingController();
   final _commKeyCtrl = TextEditingController(text: '0');
-  final _serverCtrl = TextEditingController(text: 'https://sboxhrm.com');
+
+  static const _fixedServerUrl = 'https://sboxhrm.com';
 
   /// IP dùng để nói chuyện với ESP trong lúc cài: AP hoặc IP LAN nếu cấu hình lại.
   late String _targetIp;
@@ -67,7 +68,6 @@ class _ZkGatewaySetupScreenState extends State<ZkGatewaySetupScreen> {
     _passCtrl.dispose();
     _deviceIpCtrl.dispose();
     _commKeyCtrl.dispose();
-    _serverCtrl.dispose();
     super.dispose();
   }
 
@@ -80,7 +80,6 @@ class _ZkGatewaySetupScreenState extends State<ZkGatewaySetupScreen> {
         _ssidCtrl.text = cfg.wifiSsid;
         _deviceIpCtrl.text = cfg.deviceIp;
         _commKeyCtrl.text = cfg.commKey.toString();
-        _serverCtrl.text = cfg.serverUrl;
       });
     } catch (_) {
       // Chưa đọc được thì để người dùng nhập tay.
@@ -143,13 +142,6 @@ class _ZkGatewaySetupScreenState extends State<ZkGatewaySetupScreen> {
       );
       return false;
     }
-    if (_serverCtrl.text.trim().isEmpty) {
-      appNotification.showWarning(
-        title: tr('Thiếu máy chủ'),
-        message: tr('Nhập địa chỉ máy chủ ADMS.'),
-      );
-      return false;
-    }
     return true;
   }
 
@@ -169,7 +161,7 @@ class _ZkGatewaySetupScreenState extends State<ZkGatewaySetupScreen> {
       wifiSsid: _ssidCtrl.text.trim(),
       deviceIp: _deviceIpCtrl.text.trim(),
       commKey: int.tryParse(_commKeyCtrl.text.trim()) ?? 0,
-      serverUrl: _serverCtrl.text.trim(),
+      serverUrl: _fixedServerUrl,
     );
 
     try {
@@ -675,10 +667,9 @@ class _ZkGatewaySetupScreenState extends State<ZkGatewaySetupScreen> {
             keyboardType: TextInputType.number,
           ),
           const SizedBox(height: 12),
-          _field(
-            controller: _serverCtrl,
-            label: 'Địa chỉ máy chủ',
-            hint: 'https://sboxhrm.com',
+          GatewayNoteBox(
+            text: 'Máy chủ ADMS cố định: $_fixedServerUrl (không đổi được).',
+            icon: Icons.lock_outline,
           ),
         ]),
         const SizedBox(height: 14),
