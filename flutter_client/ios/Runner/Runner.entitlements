@@ -4,8 +4,9 @@
 <dict>
 	<key>com.apple.developer.networking.wifi-info</key>
 	<true/>
-	<key>com.apple.developer.networking.multicast</key>
-	<true/>
+	<!-- Multicast Networking needs Apple approval for the App ID.
+	     Omit until approved so App Store / TestFlight signing can succeed.
+	     iOS discovery uses Bonjour (NSBonjourServices) + Local Network + HTTP/UDP unicast. -->
 	<key>aps-environment</key>
 	<string>production</string>
 </dict>
