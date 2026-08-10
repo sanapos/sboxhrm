@@ -10,6 +10,7 @@ import '../../services/api_service.dart';
 import '../../services/zk_gateway_client.dart';
 import '../../widgets/hrm_page_chrome.dart';
 import '../../widgets/notification_overlay.dart';
+import 'zk_gateway_device_screen.dart';
 import 'zk_gateway_setup_screen.dart';
 import 'zk_gateway_widgets.dart';
 
@@ -329,6 +330,7 @@ class _ZkGatewayDetailScreenState extends State<ZkGatewayDetailScreen> {
       final st = await _client.fetchAuthStatus(_info.ip);
       locked = st['locked'] == true;
     } catch (_) {}
+    if (!mounted) return;
 
     final newCtrl = TextEditingController();
     final oldCtrl = TextEditingController();
@@ -814,10 +816,10 @@ class _ZkGatewayDetailScreenState extends State<ZkGatewayDetailScreen> {
 
   Widget _webPortalCard() {
     final ipUrl = ZkGatewayClient.portalUrlForIp(_portalIp);
-    return _card(title: 'Trang web trên mạch', children: [
+    return _card(title: 'Máy chấm công (trên LAN)', children: [
       Text(
-        tr('Mở Safari/Chrome để cấu hình đầy đủ: nhân viên, vân tay, mở cửa, '
-            'xuất chấm công CSV.'),
+        tr('Quản lý nhân viên, đăng ký vân tay, mở cửa và xem/xuất chấm công '
+            'trực tiếp trong app — không cần mở trình duyệt.'),
         style: const TextStyle(
           fontSize: 12.5,
           height: 1.45,
@@ -826,15 +828,27 @@ class _ZkGatewayDetailScreenState extends State<ZkGatewayDetailScreen> {
       ),
       const SizedBox(height: 12),
       _actionRow(
+        icon: Icons.fingerprint,
+        label: 'Quản lý máy chấm công',
+        desc: 'Nhân viên · vân tay · mở cửa · log',
+        onTap: () {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => ZkGatewayDeviceScreen(info: _info),
+            ),
+          );
+        },
+      ),
+      _actionRow(
         icon: Icons.open_in_browser,
-        label: 'Mở web theo IP',
+        label: 'Mở web theo IP (tuỳ chọn)',
         desc: ipUrl,
         onTap: () => _openPortal(),
       ),
       _actionRow(
         icon: Icons.language,
         label: 'Mở http://sboxadms.local',
-        desc: 'Tên cố định trong mạng nội bộ',
+        desc: 'Trang web trên mạch nếu cần',
         onTap: () => _openPortal(useHost: true),
       ),
       _actionRow(
@@ -1017,6 +1031,18 @@ class _ZkGatewayDetailScreenState extends State<ZkGatewayDetailScreen> {
         label: 'Xoá mốc đồng bộ',
         desc: 'Gửi lại mọi bản ghi còn trên máy, máy chủ tự loại trùng',
         onTap: () => _action('resetmark', 'Xoá mốc đồng bộ', confirm: true),
+      ),
+      _actionRow(
+        icon: Icons.fingerprint,
+        label: 'Quản lý máy chấm công',
+        desc: 'Nhân viên, vân tay, mở cửa, xuất CSV trong app',
+        onTap: () {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => ZkGatewayDeviceScreen(info: _info),
+            ),
+          );
+        },
       ),
       _actionRow(
         icon: Icons.lock_outline,

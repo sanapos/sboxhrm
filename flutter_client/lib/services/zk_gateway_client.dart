@@ -289,6 +289,180 @@ class ZkGatewayClient {
     }
   }
 
+  // ------------------------------------------------------------------
+  // Device API — nói chuyện với máy ZK qua gateway (LAN)
+  // ------------------------------------------------------------------
+
+  static const _deviceTimeout = Duration(seconds: 45);
+
+  String _deviceErrorBody(http.Response res) {
+    final body = utf8.decode(res.bodyBytes, allowMalformed: true).trim();
+    if (body.isNotEmpty && body.length < 200) return body;
+    return 'Thiết bị trả về mã ${res.statusCode}';
+  }
+
+  Future<List<ZkDeviceUser>> fetchDeviceUsers(String ip) async {
+    final res = await http
+        .get(_uri(ip, '/api/device/users'), headers: await _authHeaders(ip))
+        .timeout(_deviceTimeout);
+    _throwIfUnauthorized(res);
+    if (res.statusCode != 200) {
+      throw ZkGatewayException(_deviceErrorBody(res));
+    }
+    final decoded = jsonDecode(utf8.decode(res.bodyBytes));
+    if (decoded is! List) {
+      throw const ZkGatewayException('Danh sách nhân viên không đúng định dạng');
+    }
+    return [
+      for (final e in decoded)
+        if (e is Map)
+          ZkDeviceUser.fromJson(e.cast<String, dynamic>()),
+    ];
+  }
+
+  Future<void> saveDeviceUser(
+    String ip, {
+    required String pin,
+    required String name,
+    int privilege = 0,
+    int card = 0,
+  }) async {
+    final res = await http
+        .post(
+          _uri(ip, '/api/device/users'),
+          headers: await _authHeaders(ip, extra: {'Content-Type': 'application/json'}),
+          body: jsonEncode({
+            'pin': pin,
+            'name': name,
+            'privilege': privilege,
+            'card': card,
+          }),
+        )
+        .timeout(_deviceTimeout);
+    _throwIfUnauthorized(res);
+    if (res.statusCode != 200) {
+      throw ZkGatewayException(_deviceErrorBody(res));
+    }
+  }
+
+  Future<void> deleteDeviceUser(String ip, String pin) async {
+    final res = await http
+        .delete(
+          _uri(ip, '/api/device/users', {'pin': pin}),
+          headers: await _authHeaders(ip),
+        )
+        .timeout(_deviceTimeout);
+    _throwIfUnauthorized(res);
+    if (res.statusCode != 200) {
+      throw ZkGatewayException(_deviceErrorBody(res));
+    }
+  }
+
+  Future<ZkDeviceAttlogPage> fetchDeviceAttlog(String ip) async {
+    final res = await http
+        .get(_uri(ip, '/api/device/attlog'), headers: await _authHeaders(ip))
+        .timeout(const Duration(seconds: 60));
+    _throwIfUnauthorized(res);
+    if (res.statusCode != 200) {
+      throw ZkGatewayException(_deviceErrorBody(res));
+    }
+    final decoded = jsonDecode(utf8.decode(res.bodyBytes));
+    if (decoded is! Map) {
+      throw const ZkGatewayException('Dữ liệu chấm công không đúng định dạng');
+    }
+    return ZkDeviceAttlogPage.fromJson(decoded.cast<String, dynamic>());
+  }
+
+  Future<List<int>> downloadDeviceAttlogCsv(String ip) async {
+    final res = await http
+        .get(
+          _uri(ip, '/api/device/attlog.csv'),
+          headers: await _authHeaders(ip),
+        )
+        .timeout(const Duration(seconds: 90));
+    _throwIfUnauthorized(res);
+    if (res.statusCode != 200) {
+      throw ZkGatewayException(_deviceErrorBody(res));
+    }
+    return res.bodyBytes;
+  }
+
+  Future<void> startDeviceEnroll(
+    String ip, {
+    required String pin,
+    int fid = 0,
+    bool overwrite = true,
+  }) async {
+    final res = await http
+        .post(
+          _uri(ip, '/api/device/enroll'),
+          headers: await _authHeaders(ip, extra: {'Content-Type': 'application/json'}),
+          body: jsonEncode({
+            'pin': pin,
+            'fid': fid,
+            'overwrite': overwrite,
+          }),
+        )
+        .timeout(timeout);
+    _throwIfUnauthorized(res);
+    if (res.statusCode != 200) {
+      throw ZkGatewayException(_deviceErrorBody(res));
+    }
+  }
+
+  Future<ZkDeviceEnrollStatus> fetchDeviceEnrollStatus(String ip) async {
+    final json = await _getJson(ip, '/api/device/enroll');
+    return ZkDeviceEnrollStatus.fromJson(json);
+  }
+
+  Future<void> deleteDeviceFinger(
+    String ip, {
+    required String pin,
+    int? fid,
+  }) async {
+    final q = <String, String>{'pin': pin};
+    if (fid != null) q['fid'] = '$fid';
+    final res = await http
+        .delete(
+          _uri(ip, '/api/device/finger', q),
+          headers: await _authHeaders(ip),
+        )
+        .timeout(_deviceTimeout);
+    _throwIfUnauthorized(res);
+    if (res.statusCode != 200) {
+      throw ZkGatewayException(_deviceErrorBody(res));
+    }
+  }
+
+  /// `action`: unlock | refresh | restart | clear_attlog | factory_reset
+  Future<String> deviceControl(
+    String ip, {
+    required String action,
+    int seconds = 5,
+  }) async {
+    final res = await http
+        .post(
+          _uri(ip, '/api/device/control'),
+          headers: await _authHeaders(ip, extra: {'Content-Type': 'application/json'}),
+          body: jsonEncode({
+            'action': action,
+            if (action == 'unlock') 'seconds': seconds,
+          }),
+        )
+        .timeout(_deviceTimeout);
+    _throwIfUnauthorized(res);
+    if (res.statusCode != 200) {
+      throw ZkGatewayException(_deviceErrorBody(res));
+    }
+    try {
+      final decoded = jsonDecode(utf8.decode(res.bodyBytes));
+      if (decoded is Map && decoded['message'] != null) {
+        return decoded['message'].toString();
+      }
+    } catch (_) {}
+    return 'OK';
+  }
+
   /// Dò gateway trong cùng WiFi: Bonjour/mDNS + HTTP host quen thuộc + UDP.
   ///
   /// Trên iPhone, mDNS là đường chính (cùng cơ chế Safari dùng cho

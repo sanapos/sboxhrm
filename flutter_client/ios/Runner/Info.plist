@@ -91,6 +91,10 @@
 	</array>
 	<key>NSFaceIDUsageDescription</key>
 	<string>Ứng dụng sử dụng Face ID để xác thực</string>
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>Ứng dụng cần Bluetooth để kết nối máy in nhiệt POS đã ghép cặp</string>
+	<key>NSBluetoothPeripheralUsageDescription</key>
+	<string>Ứng dụng cần Bluetooth để kết nối máy in nhiệt POS đã ghép cặp</string>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsLocalNetworking</key>

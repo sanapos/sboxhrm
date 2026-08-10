@@ -307,3 +307,109 @@ class ZkWifiAp {
         secure: json['secure'] != false,
       );
 }
+
+/// Nhân viên trên máy ZK (`GET /api/device/users`).
+class ZkDeviceUser {
+  const ZkDeviceUser({
+    required this.pin,
+    this.name = '',
+    this.privilege = 0,
+    this.card = 0,
+  });
+
+  final String pin;
+  final String name;
+  final int privilege;
+  final int card;
+
+  String get displayName => name.trim().isNotEmpty ? name.trim() : pin;
+
+  factory ZkDeviceUser.fromJson(Map<String, dynamic> json) => ZkDeviceUser(
+        pin: json['pin']?.toString() ?? '',
+        name: json['name']?.toString() ?? '',
+        privilege: _toInt(json['privilege']),
+        card: _toInt(json['card']),
+      );
+}
+
+/// Bản ghi chấm công trên máy (`GET /api/device/attlog`).
+class ZkDeviceAttlogItem {
+  const ZkDeviceAttlogItem({
+    required this.pin,
+    required this.time,
+    this.verify = '',
+    this.state = '',
+  });
+
+  final String pin;
+  final String time;
+  final String verify;
+  final String state;
+
+  factory ZkDeviceAttlogItem.fromJson(Map<String, dynamic> json) =>
+      ZkDeviceAttlogItem(
+        pin: json['pin']?.toString() ?? '',
+        time: json['time']?.toString() ?? '',
+        verify: json['verify']?.toString() ?? '',
+        state: json['state']?.toString() ?? '',
+      );
+}
+
+class ZkDeviceAttlogPage {
+  const ZkDeviceAttlogPage({
+    required this.items,
+    required this.count,
+    this.truncated = false,
+  });
+
+  final List<ZkDeviceAttlogItem> items;
+  final int count;
+  final bool truncated;
+
+  factory ZkDeviceAttlogPage.fromJson(Map<String, dynamic> json) {
+    final raw = json['items'];
+    final items = <ZkDeviceAttlogItem>[];
+    if (raw is List) {
+      for (final e in raw) {
+        if (e is Map) {
+          items.add(ZkDeviceAttlogItem.fromJson(e.cast<String, dynamic>()));
+        }
+      }
+    }
+    return ZkDeviceAttlogPage(
+      items: items,
+      count: _toInt(json['count']).clamp(0, 1 << 30),
+      truncated: json['truncated'] == true,
+    );
+  }
+}
+
+/// Trạng thái đăng ký vân tay (`GET /api/device/enroll`).
+class ZkDeviceEnrollStatus {
+  const ZkDeviceEnrollStatus({
+    required this.running,
+    this.result = 0,
+    this.message = '',
+    this.fingersBefore = 0,
+    this.fingersAfter = 0,
+  });
+
+  final bool running;
+  /// 1 = OK, -1 = fail, -2 = timeout, 0 = chưa xong / chưa chạy.
+  final int result;
+  final String message;
+  final int fingersBefore;
+  final int fingersAfter;
+
+  bool get success => !running && result > 0;
+  bool get failed => !running && result < 0;
+
+  factory ZkDeviceEnrollStatus.fromJson(Map<String, dynamic> json) =>
+      ZkDeviceEnrollStatus(
+        running: json['running'] == true,
+        result: _toInt(json['result']),
+        message: json['message']?.toString() ?? '',
+        fingersBefore: _toInt(json['fingersBefore']),
+        fingersAfter: _toInt(json['fingersAfter']),
+      );
+}
