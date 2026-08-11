@@ -36,11 +36,14 @@ input:focus,select:focus{outline:none;border-color:var(--acc);box-shadow:0 0 0 3
 button{background:linear-gradient(135deg,var(--acc),var(--acc2));color:#fff;border:0;border-radius:10px;padding:11px 18px;font:inherit;font-weight:600;cursor:pointer;transition:.15s}
 button:hover{filter:brightness(1.08);transform:translateY(-1px)}
 button.ghost{background:#1b2540;color:var(--fg);border:1px solid var(--line)}
+button.danger{background:#4a1a1d;color:#ffd2d2;border:1px solid #6b2c33}
+button.danger:hover{filter:brightness(1.15)}
 button.wide{width:100%}
 button:disabled{opacity:.5;cursor:default;transform:none}
 .btns{display:flex;flex-wrap:wrap;gap:9px}
 .err{background:linear-gradient(180deg,#3a1d21,#2c1518);border:1px solid #6b2c33;color:#ffb9b9;border-radius:11px;padding:11px 13px;font-size:13.5px;margin-bottom:14px}
 .hint{color:var(--mut);font-size:12px;margin-top:6px}
+.hint.warn{color:#ffd2d2;background:#2c1518;border:1px solid #6b2c33;border-radius:9px;padding:9px 12px;margin-top:10px}
 .wifi-input{display:flex;gap:9px}
 .wifi-input input{flex:1}
 .aplist{margin-top:10px;border:1px solid var(--line);border-radius:11px;overflow:auto;display:none;max-height:280px;background:#0d1424}
@@ -332,8 +335,10 @@ tr:hover td{background:#121a2c}
         <button class="ghost" onclick="act('identify')">Đọc lại số seri máy</button>
         <button class="ghost" onclick="act('resetmark')">Xoá mốc đồng bộ</button>
         <button class="ghost" onclick="act('reboot')">Khởi động lại gateway</button>
+        <button class="danger" onclick="factoryReset()">Khôi phục xuất xưởng</button>
       </div>
       <div class="hint">“Xoá mốc đồng bộ” buộc gateway gửi lại mọi bản ghi còn trên máy; máy chủ tự loại bản trùng.</div>
+      <div class="hint warn">“Khôi phục xuất xưởng” xoá toàn bộ cấu hình đã lưu (WiFi, IP máy chấm công, mật khẩu portal, mốc nước cao) và khởi động lại. Sau đó gateway sẽ phát lại WiFi cấu hình SBOX-Gateway-XXXX. Server ADMS vẫn khóa cứng là sboxhrm.com.</div>
     </div>
     <div class="card">
       <h2>Cập nhật firmware</h2>
@@ -425,6 +430,23 @@ async function save(e){
 async function act(what){
   const r = await fetch('/api/action?do='+what,{method:'POST'});
   toast(r.ok ? 'Đã gửi yêu cầu' : 'Không thực hiện được');
+}
+
+async function factoryReset(){
+  if(!confirm('Khôi phục xuất xưởng sẽ XOÁ TOÀN BỘ cấu hình (WiFi, IP máy chấm công, mật khẩu portal, mốc nước cao).\\n\\nSau khi xoá, gateway sẽ khởi động lại và phát WiFi SBOX-Gateway-XXXX để cài mới.\\n\\nTiếp tục?')) return;
+  if(!confirm('Xác nhận lần 2: chỉ làm khi cần đưa gateway về trạng thái như mới xuất xưởng.\\nTiếp tục?')) return;
+  const r = await fetch('/api/action?do=factory_reset',{method:'POST'});
+  if(r.ok){
+    toast('Đang xoá cấu hình và khởi động lại...');
+    setTimeout(()=>{
+      const msg = document.createElement('div');
+      msg.style.cssText = 'position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#fff;z-index:9999;padding:24px;text-align:center;font-size:18px;color:#333';
+      msg.innerHTML = 'Gateway đã khôi phục xuất xưởng.<br><br>Nối WiFi <b>SBOX-Gateway-XXXX</b> (mật khẩu <b>sbox12345</b>) và mở <b>http://192.168.4.1</b> để cấu hình lại.';
+      document.body.appendChild(msg);
+    }, 1500);
+  } else {
+    toast('Không thực hiện được');
+  }
 }
 
 function bars(rssi){

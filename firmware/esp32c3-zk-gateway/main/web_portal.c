@@ -15,6 +15,7 @@
 #include "freertos/task.h"
 #include "gateway.h"
 #include "device_api.h"
+#include "nvs.h"
 #include "wifi_mgr.h"
 #include "portal_auth.h"
 
@@ -353,6 +354,33 @@ static void reboot_task(void *arg)
     esp_restart();
 }
 
+/* Xoá toàn bộ NVS namespace "zkgw" — bao gồm WiFi, IP máy chấm công, SN đã đọc,
+ * mốc nước cao, mật khẩu portal, v.v. — rồi khởi động lại.
+ *
+ * Sau khi reboot, app_config_is_provisioned() sẽ trả false nên wifi_mgr tự bật
+ * lại AP "SBOX-Gateway-XXXX" / mật khẩu "sbox12345" để cài mới từ đầu.
+ *
+ * Server URL vẫn khóa cứng trong firmware (APP_FIXED_SERVER_URL) nên không cần
+ * cấu hình lại — chỉ cần WiFi + IP máy chấm công + (tuỳ chọn) Comm Key. */
+static void factory_reset_task(void *arg)
+{
+    (void)arg;
+    vTaskDelay(pdMS_TO_TICKS(800));
+
+    ESP_LOGW(TAG, "factory reset: xoa NVS namespace zkgw, khoi dong lai");
+    nvs_handle_t h;
+    if (nvs_open("zkgw", NVS_READWRITE, &h) == ESP_OK) {
+        nvs_erase_all(h);
+        nvs_commit(h);
+        nvs_close(h);
+        ESP_LOGW(TAG, "factory reset: da xoa NVS");
+    } else {
+        ESP_LOGE(TAG, "factory reset: khong mo duoc NVS de xoa");
+    }
+
+    esp_restart();
+}
+
 static esp_err_t action_post(httpd_req_t *req)
 {
     if (portal_auth_guard(req) != ESP_OK) {
@@ -377,6 +405,8 @@ static esp_err_t action_post(httpd_req_t *req)
         gateway_request_identify();
     } else if (strcmp(what, "reboot") == 0) {
         xTaskCreate(reboot_task, "reboot", 2048, NULL, 5, NULL);
+    } else if (strcmp(what, "factory_reset") == 0) {
+        xTaskCreate(factory_reset_task, "freset", 2048, NULL, 5, NULL);
     } else {
         httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "thao tac khong hop le");
         return ESP_FAIL;
