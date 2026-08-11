@@ -251,6 +251,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
   late final TextEditingController _warrantyMonthsCtrl;
   late final TextEditingController _expiryWarningDaysCtrl;
   bool _requiresSerial = false;
+  bool _allowDecimalQty = false;
   bool _trackExpiry = false;
   PosServiceBillingMode _serviceBillingMode = PosServiceBillingMode.flat;
   late final TextEditingController _minBillMinutesCtrl;
@@ -347,6 +348,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
         return _vatExempt || (_vatRate > 0 && _vatRate != 8);
       case PosProductEditorSection.warranty:
         return _requiresSerial ||
+            _allowDecimalQty ||
             _trackExpiry ||
             _warrantyMonthsCtrl.text.trim().isNotEmpty;
       case PosProductEditorSection.stockLimits:
@@ -463,6 +465,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
           : ''),
     );
     _requiresSerial = p?.requiresSerial ?? false;
+    _allowDecimalQty = p?.allowDecimalQty ?? false;
     _trackExpiry = p?.trackExpiry ?? false;
     _expiryWarningDaysCtrl = TextEditingController(
       text: tr('${p?.expiryWarningDays ?? 30}'),
@@ -595,6 +598,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
               ? '${data.warrantyMonths}'
               : '';
       _requiresSerial = data.requiresSerial;
+      _allowDecimalQty = data.allowDecimalQty;
       _trackExpiry = data.trackExpiry;
       _expiryWarningDaysCtrl.text = '${data.expiryWarningDays}';
       _serviceBillingMode =
@@ -921,6 +925,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
       if (_isGoods) ...{
         'warrantyMonths': int.tryParse(_warrantyMonthsCtrl.text.trim()),
         'requiresSerial': _requiresSerial,
+        'allowDecimalQty': _allowDecimalQty,
         'trackExpiry': _trackExpiry,
         'expiryWarningDays':
             int.tryParse(_expiryWarningDaysCtrl.text.trim()) ?? 30,
@@ -2331,7 +2336,22 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
               style: TextStyle(fontSize: 12),
             ),
             value: _requiresSerial,
-            onChanged: (v) => setState(() => _requiresSerial = v),
+            onChanged: (v) => setState(() {
+              _requiresSerial = v;
+              if (v) _allowDecimalQty = false;
+            }),
+          ),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: Text(tr('Cho phép số lượng thập phân')),
+            subtitle: Text(
+              tr('Bật để bán/nhập 0.5, 1.25… (vd kg, lít). Tắt = chỉ số nguyên.'),
+              style: TextStyle(fontSize: 12),
+            ),
+            value: _allowDecimalQty,
+            onChanged: _requiresSerial
+                ? null
+                : (v) => setState(() => _allowDecimalQty = v),
           ),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,

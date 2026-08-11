@@ -83,6 +83,18 @@ class PosThermalPrinterService {
 
   }
 
+  /// Giống [listBluetoothDevices] kèm gợi ý khi danh sách rỗng.
+  static Future<({List<Map<String, String>> devices, String? hint})>
+      listBluetoothDevicesWithHint() async {
+    final devices = await listBluetoothDevices();
+    return (
+      devices: devices,
+      hint: devices.isEmpty
+          ? 'Vào Cài đặt Bluetooth → ghép đôi máy in (PIN 0000/1234) rồi thử lại.'
+          : null,
+    );
+  }
+
 
 
   static Future<bool> printSaleOrder(
@@ -290,8 +302,14 @@ class PosThermalPrinterService {
       if (step is PosPrintCompiledLine) {
         final line = step;
         if (line.isDivider) {
-          b.left();
-          await b.boldLine(line.text, size: 14);
+          if (b._useImageBatch) {
+            b._queueImageLine('', isDivider: true);
+          } else {
+            b.left();
+            b.appendRaw(PosThermalBitmapEncoder.horizontalRuleEscPos(
+              paperDots: PosThermalBitmapEncoder.paperDots(settings.paperWidthMm),
+            ));
+          }
           continue;
         }
         if (line.center) {
@@ -306,7 +324,11 @@ class PosThermalPrinterService {
         await b.boldLine(line.text, size: line.fontSize);
       } else if (step is PosPrintCompiledPair) {
         b.left();
-        await b.boldLine('${step.left}  ${step.right}', size: step.fontSize);
+        if (step.bold) {
+          await b.boldPair(step.left, step.right);
+        } else {
+          await b.pair(step.left, step.right);
+        }
       } else if (step is PosPrintCompiledQr) {
         b.center();
         if (step.title != null && step.title!.trim().isNotEmpty) {
@@ -992,15 +1014,21 @@ class _EscPosBuilder {
 
   void _queueImageLine(
     String text, {
+    String? rightText,
     bool bold = false,
     double? fontSize,
+    bool isDivider = false,
   }) {
     _imageLines.add(
       PosReceiptImageLine(
-        text: tr(text),
+        text: isDivider ? '' : tr(text),
+        rightText: rightText == null || rightText.trim().isEmpty
+            ? null
+            : tr(rightText),
         bold: bold,
         center: _centered,
         fontSize: fontSize ?? _bodyFontSize,
+        isDivider: isDivider,
       ),
     );
   }
@@ -1060,18 +1088,17 @@ class _EscPosBuilder {
       l = PosEscPosTextCodec.stripDiacritics(left);
       r = PosEscPosTextCodec.stripDiacritics(right);
     }
-    final space = maxChars - l.length - r.length;
-    final combined =
-        space >= 1 ? '$l${' ' * space}$r' : (l.isEmpty ? r : '$l $r');
 
     if (_useImageBatch) {
       _queueImageLine(
-        combined,
-        fontSize: _settings.paperWidthMm <= 58 ? 19 : 20,
+        l,
+        rightText: r,
+        fontSize: _settings.paperWidthMm <= 58 ? 19 : 21,
       );
       return;
     }
 
+    final space = maxChars - l.length - r.length;
     if (space >= 1) {
       await line('$l${' ' * space}$r');
     } else {
@@ -1083,9 +1110,10 @@ class _EscPosBuilder {
   Future<void> boldPair(String left, String right) async {
     if (_useImageBatch) {
       _queueImageLine(
-        '${left.trim()}  ${right.trim()}',
+        left.trim(),
+        rightText: right.trim(),
         bold: true,
-        fontSize: 22,
+        fontSize: _settings.paperWidthMm <= 58 ? 20 : 22,
       );
       return;
     }
@@ -1096,12 +1124,14 @@ class _EscPosBuilder {
   }
 
   Future<void> separator() async {
-    final sep = List.filled(maxChars, '-').join();
     if (_useImageBatch) {
-      _queueImageLine(sep, fontSize: _settings.paperWidthMm <= 58 ? 18 : 20);
+      _queueImageLine('', isDivider: true);
       return;
     }
-    await line(sep);
+    left();
+    appendRaw(PosThermalBitmapEncoder.horizontalRuleEscPos(
+      paperDots: _paperDots,
+    ));
   }
 
   void feed(int lines) {

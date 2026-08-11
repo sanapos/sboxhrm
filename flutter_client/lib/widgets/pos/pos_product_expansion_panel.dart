@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import '../../models/pos_product.dart';
 import '../../services/api_service.dart';
 import '../../utils/file_saver.dart' as file_saver;
+import '../../utils/pos_qty_rules.dart';
 import '../../widgets/notification_overlay.dart';
 import 'pos_product_image.dart';
 import 'pos_stock_card_table.dart';
@@ -421,11 +422,14 @@ class _PosProductExpansionPanelState extends State<PosProductExpansionPanel> {
         spacing: 40,
         runSpacing: 12,
         children: [
-          _infoCell('Tồn kho', widget.moneyFmt.format(stock)),
-          _infoCell('Khách đặt', widget.moneyFmt.format(_p.reservedQty)),
+          _infoCell('Tồn kho', PosQtyRules.format(stock, product: _p)),
+          _infoCell(
+            'Khách đặt',
+            PosQtyRules.format(_p.reservedQty, product: _p),
+          ),
           _infoCell(
             'Có thể bán',
-            widget.moneyFmt.format(_p.onHandQty - _p.reservedQty),
+            PosQtyRules.format(_p.onHandQty - _p.reservedQty, product: _p),
           ),
           _infoCell(
             'Định mức tồn',

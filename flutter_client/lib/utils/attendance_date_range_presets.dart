@@ -15,6 +15,9 @@ class AttendanceDateRangePresets {
   /// Ngày làm việc logic theo [day_end_time].
   /// VD day_end=05:00 → mọi chấm trước 05:00 thuộc ngày làm việc hôm trước
   /// (ca 22:00–03:00: Vào 22:00 + Ra 03:00 sáng hôm sau cùng một ngày làm việc).
+  ///
+  /// Với NV ca ngày / khớp ca sáng sớm, dùng [resolveAttendanceWorkDay] trong
+  /// `shift_records_calculator.dart` (tránh kéo 05:xx sang hôm trước).
   static DateTime logicalWorkDay(
     DateTime punchTime, {
     int dayEndHour = 0,

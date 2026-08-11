@@ -44,8 +44,37 @@ class _PosProductPrinterAssignmentScreenState
       } else if (widget.printers != null && widget.printers!.isNotEmpty) {
         _printers = widget.printers!
             .where((p) => p.isActive)
-            .map((p) => _PrinterSummary(id: p.id, name: p.name, productCount: 0))
+            .map((p) => _PrinterSummary(
+                  id: p.id,
+                  name: p.isDeviceLocal ? '[Nội bộ] ${p.name}' : p.name,
+                  productCount: 0,
+                  isDeviceLocal: p.isDeviceLocal,
+                ))
             .toList();
+      } else if (mounted) {
+        NotificationOverlayManager().showError(
+          title: 'Không tải được danh sách',
+          message: res['message']?.toString() ??
+              tr('API gán máy in lỗi — thử lại'),
+        );
+      }
+    } catch (e) {
+      debugPrint('PosProductPrinterAssignment load: $e');
+      if (widget.printers != null && widget.printers!.isNotEmpty) {
+        _printers = widget.printers!
+            .where((p) => p.isActive)
+            .map((p) => _PrinterSummary(
+                  id: p.id,
+                  name: p.isDeviceLocal ? '[Nội bộ] ${p.name}' : p.name,
+                  productCount: 0,
+                  isDeviceLocal: p.isDeviceLocal,
+                ))
+            .toList();
+      } else if (mounted) {
+        NotificationOverlayManager().showError(
+          title: 'Không tải được danh sách',
+          message: tr('Lỗi mạng khi tải máy in / sản phẩm'),
+        );
       }
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -91,11 +120,20 @@ class _PosProductPrinterAssignmentScreenState
                     return Card(
                       child: ListTile(
                         leading: CircleAvatar(
-                          backgroundColor: PosTheme.kiotBlue.withValues(alpha: 0.12),
-                          child: const Icon(Icons.print, color: PosTheme.kiotBlue, size: 22),
+                          backgroundColor: PosTheme.kiotBlue.withOpacity(0.12),
+                          child: Icon(
+                            p.isDeviceLocal
+                                ? Icons.phone_android
+                                : Icons.print,
+                            color: PosTheme.kiotBlue,
+                            size: 22,
+                          ),
                         ),
                         title: Text(tr(p.name), style: const TextStyle(fontWeight: FontWeight.w600)),
-                        subtitle: Text(tr('${p.productCount} sản phẩm'),
+                        subtitle: Text(
+                          tr(p.isDeviceLocal
+                              ? 'Máy nội bộ · ${p.productCount} sản phẩm'
+                              : 'Agent / cloud · ${p.productCount} sản phẩm'),
                           style: const TextStyle(fontSize: 12),
                         ),
                         trailing: const Icon(Icons.chevron_right),
@@ -171,6 +209,14 @@ class _PosPrinterManageProductsScreenState extends State<PosPrinterManageProduct
         NotificationOverlayManager().showError(
           title: 'Không tải được danh sách',
           message: res['message']?.toString() ?? 'Vui lòng thử lại',
+        );
+      }
+    } catch (e) {
+      debugPrint('PosPrinterManageProducts load: $e');
+      if (mounted) {
+        NotificationOverlayManager().showError(
+          title: 'Không tải được danh sách',
+          message: tr('Lỗi tải sản phẩm — kiểm tra mạng / thử lại'),
         );
       }
     } finally {
@@ -442,7 +488,7 @@ class _AddProductsSheetState extends State<_AddProductsSheet> {
     return n;
   }
 
-  Future<void> _save() async {
+  Future<void> _save({bool forceReassign = false}) async {
     if (!_selectAll &&
         _selectedProductIds.isEmpty &&
         _selectedCategoryIds.isEmpty) {
@@ -460,10 +506,103 @@ class _AddProductsSheetState extends State<_AddProductsSheet> {
         allProducts: _selectAll,
         categoryIds: _selectedCategoryIds.toList(),
         productIds: _selectedProductIds.toList(),
+        forceReassign: forceReassign,
       );
       if (res['isSuccess'] == true) {
         final raw = res['data'];
         final data = raw is Map ? Map<String, dynamic>.from(raw) : null;
+        final needsConfirm = data?['needsConfirm'] == true ||
+            data?['NeedsConfirm'] == true;
+        if (needsConfirm && !forceReassign) {
+          final conflicts = data?['conflicts'] ?? data?['Conflicts'];
+          final n = _readInt(data!, 'conflictCount') ??
+              (conflicts is List ? conflicts.length : 0);
+          final names = <String>[];
+          if (conflicts is List) {
+            for (final e in conflicts.take(5)) {
+              if (e is! Map) continue;
+              final m = Map<String, dynamic>.from(e);
+              final pn = (m['productName'] ?? m['ProductName'] ?? '').toString();
+              final pr = (m['currentPrinterName'] ??
+                      m['CurrentPrinterName'] ??
+                      '')
+                  .toString();
+              if (pn.isEmpty) continue;
+              names.add(pr.isEmpty ? pn : '$pn → đang ở «$pr»');
+            }
+          }
+          if (!mounted) return;
+          final choice = await showDialog<String>(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              title: Text(tr('Món đã gán máy khác')),
+              content: SingleChildScrollView(
+                child: Text(
+                  tr(
+                    'Mỗi món chỉ in 1 máy.\n'
+                    '$n sản phẩm đã gán máy khác'
+                    '${names.isEmpty ? '' : ':\n• ${names.join('\n• ')}'}'
+                    '${n > 5 ? '\n…' : ''}\n\n'
+                    'Chọn cách xử lý:',
+                  ),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx, 'cancel'),
+                  child: Text(tr('Hủy')),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx, 'skip'),
+                  child: Text(tr('Chỉ gán món chưa gán')),
+                ),
+                FilledButton(
+                  onPressed: () => Navigator.pop(ctx, 'move'),
+                  child: Text(tr('Chuyển sang máy này')),
+                ),
+              ],
+            ),
+          );
+          if (choice == 'move') {
+            await _save(forceReassign: true);
+            return;
+          }
+          if (choice == 'skip') {
+            // Gán lại chỉ các SP đang chọn mà chưa thuộc máy khác.
+            final freeIds = _selectedProductIds.where((id) {
+              final p = _products.where((x) => x.id == id).firstOrNull;
+              final pid = (p?.defaultPrinterId ?? '').trim();
+              return pid.isEmpty ||
+                  pid.toLowerCase() == widget.printerId.toLowerCase();
+            }).toList();
+            if (_selectAll || _selectedCategoryIds.isNotEmpty) {
+              NotificationOverlayManager().showWarning(
+                title: 'Không thể lọc tự động',
+                message: tr(
+                  'Khi chọn nhóm / Tất cả hãy bỏ chọn món đã gán, '
+                  'hoặc bấm «Chuyển sang máy này».',
+                ),
+              );
+              return;
+            }
+            if (freeIds.isEmpty) {
+              NotificationOverlayManager().showWarning(
+                title: 'Không có món để gán',
+                message: tr('Các món đã chọn đều đang thuộc máy khác'),
+              );
+              return;
+            }
+            setState(() {
+              _selectedProductIds
+                ..clear()
+                ..addAll(freeIds);
+            });
+            await _save(forceReassign: false);
+            return;
+          }
+          return;
+        }
+
         final updated = data != null ? (_readInt(data, 'updated') ?? 0) : 0;
         final already =
             data != null ? (_readInt(data, 'alreadyAssigned') ?? 0) : 0;
@@ -472,16 +611,20 @@ class _AddProductsSheetState extends State<_AddProductsSheet> {
           NotificationOverlayManager().showError(
             title: 'Không gán được',
             message: res['message']?.toString() ??
+                data?['message']?.toString() ??
                 'Không có sản phẩm nào được cập nhật',
           );
           return;
         }
+        PosProductPrinterService.instance.invalidate();
         if (mounted) Navigator.pop(context, true);
-        final msg = updated > 0
-            ? 'Cập nhật $updated sản phẩm'
-            : already > 0
-                ? '$already sản phẩm đã gán trước đó'
-                : 'Đã gán sản phẩm';
+        final msg = forceReassign && updated > 0
+            ? 'Đã chuyển $updated sản phẩm sang máy này'
+            : updated > 0
+                ? 'Cập nhật $updated sản phẩm'
+                : already > 0
+                    ? '$already sản phẩm đã gán trước đó'
+                    : 'Đã gán sản phẩm';
         NotificationOverlayManager().showSuccess(
           title: 'Đã gán',
           message: msg,
@@ -647,6 +790,18 @@ class _AddProductsSheetState extends State<_AddProductsSheet> {
                         }
                         final p = _products[idx];
                         final checked = _selectAll || _selectedProductIds.contains(p.id);
+                        final otherPrinter = (p.defaultPrinterId ?? '').trim().isNotEmpty &&
+                            p.defaultPrinterId!.toLowerCase() !=
+                                widget.printerId.toLowerCase();
+                        final onThis = (p.defaultPrinterId ?? '').trim().isNotEmpty &&
+                            p.defaultPrinterId!.toLowerCase() ==
+                                widget.printerId.toLowerCase();
+                        final sub = [
+                          p.productCode,
+                          if (otherPrinter)
+                            'Đã gán: ${p.defaultPrinterName ?? 'máy khác'}',
+                          if (onThis) 'Đã trên máy này',
+                        ].where((s) => s.trim().isNotEmpty).join(' · ');
                         return CheckboxListTile(
                           value: checked,
                           onChanged: _saving || _selectAll
@@ -660,8 +815,13 @@ class _AddProductsSheetState extends State<_AddProductsSheet> {
                                   }),
                           title: Text(tr(p.name), maxLines: 2, overflow: TextOverflow.ellipsis),
                           subtitle: Text(
-                            tr(p.productCode),
-                            style: const TextStyle(fontSize: 11),
+                            tr(sub),
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: otherPrinter
+                                  ? Colors.orange.shade800
+                                  : null,
+                            ),
                           ),
                           dense: true,
                           controlAffinity: ListTileControlAffinity.leading,
@@ -711,11 +871,13 @@ class _PrinterSummary {
     required this.id,
     required this.name,
     this.productCount = 0,
+    this.isDeviceLocal = false,
   });
 
   final String id;
   final String name;
   final int productCount;
+  final bool isDeviceLocal;
 
   factory _PrinterSummary.fromJson(Map<String, dynamic> j) => _PrinterSummary(
         id: (j['printerId'] ?? j['PrinterId'] ?? j['id'] ?? j['Id']).toString(),
@@ -724,6 +886,7 @@ class _PrinterSummary {
         productCount: (j['productCount'] as num?)?.toInt() ??
             (j['ProductCount'] as num?)?.toInt() ??
             0,
+        isDeviceLocal: j['isDeviceLocal'] == true || j['IsDeviceLocal'] == true,
       );
 }
 
@@ -733,18 +896,25 @@ class _ProductItem {
     required this.productCode,
     required this.name,
     this.categoryName,
+    this.defaultPrinterId,
+    this.defaultPrinterName,
   });
 
   final String id;
   final String productCode;
   final String name;
   final String? categoryName;
+  final String? defaultPrinterId;
+  final String? defaultPrinterName;
 
   factory _ProductItem.fromJson(Map<String, dynamic> j) => _ProductItem(
         id: (j['id'] ?? j['Id']).toString(),
         productCode: (j['productCode'] ?? j['ProductCode'] ?? '').toString(),
         name: (j['name'] ?? j['Name'] ?? '').toString(),
         categoryName: j['categoryName']?.toString() ?? j['CategoryName']?.toString(),
+        defaultPrinterId: (j['defaultPrinterId'] ?? j['DefaultPrinterId'])?.toString(),
+        defaultPrinterName:
+            (j['defaultPrinterName'] ?? j['DefaultPrinterName'])?.toString(),
       );
 }
 

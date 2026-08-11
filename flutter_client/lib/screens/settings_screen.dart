@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import '../utils/responsive_helper.dart';
 import '../widgets/mobile_bottom_nav_config_sheet.dart';
@@ -25,15 +26,30 @@ class _SettingsScreenState extends State<SettingsScreen> {
   String _serverUrl = ApiService.baseUrl;
   bool _isDeletingSampleData = false;
   bool _isSeedingSampleData = false;
+  String _appVersionLabel = '…';
 
   @override
   void initState() {
     super.initState();
     _loadPreferences();
+    _loadAppVersion();
   }
 
   Future<void> _loadPreferences() async {
     await SharedPreferences.getInstance();
+  }
+
+  Future<void> _loadAppVersion() async {
+    try {
+      final info = await PackageInfo.fromPlatform();
+      if (!mounted) return;
+      setState(() {
+        _appVersionLabel = '${info.version} (${info.buildNumber})';
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _appVersionLabel = '—');
+    }
   }
 
   @override
@@ -216,7 +232,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   context,
                   icon: Icons.app_shortcut,
                   title: l.version,
-                  subtitle: '2.0.0',
+                  subtitle: _appVersionLabel,
                 ),
                 _buildSettingTile(
                   context,

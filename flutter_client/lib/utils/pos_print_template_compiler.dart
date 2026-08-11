@@ -14,6 +14,7 @@ class PosPrintCompiledLine {
     this.right = false,
     this.isDivider = false,
     this.dividerEquals = false,
+    this.sourceBlockIndex,
   });
 
   final String text;
@@ -23,12 +24,14 @@ class PosPrintCompiledLine {
   final bool right;
   final bool isDivider;
   final bool dividerEquals;
+  final int? sourceBlockIndex;
 
   PosReceiptImageLine toImageLine() => PosReceiptImageLine(
-        text: tr(text),
+        text: isDivider ? '' : tr(text),
         fontSize: fontSize,
         bold: bold,
         center: center,
+        isDivider: isDivider,
       );
 }
 
@@ -39,12 +42,14 @@ class PosPrintCompiledPair {
     required this.right,
     this.fontSize = 24,
     this.bold = false,
+    this.sourceBlockIndex,
   });
 
   final String left;
   final String right;
   final double fontSize;
   final bool bold;
+  final int? sourceBlockIndex;
 }
 
 /// Khối in mã VietQR.
@@ -55,6 +60,7 @@ class PosPrintCompiledQr {
     this.title,
     this.caption = 'Quét VietQR thanh toán',
     this.amountText,
+    this.sourceBlockIndex,
   });
 
   final String imageUrl;
@@ -62,6 +68,7 @@ class PosPrintCompiledQr {
   final String? title;
   final String caption;
   final String? amountText;
+  final int? sourceBlockIndex;
 }
 
 /// Khối in mã vạch CODE128.
@@ -70,11 +77,13 @@ class PosPrintCompiledBarcode {
     required this.data,
     this.height = 60,
     this.showText = true,
+    this.sourceBlockIndex,
   });
 
   final String data;
   final int height;
   final bool showText;
+  final int? sourceBlockIndex;
 }
 
 /// Kết quả biên dịch mẫu V2.
@@ -143,6 +152,14 @@ abstract final class PosPrintTemplateCompiler {
     for (final e in data.entries) {
       s = s.replaceAll('{${e.key}}', e.value);
     }
+    // Mẫu cũ từng hard-code chữ mẫu «Mười sáu triệu…» — thay bằng tổng đúng.
+    final bangChu = data['Tong_Cong_Bang_Chu'];
+    if (bangChu != null &&
+        bangChu.isNotEmpty &&
+        s.contains('đồng chẵn') &&
+        !s.contains('{Tong_Cong_Bang_Chu}')) {
+      s = s.replaceAll(RegExp(r'[^\n]*đồng chẵn'), bangChu);
+    }
     return s;
   }
 
@@ -163,16 +180,24 @@ abstract final class PosPrintTemplateCompiler {
       '<div style="width:${width}mm;font-family:Arial,sans-serif;color:#000">',
     );
 
-    for (final block in template.blocks) {
+    for (var bi = 0; bi < template.blocks.length; bi++) {
+      final block = template.blocks[bi];
       switch (block.type) {
         case PosPrintBlockType.text:
           final t = _resolveToken(block.text ?? '', data);
           if (t.trim().isNotEmpty) {
-            steps.add(_lineFromStyle(t, block.style));
+            steps.add(_lineFromStyle(t, block.style, sourceBlockIndex: bi));
             htmlBuf.write(_htmlText(t, block.style));
           }
         case PosPrintBlockType.field:
-          final raw = data[block.field ?? ''] ?? '';
+          var raw = data[block.field ?? ''] ?? '';
+          // Luôn tính lại bằng chữ từ Tong_Cong (tránh mẫu hard-code cũ).
+          if (block.field == 'Tong_Cong_Bang_Chu') {
+            final fromData = data['Tong_Cong_Bang_Chu'];
+            if (fromData != null && fromData.trim().isNotEmpty) {
+              raw = fromData;
+            }
+          }
           if (raw.trim().isNotEmpty) {
             String? prefix = block.label?.trim();
             if (prefix == null || prefix.isEmpty) {
@@ -182,7 +207,7 @@ abstract final class PosPrintTemplateCompiler {
               }
             }
             final t = _withPrefix(prefix, raw);
-            steps.add(_lineFromStyle(t, block.style));
+            steps.add(_lineFromStyle(t, block.style, sourceBlockIndex: bi));
             htmlBuf.write(_htmlText(t, block.style));
           }
         case PosPrintBlockType.pair:
@@ -205,6 +230,7 @@ abstract final class PosPrintTemplateCompiler {
               right: right,
               fontSize: block.style.fontSize,
               bold: block.style.bold,
+              sourceBlockIndex: bi,
             ));
             htmlBuf.write(
               '<div style="display:flex;justify-content:space-between;'
@@ -214,17 +240,17 @@ abstract final class PosPrintTemplateCompiler {
             );
           }
         case PosPrintBlockType.divider:
-          final ch = block.divider == PosPrintDividerStyle.equals ? '=' : '-';
-          final chars = (block.dividerChars ?? defaultDividerChars(template.paperSize))
-              .clamp(16, 80);
-          final rule = List.filled(chars, ch).join();
+          // Đường kẻ đặc full khổ giấy — không dùng ===== / -----.
           steps.add(PosPrintCompiledLine(
-            text: tr(rule),
-            fontSize: block.style.fontSize,
+            text: '',
+            fontSize: 14,
             isDivider: true,
-            dividerEquals: block.divider == PosPrintDividerStyle.equals,
+            dividerEquals: false,
+            sourceBlockIndex: bi,
           ));
-          htmlBuf.write('<div style="border-top:1px dashed #999;margin:6px 0"></div>');
+          htmlBuf.write(
+            '<div style="border-top:1.5px solid #000;margin:6px 0;width:100%"></div>',
+          );
         case PosPrintBlockType.lineItems:
           if (block.showColumnHeader) {
             final nameH = resolveFieldLabel(block, 'Ten_Hang_Hoa',
@@ -242,6 +268,7 @@ abstract final class PosPrintTemplateCompiler {
               right: headerRight,
               fontSize: block.style.fontSize.clamp(12.0, 48.0),
               bold: true,
+              sourceBlockIndex: bi,
             ));
             htmlBuf.write(
               '<div style="display:flex;justify-content:space-between;'
@@ -252,7 +279,7 @@ abstract final class PosPrintTemplateCompiler {
           }
           htmlBuf.write('<!--BEGIN_ITEMS-->');
           for (final item in lineItems) {
-            _appendSaleLine(steps, item, block.style);
+            _appendSaleLine(steps, item, block.style, sourceBlockIndex: bi);
             htmlBuf.write(_htmlLineItem(item, block.style));
           }
           htmlBuf.write('<!--END_ITEMS-->');
@@ -271,11 +298,13 @@ abstract final class PosPrintTemplateCompiler {
               right: right,
               fontSize: kSize,
               bold: block.style.bold,
+              sourceBlockIndex: bi,
             ));
             if (note.trim().isNotEmpty) {
               steps.add(PosPrintCompiledLine(
                 text: tr(' * $note'),
                 fontSize: (kSize - 2).clamp(12.0, 48.0),
+                sourceBlockIndex: bi,
               ));
             }
           }
@@ -292,6 +321,7 @@ abstract final class PosPrintTemplateCompiler {
               right: val,
               fontSize: size,
               bold: style.bold || isTotal,
+              sourceBlockIndex: bi,
             ));
             htmlBuf.write(
               '<div style="display:flex;justify-content:space-between;'
@@ -300,7 +330,11 @@ abstract final class PosPrintTemplateCompiler {
             );
           }
         case PosPrintBlockType.spacer:
-          steps.add(PosPrintCompiledLine(text: tr(' '), fontSize: 18));
+          steps.add(PosPrintCompiledLine(
+            text: tr(' '),
+            fontSize: 18,
+            sourceBlockIndex: bi,
+          ));
           htmlBuf.write('<div style="height:${block.height}px"></div>');
         case PosPrintBlockType.vietQr:
           if (vietQrImageUrl != null && vietQrImageUrl.isNotEmpty) {
@@ -313,6 +347,7 @@ abstract final class PosPrintTemplateCompiler {
               title: title.isEmpty ? null : title,
               caption: caption.isEmpty ? 'Quét VietQR thanh toán' : caption,
               amountText: amount.trim().isEmpty ? null : amount.trim(),
+              sourceBlockIndex: bi,
             ));
             htmlBuf.write(
               '<div style="text-align:center;margin:8px 0">'
@@ -333,6 +368,7 @@ abstract final class PosPrintTemplateCompiler {
               data: code,
               height: h,
               showText: block.barcodeShowText,
+              sourceBlockIndex: bi,
             ));
             htmlBuf.write(
               '<div style="text-align:center;margin:6px 0">'
@@ -346,25 +382,51 @@ abstract final class PosPrintTemplateCompiler {
       }
     }
 
+    // Mẫu cũ thiếu khối VietQR nhưng caller đã truyền URL → vẫn in QR.
+    if (vietQrImageUrl != null &&
+        vietQrImageUrl.isNotEmpty &&
+        !steps.any((s) => s is PosPrintCompiledQr)) {
+      steps.add(PosPrintCompiledQr(
+        imageUrl: vietQrImageUrl,
+        size: 160,
+        caption: 'Quét VietQR thanh toán',
+        amountText: (data['Tong_Cong'] ?? '').trim().isEmpty
+            ? null
+            : (data['Tong_Cong'] ?? '').trim(),
+      ));
+      htmlBuf.write(
+        '<div style="text-align:center;margin:8px 0">'
+        '<div style="border:1px dashed #999;padding:12px">[VietQR]</div>'
+        '<div>Quét VietQR thanh toán</div>'
+        '</div>',
+      );
+    }
+
     htmlBuf.write('</div>');
     final html = wrapPosPrintHtmlDocument(htmlBuf.toString(), paperSize: template.paperSize);
     return PosPrintCompiledOutput(steps: steps, html: html);
   }
 
-  static PosPrintCompiledLine _lineFromStyle(String text, PosPrintTextStyle style) =>
+  static PosPrintCompiledLine _lineFromStyle(
+    String text,
+    PosPrintTextStyle style, {
+    int? sourceBlockIndex,
+  }) =>
       PosPrintCompiledLine(
         text: tr(text),
         fontSize: style.fontSize,
         bold: style.bold,
         center: style.align == PosPrintTextAlign.center,
         right: style.align == PosPrintTextAlign.right,
+        sourceBlockIndex: sourceBlockIndex,
       );
 
   static void _appendSaleLine(
     List<Object> steps,
     Map<String, String> item,
-    PosPrintTextStyle style,
-  ) {
+    PosPrintTextStyle style, {
+    int? sourceBlockIndex,
+  }) {
     final name = item['Ten_Hang_Hoa'] ?? '';
     final code = item['Ma_Hang'] ?? '';
     final qty = item['So_Luong'] ?? '';
@@ -380,16 +442,22 @@ abstract final class PosPrintTemplateCompiler {
         text: tr(name),
         fontSize: bodySize,
         bold: style.bold,
+        sourceBlockIndex: sourceBlockIndex,
       ));
     }
     if (code.isNotEmpty) {
-      steps.add(PosPrintCompiledLine(text: tr('($code)'), fontSize: smallSize));
+      steps.add(PosPrintCompiledLine(
+        text: tr('($code)'),
+        fontSize: smallSize,
+        sourceBlockIndex: sourceBlockIndex,
+      ));
     }
     steps.add(PosPrintCompiledPair(
       left: '$qty $unit x $price',
       right: total,
       fontSize: bodySize,
       bold: style.bold,
+      sourceBlockIndex: sourceBlockIndex,
     ));
   }
 

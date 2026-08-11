@@ -731,13 +731,25 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
     return null;
   }
 
-  /// Get logical date: if punch time < dayEndTime, it belongs to the previous day
-  DateTime _getLogicalDate(DateTime punchTime) =>
-      AttendanceDateRangePresets.logicalWorkDay(
-        punchTime,
-        dayEndHour: widget.dayEndHour,
-        dayEndMinute: widget.dayEndMinute,
-      );
+  /// Ngày công: day_end cho ca đêm; NV ca ngày giữ ngày lịch (xem resolveAttendanceWorkDay).
+  DateTime _getLogicalDate(DateTime punchTime, {String? employeeKey}) {
+    final key = employeeKey ?? '';
+    final guid = _employeeCodeToGuid[key] ?? '';
+    final assigned = _employeeGuidToShiftTemplateIds[guid] ??
+        _employeeGuidToShiftTemplateIds[key] ??
+        const <String>[];
+    final templateMap = <String, dynamic>{
+      for (final t in widget.shiftTemplates)
+        if ((t['id']?.toString() ?? '').isNotEmpty) t['id'].toString(): t,
+    };
+    return resolveAttendanceWorkDay(
+      punchTime,
+      dayEndHour: widget.dayEndHour,
+      dayEndMinute: widget.dayEndMinute,
+      assignedShiftIds: assigned,
+      shiftTemplateMap: templateMap,
+    );
+  }
 
   /// Unique employees: punches + HR roster (để hiện NV chưa chấm).
   List<_EmployeeOption> get _allEmployees {
@@ -789,7 +801,8 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
   List<Attendance> get _filteredAttendances {
     final range = _selectedDateRange;
     var result = widget.attendances.where((att) {
-      final logical = _getLogicalDate(att.punchTime);
+      final empKey = att.employeeId ?? att.enrollNumber ?? 'unknown';
+      final logical = _getLogicalDate(att.punchTime, employeeKey: empKey);
       return AttendanceDateRangePresets.isLogicalDayInRange(logical, range);
     }).toList();
 
@@ -2716,7 +2729,8 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
       workDate: record.date,
       punchTime: originalTime,
       preferredId: preferredId,
-      logicalDayOf: _getLogicalDate,
+      logicalDayOf: (t) =>
+          _getLogicalDate(t, employeeKey: record.employeeId),
     );
     DateTime selectedDate =
         DateTime(originalTime.year, originalTime.month, originalTime.day);
@@ -3001,7 +3015,8 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
       workDate: record.date,
       punchTime: punchTime,
       preferredId: rowId,
-      logicalDayOf: _getLogicalDate,
+      logicalDayOf: (t) =>
+          _getLogicalDate(t, employeeKey: record.employeeId),
     );
 
     final preferredId = matchedLog?.id ?? rowId;
@@ -3019,7 +3034,8 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
             workDate: record.date,
             punchTime: punchTime,
             preferredId: preferredId,
-            logicalDayOf: _getLogicalDate,
+            logicalDayOf: (t) =>
+                _getLogicalDate(t, employeeKey: record.employeeId),
           );
 
     final actualPunchTime = matchedLog?.punchTime ?? punchTime;

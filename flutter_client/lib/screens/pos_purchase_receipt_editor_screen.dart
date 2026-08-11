@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
@@ -8,6 +9,7 @@ import '../providers/auth_provider.dart';
 import '../providers/permission_provider.dart';
 import '../services/api_service.dart';
 import '../utils/pos_sell_stock_patch.dart';
+import '../utils/pos_qty_rules.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../widgets/loading_widget.dart';
 import '../widgets/notification_overlay.dart';
@@ -72,6 +74,7 @@ class _EditorLine {
   bool vatExempt;
   bool costIncludesVat;
   bool trackExpiry;
+  bool allowDecimalQty;
   DateTime? manufactureDate;
   DateTime? expiryDate;
 
@@ -91,11 +94,14 @@ class _EditorLine {
     this.vatExempt = false,
     this.costIncludesVat = false,
     this.trackExpiry = false,
+    this.allowDecimalQty = false,
     this.manufactureDate,
     this.expiryDate,
     String? lineNote,
     String? lotNo,
-  })  : qtyCtrl = TextEditingController(text: tr(qty.toStringAsFixed(0))),
+  })  : qtyCtrl = TextEditingController(
+          text: tr(PosQtyRules.format(qty, allowDecimal: allowDecimalQty)),
+        ),
         costCtrl = TextEditingController(text: tr(cost.toStringAsFixed(0))),
         discountCtrl = TextEditingController(text: tr(discount.toStringAsFixed(0))),
         lineNoteCtrl = TextEditingController(text: tr(lineNote ?? '')),
@@ -109,6 +115,8 @@ class _EditorLine {
         name: productName,
         baseUnitName: baseUnitName,
         variantCount: variants.length,
+        allowDecimalQty: allowDecimalQty,
+        trackExpiry: trackExpiry,
       );
 
   List<PosProductUnitView> get unitViews =>
@@ -287,6 +295,7 @@ class _PosPurchaseReceiptEditorScreenState
         costIncludesVat: ln.vatIncluded,
         lineNote: ln.lineNote,
         trackExpiry: ln.trackExpiry,
+        allowDecimalQty: ln.allowDecimalQty,
         lotNo: ln.lotNo,
         manufactureDate: ln.manufactureDate?.toLocal(),
         expiryDate: ln.expiryDate?.toLocal(),
@@ -416,7 +425,7 @@ class _PosPurchaseReceiptEditorScreenState
           suffix: Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
-              color: _blue.withValues(alpha: 0.1),
+              color: _blue.withOpacity(0.1),
               borderRadius: BorderRadius.circular(6),
             ),
             child: Text(
@@ -470,8 +479,12 @@ class _PosPurchaseReceiptEditorScreenState
 
   Future<void> _onPickProduct(PosPurchaseLookupPick pick,
       {bool mergeIfSame = false}) async {
-    await _addLine(pick.product,
-        preselectVariantId: pick.variantId, mergeIfSame: mergeIfSame);
+    await _addLine(
+      pick.product,
+      preselectVariantId: pick.variantId,
+      mergeIfSame: mergeIfSame,
+      qty: pick.qty,
+    );
   }
 
   Future<void> _onBarcodeScanned(String code) async {
@@ -607,9 +620,13 @@ class _PosPurchaseReceiptEditorScreenState
   void _adjustQty(_EditorLine line, double delta) {
     final cur = double.tryParse(line.qtyCtrl.text.replaceAll(',', '')) ?? 0;
     final next = (cur + delta).clamp(0.0001, double.infinity);
-    line.qtyCtrl.text = next == next.roundToDouble()
-        ? next.toStringAsFixed(0)
-        : next.toStringAsFixed(2);
+    final err = PosQtyRules.validate(line._productStub, next, action: 'Nhập hàng');
+    if (err != null) {
+      NotificationOverlayManager().showError(title: 'Số lượng', message: tr(err));
+      return;
+    }
+    line.qtyCtrl.text =
+        PosQtyRules.format(next, allowDecimal: line.allowDecimalQty);
     setState(() {});
   }
 
@@ -629,7 +646,14 @@ class _PosPurchaseReceiptEditorScreenState
         Expanded(
           child: TextField(
             controller: l.qtyCtrl,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            keyboardType: TextInputType.numberWithOptions(
+              decimal: l.allowDecimalQty,
+            ),
+            inputFormatters: [
+              FilteringTextInputFormatter.allow(
+                RegExp(l.allowDecimalQty ? r'[0-9.,]' : r'[0-9]'),
+              ),
+            ],
             textAlign: TextAlign.center,
             decoration: const InputDecoration(
               isDense: true,
@@ -705,7 +729,10 @@ class _PosPurchaseReceiptEditorScreenState
   }
 
   Future<void> _addLine(PosProduct p,
-      {String? preselectVariantId, bool mergeIfSame = false}) async {
+      {String? preselectVariantId,
+      bool mergeIfSame = false,
+      double? qty}) async {
+    final addQty = (qty == null || qty <= 0) ? 1.0 : qty;
     List<PosProductVariant> variants = [];
     if (p.variantCount > 0) {
       final vRes = await _api.getPosProductVariants(p.id);
@@ -723,8 +750,10 @@ class _PosPurchaseReceiptEditorScreenState
       variantId: preselectVariantId ??
           (variants.isNotEmpty ? resolveUnitView(p, variants, null).variantId : null),
       variants: variants,
+      qty: addQty,
       cost: p.costPrice,
       trackExpiry: p.trackExpiry,
+      allowDecimalQty: p.allowDecimalQty,
     );
     if (preselectVariantId != null && variants.isNotEmpty) {
       final v = variants.where((x) => x.id == preselectVariantId).firstOrNull;
@@ -737,7 +766,10 @@ class _PosPurchaseReceiptEditorScreenState
         final existing = _lines.firstWhere((l) => l.lineKey == line.lineKey);
         line.dispose();
         final cur = double.tryParse(existing.qtyCtrl.text.replaceAll(',', '')) ?? 0;
-        existing.qtyCtrl.text = (cur + 1).toStringAsFixed(0);
+        existing.qtyCtrl.text = PosQtyRules.format(
+          cur + addQty,
+          allowDecimal: existing.allowDecimalQty,
+        );
         setState(() {});
         return;
       }
@@ -784,6 +816,9 @@ class _PosPurchaseReceiptEditorScreenState
 
   String? _validateLotLines() {
     for (final l in _lines) {
+      final qty = double.tryParse(l.qtyCtrl.text.replaceAll(',', '.').replaceAll(' ', '')) ?? 0;
+      final qtyErr = PosQtyRules.validate(l._productStub, qty, action: 'Nhập hàng');
+      if (qtyErr != null) return qtyErr;
       if (l.trackExpiry && l.expiryDate == null) {
         return '«${l.productName}» bắt buộc nhập HSD';
       }

@@ -1032,11 +1032,17 @@ class PosMobileKiotHeader extends StatelessWidget {
               if (inHub)
                 IconButton(
                   visualDensity: VisualDensity.compact,
-                  tooltip: tr('Về trang chủ'),
-                  icon: const Icon(Icons.home_outlined,
-                      color: PosTheme.textPrimary),
+                  tooltip: tr(NavigationNotifier.mainLayoutReady.value
+                      ? 'Về SBOX HRM'
+                      : 'Về trang chủ'),
+                  icon: Icon(
+                    NavigationNotifier.mainLayoutReady.value
+                        ? Icons.apps_outlined
+                        : Icons.home_outlined,
+                    color: PosTheme.textPrimary,
+                  ),
                   onPressed: onHome ??
-                      () => NavigationNotifier.posHubTab.value = 0,
+                      NavigationNotifier.leavePosHubToAppHome,
                 ),
               Expanded(
                 child: Text(

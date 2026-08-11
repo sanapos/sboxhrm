@@ -133,6 +133,7 @@ class PosStoreSellSettingsDto {
     this.enableMultiDeviceDraftLock = false,
     this.promptGuestCountOnOpen = false,
     this.allowNegativeStock = false,
+    this.reportDayStartHour = 0,
     this.defaultHourlyProductId,
     this.extraJson,
   });
@@ -152,6 +153,9 @@ class PosStoreSellSettingsDto {
   final bool promptGuestCountOnOpen;
   /// Cho phép bán khi tồn khả dụng &lt; số cần (OnHand có thể âm).
   final bool allowNegativeStock;
+  /// Giờ bắt đầu ngày KD VN (0=nửa đêm UTC+7; &gt;0=ngày qua đêm).
+  final int reportDayStartHour;
+  bool get overnightReportEnabled => reportDayStartHour > 0;
   /// SP dịch vụ tính giờ mặc định khi mở bàn.
   final String? defaultHourlyProductId;
   final String? extraJson;
@@ -183,6 +187,11 @@ class PosStoreSellSettingsDto {
             json['PromptGuestCountOnOpen'] == true,
         allowNegativeStock: json['allowNegativeStock'] == true ||
             json['AllowNegativeStock'] == true,
+        reportDayStartHour: () {
+          final v = json['reportDayStartHour'] ?? json['ReportDayStartHour'];
+          if (v is int) return v.clamp(0, 23);
+          return int.tryParse('$v')?.clamp(0, 23) ?? 0;
+        }(),
         defaultHourlyProductId: (json['defaultHourlyProductId'] ??
                 json['DefaultHourlyProductId'])
             ?.toString(),
@@ -203,6 +212,7 @@ class PosStoreSellSettingsDto {
       'enableMultiDeviceDraftLock': enableMultiDeviceDraftLock,
       'promptGuestCountOnOpen': promptGuestCountOnOpen,
       'allowNegativeStock': allowNegativeStock,
+      'reportDayStartHour': reportDayStartHour.clamp(0, 23),
       'defaultHourlyProductId': defaultHourlyProductId,
       'setDefaultHourlyProductId': true,
       if (extraJson != null) 'extraJson': extraJson,
@@ -288,6 +298,7 @@ class PosStoreSellSettingsDto {
     bool? enableMultiDeviceDraftLock,
     bool? promptGuestCountOnOpen,
     bool? allowNegativeStock,
+    int? reportDayStartHour,
     String? defaultHourlyProductId,
     bool clearDefaultHourlyProductId = false,
     String? extraJson,
@@ -308,6 +319,7 @@ class PosStoreSellSettingsDto {
         promptGuestCountOnOpen:
             promptGuestCountOnOpen ?? this.promptGuestCountOnOpen,
         allowNegativeStock: allowNegativeStock ?? this.allowNegativeStock,
+        reportDayStartHour: reportDayStartHour ?? this.reportDayStartHour,
         defaultHourlyProductId: clearDefaultHourlyProductId
             ? null
             : (defaultHourlyProductId ?? this.defaultHourlyProductId),

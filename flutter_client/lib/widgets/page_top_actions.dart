@@ -63,13 +63,12 @@ class _RegisterPageTopActionsState extends State<RegisterPageTopActions> {
   Widget build(BuildContext context) => widget.child;
 }
 
-/// Nút action gọn cho top bar trắng.
+/// Nút action gọn cho top bar (desktop) / sheet FAB (mobile).
 ///
 /// Mặc định **chỉ icon + tooltip** (tránh che title/search).
 /// [primary] + [showLabel] mới hiện chữ ngắn cho CTA chính.
 ///
-/// Trên mobile: nếu >3 action, các nút ít dùng gom vào nút 「Thêm」
-/// (xem [PageTopActionsBar]). Đặt [pinOnMobile]=true để luôn hiện.
+/// Mobile: toàn bộ action gom vào [PageTopActionsFab] góc dưới phải.
 class HrmTopBarAction extends StatelessWidget {
   const HrmTopBarAction({
     super.key,
@@ -183,7 +182,138 @@ class HrmTopBarAction extends StatelessWidget {
   }
 }
 
-/// Thanh action trang — trên mobile gom bớt khi >3 nút.
+/// Mở sheet danh sách thao tác trang (dùng bởi FAB mobile / overflow desktop).
+Future<void> showPageTopActionsSheet(
+  BuildContext context,
+  List<HrmTopBarAction> items,
+) async {
+  if (items.isEmpty) return;
+  await showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.white,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+    ),
+    builder: (ctx) {
+      return SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(8, 8, 8, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFD4D4D8),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+                child: Text(
+                  tr('Thao tác'),
+                  style: vietnameseTextStyle(const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                  )),
+                ),
+              ),
+              ...items.map((a) {
+                final enabled = a.onPressed != null;
+                return ListTile(
+                  enabled: enabled,
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                  minVerticalPadding: 12,
+                  leading: CircleAvatar(
+                    radius: 22,
+                    backgroundColor: a.primary
+                        ? PosTheme.kiotBlue.withValues(alpha: 0.12)
+                        : const Color(0xFFF4F4F5),
+                    child: Icon(
+                      a.icon,
+                      color: enabled
+                          ? (a.primary
+                              ? PosTheme.kiotBlue
+                              : PosTheme.textPrimary)
+                          : const Color(0xFFA1A1AA),
+                      size: 22,
+                    ),
+                  ),
+                  title: Text(
+                    tr(a.label),
+                    style: vietnameseTextStyle(TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: enabled
+                          ? const Color(0xFF18181B)
+                          : const Color(0xFFA1A1AA),
+                    )),
+                  ),
+                  onTap: !enabled
+                      ? null
+                      : () {
+                          Navigator.pop(ctx);
+                          a.onPressed?.call();
+                        },
+                );
+              }),
+            ],
+          ),
+        ),
+      );
+    },
+  );
+}
+
+/// FAB góc dưới phải — gom toàn bộ action trang trên mobile (không chèn AppBar).
+class PageTopActionsFab extends StatelessWidget {
+  const PageTopActionsFab({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    if (!Responsive.isMobile(context)) return const SizedBox.shrink();
+
+    return ListenableBuilder(
+      listenable: PageTopActions.instance,
+      builder: (context, _) {
+        final acts = PageTopActions.instance.actions;
+        final hrm = acts.whereType<HrmTopBarAction>().toList(growable: false);
+        if (hrm.isEmpty) return const SizedBox.shrink();
+
+        // 1 action primary → FAB chạy thẳng; nhiều action → mở danh sách.
+        if (hrm.length == 1) {
+          final only = hrm.first;
+          return FloatingActionButton(
+            heroTag: 'page_top_actions_fab',
+            tooltip: tr(only.label),
+            backgroundColor: PosTheme.kiotBlue,
+            foregroundColor: Colors.white,
+            onPressed: only.onPressed,
+            child: Icon(only.icon, size: 26),
+          );
+        }
+
+        return FloatingActionButton(
+          heroTag: 'page_top_actions_fab',
+          tooltip: tr('Thao tác'),
+          backgroundColor: PosTheme.kiotBlue,
+          foregroundColor: Colors.white,
+          onPressed: () => showPageTopActionsSheet(context, hrm),
+          child: const Icon(Icons.apps_rounded, size: 26),
+        );
+      },
+    );
+  }
+}
+
+/// Thanh action trang — desktop/tablet. Mobile dùng [PageTopActionsFab].
 class PageTopActionsBar extends StatelessWidget {
   const PageTopActionsBar({
     super.key,
@@ -197,153 +327,21 @@ class PageTopActionsBar extends StatelessWidget {
   final double? maxWidth;
   final bool reverse;
 
-  /// Số action tối đa hiện trực tiếp trên mobile (không tính nút 「Thêm」).
+  /// Legacy: mobile AppBar không còn dùng bar này (đã chuyển FAB).
   final int maxVisibleOnMobile;
-
-  static List<HrmTopBarAction> _pickVisible(
-    List<HrmTopBarAction> all, {
-    required int maxVisible,
-  }) {
-    if (all.length <= maxVisible) return List.of(all);
-    final keepSlots = (maxVisible - 1).clamp(1, maxVisible);
-    final visible = <HrmTopBarAction>[];
-    for (final a in all) {
-      if (visible.length >= keepSlots) break;
-      if (a.prefersVisibleOnMobile) visible.add(a);
-    }
-    for (final a in all) {
-      if (visible.length >= keepSlots) break;
-      if (!visible.contains(a)) visible.add(a);
-    }
-    return visible;
-  }
-
-  static Future<void> _openMoreSheet(
-    BuildContext context,
-    List<HrmTopBarAction> items,
-  ) async {
-    await showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (ctx) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(8, 8, 8, 16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Center(
-                  child: Container(
-                    width: 40,
-                    height: 4,
-                    margin: const EdgeInsets.only(bottom: 12),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFD4D4D8),
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-                  child: Text(
-                    tr('Thao tác'),
-                    style: vietnameseTextStyle(const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                    )),
-                  ),
-                ),
-                ...items.map((a) {
-                  final enabled = a.onPressed != null;
-                  return ListTile(
-                    enabled: enabled,
-                    contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 6),
-                    minVerticalPadding: 12,
-                    leading: CircleAvatar(
-                      radius: 22,
-                      backgroundColor: a.primary
-                          ? PosTheme.kiotBlue.withValues(alpha: 0.12)
-                          : const Color(0xFFF4F4F5),
-                      child: Icon(
-                        a.icon,
-                        color: enabled
-                            ? (a.primary
-                                ? PosTheme.kiotBlue
-                                : PosTheme.textPrimary)
-                            : const Color(0xFFA1A1AA),
-                        size: 22,
-                      ),
-                    ),
-                    title: Text(
-                      tr(a.label),
-                      style: vietnameseTextStyle(TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                        color: enabled
-                            ? const Color(0xFF18181B)
-                            : const Color(0xFFA1A1AA),
-                      )),
-                    ),
-                    onTap: !enabled
-                        ? null
-                        : () {
-                            Navigator.pop(ctx);
-                            a.onPressed?.call();
-                          },
-                  );
-                }),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
     if (actions.isEmpty) return const SizedBox.shrink();
+    // Mobile: action nằm ở FAB — không render trên thanh trên.
+    if (Responsive.isMobile(context)) return const SizedBox.shrink();
 
-    final mobile = Responsive.isMobile(context);
-    final hrm = actions.whereType<HrmTopBarAction>().toList();
-    final canCollapse =
-        mobile && hrm.length == actions.length && hrm.length > maxVisibleOnMobile;
-
-    late final List<Widget> children;
-    if (!canCollapse) {
-      children = [
-        for (var i = 0; i < actions.length; i++) ...[
-          if (i > 0) SizedBox(width: reverse ? 4 : 6),
-          actions[i],
-        ],
-      ];
-    } else {
-      final visible = _pickVisible(hrm, maxVisible: maxVisibleOnMobile);
-      final overflow =
-          hrm.where((a) => !visible.contains(a)).toList(growable: false);
-      children = [
-        for (var i = 0; i < visible.length; i++) ...[
-          if (i > 0) const SizedBox(width: 4),
-          visible[i],
-        ],
-        const SizedBox(width: 4),
-        IconButton(
-          tooltip: tr('Thêm thao tác'),
-          onPressed: () => _openMoreSheet(context, overflow),
-          icon: const Icon(Icons.more_horiz, size: 24),
-          color: PosTheme.textPrimary,
-          visualDensity: VisualDensity.compact,
-          padding: const EdgeInsets.all(10),
-          constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
-        ),
-      ];
-    }
+    final children = [
+      for (var i = 0; i < actions.length; i++) ...[
+        if (i > 0) SizedBox(width: reverse ? 4 : 6),
+        actions[i],
+      ],
+    ];
 
     final row = Row(
       mainAxisSize: MainAxisSize.min,

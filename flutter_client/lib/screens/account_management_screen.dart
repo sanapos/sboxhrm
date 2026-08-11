@@ -927,7 +927,9 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
   }
 
   Widget _buildMobileAccountList() {
-    if (HrmSettingsMobileKit.active(context)) {
+    // Mobile: luôn card list 1 cột (DenseTile).
+    if (HrmSettingsMobileKit.preferCardList(context) ||
+        HrmSettingsMobileKit.active(context)) {
       return HrmSettingsEntityGrid(
         itemCount: _filteredAccounts.length,
         columns: 2,

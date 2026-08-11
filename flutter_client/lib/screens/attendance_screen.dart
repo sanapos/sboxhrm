@@ -1042,10 +1042,9 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     );
   }
 
-  /// Import attendances from Excel file
+  /// Import attendances from Excel (mẫu gọn NV×ngày×Lần 1–6 hoặc dạng cũ 1 dòng/lần chấm).
   Future<void> _importFromExcel() async {
     try {
-      // Show import instructions dialog first
       final confirmed = await showDialog<bool>(
         context: context,
         builder: (context) => ScrollableAlertDialog(
@@ -1053,34 +1052,73 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
             children: [
               Icon(Icons.upload_file, color: Colors.blue[400]),
               const SizedBox(width: 8),
-              Text(tr('Import từ Excel')),
+              Text(tr('Import chấm công')),
             ],
           ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(tr('File Excel cần có các cột sau:')),
+              Text(tr('Cách làm:'),
+                  style: const TextStyle(fontWeight: FontWeight.w700)),
+              const SizedBox(height: 4),
+              Text(
+                tr('1) Bấm «Xuất mẫu» → tải file Excel\n'
+                    '2) Chỉ sửa/điền cột Lần 1–6 (và Ghi chú nếu cần)\n'
+                    '3) Lưu file → Import lại cùng file đó'),
+                style: const TextStyle(fontSize: 13, height: 1.35),
+              ),
               const SizedBox(height: 12),
+              Text(tr('Cột bắt buộc giữ đúng (không đổi):'),
+                  style: const TextStyle(fontWeight: FontWeight.w700)),
+              const SizedBox(height: 6),
               Container(
+                width: double.infinity,
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Theme.of(context).cardColor,
+                  color: Colors.orange.withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.grey[600]!),
+                  border: Border.all(color: Colors.orange.withValues(alpha: 0.35)),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(tr('• Mã NV (bắt buộc)'),
-                        style: TextStyle(fontWeight: FontWeight.bold)),
-                    Text(tr('• Ngày (dd/MM/yyyy) (bắt buộc)')),
-                    Text(tr('• Giờ (HH:mm:ss) (bắt buộc)')),
-                    Text(tr('• Ghi chú (tùy chọn)')),
+                    Text(tr('• Mã NV — khớp đúng mã trên hệ thống'),
+                        style: const TextStyle(fontSize: 12)),
+                    Text(tr('• Ngày — định dạng dd/MM/yyyy'),
+                        style: const TextStyle(fontSize: 12)),
+                    Text(tr('• Không xóa/đổi tên dòng tiêu đề cột'),
+                        style: const TextStyle(fontSize: 12)),
+                    Text(tr('• Import đọc sheet «MauChamCong» / «ChamCong»'),
+                        style: const TextStyle(fontSize: 12)),
                   ],
                 ),
               ),
               const SizedBox(height: 12),
+              Text(tr('Được sửa / điền:'),
+                  style: const TextStyle(fontWeight: FontWeight.w700)),
+              const SizedBox(height: 6),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.green.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.green.withValues(alpha: 0.35)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(tr('• Lần 1–6: giờ HH:mm (vd 08:00, 17:30) — để trống nếu không chấm'),
+                        style: const TextStyle(fontSize: 12)),
+                    Text(tr('• Ghi chú (tùy chọn)'),
+                        style: const TextStyle(fontSize: 12)),
+                    Text(tr('• Tên NV chỉ để đọc — hệ thống không dùng khi import'),
+                        style: const TextStyle(fontSize: 12)),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 10),
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
@@ -1092,8 +1130,9 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                     Icon(Icons.info_outline, color: Colors.blue[700], size: 18),
                     const SizedBox(width: 8),
                     Expanded(
-                      child: Text(tr('Tất cả bản ghi import sẽ có kiểu xác thực: Thủ công'),
-                        style: TextStyle(fontSize: 12),
+                      child: Text(
+                        tr('Giờ trùng đã có sẽ bỏ qua. File mẫu có thêm sheet «DanhSachNV» và «HuongDan» để tra cứu — không cần sửa 2 sheet đó.'),
+                        style: const TextStyle(fontSize: 12),
                       ),
                     ),
                   ],
@@ -1114,7 +1153,6 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
 
       if (confirmed != true) return;
 
-      // Pick Excel file
       final result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['xlsx', 'xls'],
@@ -1136,63 +1174,60 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
 
       setState(() => _isLoading = true);
 
-      // Parse Excel file
       final excelData = excel_lib.Excel.decodeBytes(bytes);
       final records = <Map<String, dynamic>>[];
 
-      for (final table in excelData.tables.keys) {
-        final sheet = excelData.tables[table];
-        if (sheet == null) continue;
+      // Ưu tiên sheet dữ liệu chấm công; bỏ qua HuongDan / DanhSachNV
+      final preferredNames = [
+        'mauchamcong',
+        'chamcong',
+        'attendance',
+      ];
+      final skipNames = {
+        'huongdan',
+        'danhsachnv',
+        'nhanvien',
+        'sheet1',
+      };
 
-        // Skip header row
-        for (int i = 1; i < sheet.rows.length; i++) {
-          final row = sheet.rows[i];
-          if (row.isEmpty) continue;
-
-          // Get cell values
-          final employeeCode =
-              row.isNotEmpty ? row[0]?.value?.toString() : null;
-          final dateStr = row.length > 1 ? row[1]?.value?.toString() : null;
-          final timeStr = row.length > 2 ? row[2]?.value?.toString() : null;
-          final note = row.length > 3 ? row[3]?.value?.toString() : null;
-
-          if (employeeCode == null || dateStr == null || timeStr == null) {
-            continue;
-          }
-
-          // Parse date and time
-          DateTime? punchTime;
-          try {
-            // Try multiple date formats
-            final dateParts = dateStr.split(RegExp(r'[/\-.]'));
-            if (dateParts.length == 3) {
-              final day = int.parse(dateParts[0]);
-              final month = int.parse(dateParts[1]);
-              final year = int.parse(dateParts[2]);
-
-              final timeParts = timeStr.split(':');
-              final hour = timeParts.isNotEmpty ? int.parse(timeParts[0]) : 0;
-              final minute = timeParts.length > 1 ? int.parse(timeParts[1]) : 0;
-              final second = timeParts.length > 2 ? int.parse(timeParts[2]) : 0;
-
-              punchTime = DateTime(year, month, day, hour, minute, second);
+      excel_lib.Sheet? pickSheet() {
+        for (final name in preferredNames) {
+          for (final key in excelData.tables.keys) {
+            if (key.trim().toLowerCase() == name) {
+              return excelData.tables[key];
             }
-          } catch (e) {
-            debugPrint('Error parsing date/time: $e');
           }
-
-          if (punchTime == null) continue;
-
-          records.add({
-            'employeeCode': employeeCode,
-            'punchTime': punchTime.toIso8601String(),
-            'note': note ?? 'Import từ Excel',
-            'verifyType': 100, // Manual
-            'isManual': true,
-          });
         }
+        for (final key in excelData.tables.keys) {
+          final lower = key.trim().toLowerCase();
+          if (skipNames.contains(lower)) continue;
+          final sheet = excelData.tables[key];
+          if (sheet == null || sheet.rows.isEmpty) continue;
+          final headers = <String>[
+            for (final c in sheet.rows.first)
+              (_excelCellText(c) ?? '').trim().toLowerCase()
+          ];
+          if (headers.any((h) => h.contains('lần 1') || h == 'lan 1') ||
+              headers.any((h) => h.contains('mã nv') || h == 'ma nv')) {
+            return sheet;
+          }
+        }
+        return null;
+      }
 
-        break; // Only process first sheet
+      final sheet = pickSheet();
+      if (sheet != null && sheet.rows.isNotEmpty) {
+        final headers = <String>[
+          for (final c in sheet.rows.first)
+            (_excelCellText(c) ?? '').trim().toLowerCase()
+        ];
+        final isCompact =
+            headers.any((h) => h.contains('lần 1') || h == 'lan 1');
+        if (isCompact) {
+          records.addAll(_parseCompactAttendanceSheet(sheet));
+        } else {
+          records.addAll(_parseLegacyAttendanceSheet(sheet));
+        }
       }
 
       if (records.isEmpty) {
@@ -1206,7 +1241,6 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         return;
       }
 
-      // Send to API
       final importResult =
           await _apiService.importAttendancesFromExcel(records);
 
@@ -1214,10 +1248,13 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
 
       if (mounted) {
         if (importResult['success'] == true) {
+          final skipped = importResult['skipped'] ?? 0;
           appNotification.showSuccess(
             title: 'Import thành công',
-            message: 'Import thành công: ${importResult['imported']} bản ghi'
-                '${importResult['failed'] > 0 ? ', ${importResult['failed']} thất bại' : ''}',
+            message:
+                'Đã thêm ${importResult['imported']} lần chấm'
+                '${skipped > 0 ? ', bỏ qua $skipped trùng' : ''}'
+                '${(importResult['failed'] ?? 0) > 0 ? ', ${importResult['failed']} lỗi' : ''}',
           );
           _loadAttendances();
         } else {
@@ -1236,6 +1273,492 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
           message: '$e',
         );
       }
+    }
+  }
+
+  String? _excelCellText(excel_lib.Data? cell) {
+    final v = cell?.value;
+    if (v == null) return null;
+    if (v is excel_lib.TextCellValue) return v.value.toString();
+    if (v is excel_lib.IntCellValue) return v.value.toString();
+    if (v is excel_lib.DoubleCellValue) return v.value.toString();
+    if (v is excel_lib.DateCellValue) {
+      return DateFormat('dd/MM/yyyy')
+          .format(DateTime(v.year, v.month, v.day));
+    }
+    if (v is excel_lib.DateTimeCellValue) {
+      final dt = v.asDateTimeLocal();
+      if (v.hour != 0 || v.minute != 0 || v.second != 0) {
+        return DateFormat('dd/MM/yyyy HH:mm:ss').format(dt);
+      }
+      return DateFormat('dd/MM/yyyy').format(dt);
+    }
+    if (v is excel_lib.TimeCellValue) {
+      return v.toString();
+    }
+    return v.toString().trim();
+  }
+
+  List<Map<String, dynamic>> _parseLegacyAttendanceSheet(
+      excel_lib.Sheet sheet) {
+    final records = <Map<String, dynamic>>[];
+    for (int i = 1; i < sheet.rows.length; i++) {
+      final row = sheet.rows[i];
+      if (row.isEmpty) continue;
+
+      final employeeCode =
+          row.isNotEmpty ? _excelCellText(row[0])?.trim() : null;
+      final dateStr = row.length > 1 ? _excelCellText(row[1]) : null;
+      final timeStr = row.length > 2 ? _excelCellText(row[2]) : null;
+      final note = row.length > 3 ? _excelCellText(row[3]) : null;
+
+      if (employeeCode == null ||
+          employeeCode.isEmpty ||
+          dateStr == null ||
+          timeStr == null) {
+        continue;
+      }
+
+      // Legacy: Ngày + Giờ tách cột; cũng chấp nhận ô Ngày đã có sẵn giờ
+      DateTime? punchTime;
+      if (timeStr.contains(':') || double.tryParse(timeStr) != null) {
+        punchTime = _combineDateAndTime(dateStr, timeStr);
+      } else {
+        punchTime = _parseDateOnly(dateStr);
+      }
+      if (punchTime == null) continue;
+
+      records.add({
+        'employeeCode': employeeCode,
+        'punchTime': punchTime.toIso8601String(),
+        'note': note ?? 'Import từ Excel',
+        'verifyType': 100,
+        'isManual': true,
+      });
+    }
+    return records;
+  }
+
+  List<Map<String, dynamic>> _parseCompactAttendanceSheet(
+      excel_lib.Sheet sheet) {
+    final records = <Map<String, dynamic>>[];
+    // Cột: 0 Mã NV | 1 Tên | 2 Ngày | 3-8 Lần 1-6 | 9 Ghi chú
+    for (int i = 1; i < sheet.rows.length; i++) {
+      final row = sheet.rows[i];
+      if (row.isEmpty) continue;
+
+      final employeeCode =
+          row.isNotEmpty ? _excelCellText(row[0])?.trim() : null;
+      final dateStr = row.length > 2 ? _excelCellText(row[2]) : null;
+      final note = row.length > 9 ? _excelCellText(row[9]) : null;
+
+      if (employeeCode == null ||
+          employeeCode.isEmpty ||
+          dateStr == null ||
+          dateStr.trim().isEmpty) {
+        continue;
+      }
+
+      final dateOnly = _parseDateOnly(dateStr.split(' ').first);
+      if (dateOnly == null) continue;
+
+      for (var punchIdx = 0; punchIdx < 6; punchIdx++) {
+        final col = 3 + punchIdx;
+        if (row.length <= col) break;
+        final timeRaw = _excelCellText(row[col])?.trim();
+        if (timeRaw == null || timeRaw.isEmpty) continue;
+
+        // Ô Lần có thể là "HH:mm" hoặc full datetime từ Excel
+        String timePart = timeRaw;
+        if (timeRaw.contains(' ')) {
+          final parts = timeRaw.split(RegExp(r'\s+'));
+          timePart = parts.length > 1 ? parts.last : timeRaw;
+        }
+
+        final punchTime = _combineDateAndTime(
+          DateFormat('dd/MM/yyyy').format(dateOnly),
+          timePart,
+        );
+        if (punchTime == null) continue;
+
+        records.add({
+          'employeeCode': employeeCode,
+          'punchTime': punchTime.toIso8601String(),
+          'note': (note != null && note.trim().isNotEmpty)
+              ? note.trim()
+              : 'Import Excel Lần ${punchIdx + 1}',
+          'verifyType': 100,
+          'isManual': true,
+        });
+      }
+    }
+    return records;
+  }
+
+  DateTime? _parseDateOnly(String dateStr) {
+    try {
+      final cleaned = dateStr.trim();
+      // ISO / DateTimeCellValue.toString()
+      if (cleaned.contains('T') || RegExp(r'^\d{4}-\d{2}-\d{2}').hasMatch(cleaned)) {
+        final dt = DateTime.tryParse(cleaned);
+        if (dt != null) {
+          return DateTime(dt.year, dt.month, dt.day);
+        }
+      }
+      // Excel serial number
+      final asNum = double.tryParse(cleaned);
+      if (asNum != null && asNum > 20000 && asNum < 80000) {
+        final epoch = DateTime(1899, 12, 30);
+        return epoch.add(Duration(days: asNum.floor()));
+      }
+      final dateParts = cleaned.split(RegExp(r'[/\-.]'));
+      if (dateParts.length != 3) return null;
+      var a = int.parse(dateParts[0]);
+      var b = int.parse(dateParts[1]);
+      var c = int.parse(dateParts[2].split(' ').first);
+      // dd/MM/yyyy or yyyy/MM/dd
+      if (a > 31) {
+        return DateTime(a, b, c);
+      }
+      return DateTime(c, b, a);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  DateTime? _combineDateAndTime(String dateStr, String timeStr) {
+    try {
+      final dateOnly = _parseDateOnly(dateStr);
+      if (dateOnly == null) return null;
+
+      var cleaned = timeStr.trim();
+      // Excel time fraction 0..1
+      final asNum = double.tryParse(cleaned);
+      if (asNum != null && asNum >= 0 && asNum < 1) {
+        final totalSeconds = (asNum * 24 * 3600).round();
+        final h = totalSeconds ~/ 3600;
+        final m = (totalSeconds % 3600) ~/ 60;
+        final s = totalSeconds % 60;
+        return DateTime(dateOnly.year, dateOnly.month, dateOnly.day, h, m, s);
+      }
+
+      // "HH:mm:ss AM" etc.
+      cleaned = cleaned.replaceAll(RegExp(r'\s+'), ' ');
+      final timeParts = cleaned.split(RegExp(r'[:\s]'));
+      if (timeParts.isEmpty) return null;
+      var hour = int.parse(timeParts[0]);
+      final minute = timeParts.length > 1 ? int.parse(timeParts[1]) : 0;
+      final second = timeParts.length > 2
+          ? int.tryParse(timeParts[2].replaceAll(RegExp(r'[^0-9]'), '')) ?? 0
+          : 0;
+      if (cleaned.toUpperCase().contains('PM') && hour < 12) hour += 12;
+      if (cleaned.toUpperCase().contains('AM') && hour == 12) hour = 0;
+
+      return DateTime(
+          dateOnly.year, dateOnly.month, dateOnly.day, hour, minute, second);
+    } catch (e) {
+      debugPrint('Error parsing date/time: $e');
+      return null;
+    }
+  }
+
+  /// Xuất mẫu / dữ liệu dạng bảng gọn: NV × ngày × Lần 1–6.
+  Future<void> _exportCompactExcel({required bool templateOnly}) async {
+    try {
+      final from = DateTime(_fromDate.year, _fromDate.month, _fromDate.day);
+      final to = DateTime(_toDate.year, _toDate.month, _toDate.day);
+      if (to.isBefore(from)) {
+        appNotification.showWarning(
+          title: 'Khoảng ngày không hợp lệ',
+          message: tr('Ngày kết thúc phải sau ngày bắt đầu'),
+        );
+        return;
+      }
+
+      // Giới hạn mẫu trống: tối đa ~90 ngày × NV
+      final daySpan = to.difference(from).inDays + 1;
+      if (templateOnly && daySpan > 62) {
+        appNotification.showWarning(
+          title: 'Khoảng ngày quá dài',
+          message: tr('Xuất mẫu tối đa 62 ngày. Hãy thu hẹp bộ lọc ngày.'),
+        );
+        return;
+      }
+
+      var employees = List<Map<String, dynamic>>.from(_employeesList);
+      if (_filterEmployeeCode != null && _filterEmployeeCode!.isNotEmpty) {
+        employees = employees
+            .where((e) => e['employeeCode']?.toString() == _filterEmployeeCode)
+            .toList();
+      }
+      if (employees.isEmpty && !templateOnly) {
+        // Fallback: lấy NV từ dữ liệu đang lọc
+        final seen = <String>{};
+        for (final att in _filteredAttendances) {
+          final code = att.employeeId ?? '';
+          if (code.isEmpty || !seen.add(code)) continue;
+          employees.add({
+            'employeeCode': code,
+            'fullName': att.employeeName ?? '',
+          });
+        }
+      }
+      if (employees.isEmpty) {
+        appNotification.showWarning(
+          title: 'Không có nhân viên',
+          message: tr('Không có nhân viên để xuất mẫu'),
+        );
+        return;
+      }
+
+      // Map mã NV → list giờ theo ngày (chỉ khi xuất dữ liệu)
+      final punchesByKey = <String, List<DateTime>>{};
+      if (!templateOnly) {
+        for (final att in _filteredAttendances) {
+          final code = att.employeeId ?? '';
+          if (code.isEmpty) continue;
+          final d = DateTime(
+              att.punchTime.year, att.punchTime.month, att.punchTime.day);
+          final key = '$code|${DateFormat('yyyy-MM-dd').format(d)}';
+          punchesByKey.putIfAbsent(key, () => []).add(att.punchTime);
+        }
+        for (final list in punchesByKey.values) {
+          list.sort();
+        }
+      }
+
+      final excel = excel_lib.Excel.createExcel();
+      final sheetName = templateOnly ? 'MauChamCong' : 'ChamCong';
+      final sheet = excel[sheetName];
+      try {
+        excel.delete('Sheet1');
+      } catch (_) {}
+
+      _writeAttendanceGuideSheet(excel);
+      _writeEmployeeInfoSheet(excel, employees);
+
+      const headers = [
+        'Mã NV',
+        'Tên NV',
+        'Ngày',
+        'Lần 1',
+        'Lần 2',
+        'Lần 3',
+        'Lần 4',
+        'Lần 5',
+        'Lần 6',
+        'Ghi chú',
+      ];
+      for (var i = 0; i < headers.length; i++) {
+        sheet
+            .cell(excel_lib.CellIndex.indexByColumnRow(
+                columnIndex: i, rowIndex: 0))
+            .value = excel_lib.TextCellValue(headers[i]);
+      }
+
+      var row = 1;
+      for (final emp in employees) {
+        final code = emp['employeeCode']?.toString() ?? '';
+        if (code.isEmpty) continue;
+        final name = _employeeDisplayName(emp);
+
+        for (var d = 0; d < daySpan; d++) {
+          final day = from.add(Duration(days: d));
+          final key = '$code|${DateFormat('yyyy-MM-dd').format(day)}';
+          final punches = punchesByKey[key] ?? const <DateTime>[];
+
+          // Khi xuất dữ liệu: bỏ ngày không có chấm để file gọn
+          if (!templateOnly && punches.isEmpty) continue;
+
+          sheet
+              .cell(excel_lib.CellIndex.indexByColumnRow(
+                  columnIndex: 0, rowIndex: row))
+              .value = excel_lib.TextCellValue(code);
+          sheet
+              .cell(excel_lib.CellIndex.indexByColumnRow(
+                  columnIndex: 1, rowIndex: row))
+              .value = excel_lib.TextCellValue(name);
+          sheet
+              .cell(excel_lib.CellIndex.indexByColumnRow(
+                  columnIndex: 2, rowIndex: row))
+              .value =
+              excel_lib.TextCellValue(DateFormat('dd/MM/yyyy').format(day));
+
+          for (var p = 0; p < 6; p++) {
+            final cell = sheet.cell(excel_lib.CellIndex.indexByColumnRow(
+                columnIndex: 3 + p, rowIndex: row));
+            if (p < punches.length) {
+              cell.value = excel_lib.TextCellValue(
+                  DateFormat('HH:mm').format(punches[p]));
+            } else {
+              cell.value = excel_lib.TextCellValue('');
+            }
+          }
+          sheet
+              .cell(excel_lib.CellIndex.indexByColumnRow(
+                  columnIndex: 9, rowIndex: row))
+              .value = excel_lib.TextCellValue('');
+          row++;
+        }
+      }
+
+      if (row == 1) {
+        appNotification.showWarning(
+          title: 'Không có dữ liệu',
+          message: tr('Không có dòng nào để xuất trong khoảng đã chọn'),
+        );
+        return;
+      }
+
+      // Đưa sheet chấm công lên đầu để mở file thấy ngay
+      try {
+        excel.setDefaultSheet(sheetName);
+      } catch (_) {}
+
+      final bytes = excel.encode();
+      if (bytes != null) {
+        final prefix = templateOnly ? 'MauChamCong' : 'ChamCong';
+        final fileName =
+            '${prefix}_${DateFormat('yyyyMMdd_HHmmss').format(DateTime.now())}.xlsx';
+        await file_saver.saveFileBytes(bytes, fileName,
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        appNotification.showSuccess(
+          title: templateOnly ? 'Đã xuất mẫu' : 'Xuất file thành công',
+          message: tr(
+              'Đã xuất $fileName (${row - 1} dòng). Điền Lần 1–6 rồi Import lại cùng file.'),
+        );
+      }
+    } catch (e) {
+      debugPrint('Error exporting compact Excel: $e');
+      appNotification.showError(
+        title: 'Lỗi xuất Excel',
+        message: '$e',
+      );
+    }
+  }
+
+  String _employeeDisplayName(Map<String, dynamic> emp) {
+    final full = (emp['fullName'] ??
+            emp['name'] ??
+            '${emp['lastName'] ?? ''} ${emp['firstName'] ?? ''}')
+        .toString()
+        .trim();
+    return full;
+  }
+
+  void _writeAttendanceGuideSheet(excel_lib.Excel excel) {
+    final guide = excel['HuongDan'];
+    final lines = <String>[
+      'HƯỚNG DẪN IMPORT CHẤM CÔNG',
+      '',
+      'Cách làm:',
+      '1. Mở sheet MauChamCong (hoặc ChamCong).',
+      '2. Chỉ điền/sửa cột Lần 1 → Lần 6 bằng giờ HH:mm (vd: 08:00, 12:00, 13:00, 17:30).',
+      '3. Để trống ô nếu ngày đó không chấm lần đó.',
+      '4. Lưu file → vào app bấm Import Excel → chọn đúng file vừa sửa.',
+      '',
+      'Cột BẮT BUỘC giữ đúng (không sửa / không đổi định dạng):',
+      '- Mã NV: phải khớp mã nhân viên trên hệ thống (xem sheet DanhSachNV).',
+      '- Ngày: dd/MM/yyyy (vd 08/08/2026).',
+      '- Dòng tiêu đề cột (hàng 1): không đổi tên cột, không xóa.',
+      '',
+      'Cột được phép sửa:',
+      '- Lần 1, Lần 2, Lần 3, Lần 4, Lần 5, Lần 6',
+      '- Ghi chú (tùy chọn)',
+      '',
+      'Cột chỉ để đọc (sửa cũng không ảnh hưởng import):',
+      '- Tên NV',
+      '',
+      'Sheet khác trong file:',
+      '- DanhSachNV: tra cứu mã / tên / phòng ban / chi nhánh khi điền.',
+      '- HuongDan: sheet này — không cần sửa, app không import sheet này.',
+      '',
+      'Lưu ý:',
+      '- Mỗi dòng = 1 nhân viên × 1 ngày, tối đa 6 lần chấm.',
+      '- Giờ đã có trên hệ thống sẽ bị bỏ qua (không tạo trùng).',
+      '- Có thể thêm dòng mới nếu giữ đúng Mã NV + Ngày + các cột Lần.',
+    ];
+    for (var i = 0; i < lines.length; i++) {
+      guide
+          .cell(excel_lib.CellIndex.indexByColumnRow(
+              columnIndex: 0, rowIndex: i))
+          .value = excel_lib.TextCellValue(lines[i]);
+    }
+  }
+
+  void _writeEmployeeInfoSheet(
+    excel_lib.Excel excel,
+    List<Map<String, dynamic>> employees,
+  ) {
+    final info = excel['DanhSachNV'];
+    const headers = [
+      'STT',
+      'Mã NV',
+      'Tên NV',
+      'Phòng ban',
+      'Chức vụ',
+      'Chi nhánh',
+      'Điện thoại',
+      'Email',
+    ];
+    for (var i = 0; i < headers.length; i++) {
+      info
+          .cell(excel_lib.CellIndex.indexByColumnRow(
+              columnIndex: i, rowIndex: 0))
+          .value = excel_lib.TextCellValue(headers[i]);
+    }
+
+    // Sắp xếp theo mã NV để dễ tra
+    final sorted = List<Map<String, dynamic>>.from(employees)
+      ..sort((a, b) => (a['employeeCode']?.toString() ?? '')
+          .compareTo(b['employeeCode']?.toString() ?? ''));
+
+    var row = 1;
+    for (final emp in sorted) {
+      final code = emp['employeeCode']?.toString() ?? '';
+      if (code.isEmpty) continue;
+      final name = _employeeDisplayName(emp);
+      final dept = emp['department']?.toString() ?? '';
+      final position = emp['position']?.toString() ?? '';
+      final branch = emp['branchName']?.toString() ?? '';
+      final phone =
+          (emp['phoneNumber'] ?? emp['phone'] ?? '').toString();
+      final email =
+          (emp['companyEmail'] ?? emp['email'] ?? '').toString();
+
+      info
+          .cell(excel_lib.CellIndex.indexByColumnRow(
+              columnIndex: 0, rowIndex: row))
+          .value = excel_lib.IntCellValue(row);
+      info
+          .cell(excel_lib.CellIndex.indexByColumnRow(
+              columnIndex: 1, rowIndex: row))
+          .value = excel_lib.TextCellValue(code);
+      info
+          .cell(excel_lib.CellIndex.indexByColumnRow(
+              columnIndex: 2, rowIndex: row))
+          .value = excel_lib.TextCellValue(name);
+      info
+          .cell(excel_lib.CellIndex.indexByColumnRow(
+              columnIndex: 3, rowIndex: row))
+          .value = excel_lib.TextCellValue(dept);
+      info
+          .cell(excel_lib.CellIndex.indexByColumnRow(
+              columnIndex: 4, rowIndex: row))
+          .value = excel_lib.TextCellValue(position);
+      info
+          .cell(excel_lib.CellIndex.indexByColumnRow(
+              columnIndex: 5, rowIndex: row))
+          .value = excel_lib.TextCellValue(branch);
+      info
+          .cell(excel_lib.CellIndex.indexByColumnRow(
+              columnIndex: 6, rowIndex: row))
+          .value = excel_lib.TextCellValue(phone);
+      info
+          .cell(excel_lib.CellIndex.indexByColumnRow(
+              columnIndex: 7, rowIndex: row))
+          .value = excel_lib.TextCellValue(email);
+      row++;
     }
   }
 
@@ -1278,12 +1801,18 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
           label: _l10n.importExcel,
           onPressed: _importFromExcel,
         ),
-      if (canExport)
+      if (canExport) ...[
+        HrmTopBarAction(
+          icon: Icons.table_view_outlined,
+          label: 'Xuất mẫu',
+          onPressed: () => _exportCompactExcel(templateOnly: true),
+        ),
         HrmTopBarAction(
           icon: Icons.file_download_outlined,
           label: _l10n.exportExcel,
-          onPressed: () => _exportToExcel(),
+          onPressed: () => _exportCompactExcel(templateOnly: false),
         ),
+      ],
       if (canCreate)
         HrmTopBarAction(
           icon: Icons.add_circle_outline,
@@ -4036,126 +4565,8 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     }
   }
 
-  void _exportToExcel() async {
-    final dataToExport = _filteredAttendances;
-    if (dataToExport.isEmpty) {
-      appNotification.showWarning(
-        title: 'Không có dữ liệu',
-        message: tr('Không có dữ liệu để xuất'),
-      );
-      return;
-    }
-
-    try {
-      // Tạo workbook mới
-      final excel = excel_lib.Excel.createExcel();
-      final sheet = excel['ChamCong'];
-      excel.delete('Sheet1');
-
-      // Header row
-      final headers = [
-        'STT',
-        'Ngày',
-        'Giờ',
-        'Thứ',
-        'UID',
-        'Mã NV',
-        'Tên nhân viên',
-        'Tên trong máy',
-        'Quyền hạn',
-        'Thiết bị',
-        'Kiểu xác thực'
-      ];
-      for (var i = 0; i < headers.length; i++) {
-        sheet
-            .cell(excel_lib.CellIndex.indexByColumnRow(
-                columnIndex: i, rowIndex: 0))
-            .value = excel_lib.TextCellValue(headers[i]);
-      }
-
-      // Data rows
-      for (var i = 0; i < dataToExport.length; i++) {
-        final att = dataToExport[i];
-        final row = i + 1;
-        final dayOfWeek = _getDayOfWeekVN(att.punchTime.weekday);
-        final verifyTypeName = _getVerifyTypeName(att.verifyType);
-        final privilege = att.privilege == 14 ? 'Admin' : 'Nhân viên';
-
-        sheet
-            .cell(excel_lib.CellIndex.indexByColumnRow(
-                columnIndex: 0, rowIndex: row))
-            .value = excel_lib.IntCellValue(i + 1);
-        sheet
-                .cell(excel_lib.CellIndex.indexByColumnRow(
-                    columnIndex: 1, rowIndex: row))
-                .value =
-            excel_lib.TextCellValue(
-                DateFormat('dd/MM/yyyy').format(att.punchTime));
-        sheet
-                .cell(excel_lib.CellIndex.indexByColumnRow(
-                    columnIndex: 2, rowIndex: row))
-                .value =
-            excel_lib.TextCellValue(
-                DateFormat('HH:mm:ss').format(att.punchTime));
-        sheet
-            .cell(excel_lib.CellIndex.indexByColumnRow(
-                columnIndex: 3, rowIndex: row))
-            .value = excel_lib.TextCellValue(dayOfWeek);
-        sheet
-            .cell(excel_lib.CellIndex.indexByColumnRow(
-                columnIndex: 4, rowIndex: row))
-            .value = excel_lib.TextCellValue(att.enrollNumber ?? '');
-        sheet
-            .cell(excel_lib.CellIndex.indexByColumnRow(
-                columnIndex: 5, rowIndex: row))
-            .value = excel_lib.TextCellValue(att.employeeId ?? '');
-        sheet
-            .cell(excel_lib.CellIndex.indexByColumnRow(
-                columnIndex: 6, rowIndex: row))
-            .value = excel_lib.TextCellValue(att.employeeName ?? '');
-        sheet
-            .cell(excel_lib.CellIndex.indexByColumnRow(
-                columnIndex: 7, rowIndex: row))
-            .value = excel_lib.TextCellValue(att.deviceUserName ?? '');
-        sheet
-            .cell(excel_lib.CellIndex.indexByColumnRow(
-                columnIndex: 8, rowIndex: row))
-            .value = excel_lib.TextCellValue(privilege);
-        sheet
-                .cell(excel_lib.CellIndex.indexByColumnRow(
-                    columnIndex: 9, rowIndex: row))
-                .value =
-            excel_lib.TextCellValue(att.deviceName ?? att.deviceId ?? '');
-        sheet
-            .cell(excel_lib.CellIndex.indexByColumnRow(
-                columnIndex: 10, rowIndex: row))
-            .value = excel_lib.TextCellValue(verifyTypeName);
-      }
-
-      // Encode và download
-      final bytes = excel.encode();
-      if (bytes != null) {
-        final blob = bytes;
-        final fileName =
-            'ChamCong_${DateFormat('yyyyMMdd_HHmmss').format(DateTime.now())}.xlsx';
-
-        await file_saver.saveFileBytes(blob, fileName,
-            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-
-        appNotification.showSuccess(
-          title: 'Xuất file thành công',
-          message: tr('Đã xuất file $fileName (${dataToExport.length} bản ghi)'),
-        );
-      }
-    } catch (e) {
-      debugPrint('Error exporting Excel: $e');
-      appNotification.showError(
-        title: 'Lỗi xuất Excel',
-        message: '$e',
-      );
-    }
-  }
 }
+
 
 /// Custom notification widget that appears at top-right corner
 class _AttendanceNotificationWidget extends StatefulWidget {

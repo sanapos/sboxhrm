@@ -533,6 +533,8 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
     final isMobile = Responsive.isMobile(context);
     final canCreate = Provider.of<PermissionProvider>(context, listen: false)
         .canCreate('SalarySettings');
+    final canEdit = Provider.of<PermissionProvider>(context, listen: false)
+        .canEdit('SalarySettings');
     return RegisterPageTopActions(
       actions: [
         HrmTopBarAction(
@@ -555,6 +557,12 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
             );
           },
         ),
+        if (canCreate || canEdit)
+          HrmTopBarAction(
+            icon: Icons.copy_all_outlined,
+            label: 'Sao chép CT',
+            onPressed: () => _showCopySalaryFormulaDialog(),
+          ),
         if (canCreate)
           HrmTopBarAction(
             icon: Icons.add,
@@ -1380,6 +1388,15 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
             onPressed: () => _showEditDialog(employee),
             visualDensity: VisualDensity.compact,
           ),
+        if (canEdit && employee['isConfigured'] == true)
+          IconButton(
+            icon: const Icon(Icons.copy_all_outlined,
+                size: 20, color: Color(0xFF0F766E)),
+            tooltip: tr('Sao chép công thức cho nhiều người'),
+            onPressed: () =>
+                _showCopySalaryFormulaDialog(sourceEmployee: employee),
+            visualDensity: VisualDensity.compact,
+          ),
       ],
     );
   }
@@ -1917,6 +1934,16 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                     icon: const Icon(Icons.edit_outlined,
                         color: HrmPageChrome.primaryNavy, size: 20),
                     tooltip: tr('Chỉnh sửa'),
+                  ),
+                if (Provider.of<PermissionProvider>(context, listen: false)
+                        .canEdit('SalarySettings') &&
+                    employee['isConfigured'] == true)
+                  IconButton(
+                    onPressed: () =>
+                        _showCopySalaryFormulaDialog(sourceEmployee: employee),
+                    icon: const Icon(Icons.copy_all_outlined,
+                        color: Color(0xFF0F766E), size: 20),
+                    tooltip: tr('Sao chép công thức'),
                   ),
               ],
             ),
@@ -5339,6 +5366,481 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
         },
       ),
     );
+  }
+
+  /// Sao chép công thức lương từ 1 NV đã thiết lập sang nhiều NV khác.
+  void _showCopySalaryFormulaDialog({Map<String, dynamic>? sourceEmployee}) {
+    final configured = _employeeSalaries
+        .where((e) => e['isConfigured'] == true)
+        .toList();
+    if (configured.isEmpty) {
+      appNotification.showWarning(
+        title: 'Chưa có mẫu',
+        message: tr(
+            'Chưa có nhân viên nào đã thiết lập lương để làm nguồn sao chép.'),
+      );
+      return;
+    }
+
+    Map<String, dynamic>? source = sourceEmployee;
+    if (source == null || source['isConfigured'] != true) {
+      source = configured.first;
+    }
+    final selectedIds = <String>{};
+    var onlyNotConfigured = true;
+    var search = '';
+    var isCopying = false;
+    var progressDone = 0;
+    var progressTotal = 0;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) {
+          final sourceId = source?['id']?.toString() ?? '';
+          final q = search.trim().toLowerCase();
+          final targets = _employeeSalaries.where((e) {
+            final id = e['id']?.toString() ?? '';
+            if (id.isEmpty || id == sourceId) return false;
+            if (onlyNotConfigured && e['isConfigured'] == true) return false;
+            if (q.isNotEmpty) {
+              final name = e['fullName']?.toString().toLowerCase() ?? '';
+              final code = e['employeeCode']?.toString().toLowerCase() ?? '';
+              if (!name.contains(q) && !code.contains(q)) return false;
+            }
+            return true;
+          }).toList();
+
+          final allVisibleSelected = targets.isNotEmpty &&
+              targets.every(
+                  (e) => selectedIds.contains(e['id']?.toString() ?? ''));
+
+          final formBody = Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                tr('Chọn người đã thiết lập → áp dụng cùng công thức cho nhiều người. Mỗi người nhận bản sao riêng (sửa sau không ảnh hưởng nhau).'),
+                style: const TextStyle(
+                    fontSize: 13, color: Color(0xFF52525B), height: 1.35),
+              ),
+              const SizedBox(height: 14),
+              Text(tr('Nguồn sao chép'),
+                  style: const TextStyle(
+                      fontWeight: FontWeight.w700, fontSize: 13)),
+              const SizedBox(height: 6),
+              DropdownButtonFormField<String>(
+                value: sourceId.isEmpty ? null : sourceId,
+                isExpanded: true,
+                decoration: const InputDecoration(
+                  border: OutlineInputBorder(),
+                  isDense: true,
+                  contentPadding:
+                      EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                ),
+                items: configured.map((e) {
+                  final id = e['id']?.toString() ?? '';
+                  final label =
+                      '${e['employeeCode'] ?? ''} — ${e['fullName'] ?? ''} (${_getSalaryTypeName(e['salaryType'])})';
+                  return DropdownMenuItem(
+                    value: id,
+                    child: Text(tr(label),
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 13)),
+                  );
+                }).toList(),
+                onChanged: isCopying
+                    ? null
+                    : (id) {
+                        setDialogState(() {
+                          source = configured.firstWhere(
+                            (e) => e['id']?.toString() == id,
+                            orElse: () => configured.first,
+                          );
+                          selectedIds.remove(id);
+                        });
+                      },
+              ),
+              const SizedBox(height: 12),
+              Text(tr('Áp dụng cho'),
+                  style: const TextStyle(
+                      fontWeight: FontWeight.w700, fontSize: 13)),
+              const SizedBox(height: 6),
+              TextField(
+                enabled: !isCopying,
+                decoration: InputDecoration(
+                  hintText: tr('Tìm mã / tên NV…'),
+                  isDense: true,
+                  prefixIcon: const Icon(Icons.search, size: 20),
+                  border: const OutlineInputBorder(),
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                ),
+                onChanged: (v) => setDialogState(() => search = v),
+              ),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                dense: true,
+                title: Text(tr('Chỉ hiện người chưa thiết lập'),
+                    style: const TextStyle(fontSize: 13)),
+                value: onlyNotConfigured,
+                activeColor: HrmPageChrome.primaryNavy,
+                onChanged: isCopying
+                    ? null
+                    : (v) => setDialogState(() {
+                          onlyNotConfigured = v;
+                        }),
+              ),
+              Row(
+                children: [
+                  Text(
+                    tr('Đã chọn ${selectedIds.length} / ${targets.length}'),
+                    style: const TextStyle(
+                        fontSize: 12, color: Color(0xFF71717A)),
+                  ),
+                  const Spacer(),
+                  TextButton(
+                    onPressed: isCopying || targets.isEmpty
+                        ? null
+                        : () {
+                            setDialogState(() {
+                              if (allVisibleSelected) {
+                                for (final e in targets) {
+                                  selectedIds.remove(e['id']?.toString());
+                                }
+                              } else {
+                                for (final e in targets) {
+                                  final id = e['id']?.toString();
+                                  if (id != null && id.isNotEmpty) {
+                                    selectedIds.add(id);
+                                  }
+                                }
+                              }
+                            });
+                          },
+                    child: Text(tr(
+                        allVisibleSelected ? 'Bỏ chọn tất cả' : 'Chọn tất cả')),
+                  ),
+                ],
+              ),
+              ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxHeight: MediaQuery.of(ctx).size.height * 0.35,
+                ),
+                child: targets.isEmpty
+                    ? Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Text(
+                          tr(onlyNotConfigured
+                              ? 'Không còn NV chưa thiết lập (hoặc đã chọn hết). Tắt bộ lọc để chọn cả người đã có lương.'
+                              : 'Không tìm thấy nhân viên phù hợp.'),
+                          style: const TextStyle(
+                              fontSize: 13, color: Color(0xFF71717A)),
+                        ),
+                      )
+                    : ListView.builder(
+                        shrinkWrap: true,
+                        itemCount: targets.length,
+                        itemBuilder: (_, i) {
+                          final e = targets[i];
+                          final id = e['id']?.toString() ?? '';
+                          final alreadySet = e['isConfigured'] == true;
+                          return CheckboxListTile(
+                            dense: true,
+                            value: selectedIds.contains(id),
+                            activeColor: HrmPageChrome.primaryNavy,
+                            onChanged: isCopying
+                                ? null
+                                : (v) {
+                                    setDialogState(() {
+                                      if (v == true) {
+                                        selectedIds.add(id);
+                                      } else {
+                                        selectedIds.remove(id);
+                                      }
+                                    });
+                                  },
+                            title: Text(
+                              tr('${e['employeeCode'] ?? ''} — ${e['fullName'] ?? ''}'),
+                              style: const TextStyle(fontSize: 13),
+                            ),
+                            subtitle: Text(
+                              tr(alreadySet
+                                  ? 'Đã có lương (${_getSalaryTypeName(e['salaryType'])}) — sẽ ghi đè công thức'
+                                  : 'Chưa thiết lập'),
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: alreadySet
+                                    ? const Color(0xFFB45309)
+                                    : const Color(0xFF71717A),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+              ),
+              if (isCopying) ...[
+                const SizedBox(height: 8),
+                LinearProgressIndicator(
+                  value: progressTotal > 0
+                      ? progressDone / progressTotal
+                      : null,
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  tr('Đang sao chép $progressDone / $progressTotal…'),
+                  style:
+                      const TextStyle(fontSize: 12, color: Color(0xFF71717A)),
+                ),
+              ],
+            ],
+          );
+
+          Future<void> runCopy() async {
+            if (source == null || selectedIds.isEmpty) return;
+            final sourceBenefit = source!['benefit'] as Map<String, dynamic>?;
+            if (sourceBenefit == null || sourceBenefit.isEmpty) {
+              appNotification.showError(
+                title: 'Lỗi',
+                message: tr('Không đọc được công thức của người nguồn.'),
+              );
+              return;
+            }
+
+            final targetsToApply = _employeeSalaries
+                .where((e) => selectedIds.contains(e['id']?.toString()))
+                .toList();
+
+            setDialogState(() {
+              isCopying = true;
+              progressDone = 0;
+              progressTotal = targetsToApply.length;
+            });
+
+            var ok = 0;
+            var fail = 0;
+            final errors = <String>[];
+
+            for (final target in targetsToApply) {
+              try {
+                final payload = _buildBenefitClonePayload(
+                  sourceBenefit: sourceBenefit,
+                  targetEmployee: target,
+                );
+                final existingId = target['benefitId']?.toString();
+                Map<String, dynamic> result;
+                if (existingId != null && existingId.isNotEmpty) {
+                  result = await _apiService.updateSalaryProfile(
+                      existingId, payload);
+                } else {
+                  result = await _apiService.createSalaryProfile(payload);
+                  if (result['isSuccess'] == true) {
+                    final newId = result['data']?['id']?.toString();
+                    if (newId == null || newId.isEmpty) {
+                      fail++;
+                      errors.add(
+                          '${target['employeeCode']}: không lấy được ID profile');
+                      setDialogState(() => progressDone++);
+                      continue;
+                    }
+                    final assign =
+                        await _apiService.assignSalaryProfile({
+                      'employeeId': target['id'],
+                      'benefitId': newId,
+                      'effectiveDate': DateTime.now().toIso8601String(),
+                    });
+                    if (assign['isSuccess'] != true) {
+                      fail++;
+                      errors.add(
+                          '${target['employeeCode']}: ${assign['message'] ?? 'gán thất bại'}');
+                      setDialogState(() => progressDone++);
+                      continue;
+                    }
+                    result = assign;
+                  }
+                }
+                if (result['isSuccess'] == true) {
+                  ok++;
+                } else {
+                  fail++;
+                  errors.add(
+                      '${target['employeeCode']}: ${result['message'] ?? 'lỗi'}');
+                }
+              } catch (e) {
+                fail++;
+                errors.add('${target['employeeCode']}: $e');
+              }
+              setDialogState(() => progressDone++);
+            }
+
+            if (ctx.mounted) Navigator.pop(ctx);
+            await _loadData();
+            if (fail == 0) {
+              appNotification.showSuccess(
+                title: 'Sao chép thành công',
+                message: tr('Đã áp dụng công thức cho $ok nhân viên.'),
+              );
+            } else {
+              appNotification.showWarning(
+                title: 'Hoàn tất có lỗi',
+                message: tr(
+                    'Thành công $ok, lỗi $fail.${errors.isNotEmpty ? ' ${errors.take(3).join('; ')}' : ''}'),
+              );
+            }
+          }
+
+          final actions = [
+            TextButton(
+              onPressed: isCopying ? null : () => Navigator.pop(ctx),
+              child:
+                  Text(tr('Hủy'), style: const TextStyle(color: Color(0xFF71717A))),
+            ),
+            FilledButton.icon(
+              onPressed: isCopying || selectedIds.isEmpty ? null : runCopy,
+              style: FilledButton.styleFrom(
+                backgroundColor: HrmPageChrome.primaryNavy,
+              ),
+              icon: isCopying
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: Colors.white),
+                    )
+                  : const Icon(Icons.copy_all, size: 18),
+              label: Text(tr(isCopying
+                  ? 'Đang sao chép…'
+                  : 'Sao chép (${selectedIds.length})')),
+            ),
+          ];
+
+          final isMobile = Responsive.isMobile(ctx);
+          if (isMobile) {
+            return Dialog(
+              insetPadding: EdgeInsets.zero,
+              child: SizedBox(
+                width: double.infinity,
+                height: double.infinity,
+                child: Scaffold(
+                  appBar: AppBar(
+                    title: Text(tr('Sao chép công thức lương')),
+                    leading: IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: isCopying ? null : () => Navigator.pop(ctx),
+                    ),
+                  ),
+                  body: SingleChildScrollView(
+                    padding: const EdgeInsets.all(16),
+                    child: formBody,
+                  ),
+                  bottomNavigationBar: SafeArea(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: actions,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            );
+          }
+
+          return ScrollableAlertDialog(
+            title: Text(tr('Sao chép công thức lương')),
+            content: SizedBox(width: 520, child: formBody),
+            actions: actions,
+          );
+        },
+      ),
+    );
+  }
+
+  /// Tạo payload Benefit từ profile nguồn, đặt tên theo NV đích.
+  Map<String, dynamic> _buildBenefitClonePayload({
+    required Map<String, dynamic> sourceBenefit,
+    required Map<String, dynamic> targetEmployee,
+  }) {
+    final targetName = targetEmployee['fullName']?.toString().trim();
+    final name = (targetName != null && targetName.isNotEmpty)
+        ? 'Lương $targetName'
+        : (sourceBenefit['name']?.toString() ?? 'Lương');
+
+    num? n(dynamic v) {
+      if (v == null) return null;
+      if (v is num) return v;
+      final s = v.toString().trim();
+      return num.tryParse(s) ??
+          num.tryParse(s.replaceAll(',', '.'));
+    }
+
+    int? i(dynamic v) {
+      final x = n(v);
+      return x?.round();
+    }
+
+    bool? b(dynamic v) {
+      if (v == null) return null;
+      if (v is bool) return v;
+      final s = v.toString().toLowerCase();
+      if (s == 'true' || s == '1') return true;
+      if (s == 'false' || s == '0') return false;
+      return null;
+    }
+
+    return {
+      'name': name,
+      'description': sourceBenefit['description'],
+      'rateType': _parseSalaryRateType(sourceBenefit['rateType']),
+      'rate': n(sourceBenefit['rate']) ?? 0,
+      'currency': sourceBenefit['currency'] ?? 'VND',
+      'overtimeMultiplier': n(sourceBenefit['overtimeMultiplier']),
+      'holidayMultiplier': n(sourceBenefit['holidayMultiplier']),
+      'nightShiftMultiplier': n(sourceBenefit['nightShiftMultiplier']),
+      'standardHoursPerDay': i(sourceBenefit['standardHoursPerDay']),
+      'weeklyOffDays': sourceBenefit['weeklyOffDays'],
+      'paidLeaveDays': i(sourceBenefit['paidLeaveDays']),
+      'unpaidLeaveDays': i(sourceBenefit['unpaidLeaveDays']),
+      'mealAllowance': n(sourceBenefit['mealAllowance']),
+      'transportAllowance': n(sourceBenefit['transportAllowance']),
+      'housingAllowance': n(sourceBenefit['housingAllowance']),
+      'responsibilityAllowance': n(sourceBenefit['responsibilityAllowance']),
+      'attendanceBonus': n(sourceBenefit['attendanceBonus']),
+      'phoneSkillShiftAllowance': n(sourceBenefit['phoneSkillShiftAllowance']),
+      'otRateWeekday': n(sourceBenefit['otRateWeekday']),
+      'otRateWeekend': n(sourceBenefit['otRateWeekend']),
+      'otRateHoliday': n(sourceBenefit['otRateHoliday']),
+      'nightShiftRate': n(sourceBenefit['nightShiftRate']),
+      'hasHealthInsurance': b(sourceBenefit['hasHealthInsurance']),
+      'healthInsuranceRate': n(sourceBenefit['healthInsuranceRate']),
+      'completionSalary': n(sourceBenefit['completionSalary']),
+      'holidayOvertimeType': i(sourceBenefit['holidayOvertimeType']),
+      'holidayOvertimeDailyRate': n(sourceBenefit['holidayOvertimeDailyRate']),
+      'hourlyOvertimeType': i(sourceBenefit['hourlyOvertimeType']),
+      'hourlyOvertimeFixedRate': n(sourceBenefit['hourlyOvertimeFixedRate']),
+      'socialInsuranceType': i(sourceBenefit['socialInsuranceType']),
+      'insuranceSalary': n(sourceBenefit['insuranceSalary']),
+      'dailyFixedRate': n(sourceBenefit['dailyFixedRate']),
+      'shiftSalaryType': i(sourceBenefit['shiftSalaryType']),
+      'fixedShiftRate': n(sourceBenefit['fixedShiftRate']),
+      'shiftsPerDay': i(sourceBenefit['shiftsPerDay']),
+      'attendanceMode': sourceBenefit['attendanceMode'],
+      'paidLeaveType': sourceBenefit['paidLeaveType'],
+      'travelSalaryMode': sourceBenefit['travelSalaryMode'],
+      'travelFixedHourlyRate': n(sourceBenefit['travelFixedHourlyRate']),
+      'applyLateEarlyOnRestDayOt':
+          b(sourceBenefit['applyLateEarlyOnRestDayOt']),
+      'restDayOtHoursOnly': b(sourceBenefit['restDayOtHoursOnly']),
+      'overtimeHourlyBaseMode': sourceBenefit['overtimeHourlyBaseMode'],
+      'standardWorkMode': sourceBenefit['standardWorkMode'],
+      'fixedStandardWorkDays': i(sourceBenefit['fixedStandardWorkDays']),
+      'deductIfBelowFixedStandard':
+          b(sourceBenefit['deductIfBelowFixedStandard']),
+      'addIfAboveFixedStandard': b(sourceBenefit['addIfAboveFixedStandard']),
+      'isActive': true,
+    };
   }
 
   void _showAddEmployeeDialog() {

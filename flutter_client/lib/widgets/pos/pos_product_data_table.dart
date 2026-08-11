@@ -11,6 +11,7 @@ import 'pos_product_type_badge.dart';
 import 'pos_product_unit_view.dart';
 import 'pos_theme.dart';
 import 'pos_unit_chip_selector.dart';
+import '../../utils/pos_qty_rules.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 typedef PosProductRowAction = void Function(PosProduct product);
@@ -539,7 +540,7 @@ class PosProductDataTable extends StatelessWidget {
       return _cellText('—', align: TextAlign.right, color: Colors.grey);
     }
     final text = _cellText(
-      moneyFmt.format(view.onHandQty),
+      PosQtyRules.format(view.onHandQty, product: p),
       align: TextAlign.right,
       color: view.onHandQty <= 0 ? const Color(0xFFE53935) : null,
     );
@@ -660,7 +661,7 @@ class PosProductDataTable extends StatelessWidget {
 
   Widget _variantStockCell(PosProduct parent, PosProductVariant v) {
     final text = _cellText(
-      moneyFmt.format(v.onHandQty),
+      PosQtyRules.format(v.onHandQty, product: parent),
       align: TextAlign.right,
       color: v.onHandQty <= 0
           ? const Color(0xFFE53935)

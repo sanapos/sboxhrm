@@ -27,6 +27,7 @@ class WhMobileStockCountEditor extends StatefulWidget {
 class _CountLine {
   _CountLine({
     required this.lineId,
+    required this.productId,
     required this.name,
     this.code,
     this.unit,
@@ -35,6 +36,7 @@ class _CountLine {
   }) : countedQty = countedQty;
 
   final String lineId;
+  final String productId;
   final String name;
   final String? code;
   final String? unit;
@@ -91,6 +93,7 @@ class _WhMobileStockCountEditorState extends State<WhMobileStockCountEditor> {
       ..clear()
       ..addAll(c.lines.map((l) => _CountLine(
             lineId: l.id,
+            productId: l.productId,
             name: l.productName,
             code: l.productCode,
             unit: l.unitName,
@@ -116,6 +119,15 @@ class _WhMobileStockCountEditorState extends State<WhMobileStockCountEditor> {
 
   Future<void> _pickProduct(PosPurchaseLookupPick pick) async {
     if (_readOnly) return;
+    final addQty = (pick.qty == null || pick.qty! <= 0) ? 1.0 : pick.qty!;
+    final existing = _lines.where((l) => l.productId == pick.product.id).toList();
+    if (existing.isNotEmpty) {
+      setState(() {
+        final cur = existing.first.countedQty ?? existing.first.systemQty;
+        existing.first.countedQty = cur + addQty;
+      });
+      return;
+    }
     final id = await _ensureId();
     if (id == null || !mounted) return;
     final res = await _api.addPosStockCountLines(id, [
@@ -126,7 +138,15 @@ class _WhMobileStockCountEditorState extends State<WhMobileStockCountEditor> {
     ]);
     if (!mounted) return;
     if (res['isSuccess'] == true) {
-      setState(() => _apply(PosStockCount.fromJson(res['data'] as Map<String, dynamic>)));
+      setState(() {
+        _apply(PosStockCount.fromJson(res['data'] as Map<String, dynamic>));
+        for (final line in _lines) {
+          if (line.productId == pick.product.id) {
+            line.countedQty = addQty;
+            break;
+          }
+        }
+      });
     }
   }
 

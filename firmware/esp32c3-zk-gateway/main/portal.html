@@ -43,13 +43,15 @@ button:disabled{opacity:.5;cursor:default;transform:none}
 .hint{color:var(--mut);font-size:12px;margin-top:6px}
 .wifi-input{display:flex;gap:9px}
 .wifi-input input{flex:1}
-.aplist{margin-top:10px;border:1px solid var(--line);border-radius:11px;overflow:hidden;display:none}
+.aplist{margin-top:10px;border:1px solid var(--line);border-radius:11px;overflow:auto;display:none;max-height:280px;background:#0d1424}
 .aplist.show{display:block}
 .ap{display:flex;align-items:center;gap:11px;padding:11px 13px;cursor:pointer;border-bottom:1px solid var(--line);transition:background .12s}
 .ap:last-child{border-bottom:0}
 .ap:hover{background:#18223a}
-.ap .name{flex:1;font-weight:600}
-.ap .lock{color:var(--mut);font-size:12px}
+.ap.selected{background:#1a2743;box-shadow:inset 3px 0 0 var(--acc)}
+.ap .name{flex:1;font-weight:600;word-break:break-word}
+.ap .meta{color:var(--mut);font-size:11.5px;margin-top:2px}
+.ap .lock{color:var(--mut);font-size:12px;white-space:nowrap}
 .bars{display:inline-flex;align-items:flex-end;gap:2px;height:16px}
 .bars i{width:3px;background:var(--mut);border-radius:1px}
 .bars i.a{background:var(--ok)}
@@ -152,7 +154,7 @@ tr:hover td{background:#121a2c}
         <div class="field">
           <label>Địa chỉ máy chủ ADMS</label>
           <input name="serverUrl" value="https://sboxhrm.com" readonly
-                 style="opacity:.75;background:#f3f4f6">
+                 style="opacity:.85;background:#0a101c;color:var(--mut);cursor:default">
           <div class="hint">Cố định trong firmware — không đổi được (bảo vệ dịch vụ).</div>
         </div>
         <div class="row">
@@ -439,12 +441,18 @@ async function scan(){
     const seen={}, uniq=[];
     for(const a of list.sort((x,y)=>y.rssi-x.rssi)){ if(a.ssid && !seen[a.ssid]){seen[a.ssid]=1;uniq.push(a)} }
     const box=$('#aplist');
-    box.innerHTML = uniq.map(a=>
-      '<div class="ap" onclick="pick(this)" data-ssid="'+esc(a.ssid)+'">'+
+    const cur = ($('#cfg').wifiSsid.value||'').trim();
+    box.innerHTML = uniq.map(a=>{
+      const sel = a.ssid===cur ? ' selected' : '';
+      return '<div class="ap'+sel+'" onclick="pick(this)" data-ssid="'+esc(a.ssid)+'">'+
         bars(a.rssi)+
-        '<span class="name">'+esc(a.ssid)+'</span>'+
+        '<div style="flex:1;min-width:0">'+
+          '<div class="name">'+esc(a.ssid)+'</div>'+
+          '<div class="meta">'+a.rssi+' dBm · '+(a.secure?'có mật khẩu':'mở')+'</div>'+
+        '</div>'+
         (a.secure?'<span class="lock">🔒</span>':'<span class="lock sec">mở</span>')+
-      '</div>').join('') || '<div class="ap"><span class="name sec">Không thấy mạng nào</span></div>';
+      '</div>';
+    }).join('') || '<div class="ap"><span class="name sec">Không thấy mạng nào</span></div>';
     box.classList.add('show');
     toast('Tìm thấy '+uniq.length+' mạng');
   }catch(e){ toast('Quét thất bại'); }
@@ -452,8 +460,11 @@ async function scan(){
 }
 
 function pick(el){
-  $('#cfg').wifiSsid.value = el.dataset.ssid;
-  $('#aplist').classList.remove('show');
+  const ssid = el.dataset.ssid;
+  if(!ssid) return;
+  $('#cfg').wifiSsid.value = ssid;
+  document.querySelectorAll('#aplist .ap').forEach(n=>n.classList.remove('selected'));
+  el.classList.add('selected');
   $('#cfg').wifiPass.focus();
 }
 

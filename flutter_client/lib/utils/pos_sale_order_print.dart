@@ -10,6 +10,7 @@ import '../models/pos_store_printer.dart';
 import '../services/api_service.dart';
 import '../widgets/notification_overlay.dart';
 import 'pos_html_print.dart';
+import 'pos_local_printers_store.dart';
 import 'pos_print_template_loader.dart';
 import 'pos_pdf_fonts.dart';
 import 'pos_print_orchestrator.dart';
@@ -23,6 +24,7 @@ import 'pos_thermal_printer_settings.dart';
 import 'pos_thermal_printer_service.dart';
 import 'pos_print_template_runtime.dart';
 import 'pos_printer_peripheral.dart';
+import 'pos_vietqr_helper.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// Hóa đơn bán chưa in được — treo trên màn thu ngân để in lại.
@@ -264,8 +266,15 @@ PosThermalPrinterSettings _thermalSettingsForTemplate(
   PosThermalPrinterSettings settings,
   PosPrintTemplate? template,
 ) {
-  if (template != null && PosPrintPaperSizes.isThermal(template.paperSize)) {
-    return settings.copyWith(paperSize: template.paperSize);
+  if (template == null) return settings;
+  final ps = template.paperSize;
+  // Mẫu K80: không để máy cấu hình nhầm K58 làm bảng hàng hẹp.
+  if (ps == PosPrintPaperSizes.k80 && settings.paperWidthMm <= 58) {
+    return settings.copyWith(paperSize: 'K80');
+  }
+  if (ps == PosPrintPaperSizes.k58 && settings.paperWidthMm > 58) {
+    // Giữ khổ máy thật (80mm) — không thu hẹp.
+    return settings;
   }
   return settings;
 }
@@ -284,11 +293,31 @@ Future<bool> printPosSaleOrder({
   bool showFeedback = true,
   /// Sau thanh toán trên máy POS: chỉ in nhiệt/cloud, không mở dialog HTML/PDF.
   bool preferDevicePrintOnly = false,
+  /// Mặc định: chỉ mở két khi in lần đầu (không phải in lại).
+  bool? openCashDrawer,
   /// VD: «HÓA ĐƠN TẠM TÍNH» — ghi đè tiêu đề in.
   String? documentTitle,
+  /// Thuế VAT in trên bill (trước Tổng cộng). Null → lấy từ [order.vatAmount].
+  double? vatAmount,
+  bool? vatIncludedInPrice,
+  double vatRate = 0,
+  /// In lại chọn máy cửa hàng / Agent.
+  String? overridePrinterId,
+  PosStorePrinter? overridePrinter,
+  PosPrintHangCallback? onCloudHang,
 }) async {
   final printOrder = await _resolvePrintOrder(order);
+  // Tự gắn VietQR khi bật «In mã VietQR» — kể cả in từ danh sách đơn (caller quên truyền URL).
+  var effectiveVietQr = vietQrImageUrl;
+  if (effectiveVietQr == null || effectiveVietQr.isEmpty) {
+    effectiveVietQr =
+        await PosVietQrHelper.resolvePrintImageUrlForOrder(printOrder);
+  }
   final template = await _resolveSalePrintTemplate(templateId);
+  final effectiveVat = vatAmount ?? printOrder.vatAmount;
+  // VAT > 0 = chế độ cộng thêm; = 0 giữ flag caller (giá đã gồm / không thuế).
+  final effectiveIncluded =
+      vatIncludedInPrice ?? (effectiveVat <= 0);
 
   // Luôn lấy tên/địa chỉ/SĐT cửa hàng từ thiết lập POS nếu caller không truyền.
   if (branchName == null ||
@@ -310,61 +339,154 @@ Future<bool> printPosSaleOrder({
             : store.phone;
   }
 
+  final hasOverride = overridePrinter != null ||
+      (overridePrinterId ?? '').trim().isNotEmpty;
+
+  // In lại chọn máy: bỏ máy nội bộ mặc định — gửi đúng máy đã chọn (cloud/Agent).
+  if (hasOverride) {
+    await PosPrintOrchestrator.instance.refreshConfig(force: true);
+    PosStorePrinter? target = overridePrinter;
+    if (target == null) {
+      final want = overridePrinterId!.trim().toLowerCase();
+      target = PosPrintOrchestrator.instance.printers
+          .where((p) => p.id.toLowerCase() == want)
+          .firstOrNull;
+    }
+    if (target == null) {
+      if (showFeedback) {
+        NotificationOverlayManager().showError(
+          title: 'Không tìm thấy máy in',
+          message: tr('Chọn lại máy in cửa hàng'),
+        );
+      }
+      return false;
+    }
+    return PosPrintOrchestrator.instance.dispatchSaleOrder(
+      order: printOrder,
+      copies: copies,
+      referenceNo: printOrder.orderNo.isEmpty ? null : printOrder.orderNo,
+      referenceId: printOrder.id,
+      showFeedback: showFeedback,
+      successTitle: 'In lại hóa đơn',
+      skipDedup: true,
+      storeName: branchName,
+      storeAddress: storeAddress,
+      storePhone: storePhone,
+      mergeSameItems: mergeSameItems,
+      documentTitle: documentTitle,
+      overridePrinter: target,
+      buildEscPos: (printer) async {
+        var settings = toThermalSettings(printer);
+        settings = _thermalSettingsForTemplate(settings, template);
+        final isProvisional =
+            (documentTitle ?? '').toUpperCase().contains('TẠM');
+        final allowKick = openCashDrawer ?? !printOrder.isReprint;
+        final kick = !isProvisional &&
+            allowKick &&
+            PosPrinterPeripheral.shouldOpenDrawerForOrder(
+              settings,
+              printOrder,
+            );
+        settings = settings.copyWith(openCashDrawer: kick);
+        return PosThermalPrinterService.buildSaleOrderEscPosBytes(
+          printOrder,
+          settings: settings,
+          storeName: branchName,
+          storeAddress: storeAddress,
+          storePhone: storePhone,
+          mergeSameItems: mergeSameItems,
+          vietQrImageUrl: effectiveVietQr,
+          slipTitle: documentTitle,
+        );
+      },
+    );
+  }
+
   final thermal = await PosThermalPrinterSettings.load();
   await PosPrintOrchestrator.instance.refreshConfig();
   final cloudPrinters = PosPrintOrchestrator.instance
       .resolvePrinters(PosCloudDocumentTypes.saleInvoice);
 
-  // App: ưu tiên máy in nhiệt cục bộ. Web: bỏ qua (không có BT/LAN/USB).
-  if (!kIsWeb && thermal.enabled) {
-    final isProvisional =
-        (documentTitle ?? '').toUpperCase().contains('TẠM');
-    var settings = await _prepareLocalThermalSettings(
-      thermal,
-      template,
-      order: isProvisional ? null : printOrder,
-    );
-    final printed = await _tryLocalSalePrint(
-      printOrder: printOrder,
-      settings: settings,
-      template: template,
-      branchName: branchName,
-      storeAddress: storeAddress,
-      storePhone: storePhone,
-      mergeSameItems: mergeSameItems,
-      vietQrImageUrl: vietQrImageUrl,
-      copies: copies,
-      showFeedback: showFeedback,
-      skipDedup: skipDedup,
-      documentTitle: documentTitle,
-    );
-    if (printed) {
-      return true;
+  // App: ưu tiên máy nội bộ có vai trò SaleInvoice (in tất cả),
+  // rồi fallback singleton legacy. Web: bỏ qua (không có BT/LAN/USB).
+  if (!kIsWeb) {
+    final saleLocals = await PosLocalPrintersStore.instance
+        .forRole(PosLocalPrinterRoles.saleInvoice);
+    final thermalCandidates = <PosThermalPrinterSettings>[
+      for (final p in saleLocals.where((p) => !p.isLabel)) p.toThermalSettings(),
+    ];
+    if (thermalCandidates.isEmpty && thermal.enabled) {
+      thermalCandidates.add(thermal);
     }
-    // Chỉ bỏ cloud khi không còn máy Agent — Oppo vẫn phải gửi được sang Sunmi.
-    if (preferDevicePrintOnly && cloudPrinters.isEmpty) {
-      if (showFeedback) {
-        NotificationOverlayManager().showError(
-          title: 'Chưa in được',
-          message: tr(
-              'Máy in cục bộ lỗi và chưa có Print Agent. Không mở mẫu phiếu.'),
-        );
+
+    if (thermalCandidates.isNotEmpty) {
+      // A6 Sunmi: ưu tiên in native trước USB/LAN — tránh USB «OK» giả rồi bỏ Sunmi.
+      if (await PosPrinterTransport.isSunmiDevice()) {
+        thermalCandidates.sort((a, b) {
+          final aS =
+              a.connectionType == PosThermalConnectionType.sunmi ? 0 : 1;
+          final bS =
+              b.connectionType == PosThermalConnectionType.sunmi ? 0 : 1;
+          return aS.compareTo(bS);
+        });
       }
-      return false;
+      final isProvisional =
+          (documentTitle ?? '').toUpperCase().contains('TẠM');
+      var anyOk = false;
+      for (var i = 0; i < thermalCandidates.length; i++) {
+        final settings = await _prepareLocalThermalSettings(
+          thermalCandidates[i],
+          template,
+          order: isProvisional ? null : printOrder,
+          allowOpenCashDrawer: openCashDrawer ?? !printOrder.isReprint,
+        );
+        final printed = await _tryLocalSalePrint(
+          printOrder: printOrder,
+          settings: settings,
+          template: template,
+          branchName: branchName,
+          storeAddress: storeAddress,
+          storePhone: storePhone,
+          mergeSameItems: mergeSameItems,
+          vietQrImageUrl: effectiveVietQr,
+          copies: copies,
+          // Chỉ báo lỗi/thành công ở máy cuối hoặc khi đã có kết quả gộp.
+          showFeedback: false,
+          skipDedup: skipDedup || i > 0,
+          documentTitle: documentTitle,
+        );
+        if (printed) {
+          // Chỉ 1 máy nội bộ — tránh 2 bill khi Sunmi + USB cùng role Hóa đơn.
+          anyOk = true;
+          break;
+        }
+      }
+      if (anyOk) {
+        if (showFeedback) {
+          NotificationOverlayManager().showSuccess(
+            title: printOrder.isReprint ? 'In lại hóa đơn' : 'In hóa đơn',
+            message: tr('Máy in cục bộ'),
+          );
+        }
+        return true;
+      }
+      // Chỉ bỏ cloud khi không còn máy Agent — Oppo vẫn phải gửi được sang Sunmi.
+      if (preferDevicePrintOnly && cloudPrinters.isEmpty) {
+        if (showFeedback) {
+          NotificationOverlayManager().showError(
+            title: 'Chưa in được',
+            message: tr(
+                'Máy in cục bộ lỗi và chưa có Print Agent. Không mở mẫu phiếu.'),
+          );
+        }
+        return false;
+      }
     }
   }
 
   // Cloud → Print Agent (app + web). Web bán hàng dùng đường này để giống app.
   if (cloudPrinters.isNotEmpty) {
-    if (showFeedback) {
-      NotificationOverlayManager().show(
-        title: 'Đang gửi lệnh in…',
-        message: cloudPrinters.length == 1
-            ? '→ ${cloudPrinters.first.name}'
-            : '→ ${cloudPrinters.length} máy in',
-        duration: const Duration(seconds: 2),
-      );
-    }
+    // Không toast «Đang gửi…» — orchestrator đã báo 1 dòng «Đã gửi lệnh in».
     final printed = await PosPrintOrchestrator.instance.dispatchSaleOrder(
       order: printOrder,
       copies: copies,
@@ -378,12 +500,17 @@ Future<bool> printPosSaleOrder({
       storePhone: storePhone,
       mergeSameItems: mergeSameItems,
       documentTitle: documentTitle,
+      overridePrinterId: overridePrinterId,
+      overridePrinter: overridePrinter,
+      onHang: onCloudHang,
       buildEscPos: (printer) async {
         var settings = toThermalSettings(printer);
         settings = _thermalSettingsForTemplate(settings, template);
         final isProvisional =
             (documentTitle ?? '').toUpperCase().contains('TẠM');
+        final allowKick = openCashDrawer ?? !printOrder.isReprint;
         final kick = !isProvisional &&
+            allowKick &&
             PosPrinterPeripheral.shouldOpenDrawerForOrder(
               settings,
               printOrder,
@@ -396,7 +523,7 @@ Future<bool> printPosSaleOrder({
           storeAddress: storeAddress,
           storePhone: storePhone,
           mergeSameItems: mergeSameItems,
-          vietQrImageUrl: vietQrImageUrl,
+          vietQrImageUrl: effectiveVietQr,
           slipTitle: documentTitle,
         );
       },
@@ -488,10 +615,11 @@ Future<PosThermalPrinterSettings> _prepareLocalThermalSettings(
   PosThermalPrinterSettings thermal,
   PosPrintTemplate? template, {
   PosSaleOrder? order,
+  bool allowOpenCashDrawer = true,
 }) async {
   var settings = _thermalSettingsForTemplate(thermal, template);
   settings = await PosPrinterTransport.prepareLocalSettings(settings);
-  if (order != null) {
+  if (order != null && allowOpenCashDrawer && !order.isReprint) {
     final kick = PosPrinterPeripheral.shouldOpenDrawerForOrder(settings, order);
     settings = settings.copyWith(openCashDrawer: kick);
   } else {
@@ -513,13 +641,17 @@ Future<bool> _tryLocalSalePrint({
   required bool showFeedback,
   required bool skipDedup,
   String? documentTitle,
+  double vatAmount = 0,
+  bool vatIncludedInPrice = true,
+  double vatRate = 0,
 }) async {
-  // Sunmi: ưu tiên mẫu V2 (preview = in thực) rồi fallback layout cứng.
-  if (settings.connectionType == PosThermalConnectionType.sunmi ||
-      await PosPrinterTransport.isSunmiDevice()) {
+  // Sunmi: ưu tiên mẫu V2 khi không có VAT cộng thêm.
+  // Có VAT > 0 → layout native (V2 hiện chưa có token VAT).
+  // Chỉ native khi connectionType = sunmi — không ép máy USB/BT/LAN trên thiết bị Sunmi.
+  if (settings.connectionType == PosThermalConnectionType.sunmi) {
     try {
       final v2 = PosPrintTemplateRuntime.parseTemplate(template);
-      if (v2 != null) {
+      if (v2 != null && vatAmount <= 0) {
         final output = PosPrintTemplateRuntime.compileSaleOrder(
           template: v2,
           order: printOrder,
@@ -648,7 +780,7 @@ Future<bool> _tryLocalSalePrint({
   }
 
   // Fallback chuỗi chế độ chữ: image lỗi → tcvn3 → cp1258 → utf8 (giữ dấu).
-  // Không nhảy thẳng ASCII/bỏ dấu.
+  // Giữ VietQR nếu có; chỉ bỏ QR khi mọi mode kèm QR đều thất bại.
   if (settings.resolvedTextMode == PosThermalTextMode.image ||
       (vietQrImageUrl != null && vietQrImageUrl.isNotEmpty)) {
     const fallbackModes = [
@@ -656,21 +788,29 @@ Future<bool> _tryLocalSalePrint({
       PosThermalTextMode.cp1258,
       PosThermalTextMode.utf8,
     ];
-    for (final mode in fallbackModes) {
-      if (mode == settings.resolvedTextMode) continue;
-      final fallback = settings.copyWith(textMode: mode);
-      try {
-        if (await attempt(fallback, qr: null)) {
-          if (showFeedback) {
-            NotificationOverlayManager().showSuccess(
-              title: printOrder.isReprint ? 'In lại hóa đơn' : 'In hóa đơn',
-              message: tr('Máy in cục bộ (${mode.label})'),
-            );
+    for (final keepQr in [true, false]) {
+      if (keepQr && (vietQrImageUrl == null || vietQrImageUrl.isEmpty)) {
+        continue;
+      }
+      for (final mode in fallbackModes) {
+        if (mode == settings.resolvedTextMode) continue;
+        final fallback = settings.copyWith(textMode: mode);
+        try {
+          if (await attempt(
+            fallback,
+            qr: keepQr ? vietQrImageUrl : null,
+          )) {
+            if (showFeedback) {
+              NotificationOverlayManager().showSuccess(
+                title: printOrder.isReprint ? 'In lại hóa đơn' : 'In hóa đơn',
+                message: tr('Máy in cục bộ (${mode.label})'),
+              );
+            }
+            return true;
           }
-          return true;
+        } catch (e) {
+          debugPrint('Local sale print ($mode keepQr=$keepQr) fallback failed: $e');
         }
-      } catch (e) {
-        debugPrint('Local sale print ($mode) fallback failed: $e');
       }
     }
   }

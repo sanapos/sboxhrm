@@ -17058,24 +17058,37 @@ class ApiService {
     return _getProductPrinterApi('/map');
   }
 
+  // «product-assignment» là API chính thức (PosPrintersController). API cũ
+  // «product-printers» chỉ còn export/import Excel — KHÔNG có các route
+  // summary/products/categories, luôn trả 404 hợp lệ. Trước đây khi base
+  // chính bị lỗi mạng (timeout/DNS…) code nuốt exception rồi thử base cũ
+  // → luôn ăn 404 và báo nhầm "API gán máy in không khả dụng (404)" dù
+  // nguyên nhân thật là mất kết nối tạm thời. Giờ: lỗi mạng ở base chính →
+  // trả lỗi kết nối rõ ràng ngay, không rơi xuống base cũ chắc chắn 404.
   Future<Map<String, dynamic>> _getProductPrinterApi(
     String suffix, {
     Map<String, String>? query,
   }) async {
-    for (final base in [
-      '$baseUrl/api/pos/printers/product-assignment',
-      '$baseUrl/api/pos/product-printers',
-    ]) {
-      try {
-        final uri = Uri.parse('$base$suffix').replace(queryParameters: query);
-        final response = await _retryOnUnauthorized(() => http
-            .get(uri, headers: _headers)
-            .timeout(const Duration(seconds: 45)));
-        if (response.statusCode == 404) continue;
-        return _handleResponse(response);
-      } catch (e) {
-        if (base.contains('product-printers')) return _connectionFailure(e);
-      }
+    final primary = '$baseUrl/api/pos/printers/product-assignment';
+    try {
+      final uri = Uri.parse('$primary$suffix').replace(queryParameters: query);
+      final response = await _retryOnUnauthorized(() => http
+          .get(uri, headers: _headers)
+          .timeout(const Duration(seconds: 45)));
+      if (response.statusCode != 404) return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+
+    try {
+      final legacy = '$baseUrl/api/pos/product-printers';
+      final uri = Uri.parse('$legacy$suffix').replace(queryParameters: query);
+      final response = await _retryOnUnauthorized(() => http
+          .get(uri, headers: _headers)
+          .timeout(const Duration(seconds: 45)));
+      if (response.statusCode != 404) return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
     }
     return {'isSuccess': false, 'message': 'API gán máy in không khả dụng (404)'};
   }
@@ -17084,20 +17097,26 @@ class ApiService {
     String suffix,
     Future<http.Response> Function(Uri uri) request,
   ) async {
-    for (final base in [
-      '$baseUrl/api/pos/printers/product-assignment',
-      '$baseUrl/api/pos/product-printers',
-    ]) {
-      try {
-        final uri = Uri.parse('$base$suffix');
-        final response =
-            await _retryOnUnauthorized(() => request(uri))
-                .timeout(const Duration(seconds: 120));
-        if (response.statusCode == 404) continue;
-        return _handleResponse(response);
-      } catch (e) {
-        if (base.contains('product-printers')) return _connectionFailure(e);
-      }
+    final primary = '$baseUrl/api/pos/printers/product-assignment';
+    try {
+      final uri = Uri.parse('$primary$suffix');
+      final response =
+          await _retryOnUnauthorized(() => request(uri))
+              .timeout(const Duration(seconds: 120));
+      if (response.statusCode != 404) return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+
+    try {
+      final legacy = '$baseUrl/api/pos/product-printers';
+      final uri = Uri.parse('$legacy$suffix');
+      final response =
+          await _retryOnUnauthorized(() => request(uri))
+              .timeout(const Duration(seconds: 120));
+      if (response.statusCode != 404) return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
     }
     return {'isSuccess': false, 'message': 'API gán máy in không khả dụng (404)'};
   }
@@ -17193,6 +17212,8 @@ class ApiService {
     List<String>? categoryIds,
     bool allProducts = false,
     bool includeChildCategories = true,
+    /// true = chuyển SP đang gán máy khác sang máy này.
+    bool forceReassign = false,
   }) async {
     return _mutateProductPrinterApi(
       '/printers/$printerId/assign',
@@ -17204,6 +17225,7 @@ class ApiService {
           'categoryIds': categoryIds ?? [],
           'allProducts': allProducts,
           'includeChildCategories': includeChildCategories,
+          'forceReassign': forceReassign,
         }),
       ),
     );
@@ -17476,6 +17498,32 @@ class ApiService {
       if (agentId.trim().isNotEmpty) qp['agentId'] = agentId.trim();
       final uri = Uri.parse('$baseUrl/api/pos/print-jobs/$jobId/fail')
           .replace(queryParameters: qp.isEmpty ? null : qp);
+      final response = await http
+          .post(
+            uri,
+            headers: _headers,
+            body: jsonEncode({
+              'errorCode': errorCode,
+              'errorMessage': errorMessage,
+            }),
+          )
+          .timeout(const Duration(seconds: 15));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  /// Agent nhả job (USB không gắn…) → Queued lại cho máy Agent khác.
+  Future<Map<String, dynamic>> releasePosPrintJob(
+    String jobId,
+    String agentId, {
+    String errorCode = 'NOT_LOCAL',
+    String errorMessage = 'Máy này không kết nối được cổng in',
+  }) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/pos/print-jobs/$jobId/release')
+          .replace(queryParameters: {'agentId': agentId});
       final response = await http
           .post(
             uri,

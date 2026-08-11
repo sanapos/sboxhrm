@@ -76,9 +76,9 @@ class _PosCustomerDisplaySettingsScreenState
     if (code.length < 4) return '';
     if (kIsWeb) {
       final origin = Uri.base.origin;
-      return '$origin/#/customer-display?v=$code';
+      return '$origin/customer-display?v=$code';
     }
-    return 'https://sboxhrm.com/#/customer-display?v=$code';
+    return 'https://sboxhrm.com/customer-display?v=$code';
   }
 
   Future<void> _copyViewerLink() async {
@@ -373,7 +373,7 @@ class _PosCustomerDisplaySettingsScreenState
         SwitchListTile(
           contentPadding: EdgeInsets.zero,
           title: Text(tr('Tự mở khi vào bán hàng')),
-          subtitle: Text(tr('Android: display phụ · Web: popup')),
+          subtitle: Text(tr('Android: display phụ · iOS/Web: mở link trình duyệt')),
           value: cd.autoOpenOnPos,
           onChanged: busy || !cd.enabled
               ? null

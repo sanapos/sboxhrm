@@ -7,8 +7,9 @@ import 'package:sunmi_printer_plus/sunmi_printer_plus.dart';
 
 import 'pos_thermal_printer_settings.dart';
 import 'pos_printer_peripheral.dart';
+import 'pos_usb_printer.dart';
 
-/// Gửi byte thô tới máy in qua Bluetooth / LAN / Sunmi.
+/// Gửi byte thô tới máy in qua Bluetooth / LAN / USB / Sunmi.
 class PosPrinterTransport {
   static const _btChunkSize = 512;
   static const _btChunkSizeLarge = 256;
@@ -34,15 +35,13 @@ class PosPrinterTransport {
     }
   }
 
-  /// Ép cổng Sunmi nội bộ khi chạy trên thiết bị Sunmi.
+  /// Chuẩn hóa brand Sunmi khi cổng đã chọn là Sunmi.
+  /// Không ghi đè USB / Bluetooth / LAN đã cấu hình trên thiết bị Sunmi.
   static Future<PosThermalPrinterSettings> prepareLocalSettings(
     PosThermalPrinterSettings settings,
   ) async {
-    if (await isSunmiDevice()) {
-      return settings.copyWith(
-        connectionType: PosThermalConnectionType.sunmi,
-        printerBrand: PosThermalPrinterBrand.sunmi,
-      );
+    if (settings.connectionType == PosThermalConnectionType.sunmi) {
+      return settings.copyWith(printerBrand: PosThermalPrinterBrand.sunmi);
     }
     return settings;
   }
@@ -52,6 +51,11 @@ class PosPrinterTransport {
     String? bluetoothAddress,
     String? lanHost,
     int lanPort = 9100,
+    String? usbDeviceName,
+    String? usbStableId,
+    int? usbVendorId,
+    int? usbProductId,
+    String? usbSerial,
     required List<int> bytes,
     int sunmiFeedLines = 0,
   }) async {
@@ -64,23 +68,101 @@ class PosPrinterTransport {
       case PosThermalConnectionType.bluetooth:
         return _sendBluetooth(bluetoothAddress, bytes);
       case PosThermalConnectionType.usb:
-        // USB OTG ESC/POS chưa có driver — chỉ hợp lệ trên Sunmi (máy in nội bộ).
-        // Không giả gửi LAN khi thiếu IP (tránh "in lỗi font" do không in được).
-        if (await isSunmiDevice()) {
-          return _sendSunmi(bytes, sunmiFeedLines);
-        }
-        final host = lanHost?.trim();
-        if (host != null && host.isNotEmpty) {
-          debugPrint(
-            'USB print: không có OTG — chuyển LAN $host:$lanPort',
-          );
-          return _sendLan(lanHost, lanPort, bytes);
-        }
-        debugPrint(
-          'USB print failed: chưa hỗ trợ USB OTG. Dùng Bluetooth, LAN hoặc Sunmi.',
+        return _sendUsb(
+          bytes: bytes,
+          usbDeviceName: usbDeviceName,
+          usbStableId: usbStableId,
+          usbVendorId: usbVendorId,
+          usbProductId: usbProductId,
+          usbSerial: usbSerial,
+          sunmiFeedLines: sunmiFeedLines,
         );
-        return false;
     }
+  }
+
+  /// USB OTG: mở→ghi→đóng theo máy (stableId). Nhiều máy USB không dùng chung 1 kết nối.
+  static Future<bool> _sendUsb({
+    required List<int> bytes,
+    String? usbDeviceName,
+    String? usbStableId,
+    int? usbVendorId,
+    int? usbProductId,
+    String? usbSerial,
+    int sunmiFeedLines = 0,
+  }) async {
+    var stable = (usbStableId ?? '').trim();
+    final name = (usbDeviceName ?? '').trim();
+    if (stable.isEmpty && RegExp(r'^\d+:\d+:').hasMatch(name)) {
+      stable = name;
+    }
+
+    final resolved = await PosUsbPrinter.resolveSaved(
+      stableId: stable.isEmpty ? null : stable,
+      deviceName: name.isEmpty || stable == name ? null : name,
+      vendorId: usbVendorId,
+      productId: usbProductId,
+      serialNumber: usbSerial,
+    );
+
+    if (resolved != null) {
+      if (!resolved.hasPermission) {
+        final granted = await PosUsbPrinter.requestPermission(resolved);
+        if (!granted) {
+          debugPrint('USB print: user denied permission ${resolved.displayName}');
+          return false;
+        }
+      }
+      final ok = await PosUsbPrinter.writeBytes(
+        bytes: bytes,
+        stableId: resolved.stableId,
+        deviceName: resolved.deviceName,
+        vendorId: resolved.vendorId,
+        productId: resolved.productId,
+        serialNumber: resolved.serialNumber,
+      ).timeout(
+        const Duration(seconds: 25),
+        onTimeout: () {
+          debugPrint('USB print timeout 25s on ${resolved.displayName}');
+          return false;
+        },
+      );
+      if (ok) return true;
+      debugPrint('USB print failed on ${resolved.displayName}');
+      return false;
+    }
+
+    final list = await PosUsbPrinter.listDevices();
+    if (list.isEmpty) {
+      // Không fallback Sunmi — dễ «In xong» trên hóa đơn nội bộ trong khi
+      // máy tem USB (Tem 350BM) không ra giấy (đặc biệt khi ADB chiếm USB host).
+      debugPrint('USB print failed: không có thiết bị USB');
+      return false;
+    }
+    if (list.length == 1) {
+      final only = list.first;
+      if (!only.hasPermission) {
+        final granted = await PosUsbPrinter.requestPermission(only);
+        if (!granted) return false;
+      }
+      return PosUsbPrinter.writeBytes(
+        bytes: bytes,
+        stableId: only.stableId,
+        deviceName: only.deviceName,
+        vendorId: only.vendorId,
+        productId: only.productId,
+        serialNumber: only.serialNumber,
+      ).timeout(
+        const Duration(seconds: 25),
+        onTimeout: () {
+          debugPrint('USB print timeout 25s (single device)');
+          return false;
+        },
+      );
+    }
+    debugPrint(
+      'USB print failed: có ${list.length} máy USB — chọn cổng trong Thiết lập máy in',
+    );
+    return false;
   }
 
   static Future<bool> _sendLan(String? host, int port, List<int> bytes) async {
@@ -170,10 +252,13 @@ class PosPrinterTransport {
       'outofpaper',
       'no_paper',
       'nopaper',
+      'open_the_lid',
       'cover_open',
       'coveropen',
       'lid_open',
       'error',
+      'exception',
+      'abnormal',
       'offline',
       'no_printer',
       'noprinter',
@@ -211,8 +296,8 @@ class PosPrinterTransport {
         return false;
       }
 
-      // sunmi_printer_plus ≥4.x: printRawData/bindingPrinter là no-op.
-      // Phải dùng printEscPos. Strip GS V — cắt bằng cutPaper sau khi đẩy giấy.
+      // Shim map printEscPos → printRawData (sunmi_printer_plus 2.x AIDL).
+      // Strip GS V — cắt bằng cutPaper sau khi đẩy giấy.
       final payload = stripTrailingCut(bytes);
       final result = await SunmiPrinter.printEscPos(payload);
       debugPrint('Sunmi printEscPos result: $result');

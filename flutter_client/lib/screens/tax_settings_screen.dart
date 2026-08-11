@@ -907,8 +907,8 @@ class _TaxSettingsScreenState extends State<TaxSettingsScreen> {
             child: Row(
               children: [
                 Container(
-                  width: 120,
-                  height: 45,
+                  width: Responsive.isMobile(context) ? 44 : 120,
+                  height: Responsive.isMobile(context) ? 44 : 45,
                   decoration: BoxDecoration(
                     color: PosTheme.kiotBlueLight,
                     borderRadius: BorderRadius.circular(10),
@@ -974,6 +974,74 @@ class _TaxSettingsScreenState extends State<TaxSettingsScreen> {
     required TextEditingController controller,
     required String suffix,
   }) {
+    final isMobile = Responsive.isMobile(context);
+    final field = SizedBox(
+      width: isMobile ? double.infinity : 130,
+      height: 40,
+      child: TextField(
+        controller: controller,
+        textAlign: TextAlign.right,
+        style: const TextStyle(
+            color: Color(0xFF18181B),
+            fontSize: 14,
+            fontWeight: FontWeight.w600),
+        keyboardType: TextInputType.number,
+        inputFormatters: [ThousandSeparatorFormatter()],
+        decoration: InputDecoration(
+          suffixText: tr(suffix),
+          suffixStyle: const TextStyle(color: Color(0xFF71717A), fontSize: 10),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8),
+            borderSide: const BorderSide(color: Color(0xFFE4E4E7)),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8),
+            borderSide:
+                const BorderSide(color: HrmPageChrome.primaryNavy, width: 2),
+          ),
+          filled: true,
+          fillColor: const Color(0xFFFAFAFA),
+        ),
+        onChanged: (_) => setState(() {}),
+      ),
+    );
+
+    final labelBlock = Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, color: const Color(0xFF71717A), size: 20),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(tr(label),
+                  style: const TextStyle(
+                      color: Color(0xFF18181B),
+                      fontWeight: FontWeight.w500,
+                      fontSize: 14)),
+              const SizedBox(height: 2),
+              Text(tr(description),
+                  style: TextStyle(color: Colors.grey[500], fontSize: 11)),
+            ],
+          ),
+        ),
+      ],
+    );
+
+    if (isMobile) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          labelBlock,
+          const SizedBox(height: 10),
+          field,
+        ],
+      );
+    }
+
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -983,40 +1051,19 @@ class _TaxSettingsScreenState extends State<TaxSettingsScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(tr(label), style: const TextStyle(color: Color(0xFF18181B), fontWeight: FontWeight.w500, fontSize: 14)),
+              Text(tr(label),
+                  style: const TextStyle(
+                      color: Color(0xFF18181B),
+                      fontWeight: FontWeight.w500,
+                      fontSize: 14)),
               const SizedBox(height: 2),
-              Text(tr(description), style: TextStyle(color: Colors.grey[500], fontSize: 11)),
+              Text(tr(description),
+                  style: TextStyle(color: Colors.grey[500], fontSize: 11)),
             ],
           ),
         ),
         const SizedBox(width: 12),
-        SizedBox(
-          width: 130,
-          height: 40,
-          child: TextField(
-            controller: controller,
-            textAlign: TextAlign.right,
-            style: const TextStyle(color: Color(0xFF18181B), fontSize: 14, fontWeight: FontWeight.w600),
-            keyboardType: TextInputType.number,
-            inputFormatters: [ThousandSeparatorFormatter()],
-            decoration: InputDecoration(
-              suffixText: tr(suffix.split('/').first),
-              suffixStyle: const TextStyle(color: Color(0xFF71717A), fontSize: 11),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: const BorderSide(color: Color(0xFFE4E4E7)),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: const BorderSide(color: HrmPageChrome.primaryNavy, width: 2),
-              ),
-              filled: true,
-              fillColor: const Color(0xFFFAFAFA),
-            ),
-            onChanged: (_) => setState(() {}),
-          ),
-        ),
+        field,
       ],
     );
   }
@@ -1044,8 +1091,8 @@ class _TaxSettingsScreenState extends State<TaxSettingsScreen> {
             child: Row(
               children: [
                 Container(
-                  width: 120,
-                  height: 45,
+                  width: Responsive.isMobile(context) ? 44 : 120,
+                  height: Responsive.isMobile(context) ? 44 : 45,
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(
                       colors: [Color(0xFFF59E0B), Color(0xFFFBBF24)],
@@ -1111,13 +1158,80 @@ class _TaxSettingsScreenState extends State<TaxSettingsScreen> {
       HrmPageChrome.primaryNavy, // Bracket 7
     ];
     final color = colors[level - 1];
+    final rateGroup = _buildTaxRateGroup(color, rateController);
+    final isMobile = Responsive.isMobile(context);
+
+    final amountField = SizedBox(
+      width: isMobile ? double.infinity : 110,
+      height: 36,
+      child: TextField(
+        controller: amountController,
+        textAlign: TextAlign.right,
+        style: const TextStyle(
+            color: Color(0xFF18181B),
+            fontSize: 13,
+            fontWeight: FontWeight.w600),
+        keyboardType: TextInputType.number,
+        inputFormatters: [ThousandSeparatorFormatter()],
+        decoration: InputDecoration(
+          suffixText: tr('đ'),
+          suffixStyle: const TextStyle(color: Color(0xFF71717A), fontSize: 11),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(6),
+            borderSide: const BorderSide(color: Color(0xFFE4E4E7)),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(6),
+            borderSide: BorderSide(color: color, width: 2),
+          ),
+          filled: true,
+          fillColor: const Color(0xFFFAFAFA),
+        ),
+        onChanged: (_) => setState(() {}),
+      ),
+    );
+
+    if (isMobile) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: color,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  tr('BẬC $level'),
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(tr(prefix),
+                  style: TextStyle(color: Colors.grey[600], fontSize: 13)),
+            ],
+          ),
+          const SizedBox(height: 8),
+          amountField,
+          const SizedBox(height: 8),
+          rateGroup,
+        ],
+      );
+    }
 
     return Wrap(
       spacing: 8,
       runSpacing: 8,
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
-        // Badge
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
@@ -1125,53 +1239,43 @@ class _TaxSettingsScreenState extends State<TaxSettingsScreen> {
             borderRadius: BorderRadius.circular(6),
           ),
           child: Text(tr('BẬC $level'),
-            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+            style: const TextStyle(
+                color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
           ),
         ),
-        // Prefix
         Text(tr(prefix), style: TextStyle(color: Colors.grey[600], fontSize: 13)),
-        // Amount input
+        SizedBox(width: 110, child: amountField),
+        rateGroup,
+      ],
+    );
+  }
+
+  /// «Thuế suất» + ô % luôn cùng một hàng (không tách khi wrap).
+  Widget _buildTaxRateGroup(Color color, TextEditingController rateController) {
+    final isMobile = Responsive.isMobile(context);
+    return Row(
+      mainAxisSize: isMobile ? MainAxisSize.max : MainAxisSize.min,
+      children: [
+        Text(tr('Thuế suất'),
+            style: TextStyle(color: Colors.grey[600], fontSize: 13)),
+        if (isMobile) const Spacer() else const SizedBox(width: 8),
         SizedBox(
-          width: 110,
-          height: 36,
-          child: TextField(
-            controller: amountController,
-            textAlign: TextAlign.right,
-            style: const TextStyle(color: Color(0xFF18181B), fontSize: 13, fontWeight: FontWeight.w600),
-            keyboardType: TextInputType.number,
-            inputFormatters: [ThousandSeparatorFormatter()],
-            decoration: InputDecoration(
-              suffixText: tr('đ'),
-              suffixStyle: const TextStyle(color: Color(0xFF71717A), fontSize: 11),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(6),
-                borderSide: const BorderSide(color: Color(0xFFE4E4E7)),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(6),
-                borderSide: BorderSide(color: color, width: 2),
-              ),
-              filled: true,
-              fillColor: const Color(0xFFFAFAFA),
-            ),
-            onChanged: (_) => setState(() {}),
-          ),
-        ),
-        Text(tr('Thuế suất'), style: TextStyle(color: Colors.grey[600], fontSize: 13)),
-        // Rate input
-        SizedBox(
-          width: 70,
+          width: 72,
           height: 36,
           child: TextField(
             controller: rateController,
             textAlign: TextAlign.center,
-            style: const TextStyle(color: Color(0xFF18181B), fontSize: 13, fontWeight: FontWeight.w600),
+            style: const TextStyle(
+                color: Color(0xFF18181B),
+                fontSize: 13,
+                fontWeight: FontWeight.w600),
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             decoration: InputDecoration(
               suffixText: tr('%'),
-              suffixStyle: const TextStyle(color: Color(0xFF71717A), fontSize: 11),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+              suffixStyle:
+                  const TextStyle(color: Color(0xFF71717A), fontSize: 11),
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(6),
                 borderSide: const BorderSide(color: Color(0xFFE4E4E7)),
@@ -1195,6 +1299,61 @@ class _TaxSettingsScreenState extends State<TaxSettingsScreen> {
     final amount4 = parseFormattedNumber(_bracket4AmountController.text)
             ?.toDouble() ??
         PitTaxDefaults.bracket4Max;
+    final rateGroup = _buildTaxRateGroup(color, _bracket5RateController);
+    final isMobile = Responsive.isMobile(context);
+
+    final amountBox = Container(
+      width: isMobile ? double.infinity : 110,
+      height: 36,
+      alignment: Alignment.centerRight,
+      padding: const EdgeInsets.symmetric(horizontal: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF1F5F9),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: const Color(0xFFE4E4E7)),
+      ),
+      child: Text(
+        tr('${formatNumber(amount4)}đ'),
+        style: const TextStyle(
+            color: Color(0xFF71717A),
+            fontSize: 13,
+            fontWeight: FontWeight.w500),
+      ),
+    );
+
+    if (isMobile) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: color,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  tr('BẬC 5'),
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(tr('Trên'),
+                  style: TextStyle(color: Colors.grey[600], fontSize: 13)),
+            ],
+          ),
+          const SizedBox(height: 8),
+          amountBox,
+          const SizedBox(height: 8),
+          rateGroup,
+        ],
+      );
+    }
 
     return Wrap(
       spacing: 8,
@@ -1213,56 +1372,8 @@ class _TaxSettingsScreenState extends State<TaxSettingsScreen> {
           ),
         ),
         Text(tr('Trên'), style: TextStyle(color: Colors.grey[600], fontSize: 13)),
-        Container(
-          width: 110,
-          height: 36,
-          alignment: Alignment.centerRight,
-          padding: const EdgeInsets.symmetric(horizontal: 10),
-          decoration: BoxDecoration(
-            color: const Color(0xFFF1F5F9),
-            borderRadius: BorderRadius.circular(6),
-            border: Border.all(color: const Color(0xFFE4E4E7)),
-          ),
-          child: Text(tr('${formatNumber(amount4)}đ'),
-            style: const TextStyle(
-                color: Color(0xFF71717A),
-                fontSize: 13,
-                fontWeight: FontWeight.w500),
-          ),
-        ),
-        Text(tr('Thuế suất'),
-            style: TextStyle(color: Colors.grey[600], fontSize: 13)),
-        SizedBox(
-          width: 70,
-          height: 36,
-          child: TextField(
-            controller: _bracket5RateController,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-                color: Color(0xFF18181B),
-                fontSize: 13,
-                fontWeight: FontWeight.w600),
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            decoration: InputDecoration(
-              suffixText: tr('%'),
-              suffixStyle:
-                  const TextStyle(color: Color(0xFF71717A), fontSize: 11),
-              contentPadding:
-                  const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(6),
-                borderSide: const BorderSide(color: Color(0xFFE4E4E7)),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(6),
-                borderSide: const BorderSide(color: color, width: 2),
-              ),
-              filled: true,
-              fillColor: const Color(0xFFFAFAFA),
-            ),
-            onChanged: (_) => setState(() {}),
-          ),
-        ),
+        amountBox,
+        rateGroup,
       ],
     );
   }
@@ -1313,8 +1424,8 @@ class _TaxSettingsScreenState extends State<TaxSettingsScreen> {
             child: Row(
               children: [
                 Container(
-                  width: 120,
-                  height: 45,
+                  width: Responsive.isMobile(context) ? 44 : 120,
+                  height: Responsive.isMobile(context) ? 44 : 45,
                   decoration: BoxDecoration(
                     color: PosTheme.kiotBlueLight,
                     borderRadius: BorderRadius.circular(10),

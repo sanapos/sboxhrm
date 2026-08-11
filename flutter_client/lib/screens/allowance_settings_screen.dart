@@ -586,23 +586,16 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                         )
                       : LayoutBuilder(
                           builder: (context, constraints) {
-                            // Web: một phụ cấp một dòng (bảng gọn).
-                            if (kIsWeb) {
+                            final preferCards =
+                                HrmSettingsMobileKit.preferCardList(context) ||
+                                    constraints.maxWidth < 600;
+
+                            // Web rộng: bảng một dòng; phone/web hẹp: card list.
+                            if (kIsWeb && !preferCards) {
                               return _buildAllowanceWebList();
                             }
 
-                            int crossAxisCount = 4;
-                            if (HrmSettingsMobileKit.active(context)) {
-                              crossAxisCount = 2;
-                            } else if (constraints.maxWidth < 600) {
-                              crossAxisCount = 1;
-                            } else if (constraints.maxWidth < 900) {
-                              crossAxisCount = 2;
-                            } else if (constraints.maxWidth < 1200) {
-                              crossAxisCount = 3;
-                            }
-
-                            if (crossAxisCount == 1) {
+                            if (preferCards) {
                               return Column(
                                 children: List.generate(
                                   _filteredAllowances.length,
@@ -624,6 +617,13 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                                     _buildAllowanceGridTile(
                                         _filteredAllowances[index]),
                               );
+                            }
+
+                            int crossAxisCount = 4;
+                            if (constraints.maxWidth < 900) {
+                              crossAxisCount = 2;
+                            } else if (constraints.maxWidth < 1200) {
+                              crossAxisCount = 3;
                             }
 
                             return GridView.builder(

@@ -24,14 +24,14 @@ Map<String, String> posPrintSampleData({String documentType = PosPrintDocumentTy
     'Khach_Hang': 'Anh Hòa Q.1',
     'SDT': '0909123456',
     'Dia_Chi_Khach_Hang': 'Q.1, TP.HCM',
-    'Tong_Tien_Hang': money.format(16000000),
+    'Tong_Tien_Hang': money.format(28200000),
     'Chiet_Khau_Hoa_Don': money.format(0),
-    'Tong_Cong': money.format(16000000),
-    'Khach_Can_Tra': money.format(16000000),
-    'Khach_Thanh_Toan': money.format(16000000),
+    'Tong_Cong': money.format(28200000),
+    'Khach_Can_Tra': money.format(28200000),
+    'Khach_Thanh_Toan': money.format(28200000),
     'Tien_Thua': money.format(0),
     'Con_Lai': money.format(0),
-    'Tong_Cong_Bang_Chu': 'Mười sáu triệu đồng chẵn',
+    'Tong_Cong_Bang_Chu': vietnameseMoneyInWords(28200000),
     'Hinh_Thuc_Thanh_Toan': 'Tiền mặt',
     'Nguoi_Ban': 'NV Bán hàng',
     'Ghi_Chu': '',
@@ -119,6 +119,14 @@ String renderPosPrintTemplateHtml(
   for (final e in data.entries) {
     html = html.replaceAll('{${e.key}}', e.value);
   }
+  // HTML mẫu cũ: chữ «…đồng chẵn» hard-code từ preview — thay bằng tổng đúng.
+  final bangChu = data['Tong_Cong_Bang_Chu'];
+  if (bangChu != null && bangChu.isNotEmpty) {
+    html = html.replaceAllMapped(
+      RegExp(r'>([^<]*đồng chẵn)<'),
+      (m) => '>$bangChu<',
+    );
+  }
   return wrapPosPrintHtmlDocument(html, paperSize: data['PaperSize'] ?? 'K80');
 }
 
@@ -180,6 +188,8 @@ Map<String, String> buildSaleOrderPrintData(
     'Hinh_Thuc_Thanh_Toan': order.paymentMethod,
     'Nguoi_Ban': order.soldBy ?? order.createdBy ?? '',
     'Ghi_Chu': order.note ?? '',
+    'Ten_Ban': (order.serviceResourceName ?? '').trim(),
+    'Khu_Vuc': (order.serviceAreaName ?? '').trim(),
     'In_Lai': order.printCount > 1
         ? 'Bản in lại — Lần in thứ ${order.printCount} — thông báo chủ cửa hàng'
         : (order.printCount == 1 ? 'Lần in: 1' : ''),

@@ -18,6 +18,8 @@ class PosStorePrinter {
     this.beepOnPrint = false,
     this.isDefault = false,
     this.requiresAgent = false,
+    this.isDeviceLocal = false,
+    this.ownerDeviceId,
     this.healthStatus = 'Unknown',
     this.lastSeenAt,
     this.lastErrorMessage,
@@ -45,6 +47,9 @@ class PosStorePrinter {
   final bool beepOnPrint;
   final bool isDefault;
   final bool requiresAgent;
+  /// Máy in nội bộ trên thiết bị POS (không gán cho Print Agent).
+  final bool isDeviceLocal;
+  final String? ownerDeviceId;
   final String healthStatus;
   final DateTime? lastSeenAt;
   final String? lastErrorMessage;
@@ -58,8 +63,8 @@ class PosStorePrinter {
   bool get isSunmi => connectionType == 'Sunmi';
   bool get isUsb => connectionType == 'Usb';
   bool get isLabelPrinter => printerBrand == 'label';
-  /// Máy in cửa hàng luôn in qua cloud (Print Agent), kể cả LAN.
-  bool get needsPrintAgent => true;
+  /// Agent cloud: cần Print Agent. Máy nội bộ thiết bị: không.
+  bool get needsPrintAgent => !isDeviceLocal && requiresAgent;
   bool get isOnline =>
       healthStatus == 'Online' || healthStatus == 'Busy';
 
@@ -82,6 +87,8 @@ class PosStorePrinter {
         beepOnPrint: json['beepOnPrint'] == true,
         isDefault: json['isDefault'] == true,
         requiresAgent: json['requiresAgent'] == true,
+        isDeviceLocal: json['isDeviceLocal'] == true,
+        ownerDeviceId: json['ownerDeviceId']?.toString(),
         healthStatus: json['healthStatus']?.toString() ?? 'Unknown',
         lastSeenAt: json['lastSeenAt'] != null
             ? DateTime.tryParse(json['lastSeenAt'].toString())

@@ -11,6 +11,10 @@ class PosDeviceIdentity {
 
   static const _idKey = 'pos_cashier_device_id';
   static const _nameKey = 'pos_cashier_device_name';
+  static const _idSourceKey = 'pos_cashier_device_id_source';
+  // Bump when the migration logic changes, to force one more re-detection
+  // pass (id + name) on devices that already ran an older migration.
+  static const _idSourceValue = 'uuid_v2';
 
   static String? _cachedId;
   static String? _cachedName;
@@ -27,11 +31,23 @@ class PosDeviceIdentity {
     final prefs = await SharedPreferences.getInstance();
     var id = prefs.getString(_idKey)?.trim() ?? '';
     var name = prefs.getString(_nameKey)?.trim() ?? '';
-    if (id.isEmpty) {
-      id = await _detectDeviceId();
-      await prefs.setString(_idKey, id);
+    // Migration: any id previously derived from Build.ID (a non-unique OS
+    // build tag, e.g. "S100") can collide across different physical devices
+    // (seen between Sunmi and Landi terminals). Force-regenerate those.
+    final idSource = prefs.getString(_idSourceKey)?.trim() ?? '';
+    final migrating = id.isNotEmpty && idSource != _idSourceValue;
+    if (migrating) {
+      id = '';
     }
-    if (name.isEmpty || refreshName || _isGenericName(name)) {
+    if (id.isEmpty) {
+      id = _newUuid();
+      await prefs.setString(_idKey, id);
+      await prefs.setString(_idSourceKey, _idSourceValue);
+    }
+    // Also force-refresh the name on migration: a stale/cloned id was often
+    // paired with a stale/cloned name (e.g. a Landi device reporting itself
+    // as "SUNMI T1-G"), so both must be re-detected together.
+    if (name.isEmpty || refreshName || migrating || _isGenericName(name)) {
       name = await _detectDeviceName();
       await prefs.setString(_nameKey, name);
     }
@@ -54,21 +70,6 @@ class PosDeviceIdentity {
   static Future<Map<String, String>> lockBodyFields() async {
     final d = await get();
     return {'deviceId': d.id, 'deviceName': d.name};
-  }
-
-  static Future<String> _detectDeviceId() async {
-    try {
-      if (Platform.isAndroid) {
-        final a = await DeviceInfoPlugin().androidInfo;
-        final hw = a.id.trim();
-        if (hw.isNotEmpty &&
-            hw.toLowerCase() != 'unknown' &&
-            hw.replaceAll('0', '').isNotEmpty) {
-          return hw;
-        }
-      }
-    } catch (_) {}
-    return _newUuid();
   }
 
   static String _newUuid() {

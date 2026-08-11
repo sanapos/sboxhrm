@@ -1,14 +1,19 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../../models/pos_end_of_day_report.dart';
+import '../../models/pos_sell_industry.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/api_service.dart';
 import '../../utils/pos_end_of_day_print.dart';
 import '../../utils/pos_kiot_time_range.dart';
+import '../../utils/pos_sell_settings_helper.dart';
 import '../../utils/store_role_helper.dart';
 import '../../widgets/hrm_page_chrome.dart';
+import '../../widgets/notification_overlay.dart';
 import '../../widgets/pos/pos_hub_scope.dart';
 import '../../widgets/pos/pos_theme.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
@@ -35,7 +40,7 @@ class _PosEndOfDayScreenState extends State<PosEndOfDayScreen> {
     isCustom: false,
   );
   PosEndOfDayPrintFormat _format = PosEndOfDayPrintFormat.bill58;
-  String _filterBy = 'soldBy';
+  String _filterBy = 'soldByEmployee';
   bool _showProductDetail = true;
   bool _loading = false;
   String? _error;
@@ -43,6 +48,8 @@ class _PosEndOfDayScreenState extends State<PosEndOfDayScreen> {
   List<PosEndOfDayStaff> _staff = [];
   String? _selectedStaffKey;
   bool _canPickStaff = false;
+  PosStoreSellSettingsDto? _sellSettings;
+  bool _savingOvernight = false;
 
   @override
   void initState() {
@@ -53,8 +60,39 @@ class _PosEndOfDayScreenState extends State<PosEndOfDayScreen> {
   Future<void> _initAndLoad() async {
     final auth = Provider.of<AuthProvider>(context, listen: false);
     _canPickStaff = StoreRoleHelper.isManagerOrAbove(auth.userRole);
+    await _loadSellSettings();
     await _loadStaff();
     await _loadReport();
+  }
+
+  Future<void> _loadSellSettings() async {
+    final r = await PosSellSettingsHelper(_api).load();
+    if (!mounted) return;
+    if (r.settings != null) {
+      setState(() => _sellSettings = r.settings);
+    }
+  }
+
+  Future<void> _setOvernight(bool enabled, {int? hour}) async {
+    final cur = _sellSettings;
+    if (cur == null || _savingOvernight) return;
+    setState(() => _savingOvernight = true);
+    final next = cur.copyWith(
+      reportDayStartHour: enabled ? (hour ?? (cur.reportDayStartHour > 0 ? cur.reportDayStartHour : 6)) : 0,
+    );
+    final r = await PosSellSettingsHelper(_api).save(next, applyDefaults: false);
+    if (!mounted) return;
+    setState(() => _savingOvernight = false);
+    if (r.settings != null) {
+      setState(() => _sellSettings = r.settings);
+      await _loadStaff();
+      await _loadReport();
+    } else {
+      NotificationOverlayManager().showError(
+        title: 'Không lưu được',
+        message: tr(r.error ?? 'Thử lại'),
+      );
+    }
   }
 
   (DateTime?, DateTime?) get _range => _time.resolvedRange;
@@ -62,6 +100,7 @@ class _PosEndOfDayScreenState extends State<PosEndOfDayScreen> {
   Future<void> _loadStaff() async {
     final from = _range.$1;
     final to = _range.$2;
+    final auth = Provider.of<AuthProvider>(context, listen: false);
     final res = await _api.getPosEndOfDayStaff(
       from: from,
       to: to,
@@ -75,20 +114,48 @@ class _PosEndOfDayScreenState extends State<PosEndOfDayScreen> {
           .toList();
       setState(() {
         _staff = list;
-        if (!_canPickStaff && list.isNotEmpty) {
-          _selectedStaffKey = _filterBy == 'soldByEmployee'
-              ? list.first.employeeId
-              : list.first.email;
+        if (!_canPickStaff) {
+          // Thu ngân: luôn khóa theo tài khoản đang đăng nhập (không bỏ filter).
+          _selectedStaffKey = _selfStaffKey(auth, list);
         } else if (_selectedStaffKey != null &&
             list.every((s) => _staffKey(s) != _selectedStaffKey)) {
           _selectedStaffKey = null;
         }
+      });
+    } else if (!_canPickStaff) {
+      setState(() {
+        _selectedStaffKey = _selfStaffKey(auth, const []);
       });
     }
   }
 
   String? _staffKey(PosEndOfDayStaff s) =>
       _filterBy == 'soldByEmployee' ? s.employeeId : s.email;
+
+  /// Key lọc theo user hiện tại; ưu tiên khớp danh sách staff API.
+  String? _selfStaffKey(AuthProvider auth, List<PosEndOfDayStaff> list) {
+    final user = auth.user;
+    if (user == null) return null;
+    if (_filterBy == 'soldByEmployee') {
+      final eid = (user.employeeId ?? '').trim();
+      if (eid.isNotEmpty) {
+        final hit = list.where((s) => (s.employeeId ?? '') == eid);
+        if (hit.isNotEmpty) return hit.first.employeeId;
+        return eid;
+      }
+      if (list.isNotEmpty) return list.first.employeeId;
+      return null;
+    }
+    final email = user.email.trim();
+    if (email.isNotEmpty) {
+      final hit = list.where(
+          (s) => s.email.toLowerCase() == email.toLowerCase());
+      if (hit.isNotEmpty) return hit.first.email;
+      return email;
+    }
+    if (list.isNotEmpty) return list.first.email;
+    return null;
+  }
 
   Future<void> _loadReport() async {
     setState(() {
@@ -97,14 +164,13 @@ class _PosEndOfDayScreenState extends State<PosEndOfDayScreen> {
     });
     final from = _range.$1;
     final to = _range.$2;
+    // Luôn gửi staff đã chọn (kể cả thu ngân) — trước đây chỉ gửi khi manager.
+    final staffKey = _selectedStaffKey;
     final res = await _api.getPosEndOfDayReport(
       from: from,
       to: to,
-      staffEmail: _filterBy != 'soldByEmployee' && _canPickStaff
-          ? _selectedStaffKey
-          : null,
-      soldByEmployeeId:
-          _filterBy == 'soldByEmployee' ? _selectedStaffKey : null,
+      staffEmail: _filterBy != 'soldByEmployee' ? staffKey : null,
+      soldByEmployeeId: _filterBy == 'soldByEmployee' ? staffKey : null,
       filterBy: _filterBy,
       includeProductDetail: _showProductDetail,
       includeTransactions: _format == PosEndOfDayPrintFormat.a4,
@@ -267,6 +333,42 @@ class _PosEndOfDayScreenState extends State<PosEndOfDayScreen> {
                 ),
               ),
             ],
+            FilterChip(
+              label: Text(tr(_sellSettings?.overnightReportEnabled == true
+                  ? 'Qua đêm ${_sellSettings!.reportDayStartHour.toString().padLeft(2, '0')}:00'
+                  : 'UTC+7 (nửa đêm)')),
+              selected: _sellSettings?.overnightReportEnabled == true,
+              onSelected: (_loading || _savingOvernight || !_canPickStaff)
+                  ? null
+                  : (v) => unawaited(_setOvernight(v)),
+            ),
+            if (_sellSettings?.overnightReportEnabled == true && _canPickStaff)
+              SizedBox(
+                width: 120,
+                child: DropdownButtonFormField<int>(
+                  value: (_sellSettings!.reportDayStartHour).clamp(1, 12),
+                  decoration: InputDecoration(
+                    labelText: tr('Giờ cắt'),
+                    isDense: true,
+                    border: OutlineInputBorder(),
+                    contentPadding:
+                        EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  ),
+                  items: [
+                    for (var h = 1; h <= 12; h++)
+                      DropdownMenuItem(
+                        value: h,
+                        child: Text('${h.toString().padLeft(2, '0')}:00'),
+                      ),
+                  ],
+                  onChanged: (_loading || _savingOvernight)
+                      ? null
+                      : (v) {
+                          if (v == null) return;
+                          unawaited(_setOvernight(true, hour: v));
+                        },
+                ),
+              ),
             SizedBox(
               width: 150,
               child: DropdownButtonFormField<PosEndOfDayPrintFormat>(

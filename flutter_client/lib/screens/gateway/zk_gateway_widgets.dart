@@ -14,20 +14,24 @@ class WifiSignalBars extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final active = color ?? const Color(0xFF16A34A);
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.end,
-      children: List.generate(4, (i) {
-        final on = i < bars;
-        return Container(
-          width: 3.5,
-          height: 5.0 + i * 3.5,
-          margin: const EdgeInsets.only(right: 2),
-          decoration: BoxDecoration(
-            color: on ? active : const Color(0xFFCBD5E1),
-            borderRadius: BorderRadius.circular(2),
-          ),
-        );
-      }),
+    return SizedBox(
+      width: 22,
+      height: 18,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: List.generate(4, (i) {
+          final on = i < bars;
+          return Container(
+            width: 3.5,
+            height: 5.0 + i * 3.5,
+            margin: EdgeInsets.only(right: i == 3 ? 0 : 2),
+            decoration: BoxDecoration(
+              color: on ? active : const Color(0xFFCBD5E1),
+              borderRadius: BorderRadius.circular(2),
+            ),
+          );
+        }),
+      ),
     );
   }
 }

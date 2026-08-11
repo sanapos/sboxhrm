@@ -212,8 +212,10 @@ class _InsuranceSettingsScreenState extends State<InsuranceSettingsScreen> {
 
   Widget _buildPageContent(BuildContext context) {
     final size = MediaQuery.sizeOf(context);
-    final embeddedTwoCol =
-        HrmSettingsMobileKit.active(context) && size.width >= 360;
+    // Hub embedded trên phone từng ép 2 cột (>=360) → card quá hẹp. Chỉ 2 cột từ tablet.
+    final embeddedTwoCol = HrmSettingsMobileKit.active(context) &&
+        !HrmSettingsMobileKit.preferCardList(context) &&
+        size.width >= 900;
     final isWideScreen = !embeddedTwoCol && !_useStackedCards(context);
     final isMediumScreen = !embeddedTwoCol &&
         !isWideScreen &&
@@ -484,8 +486,8 @@ class _InsuranceSettingsScreenState extends State<InsuranceSettingsScreen> {
             child: Row(
               children: [
                 Container(
-                  width: 120,
-                  height: 45,
+                  width: Responsive.isMobile(context) ? 44 : 120,
+                  height: Responsive.isMobile(context) ? 44 : 45,
                   decoration: BoxDecoration(
                     color: PosTheme.kiotBlueLight,
                     borderRadius: BorderRadius.circular(10),
@@ -564,6 +566,71 @@ class _InsuranceSettingsScreenState extends State<InsuranceSettingsScreen> {
                 ),
                 const SizedBox(height: 16),
                 // Công ty thuộc vùng
+                if (Responsive.isMobile(context))
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.map,
+                              color: Color(0xFF71717A), size: 20),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(tr('Công ty thuộc vùng'),
+                                    style: const TextStyle(
+                                        color: Color(0xFF18181B),
+                                        fontWeight: FontWeight.w500,
+                                        fontSize: 14)),
+                                Text(
+                                    tr('Vùng lương tối thiểu áp dụng cho công ty'),
+                                    style: TextStyle(
+                                        color: Colors.grey[500], fontSize: 11)),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Container(
+                        height: 40,
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFAFAFA),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: const Color(0xFFE4E4E7)),
+                        ),
+                        child: DropdownButtonHideUnderline(
+                          child: DropdownButton<int>(
+                            isExpanded: true,
+                            value: _companyRegion,
+                            style: const TextStyle(
+                                color: Color(0xFF18181B),
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600),
+                            items: [
+                              DropdownMenuItem(
+                                  value: 1, child: Text(tr('Vùng I'))),
+                              DropdownMenuItem(
+                                  value: 2, child: Text(tr('Vùng II'))),
+                              DropdownMenuItem(
+                                  value: 3, child: Text(tr('Vùng III'))),
+                              DropdownMenuItem(
+                                  value: 4, child: Text(tr('Vùng IV'))),
+                            ],
+                            onChanged: (v) {
+                              if (v != null) {
+                                setState(() => _companyRegion = v);
+                              }
+                            },
+                          ),
+                        ),
+                      ),
+                    ],
+                  )
+                else
                 Row(
                   children: [
                     const Icon(Icons.map, color: Color(0xFF71717A), size: 20),
@@ -618,6 +685,73 @@ class _InsuranceSettingsScreenState extends State<InsuranceSettingsScreen> {
     required String description,
     required TextEditingController controller,
   }) {
+    final isMobile = Responsive.isMobile(context);
+    final field = SizedBox(
+      width: isMobile ? double.infinity : 130,
+      height: 40,
+      child: TextField(
+        controller: controller,
+        textAlign: TextAlign.right,
+        style: const TextStyle(
+            color: Color(0xFF18181B),
+            fontSize: 14,
+            fontWeight: FontWeight.w600),
+        keyboardType: TextInputType.number,
+        inputFormatters: [ThousandSeparatorFormatter()],
+        decoration: InputDecoration(
+          suffixText: tr('đ'),
+          suffixStyle: const TextStyle(color: Color(0xFF71717A), fontSize: 12),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8),
+            borderSide: const BorderSide(color: Color(0xFFE4E4E7)),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8),
+            borderSide:
+                const BorderSide(color: HrmPageChrome.primaryNavy, width: 2),
+          ),
+          filled: true,
+          fillColor: const Color(0xFFFAFAFA),
+        ),
+        onChanged: (_) => setState(() {}),
+      ),
+    );
+
+    final labelBlock = Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, color: const Color(0xFF71717A), size: 20),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(tr(label),
+                  style: const TextStyle(
+                      color: Color(0xFF18181B),
+                      fontWeight: FontWeight.w500,
+                      fontSize: 14)),
+              Text(tr(description),
+                  style: TextStyle(color: Colors.grey[500], fontSize: 11)),
+            ],
+          ),
+        ),
+      ],
+    );
+
+    if (isMobile) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          labelBlock,
+          const SizedBox(height: 8),
+          field,
+        ],
+      );
+    }
+
     return Row(
       children: [
         Icon(icon, color: const Color(0xFF71717A), size: 20),
@@ -626,39 +760,18 @@ class _InsuranceSettingsScreenState extends State<InsuranceSettingsScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(tr(label), style: const TextStyle(color: Color(0xFF18181B), fontWeight: FontWeight.w500, fontSize: 14)),
-              Text(tr(description), style: TextStyle(color: Colors.grey[500], fontSize: 11)),
+              Text(tr(label),
+                  style: const TextStyle(
+                      color: Color(0xFF18181B),
+                      fontWeight: FontWeight.w500,
+                      fontSize: 14)),
+              Text(tr(description),
+                  style: TextStyle(color: Colors.grey[500], fontSize: 11)),
             ],
           ),
         ),
         const SizedBox(width: 12),
-        SizedBox(
-          width: 130,
-          height: 40,
-          child: TextField(
-            controller: controller,
-            textAlign: TextAlign.right,
-            style: const TextStyle(color: Color(0xFF18181B), fontSize: 14, fontWeight: FontWeight.w600),
-            keyboardType: TextInputType.number,
-            inputFormatters: [ThousandSeparatorFormatter()],
-            decoration: InputDecoration(
-              suffixText: tr('đ'),
-              suffixStyle: const TextStyle(color: Color(0xFF71717A), fontSize: 12),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: const BorderSide(color: Color(0xFFE4E4E7)),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: const BorderSide(color: HrmPageChrome.primaryNavy, width: 2),
-              ),
-              filled: true,
-              fillColor: const Color(0xFFFAFAFA),
-            ),
-            onChanged: (_) => setState(() {}),
-          ),
-        ),
+        field,
       ],
     );
   }
@@ -689,8 +802,8 @@ class _InsuranceSettingsScreenState extends State<InsuranceSettingsScreen> {
             child: Row(
               children: [
                 Container(
-                  width: 120,
-                  height: 45,
+                  width: Responsive.isMobile(context) ? 44 : 120,
+                  height: Responsive.isMobile(context) ? 44 : 45,
                   decoration: BoxDecoration(
                     color: PosTheme.kiotBlueLight,
                     borderRadius: BorderRadius.circular(10),
@@ -773,8 +886,8 @@ class _InsuranceSettingsScreenState extends State<InsuranceSettingsScreen> {
             child: Row(
               children: [
                 Container(
-                  width: 120,
-                  height: 45,
+                  width: Responsive.isMobile(context) ? 44 : 120,
+                  height: Responsive.isMobile(context) ? 44 : 45,
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(
                       colors: [Color(0xFFEF4444), Color(0xFFF87171)],
@@ -860,8 +973,8 @@ class _InsuranceSettingsScreenState extends State<InsuranceSettingsScreen> {
             child: Row(
               children: [
                 Container(
-                  width: 120,
-                  height: 45,
+                  width: Responsive.isMobile(context) ? 44 : 120,
+                  height: Responsive.isMobile(context) ? 44 : 45,
                   decoration: BoxDecoration(
                     color: PosTheme.kiotBlueLight,
                     borderRadius: BorderRadius.circular(10),
@@ -945,8 +1058,8 @@ class _InsuranceSettingsScreenState extends State<InsuranceSettingsScreen> {
             child: Row(
               children: [
                 Container(
-                  width: 120,
-                  height: 45,
+                  width: Responsive.isMobile(context) ? 44 : 120,
+                  height: Responsive.isMobile(context) ? 44 : 45,
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(
                       colors: [Color(0xFFF59E0B), Color(0xFFFBBF24)],
@@ -1010,44 +1123,81 @@ class _InsuranceSettingsScreenState extends State<InsuranceSettingsScreen> {
     required String description,
     required TextEditingController controller,
   }) {
+    final isMobile = Responsive.isMobile(context);
+    final rateField = SizedBox(
+      width: isMobile ? 96 : 90,
+      height: 40,
+      child: TextField(
+        controller: controller,
+        textAlign: TextAlign.right,
+        style: const TextStyle(
+            color: Color(0xFF18181B),
+            fontSize: 14,
+            fontWeight: FontWeight.w600),
+        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+        decoration: InputDecoration(
+          suffixText: tr('%'),
+          suffixStyle: const TextStyle(color: Color(0xFF71717A), fontSize: 12),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8),
+            borderSide: const BorderSide(color: Color(0xFFE4E4E7)),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8),
+            borderSide:
+                const BorderSide(color: HrmPageChrome.primaryNavy, width: 2),
+          ),
+          filled: true,
+          fillColor: const Color(0xFFFAFAFA),
+        ),
+        onChanged: (_) => setState(() {}),
+      ),
+    );
+
+    if (isMobile) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(tr(label),
+              style: const TextStyle(
+                  color: Color(0xFF18181B),
+                  fontWeight: FontWeight.w500,
+                  fontSize: 14)),
+          Text(tr(description),
+              style: TextStyle(color: Colors.grey[500], fontSize: 11)),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Text(tr('Tỷ lệ'),
+                  style: TextStyle(color: Colors.grey[600], fontSize: 13)),
+              const Spacer(),
+              rateField,
+            ],
+          ),
+        ],
+      );
+    }
+
     return Row(
       children: [
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(tr(label), style: const TextStyle(color: Color(0xFF18181B), fontWeight: FontWeight.w500, fontSize: 14)),
-              Text(tr(description), style: TextStyle(color: Colors.grey[500], fontSize: 11)),
+              Text(tr(label),
+                  style: const TextStyle(
+                      color: Color(0xFF18181B),
+                      fontWeight: FontWeight.w500,
+                      fontSize: 14)),
+              Text(tr(description),
+                  style: TextStyle(color: Colors.grey[500], fontSize: 11)),
             ],
           ),
         ),
         const SizedBox(width: 12),
-        SizedBox(
-          width: 90,
-          height: 40,
-          child: TextField(
-            controller: controller,
-            textAlign: TextAlign.right,
-            style: const TextStyle(color: Color(0xFF18181B), fontSize: 14, fontWeight: FontWeight.w600),
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            decoration: InputDecoration(
-              suffixText: tr('%'),
-              suffixStyle: const TextStyle(color: Color(0xFF71717A), fontSize: 12),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: const BorderSide(color: Color(0xFFE4E4E7)),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: const BorderSide(color: HrmPageChrome.primaryNavy, width: 2),
-              ),
-              filled: true,
-              fillColor: const Color(0xFFFAFAFA),
-            ),
-            onChanged: (_) => setState(() {}),
-          ),
-        ),
+        rateField,
       ],
     );
   }
@@ -1125,8 +1275,8 @@ class _InsuranceSettingsScreenState extends State<InsuranceSettingsScreen> {
             child: Row(
               children: [
                 Container(
-                  width: 120,
-                  height: 45,
+                  width: Responsive.isMobile(context) ? 44 : 120,
+                  height: Responsive.isMobile(context) ? 44 : 45,
                   decoration: BoxDecoration(
                     color: PosTheme.kiotBlueLight,
                     borderRadius: BorderRadius.circular(10),

@@ -24,5 +24,12 @@ Future<List<PosPrintTemplate>> loadPosPrintTemplates(
     templates = parsePosPrintTemplatesResponse(res);
   }
 
+  templates = templates.where((t) => t.isActive).toList();
+  if (PosPrintPaperSizes.isLabelDoc(documentType)) {
+    templates = templates
+        .where((t) => PosPrintPaperSizes.isLabelSize(t.paperSize))
+        .toList();
+  }
+
   return templates;
 }

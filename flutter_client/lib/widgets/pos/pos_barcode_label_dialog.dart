@@ -9,6 +9,7 @@ import '../../screens/pos_print_templates_screen.dart';
 import '../../utils/pos_barcode_print.dart';
 import '../../utils/pos_label_printer_service.dart';
 import '../../utils/pos_label_printer_settings.dart';
+import '../../utils/pos_local_printers_store.dart';
 import '../../utils/pos_print_orchestrator.dart';
 import '../../utils/pos_sell_store_settings.dart';
 import '../../utils/pos_store_printer_mapper.dart';
@@ -70,7 +71,11 @@ class _PosBarcodeLabelDialogState extends State<_PosBarcodeLabelDialog> {
   }
 
   Future<void> _loadPrinterSettings() async {
-    final lp = await PosLabelPrinterSettings.load();
+    final locals = await PosLocalPrintersStore.instance.loadAll();
+    final localLabel =
+        locals.where((p) => p.enabled && p.isLabel).firstOrNull;
+    final lp =
+        localLabel?.toLabelSettings() ?? await PosLabelPrinterSettings.load();
     final store = await PosSellStoreSettings.load();
     if (!mounted) return;
     setState(() {
@@ -153,6 +158,58 @@ class _PosBarcodeLabelDialogState extends State<_PosBarcodeLabelDialog> {
     setState(() => _printing = true);
     await _savePrinterSettings();
 
+    // 1) Ưu tiên máy tem nội bộ trên thiết bị này.
+    if (!kIsWeb) {
+      final locals = await PosLocalPrintersStore.instance.loadAll();
+      final labelLocal = locals
+          .where((p) =>
+              p.enabled &&
+              p.isLabel &&
+              (p.hasRole(PosLocalPrinterRoles.barcodeLabel) ||
+                  p.roles.isEmpty ||
+                  p.isLabel))
+          .firstOrNull;
+      if (labelLocal != null) {
+        final settings = labelLocal.toLabelSettings().copyWith(
+              enabled: true,
+              templateId: template.id,
+            );
+        // Không gửi TSPL lên Sunmi tích hợp.
+        if (settings.connectionType == PosThermalConnectionType.sunmi) {
+          if (!mounted) return;
+          setState(() => _printing = false);
+          NotificationOverlayManager().showError(
+            title: 'Sai máy in tem',
+            message: tr(
+              'Máy tem đang chọn Sunmi (hóa đơn). Vào Máy in nội bộ → chọn USB/BT/LAN máy tem.',
+            ),
+          );
+          return;
+        }
+        final ok = await printPosBarcodeLabelsToDevice(
+          widget.products,
+          options: _options(template),
+          settings: settings,
+        );
+        if (!mounted) return;
+        setState(() => _printing = false);
+        if (ok) {
+          NotificationOverlayManager().showSuccess(
+            title: 'Đã gửi in tem',
+            message: tr(
+              '${widget.products.length} mặt hàng × $_copies → ${labelLocal.name}',
+            ),
+          );
+        } else {
+          NotificationOverlayManager().showError(
+            title: 'In tem thất bại',
+            message: tr('Kiểm tra kết nối máy tem «${labelLocal.name}»'),
+          );
+        }
+        return;
+      }
+    }
+
     if (!kIsWeb) {
       await PosPrintOrchestrator.instance.refreshConfig();
       final cloudPrinter = PosPrintOrchestrator.instance
@@ -168,22 +225,44 @@ class _PosBarcodeLabelDialogState extends State<_PosBarcodeLabelDialog> {
         );
         final cloudOk = await PosPrintOrchestrator.instance.dispatchLabelJobs(
           jobs: jobs,
-          referenceNo: 'LABEL-${widget.products.length}',
+          referenceNo:
+              'LABEL-${DateTime.now().millisecondsSinceEpoch}-${widget.products.length}',
+          showFeedback: true,
+          skipDedup: true,
         );
         if (!mounted) return;
         setState(() => _printing = false);
-        if (cloudOk) return;
+        if (cloudOk) {
+          NotificationOverlayManager().showSuccess(
+            title: 'Đã gửi in tem',
+            message: tr('${widget.products.length} mặt hàng × $_copies tem (cloud)'),
+          );
+          return;
+        }
+        NotificationOverlayManager().showWarning(
+          title: 'Cloud tem lỗi',
+          message: tr('Thử in trực tiếp máy nội bộ…'),
+        );
       }
     }
 
-    final draft = _draftPrinterSettings();
+    final draft = _draftPrinterSettings().copyWith(templateId: template.id);
+    if (draft.connectionType == PosThermalConnectionType.sunmi) {
+      if (!mounted) return;
+      setState(() => _printing = false);
+      NotificationOverlayManager().showError(
+        title: 'Chưa cấu hình máy tem',
+        message: tr('Thêm máy in Tem (USB/BT/LAN) trong Máy in nội bộ.'),
+      );
+      return;
+    }
     if (draft.connectionType == PosThermalConnectionType.bluetooth &&
         (draft.bluetoothAddress == null || draft.bluetoothAddress!.isEmpty)) {
       if (!mounted) return;
       setState(() => _printing = false);
       NotificationOverlayManager().showError(
         title: 'Chưa chọn máy in',
-        message: tr('Cấu hình máy in tem trong Máy in cửa hàng hoặc Thiết lập in'),
+        message: tr('Cấu hình máy in tem trong Máy in nội bộ'),
       );
       return;
     }
@@ -201,7 +280,7 @@ class _PosBarcodeLabelDialogState extends State<_PosBarcodeLabelDialog> {
     final ok = await printPosBarcodeLabelsToDevice(
       widget.products,
       options: _options(template),
-      settings: draft,
+      settings: draft.copyWith(enabled: true),
     );
     if (!mounted) return;
     setState(() => _printing = false);
@@ -454,7 +533,7 @@ class _PosBarcodeLabelDialogState extends State<_PosBarcodeLabelDialog> {
                   contentPadding: EdgeInsets.zero,
                   title: Text(tr('Dùng máy in tem'), style: TextStyle(fontSize: 13)),
                   value: _labelPrinter.enabled,
-                  activeThumbColor: PosTheme.kiotBlue,
+                  activeColor: PosTheme.kiotBlue,
                   onChanged: (v) =>
                       setState(() => _labelPrinter = _labelPrinter.copyWith(enabled: v)),
                 ),

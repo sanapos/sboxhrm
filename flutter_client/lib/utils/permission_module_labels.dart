@@ -53,6 +53,7 @@ class PermissionModuleLabels {
     'PosDamageIssues': 'Xuất hủy POS',
     'PosInternalUseIssues': 'Xuất dùng nội bộ',
     'PosSalesReport': 'Báo cáo doanh thu POS',
+    'HkdBooks': 'Sổ sách HKD',
     'PosBooking': 'Đặt bàn / lịch hẹn',
     'PosCustomers': 'Khách hàng POS',
     'PosWarranty': 'Bảo hành POS',

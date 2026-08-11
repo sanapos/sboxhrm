@@ -245,17 +245,19 @@ class CustomerDisplayConfig {
   }
 
   factory CustomerDisplayConfig.fromExtraJson(String? extraJson) {
+    // Không tự sinh mã mới ở đây — tránh lệch mã giữa máy thu ngân / link copy.
+    // CustomerDisplaySync / màn cài đặt sẽ gán + persist mã ổn định.
     if (extraJson == null || extraJson.trim().isEmpty) {
-      return CustomerDisplayConfig(viewerCode: newViewerCode());
+      return const CustomerDisplayConfig();
     }
     try {
       final root = jsonDecode(extraJson);
       if (root is! Map) {
-        return CustomerDisplayConfig(viewerCode: newViewerCode());
+        return const CustomerDisplayConfig();
       }
       final cd = root['customerDisplay'] ?? root['CustomerDisplay'];
       if (cd is! Map) {
-        return CustomerDisplayConfig(viewerCode: newViewerCode());
+        return const CustomerDisplayConfig();
       }
       final m = Map<String, dynamic>.from(cd);
       final videos = (m['promoVideoUrls'] as List?)
@@ -268,8 +270,7 @@ class CustomerDisplayConfig {
               .where((e) => e.isNotEmpty)
               .toList() ??
           const <String>[];
-      var code = (m['viewerCode'] ?? m['ViewerCode'] ?? '').toString().trim();
-      if (code.length < 4) code = newViewerCode();
+      final code = (m['viewerCode'] ?? m['ViewerCode'] ?? '').toString().trim();
       return CustomerDisplayConfig(
         enabled: m['enabled'] == true,
         idleSeconds: (m['idleSeconds'] as num?)?.toInt().clamp(3, 60) ?? 8,
@@ -277,10 +278,10 @@ class CustomerDisplayConfig {
         promoVideoUrls: videos,
         promoImageUrls: images,
         autoOpenOnPos: m['autoOpenOnPos'] == true,
-        viewerCode: code,
+        viewerCode: code.length >= 4 ? code : '',
       );
     } catch (_) {
-      return CustomerDisplayConfig(viewerCode: newViewerCode());
+      return const CustomerDisplayConfig();
     }
   }
 

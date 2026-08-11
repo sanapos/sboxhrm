@@ -28,9 +28,14 @@ class ZKTecoApp extends StatelessWidget {
   const ZKTecoApp({super.key});
 
   static bool get _isCustomerDisplayRoute {
+    if (InitialWebRoute.showCustomerDisplay) return true;
     final name = ui.PlatformDispatcher.instance.defaultRouteName;
     if (name.contains('customer-display')) return true;
     if (kIsWeb) {
+      try {
+        final path = Uri.base.path;
+        if (path.contains('customer-display')) return true;
+      } catch (_) {}
       final segs = parseWebHashPathSegments();
       if (segs.isNotEmpty && segs.first == 'customer-display') return true;
     }

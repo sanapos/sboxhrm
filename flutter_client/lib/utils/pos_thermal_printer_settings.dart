@@ -1,3 +1,6 @@
+import 'dart:io' show Platform;
+
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Hãng / dòng máy in nhiệt.
@@ -44,6 +47,8 @@ enum PosThermalTextMode {
 }
 
 /// Loại kết nối máy in nhiệt POS mobile.
+///
+/// iOS (A7 / HRM): chỉ Bluetooth + LAN — USB OTG / Sunmi dành cho Android POS (A6).
 enum PosThermalConnectionType {
   bluetooth('bluetooth', 'Bluetooth'),
   lan('lan', 'LAN / WiFi'),
@@ -53,6 +58,38 @@ enum PosThermalConnectionType {
   const PosThermalConnectionType(this.key, this.label);
   final String key;
   final String label;
+
+  static bool get _isIos => !kIsWeb && Platform.isIOS;
+
+  /// Kết nối dùng được trên thiết bị hiện tại.
+  bool get isAvailableOnThisDevice {
+    if (kIsWeb) return this == lan;
+    if (_isIos) {
+      return this == bluetooth || this == lan;
+    }
+    return true;
+  }
+
+  /// Danh sách chọn UI — [includeSunmi] chỉ khi máy Android Sunmi.
+  static List<PosThermalConnectionType> availableOnThisDevice({
+    bool includeSunmi = false,
+  }) {
+    if (kIsWeb) return const [lan];
+    if (_isIos) return const [bluetooth, lan];
+    return [
+      bluetooth,
+      lan,
+      usb,
+      if (includeSunmi) sunmi,
+    ];
+  }
+
+  static PosThermalConnectionType coerceForPlatform(
+    PosThermalConnectionType type,
+  ) {
+    if (type.isAvailableOnThisDevice) return type;
+    return bluetooth;
+  }
 
   static PosThermalConnectionType fromKey(String? key) {
     return PosThermalConnectionType.values.firstWhere(
@@ -76,7 +113,7 @@ class PosThermalPrinterSettings {
     this.lanPort = 9100,
     this.usbDeviceName,
     this.escPosCodePage = 27,
-    this.feedBeforeCut = 14,
+    this.feedBeforeCut = 1,
     this.partialCut = true,
     this.openCashDrawer = false,
     this.openDrawerCashOnly = true,
@@ -154,13 +191,14 @@ class PosThermalPrinterSettings {
     }
   }
 
+  /// Số dòng đẩy giấy trước khi cắt — tôn trọng cấu hình người dùng.
   int get resolvedFeedBeforeCut {
-    var n = feedBeforeCut.clamp(3, 24);
-    if (printerBrand == PosThermalPrinterBrand.zywell && n < 6) return 8;
-    if ((connectionType == PosThermalConnectionType.sunmi ||
-            printerBrand == PosThermalPrinterBrand.sunmi) &&
-        n < 14) {
-      return 14;
+    var n = feedBeforeCut.clamp(0, 40);
+    // Zywell thường cần thêm chút giấy để cắt sạch; vẫn cho phép 0–1 nếu user chọn.
+    if (printerBrand == PosThermalPrinterBrand.zywell &&
+        feedBeforeCut >= 2 &&
+        n < 6) {
+      return 6;
     }
     return n;
   }
@@ -208,10 +246,24 @@ class PosThermalPrinterSettings {
       );
 
   static Future<PosThermalPrinterSettings> load() async {
+    final legacy = await loadLegacyRaw();
+    return legacy ?? const PosThermalPrinterSettings();
+  }
+
+  /// Đọc singleton SharedPreferences (dùng migrate → multi máy).
+  static Future<PosThermalPrinterSettings?> loadLegacyRaw() async {
     final prefs = await SharedPreferences.getInstance();
+    if (!prefs.containsKey(_kEnabled) &&
+        !prefs.containsKey(_kBtAddr) &&
+        !prefs.containsKey(_kLanHost) &&
+        !prefs.containsKey(_kType)) {
+      return null;
+    }
     return PosThermalPrinterSettings(
       enabled: prefs.getBool(_kEnabled) ?? false,
-      connectionType: PosThermalConnectionType.fromKey(prefs.getString(_kType)),
+      connectionType: PosThermalConnectionType.coerceForPlatform(
+        PosThermalConnectionType.fromKey(prefs.getString(_kType)),
+      ),
       printerBrand: PosThermalPrinterBrand.fromKey(prefs.getString(_kBrand)),
       textMode: PosThermalTextMode.fromKey(prefs.getString(_kTextMode)),
       paperSize: prefs.getString(_kPaper) ?? 'K80',
@@ -221,7 +273,7 @@ class PosThermalPrinterSettings {
       lanPort: prefs.getInt(_kLanPort) ?? 9100,
       usbDeviceName: prefs.getString(_kUsbName),
       escPosCodePage: prefs.getInt(_kCodePage) ?? 27,
-      feedBeforeCut: prefs.getInt(_kFeedCut) ?? 14,
+      feedBeforeCut: prefs.getInt(_kFeedCut) ?? 1,
       partialCut: prefs.getBool(_kPartialCut) ?? true,
       openCashDrawer: prefs.getBool(_kOpenDrawer) ?? false,
       openDrawerCashOnly: prefs.getBool(_kOpenDrawerCashOnly) ?? true,

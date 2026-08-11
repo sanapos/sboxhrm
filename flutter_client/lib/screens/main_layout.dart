@@ -95,6 +95,7 @@ import 'pos_sale_return_list_screen.dart';
 import 'pos_supplier_list_screen.dart';
 import 'warehouse/wh_mobile_nav.dart';
 import 'pos_reports_screen.dart';
+import 'hkd_books_screen.dart';
 import 'pos/pos_cancel_return_history_screen.dart';
 import 'pos/pos_customer_debt_report_screen.dart';
 import 'pos/pos_customers_screen.dart';
@@ -436,9 +437,18 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       if (mounted) {
         context.read<AuthProvider>().verifyStoreLicense();
       }
-      // Khi app quay lại foreground: kết nối lại SignalR nếu bị mất và cập nhật badge
+      // Khi app quay lại foreground: kết nối lại SignalR nếu bị mất và cập nhật badge.
+      // Luôn ensureRunning Agent (kể cả SignalR còn connected) — tránh phải tắt/bật tay.
       if (!_signalRService.isConnected) {
         _connectSignalR();
+      } else {
+        final storeId = context.read<AuthProvider>().user?.storeId;
+        if (storeId != null && storeId.isNotEmpty) {
+          unawaited(
+            PosPrintAgentService.instance
+                .ensureRunning(storeId, forceReregister: true),
+          );
+        }
       }
       _loadNotificationCount();
       final user = context.read<AuthProvider>().currentUser;
@@ -1660,6 +1670,17 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       moduleCode: 'PosSalesReport',
     ),
     NavItem(
+      icon: Icons.menu_book_outlined,
+      activeIcon: Icons.menu_book,
+      label: 'Sổ sách HKD',
+      subtitle: 'Xuất sổ kế toán hộ kinh doanh TT152',
+      screen: const HkdBooksScreen(),
+      group: 'Báo cáo',
+      showInSidebar: true,
+      themeColor: HrmPageChrome.primaryNavy,
+      moduleCode: 'HkdBooks',
+    ),
+    NavItem(
       icon: Icons.history,
       activeIcon: Icons.history,
       label: 'Báo cáo hủy / trả',
@@ -1784,7 +1805,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       subtitle: 'Ca, lương, thông báo, phụ cấp, POS…',
       screen: const SettingsHubScreen(),
       group: 'Cài đặt',
-      showInSidebar: false,
+      showInSidebar: true,
       themeColor: HrmPageChrome.primaryNavy,
       moduleCode: 'SettingsHub',
     ),
@@ -1931,6 +1952,11 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
         canPop: false,
         onPopInvokedWithResult: (didPop, _) async {
           if (didPop) return;
+          final nav = Navigator.of(context);
+          if (nav.canPop()) {
+            nav.pop();
+            return;
+          }
           final handler = NavigationNotifier.posHandleSystemBack;
           if (handler != null && await handler()) return;
           _tryNavigateToIndex(0);
@@ -1979,6 +2005,11 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
         canPop: false,
         onPopInvokedWithResult: (didPop, _) async {
           if (didPop) return;
+          final nav = Navigator.of(context);
+          if (nav.canPop()) {
+            nav.pop();
+            return;
+          }
           final handler = NavigationNotifier.posHandleSystemBack;
           if (handler != null && await handler()) return;
           _tryNavigateToIndex(0);
@@ -2096,7 +2127,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       case 'Dashboard':
         return l.overview;
       case 'MobileAttendance':
-        return l.attendance;
+        return 'Chấm công';
       case 'PosSell':
         return l.posSell;
       case 'PosProducts':
@@ -2113,6 +2144,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
         return l.communication;
       case 'PosSalesReport':
         return l.posSalesReport;
+      case 'HkdBooks':
+        return 'Sổ sách HKD';
       case 'SettingsHub':
         return l.settings;
       case 'Notification':
@@ -2172,38 +2205,58 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
             .textTheme
             .headlineLarge
             ?.copyWith(fontSize: 17),
-        title: Text(tr(_settingsHubTitle(l))),
+        title: Text(
+          tr(_settingsHubTitle(l)),
+          overflow: TextOverflow.ellipsis,
+          maxLines: 1,
+        ),
+        // Mobile: AI/thông báo vào 「⋯」; action trang (Excel/PNG…) → FAB.
         actions: [
-          ListenableBuilder(
-            listenable: PageTopActions.instance,
-            builder: (context, _) {
-              final acts = PageTopActions.instance.actions;
-              if (acts.isEmpty) return const SizedBox.shrink();
-              return PageTopActionsBar(
-                actions: acts,
-                maxWidth: 220,
-                reverse: true,
-              );
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.auto_awesome, color: Color(0xFF8B5CF6)),
-            onPressed: () => showAiAssistant(context),
-            tooltip: tr('Trợ lý ảo AI'),
-          ),
-          IconButton(
+          PopupMenuButton<String>(
+            tooltip: tr('Thêm'),
+            padding: EdgeInsets.zero,
             icon: Badge(
               isLabelVisible: _unreadNotificationsCount > 0,
               label: Text(tr(_unreadNotificationsCount > 99
                   ? '99+'
                   : '$_unreadNotificationsCount')),
-              child: const Icon(Icons.notifications_outlined),
+              child: const Icon(Icons.more_vert, size: 22),
             ),
-            onPressed: () {
-              _tryNavigateToIndex(_notificationsIndex);
-              _loadNotificationCount();
+            onSelected: (value) {
+              if (value == 'ai') {
+                showAiAssistant(context);
+              } else if (value == 'notif') {
+                _tryNavigateToIndex(_notificationsIndex);
+                _loadNotificationCount();
+              }
             },
-            tooltip: tr(l.notifications),
+            itemBuilder: (context) => [
+              PopupMenuItem(
+                value: 'ai',
+                child: ListTile(
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.auto_awesome,
+                      color: Color(0xFF8B5CF6)),
+                  title: Text(tr('Trợ lý ảo AI')),
+                ),
+              ),
+              PopupMenuItem(
+                value: 'notif',
+                child: ListTile(
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  leading: Badge(
+                    isLabelVisible: _unreadNotificationsCount > 0,
+                    label: Text(tr(_unreadNotificationsCount > 99
+                        ? '99+'
+                        : '$_unreadNotificationsCount')),
+                    child: const Icon(Icons.notifications_outlined),
+                  ),
+                  title: Text(tr(l.notifications)),
+                ),
+              ),
+            ],
           ),
           _buildUserMenu(),
         ],
@@ -2216,6 +2269,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
           ),
         ],
       ),
+      floatingActionButton: const PageTopActionsFab(),
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
       bottomNavigationBar: _buildModernBottomNav(safeBottomIndex, l),
       drawer: _buildDrawer(),
     );
@@ -2227,6 +2282,11 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
         canPop: false,
         onPopInvokedWithResult: (didPop, _) async {
           if (didPop) return;
+          final nav = Navigator.of(context);
+          if (nav.canPop()) {
+            nav.pop();
+            return;
+          }
           final handler = NavigationNotifier.posHandleSystemBack;
           if (handler != null && await handler()) return;
           if (_canGoBack) {
@@ -3272,7 +3332,13 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
             _tryNavigateToIndex(NavigationNotifier.settings);
             break;
           case 'settings':
-            _tryNavigateToIndex(NavigationNotifier.settings);
+            // Mở hub thiết lập (mẫu in, máy in, cửa hàng…) — không phải màn giao diện.
+            final hub = _navItems.indexWhere((n) => n.moduleCode == 'SettingsHub');
+            if (hub >= 0) {
+              _tryNavigateToIndex(hub);
+            } else {
+              _tryNavigateToIndex(NavigationNotifier.settings);
+            }
             break;
           case 'logout':
             _showLogoutDialog();
@@ -3573,6 +3639,7 @@ class NavItem {
     'PosDamageIssues': (l) => l.posDamageIssues,
     'PosInternalUseIssues': (l) => l.posInternalUseIssues,
     'PosSalesReport': (l) => l.posSalesReport,
+    'HkdBooks': (_) => 'Sổ sách HKD',
     'PenaltyReport': (l) => l.penaltyReport,
     'AttendanceReport': (l) => l.attendanceReport,
     'CashReport': (l) => l.cashReport,

@@ -9,6 +9,7 @@ import '../../utils/mobile_bottom_nav_catalog.dart';
 import '../../utils/navigation_notifier.dart';
 import '../../utils/permission_navigation.dart';
 import '../../widgets/mobile_bottom_nav_config_sheet.dart';
+import '../../widgets/pos/pos_hub_nav_rail.dart';
 import '../../widgets/pos/pos_hub_scope.dart';
 import '../../widgets/pos/pos_theme.dart';
 import '../pos_products_screen.dart';
@@ -172,112 +173,144 @@ class PosMobileHubScreenState extends State<PosMobileHubScreen> {
     _switchTab(MobileBottomNavCatalog.posTabIndexFor(slotId));
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final perm = Provider.of<PermissionProvider>(context);
-    final layout = _resolvedPosLayout();
+  Widget _buildBottomNavBar(
+    PermissionProvider perm,
+    MobileBottomNavLayout layout,
+  ) {
+    return Material(
+      elevation: 8,
+      color: Colors.white,
+      child: SafeArea(
+        top: false,
+        child: GestureDetector(
+          onLongPress: () =>
+              MobileBottomNavConfigSheet.show(context, initialPage: 1),
+          child: SizedBox(
+            height: PosTheme.mobileBottomNavHeight + 4,
+            child: Row(
+              children: List.generate(MobileBottomNavLayout.slotCount, (i) {
+                final slotId = layout.slots[i];
+                final def = MobileBottomNavCatalog
+                    .mapFor(MobileBottomNavCatalog.posItems)[slotId];
+                final enabled = _canUsePosSlot(slotId, perm);
+                final tabForSlot =
+                    MobileBottomNavCatalog.posTabIndexFor(slotId);
+                final active = _tab == tabForSlot && enabled;
 
-    return Scaffold(
-      backgroundColor: PosTheme.background,
-      body: SafeArea(
-        bottom: false,
-        child: PosHubScope(
-          embeddedInHub: true,
-          child: IndexedStack(
-            index: _tab,
-            children: const [
-              PosOverviewScreen(key: ValueKey('pos_overview')),
-              PosProductsScreen(key: ValueKey('pos_products')),
-              PosSellScreen(key: ValueKey('pos_sell')),
-              PosSaleOrderListScreen(key: ValueKey('pos_orders')),
-              PosMoreScreen(key: ValueKey('pos_more')),
-            ],
-          ),
-        ),
-      ),
-      bottomNavigationBar: _tab == 2
-          ? null // Ẩn thanh dưới khi Bán hàng — rộng màn hình; về trang chủ bằng nút Home.
-          : Material(
-        elevation: 8,
-        color: Colors.white,
-        child: SafeArea(
-          top: false,
-          child: GestureDetector(
-            onLongPress: () =>
-                MobileBottomNavConfigSheet.show(context, initialPage: 1),
-            child: SizedBox(
-              height: PosTheme.mobileBottomNavHeight + 4,
-              child: Row(
-                children: List.generate(MobileBottomNavLayout.slotCount, (i) {
-                  final slotId = layout.slots[i];
-                  final def = MobileBottomNavCatalog
-                      .mapFor(MobileBottomNavCatalog.posItems)[slotId];
-                  final enabled = _canUsePosSlot(slotId, perm);
-                  final tabForSlot =
-                      MobileBottomNavCatalog.posTabIndexFor(slotId);
-                  final active = _tab == tabForSlot && enabled;
-
-                  if (!enabled || def == null) {
-                    return Expanded(
-                      child: Opacity(
-                        opacity: 0.35,
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Icon(Icons.remove, size: 20, color: Colors.grey),
-                            const SizedBox(height: 2),
-                            Text(
-                              tr(def?.label ?? 'Trống'),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontSize: 10,
-                                color: PosTheme.textSecondary,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  }
-
+                if (!enabled || def == null) {
                   return Expanded(
-                    child: InkWell(
-                      onTap: () => _onSlotTap(i, slotId, perm),
+                    child: Opacity(
+                      opacity: 0.35,
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(
-                            active ? def.activeIcon : def.icon,
-                            size: 22,
-                            color: active
-                                ? PosTheme.kiotBlue
-                                : PosTheme.textSecondary,
-                          ),
+                          const Icon(Icons.remove,
+                              size: 20, color: Colors.grey),
                           const SizedBox(height: 2),
                           Text(
-                            tr(def.label),
+                            tr(def?.label ?? 'Trống'),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
+                            style: const TextStyle(
                               fontSize: 10,
-                              fontWeight:
-                                  active ? FontWeight.w600 : FontWeight.w500,
-                              color: active
-                                  ? PosTheme.kiotBlue
-                                  : PosTheme.textSecondary,
+                              color: PosTheme.textSecondary,
                             ),
                           ),
                         ],
                       ),
                     ),
                   );
-                }),
-              ),
+                }
+
+                return Expanded(
+                  child: InkWell(
+                    onTap: () => _onSlotTap(i, slotId, perm),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          active ? def.activeIcon : def.icon,
+                          size: 22,
+                          color: active
+                              ? PosTheme.kiotBlue
+                              : PosTheme.textSecondary,
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          tr(def.label),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight:
+                                active ? FontWeight.w600 : FontWeight.w500,
+                            color: active
+                                ? PosTheme.kiotBlue
+                                : PosTheme.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }),
             ),
           ),
         ),
       ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final perm = Provider.of<PermissionProvider>(context);
+    final layout = _resolvedPosLayout();
+    // Bán hàng = fullscreen: không bottom nav, không rail dọc.
+    final sellFullscreen = _tab == 2;
+    final useVerticalRail =
+        !sellFullscreen && PosHubNavRail.shouldShow(context);
+    final stack = PosHubScope(
+      embeddedInHub: true,
+      child: IndexedStack(
+        index: _tab,
+        children: const [
+          PosOverviewScreen(key: ValueKey('pos_overview')),
+          PosProductsScreen(key: ValueKey('pos_products')),
+          PosSellScreen(key: ValueKey('pos_sell')),
+          PosSaleOrderListScreen(key: ValueKey('pos_orders')),
+          PosMoreScreen(key: ValueKey('pos_more')),
+        ],
+      ),
+    );
+
+    return Scaffold(
+      backgroundColor: PosTheme.background,
+      body: SafeArea(
+        bottom: false,
+        child: useVerticalRail
+            ? Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  PosHubNavRail(
+                    slots: PosHubNavRail.fromLayout(
+                      layout: layout,
+                      currentTab: _tab,
+                      canUse: (id) => _canUsePosSlot(id, perm),
+                      onSlotTap: (i, id) => _onSlotTap(i, id, perm),
+                    ),
+                    onCustomize: () => MobileBottomNavConfigSheet.show(
+                      context,
+                      initialPage: 1,
+                    ),
+                  ),
+                  Expanded(child: stack),
+                ],
+              )
+            : stack,
+      ),
+      bottomNavigationBar: sellFullscreen || useVerticalRail
+          ? null
+          : _buildBottomNavBar(perm, layout),
     );
   }
 

@@ -716,9 +716,8 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
       return _buildEmptyState();
     }
 
-    final embeddedKit = HrmSettingsMobileKit.active(context);
-
-    if (embeddedKit && isMobile) {
+    // Mobile: luôn card list (không dùng hàng ngang / bảng).
+    if (isMobile || HrmSettingsMobileKit.preferCardList(context)) {
       return Column(
         children: [
           Expanded(
@@ -746,7 +745,7 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
       children: [
         Expanded(
           child: Container(
-            margin: EdgeInsets.fromLTRB(isMobile ? 10 : 16, isMobile ? 10 : 16, isMobile ? 10 : 16, 0),
+            margin: const EdgeInsets.fromLTRB(16, 16, 16, 0),
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(12),
@@ -755,27 +754,24 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
             clipBehavior: Clip.antiAlias,
             child: Column(
               children: [
-                if (!isMobile) _buildListHeader(),
+                _buildListHeader(),
                 Expanded(
                   child: ListView.builder(
                     itemCount: page.items.length,
                     itemBuilder: (_, i) {
                       final h = page.items[i];
-                      final globalIndex = (page.safePage - 1) * _holidayPageSize + i;
+                      final globalIndex =
+                          (page.safePage - 1) * _holidayPageSize + i;
                       final isSelected = _selectedHoliday != null &&
                           _selectedHoliday!['id'] == h['id'];
                       return _buildHolidayListRow(
                         h,
                         globalIndex,
                         isSelected: isSelected,
-                        showChevron: isMobile,
-                        useHorizontalScroll: isMobile,
+                        showChevron: false,
+                        useHorizontalScroll: false,
                         onTap: () {
-                          if (isMobile) {
-                            _showMobileHolidayDetailSheet(h);
-                          } else {
-                            setState(() => _selectedHoliday = h);
-                          }
+                          setState(() => _selectedHoliday = h);
                         },
                       );
                     },

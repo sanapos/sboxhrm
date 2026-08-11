@@ -140,12 +140,14 @@ class _WhMobileStockIssueEditorState extends State<WhMobileStockIssueEditor> {
 
   Future<void> _pickProduct(PosPurchaseLookupPick pick) async {
     if (_readOnly) return;
-    final id = await _ensureId();
-    if (id == null || !mounted) return;
-    if (_lines.any((l) => l.productId == pick.product.id)) {
-      NotificationOverlayManager().showWarning(title: 'Trùng', message: tr('Hàng đã có trong phiếu'));
+    final addQty = (pick.qty == null || pick.qty! <= 0) ? 1.0 : pick.qty!;
+    final existing = _lines.where((l) => l.productId == pick.product.id).toList();
+    if (existing.isNotEmpty) {
+      setState(() => existing.first.qty += addQty);
       return;
     }
+    final id = await _ensureId();
+    if (id == null || !mounted) return;
     final res = await _api.addPosStockIssueDocLines(_config.kind, id, [
       {
         'productId': pick.product.id,
@@ -154,7 +156,15 @@ class _WhMobileStockIssueEditorState extends State<WhMobileStockIssueEditor> {
     ]);
     if (!mounted) return;
     if (res['isSuccess'] == true) {
-      setState(() => _applyDoc(_docFromRes(res)));
+      setState(() {
+        _applyDoc(_docFromRes(res));
+        for (final line in _lines) {
+          if (line.productId == pick.product.id) {
+            line.qty = addQty;
+            break;
+          }
+        }
+      });
     } else {
       NotificationOverlayManager().showError(
           title: 'Lỗi', message: res['message']?.toString() ?? 'Không thêm được hàng');

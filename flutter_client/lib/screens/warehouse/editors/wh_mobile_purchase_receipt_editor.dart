@@ -145,7 +145,14 @@ class _WhMobilePurchaseReceiptEditorState extends State<WhMobilePurchaseReceiptE
 
   Future<void> _pickProduct(PosPurchaseLookupPick pick) async {
     if (_readOnly) return;
-    if (_lines.any((l) => l.productId == pick.product.id)) return;
+    final addQty = (pick.qty == null || pick.qty! <= 0) ? 1.0 : pick.qty!;
+    final existing = _lines.indexWhere((l) =>
+        l.productId == pick.product.id &&
+        (l.variantId ?? '') == (pick.variantId ?? ''));
+    if (existing >= 0) {
+      setState(() => _lines[existing].qty += addQty);
+      return;
+    }
     setState(() {
       _lines.add(_Line(
         productId: pick.product.id,
@@ -153,7 +160,7 @@ class _WhMobilePurchaseReceiptEditorState extends State<WhMobilePurchaseReceiptE
         name: pick.product.name,
         code: pick.product.productCode,
         unit: pick.unitLabel ?? pick.product.baseUnitName,
-        qty: 1,
+        qty: addQty,
         cost: pick.product.costPrice,
       ));
     });

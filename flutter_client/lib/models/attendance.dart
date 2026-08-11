@@ -124,8 +124,17 @@ class Attendance {
       list.where((a) => !a.isLunchBreakMarker).toList();
 
   /// Ghép ca chính: bỏ đi đường và marker nghỉ trưa.
-  static List<Attendance> forMainShiftPairing(List<Attendance> list) =>
-      withoutLunchBreakMarkers(withoutTravel(list));
+  ///
+  /// Fallback: một số máy ZK gửi nhầm MealOut/Break* thay vì CheckIn — nếu cả ngày
+  /// chỉ còn marker nghỉ (không có Vào/Ra) thì vẫn dùng các punch đó để ghép ca,
+  /// tránh «có chấm thô nhưng tổng hợp theo ca trống».
+  static List<Attendance> forMainShiftPairing(List<Attendance> list) {
+    final base = withoutTravel(list);
+    final main = withoutLunchBreakMarkers(base);
+    if (main.isNotEmpty) return main;
+    if (base.isEmpty) return const [];
+    return base;
+  }
 
   String get privilegeText => privilegeLabel(privilege);
 

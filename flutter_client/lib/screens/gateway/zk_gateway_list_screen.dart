@@ -544,7 +544,19 @@ class _ZkGatewayListScreenState extends State<ZkGatewayListScreen> {
               color: HrmPageChrome.textMuted,
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
+          GatewayNoteBox(
+            text:
+                'Cách xử lý khi đã cài mà không thấy:\n'
+                '1. Điện thoại cùng WiFi với gateway (không dùng 4G).\n'
+                '2. Gateway còn điện.\n'
+                '3. Bấm Dò tìm lại — IP có thể đã đổi.\n'
+                '4. Thử mở http://sboxadms.local trên trình duyệt cùng mạng.\n'
+                '5. Vẫn lỗi: nhờ kỹ thuật mở trang web cấu hình trên máy tính.',
+            icon: Icons.help_outline,
+            color: const Color(0xFFF59E0B),
+          ),
+          const SizedBox(height: 12),
           GatewayNoteBox(
             text: !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS
                 ? 'Điện thoại phải cùng WiFi với gateway. App dò bằng Bonjour '

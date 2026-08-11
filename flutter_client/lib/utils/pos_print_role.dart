@@ -4,6 +4,9 @@ import 'pos_print_agent_settings.dart';
 abstract final class PosPrintRole {
   static String _normId(String id) => id.trim().toLowerCase();
 
+  /// Chuẩn hóa GUID máy in để so khớp (không phân biệt hoa/thường).
+  static String normalizePrinterId(String id) => _normId(id);
+
   /// So khớp GUID máy in (không phân biệt hoa/thường).
   static bool matchesPrinterId(String a, String b) =>
       _normId(a) == _normId(b);
@@ -47,8 +50,24 @@ abstract final class PosPrintSessionRegistry {
 /// Chặn in trùng cùng chứng từ trong cửa sổ ngắn (bấm Hoàn tất nhiều lần).
 abstract final class PosPrintDedup {
   static final _recent = <String, DateTime>{};
+  static final _inFlightUntil = <String, DateTime>{};
   static const _window = Duration(seconds: 25);
+  /// Khóa cứng chống double-tap cùng frame (trước khi shouldSkip ghi key).
+  static const _inFlightWindow = Duration(milliseconds: 900);
 
+  static String _key({
+    required String documentType,
+    String? referenceId,
+    String? referenceNo,
+    String? printerId,
+  }) {
+    final ref = (referenceId?.trim().isNotEmpty == true)
+        ? referenceId!.trim()
+        : (referenceNo?.trim() ?? '');
+    return '$documentType|$ref|${printerId ?? '*'}';
+  }
+
+  /// true = đang có lệnh in cùng key — bỏ qua (kèm toast ở caller).
   static bool shouldSkip({
     required String documentType,
     String? referenceId,
@@ -59,13 +78,27 @@ abstract final class PosPrintDedup {
         ? referenceId!.trim()
         : (referenceNo?.trim() ?? '');
     if (ref.isEmpty) return false;
-    final key = '$documentType|$ref|${printerId ?? '*'}';
+    final key = _key(
+      documentType: documentType,
+      referenceId: referenceId,
+      referenceNo: referenceNo,
+      printerId: printerId,
+    );
     final now = DateTime.now();
+
+    final flight = _inFlightUntil[key];
+    if (flight != null && flight.isAfter(now)) return true;
+
     final last = _recent[key];
     if (last != null && now.difference(last) < _window) return true;
+
     _recent[key] = now;
+    _inFlightUntil[key] = now.add(_inFlightWindow);
     if (_recent.length > 200) {
       _recent.removeWhere((_, t) => now.difference(t) > _window);
+    }
+    if (_inFlightUntil.length > 200) {
+      _inFlightUntil.removeWhere((_, t) => t.isBefore(now));
     }
     return false;
   }

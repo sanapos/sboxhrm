@@ -443,7 +443,8 @@ class _StaffingQuotaSettingsScreenState
                   ),
                 ),
               )
-            else if (embeddedMobile)
+            else if (embeddedMobile ||
+                HrmSettingsMobileKit.preferCardList(context))
               HrmSettingsEntityGrid(
                 itemCount: _quotas.length,
                 columns: 2,

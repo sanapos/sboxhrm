@@ -36,5 +36,15 @@ void captureInitialRouteFromStorage() {
     }
     web.window.sessionStorage.removeItem('sbox_route');
     web.window.sessionStorage.removeItem('sbox_agent_token');
+    return;
+  }
+  if (route == 'customer-display') {
+    InitialWebRoute.showCustomerDisplay = true;
+    final code = web.window.sessionStorage.getItem('sbox_cd_code');
+    if (code != null && code.trim().length >= 4) {
+      InitialWebRoute.customerDisplayCode = code.trim();
+    }
+    web.window.sessionStorage.removeItem('sbox_route');
+    web.window.sessionStorage.removeItem('sbox_cd_code');
   }
 }

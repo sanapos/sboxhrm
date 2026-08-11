@@ -7,6 +7,7 @@ import '../../models/zk_gateway.dart';
 import '../../services/zk_gateway_client.dart';
 import '../../widgets/hrm_page_chrome.dart';
 import '../../widgets/notification_overlay.dart';
+import 'zk_gateway_user_errors.dart';
 import 'zk_gateway_widgets.dart';
 
 /// Trình hướng dẫn thêm gateway mới, theo lối các app thiết bị thông minh:
@@ -87,8 +88,29 @@ class _ZkGatewaySetupScreenState extends State<ZkGatewaySetupScreen> {
   }
 
   void _fail(String title, Object err) {
-    final message = err is ZkGatewayException ? err.message : err.toString();
-    appNotification.showError(title: tr(title), message: tr(message));
+    final mapped = ZkGatewayUserError.from(err, fallbackTitle: title);
+    final short =
+        mapped.message.split('\n').where((l) => l.trim().isNotEmpty).first;
+    appNotification.showError(title: tr(mapped.title), message: tr(short));
+    if (!mounted) return;
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(tr(mapped.title)),
+        content: SingleChildScrollView(
+          child: Text(
+            tr(mapped.message),
+            style: const TextStyle(fontSize: 13.5, height: 1.45),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(tr('Đã hiểu')),
+          ),
+        ],
+      ),
+    );
   }
 
   // ---------- Bước 1: xác nhận đã nối vào sóng thiết bị ----------
@@ -120,6 +142,14 @@ class _ZkGatewaySetupScreenState extends State<ZkGatewaySetupScreen> {
       final aps = await _client.scanWifi(_targetIp);
       if (!mounted) return;
       setState(() => _aps = aps);
+      if (aps.isEmpty) {
+        appNotification.showWarning(
+          title: tr('Không thấy mạng'),
+          message: tr(
+            'Gateway không bắt được WiFi 2.4GHz nào. Đưa gần router hơn rồi quét lại.',
+          ),
+        );
+      }
     } catch (e) {
       _fail('Quét WiFi thất bại', e);
     } finally {
@@ -577,56 +607,105 @@ class _ZkGatewaySetupScreenState extends State<ZkGatewaySetupScreen> {
                 padding: const EdgeInsets.only(top: 20),
                 child: IconButton.filledTonal(
                   onPressed: _busy ? null : _scanWifi,
-                  icon: const Icon(Icons.wifi_find, size: 20),
+                  icon: _busy
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.wifi_find, size: 20),
                   tooltip: tr('Quét WiFi'),
                 ),
               ),
             ],
           ),
           if (_aps.isNotEmpty) ...[
-            const SizedBox(height: 6),
+            const SizedBox(height: 8),
             Container(
-              constraints: const BoxConstraints(maxHeight: 230),
+              constraints: const BoxConstraints(maxHeight: 280),
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(10),
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: const Color(0xFFE2E8F0)),
               ),
+              clipBehavior: Clip.antiAlias,
               child: ListView.separated(
-                shrinkWrap: true,
+                primary: false,
+                padding: EdgeInsets.zero,
                 itemCount: _aps.length,
-                separatorBuilder: (_, __) => const Divider(height: 1),
+                separatorBuilder: (_, __) =>
+                    const Divider(height: 1, color: Color(0xFFE2E8F0)),
                 itemBuilder: (_, i) {
                   final ap = _aps[i];
                   final selected = ap.ssid == _ssidCtrl.text.trim();
-                  return ListTile(
-                    dense: true,
-                    leading: WifiSignalBars(bars: ap.bars),
-                    title: Text(
-                      ap.ssid,
-                      style: TextStyle(
-                        fontSize: 13.5,
-                        fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
-                        color: HrmPageChrome.textDark,
+                  return Material(
+                    color: selected
+                        ? HrmPageChrome.primaryNavy.withValues(alpha: 0.08)
+                        : Colors.transparent,
+                    child: InkWell(
+                      onTap: () => setState(() => _ssidCtrl.text = ap.ssid),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
+                        child: Row(
+                          children: [
+                            SizedBox(
+                              width: 28,
+                              child: WifiSignalBars(bars: ap.bars),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    ap.ssid,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: selected
+                                          ? FontWeight.w800
+                                          : FontWeight.w600,
+                                      color: HrmPageChrome.textDark,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    tr('${ap.rssi} dBm · ${ap.secure ? 'có mật khẩu' : 'mở'}'),
+                                    style: const TextStyle(
+                                      fontSize: 11.5,
+                                      color: HrmPageChrome.textMuted,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Icon(
+                              selected
+                                  ? Icons.check_circle
+                                  : (ap.secure
+                                      ? Icons.lock_outline
+                                      : Icons.lock_open_outlined),
+                              size: 18,
+                              color: selected
+                                  ? HrmPageChrome.primaryNavy
+                                  : const Color(0xFF94A3B8),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
-                    trailing: Icon(
-                      selected
-                          ? Icons.radio_button_checked
-                          : (ap.secure ? Icons.lock_outline : Icons.lock_open),
-                      size: 17,
-                      color: selected
-                          ? HrmPageChrome.primaryNavy
-                          : const Color(0xFF94A3B8),
-                    ),
-                    onTap: () => setState(() => _ssidCtrl.text = ap.ssid),
                   );
                 },
               ),
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: 8),
             const GatewayNoteBox(
-              text: 'Danh sách này do chính gateway quét, nên chỉ hiện mạng '
-                  '2.4GHz mà nó bắt được. Chọn trong đây để không sai chữ hoa/thường.',
+              text: 'Danh sách do chính gateway quét — chỉ hiện WiFi 2.4GHz '
+                  'mà nó bắt được. Chọn trong đây để không sai chữ hoa/thường.',
             ),
           ],
           const SizedBox(height: 12),
@@ -659,12 +738,39 @@ class _ZkGatewaySetupScreenState extends State<ZkGatewaySetupScreen> {
             hint: '192.168.1.35',
             keyboardType: TextInputType.text,
           ),
-          const SizedBox(height: 12),
-          _field(
-            controller: _commKeyCtrl,
-            label: 'Comm Key của máy',
-            hint: '0 nếu máy không đặt',
-            keyboardType: TextInputType.number,
+          const SizedBox(height: 8),
+          Theme(
+            data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+            child: ExpansionTile(
+              tilePadding: EdgeInsets.zero,
+              childrenPadding: EdgeInsets.zero,
+              title: Text(
+                tr('Nâng cao (Comm Key)'),
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: HrmPageChrome.textMuted,
+                ),
+              ),
+              children: [
+                _field(
+                  controller: _commKeyCtrl,
+                  label: 'Comm Key của máy',
+                  hint: '0 nếu máy không đặt',
+                  keyboardType: TextInputType.number,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  tr('Chỉ đổi khi máy chấm công có đặt Comm Key. '
+                      'Sai số này sẽ không kết nối được máy.'),
+                  style: const TextStyle(
+                    fontSize: 12,
+                    height: 1.4,
+                    color: HrmPageChrome.textMuted,
+                  ),
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: 12),
           GatewayNoteBox(

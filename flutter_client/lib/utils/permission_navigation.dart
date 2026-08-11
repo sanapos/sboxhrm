@@ -150,6 +150,8 @@ class PermissionNavigation {
         return 'Báo cáo phạt';
       case 'CashReport':
         return 'Báo cáo thu chi';
+      case 'HkdBooks':
+        return 'Sổ sách HKD';
       case 'AdvanceReport':
         return 'Báo cáo ứng lương';
       case 'BusinessTripReport':

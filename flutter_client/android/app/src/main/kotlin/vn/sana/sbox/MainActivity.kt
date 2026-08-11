@@ -105,6 +105,16 @@ class MainActivity : FlutterActivity() {
                     sink = null
                 }
             })
+
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, UsbEscPosPrinter.CHANNEL)
+            .setMethodCallHandler { call, result ->
+                UsbEscPosPrinter.handle(this, call, result)
+            }
+
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, PosPrinterHardware.CHANNEL)
+            .setMethodCallHandler { call, result ->
+                PosPrinterHardware.handle(this, call, result)
+            }
     }
 
     private fun registerScannerReceiver() {

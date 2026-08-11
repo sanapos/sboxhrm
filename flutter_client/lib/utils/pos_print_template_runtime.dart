@@ -107,6 +107,53 @@ abstract final class PosPrintTemplateRuntime {
     );
   }
 
+  /// Phiếu xuất kho / báo kho — layout StockIssue (không tiền).
+  static PosPrintCompiledOutput compileStockIssue({
+    required PosPrintTemplateV2 template,
+    required PosSaleOrder order,
+    required List<PosSaleOrderLine> lines,
+    String? storeName,
+    String? storeAddress,
+    String? storePhone,
+    String? titleOverride,
+  }) {
+    final saleDate =
+        order.saleDate?.toLocal() ?? order.createdAt?.toLocal() ?? DateTime.now();
+    final qtyFmt = NumberFormat('#,##0.##', 'vi_VN');
+    final data = <String, String>{
+      'Ten_Cua_Hang': (storeName ?? '').trim().isEmpty ? 'Cửa hàng' : storeName!.trim(),
+      'Dia_Chi_Chi_Nhanh': storeAddress ?? '',
+      'Dien_Thoai_Chi_Nhanh': storePhone ?? '',
+      'Tieu_De_In': (titleOverride ?? '').trim().isNotEmpty
+          ? titleOverride!.trim()
+          : 'PHIẾU XUẤT KHO',
+      'Ma_Don_Hang': order.orderNo.isEmpty ? '—' : order.orderNo,
+      'Ngay': DateFormat('dd/MM/yyyy').format(saleDate),
+      'Gio': DateFormat('HH:mm').format(saleDate),
+      'Nguoi_Ban': order.soldBy ?? order.createdBy ?? '',
+      'Ghi_Chu': order.note ?? '',
+      'Khach_Hang': order.customerName ?? '',
+      'Ten_Ban': (order.serviceResourceName ?? '').trim(),
+      'Khu_Vuc': (order.serviceAreaName ?? '').trim(),
+    };
+    final items = lines
+        .map((l) => {
+              'Ten_Hang_Hoa': l.productName,
+              'So_Luong': qtyFmt.format(l.qty),
+              'Don_Vi_Tinh': l.unitName ?? '',
+              'Ghi_Chu': l.lineNote ?? '',
+              'Don_Gia': '',
+              'Thanh_Tien': '',
+            })
+        .toList();
+    return PosPrintTemplateCompiler.compile(
+      template: template,
+      data: data,
+      lineItems: items,
+      kitchenLines: items,
+    );
+  }
+
   static Future<bool> printCompiledSunmi({
     required PosPrintCompiledOutput output,
     required PosThermalPrinterSettings settings,

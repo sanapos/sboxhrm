@@ -41,6 +41,7 @@ class PosLabelPrinterService {
             items: chunk,
             template: template,
             dpi: dpi,
+            contentInsetLeftMm: settings.shiftRightMm,
           );
           jobs.add(_bytesForRaster(settings, template, raster, rowMode: true));
         }
@@ -54,6 +55,7 @@ class PosLabelPrinterService {
           item: item,
           template: template,
           dpi: dpi,
+          contentInsetLeftMm: settings.shiftRightMm,
         );
         jobs.add(_bytesForRaster(settings, template, raster));
       }
@@ -72,6 +74,9 @@ class PosLabelPrinterService {
         widthMm: rowMode ? template.rollPageWidthMm : template.labelWidthMm,
         heightMm: template.labelHeightMm,
         gapMm: settings.gapMm,
+        // Lề trái đã render trong raster — không lệch BITMAP thêm.
+        shiftRightMm: 0,
+        dpi: settings.dpi,
         raster: raster.raster,
         widthPx: raster.widthPx,
         heightPx: raster.heightPx,
@@ -99,8 +104,11 @@ class PosLabelPrinterService {
     return true;
   }
 
-  static Future<bool> testPrint(PosLabelPrinterSettings settings) async {
-    if (kIsWeb) return false;
+  /// Bytes tem test (TSPL/ESC) — local hoặc đẩy cloud Agent.
+  static Future<List<int>?> buildTestBytes(
+    PosLabelPrinterSettings settings,
+  ) async {
+    if (kIsWeb) return null;
     final template = settings.template ?? posBarcodeLabelTemplates[3];
     const item = PosLabelRenderItem(
       name: 'Đậu phộng da cá',
@@ -111,9 +119,67 @@ class PosLabelPrinterService {
       item: item,
       template: template,
       dpi: settings.dpi,
+      contentInsetLeftMm: settings.shiftRightMm,
     );
-    final bytes = _bytesForRaster(settings, template, raster);
+    return _bytesForRaster(settings, template, raster);
+  }
+
+  static Future<bool> testPrint(PosLabelPrinterSettings settings) async {
+    final bytes = await buildTestBytes(settings);
+    if (bytes == null || bytes.isEmpty) return false;
     return _send(settings, bytes);
+  }
+
+  /// In tem ly đã render sẵn (TSPL / ESC raster) — không qua máy hóa đơn.
+  static Future<bool> printCupRasters(
+    List<({Uint8List raster, int widthPx, int heightPx})> rasters, {
+    required PosLabelPrinterSettings settings,
+    required double widthMm,
+    required double heightMm,
+  }) async {
+    if (rasters.isEmpty || kIsWeb) return false;
+    final jobs = buildCupRasterByteJobs(
+      rasters,
+      settings: settings,
+      widthMm: widthMm,
+      heightMm: heightMm,
+    );
+    for (final bytes in jobs) {
+      if (!await _send(settings, bytes)) return false;
+    }
+    return true;
+  }
+
+  /// Bytes TSPL/ESC cho từng tem — dùng local hoặc đẩy cloud Agent.
+  static List<List<int>> buildCupRasterByteJobs(
+    List<({Uint8List raster, int widthPx, int heightPx})> rasters, {
+    required PosLabelPrinterSettings settings,
+    required double widthMm,
+    required double heightMm,
+  }) {
+    final jobs = <List<int>>[];
+    for (final r in rasters) {
+      jobs.add(
+        settings.protocol == PosLabelPrinterProtocol.tspl
+            ? _buildTsplJob(
+                widthMm: widthMm,
+                heightMm: heightMm,
+                gapMm: settings.gapMm,
+                shiftRightMm: 0, // đã inset trong raster cup
+                dpi: settings.dpi,
+                raster: r.raster,
+                widthPx: r.widthPx,
+                heightPx: r.heightPx,
+              )
+            : _buildEscPosLabelJob(
+                raster: r.raster,
+                widthPx: r.widthPx,
+                heightPx: r.heightPx,
+                feedLines: 2,
+              ),
+      );
+    }
+    return jobs;
   }
 
   static Future<bool> _send(PosLabelPrinterSettings s, List<int> bytes) =>
@@ -122,6 +188,7 @@ class PosLabelPrinterService {
         bluetoothAddress: s.bluetoothAddress,
         lanHost: s.lanHost,
         lanPort: s.lanPort,
+        usbDeviceName: s.usbDeviceName,
         bytes: bytes,
         sunmiFeedLines: 2,
       );
@@ -133,16 +200,31 @@ class PosLabelPrinterService {
     required Uint8List raster,
     required int widthPx,
     required int heightPx,
+    double shiftRightMm = 0,
+    int dpi = 203,
   }) {
     final bytesPerRow = (widthPx + 7) ~/ 8;
+    // TSPL BITMAP: bit 0 = in đen, bit 1 = trắng — ngược ESC/POS (1 = đen).
+    // Không đảo → tem in trắng trên nền đen (barcode âm bản).
+    final tsplRaster = Uint8List(raster.length);
+    for (var i = 0; i < raster.length; i++) {
+      tsplRaster[i] = (~raster[i]) & 0xFF;
+    }
+    final xDots = PosLabelRenderer.mmToDots(shiftRightMm.clamp(0, 12), dpi)
+        .clamp(0, 200)
+        .toInt();
     final header = StringBuffer()
-      ..writeln('SIZE ${widthMm.toStringAsFixed(1)} mm, ${heightMm.toStringAsFixed(1)} mm')
-      ..writeln('GAP ${gapMm.toStringAsFixed(1)} mm, 0 mm')
-      ..writeln('DIRECTION 1')
-      ..writeln('REFERENCE 0,0')
-      ..writeln('CLS')
-      ..write('BITMAP 0,0,$bytesPerRow,$heightPx,0,');
-    return [...utf8.encode(header.toString()), ...raster, ...utf8.encode('\r\nPRINT 1,1\r\n')];
+      ..write('SIZE ${widthMm.toStringAsFixed(1)} mm, ${heightMm.toStringAsFixed(1)} mm\r\n')
+      ..write('GAP ${gapMm.toStringAsFixed(1)} mm, 0 mm\r\n')
+      ..write('DIRECTION 1\r\n')
+      ..write('REFERENCE 0,0\r\n')
+      ..write('CLS\r\n')
+      ..write('BITMAP $xDots,0,$bytesPerRow,$heightPx,0,');
+    return [
+      ...utf8.encode(header.toString()),
+      ...tsplRaster,
+      ...utf8.encode('\r\nPRINT 1,1\r\n'),
+    ];
   }
 
   static List<int> _buildEscPosLabelJob({

@@ -1439,15 +1439,57 @@ class _ShiftLookups {
 }
 
 DateTime _getLogicalDate(DateTime punchTime, int dayEndHour, int dayEndMinute) {
+  return resolveAttendanceWorkDay(
+    punchTime,
+    dayEndHour: dayEndHour,
+    dayEndMinute: dayEndMinute,
+  );
+}
+
+/// Ngày công của một lần chấm.
+///
+/// [day_end_time] phục vụ ca qua đêm (VD 22:00→05:00: chấm 03:00 thuộc ngày hôm trước).
+/// NV chỉ xếp ca ngày — hoặc punch khớp cửa sổ vào sớm của ca ngày — giữ **ngày lịch**,
+/// tránh case day_end=06:00 kéo chấm 05:xx (ca sáng) sang Chủ nhật → mất Thứ 2.
+DateTime resolveAttendanceWorkDay(
+  DateTime punchTime, {
+  required int dayEndHour,
+  required int dayEndMinute,
+  List<String> assignedShiftIds = const [],
+  Map<String, dynamic> shiftTemplateMap = const {},
+}) {
+  final calendar = DateTime(punchTime.year, punchTime.month, punchTime.day);
   final dayEnd = dayEndHour * 60 + dayEndMinute;
-  if (dayEnd > 0) {
-    final punchMinutes = punchTime.hour * 60 + punchTime.minute;
-    if (punchMinutes < dayEnd) {
-      final prev = punchTime.subtract(const Duration(days: 1));
-      return DateTime(prev.year, prev.month, prev.day);
+  if (dayEnd <= 0) return calendar;
+
+  final punchMinutes = punchTime.hour * 60 + punchTime.minute;
+  if (punchMinutes >= dayEnd) return calendar;
+
+  var hasOvernight = false;
+  var hasDayShift = false;
+  var fitsDayShift = false;
+  for (final id in assignedShiftIds) {
+    final raw = shiftTemplateMap[id];
+    if (raw is! Map) continue;
+    final st = Map<String, dynamic>.from(raw);
+    if (isOvertimeShiftTemplate(st)) continue;
+    if (isOvernightShiftTemplate(st)) {
+      hasOvernight = true;
+      continue;
+    }
+    hasDayShift = true;
+    if (_evaluateShiftPunchFit(st, punchMinutes) != null) {
+      fitsDayShift = true;
     }
   }
-  return DateTime(punchTime.year, punchTime.month, punchTime.day);
+
+  // Khớp ca ngày / chỉ có ca ngày → ngày lịch.
+  if (fitsDayShift || (hasDayShift && !hasOvernight)) {
+    return calendar;
+  }
+
+  final prev = punchTime.subtract(const Duration(days: 1));
+  return DateTime(prev.year, prev.month, prev.day);
 }
 
 List<Attendance> _filterByLogicalWorkDayRange(
@@ -1456,11 +1498,25 @@ List<Attendance> _filterByLogicalWorkDayRange(
   DateTime toDate, {
   required int dayEndHour,
   required int dayEndMinute,
+  _ShiftLookups? lookups,
 }) {
   final rangeStart = DateTime(fromDate.year, fromDate.month, fromDate.day);
   final rangeEnd = DateTime(toDate.year, toDate.month, toDate.day);
   return attendances.where((att) {
-    final logical = _getLogicalDate(att.punchTime, dayEndHour, dayEndMinute);
+    final empKey = att.employeeId ?? att.enrollNumber ?? 'unknown';
+    final empGuid = lookups?.employeeCodeToGuid[empKey] ?? '';
+    final assigned = lookups == null
+        ? const <String>[]
+        : (lookups.employeeGuidToShiftTemplateIds[empGuid] ??
+            lookups.employeeGuidToShiftTemplateIds[empKey] ??
+            const <String>[]);
+    final logical = resolveAttendanceWorkDay(
+      att.punchTime,
+      dayEndHour: dayEndHour,
+      dayEndMinute: dayEndMinute,
+      assignedShiftIds: assigned,
+      shiftTemplateMap: lookups?.shiftTemplateMap ?? const {},
+    );
     return !logical.isBefore(rangeStart) && !logical.isAfter(rangeEnd);
   }).toList();
 }
@@ -1778,13 +1834,23 @@ List<DailyShiftRecord> computeDailyShiftRecords({
     toDate,
     dayEndHour: dayEndHour,
     dayEndMinute: dayEndMinute,
+    lookups: lookups,
   );
 
   final Map<String, Map<String, List<Attendance>>> grouped = {};
   for (final att in filtered) {
     final empKey = att.employeeId ?? att.enrollNumber ?? 'unknown';
-    final logicalDate =
-        _getLogicalDate(att.punchTime, dayEndHour, dayEndMinute);
+    final empGuid = lookups.employeeCodeToGuid[empKey] ?? '';
+    final assignedForDate = lookups.employeeGuidToShiftTemplateIds[empGuid] ??
+        lookups.employeeGuidToShiftTemplateIds[empKey] ??
+        const <String>[];
+    final logicalDate = resolveAttendanceWorkDay(
+      att.punchTime,
+      dayEndHour: dayEndHour,
+      dayEndMinute: dayEndMinute,
+      assignedShiftIds: assignedForDate,
+      shiftTemplateMap: lookups.shiftTemplateMap,
+    );
     final dateKey = DateFormat('yyyy-MM-dd').format(logicalDate);
     grouped.putIfAbsent(empKey, () => {});
     grouped[empKey]!.putIfAbsent(dateKey, () => []).add(att);
@@ -1804,7 +1870,9 @@ List<DailyShiftRecord> computeDailyShiftRecords({
 
       final empGuid = lookups.employeeCodeToGuid[employeeCode] ?? '';
       final assignedShiftIds =
-          lookups.employeeGuidToShiftTemplateIds[empGuid] ?? [];
+          lookups.employeeGuidToShiftTemplateIds[empGuid] ??
+              lookups.employeeGuidToShiftTemplateIds[employeeCode] ??
+              const <String>[];
       final isOnceShift = lookups.isOncePerShiftMode(empGuid, employeeCode);
       final isCheckoutOnly = lookups.isCheckoutOnlyMode(empGuid, employeeCode);
 
@@ -1952,6 +2020,13 @@ List<DailyShiftRecord> computeDailyShiftRecords({
           usedShiftIds: usedShiftIds,
           pairIndex: pairIndex,
         );
+        // Mode chấm vào: nếu không khớp (vd. ca đã dùng) vẫn neo ca chính để synthesize giờ ra.
+        if (matchedShift == null && isOnceShift) {
+          matchedShift = _primaryWorkShiftForDay(
+            assignedShiftIds,
+            lookups.shiftTemplateMap,
+          );
+        }
 
         if (matchedShift != null) {
           final shiftId = matchedShift['id']?.toString() ?? '';
@@ -2499,13 +2574,23 @@ List<DailyShiftPair> computeDailyShiftPairs({
     toDate,
     dayEndHour: dayEndHour,
     dayEndMinute: dayEndMinute,
+    lookups: lookups,
   );
 
   final Map<String, Map<String, List<Attendance>>> grouped = {};
   for (final att in filtered) {
     final empKey = att.employeeId ?? att.enrollNumber ?? 'unknown';
-    final logicalDate =
-        _getLogicalDate(att.punchTime, dayEndHour, dayEndMinute);
+    final empGuid = lookups.employeeCodeToGuid[empKey] ?? '';
+    final assignedForDate = lookups.employeeGuidToShiftTemplateIds[empGuid] ??
+        lookups.employeeGuidToShiftTemplateIds[empKey] ??
+        const <String>[];
+    final logicalDate = resolveAttendanceWorkDay(
+      att.punchTime,
+      dayEndHour: dayEndHour,
+      dayEndMinute: dayEndMinute,
+      assignedShiftIds: assignedForDate,
+      shiftTemplateMap: lookups.shiftTemplateMap,
+    );
     final dateKey = DateFormat('yyyy-MM-dd').format(logicalDate);
     grouped.putIfAbsent(empKey, () => {});
     grouped[empKey]!.putIfAbsent(dateKey, () => []).add(att);
@@ -2521,7 +2606,9 @@ List<DailyShiftPair> computeDailyShiftPairs({
 
       final empGuid = lookups.employeeCodeToGuid[employeeCode] ?? '';
       final assignedShiftIds =
-          lookups.employeeGuidToShiftTemplateIds[empGuid] ?? [];
+          lookups.employeeGuidToShiftTemplateIds[empGuid] ??
+              lookups.employeeGuidToShiftTemplateIds[employeeCode] ??
+              const <String>[];
       final isFree2 = lookups.isFreeTwoPunchMode(empGuid, employeeCode);
       final isOnceShift = lookups.isOncePerShiftMode(empGuid, employeeCode);
       final isCheckoutOnly = lookups.isCheckoutOnlyMode(empGuid, employeeCode);
@@ -2581,6 +2668,12 @@ List<DailyShiftPair> computeDailyShiftPairs({
             usedShiftIds: usedShiftIds,
             pairIndex: pairIndex,
           );
+          if (matchedShift == null && isOnceShift) {
+            matchedShift = _primaryWorkShiftForDay(
+              assignedShiftIds,
+              lookups.shiftTemplateMap,
+            );
+          }
         }
         if (matchedShift != null) {
           final shiftId = matchedShift['id']?.toString() ?? '';

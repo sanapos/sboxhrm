@@ -237,7 +237,8 @@ class _ProductSalarySettingsScreenState
                       ],
                     ),
                   )
-                : embeddedMobile
+                : (embeddedMobile ||
+                        HrmSettingsMobileKit.preferCardList(context))
                     ? SingleChildScrollView(
                         padding: EdgeInsets.fromLTRB(
                           pagePad.left,

@@ -35,6 +35,8 @@ class _PosCustomerDisplayScreenState extends State<PosCustomerDisplayScreen> {
   String? _videoError;
   String _promoFingerprint = '';
   String? _viewerCode;
+  bool _awaitingRemote = false;
+  String? _remoteStatus;
 
   static const _billBg = Color(0xFFFFFFFF);
   static const _billFg = Color(0xFF111827);
@@ -48,6 +50,12 @@ class _PosCustomerDisplayScreenState extends State<PosCustomerDisplayScreen> {
     _viewerCode = parseWebRouteQueryParams()['v']?.trim();
     if ((_viewerCode ?? '').isEmpty) {
       _viewerCode = parseWebRouteQueryParams()['code']?.trim();
+    }
+    if ((_viewerCode ?? '').isEmpty) {
+      final fromInitial = InitialWebRoute.customerDisplayCode?.trim();
+      if (fromInitial != null && fromInitial.length >= 4) {
+        _viewerCode = fromInitial;
+      }
     }
     _sync.startListening();
     _sync.addListener(_onSync);
@@ -77,7 +85,23 @@ class _PosCustomerDisplayScreenState extends State<PosCustomerDisplayScreen> {
     if (!mounted) return;
     if (res['isSuccess'] == true && res['data'] is Map) {
       final json = (res['data'] as Map)['stateJson']?.toString();
-      _sync.applyRemoteStateJson(json);
+      if (json != null && json.isNotEmpty) {
+        _sync.applyRemoteStateJson(json);
+        if (_awaitingRemote || _remoteStatus != null) {
+          setState(() {
+            _awaitingRemote = false;
+            _remoteStatus = null;
+          });
+        }
+        return;
+      }
+    }
+    if (!_awaitingRemote || _remoteStatus == null) {
+      setState(() {
+        _awaitingRemote = true;
+        _remoteStatus =
+            'Đang chờ máy thu ngân… (mã $code) — mở bán hàng và bấm truyền màn phụ';
+      });
     }
   }
 
@@ -217,22 +241,50 @@ class _PosCustomerDisplayScreenState extends State<PosCustomerDisplayScreen> {
   Widget build(BuildContext context) {
     final s = _sync.state;
     final wide = MediaQuery.sizeOf(context).width >= 720;
+    final body = wide
+        ? Row(
+            children: [
+              // ~60% media — full khung, không bị bill đè.
+              Expanded(flex: 62, child: _buildMediaPane(s)),
+              Expanded(flex: 38, child: _buildBillPane(s)),
+            ],
+          )
+        : Column(
+            children: [
+              Expanded(flex: 55, child: _buildMediaPane(s)),
+              Expanded(flex: 45, child: _buildBillPane(s)),
+            ],
+          );
     return Scaffold(
       backgroundColor: _billBg,
-      body: wide
-          ? Row(
-              children: [
-                // ~60% media — full khung, không bị bill đè.
-                Expanded(flex: 62, child: _buildMediaPane(s)),
-                Expanded(flex: 38, child: _buildBillPane(s)),
-              ],
-            )
-          : Column(
-              children: [
-                Expanded(flex: 55, child: _buildMediaPane(s)),
-                Expanded(flex: 45, child: _buildBillPane(s)),
-              ],
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          body,
+          if (_awaitingRemote && (_remoteStatus ?? '').isNotEmpty)
+            Positioned(
+              left: 12,
+              right: 12,
+              top: 12,
+              child: Material(
+                color: const Color(0xEE1E3A8A),
+                borderRadius: BorderRadius.circular(10),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  child: Text(
+                    _remoteStatus!,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
             ),
+        ],
+      ),
     );
   }
 

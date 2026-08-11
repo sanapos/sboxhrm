@@ -20,9 +20,22 @@ class PosPrintAgentSettings {
   static const _kPrinterIds = 'pos_print_agent_printer_ids';
   static const _kDeviceId = 'pos_print_device_id';
   static const _kAccountLabel = 'pos_print_agent_account_label';
+  static const _kMigrationKey = 'pos_print_agent_migration';
+  // Bump to force one-time reset of enabled/printerIds/deviceId — Android
+  // Auto Backup có thể phục hồi cấu hình Agent cũ (bật + gán máy in của
+  // thiết bị khác) sau khi gỡ cài đặt lại app, khiến máy gửi (A7) vô tình
+  // trở thành Agent "ma" tranh nhận job in của máy thật (A6).
+  static const _kMigrationValue = 'reset_v1';
 
   static Future<PosPrintAgentSettings> load() async {
     final prefs = await SharedPreferences.getInstance();
+    final migrated = prefs.getString(_kMigrationKey) == _kMigrationValue;
+    if (!migrated) {
+      await prefs.setBool(_kEnabled, false);
+      await prefs.remove(_kPrinterIds);
+      await prefs.remove(_kDeviceId);
+      await prefs.setString(_kMigrationKey, _kMigrationValue);
+    }
     final ids = prefs.getStringList(_kPrinterIds) ?? [];
     return PosPrintAgentSettings(
       enabled: prefs.getBool(_kEnabled) ?? false,

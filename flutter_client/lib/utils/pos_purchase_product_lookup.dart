@@ -13,12 +13,15 @@ class PosPurchaseLookupPick {
     this.variantId,
     this.unitId,
     this.unitLabel,
+    this.qty,
   });
 
   final PosProduct product;
   final String? variantId;
   final String? unitId;
   final String? unitLabel;
+  /// SL chọn khi multi-pick (null = 1).
+  final double? qty;
 }
 
 /// Quét mã / SKU chính xác hoặc tìm theo tên — hiện danh sách chọn nếu nhiều kết quả.

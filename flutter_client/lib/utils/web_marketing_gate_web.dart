@@ -21,6 +21,7 @@ bool shouldRedirectToStaticHome() {
     '/forgot-password',
     '/admin',
     '/guide',
+    '/customer-display',
   ];
   for (final p in appPaths) {
     if (path == p || path.startsWith('$p/')) return false;
@@ -49,6 +50,7 @@ bool shouldRedirectToStaticHome() {
       '/reset-password',
       '/admin',
       '/guide',
+      '/customer-display',
     ];
     for (final r in hashRoutes) {
       if (normalized == r ||

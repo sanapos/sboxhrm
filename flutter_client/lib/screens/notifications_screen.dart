@@ -503,11 +503,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     );
   }
 
-  bool get _canDeleteNotifications {
-    if (widget.adminPortalMode) return true;
-    return Provider.of<PermissionProvider>(context, listen: false)
-        .canDelete('Notification');
-  }
+  /// Người dùng luôn được xóa thông báo của chính mình (API đã scope theo user).
+  bool get _canDeleteNotifications => true;
 
   // == Build ==
 
@@ -950,6 +947,22 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                       if (hasNav)
                         Icon(Icons.chevron_right,
                             size: 18, color: Colors.grey.shade400),
+                      if (canDelete)
+                        IconButton(
+                          tooltip: tr('Xóa'),
+                          visualDensity: VisualDensity.compact,
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(
+                            minWidth: 32,
+                            minHeight: 32,
+                          ),
+                          icon: Icon(
+                            Icons.delete_outline,
+                            size: 18,
+                            color: Colors.red.shade400,
+                          ),
+                          onPressed: () => unawaited(_deleteNotification(n.id)),
+                        ),
                     ]),
                     const SizedBox(height: 4),
                     _buildExpandableMessage(n),

@@ -432,6 +432,7 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
     // ── BÁO CÁO — chỉ xem + xuất ──
     'LeaveReport': {'canView', 'canExport'},
     'CashReport': {'canView', 'canExport'},
+    'HkdBooks': {'canView', 'canEdit', 'canExport'},
     'PenaltyReport': {'canView', 'canExport'},
     'AdvanceReport': {'canView', 'canExport'},
     'BusinessTripReport': {'canView', 'canExport'},
@@ -1714,9 +1715,12 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
   Widget _buildMobileBody() {
     if (_selectedRolePermissions == null) {
       // Step 1: Show role list
-      if (HrmSettingsMobileKit.active(context)) {
+      if (HrmSettingsMobileKit.active(context) ||
+          HrmSettingsMobileKit.preferCardList(context)) {
         return SingleChildScrollView(
-          padding: HrmSettingsMobileKit.pagePadding(context),
+          padding: HrmSettingsMobileKit.active(context)
+              ? HrmSettingsMobileKit.pagePadding(context)
+              : const EdgeInsets.all(12),
           child: HrmSettingsSection(
             title: 'Chức danh',
             trailing: _perm.canCreate('Role')

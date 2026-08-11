@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform, TargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -52,6 +53,7 @@ class _LoginScreenState extends State<LoginScreen>
   String _zaloNumber = '0973024042';
   Map<String, dynamic>? _storeAgentContact;
   Timer? _agentLookupDebounce;
+  String _appVersionLabel = '';
 
   String get _siteOrigin {
     var origin = ApiService.baseUrl.replaceFirst(RegExp(r'/api/?$'), '');
@@ -101,6 +103,7 @@ class _LoginScreenState extends State<LoginScreen>
     _animController.forward();
     _loadSavedCredentials();
     _loadPublicSettings();
+    _loadAppVersion();
     _storeCodeController.addListener(_onStoreCodeChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -117,6 +120,16 @@ class _LoginScreenState extends State<LoginScreen>
     _agentLookupDebounce = Timer(const Duration(milliseconds: 500), () {
       _loadStoreAgentContact(_storeCodeController.text.trim());
     });
+  }
+
+  Future<void> _loadAppVersion() async {
+    try {
+      final info = await PackageInfo.fromPlatform();
+      if (!mounted) return;
+      setState(() {
+        _appVersionLabel = 'v${info.version} (${info.buildNumber})';
+      });
+    } catch (_) {}
   }
 
   Future<void> _loadStoreAgentContact(String storeCode) async {
@@ -778,31 +791,51 @@ class _LoginScreenState extends State<LoginScreen>
                   if (kIsWeb)
                     FittedBox(
                       fit: BoxFit.scaleDown,
-                      child: Wrap(
-                        alignment: WrapAlignment.center,
-                        crossAxisAlignment: WrapCrossAlignment.center,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Text(tr('Chưa có tài khoản?'),
-                              style: TextStyle(
-                                  color: Color(0xFF586064),
-                                  fontSize: 14,
-                                  height: 1.5)),
+                              style: const TextStyle(
+                                  color: Color(0xFF6B7280), fontSize: 14)),
                           TextButton(
                             onPressed: () =>
                                 Navigator.of(context).pushNamed('/register'),
-                            style: TextButton.styleFrom(
-                                foregroundColor: const Color(0xFF0C56D0)),
                             child: Text(tr('Đăng ký ngay'),
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 14,
-                                  decoration: TextDecoration.underline,
-                                  decorationColor: Color(0xFF0C56D0),
-                                )),
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                    color: Color(0xFF0C56D0))),
                           ),
                         ],
                       ),
                     ),
+                  if (kIsWeb) ...[
+                    const SizedBox(height: 8),
+                    TextButton.icon(
+                      onPressed: () async {
+                        final base = ApiService.baseUrl
+                            .replaceFirst(RegExp(r'/api/?$'), '');
+                        final uri = Uri.parse(
+                            '${base.endsWith('/') ? base.substring(0, base.length - 1) : base}/api/app/pos-android-apk');
+                        final ok = await launchUrl(
+                          uri,
+                          mode: LaunchMode.externalApplication,
+                        );
+                        if (!ok && mounted) {
+                          NotificationOverlayManager().showError(
+                            title: 'Không mở được',
+                            message: uri.toString(),
+                          );
+                        }
+                      },
+                      icon: const Icon(Icons.android, size: 18),
+                      label: Text(tr('Tải APK SBOX POS (Android 6+)')),
+                      style: TextButton.styleFrom(
+                        foregroundColor: const Color(0xFF0C56D0),
+                        textStyle: const TextStyle(
+                            fontSize: 13, fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 40),
 
                   // Platform icons — hide Android icon on iOS (Apple guideline 2.3.10)
@@ -848,6 +881,15 @@ class _LoginScreenState extends State<LoginScreen>
       fontWeight: FontWeight.w500,
       letterSpacing: 0.3,
     );
+    final versionStyle = TextStyle(
+      color: Colors.grey.shade500,
+      fontSize: 11,
+      fontWeight: FontWeight.w600,
+      letterSpacing: 0.2,
+    );
+    final versionText = _appVersionLabel.isEmpty
+        ? null
+        : Text(_appVersionLabel, style: versionStyle, textAlign: TextAlign.center);
     final links = Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -866,7 +908,16 @@ class _LoginScreenState extends State<LoginScreen>
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             Expanded(
-              child: Text(tr(copyright), style: copyrightStyle),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(tr(copyright), style: copyrightStyle),
+                  if (versionText != null) ...[
+                    const SizedBox(height: 4),
+                    versionText,
+                  ],
+                ],
+              ),
             ),
             links,
           ],
@@ -889,6 +940,10 @@ class _LoginScreenState extends State<LoginScreen>
               textAlign: TextAlign.center,
             ),
           ),
+          if (versionText != null) ...[
+            const SizedBox(height: 4),
+            versionText,
+          ],
         ],
       ),
     );

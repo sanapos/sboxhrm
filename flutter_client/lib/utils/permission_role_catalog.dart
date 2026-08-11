@@ -108,6 +108,7 @@ class PermissionRoleCatalog {
         'AttendanceReport',
         'LeaveReport',
         'CashReport',
+        'HkdBooks',
         'PenaltyReport',
         'AdvanceReport',
         'BusinessTripReport',
@@ -151,6 +152,7 @@ class PermissionRoleCatalog {
         'PosDamageIssues',
         'PosInternalUseIssues',
         'PosSalesReport',
+        'HkdBooks',
       ],
     ),
     PermissionUiGroup(

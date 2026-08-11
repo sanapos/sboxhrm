@@ -310,11 +310,11 @@ class _PenaltySettingsScreenState extends State<PenaltySettingsScreen> {
     );
   }
 
-  /// Tối đa 2 cột — tránh 4 cột hẹp làm hàng nhập tiền bị cắt.
+  /// Tối đa 2 cột trên tablet/desktop — phone luôn 1 cột full-width.
   Widget _buildCardsLayout(BuildContext context) {
     final w = MediaQuery.sizeOf(context).width;
     final twoCols =
-        (w >= 360 && HrmSettingsMobileKit.active(context)) || w >= 720;
+        !HrmSettingsMobileKit.preferCardList(context) && w >= 900;
     final gap = 16.0;
 
     final cards = [
@@ -667,7 +667,8 @@ class _PenaltySettingsScreenState extends State<PenaltySettingsScreen> {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final sideBySide = constraints.maxWidth >= 380;
+        // Card full-width trên phone: ghép 2 ô một hàng khi đủ rộng (~340+).
+        final sideBySide = constraints.maxWidth >= 340;
 
         Widget thresholdField = _labeledField(
           context: context,

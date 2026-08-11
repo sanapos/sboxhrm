@@ -190,7 +190,7 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
             child: _branches.isEmpty
                 ? _buildEmptyState('Chưa có chi nhánh nào',
                     'Hãy tạo chi nhánh đầu tiên cho hệ thống.')
-                : embeddedKit
+                : embeddedKit || HrmSettingsMobileKit.preferCardList(context)
                     ? ListView(
                         padding: const EdgeInsets.symmetric(
                             horizontal: 12, vertical: 8),

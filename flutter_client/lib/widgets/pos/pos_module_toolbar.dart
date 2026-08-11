@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../utils/navigation_notifier.dart';
 import '../../utils/responsive_helper.dart';
+import '../../screens/settings_hub_screen.dart';
 import 'pos_theme.dart';
 import 'pos_hub_scope.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
@@ -69,6 +70,14 @@ class PosModuleToolbar extends StatelessWidget {
                 ],
               ),
             ),
+          ),
+          IconButton(
+            tooltip: tr('Thiết lập / mẫu in'),
+            onPressed: () {
+              SettingsHubScreen.pendingSubIndex.value = 15; // Mẫu in
+              NavigationNotifier.goToModule('SettingsHub');
+            },
+            icon: const Icon(Icons.settings_outlined, color: Colors.white, size: 20),
           ),
           FilledButton.icon(
             onPressed: () => NavigationNotifier.goToModule('PosSell'),

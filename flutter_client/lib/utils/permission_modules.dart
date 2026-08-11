@@ -29,6 +29,7 @@ class PermissionModules {
     'Production',
     'PosProducts',
     'PosSalesReport',
+    'HkdBooks',
     'ProductSalary',
     'KPI',
     'LeaveReport',

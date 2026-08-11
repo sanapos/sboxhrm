@@ -96,7 +96,9 @@ class InitialWebRoute {
   static bool showLogin = false;
   static bool showForgotPassword = false;
   static bool showGuide = false;
+  static bool showCustomerDisplay = false;
   static String? agentRegisterToken;
+  static String? customerDisplayCode;
   static Map<String, String> queryParams = const {};
 
   static void capture() {
@@ -109,6 +111,14 @@ class InitialWebRoute {
     showLogin = isLoginDeepLink;
     showForgotPassword = isForgotPasswordDeepLink;
     showGuide = isGuideDeepLink;
+
+    final path = Uri.base.path;
+    final segs = parseWebHashPathSegments();
+    showCustomerDisplay = path.contains('customer-display') ||
+        (segs.isNotEmpty && segs.first == 'customer-display');
+    customerDisplayCode =
+        (queryParams['v'] ?? queryParams['code'] ?? '').trim();
+    if ((customerDisplayCode ?? '').isEmpty) customerDisplayCode = null;
 
     // Fallback: index.html lưu vào sessionStorage trước khi Flutter có thể xóa hash.
     initial_route_capture.captureInitialRouteFromStorage();

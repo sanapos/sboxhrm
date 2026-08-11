@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
 
@@ -5,6 +7,11 @@ import '../models/pos_print_template.dart';
 import '../models/pos_print_template_v2.dart';
 import '../models/pos_store_printer.dart';
 import '../services/api_service.dart';
+import '../widgets/notification_overlay.dart';
+import 'pos_barcode_print.dart';
+import 'pos_label_printer_service.dart';
+import 'pos_label_renderer.dart';
+import 'pos_local_printers_store.dart';
 import 'pos_print_orchestrator.dart';
 import 'pos_print_template_compiler.dart';
 import 'pos_print_template_loader.dart';
@@ -15,6 +22,7 @@ import 'pos_printer_transport.dart';
 import 'pos_store_printer_mapper.dart';
 import 'pos_thermal_printer_service.dart';
 import 'pos_thermal_printer_settings.dart';
+import '../l10n/app_tr.dart';
 
 /// Một tem dán ly (1 phần = 1 tem).
 class CupLabelTicket {
@@ -35,8 +43,10 @@ class CupLabelTicket {
   final String? orderNo;
 }
 
-/// In tem trà sữa / dán ly — dùng mẫu **Tem báo bếp** (KitchenLabel) nếu có.
-/// Mỗi phần (unit) = 1 tem; in 1 lần theo SL chưa in.
+/// In tem trà sữa / dán ly.
+///
+/// Ưu tiên **máy in tem** (KitchenLabel / mọi máy kind=label),
+/// không đẩy sang máy hóa đơn Sunmi trừ khi không có máy tem.
 Future<bool> printCupLabels({
   required List<CupLabelTicket> tickets,
   DateTime? printedAt,
@@ -48,104 +58,178 @@ Future<bool> printCupLabels({
   final hourFmt = DateFormat('HH:mm');
   final when = printedAt ?? DateTime.now();
 
-  final v2 = templateOverride ?? await _loadKitchenLabelTemplate();
+  if (!kIsWeb) {
+    final all = await PosLocalPrintersStore.instance.loadAll();
+    // 1) Máy tem có role KitchenLabel
+    var labelTargets = all
+        .where((p) =>
+            p.enabled &&
+            p.isLabel &&
+            p.hasRole(PosLocalPrinterRoles.kitchenLabel))
+        .toList();
+    // 2) Mọi máy tem đang bật (kể cả chỉ BarcodeLabel)
+    if (labelTargets.isEmpty) {
+      labelTargets = all.where((p) => p.enabled && p.isLabel).toList();
+    }
 
-  Future<PosThermalPrinterSettings> loadSettings() async {
-    if (!kIsWeb) {
-      final thermal = await PosThermalPrinterSettings.load();
-      if (thermal.enabled) {
-        return PosPrinterTransport.prepareLocalSettings(thermal);
+    if (labelTargets.isNotEmpty) {
+      final v2 = templateOverride ?? await _loadKitchenLabelTemplate();
+      // Ưu tiên khổ giấy theo mẫu thiết kế; fallback khổ máy in tem.
+      final designTplId =
+          PosPrintPaperSizes.toLabelTemplateId(v2.paperSize);
+      final designSize = posBarcodeLabelTemplateById(designTplId);
+      var anyOk = false;
+      for (final p in labelTargets) {
+        final settings = p.toLabelSettings().copyWith(enabled: true);
+        final machineTpl = settings.template ??
+            posBarcodeLabelTemplateById('roll_1_50x30')!;
+        final tpl = designSize ?? machineTpl;
+        final widthMm = tpl.labelWidthMm;
+        final heightMm = tpl.labelHeightMm;
+        final jobs =
+            <({Uint8List raster, int widthPx, int heightPx})>[];
+        final outputs = _compileCupOutputs(
+          tickets: tickets,
+          v2: v2.copyWith(
+            paperSize: designSize != null ? v2.paperSize : machineTpl.id,
+          ),
+          timeFmt: timeFmt,
+          hourFmt: hourFmt,
+          when: when,
+        );
+        for (var i = 0; i < outputs.length; i++) {
+          final r = await PosLabelRenderer.renderCompiledLabel(
+            output: outputs[i],
+            widthMm: widthMm,
+            heightMm: heightMm,
+            dpi: settings.dpi,
+            marginLeftMm: settings.marginLeftMm,
+            marginRightMm: settings.marginRightMm,
+            marginTopMm: settings.marginTopMm,
+            marginBottomMm: settings.marginBottomMm,
+            fontScale: settings.fontScale,
+          );
+          if (!PosLabelRenderer.hasEnoughInk(r.raster)) {
+            // Fallback raster cứng nếu mẫu trống.
+            final t = tickets[i];
+            final fallback = await PosLabelRenderer.renderCupTicket(
+              productName: t.productName,
+              tableLabel: t.tableLabel,
+              orderNo: t.orderNo,
+              toppings: t.toppings,
+              note: t.note,
+              qtyLabel: t.qtyLabel,
+              widthMm: widthMm,
+              heightMm: heightMm,
+              dpi: settings.dpi,
+              marginLeftMm: settings.marginLeftMm,
+              marginRightMm: settings.marginRightMm,
+              marginTopMm: settings.marginTopMm,
+              marginBottomMm: settings.marginBottomMm,
+              fontScale: settings.fontScale,
+              showHeader: settings.showHeader,
+              showTable: settings.showTable,
+              showOrderNo: settings.showOrderNo,
+              showToppings: settings.showToppings,
+              showNote: settings.showNote,
+              showQty: settings.showQty,
+            );
+            if (PosLabelRenderer.hasEnoughInk(fallback.raster)) {
+              jobs.add(fallback);
+            }
+            continue;
+          }
+          jobs.add(r);
+        }
+        if (jobs.isEmpty) {
+          if (showFeedback) {
+            NotificationOverlayManager().showError(
+              title: 'Tem ly trống',
+              message: tr('Không render được chữ tem. Thử lại hoặc kiểm tra font.'),
+            );
+          }
+          continue;
+        }
+        final ok = await PosLabelPrinterService.printCupRasters(
+          jobs,
+          settings: settings,
+          widthMm: widthMm,
+          heightMm: heightMm,
+        );
+        if (ok) {
+          // Chỉ 1 máy tem — tránh in đôi khi có 2 profile cùng role.
+          anyOk = true;
+          break;
+        }
+      }
+      if (anyOk) {
+        if (showFeedback) {
+          NotificationOverlayManager().showSuccess(
+            title: 'Tem ly',
+            message: tr('Đã in lên máy tem'),
+          );
+        }
+        return true;
       }
     }
-    final printers = PosPrintOrchestrator.instance.printers;
-    if (printers.isNotEmpty) return toThermalSettings(printers.first);
-    return const PosThermalPrinterSettings();
+
+    // 3) Máy nhiệt có role KitchenLabel (không phải singleton hóa đơn Sunmi).
+    final thermalCup = all
+        .where((p) =>
+            p.enabled &&
+            !p.isLabel &&
+            p.hasRole(PosLocalPrinterRoles.kitchenLabel))
+        .toList();
+    if (thermalCup.isNotEmpty) {
+      final v2 = templateOverride ?? await _loadKitchenLabelTemplate();
+      final outputs = _compileCupOutputs(
+        tickets: tickets,
+        v2: v2,
+        timeFmt: timeFmt,
+        hourFmt: hourFmt,
+        when: when,
+      );
+      var anyOk = false;
+      for (final p in thermalCup) {
+        final prepared =
+            await PosPrinterTransport.prepareLocalSettings(p.toThermalSettings());
+        final cupSettings = prepared.copyWith(
+          feedBeforeCut: 8,
+          openCashDrawer: false,
+        );
+        // Không ép Sunmi khi connection không phải sunmi.
+        final ok = await _printCupOutputsLocal(
+          outputs: outputs,
+          cupSettings: cupSettings,
+          showFeedback: false,
+        );
+        if (ok) {
+          anyOk = true;
+          break;
+        }
+      }
+      if (anyOk) {
+        if (showFeedback) {
+          NotificationOverlayManager().showSuccess(
+            title: 'Tem ly',
+            message: tr('Đã in tem ly'),
+          );
+        }
+        return true;
+      }
+    }
   }
 
-  final settings = (await loadSettings()).copyWith(
-    feedBeforeCut: 8,
-    openCashDrawer: false,
+  // Cloud → Print Agent.
+  final v2 = templateOverride ?? await _loadKitchenLabelTemplate();
+  final outputs = _compileCupOutputs(
+    tickets: tickets,
+    v2: v2,
+    timeFmt: timeFmt,
+    hourFmt: hourFmt,
+    when: when,
   );
 
-  // Biên dịch từng tem theo mẫu V2.
-  final outputs = <PosPrintCompiledOutput>[];
-  for (final t in tickets) {
-    final noteParts = <String>[];
-    final tops = (t.toppings ?? '').trim();
-    if (tops.isNotEmpty) noteParts.add(tops);
-    final note = (t.note ?? '').trim();
-    if (note.isNotEmpty) noteParts.add(note);
-    final data = <String, String>{
-      'Ten_Cua_Hang': '',
-      'Ten_Ban': (t.tableLabel ?? '').trim(),
-      'Ma_Don_Hang': (t.orderNo ?? '').trim(),
-      'Ngay': timeFmt.format(when),
-      'Gio': hourFmt.format(when),
-      'Ten_Hang_Hoa': t.productName.trim().isEmpty ? 'Món' : t.productName.trim(),
-      'Ghi_Chu': noteParts.join('\n'),
-      'So_Luong': (t.qtyLabel ?? '1').trim().isEmpty ? '1' : (t.qtyLabel ?? '1').trim(),
-      'Don_Vi_Tinh': '',
-      'Ma_Hang': '',
-      'Ma_Vach': '',
-      'Don_Gia': '',
-      'Tieu_De_In': 'TEM LY',
-    };
-    outputs.add(PosPrintTemplateCompiler.compile(
-      template: v2,
-      data: data,
-      lineItems: const [],
-    ));
-  }
-
-  if (!kIsWeb) {
-    final thermal = await PosThermalPrinterSettings.load();
-    if (thermal.enabled) {
-      final prepared = await PosPrinterTransport.prepareLocalSettings(thermal);
-      final cupSettings = prepared.copyWith(
-        feedBeforeCut: 8,
-        openCashDrawer: false,
-      );
-      if (cupSettings.connectionType == PosThermalConnectionType.sunmi ||
-          await PosPrinterTransport.isSunmiDevice()) {
-        var allOk = true;
-        for (final output in outputs) {
-          final ok = await PosPrintTemplateRuntime.printCompiledSunmi(
-            output: output,
-            settings: cupSettings.copyWith(
-              connectionType: PosThermalConnectionType.sunmi,
-              printerBrand: PosThermalPrinterBrand.sunmi,
-            ),
-            kitchenFeed: true,
-          );
-          if (!ok) allOk = false;
-        }
-        if (allOk) return true;
-      }
-      try {
-        final merged = <int>[];
-        for (final output in outputs) {
-          final bytes = await PosPrintTemplateRuntime.buildCompiledEscPosBytes(
-            output: output,
-            settings: cupSettings,
-          );
-          merged.addAll(bytes);
-        }
-        final localOk = await PosPrintOrchestrator.instance.dispatchLocalEscPos(
-          bytes: merged,
-          showFeedback: showFeedback,
-          successTitle: 'Tem ly',
-          settingsOverride: cupSettings,
-          documentType: PosPrintDocumentTypes.kitchenLabel,
-          skipDedup: true,
-        );
-        if (localOk) return true;
-      } catch (e) {
-        debugPrint('Local cup label failed: $e');
-      }
-    }
-  }
-
-  // Cloud → Print Agent (web + khi local lỗi).
   await PosPrintOrchestrator.instance.refreshConfig();
   final cloudPrinter = PosPrintOrchestrator.instance
           .resolvePrinter(PosCloudDocumentTypes.kitchenLabel) ??
@@ -153,33 +237,133 @@ Future<bool> printCupLabels({
           .resolvePrinter(PosCloudDocumentTypes.barcodeLabel);
   if (cloudPrinter != null && outputs.isNotEmpty) {
     try {
-      final cupSettings = toThermalSettings(cloudPrinter).copyWith(
-        feedBeforeCut: 8,
-        openCashDrawer: false,
-      );
-      final merged = <int>[];
-      for (final output in outputs) {
-        merged.addAll(await PosPrintTemplateRuntime.buildCompiledEscPosBytes(
-          output: output,
-          settings: cupSettings,
-        ));
+      // Máy tem (TSPL/Xprinter): phải gửi bitmap TSPL — EscPos ghi USB «OK»
+      // nhưng Tem 350BM không in gì.
+      if (cloudPrinter.isLabelPrinter) {
+        final labelSettings = toLabelSettings(cloudPrinter);
+        final designTplId =
+            PosPrintPaperSizes.toLabelTemplateId(v2.paperSize);
+        final designSize = posBarcodeLabelTemplateById(designTplId);
+        final machineTpl = labelSettings.template ??
+            posBarcodeLabelTemplateById('roll_1_50x30')!;
+        final tpl = designSize ?? machineTpl;
+        final widthMm = tpl.labelWidthMm;
+        final heightMm = tpl.labelHeightMm;
+        final rasters = <({Uint8List raster, int widthPx, int heightPx})>[];
+        for (var i = 0; i < outputs.length; i++) {
+          final r = await PosLabelRenderer.renderCompiledLabel(
+            output: outputs[i],
+            widthMm: widthMm,
+            heightMm: heightMm,
+            dpi: labelSettings.dpi,
+            marginLeftMm: labelSettings.marginLeftMm,
+            marginRightMm: labelSettings.marginRightMm,
+            marginTopMm: labelSettings.marginTopMm,
+            marginBottomMm: labelSettings.marginBottomMm,
+            fontScale: labelSettings.fontScale,
+          );
+          if (!PosLabelRenderer.hasEnoughInk(r.raster)) {
+            final t = tickets[i];
+            final fallback = await PosLabelRenderer.renderCupTicket(
+              productName: t.productName,
+              tableLabel: t.tableLabel,
+              orderNo: t.orderNo,
+              toppings: t.toppings,
+              note: t.note,
+              qtyLabel: t.qtyLabel,
+              widthMm: widthMm,
+              heightMm: heightMm,
+              dpi: labelSettings.dpi,
+              marginLeftMm: labelSettings.marginLeftMm,
+              marginRightMm: labelSettings.marginRightMm,
+              marginTopMm: labelSettings.marginTopMm,
+              marginBottomMm: labelSettings.marginBottomMm,
+              fontScale: labelSettings.fontScale,
+              showHeader: labelSettings.showHeader,
+              showTable: labelSettings.showTable,
+              showOrderNo: labelSettings.showOrderNo,
+              showToppings: labelSettings.showToppings,
+              showNote: labelSettings.showNote,
+              showQty: labelSettings.showQty,
+            );
+            if (PosLabelRenderer.hasEnoughInk(fallback.raster)) {
+              rasters.add(fallback);
+            }
+            continue;
+          }
+          rasters.add(r);
+        }
+        if (rasters.isNotEmpty) {
+          final jobs = PosLabelPrinterService.buildCupRasterByteJobs(
+            rasters,
+            settings: labelSettings,
+            widthMm: widthMm,
+            heightMm: heightMm,
+          );
+          var allOk = true;
+          for (var i = 0; i < jobs.length; i++) {
+            final ok = await PosPrintOrchestrator.instance.dispatchEscPos(
+              documentType: PosCloudDocumentTypes.kitchenLabel,
+              bytes: jobs[i],
+              printerId: cloudPrinter.id,
+              showFeedback: showFeedback && i == jobs.length - 1,
+              successTitle: 'Tem ly',
+              skipDedup: true,
+              // Không treo UI 90s chờ Completed — Agent Claimed = đang in tem.
+              waitForCompletion: false,
+              acceptClaimedAsSuccess: true,
+              hangAfter: const Duration(seconds: 90),
+            );
+            if (!ok) {
+              allOk = false;
+              break;
+            }
+          }
+          if (allOk) return true;
+        }
+      } else {
+        final cupSettings = toThermalSettings(cloudPrinter).copyWith(
+          feedBeforeCut: 8,
+          openCashDrawer: false,
+        );
+        final merged = <int>[];
+        for (final output in outputs) {
+          merged.addAll(await PosPrintTemplateRuntime.buildCompiledEscPosBytes(
+            output: output,
+            settings: cupSettings,
+          ));
+        }
+        final ok = await PosPrintOrchestrator.instance.dispatchEscPos(
+          documentType: PosCloudDocumentTypes.kitchenLabel,
+          bytes: merged,
+          printerId: cloudPrinter.id,
+          showFeedback: showFeedback,
+          successTitle: 'Tem ly',
+          skipDedup: true,
+          waitForCompletion: false,
+          acceptClaimedAsSuccess: true,
+          hangAfter: const Duration(seconds: 90),
+        );
+        if (ok) return true;
       }
-      final ok = await PosPrintOrchestrator.instance.dispatchEscPos(
-        documentType: PosCloudDocumentTypes.kitchenLabel,
-        bytes: merged,
-        printerId: cloudPrinter.id,
-        showFeedback: showFeedback,
-        successTitle: 'Tem ly',
-        skipDedup: true,
-        waitForCompletion: false,
-      );
-      if (ok) return true;
     } catch (e) {
       debugPrint('Cloud cup label (V2) failed: $e');
     }
   }
 
-  // Fallback text cứng qua cloud.
+  // Fallback text cứng qua cloud — chỉ máy nhiệt (không đẩy EscPos text sang máy tem TSPL).
+  if (cloudPrinter != null && cloudPrinter.isLabelPrinter) {
+    if (showFeedback) {
+      NotificationOverlayManager().showError(
+        title: 'Chưa in tem ly',
+        message: tr(
+          'Không gửi được tem TSPL tới máy Agent. Kiểm tra USB tem (rút cáp ADB) và thử lại.',
+        ),
+      );
+    }
+    return false;
+  }
+
   final body = <String>[];
   for (var i = 0; i < tickets.length; i++) {
     final t = tickets[i];
@@ -190,7 +374,6 @@ Future<bool> printCupLabels({
     final order = (t.orderNo ?? '').trim();
     if (order.isNotEmpty) body.add('HD: $order');
     body.add(DateFormat('dd/MM HH:mm').format(when));
-    body.add('--------------------');
     body.add(t.productName.trim().isEmpty ? 'Mon' : t.productName.trim());
     final tops = (t.toppings ?? '').trim();
     if (tops.isNotEmpty) {
@@ -203,17 +386,24 @@ Future<bool> printCupLabels({
     if (note.isNotEmpty) body.add('GC: $note');
     final qty = (t.qtyLabel ?? '').trim();
     if (qty.isNotEmpty) body.add('SL: $qty');
-    body.add('--------------------');
   }
 
   if (cloudPrinter == null &&
-      PosPrintOrchestrator.instance.printers.isEmpty &&
-      settings.enabled == false) {
+      PosPrintOrchestrator.instance.printers.isEmpty) {
+    if (showFeedback) {
+      NotificationOverlayManager().showError(
+        title: 'Chưa in tem ly',
+        message: tr(
+          'Chưa có máy in tem. Vào Máy in nội bộ → thêm máy Tem, gán vai trò Tem bếp.',
+        ),
+      );
+    }
     return false;
   }
-  final target = cloudPrinter ??
-      PosPrintOrchestrator.instance.printers.firstOrNull;
+  final target =
+      cloudPrinter ?? PosPrintOrchestrator.instance.printers.firstOrNull;
   if (target == null) return false;
+  if (target.isLabelPrinter) return false;
   final cloudSettings = toThermalSettings(target)
       .copyWith(feedBeforeCut: 8, openCashDrawer: false);
   final bytes = await PosThermalPrinterService.buildTextEscPosBytes(
@@ -229,7 +419,93 @@ Future<bool> printCupLabels({
     successTitle: 'Tem ly',
     skipDedup: true,
     waitForCompletion: false,
+    acceptClaimedAsSuccess: true,
+    hangAfter: const Duration(seconds: 90),
   );
+}
+
+List<PosPrintCompiledOutput> _compileCupOutputs({
+  required List<CupLabelTicket> tickets,
+  required PosPrintTemplateV2 v2,
+  required DateFormat timeFmt,
+  required DateFormat hourFmt,
+  required DateTime when,
+}) {
+  final outputs = <PosPrintCompiledOutput>[];
+  for (final t in tickets) {
+    final noteParts = <String>[];
+    final tops = (t.toppings ?? '').trim();
+    if (tops.isNotEmpty) noteParts.add(tops);
+    final note = (t.note ?? '').trim();
+    if (note.isNotEmpty) noteParts.add(note);
+    final data = <String, String>{
+      'Ten_Cua_Hang': '',
+      'Ten_Ban': (t.tableLabel ?? '').trim(),
+      'Ma_Don_Hang': (t.orderNo ?? '').trim(),
+      'Ngay': timeFmt.format(when),
+      'Gio': hourFmt.format(when),
+      'Ten_Hang_Hoa':
+          t.productName.trim().isEmpty ? 'Món' : t.productName.trim(),
+      'Ghi_Chu': noteParts.join('\n'),
+      'So_Luong': (t.qtyLabel ?? '1').trim().isEmpty
+          ? '1'
+          : (t.qtyLabel ?? '1').trim(),
+      'Don_Vi_Tinh': '',
+      'Ma_Hang': '',
+      'Ma_Vach': '',
+      'Don_Gia': '',
+      'Tieu_De_In': 'TEM LY',
+    };
+    outputs.add(PosPrintTemplateCompiler.compile(
+      template: v2,
+      data: data,
+      lineItems: const [],
+    ));
+  }
+  return outputs;
+}
+
+Future<bool> _printCupOutputsLocal({
+  required List<PosPrintCompiledOutput> outputs,
+  required PosThermalPrinterSettings cupSettings,
+  required bool showFeedback,
+}) async {
+  if (cupSettings.connectionType == PosThermalConnectionType.sunmi) {
+    var allOk = true;
+    for (final output in outputs) {
+      final ok = await PosPrintTemplateRuntime.printCompiledSunmi(
+        output: output,
+        settings: cupSettings.copyWith(
+          connectionType: PosThermalConnectionType.sunmi,
+          printerBrand: PosThermalPrinterBrand.sunmi,
+        ),
+        kitchenFeed: true,
+      );
+      if (!ok) allOk = false;
+    }
+    if (allOk) return true;
+  }
+  try {
+    final merged = <int>[];
+    for (final output in outputs) {
+      final bytes = await PosPrintTemplateRuntime.buildCompiledEscPosBytes(
+        output: output,
+        settings: cupSettings,
+      );
+      merged.addAll(bytes);
+    }
+    return PosPrintOrchestrator.instance.dispatchLocalEscPos(
+      bytes: merged,
+      showFeedback: showFeedback,
+      successTitle: 'Tem ly',
+      settingsOverride: cupSettings,
+      documentType: PosPrintDocumentTypes.kitchenLabel,
+      skipDedup: true,
+    );
+  } catch (e) {
+    debugPrint('Local cup label failed: $e');
+    return false;
+  }
 }
 
 Future<PosPrintTemplateV2> _loadKitchenLabelTemplate() async {

@@ -84,7 +84,7 @@ class _WhGlassAppBar extends StatelessWidget {
           decoration: BoxDecoration(
             color: WhMobileTheme.surfaceGlass,
             border: Border(
-              bottom: BorderSide(color: WhMobileTheme.divider.withValues(alpha: 0.5)),
+              bottom: BorderSide(color: WhMobileTheme.divider.withOpacity(0.5)),
             ),
           ),
           child: Row(
@@ -149,7 +149,7 @@ class WhMobileBottomBar extends StatelessWidget {
           decoration: BoxDecoration(
             color: WhMobileTheme.surfaceGlass,
             border: Border(
-              top: BorderSide(color: WhMobileTheme.divider.withValues(alpha: 0.5)),
+              top: BorderSide(color: WhMobileTheme.divider.withOpacity(0.5)),
             ),
           ),
           child: readOnly
@@ -208,7 +208,7 @@ class WhStatusPill extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
+        color: color.withOpacity(0.12),
         borderRadius: BorderRadius.circular(20),
       ),
       child: Text(
@@ -353,32 +353,70 @@ class WhQtyStepper extends StatelessWidget {
         ? value.toStringAsFixed(0)
         : value.toStringAsFixed(2);
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return Row(
       children: [
         if (label != null) ...[
-          Text(tr(label!), style: WhMobileTheme.label),
-          const SizedBox(height: 6),
+          SizedBox(
+            width: 72,
+            child: Text(
+              tr(label!),
+              style: WhMobileTheme.label.copyWith(fontSize: 11),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          const SizedBox(width: 6),
         ],
-        Row(
-          children: [
-            _StepBtn(
-              icon: Icons.remove_rounded,
-              enabled: canDec,
-              onTap: () => onChanged((value - step).clamp(min, max ?? double.infinity)),
-            ),
-            Expanded(
-              child: Center(
-                child: Text(tr(display), style: WhMobileTheme.titleLarge.copyWith(fontSize: 24)),
+        _StepBtn(
+          icon: Icons.remove_rounded,
+          enabled: canDec,
+          onTap: () =>
+              onChanged((value - step).clamp(min, max ?? double.infinity)),
+        ),
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 6),
+            child: TextFormField(
+              key: ValueKey('wh_qty_$display'),
+              initialValue: display,
+              enabled: !readOnly,
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
               ),
+              textAlign: TextAlign.center,
+              style: WhMobileTheme.titleLarge.copyWith(fontSize: 16),
+              decoration: const InputDecoration(
+                isDense: true,
+                border: OutlineInputBorder(),
+                contentPadding: EdgeInsets.symmetric(
+                  horizontal: 6,
+                  vertical: 6,
+                ),
+              ),
+              onFieldSubmitted: (raw) {
+                final v = double.tryParse(
+                      raw.replaceAll(',', '.').trim(),
+                    ) ??
+                    value;
+                onChanged(v.clamp(min, max ?? double.infinity));
+              },
+              onChanged: (raw) {
+                final v = double.tryParse(
+                  raw.replaceAll(',', '.').trim(),
+                );
+                if (v != null && v >= min) {
+                  onChanged(v.clamp(min, max ?? double.infinity));
+                }
+              },
             ),
-            _StepBtn(
-              icon: Icons.add_rounded,
-              enabled: canInc,
-              onTap: () => onChanged((value + step).clamp(min, max ?? double.infinity)),
-              primary: true,
-            ),
-          ],
+          ),
+        ),
+        _StepBtn(
+          icon: Icons.add_rounded,
+          enabled: canInc,
+          onTap: () =>
+              onChanged((value + step).clamp(min, max ?? double.infinity)),
+          primary: true,
         ),
       ],
     );
@@ -403,17 +441,17 @@ class _StepBtn extends StatelessWidget {
     return Material(
       color: enabled
           ? (primary ? WhMobileTheme.primary : WhMobileTheme.bg)
-          : WhMobileTheme.bg.withValues(alpha: 0.5),
+          : WhMobileTheme.bg.withOpacity(0.5),
       borderRadius: BorderRadius.circular(WhMobileTheme.radiusMd),
       child: InkWell(
         onTap: enabled ? onTap : null,
         borderRadius: BorderRadius.circular(WhMobileTheme.radiusMd),
         child: SizedBox(
-          width: 52,
-          height: 52,
+          width: 36,
+          height: 36,
           child: Icon(
             icon,
-            size: 26,
+            size: 18,
             color: enabled
                 ? (primary ? Colors.white : WhMobileTheme.textPrimary)
                 : WhMobileTheme.textTertiary,
@@ -450,54 +488,73 @@ class WhLineCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.only(bottom: WhMobileTheme.gap),
-      decoration: WhMobileTheme.card(radius: WhMobileTheme.radiusMd),
-      padding: const EdgeInsets.all(14),
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: WhMobileTheme.card(radius: WhMobileTheme.radiusSm),
+      padding: const EdgeInsets.fromLTRB(10, 8, 6, 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Container(
-                width: 28,
-                height: 28,
+                width: 22,
+                height: 22,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
                   color: WhMobileTheme.primaryMuted,
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
                   tr('$index'),
                   style: const TextStyle(
-                    fontSize: 13,
+                    fontSize: 11,
                     fontWeight: FontWeight.w700,
                     color: WhMobileTheme.primary,
                   ),
                 ),
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 8),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(tr(name), style: WhMobileTheme.titleMedium.copyWith(fontSize: 15)),
+                    Text(
+                      tr(name),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: WhMobileTheme.titleMedium.copyWith(fontSize: 13),
+                    ),
                     if (code != null && code!.isNotEmpty)
-                      Text(tr('$code${unit != null ? ' · $unit' : ''}'), style: WhMobileTheme.caption),
+                      Text(
+                        tr('$code${unit != null ? ' · $unit' : ''}'),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: WhMobileTheme.caption.copyWith(fontSize: 10),
+                      ),
                   ],
                 ),
               ),
+              if (trailing != null) ...[
+                const SizedBox(width: 6),
+                DefaultTextStyle.merge(
+                  style: WhMobileTheme.money.copyWith(fontSize: 13),
+                  child: trailing!,
+                ),
+              ],
               if (!readOnly && onRemove != null)
                 IconButton(
                   visualDensity: VisualDensity.compact,
-                  icon: Icon(Icons.close_rounded, size: 20, color: WhMobileTheme.danger.withValues(alpha: 0.8)),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                  icon: Icon(Icons.close_rounded,
+                      size: 18, color: WhMobileTheme.danger.withOpacity(0.8)),
                   onPressed: onRemove,
                 ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 6),
           child,
-          if (trailing != null) ...[const SizedBox(height: 8), trailing!],
         ],
       ),
     );
@@ -675,7 +732,7 @@ class WhHubTile extends StatelessWidget {
                 width: 48,
                 height: 48,
                 decoration: BoxDecoration(
-                  color: c.withValues(alpha: 0.1),
+                  color: c.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(14),
                 ),
                 child: Icon(icon, color: c, size: 26),

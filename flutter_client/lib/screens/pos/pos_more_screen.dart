@@ -23,12 +23,10 @@ import 'pos_customers_screen.dart';
 import 'pos_cancel_return_history_screen.dart';
 import 'pos_end_of_day_screen.dart';
 import 'pos_goods_report_screen.dart';
-import 'pos_resource_floor_screen.dart';
 import 'pos_sales_report_screen.dart';
 import 'pos_customer_display_settings_screen.dart';
 import 'pos_sell_industry_settings_hub_screen.dart';
 import 'pos_store_settings_hub_screen.dart';
-import 'pos_printer_settings_hub_screen.dart';
 import 'pos_vouchers_screen.dart';
 import '../settings_hub_screen.dart';
 
@@ -170,20 +168,6 @@ class PosMoreScreen extends StatelessWidget {
                       Icons.store_outlined,
                       'PosSell',
                       const PosStoreSettingsHubScreen(),
-                      altModules: const ['PosProducts'],
-                    ),
-                    _Item(
-                      'Máy in (thiết bị)',
-                      Icons.print_outlined,
-                      'PosSell',
-                      const PosPrinterSettingsHubScreen(),
-                      altModules: const ['PosProducts'],
-                    ),
-                    _Item(
-                      'Quản lý bàn/phòng',
-                      Icons.table_restaurant_outlined,
-                      'PosSell',
-                      const PosResourceFloorScreen(manageMode: true),
                       altModules: const ['PosProducts'],
                     ),
                   ],

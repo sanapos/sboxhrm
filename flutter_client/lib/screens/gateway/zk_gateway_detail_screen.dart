@@ -12,6 +12,7 @@ import '../../widgets/hrm_page_chrome.dart';
 import '../../widgets/notification_overlay.dart';
 import 'zk_gateway_device_screen.dart';
 import 'zk_gateway_setup_screen.dart';
+import 'zk_gateway_user_errors.dart';
 import 'zk_gateway_widgets.dart';
 
 /// Trang chi tiết một gateway: trạng thái đồng bộ, các thao tác điều khiển
@@ -30,10 +31,14 @@ class _ZkGatewayDetailScreenState extends State<ZkGatewayDetailScreen> {
 
   late ZkGatewayInfo _info;
   ZkGatewayStatus? _status;
+  ZkGatewayConfig? _config;
   Timer? _timer;
   bool _loading = true;
   bool _busy = false;
   String? _loadError;
+  /// Hướng dẫn xử lý khi mất kết nối API (hiện trên thẻ lỗi).
+  String? _loadGuide;
+  bool _advancedOpen = false;
 
   /// Bản trên server (null = chưa tải / không có quyền / chưa publish).
   String? _serverVersion;
@@ -182,13 +187,42 @@ class _ZkGatewayDetailScreenState extends State<ZkGatewayDetailScreen> {
       if (unlocked) await _updateFirmwareFromServer();
     } catch (e) {
       if (!mounted) return;
-      appNotification.showError(
-        title: tr('Cập nhật thất bại'),
-        message: tr(e is ZkGatewayException ? e.message : e.toString()),
-      );
+      _notifyGatewayError(e, fallbackTitle: 'Cập nhật thất bại');
     } finally {
       if (mounted) setState(() => _busy = false);
     }
+  }
+
+  void _notifyGatewayError(Object e, {String fallbackTitle = 'Không kết nối được gateway'}) {
+    final err = ZkGatewayUserError.from(e, fallbackTitle: fallbackTitle);
+    final short = err.message.split('\n').where((l) => l.trim().isNotEmpty).first;
+    appNotification.showError(title: tr(err.title), message: tr(short));
+    if (!mounted) return;
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(tr(err.title)),
+        content: SingleChildScrollView(
+          child: Text(
+            tr(err.message),
+            style: const TextStyle(fontSize: 13.5, height: 1.45),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(tr('Đã hiểu')),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              _openPortal();
+            },
+            child: Text(tr('Mở trang web')),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _refresh({bool silent = false}) async {
@@ -196,14 +230,19 @@ class _ZkGatewayDetailScreenState extends State<ZkGatewayDetailScreen> {
     try {
       final status = await _client.fetchStatus(_info.ip);
       ZkGatewayInfo? info;
+      ZkGatewayConfig? cfg;
       if (!silent || (_deviceAppSha == null || _deviceAppSha!.isEmpty)) {
         try {
           info = await _client.fetchInfo(_info.ip);
         } catch (_) {}
       }
+      try {
+        cfg = await _client.fetchConfig(_info.ip);
+      } catch (_) {}
       if (!mounted) return;
       setState(() {
         _status = status;
+        if (cfg != null) _config = cfg;
         if (info != null) {
           _info = _info.copyWith(
             ip: info.ip.isNotEmpty ? info.ip : null,
@@ -214,24 +253,36 @@ class _ZkGatewayDetailScreenState extends State<ZkGatewayDetailScreen> {
         }
         _loading = false;
         _loadError = null;
+        _loadGuide = null;
       });
-    } on ZkGatewayAuthException {
+    } on ZkGatewayAuthException catch (e) {
       if (!mounted) return;
       final ok = await _promptUnlock();
       if (ok) {
         await _refresh(silent: silent);
       } else {
+        final err = ZkGatewayUserError.from(e);
         setState(() {
           _loading = false;
-          _loadError = tr('Gateway đang khóa — nhập mật khẩu để quản lý');
+          _loadError = err.title;
+          _loadGuide = err.message;
         });
+        if (!silent) _notifyGatewayError(e);
       }
     } catch (e) {
       if (!mounted) return;
+      final err = ZkGatewayUserError.from(
+        e,
+        fallbackTitle: 'Không kết nối được gateway',
+      );
       setState(() {
         _loading = false;
-        _loadError = e is ZkGatewayException ? e.message : tr('Không kết nối được thiết bị');
+        _loadError = err.title;
+        _loadGuide = err.message;
       });
+      if (!silent) {
+        _notifyGatewayError(e);
+      }
     }
   }
 
@@ -430,10 +481,7 @@ class _ZkGatewayDetailScreenState extends State<ZkGatewayDetailScreen> {
       );
     } catch (e) {
       if (!mounted) return;
-      appNotification.showError(
-        title: tr('Không thực hiện được'),
-        message: tr(e is ZkGatewayException ? e.message : e.toString()),
-      );
+      _notifyGatewayError(e, fallbackTitle: 'Không thực hiện được');
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -499,10 +547,7 @@ class _ZkGatewayDetailScreenState extends State<ZkGatewayDetailScreen> {
       );
     } catch (e) {
       if (!mounted) return;
-      appNotification.showError(
-        title: tr('Đổi tên thất bại'),
-        message: tr(e is ZkGatewayException ? e.message : e.toString()),
-      );
+      _notifyGatewayError(e, fallbackTitle: 'Đổi tên thất bại');
     }
   }
 
@@ -524,10 +569,7 @@ class _ZkGatewayDetailScreenState extends State<ZkGatewayDetailScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _busy = false);
-      appNotification.showError(
-        title: tr('Không đọc được cấu hình'),
-        message: tr(e is ZkGatewayException ? e.message : e.toString()),
-      );
+      _notifyGatewayError(e, fallbackTitle: 'Không đọc được cấu hình');
       return;
     }
     if (!mounted) return;
@@ -652,12 +694,10 @@ class _ZkGatewayDetailScreenState extends State<ZkGatewayDetailScreen> {
             ? tr('Xóa log lúc $hour:${min.toString().padLeft(2, '0')} ngày $day hàng tháng')
             : tr('Đã tắt xóa log định kỳ'),
       );
+      await _refresh(silent: true);
     } catch (e) {
       if (!mounted) return;
-      appNotification.showError(
-        title: tr('Lưu thất bại'),
-        message: tr(e is ZkGatewayException ? e.message : e.toString()),
-      );
+      _notifyGatewayError(e, fallbackTitle: 'Lưu thất bại');
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -733,17 +773,15 @@ class _ZkGatewayDetailScreenState extends State<ZkGatewayDetailScreen> {
             else if (_status != null) ...[
               _connectionCard(_status!),
               const SizedBox(height: 14),
-              _webPortalCard(),
+              _wifiCard(),
               const SizedBox(height: 14),
-              _deviceCard(_status!),
+              _deviceSimpleCard(_status!),
               const SizedBox(height: 14),
-              _syncCard(_status!),
+              _autoClearCard(_status!),
               const SizedBox(height: 14),
-              _firmwareCard(_status!),
+              _syncActionsCard(_status!),
               const SizedBox(height: 14),
-              _actionsCard(),
-              const SizedBox(height: 14),
-              _systemCard(_status!),
+              _advancedSection(_status!),
             ],
           ],
         ),
@@ -782,14 +820,32 @@ class _ZkGatewayDetailScreenState extends State<ZkGatewayDetailScreen> {
   Widget _errorCard() {
     return _card(title: 'Không liên lạc được', children: [
       Text(
-        _loadError ?? '',
-        style: const TextStyle(fontSize: 13.5, color: Color(0xFFDC2626)),
+        _loadError ?? tr('Không kết nối được gateway'),
+        style: const TextStyle(
+          fontSize: 14.5,
+          fontWeight: FontWeight.w700,
+          color: Color(0xFFDC2626),
+        ),
       ),
       const SizedBox(height: 12),
-      const GatewayNoteBox(
-        text: 'Gateway có thể đã đổi địa chỉ IP. Quay lại danh sách và dò tìm lại.',
+      GatewayNoteBox(
+        text: _loadGuide ?? ZkGatewayUserError.connectionChecklist,
         icon: Icons.help_outline,
-        color: Color(0xFFF59E0B),
+        color: const Color(0xFFF59E0B),
+      ),
+      const SizedBox(height: 12),
+      _actionRow(
+        icon: Icons.refresh,
+        label: 'Thử kết nối lại',
+        desc: 'Gọi lại API trạng thái gateway',
+        onTap: () => _refresh(),
+      ),
+      _actionRow(
+        icon: Icons.open_in_browser,
+        label: 'Mở trang kỹ thuật (web)',
+        desc: ZkGatewayClient.portalUrlForIp(_info.ip),
+        onTap: () => _openPortal(),
+        last: true,
       ),
     ]);
   }
@@ -814,55 +870,9 @@ class _ZkGatewayDetailScreenState extends State<ZkGatewayDetailScreen> {
     );
   }
 
-  Widget _webPortalCard() {
-    final ipUrl = ZkGatewayClient.portalUrlForIp(_portalIp);
-    return _card(title: 'Máy chấm công (trên LAN)', children: [
-      Text(
-        tr('Quản lý nhân viên, đăng ký vân tay, mở cửa và xem/xuất chấm công '
-            'trực tiếp trong app — không cần mở trình duyệt.'),
-        style: const TextStyle(
-          fontSize: 12.5,
-          height: 1.45,
-          color: HrmPageChrome.textMuted,
-        ),
-      ),
-      const SizedBox(height: 12),
-      _actionRow(
-        icon: Icons.fingerprint,
-        label: 'Quản lý máy chấm công',
-        desc: 'Nhân viên · vân tay · mở cửa · log',
-        onTap: () {
-          Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (_) => ZkGatewayDeviceScreen(info: _info),
-            ),
-          );
-        },
-      ),
-      _actionRow(
-        icon: Icons.open_in_browser,
-        label: 'Mở web theo IP (tuỳ chọn)',
-        desc: ipUrl,
-        onTap: () => _openPortal(),
-      ),
-      _actionRow(
-        icon: Icons.language,
-        label: 'Mở http://sboxadms.local',
-        desc: 'Trang web trên mạch nếu cần',
-        onTap: () => _openPortal(useHost: true),
-      ),
-      _actionRow(
-        icon: Icons.copy,
-        label: 'Sao chép link web',
-        desc: ipUrl,
-        onTap: _copyPortalLink,
-        last: true,
-      ),
-    ]);
-  }
-
   Widget _connectionCard(ZkGatewayStatus s) {
-    return _card(title: 'Kết nối', children: [
+    final hint = ZkGatewayUserError.statusHint(s);
+    return _card(title: 'Trạng thái', children: [
       Wrap(
         spacing: 7,
         runSpacing: 7,
@@ -887,99 +897,61 @@ class _ZkGatewayDetailScreenState extends State<ZkGatewayDetailScreen> {
           color: const Color(0xFFDC2626),
         ),
       ],
-      const SizedBox(height: 12),
-      _tiles([
-        (label: 'Địa chỉ gateway', value: s.wifiIp.isEmpty ? _info.ip : s.wifiIp),
-        (label: 'Độ mạnh sóng', value: '${s.rssi} dBm'),
-      ]),
-    ]);
-  }
-
-  Widget _deviceCard(ZkGatewayStatus s) {
-    return _card(title: 'Máy chấm công', children: [
-      _tiles([
-        (label: 'Số seri', value: s.serial.isEmpty ? tr('chưa đọc được') : s.serial),
-        (label: 'Nền tảng', value: s.devicePlatform.isEmpty ? '-' : s.devicePlatform),
-        (label: 'Firmware máy', value: s.deviceFirmware.isEmpty ? '-' : s.deviceFirmware),
-        (label: 'Nhân viên', value: '${s.users}'),
-        (label: 'Vân tay', value: '${s.fingers}'),
-        (label: 'Bản ghi trên máy', value: '${s.records}'),
-      ]),
-    ]);
-  }
-
-  Widget _syncCard(ZkGatewayStatus s) {
-    final ym = s.lastAutoClearYm;
-    final lastClear = ym > 0
-        ? '${ym % 100}/${ym ~/ 100}'
-        : tr('chưa có');
-    return _card(title: 'Đồng bộ', children: [
-      _tiles([
-        (label: 'Đã đẩy lên máy chủ', value: '${s.uploadedTotal}'),
-        (label: 'Lô gần nhất', value: '${s.uploadedLast}'),
-        (label: 'Lệnh đã thực thi', value: '${s.commands}'),
-        (label: 'Xóa log định kỳ gần nhất', value: lastClear),
-      ]),
-    ]);
-  }
-
-  Widget _firmwareCard(ZkGatewayStatus s) {
-    final local = s.version.isNotEmpty ? s.version : (_info.version.isEmpty ? '-' : _info.version);
-    final remote = _serverVersion ?? '-';
-    final sizeKb = _serverBytes != null ? '${(_serverBytes! / 1024).round()} KB' : '-';
-    final statusText = _otaChecking
-        ? tr('Đang kiểm tra...')
-        : (_serverReleaseError != null
-            ? (_serverReleaseError!)
-            : (_updateAvailable
-                ? tr('Có bản mới trên máy chủ')
-                : tr('Đã là bản mới nhất (hoặc chưa có trên server)')));
-
-    return _card(title: 'Firmware gateway (OTA)', children: [
-      _tiles([
-        (label: 'Trên thiết bị', value: local),
-        (label: 'Trên máy chủ', value: remote),
-        if (_deviceAppSha != null && _deviceAppSha!.isNotEmpty)
-          (label: 'SHA thiết bị', value: _deviceAppSha!),
-        if (_serverAppSha != null && _serverAppSha!.isNotEmpty)
-          (label: 'SHA máy chủ', value: _serverAppSha!),
-        (label: 'Dung lượng', value: sizeKb),
-      ]),
-      const SizedBox(height: 10),
-      Text(
-        statusText,
-        style: TextStyle(
-          fontSize: 12.5,
-          fontWeight: FontWeight.w600,
-          color: _updateAvailable ? const Color(0xFFD97706) : HrmPageChrome.textMuted,
-        ),
-      ),
-      if (_serverNotes != null && _serverNotes!.trim().isNotEmpty) ...[
-        const SizedBox(height: 6),
-        Text(
-          _serverNotes!,
-          style: const TextStyle(fontSize: 12, color: HrmPageChrome.textMuted, height: 1.35),
+      if (hint != null) ...[
+        const SizedBox(height: 12),
+        GatewayNoteBox(
+          text: hint,
+          icon: Icons.lightbulb_outline,
+          color: const Color(0xFFF59E0B),
         ),
       ],
       const SizedBox(height: 12),
+      _tiles([
+        (label: 'Địa chỉ gateway', value: s.wifiIp.isEmpty ? _info.ip : s.wifiIp),
+      ]),
+    ]);
+  }
+
+  Widget _wifiCard() {
+    final ssid = _config?.wifiSsid.trim() ?? '';
+    return _card(title: 'WiFi', children: [
+      _tiles([
+        (label: 'Mạng đang dùng', value: ssid.isEmpty ? tr('chưa đọc được') : ssid),
+        (
+          label: 'Địa chỉ gateway',
+          value: (_status?.wifiIp.isNotEmpty == true) ? _status!.wifiIp : _info.ip,
+        ),
+      ]),
+      const SizedBox(height: 12),
       _actionRow(
-        icon: Icons.system_update_alt,
-        label: _updateAvailable ? 'Cập nhật từ máy chủ' : 'Nạp lại bản trên máy chủ',
-        desc: 'Tải zk_gateway.bin rồi OTA qua WiFi LAN',
-        onTap: _updateFirmwareFromServer,
+        icon: Icons.wifi,
+        label: 'Đổi WiFi / cấu hình máy',
+        desc: 'Chọn mạng nhà và IP máy chấm công',
+        onTap: _openReconfigure,
+        last: true,
       ),
+    ]);
+  }
+
+  Widget _deviceSimpleCard(ZkGatewayStatus s) {
+    final deviceIp = _config?.deviceIp.trim() ?? _info.deviceIp;
+    return _card(title: 'Máy chấm công', children: [
+      _tiles([
+        (label: 'IP máy', value: deviceIp.isEmpty ? '-' : deviceIp),
+        (label: 'Số seri', value: s.serial.isEmpty ? tr('chưa đọc được') : s.serial),
+        (label: 'Nhân viên', value: '${s.users}'),
+        (label: 'Bản ghi trên máy', value: '${s.records}'),
+      ]),
+      const SizedBox(height: 12),
       _actionRow(
-        icon: Icons.refresh,
-        label: 'Kiểm tra bản mới',
-        desc: 'Hỏi máy chủ sboxhrm.com',
-        onTap: () async {
-          await _loadServerRelease();
-          if (!mounted) return;
-          appNotification.showSuccess(
-            title: tr('Firmware'),
-            message: tr(_serverVersion != null
-                ? 'Máy chủ: $_serverVersion'
-                : (_serverReleaseError ?? 'Chưa có bản')),
+        icon: Icons.fingerprint,
+        label: 'Quản lý trên máy',
+        desc: 'Nhân viên · vân tay · mở cửa · xem log',
+        onTap: () {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => ZkGatewayDeviceScreen(info: _info),
+            ),
           );
         },
         last: true,
@@ -987,31 +959,57 @@ class _ZkGatewayDetailScreenState extends State<ZkGatewayDetailScreen> {
     ]);
   }
 
-  Widget _systemCard(ZkGatewayStatus s) {
-    final h = s.uptimeSeconds ~/ 3600;
-    final m = (s.uptimeSeconds % 3600) ~/ 60;
-    return _card(title: 'Hệ thống', children: [
+  Widget _autoClearCard(ZkGatewayStatus s) {
+    final cfg = _config;
+    final enabled = cfg?.autoClearAttlog == true;
+    final schedule = cfg == null
+        ? tr('Đang tải...')
+        : (enabled
+            ? tr(
+                'Ngày ${cfg.autoClearDay} · '
+                '${cfg.autoClearHour.toString().padLeft(2, '0')}:'
+                '${cfg.autoClearMin.toString().padLeft(2, '0')} hàng tháng',
+              )
+            : tr('Đang tắt'));
+    final ym = s.lastAutoClearYm;
+    final lastClear = ym > 0 ? '${ym % 100}/${ym ~/ 100}' : tr('chưa có');
+    return _card(title: 'Xóa dữ liệu định kỳ', children: [
       _tiles([
-        (label: 'Thời gian chạy', value: '${h}h ${m}m'),
-        (label: 'RAM còn trống', value: '${(s.freeHeap / 1024).round()} KB'),
-        (label: 'Firmware gateway', value: s.version.isEmpty ? '-' : s.version),
+        (label: 'Lịch xóa log trên máy', value: schedule),
+        (label: 'Lần xóa gần nhất', value: lastClear),
       ]),
+      const SizedBox(height: 8),
+      Text(
+        tr('Gateway đồng bộ lên máy chủ trước rồi mới xóa log trên máy. '
+            'Dữ liệu trên sboxhrm vẫn giữ.'),
+        style: const TextStyle(
+          fontSize: 12,
+          height: 1.4,
+          color: HrmPageChrome.textMuted,
+        ),
+      ),
       const SizedBox(height: 12),
-      GatewayNoteBox(
-        text: 'Dùng thẻ Firmware gateway (OTA) phía trên để cập nhật từ máy chủ, '
-            'hoặc mở ${ZkGatewayClient.portalUrl} / '
-            'http://${s.wifiIp.isEmpty ? _info.ip : s.wifiIp} trên trình duyệt.',
-        icon: Icons.system_update_alt,
+      _actionRow(
+        icon: Icons.delete_sweep_outlined,
+        label: 'Cấu hình xóa định kỳ',
+        desc: 'Bật/tắt và chọn ngày giờ trong tháng',
+        onTap: _openAutoClearSettings,
+        last: true,
       ),
     ]);
   }
 
-  Widget _actionsCard() {
-    return _card(title: 'Thao tác', children: [
+  Widget _syncActionsCard(ZkGatewayStatus s) {
+    return _card(title: 'Đồng bộ', children: [
+      _tiles([
+        (label: 'Đã đẩy lên máy chủ', value: '${s.uploadedTotal}'),
+        (label: 'Lô gần nhất', value: '${s.uploadedLast}'),
+      ]),
+      const SizedBox(height: 12),
       _actionRow(
         icon: Icons.sync,
-        label: 'Đồng bộ lại toàn bộ chấm công',
-        desc: 'Đọc lại từ mốc hiện tại và đẩy phần còn thiếu',
+        label: 'Đồng bộ lại chấm công',
+        desc: 'Đọc và đẩy phần còn thiếu lên máy chủ',
         onTap: () => _action('resync', 'Đồng bộ lại toàn bộ chấm công'),
       ),
       _actionRow(
@@ -1023,55 +1021,168 @@ class _ZkGatewayDetailScreenState extends State<ZkGatewayDetailScreen> {
       _actionRow(
         icon: Icons.schedule,
         label: 'Chỉnh giờ máy chấm công',
-        desc: 'Đặt lại đồng hồ máy theo giờ chuẩn',
+        desc: 'Đặt đồng hồ máy theo giờ chuẩn',
         onTap: () => _action('clock', 'Chỉnh giờ máy chấm công'),
-      ),
-      _actionRow(
-        icon: Icons.restart_alt,
-        label: 'Xoá mốc đồng bộ',
-        desc: 'Gửi lại mọi bản ghi còn trên máy, máy chủ tự loại trùng',
-        onTap: () => _action('resetmark', 'Xoá mốc đồng bộ', confirm: true),
-      ),
-      _actionRow(
-        icon: Icons.fingerprint,
-        label: 'Quản lý máy chấm công',
-        desc: 'Nhân viên, vân tay, mở cửa, xuất CSV trong app',
-        onTap: () {
-          Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (_) => ZkGatewayDeviceScreen(info: _info),
-            ),
-          );
-        },
-      ),
-      _actionRow(
-        icon: Icons.lock_outline,
-        label: 'Mật khẩu bảo mật',
-        desc: 'Khóa cấu hình gateway; quên thì reset qua sóng AP',
-        onTap: _openPasswordSettings,
-      ),
-      _actionRow(
-        icon: Icons.delete_sweep_outlined,
-        label: 'Xóa log định kỳ theo tháng',
-        desc: 'Chọn ngày/giờ; đồng bộ trước rồi mới xóa trên máy',
-        onTap: _openAutoClearSettings,
-      ),
-      _actionRow(
-        icon: Icons.settings_ethernet,
-        label: 'Cấu hình lại',
-        desc: 'Đổi WiFi, IP máy chấm công, máy chủ',
-        onTap: _openReconfigure,
-      ),
-      _actionRow(
-        icon: Icons.power_settings_new,
-        label: 'Khởi động lại gateway',
-        desc: 'Mạch sẽ khởi động lại sau 1 giây',
-        onTap: () => _action('reboot', 'Khởi động lại gateway', confirm: true),
-        danger: true,
         last: true,
       ),
     ]);
   }
+
+  Widget _advancedSection(ZkGatewayStatus s) {
+    return _card(title: 'Dành cho kỹ thuật', children: [
+      InkWell(
+        onTap: () => setState(() => _advancedOpen = !_advancedOpen),
+        borderRadius: BorderRadius.circular(9),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  tr(_advancedOpen
+                      ? 'Thu gọn cấu hình nâng cao'
+                      : 'Hiện thêm (web, mật khẩu, OTA…)'),
+                  style: const TextStyle(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w700,
+                    color: HrmPageChrome.textDark,
+                  ),
+                ),
+              ),
+              Icon(
+                _advancedOpen ? Icons.expand_less : Icons.expand_more,
+                color: HrmPageChrome.textMuted,
+              ),
+            ],
+          ),
+        ),
+      ),
+      if (_advancedOpen) ...[
+        const Divider(height: 1),
+        const SizedBox(height: 4),
+        Text(
+          tr('Các mục dưới đây dành cho kỹ thuật viên. Người dùng cửa hàng '
+              'thường chỉ cần các khối phía trên.'),
+          style: const TextStyle(
+            fontSize: 12,
+            height: 1.4,
+            color: HrmPageChrome.textMuted,
+          ),
+        ),
+        const SizedBox(height: 8),
+        _actionRow(
+          icon: Icons.open_in_browser,
+          label: 'Mở trang kỹ thuật (web)',
+          desc: ZkGatewayClient.portalUrlForIp(_portalIp),
+          onTap: () => _openPortal(),
+        ),
+        _actionRow(
+          icon: Icons.language,
+          label: 'Mở sboxadms.local',
+          desc: 'Trên máy tính cùng WiFi',
+          onTap: () => _openPortal(useHost: true),
+        ),
+        _actionRow(
+          icon: Icons.copy,
+          label: 'Sao chép link web',
+          desc: ZkGatewayClient.portalUrlForIp(_portalIp),
+          onTap: _copyPortalLink,
+        ),
+        _actionRow(
+          icon: Icons.lock_outline,
+          label: 'Mật khẩu bảo mật',
+          desc: 'Khóa cấu hình gateway',
+          onTap: _openPasswordSettings,
+        ),
+        _actionRow(
+          icon: Icons.restart_alt,
+          label: 'Xóa mốc đồng bộ',
+          desc: 'Gửi lại mọi bản ghi còn trên máy',
+          onTap: () => _action('resetmark', 'Xoá mốc đồng bộ', confirm: true),
+        ),
+        _actionRow(
+          icon: Icons.power_settings_new,
+          label: 'Khởi động lại gateway',
+          desc: 'Mạch khởi động lại sau 1 giây',
+          onTap: () => _action('reboot', 'Khởi động lại gateway', confirm: true),
+          danger: true,
+        ),
+        const SizedBox(height: 8),
+        _firmwareCompact(s),
+      ],
+    ]);
+  }
+
+  Widget _firmwareCompact(ZkGatewayStatus s) {
+    final local = s.version.isNotEmpty ? s.version : (_info.version.isEmpty ? '-' : _info.version);
+    final remote = _serverVersion ?? '-';
+    final sizeKb = _serverBytes != null ? '${(_serverBytes! / 1024).round()} KB' : null;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          tr(
+            _otaChecking
+                ? 'Firmware: đang kiểm tra máy chủ…'
+                : 'Firmware: thiết bị $local · máy chủ $remote'
+                    '${sizeKb != null ? ' ($sizeKb)' : ''}',
+          ),
+          style: const TextStyle(
+            fontSize: 12.5,
+            fontWeight: FontWeight.w600,
+            color: HrmPageChrome.textMuted,
+          ),
+        ),
+        if (_serverNotes != null && _serverNotes!.trim().isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text(
+              _serverNotes!,
+              style: const TextStyle(
+                fontSize: 12,
+                color: HrmPageChrome.textMuted,
+                height: 1.35,
+              ),
+            ),
+          ),
+        if (_updateAvailable)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text(
+              tr('Có bản mới trên máy chủ'),
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFFD97706),
+              ),
+            ),
+          ),
+        _actionRow(
+          icon: Icons.system_update_alt,
+          label: _updateAvailable ? 'Cập nhật firmware' : 'Nạp lại firmware máy chủ',
+          desc: 'OTA qua WiFi LAN',
+          onTap: _updateFirmwareFromServer,
+        ),
+        _actionRow(
+          icon: Icons.refresh,
+          label: 'Kiểm tra bản firmware',
+          desc: 'Hỏi máy chủ sboxhrm.com',
+          onTap: () async {
+            await _loadServerRelease();
+            if (!mounted) return;
+            appNotification.showSuccess(
+              title: tr('Firmware'),
+              message: tr(_serverVersion != null
+                  ? 'Máy chủ: $_serverVersion'
+                  : (_serverReleaseError ?? 'Chưa có bản')),
+            );
+          },
+          last: true,
+        ),
+      ],
+    );
+  }
+
 
   Widget _actionRow({
     required IconData icon,
