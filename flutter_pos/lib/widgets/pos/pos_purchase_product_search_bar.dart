@@ -378,7 +378,7 @@ class PosPurchaseProductSearchBarState extends State<PosPurchaseProductSearchBar
   Future<void> _openBrowseSheet() async {
     _focus.unfocus();
     _removeOverlay();
-    final pick = await showModalBottomSheet<PosPurchaseLookupPick>(
+    final picks = await showModalBottomSheet<List<PosPurchaseLookupPick>>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
@@ -387,7 +387,10 @@ class PosPurchaseProductSearchBarState extends State<PosPurchaseProductSearchBar
         sellMode: widget.sellMode,
       ),
     );
-    if (pick != null && mounted) widget.onPick(pick);
+    if (picks == null || picks.isEmpty || !mounted) return;
+    for (final pick in picks) {
+      widget.onPick(pick);
+    }
   }
 
   Widget _buildOverlay() {
@@ -578,12 +581,20 @@ class _SuggestionTile extends StatelessWidget {
     required this.moneyFmt,
     required this.onTap,
     this.sellMode = false,
+    this.compact = false,
+    this.selected = false,
+    this.qty,
+    this.onQtyChanged,
   });
 
   final PosPurchaseSearchSuggestion suggestion;
   final NumberFormat moneyFmt;
   final VoidCallback onTap;
   final bool sellMode;
+  final bool compact;
+  final bool selected;
+  final double? qty;
+  final ValueChanged<double>? onQtyChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -591,31 +602,42 @@ class _SuggestionTile extends StatelessWidget {
     final price = suggestion.costPrice > 0
         ? suggestion.costPrice
         : (sellMode ? p.basePrice : p.costPrice);
+    final padV = compact ? 6.0 : 10.0;
+    final img = compact ? 32.0 : 44.0;
     return InkWell(
       onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      child: Container(
+        color: selected ? _blue.withOpacity(0.06) : null,
+        padding: EdgeInsets.symmetric(horizontal: 12, vertical: padV),
         child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
+            if (onQtyChanged != null) ...[
+              Icon(
+                selected ? Icons.check_box : Icons.check_box_outline_blank,
+                size: 22,
+                color: selected ? _blue : Colors.grey.shade400,
+              ),
+              const SizedBox(width: 8),
+            ],
             PosProductImage(
               productId: p.id,
               imageUrl: p.imageUrl,
               updatedAt: p.updatedAt,
-              size: 44,
+              size: img,
               borderRadius: 6,
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 10),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  RichText(
-                    text: TextSpan(
-                      style: const TextStyle(
-                        fontSize: 14,
+                  Text.rich(
+                    TextSpan(
+                      style: TextStyle(
+                        fontSize: compact ? 13 : 14,
                         color: PosTheme.textPrimary,
-                        height: 1.3,
+                        height: 1.25,
                       ),
                       children: [
                         TextSpan(
@@ -624,7 +646,7 @@ class _SuggestionTile extends StatelessWidget {
                         ),
                         if (suggestion.unitLabel.isNotEmpty)
                           TextSpan(
-                            text: tr(' ${suggestion.unitLabel}'),
+                            text: tr(' · ${suggestion.unitLabel}'),
                             style: const TextStyle(
                               color: _blue,
                               fontWeight: FontWeight.w500,
@@ -632,54 +654,73 @@ class _SuggestionTile extends StatelessWidget {
                           ),
                       ],
                     ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 6),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              tr(suggestion.displayCode),
-                              style: const TextStyle(
-                                fontSize: 12,
-                                color: PosTheme.textSecondary,
-                              ),
-                            ),
-                            Text(tr('Tồn: ${moneyFmt.format(suggestion.onHandQty)}'),
-                              style: const TextStyle(
-                                fontSize: 12,
-                                color: PosTheme.textSecondary,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          Text(tr('Giá: ${moneyFmt.format(price)}'),
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: sellMode ? _blue : PosTheme.textSecondary,
-                              fontWeight:
-                                  sellMode ? FontWeight.w600 : FontWeight.normal,
-                            ),
-                          ),
-                          Text(tr('Khách đặt: 0'),
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey.shade500,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
+                  const SizedBox(height: 2),
+                  Text(
+                    tr(
+                      '${suggestion.displayCode} · Tồn ${moneyFmt.format(suggestion.onHandQty)} · ${moneyFmt.format(price)}',
+                    ),
+                    style: TextStyle(
+                      fontSize: compact ? 11 : 12,
+                      color: PosTheme.textSecondary,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ],
               ),
             ),
+            if (selected && onQtyChanged != null) ...[
+              const SizedBox(width: 8),
+              SizedBox(
+                width: 72,
+                height: 36,
+                child: TextFormField(
+                  key: ValueKey('qty_${p.id}_${suggestion.variantId}_$qty'),
+                  initialValue: () {
+                    final v = qty ?? 1;
+                    return v == v.roundToDouble()
+                        ? v.toStringAsFixed(0)
+                        : v.toStringAsFixed(2);
+                  }(),
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                  ),
+                  decoration: InputDecoration(
+                    isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 8,
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    hintText: 'SL',
+                  ),
+                  onChanged: (raw) {
+                    final v = double.tryParse(
+                          raw.replaceAll(',', '.').trim(),
+                        ) ??
+                        0;
+                    if (v > 0) onQtyChanged!(v);
+                  },
+                  onFieldSubmitted: (raw) {
+                    final v = double.tryParse(
+                          raw.replaceAll(',', '.').trim(),
+                        ) ??
+                        1;
+                    onQtyChanged!(v <= 0 ? 1 : v);
+                  },
+                ),
+              ),
+            ],
           ],
         ),
       ),
@@ -748,6 +789,51 @@ class _BrowseProductsSheetState extends State<_BrowseProductsSheet> {
   String? _categoryId;
   bool _loading = true;
   bool _loadingCategories = true;
+  /// key = productId|variantId|unitId → SL
+  final Map<String, double> _draftQty = {};
+
+  String _key(PosPurchaseSearchSuggestion s) =>
+      '${s.product.id}|${s.variantId ?? ''}|${s.unitId ?? ''}';
+
+  void _toggle(PosPurchaseSearchSuggestion s) {
+    final k = _key(s);
+    setState(() {
+      if (_draftQty.containsKey(k)) {
+        _draftQty.remove(k);
+      } else {
+        _draftQty[k] = 1;
+      }
+    });
+  }
+
+  void _setQty(PosPurchaseSearchSuggestion s, double qty) {
+    final k = _key(s);
+    setState(() {
+      if (qty <= 0) {
+        _draftQty.remove(k);
+      } else {
+        _draftQty[k] = qty;
+      }
+    });
+  }
+
+  void _confirm() {
+    final picks = <PosPurchaseLookupPick>[];
+    for (final s in _items) {
+      final k = _key(s);
+      final qty = _draftQty[k];
+      if (qty == null || qty <= 0) continue;
+      picks.add(PosPurchaseLookupPick(
+        product: s.product,
+        variantId: s.variantId,
+        unitId: s.unitId,
+        unitLabel: s.unitLabel,
+        qty: qty,
+      ));
+    }
+    // Giữ thứ tự chọn: nếu muốn, iterate draft keys. Đủ theo list hiện tại.
+    Navigator.pop(context, picks);
+  }
 
   @override
   void initState() {
@@ -920,9 +1006,21 @@ class _BrowseProductsSheetState extends State<_BrowseProductsSheet> {
               child: Row(
                 children: [
                   Expanded(
-                    child: Text(tr('Chọn hàng hóa'),
-                        style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
+                    child: Text(
+                      tr(_draftQty.isEmpty
+                          ? 'Chọn hàng hóa'
+                          : 'Đã chọn ${_draftQty.length}'),
+                      style: const TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ),
+                  if (_draftQty.isNotEmpty)
+                    TextButton(
+                      onPressed: _confirm,
+                      child: Text(tr('Thêm ${_draftQty.length}')),
+                    ),
                   IconButton(
                     onPressed: () => Navigator.pop(context),
                     icon: const Icon(Icons.close),
@@ -1018,16 +1116,45 @@ class _BrowseProductsSheetState extends State<_BrowseProductsSheet> {
                               height: 1,
                               color: Colors.grey.shade200,
                             ),
-                            itemBuilder: (_, i) => _SuggestionTile(
-                              suggestion: _items[i],
-                              moneyFmt: _moneyFmt,
-                              sellMode: widget.sellMode,
-                              onTap: () =>
-                                  Navigator.pop(context, _items[i].pick),
-                            ),
+                            itemBuilder: (_, i) {
+                              final s = _items[i];
+                              final k = _key(s);
+                              final selected = _draftQty.containsKey(k);
+                              return _SuggestionTile(
+                                suggestion: s,
+                                moneyFmt: _moneyFmt,
+                                sellMode: widget.sellMode,
+                                compact: true,
+                                selected: selected,
+                                qty: _draftQty[k],
+                                onQtyChanged: (v) => _setQty(s, v),
+                                onTap: () => _toggle(s),
+                              );
+                            },
                           ),
                         ),
             ),
+            if (_draftQty.isNotEmpty)
+              SafeArea(
+                top: false,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+                  child: SizedBox(
+                    width: double.infinity,
+                    height: 48,
+                    child: FilledButton(
+                      onPressed: _confirm,
+                      style: FilledButton.styleFrom(
+                        backgroundColor: _blue,
+                      ),
+                      child: Text(
+                        tr('Thêm ${_draftQty.length} sản phẩm vào phiếu'),
+                        style: const TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
           ],
         ),
       ),

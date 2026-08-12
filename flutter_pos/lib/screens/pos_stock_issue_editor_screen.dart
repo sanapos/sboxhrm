@@ -361,13 +361,19 @@ class _PosStockIssueEditorScreenState extends State<PosStockIssueEditorScreen> {
 
   Future<void> _onPickProduct(PosPurchaseLookupPick pick) async {
     if (_readOnly) return;
+    final addQty = (pick.qty == null || pick.qty! <= 0) ? 1.0 : pick.qty!;
     final issueId = await _ensureIssueId();
     if (issueId == null || !mounted) return;
 
     final key = '${pick.product.id}:${pick.variantId ?? 'base'}';
-    if (_lines.any((l) => '${l.productId}:${l.variantId ?? 'base'}' == key)) {
-      NotificationOverlayManager()
-          .showWarning(title: 'Trùng', message: tr('Hàng đã có trong phiếu'));
+    final existing = _lines.where((l) => '${l.productId}:${l.variantId ?? 'base'}' == key);
+    if (existing.isNotEmpty) {
+      final line = existing.first;
+      final next = line.qty + addQty;
+      line.qtyCtrl.text = next == next.roundToDouble()
+          ? next.toStringAsFixed(0)
+          : next.toStringAsFixed(2);
+      _onLineFieldChanged();
       return;
     }
 
@@ -386,6 +392,14 @@ class _PosStockIssueEditorScreenState extends State<PosStockIssueEditorScreen> {
           mergeLines: true,
           defaultQtyOneForNew: true,
         );
+        for (final line in _lines) {
+          if ('${line.productId}:${line.variantId ?? 'base'}' == key) {
+            line.qtyCtrl.text = addQty == addQty.roundToDouble()
+                ? addQty.toStringAsFixed(0)
+                : addQty.toStringAsFixed(2);
+            break;
+          }
+        }
       });
       _scheduleLineAutoSave();
     } else {

@@ -349,6 +349,34 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
+  /// Module POS tối thiểu cho app thu ngân độc lập.
+  static const _posPackageDefaults = <String>[
+    'PosSell',
+    'PosProducts',
+    'PosSaleOrders',
+    'PosSalesReport',
+    'CashTransaction',
+    'PosCustomers',
+  ];
+
+  /// Gộp module POS vào gói — hub / FeatureGate client không bị «Trống» / chặn bán.
+  void ensurePosPackageDefaults() {
+    if (_user == null) return;
+    if (StoreRoleHelper.bypassesPackageFilter(_user!.role)) return;
+    final current = List<String>.from(_user!.allowedModules ?? const []);
+    final lower = {for (final m in current) m.toLowerCase()};
+    var changed = false;
+    for (final code in _posPackageDefaults) {
+      if (lower.add(code.toLowerCase())) {
+        current.add(code);
+        changed = true;
+      }
+    }
+    if (!changed) return;
+    _user = _user!.copyWith(allowedModules: current);
+    notifyListeners();
+  }
+
   /// Lấy danh sách module được phép từ gói dịch vụ cửa hàng
   Future<void> _fetchAllowedModules() async {
     try {
@@ -360,12 +388,16 @@ class AuthProvider extends ChangeNotifier {
       if (modules == null) {
         debugPrint(
             '⚠️ AuthProvider: getMyModules failed — keeping existing allowedModules');
+        ensurePosPackageDefaults();
         return;
       }
       _user = _user!.copyWith(allowedModules: modules);
-      debugPrint('✅ AuthProvider: Loaded ${modules.length} allowed modules');
+      ensurePosPackageDefaults();
+      debugPrint(
+          '✅ AuthProvider: Loaded ${_user!.allowedModules?.length ?? 0} allowed modules');
     } catch (e) {
       debugPrint('⚠️ AuthProvider: Error fetching allowed modules: $e');
+      ensurePosPackageDefaults();
     }
   }
 

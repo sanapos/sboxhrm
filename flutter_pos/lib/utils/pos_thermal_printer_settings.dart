@@ -76,7 +76,7 @@ class PosThermalPrinterSettings {
     this.lanPort = 9100,
     this.usbDeviceName,
     this.escPosCodePage = 27,
-    this.feedBeforeCut = 14,
+    this.feedBeforeCut = 5,
     this.partialCut = true,
     this.openCashDrawer = false,
     this.openDrawerCashOnly = true,
@@ -154,15 +154,25 @@ class PosThermalPrinterSettings {
     }
   }
 
+  /// Số dòng đẩy giấy trước khi cắt.
+  /// 0 = tắt feed. Giá trị thấp (kể cả default cũ = 1) được nâng sàn theo hãng
+  /// vì lưỡi cắt nằm sau đầu in — thiếu feed → cắt mất phần món phía dưới.
   int get resolvedFeedBeforeCut {
-    var n = feedBeforeCut.clamp(3, 24);
-    if (printerBrand == PosThermalPrinterBrand.zywell && n < 6) return 8;
-    if ((connectionType == PosThermalConnectionType.sunmi ||
-            printerBrand == PosThermalPrinterBrand.sunmi) &&
-        n < 14) {
-      return 14;
+    final n = feedBeforeCut.clamp(0, 40);
+    if (n == 0) return 0;
+    const usbFloor = 5;
+    switch (printerBrand) {
+      case PosThermalPrinterBrand.zywell:
+      case PosThermalPrinterBrand.xprinter:
+      case PosThermalPrinterBrand.hprt:
+      case PosThermalPrinterBrand.rp80:
+      case PosThermalPrinterBrand.generic:
+        return n < usbFloor ? usbFloor : n;
+      case PosThermalPrinterBrand.sunmi:
+        return n < 4 ? 4 : n;
+      case PosThermalPrinterBrand.epson:
+        return n < 3 ? 3 : n;
     }
-    return n;
   }
 
   PosThermalPrinterSettings copyWith({
@@ -208,7 +218,19 @@ class PosThermalPrinterSettings {
       );
 
   static Future<PosThermalPrinterSettings> load() async {
+    final legacy = await loadLegacyRaw();
+    return legacy ?? const PosThermalPrinterSettings();
+  }
+
+  /// Đọc singleton SharedPreferences (dùng migrate → multi máy).
+  static Future<PosThermalPrinterSettings?> loadLegacyRaw() async {
     final prefs = await SharedPreferences.getInstance();
+    if (!prefs.containsKey(_kEnabled) &&
+        !prefs.containsKey(_kBtAddr) &&
+        !prefs.containsKey(_kLanHost) &&
+        !prefs.containsKey(_kType)) {
+      return null;
+    }
     return PosThermalPrinterSettings(
       enabled: prefs.getBool(_kEnabled) ?? false,
       connectionType: PosThermalConnectionType.fromKey(prefs.getString(_kType)),
@@ -221,7 +243,7 @@ class PosThermalPrinterSettings {
       lanPort: prefs.getInt(_kLanPort) ?? 9100,
       usbDeviceName: prefs.getString(_kUsbName),
       escPosCodePage: prefs.getInt(_kCodePage) ?? 27,
-      feedBeforeCut: prefs.getInt(_kFeedCut) ?? 14,
+      feedBeforeCut: prefs.getInt(_kFeedCut) ?? 5,
       partialCut: prefs.getBool(_kPartialCut) ?? true,
       openCashDrawer: prefs.getBool(_kOpenDrawer) ?? false,
       openDrawerCashOnly: prefs.getBool(_kOpenDrawerCashOnly) ?? true,

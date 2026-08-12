@@ -204,6 +204,8 @@ public static class PosDraftLockHelper
         order.LockedByDeviceName = null;
         order.LockedAt = null;
         order.LockExpiresAt = null;
+        // Bump version để PUT autosave đang bay (expectedLockVersion cũ) bị conflict — không gắn lại khóa.
+        order.LockVersion = Math.Max(0, order.LockVersion) + 1;
         order.UpdatedAt = utcNow ?? DateTime.UtcNow;
     }
 
@@ -243,7 +245,9 @@ public static class PosDraftLockHelper
     }
 
     /// <summary>
-    /// Sau lưu Draft: bump version + gia hạn khóa cho máy đang giữ.
+    /// Sau lưu Draft: bump version + gia hạn/gán khóa.
+    /// Không ghi đè khóa máy khác đang giữ. Gán mới chỉ khi chưa có khóa hiệu lực
+    /// (tạo đơn / TTL hết). ReconcileLockFieldsBeforeSaveAsync chặn gắn lại sau unlock.
     /// </summary>
     public static void BumpAfterSuccessfulSave(
         PosSaleOrder order, LockActor actor, int lineCount, DateTime? utcNow = null)
@@ -251,7 +255,9 @@ public static class PosDraftLockHelper
         var now = utcNow ?? DateTime.UtcNow;
         order.LockVersion = Math.Max(0, order.LockVersion) + 1;
         order.UpdatedAt = now;
-        // Giữ / gán khóa cho actor vừa lưu — tránh LWW hai máy.
+        // Máy khác đang giữ — chỉ bump version nội dung, không đụng LockedBy*.
+        if (IsLockActive(order, now) && !IsHeldBy(order, actor, now))
+            return;
         order.LockedByUserId = actor.UserId;
         order.LockedByEmployeeId = actor.EmployeeId;
         order.LockedByDisplayName = Truncate(actor.DisplayName, 200);

@@ -1078,8 +1078,9 @@ public partial class PosSellIndustryController
     public record CustomerDisplayStateDto(string StateJson, string? ViewerCode = null);
 
     /// <summary>POS đẩy trạng thái màn phụ lên server (máy khác mở link vẫn xem được).</summary>
+    /// Dùng PosSell Create — thu ngân luôn đẩy được (PosCustomerDisplay kế thừa qua implicit grant).
     [HttpPut("customer-display/state")]
-    [RequireModulePermission("PosCustomerDisplay", ModulePermissionAction.Create)]
+    [RequireModulePermission("PosSell", ModulePermissionAction.Create)]
     public ActionResult<AppResponse<object>> PutCustomerDisplayState([FromBody] CustomerDisplayStateDto dto)
     {
         if (!TryGetStoreId(out var storeId))
@@ -1097,7 +1098,7 @@ public partial class PosSellIndustryController
 
     /// <summary>Máy đã đăng nhập — đọc state mới nhất của cửa hàng.</summary>
     [HttpGet("customer-display/state")]
-    [RequireModulePermission("PosCustomerDisplay", ModulePermissionAction.View)]
+    [RequireModulePermission("PosSell", ModulePermissionAction.View)]
     public ActionResult<AppResponse<object>> GetCustomerDisplayState()
     {
         if (!TryGetStoreId(out var storeId))

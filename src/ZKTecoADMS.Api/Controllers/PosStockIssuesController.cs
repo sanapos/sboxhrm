@@ -61,6 +61,9 @@ public class PosStockIssuesController(ZKTecoDbContext dbContext) : Authenticated
                 return BadRequest(AppResponse<StockIssueDto>.Fail("Hàng hóa không hợp lệ"));
             if (line.Qty <= 0)
                 return BadRequest(AppResponse<StockIssueDto>.Fail("Số lượng xuất phải > 0"));
+            var qtyErr = PosQtyRules.ValidateLineQty(products[line.ProductId], line.Qty, "Xuất kho");
+            if (qtyErr != null)
+                return BadRequest(AppResponse<StockIssueDto>.Fail(qtyErr));
             if (line.VariantId.HasValue)
             {
                 if (!variants.TryGetValue(line.VariantId.Value, out var v) || v.ProductId != line.ProductId)

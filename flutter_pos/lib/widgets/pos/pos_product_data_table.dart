@@ -11,6 +11,7 @@ import 'pos_product_type_badge.dart';
 import 'pos_product_unit_view.dart';
 import 'pos_theme.dart';
 import 'pos_unit_chip_selector.dart';
+import '../../utils/pos_qty_rules.dart';
 import 'package:sbox_pos/l10n/app_tr.dart';
 
 typedef PosProductRowAction = void Function(PosProduct product);
@@ -435,7 +436,7 @@ class PosProductDataTable extends StatelessWidget {
               : activeView.displayCode,
         ),
       PosProductTableColumn.barcode =>
-        _cellText(p.barcode ?? 'â€”'),
+        _cellText(p.barcode ?? '—'),
       PosProductTableColumn.name => Padding(
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
           child: Column(
@@ -464,7 +465,7 @@ class PosProductDataTable extends StatelessWidget {
           ),
         ),
       PosProductTableColumn.group =>
-        _cellText(p.categoryName ?? 'â€”'),
+        _cellText(p.categoryName ?? '—'),
       PosProductTableColumn.type => Padding(
           padding: const EdgeInsets.symmetric(horizontal: 4),
           child: Align(
@@ -478,22 +479,22 @@ class PosProductDataTable extends StatelessWidget {
           align: TextAlign.right,
         ),
       PosProductTableColumn.brand =>
-        _cellText(p.brandName ?? 'â€”'),
+        _cellText(p.brandName ?? '—'),
       PosProductTableColumn.stock => _stockCell(p, activeView),
       PosProductTableColumn.location =>
-        _cellText(p.storageLocationName ?? 'â€”'),
+        _cellText(p.storageLocationName ?? '—'),
       PosProductTableColumn.reserved => _cellText(
           p.reservedQty > 0 ? moneyFmt.format(p.reservedQty) : '0',
           align: TextAlign.right,
         ),
       PosProductTableColumn.createdAt => _cellText(
-          p.createdAt != null ? dateFmt.format(p.createdAt!) : 'â€”',
+          p.createdAt != null ? dateFmt.format(p.createdAt!) : '—',
           color: PosTheme.textSecondary,
         ),
       PosProductTableColumn.stockout => _cellText(
           p.estimatedStockoutDate != null
               ? dateFmt.format(p.estimatedStockoutDate!)
-              : 'â€”',
+              : '—',
           color: PosTheme.textSecondary,
         ),
       PosProductTableColumn.actions => IconButton(
@@ -536,10 +537,10 @@ class PosProductDataTable extends StatelessWidget {
 
   Widget _stockCell(PosProduct p, PosProductUnitView view) {
     if (p.productType == PosProductType.service) {
-      return _cellText('â€”', align: TextAlign.right, color: Colors.grey);
+      return _cellText('—', align: TextAlign.right, color: Colors.grey);
     }
     final text = _cellText(
-      moneyFmt.format(view.onHandQty),
+      PosQtyRules.format(view.onHandQty, product: p),
       align: TextAlign.right,
       color: view.onHandQty <= 0 ? const Color(0xFFE53935) : null,
     );
@@ -579,7 +580,7 @@ class PosProductDataTable extends StatelessWidget {
     );
   }
 
-  /// DÃ²ng hÃ ng cÃ¹ng loáº¡i (biáº¿n thá»ƒ) â€” thá»¥t vÃ o kiá»ƒu KiotViet, báº¥m xem chi tiáº¿t.
+  /// Dòng hàng cùng lo?i (bi?n th?) — th?t vào ki?u KiotViet, b?m xem chi ti?t.
   Widget _variantDataRow(PosProduct parent, PosProductVariant v) {
     final selected = selectedVariantId == v.id;
     return Material(
@@ -621,7 +622,7 @@ class PosProductDataTable extends StatelessWidget {
           ),
         ),
       PosProductTableColumn.barcode =>
-        _cellText(v.barcode ?? 'â€”', color: PosTheme.textSecondary),
+        _cellText(v.barcode ?? '—', color: PosTheme.textSecondary),
       PosProductTableColumn.name => Padding(
           padding: const EdgeInsets.only(left: 12),
           child: _cellText(
@@ -638,10 +639,10 @@ class PosProductDataTable extends StatelessWidget {
         ),
       PosProductTableColumn.stock => _variantStockCell(parent, v),
       PosProductTableColumn.createdAt => _cellText(
-          parent.createdAt != null ? dateFmt.format(parent.createdAt!) : 'â€”',
+          parent.createdAt != null ? dateFmt.format(parent.createdAt!) : '—',
           color: PosTheme.textSecondary,
         ),
-      _ => _cellText('â€”', color: PosTheme.textSecondary),
+      _ => _cellText('—', color: PosTheme.textSecondary),
     };
     return _colWrap(c, child);
   }
@@ -660,7 +661,7 @@ class PosProductDataTable extends StatelessWidget {
 
   Widget _variantStockCell(PosProduct parent, PosProductVariant v) {
     final text = _cellText(
-      moneyFmt.format(v.onHandQty),
+      PosQtyRules.format(v.onHandQty, product: parent),
       align: TextAlign.right,
       color: v.onHandQty <= 0
           ? const Color(0xFFE53935)
@@ -681,7 +682,7 @@ class PosProductDataTable extends StatelessWidget {
           TextButton.icon(
             onPressed: () => onCopy!(p),
             icon: const Icon(Icons.copy, size: 16),
-            label: Text(tr('Sao chÃ©p')),
+            label: Text(tr('Sao chép')),
           ),
           const Spacer(),
           FilledButton.icon(
@@ -692,7 +693,7 @@ class PosProductDataTable extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
             ),
             icon: const Icon(Icons.add, size: 16),
-            label: Text(tr('ThÃªm hÃ ng hÃ³a cÃ¹ng loáº¡i')),
+            label: Text(tr('Thêm hàng hóa cùng lo?i')),
           ),
         ],
       ),

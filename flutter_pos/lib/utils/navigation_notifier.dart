@@ -144,6 +144,15 @@ class NavigationNotifier {
     debugPrint('📍 Navigation requested to screen index: $screenIndex');
   }
 
+  /// Thoát shell POS → trang chủ HRM (nếu có MainLayout); không thì tab Tổng quan.
+  static void leavePosHubToAppHome() {
+    if (mainLayoutReady.value) {
+      goTo(home);
+      return;
+    }
+    posHubTab.value = 0;
+  }
+
   static void goToModule(String moduleCode) {
     navigateToModule.value = moduleCode;
     debugPrint('📍 Navigation requested to module: $moduleCode');

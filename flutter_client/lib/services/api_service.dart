@@ -17129,6 +17129,7 @@ class ApiService {
     String? search,
     String? categoryId,
     bool unassignedOnly = false,
+    bool forLabel = false,
     int page = 1,
     int pageSize = 50,
   }) async {
@@ -17136,6 +17137,7 @@ class ApiService {
       'page': '$page',
       'pageSize': '$pageSize',
       'unassignedOnly': '$unassignedOnly',
+      'forLabel': '$forLabel',
     };
     if (search != null && search.trim().isNotEmpty) q['search'] = search.trim();
     if (categoryId != null && categoryId.isNotEmpty) q['categoryId'] = categoryId;
@@ -17214,6 +17216,8 @@ class ApiService {
     bool includeChildCategories = true,
     /// true = chuyển SP đang gán máy khác sang máy này.
     bool forceReassign = false,
+    /// true = gán lane tem (không đụng gán phiếu bếp).
+    bool? forLabel,
   }) async {
     return _mutateProductPrinterApi(
       '/printers/$printerId/assign',
@@ -17226,6 +17230,9 @@ class ApiService {
           'allProducts': allProducts,
           'includeChildCategories': includeChildCategories,
           'forceReassign': forceReassign,
+          'ForceReassign': forceReassign,
+          if (forLabel != null) 'forLabel': forLabel,
+          if (forLabel != null) 'ForLabel': forLabel,
         }),
       ),
     );

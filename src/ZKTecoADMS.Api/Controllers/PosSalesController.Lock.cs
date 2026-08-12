@@ -117,14 +117,6 @@ public partial class PosSalesController
         // Máy đã về sơ đồ (không renew) → LockedAt cũ → cho «Lấy quyền».
         if (stealing && force)
         {
-            // Force-take cần Approve — tránh Waiter/Order cướp khóa máy khác.
-            if (!await HasPosSellApproveAsync())
-            {
-                return StatusCode(StatusCodes.Status403Forbidden,
-                    AppResponse<DraftLockStateDto>.Fail(
-                        "Cần quyền duyệt PosSell để lấy quyền đơn đang khóa trên máy khác."));
-            }
-
             // Bắt buộc deviceId khi cướp khóa — chống spoof body trống.
             if (string.IsNullOrWhiteSpace(dto?.DeviceId))
             {
@@ -149,6 +141,16 @@ public partial class PosSalesController
                     conflict,
                     [$"Bàn đang mở bởi {who}{device} — nhờ máy đó thoát về sơ đồ rồi bấm Lấy quyền"]));
             }
+
+            // Cùng tài khoản chuyển máy sau khi «tạm rời» (>45s): không cần Approve.
+            // User khác force-take vẫn cần Approve — tránh Waiter cướp bàn người khác.
+            var sameUser = order.LockedByUserId == actor.UserId;
+            if (!sameUser && !await HasPosSellApproveAsync())
+            {
+                return StatusCode(StatusCodes.Status403Forbidden,
+                    AppResponse<DraftLockStateDto>.Fail(
+                        "Cần quyền duyệt PosSell để lấy quyền đơn đang khóa trên máy khác."));
+            }
         }
 
         var err = PosDraftLockHelper.TryAcquire(
@@ -160,6 +162,8 @@ public partial class PosSalesController
         }
 
         await dbContext.SaveChangesAsync();
+        NotifyFloorChanged(storeId, "draftLocked",
+            orderId: order.Id, resourceId: order.ServiceResourceId);
         return Ok(AppResponse<DraftLockStateDto>.Success(MapLockState(order, actor, lineCount)));
     }
 
@@ -230,6 +234,8 @@ public partial class PosSalesController
         {
             PosDraftLockHelper.Release(order);
             await dbContext.SaveChangesAsync();
+            NotifyFloorChanged(storeId, "draftUnlocked",
+                orderId: order.Id, resourceId: order.ServiceResourceId);
             return Ok(AppResponse<DraftLockStateDto>.Success(MapLockState(order, actor, lineCount)));
         }
 
@@ -242,8 +248,11 @@ public partial class PosSalesController
                 false, MapLockState(order, actor, lineCount), ["Bạn không đang giữ đơn này"]));
         }
 
+        var resourceId = order.ServiceResourceId;
         PosDraftLockHelper.Release(order);
         await dbContext.SaveChangesAsync();
+        NotifyFloorChanged(storeId, "draftUnlocked",
+            orderId: order.Id, resourceId: resourceId);
         return Ok(AppResponse<DraftLockStateDto>.Success(MapLockState(order, actor, lineCount)));
     }
 }

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../../l10n/app_localizations.dart';
 import '../../providers/auth_provider.dart';
 import '../../utils/navigation_notifier.dart';
 import '../../utils/responsive_helper.dart';
@@ -13,21 +12,21 @@ import 'package:sbox_pos/l10n/app_tr.dart';
 
 /// Xác nhận và đăng xuất khỏi POS / cửa hàng.
 Future<void> showPosLogoutDialog(BuildContext context) async {
-  final l = AppLocalizations.of(context);
+  // Không phụ thuộc AppLocalizations (MaterialApp POS có thể chưa đăng ký delegate).
   final ok = await showDialog<bool>(
     context: context,
     builder: (ctx) => AlertDialog(
-      title: Text(tr(l.logout)),
-      content: Text(tr(l.logoutConfirm)),
+      title: Text(tr('Đăng xuất')),
+      content: Text(tr('Bạn có chắc chắn muốn đăng xuất?')),
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(ctx, false),
-          child: Text(tr(l.cancel)),
+          child: Text(tr('Hủy')),
         ),
         FilledButton(
           onPressed: () => Navigator.pop(ctx, true),
           style: FilledButton.styleFrom(backgroundColor: Colors.red),
-          child: Text(tr(l.logout)),
+          child: Text(tr('Đăng xuất')),
         ),
       ],
     ),
@@ -96,10 +95,14 @@ class PosMobileProfileCard extends StatelessWidget {
             onPressed: () => NavigationNotifier.goToModule('SettingsHub'),
             icon: const Icon(Icons.settings_outlined, color: PosTheme.kiotBlue),
           ),
-          IconButton(
-            tooltip: tr('Đăng xuất'),
-            onPressed: () => showPosLogoutDialog(context),
-            icon: Icon(Icons.logout, color: Colors.red.shade600),
+          Semantics(
+            label: tr('Đăng xuất'),
+            button: true,
+            child: IconButton(
+              tooltip: tr('Đăng xuất'),
+              onPressed: () => showPosLogoutDialog(context),
+              icon: Icon(Icons.logout, color: Colors.red.shade600),
+            ),
           ),
         ],
       ),
@@ -149,7 +152,8 @@ class PosMobileHubSection extends StatelessWidget {
                   tr(title),
                   style: const TextStyle(
                     fontSize: 15,
-                    fontWeight: FontWeight.bold,
+                    fontWeight: FontWeight.w800,
+                    color: PosTheme.kiotBlue,
                   ),
                 ),
               ),
@@ -198,7 +202,8 @@ class PosMobileHubSectionGrid extends StatelessWidget {
             crossAxisCount: cols,
             spacing: roomy ? 8 : 4,
             runSpacing: roomy ? 8 : 4,
-            childAspectRatio: roomy ? 1.05 : 0.92,
+            // Ô thấp hơn một chút để ListView cuộn thấy hết module (máy in…).
+            childAspectRatio: roomy ? 1.35 : 1.05,
             itemCount: items.length,
             itemBuilder: (context, index) => _PosMobileHubGridTile(
               item: items[index],
@@ -1032,11 +1037,17 @@ class PosMobileKiotHeader extends StatelessWidget {
               if (inHub)
                 IconButton(
                   visualDensity: VisualDensity.compact,
-                  tooltip: tr('Về trang chủ'),
-                  icon: const Icon(Icons.home_outlined,
-                      color: PosTheme.textPrimary),
+                  tooltip: tr(NavigationNotifier.mainLayoutReady.value
+                      ? 'Về SBOX HRM'
+                      : 'Về trang chủ'),
+                  icon: Icon(
+                    NavigationNotifier.mainLayoutReady.value
+                        ? Icons.apps_outlined
+                        : Icons.home_outlined,
+                    color: PosTheme.textPrimary,
+                  ),
                   onPressed: onHome ??
-                      () => NavigationNotifier.posHubTab.value = 0,
+                      NavigationNotifier.leavePosHubToAppHome,
                 ),
               Expanded(
                 child: Text(

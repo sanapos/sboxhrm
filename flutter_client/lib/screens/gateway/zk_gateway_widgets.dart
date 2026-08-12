@@ -228,7 +228,12 @@ class GatewayCard extends StatelessWidget {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        info.ip,
+                        [
+                          if (info.ip.isNotEmpty) info.ip,
+                          if (info.deviceIp.isNotEmpty) 'ZK ${info.deviceIp}',
+                        ].join(' · '),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
                           fontSize: 12,
                           color: HrmPageChrome.textMuted,
@@ -245,6 +250,10 @@ class GatewayCard extends StatelessWidget {
               spacing: 7,
               runSpacing: 7,
               children: [
+                GatewayStatusChip(
+                  label: info.wifiConnected ? 'WiFi OK' : 'Mất WiFi',
+                  ok: info.wifiConnected,
+                ),
                 GatewayStatusChip(
                   label: info.deviceOnline ? 'Máy chấm công OK' : 'Mất máy chấm công',
                   ok: info.deviceOnline,

@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 
 import '../models/pos_print_template.dart';
+import '../models/pos_store_printer.dart';
 import '../services/api_service.dart';
 import '../widgets/notification_overlay.dart';
 import '../utils/pos_barcode_print.dart';
+import '../utils/pos_label_printer_service.dart';
+import '../utils/pos_label_printer_settings.dart';
 import '../utils/pos_print_template_loader.dart';
 import '../utils/pos_print_template_defaults.dart';
 import '../utils/pos_print_template_renderer.dart';
@@ -13,6 +16,7 @@ import '../utils/pos_print_template_compiler.dart';
 import '../utils/pos_print_template_runtime.dart';
 import '../utils/pos_print_orchestrator.dart';
 import '../utils/pos_printer_transport.dart';
+import '../utils/pos_store_printer_mapper.dart';
 import '../utils/pos_thermal_printer_settings.dart';
 import '../models/pos_print_template_v2.dart';
 import '../widgets/pos/pos_print_template_v2_editor.dart';
@@ -110,9 +114,10 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
       printerProfile: PosPrintPaperSizes.isLabelSize(paper)
           ? PosPrintPrinterProfiles.genericK58
           : PosPrintPrinterProfiles.sunmiK80,
-      name: posPrintDefaultTemplateName(paper),
+      name: posPrintDefaultTemplateName(paper, documentType: _docType),
     );
-    _nameCtrl.text = _v2Template!.name ?? posPrintDefaultTemplateName(paper);
+    _nameCtrl.text = _v2Template!.name ??
+        posPrintDefaultTemplateName(paper, documentType: _docType);
     _dirty = false;
   }
 
@@ -246,12 +251,12 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
   List<(String key, String label)> _paperOptionsForDoc() {
     if (_docType == PosPrintDocumentTypes.kitchenLabel) {
       return PosPrintPaperSizes.kitchenLabelSizes
-          .map((k) => (k, PosPrintPaperSizes.labels[k] ?? k))
+          .map((k) => (k, PosPrintPaperSizes.displayLabel(k)))
           .toList();
     }
     if (_docType == PosPrintDocumentTypes.barcodeLabel) {
-      return posBarcodeLabelTemplates
-          .map((t) => (t.id, '${t.name} (${t.sizeLabel})'))
+      return PosPrintPaperSizes.productLabelSizes
+          .map((id) => (id, PosPrintPaperSizes.displayLabel(id)))
           .toList();
     }
     return [
@@ -396,11 +401,76 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
     if (v2 == null) return;
     setState(() => _testingPrint = true);
     try {
+      final orch = PosPrintOrchestrator.instance;
+      await orch.ensureListening();
+      await orch.refreshConfig();
+      final active = orch.printers.where((p) => p.isActive).toList();
+      if (active.isEmpty) {
+        if (!mounted) return;
+        NotificationOverlayManager().showWarning(
+          title: 'Chưa có máy in',
+          message: tr('Thêm máy in cửa hàng / máy in nội bộ trước khi in thử'),
+        );
+        return;
+      }
+
+      final isBarcodeLabel = v2.documentType == PosPrintDocumentTypes.barcodeLabel;
+      final isKitchen =
+          v2.documentType == PosPrintDocumentTypes.kitchenSlip ||
+              v2.documentType == PosPrintDocumentTypes.kitchenVoid ||
+              v2.documentType == PosPrintDocumentTypes.kitchenLabel;
+
+      List<PosStorePrinter> candidates;
+      if (isBarcodeLabel) {
+        candidates = active.where((p) => p.isLabelPrinter).toList();
+        if (candidates.isEmpty) candidates = active;
+      } else if (isKitchen) {
+        candidates = active
+            .where((p) =>
+                !p.isLabelPrinter &&
+                (p.documentTypes.isEmpty ||
+                    p.documentTypes.any((d) =>
+                        d == PosPrintDocumentTypes.kitchenSlip ||
+                        d == PosPrintDocumentTypes.kitchenVoid ||
+                        d == PosPrintDocumentTypes.kitchenLabel ||
+                        d == v2.documentType)))
+            .toList();
+        if (candidates.isEmpty) {
+          candidates = active.where((p) => !p.isLabelPrinter).toList();
+        }
+        if (candidates.isEmpty) candidates = active;
+      } else {
+        candidates = active.where((p) => !p.isLabelPrinter).toList();
+        if (candidates.isEmpty) candidates = active;
+      }
+
+      if (!mounted) return;
+      final picked = await _pickTestPrinter(candidates);
+      if (picked == null || !mounted) return;
+
+      if (isBarcodeLabel || picked.isLabelPrinter) {
+        final ok = await PosLabelPrinterService.testPrint(
+          toLabelSettings(picked).copyWith(enabled: true),
+        );
+        if (!mounted) return;
+        if (ok) {
+          NotificationOverlayManager().showSuccess(
+            title: 'In thử tem',
+            message: tr('Đã gửi tem mẫu → ${picked.name}'),
+          );
+        } else {
+          NotificationOverlayManager().showError(
+            title: 'In thử tem thất bại',
+            message: tr('Kiểm tra kết nối máy in tem (${picked.name})'),
+          );
+        }
+        return;
+      }
+
       final isKitchenSlip =
           v2.documentType == PosPrintDocumentTypes.kitchenSlip ||
               v2.documentType == PosPrintDocumentTypes.kitchenVoid;
-      final isLabel = v2.documentType == PosPrintDocumentTypes.barcodeLabel ||
-          v2.documentType == PosPrintDocumentTypes.kitchenLabel;
+      final isLabel = v2.documentType == PosPrintDocumentTypes.kitchenLabel;
       final output = isKitchenSlip
           ? PosPrintTemplateRuntime.compileKitchenSlip(
               template: v2,
@@ -420,13 +490,12 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
               lineItems: isLabel ? const [] : posPrintSampleLines(),
             );
 
-      final settings = (await PosThermalPrinterSettings.load()).copyWith(
+      final settings = toThermalSettings(picked).copyWith(
         enabled: true,
         paperSize: v2.paperSize,
       );
 
-      if (await PosPrinterTransport.isSunmiDevice() ||
-          settings.connectionType == PosThermalConnectionType.sunmi) {
+      if (settings.connectionType == PosThermalConnectionType.sunmi) {
         final ok = await PosPrintTemplateRuntime.printCompiledSunmi(
           output: output,
           settings: settings.copyWith(
@@ -437,12 +506,14 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
         );
         if (!mounted) return;
         if (ok) {
-          NotificationOverlayManager()
-              .showSuccess(title: 'In thử', message: tr('Đã in mẫu trên Sunmi'));
+          NotificationOverlayManager().showSuccess(
+            title: 'In thử',
+            message: tr('Đã in mẫu → ${picked.name}'),
+          );
         } else {
           NotificationOverlayManager().showError(
             title: 'In thử thất bại',
-            message: tr('Sunmi không phản hồi'),
+            message: tr('Sunmi không phản hồi (${picked.name})'),
           );
         }
         return;
@@ -452,21 +523,31 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
         output: output,
         settings: settings,
       );
-      final ok = await PosPrintOrchestrator.instance.dispatchLocalEscPos(
-        bytes: bytes,
-        settingsOverride: settings,
-        documentType: v2.documentType,
-        showFeedback: false,
-        skipDedup: true,
-      );
+      final ok = picked.isDeviceLocal
+          ? await orch.dispatchLocalEscPos(
+              bytes: bytes,
+              settingsOverride: settings,
+              documentType: v2.documentType,
+              showFeedback: false,
+              skipDedup: true,
+            )
+          : await orch.dispatchEscPos(
+              documentType: v2.documentType,
+              bytes: bytes,
+              printerId: picked.id,
+              showFeedback: false,
+              skipDedup: true,
+            );
       if (!mounted) return;
       if (ok) {
-        NotificationOverlayManager()
-            .showSuccess(title: 'In thử', message: tr('Đã gửi mẫu in thử'));
+        NotificationOverlayManager().showSuccess(
+          title: 'In thử',
+          message: tr('Đã gửi mẫu in thử → ${picked.name}'),
+        );
       } else {
         NotificationOverlayManager().showError(
           title: 'In thử thất bại',
-          message: tr('Kiểm tra kết nối máy in cục bộ'),
+          message: tr('Kiểm tra kết nối máy in (${picked.name})'),
         );
       }
     } catch (e) {
@@ -478,6 +559,53 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
     } finally {
       if (mounted) setState(() => _testingPrint = false);
     }
+  }
+
+  Future<PosStorePrinter?> _pickTestPrinter(List<PosStorePrinter> printers) {
+    if (printers.length == 1) return Future.value(printers.first);
+    return showModalBottomSheet<PosStorePrinter>(
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+              child: Text(
+                tr('Chọn máy in thử'),
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+              ),
+            ),
+            Flexible(
+              child: ListView.builder(
+                shrinkWrap: true,
+                itemCount: printers.length,
+                itemBuilder: (_, i) {
+                  final p = printers[i];
+                  final kind = p.isLabelPrinter
+                      ? 'Tem'
+                      : (p.isSunmi ? 'Sunmi' : p.connectionType);
+                  final online = p.isOnline ? 'Online' : (p.healthStatus);
+                  return ListTile(
+                    leading: Icon(
+                      p.isLabelPrinter
+                          ? Icons.label_outline
+                          : Icons.print_outlined,
+                      color: _blue,
+                    ),
+                    title: Text(tr(p.name)),
+                    subtitle: Text(tr('$kind · $online')),
+                    onTap: () => Navigator.of(ctx).pop(p),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Future<void> _deleteTemplate() async {
@@ -507,6 +635,7 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      resizeToAvoidBottomInset: true,
       backgroundColor: widget.embeddedInSettings
           ? HrmPageChrome.scaffoldBackground(context)
           : const Color(0xFFF3F4F6),
@@ -536,8 +665,10 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
                   child: Row(
                     children: PosPrintDocumentTypes.all.entries.map((e) {
                       final active = e.key == _docType;
+                      final isLabel = PosPrintPaperSizes.isLabelDoc(e.key);
+                      final chipLabel = isLabel ? 'Tem · ${e.value}' : e.value;
                       return Padding(
-                        padding: const EdgeInsets.only(right: 4),
+                        padding: const EdgeInsets.only(right: 8),
                         child: TextButton(
                           onPressed: () {
                             if (e.key == _docType) return;
@@ -549,10 +680,12 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
                                 active ? _blue : PosTheme.textPrimary,
                             backgroundColor:
                                 active ? const Color(0xFFE8F0FE) : null,
-                            visualDensity: VisualDensity.compact,
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 8),
+                            minimumSize: const Size(0, 40),
                           ),
                           child: Text(
-                            tr(e.value),
+                            tr(chipLabel),
                             style: TextStyle(
                               fontWeight:
                                   active ? FontWeight.w600 : FontWeight.normal,
@@ -567,6 +700,31 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
               ),
             ),
           ),
+          if (PosPrintDocumentTypes.usageHint(_docType).isNotEmpty)
+            Material(
+              color: const Color(0xFFEFF6FF),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(12, 6, 12, 6),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(Icons.info_outline,
+                        size: 18, color: Color(0xFF1D4ED8)),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        tr('${PosPrintPaperSizes.categoryLabel(_docType)} — ${PosPrintDocumentTypes.usageHint(_docType)}'),
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFF1E3A8A),
+                          height: 1.35,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           _buildTemplateSelectorBar(),
           Expanded(
             child: _loading
@@ -579,7 +737,7 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         Padding(
-                          padding: const EdgeInsets.only(bottom: 8),
+                          padding: const EdgeInsets.only(bottom: 6),
                           child: TextField(
                             controller: _nameCtrl,
                             decoration: InputDecoration(
@@ -639,7 +797,7 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+            padding: const EdgeInsets.fromLTRB(12, 6, 12, 0),
             child: TextField(
               controller: _nameCtrl,
               decoration: InputDecoration(
@@ -701,7 +859,10 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
       items: _templates
           .map((t) => DropdownMenuItem(
                 value: t.id,
-                child: Text(tr('${t.name} (${PosPrintPaperSizes.labels[t.paperSize] ?? t.paperSize})')),
+                child: Text(
+                  tr('${t.displayTitle}${t.isDefault ? ' · Hệ thống/mặc định' : ''}'),
+                  overflow: TextOverflow.ellipsis,
+                ),
               ))
           .toList(),
       onChanged: (id) {
@@ -715,7 +876,7 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
           widget.embeddedInSettings && HrmSettingsMobileKit.active(context);
       return Padding(
         padding: EdgeInsets.fromLTRB(
-            12, 10, 12, embeddedKit ? 8 : 8),
+            12, 8, 12, embeddedKit ? 6 : 6),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -815,7 +976,7 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
     }
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 6),
       child: Row(
         children: [
           Text(tr('Mẫu in:'), style: TextStyle(fontWeight: FontWeight.w600)),

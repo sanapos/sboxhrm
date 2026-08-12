@@ -188,8 +188,10 @@ Future<PosSellStoreSettings?> showPosSellStoreSettingsDialog(
                       labelText: tr('Thuế suất VAT (%)'),
                       border: const OutlineInputBorder(),
                       helperText: tr(taxMode == PosSellTaxMode.includedInPrice
-                          ? 'Giá bán đã gồm VAT — chỉ tách hiển thị trên hóa đơn'
-                          : 'VAT cộng thêm trên tổng tiền hàng sau chiết khấu'),
+                          ? 'Giá bán đã gồm VAT — trên HĐ ghi VAT = 0đ'
+                          : taxMode == PosSellTaxMode.perItem
+                              ? 'Cộng thêm VAT theo % từng mặt hàng (thiết lập trên hàng hóa)'
+                              : 'VAT cộng thêm trên tổng tiền hàng sau chiết khấu'),
                       helperMaxLines: 2,
                     ),
                     items: [

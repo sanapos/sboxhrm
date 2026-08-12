@@ -122,7 +122,7 @@ class _PosSellIndustrySettingsHubScreenState
         _tile(
           context,
           icon: Icons.tv_outlined,
-          title: 'Màn hình phụ (khách)',
+          title: 'Màn hình phụ',
           subtitle: 'Ảnh / video trình chiếu · hóa đơn phụ',
           onTap: () => _open(
             context,

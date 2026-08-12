@@ -306,8 +306,20 @@ class _PosPurchaseReturnEditorScreenState
             .toList();
       }
     }
+    final addQty = (pick.qty == null || pick.qty! <= 0) ? 1.0 : pick.qty!;
     final view = resolveUnitView(pick.product, variants, pick.variantId);
     final cost = view.costPrice > 0 ? view.costPrice : pick.product.costPrice;
+    final key = '${pick.product.id}:${view.variantId ?? 'base'}';
+    final existingIdx = _lines.indexWhere((l) => l.lineKey == key);
+    if (existingIdx >= 0) {
+      final cur = double.tryParse(_lines[existingIdx].qtyCtrl.text.replaceAll(',', '')) ?? 0;
+      final next = cur + addQty;
+      _lines[existingIdx].qtyCtrl.text = next == next.roundToDouble()
+          ? next.toStringAsFixed(0)
+          : next.toStringAsFixed(2);
+      setState(() {});
+      return;
+    }
     final line = _ReturnLine(
       productId: pick.product.id,
       productCode: view.displayCode,
@@ -316,14 +328,9 @@ class _PosPurchaseReturnEditorScreenState
       importCost: cost,
       variantId: view.variantId,
       variants: variants,
+      qty: addQty,
       returnPrice: cost,
     );
-    if (_lines.any((l) => l.lineKey == line.lineKey)) {
-      line.dispose();
-      NotificationOverlayManager()
-          .showWarning(title: 'Trùng', message: tr('Hàng đã có trong phiếu'));
-      return;
-    }
     await _loadVariantsForLine(line);
     setState(() => _lines.add(line));
   }

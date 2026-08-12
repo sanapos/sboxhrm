@@ -2,7 +2,10 @@
 class CustomerDisplayPlatformBridge {
   static Future<bool> hasSecondaryDisplay() async => false;
 
-  static Future<bool> openSecondary({String route = '/customer-display'}) async =>
+  static Future<bool> openSecondary({
+    String route = '/customer-display',
+    String mode = 't1Native',
+  }) async =>
       false;
 
   static Future<bool> closeSecondary() async => false;

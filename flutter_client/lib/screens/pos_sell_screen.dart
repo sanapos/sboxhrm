@@ -2608,7 +2608,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
                   lines: lines,
                   printerId: printerId,
                   printerName: printerName,
-                  errorMessage: 'Chưa in phiếu hủy sau 30s ($printerName)',
+                  errorMessage: 'Chưa in phiếu hủy sau 60s ($printerName)',
                 ),
               );
             },
@@ -2658,7 +2658,8 @@ class _PosSellScreenState extends State<PosSellScreen> {
         areaName: _tab.serviceAreaName,
         tableName: _tab.serviceResourceName,
       ),
-      'printed': ok,
+      // ok=true chỉ nghĩa là đã gửi/enqueue — chưa chắc giấy đã ra.
+      'printed': false,
       if (_posDeviceName != null) 'deviceName': _posDeviceName,
       if (resolved.reason.isNotEmpty) 'reason': resolved.reason,
       if ((resolved.detailNote ?? '').isNotEmpty)
@@ -2668,7 +2669,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
     if (!mounted) return true;
     if (ok) {
       NotificationOverlayManager().showSuccess(
-        title: 'Đã in phiếu hủy bếp',
+        title: shouldPrint ? 'Đã gửi phiếu hủy bếp' : 'Đã ghi hủy',
         message: '${lines.length} món · ${_tab.serviceResourceName ?? ''}',
       );
     } else {
@@ -7638,8 +7639,49 @@ class _PosSellScreenState extends State<PosSellScreen> {
     if (_checkingOut || _warehousePrinting) return;
     _pendingPrintRetryBusy = true;
     try {
-      // KHÔNG auto-retry hóa đơn / phiếu bếp: false-fail (Agent đã in) + skipDedup
-      // khiến in lại liên tục («Lần in thứ 5»). In lại chỉ bằng tay từ biểu tượng treo.
+      // Phiếu bếp / hủy: retry tối đa 3 lần, bỏ nếu server Cancelled.
+      if (_failedKitchenPrints.isNotEmpty) {
+        final job = _failedKitchenPrints.first;
+        if (job.attemptCount >= 3) {
+          _removeFailedKitchenPrint(job);
+        } else {
+          final orch = PosPrintOrchestrator.instance;
+          final serverCancelled = orch.isServerCancelled(job.id);
+          if (serverCancelled) {
+            debugPrint('Kitchen auto-retry: skip ${job.id} — server Cancelled');
+            _removeFailedKitchenPrint(job);
+          } else {
+            final ok = await printKitchenCompactSlip(
+              tableName: job.tableName,
+              isCancel: job.isCancel,
+              lines: job.lines,
+              senderName: job.senderName,
+              orderNo: job.orderNo,
+              sentAt: job.sentAt,
+              skipDedup: true,
+              showFeedback: false,
+              overridePrinterId: job.printerId,
+            );
+            if (!mounted) return;
+            if (ok) {
+              _removeFailedKitchenPrint(job);
+            } else {
+              setState(() {
+                final i = _failedKitchenPrints.indexWhere((j) => j.id == job.id);
+                if (i >= 0) {
+                  _failedKitchenPrints[i] = job.copyWith(
+                    attemptCount: job.attemptCount + 1,
+                    errorMessage: 'Thử lại lần ${job.attemptCount + 1}',
+                  );
+                }
+              });
+              unawaited(_persistPendingPrintQueue());
+            }
+          }
+        }
+        return;
+      }
+      // Tem ly: retry tối đa 8 lần.
       if (_failedCupPrints.isNotEmpty) {
         final job = _failedCupPrints.first;
         if (job.attemptCount >= 8) {

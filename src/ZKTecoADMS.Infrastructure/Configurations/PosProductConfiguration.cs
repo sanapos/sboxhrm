@@ -15,6 +15,7 @@ public class PosProductCategoryConfiguration : IEntityTypeConfiguration<PosProdu
         builder.HasOne(x => x.Store).WithMany().HasForeignKey(x => x.StoreId).OnDelete(DeleteBehavior.Cascade);
         builder.HasOne(x => x.Parent).WithMany(x => x.Children).HasForeignKey(x => x.ParentId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne(x => x.DefaultPrinter).WithMany().HasForeignKey(x => x.DefaultPrinterId).OnDelete(DeleteBehavior.SetNull);
+        builder.HasOne(x => x.DefaultLabelPrinter).WithMany().HasForeignKey(x => x.DefaultLabelPrinterId).OnDelete(DeleteBehavior.SetNull);
     }
 }
 
@@ -73,6 +74,7 @@ public class PosProductConfiguration : IEntityTypeConfiguration<PosProduct>
         builder.HasOne(x => x.StorageLocation).WithMany(x => x.Products).HasForeignKey(x => x.StorageLocationId).OnDelete(DeleteBehavior.SetNull);
         builder.HasOne(x => x.Supplier).WithMany(x => x.Products).HasForeignKey(x => x.SupplierId).OnDelete(DeleteBehavior.SetNull);
         builder.HasOne(x => x.DefaultPrinter).WithMany().HasForeignKey(x => x.DefaultPrinterId).OnDelete(DeleteBehavior.SetNull);
+        builder.HasOne(x => x.DefaultLabelPrinter).WithMany().HasForeignKey(x => x.DefaultLabelPrinterId).OnDelete(DeleteBehavior.SetNull);
     }
 }
 

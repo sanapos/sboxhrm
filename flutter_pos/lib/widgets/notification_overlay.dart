@@ -5,6 +5,10 @@ import '../models/hrm.dart';
 import '../utils/notification_sound.dart';
 
 import './pos/pos_theme.dart';
+
+/// Nhóm toast in POS — luôn chỉ giữ 1 dòng trên màn thu ngân.
+const kPosPrintNotifyKind = 'pos_print';
+
 /// Global key để truy cập NotificationOverlay từ bất kỳ đâu
 class NotificationOverlayManager {
   static final NotificationOverlayManager _instance =
@@ -19,7 +23,10 @@ class NotificationOverlayManager {
   List<NotificationOverlayItem> get notifications =>
       List.unmodifiable(_notifications);
 
-  /// Hiển thị thông báo popup
+  /// Hiển thị thông báo popup.
+  ///
+  /// [relatedEntityType] = [kPosPrintNotifyKind]: thay thế mọi toast in cũ
+  /// (màn bán hàng chỉ còn 1 dòng).
   void show({
     required String title,
     required String message,
@@ -27,6 +34,7 @@ class NotificationOverlayManager {
     String? relatedEntityType,
     Duration duration = const Duration(seconds: 2),
     VoidCallback? onTap,
+    bool playSound = true,
   }) {
     final id = DateTime.now().millisecondsSinceEpoch.toString();
     final item = NotificationOverlayItem(
@@ -38,57 +46,93 @@ class NotificationOverlayManager {
       onTap: onTap,
     );
 
+    if (relatedEntityType == kPosPrintNotifyKind) {
+      _notifications.removeWhere(
+        (n) => n.relatedEntityType == kPosPrintNotifyKind,
+      );
+    }
+
     _notifications.insert(0, item);
+    // Màn thu ngân: tối đa 1 toast hiện — tránh chồng lệnh in.
+    if (_notifications.length > 1) {
+      _notifications.removeRange(1, _notifications.length);
+    }
     _controller.add(_notifications);
 
-    // Phát âm thanh thông báo
-    NotificationSound().play();
+    if (playSound) {
+      NotificationSound().play();
+    }
 
-    // Auto remove sau duration
     Future.delayed(duration, () => remove(id));
   }
 
   /// Helper: Hiển thị thông báo thành công
-  void showSuccess(
-      {required String title, required String message, VoidCallback? onTap}) {
+  void showSuccess({
+    required String title,
+    required String message,
+    VoidCallback? onTap,
+    String? relatedEntityType,
+    Duration duration = const Duration(seconds: 2),
+  }) {
     show(
       title: title,
       message: message,
       type: NotificationType.success,
       onTap: onTap,
+      relatedEntityType: relatedEntityType,
+      duration: duration,
     );
   }
 
   /// Helper: Hiển thị thông báo lỗi
-  void showError(
-      {required String title, required String message, VoidCallback? onTap}) {
+  void showError({
+    required String title,
+    required String message,
+    VoidCallback? onTap,
+    String? relatedEntityType,
+    Duration duration = const Duration(seconds: 3),
+  }) {
     show(
       title: title,
       message: message,
       type: NotificationType.error,
       onTap: onTap,
+      relatedEntityType: relatedEntityType,
+      duration: duration,
     );
   }
 
   /// Helper: Hiển thị thông báo cảnh báo
-  void showWarning(
-      {required String title, required String message, VoidCallback? onTap}) {
+  void showWarning({
+    required String title,
+    required String message,
+    VoidCallback? onTap,
+    String? relatedEntityType,
+    Duration duration = const Duration(seconds: 3),
+  }) {
     show(
       title: title,
       message: message,
       type: NotificationType.warning,
       onTap: onTap,
+      relatedEntityType: relatedEntityType,
+      duration: duration,
     );
   }
 
   /// Helper: Hiển thị thông báo thông tin
-  void showInfo(
-      {required String title, required String message, VoidCallback? onTap}) {
+  void showInfo({
+    required String title,
+    required String message,
+    VoidCallback? onTap,
+    String? relatedEntityType,
+  }) {
     show(
       title: title,
       message: message,
       type: NotificationType.info,
       onTap: onTap,
+      relatedEntityType: relatedEntityType,
     );
   }
 
@@ -187,7 +231,7 @@ class _NotificationOverlayState extends State<NotificationOverlay> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   mainAxisSize: MainAxisSize.min,
                   children: items
-                      .take(5)
+                      .take(1)
                       .map((item) => _NotificationCard(
                             key: ValueKey(item.id),
                             item: item,

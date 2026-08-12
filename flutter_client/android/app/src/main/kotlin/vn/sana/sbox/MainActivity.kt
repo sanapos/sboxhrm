@@ -111,6 +111,17 @@ class MainActivity : FlutterActivity() {
                 UsbEscPosPrinter.handle(this, call, result)
             }
 
+        EventChannel(flutterEngine.dartExecutor.binaryMessenger, UsbEscPosPrinter.EVENTS)
+            .setStreamHandler(object : EventChannel.StreamHandler {
+                override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
+                    UsbEscPosPrinter.attachEventSink(this@MainActivity, events)
+                }
+
+                override fun onCancel(arguments: Any?) {
+                    UsbEscPosPrinter.attachEventSink(this@MainActivity, null)
+                }
+            })
+
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, PosPrinterHardware.CHANNEL)
             .setMethodCallHandler { call, result ->
                 PosPrinterHardware.handle(this, call, result)

@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/services.dart';
 
-/// Android/iOS: MethodChannel + Activity màn phụ (DisplayManager).
+/// Android/iOS: MethodChannel + Activity/Presentation màn phụ (DisplayManager).
 class CustomerDisplayPlatformBridge {
   static const _method = MethodChannel('com.sboxhrm/customer_display');
   static const _events = EventChannel('com.sboxhrm/customer_display_events');
@@ -18,12 +18,25 @@ class CustomerDisplayPlatformBridge {
     }
   }
 
-  static Future<bool> openSecondary({String route = '/customer-display'}) async {
+  static Future<bool> openSecondary({
+    String route = '/customer-display',
+    String mode = 't1Native',
+  }) async {
     try {
-      // Máy 1 màn (V2S…): không mở Activity customer-display trên màn chính.
+      // window: Kotlin trả true mà không mở màn local.
+      if (mode == 'window') {
+        final ok = await _method.invokeMethod<bool>('show', {
+          'route': route,
+          'mode': mode,
+        });
+        return ok == true;
+      }
       final has = await hasSecondaryDisplay();
       if (!has) return false;
-      final ok = await _method.invokeMethod<bool>('show', {'route': route});
+      final ok = await _method.invokeMethod<bool>('show', {
+        'route': route,
+        'mode': mode,
+      });
       return ok == true;
     } catch (_) {
       return false;

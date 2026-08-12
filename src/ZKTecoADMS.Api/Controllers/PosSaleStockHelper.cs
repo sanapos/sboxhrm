@@ -266,7 +266,7 @@ internal static class PosSaleStockHelper
             .FirstOrDefaultAsync(c => c.Id == order.CustomerId && c.StoreId == storeId && c.Deleted == null);
         if (customer == null) return;
         customer.TotalPurchase += order.Total;
-        var debt = order.Total - order.PaidAmount;
+        var debt = order.PayableTotal - order.PaidAmount;
         if (debt > 0) customer.CurrentDebt += debt;
         customer.UpdatedAt = DateTime.UtcNow;
     }
@@ -279,7 +279,7 @@ internal static class PosSaleStockHelper
             .FirstOrDefaultAsync(c => c.Id == order.CustomerId && c.StoreId == storeId && c.Deleted == null);
         if (customer == null) return;
         customer.TotalPurchase = Math.Max(0, customer.TotalPurchase - order.Total);
-        var debt = order.Total - order.PaidAmount;
+        var debt = order.PayableTotal - order.PaidAmount;
         if (debt > 0) customer.CurrentDebt = Math.Max(0, customer.CurrentDebt - debt);
         customer.UpdatedAt = DateTime.UtcNow;
     }
@@ -292,7 +292,7 @@ internal static class PosSaleStockHelper
             .FirstOrDefaultAsync(c => c.Id == order.CustomerId && c.StoreId == storeId && c.Deleted == null);
         if (customer == null) return;
         customer.TotalPurchase = Math.Max(0, customer.TotalPurchase - refundTotal);
-        var balanceBeforeReturn = order.Total + refundTotal - order.PaidAmount;
+        var balanceBeforeReturn = order.PayableTotal + refundTotal - order.PaidAmount;
         var debtReduction = Math.Min(refundTotal, Math.Max(0, balanceBeforeReturn));
         if (debtReduction > 0)
             customer.CurrentDebt = Math.Max(0, customer.CurrentDebt - debtReduction);
@@ -475,6 +475,9 @@ internal static class PosSaleStockHelper
                 return (null, $"Hàng hóa không hợp lệ: {line.ProductId}");
             if (line.Qty <= 0)
                 return (null, $"Số lượng không hợp lệ: {p.Name}");
+            var qtyRuleErr = PosQtyRules.ValidateLineQty(p, line.Qty, "Bán hàng");
+            if (qtyRuleErr != null)
+                return (null, qtyRuleErr);
 
             var variantAttrs = variantsByProduct.GetValueOrDefault(p.Id);
             var hasVariants = variantAttrs is { Count: > 0 };

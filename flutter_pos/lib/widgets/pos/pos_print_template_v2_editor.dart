@@ -363,11 +363,11 @@ class _PosPrintTemplateV2EditorState extends State<PosPrintTemplateV2Editor>
       children: [
         Container(
           color: Colors.white,
-          padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
+          padding: const EdgeInsets.fromLTRB(4, 6, 4, 6),
           child: Row(
             children: [
               IconButton(
-                visualDensity: VisualDensity.compact,
+                constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
                 onPressed: i > 0 ? () => setState(() => _selectedIndex = i - 1) : null,
                 icon: const Icon(Icons.chevron_left),
               ),
@@ -387,7 +387,13 @@ class _PosPrintTemplateV2EditorState extends State<PosPrintTemplateV2Editor>
                 ),
               ),
               IconButton(
-                visualDensity: VisualDensity.compact,
+                tooltip: tr('Phóng to chỉnh sửa'),
+                constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+                onPressed: () => _openExpandedPropertiesEditor(),
+                icon: const Icon(Icons.open_in_full, size: 20),
+              ),
+              IconButton(
+                constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
                 onPressed: i < blocks.length - 1 ? () => setState(() => _selectedIndex = i + 1) : null,
                 icon: const Icon(Icons.chevron_right),
               ),
@@ -405,6 +411,30 @@ class _PosPrintTemplateV2EditorState extends State<PosPrintTemplateV2Editor>
           ),
         ),
       ],
+    );
+  }
+
+  Future<void> _openExpandedPropertiesEditor() async {
+    if (_tpl.blocks.isEmpty) return;
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (sheetContext) {
+        return _ExpandedBlockEditorSheet(
+          initialIndex: _selectedIndex,
+          initialTemplate: _tpl,
+          readOnly: widget.readOnly,
+          onBlockChanged: (index, block) {
+            setState(() => _selectedIndex = index);
+            _updateBlock(index, block);
+          },
+          onIndexChanged: (index) {
+            setState(() => _selectedIndex = index);
+          },
+          syncTemplate: () => widget.template,
+        );
+      },
     );
   }
 
@@ -564,17 +594,53 @@ class _PosPrintTemplateV2EditorState extends State<PosPrintTemplateV2Editor>
                     ),
                     const SizedBox(width: 12),
                     Expanded(
-                      flex: 2,
+                      flex: 3,
                       child: Card(
                         margin: EdgeInsets.zero,
                         child: sel == null
                             ? Center(child: Text(tr('Chưa có khối')))
-                            : _BlockPropertiesPanel(
-                                key: ValueKey('desk_props_${_selectedIndex}_${sel.type.name}'),
-                                block: sel,
-                                paperSize: _tpl.paperSize,
-                                readOnly: widget.readOnly,
-                                onChanged: (b) => _updateBlock(_selectedIndex, b),
+                            : Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  Padding(
+                                    padding: const EdgeInsets.fromLTRB(10, 6, 4, 6),
+                                    child: Row(
+                                      children: [
+                                        Expanded(
+                                          child: Text(
+                                            tr(_blockLabel(sel)),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        ),
+                                        IconButton(
+                                          tooltip: tr('Phóng to chỉnh sửa'),
+                                          onPressed: () =>
+                                              _openExpandedPropertiesEditor(),
+                                          icon: const Icon(
+                                            Icons.open_in_full,
+                                            size: 20,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const Divider(height: 1),
+                                  Expanded(
+                                    child: _BlockPropertiesPanel(
+                                      key: ValueKey(
+                                          'desk_props_${_selectedIndex}_${sel.type.name}'),
+                                      block: sel,
+                                      paperSize: _tpl.paperSize,
+                                      readOnly: widget.readOnly,
+                                      onChanged: (b) =>
+                                          _updateBlock(_selectedIndex, b),
+                                    ),
+                                  ),
+                                ],
                               ),
                       ),
                     ),
@@ -593,28 +659,28 @@ class _PosPrintTemplateV2EditorState extends State<PosPrintTemplateV2Editor>
       return PosPrintPaperSizes.kitchenLabelSizes
           .map((k) => DropdownMenuItem(
                 value: k,
-                child: Text(tr(PosPrintPaperSizes.labels[k] ?? k)),
+                child: Text(tr(PosPrintPaperSizes.displayLabel(k))),
               ))
           .toList();
     }
     if (doc == PosPrintDocumentTypes.barcodeLabel) {
-      return posBarcodeLabelTemplates
-          .map((t) => DropdownMenuItem(
-                value: t.id,
-                child: Text(
-                  tr('${t.name} (${t.sizeLabel})'),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ))
-          .toList();
+      // Chỉ khổ tem — không K58/K80/A4/A5.
+      final ids = PosPrintPaperSizes.productLabelSizes;
+      return [
+        for (final id in ids)
+          DropdownMenuItem(
+            value: id,
+            child: Text(
+              tr(PosPrintPaperSizes.displayLabel(id)),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+      ];
     }
-    return [
-      PosPrintPaperSizes.k58,
-      PosPrintPaperSizes.k80,
-    ]
+    return PosPrintPaperSizes.receiptSizes
         .map((k) => DropdownMenuItem(
               value: k,
-              child: Text(tr(PosPrintPaperSizes.labels[k] ?? k)),
+              child: Text(tr(PosPrintPaperSizes.displayLabel(k))),
             ))
         .toList();
   }
@@ -650,18 +716,23 @@ class _PosPrintTemplateV2EditorState extends State<PosPrintTemplateV2Editor>
     final paperItems = _paperSizeItems();
     final paperValue = _resolvedPaperValue(paperItems);
     final isLabel = PosPrintPaperSizes.isLabelDoc(_tpl.documentType);
+    final paperHint = _tpl.documentType == PosPrintDocumentTypes.barcodeLabel
+        ? tr('Tem sản phẩm — cùng danh sách khi In tem hàng hóa')
+        : (_tpl.documentType == PosPrintDocumentTypes.kitchenLabel
+            ? tr('Tem báo bếp / tem ly: 50×30, 40×30, 35×22×2/3, 60×40… (không K58/K80)')
+            : tr('${PosPrintDocumentTypes.all[_tpl.documentType] ?? _tpl.documentType} · ${PosPrintPaperSizes.categoryLabel(_tpl.documentType)}'));
     final paperField = DropdownButtonFormField<String>(
       value: paperValue,
       isExpanded: true,
       decoration: InputDecoration(
-        labelText: tr(isLabel ? 'Khổ tem' : 'Khổ giấy'),
+        labelText: tr(isLabel ? 'Khổ tem' : 'Khổ giấy phiếu'),
         isDense: true,
-        border: OutlineInputBorder(),
-        helperText: _tpl.documentType == PosPrintDocumentTypes.barcodeLabel
-            ? tr('Cùng danh sách tem khi In tem hàng hóa')
-            : (_tpl.documentType == PosPrintDocumentTypes.kitchenLabel
-                ? tr('Tem báo bếp: 50×30 hoặc 40×30')
-                : null),
+        border: const OutlineInputBorder(),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+        suffixIcon: Tooltip(
+          message: paperHint,
+          child: const Icon(Icons.info_outline, size: 18),
+        ),
       ),
       items: paperItems,
       onChanged: widget.readOnly
@@ -678,7 +749,8 @@ class _PosPrintTemplateV2EditorState extends State<PosPrintTemplateV2Editor>
       decoration: InputDecoration(
         labelText: tr('Máy in'),
         isDense: true,
-        border: OutlineInputBorder(),
+        border: const OutlineInputBorder(),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
       ),
       items: PosPrintPrinterProfiles.labels.entries
           .map((e) => DropdownMenuItem(value: e.key, child: Text(tr(e.value))))
@@ -691,58 +763,52 @@ class _PosPrintTemplateV2EditorState extends State<PosPrintTemplateV2Editor>
             },
     );
 
+    final restoreBtn = !widget.readOnly
+        ? OutlinedButton.icon(
+            onPressed: () {
+              final preset = PosPrintTemplateV2Presets.build(
+                documentType: _tpl.documentType,
+                paperSize: _tpl.paperSize,
+                printerProfile: _tpl.printerProfile,
+              );
+              _update(preset);
+            },
+            icon: const Icon(Icons.refresh_rounded, size: 18),
+            label: Text(tr('Khôi phục mẫu gốc')),
+          )
+        : null;
+
     return Card(
-      margin: fullWidth ? const EdgeInsets.fromLTRB(12, 8, 12, 4) : EdgeInsets.zero,
+      margin: fullWidth ? const EdgeInsets.fromLTRB(8, 6, 8, 2) : EdgeInsets.zero,
       elevation: fullWidth ? 0 : 1,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(10),
         side: fullWidth ? const BorderSide(color: PosTheme.border) : BorderSide.none,
       ),
       child: Padding(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(8),
         child: fullWidth
             ? Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   paperField,
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 8),
                   printerField,
-                  if (!widget.readOnly) ...[
-                    const SizedBox(height: 10),
-                    OutlinedButton.icon(
-                      onPressed: () {
-                        final preset = PosPrintTemplateV2Presets.build(
-                          documentType: _tpl.documentType,
-                          paperSize: _tpl.paperSize,
-                          printerProfile: _tpl.printerProfile,
-                        );
-                        _update(preset);
-                      },
-                      icon: const Icon(Icons.refresh_rounded, size: 18),
-                      label: Text(tr('Khôi phục mẫu gốc')),
-                    ),
+                  if (restoreBtn != null) ...[
+                    const SizedBox(height: 8),
+                    restoreBtn,
                   ],
                 ],
               )
-            : Wrap(
-                spacing: 8,
-                runSpacing: 8,
+            : Row(
                 children: [
-                  SizedBox(width: 180, child: paperField),
-                  SizedBox(width: 200, child: printerField),
-                  if (!widget.readOnly)
-                    OutlinedButton.icon(
-                      onPressed: () {
-                        final preset = PosPrintTemplateV2Presets.build(
-                          documentType: _tpl.documentType,
-                          paperSize: _tpl.paperSize,
-                          printerProfile: _tpl.printerProfile,
-                        );
-                        _update(preset);
-                      },
-                      icon: const Icon(Icons.refresh_rounded, size: 18),
-                      label: Text(tr('Khôi phục mẫu gốc')),
-                    ),
+                  Expanded(child: paperField),
+                  const SizedBox(width: 8),
+                  Expanded(child: printerField),
+                  if (restoreBtn != null) ...[
+                    const SizedBox(width: 8),
+                    restoreBtn,
+                  ],
                 ],
               ),
       ),
@@ -765,9 +831,13 @@ class _PosPrintTemplateV2EditorState extends State<PosPrintTemplateV2Editor>
                 children: [
                   Text(tr('Xem trước'), style: TextStyle(fontWeight: FontWeight.w600)),
                   const Spacer(),
-                  Text(
-                    tr(PosPrintPaperSizes.labels[_tpl.paperSize] ?? _tpl.paperSize),
-                    style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                  Flexible(
+                    child: Text(
+                      tr('${PosPrintDocumentTypes.all[_tpl.documentType] ?? _tpl.documentType} · ${PosPrintPaperSizes.displayLabel(_tpl.paperSize)}'),
+                      textAlign: TextAlign.end,
+                      style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
                 ],
               ),
@@ -783,7 +853,10 @@ class _PosPrintTemplateV2EditorState extends State<PosPrintTemplateV2Editor>
                 ),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(compact ? 8 : 0),
-                  child: buildPosPrintTemplatePreview(_tpl),
+                  child: buildPosPrintTemplatePreview(
+                    _tpl,
+                    selectedBlockIndex: _selectedIndex,
+                  ),
                 ),
               ),
             ),
@@ -802,7 +875,7 @@ class _PosPrintTemplateV2EditorState extends State<PosPrintTemplateV2Editor>
         PosPrintBlockType.text => b.text ?? 'Văn bản',
         PosPrintBlockType.field => '{${b.field ?? '?'}}',
         PosPrintBlockType.pair => '${b.leftField} | ${b.rightField}',
-        PosPrintBlockType.divider => b.divider == PosPrintDividerStyle.equals ? '═══' : '───',
+        PosPrintBlockType.divider => '━━━',
         PosPrintBlockType.lineItems => 'Danh sách hàng',
         PosPrintBlockType.lineItemsKitchen => 'Hàng bếp',
         PosPrintBlockType.totals => 'Tổng cộng',
@@ -835,6 +908,168 @@ class _PosPrintTemplateV2EditorState extends State<PosPrintTemplateV2Editor>
         PosPrintBlockType.vietQr => Icons.qr_code_2,
         PosPrintBlockType.barcode => Icons.view_week,
       };
+}
+
+/// Near-fullscreen properties editor — keeps edits in sync via [onBlockChanged].
+class _ExpandedBlockEditorSheet extends StatefulWidget {
+  const _ExpandedBlockEditorSheet({
+    required this.initialIndex,
+    required this.initialTemplate,
+    required this.readOnly,
+    required this.onBlockChanged,
+    required this.onIndexChanged,
+    required this.syncTemplate,
+  });
+
+  final int initialIndex;
+  final PosPrintTemplateV2 initialTemplate;
+  final bool readOnly;
+  final void Function(int index, PosPrintBlock block) onBlockChanged;
+  final ValueChanged<int> onIndexChanged;
+  final PosPrintTemplateV2 Function() syncTemplate;
+
+  @override
+  State<_ExpandedBlockEditorSheet> createState() =>
+      _ExpandedBlockEditorSheetState();
+}
+
+class _ExpandedBlockEditorSheetState extends State<_ExpandedBlockEditorSheet> {
+  late int _index;
+  late PosPrintTemplateV2 _tpl;
+
+  @override
+  void initState() {
+    super.initState();
+    _index = widget.initialIndex.clamp(0, widget.initialTemplate.blocks.length - 1);
+    _tpl = widget.initialTemplate;
+  }
+
+  void _refreshFromParent() {
+    final synced = widget.syncTemplate();
+    setState(() {
+      _tpl = synced;
+      if (_tpl.blocks.isEmpty) {
+        _index = 0;
+      } else {
+        _index = _index.clamp(0, _tpl.blocks.length - 1);
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final blocks = _tpl.blocks;
+    if (blocks.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    final i = _index.clamp(0, blocks.length - 1);
+    final sel = blocks[i];
+    final height = MediaQuery.sizeOf(context).height * 0.92;
+    final width = MediaQuery.sizeOf(context).width;
+    final wide = width >= 600;
+
+    final props = _BlockPropertiesPanel(
+      key: ValueKey('expanded_props_${i}_${sel.type.name}'),
+      block: sel,
+      paperSize: _tpl.paperSize,
+      readOnly: widget.readOnly,
+      onChanged: (b) {
+        widget.onBlockChanged(i, b);
+        // Parent may reorder (QR); pull latest after frame.
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _refreshFromParent();
+        });
+      },
+    );
+
+    final preview = DecoratedBox(
+      decoration: BoxDecoration(
+        color: const Color(0xFFF9FAFB),
+        border: Border(left: wide ? BorderSide(color: Colors.grey.shade300) : BorderSide.none),
+      ),
+      child: buildPosPrintTemplatePreview(
+        _tpl,
+        selectedBlockIndex: i,
+      ),
+    );
+
+    return SizedBox(
+      height: height,
+      child: Scaffold(
+        resizeToAvoidBottomInset: true,
+        appBar: AppBar(
+          title: Text(
+            tr(_PosPrintTemplateV2EditorState._blockLabel(sel)),
+            overflow: TextOverflow.ellipsis,
+          ),
+          leading: IconButton(
+            tooltip: tr('Thu gọn'),
+            icon: const Icon(Icons.close),
+            onPressed: () => Navigator.of(context).pop(),
+          ),
+          actions: [
+            IconButton(
+              tooltip: tr('Khối trước'),
+              onPressed: i > 0
+                  ? () {
+                      setState(() => _index = i - 1);
+                      widget.onIndexChanged(_index);
+                      _refreshFromParent();
+                    }
+                  : null,
+              icon: const Icon(Icons.chevron_left),
+            ),
+            Center(
+              child: Text(
+                tr('${i + 1}/${blocks.length}'),
+                style: const TextStyle(fontSize: 13),
+              ),
+            ),
+            IconButton(
+              tooltip: tr('Khối sau'),
+              onPressed: i < blocks.length - 1
+                  ? () {
+                      setState(() => _index = i + 1);
+                      widget.onIndexChanged(_index);
+                      _refreshFromParent();
+                    }
+                  : null,
+              icon: const Icon(Icons.chevron_right),
+            ),
+          ],
+        ),
+        body: wide
+            ? Row(
+                children: [
+                  Expanded(
+                    flex: 45,
+                    child: Padding(
+                      padding: EdgeInsets.only(
+                        bottom: MediaQuery.viewInsetsOf(context).bottom,
+                      ),
+                      child: props,
+                    ),
+                  ),
+                  Expanded(flex: 55, child: preview),
+                ],
+              )
+            : Column(
+                children: [
+                  Expanded(flex: 2, child: preview),
+                  Expanded(
+                    flex: 3,
+                    child: Padding(
+                      padding: EdgeInsets.only(
+                        bottom: MediaQuery.viewInsetsOf(context).bottom,
+                      ),
+                      child: props,
+                    ),
+                  ),
+                ],
+              ),
+      ),
+    );
+  }
 }
 
 class _BlockPropertiesPanel extends StatefulWidget {
@@ -946,10 +1181,6 @@ class _BlockPropertiesPanelState extends State<_BlockPropertiesPanel> {
     super.dispose();
   }
 
-  int get _effectiveDividerChars =>
-      widget.block.dividerChars ??
-      PosPrintTemplateCompiler.defaultDividerChars(widget.paperSize);
-
   Map<String, String> _mergeFieldLabels(Map<String, String> patch) {
     final next = Map<String, String>.from(widget.block.fieldLabels ?? {});
     for (final e in patch.entries) {
@@ -991,7 +1222,12 @@ class _BlockPropertiesPanelState extends State<_BlockPropertiesPanel> {
     final onChanged = widget.onChanged;
 
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.fromLTRB(
+        16,
+        16,
+        16,
+        24 + MediaQuery.viewInsetsOf(context).bottom,
+      ),
       children: [
         Text(tr(_typeLabel(block.type)), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
         const SizedBox(height: 16),
@@ -1339,58 +1575,9 @@ class _BlockPropertiesPanelState extends State<_BlockPropertiesPanel> {
         ],
         if (block.type == PosPrintBlockType.divider) ...[
           const SizedBox(height: 8),
-          DropdownButtonFormField<PosPrintDividerStyle>(
-            value: block.divider,
-            isExpanded: true,
-            decoration: InputDecoration(
-              labelText: tr('Kiểu kẻ'),
-              border: OutlineInputBorder(),
-            ),
-            items: [
-              DropdownMenuItem(value: PosPrintDividerStyle.dash, child: Text(tr('Gạch ngang'))),
-              DropdownMenuItem(value: PosPrintDividerStyle.equals, child: Text(tr('Đường kép (=)'))),
-            ],
-            onChanged: readOnly
-                ? null
-                : (v) {
-                    if (v != null) onChanged(block.copyWith(divider: v));
-                  },
-          ),
-          const SizedBox(height: 12),
           Text(
-            tr('Số ký tự: $_effectiveDividerChars'
-            '${block.dividerChars == null ? ' (tự động)' : ''}'),
-            style: const TextStyle(fontWeight: FontWeight.w500),
-          ),
-          Row(
-            children: [
-              IconButton(
-                tooltip: tr('Giảm'),
-                onPressed: readOnly
-                    ? null
-                    : () {
-                        final next = (_effectiveDividerChars - 2).clamp(16, 80);
-                        onChanged(block.copyWith(dividerChars: next));
-                      },
-                icon: const Icon(Icons.remove),
-              ),
-              TextButton(
-                onPressed: readOnly
-                    ? null
-                    : () => onChanged(block.copyWith(clearDividerChars: true)),
-                child: Text(tr('Tự động')),
-              ),
-              IconButton(
-                tooltip: tr('Tăng'),
-                onPressed: readOnly
-                    ? null
-                    : () {
-                        final next = (_effectiveDividerChars + 2).clamp(16, 80);
-                        onChanged(block.copyWith(dividerChars: next));
-                      },
-                icon: const Icon(Icons.add),
-              ),
-            ],
+            tr('Đường kẻ ngang đặc, bằng chiều rộng khổ giấy (không dùng =====).'),
+            style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
           ),
         ],
         const SizedBox(height: 24),

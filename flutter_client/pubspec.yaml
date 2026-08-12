@@ -3,7 +3,7 @@ description: ZKTeco ADMS Flutter Client - Hệ thống quản lý chấm công
 
 publish_to: 'none'
 
-version: 1.0.254+4264
+version: 1.0.270+4280
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
@@ -79,9 +79,6 @@ dependencies:
   # Map
   flutter_map: ^7.0.2
   latlong2: ^0.9.1
-
-  # Google Fonts
-  google_fonts: ^6.1.0
 
   http_parser: any
   mobile_scanner: ^7.2.0

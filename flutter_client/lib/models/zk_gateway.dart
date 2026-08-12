@@ -58,10 +58,10 @@ class ZkGatewayInfo {
   }
 
   factory ZkGatewayInfo.fromJson(Map<String, dynamic> json, {String? fallbackIp}) {
+    final rawIp = json['ip']?.toString().trim() ?? '';
+    final usableRaw = rawIp.isNotEmpty && rawIp != '0.0.0.0';
     return ZkGatewayInfo(
-      ip: (json['ip']?.toString().isNotEmpty ?? false)
-          ? json['ip'].toString()
-          : (fallbackIp ?? ''),
+      ip: usableRaw ? rawIp : (fallbackIp ?? ''),
       host: json['host']?.toString() ?? '',
       name: json['name']?.toString() ?? '',
       serial: json['serial']?.toString() ?? '',

@@ -24,6 +24,7 @@ import 'pos_store_printer_mapper.dart';
 import 'pos_sunmi_native_print.dart';
 import 'pos_thermal_printer_service.dart';
 import 'pos_thermal_printer_settings.dart';
+import 'pos_usb_printer.dart';
 
 /// Phương thức in phiếu xuất kho khi thử lại.
 enum WarehouseSlipPrintMethod {
@@ -362,26 +363,26 @@ Future<bool> _dispatchWarehouseBytes({
   bool waitForCompletion = true,
   bool preferDirectPrint = false,
 }) async {
-  // In lại chọn máy / máy nội bộ: thử in thẳng trước cloud.
+  // In lại / nội bộ: chỉ khi có profile máy nội bộ trên máy này.
+  // LAN từ Agent/cloud (không có local) → không TCP, đi cloud.
   if (!kIsWeb) {
     final ownedLocal =
         await PosLocalPrintersStore.instance.resolveForStorePrinter(printer);
     final isAgent = await PosPrintRole.isAgentForPrinter(printer.id);
     final onSunmiHw = await PosPrinterTransport.isSunmiDevice();
-    final hasLan = printer.isLan && (printer.lanHost ?? '').trim().isNotEmpty;
-    final hasBt = printer.isBluetooth &&
-        (printer.bluetoothAddress ?? '').trim().isNotEmpty;
-    final tryDirect = preferDirectPrint ||
-        ownedLocal != null ||
-        isAgent ||
-        printer.isDeviceLocal ||
-        hasLan ||
-        hasBt ||
-        (printer.isSunmi && onSunmiHw);
+    final onDevice = ownedLocal != null &&
+        PosLocalPrintersStore.profileAllowsDirectLocal(ownedLocal);
+    final tryDirect = onDevice ||
+        (isAgent &&
+            !printer.isLan &&
+            (printer.isUsb ||
+                printer.isBluetooth ||
+                (printer.isSunmi && onSunmiHw)));
 
     if (tryDirect) {
-      final settings = (ownedLocal?.toThermalSettings() ??
-              toThermalSettings(printer))
+      final settings = (onDevice
+              ? ownedLocal!.toThermalSettings()
+              : toThermalSettings(printer))
           .copyWith(openCashDrawer: false);
       final ok = await PosPrintOrchestrator.instance.dispatchLocalEscPos(
         bytes: bytes,
@@ -967,16 +968,20 @@ Future<bool> printKitchenCompactSlip({
     lines: lines,
   );
 
-  final existing = _kitchenCompactInFlight[dedupRef];
-  if (existing != null) {
-    if (showFeedback) {
-      NotificationOverlayManager().showWarning(
-        title: 'Đang gửi báo bếp',
-        message: tr('Lệnh trước chưa xong — vui lòng đợi'),
-        relatedEntityType: kPosPrintNotifyKind,
-      );
+  // skipDedup=true (retry từ pending sheet): không dùng _kitchenCompactInFlight
+  // để tránh trả về future đã complete/fail của lần gửi trước.
+  if (!skipDedup) {
+    final existing = _kitchenCompactInFlight[dedupRef];
+    if (existing != null) {
+      if (showFeedback) {
+        NotificationOverlayManager().showWarning(
+          title: 'Đang gửi báo bếp',
+          message: tr('Lệnh trước chưa xong — vui lòng đợi'),
+          relatedEntityType: kPosPrintNotifyKind,
+        );
+      }
+      return existing;
     }
-    return existing;
   }
 
   final future = _printKitchenCompactSlipLocked(
@@ -1041,13 +1046,13 @@ Future<bool> _printKitchenCompactSlipLocked({
   }
 
   final wantOverrideId = overridePrinterId?.trim() ?? '';
-  if (overridePrinter != null || wantOverrideId.isNotEmpty) {
-    PosStorePrinter? printer = overridePrinter;
+    if (overridePrinter != null || wantOverrideId.isNotEmpty) {
+    PosStorePrinter? printer = overridePrinter == null
+        ? null
+        : PosPrintOrchestrator.instance.preferCloudAgentPrinter(overridePrinter);
     if (printer == null) {
       await PosPrintOrchestrator.instance.refreshConfig();
-      printer = PosPrintOrchestrator.instance.printers
-          .where((p) => p.id.toLowerCase() == wantOverrideId.toLowerCase())
-          .firstOrNull;
+      printer = PosPrintOrchestrator.instance.printerById(wantOverrideId);
       if (printer == null) {
         debugPrint('Kitchen reprint: printer not found id=$wantOverrideId');
         return false;
@@ -1118,9 +1123,7 @@ Future<bool> _printKitchenCompactSlipLocked({
       // Món đã gán máy: CHỈ in đúng máy đó. Không fallback USB/mặc định
       // (trước đây fallback → in nhầm Zywell USB + báo lỗi máy WiFi).
       for (final entry in assignedGroups.entries) {
-        final printer = PosPrintOrchestrator.instance.printers
-            .where((p) => p.id.toLowerCase() == entry.key.toLowerCase())
-            .firstOrNull;
+        final printer = PosPrintOrchestrator.instance.printerById(entry.key);
         final groupLines = entry.value;
         if (printer == null) {
           debugPrint(
@@ -1164,8 +1167,15 @@ Future<bool> _printKitchenCompactSlipLocked({
           'Kitchen DBG: dispatching ONLY to assigned printer ${printer.name} '
           '(${printer.connectionType})',
         );
-        final isAgentForPrinter =
-            !kIsWeb && await PosPrintRole.isAgentForPrinter(printer.id);
+        final role = isCancel
+            ? PosLocalPrinterRoles.kitchenVoid
+            : PosLocalPrinterRoles.kitchenSlip;
+        final onDevice = !kIsWeb
+            ? await PosLocalPrintersStore.instance
+                .resolveOnDeviceForStorePrinter(printer, documentRole: role)
+            : null;
+        // Có máy nội bộ (USB/BT/Sunmi/LAN đã cài) trùng chức năng+SP → local;
+        // chỉ có địa chỉ LAN từ Agent/cloud → cloud Agent.
         final ok = await PosPrintOrchestrator.instance.dispatchKitchenSlip(
           printer: printer,
           tableName: tableName,
@@ -1187,11 +1197,8 @@ Future<bool> _printKitchenCompactSlipLocked({
           successTitle: isCancel ? 'Hủy bếp' : 'Báo bếp',
           skipDedup: skipDedup,
           waitForCompletion: waitForCompletion,
-          // A7 thu ngân: luôn cloud → Agent (A6) in. Chỉ Agent mới in LAN/BT thẳng
-          // (tránh A7 «OK giả» / timeout LAN rồi đưa phiếu treo).
-          preferDirectPrint:
-              isAgentForPrinter && (printer.isLan || printer.isBluetooth),
-          forceCloud: !isAgentForPrinter && !printer.isDeviceLocal,
+          preferDirectPrint: onDevice != null,
+          forceCloud: onDevice == null,
           onHang: wrapHang(groupLines),
         );
         if (!ok) {
@@ -1251,10 +1258,11 @@ String _kitchenDedupReference({
       .map((l) =>
           '${(l.productId ?? '').trim().isNotEmpty ? l.productId : l.productName}:${l.qty}')
       .join('|');
-  // Hủy: mỗi lần bấm phải in — không gộp key (cùng món/SL trong 25s trước đây
-  // bị PosPrintDedup / in-flight nuốt lần 2 → «im luôn»).
+  // Không dùng μs — dedupRef dùng chung cho mọi lần bấm Hủy cùng order+món.
+  // Retry từ pending sheet (skipDedup=true) cần cùng key để server nhận diện
+  // idempotency, tránh tạo job trùng khi lần trước đã gửi thành công.
   if (isCancel) {
-    return 'kvoid|$code|$items|${DateTime.now().microsecondsSinceEpoch}';
+    return 'kvoid|$code|$items';
   }
   return 'ksend|$code|$items';
 }
@@ -1304,20 +1312,36 @@ Future<bool> _printKitchenCompactSlipDefault({
   ];
   final refNo = dedupRef ?? (code == '-' ? null : code);
 
-  // 1) Máy nội bộ sẵn sàng trên thiết bị này (A7 có gắn USB/LAN/BT bếp → in tại A7).
+  // 1) Máy nội bộ đã cài trên thiết bị này (USB/BT/Sunmi/LAN nội bộ).
+  // Địa chỉ LAN chỉ từ Agent/cloud (không có local) → bước 2 cloud.
   if (!kIsWeb) {
     var kitchenLocals =
-        await PosLocalPrintersStore.instance.forRole(localRole);
+        await PosLocalPrintersStore.instance.forRoleOnDevice(localRole);
     if (kitchenLocals.isEmpty && isCancel) {
       kitchenLocals = await PosLocalPrintersStore.instance
-          .forRole(PosLocalPrinterRoles.kitchenSlip);
+          .forRoleOnDevice(PosLocalPrinterRoles.kitchenSlip);
     }
     if (kitchenLocals.isNotEmpty) {
       final usbList = await PosPrinterReadiness.listUsbDevices();
+      final usbProfiles = kitchenLocals
+          .where((p) => p.connectionType == PosThermalConnectionType.usb)
+          .map((p) => (id: p.id, savedRaw: p.usbDeviceName))
+          .toList();
+      final usbMatched =
+          PosUsbPrinter.matchProfilesExclusive(usbProfiles, usbList);
       final readyLocals = <PosLocalPrinterProfile>[];
       for (final local in kitchenLocals) {
-        final st =
-            await PosPrinterReadiness.probeLocal(local, usbList: usbList);
+        final matched =
+            local.connectionType == PosThermalConnectionType.usb
+                ? usbMatched[local.id]
+                : null;
+        final st = await PosPrinterReadiness.probeLocal(
+          local,
+          usbList: usbList,
+          matchedUsb: matched,
+          useMatchedUsbOnly:
+              local.connectionType == PosThermalConnectionType.usb,
+        );
         if (st == PosPrinterLinkStatus.ready) readyLocals.add(local);
       }
       if (readyLocals.isNotEmpty) {
@@ -1327,6 +1351,9 @@ Future<bool> _printKitchenCompactSlipDefault({
         for (final local in readyLocals) {
           final kitchenSettings = local.toThermalSettings().copyWith(
                 openCashDrawer: false,
+                // Phiếu bếp: đủ giấy qua lưỡi cắt (máy đã lưu feed=1 vẫn được nâng).
+                // Đủ qua lưỡi cắt, không dư đuôi dài (trước ~10–12).
+                feedBeforeCut: 5,
               );
           final v2 = PosPrintTemplateRuntime.resolveOrPreset(
             template: tpl,

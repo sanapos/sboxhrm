@@ -99,19 +99,23 @@ class PosBarcodeLabelTemplate {
 
 const posBarcodeLabelTemplates = [
   PosBarcodeLabelTemplate(
-    id: 'roll_3_104x22',
-    name: 'Mẫu giấy cuộn 3 nhãn',
-    sizeLabel: '104 x 22 mm / 4.2 x 0.9 inch',
-    labelWidthMm: 34.67,
-    labelHeightMm: 22,
-    cols: 3,
-    pageWidthMm: 104,
-    pageHeightMm: 22,
+    id: 'roll_1_50x30',
+    name: 'Tem 50×30',
+    sizeLabel: '50 x 30 mm',
+    labelWidthMm: 50,
+    labelHeightMm: 30,
+  ),
+  PosBarcodeLabelTemplate(
+    id: 'roll_1_40x30',
+    name: 'Tem 40×30',
+    sizeLabel: '40 x 30 mm',
+    labelWidthMm: 40,
+    labelHeightMm: 30,
   ),
   PosBarcodeLabelTemplate(
     id: 'roll_2_72x22',
-    name: 'Mẫu giấy cuộn 2 nhãn',
-    sizeLabel: '72 x 22 mm',
+    name: 'Tem 35×22 × 2',
+    sizeLabel: '72 x 22 mm (2 tem)',
     labelWidthMm: 36,
     labelHeightMm: 22,
     cols: 2,
@@ -119,9 +123,54 @@ const posBarcodeLabelTemplates = [
     pageHeightMm: 22,
   ),
   PosBarcodeLabelTemplate(
+    id: 'roll_3_104x22',
+    name: 'Tem 35×22 × 3',
+    sizeLabel: '104 x 22 mm (3 tem)',
+    labelWidthMm: 34.67,
+    labelHeightMm: 22,
+    cols: 3,
+    pageWidthMm: 104,
+    pageHeightMm: 22,
+  ),
+  PosBarcodeLabelTemplate(
+    id: 'roll_1_60x40',
+    name: 'Tem 60×40',
+    sizeLabel: '60 x 40 mm',
+    labelWidthMm: 60,
+    labelHeightMm: 40,
+  ),
+  PosBarcodeLabelTemplate(
+    id: 'roll_1_58x40',
+    name: 'Tem 58×40',
+    sizeLabel: '58 x 40 mm',
+    labelWidthMm: 58,
+    labelHeightMm: 40,
+  ),
+  PosBarcodeLabelTemplate(
+    id: 'roll_1_75x100',
+    name: 'Tem 75×100 (A7)',
+    sizeLabel: '75 x 100 mm',
+    labelWidthMm: 75,
+    labelHeightMm: 100,
+  ),
+  PosBarcodeLabelTemplate(
+    id: 'roll_1_100x150',
+    name: 'Tem 100×150 (A6)',
+    sizeLabel: '100 x 150 mm',
+    labelWidthMm: 100,
+    labelHeightMm: 150,
+  ),
+  PosBarcodeLabelTemplate(
+    id: 'roll_1_100x50',
+    name: 'Tem 100×50',
+    sizeLabel: '100 x 50 mm',
+    labelWidthMm: 100,
+    labelHeightMm: 50,
+  ),
+  PosBarcodeLabelTemplate(
     id: 'roll_2_74x22',
-    name: 'Mẫu giấy cuộn 2 nhãn',
-    sizeLabel: '74 x 22 mm',
+    name: 'Tem 37×22 × 2',
+    sizeLabel: '74 x 22 mm (2 tem)',
     labelWidthMm: 37,
     labelHeightMm: 22,
     cols: 2,
@@ -129,37 +178,9 @@ const posBarcodeLabelTemplates = [
     pageHeightMm: 22,
   ),
   PosBarcodeLabelTemplate(
-    id: 'roll_1_50x30',
-    name: 'Mẫu giấy cuộn 1 nhãn',
-    sizeLabel: '50 x 30 mm / 1.97 x 1.18 inch',
-    labelWidthMm: 50,
-    labelHeightMm: 30,
-  ),
-  PosBarcodeLabelTemplate(
-    id: 'roll_1_40x30',
-    name: 'Mẫu giấy cuộn 1 nhãn',
-    sizeLabel: '40 x 30 mm',
-    labelWidthMm: 40,
-    labelHeightMm: 30,
-  ),
-  PosBarcodeLabelTemplate(
-    id: 'roll_1_60x40',
-    name: 'Mẫu giấy cuộn 1 nhãn',
-    sizeLabel: '60 x 40 mm',
-    labelWidthMm: 60,
-    labelHeightMm: 40,
-  ),
-  PosBarcodeLabelTemplate(
-    id: 'roll_1_100x50',
-    name: 'Mẫu giấy cuộn 1 nhãn',
-    sizeLabel: '100 x 50 mm',
-    labelWidthMm: 100,
-    labelHeightMm: 50,
-  ),
-  PosBarcodeLabelTemplate(
     id: 'sheet_12_tomy103',
-    name: 'Mẫu giấy 12 nhãn',
-    sizeLabel: 'Tomy 103, 202 x 167 mm',
+    name: 'Tờ 12 nhãn Tomy 103',
+    sizeLabel: '202 x 167 mm',
     labelWidthMm: 67.3,
     labelHeightMm: 41.75,
     cols: 3,
@@ -169,7 +190,7 @@ const posBarcodeLabelTemplates = [
   ),
   PosBarcodeLabelTemplate(
     id: 'sheet_65_a4',
-    name: 'Mẫu giấy 65 nhãn',
+    name: 'Tờ 65 nhãn A4',
     sizeLabel: 'A4 - Tomy 145',
     labelWidthMm: 38.1,
     labelHeightMm: 21.2,
@@ -180,8 +201,8 @@ const posBarcodeLabelTemplates = [
   ),
   PosBarcodeLabelTemplate(
     id: 'jewelry_75x10',
-    name: 'Mẫu tem hàng trang sức',
-    sizeLabel: '75 x 10 mm / 2.75 x 0.4 inch',
+    name: 'Tem trang sức',
+    sizeLabel: '75 x 10 mm',
     labelWidthMm: 75,
     labelHeightMm: 10,
   ),
@@ -368,8 +389,18 @@ pw.Widget _labelWidget(
   final nameSize = small ? 4.8 : 7.0;
   final metaSize = small ? 5.0 : 6.5;
   final storeSize = small ? 4.5 : 6.0;
-  final barcodeH = (t.labelHeightMm * PdfPageFormat.mm * (small ? 0.32 : 0.38))
-      .clamp(8.0, 32.0);
+  // Chừa header + mã + giá; barcode tối đa ~25% chiều cao tem.
+  final hasStore = opts.storeMode == PosBarcodeStoreMode.withStore &&
+      opts.storeName != null &&
+      opts.storeName!.isNotEmpty;
+  final hasPrice = opts.priceMode == PosBarcodePriceMode.withVnd;
+  final reserveMm = (hasStore ? storeSize * 0.4 : 0) +
+      nameSize * (small ? 0.45 : 0.7) +
+      metaSize * 0.45 +
+      (hasPrice ? metaSize * 0.45 : 0) +
+      2.5;
+  final barcodeH = ((t.labelHeightMm - reserveMm) * PdfPageFormat.mm)
+      .clamp(small ? 7.0 : 9.0, t.labelHeightMm * PdfPageFormat.mm * (small ? 0.22 : 0.26));
   final labelInnerW = small
       ? (t.labelWidthMm - (t.cols > 1 ? t.labelGapMm / t.cols : 0) - 2) *
           PdfPageFormat.mm

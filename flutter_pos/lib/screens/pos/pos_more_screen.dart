@@ -1,8 +1,9 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../providers/auth_provider.dart';
 import '../../providers/permission_provider.dart';
+import '../../utils/navigation_notifier.dart';
 import '../../utils/permission_navigation.dart';
 import '../../widgets/pos/pos_hub_scope.dart';
 import '../../widgets/pos/pos_mobile_widgets.dart';
@@ -23,14 +24,15 @@ import 'pos_customers_screen.dart';
 import 'pos_cancel_return_history_screen.dart';
 import 'pos_end_of_day_screen.dart';
 import 'pos_goods_report_screen.dart';
-import 'pos_resource_floor_screen.dart';
 import 'pos_sales_report_screen.dart';
 import 'pos_customer_display_settings_screen.dart';
 import 'pos_sell_industry_settings_hub_screen.dart';
 import 'pos_store_settings_hub_screen.dart';
-import 'pos_printer_settings_hub_screen.dart';
 import 'pos_vouchers_screen.dart';
 import '../settings_hub_screen.dart';
+import '../../services/pos_app_update_service.dart';
+import '../../widgets/pos_app_update_dialog.dart';
+import 'package:sbox_pos/l10n/app_tr.dart';
 
 /// Hub «Nhiều hơn» — module POS phụ kiểu KiotViet.
 class PosMoreScreen extends StatelessWidget {
@@ -60,6 +62,59 @@ class PosMoreScreen extends StatelessWidget {
                           user?.department ??
                           'Chi nhánh'),
                 ),
+                if (NavigationNotifier.mainLayoutReady.value) ...[
+                  const SizedBox(height: 12),
+                  Material(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(12),
+                      onTap: NavigationNotifier.leavePosHubToAppHome,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 14),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 40,
+                              height: 40,
+                              decoration: BoxDecoration(
+                                color: PosTheme.kiotBlue.withOpacity(0.12),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: const Icon(Icons.apps_outlined,
+                                  color: PosTheme.kiotBlue),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    tr('Về SBOX HRM'),
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 15,
+                                    ),
+                                  ),
+                                  Text(
+                                    tr('Thoát bán hàng · mở toàn bộ phần mềm'),
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.grey.shade600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Icon(Icons.chevron_right,
+                                color: Colors.grey.shade400),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 12),
                 _section(
                   context,
@@ -91,6 +146,13 @@ class PosMoreScreen extends StatelessWidget {
                         const WhAdaptivePurchaseReturnList()),
                     _Item('Cuối ngày', Icons.nightlight_round, 'PosSalesReport',
                         const PosEndOfDayScreen()),
+                    _Item(
+                      'Đặt bàn / lịch hẹn',
+                      Icons.event_available_outlined,
+                      'PosBooking',
+                      const PosAppointmentDayScreen(),
+                      altModules: const ['PosSell'],
+                    ),
                   ],
                 ),
                 const SizedBox(height: 12),
@@ -138,7 +200,7 @@ class PosMoreScreen extends StatelessWidget {
                   title: 'Thiết lập POS',
                   items: [
                     _Item(
-                      'Thiết lập HRM / POS',
+                      'Thiết lập POS',
                       Icons.settings_outlined,
                       'SettingsHub',
                       const SettingsHubScreen(),
@@ -159,31 +221,10 @@ class PosMoreScreen extends StatelessWidget {
                       altModules: const ['PosSell'],
                     ),
                     _Item(
-                      'Đặt bàn / lịch hẹn',
-                      Icons.event_available_outlined,
-                      'PosBooking',
-                      const PosAppointmentDayScreen(),
-                      altModules: const ['PosSell'],
-                    ),
-                    _Item(
                       'Thiết lập cửa hàng',
                       Icons.store_outlined,
                       'PosSell',
                       const PosStoreSettingsHubScreen(),
-                      altModules: const ['PosProducts'],
-                    ),
-                    _Item(
-                      'Máy in (thiết bị)',
-                      Icons.print_outlined,
-                      'PosSell',
-                      const PosPrinterSettingsHubScreen(),
-                      altModules: const ['PosProducts'],
-                    ),
-                    _Item(
-                      'Quản lý bàn/phòng',
-                      Icons.table_restaurant_outlined,
-                      'PosSell',
-                      const PosResourceFloorScreen(manageMode: true),
                       altModules: const ['PosProducts'],
                     ),
                   ],
@@ -203,6 +244,101 @@ class PosMoreScreen extends StatelessWidget {
                     _Item('Báo cáo chi tiết', Icons.table_chart_outlined,
                         'PosSalesReport', const PosReportsScreen()),
                   ],
+                ),
+                const SizedBox(height: 16),
+                Material(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  child: Column(
+                    children: [
+                      FutureBuilder(
+                        future: PosAppUpdateService.currentPackage(),
+                        builder: (context, snap) {
+                          final info = snap.data;
+                          final ver = info == null
+                              ? '…'
+                              : 'v${info.version} (${info.buildNumber})';
+                          return ListTile(
+                            leading: const Icon(Icons.system_update_alt,
+                                color: PosTheme.kiotBlue),
+                            title: Text(
+                              tr('Cập nhật ứng dụng'),
+                              style:
+                                  const TextStyle(fontWeight: FontWeight.w700),
+                            ),
+                            subtitle: Text(
+                              tr('Đang dùng $ver — tải APK mới (Android 6+)'),
+                            ),
+                            onTap: () async {
+                              final release =
+                                  await PosAppUpdateService.checkForUpdate();
+                              if (!context.mounted) return;
+                              if (release == null) {
+                                final cur =
+                                    await PosAppUpdateService.currentPackage();
+                                if (!context.mounted) return;
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      tr(
+                                        'Đang dùng bản mới nhất ${cur.version} (${cur.buildNumber}).',
+                                      ),
+                                    ),
+                                  ),
+                                );
+                                return;
+                              }
+                              final cur =
+                                  await PosAppUpdateService.currentPackage();
+                              if (!context.mounted) return;
+                              await showPosAppUpdateDialog(
+                                context,
+                                release: release,
+                                currentVersion:
+                                    '${cur.version} (${cur.buildNumber})',
+                              );
+                            },
+                          );
+                        },
+                      ),
+                      const Divider(height: 1),
+                      ListTile(
+                        leading:
+                            Icon(Icons.logout, color: Colors.red.shade600),
+                        title: Text(
+                          tr('Đăng xuất'),
+                          style: TextStyle(
+                            color: Colors.red.shade700,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        subtitle: Text(tr('Thoát tài khoản cửa hàng')),
+                        onTap: () => showPosLogoutDialog(context),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+                FutureBuilder(
+                  future: PosAppUpdateService.currentPackage(),
+                  builder: (context, snap) {
+                    final info = snap.data;
+                    final label = info == null
+                        ? '…'
+                        : 'v${info.version} (${info.buildNumber})';
+                    return Padding(
+                      padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
+                      child: Text(
+                        'SBOX POS $label',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: Colors.grey.shade600,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    );
+                  },
                 ),
               ],
             ),

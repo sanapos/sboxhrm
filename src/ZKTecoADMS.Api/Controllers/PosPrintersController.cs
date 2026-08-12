@@ -25,6 +25,7 @@ public partial class PosPrintersController(
         string? LanHost, int LanPort, string? UsbDeviceName,
         int FeedBeforeCut, bool PartialCut, bool OpenCashDrawer, bool OpenDrawerCashOnly,
         bool BeepOnPrint, bool IsDefault, bool RequiresAgent,
+        bool IsDeviceLocal, string? OwnerDeviceId,
         string HealthStatus, DateTime? LastSeenAt, string? LastErrorMessage,
         int SortOrder, bool IsActive, List<string> DocumentTypes, int DefaultCopies);
 
@@ -47,6 +48,28 @@ public partial class PosPrintersController(
         bool IsDefault,
         int SortOrder,
         bool IsActive);
+
+    /// <summary>Đồng bộ máy in nội bộ từ thiết bị POS → danh sách cửa hàng (để gán món).</summary>
+    public record DeviceLocalPrinterUpsertDto(
+        Guid? Id,
+        string OwnerDeviceId,
+        string Name,
+        PosPrinterConnectionType ConnectionType,
+        string? PrinterBrand,
+        string PaperSize,
+        string? TextMode,
+        string? BluetoothAddress,
+        string? BluetoothName,
+        string? LanHost,
+        int LanPort,
+        string? UsbDeviceName,
+        int FeedBeforeCut,
+        bool PartialCut,
+        bool? OpenCashDrawer,
+        bool? OpenDrawerCashOnly,
+        bool? BeepOnPrint,
+        bool IsActive,
+        List<string>? DocumentTypes);
 
     public record RouteDto(string DocumentType, Guid PrinterId, int DefaultCopies);
 
@@ -170,7 +193,7 @@ public partial class PosPrintersController(
                 .SetProperty(x => x.UpdatedAt, now)
                 .SetProperty(x => x.UpdatedBy, by));
 
-        // Bỏ gán DefaultPrinter trên SP/nhóm nếu còn trỏ máy đã xóa.
+        // Bỏ gán DefaultPrinter / DefaultLabelPrinter trên SP/nhóm nếu còn trỏ máy đã xóa.
         await db.PosProducts
             .IgnoreQueryFilters()
             .Where(p => p.StoreId == storeId && p.Deleted == null && p.DefaultPrinterId == id)
@@ -178,11 +201,25 @@ public partial class PosPrintersController(
                 .SetProperty(p => p.DefaultPrinterId, (Guid?)null)
                 .SetProperty(p => p.UpdatedAt, now));
 
+        await db.PosProducts
+            .IgnoreQueryFilters()
+            .Where(p => p.StoreId == storeId && p.Deleted == null && p.DefaultLabelPrinterId == id)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(p => p.DefaultLabelPrinterId, (Guid?)null)
+                .SetProperty(p => p.UpdatedAt, now));
+
         await db.PosProductCategories
             .IgnoreQueryFilters()
             .Where(c => c.StoreId == storeId && c.Deleted == null && c.DefaultPrinterId == id)
             .ExecuteUpdateAsync(s => s
                 .SetProperty(c => c.DefaultPrinterId, (Guid?)null)
+                .SetProperty(c => c.UpdatedAt, now));
+
+        await db.PosProductCategories
+            .IgnoreQueryFilters()
+            .Where(c => c.StoreId == storeId && c.Deleted == null && c.DefaultLabelPrinterId == id)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(c => c.DefaultLabelPrinterId, (Guid?)null)
                 .SetProperty(c => c.UpdatedAt, now));
 
         // Detach tracker — tránh query sau vẫn «nhìn» entity cũ.
@@ -290,8 +327,126 @@ public partial class PosPrintersController(
         p.TextMode, p.BluetoothAddress, p.BluetoothName, p.LanHost, p.LanPort, p.UsbDeviceName,
         p.FeedBeforeCut, p.PartialCut, p.OpenCashDrawer, p.OpenDrawerCashOnly, p.BeepOnPrint,
         p.IsDefault, p.RequiresAgent,
+        p.IsDeviceLocal, p.OwnerDeviceId,
         p.HealthStatus.ToString(), p.LastSeenAt, p.LastErrorMessage,
         p.SortOrder, p.IsActive, docTypes, copies);
+
+    [HttpPost("device-local")]
+    [RequireModulePermission("PosSell", ModulePermissionAction.Edit)]
+    public async Task<ActionResult<AppResponse<object>>> UpsertDeviceLocal(
+        [FromBody] DeviceLocalPrinterUpsertDto dto)
+    {
+        var storeId = RequiredStoreId;
+        var owner = (dto.OwnerDeviceId ?? "").Trim();
+        if (string.IsNullOrWhiteSpace(owner))
+            return BadRequest(AppResponse<object>.Fail("Thiếu OwnerDeviceId"));
+        if (string.IsNullOrWhiteSpace(dto.Name))
+            return BadRequest(AppResponse<object>.Fail("Thiếu tên máy in"));
+
+        PosStorePrinter? entity = null;
+        if (dto.Id is Guid id)
+        {
+            entity = await db.PosStorePrinters
+                .FirstOrDefaultAsync(p => p.Id == id && p.StoreId == storeId && p.Deleted == null);
+            // Không biến máy cloud/Agent thành device-local (chip Agent từng ghi đè storePrinterId).
+            // Mọi máy không phải device-local → tạo bản ghi mới thay vì hijack.
+            if (entity != null && !entity.IsDeviceLocal)
+                entity = null;
+        }
+
+        if (entity == null)
+        {
+            entity = new PosStorePrinter
+            {
+                Id = Guid.NewGuid(),
+                StoreId = storeId,
+                CreatedAt = DateTime.UtcNow,
+                CreatedBy = CurrentUserId.ToString(),
+            };
+            db.PosStorePrinters.Add(entity);
+        }
+
+        entity.Name = dto.Name.Trim();
+        entity.ConnectionType = dto.ConnectionType;
+        entity.PrinterBrand = dto.PrinterBrand;
+        entity.PaperSize = string.IsNullOrWhiteSpace(dto.PaperSize) ? "K80" : dto.PaperSize;
+        entity.TextMode = dto.TextMode;
+        entity.BluetoothAddress = dto.BluetoothAddress;
+        entity.BluetoothName = dto.BluetoothName;
+        entity.LanHost = dto.LanHost;
+        entity.LanPort = dto.LanPort <= 0 ? 9100 : dto.LanPort;
+        entity.UsbDeviceName = dto.UsbDeviceName;
+        entity.FeedBeforeCut = dto.FeedBeforeCut <= 0 ? 1 : dto.FeedBeforeCut;
+        entity.PartialCut = dto.PartialCut;
+        entity.OpenCashDrawer = dto.OpenCashDrawer ?? false;
+        entity.OpenDrawerCashOnly = dto.OpenDrawerCashOnly ?? true;
+        entity.BeepOnPrint = dto.BeepOnPrint ?? false;
+        entity.IsActive = dto.IsActive;
+        entity.IsDeviceLocal = true;
+        entity.OwnerDeviceId = owner;
+        entity.RequiresAgent = false;
+        entity.IsDefault = false;
+        entity.UpdatedAt = DateTime.UtcNow;
+        entity.UpdatedBy = CurrentUserId.ToString();
+
+        await db.SaveChangesAsync();
+
+        var wanted = new HashSet<PosPrintDocumentType>();
+        foreach (var raw in dto.DocumentTypes ?? [])
+        {
+            if (Enum.TryParse<PosPrintDocumentType>(raw, true, out var dt))
+                wanted.Add(dt);
+        }
+
+        var existingRoutes = await db.PosPrinterDocumentRoutes
+            .IgnoreQueryFilters()
+            .Where(r => r.PrinterId == entity.Id && r.StoreId == storeId)
+            .ToListAsync();
+        var now = DateTime.UtcNow;
+        var by = CurrentUserId.ToString();
+        foreach (var row in existingRoutes)
+        {
+            if (wanted.Contains(row.DocumentType))
+            {
+                row.Deleted = null;
+                row.DeletedBy = null;
+                row.IsActive = true;
+                row.UpdatedAt = now;
+                row.UpdatedBy = by;
+                wanted.Remove(row.DocumentType);
+                continue;
+            }
+            if (row.Deleted == null)
+            {
+                row.Deleted = now;
+                row.DeletedBy = by;
+                row.IsActive = false;
+                row.UpdatedAt = now;
+                row.UpdatedBy = by;
+            }
+        }
+        foreach (var dt in wanted)
+        {
+            db.PosPrinterDocumentRoutes.Add(new PosPrinterDocumentRoute
+            {
+                Id = Guid.NewGuid(),
+                StoreId = storeId,
+                PrinterId = entity.Id,
+                DocumentType = dt,
+                DefaultCopies = 1,
+                IsActive = true,
+                CreatedAt = now,
+                CreatedBy = by,
+            });
+        }
+        await db.SaveChangesAsync();
+
+        var types = (dto.DocumentTypes ?? [])
+            .Where(t => Enum.TryParse<PosPrintDocumentType>(t, true, out _))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        return Ok(AppResponse<object>.Success(ToDto(entity, types, 1)));
+    }
 
     static PosStorePrinter MapNew(PrinterSaveDto dto, Guid storeId, string? userId)
     {

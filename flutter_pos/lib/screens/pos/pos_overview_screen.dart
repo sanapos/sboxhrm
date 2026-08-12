@@ -7,13 +7,12 @@ import '../../services/api_service.dart';
 import '../../utils/navigation_notifier.dart';
 import '../../utils/pos_kiot_time_range.dart';
 import '../../widgets/pos/pos_hub_scope.dart';
-import '../../widgets/pos/pos_kiot_time_filter.dart';
 import '../../widgets/pos/pos_mobile_widgets.dart';
 import '../../widgets/pos/pos_theme.dart';
 import '../main_layout.dart' show ScreenRefreshNotifier;
 import 'package:sbox_pos/l10n/app_tr.dart';
 
-/// Tổng quan POS mobile — layout đồng bộ với tab Nhiều hơn.
+/// Tổng quan POS — một bố cục gắn kết (số liệu + tồn + bán chạy), không trùng bottom nav.
 class PosOverviewScreen extends StatefulWidget {
   const PosOverviewScreen({super.key});
 
@@ -90,13 +89,15 @@ class _PosOverviewScreenState extends State<PosOverviewScreen> {
     NavigationNotifier.posHubTab.value = index;
   }
 
-  double _num(dynamic v) => v is num ? v.toDouble() : double.tryParse('$v') ?? 0;
+  double _num(dynamic v) =>
+      v is num ? v.toDouble() : double.tryParse('$v') ?? 0;
 
   @override
   Widget build(BuildContext context) {
     final inHub = PosHubScope.of(context);
     final auth = Provider.of<AuthProvider>(context);
     final user = auth.user;
+    final bottomPad = inHub ? PosTheme.mobileBottomNavHeight + 28.0 : 24.0;
 
     return ColoredBox(
       color: PosTheme.background,
@@ -107,67 +108,75 @@ class _PosOverviewScreenState extends State<PosOverviewScreen> {
             PosMobileKiotHeader(
               title: 'Tổng quan',
               onRefresh: _load,
+              trailing: [
+                _PeriodChip(
+                  label: _time.displayLabel,
+                  onTap: () => _pickPeriod(context),
+                ),
+              ],
             ),
           Expanded(
             child: RefreshIndicator(
               color: PosTheme.kiotBlue,
               onRefresh: _load,
-              child: ListView(
-                padding: EdgeInsets.fromLTRB(12, inHub ? 8 : 12, 12, 24),
-                children: [
-                  if (!inHub)
-                    Padding(
-                      padding: EdgeInsets.only(bottom: 8),
-                      child: Text(tr('Tổng quan'),
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: PosTheme.textPrimary,
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final wide = constraints.maxWidth >= 900;
+                  return ListView(
+                    padding:
+                        EdgeInsets.fromLTRB(16, inHub ? 4 : 12, 16, bottomPad),
+                    children: [
+                      if (!inHub) ...[
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                tr('Tổng quan'),
+                                style: const TextStyle(
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.w800,
+                                  color: PosTheme.textPrimary,
+                                ),
+                              ),
+                            ),
+                            _PeriodChip(
+                              label: _time.displayLabel,
+                              onTap: () => _pickPeriod(context),
+                            ),
+                            IconButton(
+                              tooltip: tr('Làm mới'),
+                              onPressed: _load,
+                              icon: const Icon(Icons.refresh),
+                            ),
+                          ],
                         ),
+                        const SizedBox(height: 8),
+                      ],
+                      PosMobileProfileCard(
+                        name: user?.fullName ?? 'Cửa hàng',
+                        subtitle: (user != null && user.email.isNotEmpty)
+                            ? user.email
+                            : (user?.position ??
+                                user?.department ??
+                                'Chi nhánh'),
                       ),
-                    ),
-                  PosMobileProfileCard(
-                    name: user?.fullName ?? 'Cửa hàng',
-                    subtitle: (user != null && user.email.isNotEmpty)
-                        ? user.email
-                        : (user?.position ??
-                            user?.department ??
-                            'Chi nhánh'),
-                  ),
-                  const SizedBox(height: 12),
-                  _buildQuickAccessSection(),
-                  const SizedBox(height: 12),
-                  Container(
-                    decoration: PosTheme.mobileCardDecoration(),
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    child: PosKiotTimeFilter(
-                      state: _time,
-                      dense: true,
-                      onChanged: (s) async {
-                        setState(() => _time = s);
-                        await _load();
-                      },
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  if (_loading)
-                    const Padding(
-                      padding: EdgeInsets.all(32),
-                      child: Center(
-                        child: CircularProgressIndicator(color: PosTheme.kiotBlue),
-                      ),
-                    )
-                  else ...[
-                    _buildMetricsSection(),
-                    ...() {
-                      final alert = _buildStockAlertSection();
-                      if (alert == null) return <Widget>[];
-                      return [const SizedBox(height: 12), alert];
-                    }(),
-                    const SizedBox(height: 12),
-                    _buildTopProductsSection(),
-                  ],
-                ],
+                      const SizedBox(height: 14),
+                      if (_loading)
+                        const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 48),
+                          child: Center(
+                            child: CircularProgressIndicator(
+                              color: PosTheme.kiotBlue,
+                            ),
+                          ),
+                        )
+                      else if (wide)
+                        _buildWideBody()
+                      else
+                        _buildNarrowBody(),
+                    ],
+                  );
+                },
               ),
             ),
           ),
@@ -176,35 +185,83 @@ class _PosOverviewScreenState extends State<PosOverviewScreen> {
     );
   }
 
-  Widget _buildQuickAccessSection() {
-    // Tổng quan = điều hướng tab chính + số liệu.
-    // Module nghiệp vụ đầy đủ nằm ở tab «Nhiều hơn» (không trùng).
-    final items = <PosMobileHubGridItem>[
-      PosMobileHubGridItem(
-        label: 'Bán hàng',
-        icon: Icons.shopping_bag_outlined,
-        onTap: () => _goHubTab(2),
+  Future<void> _pickPeriod(BuildContext context) async {
+    final picked = await showDialog<_OverviewPeriodChoice>(
+      context: context,
+      builder: (ctx) => _OverviewPeriodDialog(
+        selected: _time.isCustom ? null : _time.preset,
+        isCustom: _time.isCustom,
       ),
-      PosMobileHubGridItem(
-        label: 'Hàng hoá',
-        icon: Icons.inventory_2_outlined,
-        onTap: () => _goHubTab(1),
-      ),
-      PosMobileHubGridItem(
-        label: 'Hoá đơn',
-        icon: Icons.receipt_long_outlined,
-        onTap: () => _goHubTab(3),
-      ),
-      PosMobileHubGridItem(
-        label: 'Nhiều hơn',
-        icon: Icons.apps_outlined,
-        onTap: () => _goHubTab(4),
-      ),
-    ];
-    return PosMobileHubSectionGrid(
-      title: 'Truy cập nhanh',
-      items: items,
     );
+    if (picked == null || !mounted) return;
+    if (picked.custom) {
+      if (!mounted) return;
+      final now = DateTime.now();
+      final range = await showDateRangePicker(
+        context: this.context,
+        firstDate: DateTime(2020),
+        lastDate: now.add(const Duration(days: 365)),
+        initialDateRange: DateTimeRange(
+          start: _time.from ?? DateTime(now.year, now.month, 1),
+          end: _time.to ?? now,
+        ),
+        helpText: 'Chọn khoảng thời gian',
+      );
+      if (range == null || !mounted) return;
+      setState(() {
+        _time = PosKiotTimeFilterState(
+          isCustom: true,
+          customFrom: range.start,
+          customTo: range.end,
+        );
+      });
+    } else if (picked.preset != null) {
+      setState(() {
+        _time = PosKiotTimeFilterState(preset: picked.preset!, isCustom: false);
+      });
+    }
+    await _load();
+  }
+
+  Widget _buildNarrowBody() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _buildMetricsSection(),
+        ..._stockAlertSliver(),
+        const SizedBox(height: 14),
+        _buildTopProductsSection(),
+      ],
+    );
+  }
+
+  Widget _buildWideBody() {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          flex: 5,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _buildMetricsSection(),
+              ..._stockAlertSliver(),
+            ],
+          ),
+        ),
+        const SizedBox(width: 14),
+        Expanded(
+          flex: 4,
+          child: _buildTopProductsSection(),
+        ),
+      ],
+    );
+  }
+
+  List<Widget> _stockAlertSliver() {
+    final alert = _buildStockAlertSection();
+    if (alert == null) return const [];
+    return [const SizedBox(height: 14), alert];
   }
 
   Widget _buildMetricsSection() {
@@ -224,44 +281,52 @@ class _PosOverviewScreenState extends State<PosOverviewScreen> {
         tr(_time.displayLabel),
         style: const TextStyle(fontSize: 11, color: PosTheme.textSecondary),
       ),
-      child: GridView.count(
-        crossAxisCount: 2,
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        mainAxisSpacing: 8,
-        crossAxisSpacing: 8,
-        childAspectRatio: 1.55,
-        children: [
-          PosMobileMetricTile(
-            label: 'Doanh thu',
-            icon: Icons.payments_outlined,
-            value: '${_moneyFmt.format(revenue)} đ',
-            subtitle: '$orders đơn · Đã thu ${_moneyFmt.format(_num(s?['totalPaid']))}',
-          ),
-          PosMobileMetricTile(
-            label: 'Lợi nhuận gộp',
-            icon: Icons.trending_up,
-            value: cur != null ? '${_moneyFmt.format(profit)} đ' : '—',
-            subtitle: cur != null
-                ? 'Biên ${margin.toStringAsFixed(1)}%'
-                : 'Chưa có dữ liệu',
-            valueColor: cur != null && profit >= 0
-                ? const Color(0xFF059669)
-                : PosTheme.textPrimary,
-          ),
-          PosMobileMetricTile(
-            label: 'Giá trị tồn',
-            icon: Icons.inventory_outlined,
-            value: '${_moneyFmt.format(stockValue)} đ',
-            subtitle: '$productCount hàng hoá',
-          ),
-          PosMobileMetricTile(
-            label: 'Giảm giá',
-            icon: Icons.discount_outlined,
-            value: '${_moneyFmt.format(_num(s?['totalDiscount']))} đ',
-            subtitle: s != null ? 'Trong ${_time.displayLabel.toLowerCase()}' : null,
-          ),
-        ],
+      child: LayoutBuilder(
+        builder: (context, c) {
+          final cols = c.maxWidth >= 520 ? 4 : 2;
+          return GridView.count(
+            crossAxisCount: cols,
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            mainAxisSpacing: 8,
+            crossAxisSpacing: 8,
+            childAspectRatio: cols >= 4 ? 1.35 : 1.55,
+            children: [
+              PosMobileMetricTile(
+                label: 'Doanh thu',
+                icon: Icons.payments_outlined,
+                value: '${_moneyFmt.format(revenue)} đ',
+                subtitle:
+                    '$orders đơn · Đã thu ${_moneyFmt.format(_num(s?['totalPaid']))}',
+              ),
+              PosMobileMetricTile(
+                label: 'Lợi nhuận gộp',
+                icon: Icons.trending_up,
+                value: cur != null ? '${_moneyFmt.format(profit)} đ' : '—',
+                subtitle: cur != null
+                    ? 'Biên ${margin.toStringAsFixed(1)}%'
+                    : 'Chưa có dữ liệu',
+                valueColor: cur != null && profit >= 0
+                    ? const Color(0xFF059669)
+                    : PosTheme.textPrimary,
+              ),
+              PosMobileMetricTile(
+                label: 'Giá trị tồn',
+                icon: Icons.inventory_outlined,
+                value: '${_moneyFmt.format(stockValue)} đ',
+                subtitle: '$productCount hàng hoá',
+              ),
+              PosMobileMetricTile(
+                label: 'Giảm giá',
+                icon: Icons.discount_outlined,
+                value: '${_moneyFmt.format(_num(s?['totalDiscount']))} đ',
+                subtitle: s != null
+                    ? 'Trong ${_time.displayLabel.toLowerCase()}'
+                    : null,
+              ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -274,32 +339,23 @@ class _PosOverviewScreenState extends State<PosOverviewScreen> {
     final below = (st?['belowMin'] as num?)?.toInt() ?? 0;
     if (out == 0 && below == 0) return null;
 
-    return Container(
-      decoration: PosTheme.mobileCardDecoration().copyWith(
-        color: const Color(0xFFFFF8E1),
-        border: Border.all(color: const Color(0xFFFFE082)),
-      ),
-      padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
+    return PosMobileHubSection(
+      title: 'Cảnh báo tồn kho',
+      trailing: const Icon(Icons.warning_amber_rounded,
+          color: Color(0xFFF57C00), size: 18),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            children: [
-              Icon(Icons.warning_amber_rounded, color: Color(0xFFF57C00), size: 20),
-              SizedBox(width: 8),
-              Text(tr('Cảnh báo tồn kho'),
-                style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
           if (out > 0)
-            Text(tr('• $out hàng hoá đã hết hàng'),
-                style: const TextStyle(fontSize: 13)),
+            Text(
+              tr('• $out hàng hoá đã hết hàng'),
+              style: const TextStyle(fontSize: 13),
+            ),
           if (below > 0)
-            Text(tr('• $below hàng hoá dưới mức tồn tối thiểu'),
-                style: const TextStyle(fontSize: 13)),
-          const SizedBox(height: 8),
+            Text(
+              tr('• $below hàng hoá dưới mức tồn tối thiểu'),
+              style: const TextStyle(fontSize: 13),
+            ),
           Align(
             alignment: Alignment.centerRight,
             child: TextButton(
@@ -317,8 +373,12 @@ class _PosOverviewScreenState extends State<PosOverviewScreen> {
     if (top.isEmpty) {
       return PosMobileHubSection(
         title: 'Hàng bán chạy',
-        child: Text(tr('Chưa có dữ liệu trong kỳ đã chọn'),
-          style: TextStyle(color: PosTheme.textSecondary, fontSize: 13),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          child: Text(
+            tr('Chưa có dữ liệu trong kỳ đã chọn'),
+            style: const TextStyle(color: PosTheme.textSecondary, fontSize: 13),
+          ),
         ),
       );
     }
@@ -387,7 +447,9 @@ class _PosOverviewScreenState extends State<PosOverviewScreen> {
                       ),
                     ),
                     Text(
-                      tr('${_num(sorted[i]['qty']).toStringAsFixed(_num(sorted[i]['qty']) == _num(sorted[i]['qty']).roundToDouble() ? 0 : 1)} sp'),
+                      tr(
+                        '${_num(sorted[i]['qty']).toStringAsFixed(_num(sorted[i]['qty']) == _num(sorted[i]['qty']).roundToDouble() ? 0 : 1)} sp',
+                      ),
                       style: const TextStyle(
                         fontSize: 11,
                         color: PosTheme.textSecondary,
@@ -422,6 +484,120 @@ class _PosOverviewScreenState extends State<PosOverviewScreen> {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _PeriodChip extends StatelessWidget {
+  const _PeriodChip({required this.label, required this.onTap});
+
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: PosTheme.kiotBlueLight,
+      borderRadius: BorderRadius.circular(20),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(20),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.calendar_today_outlined,
+                  size: 14, color: PosTheme.kiotBlue),
+              const SizedBox(width: 6),
+              Text(
+                tr(label),
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: PosTheme.kiotBlue,
+                ),
+              ),
+              const SizedBox(width: 2),
+              const Icon(Icons.expand_more, size: 16, color: PosTheme.kiotBlue),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _OverviewPeriodChoice {
+  const _OverviewPeriodChoice.preset(this.preset) : custom = false;
+  const _OverviewPeriodChoice.custom()
+      : preset = null,
+        custom = true;
+
+  final PosKiotTimePreset? preset;
+  final bool custom;
+}
+
+class _OverviewPeriodDialog extends StatelessWidget {
+  const _OverviewPeriodDialog({
+    required this.selected,
+    required this.isCustom,
+  });
+
+  final PosKiotTimePreset? selected;
+  final bool isCustom;
+
+  static const _presets = <(PosKiotTimePreset, String)>[
+    (PosKiotTimePreset.today, 'Hôm nay'),
+    (PosKiotTimePreset.yesterday, 'Hôm qua'),
+    (PosKiotTimePreset.thisWeek, 'Tuần này'),
+    (PosKiotTimePreset.thisMonth, 'Tháng này'),
+    (PosKiotTimePreset.lastMonth, 'Tháng trước'),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return SimpleDialog(
+      title: Text(tr('Chọn kỳ')),
+      children: [
+        for (final o in _presets)
+          SimpleDialogOption(
+            onPressed: () =>
+                Navigator.pop(context, _OverviewPeriodChoice.preset(o.$1)),
+            child: Row(
+              children: [
+                Icon(
+                  !isCustom && selected == o.$1
+                      ? Icons.radio_button_checked
+                      : Icons.radio_button_off,
+                  size: 18,
+                  color: !isCustom && selected == o.$1
+                      ? PosTheme.kiotBlue
+                      : PosTheme.textSecondary,
+                ),
+                const SizedBox(width: 10),
+                Text(tr(o.$2)),
+              ],
+            ),
+          ),
+        SimpleDialogOption(
+          onPressed: () =>
+              Navigator.pop(context, const _OverviewPeriodChoice.custom()),
+          child: Row(
+            children: [
+              Icon(
+                isCustom
+                    ? Icons.radio_button_checked
+                    : Icons.radio_button_off,
+                size: 18,
+                color: isCustom ? PosTheme.kiotBlue : PosTheme.textSecondary,
+              ),
+              const SizedBox(width: 10),
+              Text(tr('Tùy chỉnh…')),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

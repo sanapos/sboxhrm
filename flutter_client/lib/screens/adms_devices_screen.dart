@@ -568,14 +568,14 @@ class _AdmsDevicesScreenState extends State<AdmsDevicesScreen> {
                           padding: const EdgeInsets.symmetric(
                               horizontal: 12, vertical: 8),
                           itemCount: _filteredDevices.length,
-                          itemBuilder: (context, index) => Padding(
-                            padding: const EdgeInsets.only(bottom: 10),
-                            child: Container(
+                          itemBuilder: (context, index) {
+                            final device = _filteredDevices[index];
+                            final card = Container(
                               decoration: BoxDecoration(
                                 color: Colors.white,
                                 borderRadius: BorderRadius.circular(12),
-                                border:
-                                    Border.all(color: const Color(0xFFE4E4E7)),
+                                border: Border.all(
+                                    color: const Color(0xFFE4E4E7)),
                                 boxShadow: [
                                   BoxShadow(
                                     color: Colors.black.withValues(alpha: 0.05),
@@ -584,10 +584,32 @@ class _AdmsDevicesScreenState extends State<AdmsDevicesScreen> {
                                   ),
                                 ],
                               ),
-                              child:
-                                  _buildDeviceDeckItem(_filteredDevices[index]),
-                            ),
-                          ),
+                              child: _buildDeviceDeckItem(device),
+                            );
+
+                            final canDel = _perm.canDelete('Device');
+                            if (!canDel) {
+                              return Padding(
+                                padding: const EdgeInsets.only(bottom: 10),
+                                child: card,
+                              );
+                            }
+
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 10),
+                              child: Dismissible(
+                                key: ValueKey('device-${device.id}'),
+                                direction: DismissDirection.endToStart,
+                                background: _buildSwipeDeleteBackground(),
+                                confirmDismiss: (_) =>
+                                    _confirmDeleteDevice(device),
+                                onDismissed: (_) async {
+                                  await _performDeleteDevice(device);
+                                },
+                                child: card,
+                              ),
+                            );
+                          },
                         ),
                       ),
           ),
@@ -729,6 +751,79 @@ class _AdmsDevicesScreenState extends State<AdmsDevicesScreen> {
         ),
       ),
     );
+  }
+
+  Widget _buildSwipeDeleteBackground() {
+    return Container(
+      alignment: Alignment.centerRight,
+      padding: const EdgeInsets.symmetric(horizontal: 22),
+      decoration: BoxDecoration(
+        color: Colors.red,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: const Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.delete_outline, color: Colors.white, size: 22),
+          SizedBox(width: 8),
+          Text(
+            'Xóa',
+            style: TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w700,
+              fontSize: 14,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<bool> _confirmDeleteDevice(Device device) async {
+    if (!_perm.canDelete('Device')) return false;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => ScrollableAlertDialog(
+        title: Text(tr('Xóa thiết bị')),
+        content: Text(tr(
+            'Bạn có chắc muốn xóa thiết bị "${device.deviceName}" (SN: ${device.serialNumber}) khỏi hệ thống?\n\nHành động này không thể hoàn tác.')),
+        actions: [
+          AppDialogActions.delete(
+            onCancel: () => Navigator.pop(ctx, false),
+            onConfirm: () => Navigator.pop(ctx, true),
+          ),
+        ],
+      ),
+    );
+    return ok == true;
+  }
+
+  Future<void> _performDeleteDevice(Device device) async {
+    try {
+      final result = await _apiService.deleteDevice(device.id);
+      if (mounted) {
+        if (result['success'] == true) {
+          appNotification.showSuccess(
+            title: tr('Đã xóa'),
+            message: tr('${device.deviceName} (${device.serialNumber})'),
+          );
+          await _loadData();
+        } else {
+          appNotification.showError(
+            title: tr('Lỗi xóa thiết bị'),
+            message: tr('${result['message'] ?? 'Lỗi không xác định'}'),
+          );
+          await _loadData();
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        appNotification.showError(
+          title: tr('Lỗi xóa thiết bị'),
+          message: '$e',
+        );
+      }
+    }
   }
 
   String _formatLastOnline(DateTime? lastOnline) {

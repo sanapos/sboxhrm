@@ -6,6 +6,7 @@ using ZKTecoADMS.Api.Authorization;
 using ZKTecoADMS.Api.Controllers.Base;
 using ZKTecoADMS.Api.Controllers.Reports;
 using ZKTecoADMS.Application.Constants;
+using ZKTecoADMS.Application.Helpers;
 using ZKTecoADMS.Application.Models;
 using ZKTecoADMS.Domain.Entities;
 using ZKTecoADMS.Domain.Enums;
@@ -23,16 +24,19 @@ public class PosReportsController(ZKTecoDbContext dbContext) : AuthenticatedCont
     [RequireModulePermission("PosSalesReport", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<object>>> GetSalesSummary(
         [FromQuery] DateTime? from,
-        [FromQuery] DateTime? to)
+        [FromQuery] DateTime? to,
+        [FromQuery] int? dayStartHour = null)
     {
         var storeId = RequiredStoreId;
-        var fromDt = from?.Date ?? DateTime.UtcNow.Date.AddDays(-30);
-        var toDt = (to?.Date ?? DateTime.UtcNow.Date).AddDays(1);
+        var hour = await ResolveReportDayStartHourAsync(storeId, dayStartHour);
+        var (fromDt, toDt, fromVn, toVnEx) = ResolvePosRange(from, to, hour, defaultLookbackDays: 30);
 
+        // Ngày doanh thu = SaleDate ?? CreatedAt; cửa sổ UTC+7 (+ ngày qua đêm nếu hour>0).
         var orders = dbContext.PosSaleOrders.AsNoTracking()
             .Where(o => o.StoreId == storeId && o.Deleted == null && o.IsActive &&
                         o.Status == PosSaleOrderStatus.Completed &&
-                        o.CreatedAt >= fromDt && o.CreatedAt < toDt);
+                        (o.SaleDate ?? o.CreatedAt) >= fromDt &&
+                        (o.SaleDate ?? o.CreatedAt) < toDt);
 
         var totalRevenue = await orders.SumAsync(o => o.Total);
         var totalPaid = await orders.SumAsync(o => o.PaidAmount);
@@ -78,7 +82,7 @@ public class PosReportsController(ZKTecoDbContext dbContext) : AuthenticatedCont
         }
 
         var byDay = await orders
-            .GroupBy(o => o.CreatedAt.Date)
+            .GroupBy(o => (o.SaleDate ?? o.CreatedAt).Date)
             .Select(g => new { date = g.Key, total = g.Sum(x => x.Total), count = g.Count() })
             .OrderBy(x => x.date)
             .ToListAsync();
@@ -87,7 +91,8 @@ public class PosReportsController(ZKTecoDbContext dbContext) : AuthenticatedCont
             .Where(l => l.StoreId == storeId && l.Deleted == null &&
                         l.SaleOrder != null && l.SaleOrder.Deleted == null &&
                         l.SaleOrder.Status == PosSaleOrderStatus.Completed &&
-                        l.SaleOrder.CreatedAt >= fromDt && l.SaleOrder.CreatedAt < toDt)
+                        (l.SaleOrder.SaleDate ?? l.SaleOrder.CreatedAt) >= fromDt &&
+                        (l.SaleOrder.SaleDate ?? l.SaleOrder.CreatedAt) < toDt)
             .GroupBy(l => new { l.ProductId, l.ProductName })
             .Select(g => new
             {
@@ -120,11 +125,11 @@ public class PosReportsController(ZKTecoDbContext dbContext) : AuthenticatedCont
                 .ToDictionaryAsync(x => x.OrderId, x => x.Cogs);
 
         var orderRows = await orders
-            .Select(o => new { o.Id, o.CreatedAt, o.Total })
+            .Select(o => new { o.Id, BizAt = o.SaleDate ?? o.CreatedAt, o.Total })
             .ToListAsync();
 
         var profitByDay = orderRows
-            .GroupBy(o => o.CreatedAt.Date)
+            .GroupBy(o => o.BizAt.Date)
             .Select(g =>
             {
                 var revenue = g.Sum(x => x.Total);
@@ -161,8 +166,10 @@ public class PosReportsController(ZKTecoDbContext dbContext) : AuthenticatedCont
 
         return Ok(AppResponse<object>.Success(new
         {
-            from = fromDt,
-            to = toDt.AddDays(-1),
+            from = fromVn.Date,
+            to = toVnEx.AddDays(-1).Date,
+            dayStartHour = hour,
+            overnight = hour > 0,
             storeName,
             totalRevenue,
             totalPaid,
@@ -184,22 +191,30 @@ public class PosReportsController(ZKTecoDbContext dbContext) : AuthenticatedCont
         [FromQuery] DateTime? from,
         [FromQuery] DateTime? to,
         [FromQuery] int page = 1,
-        [FromQuery] int pageSize = 50)
+        [FromQuery] int pageSize = 50,
+        [FromQuery] int? dayStartHour = null)
     {
         var storeId = RequiredStoreId;
         page = Math.Max(page, 1);
         pageSize = Math.Clamp(pageSize, 1, 200);
-        var fromDt = from?.Date;
-        var toDt = to?.Date.AddDays(1);
+        var hour = await ResolveReportDayStartHourAsync(storeId, dayStartHour);
+        DateTime? fromDt = null;
+        DateTime? toDt = null;
+        if (from.HasValue || to.HasValue)
+        {
+            var range = ResolvePosRange(from, to, hour);
+            fromDt = range.fromUtc;
+            toDt = range.toUtcExclusive;
+        }
 
         var query = dbContext.PosSaleOrders.AsNoTracking()
             .Where(o => o.StoreId == storeId && o.Deleted == null && o.IsActive);
-        if (fromDt.HasValue) query = query.Where(o => o.CreatedAt >= fromDt);
-        if (toDt.HasValue) query = query.Where(o => o.CreatedAt < toDt);
+        if (fromDt.HasValue) query = query.Where(o => (o.SaleDate ?? o.CreatedAt) >= fromDt);
+        if (toDt.HasValue) query = query.Where(o => (o.SaleDate ?? o.CreatedAt) < toDt);
 
         var total = await query.CountAsync();
         var items = await query
-            .OrderByDescending(o => o.CreatedAt)
+            .OrderByDescending(o => o.SaleDate ?? o.CreatedAt)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .Select(o => new
@@ -226,16 +241,18 @@ public class PosReportsController(ZKTecoDbContext dbContext) : AuthenticatedCont
     [RequireModulePermission("PosSalesReport", ModulePermissionAction.Export)]
     public async Task<IActionResult> ExportSalesExcel(
         [FromQuery] DateTime? from,
-        [FromQuery] DateTime? to)
+        [FromQuery] DateTime? to,
+        [FromQuery] int? dayStartHour = null)
     {
         var storeId = RequiredStoreId;
-        var fromDt = from?.Date ?? DateTime.UtcNow.Date.AddDays(-30);
-        var toDt = (to?.Date ?? DateTime.UtcNow.Date).AddDays(1);
+        var hour = await ResolveReportDayStartHourAsync(storeId, dayStartHour);
+        var (fromDt, toDt, fromVn, toVnEx) = ResolvePosRange(from, to, hour, defaultLookbackDays: 30);
 
         var orders = await dbContext.PosSaleOrders.AsNoTracking()
             .Where(o => o.StoreId == storeId && o.Deleted == null && o.IsActive &&
-                        o.CreatedAt >= fromDt && o.CreatedAt < toDt)
-            .OrderByDescending(o => o.CreatedAt)
+                        (o.SaleDate ?? o.CreatedAt) >= fromDt &&
+                        (o.SaleDate ?? o.CreatedAt) < toDt)
+            .OrderByDescending(o => o.SaleDate ?? o.CreatedAt)
             .ToListAsync();
 
         using var workbook = new XLWorkbook();
@@ -248,7 +265,8 @@ public class PosReportsController(ZKTecoDbContext dbContext) : AuthenticatedCont
 
         var meta = ReportExcelMeta.FromUser(
             User, "BÁO CÁO DOANH THU POS",
-            $"{fromDt:dd/MM/yyyy} - {toDt.AddDays(-1):dd/MM/yyyy}",
+            $"{fromVn:dd/MM/yyyy} - {toVnEx.AddDays(-1):dd/MM/yyyy}" +
+            (hour > 0 ? $" (qua đêm từ {hour:00}:00)" : " (UTC+7)"),
             null,
             new[] { $"Tổng đơn: {orders.Count}" }, orders.Count);
         var (headerRow, dataStartRow) = ReportExcelLayout.ApplyMeta(ws, meta, headers.Length);
@@ -260,7 +278,7 @@ public class PosReportsController(ZKTecoDbContext dbContext) : AuthenticatedCont
         {
             ws.Cell(row, 1).Value = idx++;
             ws.Cell(row, 2).Value = o.OrderNo;
-            ws.Cell(row, 3).Value = o.CreatedAt.ToString("dd/MM/yyyy HH:mm");
+            ws.Cell(row, 3).Value = (o.SaleDate ?? o.CreatedAt).ToString("dd/MM/yyyy HH:mm");
             ws.Cell(row, 4).Value = o.CustomerName ?? "";
             ws.Cell(row, 5).Value = o.SubTotal;
             ws.Cell(row, 6).Value = o.Discount;
@@ -286,18 +304,20 @@ public class PosReportsController(ZKTecoDbContext dbContext) : AuthenticatedCont
     public async Task<ActionResult<AppResponse<object>>> GetGoodsSummary(
         [FromQuery] DateTime? from,
         [FromQuery] DateTime? to,
-        [FromQuery] int limit = 20)
+        [FromQuery] int limit = 20,
+        [FromQuery] int? dayStartHour = null)
     {
         var storeId = RequiredStoreId;
         limit = Math.Clamp(limit, 1, 50);
-        var fromDt = from?.Date ?? DateTime.UtcNow.Date.AddDays(-30);
-        var toDt = (to?.Date ?? DateTime.UtcNow.Date).AddDays(1);
+        var hour = await ResolveReportDayStartHourAsync(storeId, dayStartHour);
+        var (fromDt, toDt, _, _) = ResolvePosRange(from, to, hour, defaultLookbackDays: 30);
 
         var topByRevenue = await dbContext.PosSaleOrderLines.AsNoTracking()
             .Where(l => l.StoreId == storeId && l.Deleted == null &&
                         l.SaleOrder != null && l.SaleOrder.Deleted == null &&
                         l.SaleOrder.Status == PosSaleOrderStatus.Completed &&
-                        l.SaleOrder.CreatedAt >= fromDt && l.SaleOrder.CreatedAt < toDt)
+                        (l.SaleOrder.SaleDate ?? l.SaleOrder.CreatedAt) >= fromDt &&
+                        (l.SaleOrder.SaleDate ?? l.SaleOrder.CreatedAt) < toDt)
             .GroupBy(l => new { l.ProductId, l.ProductName })
             .Select(g => new
             {
@@ -349,14 +369,17 @@ public class PosReportsController(ZKTecoDbContext dbContext) : AuthenticatedCont
     [RequireModulePermission("PosSalesReport", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<object>>> GetBusinessAnalysis(
         [FromQuery] DateTime? from,
-        [FromQuery] DateTime? to)
+        [FromQuery] DateTime? to,
+        [FromQuery] int? dayStartHour = null)
     {
         var storeId = RequiredStoreId;
-        var fromDt = from?.Date ?? DateTime.UtcNow.Date.AddDays(-30);
-        var toDt = (to?.Date ?? DateTime.UtcNow.Date).AddDays(1);
-        var spanDays = Math.Max(1, (toDt - fromDt).Days);
-        var prevFrom = fromDt.AddDays(-spanDays);
-        var prevTo = fromDt;
+        var hour = await ResolveReportDayStartHourAsync(storeId, dayStartHour);
+        var (fromDt, toDt, fromVn, toVnEx) = ResolvePosRange(from, to, hour, defaultLookbackDays: 30);
+        var spanDays = Math.Max(1, (toVnEx.Date - fromVn.Date).Days);
+        var prevRange = ResolvePosRange(
+            fromVn.Date.AddDays(-spanDays), fromVn.Date.AddDays(-1), hour);
+        var prevFrom = prevRange.fromUtc;
+        var prevTo = prevRange.toUtcExclusive;
 
         async Task<(decimal revenue, decimal cogs, int orders, decimal discount)> PeriodAsync(
             DateTime start, DateTime end)
@@ -364,7 +387,8 @@ public class PosReportsController(ZKTecoDbContext dbContext) : AuthenticatedCont
             var q = dbContext.PosSaleOrders.AsNoTracking()
                 .Where(o => o.StoreId == storeId && o.Deleted == null && o.IsActive &&
                             o.Status == PosSaleOrderStatus.Completed &&
-                            o.CreatedAt >= start && o.CreatedAt < end);
+                            (o.SaleDate ?? o.CreatedAt) >= start &&
+                            (o.SaleDate ?? o.CreatedAt) < end);
             var revenue = await q.SumAsync(o => (decimal?)o.Total) ?? 0;
             var discount = await q.SumAsync(o => (decimal?)o.Discount) ?? 0;
             var count = await q.CountAsync();
@@ -385,7 +409,8 @@ public class PosReportsController(ZKTecoDbContext dbContext) : AuthenticatedCont
         var byChannel = await dbContext.PosSaleOrders.AsNoTracking()
             .Where(o => o.StoreId == storeId && o.Deleted == null && o.IsActive &&
                         o.Status == PosSaleOrderStatus.Completed &&
-                        o.CreatedAt >= fromDt && o.CreatedAt < toDt)
+                        (o.SaleDate ?? o.CreatedAt) >= fromDt &&
+                        (o.SaleDate ?? o.CreatedAt) < toDt)
             .GroupBy(o => o.SalesChannel ?? "Khác")
             .Select(g => new { channel = g.Key, revenue = g.Sum(x => x.Total), count = g.Count() })
             .OrderByDescending(x => x.revenue)
@@ -395,7 +420,8 @@ public class PosReportsController(ZKTecoDbContext dbContext) : AuthenticatedCont
             .Where(l => l.StoreId == storeId && l.Deleted == null &&
                         l.SaleOrder != null && l.SaleOrder.Deleted == null &&
                         l.SaleOrder.Status == PosSaleOrderStatus.Completed &&
-                        l.SaleOrder.CreatedAt >= fromDt && l.SaleOrder.CreatedAt < toDt)
+                        (l.SaleOrder.SaleDate ?? l.SaleOrder.CreatedAt) >= fromDt &&
+                        (l.SaleOrder.SaleDate ?? l.SaleOrder.CreatedAt) < toDt)
             .Join(dbContext.PosProducts.AsNoTracking(),
                 l => l.ProductId, p => p.Id,
                 (l, p) => new { l.LineTotal, p.CategoryId })
@@ -433,8 +459,10 @@ public class PosReportsController(ZKTecoDbContext dbContext) : AuthenticatedCont
 
         return Ok(AppResponse<object>.Success(new
         {
-            from = fromDt,
-            to = toDt.AddDays(-1),
+            from = fromVn.Date,
+            to = toVnEx.AddDays(-1).Date,
+            dayStartHour = hour,
+            overnight = hour > 0,
             storeName,
             current = new
             {
@@ -780,13 +808,14 @@ public class PosReportsController(ZKTecoDbContext dbContext) : AuthenticatedCont
         [FromQuery] DateTime? to,
         [FromQuery] string? staffEmail,
         [FromQuery] Guid? soldByEmployeeId,
-        [FromQuery] string filterBy = "soldBy",
+        [FromQuery] string filterBy = "soldByEmployee",
         [FromQuery] bool includeProductDetail = true,
-        [FromQuery] bool includeTransactions = false)
+        [FromQuery] bool includeTransactions = false,
+        [FromQuery] int? dayStartHour = null)
     {
         var storeId = RequiredStoreId;
-        var fromDt = from?.Date ?? DateTime.UtcNow.Date;
-        var toDt = (to?.Date ?? DateTime.UtcNow.Date).AddDays(1);
+        var hour = await ResolveReportDayStartHourAsync(storeId, dayStartHour);
+        var (fromDt, toDt, fromVn, toVnEx) = ResolvePosRange(from, to, hour);
         var filter = filterBy.Equals("createdBy", StringComparison.OrdinalIgnoreCase)
             ? "createdBy"
             : filterBy.Equals("soldByEmployee", StringComparison.OrdinalIgnoreCase)
@@ -799,13 +828,17 @@ public class PosReportsController(ZKTecoDbContext dbContext) : AuthenticatedCont
         {
             effectiveStaff = CurrentUserEmail;
             effectiveEmployeeId = EmployeeId;
+            // Ưu tiên hồ sơ NV — SoldBy thường là tên, không phải email đăng nhập.
+            if (effectiveEmployeeId.HasValue)
+                filter = "soldByEmployee";
             if (string.IsNullOrWhiteSpace(effectiveStaff) && !effectiveEmployeeId.HasValue)
                 return BadRequest(AppResponse<object>.Fail("Không xác định được tài khoản nhân viên"));
         }
 
         var baseQuery = dbContext.PosSaleOrders.AsNoTracking()
             .Where(o => o.StoreId == storeId && o.Deleted == null && o.IsActive &&
-                        o.CreatedAt >= fromDt && o.CreatedAt < toDt);
+                        (o.SaleDate ?? o.CreatedAt) >= fromDt &&
+                        (o.SaleDate ?? o.CreatedAt) < toDt);
         baseQuery = ApplyStaffFilter(baseQuery, effectiveStaff, effectiveEmployeeId, filter);
 
         var completedQuery = baseQuery.Where(o => o.Status == PosSaleOrderStatus.Completed);
@@ -817,7 +850,7 @@ public class PosReportsController(ZKTecoDbContext dbContext) : AuthenticatedCont
         var netSales = await completedQuery.SumAsync(o => (decimal?)o.Total) ?? 0;
         var vat = await completedQuery.SumAsync(o => (decimal?)o.VatAmount) ?? 0;
         var actualReceived = await completedQuery.SumAsync(o => (decimal?)o.PaidAmount) ?? 0;
-        var debtTotal = await completedQuery.SumAsync(o => (decimal?)(o.Total - o.PaidAmount)) ?? 0;
+        var debtTotal = await completedQuery.SumAsync(o => (decimal?)(o.Total + o.VatAmount - o.PaidAmount)) ?? 0;
         if (debtTotal < 0) debtTotal = 0;
 
         var canceledCount = await canceledQuery.CountAsync();
@@ -923,12 +956,12 @@ public class PosReportsController(ZKTecoDbContext dbContext) : AuthenticatedCont
         if (includeTransactions)
         {
             var txRows = await completedQuery
-                .OrderBy(o => o.CreatedAt)
+                .OrderBy(o => o.SaleDate ?? o.CreatedAt)
                 .Select(o => new
                 {
                     o.Id,
                     o.OrderNo,
-                    o.CreatedAt,
+                    CreatedAt = o.SaleDate ?? o.CreatedAt,
                     qty = o.Lines.Sum(l => l.Qty),
                     revenue = o.SubTotal,
                     discount = o.Discount,
@@ -983,8 +1016,10 @@ public class PosReportsController(ZKTecoDbContext dbContext) : AuthenticatedCont
 
         return Ok(AppResponse<object>.Success(new
         {
-            from = fromDt,
-            to = toDt.AddTicks(-1),
+            from = fromVn,
+            to = toVnEx.AddTicks(-1),
+            dayStartHour = hour,
+            overnight = hour > 0,
             filterBy = filter,
             staffEmail = effectiveStaff,
             soldByEmployeeId = effectiveEmployeeId,
@@ -1016,16 +1051,17 @@ public class PosReportsController(ZKTecoDbContext dbContext) : AuthenticatedCont
     public async Task<ActionResult<AppResponse<object>>> GetEndOfDayStaff(
         [FromQuery] DateTime? from,
         [FromQuery] DateTime? to,
-        [FromQuery] string filterBy = "soldBy")
+        [FromQuery] string filterBy = "soldByEmployee",
+        [FromQuery] int? dayStartHour = null)
     {
         var storeId = RequiredStoreId;
-        var fromDt = from?.Date ?? DateTime.UtcNow.Date;
-        var toDt = (to?.Date ?? DateTime.UtcNow.Date).AddDays(1);
+        var hour = await ResolveReportDayStartHourAsync(storeId, dayStartHour);
+        var (fromDt, toDt, _, _) = ResolvePosRange(from, to, hour);
         var filter = filterBy.Equals("createdBy", StringComparison.OrdinalIgnoreCase)
             ? "createdBy"
-            : filterBy.Equals("soldByEmployee", StringComparison.OrdinalIgnoreCase)
-                ? "soldByEmployee"
-                : "soldBy";
+            : filterBy.Equals("soldBy", StringComparison.OrdinalIgnoreCase)
+                ? "soldBy"
+                : "soldByEmployee";
 
         if (!IsManager)
         {
@@ -1051,7 +1087,8 @@ public class PosReportsController(ZKTecoDbContext dbContext) : AuthenticatedCont
         var orderQuery = dbContext.PosSaleOrders.AsNoTracking()
             .Where(o => o.StoreId == storeId && o.Deleted == null && o.IsActive &&
                         o.Status == PosSaleOrderStatus.Completed &&
-                        o.CreatedAt >= fromDt && o.CreatedAt < toDt);
+                        (o.SaleDate ?? o.CreatedAt) >= fromDt &&
+                        (o.SaleDate ?? o.CreatedAt) < toDt);
 
         if (filter == "soldByEmployee")
         {
@@ -1184,18 +1221,47 @@ public class PosReportsController(ZKTecoDbContext dbContext) : AuthenticatedCont
         }));
     }
 
+    async Task<int> ResolveReportDayStartHourAsync(Guid storeId, int? overrideHour)
+    {
+        if (overrideHour.HasValue) return Math.Clamp(overrideHour.Value, 0, 23);
+        var h = await dbContext.PosStoreSellSettings.AsNoTracking()
+            .Where(s => s.StoreId == storeId && s.Deleted == null)
+            .Select(s => (int?)s.ReportDayStartHour)
+            .FirstOrDefaultAsync();
+        return Math.Clamp(h ?? 0, 0, 23);
+    }
+
+    static (DateTime fromUtc, DateTime toUtcExclusive, DateTime fromVn, DateTime toVnExclusive)
+        ResolvePosRange(DateTime? from, DateTime? to, int dayStartHour, int? defaultLookbackDays = null)
+    {
+        DateTime? defFrom = null;
+        DateTime? defTo = null;
+        if (defaultLookbackDays is int days)
+        {
+            var biz = VnTimeHelper.ResolveBusinessDate(VnTimeHelper.NowVn(), dayStartHour);
+            defTo = biz;
+            defFrom = biz.AddDays(-Math.Max(0, days));
+        }
+        return ReportHelpers.PosBusinessRange(from, to, dayStartHour, defFrom, defTo);
+    }
+
     private static IQueryable<PosSaleOrder> ApplyStaffFilter(
         IQueryable<PosSaleOrder> query,
         string? staffEmail,
         Guid? soldByEmployeeId,
         string filterBy)
     {
-        if (filterBy == "soldByEmployee" && soldByEmployeeId.HasValue)
+        // Ưu tiên SoldByEmployeeId khi có — khớp hồ sơ NV, không so tên với email.
+        if (soldByEmployeeId.HasValue &&
+            !filterBy.Equals("createdBy", StringComparison.OrdinalIgnoreCase))
             return query.Where(o => o.SoldByEmployeeId == soldByEmployeeId);
+
         if (string.IsNullOrWhiteSpace(staffEmail)) return query;
-        return filterBy == "createdBy"
-            ? query.Where(o => o.CreatedBy == staffEmail)
-            : query.Where(o => o.SoldBy == staffEmail);
+        if (filterBy.Equals("createdBy", StringComparison.OrdinalIgnoreCase))
+            return query.Where(o => o.CreatedBy == staffEmail);
+
+        // soldBy: tên NV hoặc email đăng nhập (CreatedBy)
+        return query.Where(o => o.SoldBy == staffEmail || o.CreatedBy == staffEmail);
     }
 
     private async Task<string?> ResolveEmployeeDisplayNameAsync(Guid storeId, Guid employeeId)

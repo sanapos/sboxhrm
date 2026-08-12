@@ -1,4 +1,4 @@
-import '../utils/api_datetime.dart';
+﻿import '../utils/api_datetime.dart';
 import '../utils/pos_doc_status.dart';
 
 class PosSupplierGroup {
@@ -108,6 +108,7 @@ class PosPurchaseLine {
   final DateTime? manufactureDate;
   final DateTime? expiryDate;
   final bool trackExpiry;
+  final bool allowDecimalQty;
 
   PosPurchaseLine({
     this.id,
@@ -129,6 +130,7 @@ class PosPurchaseLine {
     this.manufactureDate,
     this.expiryDate,
     this.trackExpiry = false,
+    this.allowDecimalQty = false,
   });
 
   factory PosPurchaseLine.fromJson(Map<String, dynamic> json) {
@@ -153,6 +155,8 @@ class PosPurchaseLine {
       manufactureDate: parseApiUtcDateTime(json['manufactureDate'] ?? json['ManufactureDate']),
       expiryDate: parseApiUtcDateTime(json['expiryDate'] ?? json['ExpiryDate']),
       trackExpiry: json['trackExpiry'] == true || json['TrackExpiry'] == true,
+      allowDecimalQty:
+          json['allowDecimalQty'] == true || json['AllowDecimalQty'] == true,
     );
   }
 

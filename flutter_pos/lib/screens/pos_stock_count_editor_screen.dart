@@ -201,13 +201,20 @@ class _PosStockCountEditorScreenState extends State<PosStockCountEditorScreen> {
 
   Future<void> _onPickProduct(PosPurchaseLookupPick pick) async {
     if (_readOnly) return;
+    final addQty = (pick.qty == null || pick.qty! <= 0) ? 1.0 : pick.qty!;
     final countId = await _ensureCountId();
     if (countId == null || !mounted) return;
 
     final key = '${pick.product.id}:${pick.variantId ?? 'base'}';
-    if (_lines.any((l) => '${l.productId}:${l.variantId ?? 'base'}' == key)) {
-      NotificationOverlayManager()
-          .showWarning(title: 'Trùng', message: tr('Hàng đã có trong phiếu'));
+    final existing = _lines.where((l) => '${l.productId}:${l.variantId ?? 'base'}' == key);
+    if (existing.isNotEmpty) {
+      final line = existing.first;
+      final cur = line.countedQty ?? line.systemQty;
+      final next = cur + addQty;
+      line.countedCtrl.text = next == next.roundToDouble()
+          ? next.toStringAsFixed(0)
+          : next.toStringAsFixed(2);
+      setState(() {});
       return;
     }
 
@@ -221,6 +228,14 @@ class _PosStockCountEditorScreenState extends State<PosStockCountEditorScreen> {
     if (!mounted) return;
     if (res['isSuccess'] == true && res['data'] != null) {
       _applyCount(PosStockCount.fromJson(res['data'] as Map<String, dynamic>));
+      for (final line in _lines) {
+        if ('${line.productId}:${line.variantId ?? 'base'}' == key) {
+          line.countedCtrl.text = addQty == addQty.roundToDouble()
+              ? addQty.toStringAsFixed(0)
+              : addQty.toStringAsFixed(2);
+          break;
+        }
+      }
       setState(() {});
     } else {
       NotificationOverlayManager().showError(

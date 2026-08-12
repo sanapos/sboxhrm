@@ -36,19 +36,26 @@ class _PosLocalPrintersScreenState extends State<PosLocalPrintersScreen> {
   bool _syncing = false;
   final Map<String, PosPrinterLinkStatus> _linkStatus = {};
   Timer? _probeTimer;
+  StreamSubscription<Map<String, dynamic>>? _usbEventSub;
 
   @override
   void initState() {
     super.initState();
     _reload();
-    _probeTimer = Timer.periodic(const Duration(seconds: 12), (_) {
+    _probeTimer = Timer.periodic(const Duration(seconds: 5), (_) {
       if (mounted && !_loading) unawaited(_refreshLinkStatus());
     });
+    if (!kIsWeb && PosUsbPrinter.isSupported) {
+      _usbEventSub = PosUsbPrinter.deviceEvents.listen((_) {
+        if (mounted && !_loading) unawaited(_refreshLinkStatus());
+      });
+    }
   }
 
   @override
   void dispose() {
     _probeTimer?.cancel();
+    unawaited(_usbEventSub?.cancel() ?? Future<void>.value());
     super.dispose();
   }
 
@@ -66,10 +73,26 @@ class _PosLocalPrintersScreenState extends State<PosLocalPrintersScreen> {
   Future<void> _refreshLinkStatus() async {
     if (kIsWeb || !mounted || _items.isEmpty) return;
     final usbList = await PosPrinterReadiness.listUsbDevices();
+    final usbProfiles = _items
+        .where((p) =>
+            p.enabled && p.connectionType == PosThermalConnectionType.usb)
+        .map((p) => (id: p.id, savedRaw: p.usbDeviceName))
+        .toList();
+    final usbMatched =
+        PosUsbPrinter.matchProfilesExclusive(usbProfiles, usbList);
+
     final next = <String, PosPrinterLinkStatus>{};
     for (final p in _items) {
-      final status =
-          await PosPrinterReadiness.probeLocal(p, usbList: usbList);
+      final matched = p.connectionType == PosThermalConnectionType.usb
+          ? usbMatched[p.id]
+          : null;
+      final status = await PosPrinterReadiness.probeLocal(
+        p,
+        usbList: usbList,
+        matchedUsb: matched,
+        useMatchedUsbOnly:
+            p.connectionType == PosThermalConnectionType.usb,
+      );
       next[p.id] = status;
       final sid = (p.storePrinterId ?? '').trim();
       if (sid.isEmpty) continue;
@@ -213,25 +236,30 @@ class _PosLocalPrintersScreenState extends State<PosLocalPrintersScreen> {
   }
 
   Future<void> _assignProducts(PosLocalPrinterProfile p) async {
-    var profile = p;
-    if (profile.storePrinterId == null || profile.storePrinterId!.isEmpty) {
-      profile = await _store.upsert(profile, syncServer: true);
-    }
-    final id = profile.storePrinterId;
-    if (id == null || id.isEmpty) {
+    // Luôn sync lại: storePrinterId cũ có thể trỏ máy Agent / đã xóa / sai cửa hàng
+    // → API gán trả «Máy in không hợp lệ».
+    final profile = await _store.ensureServerPrinter(p);
+    final id = profile?.storePrinterId?.trim();
+    if (profile == null || id == null || id.isEmpty) {
       NotificationOverlayManager().showError(
-        title: 'Chưa đồng bộ',
-        message: tr('Không đẩy được máy lên server để gán sản phẩm'),
+        title: 'Chưa đồng bộ máy in',
+        message: tr(
+          'Không đẩy được máy «${p.name}» lên server.\n'
+          'Kiểm tra mạng / đăng nhập cửa hàng rồi bấm Đồng bộ.',
+        ),
       );
       return;
     }
     if (!mounted) return;
+    await _reload();
     await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) => PosPrinterManageProductsScreen(
           printerId: id,
           printerName: profile.name,
+          isLabel: profile.isLabel,
+          purpose: purposeFromRoles(profile.roles),
         ),
       ),
     );
@@ -731,16 +759,17 @@ class _LocalPrinterEditorSheetState extends State<_LocalPrinterEditorSheet> {
       if (!mounted) return;
       setState(() {
         _usbDevices = list;
-        if (selectSaved && (_usbStableId ?? '').isNotEmpty) {
-          final hit = list
-              .where((d) =>
-                  d.stableId == _usbStableId ||
-                  d.deviceName == _usbStableId)
-              .firstOrNull;
+        if (selectSaved && (_usbName.text).trim().isNotEmpty) {
+          final hit = PosUsbPrinter.matchInList(list, _usbName.text) ??
+              list
+                  .where((d) =>
+                      d.stableId == _usbStableId ||
+                      d.deviceName == _usbStableId)
+                  .firstOrNull;
           if (hit != null) {
             _usbStableId = hit.stableId;
             _usbDisplayLabel = hit.displayName;
-            _usbName.text = hit.stableId;
+            _usbName.text = hit.savedRef;
           }
         }
       });
@@ -881,7 +910,8 @@ class _LocalPrinterEditorSheetState extends State<_LocalPrinterEditorSheet> {
                         setState(() {
                           _usbStableId = device.stableId;
                           _usbDisplayLabel = device.displayName;
-                          _usbName.text = device.stableId;
+                          // Lưu stableId|deviceName — phân biệt nhiều máy cùng model.
+                          _usbName.text = device.savedRef;
                           if (_name.text.trim().isEmpty ||
                               _name.text == 'Máy in nhiệt nội bộ' ||
                               _name.text == 'Máy in tem nội bộ') {

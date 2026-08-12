@@ -26,6 +26,7 @@ import 'pos_store_printer_mapper.dart';
 import 'pos_sunmi_native_print.dart';
 import 'pos_thermal_printer_service.dart';
 import 'pos_thermal_printer_settings.dart';
+import 'pos_usb_printer.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 void _notifyPrintDedupSkip({String? detail}) {
@@ -60,6 +61,9 @@ class PosPrintOrchestrator {
   final _api = ApiService();
   final _signalR = SignalRService();
   final _pendingJobs = <String, Completer<_JobOutcome>>{};
+  /// True = server-side Cancelled (operator cancel / idempotency dedup / replaced).
+  /// Distinguishes Cancelled from Failed so caller can suppress re-queue.
+  final _cancelledJobs = <String>{};
   /// Policy chờ Completed (false = không coi Claimed/Printing là thành công).
   final _acceptClaimedByJob = <String, bool>{};
   /// showFeedback khi SignalR cập nhật status (tránh báo đỏ phiếu bếp fire-and-forget).
@@ -67,6 +71,8 @@ class PosPrintOrchestrator {
   final _jobMeta = <String, _JobFeedbackMeta>{};
   final _feedbackSent = <String>{};
   final _hangTimers = <String, Timer>{};
+  /// Callback phiếu treo theo job — giữ khi fire-and-forget để Failed/Expired vẫn treo.
+  final _hangCallbacks = <String, _HangWatch>{};
 
   List<PosStorePrinter> _printers = [];
   List<PosPrinterRoute> _routes = [];
@@ -75,21 +81,34 @@ class PosPrintOrchestrator {
   bool _listening = false;
 
   static const _cacheTtl = Duration(minutes: 3);
-  static const _jobTimeout = Duration(seconds: 90);
+  static const _jobTimeout = Duration(seconds: 120);
+
+  StreamSubscription<bool>? _connSub;
 
   Future<void> ensureListening() async {
-    if (_listening) return;
+    if (_listening && _statusSub != null) return;
     _listening = true;
     _statusSub = _signalR.onPrintJobStatusChanged.listen(_onJobStatus);
+    _connSub?.cancel();
+    _connSub = _signalR.onConnectionStateChanged.listen((connected) {
+      if (connected) {
+        debugPrint('📡 Print orchestrator: SignalR reconnected — re-arming status subscription');
+        _statusSub?.cancel();
+        _statusSub = _signalR.onPrintJobStatusChanged.listen(_onJobStatus);
+        PosPrintAgentService.instance.nudgeClaim();
+      }
+    });
   }
 
   void dispose() {
     _statusSub?.cancel();
+    _connSub?.cancel();
     _listening = false;
     for (final t in _hangTimers.values) {
       t.cancel();
     }
     _hangTimers.clear();
+    _hangCallbacks.clear();
     for (final c in _pendingJobs.values) {
       if (!c.isCompleted) {
         c.complete(const _JobOutcome(false, 'Đã hủy'));
@@ -102,8 +121,9 @@ class PosPrintOrchestrator {
     _feedbackSent.clear();
   }
 
-  void _cancelHangWatch(String jobId) {
+  void _cancelHangWatch(String jobId, {bool clearCallback = true}) {
     _hangTimers.remove(jobId)?.cancel();
+    if (clearCallback) _hangCallbacks.remove(jobId);
   }
 
   void _armHangWatch({
@@ -117,6 +137,13 @@ class PosPrintOrchestrator {
   }) {
     if (onHang == null) return;
     _cancelHangWatch(jobId);
+    _hangCallbacks[jobId] = _HangWatch(
+      documentType: documentType,
+      printerId: printer.id,
+      printerName: printer.name,
+      referenceNo: referenceNo,
+      onHang: onHang,
+    );
     _hangTimers[jobId] = Timer(hangAfter, () {
       _hangTimers.remove(jobId);
       unawaited(() async {
@@ -128,31 +155,49 @@ class PosPrintOrchestrator {
           final done = status == 'Completed' ||
               (acceptClaimedAsSuccess &&
                   (status == 'Claimed' || status == 'Printing'));
-          if (done) return;
-          // Chỉ treo khi còn Queued / Failed / Cancelled — không treo khi
-          // không đọc được status (mạng lỗi) kẻo «mới bấm đã phiếu treo».
-          final pendingLike = status == 'Queued' ||
+          if (done) {
+            _hangCallbacks.remove(jobId);
+            return;
+          }
+          // Chỉ treo khi còn Queued / Failed / Expired / chưa rõ status.
+          final hangable = status == 'Queued' ||
               status == 'Failed' ||
-              status == 'Cancelled' ||
+              status == 'Expired' ||
               status.isEmpty;
-          if (!pendingLike) return;
+          if (!hangable) {
+            _hangCallbacks.remove(jobId);
+            return;
+          }
         } catch (_) {
-          // Lỗi mạng khi kiểm tra — không đẩy phiếu treo.
+          // Lỗi mạng khi poll — giữ callback; SignalR Failed vẫn có thể treo.
           return;
         }
-        onHang(
-          jobId: jobId,
-          documentType: documentType,
-          printerId: printer.id,
-          printerName: printer.name,
-          referenceNo: referenceNo,
-        );
+        _invokeHangCallback(jobId);
       }());
     });
   }
 
+  void _invokeHangCallback(String jobId) {
+    final watch = _hangCallbacks.remove(jobId);
+    if (watch == null) return;
+    watch.onHang(
+      jobId: jobId,
+      documentType: watch.documentType,
+      printerId: watch.printerId,
+      printerName: watch.printerName,
+      referenceNo: watch.referenceNo,
+    );
+  }
+
   void _finishJob(String jobId, _JobOutcome outcome, {bool showFeedback = true}) {
-    _cancelHangWatch(jobId);
+    _hangTimers.remove(jobId)?.cancel();
+    // Thành công / Cancelled: bỏ treo. Failed/Expired: gọi onHang (fire-and-forget
+    // trước đây cancel hang → mất phiếu treo dù job đã Failed).
+    if (outcome.ok || outcome.isCancelled) {
+      _hangCallbacks.remove(jobId);
+    } else {
+      _invokeHangCallback(jobId);
+    }
     final completer = _pendingJobs[jobId];
     if (completer != null && !completer.isCompleted) {
       completer.complete(outcome);
@@ -176,6 +221,10 @@ class PosPrintOrchestrator {
           relatedEntityType: kPosPrintNotifyKind,
         );
       }
+      return;
+    }
+    if (outcome.isCancelled) {
+      // Không toast đỏ — Cancelled không phải lỗi máy in.
       return;
     }
     NotificationOverlayManager().showError(
@@ -208,9 +257,17 @@ class PosPrintOrchestrator {
         _JobOutcome(true, null, printerName: printerName),
         showFeedback: showFeedback,
       );
-    } else if (status == 'Failed' ||
-        status == 'Expired' ||
-        status == 'Cancelled') {
+    } else if (status == 'Cancelled') {
+      // Cancelled = server-side cancel (operator / idempotency / replaced).
+      // Không đưa vào pending queue — không báo thất bại giả.
+      _cancelledJobs.add(jobId);
+      _finishJob(
+        jobId,
+        _JobOutcome(false, error ?? 'Lệnh in đã bị hủy phía máy chủ',
+            printerName: printerName, isCancelled: true),
+        showFeedback: showFeedback,
+      );
+    } else if (status == 'Failed' || status == 'Expired') {
       _finishJob(
         jobId,
         _JobOutcome(false, error ?? 'In thất bại', printerName: printerName),
@@ -218,6 +275,12 @@ class PosPrintOrchestrator {
       );
     }
   }
+
+  /// True if the job was cancelled server-side (operator / idempotency / replaced).
+  bool isServerCancelled(String jobId) => _cancelledJobs.contains(jobId);
+
+  /// Remove a jobId from the cancelled set (used when re-dispatching a new job).
+  void clearServerCancelled(String jobId) => _cancelledJobs.remove(jobId);
 
   Future<void> invalidateCache() async {
     _cacheAt = null;
@@ -253,6 +316,103 @@ class PosPrintOrchestrator {
 
   List<PosStorePrinter> get printers => List.unmodifiable(_printers);
 
+  /// Đổi máy device-local → bản cloud/Agent cùng cổng (USB/LAN/BT/Sunmi).
+  /// Job gửi ID nội bộ sẽ không được Agent claim.
+  PosStorePrinter preferCloudAgentPrinter(PosStorePrinter printer) {
+    if (!printer.isDeviceLocal) return printer;
+    final cloud = _printers
+        .where((p) =>
+            !p.isDeviceLocal &&
+            p.isActive &&
+            p.connectionType.toLowerCase() ==
+                printer.connectionType.toLowerCase())
+        .toList();
+    PosStorePrinter? twin;
+    if (printer.isUsb) {
+      final usb = _normPort(printer.usbDeviceName);
+      if (usb.isNotEmpty) {
+        for (final p in cloud) {
+          final o = _normPort(p.usbDeviceName);
+          if (o.isNotEmpty &&
+              (o == usb || o.startsWith(usb) || usb.startsWith(o))) {
+            twin = p;
+            break;
+          }
+        }
+      }
+      if (twin == null) {
+        final want = _stripLocalName(printer.name);
+        for (final p in cloud) {
+          if (_stripLocalName(p.name) == want) {
+            twin = p;
+            break;
+          }
+        }
+      }
+    } else if (printer.isLan) {
+      final host = (printer.lanHost ?? '').trim().toLowerCase();
+      if (host.isNotEmpty) {
+        for (final p in cloud) {
+          if ((p.lanHost ?? '').trim().toLowerCase() == host) {
+            twin = p;
+            break;
+          }
+        }
+      }
+      if (twin == null) {
+        final want = _stripLocalName(printer.name);
+        for (final p in cloud) {
+          if (_stripLocalName(p.name) == want) {
+            twin = p;
+            break;
+          }
+        }
+      }
+    } else if (printer.isBluetooth) {
+      final bt = (printer.bluetoothAddress ?? '').trim().toLowerCase();
+      if (bt.isNotEmpty) {
+        for (final p in cloud) {
+          if ((p.bluetoothAddress ?? '').trim().toLowerCase() == bt) {
+            twin = p;
+            break;
+          }
+        }
+      }
+    } else if (printer.isSunmi) {
+      twin = cloud.where((p) => p.requiresAgent).firstOrNull ??
+          cloud.firstOrNull;
+    }
+    if (twin != null) {
+      debugPrint(
+        'Print remap device-local ${printer.id} → cloud ${twin.id} (${twin.name})',
+      );
+      return twin;
+    }
+    return printer;
+  }
+
+  PosStorePrinter? printerById(String? id) {
+    final want = (id ?? '').trim().toLowerCase();
+    if (want.isEmpty) return null;
+    final p = _printers.where((x) => x.id.toLowerCase() == want).firstOrNull;
+    return p == null ? null : preferCloudAgentPrinter(p);
+  }
+
+  static String _normPort(String? raw) {
+    var t = (raw ?? '').trim();
+    final pipe = t.indexOf('|');
+    if (pipe > 0) t = t.substring(0, pipe);
+    return t.toLowerCase();
+  }
+
+  static String _stripLocalName(String name) {
+    var n = name.trim();
+    if (n.toLowerCase().startsWith('[nội bộ]')) {
+      n = n.substring('[nội bộ]'.length).trim();
+    }
+    return n.toLowerCase();
+  }
+
   PosStorePrinter? resolvePrinter(String documentType) {
     final list = resolvePrinters(documentType);
     return list.isEmpty ? null : list.first;
@@ -273,8 +433,13 @@ class PosPrintOrchestrator {
         : _printers
             .where((p) => p.documentTypes.contains(documentType))
             .toList();
-    // Route trùng printerId → trước đây gửi 2 job = in 2 lần cùng máy.
-    final unique = _dedupePrintersById(raw);
+    final remapped = [for (final p in raw) preferCloudAgentPrinter(p)];
+    final unique = _dedupePrintersById(remapped);
+    unique.sort((a, b) {
+      final al = a.isDeviceLocal ? 1 : 0;
+      final bl = b.isDeviceLocal ? 1 : 0;
+      return al.compareTo(bl);
+    });
     // Hóa đơn: chỉ 1 máy (tránh 2 bản ghi «sunmi» cùng SaleInvoice → in 2 liên).
     if (documentType == PosCloudDocumentTypes.saleInvoice &&
         unique.length > 1) {
@@ -692,8 +857,8 @@ class PosPrintOrchestrator {
             referenceNo: referenceNo,
             referenceId: referenceId,
             showFeedback: false,
-            // Thanh toán (showFeedback=false): gửi xong là OK. In tay/in lại: chờ Completed.
-            waitForCompletion: showFeedback,
+            // Agent off: fire-and-forget + hang/Failed → phiếu treo (không chờ 120s).
+            waitForCompletion: false,
             onHang: onHang,
             hangAfter: hangAfter,
           );
@@ -1091,8 +1256,8 @@ class PosPrintOrchestrator {
       );
     }
 
-    // Sunmi máy khác → JSON qua cloud/Agent (không ESC/POS).
-    if (printer.isSunmi && !onSunmiHw) {
+    // Mọi đường cloud Sunmi → KitchenSlipJson (Agent từ chối EscPosBase64).
+    if (printer.isSunmi) {
       return _enqueueKitchenSlipJson(
         printer: printer,
         tableName: tableName,
@@ -1157,13 +1322,14 @@ class PosPrintOrchestrator {
     );
 
     if (!effectiveForceCloud) {
-      // Máy nội bộ đã sync trên thiết bị này → in thẳng.
-      final ownedLocal =
-          await PosLocalPrintersStore.instance.resolveForStorePrinter(printer);
+      // Chỉ in local khi đã cài máy nội bộ trên thiết bị này (USB/BT/Sunmi/LAN).
+      // Có lanHost từ máy cloud/Agent nhưng không có profile nội bộ → không TCP, đi cloud.
+      final role = isCancel
+          ? PosLocalPrinterRoles.kitchenVoid
+          : PosLocalPrinterRoles.kitchenSlip;
+      final ownedLocal = await PosLocalPrintersStore.instance
+          .resolveOnDeviceForStorePrinter(printer, documentRole: role);
       if (ownedLocal != null) {
-        // Luôn chờ kết quả local — waitForCompletion=false trước đây trả true
-        // ngay (unawaited) → coi OK dù LAN/USB fail, không bao giờ fallback cloud
-        // («lúc in lúc không»).
         final localOk = await dispatchLocalEscPos(
           bytes: bytes,
           showFeedback: showFeedback,
@@ -1174,39 +1340,28 @@ class PosPrintOrchestrator {
           waitForCompletion: true,
         );
         if (localOk) return true;
-        if (isAgent || printer.isDeviceLocal) return false;
-        // Thu ngân / in lại: local fail → cloud.
-      } else {
-      final hasLan = printer.isLan && (printer.lanHost ?? '').trim().isNotEmpty;
-      final hasBt =
-          printer.isBluetooth && (printer.bluetoothAddress ?? '').trim().isNotEmpty;
-      // USB chỉ in được trên máy Agent gắn cáp — máy thu ngân khác đừng thử USB local
-      // (dễ «OK» nhầm / lúc được lúc không).
-      final tryDirect = !kIsWeb &&
-          (effectivePreferDirect ||
-              isAgent ||
-              printer.isDeviceLocal ||
-              hasLan ||
-              hasBt ||
-              (printer.isUsb && isAgent));
-
-      if (tryDirect) {
-        final ok = await dispatchLocalEscPos(
-          bytes: bytes,
-          showFeedback: showFeedback,
-          successTitle: successTitle,
-          settingsOverride: settings,
-          skipDedup: true,
-          documentType: kitchenDoc,
-          // Phải await thật — nếu false thì mới cloud (tránh OK giả).
-          waitForCompletion: true,
+        debugPrint(
+          'Kitchen DBG: on-device local fail ${printer.name} — fallback cloud',
         );
-        if (ok) return true;
-        // Không phải in lại: Agent/máy nội bộ đã thử thẳng — dừng (tránh double cloud).
-        if (!effectivePreferDirect && (isAgent || printer.isDeviceLocal)) {
-          return false;
+      } else if (effectivePreferDirect && isAgent) {
+        // Agent in lại: chỉ USB/BT/Sunmi probe được — không dùng IP LAN từ cloud.
+        final canPort = await _canDispatchLocallyNow(printer);
+        if (canPort &&
+            (printer.isUsb || printer.isBluetooth || printer.isSunmi)) {
+          final ok = await dispatchLocalEscPos(
+            bytes: bytes,
+            showFeedback: showFeedback,
+            successTitle: successTitle,
+            settingsOverride: settings,
+            skipDedup: true,
+            documentType: kitchenDoc,
+            waitForCompletion: true,
+          );
+          if (ok) return true;
+          debugPrint(
+            'Kitchen DBG: agent direct fail ${printer.name} — fallback cloud',
+          );
         }
-      }
       }
     }
 
@@ -1375,7 +1530,7 @@ class PosPrintOrchestrator {
     if (showFeedback) {
       final ref = referenceNo?.trim() ?? '';
       NotificationOverlayManager().show(
-        title: 'Đã gửi lệnh in',
+        title: isCancel ? 'Hủy bếp' : 'Báo bếp',
         message: ref.isNotEmpty
             ? '$ref → ${printer.name}'
             : 'Đã gửi tới Print Agent (${printer.name})',
@@ -1385,13 +1540,14 @@ class PosPrintOrchestrator {
       );
     }
     if (!waitForCompletion) {
+      // Không coi Claimed = OK: web→A6 hay kẹt Claimed rồi STUCK/Busy,
+      // toast «đã in» giả + phiếu hủy không ra giấy.
       _armHangWatch(
         jobId: jobId,
         documentType: kitchenDoc,
         printer: printer,
         referenceNo: referenceNo,
-        // Agent đã nhận job → không coi là treo.
-        acceptClaimedAsSuccess: true,
+        acceptClaimedAsSuccess: false,
         hangAfter: hangAfter,
         onHang: onHang,
       );
@@ -1399,7 +1555,7 @@ class PosPrintOrchestrator {
         _waitJob(
           jobId,
           showFeedback: false,
-          acceptClaimedAsSuccess: true,
+          acceptClaimedAsSuccess: false,
         ).whenComplete(
           () => PosPrintSessionRegistry.clearOutbound(jobId),
         ),
@@ -1636,16 +1792,73 @@ class PosPrintOrchestrator {
     );
   }
 
-  Future<bool> _sendLocal(PosThermalPrinterSettings settings, List<int> bytes) =>
-      PosPrinterTransport.send(
+  Future<bool> _sendLocal(PosThermalPrinterSettings settings, List<int> bytes) async {
+    if (settings.connectionType == PosThermalConnectionType.usb) {
+      final resolved =
+          await PosPrinterReadiness.resolveUsbForPrint(settings.usbDeviceName);
+      if (resolved == null) {
+        debugPrint(
+          'Local print blocked: usb không khớp cổng '
+          '(usb=${settings.usbDeviceName})',
+        );
+        return false;
+      }
+      if (!resolved.hasPermission) {
+        final granted = await PosUsbPrinter.requestPermission(resolved);
+        if (!granted) return false;
+      }
+      final up = await PosUsbPrinter.probeDevice(
+        stableId: resolved.stableId,
+        deviceName: resolved.deviceName,
+        vendorId: resolved.vendorId,
+        productId: resolved.productId,
+        serialNumber: resolved.serialNumber,
+      );
+      if (!up) {
+        debugPrint(
+          'Local print blocked: usb open/claim fail ${resolved.displayName}',
+        );
+        return false;
+      }
+      return PosPrinterTransport.send(
         connectionType: settings.connectionType,
         bluetoothAddress: settings.bluetoothAddress,
         lanHost: settings.lanHost,
         lanPort: settings.lanPort,
-        usbDeviceName: settings.usbDeviceName,
+        usbDeviceName: resolved.savedRef,
+        usbStableId: resolved.stableId,
+        usbVendorId: resolved.vendorId,
+        usbProductId: resolved.productId,
+        usbSerial: resolved.serialNumber,
         bytes: bytes,
         sunmiFeedLines: settings.resolvedFeedBeforeCut,
       );
+    }
+    if (settings.connectionType == PosThermalConnectionType.sunmi) {
+      final usbList = await PosPrinterReadiness.listUsbDevices();
+      final up = await PosPrinterReadiness.probePort(
+        connectionType: settings.connectionType,
+        usbDeviceName: settings.usbDeviceName,
+        lanHost: settings.lanHost,
+        lanPort: settings.lanPort,
+        bluetoothAddress: settings.bluetoothAddress,
+        usbList: usbList,
+      );
+      if (!up) {
+        debugPrint('Local print blocked: sunmi mat ket noi');
+        return false;
+      }
+    }
+    return PosPrinterTransport.send(
+      connectionType: settings.connectionType,
+      bluetoothAddress: settings.bluetoothAddress,
+      lanHost: settings.lanHost,
+      lanPort: settings.lanPort,
+      usbDeviceName: settings.usbDeviceName,
+      bytes: bytes,
+      sunmiFeedLines: settings.resolvedFeedBeforeCut,
+    );
+  }
 
   Future<_JobOutcome> _waitJob(
     String jobId, {
@@ -1683,7 +1896,7 @@ class PosPrintOrchestrator {
               jobId,
               const _JobOutcome(
                 false,
-                'Print Agent không nhận lệnh trong 90 giây. '
+                'Print Agent không nhận lệnh trong 120 giây. '
                 'Kiểm tra Sunmi: Agent BẬT + đã chọn chip máy in + app đang mở.',
               ),
               showFeedback: showFeedback,
@@ -1706,7 +1919,7 @@ class PosPrintOrchestrator {
     bool showFeedback = true,
     bool acceptClaimedAsSuccess = true,
   }) async {
-    for (var i = 0; i < 18; i++) {
+    for (var i = 0; i < 24; i++) {  // 24 × 5s = 120s, match _jobTimeout
       if (!_pendingJobs.containsKey(jobId)) return;
       await Future<void>.delayed(const Duration(seconds: 5));
       if (!_pendingJobs.containsKey(jobId)) return;
@@ -1721,7 +1934,16 @@ class PosPrintOrchestrator {
             const _JobOutcome(true, null),
             showFeedback: showFeedback,
           );
-        } else if (status == 'Failed' || status == 'Expired' || status == 'Cancelled') {
+        } else if (status == 'Cancelled') {
+          final err = data['errorMessage']?.toString();
+          _cancelledJobs.add(jobId);
+          _finishJob(
+            jobId,
+            _JobOutcome(false, err ?? 'Lệnh in đã bị hủy phía máy chủ',
+                isCancelled: true),
+            showFeedback: showFeedback,
+          );
+        } else if (status == 'Failed' || status == 'Expired') {
           final err = data['errorMessage']?.toString();
           _finishJob(
             jobId,
@@ -2165,16 +2387,23 @@ class PosPrintOrchestrator {
     }
   }
 
-  /// USB/Sunmi chỉ true khi cổng thực sự có trên máy này (tránh A7 «in local» fail).
+  /// Cổng in thẳng từ máy gửi lệnh.
+  /// LAN chỉ true khi thiết bị này đã cài máy nội bộ LAN (không dùng lanHost cloud/Agent).
   Future<bool> _canDispatchLocallyNow(PosStorePrinter printer) async {
     final local =
         await PosLocalPrintersStore.instance.resolveForStorePrinter(printer);
+    if (printer.isLan ||
+        local?.connectionType == PosThermalConnectionType.lan) {
+      return local != null &&
+          PosLocalPrintersStore.profileAllowsDirectLocal(local) &&
+          local.connectionType == PosThermalConnectionType.lan &&
+          (local.lanHost ?? '').trim().isNotEmpty;
+    }
     final settings = local != null
         ? local.toThermalSettings()
         : toThermalSettings(printer);
-    if (settings.connectionType == PosThermalConnectionType.lan ||
-        settings.connectionType == PosThermalConnectionType.bluetooth) {
-      return true;
+    if (settings.connectionType == PosThermalConnectionType.bluetooth) {
+      return (settings.bluetoothAddress ?? '').trim().isNotEmpty;
     }
     final usbList = await PosPrinterReadiness.listUsbDevices();
     return PosPrinterReadiness.probePort(
@@ -2200,11 +2429,30 @@ class PosPrintOrchestrator {
   }
 }
 
+class _HangWatch {
+  const _HangWatch({
+    required this.documentType,
+    required this.printerId,
+    required this.printerName,
+    required this.onHang,
+    this.referenceNo,
+  });
+
+  final String documentType;
+  final String printerId;
+  final String printerName;
+  final String? referenceNo;
+  final PosPrintHangCallback onHang;
+}
+
 class _JobOutcome {
-  const _JobOutcome(this.ok, this.error, {this.printerName});
+  const _JobOutcome(this.ok, this.error,
+      {this.printerName, this.isCancelled = false});
   final bool ok;
   final String? error;
   final String? printerName;
+  /// True when server-side Cancelled — caller can suppress re-queue.
+  final bool isCancelled;
 }
 
 class _JobFeedbackMeta {

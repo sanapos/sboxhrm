@@ -11,6 +11,9 @@ class PosPrintConfigSession {
   PosPrintTemplate? _warehouseTemplate;
   String? _warehouseTemplateKey;
   DateTime? _warehouseTemplateAt;
+  PosPrintTemplate? _kitchenSlipTemplate;
+  PosPrintTemplate? _kitchenVoidTemplate;
+  DateTime? _kitchenTemplateAt;
   static const _templateTtl = Duration(minutes: 10);
 
   Future<void> warmUp({String? warehouseTemplateId}) async {
@@ -18,7 +21,11 @@ class PosPrintConfigSession {
       PosPrintOrchestrator.instance.refreshConfig(),
       PosProductPrinterService.instance.preload(),
     ]);
-    await warehouseTemplate(warehouseTemplateId);
+    await Future.wait([
+      warehouseTemplate(warehouseTemplateId),
+      kitchenTemplate(isCancel: false),
+      kitchenTemplate(isCancel: true),
+    ]);
   }
 
   Future<PosPrintTemplate?> warehouseTemplate(
@@ -42,11 +49,33 @@ class PosPrintConfigSession {
     return _warehouseTemplate;
   }
 
+  Future<PosPrintTemplate?> kitchenTemplate({
+    required bool isCancel,
+    bool force = false,
+  }) async {
+    if (!force &&
+        _kitchenTemplateAt != null &&
+        DateTime.now().difference(_kitchenTemplateAt!) < _templateTtl) {
+      return isCancel ? _kitchenVoidTemplate : _kitchenSlipTemplate;
+    }
+    _kitchenSlipTemplate = await resolvePosPrintTemplate(
+      documentType: PosPrintDocumentTypes.kitchenSlip,
+    );
+    _kitchenVoidTemplate = await resolvePosPrintTemplate(
+      documentType: PosPrintDocumentTypes.kitchenVoid,
+    );
+    _kitchenTemplateAt = DateTime.now();
+    return isCancel ? _kitchenVoidTemplate : _kitchenSlipTemplate;
+  }
+
   void invalidate({bool warehouseTemplateOnly = false}) {
     _warehouseTemplate = null;
     _warehouseTemplateKey = null;
     _warehouseTemplateAt = null;
     if (!warehouseTemplateOnly) {
+      _kitchenSlipTemplate = null;
+      _kitchenVoidTemplate = null;
+      _kitchenTemplateAt = null;
       PosPrintOrchestrator.instance.invalidateCache();
       PosProductPrinterService.instance.invalidate();
     }

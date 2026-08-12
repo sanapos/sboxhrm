@@ -1,9 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
-/// Font chính (pubspec) + fallback. Trên web dùng [GoogleFonts.beVietnamPro] vì
-/// CanvasKit đôi khi không ghép đúng family "BeVietnamPro" với TTF (gây chữ ?).
+/// Font chính (pubspec assets) + fallback. google_fonts chỉ cần cho web CanvasKit.
+/// Mobile: fonts đã load sẵn từ pubspec — file này chỉ cung cấp interface.
 const String kVietnameseFontFamily = 'BeVietnamPro';
 const List<String> kVietnameseFontFallback = [
   'Be Vietnam Pro',
@@ -15,41 +14,24 @@ const List<String> kVietnameseFontFallback = [
 
 bool _mobileFontsLoaded = false;
 
-/// Preload Be Vietnam Pro trước khi [runApp] (web + mobile in ảnh).
+/// Preload fonts. Mobile: fonts đã khai báo trong pubspec.yaml.
 Future<void> preloadVietnameseFonts() async {
-  if (kIsWeb) {
-    GoogleFonts.config.allowRuntimeFetching = true;
-    await GoogleFonts.pendingFonts([
-      GoogleFonts.beVietnamPro(),
-      GoogleFonts.beVietnamPro(fontWeight: FontWeight.w500),
-      GoogleFonts.beVietnamPro(fontWeight: FontWeight.w600),
-      GoogleFonts.beVietnamPro(fontWeight: FontWeight.w700),
-    ]);
-    return;
+  if (!kIsWeb) {
+    if (_mobileFontsLoaded) return;
+    _mobileFontsLoaded = true;
   }
-  if (_mobileFontsLoaded) return;
-  // Mobile: font đã khai báo trong pubspec.yaml — không FontLoader trùng family
-  // (trùng load dễ làm mất glyph tiếng Việt khi in ảnh nhiệt).
-  _mobileFontsLoaded = true;
 }
 
-TextTheme vietnameseTextTheme(TextTheme base) {
-  if (!kIsWeb) return base;
-  return GoogleFonts.beVietnamProTextTheme(base);
-}
+TextTheme vietnameseTextTheme(TextTheme base) => base;
 
 TextStyle vietnameseTextStyle([TextStyle? base]) {
   final b = base ?? const TextStyle();
-  if (kIsWeb) {
-    return GoogleFonts.beVietnamPro(textStyle: b);
-  }
   return b.copyWith(
     fontFamily: kVietnameseFontFamily,
     fontFamilyFallback: kVietnameseFontFallback,
   );
 }
 
-/// Style mặc định cho toàn app (dùng trong [MaterialApp.builder]).
 TextStyle get kDefaultVietnameseTextStyle => vietnameseTextStyle(
       const TextStyle(
         fontSize: 14,
@@ -57,13 +39,11 @@ TextStyle get kDefaultVietnameseTextStyle => vietnameseTextStyle(
       ),
     );
 
-/// Theme scoped to screens that must render Vietnamese reliably on web (TabBar, DataTable).
 ThemeData vietnameseThemeOverlay(BuildContext context) {
   final base = Theme.of(context);
-  final textTheme = vietnameseTextTheme(base.textTheme);
   return base.copyWith(
-    textTheme: textTheme,
-    primaryTextTheme: textTheme,
+    textTheme: vietnameseTextTheme(base.textTheme),
+    primaryTextTheme: vietnameseTextTheme(base.primaryTextTheme),
     tabBarTheme: base.tabBarTheme.copyWith(
       labelStyle: vietnameseTextStyle(
         base.tabBarTheme.labelStyle?.copyWith(fontWeight: FontWeight.w600),

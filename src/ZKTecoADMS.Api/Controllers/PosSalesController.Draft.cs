@@ -88,6 +88,18 @@ public partial class PosSalesController
                 return Conflict(AppResponse<SaleOrderDto>.Create(false, conflictMapped, [liveClearErr]));
             }
             PosDraftLockHelper.BumpAfterSuccessfulSave(order, actor, 0);
+            var reconcileClearErr = await ReconcileLockFieldsBeforeSaveAsync(order, actor);
+            if (reconcileClearErr != null)
+            {
+                dbContext.ChangeTracker.Clear();
+                var fresh = await dbContext.PosSaleOrders.AsNoTracking()
+                    .Include(o => o.Lines)
+                    .FirstAsync(o => o.Id == id);
+                SaleOrderDto conflictMapped;
+                try { conflictMapped = await MapOrderAsync(storeId, fresh, fresh.Lines?.Where(l => l.Deleted == null).ToList() ?? [], dto.DeviceId, dto.DeviceName); }
+                catch { conflictMapped = MapOrder(fresh, fresh.Lines?.Where(l => l.Deleted == null).ToList() ?? [], viewerUserId: CurrentUserId, viewerDeviceId: dto.DeviceId, viewerDeviceName: dto.DeviceName); }
+                return Conflict(AppResponse<SaleOrderDto>.Create(false, conflictMapped, [reconcileClearErr]));
+            }
             await dbContext.SaveChangesAsync();
             order.Lines = [];
             SaleOrderDto cleared;
@@ -397,6 +409,21 @@ public partial class PosSalesController
         }
 
         dbContext.PosSaleOrderLines.AddRange(lines);
+        if (order.Status == PosSaleOrderStatus.Draft)
+        {
+            var reconcileErr = await ReconcileLockFieldsBeforeSaveAsync(order, actor);
+            if (reconcileErr != null)
+            {
+                dbContext.ChangeTracker.Clear();
+                var fresh = await dbContext.PosSaleOrders.AsNoTracking()
+                    .Include(o => o.Lines)
+                    .FirstAsync(o => o.Id == id);
+                SaleOrderDto conflictMapped;
+                try { conflictMapped = await MapOrderAsync(storeId, fresh, fresh.Lines?.Where(l => l.Deleted == null).ToList() ?? [], dto.DeviceId, dto.DeviceName); }
+                catch { conflictMapped = MapOrder(fresh, fresh.Lines?.Where(l => l.Deleted == null).ToList() ?? [], viewerUserId: CurrentUserId, viewerDeviceId: dto.DeviceId, viewerDeviceName: dto.DeviceName); }
+                return Conflict(AppResponse<SaleOrderDto>.Create(false, conflictMapped, [reconcileErr]));
+            }
+        }
         for (var attempt = 0; ; attempt++)
         {
             try
@@ -482,6 +509,72 @@ public partial class PosSalesController
         tracked.LockedByDeviceName = live.LockedByDeviceName;
         tracked.LockedByDisplayName = live.LockedByDisplayName;
         tracked.LockExpiresAt = live.LockExpiresAt;
+        return null;
+    }
+
+    /// <summary>
+    /// Ngay trước SaveChanges: nếu unlock/cướp đã commit trên DB thì copy lock fields từ DB
+    /// (không ghi đè «đã nhả» bằng LockedBy* trên tracked từ lúc đầu request).
+    /// </summary>
+    async Task<string?> ReconcileLockFieldsBeforeSaveAsync(
+        PosSaleOrder tracked,
+        PosDraftLockHelper.LockActor actor)
+    {
+        var live = await dbContext.PosSaleOrders.AsNoTracking()
+            .Where(o => o.Id == tracked.Id)
+            .Select(o => new
+            {
+                o.Status,
+                o.LockVersion,
+                o.LockedByUserId,
+                o.LockedByEmployeeId,
+                o.LockedByDeviceId,
+                o.LockedByDeviceName,
+                o.LockedByDisplayName,
+                o.LockedAt,
+                o.LockExpiresAt,
+            })
+            .FirstOrDefaultAsync();
+        if (live == null)
+            return "Không tìm thấy đơn hàng";
+
+        var probe = new PosSaleOrder
+        {
+            Status = live.Status,
+            LockedByUserId = live.LockedByUserId,
+            LockedByDeviceId = live.LockedByDeviceId,
+            LockedByDisplayName = live.LockedByDisplayName,
+            LockedByDeviceName = live.LockedByDeviceName,
+            LockExpiresAt = live.LockExpiresAt,
+            LockedAt = live.LockedAt,
+            LockVersion = live.LockVersion,
+        };
+
+        if (PosDraftLockHelper.IsLockActive(probe) && !PosDraftLockHelper.IsHeldBy(probe, actor))
+        {
+            var who = string.IsNullOrWhiteSpace(live.LockedByDisplayName)
+                ? "người khác"
+                : live.LockedByDisplayName!;
+            var device = string.IsNullOrWhiteSpace(live.LockedByDeviceName)
+                ? ""
+                : $" · {live.LockedByDeviceName}";
+            return $"Đơn đang được mở bởi {who}{device}";
+        }
+
+        if (!PosDraftLockHelper.IsHeldBy(probe, actor))
+        {
+            // DB đã nhả / TTL — giữ nội dung save nhưng không gắn lại khóa.
+            tracked.LockedByUserId = null;
+            tracked.LockedByEmployeeId = null;
+            tracked.LockedByDisplayName = null;
+            tracked.LockedByDeviceId = null;
+            tracked.LockedByDeviceName = null;
+            tracked.LockedAt = null;
+            tracked.LockExpiresAt = null;
+            if (live.LockVersion > tracked.LockVersion)
+                tracked.LockVersion = live.LockVersion;
+        }
+
         return null;
     }
 
@@ -759,10 +852,18 @@ public partial class PosSalesController
             query = query.Where(o => o.PaymentMethod.Contains(paymentMethod.Trim()));
         if (isDelivery.HasValue)
             query = query.Where(o => o.IsDelivery == isDelivery.Value);
-        if (from.HasValue)
-            query = query.Where(o => (o.SaleDate ?? o.CreatedAt) >= from.Value.Date);
-        if (to.HasValue)
-            query = query.Where(o => (o.SaleDate ?? o.CreatedAt) < to.Value.Date.AddDays(1));
+        if (from.HasValue || to.HasValue)
+        {
+            var dayStart = await dbContext.PosStoreSellSettings.AsNoTracking()
+                .Where(s => s.StoreId == storeId && s.Deleted == null)
+                .Select(s => (int?)s.ReportDayStartHour)
+                .FirstOrDefaultAsync() ?? 0;
+            dayStart = Math.Clamp(dayStart, 0, 23);
+            var (fromUtc, toUtc, _, _) =
+                ZKTecoADMS.Api.Controllers.Reports.ReportHelpers.PosBusinessRange(from, to, dayStart);
+            query = query.Where(o => (o.SaleDate ?? o.CreatedAt) >= fromUtc &&
+                                     (o.SaleDate ?? o.CreatedAt) < toUtc);
+        }
 
         var items = await query.OrderByDescending(o => o.SaleDate ?? o.CreatedAt).Take(5000).ToListAsync();
 
@@ -800,7 +901,7 @@ public partial class PosSalesController
             ws.Cell(row, 8).Value = o.Discount;
             ws.Cell(row, 9).Value = o.Total;
             ws.Cell(row, 10).Value = o.PaidAmount;
-            ws.Cell(row, 11).Value = o.Total - o.PaidAmount;
+            ws.Cell(row, 11).Value = o.PayableTotal - o.PaidAmount;
             ws.Cell(row, 12).Value = o.PaymentMethod;
             ws.Cell(row, 13).Value = o.SoldBy ?? "";
             row++;
@@ -872,6 +973,14 @@ public partial class PosSalesController
             : await dbContext.PosProductVariants
                 .Where(v => variantIds.Contains(v.Id) && v.StoreId == storeId && v.Deleted == null && v.IsActive)
                 .ToDictionaryAsync(v => v.Id));
+
+        foreach (var line in dto.Lines)
+        {
+            if (!products.TryGetValue(line.ProductId, out var prod))
+                return (null, null, $"Hàng hóa không hợp lệ: {line.ProductId}");
+            var qtyErr = PosQtyRules.ValidateLineQty(prod, line.Qty, complete ? "Thanh toán" : "Lưu đơn");
+            if (qtyErr != null) return (null, null, qtyErr);
+        }
 
         var now = DateTime.UtcNow;
         PosSaleOrder order;

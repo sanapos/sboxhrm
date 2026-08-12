@@ -265,6 +265,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
       skipDedup: true,
       preferDevicePrintOnly: true,
       showFeedback: true,
+      openCashDrawer: false,
     );
     // Làm mới printCount trên danh sách sau khi ghi nhận in.
     if (!mounted) return;

@@ -493,6 +493,50 @@ class _PosSellIndustrySettingsScreenState
                 : (v) => _patchAndSave(
                     (cur) => cur.copyWith(allowNegativeStock: v)),
           ),
+          const Divider(height: 24),
+          Text(tr('Báo cáo & cuối ngày'),
+              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+          const SizedBox(height: 4),
+          Text(
+            tr('Luôn tính theo giờ VN (UTC+7). Bật «ngày qua đêm» nếu muốn '
+                'ngày kinh doanh bắt đầu lúc sáng (vd. 06:00 → 06:00 hôm sau).'),
+            style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+          ),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: Text(tr('Ngày qua đêm (báo cáo / cuối ngày)')),
+            subtitle: Text(tr(s.overnightReportEnabled
+                ? 'Ngày KD bắt đầu ${s.reportDayStartHour.toString().padLeft(2, '0')}:00'
+                : 'Tắt: ngày lịch 00:00–24:00 (UTC+7)')),
+            value: s.overnightReportEnabled,
+            onChanged: _saving
+                ? null
+                : (v) => _patchAndSave((cur) => cur.copyWith(
+                      reportDayStartHour: v ? 6 : 0,
+                    )),
+          ),
+          if (s.overnightReportEnabled)
+            DropdownButtonFormField<int>(
+              value: s.reportDayStartHour.clamp(1, 12),
+              decoration: InputDecoration(
+                labelText: tr('Giờ bắt đầu ngày kinh doanh'),
+                isDense: true,
+                border: const OutlineInputBorder(),
+              ),
+              items: [
+                for (var h = 1; h <= 12; h++)
+                  DropdownMenuItem(
+                    value: h,
+                    child: Text(tr('${h.toString().padLeft(2, '0')}:00')),
+                  ),
+              ],
+              onChanged: _saving
+                  ? null
+                  : (v) {
+                      if (v == null) return;
+                      _patchAndSave((cur) => cur.copyWith(reportDayStartHour: v));
+                    },
+            ),
         ],
       ],
     );

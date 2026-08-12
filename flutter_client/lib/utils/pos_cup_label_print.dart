@@ -60,16 +60,20 @@ Future<bool> printCupLabels({
 
   if (!kIsWeb) {
     final all = await PosLocalPrintersStore.instance.loadAll();
-    // 1) Máy tem có role KitchenLabel
+    // 1) Máy tem nội bộ đã cài (USB/BT/Sunmi/LAN) + role KitchenLabel.
+    // Không có local — chỉ lanHost Agent → cloud phía dưới.
     var labelTargets = all
         .where((p) =>
-            p.enabled &&
+            PosLocalPrintersStore.profileAllowsDirectLocal(p) &&
             p.isLabel &&
             p.hasRole(PosLocalPrinterRoles.kitchenLabel))
         .toList();
-    // 2) Mọi máy tem đang bật (kể cả chỉ BarcodeLabel)
+    // 2) Mọi máy tem nội bộ đang bật (kể cả chỉ BarcodeLabel)
     if (labelTargets.isEmpty) {
-      labelTargets = all.where((p) => p.enabled && p.isLabel).toList();
+      labelTargets = all
+          .where((p) =>
+              PosLocalPrintersStore.profileAllowsDirectLocal(p) && p.isLabel)
+          .toList();
     }
 
     if (labelTargets.isNotEmpty) {
@@ -173,10 +177,10 @@ Future<bool> printCupLabels({
       }
     }
 
-    // 3) Máy nhiệt có role KitchenLabel (không phải singleton hóa đơn Sunmi).
+    // 3) Máy nhiệt nội bộ có role KitchenLabel (gồm LAN đã cài trên máy này).
     final thermalCup = all
         .where((p) =>
-            p.enabled &&
+            PosLocalPrintersStore.profileAllowsDirectLocal(p) &&
             !p.isLabel &&
             p.hasRole(PosLocalPrinterRoles.kitchenLabel))
         .toList();

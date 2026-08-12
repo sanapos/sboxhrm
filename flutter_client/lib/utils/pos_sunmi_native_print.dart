@@ -49,10 +49,11 @@ class _SunmiReceiptLayout {
       bodySize: 26,
       smallSize: 24,
       totalSize: 30,
-      colLeft: 18,
-      colRight: 12,
-      itemLeft: 20,
-      itemRight: 10,
+      // K80: tổng cột = 48 — trước đây 18+12 / 20+10 (=K58) → chữ lệch trái hẹp.
+      colLeft: 30,
+      colRight: 18,
+      itemLeft: 32,
+      itemRight: 16,
     );
   }
 
@@ -88,7 +89,7 @@ class PosSunmiNativePrint {
 
   /// Đẩy giấy tới mép xé Sunmi V2s (~3–4 cm). Provisional trước đó chỉ feed 4 → kẹt giấy.
   static const _minFeedSunmi = 18;
-  static const _minFeedKitchen = 12;
+  static const _minFeedKitchen = 6;
   static const _maxFeed = 28;
 
   static Future<bool> printSaleOrder(
@@ -452,7 +453,9 @@ class PosSunmiNativePrint {
               );
               continue;
             }
-            final size = line.fontSize.round();
+            final size = layout.k58
+                ? line.fontSize.round()
+                : line.fontSize.round().clamp(layout.bodySize, 48);
             if (line.center) {
               await _center(line.text, size: size, bold: line.bold);
             } else if (line.right) {
@@ -469,13 +472,16 @@ class PosSunmiNativePrint {
             }
           } else if (step is PosPrintCompiledPair) {
             final pair = step;
+            final pairSize = layout.k58
+                ? pair.fontSize.round()
+                : pair.fontSize.round().clamp(layout.bodySize, 48);
             await SunmiPrinter.printRow(
               cols: [
                 SunmiColumn(
                   text: tr(pair.left),
                   width: layout.itemLeft,
                   style: SunmiTextStyle(
-                    fontSize: pair.fontSize.round(),
+                    fontSize: pairSize,
                     bold: true,
                   ),
                 ),
@@ -483,7 +489,7 @@ class PosSunmiNativePrint {
                   text: tr(pair.right),
                   width: layout.itemRight,
                   style: SunmiTextStyle(
-                    fontSize: pair.fontSize.round(),
+                    fontSize: pairSize,
                     bold: true,
                     align: SunmiPrintAlign.RIGHT,
                   ),

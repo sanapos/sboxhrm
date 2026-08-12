@@ -160,6 +160,7 @@ class PosSaleOrder {
   final double subTotal;
   final double discount;
   final double total;
+  final double vatAmount;
   final double paidAmount;
   final double balanceDue;
   final double returnedAmount;
@@ -216,6 +217,7 @@ class PosSaleOrder {
     this.subTotal = 0,
     this.discount = 0,
     this.total = 0,
+    this.vatAmount = 0,
     this.paidAmount = 0,
     this.balanceDue = 0,
     this.returnedAmount = 0,
@@ -278,6 +280,7 @@ class PosSaleOrder {
         subTotal: subTotal,
         discount: discount,
         total: total,
+        vatAmount: vatAmount,
         paidAmount: paidAmount,
         balanceDue: balanceDue,
         returnedAmount: returnedAmount,
@@ -368,8 +371,12 @@ class PosSaleOrder {
             .toList()
         : <PosSaleOrderLine>[];
     final total = n(json['total'] ?? json['Total']);
+    final vat = n(json['vatAmount'] ?? json['VatAmount']);
     final paid = n(json['paidAmount'] ?? json['PaidAmount']);
+    final hasBalance =
+        json.containsKey('balanceDue') || json.containsKey('BalanceDue');
     final balance = n(json['balanceDue'] ?? json['BalanceDue']);
+    final payable = total + vat;
     return PosSaleOrder(
       id: (json['id'] ?? json['Id'] ?? '').toString(),
       orderNo: (json['orderNo'] ?? json['OrderNo'] ?? '').toString(),
@@ -378,8 +385,9 @@ class PosSaleOrder {
       subTotal: n(json['subTotal'] ?? json['SubTotal']),
       discount: n(json['discount'] ?? json['Discount']),
       total: total,
+      vatAmount: vat,
       paidAmount: paid,
-      balanceDue: balance != 0 ? balance : total - paid,
+      balanceDue: hasBalance ? balance : payable - paid,
       returnedAmount: n(json['returnedAmount'] ?? json['ReturnedAmount']),
       paymentMethod:
           (json['paymentMethod'] ?? json['PaymentMethod'] ?? 'Tiền mặt').toString(),
@@ -456,6 +464,7 @@ class PosSaleOrder {
         'subTotal': subTotal,
         'discount': discount,
         'total': total,
+        'vatAmount': vatAmount,
         'paidAmount': paidAmount,
         'balanceDue': balanceDue,
         'paymentMethod': paymentMethod,

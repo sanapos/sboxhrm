@@ -268,13 +268,16 @@ PosThermalPrinterSettings _thermalSettingsForTemplate(
 ) {
   if (template == null) return settings;
   final ps = template.paperSize;
-  // Mẫu K80: không để máy cấu hình nhầm K58 làm bảng hàng hẹp.
-  if (ps == PosPrintPaperSizes.k80 && settings.paperWidthMm <= 58) {
+  // Luôn theo khổ mẫu: K80 không bị in hẹp kiểu K58.
+  if (ps == PosPrintPaperSizes.k80) {
     return settings.copyWith(paperSize: 'K80');
   }
   if (ps == PosPrintPaperSizes.k58 && settings.paperWidthMm > 58) {
     // Giữ khổ máy thật (80mm) — không thu hẹp.
     return settings;
+  }
+  if (PosPrintPaperSizes.isThermal(ps)) {
+    return settings.copyWith(paperSize: ps);
   }
   return settings;
 }
@@ -407,15 +410,17 @@ Future<bool> printPosSaleOrder({
   final cloudPrinters = PosPrintOrchestrator.instance
       .resolvePrinters(PosCloudDocumentTypes.saleInvoice);
 
-  // App: ưu tiên máy nội bộ có vai trò SaleInvoice (in tất cả),
-  // rồi fallback singleton legacy. Web: bỏ qua (không có BT/LAN/USB).
+  // App: ưu tiên máy nội bộ SaleInvoice đã cài trên thiết bị (gồm LAN nội bộ).
+  // Chỉ có lanHost từ Agent/cloud → cloud. Web: bỏ qua.
   if (!kIsWeb) {
     final saleLocals = await PosLocalPrintersStore.instance
-        .forRole(PosLocalPrinterRoles.saleInvoice);
+        .forRoleOnDevice(PosLocalPrinterRoles.saleInvoice);
     final thermalCandidates = <PosThermalPrinterSettings>[
       for (final p in saleLocals.where((p) => !p.isLabel)) p.toThermalSettings(),
     ];
-    if (thermalCandidates.isEmpty && thermal.enabled) {
+    if (thermalCandidates.isEmpty &&
+        thermal.enabled &&
+        PosLocalPrintersStore.isOnDeviceDirectPort(thermal.connectionType)) {
       thermalCandidates.add(thermal);
     }
 

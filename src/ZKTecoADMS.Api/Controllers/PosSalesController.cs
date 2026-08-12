@@ -206,7 +206,8 @@ public partial class PosSalesController(
         string? LockedByDeviceName = null,
         DateTime? LockedAt = null,
         DateTime? LockExpiresAt = null,
-        int? InvoiceSlot = null);
+        int? InvoiceSlot = null,
+        decimal VatAmount = 0);
 
     public record SaleOrderSummaryDto(
         Guid Id,
@@ -238,7 +239,8 @@ public partial class PosSalesController(
         string? LockedByDeviceName = null,
         DateTime? LockExpiresAt = null,
         int? InvoiceSlot = null,
-        string? LockedByDeviceId = null);
+        string? LockedByDeviceId = null,
+        decimal VatAmount = 0);
 
     public record SalePaymentDto(
         string PaymentNo, decimal Amount, string PaymentMethod,
@@ -462,6 +464,7 @@ public partial class PosSalesController(
                 p.UpdatedAt,
                 p.WarrantyMonths,
                 p.RequiresSerial,
+                p.AllowDecimalQty,
                 VariantCount = p.Variants.Count(v => v.Deleted == null && v.IsActive),
             })
             .ToListAsync();
@@ -570,6 +573,7 @@ public partial class PosSalesController(
                 p.UpdatedAt,
                 p.WarrantyMonths,
                 p.RequiresSerial,
+                p.AllowDecimalQty,
                 p.VariantCount,
                 SellableQty = sellableQty,
                 ComboLines = comboLines.Select(cl => new
@@ -992,10 +996,18 @@ public partial class PosSalesController(
             query = query.Where(o => o.DeliveryStatus != null && o.DeliveryStatus.Contains(deliveryStatus.Trim()));
         if (customerId.HasValue)
             query = query.Where(o => o.CustomerId == customerId);
-        if (from.HasValue)
-            query = query.Where(o => (o.SaleDate ?? o.CreatedAt) >= from.Value.Date);
-        if (to.HasValue)
-            query = query.Where(o => (o.SaleDate ?? o.CreatedAt) < to.Value.Date.AddDays(1));
+        if (from.HasValue || to.HasValue)
+        {
+            // UTC+7 (+ giờ cắt ngày qua đêm từ sell-settings).
+            var dayStart = await dbContext.PosStoreSellSettings.AsNoTracking()
+                .Where(s => s.StoreId == storeId && s.Deleted == null)
+                .Select(s => (int?)s.ReportDayStartHour)
+                .FirstOrDefaultAsync() ?? 0;
+            dayStart = Math.Clamp(dayStart, 0, 23);
+            var (fromUtc, toUtc, _, _) = Reports.ReportHelpers.PosBusinessRange(from, to, dayStart);
+            query = query.Where(o => (o.SaleDate ?? o.CreatedAt) >= fromUtc &&
+                                     (o.SaleDate ?? o.CreatedAt) < toUtc);
+        }
 
         // Phiếu tạm slot (TMP01… / Hóa đơn N trên màn Bán) không thuộc danh sách HĐ.
         query = query.Where(o =>
@@ -1930,7 +1942,7 @@ public partial class PosSalesController(
             order.Id, order.OrderNo, order.Status.ToString(),
             ComputeReturnStatus(order, returnedAmount, lines, returnedQtyByLine),
             order.SubTotal, order.Discount, order.Total, order.PaidAmount,
-            order.Total - order.PaidAmount, returnedAmount,
+            order.PayableTotal - order.PaidAmount, returnedAmount,
             order.PaymentMethod, order.CustomerName, order.CustomerId,
             customerCode, customerPhone,
             order.IsDelivery, order.DeliveryAddress, order.DeliveryPhone,
@@ -1955,7 +1967,8 @@ public partial class PosSalesController(
             lockSnap.LockedByUserId, lockSnap.LockedByEmployeeId, lockSnap.LockedByDisplayName,
             lockSnap.LockedByDeviceId, lockSnap.LockedByDeviceName,
             lockSnap.LockedAt, lockSnap.LockExpiresAt,
-            order.InvoiceSlot);
+            order.InvoiceSlot,
+            order.VatAmount);
     }
 
     private static SaleOrderSummaryDto MapSummary(
@@ -1973,13 +1986,14 @@ public partial class PosSalesController(
             o.Id, o.OrderNo, o.Status.ToString(),
             ComputeReturnStatus(o, returnedAmount, o.Lines?.ToList(), returnedQtyByLine),
             o.SubTotal, o.Discount, o.Total, o.PaidAmount,
-            o.Total - o.PaidAmount, returnedAmount,
+            o.PayableTotal - o.PaidAmount, returnedAmount,
             o.PaymentMethod, o.CustomerName, o.CustomerId,
             o.IsDelivery, o.DeliveryStatus,
             o.SaleDate, o.CreatedAt, o.CreatedBy, o.SoldBy, o.SalesChannel, lineCount,
             o.PrintCount,
             lockSnap.LockVersion, lockSnap.IsLocked, lockSnap.IsLockedByMe,
             lockSnap.LockedByDisplayName, lockSnap.LockedByDeviceName, lockSnap.LockExpiresAt,
-            o.InvoiceSlot, lockSnap.LockedByDeviceId);
+            o.InvoiceSlot, lockSnap.LockedByDeviceId,
+            o.VatAmount);
     }
 }

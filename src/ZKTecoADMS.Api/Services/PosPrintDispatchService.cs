@@ -19,6 +19,8 @@ public interface IPosPrintDispatchService
     Task<PosPrintJob?> MarkPrintingAsync(Guid jobId, Guid agentId, CancellationToken ct = default);
     Task<PosPrintJob?> CompleteJobAsync(Guid jobId, Guid agentId, CancellationToken ct = default);
     Task<PosPrintJob?> FailJobAsync(Guid jobId, Guid? agentId, string errorCode, string errorMessage, CancellationToken ct = default);
+    /// Agent nhận nhầm (vd. USB không gắn) → trả Queued để máy Agent khác claim.
+    Task<PosPrintJob?> ReleaseClaimAsync(Guid jobId, Guid agentId, string? reason, CancellationToken ct = default);
     Task RegisterAgentHeartbeatAsync(Guid storeId, string deviceId, string? deviceName, string? employeeName, string? userId, IEnumerable<Guid> printerIds, string? appVersion, CancellationToken ct = default);
     Task MarkAgentOfflineAsync(Guid storeId, string deviceId, CancellationToken ct = default);
     Task SetPrinterHealthAsync(Guid printerId, PosPrinterHealthStatus status, string? errorMessage, CancellationToken ct = default);
@@ -47,8 +49,9 @@ public class PosPrintDispatchService(
     static readonly TimeSpan StuckClaimReclaimAfter = TimeSpan.FromSeconds(90);
     /// <summary>Printing quá lâu (Sunmi có thể &gt;40s) → Queued lại.</summary>
     static readonly TimeSpan StuckPrintingReclaimAfter = TimeSpan.FromSeconds(180);
-    /// <summary>Reclaim quá số lần này → hủy (tránh in đôi/năm lần cùng hóa đơn).</summary>
-    const int MaxPrintAttemptsBeforeCancel = 2;
+    /// <summary>Reclaim quá số lần này → hủy (tránh in đôi). Trước = 2 dễ hủy sớm
+    /// khi A7 claim+release outbound rồi A6 claim (AttemptCount=2).</summary>
+    const int MaxPrintAttemptsBeforeCancel = 5;
     /// <summary>
     /// Job Queued quá lâu (Agent tắt/offline) → hủy thay vì để dồn hàng đợi.
     /// Trước là 20 phút — Agent tắt máy nửa buổi rồi mở lại sẽ in ồ ạt cả loạt
@@ -60,7 +63,7 @@ public class PosPrintDispatchService(
     public async Task EnsureDefaultRoutesAsync(Guid storeId, CancellationToken ct = default)
     {
         var printers = await db.PosStorePrinters
-            .Where(p => p.StoreId == storeId && p.Deleted == null && p.IsActive)
+            .Where(p => p.StoreId == storeId && p.Deleted == null && p.IsActive && !p.IsDeviceLocal)
             .OrderByDescending(p => p.IsDefault)
             .ThenBy(p => p.SortOrder)
             .ToListAsync(ct);
@@ -103,17 +106,117 @@ public class PosPrintDispatchService(
             .Where(r => r.StoreId == storeId && r.DocumentType == documentType
                 && r.Deleted == null && r.IsActive && r.Printer != null
                 && r.Printer.Deleted == null && r.Printer.IsActive)
-            .OrderBy(r => r.CreatedAt)
+            // Ưu tiên máy cloud/Agent — device-local không được Agent claim.
+            .OrderBy(r => r.Printer!.IsDeviceLocal)
+            .ThenBy(r => r.CreatedAt)
             .Select(r => r.Printer!)
             .ToListAsync(ct);
 
-        if (routed.Count > 0) return routed;
+        if (routed.Count > 0)
+        {
+            var remapped = new List<PosStorePrinter>();
+            var seen = new HashSet<Guid>();
+            foreach (var p in routed)
+            {
+                var twin = await ResolveCloudAgentTwinAsync(p, ct);
+                if (seen.Add(twin.Id)) remapped.Add(twin);
+            }
+            return remapped;
+        }
 
         var fallback = await db.PosStorePrinters.AsNoTracking()
             .Where(p => p.StoreId == storeId && p.Deleted == null && p.IsActive && p.IsDefault)
             .FirstOrDefaultAsync(ct);
 
         return fallback != null ? [fallback] : [];
+    }
+
+    /// <summary>
+    /// Máy device-local (sync từ A6) không nằm trong AssignedPrinterIds của Agent.
+    /// Đổi sang bản cloud cùng cổng (USB/LAN/BT/Sunmi) để A7/web gửi job Agent nhận được.
+    /// </summary>
+    async Task<PosStorePrinter> ResolveCloudAgentTwinAsync(
+        PosStorePrinter printer, CancellationToken ct = default)
+    {
+        if (!printer.IsDeviceLocal) return printer;
+
+        var candidates = await db.PosStorePrinters.AsNoTracking()
+            .Where(p => p.StoreId == printer.StoreId
+                && p.Deleted == null
+                && p.IsActive
+                && !p.IsDeviceLocal
+                && p.ConnectionType == printer.ConnectionType)
+            .OrderByDescending(p => p.RequiresAgent)
+            .ThenBy(p => p.SortOrder)
+            .ToListAsync(ct);
+
+        PosStorePrinter? twin = null;
+        switch (printer.ConnectionType)
+        {
+            case PosPrinterConnectionType.Usb:
+                var usb = NormPortKey(printer.UsbDeviceName);
+                if (usb.Length > 0)
+                {
+                    twin = candidates.FirstOrDefault(p =>
+                        NormPortKey(p.UsbDeviceName) == usb
+                        || NormPortKey(p.UsbDeviceName).StartsWith(usb)
+                        || usb.StartsWith(NormPortKey(p.UsbDeviceName)));
+                }
+                // Fallback: cùng tên (bỏ prefix nội bộ) khi USB id lệch path.
+                twin ??= candidates.FirstOrDefault(p =>
+                    string.Equals(StripLocalPrefix(p.Name), StripLocalPrefix(printer.Name),
+                        StringComparison.OrdinalIgnoreCase));
+                break;
+            case PosPrinterConnectionType.Lan:
+                var host = (printer.LanHost ?? "").Trim().ToLowerInvariant();
+                if (host.Length > 0)
+                    twin = candidates.FirstOrDefault(p =>
+                        string.Equals((p.LanHost ?? "").Trim(), host, StringComparison.OrdinalIgnoreCase));
+                twin ??= candidates.FirstOrDefault(p =>
+                    string.Equals(StripLocalPrefix(p.Name), StripLocalPrefix(printer.Name),
+                        StringComparison.OrdinalIgnoreCase));
+                break;
+            case PosPrinterConnectionType.Bluetooth:
+                var bt = (printer.BluetoothAddress ?? "").Trim().ToLowerInvariant();
+                if (bt.Length > 0)
+                    twin = candidates.FirstOrDefault(p =>
+                        string.Equals((p.BluetoothAddress ?? "").Trim(), bt,
+                            StringComparison.OrdinalIgnoreCase));
+                break;
+            case PosPrinterConnectionType.Sunmi:
+                twin = candidates.FirstOrDefault();
+                break;
+        }
+
+        if (twin == null)
+        {
+            logger.LogWarning(
+                "No cloud Agent twin for device-local printer {PrinterId} ({Name}/{Conn}) store {StoreId}",
+                printer.Id, printer.Name, printer.ConnectionType, printer.StoreId);
+            return printer;
+        }
+
+        logger.LogInformation(
+            "Remap device-local printer {LocalId} → cloud Agent {CloudId} ({Name})",
+            printer.Id, twin.Id, twin.Name);
+        return twin;
+    }
+
+    static string NormPortKey(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw)) return "";
+        var t = raw.Trim();
+        var pipe = t.IndexOf('|');
+        if (pipe > 0) t = t[..pipe];
+        return t.ToLowerInvariant();
+    }
+
+    static string StripLocalPrefix(string? name)
+    {
+        var n = (name ?? "").Trim();
+        if (n.StartsWith("[Nội bộ]", StringComparison.OrdinalIgnoreCase))
+            n = n["[Nội bộ]".Length..].Trim();
+        return n;
     }
 
     public async Task<PosPrintJob> EnqueueJobAsync(EnqueuePrintJobRequest request, CancellationToken ct = default)
@@ -125,6 +228,8 @@ public class PosPrintDispatchService(
 
         if (printer == null)
             throw new InvalidOperationException("Chưa cấu hình máy in cho loại chứng từ này");
+
+        printer = await ResolveCloudAgentTwinAsync(printer, ct);
 
         var tracked = await db.PosStorePrinters.FirstAsync(p => p.Id == printer.Id, ct);
 
@@ -167,6 +272,31 @@ public class PosPrintDispatchService(
                 duplicate.Id, tracked.Id,
                 (DateTime.UtcNow - duplicate.CreatedAt).TotalSeconds);
             return await db.PosPrintJobs.FirstAsync(j => j.Id == duplicate.Id, ct);
+        }
+
+        // Dedup theo ReferenceNo (bếp/kho gửi chuỗi ổn định, không phải Guid).
+        if (!string.IsNullOrWhiteSpace(request.ReferenceNo))
+        {
+            var refNo = request.ReferenceNo.Trim();
+            duplicate = await db.PosPrintJobs.AsNoTracking()
+                .Where(j => j.StoreId == request.StoreId
+                    && j.PrinterId == tracked.Id
+                    && j.Deleted == null
+                    && j.CreatedAt >= since
+                    && j.ReferenceNo == refNo
+                    && j.DocumentType == request.DocumentType
+                    && (j.Status == PosPrintJobStatus.Queued
+                        || j.Status == PosPrintJobStatus.Claimed
+                        || j.Status == PosPrintJobStatus.Printing))
+                .OrderByDescending(j => j.CreatedAt)
+                .FirstOrDefaultAsync(ct);
+            if (duplicate != null)
+            {
+                logger.LogInformation(
+                    "Print job dedup by ReferenceNo — reuse {JobId} ref={Ref}",
+                    duplicate.Id, refNo);
+                return await db.PosPrintJobs.FirstAsync(j => j.Id == duplicate.Id, ct);
+            }
         }
 
         var job = new PosPrintJob
@@ -241,12 +371,25 @@ public class PosPrintDispatchService(
 
         var job = await db.PosPrintJobs.FirstAsync(j => j.Id == candidateId, ct);
 
-        var printer = await db.PosStorePrinters.FirstAsync(p => p.Id == job.PrinterId, ct);
-        printer.HealthStatus = PosPrinterHealthStatus.Busy;
-        printer.LastSeenAt = now;
-        await db.SaveChangesAsync(ct);
+        // Không SaveChanges sau claim — lỗi DB (vd. cột ngắn) để job kẹt Claimed
+        // rồi STUCK_NO_REQUEUE (tem hay dính).
+        await db.PosStorePrinters
+            .Where(p => p.Id == job.PrinterId)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(p => p.HealthStatus, PosPrinterHealthStatus.Busy)
+                .SetProperty(p => p.LastSeenAt, now)
+                .SetProperty(p => p.UpdatedAt, now), ct);
 
-        await BroadcastJobAsync("PrintJobStatusChanged", job, printer, ct);
+        var printer = await db.PosStorePrinters.AsNoTracking()
+            .FirstAsync(p => p.Id == job.PrinterId, ct);
+        try
+        {
+            await BroadcastJobAsync("PrintJobStatusChanged", job, printer, ct);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Broadcast after claim failed for job {JobId}", job.Id);
+        }
         return job;
     }
 
@@ -301,12 +444,23 @@ public class PosPrintDispatchService(
         if (claimed == 0) return null;
 
         job = await db.PosPrintJobs.FirstAsync(j => j.Id == jobId, ct);
-        var printer = await db.PosStorePrinters.FirstAsync(p => p.Id == job.PrinterId, ct);
-        printer.HealthStatus = PosPrinterHealthStatus.Busy;
-        printer.LastSeenAt = now;
-        await db.SaveChangesAsync(ct);
+        await db.PosStorePrinters
+            .Where(p => p.Id == job.PrinterId)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(p => p.HealthStatus, PosPrinterHealthStatus.Busy)
+                .SetProperty(p => p.LastSeenAt, now)
+                .SetProperty(p => p.UpdatedAt, now), ct);
 
-        await BroadcastJobAsync("PrintJobStatusChanged", job, printer, ct);
+        var printer = await db.PosStorePrinters.AsNoTracking()
+            .FirstAsync(p => p.Id == job.PrinterId, ct);
+        try
+        {
+            await BroadcastJobAsync("PrintJobStatusChanged", job, printer, ct);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Broadcast after ClaimById failed for job {JobId}", job.Id);
+        }
         return job;
     }
 
@@ -411,6 +565,56 @@ public class PosPrintDispatchService(
         return job;
     }
 
+    public async Task<PosPrintJob?> ReleaseClaimAsync(
+        Guid jobId, Guid agentId, string? reason, CancellationToken ct = default)
+    {
+        var job = await db.PosPrintJobs.FirstOrDefaultAsync(j => j.Id == jobId, ct);
+        if (job == null) return null;
+        if (job.Status is PosPrintJobStatus.Completed
+            or PosPrintJobStatus.Cancelled
+            or PosPrintJobStatus.Failed)
+        {
+            return job;
+        }
+
+        if (job.AgentId != null && job.AgentId != agentId)
+            return null;
+
+        if (job.Status is not (PosPrintJobStatus.Claimed or PosPrintJobStatus.Printing
+            or PosPrintJobStatus.Queued))
+            return null;
+
+        var now = DateTime.UtcNow;
+        job.Status = PosPrintJobStatus.Queued;
+        job.AgentId = null;
+        job.ClaimedAt = null;
+        job.StartedAt = null;
+        job.UpdatedAt = now;
+        // Soft release (OUTBOUND_SKIP / NOT_LOCAL / …): hoàn AttemptCount —
+        // nếu không, A7 claim+nhả rồi A6 claim dễ chạm MAX_ATTEMPTS và bị hủy.
+        if (job.AttemptCount > 0)
+            job.AttemptCount -= 1;
+        job.ErrorCode = "RELEASED";
+        job.ErrorMessage = string.IsNullOrWhiteSpace(reason)
+            ? "Agent nhả job — máy khác claim"
+            : (reason!.Length > 500 ? reason[..500] : reason);
+
+        var printer = await db.PosStorePrinters.FirstAsync(p => p.Id == job.PrinterId, ct);
+        // Không đánh Error — chỉ nhả để Agent đúng máy nhận.
+        if (printer.HealthStatus == PosPrinterHealthStatus.Busy)
+            printer.HealthStatus = PosPrinterHealthStatus.Online;
+        printer.LastSeenAt = now;
+        await db.SaveChangesAsync(ct);
+
+        // Báo lại PrintJobNew để Agent khác (A6) claim ngay.
+        await BroadcastJobAsync("PrintJobNew", job, printer, ct);
+        await BroadcastJobAsync("PrintJobStatusChanged", job, printer, ct);
+        logger.LogInformation(
+            "Print job {JobId} released by agent {AgentId}: {Reason}",
+            jobId, agentId, job.ErrorMessage);
+        return job;
+    }
+
     public async Task RegisterAgentHeartbeatAsync(
         Guid storeId, string deviceId, string? deviceName, string? employeeName,
         string? userId, IEnumerable<Guid> printerIds, string? appVersion, CancellationToken ct = default)
@@ -420,18 +624,34 @@ public class PosPrintDispatchService(
         var aliveIds = new List<Guid>();
         foreach (var pid in requested)
         {
-            var printer = await db.PosStorePrinters
-                .FirstOrDefaultAsync(p => p.Id == pid && p.StoreId == storeId && p.Deleted == null, ct);
-            if (printer == null) continue;
-            aliveIds.Add(pid);
-            printer.HealthStatus = PosPrinterHealthStatus.Online;
-            printer.LastSeenAt = now;
-            printer.LastErrorMessage = null;
-            printer.RequiresAgent = true;
+            var updated = await db.PosStorePrinters
+                .Where(p => p.Id == pid && p.StoreId == storeId && p.Deleted == null)
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(p => p.HealthStatus, PosPrinterHealthStatus.Online)
+                    .SetProperty(p => p.LastSeenAt, now)
+                    .SetProperty(p => p.LastErrorMessage, (string?)null)
+                    .SetProperty(p => p.RequiresAgent, true)
+                    .SetProperty(p => p.UpdatedAt, now), ct);
+            if (updated > 0) aliveIds.Add(pid);
         }
         if (aliveIds.Count == 0)
             throw new InvalidOperationException(
                 "Không có máy in hợp lệ để gắn Agent (đã xóa hoặc sai cửa hàng)");
+
+        // Truncate to DB column limits — AppVersion varchar(32) từng làm SaveChanges
+        // ném 22001 rồi client vẫn claim bằng agentId cũ → agentOnlineForPrinter=0.
+        static string? TrimOrNull(string? v, int max)
+        {
+            if (string.IsNullOrWhiteSpace(v)) return null;
+            var t = v.Trim();
+            return t.Length <= max ? t : t[..max];
+        }
+
+        var safeDeviceName = TrimOrNull(deviceName, 200);
+        var safeEmployeeName = TrimOrNull(employeeName, 200);
+        var safeUserId = TrimOrNull(userId, 450);
+        var safeAppVersion = TrimOrNull(appVersion, 32);
+        var printersJson = JsonSerializer.Serialize(aliveIds);
 
         var agent = await db.PosPrintAgents
             .FirstOrDefaultAsync(a => a.StoreId == storeId && a.DeviceId == deviceId && a.Deleted == null, ct);
@@ -445,29 +665,53 @@ public class PosPrintDispatchService(
                 DeviceId = deviceId,
                 IsActive = true,
                 CreatedAt = now,
-                CreatedBy = userId,
+                CreatedBy = safeUserId,
+                DeviceName = safeDeviceName,
+                EmployeeName = safeEmployeeName,
+                UserId = safeUserId,
+                AssignedPrinterIdsJson = printersJson,
+                IsOnline = true,
+                LastHeartbeatAt = now,
+                AppVersion = safeAppVersion,
+                UpdatedAt = now,
             };
             db.PosPrintAgents.Add(agent);
+            await db.SaveChangesAsync(ct);
         }
-
-        agent.DeviceName = deviceName;
-        agent.EmployeeName = employeeName;
-        agent.UserId = userId;
-        agent.AssignedPrinterIdsJson = JsonSerializer.Serialize(aliveIds);
-        agent.IsOnline = true;
-        agent.LastHeartbeatAt = now;
-        agent.AppVersion = appVersion;
-        agent.UpdatedAt = now;
+        else
+        {
+            // ExecuteUpdate tránh change-tracker / interceptor làm heartbeat «OK» nhưng DB không đổi.
+            var n = await db.PosPrintAgents
+                .Where(a => a.Id == agent.Id)
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(a => a.DeviceName, safeDeviceName)
+                    .SetProperty(a => a.EmployeeName, safeEmployeeName)
+                    .SetProperty(a => a.UserId, safeUserId)
+                    .SetProperty(a => a.AssignedPrinterIdsJson, printersJson)
+                    .SetProperty(a => a.IsOnline, true)
+                    .SetProperty(a => a.LastHeartbeatAt, now)
+                    .SetProperty(a => a.AppVersion, safeAppVersion)
+                    .SetProperty(a => a.UpdatedAt, now), ct);
+            if (n == 0)
+                throw new InvalidOperationException("Không cập nhật được Print Agent heartbeat");
+            agent.DeviceName = safeDeviceName;
+            agent.EmployeeName = safeEmployeeName;
+            agent.UserId = safeUserId;
+            agent.AssignedPrinterIdsJson = printersJson;
+            agent.IsOnline = true;
+            agent.LastHeartbeatAt = now;
+            agent.AppVersion = safeAppVersion;
+        }
 
         // Mark stale agents offline
         var staleBefore = now.Subtract(AgentOfflineThreshold);
-        var staleAgents = await db.PosPrintAgents
+        await db.PosPrintAgents
             .Where(a => a.StoreId == storeId && a.Deleted == null && a.IsOnline
-                && a.Id != agent.Id && (a.LastHeartbeatAt == null || a.LastHeartbeatAt < staleBefore))
-            .ToListAsync(ct);
-        foreach (var s in staleAgents) s.IsOnline = false;
-
-        await db.SaveChangesAsync(ct);
+                && a.Id != agent.Id
+                && (a.LastHeartbeatAt == null || a.LastHeartbeatAt < staleBefore))
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(a => a.IsOnline, false)
+                .SetProperty(a => a.UpdatedAt, now), ct);
 
         await hubContext.Clients.Group(StoreGroup(storeId)).SendAsync("PrinterAgentHeartbeat", new
         {
@@ -603,15 +847,47 @@ public class PosPrintDispatchService(
                 "Cancelled {Count} over-attempt print job(s) in store {StoreId}",
                 overAttempt, storeId);
 
+        // Tem/label + phiếu bếp/hủy: Claimed lâu (chưa MarkPrinting) → requeue
+        // thay vì STUCK_NO_REQUEUE (web→A6: hủy xong Busy treo, không ra giấy).
+        var softRequeueTypes = new[]
+        {
+            PosPrintDocumentType.KitchenLabel,
+            PosPrintDocumentType.BarcodeLabel,
+            PosPrintDocumentType.KitchenSlip,
+            PosPrintDocumentType.KitchenVoid,
+        };
+        var softClaimedBefore = now.Subtract(TimeSpan.FromSeconds(90));
+        var softRequeued = await db.PosPrintJobs
+            .Where(j => j.StoreId == storeId && j.Deleted == null
+                && j.Status == PosPrintJobStatus.Claimed
+                && softRequeueTypes.Contains(j.DocumentType)
+                && j.ClaimedAt != null
+                && j.ClaimedAt < softClaimedBefore
+                && j.AttemptCount < MaxPrintAttemptsBeforeCancel)
+            .ExecuteUpdateAsync(setters => setters
+                .SetProperty(j => j.Status, PosPrintJobStatus.Queued)
+                .SetProperty(j => j.AgentId, (Guid?)null)
+                .SetProperty(j => j.ClaimedAt, (DateTime?)null)
+                .SetProperty(j => j.ErrorCode, "SOFT_REQUEUE")
+                .SetProperty(j => j.ErrorMessage,
+                    "Claim quá lâu chưa in — xếp lại hàng đợi")
+                .SetProperty(j => j.UpdatedAt, now), ct);
+        if (softRequeued > 0)
+            logger.LogWarning(
+                "Requeued {Count} stuck kitchen/label job(s) in store {StoreId}",
+                softRequeued, storeId);
+
         // Job đã Claimed/Printing quá lâu: Agent gần như đã in giấy rồi nhưng
-        // không /complete. Reclaim → Queued gây in chồng (hóa đơn / bếp / kho / tem).
-        // Hủy thay vì requeue — thiếu bản thì thu ngân bấm «In lại» (an toàn hơn).
+        // không /complete. Reclaim → Queued gây in chồng (hóa đơn / kho).
+        // Tem/bếp Claimed đã soft-requeue ở trên. Hủy các loại còn lại + Printing.
         var claimedBefore = now.Subtract(StuckClaimReclaimAfter);
         var printingBefore = now.Subtract(StuckPrintingReclaimAfter);
         var stuckCancelled = await db.PosPrintJobs
             .Where(j => j.StoreId == storeId && j.Deleted == null
                 && (j.Status == PosPrintJobStatus.Claimed
                     || j.Status == PosPrintJobStatus.Printing)
+                && !(j.Status == PosPrintJobStatus.Claimed
+                     && softRequeueTypes.Contains(j.DocumentType))
                 && j.ClaimedAt != null
                 && ((j.Status == PosPrintJobStatus.Claimed && j.ClaimedAt < claimedBefore)
                     || (j.Status == PosPrintJobStatus.Printing && j.ClaimedAt < printingBefore)))
@@ -642,6 +918,43 @@ public class PosPrintDispatchService(
                 .SetProperty(j => j.UpdatedAt, now), ct);
         if (cancelled > 0)
             logger.LogWarning("Cancelled {Count} stale queued print job(s) in store {StoreId}", cancelled, storeId);
+
+        // Claim set Busy nhưng STUCK/MAX_ATTEMPTS không clear → máy in «treo» trên UI
+        // và hàng đợi trông như chết dù Agent vẫn poll.
+        await ClearOrphanBusyPrintersAsync(storeId, now, ct);
+    }
+
+    async Task ClearOrphanBusyPrintersAsync(Guid storeId, DateTime now, CancellationToken ct)
+    {
+        var busyIds = await db.PosStorePrinters
+            .Where(p => p.StoreId == storeId && p.Deleted == null
+                && p.HealthStatus == PosPrinterHealthStatus.Busy)
+            .Select(p => p.Id)
+            .ToListAsync(ct);
+        if (busyIds.Count == 0) return;
+
+        var activePrinterIds = await db.PosPrintJobs
+            .Where(j => j.StoreId == storeId && j.Deleted == null
+                && (j.Status == PosPrintJobStatus.Claimed
+                    || j.Status == PosPrintJobStatus.Printing)
+                && busyIds.Contains(j.PrinterId))
+            .Select(j => j.PrinterId)
+            .Distinct()
+            .ToListAsync(ct);
+
+        var orphanIds = busyIds.Except(activePrinterIds).ToList();
+        if (orphanIds.Count == 0) return;
+
+        var cleared = await db.PosStorePrinters
+            .Where(p => orphanIds.Contains(p.Id))
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(p => p.HealthStatus, PosPrinterHealthStatus.Online)
+                .SetProperty(p => p.LastErrorMessage, (string?)null)
+                .SetProperty(p => p.UpdatedAt, now), ct);
+        if (cleared > 0)
+            logger.LogWarning(
+                "Cleared Busy on {Count} orphan printer(s) in store {StoreId}",
+                cleared, storeId);
     }
 
     static List<Guid> ParsePrinterIds(string json)

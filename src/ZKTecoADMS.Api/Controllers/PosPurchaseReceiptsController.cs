@@ -38,7 +38,8 @@ public class PosPurchaseReceiptsController(
         string? UnitName, decimal Qty, decimal CostPrice, decimal DiscountAmount,
         decimal VatRate, decimal VatAmount, bool VatIncluded, bool VatExempt,
         decimal LineTotal, string? LineNote,
-        string? LotNo, DateTime? ManufactureDate, DateTime? ExpiryDate, bool TrackExpiry);
+        string? LotNo, DateTime? ManufactureDate, DateTime? ExpiryDate, bool TrackExpiry,
+        bool AllowDecimalQty = false);
 
     public record ReceiptDto(
         Guid Id, string ReceiptNo, Guid? SupplierId, string? SupplierCode, string? SupplierName,
@@ -515,6 +516,8 @@ public class PosPurchaseReceiptsController(
         {
             if (!products.ContainsKey(line.ProductId)) return (null, null, "Hàng hóa không hợp lệ");
             if (line.Qty <= 0) return (null, null, "Số lượng phải > 0");
+            var qtyRuleErr = PosQtyRules.ValidateLineQty(products[line.ProductId], line.Qty, "Nhập hàng");
+            if (qtyRuleErr != null) return (null, null, qtyRuleErr);
             if (line.VariantId.HasValue)
             {
                 if (!variants.TryGetValue(line.VariantId.Value, out var v) || v.ProductId != line.ProductId)
@@ -668,12 +671,12 @@ public class PosPurchaseReceiptsController(
     {
         var lines = linesOverride ?? r.Lines.ToList();
         var productIds = lines.Select(l => l.ProductId).Distinct().ToList();
-        var trackFlags = productIds.Count == 0
-            ? new Dictionary<Guid, bool>()
+        var productFlags = productIds.Count == 0
+            ? new Dictionary<Guid, (bool TrackExpiry, bool AllowDecimalQty)>()
             : await dbContext.PosProducts.AsNoTracking()
                 .Where(p => productIds.Contains(p.Id))
-                .Select(p => new { p.Id, p.TrackExpiry })
-                .ToDictionaryAsync(x => x.Id, x => x.TrackExpiry);
+                .Select(p => new { p.Id, p.TrackExpiry, p.AllowDecimalQty })
+                .ToDictionaryAsync(x => x.Id, x => (x.TrackExpiry, x.AllowDecimalQty));
 
         return new ReceiptDto(
             r.Id, r.ReceiptNo, r.SupplierId, r.Supplier?.SupplierCode, r.Supplier?.Name,
@@ -682,11 +685,15 @@ public class PosPurchaseReceiptsController(
             r.DiscountIsPercent, r.DiscountInput, r.PaidAmount,
             r.GrandTotal, r.BalanceDue,
             r.ImportDate, r.ImportedBy, r.CreatedAt, r.CreatedBy,
-            lines.Select(l => new ReceiptLineDto(
-                l.Id, l.ProductId, l.VariantId, l.ProductCode ?? "", l.ProductName, l.UnitName,
-                l.Qty, l.CostPrice, l.DiscountAmount, l.VatRate, l.VatAmount,
-                l.VatIncluded, l.VatExempt, l.LineTotal, l.LineNote,
-                l.LotNo, l.ManufactureDate, l.ExpiryDate,
-                trackFlags.GetValueOrDefault(l.ProductId))).ToList());
+            lines.Select(l =>
+            {
+                productFlags.TryGetValue(l.ProductId, out var flags);
+                return new ReceiptLineDto(
+                    l.Id, l.ProductId, l.VariantId, l.ProductCode ?? "", l.ProductName, l.UnitName,
+                    l.Qty, l.CostPrice, l.DiscountAmount, l.VatRate, l.VatAmount,
+                    l.VatIncluded, l.VatExempt, l.LineTotal, l.LineNote,
+                    l.LotNo, l.ManufactureDate, l.ExpiryDate,
+                    flags.TrackExpiry, flags.AllowDecimalQty);
+            }).ToList());
     }
 }

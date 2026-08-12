@@ -101,6 +101,7 @@ public class StorePackageModuleMiddleware
         ("/api/pos/reports/stock", "PosProducts"),
         ("/api/pos/reports/end-of-day", "PosProducts"),
         ("/api/pos/reports", "PosSalesReport"),
+        ("/api/hkd", "HkdBooks"),
         ("/api/pos/customers", "PosCustomers"),
         ("/api/pos/resource-reservations", "PosBooking"),
         ("/api/pos/warranty", "PosWarranty"),
@@ -205,6 +206,12 @@ public class StorePackageModuleMiddleware
         // Gói có PosSell → coi như có Trả hàng bán (API + menu).
         if (module.Equals("PosSaleReturns", StringComparison.OrdinalIgnoreCase) &&
             allowed.Contains("PosSell", StringComparer.OrdinalIgnoreCase))
+            return true;
+
+        // Màn hình phụ: GET + PUT state khi bán (máy khác mở link) nếu gói có PosSell.
+        if (module.Equals("PosCustomerDisplay", StringComparison.OrdinalIgnoreCase) &&
+            allowed.Contains("PosSell", StringComparer.OrdinalIgnoreCase) &&
+            path.StartsWith("/api/pos/customer-display", StringComparison.OrdinalIgnoreCase))
             return true;
 
         if (!HttpMethods.IsGet(method) && !HttpMethods.IsHead(method))

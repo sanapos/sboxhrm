@@ -27,6 +27,41 @@ enum PosWarehousePrintMode {
       };
 }
 
+/// Chế độ in phiếu báo bếp (nhiệt) — độc lập tem ly / xuất kho.
+enum PosKitchenSlipPrintMode {
+  off,
+  auto,
+  manual;
+
+  String get label => switch (this) {
+        PosKitchenSlipPrintMode.off => 'Không in',
+        PosKitchenSlipPrintMode.auto =>
+          'Tự động sau TT (Báo bếp vẫn in trước)',
+        PosKitchenSlipPrintMode.manual => 'In thủ công (nút Báo bếp)',
+      };
+
+  static PosKitchenSlipPrintMode fromStored(String? raw) => switch (raw) {
+        'auto' => PosKitchenSlipPrintMode.auto,
+        'off' => PosKitchenSlipPrintMode.off,
+        // Mặc định thủ công — giữ hành vi cũ (in khi bấm Báo bếp).
+        _ => PosKitchenSlipPrintMode.manual,
+      };
+
+  String get storageValue => switch (this) {
+        PosKitchenSlipPrintMode.off => 'off',
+        PosKitchenSlipPrintMode.auto => 'auto',
+        PosKitchenSlipPrintMode.manual => 'manual',
+      };
+
+  /// Thủ công + auto: đều cho in khi bấm Báo bếp (phần chưa gửi).
+  bool get shouldPrintOnBaoBep =>
+      this == PosKitchenSlipPrintMode.manual ||
+      this == PosKitchenSlipPrintMode.auto;
+
+  /// Mode tự động: khi TT chỉ in phần chưa báo bếp (không in lại).
+  bool get shouldPrintOnCheckout => this == PosKitchenSlipPrintMode.auto;
+}
+
 /// In tem dán ly (trà sữa): tên, topping, SL, giờ, bàn — in 1 lần như báo bếp.
 enum PosCupLabelPrintMode {
   off,
@@ -39,7 +74,7 @@ enum PosCupLabelPrintMode {
         PosCupLabelPrintMode.manual => 'In thủ công (nút Tem ly)',
         PosCupLabelPrintMode.withKitchen => 'Tự in khi báo bếp (+ nút Tem ly)',
         PosCupLabelPrintMode.onCheckout =>
-          'Tự in khi thanh toán (+ nút Tem ly)',
+          'Tự in khi TT — Báo bếp vẫn in trước (+ nút Tem ly)',
       };
 
   static PosCupLabelPrintMode fromStored(String? raw) => switch (raw) {
@@ -62,7 +97,7 @@ enum PosCupLabelPrintMode {
   bool get autoOnCheckout => this == PosCupLabelPrintMode.onCheckout;
 }
 
-@Deprecated('Use PosWarehousePrintMode')
+@Deprecated('Use PosWarehousePrintMode / PosKitchenSlipPrintMode')
 typedef PosKitchenPrintMode = PosWarehousePrintMode;
 
 /// Thiết lập in hóa đơn trên màn bán hàng (lưu local).
@@ -76,7 +111,9 @@ class PosSellPrintSettings {
     this.warehouseTemplateId,
     this.printVietQrOnReceipt = false,
     this.warehousePrintMode = PosWarehousePrintMode.off,
+    this.kitchenSlipPrintMode = PosKitchenSlipPrintMode.manual,
     this.cupLabelPrintMode = PosCupLabelPrintMode.off,
+    this.printCupOnKitchenNotify = true,
   });
 
   /// In hóa đơn khi thanh toán (thiết lập cố định).
@@ -100,18 +137,28 @@ class PosSellPrintSettings {
   /// Phiếu báo xuất kho.
   final PosWarehousePrintMode warehousePrintMode;
 
+  /// Phiếu báo bếp (nhiệt) — không in / thủ công / sau TT.
+  final PosKitchenSlipPrintMode kitchenSlipPrintMode;
+
   /// Tem dán ly (trà sữa).
   final PosCupLabelPrintMode cupLabelPrintMode;
+
+  /// Khi bật tem ly: có in tem lúc bấm Báo bếp / thông báo bếp không (mặc định có).
+  final bool printCupOnKitchenNotify;
 
   bool get showWarehouseManualButton =>
       warehousePrintMode == PosWarehousePrintMode.manual;
 
-  bool get showCupLabelManualButton =>
-      cupLabelPrintMode.showManualButton || printCupOnCheckout;
-
-  /// In tem khi TT: cờ riêng hoặc chế độ onCheckout.
+  /// In tem khi TT: chỉ theo chế độ tem ly (không phụ thuộc cờ cũ lệch).
   bool get shouldPrintCupOnPay =>
-      printCupOnCheckout || cupLabelPrintMode.autoOnCheckout;
+      cupLabelPrintMode.autoOnCheckout ||
+      (printCupOnCheckout && cupLabelPrintMode == PosCupLabelPrintMode.off);
+
+  bool get showCupLabelManualButton => cupLabelPrintMode.showManualButton;
+
+  /// In tem kèm Báo bếp — chỉ khi chế độ «Tự in khi báo bếp».
+  /// Mode «sau TT» chỉ in lúc thanh toán (tránh in sớm + sót/chồng tem).
+  bool get shouldPrintCupOnKitchenSend => cupLabelPrintMode.autoWithKitchen;
 
   @Deprecated('Use warehousePrintMode')
   PosWarehousePrintMode get kitchenPrintMode => warehousePrintMode;
@@ -127,7 +174,9 @@ class PosSellPrintSettings {
   static const _kWarehouseTemplate = 'pos_sell_warehouse_print_template_id';
   static const _kPrintVietQr = 'pos_sell_print_vietqr';
   static const _kWarehouseMode = 'pos_sell_kitchen_print_mode';
+  static const _kKitchenSlipMode = 'pos_sell_kitchen_slip_print_mode';
   static const _kCupLabelMode = 'pos_sell_cup_label_print_mode';
+  static const _kCupOnKitchen = 'pos_sell_cup_on_kitchen_notify';
 
   PosSellPrintSettings copyWith({
     bool? autoPrint,
@@ -141,7 +190,9 @@ class PosSellPrintSettings {
     bool? printVietQrOnReceipt,
     PosWarehousePrintMode? warehousePrintMode,
     PosWarehousePrintMode? kitchenPrintMode,
+    PosKitchenSlipPrintMode? kitchenSlipPrintMode,
     PosCupLabelPrintMode? cupLabelPrintMode,
+    bool? printCupOnKitchenNotify,
   }) =>
       PosSellPrintSettings(
         autoPrint: autoPrint ?? this.autoPrint,
@@ -155,7 +206,11 @@ class PosSellPrintSettings {
         printVietQrOnReceipt: printVietQrOnReceipt ?? this.printVietQrOnReceipt,
         warehousePrintMode:
             warehousePrintMode ?? kitchenPrintMode ?? this.warehousePrintMode,
+        kitchenSlipPrintMode:
+            kitchenSlipPrintMode ?? this.kitchenSlipPrintMode,
         cupLabelPrintMode: cupLabelPrintMode ?? this.cupLabelPrintMode,
+        printCupOnKitchenNotify:
+            printCupOnKitchenNotify ?? this.printCupOnKitchenNotify,
       );
 
   static Future<PosSellPrintSettings> load() async {
@@ -190,7 +245,12 @@ class PosSellPrintSettings {
       printVietQrOnReceipt: prefs.getBool(_kPrintVietQr) ?? false,
       warehousePrintMode:
           PosWarehousePrintMode.fromStored(prefs.getString(_kWarehouseMode)),
+      kitchenSlipPrintMode: PosKitchenSlipPrintMode.fromStored(
+          prefs.getString(_kKitchenSlipMode)),
       cupLabelPrintMode: cupMode,
+      printCupOnKitchenNotify: prefs.containsKey(_kCupOnKitchen)
+          ? (prefs.getBool(_kCupOnKitchen) ?? true)
+          : true,
     );
   }
 
@@ -202,7 +262,10 @@ class PosSellPrintSettings {
     await prefs.setInt(_kCopies, copies.clamp(1, 10));
     await prefs.setBool(_kPrintVietQr, printVietQrOnReceipt);
     await prefs.setString(_kWarehouseMode, warehousePrintMode.storageValue);
+    await prefs.setString(
+        _kKitchenSlipMode, kitchenSlipPrintMode.storageValue);
     await prefs.setString(_kCupLabelMode, cupLabelPrintMode.storageValue);
+    await prefs.setBool(_kCupOnKitchen, printCupOnKitchenNotify);
     if (templateId != null && templateId!.isNotEmpty) {
       await prefs.setString(_kTemplate, templateId!);
     } else {

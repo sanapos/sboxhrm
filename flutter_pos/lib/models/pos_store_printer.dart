@@ -18,6 +18,8 @@ class PosStorePrinter {
     this.beepOnPrint = false,
     this.isDefault = false,
     this.requiresAgent = false,
+    this.isDeviceLocal = false,
+    this.ownerDeviceId,
     this.healthStatus = 'Unknown',
     this.lastSeenAt,
     this.lastErrorMessage,
@@ -45,6 +47,9 @@ class PosStorePrinter {
   final bool beepOnPrint;
   final bool isDefault;
   final bool requiresAgent;
+  /// Máy in nội bộ trên thiết bị POS (không gán cho Print Agent).
+  final bool isDeviceLocal;
+  final String? ownerDeviceId;
   final String healthStatus;
   final DateTime? lastSeenAt;
   final String? lastErrorMessage;
@@ -58,42 +63,75 @@ class PosStorePrinter {
   bool get isSunmi => connectionType == 'Sunmi';
   bool get isUsb => connectionType == 'Usb';
   bool get isLabelPrinter => printerBrand == 'label';
-  /// Máy in cửa hàng luôn in qua cloud (Print Agent), kể cả LAN.
-  bool get needsPrintAgent => true;
+  /// Agent cloud: cần Print Agent. Máy nội bộ thiết bị: không.
+  bool get needsPrintAgent => !isDeviceLocal && requiresAgent;
+  /// Danh sách «cloud / Agent» — máy nội bộ sync luôn RequiresAgent=false.
+  bool get isCloudAgentPrinter => !isDeviceLocal && requiresAgent;
+
   bool get isOnline =>
       healthStatus == 'Online' || healthStatus == 'Busy';
 
+  static bool _jsonBool(dynamic v) =>
+      v == true || v == 1 || v?.toString().toLowerCase() == 'true';
+
   factory PosStorePrinter.fromJson(Map<String, dynamic> json) => PosStorePrinter(
-        id: json['id']?.toString() ?? '',
-        name: json['name']?.toString() ?? '',
-        connectionType: json['connectionType']?.toString() ?? 'Lan',
-        printerBrand: json['printerBrand']?.toString(),
-        paperSize: json['paperSize']?.toString() ?? 'K80',
-        textMode: json['textMode']?.toString(),
-        bluetoothAddress: json['bluetoothAddress']?.toString(),
-        bluetoothName: json['bluetoothName']?.toString(),
-        lanHost: json['lanHost']?.toString(),
-        lanPort: (json['lanPort'] as num?)?.toInt() ?? 9100,
-        usbDeviceName: json['usbDeviceName']?.toString(),
-        feedBeforeCut: (json['feedBeforeCut'] as num?)?.toInt() ?? 8,
-        partialCut: json['partialCut'] == true,
-        openCashDrawer: json['openCashDrawer'] == true,
-        openDrawerCashOnly: json['openDrawerCashOnly'] != false,
-        beepOnPrint: json['beepOnPrint'] == true,
-        isDefault: json['isDefault'] == true,
-        requiresAgent: json['requiresAgent'] == true,
-        healthStatus: json['healthStatus']?.toString() ?? 'Unknown',
-        lastSeenAt: json['lastSeenAt'] != null
-            ? DateTime.tryParse(json['lastSeenAt'].toString())
+        id: (json['id'] ?? json['Id'])?.toString() ?? '',
+        name: (json['name'] ?? json['Name'])?.toString() ?? '',
+        connectionType:
+            (json['connectionType'] ?? json['ConnectionType'])?.toString() ??
+                'Lan',
+        printerBrand:
+            (json['printerBrand'] ?? json['PrinterBrand'])?.toString(),
+        paperSize:
+            (json['paperSize'] ?? json['PaperSize'])?.toString() ?? 'K80',
+        textMode: (json['textMode'] ?? json['TextMode'])?.toString(),
+        bluetoothAddress:
+            (json['bluetoothAddress'] ?? json['BluetoothAddress'])?.toString(),
+        bluetoothName:
+            (json['bluetoothName'] ?? json['BluetoothName'])?.toString(),
+        lanHost: (json['lanHost'] ?? json['LanHost'])?.toString(),
+        lanPort: (json['lanPort'] as num?)?.toInt() ??
+            (json['LanPort'] as num?)?.toInt() ??
+            9100,
+        usbDeviceName:
+            (json['usbDeviceName'] ?? json['UsbDeviceName'])?.toString(),
+        feedBeforeCut: (json['feedBeforeCut'] as num?)?.toInt() ??
+            (json['FeedBeforeCut'] as num?)?.toInt() ??
+            8,
+        partialCut: _jsonBool(json['partialCut'] ?? json['PartialCut']),
+        openCashDrawer:
+            _jsonBool(json['openCashDrawer'] ?? json['OpenCashDrawer']),
+        openDrawerCashOnly: json['openDrawerCashOnly'] != false &&
+            json['OpenDrawerCashOnly'] != false,
+        beepOnPrint: _jsonBool(json['beepOnPrint'] ?? json['BeepOnPrint']),
+        isDefault: _jsonBool(json['isDefault'] ?? json['IsDefault']),
+        requiresAgent:
+            _jsonBool(json['requiresAgent'] ?? json['RequiresAgent']),
+        isDeviceLocal:
+            _jsonBool(json['isDeviceLocal'] ?? json['IsDeviceLocal']),
+        ownerDeviceId:
+            (json['ownerDeviceId'] ?? json['OwnerDeviceId'])?.toString(),
+        healthStatus:
+            (json['healthStatus'] ?? json['HealthStatus'])?.toString() ??
+                'Unknown',
+        lastSeenAt: json['lastSeenAt'] != null || json['LastSeenAt'] != null
+            ? DateTime.tryParse(
+                (json['lastSeenAt'] ?? json['LastSeenAt']).toString())
             : null,
-        lastErrorMessage: json['lastErrorMessage']?.toString(),
-        sortOrder: (json['sortOrder'] as num?)?.toInt() ?? 0,
-        isActive: json['isActive'] != false,
-        documentTypes: (json['documentTypes'] as List?)
+        lastErrorMessage:
+            (json['lastErrorMessage'] ?? json['LastErrorMessage'])?.toString(),
+        sortOrder: (json['sortOrder'] as num?)?.toInt() ??
+            (json['SortOrder'] as num?)?.toInt() ??
+            0,
+        isActive: json['isActive'] != false && json['IsActive'] != false,
+        documentTypes: (json['documentTypes'] as List? ??
+                    json['DocumentTypes'] as List?)
                 ?.map((e) => e.toString())
                 .toList() ??
             const [],
-        defaultCopies: (json['defaultCopies'] as num?)?.toInt() ?? 1,
+        defaultCopies: (json['defaultCopies'] as num?)?.toInt() ??
+            (json['DefaultCopies'] as num?)?.toInt() ??
+            1,
       );
 
   Map<String, dynamic> toSaveJson() => {

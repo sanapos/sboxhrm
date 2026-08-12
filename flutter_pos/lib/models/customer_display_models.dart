@@ -80,6 +80,56 @@ class CustomerDisplayPromoItem {
       );
 }
 
+/// Loại đầu ra màn phụ (thiết lập POS).
+enum CustomerDisplayTarget {
+  /// Sunmi T1 7″ — Presentation native (ảnh/chữ + VietQR), không FlutterEngine #2.
+  t1Native,
+  /// Android DisplayManager + Flutter UI đầy đủ (media/video) — nặng trên T1.
+  androidFlutter,
+  /// Cửa sổ trình duyệt / TV khác qua link viewerCode.
+  window,
+}
+
+extension CustomerDisplayTargetX on CustomerDisplayTarget {
+  String get wire => name;
+
+  String get labelVi {
+    switch (this) {
+      case CustomerDisplayTarget.t1Native:
+        return 'Sunmi T1 (DSKernel — bill text)';
+      case CustomerDisplayTarget.androidFlutter:
+        return 'Android Flutter (đầy đủ — media)';
+      case CustomerDisplayTarget.window:
+        return 'Window / trình duyệt (link máy khác)';
+    }
+  }
+
+  String get hintVi {
+    switch (this) {
+      case CustomerDisplayTarget.t1Native:
+        return 'T1 7″ qua Sunmi DSKernel (không phải Presentation) — bill text nhẹ';
+      case CustomerDisplayTarget.androidFlutter:
+        return 'Engine Flutter thứ 2 + video/ảnh — máy mạnh / màn phụ chuẩn Android';
+      case CustomerDisplayTarget.window:
+        return 'Không mở màn local — mở link trên TV/máy khác';
+    }
+  }
+
+  static CustomerDisplayTarget parse(String? raw) {
+    final s = (raw ?? '').trim().toLowerCase();
+    if (s == 't1native' || s == 't1' || s == 'sunmi_t1' || s == 'native') {
+      return CustomerDisplayTarget.t1Native;
+    }
+    if (s == 'window' || s == 'web' || s == 'browser') {
+      return CustomerDisplayTarget.window;
+    }
+    if (s == 'androidflutter' || s == 'android' || s == 'flutter') {
+      return CustomerDisplayTarget.androidFlutter;
+    }
+    return CustomerDisplayTarget.t1Native;
+  }
+}
+
 class CustomerDisplayState {
   const CustomerDisplayState({
     this.mode = CustomerDisplayMode.idle,
@@ -95,6 +145,7 @@ class CustomerDisplayState {
     this.storeName,
     this.idleSeconds = 8,
     this.updatedAtMs = 0,
+    this.paymentQrUrl,
   });
 
   final CustomerDisplayMode mode;
@@ -111,6 +162,8 @@ class CustomerDisplayState {
   /// Đồng bộ từ POS — engine phụ không có sell-settings.
   final int idleSeconds;
   final int updatedAtMs;
+  /// URL ảnh VietQR (img.vietqr.io…) — T1 native tải bitmap.
+  final String? paymentQrUrl;
 
   bool get isActive =>
       mode == CustomerDisplayMode.active &&
@@ -130,7 +183,9 @@ class CustomerDisplayState {
     String? storeName,
     int? idleSeconds,
     int? updatedAtMs,
+    String? paymentQrUrl,
     bool clearTable = false,
+    bool clearPaymentQr = false,
   }) {
     return CustomerDisplayState(
       mode: mode ?? this.mode,
@@ -146,6 +201,8 @@ class CustomerDisplayState {
       storeName: storeName ?? this.storeName,
       idleSeconds: idleSeconds ?? this.idleSeconds,
       updatedAtMs: updatedAtMs ?? this.updatedAtMs,
+      paymentQrUrl:
+          clearPaymentQr ? null : (paymentQrUrl ?? this.paymentQrUrl),
     );
   }
 
@@ -163,6 +220,8 @@ class CustomerDisplayState {
         'storeName': storeName,
         'idleSeconds': idleSeconds,
         'updatedAtMs': updatedAtMs,
+        if (paymentQrUrl != null && paymentQrUrl!.isNotEmpty)
+          'paymentQrUrl': paymentQrUrl,
       };
 
   factory CustomerDisplayState.fromJson(Map<String, dynamic> j) {
@@ -170,6 +229,7 @@ class CustomerDisplayState {
     final mode = modeRaw == 'active'
         ? CustomerDisplayMode.active
         : CustomerDisplayMode.idle;
+    final qr = (j['paymentQrUrl'] ?? j['PaymentQrUrl'] ?? '').toString().trim();
     return CustomerDisplayState(
       mode: mode,
       tableLabel: j['tableLabel']?.toString(),
@@ -191,6 +251,7 @@ class CustomerDisplayState {
       storeName: j['storeName']?.toString(),
       idleSeconds: (j['idleSeconds'] as num?)?.toInt().clamp(3, 60) ?? 8,
       updatedAtMs: (j['updatedAtMs'] as num?)?.toInt() ?? 0,
+      paymentQrUrl: qr.isEmpty ? null : qr,
     );
   }
 
@@ -220,6 +281,7 @@ class CustomerDisplayConfig {
     this.promoImageUrls = const [],
     this.autoOpenOnPos = false,
     this.viewerCode = '',
+    this.target = CustomerDisplayTarget.t1Native,
   });
 
   final bool enabled;
@@ -229,8 +291,10 @@ class CustomerDisplayConfig {
   /// Ảnh trình chiếu riêng (path stores/... hoặc URL http).
   final List<String> promoImageUrls;
   final bool autoOpenOnPos;
-  /// Mã mở link màn phụ trên máy khác: /#/customer-display?v=CODE
+  /// Mã mở link màn phụ trên máy khác: /customer-display?v=CODE
   final String viewerCode;
+  /// T1 native | Android Flutter | Window/browser.
+  final CustomerDisplayTarget target;
 
   static String newViewerCode() {
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -245,17 +309,19 @@ class CustomerDisplayConfig {
   }
 
   factory CustomerDisplayConfig.fromExtraJson(String? extraJson) {
+    // Không tự sinh mã mới ở đây — tránh lệch mã giữa máy thu ngân / link copy.
+    // CustomerDisplaySync / màn cài đặt sẽ gán + persist mã ổn định.
     if (extraJson == null || extraJson.trim().isEmpty) {
-      return CustomerDisplayConfig(viewerCode: newViewerCode());
+      return const CustomerDisplayConfig();
     }
     try {
       final root = jsonDecode(extraJson);
       if (root is! Map) {
-        return CustomerDisplayConfig(viewerCode: newViewerCode());
+        return const CustomerDisplayConfig();
       }
       final cd = root['customerDisplay'] ?? root['CustomerDisplay'];
       if (cd is! Map) {
-        return CustomerDisplayConfig(viewerCode: newViewerCode());
+        return const CustomerDisplayConfig();
       }
       final m = Map<String, dynamic>.from(cd);
       final videos = (m['promoVideoUrls'] as List?)
@@ -268,8 +334,9 @@ class CustomerDisplayConfig {
               .where((e) => e.isNotEmpty)
               .toList() ??
           const <String>[];
-      var code = (m['viewerCode'] ?? m['ViewerCode'] ?? '').toString().trim();
-      if (code.length < 4) code = newViewerCode();
+      final code = (m['viewerCode'] ?? m['ViewerCode'] ?? '').toString().trim();
+      final targetRaw =
+          (m['target'] ?? m['Target'] ?? m['displayTarget'] ?? '').toString();
       return CustomerDisplayConfig(
         enabled: m['enabled'] == true,
         idleSeconds: (m['idleSeconds'] as num?)?.toInt().clamp(3, 60) ?? 8,
@@ -277,10 +344,11 @@ class CustomerDisplayConfig {
         promoVideoUrls: videos,
         promoImageUrls: images,
         autoOpenOnPos: m['autoOpenOnPos'] == true,
-        viewerCode: code,
+        viewerCode: code.length >= 4 ? code : '',
+        target: CustomerDisplayTargetX.parse(targetRaw),
       );
     } catch (_) {
-      return CustomerDisplayConfig(viewerCode: newViewerCode());
+      return const CustomerDisplayConfig();
     }
   }
 
@@ -301,6 +369,7 @@ class CustomerDisplayConfig {
       'promoImageUrls': promoImageUrls,
       'autoOpenOnPos': autoOpenOnPos,
       'viewerCode': code,
+      'target': target.wire,
     };
     return jsonEncode(root);
   }
@@ -313,6 +382,7 @@ class CustomerDisplayConfig {
     List<String>? promoImageUrls,
     bool? autoOpenOnPos,
     String? viewerCode,
+    CustomerDisplayTarget? target,
   }) {
     return CustomerDisplayConfig(
       enabled: enabled ?? this.enabled,
@@ -322,6 +392,7 @@ class CustomerDisplayConfig {
       promoImageUrls: promoImageUrls ?? this.promoImageUrls,
       autoOpenOnPos: autoOpenOnPos ?? this.autoOpenOnPos,
       viewerCode: viewerCode ?? this.viewerCode,
+      target: target ?? this.target,
     );
   }
 

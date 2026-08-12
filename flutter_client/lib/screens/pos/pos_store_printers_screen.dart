@@ -176,9 +176,14 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
     });
   }
 
-  /// Máy cloud cửa hàng (Agent) — A7 thu ngân cũng phải thấy toàn bộ list.
-  List<PosStorePrinter> get _cloudAgentPrinters =>
-      _printers.where((p) => !p.isDeviceLocal).toList();
+  /// Máy cloud / Agent — chỉ hiện khi có Agent đang nhận (kể cả LAN/WiFi).
+  List<PosStorePrinter> get _cloudAgentPrinters => _printers.where((p) {
+        if (!p.isCloudAgentPrinter) return false;
+        final covered = _onlineAgents.any((a) => a.coversPrinter(p.id));
+        final mine =
+            _agent.enabled && _agent.assignedPrinterIds.contains(p.id);
+        return covered || mine;
+      }).toList();
 
   /// Chỉ máy đang bật Print Agent mới được thêm/sửa/xóa máy in cloud cửa hàng.
   bool get _canManageCloudPrinters => _agent.enabled;
@@ -269,7 +274,10 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
       }
     } finally {
       if (mounted) setState(() => _loading = false);
-      if (mounted) unawaited(_loadOnlineAgents(silent: true));
+      if (mounted) {
+        await _loadOnlineAgents(silent: true);
+        unawaited(_purgeOrphanLocalCloudClones());
+      }
       unawaited(PosPrintOrchestrator.instance.refreshConfig(force: true));
       unawaited(_refreshPrinterReadiness());
     }
@@ -289,6 +297,34 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
     if (i >= 0) {
       _localPrinters[i] = next;
     }
+  }
+
+  /// Xóa máy cloud clone trùng máy nội bộ nhưng không còn được Agent nhận.
+  Future<void> _purgeOrphanLocalCloudClones() async {
+    if (_localPrinters.isEmpty || _printers.isEmpty) return;
+    final assigned = _agent.assignedPrinterIds.toSet();
+    final covered = <String>{};
+    for (final a in _onlineAgents) {
+      covered.addAll(a.printerIds);
+    }
+    final removeIds = <String>[];
+    for (final p in _printers) {
+      if (!p.isCloudAgentPrinter) continue;
+      if (assigned.contains(p.id) || covered.contains(p.id)) continue;
+      final matchLocal = _localPrinters.any((l) => _sameLocalConnection(p, l));
+      if (!matchLocal) continue;
+      removeIds.add(p.id);
+    }
+    if (removeIds.isEmpty) return;
+    for (final id in removeIds) {
+      try {
+        await _api.deletePosStorePrinter(id);
+      } catch (_) {}
+    }
+    if (!mounted) return;
+    setState(() {
+      _printers = _printers.where((p) => !removeIds.contains(p.id)).toList();
+    });
   }
 
   /// Chỉ probe/report máy gán Agent trên thiết bị này — A7 thu ngân không
@@ -818,7 +854,10 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
   Future<String?> _ensureCloudPrinterFromLocal(PosLocalPrinterProfile local) async {
     final existing = _findAgentPrinterForLocal(local);
     if (existing != null) {
-      await _linkLocalToStorePrinter(local, existing.id);
+      // Giữ storePrinterId device-local (gán món) — không ghi đè bằng id cloud Agent.
+      if ((local.storePrinterId ?? '').trim().isEmpty) {
+        await _linkLocalToStorePrinter(local, existing.id);
+      }
       return existing.id;
     }
 
@@ -860,7 +899,9 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
         setState(() {
           _printers = [..._printers, created];
         });
-        await _linkLocalToStorePrinter(local, created.id);
+        if ((local.storePrinterId ?? '').trim().isEmpty) {
+          await _linkLocalToStorePrinter(local, created.id);
+        }
         return created.id;
       }
     }
@@ -885,10 +926,25 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
         if (storeId == null || storeId.isEmpty) return;
         if (!ids.contains(storeId)) ids.add(storeId);
       } else {
-        // Gỡ mọi bản cloud trùng kết nối (Sunmi/USB trùng tên dễ có nhiều id).
+        // Gỡ chip + xóa bản cloud clone (tránh A7 vẫn thấy đủ list máy nội bộ A6).
+        final removeIds = <String>[];
         for (final p in _printers) {
-          if (p.isDeviceLocal) continue;
-          if (_sameLocalConnection(p, local)) ids.remove(p.id);
+          if (p.isDeviceLocal || !p.requiresAgent) continue;
+          if (_sameLocalConnection(p, local)) {
+            ids.remove(p.id);
+            removeIds.add(p.id);
+          }
+        }
+        for (final id in removeIds) {
+          try {
+            await _api.deletePosStorePrinter(id);
+          } catch (_) {}
+        }
+        if (removeIds.isNotEmpty && mounted) {
+          setState(() {
+            _printers =
+                _printers.where((p) => !removeIds.contains(p.id)).toList();
+          });
         }
       }
       _agent = _agent.copyWith(
@@ -1310,7 +1366,7 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
     final agentTitle = _agentNameForPrinter(p.id);
     final mine =
         _agent.enabled && _agent.assignedPrinterIds.contains(p.id);
-    final ready = locallyReady || viaAgent || (p.isOnline && !locallyLost);
+    final ready = locallyReady || viaAgent;
     final statusColor = ready
         ? Colors.green
         : (locallyLost || p.healthStatus == 'Offline')
@@ -1320,11 +1376,9 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
         ? 'Sẵn sàng · nội bộ'
         : viaAgent
             ? 'Online · Agent${agentTitle != null ? ' ($agentTitle)' : ''}'
-            : (p.isOnline
-                ? 'Online'
-                : (locallyLost || p.healthStatus == 'Offline'
-                    ? 'Mất kết nối'
-                    : 'Chưa có Agent'));
+            : (locallyLost || p.healthStatus == 'Offline'
+                ? 'Mất kết nối'
+                : 'Chưa có Agent');
     final isAgentCloud = !p.isDeviceLocal;
     final kind = p.isDeviceLocal
         ? 'Nội bộ'
@@ -1390,6 +1444,11 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
                     builder: (_) => PosPrinterManageProductsScreen(
                       printerId: p.id,
                       printerName: p.name,
+                      isLabel: p.isLabelPrinter,
+                      purpose: purposeFromFlags(
+                        isLabel: p.isLabelPrinter,
+                        documentTypes: p.documentTypes,
+                      ),
                     ),
                   ),
                 );

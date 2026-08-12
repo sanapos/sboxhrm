@@ -52,6 +52,8 @@ class PendingKitchenPrintJob {
     this.orderNo,
     this.errorMessage,
     this.attemptCount = 0,
+    this.printerId,
+    this.printerName,
     DateTime? createdAt,
     DateTime? sentAt,
   })  : createdAt = createdAt ?? DateTime.now(),
@@ -68,6 +70,10 @@ class PendingKitchenPrintJob {
   final DateTime createdAt;
   final DateTime sentAt;
 
+  /// Máy in đích khi lỗi một phần (fan-out nhiều máy). Null = chưa biết / cả bill.
+  final String? printerId;
+  final String? printerName;
+
   String get title => isCancel ? 'Phiếu hủy bếp' : 'Phiếu báo bếp';
 
   String get lineSummary {
@@ -79,6 +85,8 @@ class PendingKitchenPrintJob {
   PendingKitchenPrintJob copyWith({
     String? errorMessage,
     int? attemptCount,
+    String? printerId,
+    String? printerName,
   }) =>
       PendingKitchenPrintJob(
         id: id,
@@ -89,6 +97,8 @@ class PendingKitchenPrintJob {
         lines: lines,
         errorMessage: errorMessage ?? this.errorMessage,
         attemptCount: attemptCount ?? this.attemptCount,
+        printerId: printerId ?? this.printerId,
+        printerName: printerName ?? this.printerName,
         createdAt: createdAt,
         sentAt: sentAt,
       );
@@ -101,6 +111,8 @@ class PendingKitchenPrintJob {
         'orderNo': orderNo,
         'errorMessage': errorMessage,
         'attemptCount': attemptCount,
+        'printerId': printerId,
+        'printerName': printerName,
         'createdAt': createdAt.toIso8601String(),
         'sentAt': sentAt.toIso8601String(),
         'lines': lines
@@ -142,6 +154,8 @@ class PendingKitchenPrintJob {
       attemptCount: json['attemptCount'] is num
           ? (json['attemptCount'] as num).toInt()
           : int.tryParse('${json['attemptCount']}') ?? 0,
+      printerId: json['printerId']?.toString(),
+      printerName: json['printerName']?.toString(),
       createdAt: DateTime.tryParse('${json['createdAt']}') ?? DateTime.now(),
       sentAt: DateTime.tryParse('${json['sentAt']}') ?? DateTime.now(),
       lines: lines,

@@ -76,15 +76,25 @@ public class PosProduct : AuditableEntity<Guid>
     /// <summary>Thứ tự hiển thị trên menu bán hàng (nhỏ hơn = trước).</summary>
     public int SortOrder { get; set; }
 
-    /// <summary>Máy in mặc định cho mặt hàng (phiếu bếp/chế biến). Null = dùng máy in nhóm hàng.</summary>
+    /// <summary>Máy in mặc định cho mặt hàng (phiếu bếp/chế biến/kho). Null = dùng máy in nhóm hàng.</summary>
     public Guid? DefaultPrinterId { get; set; }
     public virtual PosStorePrinter? DefaultPrinter { get; set; }
+
+    /// <summary>Máy in tem mặc định (tem bếp/tem ly). Tách khỏi DefaultPrinterId để gán tem không đè gán phiếu bếp.</summary>
+    public Guid? DefaultLabelPrinterId { get; set; }
+    public virtual PosStorePrinter? DefaultLabelPrinter { get; set; }
 
     /// <summary>Thời hạn bảo hành (tháng) tính từ ngày bán. Null = không bảo hành.</summary>
     public int? WarrantyMonths { get; set; }
 
     /// <summary>Bắt buộc nhập seri máy khi bán.</summary>
     public bool RequiresSerial { get; set; }
+
+    /// <summary>
+    /// Cho phép số lượng thập phân khi bán / nhập / tồn kho (vd 0.5 kg).
+    /// Tắt = chỉ số nguyên. Không dùng cùng RequiresSerial.
+    /// </summary>
+    public bool AllowDecimalQty { get; set; }
 
     /// <summary>Theo dõi lô / HSD khi nhập hàng.</summary>
     public bool TrackExpiry { get; set; }

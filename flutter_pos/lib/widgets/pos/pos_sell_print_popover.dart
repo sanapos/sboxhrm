@@ -96,22 +96,6 @@ Future<PosSellPrintSettings?> showPosSellPrintPopover(
                           ),
                           const SizedBox(height: 8),
                           _toggleRow(
-                            'In tem ly khi thanh toán',
-                            settings.printCupOnCheckout,
-                            (v) => setLocal(() {
-                              settings = settings.copyWith(
-                                printCupOnCheckout: v,
-                                // Bật tem TT: nếu đang tắt tem → chuyển sang manual để có nút Tem ly.
-                                cupLabelPrintMode: v &&
-                                        settings.cupLabelPrintMode ==
-                                            PosCupLabelPrintMode.off
-                                    ? PosCupLabelPrintMode.manual
-                                    : settings.cupLabelPrintMode,
-                              );
-                            }),
-                          ),
-                          const SizedBox(height: 8),
-                          _toggleRow(
                             'Gộp hàng cùng loại',
                             settings.mergeSameItems,
                             (v) =>
@@ -149,6 +133,11 @@ Future<PosSellPrintSettings?> showPosSellPrintPopover(
                           const SizedBox(height: 12),
                           Text(tr('Tem dán ly (trà sữa)'),
                               style: TextStyle(fontSize: 13, color: PosTheme.textSecondary)),
+                          const SizedBox(height: 4),
+                          Text(
+                            tr('Chọn một chế độ — không cần công tắc riêng.'),
+                            style: TextStyle(fontSize: 11, color: PosTheme.textSecondary),
+                          ),
                           const SizedBox(height: 6),
                           DropdownButtonFormField<PosCupLabelPrintMode>(
                             value: settings.cupLabelPrintMode,
@@ -172,10 +161,57 @@ Future<PosSellPrintSettings?> showPosSellPrintPopover(
                                 () => settings = settings.copyWith(
                                   cupLabelPrintMode: v,
                                   printCupOnCheckout:
-                                      v == PosCupLabelPrintMode.onCheckout
-                                          ? true
-                                          : settings.printCupOnCheckout,
+                                      v == PosCupLabelPrintMode.onCheckout,
                                 ),
+                              );
+                            },
+                          ),
+                          if (settings.cupLabelPrintMode.enabled) ...[
+                            const SizedBox(height: 8),
+                            SwitchListTile(
+                              contentPadding: EdgeInsets.zero,
+                              title: Text(
+                                tr('In tem khi Báo bếp'),
+                                style: const TextStyle(fontSize: 13),
+                              ),
+                              subtitle: Text(
+                                tr('Mặc định bật'),
+                                style: const TextStyle(fontSize: 11),
+                              ),
+                              value: settings.printCupOnKitchenNotify,
+                              dense: true,
+                              onChanged: (v) => setLocal(
+                                () => settings = settings.copyWith(
+                                  printCupOnKitchenNotify: v,
+                                ),
+                              ),
+                            ),
+                          ],
+                          const SizedBox(height: 12),
+                          Text(tr('Phiếu báo bếp'),
+                              style: TextStyle(fontSize: 13, color: PosTheme.textSecondary)),
+                          const SizedBox(height: 6),
+                          DropdownButtonFormField<PosKitchenSlipPrintMode>(
+                            value: settings.kitchenSlipPrintMode,
+                            decoration: InputDecoration(
+                              isDense: true,
+                              contentPadding:
+                                  const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
+                            ),
+                            items: PosKitchenSlipPrintMode.values
+                                .map(
+                                  (m) => DropdownMenuItem(
+                                    value: m,
+                                    child: Text(tr(m.label), overflow: TextOverflow.ellipsis),
+                                  ),
+                                )
+                                .toList(),
+                            onChanged: (v) {
+                              if (v == null) return;
+                              setLocal(
+                                () => settings =
+                                    settings.copyWith(kitchenSlipPrintMode: v),
                               );
                             },
                           ),
@@ -226,7 +262,7 @@ Future<PosSellPrintSettings?> showPosSellPrintPopover(
                                   (t) => DropdownMenuItem(
                                     value: t.id,
                                     child: Text(
-                                      tr('${t.name} (${PosPrintPaperSizes.labels[t.paperSize] ?? t.paperSize})'),
+                                      tr('${t.name} (${PosPrintPaperSizes.displayLabel(t.paperSize)})'),
                                       overflow: TextOverflow.ellipsis,
                                     ),
                                   ),
@@ -260,7 +296,7 @@ Future<PosSellPrintSettings?> showPosSellPrintPopover(
                                   (t) => DropdownMenuItem(
                                     value: t.id,
                                     child: Text(
-                                      tr('${t.name} (${PosPrintPaperSizes.labels[t.paperSize] ?? t.paperSize})'),
+                                      tr('${t.name} (${PosPrintPaperSizes.displayLabel(t.paperSize)})'),
                                       overflow: TextOverflow.ellipsis,
                                     ),
                                   ),
@@ -280,7 +316,7 @@ Future<PosSellPrintSettings?> showPosSellPrintPopover(
                           ],
                           if (selected != null) ...[
                             const SizedBox(height: 4),
-                            Text(tr('Khổ: ${PosPrintPaperSizes.labels[selected.paperSize] ?? selected.paperSize}'),
+                            Text(tr('Khổ: ${PosPrintPaperSizes.displayLabel(selected.paperSize)}'),
                               style: const TextStyle(fontSize: 11, color: PosTheme.textSecondary),
                             ),
                           ],

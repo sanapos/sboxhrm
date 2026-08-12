@@ -1,7 +1,6 @@
 plugins {
     id("com.android.application")
     id("kotlin-android")
-    // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
     id("com.google.gms.google-services")
 }
@@ -38,11 +37,14 @@ android {
         versionName = flutter.versionName
     }
 
+    // Flavors android6/android12 (applicationIdSuffix) temporarily disabled so
+    // release APK installs as production package sbox.sana.vn (A7 C20Lite / OTA).
+    // Re-enable when dual-package sideload is intentional.
+
     buildTypes {
         release {
             signingConfig = signingConfigs.getByName("release")
             ndk {
-                // Required for Play Store AAB + Flutter release bundle validation.
                 debugSymbolLevel = "SYMBOL_TABLE"
             }
         }

@@ -1,4 +1,4 @@
-/// POS Hàng hóa — models & enums (KiotViet-style).
+﻿/// POS Hàng hóa — models & enums (KiotViet-style).
 
 import '../utils/api_datetime.dart';
 
@@ -385,6 +385,7 @@ class PosProduct {
   final double? sellableQty;
   final int? warrantyMonths;
   final bool requiresSerial;
+  final bool allowDecimalQty;
   final bool trackExpiry;
   final int expiryWarningDays;
   final String serviceBillingMode;
@@ -448,6 +449,7 @@ class PosProduct {
     this.sellableQty,
     this.warrantyMonths,
     this.requiresSerial = false,
+    this.allowDecimalQty = false,
     this.trackExpiry = false,
     this.expiryWarningDays = 30,
     this.serviceBillingMode = 'Flat',
@@ -574,6 +576,8 @@ class PosProduct {
           : null,
       requiresSerial:
           json['requiresSerial'] == true || json['RequiresSerial'] == true,
+      allowDecimalQty:
+          json['allowDecimalQty'] == true || json['AllowDecimalQty'] == true,
       trackExpiry: json['trackExpiry'] == true || json['TrackExpiry'] == true,
       expiryWarningDays:
           (json['expiryWarningDays'] ?? json['ExpiryWarningDays'] as num?)?.toInt() ?? 30,
@@ -670,6 +674,7 @@ class PosProduct {
       if (attributes != null) 'attributes': attributes,
       if (warrantyMonths != null && warrantyMonths! > 0) 'warrantyMonths': warrantyMonths,
       if (requiresSerial) 'requiresSerial': true,
+      if (allowDecimalQty) 'allowDecimalQty': true,
       if (trackExpiry) 'trackExpiry': true,
       if (trackExpiry) 'expiryWarningDays': expiryWarningDays,
       'serviceBillingMode': serviceBillingMode,
@@ -759,6 +764,10 @@ class PosProduct {
       isDirectSale: isDirectSale ?? this.isDirectSale,
       isFavorite: isFavorite ?? this.isFavorite,
       sortOrder: sortOrder ?? this.sortOrder,
+      requiresSerial: this.requiresSerial,
+      allowDecimalQty: this.allowDecimalQty,
+      trackExpiry: this.trackExpiry,
+      warrantyMonths: this.warrantyMonths,
       units: units ?? this.units,
       variants: variants ?? this.variants,
       comboLines: comboLines ?? this.comboLines,
@@ -796,6 +805,8 @@ class PosProduct {
         'baseUnitName': baseUnitName,
         'isDirectSale': isDirectSale,
         'isFavorite': isFavorite,
+        'requiresSerial': requiresSerial,
+        'allowDecimalQty': allowDecimalQty,
         'variantCount': variantCount,
         'saleQuickNotes': saleQuickNotes,
         'isTopping': isTopping,

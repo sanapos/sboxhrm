@@ -28,6 +28,7 @@ public static class PosPackageDefaults
         "PosSaleOrders",
         "PosSaleReturns",
         "PosSalesReport",
+        "HkdBooks",
         "PosCustomers",
         "PosBooking",
         "PosWarranty",

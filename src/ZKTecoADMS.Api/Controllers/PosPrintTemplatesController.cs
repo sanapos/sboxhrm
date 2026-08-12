@@ -92,7 +92,7 @@ public class PosPrintTemplatesController(ZKTecoDbContext dbContext) : Authentica
         var presets = PosPrintTemplateDefaults.SizesForDocument(documentType)
             .Select(s => new PrintTemplatePresetDto(
                 s.ToString(),
-                PosPrintTemplateDefaults.TemplateName(s),
+                PosPrintTemplateDefaults.TemplateName(documentType, s),
                 PosPrintTemplateDefaults.BuildHtml(documentType, s)))
             .ToList();
         return Ok(AppResponse<object>.Success(presets));
@@ -142,7 +142,8 @@ public class PosPrintTemplatesController(ZKTecoDbContext dbContext) : Authentica
             return BadRequest(AppResponse<object>.Fail("Nội dung mẫu in không được trống"));
 
         var storeId = RequiredStoreId;
-        var entity = await dbContext.PosPrintTemplates
+        // DbContext mặc định NoTracking — bắt buộc AsTracking để SaveChanges ghi được.
+        var entity = await dbContext.PosPrintTemplates.AsTracking()
             .FirstOrDefaultAsync(t => t.Id == id && t.StoreId == storeId && t.Deleted == null);
         if (entity == null) return NotFound(AppResponse<object>.Fail("Không tìm thấy mẫu in"));
 
@@ -168,7 +169,7 @@ public class PosPrintTemplatesController(ZKTecoDbContext dbContext) : Authentica
     public async Task<ActionResult<AppResponse<object>>> Delete(Guid id)
     {
         var storeId = RequiredStoreId;
-        var entity = await dbContext.PosPrintTemplates
+        var entity = await dbContext.PosPrintTemplates.AsTracking()
             .FirstOrDefaultAsync(t => t.Id == id && t.StoreId == storeId && t.Deleted == null);
         if (entity == null) return NotFound(AppResponse<object>.Fail("Không tìm thấy mẫu in"));
 
@@ -192,13 +193,22 @@ public class PosPrintTemplatesController(ZKTecoDbContext dbContext) : Authentica
 
     async Task<int> EnsureDefaultsAsync(Guid storeId, PosPrintDocumentType documentType, bool force = false)
     {
-        var exists = await dbContext.PosPrintTemplates.AnyAsync(t =>
-            t.StoreId == storeId && t.DocumentType == documentType && t.Deleted == null);
-        if (exists && !force) return 0;
+        // Tem chỉ hợp lệ với khổ label — ẩn mẫu K58/K80/A5/A4 cũ (NoTracking → AsTracking).
+        if (documentType is PosPrintDocumentType.KitchenLabel or PosPrintDocumentType.BarcodeLabel)
+            await RetireInvalidLabelPaperSizesAsync(storeId, documentType);
+
+        var sizes = PosPrintTemplateDefaults.SizesForDocument(documentType);
+        var existingSizes = await dbContext.PosPrintTemplates.AsNoTracking()
+            .Where(t => t.StoreId == storeId && t.DocumentType == documentType && t.Deleted == null && t.IsActive)
+            .Select(t => t.PaperSize)
+            .ToListAsync();
+
+        if (!force && sizes.All(existingSizes.Contains))
+            return 0;
 
         if (force)
         {
-            var old = await dbContext.PosPrintTemplates
+            var old = await dbContext.PosPrintTemplates.AsTracking()
                 .Where(t => t.StoreId == storeId && t.DocumentType == documentType && t.Deleted == null)
                 .ToListAsync();
             foreach (var t in old)
@@ -207,27 +217,30 @@ public class PosPrintTemplatesController(ZKTecoDbContext dbContext) : Authentica
                 t.IsActive = false;
                 t.IsDefault = false;
             }
+            existingSizes = [];
         }
 
         var now = DateTime.UtcNow;
-        var sort = 0;
+        var sort = existingSizes.Count;
         var created = 0;
-        var sizes = PosPrintTemplateDefaults.SizesForDocument(documentType);
         var defaultSize = documentType is PosPrintDocumentType.BarcodeLabel
             or PosPrintDocumentType.KitchenLabel
             ? PosPrintPaperSize.Label50x30
             : PosPrintPaperSize.K80;
+
         foreach (var size in sizes)
         {
+            if (!force && existingSizes.Contains(size)) continue;
+
             dbContext.PosPrintTemplates.Add(new PosPrintTemplate
             {
                 Id = Guid.NewGuid(),
                 StoreId = storeId,
-                Name = PosPrintTemplateDefaults.TemplateName(size),
+                Name = PosPrintTemplateDefaults.TemplateName(documentType, size),
                 DocumentType = documentType,
                 PaperSize = size,
                 HtmlContent = PosPrintTemplateDefaults.BuildHtml(documentType, size),
-                IsDefault = size == defaultSize,
+                IsDefault = size == defaultSize && (force || !existingSizes.Contains(defaultSize)),
                 IsActive = true,
                 SortOrder = sort++,
                 CreatedAt = now,
@@ -236,14 +249,38 @@ public class PosPrintTemplatesController(ZKTecoDbContext dbContext) : Authentica
             created++;
         }
 
-        if (created > 0)
+        if (created > 0 || force)
             await dbContext.SaveChangesAsync();
         return created;
     }
 
+    async Task RetireInvalidLabelPaperSizesAsync(Guid storeId, PosPrintDocumentType documentType)
+    {
+        var allowed = PosPrintTemplateDefaults.SizesForDocument(documentType).ToList();
+        var invalid = await dbContext.PosPrintTemplates.AsTracking()
+            .Where(t => t.StoreId == storeId
+                        && t.DocumentType == documentType
+                        && t.Deleted == null
+                        && t.IsActive
+                        && !allowed.Contains(t.PaperSize))
+            .ToListAsync();
+        if (invalid.Count == 0) return;
+
+        var now = DateTime.UtcNow;
+        foreach (var t in invalid)
+        {
+            t.Deleted = now;
+            t.IsActive = false;
+            t.IsDefault = false;
+            t.UpdatedAt = now;
+            t.UpdatedBy = "system";
+        }
+        await dbContext.SaveChangesAsync();
+    }
+
     async Task ClearDefaultAsync(Guid storeId, PosPrintDocumentType docType, Guid? exceptId)
     {
-        var q = dbContext.PosPrintTemplates.Where(t =>
+        var q = dbContext.PosPrintTemplates.AsTracking().Where(t =>
             t.StoreId == storeId && t.DocumentType == docType && t.IsDefault && t.Deleted == null);
         if (exceptId.HasValue)
             q = q.Where(t => t.Id != exceptId.Value);

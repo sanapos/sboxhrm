@@ -66,6 +66,16 @@ public class PosStorePrinter : AuditableEntity<Guid>
     /// <summary>BT/USB: cần Print Agent. LAN: in trực tiếp.</summary>
     public bool RequiresAgent { get; set; }
 
+    /// <summary>
+    /// Máy in nội bộ trên thiết bị POS (không phải agent cloud).
+    /// Vẫn nằm trong danh sách cửa hàng để gán món dùng chung.
+    /// </summary>
+    public bool IsDeviceLocal { get; set; }
+
+    /// <summary>DeviceId máy POS sở hữu máy in nội bộ (PosDeviceIdentity).</summary>
+    [MaxLength(64)]
+    public string? OwnerDeviceId { get; set; }
+
     public int SortOrder { get; set; }
 
     public virtual ICollection<PosPrinterDocumentRoute> DocumentRoutes { get; set; } = [];

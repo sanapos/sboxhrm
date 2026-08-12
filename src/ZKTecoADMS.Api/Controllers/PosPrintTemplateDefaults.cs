@@ -26,6 +26,42 @@ public static class PosPrintTemplateDefaults
         _ => "CHỨNG TỪ",
     };
 
+    public static string TemplateName(PosPrintDocumentType type, PosPrintPaperSize size, int variant = 1)
+    {
+        var doc = type switch
+        {
+            PosPrintDocumentType.SaleInvoice => "Hóa đơn bán hàng",
+            PosPrintDocumentType.SaleOrder => "Đặt hàng",
+            PosPrintDocumentType.Delivery => "Giao hàng",
+            PosPrintDocumentType.SaleReturn => "Trả hàng",
+            PosPrintDocumentType.SaleExchange => "Đổi trả hàng",
+            PosPrintDocumentType.PurchaseOrder => "Đặt hàng nhập",
+            PosPrintDocumentType.PurchaseReceipt => "Nhập hàng",
+            PosPrintDocumentType.PurchaseReturn => "Trả hàng nhập",
+            PosPrintDocumentType.StockTransfer => "Chuyển hàng",
+            PosPrintDocumentType.StockIssue => "Xuất kho",
+            PosPrintDocumentType.KitchenSlip => "Báo chế biến",
+            PosPrintDocumentType.KitchenVoid => "Hủy bếp",
+            PosPrintDocumentType.BarcodeLabel => "Tem sản phẩm",
+            PosPrintDocumentType.KitchenLabel => "Tem ly / tem bếp",
+            PosPrintDocumentType.CashReceipt => "Phiếu thu",
+            PosPrintDocumentType.CashPayment => "Phiếu chi",
+            _ => "Chứng từ",
+        };
+        var paper = size switch
+        {
+            PosPrintPaperSize.K58 => "K58",
+            PosPrintPaperSize.K80 => "K80",
+            PosPrintPaperSize.A5 => "A5",
+            PosPrintPaperSize.A4 => "A4",
+            PosPrintPaperSize.Label50x30 => "50×30",
+            PosPrintPaperSize.Label40x30 => "40×30",
+            _ => size.ToString(),
+        };
+        return $"{doc} {variant} ({paper})";
+    }
+
+    [Obsolete("Use TemplateName(type, size, variant)")]
     public static string TemplateName(PosPrintPaperSize size, int variant = 1) =>
         size switch
         {
@@ -61,6 +97,8 @@ public static class PosPrintTemplateDefaults
             return BuildProductLabelHtml(paperSize);
         if (docType == PosPrintDocumentType.KitchenLabel)
             return BuildKitchenLabelHtml(paperSize);
+        if (docType is PosPrintDocumentType.KitchenSlip or PosPrintDocumentType.KitchenVoid)
+            return BuildKitchenSlipHtml(title, paperSize, isCancel: docType == PosPrintDocumentType.KitchenVoid);
         return paperSize is PosPrintPaperSize.K58 or PosPrintPaperSize.K80
             ? BuildThermalHtml(title, paperSize)
             : BuildSheetHtml(title, paperSize);
@@ -103,6 +141,33 @@ public static class PosPrintTemplateDefaults
             "<div>{Ghi_Chu}</div>" +
             "<div>SL: <b>{So_Luong}</b> {Don_Vi_Tinh}</div>" +
             "<div style=\"margin-top:4px;border-top:1px dashed #999\"></div>" +
+            "</div>";
+    }
+
+    static string BuildKitchenSlipHtml(string title, PosPrintPaperSize size, bool isCancel)
+    {
+        var width = size == PosPrintPaperSize.K58 ? "58mm" : "80mm";
+        var fs = size == PosPrintPaperSize.K58 ? "12px" : "13px";
+        var titleFs = size == PosPrintPaperSize.K58 ? "16px" : "18px";
+        var badge = isCancel ? "*** PHIẾU HỦY ***" : "*** BÁO CHẾ BIẾN ***";
+        return
+            "<div style=\"width:" + width +
+            ";max-width:100%;margin:0 auto;font-family:Arial,sans-serif;font-size:" + fs + ";color:#000\">" +
+            "<div style=\"text-align:center;font-weight:bold;font-size:" + titleFs + "\">{Ten_Ban}</div>" +
+            "<div style=\"text-align:center;font-weight:bold;margin:4px 0\">" + badge + "</div>" +
+            "<div style=\"margin:6px 0;border-top:1px dashed #999\"></div>" +
+            "<div><b>Mã HĐ:</b> {Ma_Don_Hang}</div>" +
+            "<div><b>NV:</b> {Nguoi_Ban}</div>" +
+            "<div><b>Ngày:</b> {Ngay} {Gio}</div>" +
+            "<div style=\"margin:6px 0;border-top:1px dashed #999\"></div>" +
+            "<!--BEGIN_ITEMS-->" +
+            "<div style=\"margin-bottom:8px\">" +
+            "<div style=\"font-weight:bold;font-size:14px\">{Ten_Hang_Hoa}</div>" +
+            "<div>SL: <b>{So_Luong}</b> {Don_Vi_Tinh}</div>" +
+            "<div style=\"font-style:italic\">{Ghi_Chu}</div>" +
+            "</div><!--END_ITEMS-->" +
+            "<div style=\"margin:6px 0;border-top:1px dashed #999\"></div>" +
+            "<div style=\"text-align:center;font-weight:bold\">— Hết —</div>" +
             "</div>";
     }
 

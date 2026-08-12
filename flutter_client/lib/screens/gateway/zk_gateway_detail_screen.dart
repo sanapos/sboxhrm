@@ -213,13 +213,6 @@ class _ZkGatewayDetailScreenState extends State<ZkGatewayDetailScreen> {
             onPressed: () => Navigator.pop(ctx),
             child: Text(tr('Đã hiểu')),
           ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              _openPortal();
-            },
-            child: Text(tr('Mở trang web')),
-          ),
         ],
       ),
     );
@@ -488,6 +481,255 @@ class _ZkGatewayDetailScreenState extends State<ZkGatewayDetailScreen> {
     await _refresh(silent: true);
   }
 
+  /// Reset cấu hình gateway (ESP): xóa NVS → WiFi, IP máy chấm công,
+  /// mật khẩu portal. Gateway reboot về AP mode (SBOX-Gateway-XXXX).
+  /// KHÔNG xóa dữ liệu trên máy chấm công.
+  /// 2 lớp confirm để tránh bấm nhầm.
+  /// Lớp 2 phải gõ chính xác "RESET" (giống portal web).
+  Future<void> _factoryResetEsp() async {
+    if (_busy) return;
+
+    // Lớp 1 - cảnh báo chung
+    final ok1 = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(tr('Reset cấu hình mạch ESP')),
+        content: SingleChildScrollView(
+          child: Text(
+            tr(
+              'Mạch ESP gateway sẽ bị xóa cấu hình:\n'
+              '• Mạng WiFi đang kết nối\n'
+              '• Địa chỉ IP máy chấm công\n'
+              '• Mật khẩu cổng thông tin (nếu có)\n\n'
+              'Sau khi reset, mạch phát sóng SBOX-Gateway-XXXX\n'
+              '(mật khẩu sbox12345). Dùng WiFi đó để mở 192.168.4.1 '
+              'hoặc bấm Thêm gateway trong app.\n\n'
+              '⚠️ Máy chấm công KHÔNG bị ảnh hưởng — log + nhân viên '
+              'vẫn còn trên máy và trên sboxhrm.',
+            ),
+            style: const TextStyle(fontSize: 13, height: 1.45),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(tr('Huỷ')),
+          ),
+          TextButton(
+            style: TextButton.styleFrom(foregroundColor: const Color(0xFFDC2626)),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(tr('Tôi đã hiểu, tiếp tục')),
+          ),
+        ],
+      ),
+    );
+    if (ok1 != true || !mounted) return;
+
+    // Lớp 2 - gõ RESET để xác nhận
+    final ctrl = TextEditingController();
+    final ok2 = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        title: Text(tr('Xác nhận lần cuối')),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              tr('Gõ RESET (chữ in hoa) để xác nhận reset cấu hình gateway:'),
+              style: const TextStyle(fontSize: 13, height: 1.35),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: ctrl,
+              autofocus: true,
+              decoration: InputDecoration(
+                labelText: 'RESET',
+                border: const OutlineInputBorder(),
+                errorText: ctrl.text.trim() != 'RESET' && ctrl.text.isNotEmpty
+                    ? tr('Phải gõ đúng RESET')
+                    : null,
+              ),
+              onChanged: (_) {
+                if (ctx.mounted) (ctx as Element).markNeedsBuild();
+              },
+              onSubmitted: (v) {
+                if (v.trim() == 'RESET') Navigator.pop(ctx, true);
+              },
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(tr('Huỷ')),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFDC2626),
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () {
+              if (ctrl.text.trim() != 'RESET') return;
+              Navigator.pop(ctx, true);
+            },
+            child: Text(tr('Reset gateway')),
+          ),
+        ],
+      ),
+    );
+    if (ok2 != true || !mounted) return;
+
+    setState(() => _busy = true);
+    try {
+      await _client.runAction(_info.ip, 'factory_reset');
+      if (!mounted) return;
+      appNotification.showSuccess(
+        title: tr('Đã reset cấu hình mạch ESP'),
+        message: tr(
+          'Mạch đang reboot về chế độ cấu hình. '
+          'Nối điện thoại vào WiFi SBOX-Gateway-XXXX (mật khẩu sbox12345), '
+          'rồi bấm Thêm gateway để cấu hình lại. '
+          'Dữ liệu trên máy chấm công không bị xóa.',
+        ),
+      );
+      // Sau reset, gateway ngắt LAN → dừng timer và về danh sách.
+      _timer?.cancel();
+      if (mounted) Navigator.of(context).pop();
+    } catch (e) {
+      if (!mounted) return;
+      _notifyGatewayError(e, fallbackTitle: 'Reset thất bại');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  /// Khôi phục xuất xưởng MÁY CHẤM CÔNG: xóa sạch log + nhân viên + vân tay
+  /// + khuôn mặt + thẻ trên máy ZK (gọi CLEAR_DATA qua ESP).
+  /// Đây KHÔNG phải reset ESP — ESP vẫn chạy bình thường, WiFi/IP máy giữ nguyên.
+  /// 2 lớp confirm để tránh bấm nhầm (mất toàn bộ dữ liệu trên máy).
+  /// Lớp 2 phải gõ chính xác "RESET" (giống portal web).
+  Future<void> _factoryResetDevice() async {
+    if (_busy) return;
+
+    final users = _status?.users ?? 0;
+    final records = _status?.records ?? 0;
+
+    // Lớp 1 - cảnh báo chung
+    final ok1 = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(tr('Khôi phục xuất xưởng máy ZK')),
+        content: SingleChildScrollView(
+          child: Text(
+            tr(
+              'Máy chấm công sẽ bị XÓA SẠCH:\n'
+              '• Toàn bộ log chấm công ($records bản ghi)\n'
+              '• Toàn bộ nhân viên + vân tay + khuôn mặt + thẻ ($users người)\n'
+              '• Cấu hình riêng của máy (mật khẩu máy, menu, ...)\n\n'
+              'Sau khi reset:\n'
+              '• Mạch ESP vẫn hoạt động bình thường (WiFi, IP máy giữ nguyên).\n'
+              '• Máy chấm công restart và cần đăng ký lại nhân viên từ đầu.\n'
+              '• Dữ liệu chấm công trên sboxhrm vẫn giữ nguyên.\n\n'
+              '⚠️ Thao tác này KHÔNG thể hoàn tác. '
+              'Không nhầm với “Reset cấu hình mạch ESP”.',
+            ),
+            style: const TextStyle(fontSize: 13, height: 1.45),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(tr('Huỷ')),
+          ),
+          TextButton(
+            style: TextButton.styleFrom(foregroundColor: const Color(0xFFDC2626)),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(tr('Tôi đã hiểu, tiếp tục')),
+          ),
+        ],
+      ),
+    );
+    if (ok1 != true || !mounted) return;
+
+    // Lớp 2 - gõ RESET để xác nhận (giống portal web)
+    final ctrl = TextEditingController();
+    final ok2 = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        title: Text(tr('Xác nhận lần cuối')),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              tr('Gõ RESET (chữ in hoa) để xác nhận xóa toàn bộ dữ liệu '
+                  'trên máy chấm công:'),
+              style: const TextStyle(fontSize: 13, height: 1.35),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: ctrl,
+              autofocus: true,
+              decoration: InputDecoration(
+                labelText: 'RESET',
+                border: const OutlineInputBorder(),
+                errorText: ctrl.text.trim() != 'RESET' && ctrl.text.isNotEmpty
+                    ? tr('Phải gõ đúng RESET')
+                    : null,
+              ),
+              onChanged: (_) {
+                if (ctx.mounted) (ctx as Element).markNeedsBuild();
+              },
+              onSubmitted: (v) {
+                if (v.trim() == 'RESET') Navigator.pop(ctx, true);
+              },
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(tr('Huỷ')),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFDC2626),
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () {
+              if (ctrl.text.trim() != 'RESET') return;
+              Navigator.pop(ctx, true);
+            },
+            child: Text(tr('Xóa sạch máy chấm công')),
+          ),
+        ],
+      ),
+    );
+    if (ok2 != true || !mounted) return;
+
+    setState(() => _busy = true);
+    try {
+      final msg = await _client.deviceControl(_info.ip, action: 'factory_reset');
+      if (!mounted) return;
+      appNotification.showSuccess(
+        title: tr('Đã xóa sạch máy chấm công'),
+        message: msg.isNotEmpty ? msg : tr('Máy đang khởi động lại...'),
+      );
+      // Máy restart → ESP sẽ tự identify lại, không cần stop timer
+      await Future.delayed(const Duration(seconds: 5));
+      if (!mounted) return;
+      await _refresh();
+    } catch (e) {
+      if (!mounted) return;
+      _notifyGatewayError(e, fallbackTitle: 'Xóa thất bại');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   Future<bool> _confirm(String what) async {
     final ok = await showDialog<bool>(
       context: context,
@@ -706,6 +948,9 @@ class _ZkGatewayDetailScreenState extends State<ZkGatewayDetailScreen> {
   String get _portalIp =>
       (_status?.wifiIp.isNotEmpty == true) ? _status!.wifiIp : _info.ip;
 
+  // Lưu helper mở portal web (chỉ dùng nội bộ kỹ thuật khi cần debug nâng cao).
+  // Bỏ khỏi UI người dùng cuối; có thể gọi lại từ menu ẩn nếu cần trong tương lai.
+  // ignore: unused_element
   Future<void> _openPortal({bool useHost = false}) async {
     final url = useHost
         ? ZkGatewayClient.portalUrl
@@ -721,6 +966,7 @@ class _ZkGatewayDetailScreenState extends State<ZkGatewayDetailScreen> {
     }
   }
 
+  // ignore: unused_element
   Future<void> _copyPortalLink() async {
     final url = ZkGatewayClient.portalUrlForIp(_portalIp);
     await Clipboard.setData(ClipboardData(text: url));
@@ -839,12 +1085,6 @@ class _ZkGatewayDetailScreenState extends State<ZkGatewayDetailScreen> {
         label: 'Thử kết nối lại',
         desc: 'Gọi lại API trạng thái gateway',
         onTap: () => _refresh(),
-      ),
-      _actionRow(
-        icon: Icons.open_in_browser,
-        label: 'Mở trang kỹ thuật (web)',
-        desc: ZkGatewayClient.portalUrlForIp(_info.ip),
-        onTap: () => _openPortal(),
         last: true,
       ),
     ]);
@@ -1071,24 +1311,6 @@ class _ZkGatewayDetailScreenState extends State<ZkGatewayDetailScreen> {
         ),
         const SizedBox(height: 8),
         _actionRow(
-          icon: Icons.open_in_browser,
-          label: 'Mở trang kỹ thuật (web)',
-          desc: ZkGatewayClient.portalUrlForIp(_portalIp),
-          onTap: () => _openPortal(),
-        ),
-        _actionRow(
-          icon: Icons.language,
-          label: 'Mở sboxadms.local',
-          desc: 'Trên máy tính cùng WiFi',
-          onTap: () => _openPortal(useHost: true),
-        ),
-        _actionRow(
-          icon: Icons.copy,
-          label: 'Sao chép link web',
-          desc: ZkGatewayClient.portalUrlForIp(_portalIp),
-          onTap: _copyPortalLink,
-        ),
-        _actionRow(
           icon: Icons.lock_outline,
           label: 'Mật khẩu bảo mật',
           desc: 'Khóa cấu hình gateway',
@@ -1106,6 +1328,21 @@ class _ZkGatewayDetailScreenState extends State<ZkGatewayDetailScreen> {
           desc: 'Mạch khởi động lại sau 1 giây',
           onTap: () => _action('reboot', 'Khởi động lại gateway', confirm: true),
           danger: true,
+        ),
+        _actionRow(
+          icon: Icons.restore,
+          label: 'Reset cấu hình mạch ESP',
+          desc: 'Xóa WiFi/IP đã lưu trên mạch — KHÔNG xóa dữ liệu máy ZK',
+          onTap: _factoryResetEsp,
+          danger: true,
+        ),
+        _actionRow(
+          icon: Icons.factory_outlined,
+          label: 'Khôi phục xuất xưởng máy ZK',
+          desc: 'Xóa sạch log + nhân viên + vân tay trên máy (CLEAR_DATA)',
+          onTap: _factoryResetDevice,
+          danger: true,
+          last: true,
         ),
         const SizedBox(height: 8),
         _firmwareCompact(s),

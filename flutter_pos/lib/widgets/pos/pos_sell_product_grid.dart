@@ -79,15 +79,36 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
   final Map<String, Future<List<PosProductUnitView>>> _unitViewsLoading = {};
   Map<String, double> _lastPriceOverrides = const {};
   Timer? _searchDebounce;
+  Timer? _imagePrefetchDebounce;
 
-  Future<List<PosProductUnitView>> _viewsFor(PosProduct p) {
+  /// Chỉ dữ liệu nhúng / ĐVT cơ bản — không gọi API (vẽ lưới).
+  List<PosProductUnitView> _viewsForDisplay(PosProduct p) {
     if (!identical(_lastPriceOverrides, widget.priceOverrides)) {
       _unitViewsCache.clear();
       _lastPriceOverrides = widget.priceOverrides;
     }
 
     final cached = _unitViewsCache[p.id];
-    if (cached != null) return Future.value(cached);
+    if (cached != null) return cached;
+
+    var views = posProductHasEmbeddedSellViews(p)
+        ? buildPosSellUnitViewsFromProduct(p)
+        : buildPosProductUnitViews(p, const [], extraUnits: const []);
+    views = applyPosPriceListToViews(views, p, widget.priceOverrides);
+    _unitViewsCache[p.id] = views;
+    return views;
+  }
+
+  /// Khi chọn SP: nếu thiếu ĐVT/biến thể nhúng → tải API một lần.
+  Future<List<PosProductUnitView>> _viewsForPick(PosProduct p) {
+    if (posProductHasEmbeddedSellViews(p)) {
+      return Future.value(_viewsForDisplay(p));
+    }
+
+    if (!identical(_lastPriceOverrides, widget.priceOverrides)) {
+      _unitViewsCache.clear();
+      _lastPriceOverrides = widget.priceOverrides;
+    }
 
     return _unitViewsLoading.putIfAbsent(p.id, () async {
       var views = await loadPosSellUnitViews(widget.api, p);
@@ -98,28 +119,24 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
     });
   }
 
-  List<PosProductUnitView>? _viewsCachedSync(PosProduct p) {
-    if (!identical(_lastPriceOverrides, widget.priceOverrides)) {
-      _unitViewsCache.clear();
-      _lastPriceOverrides = widget.priceOverrides;
-    }
-    return _unitViewsCache[p.id];
-  }
-
   void _prefetchPageUnitViews() {
     for (final p in _pageItems) {
-      _viewsFor(p);
+      _viewsForDisplay(p);
     }
-    _prefetchPageImages();
+    _imagePrefetchDebounce?.cancel();
+    _imagePrefetchDebounce = Timer(const Duration(milliseconds: 350), () {
+      if (mounted) _prefetchPageImages();
+    });
   }
 
   void _prefetchPageImages() {
-    final items = _pageItems.take(24).toList();
+    final items = _pageItems.take(12).toList();
     var i = 0;
     Future<void> pump() async {
       while (i < items.length) {
         final batch = <Future<void>>[];
-        for (var n = 0; n < 4 && i < items.length; n++, i++) {
+        // Sunmi yếu: tối đa 2 ảnh song song.
+        for (var n = 0; n < 2 && i < items.length; n++, i++) {
           final p = items[i];
           batch.add(PosProductImageCacheManager.instance.prefetchProduct(
             api: widget.api,
@@ -157,6 +174,7 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
     ScreenRefreshNotifier.posSellProductGrid.removeListener(_onExternalRefresh);
     ScreenRefreshNotifier.posSellStockPatch.removeListener(_onStockPatch);
     _searchDebounce?.cancel();
+    _imagePrefetchDebounce?.cancel();
     _categoryScroll.dispose();
     _gridScroll.dispose();
     _searchCtrl.dispose();
@@ -190,17 +208,55 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
     return null;
   }
 
-  /// Cập nhật tồn cục bộ theo dòng bán/trả — không reload lưới/ảnh.
+  /// Cập nhật tồn cục bộ theo dòng bán/trả — chỉ đụng SP liên quan.
   void applyStockLinePatches(List<PosSellStockLineDelta> lines) {
     if (lines.isEmpty) return;
     final merged = mergeStockLineDeltas(lines);
+    if (merged.isEmpty) return;
+
+    final directIds = <String>{};
+    for (final line in merged) {
+      directIds.add(line.productId);
+    }
+
     setState(() {
-      _allProducts = _allProducts.map((p) {
-        return applyPosSellStockLines(p, merged);
-      }).toList();
-      _products = _filterByCategory(_allProducts);
-      _unitViewsCache.clear();
-      _unitViewsLoading.clear();
+      final indexById = <String, int>{
+        for (var i = 0; i < _allProducts.length; i++) _allProducts[i].id: i,
+      };
+      final invalidate = <String>{};
+
+      void patchAt(int i) {
+        final cur = _allProducts[i];
+        final next = applyPosSellStockLines(cur, merged);
+        if (!identical(next, cur)) {
+          _allProducts[i] = next;
+          invalidate.add(next.id);
+        }
+      }
+
+      for (final id in directIds) {
+        final i = indexById[id];
+        if (i != null) patchAt(i);
+      }
+
+      // Combo phụ thuộc tồn thành phần.
+      for (var i = 0; i < _allProducts.length; i++) {
+        final p = _allProducts[i];
+        if (p.productType != PosProductType.combo) continue;
+        if (directIds.contains(p.id)) continue;
+        final comps = p.comboLines;
+        if (comps == null || comps.isEmpty) continue;
+        final hit = comps.any((c) => directIds.contains(c.componentProductId));
+        if (hit) patchAt(i);
+      }
+
+      for (final id in invalidate) {
+        _unitViewsCache.remove(id);
+        _unitViewsLoading.remove(id);
+      }
+      if (invalidate.isNotEmpty) {
+        _products = _filterByCategory(_allProducts);
+      }
     });
     final storeId = widget.storeId?.trim();
     if (storeId != null && storeId.isNotEmpty) {
@@ -580,7 +636,7 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
   }
 
   Future<void> _pickProduct(PosProduct p, {PosProductUnitView? view}) async {
-    final views = await _viewsFor(p);
+    final views = await _viewsForPick(p);
     if (!mounted || views.isEmpty) return;
     if (!widget.allowNegativeStock && isPosSellOutOfStock(p, views)) {
       ScaffoldMessenger.maybeOf(context)?.showSnackBar(
@@ -735,29 +791,7 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
   }
 
   Widget _buildUnitBar(PosProduct p) {
-    final cached = _viewsCachedSync(p);
-    if (cached != null) {
-      return _unitBar(p, cached);
-    }
-    return FutureBuilder<List<PosProductUnitView>>(
-      future: _viewsFor(p),
-      builder: (context, snap) {
-        if (snap.connectionState == ConnectionState.waiting) {
-          return _unitBarShell(
-            children: [
-              Expanded(
-                child: _unitButton(
-                  label: p.baseUnitName.isNotEmpty ? p.baseUnitName : 'Cái',
-                  isDefault: true,
-                  onTap: () => _pickProduct(p),
-                ),
-              ),
-            ],
-          );
-        }
-        return _unitBar(p, snap.data ?? const []);
-      },
-    );
+    return _unitBar(p, _viewsForDisplay(p));
   }
 
   Widget _productCardContent(PosProduct p, List<PosProductUnitView>? views) {
@@ -890,14 +924,7 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
   }
 
   Widget _productCard(PosProduct p) {
-    final cached = _viewsCachedSync(p);
-    if (cached != null) {
-      return _productCardContent(p, cached);
-    }
-    return FutureBuilder<List<PosProductUnitView>>(
-      future: _viewsFor(p),
-      builder: (context, snap) => _productCardContent(p, snap.data),
-    );
+    return _productCardContent(p, _viewsForDisplay(p));
   }
 
   Widget _stockBadge({required double qty}) {
@@ -999,7 +1026,7 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
 
   void _prefetchSellListPageUnitViews() {
     for (final p in _sortedSellListPageItems) {
-      _viewsFor(p);
+      _viewsForDisplay(p);
     }
   }
 
@@ -1074,14 +1101,7 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
   }
 
   Widget _sellListRow(PosProduct p) {
-    final cached = _viewsCachedSync(p);
-    if (cached != null) {
-      return _sellListRowContent(p, cached);
-    }
-    return FutureBuilder<List<PosProductUnitView>>(
-      future: _viewsFor(p),
-      builder: (context, snap) => _sellListRowContent(p, snap.data),
-    );
+    return _sellListRowContent(p, _viewsForDisplay(p));
   }
 
   Widget _buildGrid(double gridWidth) {

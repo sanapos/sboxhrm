@@ -41,6 +41,12 @@ public class PosStoreSellSettings : AuditableEntity<Guid>
     /// </summary>
     public bool AllowNegativeStock { get; set; }
 
+    /// <summary>
+    /// Giờ bắt đầu ngày kinh doanh VN (0–23) cho báo cáo / cuối ngày.
+    /// 0 = nửa đêm lịch (vẫn quy đổi UTC+7). &gt;0 = ngày qua đêm (vd. 6 = 06:00→06:00 hôm sau).
+    /// </summary>
+    public int ReportDayStartHour { get; set; }
+
     /// <summary>SP dịch vụ tính giờ mặc định khi mở bàn (RoomHourly / salon).</summary>
     public Guid? DefaultHourlyProductId { get; set; }
     public virtual PosProduct? DefaultHourlyProduct { get; set; }

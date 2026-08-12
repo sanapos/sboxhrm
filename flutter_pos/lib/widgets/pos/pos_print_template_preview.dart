@@ -7,7 +7,10 @@ import '../../utils/pos_print_template_renderer.dart';
 import 'package:sbox_pos/l10n/app_tr.dart';
 
 /// Xem trước mẫu in V2 — render Flutter native (khớp layout in nhiệt).
-Widget buildPosPrintTemplatePreview(PosPrintTemplateV2 template) {
+Widget buildPosPrintTemplatePreview(
+  PosPrintTemplateV2 template, {
+  int? selectedBlockIndex,
+}) {
   final output = PosPrintTemplateCompiler.compile(
     template: template,
     data: posPrintSampleData(documentType: template.documentType),
@@ -43,7 +46,12 @@ Widget buildPosPrintTemplatePreview(PosPrintTemplateV2 template) {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                for (final step in output.steps) _PreviewStep(step: step, paperPx: paperPx),
+                for (final step in output.steps)
+                  _PreviewStep(
+                    step: step,
+                    paperPx: paperPx,
+                    selectedBlockIndex: selectedBlockIndex,
+                  ),
               ],
             ),
           ),
@@ -55,37 +63,64 @@ Widget buildPosPrintTemplatePreview(PosPrintTemplateV2 template) {
 
 double _paperPreviewWidthPx(String paperSize) {
   final wMm = PosPrintPaperSizes.widthMm(paperSize);
-  // ~3.6 px / mm — tem nhỏ vẫn đọc được trên preview.
-  return (wMm * 3.6).clamp(140.0, 320.0);
+  // ~3.8 px / mm — K80 (~304px) rõ hơn K58 (~220px).
+  return (wMm * 3.8).clamp(140.0, 380.0);
 }
 
 double _previewFontSize(double printerFontSize, double paperPx) =>
     (printerFontSize * paperPx / 384).clamp(9.0, 22.0);
 
+int? _stepSourceIndex(Object step) {
+  if (step is PosPrintCompiledLine) return step.sourceBlockIndex;
+  if (step is PosPrintCompiledPair) return step.sourceBlockIndex;
+  if (step is PosPrintCompiledQr) return step.sourceBlockIndex;
+  if (step is PosPrintCompiledBarcode) return step.sourceBlockIndex;
+  return null;
+}
+
 class _PreviewStep extends StatelessWidget {
-  const _PreviewStep({required this.step, required this.paperPx});
+  const _PreviewStep({
+    required this.step,
+    required this.paperPx,
+    this.selectedBlockIndex,
+  });
 
   final Object step;
   final double paperPx;
+  final int? selectedBlockIndex;
 
   @override
   Widget build(BuildContext context) {
+    Widget child;
     if (step is PosPrintCompiledLine) {
-      return _PreviewLine(line: step as PosPrintCompiledLine, paperPx: paperPx);
-    }
-    if (step is PosPrintCompiledPair) {
-      return _PreviewPair(pair: step as PosPrintCompiledPair, paperPx: paperPx);
-    }
-    if (step is PosPrintCompiledQr) {
-      return _PreviewQr(qr: step as PosPrintCompiledQr, paperPx: paperPx);
-    }
-    if (step is PosPrintCompiledBarcode) {
-      return _PreviewBarcode(
+      child = _PreviewLine(line: step as PosPrintCompiledLine, paperPx: paperPx);
+    } else if (step is PosPrintCompiledPair) {
+      child = _PreviewPair(pair: step as PosPrintCompiledPair, paperPx: paperPx);
+    } else if (step is PosPrintCompiledQr) {
+      child = _PreviewQr(qr: step as PosPrintCompiledQr, paperPx: paperPx);
+    } else if (step is PosPrintCompiledBarcode) {
+      child = _PreviewBarcode(
         barcode: step as PosPrintCompiledBarcode,
         paperPx: paperPx,
       );
+    } else {
+      return const SizedBox.shrink();
     }
-    return const SizedBox.shrink();
+
+    final src = _stepSourceIndex(step);
+    final selected =
+        selectedBlockIndex != null && src != null && src == selectedBlockIndex;
+    if (!selected) return child;
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 1),
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF3BF),
+        border: Border.all(color: const Color(0xFFF59E0B), width: 1.2),
+        borderRadius: BorderRadius.circular(3),
+      ),
+      child: child,
+    );
   }
 }
 
@@ -99,19 +134,11 @@ class _PreviewLine extends StatelessWidget {
   Widget build(BuildContext context) {
     if (line.isDivider) {
       return Padding(
-        padding: const EdgeInsets.symmetric(vertical: 4),
-        child: Text(
-          tr(line.text),
-          maxLines: 1,
-          overflow: TextOverflow.clip,
-          style: TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.w700,
-            letterSpacing: 0,
-            height: 1,
-            color: line.dividerEquals ? Colors.black87 : Colors.grey.shade600,
-            fontFamily: 'monospace',
-          ),
+        padding: const EdgeInsets.symmetric(vertical: 6),
+        child: Container(
+          width: paperPx,
+          height: 1.5,
+          color: Colors.black87,
         ),
       );
     }

@@ -2,18 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../models/mobile_bottom_nav_config.dart';
-import '../../providers/auth_provider.dart';
 import '../../providers/permission_provider.dart';
 import '../../services/mobile_bottom_nav_prefs.dart';
 import '../../utils/mobile_bottom_nav_catalog.dart';
 import '../../utils/navigation_notifier.dart';
 import '../../utils/permission_navigation.dart';
 import '../../widgets/mobile_bottom_nav_config_sheet.dart';
+import '../../widgets/pos/pos_hub_nav_rail.dart';
 import '../../widgets/pos/pos_hub_scope.dart';
 import '../../widgets/pos/pos_theme.dart';
 import '../pos_products_screen.dart';
 import '../pos_sale_order_list_screen.dart';
 import '../pos_sell_screen.dart';
+import '../settings_hub_screen.dart';
 import '../main_layout.dart' show ScreenRefreshNotifier;
 import 'pos_more_screen.dart';
 import 'pos_overview_screen.dart';
@@ -35,10 +36,14 @@ class PosMobileHubScreen extends StatefulWidget {
 class PosMobileHubScreenState extends State<PosMobileHubScreen> {
   late int _tab = widget.initialTab.clamp(0, 4);
 
+  /// Chỉ dựng tab đã mở — tránh IndexedStack dựng 5 màn cùng lúc (crash → màn xám trên máy yếu).
+  late final Set<int> _activatedTabs = {widget.initialTab.clamp(0, 4)};
+
   @override
   void initState() {
     super.initState();
     NavigationNotifier.posHubTab.addListener(_onExternalTab);
+    NavigationNotifier.navigateToModule.addListener(_onNavigateModule);
     MobileBottomNavPrefs.revision.addListener(_onNavPrefsChanged);
     NavigationNotifier.reportScreen(
       _labelForTab(_tab),
@@ -53,7 +58,10 @@ class PosMobileHubScreenState extends State<PosMobileHubScreen> {
     if (oldWidget.initialTab != widget.initialTab) {
       final t = widget.initialTab.clamp(0, 4);
       if (_tab != t) {
-        setState(() => _tab = t);
+        setState(() {
+          _activatedTabs.add(t);
+          _tab = t;
+        });
         NavigationNotifier.reportScreen(
           _labelForTab(t),
           moduleCode: _moduleForTab(t),
@@ -66,6 +74,7 @@ class PosMobileHubScreenState extends State<PosMobileHubScreen> {
   void dispose() {
     MobileBottomNavPrefs.revision.removeListener(_onNavPrefsChanged);
     NavigationNotifier.posHubTab.removeListener(_onExternalTab);
+    NavigationNotifier.navigateToModule.removeListener(_onNavigateModule);
     super.dispose();
   }
 
@@ -77,7 +86,24 @@ class PosMobileHubScreenState extends State<PosMobileHubScreen> {
     final t = NavigationNotifier.posHubTab.value;
     if (t == null || !mounted) return;
     NavigationNotifier.posHubTab.value = null;
-    setState(() => _tab = t.clamp(0, 4));
+    final next = t.clamp(0, 4);
+    setState(() {
+      _activatedTabs.add(next);
+      _tab = next;
+    });
+  }
+
+  void _onNavigateModule() {
+    final code = NavigationNotifier.navigateToModule.value;
+    if (code == null || !mounted) return;
+    NavigationNotifier.navigateToModule.value = null;
+    if (code == 'SettingsHub') {
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => const SettingsHubScreen(),
+        ),
+      );
+    }
   }
 
   String _moduleForTab(int tab) => switch (tab) {
@@ -102,9 +128,8 @@ class PosMobileHubScreenState extends State<PosMobileHubScreen> {
   }
 
   Set<String> _allowedPosSlotIds(PermissionProvider perm) {
-    final authUser = Provider.of<AuthProvider>(context, listen: false).user;
-    final allowedModules = authUser?.allowedModules;
-    final role = authUser?.role;
+    // App POS độc lập: hub 5 tab theo quyền role (ensurePosSellDefaults),
+    // không lọc gói dịch vụ — tránh ô «Trống» khi gói HRM chưa gắn PosSell.
     final ids = <String>{MobileBottomNavCatalog.posMoreId};
     for (final d in MobileBottomNavCatalog.posItems) {
       if (d.moduleCode == null) continue;
@@ -115,12 +140,7 @@ class PosMobileHubScreenState extends State<PosMobileHubScreen> {
         }
         continue;
       }
-      if (PermissionNavigation.canAccessModule(
-        d.moduleCode!,
-        allowedModules: allowedModules,
-        perm: perm,
-        role: role,
-      )) {
+      if (PermissionNavigation.canNavigate(perm, d.moduleCode!)) {
         ids.add(d.id);
       }
     }
@@ -154,13 +174,23 @@ class PosMobileHubScreenState extends State<PosMobileHubScreen> {
       if (index == 2) ScreenRefreshNotifier.refreshPosAfterStockChange();
       return;
     }
-    setState(() => _tab = index);
+    setState(() {
+      _activatedTabs.add(index);
+      _tab = index;
+    });
     NavigationNotifier.reportScreen(
       _labelForTab(index),
       moduleCode: _moduleForTab(index),
     );
     if (index == 3) ScreenRefreshNotifier.refreshPosSaleOrders();
     if (index == 2) ScreenRefreshNotifier.refreshPosAfterStockChange();
+  }
+
+  Widget _lazyTab(int index, Widget child) {
+    if (!_activatedTabs.contains(index)) {
+      return const SizedBox.shrink();
+    }
+    return child;
   }
 
   void _onSlotTap(int slotIndex, String slotId, PermissionProvider perm) {
@@ -172,112 +202,146 @@ class PosMobileHubScreenState extends State<PosMobileHubScreen> {
     _switchTab(MobileBottomNavCatalog.posTabIndexFor(slotId));
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final perm = Provider.of<PermissionProvider>(context);
-    final layout = _resolvedPosLayout();
+  Widget _buildBottomNavBar(
+    PermissionProvider perm,
+    MobileBottomNavLayout layout,
+  ) {
+    return Material(
+      elevation: 8,
+      color: Colors.white,
+      child: SafeArea(
+        top: false,
+        child: GestureDetector(
+          onLongPress: () =>
+              MobileBottomNavConfigSheet.show(context, initialPage: 1),
+          child: SizedBox(
+            height: PosTheme.mobileBottomNavHeight + 4,
+            child: Row(
+              children: List.generate(MobileBottomNavLayout.slotCount, (i) {
+                final slotId = layout.slots[i];
+                final def = MobileBottomNavCatalog
+                    .mapFor(MobileBottomNavCatalog.posItems)[slotId];
+                final enabled = _canUsePosSlot(slotId, perm);
+                final tabForSlot =
+                    MobileBottomNavCatalog.posTabIndexFor(slotId);
+                final active = _tab == tabForSlot && enabled;
 
-    return Scaffold(
-      backgroundColor: PosTheme.background,
-      body: SafeArea(
-        bottom: false,
-        child: PosHubScope(
-          embeddedInHub: true,
-          child: IndexedStack(
-            index: _tab,
-            children: const [
-              PosOverviewScreen(key: ValueKey('pos_overview')),
-              PosProductsScreen(key: ValueKey('pos_products')),
-              PosSellScreen(key: ValueKey('pos_sell')),
-              PosSaleOrderListScreen(key: ValueKey('pos_orders')),
-              PosMoreScreen(key: ValueKey('pos_more')),
-            ],
-          ),
-        ),
-      ),
-      bottomNavigationBar: _tab == 2
-          ? null // Ẩn thanh dưới khi Bán hàng — rộng màn hình; về trang chủ bằng nút Home.
-          : Material(
-        elevation: 8,
-        color: Colors.white,
-        child: SafeArea(
-          top: false,
-          child: GestureDetector(
-            onLongPress: () =>
-                MobileBottomNavConfigSheet.show(context, initialPage: 1),
-            child: SizedBox(
-              height: PosTheme.mobileBottomNavHeight + 4,
-              child: Row(
-                children: List.generate(MobileBottomNavLayout.slotCount, (i) {
-                  final slotId = layout.slots[i];
-                  final def = MobileBottomNavCatalog
-                      .mapFor(MobileBottomNavCatalog.posItems)[slotId];
-                  final enabled = _canUsePosSlot(slotId, perm);
-                  final tabForSlot =
-                      MobileBottomNavCatalog.posTabIndexFor(slotId);
-                  final active = _tab == tabForSlot && enabled;
-
-                  if (!enabled || def == null) {
-                    return Expanded(
-                      child: Opacity(
-                        opacity: 0.35,
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Icon(Icons.remove, size: 20, color: Colors.grey),
-                            const SizedBox(height: 2),
-                            Text(
-                              tr(def?.label ?? 'Trống'),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontSize: 10,
-                                color: PosTheme.textSecondary,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  }
-
+                if (!enabled || def == null) {
                   return Expanded(
-                    child: InkWell(
-                      onTap: () => _onSlotTap(i, slotId, perm),
+                    child: Opacity(
+                      opacity: 0.35,
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(
-                            active ? def.activeIcon : def.icon,
-                            size: 22,
-                            color: active
-                                ? PosTheme.kiotBlue
-                                : PosTheme.textSecondary,
-                          ),
+                          const Icon(Icons.remove,
+                              size: 20, color: Colors.grey),
                           const SizedBox(height: 2),
                           Text(
-                            tr(def.label),
+                            tr(def?.label ?? 'Trống'),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
+                            style: const TextStyle(
                               fontSize: 10,
-                              fontWeight:
-                                  active ? FontWeight.w600 : FontWeight.w500,
-                              color: active
-                                  ? PosTheme.kiotBlue
-                                  : PosTheme.textSecondary,
+                              color: PosTheme.textSecondary,
                             ),
                           ),
                         ],
                       ),
                     ),
                   );
-                }),
-              ),
+                }
+
+                return Expanded(
+                  child: InkWell(
+                    onTap: () => _onSlotTap(i, slotId, perm),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          active ? def.activeIcon : def.icon,
+                          size: 22,
+                          color: active
+                              ? PosTheme.kiotBlue
+                              : PosTheme.textSecondary,
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          tr(def.label),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight:
+                                active ? FontWeight.w600 : FontWeight.w500,
+                            color: active
+                                ? PosTheme.kiotBlue
+                                : PosTheme.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }),
             ),
           ),
         ),
       ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final perm = Provider.of<PermissionProvider>(context);
+    final layout = _resolvedPosLayout();
+    // Bán hàng = fullscreen: không bottom nav, không rail dọc.
+    final sellFullscreen = _tab == 2;
+    final useVerticalRail =
+        !sellFullscreen && PosHubNavRail.shouldShow(context);
+    final stack = PosHubScope(
+      embeddedInHub: true,
+      child: IndexedStack(
+        index: _tab,
+        children: [
+          _lazyTab(0, const PosOverviewScreen(key: ValueKey('pos_overview'))),
+          _lazyTab(1, const PosProductsScreen(key: ValueKey('pos_products'))),
+          _lazyTab(2, const PosSellScreen(key: ValueKey('pos_sell'))),
+          _lazyTab(
+              3, const PosSaleOrderListScreen(key: ValueKey('pos_orders'))),
+          _lazyTab(4, const PosMoreScreen(key: ValueKey('pos_more'))),
+        ],
+      ),
+    );
+
+    return Scaffold(
+      backgroundColor: PosTheme.background,
+      body: SafeArea(
+        bottom: false,
+        child: useVerticalRail
+            ? Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  PosHubNavRail(
+                    slots: PosHubNavRail.fromLayout(
+                      layout: layout,
+                      currentTab: _tab,
+                      canUse: (id) => _canUsePosSlot(id, perm),
+                      onSlotTap: (i, id) => _onSlotTap(i, id, perm),
+                    ),
+                    onCustomize: () => MobileBottomNavConfigSheet.show(
+                      context,
+                      initialPage: 1,
+                    ),
+                  ),
+                  Expanded(child: stack),
+                ],
+              )
+            : stack,
+      ),
+      // Portrait: bottom nav. Landscape: rail dọc. Bán hàng: ẩn hết.
+      bottomNavigationBar: sellFullscreen || useVerticalRail
+          ? null
+          : _buildBottomNavBar(perm, layout),
     );
   }
 

@@ -113,7 +113,7 @@ class PosThermalPrinterSettings {
     this.lanPort = 9100,
     this.usbDeviceName,
     this.escPosCodePage = 27,
-    this.feedBeforeCut = 1,
+    this.feedBeforeCut = 5,
     this.partialCut = true,
     this.openCashDrawer = false,
     this.openDrawerCashOnly = true,
@@ -191,16 +191,25 @@ class PosThermalPrinterSettings {
     }
   }
 
-  /// Số dòng đẩy giấy trước khi cắt — tôn trọng cấu hình người dùng.
+  /// Số dòng đẩy giấy trước khi cắt.
+  /// 0 = tắt feed. Giá trị thấp (kể cả default cũ = 1) được nâng sàn theo hãng
+  /// vì lưỡi cắt nằm sau đầu in — thiếu feed → cắt mất phần món phía dưới.
   int get resolvedFeedBeforeCut {
-    var n = feedBeforeCut.clamp(0, 40);
-    // Zywell thường cần thêm chút giấy để cắt sạch; vẫn cho phép 0–1 nếu user chọn.
-    if (printerBrand == PosThermalPrinterBrand.zywell &&
-        feedBeforeCut >= 2 &&
-        n < 6) {
-      return 6;
+    final n = feedBeforeCut.clamp(0, 40);
+    if (n == 0) return 0;
+    const usbFloor = 5;
+    switch (printerBrand) {
+      case PosThermalPrinterBrand.zywell:
+      case PosThermalPrinterBrand.xprinter:
+      case PosThermalPrinterBrand.hprt:
+      case PosThermalPrinterBrand.rp80:
+      case PosThermalPrinterBrand.generic:
+        return n < usbFloor ? usbFloor : n;
+      case PosThermalPrinterBrand.sunmi:
+        return n < 4 ? 4 : n;
+      case PosThermalPrinterBrand.epson:
+        return n < 3 ? 3 : n;
     }
-    return n;
   }
 
   PosThermalPrinterSettings copyWith({
@@ -273,7 +282,7 @@ class PosThermalPrinterSettings {
       lanPort: prefs.getInt(_kLanPort) ?? 9100,
       usbDeviceName: prefs.getString(_kUsbName),
       escPosCodePage: prefs.getInt(_kCodePage) ?? 27,
-      feedBeforeCut: prefs.getInt(_kFeedCut) ?? 1,
+      feedBeforeCut: prefs.getInt(_kFeedCut) ?? 5,
       partialCut: prefs.getBool(_kPartialCut) ?? true,
       openCashDrawer: prefs.getBool(_kOpenDrawer) ?? false,
       openDrawerCashOnly: prefs.getBool(_kOpenDrawerCashOnly) ?? true,

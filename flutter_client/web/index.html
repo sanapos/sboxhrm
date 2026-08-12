@@ -229,6 +229,17 @@
         }
       } catch (e) {}
 
+      var path = (location.pathname || '').replace(/\/+$/, '') || '/';
+      if (path === '/customer-display' || path.indexOf('/customer-display/') === 0) {
+        try {
+          sessionStorage.setItem('sbox_route', 'customer-display');
+          var v = new URLSearchParams(location.search || '').get('v') ||
+              new URLSearchParams(location.search || '').get('code');
+          if (v) sessionStorage.setItem('sbox_cd_code', v);
+        } catch (e) {}
+        return;
+      }
+
       var hash = (location.hash || '').replace(/^#\/?/, '');
       if (!hash) return;
       if (hash === 'login-app' || hash === 'login' || hash.indexOf('login-app?') === 0) {
@@ -249,6 +260,17 @@
         try {
           sessionStorage.setItem('sbox_route', 'agent-register');
           sessionStorage.setItem('sbox_agent_token', hash.replace(/^agent-register\//, '').split('?')[0]);
+        } catch (e) {}
+      } else if (hash === 'customer-display' || hash.indexOf('customer-display?') === 0 ||
+          hash.indexOf('customer-display/') === 0) {
+        try {
+          sessionStorage.setItem('sbox_route', 'customer-display');
+          var qi2 = hash.indexOf('?');
+          if (qi2 >= 0) {
+            var sp2 = new URLSearchParams(hash.slice(qi2 + 1));
+            var cv = sp2.get('v') || sp2.get('code');
+            if (cv) sessionStorage.setItem('sbox_cd_code', cv);
+          }
         } catch (e) {}
       }
     })();

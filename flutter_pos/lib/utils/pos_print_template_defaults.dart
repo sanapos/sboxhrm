@@ -104,5 +104,16 @@ String _sheetHtml(String title, String paperSize) {
 </div>''';
 }
 
-String posPrintDefaultTemplateName(String paperSize) =>
-    PosPrintPaperSizes.labels[paperSize] ?? paperSize;
+String posPrintDefaultTemplateName(String paperSize, {String? documentType}) {
+  final doc = PosPrintDocumentTypes.all[documentType ?? ''] ?? 'Mẫu in';
+  final short = switch (paperSize) {
+    PosPrintPaperSizes.k58 => 'K58',
+    PosPrintPaperSizes.k80 => 'K80',
+    PosPrintPaperSizes.a5 => 'A5',
+    PosPrintPaperSizes.a4 => 'A4',
+    PosPrintPaperSizes.label50x30 || 'roll_1_50x30' => '50×30',
+    PosPrintPaperSizes.label40x30 || 'roll_1_40x30' => '40×30',
+    _ => paperSize,
+  };
+  return '$doc 1 ($short)';
+}

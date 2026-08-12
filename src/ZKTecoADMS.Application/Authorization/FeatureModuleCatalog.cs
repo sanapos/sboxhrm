@@ -111,6 +111,7 @@ public static class FeatureModuleCatalog
         new("PosCustomers", "Khách hàng POS", "CRM khách bán hàng, công nợ, điểm", "POS / Bán hàng", 64),
         new("PosWarranty", "Bảo hành POS", "Tra cứu / danh sách bảo hành sản phẩm", "POS / Bán hàng", 65),
         new("PosCustomerDisplay", "Màn hình phụ POS", "Customer display, media quảng cáo khi bán", "POS / Bán hàng", 66),
+        new("HkdBooks", "Sổ sách HKD", "Xuất sổ kế toán hộ kinh doanh theo TT 152/2025", "Báo cáo", 67),
 
         // ══════════ THIẾT LẬP HRM ══════════
         new("SettingsHub", "Thiết lập HRM", "Trung tâm cài đặt HRM", "Cài đặt", 70),

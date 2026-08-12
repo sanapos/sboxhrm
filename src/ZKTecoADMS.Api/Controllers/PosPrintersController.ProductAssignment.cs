@@ -3,17 +3,20 @@ using Microsoft.EntityFrameworkCore;
 using ZKTecoADMS.Api.Authorization;
 using ZKTecoADMS.Application.Constants;
 using ZKTecoADMS.Application.Models;
+using ZKTecoADMS.Domain.Entities;
 
 namespace ZKTecoADMS.Api.Controllers;
 
-/// <summary>Gán máy in theo sản phẩm / nhóm — route trên controller máy in (luôn deploy).</summary>
+/// <summary>Gán máy in theo sản phẩm / nhóm — tách lane phiếu bếp vs tem.</summary>
 public partial class PosPrintersController
 {
     public record ProductPrinterMapItem(
         Guid ProductId,
         Guid? ProductPrinterId,
         Guid? CategoryId,
-        Guid? CategoryPrinterId);
+        Guid? CategoryPrinterId,
+        Guid? ProductLabelPrinterId = null,
+        Guid? CategoryLabelPrinterId = null);
 
     public record ProductPrinterCategoryDto(
         Guid Id,
@@ -21,7 +24,9 @@ public partial class PosPrintersController
         Guid? ParentId,
         Guid? PrinterId,
         string? PrinterName,
-        int ProductCount);
+        int ProductCount,
+        Guid? LabelPrinterId = null,
+        string? LabelPrinterName = null);
 
     public record ProductPrinterProductDto(
         Guid Id,
@@ -32,23 +37,38 @@ public partial class PosPrintersController
         Guid? PrinterId,
         string? PrinterName,
         Guid? CategoryPrinterId,
-        string? CategoryPrinterName);
+        string? CategoryPrinterName,
+        Guid? LabelPrinterId = null,
+        string? LabelPrinterName = null,
+        Guid? CategoryLabelPrinterId = null,
+        string? CategoryLabelPrinterName = null);
 
     public record ProductPrinterSetDto
     {
         public Guid? PrinterId { get; set; }
+        /// <summary>Khi bỏ gán (PrinterId null): true = bỏ gán tem, false = bỏ gán phiếu bếp.</summary>
+        public bool? ForLabel { get; set; }
     }
 
     public record ProductPrinterApplyDto(bool IncludeChildCategories = true, bool OverwriteExisting = false);
 
-    public record PrinterProductSummaryDto(Guid PrinterId, string PrinterName, int ProductCount);
+    public record PrinterProductSummaryDto(
+        Guid PrinterId,
+        string PrinterName,
+        int ProductCount,
+        bool IsDeviceLocal = false,
+        string? OwnerDeviceId = null,
+        bool IsLabel = false,
+        List<string>? DocumentTypes = null);
 
     public record PrinterAssignedProductDto(
         Guid Id,
         string ProductCode,
         string Name,
         Guid? CategoryId,
-        string? CategoryName);
+        string? CategoryName,
+        Guid? DefaultPrinterId = null,
+        string? DefaultPrinterName = null);
 
     public class PrinterAssignProductsDto
     {
@@ -56,7 +76,64 @@ public partial class PosPrintersController
         public List<Guid>? CategoryIds { get; set; }
         public bool AllProducts { get; set; }
         public bool IncludeChildCategories { get; set; } = true;
+        public bool ForceReassign { get; set; }
+        /// <summary>
+        /// true = gán lane tem (DefaultLabelPrinterId). false = lane phiếu bếp.
+        /// null = suy ra từ PrinterBrand / khổ tem / document types.
+        /// </summary>
+        public bool? ForLabel { get; set; }
     }
+
+    public record ProductPrinterConflictDto(
+        Guid ProductId,
+        string ProductName,
+        string ProductCode,
+        Guid CurrentPrinterId,
+        string CurrentPrinterName);
+
+    static bool IsLabelBrand(string? brand) =>
+        string.Equals(brand, "label", StringComparison.OrdinalIgnoreCase);
+
+    static bool LooksLikeLabelPaper(string? paperSize) =>
+        !string.IsNullOrWhiteSpace(paperSize) &&
+        (paperSize.StartsWith("roll_", StringComparison.OrdinalIgnoreCase) ||
+         paperSize.Contains("50x30", StringComparison.OrdinalIgnoreCase) ||
+         paperSize.Contains("40x30", StringComparison.OrdinalIgnoreCase) ||
+         paperSize.Contains("x30", StringComparison.OrdinalIgnoreCase));
+
+    bool IsLabelPrinterEntity(PosStorePrinter p)
+    {
+        if (IsLabelBrand(p.PrinterBrand)) return true;
+        if (LooksLikeLabelPaper(p.PaperSize)) return true;
+        var routes = p.DocumentRoutes?
+            .Where(r => r.Deleted == null)
+            .Select(r => r.DocumentType.ToString())
+            .ToHashSet(StringComparer.OrdinalIgnoreCase) ?? [];
+        if (routes.Count == 0) return false;
+        var labelish = routes.Any(t =>
+            t.Equals("KitchenLabel", StringComparison.OrdinalIgnoreCase) ||
+            t.Equals("BarcodeLabel", StringComparison.OrdinalIgnoreCase));
+        var kitchenish = routes.Any(t =>
+            t.Equals("KitchenSlip", StringComparison.OrdinalIgnoreCase) ||
+            t.Equals("KitchenVoid", StringComparison.OrdinalIgnoreCase) ||
+            t.Equals("SaleInvoice", StringComparison.OrdinalIgnoreCase) ||
+            t.Equals("StockIssue", StringComparison.OrdinalIgnoreCase));
+        return labelish && !kitchenish;
+    }
+
+    async Task<bool> ResolveAssignForLabelAsync(
+        Guid printerId, Guid storeId, bool? dtoForLabel)
+    {
+        if (dtoForLabel.HasValue) return dtoForLabel.Value;
+        var printer = await db.PosStorePrinters.AsNoTracking()
+            .Include(p => p.DocumentRoutes)
+            .FirstOrDefaultAsync(p =>
+                p.Id == printerId && p.StoreId == storeId && p.Deleted == null);
+        return printer != null && IsLabelPrinterEntity(printer);
+    }
+
+    async Task<bool> IsLabelPrinterAsync(Guid printerId, Guid storeId) =>
+        await ResolveAssignForLabelAsync(printerId, storeId, null);
 
     [HttpGet("product-assignment/printers/summary")]
     [RequireModulePermission("PosSell", ModulePermissionAction.View)]
@@ -64,21 +141,45 @@ public partial class PosPrintersController
     {
         var storeId = RequiredStoreId;
         var printers = await db.PosStorePrinters.AsNoTracking()
-            .Where(p => p.StoreId == storeId && p.Deleted == null)
+            .Include(p => p.DocumentRoutes)
+            .Where(p => p.StoreId == storeId && p.Deleted == null && !p.IsDeviceLocal)
             .OrderBy(p => p.SortOrder).ThenBy(p => p.Name)
             .ToListAsync();
 
-        var counts = await db.PosProducts.AsNoTracking()
+        var kitchenCounts = await db.PosProducts.AsNoTracking()
             .Where(p => p.StoreId == storeId && p.Deleted == null && p.DefaultPrinterId != null)
             .GroupBy(p => p.DefaultPrinterId!.Value)
             .Select(g => new { PrinterId = g.Key, Count = g.Count() })
             .ToListAsync();
-        var countMap = counts.ToDictionary(x => x.PrinterId, x => x.Count);
+        var labelCounts = await db.PosProducts.AsNoTracking()
+            .Where(p => p.StoreId == storeId && p.Deleted == null && p.DefaultLabelPrinterId != null)
+            .GroupBy(p => p.DefaultLabelPrinterId!.Value)
+            .Select(g => new { PrinterId = g.Key, Count = g.Count() })
+            .ToListAsync();
+        var kitchenMap = kitchenCounts.ToDictionary(x => x.PrinterId, x => x.Count);
+        var labelMap = labelCounts.ToDictionary(x => x.PrinterId, x => x.Count);
 
-        var items = printers.Select(p => new PrinterProductSummaryDto(
-            p.Id,
-            p.Name,
-            countMap.GetValueOrDefault(p.Id))).ToList();
+        var items = printers.Select(p =>
+        {
+            var isLabel = IsLabelPrinterEntity(p);
+            var docTypes = p.DocumentRoutes?
+                .Where(r => r.Deleted == null)
+                .Select(r => r.DocumentType.ToString())
+                .Distinct()
+                .OrderBy(x => x)
+                .ToList() ?? [];
+            var count = isLabel
+                ? labelMap.GetValueOrDefault(p.Id)
+                : kitchenMap.GetValueOrDefault(p.Id);
+            return new PrinterProductSummaryDto(
+                p.Id,
+                p.IsDeviceLocal ? $"[Nội bộ] {p.Name}" : p.Name,
+                count,
+                p.IsDeviceLocal,
+                p.OwnerDeviceId,
+                isLabel,
+                docTypes);
+        }).ToList();
         return Ok(AppResponse<List<PrinterProductSummaryDto>>.Success(items));
     }
 
@@ -93,19 +194,27 @@ public partial class PosPrintersController
         [FromQuery] int pageSize = 50)
     {
         var storeId = RequiredStoreId;
-        var printerOk = await db.PosStorePrinters.AnyAsync(p =>
-            p.Id == printerId && p.StoreId == storeId && p.Deleted == null);
-        if (!printerOk) return NotFound(AppResponse<object>.Fail("Không tìm thấy máy in"));
+        var printer = await db.PosStorePrinters.AsNoTracking()
+            .Include(p => p.DocumentRoutes)
+            .FirstOrDefaultAsync(p => p.Id == printerId && p.StoreId == storeId && p.Deleted == null);
+        if (printer == null) return NotFound(AppResponse<object>.Fail("Không tìm thấy máy in"));
+        var forLabel = IsLabelPrinterEntity(printer);
 
         page = Math.Max(1, page);
         pageSize = Math.Clamp(pageSize, 10, 200);
 
         var query = db.PosProducts.AsNoTracking()
             .Include(p => p.Category)
+            .Include(p => p.DefaultPrinter)
+            .Include(p => p.DefaultLabelPrinter)
             .Where(p => p.StoreId == storeId && p.Deleted == null);
 
         if (assignedOnly)
-            query = query.Where(p => p.DefaultPrinterId == printerId);
+        {
+            query = forLabel
+                ? query.Where(p => p.DefaultLabelPrinterId == printerId)
+                : query.Where(p => p.DefaultPrinterId == printerId);
+        }
         if (categoryId.HasValue)
             query = query.Where(p => p.CategoryId == categoryId);
         if (!string.IsNullOrWhiteSpace(search))
@@ -127,10 +236,14 @@ public partial class PosPrintersController
                 p.ProductCode,
                 p.Name,
                 p.CategoryId,
-                p.Category != null ? p.Category.Name : null))
+                p.Category != null ? p.Category.Name : null,
+                forLabel ? p.DefaultLabelPrinterId : p.DefaultPrinterId,
+                forLabel
+                    ? (p.DefaultLabelPrinter != null ? p.DefaultLabelPrinter.Name : null)
+                    : (p.DefaultPrinter != null ? p.DefaultPrinter.Name : null)))
             .ToListAsync();
 
-        return Ok(AppResponse<object>.Success(new { total, page, pageSize, items }));
+        return Ok(AppResponse<object>.Success(new { total, page, pageSize, items, forLabel }));
     }
 
     [HttpPost("product-assignment/printers/{printerId:guid}/assign")]
@@ -142,36 +255,115 @@ public partial class PosPrintersController
             return BadRequest(AppResponse<object>.Fail("Thiếu dữ liệu"));
 
         var storeId = RequiredStoreId;
-        var printerOk = await db.PosStorePrinters.AnyAsync(p =>
-            p.Id == printerId && p.StoreId == storeId && p.Deleted == null);
-        if (!printerOk) return BadRequest(AppResponse<object>.Fail("Máy in không hợp lệ"));
+        var printer = await db.PosStorePrinters.AsNoTracking()
+            .FirstOrDefaultAsync(p => p.Id == printerId && p.StoreId == storeId && p.Deleted == null);
+        if (printer == null) return BadRequest(AppResponse<object>.Fail("Máy in không hợp lệ"));
+        if (printer.IsDeviceLocal)
+            return BadRequest(AppResponse<object>.Fail(
+                "Không gán SP vào máy nội bộ — chọn máy Agent/cloud (cùng tên trên máy nhận lệnh in)"));
+        var forLabel = await ResolveAssignForLabelAsync(printerId, storeId, dto.ForLabel);
+        var laneName = forLabel ? "tem" : "phiếu bếp";
 
         var targetIds = await ResolveAssignProductIdsAsync(storeId, dto);
         if (targetIds.Count == 0)
             return BadRequest(AppResponse<object>.Fail("Chưa chọn sản phẩm"));
 
         var idList = targetIds.ToList();
-        var alreadyAssigned = await db.PosProducts.AsNoTracking()
-            .CountAsync(p => p.StoreId == storeId && p.Deleted == null &&
-                             idList.Contains(p.Id) && p.DefaultPrinterId == printerId);
 
-        var updated = await db.PosProducts
-            .Where(p => p.StoreId == storeId && p.Deleted == null &&
-                        idList.Contains(p.Id) && p.DefaultPrinterId != printerId)
-            .ExecuteUpdateAsync(s => s
-                .SetProperty(p => p.DefaultPrinterId, printerId)
-                .SetProperty(p => p.UpdatedAt, DateTime.UtcNow)
-                .SetProperty(p => p.UpdatedBy, CurrentUserEmail));
+        int alreadyAssigned;
+        List<ProductPrinterConflictDto> conflicts;
+        if (forLabel)
+        {
+            alreadyAssigned = await db.PosProducts.AsNoTracking()
+                .CountAsync(p => p.StoreId == storeId && p.Deleted == null &&
+                                 idList.Contains(p.Id) && p.DefaultLabelPrinterId == printerId);
+            conflicts = await db.PosProducts.AsNoTracking()
+                .Include(p => p.DefaultLabelPrinter)
+                .Where(p => p.StoreId == storeId && p.Deleted == null &&
+                            idList.Contains(p.Id) &&
+                            p.DefaultLabelPrinterId != null &&
+                            p.DefaultLabelPrinterId != printerId)
+                .Select(p => new ProductPrinterConflictDto(
+                    p.Id,
+                    p.Name,
+                    p.ProductCode,
+                    p.DefaultLabelPrinterId!.Value,
+                    p.DefaultLabelPrinter != null ? p.DefaultLabelPrinter.Name : "Máy tem khác"))
+                .ToListAsync();
+        }
+        else
+        {
+            alreadyAssigned = await db.PosProducts.AsNoTracking()
+                .CountAsync(p => p.StoreId == storeId && p.Deleted == null &&
+                                 idList.Contains(p.Id) && p.DefaultPrinterId == printerId);
+            conflicts = await db.PosProducts.AsNoTracking()
+                .Include(p => p.DefaultPrinter)
+                .Where(p => p.StoreId == storeId && p.Deleted == null &&
+                            idList.Contains(p.Id) &&
+                            p.DefaultPrinterId != null &&
+                            p.DefaultPrinterId != printerId)
+                .Select(p => new ProductPrinterConflictDto(
+                    p.Id,
+                    p.Name,
+                    p.ProductCode,
+                    p.DefaultPrinterId!.Value,
+                    p.DefaultPrinter != null ? p.DefaultPrinter.Name : "Máy khác"))
+                .ToListAsync();
+        }
+
+        if (conflicts.Count > 0 && !dto.ForceReassign)
+        {
+            var freeCount = idList.Count - alreadyAssigned - conflicts.Count;
+            return Ok(AppResponse<object>.Success(new
+            {
+                needsConfirm = true,
+                forLabel,
+                updated = 0,
+                alreadyAssigned,
+                conflictCount = conflicts.Count,
+                freeCount = Math.Max(0, freeCount),
+                conflicts,
+                message =
+                    $"{conflicts.Count} sản phẩm đã gán máy {laneName} khác — mỗi món chỉ 1 máy {laneName}. " +
+                    "Bỏ chọn món đó, hoặc xác nhận chuyển máy.",
+            }));
+        }
+
+        int updated;
+        if (forLabel)
+        {
+            updated = await db.PosProducts
+                .Where(p => p.StoreId == storeId && p.Deleted == null &&
+                            idList.Contains(p.Id) && p.DefaultLabelPrinterId != printerId)
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(p => p.DefaultLabelPrinterId, printerId)
+                    .SetProperty(p => p.UpdatedAt, DateTime.UtcNow)
+                    .SetProperty(p => p.UpdatedBy, CurrentUserEmail));
+        }
+        else
+        {
+            updated = await db.PosProducts
+                .Where(p => p.StoreId == storeId && p.Deleted == null &&
+                            idList.Contains(p.Id) && p.DefaultPrinterId != printerId)
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(p => p.DefaultPrinterId, printerId)
+                    .SetProperty(p => p.UpdatedAt, DateTime.UtcNow)
+                    .SetProperty(p => p.UpdatedBy, CurrentUserEmail));
+        }
 
         if (updated == 0 && alreadyAssigned == 0)
             return BadRequest(AppResponse<object>.Fail("Không tìm thấy sản phẩm hợp lệ"));
 
         return Ok(AppResponse<object>.Success(new
         {
+            needsConfirm = false,
+            forLabel,
             updated,
             alreadyAssigned,
+            conflictCount = 0,
             total = updated + alreadyAssigned,
             requested = targetIds.Count,
+            reassigned = dto.ForceReassign ? updated : 0,
         }));
     }
 
@@ -184,20 +376,35 @@ public partial class PosPrintersController
             return BadRequest(AppResponse<object>.Fail("Thiếu dữ liệu"));
 
         var storeId = RequiredStoreId;
+        var forLabel = await IsLabelPrinterAsync(printerId, storeId);
         var targetIds = await ResolveAssignProductIdsAsync(storeId, dto);
         if (targetIds.Count == 0)
             return BadRequest(AppResponse<object>.Fail("Chưa chọn sản phẩm"));
 
         var idList = targetIds.ToList();
-        var updated = await db.PosProducts
-            .Where(p => p.StoreId == storeId && p.Deleted == null &&
-                        p.DefaultPrinterId == printerId && idList.Contains(p.Id))
-            .ExecuteUpdateAsync(s => s
-                .SetProperty(p => p.DefaultPrinterId, (Guid?)null)
-                .SetProperty(p => p.UpdatedAt, DateTime.UtcNow)
-                .SetProperty(p => p.UpdatedBy, CurrentUserEmail));
+        int updated;
+        if (forLabel)
+        {
+            updated = await db.PosProducts
+                .Where(p => p.StoreId == storeId && p.Deleted == null &&
+                            p.DefaultLabelPrinterId == printerId && idList.Contains(p.Id))
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(p => p.DefaultLabelPrinterId, (Guid?)null)
+                    .SetProperty(p => p.UpdatedAt, DateTime.UtcNow)
+                    .SetProperty(p => p.UpdatedBy, CurrentUserEmail));
+        }
+        else
+        {
+            updated = await db.PosProducts
+                .Where(p => p.StoreId == storeId && p.Deleted == null &&
+                            p.DefaultPrinterId == printerId && idList.Contains(p.Id))
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(p => p.DefaultPrinterId, (Guid?)null)
+                    .SetProperty(p => p.UpdatedAt, DateTime.UtcNow)
+                    .SetProperty(p => p.UpdatedBy, CurrentUserEmail));
+        }
 
-        return Ok(AppResponse<object>.Success(new { updated }));
+        return Ok(AppResponse<object>.Success(new { updated, forLabel }));
     }
 
     async Task<HashSet<Guid>> ResolveAssignProductIdsAsync(Guid storeId, PrinterAssignProductsDto dto)
@@ -256,7 +463,9 @@ public partial class PosPrintersController
                 p.Id,
                 p.DefaultPrinterId,
                 p.CategoryId,
-                p.Category != null ? p.Category.DefaultPrinterId : null))
+                p.Category != null ? p.Category.DefaultPrinterId : null,
+                p.DefaultLabelPrinterId,
+                p.Category != null ? p.Category.DefaultLabelPrinterId : null))
             .ToListAsync();
         return Ok(AppResponse<List<ProductPrinterMapItem>>.Success(items));
     }
@@ -275,7 +484,9 @@ public partial class PosPrintersController
                 c.ParentId,
                 c.DefaultPrinterId,
                 c.DefaultPrinter != null ? c.DefaultPrinter.Name : null,
-                c.Products.Count(p => p.Deleted == null)))
+                c.Products.Count(p => p.Deleted == null),
+                c.DefaultLabelPrinterId,
+                c.DefaultLabelPrinter != null ? c.DefaultLabelPrinter.Name : null))
             .ToListAsync();
         return Ok(AppResponse<List<ProductPrinterCategoryDto>>.Success(items));
     }
@@ -286,6 +497,7 @@ public partial class PosPrintersController
         [FromQuery] string? search,
         [FromQuery] Guid? categoryId,
         [FromQuery] bool unassignedOnly = false,
+        [FromQuery] bool forLabel = false,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 50)
     {
@@ -295,14 +507,21 @@ public partial class PosPrintersController
 
         var query = db.PosProducts.AsNoTracking()
             .Include(p => p.Category!).ThenInclude(c => c!.DefaultPrinter)
+            .Include(p => p.Category!).ThenInclude(c => c!.DefaultLabelPrinter)
             .Include(p => p.DefaultPrinter)
+            .Include(p => p.DefaultLabelPrinter)
             .Where(p => p.StoreId == storeId && p.Deleted == null);
 
         if (categoryId.HasValue)
             query = query.Where(p => p.CategoryId == categoryId);
         if (unassignedOnly)
-            query = query.Where(p => p.DefaultPrinterId == null &&
-                (p.Category == null || p.Category.DefaultPrinterId == null));
+        {
+            query = forLabel
+                ? query.Where(p => p.DefaultLabelPrinterId == null &&
+                    (p.Category == null || p.Category.DefaultLabelPrinterId == null))
+                : query.Where(p => p.DefaultPrinterId == null &&
+                    (p.Category == null || p.Category.DefaultPrinterId == null));
+        }
         if (!string.IsNullOrWhiteSpace(search))
         {
             var s = search.Trim().ToLower();
@@ -328,10 +547,16 @@ public partial class PosPrintersController
                 p.Category != null ? p.Category.DefaultPrinterId : null,
                 p.Category != null && p.Category.DefaultPrinter != null
                     ? p.Category.DefaultPrinter.Name
+                    : null,
+                p.DefaultLabelPrinterId,
+                p.DefaultLabelPrinter != null ? p.DefaultLabelPrinter.Name : null,
+                p.Category != null ? p.Category.DefaultLabelPrinterId : null,
+                p.Category != null && p.Category.DefaultLabelPrinter != null
+                    ? p.Category.DefaultLabelPrinter.Name
                     : null))
             .ToListAsync();
 
-        return Ok(AppResponse<object>.Success(new { total, page, pageSize, items }));
+        return Ok(AppResponse<object>.Success(new { total, page, pageSize, items, forLabel }));
     }
 
     [HttpPut("product-assignment/categories/{id:guid}")]
@@ -347,27 +572,50 @@ public partial class PosPrintersController
             .FirstOrDefaultAsync(c => c.Id == id && c.StoreId == storeId && c.Deleted == null);
         if (cat == null) return NotFound(AppResponse<object>.Fail("Không tìm thấy nhóm hàng"));
 
+        var forLabel = dto.ForLabel == true;
         if (dto.PrinterId.HasValue)
         {
-            var ok = await db.PosStorePrinters.AnyAsync(p =>
-                p.Id == dto.PrinterId && p.StoreId == storeId && p.Deleted == null && p.IsActive);
-            if (!ok) return BadRequest(AppResponse<object>.Fail("Máy in không hợp lệ"));
+            var brand = await db.PosStorePrinters.AsNoTracking()
+                .Where(p => p.Id == dto.PrinterId && p.StoreId == storeId && p.Deleted == null && p.IsActive)
+                .Select(p => p.PrinterBrand)
+                .FirstOrDefaultAsync();
+            if (brand == null && dto.PrinterId.HasValue)
+                return BadRequest(AppResponse<object>.Fail("Máy in không hợp lệ"));
+            forLabel = IsLabelBrand(brand);
         }
 
-        var previousPrinterId = cat.DefaultPrinterId;
-        cat.DefaultPrinterId = dto.PrinterId;
-        cat.UpdatedAt = DateTime.UtcNow;
-        cat.UpdatedBy = CurrentUserEmail;
-
-        var applied = await PropagateCategoryPrinterToProductsAsync(
-            storeId, id, previousPrinterId, dto.PrinterId, includeChildCategories: true);
-
-        await db.SaveChangesAsync();
-        return Ok(AppResponse<object>.Success(new
+        if (forLabel)
         {
-            printerId = cat.DefaultPrinterId,
-            appliedProducts = applied,
-        }));
+            var previous = cat.DefaultLabelPrinterId;
+            cat.DefaultLabelPrinterId = dto.PrinterId;
+            cat.UpdatedAt = DateTime.UtcNow;
+            cat.UpdatedBy = CurrentUserEmail;
+            var applied = await PropagateCategoryPrinterToProductsAsync(
+                storeId, id, previous, dto.PrinterId, includeChildCategories: true, forLabel: true);
+            await db.SaveChangesAsync();
+            return Ok(AppResponse<object>.Success(new
+            {
+                forLabel = true,
+                printerId = cat.DefaultLabelPrinterId,
+                appliedProducts = applied,
+            }));
+        }
+        else
+        {
+            var previousPrinterId = cat.DefaultPrinterId;
+            cat.DefaultPrinterId = dto.PrinterId;
+            cat.UpdatedAt = DateTime.UtcNow;
+            cat.UpdatedBy = CurrentUserEmail;
+            var applied = await PropagateCategoryPrinterToProductsAsync(
+                storeId, id, previousPrinterId, dto.PrinterId, includeChildCategories: true, forLabel: false);
+            await db.SaveChangesAsync();
+            return Ok(AppResponse<object>.Success(new
+            {
+                forLabel = false,
+                printerId = cat.DefaultPrinterId,
+                appliedProducts = applied,
+            }));
+        }
     }
 
     [HttpPost("product-assignment/categories/{id:guid}/apply")]
@@ -379,16 +627,35 @@ public partial class PosPrintersController
         var cat = await db.PosProductCategories.AsNoTracking()
             .FirstOrDefaultAsync(c => c.Id == id && c.StoreId == storeId && c.Deleted == null);
         if (cat == null) return NotFound(AppResponse<object>.Fail("Không tìm thấy nhóm hàng"));
-        if (!cat.DefaultPrinterId.HasValue)
+        if (!cat.DefaultPrinterId.HasValue && !cat.DefaultLabelPrinterId.HasValue)
             return BadRequest(AppResponse<object>.Fail("Nhóm hàng chưa gán máy in"));
 
-        var applied = await PropagateCategoryPrinterToProductsAsync(
-            storeId, id, null, cat.DefaultPrinterId,
-            includeChildCategories: dto.IncludeChildCategories,
-            overwriteExisting: dto.OverwriteExisting);
+        var appliedKitchen = 0;
+        var appliedLabel = 0;
+        if (cat.DefaultPrinterId.HasValue)
+        {
+            appliedKitchen = await PropagateCategoryPrinterToProductsAsync(
+                storeId, id, null, cat.DefaultPrinterId,
+                includeChildCategories: dto.IncludeChildCategories,
+                overwriteExisting: dto.OverwriteExisting,
+                forLabel: false);
+        }
+        if (cat.DefaultLabelPrinterId.HasValue)
+        {
+            appliedLabel = await PropagateCategoryPrinterToProductsAsync(
+                storeId, id, null, cat.DefaultLabelPrinterId,
+                includeChildCategories: dto.IncludeChildCategories,
+                overwriteExisting: dto.OverwriteExisting,
+                forLabel: true);
+        }
 
         await db.SaveChangesAsync();
-        return Ok(AppResponse<object>.Success(new { updated = applied, printerId = cat.DefaultPrinterId }));
+        return Ok(AppResponse<object>.Success(new
+        {
+            updated = appliedKitchen + appliedLabel,
+            kitchen = appliedKitchen,
+            label = appliedLabel,
+        }));
     }
 
     [HttpPut("product-assignment/products/{id:guid}")]
@@ -404,18 +671,26 @@ public partial class PosPrintersController
             .FirstOrDefaultAsync(p => p.Id == id && p.StoreId == storeId && p.Deleted == null);
         if (product == null) return NotFound(AppResponse<object>.Fail("Không tìm thấy hàng hóa"));
 
+        var forLabel = dto.ForLabel == true;
         if (dto.PrinterId.HasValue)
         {
-            var ok = await db.PosStorePrinters.AnyAsync(p =>
-                p.Id == dto.PrinterId && p.StoreId == storeId && p.Deleted == null && p.IsActive);
-            if (!ok) return BadRequest(AppResponse<object>.Fail("Máy in không hợp lệ"));
+            var brand = await db.PosStorePrinters.AsNoTracking()
+                .Where(p => p.Id == dto.PrinterId && p.StoreId == storeId && p.Deleted == null && p.IsActive)
+                .Select(p => p.PrinterBrand)
+                .FirstOrDefaultAsync();
+            if (brand == null)
+                return BadRequest(AppResponse<object>.Fail("Máy in không hợp lệ"));
+            forLabel = IsLabelBrand(brand);
         }
 
-        product.DefaultPrinterId = dto.PrinterId;
+        if (forLabel)
+            product.DefaultLabelPrinterId = dto.PrinterId;
+        else
+            product.DefaultPrinterId = dto.PrinterId;
         product.UpdatedAt = DateTime.UtcNow;
         product.UpdatedBy = CurrentUserEmail;
         await db.SaveChangesAsync();
-        return Ok(AppResponse<object>.Success(true));
+        return Ok(AppResponse<object>.Success(new { forLabel }));
     }
 
     async Task<int> PropagateCategoryPrinterToProductsAsync(
@@ -424,7 +699,8 @@ public partial class PosPrintersController
         Guid? previousCategoryPrinterId,
         Guid? newCategoryPrinterId,
         bool includeChildCategories = true,
-        bool overwriteExisting = false)
+        bool overwriteExisting = false,
+        bool forLabel = false)
     {
         var categoryIds = new List<Guid> { categoryId };
         if (includeChildCategories)
@@ -438,19 +714,35 @@ public partial class PosPrintersController
         var updated = 0;
         foreach (var p in products)
         {
-            if (overwriteExisting)
+            if (forLabel)
             {
-                if (p.DefaultPrinterId == newCategoryPrinterId) continue;
-                p.DefaultPrinterId = newCategoryPrinterId;
-            }
-            else if (p.DefaultPrinterId == null ||
-                     (previousCategoryPrinterId.HasValue && p.DefaultPrinterId == previousCategoryPrinterId))
-            {
-                p.DefaultPrinterId = newCategoryPrinterId;
+                if (overwriteExisting)
+                {
+                    if (p.DefaultLabelPrinterId == newCategoryPrinterId) continue;
+                    p.DefaultLabelPrinterId = newCategoryPrinterId;
+                }
+                else if (p.DefaultLabelPrinterId == null ||
+                         (previousCategoryPrinterId.HasValue &&
+                          p.DefaultLabelPrinterId == previousCategoryPrinterId))
+                {
+                    p.DefaultLabelPrinterId = newCategoryPrinterId;
+                }
+                else continue;
             }
             else
             {
-                continue;
+                if (overwriteExisting)
+                {
+                    if (p.DefaultPrinterId == newCategoryPrinterId) continue;
+                    p.DefaultPrinterId = newCategoryPrinterId;
+                }
+                else if (p.DefaultPrinterId == null ||
+                         (previousCategoryPrinterId.HasValue &&
+                          p.DefaultPrinterId == previousCategoryPrinterId))
+                {
+                    p.DefaultPrinterId = newCategoryPrinterId;
+                }
+                else continue;
             }
 
             p.UpdatedAt = DateTime.UtcNow;

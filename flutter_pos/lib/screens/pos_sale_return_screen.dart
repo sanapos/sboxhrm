@@ -593,45 +593,52 @@ class _PosSaleReturnScreenState extends State<PosSaleReturnScreen> {
 
     return Container(
       decoration: PosTheme.mobileCardDecoration(),
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               PosProductImage(
                 productId: l.productId,
                 imageUrl: meta?.imageUrl,
-                size: 52,
-                borderRadius: 8,
+                size: 36,
+                borderRadius: 6,
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 8),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(tr(l.productName),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
-                            fontWeight: FontWeight.w600, fontSize: 14)),
-                    if (code.isNotEmpty)
-                      Text(tr(code),
-                          style: const TextStyle(
-                              fontSize: 11, color: PosTheme.textSecondary)),
-                    const SizedBox(height: 4),
-                    Text(tr('Đã bán ${_qtyFmt.format(l.qty)} · Đã trả ${_qtyFmt.format(l.returnedQty)} · Còn ${_qtyFmt.format(rl.maxReturnable)}'),
-                      style: const TextStyle(fontSize: 11, color: PosTheme.textSecondary),
-                    ),
+                            fontWeight: FontWeight.w600, fontSize: 13)),
                     Text(
-                      tr('${_moneyFmt.format(unit)}/${l.unitName ?? 'cái'}'),
-                      style: const TextStyle(fontSize: 12),
+                      tr([
+                        if (code.isNotEmpty) code,
+                        '${_moneyFmt.format(unit)}/${l.unitName ?? 'cái'}',
+                        'Còn ${_qtyFmt.format(rl.maxReturnable)}',
+                      ].join(' · ')),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                          fontSize: 10, color: PosTheme.textSecondary),
                     ),
                   ],
                 ),
               ),
+              if (ret > 0)
+                Text(tr(_moneyFmt.format(lineTotal)),
+                    style: const TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 13,
+                        color: _kiotBlue)),
             ],
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 6),
           Row(
             children: [
               _qtyBtn(Icons.remove, ret > 0 ? () => _adjustReturnQty(rl, -1) : null),
@@ -640,14 +647,16 @@ class _PosSaleReturnScreenState extends State<PosSaleReturnScreen> {
                   controller: rl.qtyCtrl,
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
                   textAlign: TextAlign.center,
+                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
                   inputFormatters: [
                     FilteringTextInputFormatter.allow(RegExp(r'[\d.,]')),
                   ],
                   decoration: InputDecoration(
                     isDense: true,
-                    contentPadding: EdgeInsets.symmetric(vertical: 8),
-                    border: OutlineInputBorder(),
+                    contentPadding: const EdgeInsets.symmetric(vertical: 6),
+                    border: const OutlineInputBorder(),
                     labelText: tr('SL trả'),
+                    labelStyle: const TextStyle(fontSize: 11),
                   ),
                   onChanged: (_) => setState(() {}),
                   onSubmitted: (v) {
@@ -657,22 +666,20 @@ class _PosSaleReturnScreenState extends State<PosSaleReturnScreen> {
               ),
               _qtyBtn(Icons.add, ret < rl.maxReturnable ? () => _adjustReturnQty(rl, 1) : null,
                   primary: true),
-              const SizedBox(width: 6),
+              const SizedBox(width: 4),
               TextButton(
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  minimumSize: const Size(0, 32),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
                 onPressed: rl.maxReturnable > 0
                     ? () => _setReturnQty(rl, rl.maxReturnable)
                     : null,
-                child: Text(tr('Hết'), style: TextStyle(fontSize: 12)),
+                child: Text(tr('Hết'), style: const TextStyle(fontSize: 11)),
               ),
             ],
           ),
-          if (ret > 0)
-            Align(
-              alignment: Alignment.centerRight,
-              child: Text(tr('Trả: ${_moneyFmt.format(lineTotal)}'),
-                style: const TextStyle(fontWeight: FontWeight.w700, color: _kiotBlue),
-              ),
-            ),
         ],
       ),
     );
@@ -686,9 +693,9 @@ class _PosSaleReturnScreenState extends State<PosSaleReturnScreen> {
         onTap: onTap,
         borderRadius: BorderRadius.circular(8),
         child: SizedBox(
-          width: 40,
-          height: 40,
-          child: Icon(icon, size: 20, color: primary ? Colors.white : Colors.black87),
+          width: 32,
+          height: 32,
+          child: Icon(icon, size: 18, color: primary ? Colors.white : Colors.black87),
         ),
       ),
     );

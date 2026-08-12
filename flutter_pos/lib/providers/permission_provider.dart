@@ -23,6 +23,43 @@ class PermissionProvider extends ChangeNotifier {
   bool get isLoaded => _isLoaded;
   bool get isLoading => _isLoading;
 
+  /// App POS độc lập: nếu API quyền trống / lỗi, vẫn cho bán hàng + hàng hóa.
+  /// (Tránh màn xám «không có quyền» sau login trên máy thu ngân.)
+  void ensurePosSellDefaults() {
+    if (_isSuperUser) {
+      _isLoaded = true;
+      _loadError = false;
+      return;
+    }
+    const defaults = <String>[
+      'PosSell',
+      'PosProducts',
+      'PosSaleOrders',
+      'PosSalesReport',
+      'CashTransaction',
+    ];
+    var changed = false;
+    for (final code in defaults) {
+      final existing = _permissions[code];
+      if (existing == null || !existing.canView) {
+        _permissions[code] = _ModulePermission(
+          canView: true,
+          canCreate: true,
+          canEdit: true,
+          canDelete: existing?.canDelete ?? false,
+          canExport: true,
+          // Máy POS thu ngân: mặc định cho thanh toán khi ACL chưa về / rỗng.
+          // Order-only (cấm TT) phải có ACL canApprove=false từ API sau loadPermissions.
+          canApprove: existing?.canApprove ?? (code == 'PosSell'),
+        );
+        changed = true;
+      }
+    }
+    _isLoaded = true;
+    _loadError = false;
+    if (changed) notifyListeners();
+  }
+
   /// Tải quyền hiệu lực từ API
   Future<void> loadPermissions({String? role}) async {
     if (_isLoading) return;

@@ -20,9 +20,13 @@ public class PosProductCategory : AuditableEntity<Guid>
 
     public int SortOrder { get; set; }
 
-    /// <summary>Máy in mặc định cho cả nhóm hàng.</summary>
+    /// <summary>Máy in mặc định cho cả nhóm hàng (phiếu bếp).</summary>
     public Guid? DefaultPrinterId { get; set; }
     public virtual PosStorePrinter? DefaultPrinter { get; set; }
+
+    /// <summary>Máy in tem mặc định cho cả nhóm hàng.</summary>
+    public Guid? DefaultLabelPrinterId { get; set; }
+    public virtual PosStorePrinter? DefaultLabelPrinter { get; set; }
 
     public virtual ICollection<PosProduct> Products { get; set; } = [];
 }

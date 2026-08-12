@@ -343,7 +343,15 @@ public static class DependencyInjectionExtensions
         app.UseCors("corsPolicy");
         app.UseRateLimiter();
         app.UseDefaultFiles();
-        app.UseStaticFiles();
+        var contentTypes = new Microsoft.AspNetCore.StaticFiles.FileExtensionContentTypeProvider();
+        contentTypes.Mappings[".apk"] = "application/vnd.android.package-archive";
+        contentTypes.Mappings[".exe"] = "application/vnd.microsoft.portable-executable";
+        contentTypes.Mappings[".json"] = "application/json";
+        app.UseStaticFiles(new StaticFileOptions
+        {
+            ContentTypeProvider = contentTypes,
+            ServeUnknownFileTypes = false,
+        });
         // Enable WebSocket middleware (required for SignalR WebSocket transport in Docker/cloud)
         app.UseWebSockets();
         app.UseAuthentication();

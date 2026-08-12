@@ -127,7 +127,8 @@ public class PermissionConfiguration : IEntityTypeConfiguration<Permission>
             new Permission { Id = Guid.Parse("11111111-1111-1111-1111-111111111097"), Module = "PosBooking", ModuleDisplayName = "Đặt bàn / lịch hẹn", Description = "Đặt trước bàn/ghế, lịch hẹn salon, cọc, nhận khách", DisplayOrder = 63 },
             new Permission { Id = Guid.Parse("11111111-1111-1111-1111-111111111098"), Module = "PosCustomers", ModuleDisplayName = "Khách hàng POS", Description = "CRM khách bán hàng, công nợ, điểm", DisplayOrder = 64 },
             new Permission { Id = Guid.Parse("11111111-1111-1111-1111-111111111099"), Module = "PosWarranty", ModuleDisplayName = "Bảo hành POS", Description = "Tra cứu / danh sách bảo hành sản phẩm", DisplayOrder = 65 },
-            new Permission { Id = Guid.Parse("11111111-1111-1111-1111-111111111100"), Module = "PosCustomerDisplay", ModuleDisplayName = "Màn hình phụ POS", Description = "Customer display, media quảng cáo khi bán", DisplayOrder = 66 }
+            new Permission { Id = Guid.Parse("11111111-1111-1111-1111-111111111100"), Module = "PosCustomerDisplay", ModuleDisplayName = "Màn hình phụ POS", Description = "Customer display, media quảng cáo khi bán", DisplayOrder = 66 },
+            new Permission { Id = Guid.Parse("11111111-1111-1111-1111-111111111102"), Module = "HkdBooks", ModuleDisplayName = "Sổ sách HKD", Description = "Xuất sổ kế toán hộ kinh doanh theo TT 152/2025", DisplayOrder = 67 }
         );
     }
 }

@@ -54,6 +54,7 @@ public partial class PosSellIndustryController(
         bool EnableMultiDeviceDraftLock,
         bool PromptGuestCountOnOpen,
         bool AllowNegativeStock,
+        int ReportDayStartHour,
         Guid? DefaultHourlyProductId,
         string? ExtraJson);
 
@@ -69,6 +70,7 @@ public partial class PosSellIndustryController(
         bool? EnableMultiDeviceDraftLock = null,
         bool? PromptGuestCountOnOpen = null,
         bool? AllowNegativeStock = null,
+        int? ReportDayStartHour = null,
         Guid? DefaultHourlyProductId = null,
         bool SetDefaultHourlyProductId = false,
         string? ExtraJson = null,
@@ -150,6 +152,8 @@ public partial class PosSellIndustryController(
 
         if (!string.IsNullOrWhiteSpace(dto.DefaultSellMode))
             s.DefaultSellMode = dto.DefaultSellMode.Trim().ToLowerInvariant();
+        if (dto.ReportDayStartHour.HasValue)
+            s.ReportDayStartHour = Math.Clamp(dto.ReportDayStartHour.Value, 0, 23);
         if (dto.ExtraJson != null) s.ExtraJson = dto.ExtraJson;
         if (dto.SetDefaultHourlyProductId)
         {
@@ -329,7 +333,8 @@ public partial class PosSellIndustryController(
         s.EnableResources, s.EnableHourlyBilling, s.EnableSessionPacks,
         s.RequireResourceOnSale, s.ShowFloorPlan, s.AllowProvisionalBill,
         s.EnableMultiDeviceDraftLock, s.PromptGuestCountOnOpen,
-        s.AllowNegativeStock, s.DefaultHourlyProductId, s.ExtraJson);
+        s.AllowNegativeStock, Math.Clamp(s.ReportDayStartHour, 0, 23),
+        s.DefaultHourlyProductId, s.ExtraJson);
 
     // ── Areas / resources ─────────────────────────────────────────────────────
 
@@ -1228,6 +1233,8 @@ public partial class PosSellIndustryController(
                             orphanBusy, orphanActor, force: false, bumpVersion: false,
                             lineCount: orphanLines);
                         await db.SaveChangesAsync();
+                        NotifyFloorChanged(storeId, "openSession",
+                            orderId: orphanBusy.Id, resourceId: resource.Id, sessionId: existing.Id);
                         return Ok(AppResponse<object>.Success(new
                         {
                             sessionId = existing.Id,
@@ -1276,6 +1283,8 @@ public partial class PosSellIndustryController(
                         await TryAutoAddHourlyLineAsync(storeId, resource, existingOrder, existing.StartedAt);
                     }
                     await db.SaveChangesAsync();
+                    NotifyFloorChanged(storeId, "openSession",
+                        orderId: existing.SaleOrderId, resourceId: resource.Id, sessionId: existing.Id);
                     return Ok(AppResponse<object>.Success(new
                     {
                         sessionId = existing.Id,
@@ -1354,6 +1363,8 @@ public partial class PosSellIndustryController(
                 await db.SaveChangesAsync();
                 await tx.CommitAsync();
 
+                NotifyFloorChanged(storeId, "openSession",
+                    orderId: orphanWithLines.Id, resourceId: resource.Id, sessionId: orphanSession.Id);
                 return Ok(AppResponse<object>.Success(new
                 {
                     sessionId = orphanSession.Id,

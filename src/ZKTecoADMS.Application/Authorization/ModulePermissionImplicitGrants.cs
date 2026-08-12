@@ -260,6 +260,16 @@ public static class ModulePermissionImplicitGrants
                 return true;
         }
 
+        // Sổ sách HKD: quyền riêng, hoặc kế thừa từ báo cáo POS / thu chi.
+        if (module.Equals("HkdBooks", StringComparison.Ordinal) &&
+            action is ModulePermissionAction.View or ModulePermissionAction.Export or ModulePermissionAction.Edit)
+        {
+            if (HasAction(map, "HkdBooks", action)
+                || (action != ModulePermissionAction.Edit && HasAction(map, "PosSalesReport", action))
+                || (action != ModulePermissionAction.Edit && HasAction(map, "CashReport", action)))
+                return true;
+        }
+
         return false;
     }
 

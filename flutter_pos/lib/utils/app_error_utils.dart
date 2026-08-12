@@ -51,17 +51,31 @@ class AppErrorUtils {
   static bool _isNetworkErrorText(String s) {
     return s.contains('socketexception') ||
         s.contains('clientexception') ||
+        s.contains('handshakeexception') ||
+        s.contains('certificate') ||
+        s.contains('certificat') ||
+        s.contains('ssl') ||
+        s.contains('tls') ||
         s.contains('failed host lookup') ||
         s.contains('network is unreachable') ||
         s.contains('connection refused') ||
         s.contains('connection closed') ||
         s.contains('connection reset') ||
+        s.contains('connection terminated') ||
         s.contains('no address associated with hostname') ||
         s.contains('software caused connection abort') ||
         s.contains('network error') ||
         s.contains('mất kết nối') ||
         s.contains('không có mạng');
   }
+
+  static bool _isSslErrorText(String s) =>
+      s.contains('handshake') ||
+      s.contains('certificate') ||
+      s.contains('certificat') ||
+      s.contains('ssl') ||
+      s.contains('tls') ||
+      s.contains('certificate_verify_failed');
 
   static bool isNetworkError(Object error) =>
       classify(error) == AppErrorKind.network;
@@ -80,6 +94,18 @@ class AppErrorUtils {
         kind: AppErrorKind.unknown,
         title: 'Giao diện quá tải',
         message: tr('Ứng dụng gặp sự cố hiển thị. Đóng app hoàn toàn (vuốt khỏi đa nhiệm) rồi mở lại.'),
+        technicalHint: hint,
+      );
+    }
+
+    if (_isSslErrorText(s)) {
+      return AppErrorInfo(
+        kind: AppErrorKind.network,
+        title: 'Lỗi bảo mật HTTPS',
+        message: tr(
+          'Máy không xác thực được chứng chỉ máy chủ (thường gặp trên Android cũ / Sunmi T1). '
+          'Kiểm tra ngày giờ máy đúng, Wi‑Fi ổn định rồi thử lại.',
+        ),
         technicalHint: hint,
       );
     }
@@ -155,11 +181,15 @@ class AppErrorUtils {
   }) {
     final info = fromException(error);
     debugPrint('🌐 API error [${info.kind.name}]: $error');
-    final message = info.kind == AppErrorKind.unknown &&
+    var message = info.kind == AppErrorKind.unknown &&
             fallbackMessage != null &&
             fallbackMessage.isNotEmpty
         ? fallbackMessage
         : info.message;
+    final hint = info.technicalHint;
+    if (hint != null && hint.isNotEmpty && !message.contains(hint)) {
+      message = '$message\n($hint)';
+    }
     return {
       'isSuccess': false,
       'success': false,

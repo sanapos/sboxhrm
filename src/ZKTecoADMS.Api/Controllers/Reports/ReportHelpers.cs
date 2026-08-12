@@ -75,6 +75,14 @@ internal static class ReportHelpers
         return (f, t, utcStart, utcEnd);
     }
 
+    /// <summary>
+    /// Báo cáo POS: ngày lịch VN + giờ cắt qua đêm → cửa sổ UTC wall cho SaleDate/CreatedAt.
+    /// </summary>
+    public static (DateTime fromUtc, DateTime toUtcExclusive, DateTime fromVn, DateTime toVnExclusive)
+        PosBusinessRange(DateTime? from, DateTime? to, int dayStartHour = 0,
+            DateTime? defaultFrom = null, DateTime? defaultTo = null)
+        => VnTimeHelper.ResolvePosBusinessRange(from, to, dayStartHour, defaultFrom, defaultTo);
+
     /// <summary>Count working days in VN range excluding weekends + given holiday dates (local).</summary>
     public static int CountWorkingDays(DateTime fromLocal, DateTime toLocal, HashSet<DateTime> holidays)
     {

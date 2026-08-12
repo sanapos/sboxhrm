@@ -60,6 +60,8 @@ public class ZKTecoDbInitializer(
                     ALTER TABLE ""PosStorePrinters"" ADD COLUMN IF NOT EXISTS ""OpenCashDrawer"" boolean NOT NULL DEFAULT false;
                     ALTER TABLE ""PosStorePrinters"" ADD COLUMN IF NOT EXISTS ""OpenDrawerCashOnly"" boolean NOT NULL DEFAULT true;
                     ALTER TABLE ""PosStorePrinters"" ADD COLUMN IF NOT EXISTS ""BeepOnPrint"" boolean NOT NULL DEFAULT false;
+                    ALTER TABLE ""PosStorePrinters"" ADD COLUMN IF NOT EXISTS ""IsDeviceLocal"" boolean NOT NULL DEFAULT false;
+                    ALTER TABLE ""PosStorePrinters"" ADD COLUMN IF NOT EXISTS ""OwnerDeviceId"" character varying(64) NULL;
                 ");
 
                 // =============== Mobile Attendance Tables ===============
@@ -1124,6 +1126,7 @@ public class ZKTecoDbInitializer(
                     ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""IsTopping"" boolean NOT NULL DEFAULT false;
                     ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""AllowToppings"" boolean NOT NULL DEFAULT false;
                     ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""AutoOpenToppingPopup"" boolean NOT NULL DEFAULT true;
+                    ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""AllowDecimalQty"" boolean NOT NULL DEFAULT false;
                     ALTER TABLE ""PosStoreSellSettings"" ADD COLUMN IF NOT EXISTS ""AllowProvisionalBill"" boolean NOT NULL DEFAULT false;
                     DO $$
                     BEGIN
@@ -2237,6 +2240,7 @@ public class ZKTecoDbInitializer(
         ["PosProducts"] = Guid.Parse("11111111-1111-1111-1111-111111111083"),
         ["PosSell"] = Guid.Parse("11111111-1111-1111-1111-111111111087"),
         ["PosSalesReport"] = Guid.Parse("11111111-1111-1111-1111-111111111084"),
+        ["HkdBooks"] = Guid.Parse("11111111-1111-1111-1111-111111111102"),
         ["PosPrintTemplates"] = Guid.Parse("11111111-1111-1111-1111-111111111088"),
         ["PosSaleOrders"] = Guid.Parse("11111111-1111-1111-1111-111111111089"),
         ["PosSaleReturns"] = Guid.Parse("11111111-1111-1111-1111-111111111090"),

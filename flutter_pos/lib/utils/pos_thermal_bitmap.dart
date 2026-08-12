@@ -11,15 +11,21 @@ import '../l10n/app_tr.dart';
 class PosReceiptImageLine {
   const PosReceiptImageLine({
     required this.text,
+    this.rightText,
     this.bold = false,
     this.center = false,
     this.fontSize = 22,
+    this.isDivider = false,
   });
 
   final String text;
+  /// Nếu có: vẽ trái–phải full khổ (bảng hàng / tổng tiền).
+  final String? rightText;
   final bool bold;
   final bool center;
   final double fontSize;
+  /// Vẽ đường kẻ ngang đặc bằng chiều rộng giấy (không dùng ===== / -----).
+  final bool isDivider;
 }
 
 /// Chuyển chữ tiếng Việt thành lệnh ESC/POS raster (GS v 0).
@@ -72,6 +78,30 @@ class PosThermalBitmapEncoder {
     var totalH = 0.0;
 
     for (final line in lines) {
+      if (line.isDivider) {
+        painters.add(null);
+        // Chiều cao đường kẻ (ở scale 2×) — sau thu nhỏ ~2–3px.
+        totalH += 6.0 * scale;
+        continue;
+      }
+      if ((line.rightText ?? '').trim().isNotEmpty) {
+        // Pair: đo chiều cao theo dòng trái (right cùng font).
+        final leftTp = TextPainter(
+          text: TextSpan(
+            text: tr(line.text),
+            style: _thermalStyle(
+              fontSize: line.fontSize * scale,
+              bold: line.bold,
+            ),
+          ),
+          textAlign: TextAlign.left,
+          textDirection: TextDirection.ltr,
+          maxLines: 3,
+        )..layout(maxWidth: renderW * 0.62);
+        painters.add(leftTp);
+        totalH += leftTp.height + lineGap * scale;
+        continue;
+      }
       if (line.text.trim().isEmpty) {
         painters.add(null);
         totalH += 10.0 * scale;
@@ -109,6 +139,44 @@ class PosThermalBitmapEncoder {
 
     var y = 0.0;
     for (var i = 0; i < painters.length; i++) {
+      final line = lines[i];
+      if (line.isDivider) {
+        final ruleH = 3.0 * scale;
+        final top = y + (6.0 * scale - ruleH) / 2;
+        canvas.drawRect(
+          Rect.fromLTWH(0, top, renderW.toDouble(), ruleH),
+          Paint()..color = const Color(0xFF000000),
+        );
+        y += 6.0 * scale;
+        continue;
+      }
+      final right = (line.rightText ?? '').trim();
+      if (right.isNotEmpty) {
+        final style = _thermalStyle(
+          fontSize: line.fontSize * scale,
+          bold: line.bold,
+        );
+        final leftTp = TextPainter(
+          text: TextSpan(text: tr(line.text), style: style),
+          textAlign: TextAlign.left,
+          textDirection: TextDirection.ltr,
+          maxLines: 3,
+        )..layout(maxWidth: renderW * 0.62);
+        final rightTp = TextPainter(
+          text: TextSpan(text: tr(right), style: style),
+          textAlign: TextAlign.right,
+          textDirection: TextDirection.ltr,
+          maxLines: 2,
+        )..layout(maxWidth: renderW * 0.45);
+        leftTp.paint(canvas, Offset(0, y));
+        rightTp.paint(
+          canvas,
+          Offset((renderW - rightTp.width).clamp(0.0, renderW.toDouble()), y),
+        );
+        y += (leftTp.height > rightTp.height ? leftTp.height : rightTp.height) +
+            lineGap * scale;
+        continue;
+      }
       final tp = painters[i];
       if (tp == null) {
         y += 10.0 * scale;
@@ -287,6 +355,58 @@ class PosThermalBitmapEncoder {
       ...raster,
       0x0A,
     ];
+  }
+
+  /// Đường kẻ ngang đặc (GS v 0) đúng [paperDots] — thay ===== / -----.
+  static List<int> horizontalRuleEscPos({
+    required int paperDots,
+    int thickness = 2,
+  }) {
+    final w = paperDots.clamp(8, 576);
+    final h = thickness.clamp(1, 8);
+    final bytesPerRow = (w + 7) ~/ 8;
+    final raster = List<int>.filled(bytesPerRow * h, 0xFF);
+    // Bit thừa ngoài bề rộng giấy → trắng.
+    final rem = w % 8;
+    if (rem != 0) {
+      final mask = (0xFF << (8 - rem)) & 0xFF;
+      for (var y = 0; y < h; y++) {
+        raster[y * bytesPerRow + bytesPerRow - 1] = mask;
+      }
+    }
+    return [
+      0x1D, 0x76, 0x30, 0x00,
+      bytesPerRow & 0xFF,
+      (bytesPerRow >> 8) & 0xFF,
+      h & 0xFF,
+      (h >> 8) & 0xFF,
+      ...raster,
+      0x0A,
+    ];
+  }
+
+  /// PNG mỏng cho Sunmi printImage — đường kẻ đúng khổ giấy.
+  static Future<Uint8List?> horizontalRulePng({
+    required int paperDots,
+    int thickness = 3,
+  }) async {
+    final w = paperDots.clamp(8, 576);
+    final h = (thickness + 6).clamp(4, 16);
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(recorder);
+    canvas.drawRect(
+      Rect.fromLTWH(0, 0, w.toDouble(), h.toDouble()),
+      Paint()..color = const Color(0xFFFFFFFF),
+    );
+    final ruleH = thickness.toDouble();
+    canvas.drawRect(
+      Rect.fromLTWH(0, (h - ruleH) / 2, w.toDouble(), ruleH),
+      Paint()..color = const Color(0xFF000000),
+    );
+    final image = await recorder.endRecording().toImage(w, h);
+    final bd = await image.toByteData(format: ui.ImageByteFormat.png);
+    image.dispose();
+    return bd?.buffer.asUint8List();
   }
 
   static List<String> wrapText(String text, int maxChars) {

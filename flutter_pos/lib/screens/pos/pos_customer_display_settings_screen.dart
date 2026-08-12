@@ -9,6 +9,7 @@ import 'package:flutter/services.dart';
 import '../../models/customer_display_models.dart';
 import '../../models/pos_sell_industry.dart';
 import '../../services/api_service.dart';
+import '../../services/customer_display_sync.dart';
 import '../../utils/customer_display_media.dart';
 import '../../utils/pos_sell_settings_helper.dart';
 import '../../widgets/notification_overlay.dart';
@@ -17,7 +18,13 @@ import 'package:sbox_pos/l10n/app_tr.dart';
 
 /// Thiết lập màn hình phụ: ảnh trình chiếu · video · tùy chọn.
 class PosCustomerDisplaySettingsScreen extends StatefulWidget {
-  const PosCustomerDisplaySettingsScreen({super.key});
+  const PosCustomerDisplaySettingsScreen({
+    super.key,
+    this.embeddedInSettings = false,
+  });
+
+  /// Khi mở trong Settings hub đã có AppBar — không vẽ AppBar thứ hai.
+  final bool embeddedInSettings;
 
   @override
   State<PosCustomerDisplaySettingsScreen> createState() =>
@@ -69,6 +76,11 @@ class _PosCustomerDisplaySettingsScreenState
       _error = r.error;
       _loading = false;
     });
+    if (settings != null) {
+      CustomerDisplaySync.instance.applyConfig(
+        CustomerDisplayConfig.fromExtraJson(settings.extraJson),
+      );
+    }
   }
 
   String get _viewerLink {
@@ -76,9 +88,9 @@ class _PosCustomerDisplaySettingsScreenState
     if (code.length < 4) return '';
     if (kIsWeb) {
       final origin = Uri.base.origin;
-      return '$origin/#/customer-display?v=$code';
+      return '$origin/customer-display?v=$code';
     }
-    return 'https://sboxhrm.com/#/customer-display?v=$code';
+    return 'https://sboxhrm.com/customer-display?v=$code';
   }
 
   Future<void> _copyViewerLink() async {
@@ -108,6 +120,9 @@ class _PosCustomerDisplaySettingsScreenState
     setState(() => _saving = false);
     if (r.settings != null) {
       setState(() => _settings = r.settings);
+      CustomerDisplaySync.instance.applyConfig(
+        CustomerDisplayConfig.fromExtraJson(r.settings!.extraJson),
+      );
     } else {
       NotificationOverlayManager().showError(
         title: 'Lỗi',
@@ -280,10 +295,14 @@ class _PosCustomerDisplaySettingsScreenState
             ? Center(child: Text(tr(_error!)))
             : _buildBody();
 
+    if (widget.embeddedInSettings) {
+      return ColoredBox(color: PosTheme.background, child: body);
+    }
+
     return Scaffold(
       backgroundColor: PosTheme.background,
       appBar: AppBar(
-        title: Text(tr('Màn hình phụ (khách)')),
+        title: Text(tr('Màn hình phụ')),
         backgroundColor: PosTheme.kiotBlue,
         foregroundColor: Colors.white,
         actions: [
@@ -370,10 +389,45 @@ class _PosCustomerDisplaySettingsScreenState
           onChanged:
               busy ? null : (v) => _patchCd((c) => c.copyWith(enabled: v)),
         ),
+        ListTile(
+          contentPadding: EdgeInsets.zero,
+          title: Text(tr('Loại màn hình phụ')),
+          subtitle: Text(
+            tr(cd.target.hintVi),
+            style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+          ),
+          trailing: DropdownButton<CustomerDisplayTarget>(
+            value: cd.target,
+            items: [
+              for (final t in CustomerDisplayTarget.values)
+                DropdownMenuItem(
+                  value: t,
+                  child: Text(tr(t.labelVi), style: const TextStyle(fontSize: 13)),
+                ),
+            ],
+            onChanged: busy || !cd.enabled
+                ? null
+                : (v) {
+                    if (v == null) return;
+                    _patchCd((c) => c.copyWith(target: v));
+                  },
+          ),
+        ),
+        if (cd.target == CustomerDisplayTarget.t1Native)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Text(
+              tr('T1 native: chỉ bill + mã VietQR (không video). '
+                  'Cần DisplayManager thấy màn 7″.'),
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+            ),
+          ),
         SwitchListTile(
           contentPadding: EdgeInsets.zero,
           title: Text(tr('Tự mở khi vào bán hàng')),
-          subtitle: Text(tr('Android: display phụ · Web: popup')),
+          subtitle: Text(tr(cd.target == CustomerDisplayTarget.window
+              ? 'Window: chỉ đẩy state — mở link trên máy/TV khác'
+              : 'Android: mở Presentation trên display phụ')),
           value: cd.autoOpenOnPos,
           onChanged: busy || !cd.enabled
               ? null
@@ -382,7 +436,9 @@ class _PosCustomerDisplaySettingsScreenState
         SwitchListTile(
           contentPadding: EdgeInsets.zero,
           title: Text(tr('Chiếu thêm ảnh sản phẩm khi chờ')),
-          subtitle: Text(tr('Lấy ảnh từ danh mục hàng hóa')),
+          subtitle: Text(tr(cd.target == CustomerDisplayTarget.t1Native
+              ? 'T1: chỉ lấy 1 ảnh promo đầu (không video)'
+              : 'Lấy ảnh từ danh mục hàng hóa')),
           value: cd.useProductImages,
           onChanged: busy || !cd.enabled
               ? null

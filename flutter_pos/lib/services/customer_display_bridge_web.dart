@@ -24,7 +24,11 @@ class CustomerDisplayPlatformBridge {
   /// Web: coi là có “màn phụ” nếu mở được popup/cửa sổ.
   static Future<bool> hasSecondaryDisplay() async => true;
 
-  static Future<bool> openSecondary({String route = '/customer-display'}) async {
+  static Future<bool> openSecondary({
+    String route = '/customer-display',
+    String mode = 't1Native',
+  }) async {
+    // Window / web: luôn dùng popup trình duyệt.
     _ensureChannel();
     final base = web.window.location.href.split('#').first;
     final url = '$base#${route.startsWith('/') ? route : '/$route'}';

@@ -5,9 +5,9 @@ import 'excel_report_builder.dart';
 
 /// Cách tính thuế VAT trên màn bán hàng.
 enum PosSellTaxMode {
-  includedInPrice('included', 'Giá bán đã bao gồm thuế'),
-  perItem('per_item', 'Thuế theo từng mặt hàng'),
-  orderTotal('order_total', 'Thuế trên tổng đơn hàng');
+  includedInPrice('included', 'Giá đã bao gồm VAT (VAT = 0đ trên HĐ)'),
+  perItem('per_item', 'Cộng thêm VAT theo từng mặt hàng'),
+  orderTotal('order_total', 'Cộng thêm VAT trên tổng đơn');
 
   const PosSellTaxMode(this.key, this.label);
 

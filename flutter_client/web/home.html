@@ -27,6 +27,30 @@
   <meta id="seo-tw-description" name="twitter:description" content="Chấm công khuôn mặt, ZKTeco, bảng lương và POS bán hàng — dùng thử miễn phí." />
   <meta id="seo-tw-image" name="twitter:image" content="https://sboxhrm.com/images/landing/screenshot-01.jpg" />
   <link rel="icon" type="image/png" href="/favicon.png" />
+  <script>
+    // Hash app routes mở nhầm `/` (= home.html SEO). Đưa về Flutter index / path.
+    (function () {
+      var hash = (location.hash || '').replace(/^#\/?/, '');
+      if (!hash) return;
+      var pathOnly = hash.split('?')[0];
+      var qs = hash.indexOf('?') >= 0 ? hash.slice(hash.indexOf('?')) : '';
+      if (pathOnly === 'customer-display' || pathOnly.indexOf('customer-display/') === 0) {
+        location.replace('/customer-display' + qs);
+        return;
+      }
+      var appHash = ['login-app', 'login', 'register', 'forgot-password', 'admin', 'guide'];
+      for (var i = 0; i < appHash.length; i++) {
+        var r = appHash[i];
+        if (pathOnly === r || pathOnly.indexOf(r + '/') === 0) {
+          location.replace('/index.html#' + (hash.charAt(0) === '/' ? hash : '/' + hash));
+          return;
+        }
+      }
+      if (pathOnly.indexOf('agent-register/') === 0) {
+        location.replace('/index.html#' + (hash.charAt(0) === '/' ? hash : '/' + hash));
+      }
+    })();
+  </script>
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
@@ -1534,7 +1558,8 @@
           <li>Thông báo đẩy realtime</li>
           <li>APK nội bộ khi cần</li>
         </ul>
-        <a class="pf-cta" href="https://play.google.com/store/apps/details?id=sbox.sana.vn" target="_blank" rel="noopener noreferrer">Tải trên Google Play</a>
+        <a class="pf-cta" href="#downloads">Tải APK mới nhất</a>
+        <div class="pf-note">Hoặc <a href="https://play.google.com/store/apps/details?id=sbox.sana.vn" target="_blank" rel="noopener noreferrer">Google Play (HRM)</a></div>
       </article>
       <article class="platform-card">
         <div class="pf-icon" aria-hidden="true"></div>
@@ -1842,12 +1867,108 @@
       renderVideo('guide', guide);
       renderPricing(parseJsonArray(data && data.landingPricingJson, FALLBACK_PRICING));
       renderDevices(parseJsonArray(data && data.landingProducts, FALLBACK_DEVICES));
-      renderDownloads(parseJsonArray(data && data.landingDownloadsJson, FALLBACK_DOWNLOADS));
+      var downloads = parseJsonArray(data && data.landingDownloadsJson, FALLBACK_DOWNLOADS);
+      window.__landingDownloads = downloads.slice();
+      renderDownloads(window.__landingDownloads);
       applyHero(data);
       applyFeatures(parseJsonArray(data && data.landingFeaturesJson, []));
       applyFaq(parseJsonArray(data && data.landingFaqJson, []));
       applyContact(data);
       applySeo(data);
+      enrichPosAndroidDownload();
+      enrichPrintAgentDownload();
+    }
+
+    function pad2(n) { return n < 10 ? '0' + n : String(n); }
+
+    function formatVnDate(iso) {
+      if (!iso) return '';
+      var d = new Date(iso);
+      if (isNaN(d.getTime())) return '';
+      return pad2(d.getDate()) + '/' + pad2(d.getMonth() + 1) + '/' + d.getFullYear();
+    }
+
+    function patchDownloadCard(matcher, card) {
+      var list = Array.isArray(window.__landingDownloads)
+        ? window.__landingDownloads.slice()
+        : FALLBACK_DOWNLOADS.slice();
+      var idx = -1;
+      for (var i = 0; i < list.length; i++) {
+        if (matcher(list[i])) { idx = i; break; }
+      }
+      if (idx >= 0) list[idx] = card;
+      else list.unshift(card);
+      window.__landingDownloads = list;
+      renderDownloads(list);
+    }
+
+    /** Gắn link + phiên bản + ngày xuất bản SBOX POS vào thẻ «APK Android mới nhất». */
+    function enrichPosAndroidDownload() {
+      fetch('/api/app/pos-android-release', { headers: { 'Accept': 'application/json' } })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (body) {
+          var data = body && (body.data || body.Data || body);
+          if (!data || !(data.versionName || data.VersionName)) return;
+          var ver = data.versionName || data.VersionName;
+          var code = data.versionCode || data.VersionCode || '';
+          var published = formatVnDate(data.publishedAt || data.PublishedAt);
+          var apkUrl = data.apkUrl || data.ApkUrl || '/downloads/sbox-pos.apk';
+          try {
+            var u = new URL(apkUrl, window.location.origin);
+            if (u.origin === window.location.origin) apkUrl = u.pathname + u.search;
+          } catch (e) {}
+
+          var versionLabel = 'v' + ver + (code ? ' (' + code + ')' : '');
+          if (published) versionLabel += ' · Xuất bản ' + published;
+          patchDownloadCard(function (it) {
+            var t = String(it.title || '').toLowerCase();
+            var b = String(it.badge || '').toLowerCase();
+            return t.indexOf('apk android') >= 0 || t.indexOf('sbox pos') >= 0 ||
+              (b === 'apk' && String(it.platform || '').toLowerCase() === 'android');
+          }, {
+            title: 'APK Android mới nhất',
+            desc: 'SBOX POS — cài thủ công máy POS / tablet Android 6+ (không cần CH Play)',
+            version: versionLabel,
+            badge: 'APK',
+            platform: 'android',
+            url: apkUrl
+          });
+        })
+        .catch(function () {});
+    }
+
+    /** Gắn link + phiên bản Print Agent Windows. */
+    function enrichPrintAgentDownload() {
+      fetch('/api/app/print-agent-release', { headers: { 'Accept': 'application/json' } })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (body) {
+          var data = body && (body.data || body.Data || body);
+          if (!data || !(data.versionName || data.VersionName)) return;
+          var ver = data.versionName || data.VersionName;
+          var code = data.versionCode || data.VersionCode || '';
+          var published = formatVnDate(data.publishedAt || data.PublishedAt);
+          var url = data.downloadUrl || data.DownloadUrl || '/downloads/sbox-print-agent.exe';
+          try {
+            var u = new URL(url, window.location.origin);
+            if (u.origin === window.location.origin) url = u.pathname + u.search;
+          } catch (e) {}
+
+          var versionLabel = 'v' + ver + (code ? ' (' + code + ')' : '');
+          if (published) versionLabel += ' · Xuất bản ' + published;
+          patchDownloadCard(function (it) {
+            var t = String(it.title || '').toLowerCase();
+            return t.indexOf('in ấn') >= 0 || t.indexOf('print agent') >= 0 ||
+              t.indexOf('công cụ đồng bộ') >= 0;
+          }, {
+            title: 'Công cụ in ấn web (Windows)',
+            desc: 'SBOX Print Agent — nhận lệnh in từ bán hàng web, máy in LAN/USB',
+            version: versionLabel,
+            badge: 'Windows',
+            platform: 'windows',
+            url: url
+          });
+        })
+        .catch(function () {});
     }
 
     function setText(id, value) {
@@ -2151,23 +2272,25 @@
     var FALLBACK_DOWNLOADS = [
       {
         title: 'APK Android mới nhất',
-        desc: 'Cài thủ công cho thiết bị Android nội bộ',
-        version: 'Android',
+        desc: 'SBOX POS — cài thủ công máy POS / tablet Android 6+ (không cần CH Play)',
+        version: 'v1.0.37 · Xuất bản 08/08/2026',
         badge: 'APK',
-        url: 'https://play.google.com/store/apps/details?id=sbox.sana.vn'
+        platform: 'android',
+        url: '/downloads/sbox-pos.apk'
+      },
+      {
+        title: 'Công cụ in ấn web (Windows)',
+        desc: 'SBOX Print Agent — nhận lệnh in từ bán hàng web, máy in LAN/USB',
+        version: 'v1.3.4 · Xuất bản 08/08/2026',
+        badge: 'Windows',
+        platform: 'windows',
+        url: '/downloads/sbox-print-agent.exe'
       },
       {
         title: 'Driver USB ZKTeco',
         desc: 'Driver kết nối máy chấm công với máy tính Windows',
         version: 'Windows',
         badge: 'Driver',
-        url: '#contact'
-      },
-      {
-        title: 'Bộ cài công cụ đồng bộ',
-        desc: 'Tiện ích hỗ trợ cấu hình và kiểm tra kết nối thiết bị',
-        version: 'Tool',
-        badge: 'Tool',
         url: '#contact'
       }
     ];

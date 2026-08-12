@@ -76,6 +76,7 @@ public partial class PosProductsController(
         bool IsTopping = false,
         bool AllowToppings = false,
         bool AutoOpenToppingPopup = true,
+        bool AllowDecimalQty = false,
         List<PosProductToppingOptionDto>? ToppingOptions = null,
         List<Guid>? ToppingGroupIds = null,
         List<PosProductToppingGroupDto>? ToppingGroups = null);
@@ -146,6 +147,7 @@ public partial class PosProductsController(
         bool IsTopping = false,
         bool AllowToppings = false,
         bool AutoOpenToppingPopup = true,
+        bool AllowDecimalQty = false,
         List<PosProductToppingInput>? Toppings = null,
         List<Guid>? ToppingGroupIds = null);
 
@@ -296,6 +298,7 @@ public partial class PosProductsController(
                 p.IsTopping,
                 p.AllowToppings,
                 p.AutoOpenToppingPopup,
+                p.AllowDecimalQty,
                 p.CreatedAt,
                 p.UpdatedAt,
             })
@@ -356,6 +359,7 @@ public partial class PosProductsController(
                 IsTopping: r.IsTopping,
                 AllowToppings: r.AllowToppings,
                 AutoOpenToppingPopup: r.AutoOpenToppingPopup,
+                AllowDecimalQty: r.AllowDecimalQty,
                 ToppingOptions: toppingOpts,
                 ToppingGroupIds: groupIds,
                 ToppingGroups: toppingGroups);
@@ -574,7 +578,8 @@ public partial class PosProductsController(
             SaleQuickNotesJson = PosSaleQuickNotesHelper.Serialize(dto.SaleQuickNotes),
             DefaultPrinterId = await ResolvePrinterIdAsync(storeId, dto.DefaultPrinterId),
             WarrantyMonths = dto.WarrantyMonths > 0 ? dto.WarrantyMonths : null,
-            RequiresSerial = dto.RequiresSerial,
+            RequiresSerial = dto.RequiresSerial && !dto.AllowDecimalQty,
+            AllowDecimalQty = dto.AllowDecimalQty && !dto.RequiresSerial,
             TrackExpiry = dto.TrackExpiry,
             ExpiryWarningDays = dto.ExpiryWarningDays > 0 ? dto.ExpiryWarningDays : 30,
             ServiceBillingMode = dto.ProductType == PosProductType.Service
@@ -686,7 +691,8 @@ public partial class PosProductsController(
         entity.SaleQuickNotesJson = PosSaleQuickNotesHelper.Serialize(dto.SaleQuickNotes);
         entity.DefaultPrinterId = await ResolvePrinterIdAsync(storeId, dto.DefaultPrinterId);
         entity.WarrantyMonths = dto.WarrantyMonths > 0 ? dto.WarrantyMonths : null;
-        entity.RequiresSerial = dto.RequiresSerial;
+        entity.RequiresSerial = dto.RequiresSerial && !dto.AllowDecimalQty;
+        entity.AllowDecimalQty = dto.AllowDecimalQty && !dto.RequiresSerial;
         entity.TrackExpiry = dto.TrackExpiry;
         entity.ExpiryWarningDays = dto.ExpiryWarningDays > 0 ? dto.ExpiryWarningDays : 30;
         entity.ServiceBillingMode = dto.ProductType == PosProductType.Service
@@ -798,6 +804,7 @@ public partial class PosProductsController(
             SaleQuickNotesJson = source.SaleQuickNotesJson,
             WarrantyMonths = source.WarrantyMonths,
             RequiresSerial = source.RequiresSerial,
+            AllowDecimalQty = source.AllowDecimalQty,
             TrackExpiry = source.TrackExpiry,
             ExpiryWarningDays = source.ExpiryWarningDays,
             IsActive = true,
@@ -967,7 +974,8 @@ public partial class PosProductsController(
             p.ServiceBillingMode.ToString(), p.MinBillMinutes, p.BillRoundMinutes,
             p.GraceMinutes, p.RoundAfterMinutes,
             p.DefaultDurationMinutes, p.SessionPackCount,
-            p.IsTopping, p.AllowToppings, p.AutoOpenToppingPopup, toppingOpts,
+            p.IsTopping, p.AllowToppings, p.AutoOpenToppingPopup,
+            p.AllowDecimalQty, toppingOpts,
             groupIds, toppingGroups);
     }
 
@@ -1181,6 +1189,7 @@ public partial class PosProductsController(
             entity.MaxStockQty = 0;
             entity.WarrantyMonths = null;
             entity.RequiresSerial = false;
+            entity.AllowDecimalQty = false;
             entity.TrackExpiry = false;
             // Giữ ServiceBillingMode / phút / SessionPackCount từ DTO
         }
@@ -1192,6 +1201,7 @@ public partial class PosProductsController(
             entity.MaxStockQty = 0;
             entity.WarrantyMonths = null;
             entity.RequiresSerial = false;
+            entity.AllowDecimalQty = false;
             entity.TrackExpiry = false;
             entity.ServiceBillingMode = PosServiceBillingMode.Flat;
             entity.MinBillMinutes = null;

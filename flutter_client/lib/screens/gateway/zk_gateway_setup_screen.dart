@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../l10n/app_tr.dart';
 import '../../models/zk_gateway.dart';
@@ -476,6 +475,11 @@ class _ZkGatewaySetupScreenState extends State<ZkGatewaySetupScreen> {
               'Comm/Ethernet của máy).'),
           _bullet(3, 'Mật khẩu WiFi 2.4GHz của nơi lắp đặt. Gateway không bắt '
               'được sóng 5GHz.'),
+          const SizedBox(height: 12),
+          _title('Các bước sẽ làm'),
+          _bullet(1, 'Nối điện thoại vào sóng WiFi phát ra từ gateway.'),
+          _bullet(2, 'Chọn WiFi 2.4GHz nhà và nhập mật khẩu để gateway vào mạng.'),
+          _bullet(3, 'Nhập IP máy chấm công, kiểm tra kết nối là xong.'),
         ]),
         const SizedBox(height: 14),
         _primaryButton('Bắt đầu', () => setState(() => _step = 1)),
@@ -522,43 +526,9 @@ class _ZkGatewaySetupScreenState extends State<ZkGatewaySetupScreen> {
             icon: Icons.warning_amber_rounded,
             color: Color(0xFFF59E0B),
           ),
-          const SizedBox(height: 10),
-          const GatewayNoteBox(
-            text: 'Nếu app không thấy thiết bị (thường gặp trên iPhone), mở Safari '
-                'tới http://192.168.4.1 để cấu hình trực tiếp trên mạch.',
-            icon: Icons.open_in_browser,
-          ),
         ]),
         const SizedBox(height: 14),
         _primaryButton('Tôi đã kết nối, kiểm tra', _probeDevice, icon: Icons.search),
-        const SizedBox(height: 8),
-        OutlinedButton.icon(
-          onPressed: _busy
-              ? null
-              : () async {
-                  final uri = Uri.parse(ZkGatewayClient.apPortalUrl);
-                  final ok = await launchUrl(
-                    uri,
-                    mode: LaunchMode.externalApplication,
-                  );
-                  if (!ok && mounted) {
-                    appNotification.showError(
-                      title: tr('Không mở được trình duyệt'),
-                      message: tr('Hãy mở tay: ${ZkGatewayClient.apPortalUrl}'),
-                    );
-                  }
-                },
-          icon: const Icon(Icons.open_in_browser, size: 18),
-          label: Text(tr('Mở web cấu hình (192.168.4.1)')),
-          style: OutlinedButton.styleFrom(
-            foregroundColor: HrmPageChrome.primaryNavy,
-            minimumSize: const Size(double.infinity, 44),
-            side: const BorderSide(color: Color(0xFFCBD5E1)),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10),
-            ),
-          ),
-        ),
         const SizedBox(height: 8),
         TextButton(
           onPressed: _busy ? null : () => setState(() => _step = 0),

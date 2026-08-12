@@ -18,6 +18,7 @@ class CustomerDisplaySync extends ChangeNotifier {
   static final CustomerDisplaySync instance = CustomerDisplaySync._();
 
   static const _prefsKey = 'sbox_customer_display_state_v1';
+  static const _viewerCodePrefsKey = 'sbox_customer_display_viewer_code_v1';
 
   CustomerDisplayState _state = CustomerDisplayState.idle;
   CustomerDisplayConfig _config = const CustomerDisplayConfig();
@@ -25,35 +26,104 @@ class CustomerDisplaySync extends ChangeNotifier {
   Timer? _pollTimer;
   bool _listening = false;
   bool _pollBusy = false;
+  String? _localViewerCode;
 
   CustomerDisplayState get state => _state;
   CustomerDisplayConfig get config => _config;
   bool get enabled => _config.enabled;
 
+  /// Link mở trên trình duyệt máy khác (không cần đăng nhập).
+  /// Dùng path `/customer-display` (không dùng `/#/...`) vì `/` phục vụ home.html SEO.
+  String get viewerBrowserLink {
+    final code = ensureViewerCode();
+    if (kIsWeb) {
+      try {
+        final origin = Uri.base.origin;
+        if (origin.isNotEmpty) return '$origin/customer-display?v=$code';
+      } catch (_) {}
+    }
+    return 'https://sboxhrm.com/customer-display?v=$code';
+  }
+
+  /// Đảm bảo có mã ≥4 ký tự (ổn định qua prefs / config server).
+  String ensureViewerCode() {
+    final fromCfg = _config.viewerCode.trim();
+    if (fromCfg.length >= 4) {
+      _localViewerCode = fromCfg;
+      return fromCfg;
+    }
+    final local = (_localViewerCode ?? '').trim();
+    if (local.length >= 4) {
+      _config = _config.copyWith(viewerCode: local);
+      return local;
+    }
+    final generated = CustomerDisplayConfig.newViewerCode();
+    _localViewerCode = generated;
+    _config = _config.copyWith(viewerCode: generated);
+    unawaited(_persistViewerCode(generated));
+    return generated;
+  }
+
   void applyConfig(CustomerDisplayConfig config) {
-    _config = config;
+    final incoming = config.viewerCode.trim();
+    String code;
+    if (incoming.length >= 4) {
+      code = incoming;
+      _localViewerCode = incoming;
+      unawaited(_persistViewerCode(incoming));
+    } else {
+      final local = (_localViewerCode ?? _config.viewerCode).trim();
+      code = local.length >= 4 ? local : CustomerDisplayConfig.newViewerCode();
+      _localViewerCode = code;
+      unawaited(_persistViewerCode(code));
+    }
+    _config = config.copyWith(viewerCode: code);
     notifyListeners();
+  }
+
+  Future<void> _persistViewerCode(String code) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_viewerCodePrefsKey, code);
+    } catch (_) {}
+  }
+
+  Future<void> _loadLocalViewerCode() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final c = (prefs.getString(_viewerCodePrefsKey) ?? '').trim();
+      if (c.length >= 4) _localViewerCode = c;
+    } catch (_) {}
   }
 
   Future<void> startListening() async {
     if (_listening) return;
     _listening = true;
+    await _loadLocalViewerCode();
+    ensureViewerCode();
     await _pullLatestFromStorage();
     notifyListeners();
 
     _nativeSub?.cancel();
     final stream = bridge.CustomerDisplayPlatformBridge.nativeStateStream();
     if (stream != null) {
-      _nativeSub = stream.listen((raw) {
-        final s = CustomerDisplayState.tryDecode(raw);
-        if (s == null) return;
-        _applyIfNewer(s);
-      });
+      _nativeSub = stream.listen(
+        (raw) {
+          final s = CustomerDisplayState.tryDecode(raw);
+          if (s == null) return;
+          _applyIfNewer(s);
+        },
+        onError: (Object e) {
+          debugPrint('CustomerDisplay events: $e');
+        },
+        cancelOnError: false,
+      );
     }
 
     // Engine màn phụ không nhận EventChannel từ MainActivity → poll.
     _pollTimer?.cancel();
-    _pollTimer = Timer.periodic(const Duration(milliseconds: 280), (_) {
+    // 2.5s đủ mượt cho màn phụ; 800ms gây I/O prefs liên tục trên Sunmi.
+    _pollTimer = Timer.periodic(const Duration(milliseconds: 2500), (_) {
       unawaited(_pollStorage());
     });
   }
@@ -87,9 +157,7 @@ class CustomerDisplaySync extends ChangeNotifier {
 
   void _applyIfNewer(CustomerDisplayState s) {
     if (s.updatedAtMs < _state.updatedAtMs) return;
-    // Cùng timestamp nhưng nội dung đổi (hiếm) — so sánh encode ngắn.
-    if (s.updatedAtMs == _state.updatedAtMs &&
-        identical(s, _state)) {
+    if (s.updatedAtMs == _state.updatedAtMs && identical(s, _state)) {
       return;
     }
     if (s.updatedAtMs == _state.updatedAtMs &&
@@ -104,25 +172,33 @@ class CustomerDisplaySync extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> publish(CustomerDisplayState next) async {
-    if (!_config.enabled) {
-      // Chỉ publish idle tối thiểu khi tắt — không đẩy hóa đơn.
-      if (next.mode == CustomerDisplayMode.active) return;
-    }
+  /// [stillValid]: nếu trả false sau await I/O → bỏ publishNative
+  /// (tránh idle sơ đồ ghi đè bill khi đã vào bàn).
+  Future<void> publish(
+    CustomerDisplayState next, {
+    bool Function()? stillValid,
+  }) async {
+    // Local T1/native luôn nhận bill; `enabled` chỉ chặn sync viewer từ xa.
     final stamped = next.copyWith(
       updatedAtMs: DateTime.now().millisecondsSinceEpoch,
       idleSeconds: _config.idleSeconds,
     );
+    if (stillValid != null && !stillValid()) return;
     _state = stamped;
     notifyListeners();
+
     final json = stamped.encode();
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(_prefsKey, json);
     } catch (_) {}
+    if (stillValid != null && !stillValid()) return;
     await bridge.CustomerDisplayPlatformBridge.publishNative(json);
-    // Đồng bộ server — máy khác mở /#/customer-display?v=CODE
-    final code = _config.viewerCode.trim();
+
+    if (!_config.enabled) return;
+    if (stillValid != null && !stillValid()) return;
+
+    final code = ensureViewerCode();
     if (code.length >= 4) {
       unawaited(ApiService().putPosCustomerDisplayState(
         stateJson: json,
@@ -141,13 +217,17 @@ class CustomerDisplaySync extends ChangeNotifier {
   Future<void> publishIdle({
     List<CustomerDisplayPromoItem>? promoItems,
     String? storeName,
+    bool Function()? stillValid,
   }) {
-    return publish(CustomerDisplayState(
-      mode: CustomerDisplayMode.idle,
-      promoItems: promoItems ?? _state.promoItems,
-      storeName: storeName ?? _state.storeName,
-      idleSeconds: _config.idleSeconds,
-    ));
+    return publish(
+      CustomerDisplayState(
+        mode: CustomerDisplayMode.idle,
+        promoItems: promoItems ?? _state.promoItems,
+        storeName: storeName ?? _state.storeName,
+        idleSeconds: _config.idleSeconds,
+      ),
+      stillValid: stillValid,
+    );
   }
 
   Future<void> publishActive({
@@ -161,28 +241,40 @@ class CustomerDisplaySync extends ChangeNotifier {
     required double total,
     String? storeName,
     List<CustomerDisplayPromoItem>? promoItems,
+    String? paymentQrUrl,
+    bool Function()? stillValid,
   }) {
-    return publish(CustomerDisplayState(
-      mode: CustomerDisplayMode.active,
-      tableLabel: tableLabel,
-      areaName: areaName,
-      orderNo: orderNo,
-      guestCount: guestCount,
-      lines: lines,
-      subtotal: subtotal,
-      discount: discount,
-      total: total,
-      storeName: storeName ?? _state.storeName,
-      promoItems: promoItems ?? _state.promoItems,
-      idleSeconds: _config.idleSeconds,
-    ));
+    return publish(
+      CustomerDisplayState(
+        mode: CustomerDisplayMode.active,
+        tableLabel: tableLabel,
+        areaName: areaName,
+        orderNo: orderNo,
+        guestCount: guestCount,
+        lines: lines,
+        subtotal: subtotal,
+        discount: discount,
+        total: total,
+        storeName: storeName ?? _state.storeName,
+        promoItems: promoItems ?? _state.promoItems,
+        idleSeconds: _config.idleSeconds,
+        paymentQrUrl: paymentQrUrl,
+      ),
+      stillValid: stillValid,
+    );
   }
 
   Future<bool> hasSecondaryDisplay() =>
       bridge.CustomerDisplayPlatformBridge.hasSecondaryDisplay();
 
-  Future<bool> openSecondary() =>
-      bridge.CustomerDisplayPlatformBridge.openSecondary();
+  Future<bool> openSecondary() {
+    final mode = _config.target.wire;
+    if (_config.target == CustomerDisplayTarget.window) {
+      // Window: chỉ cần sync JSON/API — Kotlin no-op / web mở popup.
+      return bridge.CustomerDisplayPlatformBridge.openSecondary(mode: mode);
+    }
+    return bridge.CustomerDisplayPlatformBridge.openSecondary(mode: mode);
+  }
 
   Future<bool> closeSecondary() =>
       bridge.CustomerDisplayPlatformBridge.closeSecondary();

@@ -1,4 +1,4 @@
-package vn.sana.sbox
+﻿package vn.sana.sbox
 
 import android.app.PendingIntent
 import android.content.BroadcastReceiver
@@ -14,19 +14,85 @@ import android.hardware.usb.UsbManager
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 
 /**
- * USB ESC/POS: liệt kê cổng, xin quyền, ghi bulk OUT.
- * Mỗi máy (vid:pid:serial) mở/đóng riêng — không dùng 1 kết nối global để tránh đá nhau.
+ * USB ESC/POS: liá»‡t kÃª cá»•ng, xin quyá»n, ghi bulk OUT.
+ * Má»—i mÃ¡y (vid:pid:serial) má»Ÿ/Ä‘Ã³ng riÃªng â€” khÃ´ng dÃ¹ng 1 káº¿t ná»‘i global Ä‘á»ƒ trÃ¡nh Ä‘Ã¡ nhau.
  */
 object UsbEscPosPrinter {
     const val CHANNEL = "com.sboxhrm/usb_printer"
+    const val EVENTS = "com.sboxhrm/usb_printer_events"
     private const val ACTION_USB_PERMISSION = "com.sboxhrm.USB_PERMISSION"
 
     private val mainHandler = Handler(Looper.getMainLooper())
     private val writeLocks = HashMap<String, Any>()
+    private var eventSink: EventChannel.EventSink? = null
+    private var attachDetachReceiver: BroadcastReceiver? = null
+
+    fun attachEventSink(ctx: Context, sink: EventChannel.EventSink?) {
+        eventSink = sink
+        if (sink == null) {
+            unregisterAttachDetach(ctx)
+            return
+        }
+        registerAttachDetach(ctx)
+    }
+
+    private fun registerAttachDetach(ctx: Context) {
+        if (attachDetachReceiver != null) return
+        val receiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context?, intent: Intent?) {
+                val action = intent?.action ?: return
+                val device = if (Build.VERSION.SDK_INT >= 33) {
+                    intent.getParcelableExtra(UsbManager.EXTRA_DEVICE, UsbDevice::class.java)
+                } else {
+                    @Suppress("DEPRECATION")
+                    intent.getParcelableExtra(UsbManager.EXTRA_DEVICE) as? UsbDevice
+                } ?: return
+                val kind = when (action) {
+                    UsbManager.ACTION_USB_DEVICE_ATTACHED -> "attached"
+                    UsbManager.ACTION_USB_DEVICE_DETACHED -> "detached"
+                    else -> return
+                }
+                val serial = try {
+                    if (Build.VERSION.SDK_INT >= 21) device.serialNumber else null
+                } catch (_: Exception) {
+                    null
+                }
+                val payload = mapOf(
+                    "action" to kind,
+                    "deviceName" to device.deviceName,
+                    "vendorId" to device.vendorId,
+                    "productId" to device.productId,
+                    "stableId" to "${device.vendorId}:${device.productId}:${serial ?: ""}",
+                )
+                mainHandler.post { eventSink?.success(payload) }
+            }
+        }
+        attachDetachReceiver = receiver
+        val filter = IntentFilter().apply {
+            addAction(UsbManager.ACTION_USB_DEVICE_ATTACHED)
+            addAction(UsbManager.ACTION_USB_DEVICE_DETACHED)
+        }
+        if (Build.VERSION.SDK_INT >= 33) {
+            ctx.applicationContext.registerReceiver(receiver, filter, Context.RECEIVER_EXPORTED)
+        } else {
+            @Suppress("UnspecifiedRegisterReceiverFlag")
+            ctx.applicationContext.registerReceiver(receiver, filter)
+        }
+    }
+
+    private fun unregisterAttachDetach(ctx: Context) {
+        val receiver = attachDetachReceiver ?: return
+        try {
+            ctx.applicationContext.unregisterReceiver(receiver)
+        } catch (_: Exception) {
+        }
+        attachDetachReceiver = null
+    }
 
     fun handle(activity: Context, call: MethodCall, result: MethodChannel.Result) {
         when (call.method) {
@@ -48,7 +114,7 @@ object UsbEscPosPrinter {
             "requestPermission" -> {
                 val device = findDevice(activity, call)
                 if (device == null) {
-                    result.error("USB_NOT_FOUND", "Không tìm thấy thiết bị USB", null)
+                    result.error("USB_NOT_FOUND", "KhÃ´ng tÃ¬m tháº¥y thiáº¿t bá»‹ USB", null)
                     return
                 }
                 requestPermission(activity, device) { granted ->
@@ -58,7 +124,7 @@ object UsbEscPosPrinter {
             "writeBytes" -> {
                 val bytes = call.argument<ByteArray>("bytes")
                 if (bytes == null || bytes.isEmpty()) {
-                    result.error("USB_ARGS", "bytes rỗng", null)
+                    result.error("USB_ARGS", "bytes rá»—ng", null)
                     return
                 }
                 Thread {
@@ -69,6 +135,16 @@ object UsbEscPosPrinter {
                         mainHandler.post {
                             result.error("USB_WRITE", e.message ?: "write failed", null)
                         }
+                    }
+                }.start()
+            }
+            "probeDevice" -> {
+                Thread {
+                    try {
+                        val ok = probeDevice(activity, call)
+                        mainHandler.post { result.success(ok) }
+                    } catch (e: Exception) {
+                        mainHandler.post { result.success(false) }
                     }
                 }.start()
             }
@@ -145,64 +221,57 @@ object UsbEscPosPrinter {
         ).joinToString(" ")
         val base = if (label.isNotBlank()) label else "USB ${device.deviceName}"
         val ids = "VID=${device.vendorId.toString(16).uppercase()} PID=${device.productId.toString(16).uppercase()}"
-        val sn = serial?.takeIf { it.isNotBlank() }?.let { " · SN $it" } ?: ""
+        val sn = serial?.takeIf { it.isNotBlank() }?.let { " Â· SN $it" } ?: ""
         return "$base ($ids$sn)"
     }
 
     private fun findDevice(ctx: Context, call: MethodCall): UsbDevice? {
         val usb = usbManager(ctx)
-        val devices = usb.deviceList.values
+        val devices = usb.deviceList.values.toList()
         val deviceName = call.argument<String>("deviceName")?.trim()
         val vendorId = call.argument<Number>("vendorId")?.toInt()
         val productId = call.argument<Number>("productId")?.toInt()
         val serial = call.argument<String>("serialNumber")?.trim()
         val stableId = call.argument<String>("stableId")?.trim()
 
+        // 1) deviceName = Ä‘á»‹nh danh cá»•ng duy nháº¥t khi nhiá»u mÃ¡y USB cÃ¹ng model.
+        if (!deviceName.isNullOrEmpty()) {
+            devices.firstOrNull { it.deviceName == deviceName }?.let { return it }
+        }
+
+        fun readSerial(d: UsbDevice): String {
+            return try {
+                if (usb.hasPermission(d) && Build.VERSION.SDK_INT >= 21) {
+                    d.serialNumber ?: ""
+                } else ""
+            } catch (_: Exception) {
+                ""
+            }
+        }
+
+        // 2) stableId chá»‰ dÃ¹ng khi cÃ³ serial â€” khÃ´ng gÃ¡n mÃ¡y cÃ²n láº¡i cÃ¹ng VID/PID.
         if (!stableId.isNullOrEmpty()) {
             val parts = stableId.split(":")
             if (parts.size >= 2) {
                 val vid = parts[0].toIntOrNull()
                 val pid = parts[1].toIntOrNull()
-                val sn = parts.getOrNull(2) ?: ""
-                if (vid != null && pid != null) {
-                    val match = devices.firstOrNull { d ->
-                        d.vendorId == vid && d.productId == pid && (
-                            sn.isEmpty() ||
-                                try {
-                                    usb.hasPermission(d) &&
-                                        Build.VERSION.SDK_INT >= 21 &&
-                                        (d.serialNumber ?: "") == sn
-                                } catch (_: Exception) {
-                                    sn.isEmpty()
-                                }
-                            )
+                val sn = parts.drop(2).joinToString(":")
+                if (vid != null && pid != null && sn.isNotEmpty()) {
+                    val bySn = devices.filter {
+                        it.vendorId == vid && it.productId == pid && readSerial(it) == sn
                     }
-                    if (match != null) return match
+                    return bySn.singleOrNull()
                 }
             }
         }
 
-        if (!deviceName.isNullOrEmpty()) {
-            devices.firstOrNull { it.deviceName == deviceName }?.let { return it }
-        }
-
-        if (vendorId != null && productId != null) {
-            val candidates = devices.filter {
-                it.vendorId == vendorId && it.productId == productId
+        // 3) vendorId+productId chá»‰ khi cÃ³ serial.
+        if (vendorId != null && productId != null && !serial.isNullOrEmpty()) {
+            return devices.singleOrNull {
+                it.vendorId == vendorId &&
+                    it.productId == productId &&
+                    readSerial(it) == serial
             }
-            if (!serial.isNullOrEmpty()) {
-                val bySerial = candidates.firstOrNull { d ->
-                    try {
-                        usb.hasPermission(d) &&
-                            Build.VERSION.SDK_INT >= 21 &&
-                            (d.serialNumber ?: "") == serial
-                    } catch (_: Exception) {
-                        false
-                    }
-                }
-                if (bySerial != null) return bySerial
-            }
-            return candidates.firstOrNull()
         }
         return null
     }
@@ -253,7 +322,7 @@ object UsbEscPosPrinter {
         val device = findDevice(ctx, call) ?: return false
         val usb = usbManager(ctx)
         if (!usb.hasPermission(device)) {
-            // Không block UI thread — caller nên requestPermission trước.
+            // KhÃ´ng block UI thread â€” caller nÃªn requestPermission trÆ°á»›c.
             var granted = false
             val latch = java.util.concurrent.CountDownLatch(1)
             mainHandler.post {
@@ -290,8 +359,40 @@ object UsbEscPosPrinter {
         }
     }
 
+    /**
+     * Online = Ä‘Ãºng thiáº¿t bá»‹ cÃ²n trong bus + open/claim Ä‘Æ°á»£c.
+     * KhÃ´ng ghi DLE/ESC (trÃ¡nh nhiá»…u khi nhiá»u mÃ¡y USB; nhiá»u mÃ¡y táº¯t nguá»“n váº«n nháº­n lá»‡nh).
+     */
+    private fun probeDevice(ctx: Context, call: MethodCall): Boolean {
+        val device = findDevice(ctx, call) ?: return false
+        val usb = usbManager(ctx)
+        if (!usb.hasPermission(device)) return false
+        val key = deviceKey(device)
+        synchronized(lockFor(key)) {
+            val connection = usb.openDevice(device) ?: return false
+            try {
+                val ifaceOut = findBulkOut(device) ?: return false
+                val (intf, _) = ifaceOut
+                if (!connection.claimInterface(intf, true)) return false
+                try {
+                    return true
+                } finally {
+                    try {
+                        connection.releaseInterface(intf)
+                    } catch (_: Exception) {
+                    }
+                }
+            } finally {
+                try {
+                    connection.close()
+                } catch (_: Exception) {
+                }
+            }
+        }
+    }
+
     private fun findBulkOut(device: UsbDevice): Pair<UsbInterface, UsbEndpoint>? {
-        // Ưu tiên interface printer (class 7), rồi bulk OUT bất kỳ.
+        // Æ¯u tiÃªn interface printer (class 7), rá»“i bulk OUT báº¥t ká»³.
         val printerIfaces = ArrayList<UsbInterface>()
         val otherIfaces = ArrayList<UsbInterface>()
         for (i in 0 until device.interfaceCount) {

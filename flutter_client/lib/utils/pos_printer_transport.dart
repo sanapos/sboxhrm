@@ -90,15 +90,19 @@ class PosPrinterTransport {
     String? usbSerial,
     int sunmiFeedLines = 0,
   }) async {
-    var stable = (usbStableId ?? '').trim();
     final name = (usbDeviceName ?? '').trim();
-    if (stable.isEmpty && RegExp(r'^\d+:\d+:').hasMatch(name)) {
+    var stable = (usbStableId ?? '').trim();
+    if (stable.isEmpty && RegExp(r'^\d+:\d+:').hasMatch(name) && !name.contains('|')) {
       stable = name;
     }
 
+    // Ưu tiên savedRaw (stableId|deviceName) — tránh lấy nhầm máy cùng VID/PID.
     final resolved = await PosUsbPrinter.resolveSaved(
+      savedRaw: name.isNotEmpty ? name : null,
       stableId: stable.isEmpty ? null : stable,
-      deviceName: name.isEmpty || stable == name ? null : name,
+      deviceName: name.contains('|')
+          ? null
+          : (name.isEmpty || stable == name ? null : name),
       vendorId: usbVendorId,
       productId: usbProductId,
       serialNumber: usbSerial,
@@ -133,9 +137,19 @@ class PosPrinterTransport {
 
     final list = await PosUsbPrinter.listDevices();
     if (list.isEmpty) {
-      // Không fallback Sunmi — dễ «In xong» trên hóa đơn nội bộ trong khi
-      // máy tem USB (Tem 350BM) không ra giấy (đặc biệt khi ADB chiếm USB host).
       debugPrint('USB print failed: không có thiết bị USB');
+      return false;
+    }
+    // Đã cấu hình máy cụ thể nhưng không thấy → fail (không gửi nhầm máy còn lại).
+    final hadTarget = stable.isNotEmpty ||
+        name.isNotEmpty ||
+        usbVendorId != null ||
+        usbProductId != null;
+    if (hadTarget) {
+      debugPrint(
+        'USB print failed: không tìm thấy máy đã cấu hình '
+        '(stable=$stable name=$name) — list=${list.length}',
+      );
       return false;
     }
     if (list.length == 1) {

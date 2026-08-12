@@ -52,4 +52,43 @@ public static class VnTimeHelper
         var local = (date ?? NowVn()).Date;
         return (local, local, local.AddDays(1));
     }
+
+    /// <summary>Giờ tường VN (Unspecified) → mặt số UTC lưu DB (UTC−7, Kind Unspecified).</summary>
+    public static DateTime VnLocalToUtcWall(DateTime vnLocal) =>
+        DateTime.SpecifyKind(vnLocal.AddHours(-OffsetHours), DateTimeKind.Unspecified);
+
+    /// <summary>
+    /// Ngày kinh doanh VN theo giờ cắt (qua đêm).
+    /// VD hour=6, lúc 03:00 ngày 10 → vẫn thuộc ngày KD 09; lúc 07:00 → ngày KD 10.
+    /// hour=0 → theo nửa đêm lịch.
+    /// </summary>
+    public static DateTime ResolveBusinessDate(DateTime vnNow, int dayStartHour)
+    {
+        dayStartHour = Math.Clamp(dayStartHour, 0, 23);
+        if (dayStartHour <= 0) return vnNow.Date;
+        return vnNow.TimeOfDay < TimeSpan.FromHours(dayStartHour)
+            ? vnNow.Date.AddDays(-1)
+            : vnNow.Date;
+    }
+
+    /// <summary>
+    /// Khoảng báo cáo POS: [from..to] là ngày lịch VN (inclusive),
+    /// trả về cửa sổ UTC wall so với cột SaleDate/CreatedAt trong DB.
+    /// <paramref name="dayStartHour"/> = 0: nửa đêm; &gt;0: ngày qua đêm bắt đầu giờ đó.
+    /// </summary>
+    public static (DateTime fromUtc, DateTime toUtcExclusive, DateTime fromVn, DateTime toVnExclusive)
+        ResolvePosBusinessRange(DateTime? from, DateTime? to, int dayStartHour = 0,
+            DateTime? defaultFrom = null, DateTime? defaultTo = null)
+    {
+        dayStartHour = Math.Clamp(dayStartHour, 0, 23);
+        var vnNow = NowVn();
+        var bizToday = ResolveBusinessDate(vnNow, dayStartHour);
+        var fromDate = (from ?? defaultFrom ?? bizToday).Date;
+        var toDate = (to ?? defaultTo ?? fromDate).Date;
+        if (toDate < fromDate) toDate = fromDate;
+
+        var fromVn = fromDate.AddHours(dayStartHour);
+        var toVnExclusive = toDate.AddDays(1).AddHours(dayStartHour);
+        return (VnLocalToUtcWall(fromVn), VnLocalToUtcWall(toVnExclusive), fromVn, toVnExclusive);
+    }
 }

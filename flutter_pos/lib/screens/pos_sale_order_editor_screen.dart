@@ -784,6 +784,7 @@ class _PosSaleOrderEditorScreenState extends State<PosSaleOrderEditorScreen> {
                 skipDedup: true,
                 preferDevicePrintOnly: true,
                 showFeedback: true,
+                openCashDrawer: false,
               );
             },
             icon: const Icon(Icons.print, size: 16),

@@ -351,46 +351,70 @@ abstract final class PosPrintTemplateV2Presets {
     required double bodySize,
     String? name,
     required bool isCancel,
-  }) =>
-      PosPrintTemplateV2(
-        paperSize: paperSize,
-        printerProfile: printerProfile,
-        documentType: documentType,
-        name: name ?? (isCancel ? 'Phiếu hủy bếp' : 'Phiếu chế biến'),
-        blocks: [
-          PosPrintBlock(
-            type: PosPrintBlockType.field,
-            field: 'Ten_Ban',
-            style: PosPrintTextStyle(fontSize: titleSize, bold: true, align: PosPrintTextAlign.center),
+  }) {
+    final k80 = paperSize == PosPrintPaperSizes.k80;
+    final itemSize = k80 ? bodySize + 2 : bodySize;
+    return PosPrintTemplateV2(
+      paperSize: paperSize,
+      printerProfile: printerProfile,
+      documentType: documentType,
+      name: name ??
+          (isCancel
+              ? 'Hủy bếp (${PosPrintPaperSizes.displayLabel(paperSize)})'
+              : 'Báo chế biến (${PosPrintPaperSizes.displayLabel(paperSize)})'),
+      blocks: [
+        PosPrintBlock(
+          type: PosPrintBlockType.field,
+          field: 'Ten_Ban',
+          style: PosPrintTextStyle(
+            fontSize: titleSize,
+            bold: true,
+            align: PosPrintTextAlign.center,
           ),
-          PosPrintBlock(
-            type: PosPrintBlockType.text,
-            text: tr(isCancel ? '*** PHIẾU HỦY ***' : '*** BÁO CHẾ BIẾN ***'),
-            style: PosPrintTextStyle(fontSize: titleSize - 2, bold: true, align: PosPrintTextAlign.center),
+        ),
+        PosPrintBlock(
+          type: PosPrintBlockType.text,
+          text: tr(isCancel ? '*** PHIẾU HỦY ***' : '*** BÁO CHẾ BIẾN ***'),
+          style: PosPrintTextStyle(
+            fontSize: titleSize - 2,
+            bold: true,
+            align: PosPrintTextAlign.center,
           ),
-          PosPrintBlock(
-            type: PosPrintBlockType.text,
-            text: tr('Mã HĐ: {Ma_Don_Hang}'),
-            style: PosPrintTextStyle(fontSize: bodySize, bold: true),
+        ),
+        const PosPrintBlock(type: PosPrintBlockType.divider),
+        PosPrintBlock(
+          type: PosPrintBlockType.text,
+          text: tr('Mã HĐ: {Ma_Don_Hang}'),
+          style: PosPrintTextStyle(fontSize: bodySize, bold: true),
+        ),
+        PosPrintBlock(
+          type: PosPrintBlockType.text,
+          text: tr('NV: {Nguoi_Ban}'),
+          style: PosPrintTextStyle(fontSize: bodySize, bold: true),
+        ),
+        PosPrintBlock(
+          type: PosPrintBlockType.text,
+          text: tr('Ngày: {Ngay} {Gio}'),
+          style: PosPrintTextStyle(fontSize: bodySize, bold: true),
+        ),
+        const PosPrintBlock(type: PosPrintBlockType.divider),
+        PosPrintBlock(
+          type: PosPrintBlockType.lineItemsKitchen,
+          style: PosPrintTextStyle(fontSize: itemSize, bold: true),
+        ),
+        const PosPrintBlock(type: PosPrintBlockType.divider),
+        PosPrintBlock(
+          type: PosPrintBlockType.text,
+          text: tr('— Hết —'),
+          style: PosPrintTextStyle(
+            fontSize: bodySize - 2,
+            bold: true,
+            align: PosPrintTextAlign.center,
           ),
-          PosPrintBlock(
-            type: PosPrintBlockType.field,
-            field: 'Nguoi_Ban',
-            style: PosPrintTextStyle(fontSize: bodySize, bold: true),
-          ),
-          PosPrintBlock(
-            type: PosPrintBlockType.text,
-            text: tr('Ngày: {Ngay} {Gio}'),
-            style: PosPrintTextStyle(fontSize: bodySize, bold: true),
-          ),
-          const PosPrintBlock(type: PosPrintBlockType.divider),
-          PosPrintBlock(
-            type: PosPrintBlockType.lineItemsKitchen,
-            style: PosPrintTextStyle(fontSize: bodySize, bold: true),
-          ),
-          const PosPrintBlock(type: PosPrintBlockType.divider),
-        ],
-      );
+        ),
+      ],
+    );
+  }
 
   static List<PosPrintTemplateV2> seedSetForDocument(String documentType) {
     if (documentType == PosPrintDocumentTypes.kitchenLabel) {

@@ -1,5 +1,6 @@
-using System.Runtime.InteropServices;
 using System.Drawing.Printing;
+using System.Linq;
+using System.Runtime.InteropServices;
 
 namespace SboxPrintAgent;
 
@@ -17,6 +18,27 @@ public static class WindowsSpooler
         return list.OrderBy(x => x, StringComparer.CurrentCultureIgnoreCase).ToList();
     }
 
+    /// Resolve tên máy in Windows ổn định theo tên queue (không theo cổng USB001…).
+    /// Khi cổng USB đổi, tên máy in thường giữ nguyên; nếu lệch nhẹ thì khớp chứa tên.
+    public static string ResolvePrinterName(string preferredName)
+    {
+        var want = (preferredName ?? "").Trim();
+        if (want.Length == 0) return want;
+        var installed = ListInstalledPrinters();
+        var exact = installed.FirstOrDefault(n =>
+            string.Equals(n, want, StringComparison.OrdinalIgnoreCase));
+        if (exact != null) return exact;
+
+        // Khớp chứa: "EPSON TM-T82" ↔ "EPSON TM-T82 Receipt"
+        var partial = installed
+            .Where(n =>
+                n.Contains(want, StringComparison.OrdinalIgnoreCase) ||
+                want.Contains(n, StringComparison.OrdinalIgnoreCase))
+            .OrderBy(n => Math.Abs(n.Length - want.Length))
+            .FirstOrDefault();
+        return partial ?? want;
+    }
+
     public static void SendRaw(string printerName, byte[] data)
     {
         if (string.IsNullOrWhiteSpace(printerName))
@@ -24,9 +46,15 @@ public static class WindowsSpooler
         if (data.Length == 0)
             throw new InvalidOperationException("Không có dữ liệu để in.");
 
-        if (!OpenPrinter(printerName.Trim(), out var handle, IntPtr.Zero))
+        var resolved = ResolvePrinterName(printerName);
+        if (!OpenPrinter(resolved, out var handle, IntPtr.Zero))
             throw new InvalidOperationException(
-                $"Không mở được máy in «{printerName}». Kiểm tra máy đã cài driver và đang sẵn sàng.");
+                $"Không mở được máy in «{printerName}»" +
+                (string.Equals(resolved, printerName.Trim(), StringComparison.OrdinalIgnoreCase)
+                    ? ""
+                    : $" (đã thử «{resolved}»)") +
+                ". Kiểm tra máy đã cài driver và đang sẵn sàng. " +
+                "Gán theo tên máy in Windows — không dùng tên cổng USB001/COM.");
 
         try
         {

@@ -17,7 +17,7 @@ import 'pos_print_template_compiler.dart';
 import 'pos_thermal_bitmap.dart';
 
 import 'pos_printer_transport.dart';
-
+import 'pos_printer_hardware.dart';
 import 'pos_receipt_layout.dart';
 
 import 'pos_table_label.dart';
@@ -58,30 +58,16 @@ class PosThermalPrinterService {
 
 
   static Future<List<Map<String, String>>> listBluetoothDevices() async {
-
     if (kIsWeb || !(Platform.isAndroid || Platform.isIOS)) return [];
-
-    try {
-
-      final paired = await PrintBluetoothThermal.pairedBluetooths
-
-          .timeout(const Duration(seconds: 4), onTimeout: () => []);
-
-      return paired
-
-          .map((d) => {'name': d.name, 'address': d.macAdress})
-
-          .toList();
-
-    } catch (e) {
-
-      debugPrint('listBluetoothDevices: $e');
-
-      return [];
-
-    }
-
+    final r = await PosPrinterHardware.listBluetoothForPicker();
+    return r.devices;
   }
+
+  /// Giống [listBluetoothDevices] kèm gợi ý khi danh sách rỗng.
+  static Future<({List<Map<String, String>> devices, String? hint})>
+      listBluetoothDevicesWithHint() =>
+          PosPrinterHardware.listBluetoothForPicker();
+
 
 
 
@@ -145,8 +131,9 @@ class PosThermalPrinterService {
 
     if (!settings.enabled || kIsWeb) return false;
 
-    if (settings.connectionType == PosThermalConnectionType.sunmi ||
-        await PosPrinterTransport.isSunmiDevice()) {
+    // Chỉ in native Sunmi khi kết nối đã chọn là Sunmi — không ép máy Sunmi
+    // khi đang cấu hình USB / BT / LAN ngoài.
+    if (settings.connectionType == PosThermalConnectionType.sunmi) {
       final nativeOk = await PosSunmiNativePrint.printTest(
         storeLabel: 'SBOX POS',
         feedLines: settings.resolvedFeedBeforeCut,
@@ -163,16 +150,18 @@ class PosThermalPrinterService {
 
   /// In lần lượt 4 chế độ chữ (image / tcvn3 / cp1258 / utf8) để chọn mode đúng máy.
   /// Trả về số phiếu gửi thành công.
+  /// [sunmiNativeOnly] = true khi máy Sunmi (ESC/POS mode không dùng cho HĐ native).
   static Future<int> probeTextModes(PosThermalPrinterSettings settings) async {
     if (kIsWeb) return 0;
-    if (settings.connectionType == PosThermalConnectionType.sunmi ||
-        await PosPrinterTransport.isSunmiDevice()) {
+
+    // Chỉ khi cấu hình kết nối Sunmi — không ghi đè USB/BT/LAN.
+    if (settings.connectionType == PosThermalConnectionType.sunmi) {
       final ok = await PosSunmiNativePrint.printTest(
-        storeLabel: 'SBOX POS (Sunmi native)',
+        storeLabel: 'SBOX POS — Sunmi UTF-8',
         feedLines: settings.resolvedFeedBeforeCut,
         paperWidthMm: settings.paperWidthMm,
       );
-      return ok ? 1 : 0;
+      return ok ? -1 : 0;
     }
 
     const modes = [
@@ -290,8 +279,14 @@ class PosThermalPrinterService {
       if (step is PosPrintCompiledLine) {
         final line = step;
         if (line.isDivider) {
-          b.left();
-          await b.boldLine(line.text, size: 14);
+          if (b._useImageBatch) {
+            b._queueImageLine('', isDivider: true);
+          } else {
+            b.left();
+            b.appendRaw(PosThermalBitmapEncoder.horizontalRuleEscPos(
+              paperDots: PosThermalBitmapEncoder.paperDots(settings.paperWidthMm),
+            ));
+          }
           continue;
         }
         if (line.center) {
@@ -306,7 +301,11 @@ class PosThermalPrinterService {
         await b.boldLine(line.text, size: line.fontSize);
       } else if (step is PosPrintCompiledPair) {
         b.left();
-        await b.boldLine('${step.left}  ${step.right}', size: step.fontSize);
+        if (step.bold) {
+          await b.boldPair(step.left, step.right);
+        } else {
+          await b.pair(step.left, step.right);
+        }
       } else if (step is PosPrintCompiledQr) {
         b.center();
         if (step.title != null && step.title!.trim().isNotEmpty) {
@@ -418,18 +417,15 @@ class PosThermalPrinterService {
         return _sendBluetooth(settings, bytes);
 
       case PosThermalConnectionType.usb:
-
-        if (await isSunmiDevice()) return _sendSunmi(settings, bytes);
-
-        // USB OTG chưa hỗ trợ — chỉ chuyển LAN khi đã có IP.
-        if ((settings.lanHost ?? '').trim().isEmpty) {
-          debugPrint('USB print: chưa hỗ trợ OTG và thiếu IP LAN');
-          return false;
-        }
-        return _sendLan(settings, bytes);
-
+        return PosPrinterTransport.send(
+          connectionType: PosThermalConnectionType.usb,
+          usbDeviceName: settings.usbDeviceName,
+          lanHost: settings.lanHost,
+          lanPort: settings.lanPort,
+          bytes: bytes,
+          sunmiFeedLines: settings.resolvedFeedBeforeCut,
+        );
     }
-
   }
 
 
@@ -740,7 +736,7 @@ class PosThermalPrinterService {
   ) async {
     b.left();
     final layout = PosReceiptLayout.fromSettingsChars(b.maxChars);
-    String money(double v) => _money.format(v);
+    String money(double v) => PosReceiptLayout.moneyItem(v);
     await b.boldLine(layout.saleHeader, size: layout.k58 ? 19 : 21);
     await b.separator();
 
@@ -992,15 +988,21 @@ class _EscPosBuilder {
 
   void _queueImageLine(
     String text, {
+    String? rightText,
     bool bold = false,
     double? fontSize,
+    bool isDivider = false,
   }) {
     _imageLines.add(
       PosReceiptImageLine(
-        text: tr(text),
+        text: isDivider ? '' : tr(text),
+        rightText: rightText == null || rightText.trim().isEmpty
+            ? null
+            : tr(rightText),
         bold: bold,
         center: _centered,
         fontSize: fontSize ?? _bodyFontSize,
+        isDivider: isDivider,
       ),
     );
   }
@@ -1060,18 +1062,17 @@ class _EscPosBuilder {
       l = PosEscPosTextCodec.stripDiacritics(left);
       r = PosEscPosTextCodec.stripDiacritics(right);
     }
-    final space = maxChars - l.length - r.length;
-    final combined =
-        space >= 1 ? '$l${' ' * space}$r' : (l.isEmpty ? r : '$l $r');
 
     if (_useImageBatch) {
       _queueImageLine(
-        combined,
-        fontSize: _settings.paperWidthMm <= 58 ? 19 : 20,
+        l,
+        rightText: r,
+        fontSize: _settings.paperWidthMm <= 58 ? 19 : 21,
       );
       return;
     }
 
+    final space = maxChars - l.length - r.length;
     if (space >= 1) {
       await line('$l${' ' * space}$r');
     } else {
@@ -1083,9 +1084,10 @@ class _EscPosBuilder {
   Future<void> boldPair(String left, String right) async {
     if (_useImageBatch) {
       _queueImageLine(
-        '${left.trim()}  ${right.trim()}',
+        left.trim(),
+        rightText: right.trim(),
         bold: true,
-        fontSize: 22,
+        fontSize: _settings.paperWidthMm <= 58 ? 20 : 22,
       );
       return;
     }
@@ -1096,12 +1098,14 @@ class _EscPosBuilder {
   }
 
   Future<void> separator() async {
-    final sep = List.filled(maxChars, '-').join();
     if (_useImageBatch) {
-      _queueImageLine(sep, fontSize: _settings.paperWidthMm <= 58 ? 18 : 20);
+      _queueImageLine('', isDivider: true);
       return;
     }
-    await line(sep);
+    left();
+    appendRaw(PosThermalBitmapEncoder.horizontalRuleEscPos(
+      paperDots: _paperDots,
+    ));
   }
 
   void feed(int lines) {
@@ -1138,7 +1142,7 @@ class _EscPosBuilder {
       _imageLines.clear();
     }
 
-    final n = _settings.resolvedFeedBeforeCut.clamp(10, 28);
+    final n = _settings.resolvedFeedBeforeCut.clamp(1, 28);
     if (!_useImageBatch) {
       feed(2);
     }

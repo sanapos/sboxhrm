@@ -7,6 +7,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/pos_store_printer.dart';
 import '../models/pos_sale_order.dart';
+import '../utils/pos_print_template_runtime.dart';
+import '../utils/pos_print_config_session.dart';
+import '../models/pos_print_template_v2.dart';
+import '../models/pos_print_template.dart';
 import '../services/api_service.dart';
 import '../services/signalr_service.dart';
 import '../utils/pos_device_identity.dart';
@@ -679,16 +683,7 @@ class PosPrintAgentService {
       try {
         final map = jsonDecode(payload);
         if (map is! Map) {
-          throw const FormatException('KitchenSlipJson kh�ng ph?i object');
-        }
-        if (!await PosPrinterTransport.isSunmiDevice()) {
-          await _api.failPosPrintJob(
-            jobId,
-            _agentId!,
-            errorCode: 'NOT_SUNMI',
-            errorMessage: 'Job KitchenSlipJson c?n m�y Sunmi l�m Agent',
-          );
-          return;
+          throw const FormatException('KitchenSlipJson khong phai object');
         }
 
         final slipMap = Map<String, dynamic>.from(map);
@@ -698,13 +693,14 @@ class PosPrintAgentService {
             jobId,
             _agentId!,
             errorCode: 'NO_LINES',
-            errorMessage: 'Phi?u b?p kh�ng c� m�n',
+            errorMessage: 'Phieu bep khong co mon',
           );
           return;
         }
 
         final qtyFmt = NumberFormat('#,##0.##', 'vi_VN');
-        final nativeLines = <({String name, String qty, String? unit, String? note})>[];
+        final nativeLines =
+            <({String name, String qty, String? unit, String? note})>[];
         for (final item in linesRaw) {
           if (item is! Map) continue;
           final row = Map<String, dynamic>.from(item);
@@ -723,45 +719,74 @@ class PosPrintAgentService {
             jobId,
             _agentId!,
             errorCode: 'NO_LINES',
-            errorMessage: 'Phi?u b?p kh�ng c� m�n h?p l?',
+            errorMessage: 'Phieu bep khong co mon hop le',
           );
           return;
         }
 
         final sentAtRaw = slipMap['sentAt']?.toString() ?? '';
-        final sentAt = DateTime.tryParse(sentAtRaw)?.toLocal() ?? DateTime.now();
-        final kitchenSettings = settings.copyWith(
-          connectionType: PosThermalConnectionType.sunmi,
-          printerBrand: PosThermalPrinterBrand.sunmi,
-          feedBeforeCut: 2,
-          openCashDrawer: false,
-        );
+        final sentAt =
+            DateTime.tryParse(sentAtRaw)?.toLocal() ?? DateTime.now();
+        final isCancel = slipMap['isCancel'] == true;
+        final tableName = slipMap['tableName']?.toString() ?? 'Ban';
+        final senderName = slipMap['senderName']?.toString() ?? 'admin';
+        final orderNo = slipMap['orderNo']?.toString() ?? '';
+        final onSunmi = await PosPrinterTransport.isSunmiDevice();
+        final preferNative = onSunmi &&
+            (printer.isSunmi ||
+                settings.connectionType == PosThermalConnectionType.sunmi ||
+                settings.printerBrand == PosThermalPrinterBrand.sunmi);
 
-        for (var i = 0; i < copies.clamp(1, 10); i++) {
-          final sent = await PosSunmiNativePrint.printKitchenSlip(
-            tableName: slipMap['tableName']?.toString() ?? 'B�n',
-            isCancel: slipMap['isCancel'] == true,
-            lines: nativeLines,
-            senderName: slipMap['senderName']?.toString() ?? 'admin',
-            orderNo: slipMap['orderNo']?.toString() ?? '',
-            sentAt: sentAt,
-            settings: kitchenSettings,
+        ok = false;
+        if (preferNative) {
+          final kitchenSettings = settings.copyWith(
+            connectionType: PosThermalConnectionType.sunmi,
+            printerBrand: PosThermalPrinterBrand.sunmi,
+            feedBeforeCut: 2,
+            openCashDrawer: false,
           );
-          if (!sent) {
-            ok = false;
-            break;
+          ok = true;
+          for (var i = 0; i < copies.clamp(1, 10); i++) {
+            final sent = await PosSunmiNativePrint.printKitchenSlip(
+              tableName: tableName,
+              isCancel: isCancel,
+              lines: nativeLines,
+              senderName: senderName,
+              orderNo: orderNo,
+              sentAt: sentAt,
+              settings: kitchenSettings,
+            );
+            if (!sent) {
+              ok = false;
+              break;
+            }
           }
+        }
+
+        // USB/LAN Zywell hoặc native Sunmi fail → ESC/POS đúng cổng máy.
+        if (!ok) {
+          ok = await _printKitchenSlipEscPos(
+            settings: settings.copyWith(openCashDrawer: false),
+            isCancel: isCancel,
+            tableName: tableName,
+            lines: nativeLines,
+            senderName: senderName,
+            orderNo: orderNo,
+            sentAt: sentAt,
+            copies: copies,
+          );
         }
       } catch (e) {
         await _api.failPosPrintJob(
           jobId,
           _agentId!,
           errorCode: 'BAD_PAYLOAD',
-          errorMessage: 'KitchenSlipJson l?i: $e',
+          errorMessage: 'KitchenSlipJson loi: $e',
         );
         return;
       }
     } else if (format == 'TestPrintJson') {
+
       try {
         if (!await PosPrinterTransport.isSunmiDevice()) {
           await _api.failPosPrintJob(
@@ -921,6 +946,59 @@ class PosPrintAgentService {
   }
 
   /// Heartbeat ch? b�o printerIds m� m�y n�y th?c s? in du?c (USB g?n / Sunmi / LAN-BT).
+
+  Future<bool> _printKitchenSlipEscPos({
+    required PosThermalPrinterSettings settings,
+    required bool isCancel,
+    required String tableName,
+    required List<({String name, String qty, String? unit, String? note})> lines,
+    required String senderName,
+    required String orderNo,
+    required DateTime sentAt,
+    required int copies,
+  }) async {
+    final tpl = await PosPrintConfigSession.instance
+        .kitchenTemplate(isCancel: isCancel);
+    final v2 = PosPrintTemplateRuntime.resolveOrPreset(
+      template: tpl,
+      documentType: isCancel
+          ? PosPrintDocumentTypes.kitchenVoid
+          : PosPrintDocumentTypes.kitchenSlip,
+      paperSize: settings.paperSize,
+      printerProfile: PosPrintPrinterProfiles.forPaperAndBrand(
+        paperSize: settings.paperSize,
+        isSunmi: settings.printerBrand == PosThermalPrinterBrand.sunmi,
+        isZywell: settings.printerBrand == PosThermalPrinterBrand.zywell,
+      ),
+    );
+    final output = PosPrintTemplateRuntime.compileKitchenSlip(
+      template: v2,
+      tableName: tableName,
+      isCancel: isCancel,
+      lines: lines,
+      senderName: senderName,
+      orderNo: orderNo,
+      sentAt: sentAt,
+    );
+    final bytes = await PosPrintTemplateRuntime.buildCompiledEscPosBytes(
+      output: output,
+      settings: settings,
+    );
+    for (var i = 0; i < copies.clamp(1, 10); i++) {
+      final sent = await PosPrinterTransport.send(
+        connectionType: settings.connectionType,
+        bluetoothAddress: settings.bluetoothAddress,
+        lanHost: settings.lanHost,
+        lanPort: settings.lanPort,
+        usbDeviceName: settings.usbDeviceName,
+        bytes: bytes,
+        sunmiFeedLines: settings.resolvedFeedBeforeCut,
+      );
+      if (!sent) return false;
+    }
+    return true;
+  }
+
   Future<List<String>> _filterLocallyPrintableIds(List<String> ids) async {
     if (ids.isEmpty) return ids;
     final out = <String>[];

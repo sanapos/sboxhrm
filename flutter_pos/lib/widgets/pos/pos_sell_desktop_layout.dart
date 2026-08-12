@@ -4,9 +4,10 @@ import '../../utils/responsive_helper.dart';
 import 'pos_theme.dart';
 import 'package:sbox_pos/l10n/app_tr.dart';
 
-/// Bố cục POS desktop/tablet — 2 hoặc 3 cột, tái dùng builder từ [PosSellScreen].
+/// Legacy 2/3-cột layout — không còn dùng bởi [PosSellScreen]
+/// (đã thống nhất 2 cột kiểu F&B qua `_buildUnifiedSplitFlow`).
 ///
-/// Breakpoint:
+/// Breakpoint (tham chiếu cũ):
 /// - ≥ [Responsive.largeBreakpoint] (1440): 3 cột catalog | cart | pay
 /// - ≥ [Responsive.tabletBreakpoint] (1024): 3 cột (catalog hẹp hơn)
 /// - 768–1023: 2 cột (trái catalog/floor, phải order+pay gộp)

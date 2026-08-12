@@ -1,23 +1,29 @@
+import 'dart:math' as math;
+
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 
 /// Centralized responsive breakpoints and helpers
 class Responsive {
-  static const double mobileBreakpoint = 768;
+  /// Hạ xuống 600 (client dùng 768). Dùng **cạnh ngắn** (sw) — Sunmi V2s
+  /// 720×1440 luôn sw≈360 → layout mobile cả dọc lẫn ngang cầm tay.
+  static const double mobileBreakpoint = 600;
   static const double tabletBreakpoint = 1024;
   static const double largeBreakpoint = 1440;
 
   /// POS F&B tablet+: sơ đồ | thực đơn + giỏ cố định, thanh toán stage riêng.
-  /// Đồng bộ từ [mobileBreakpoint] (768) — portrait tablet không còn UX lệch.
   static const double tabletLandscapeFlowBreakpoint = mobileBreakpoint;
 
-  static bool isMobile(BuildContext context) =>
-      MediaQuery.of(context).size.width < mobileBreakpoint;
+  /// true khi cạnh ngắn < 600dp (điện thoại / handheld POS như V2s).
+  static bool isMobile(BuildContext context) {
+    final s = MediaQuery.sizeOf(context);
+    return math.min(s.width, s.height) < mobileBreakpoint;
+  }
 
   /// Màn hẹp / thấp (cửa sổ web nhỏ, tablet dọc, laptop 1366×768).
   static bool isCompactViewport(BuildContext context) {
     final s = MediaQuery.sizeOf(context);
-    return s.width < mobileBreakpoint || s.height < 720;
+    return math.min(s.width, s.height) < mobileBreakpoint || s.height < 720;
   }
 
   /// Một cột cuộn dọc (header + danh sách) — app mobile hoặc web viewport hẹp.
@@ -163,9 +169,13 @@ class ResponsiveBuilder extends StatelessWidget {
     return LayoutBuilder(
       builder: (ctx, constraints) {
         final w = constraints.maxWidth;
-        final isMobile = w < Responsive.mobileBreakpoint;
-        final isTablet = w >= Responsive.mobileBreakpoint && w < Responsive.tabletBreakpoint;
-        final isDesktop = w >= Responsive.tabletBreakpoint;
+        final h = constraints.maxHeight;
+        // Cùng quy ước isMobile: cạnh ngắn (sw), không chỉ width.
+        final shortest = math.min(w, h.isFinite ? h : w);
+        final isMobile = shortest < Responsive.mobileBreakpoint;
+        final isTablet =
+            !isMobile && w >= Responsive.mobileBreakpoint && w < Responsive.tabletBreakpoint;
+        final isDesktop = !isMobile && w >= Responsive.tabletBreakpoint;
         return builder(ctx, isMobile, isTablet, isDesktop);
       },
     );

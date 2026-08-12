@@ -714,13 +714,15 @@ class _ZkGatewayDeviceScreenState extends State<ZkGatewayDeviceScreen>
             ),
             _ctrlBtn(
               icon: Icons.warning_amber_rounded,
-              label: 'Factory reset máy chấm công',
+              label: 'Khôi phục xuất xưởng máy ZK',
               danger: true,
               last: true,
               onTap: () => _control(
                 'factory_reset',
-                confirmTitle: 'Factory reset?',
-                confirmBody: 'Xóa toàn bộ nhân viên, vân tay và log trên máy. Rất nguy hiểm.',
+                confirmTitle: 'Khôi phục xuất xưởng máy ZK?',
+                confirmBody:
+                    'Xóa toàn bộ nhân viên, vân tay và log trên máy (CLEAR_DATA). '
+                    'Mạch ESP / WiFi không bị đụng. Không thể hoàn tác.',
               ),
             ),
           ],

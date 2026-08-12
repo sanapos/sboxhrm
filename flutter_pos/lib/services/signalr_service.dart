@@ -448,12 +448,15 @@ class SignalRService {
 
   /// Join print-agent group (nhận job in cloud trên thiết bị agent).
   Future<void> joinPrintAgentGroup(String storeId) async {
-    _printAgentJoined = true;
-    await _invokeWithRetry(
+    _currentStoreId ??= storeId;
+    final ok = await _invokeWithRetry(
       'JoinPrintAgentGroup',
       [storeId],
       'print agent group: $storeId',
     );
+    // Chỉ đánh dấu đã join khi hub invoke thành công — tránh «online HTTP»
+    // nhưng không nhận PrintJobNew vì chưa vào group.
+    if (ok) _printAgentJoined = true;
   }
 
   Future<void> leavePrintAgentGroup(String storeId) async {
@@ -516,7 +519,7 @@ class SignalRService {
   }
 
   /// Invoke a hub method with retry logic for transient connection issues
-  Future<void> _invokeWithRetry(String method, List<Object> args, String label) async {
+  Future<bool> _invokeWithRetry(String method, List<Object> args, String label) async {
     for (var attempt = 0; attempt < 3; attempt++) {
       if (!_isConnected || _hubConnection == null) {
         debugPrint('📡 Cannot join $label - not connected (attempt ${attempt + 1})');
@@ -524,12 +527,12 @@ class SignalRService {
           await Future.delayed(Duration(seconds: 1 + attempt));
           continue;
         }
-        return;
+        return false;
       }
       try {
         await _hubConnection!.invoke(method, args: args);
         debugPrint('📡 Joined $label');
-        return;
+        return true;
       } catch (e) {
         debugPrint('📡 Error joining $label (attempt ${attempt + 1}): $e');
         if (attempt < 2) {
@@ -537,6 +540,7 @@ class SignalRService {
         }
       }
     }
+    return false;
   }
 
   /// Rejoin all previously joined groups after reconnection

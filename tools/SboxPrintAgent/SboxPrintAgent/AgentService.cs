@@ -323,6 +323,7 @@ public sealed class AgentService : IAsyncDisposable
     {
         if (ConnLabel.IsUsb(printer))
         {
+            // Gửi theo tên queue Windows (ResolvePrinterName chống lệch khi USB đổi cổng).
             await Task.Run(() => WindowsSpooler.SendRaw(printer.UsbDeviceName!, bytes), ct);
             return;
         }

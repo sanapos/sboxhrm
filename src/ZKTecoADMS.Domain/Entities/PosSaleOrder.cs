@@ -22,6 +22,8 @@ public class PosSaleOrder : AuditableEntity<Guid>
     public decimal Total { get; set; }
     /// <summary>Tiền VAT của đơn (tính theo cấu hình POS lúc tạo/hoàn tất).</summary>
     public decimal VatAmount { get; set; }
+    /// <summary>Số tiền khách phải trả = Total + VatAmount (VAT cộng thêm).</summary>
+    public decimal PayableTotal => Math.Max(0m, Total + Math.Max(0m, VatAmount));
     public decimal PaidAmount { get; set; }
 
     [MaxLength(50)]

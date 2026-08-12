@@ -261,7 +261,10 @@ class ZkGatewayClient {
     }
   }
 
-  /// `what` nhận: resync, users, clock, resetmark, reboot.
+  /// `what` nhận: resync, users, clock, resetmark, reboot, factory_reset.
+  /// `factory_reset` xóa WiFi/IP máy chấm công, đặt gateway về AP mode
+  /// (sóng SBOX-Gateway-XXXX, mật khẩu cấu hình sbox12345) và reboot.
+  /// Sau khi reset cần cấu hình WiFi lại qua web 192.168.4.1.
   Future<void> runAction(String ip, String what) async {
     final res = await http
         .post(
@@ -435,6 +438,14 @@ class ZkGatewayClient {
   }
 
   /// `action`: unlock | refresh | restart | clear_attlog | factory_reset
+  ///
+  /// - unlock: mở cửa khoảng `seconds` (mặc định 5).
+  /// - refresh: REFRESHDATA trên máy ZK.
+  /// - restart: RESTART máy chấm công.
+  /// - clear_attlog: xóa toàn bộ log chấm công (giữ user + vân tay).
+  /// - factory_reset: xóa SẠCH log + user + vân tay + face + thẻ
+  ///   trên máy ZK (gọi CLEAR_DATA). Khác với reset ESP — WiFi/IP máy
+  ///   không bị ảnh hưởng. Trả về thông báo từ gateway (text).
   Future<String> deviceControl(
     String ip, {
     required String action,
@@ -478,18 +489,35 @@ class ZkGatewayClient {
 
     final byKey = <String, ZkGatewayInfo>{};
 
+    // mDNS thường trả stub chỉ có IP (không serial); UDP/HTTP có serial.
+    // Key cũ `s:SN` vs `ip:x.x.x.x` không gộp → một mạch hiện 2 thẻ.
+    // Gộp theo cùng serial HOẶC cùng IP, rồi khóa lại theo serial nếu có.
     void merge(ZkGatewayInfo info) {
       if (info.ip.isEmpty && info.host.isEmpty && info.serial.isEmpty) return;
-      final key = info.serial.isNotEmpty
-          ? 's:${info.serial}'
-          : (info.ip.isNotEmpty ? 'ip:${info.ip}' : 'h:${info.host}');
-      final prev = byKey[key];
-      // Ưu tiên bản có đủ IP + serial.
-      if (prev == null ||
-          (info.ip.isNotEmpty && prev.ip.isEmpty) ||
-          (info.serial.isNotEmpty && prev.serial.isEmpty)) {
-        byKey[key] = info;
+
+      String? matchKey;
+      for (final e in byKey.entries) {
+        final prev = e.value;
+        final sameSerial = info.serial.isNotEmpty &&
+            prev.serial.isNotEmpty &&
+            info.serial == prev.serial;
+        final sameIp =
+            info.ip.isNotEmpty && prev.ip.isNotEmpty && info.ip == prev.ip;
+        if (sameSerial || sameIp) {
+          matchKey = e.key;
+          break;
+        }
       }
+
+      ZkGatewayInfo next = info;
+      if (matchKey != null) {
+        next = _richerGateway(byKey.remove(matchKey)!, info);
+      }
+
+      final key = next.serial.isNotEmpty
+          ? 's:${next.serial}'
+          : (next.ip.isNotEmpty ? 'ip:${next.ip}' : 'h:${next.host}');
+      byKey[key] = next;
     }
 
     final mdnsFuture = discoverGatewaysViaMdns(duration: scanFor);
@@ -524,22 +552,73 @@ class ZkGatewayClient {
     }
 
     for (final info in byKey.values) {
-      if (info.ip.isNotEmpty && info.serial.isNotEmpty) {
+      if (info.ip.isNotEmpty && info.serial.isNotEmpty && !_isSoftApIp(info.ip)) {
         await rememberHost(info.ip);
       }
     }
 
-    final list = byKey.values.toList();
+    var list = byKey.values.toList();
+    // SoftAP 192.168.4.1 chỉ dùng lúc cấu hình. Khi đã có gateway LAN thì bỏ thẻ AP.
+    final hasLan = list.any((g) => !_isSoftApIp(g.ip) && g.ip.isNotEmpty);
+    if (hasLan) {
+      list = list.where((g) => !_isSoftApIp(g.ip)).toList();
+    }
     list.sort((a, b) => a.displayName.compareTo(b.displayName));
     return list;
+  }
+
+  /// IP SoftAP cấu hình — không phải địa chỉ quản lý trên WiFi nhà.
+  static bool _isSoftApIp(String ip) {
+    final t = ip.trim();
+    return t == apAddress || t.startsWith('192.168.4.');
+  }
+
+  static bool _usableLanIp(String ip) {
+    if (ip.isEmpty || _isSoftApIp(ip)) return false;
+    if (ip == '0.0.0.0') return false;
+    return true;
+  }
+
+  /// Chọn bản giàu thông tin hơn khi gộp kết quả dò tìm trùng thiết bị.
+  static ZkGatewayInfo _richerGateway(ZkGatewayInfo a, ZkGatewayInfo b) {
+    final aScore = (a.serial.isNotEmpty ? 4 : 0) +
+        (a.version.isNotEmpty ? 2 : 0) +
+        (a.name.isNotEmpty ? 1 : 0) +
+        (_usableLanIp(a.ip) ? 2 : 0);
+    final bScore = (b.serial.isNotEmpty ? 4 : 0) +
+        (b.version.isNotEmpty ? 2 : 0) +
+        (b.name.isNotEmpty ? 1 : 0) +
+        (_usableLanIp(b.ip) ? 2 : 0);
+    final rich = bScore >= aScore ? b : a;
+    final other = identical(rich, b) ? a : b;
+    final preferredIp = _usableLanIp(rich.ip)
+        ? rich.ip
+        : (_usableLanIp(other.ip) ? other.ip : (rich.ip.isNotEmpty ? rich.ip : other.ip));
+    return ZkGatewayInfo(
+      ip: preferredIp,
+      host: rich.host.isNotEmpty ? rich.host : other.host,
+      name: rich.name.isNotEmpty ? rich.name : other.name,
+      serial: rich.serial.isNotEmpty ? rich.serial : other.serial,
+      deviceIp: rich.deviceIp.isNotEmpty ? rich.deviceIp : other.deviceIp,
+      version: rich.version.isNotEmpty ? rich.version : other.version,
+      appSha: rich.appSha.isNotEmpty ? rich.appSha : other.appSha,
+      apSsid: rich.apSsid.isNotEmpty ? rich.apSsid : other.apSsid,
+      provisioned: rich.provisioned || other.provisioned,
+      wifiConnected: rich.wifiConnected || other.wifiConnected,
+      deviceOnline: rich.deviceOnline || other.deviceOnline,
+      serverOnline: rich.serverOnline || other.serverOnline,
+      locked: rich.locked || other.locked,
+    );
   }
 
   Future<List<ZkGatewayInfo>> _discoverViaKnownHttpHosts({
     required Duration scanFor,
   }) async {
+    // Không luôn dò SoftAP: chỉ khi chưa nhớ host LAN (lúc đang cấu hình).
+    final remembered = await loadRememberedHosts();
     final hosts = <String>{
-      apAddress,
-      ...await loadRememberedHosts(),
+      ...remembered.where((h) => !_isSoftApIp(h)),
+      if (remembered.isEmpty) apAddress,
     };
 
     // Trên iOS: resolve sboxadms.local bằng Bonjour trước, rồi HTTP theo IP.
@@ -573,7 +652,10 @@ class ZkGatewayClient {
   Future<List<String>> loadRememberedHosts() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      return prefs.getStringList(_knownHostsKey) ?? const [];
+      final raw = prefs.getStringList(_knownHostsKey) ?? const <String>[];
+      return raw
+          .where((h) => h.trim().isNotEmpty && !_isSoftApIp(h) && h != '0.0.0.0')
+          .toList();
     } catch (_) {
       return const [];
     }
@@ -581,10 +663,12 @@ class ZkGatewayClient {
 
   Future<void> rememberHost(String host) async {
     final h = host.trim();
-    if (h.isEmpty || h == portalHost) return;
+    if (h.isEmpty || h == portalHost || _isSoftApIp(h) || h == '0.0.0.0') return;
     try {
       final prefs = await SharedPreferences.getInstance();
-      final list = prefs.getStringList(_knownHostsKey) ?? <String>[];
+      final list = (prefs.getStringList(_knownHostsKey) ?? <String>[])
+          .where((e) => !_isSoftApIp(e) && e != '0.0.0.0')
+          .toList();
       if (list.contains(h)) {
         list.remove(h);
       }

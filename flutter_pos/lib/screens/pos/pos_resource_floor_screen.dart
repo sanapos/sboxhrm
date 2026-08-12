@@ -134,13 +134,13 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
     super.initState();
     unawaited(_loadDeviceId());
     _reload();
-    // Bán hàng: poll 8–12s làm fallback; SignalR PosFloorChanged reload tức thì.
+    // Bán hàng: poll 15–25s làm heartbeat; SignalR PosFloorChanged reload tức thì.
     // manageMode giữ autoRefreshSeconds (mặc định 20).
     final pollSec = widget.manageMode
         ? widget.autoRefreshSeconds
         : (widget.autoRefreshSeconds > 0
-            ? widget.autoRefreshSeconds.clamp(8, 12)
-            : 10);
+            ? widget.autoRefreshSeconds.clamp(15, 25)
+            : 20);
     if (pollSec > 0) {
       _poll = Timer.periodic(
         Duration(seconds: pollSec),

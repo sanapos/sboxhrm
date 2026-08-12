@@ -12,23 +12,25 @@ class PosReceiptLayout {
 
   factory PosReceiptLayout.fromMm(int paperWidthMm) {
     if (paperWidthMm <= 58) {
-      // K58: tên rộng hơn, tiền gọn (không chấm nghìn trên cột hẹp).
+      // 13 + 1 + 6 + 1 + 4 + 2 + 5 = 32 — TT sát cuối dòng
       return const PosReceiptLayout._(
         k58: true,
         chars: 32,
-        nameW: 14,
+        nameW: 13,
         qtyW: 4,
         priceW: 6,
-        totalW: 6,
+        totalW: 5,
       );
     }
+    // K80 Sunmi MD (~26px): ~42 ký tự full khổ — TT là ký tự cuối dòng (sát mép phải).
+    // 20 + 1 + 7 + 1 + 4 + 2 + 7 = 42
     return const PosReceiptLayout._(
       k58: false,
-      chars: 48,
-      nameW: 22,
+      chars: 42,
+      nameW: 20,
       qtyW: 4,
-      priceW: 9,
-      totalW: 10,
+      priceW: 7,
+      totalW: 7,
     );
   }
 
@@ -44,16 +46,35 @@ class PosReceiptLayout {
 
   String get dash => List.filled(chars, '-').join();
   /// '=' hẹp hơn chữ thường trên máy nhiệt — cần nhiều hơn chars cột để full khổ.
-  String get equals => List.filled(k58 ? 46 : 60, '=').join();
+  String get equals => List.filled(k58 ? 48 : 64, '=').join();
   String get doubleDash => equals;
 
+  /// ≥ 1.000.000 → `1.800k`; dưới 1tr giữ đầy đủ (cột Đ.giá / TT).
+  static String moneyItem(double v) {
+    final n = v.round();
+    if (n.abs() >= 1000000) {
+      return '${_withDots((n / 1000).round())}k';
+    }
+    return _withDots(n);
+  }
+
+  static String _withDots(int n) {
+    final neg = n < 0;
+    final s = n.abs().toString();
+    final buf = StringBuffer();
+    for (var i = 0; i < s.length; i++) {
+      if (i > 0 && (s.length - i) % 3 == 0) buf.write('.');
+      buf.write(s[i]);
+    }
+    return neg ? '-$buf' : buf.toString();
+  }
   /// Header hóa đơn: Tên hàng | Đ.giá | SL | TT
   String get saleHeader {
     final name = _fit('Ten hang', nameW);
     final price = _fitRight('D.gia', priceW);
     final qty = _fitRight('SL', qtyW);
     final total = _fitRight('TT', totalW);
-    return '$name $price $qty $total';
+    return '$name $price $qty  $total';
   }
 
   String get saleHeaderVi {
@@ -61,7 +82,7 @@ class PosReceiptLayout {
     final price = _fitRight('Đ.giá', priceW);
     final qty = _fitRight('SL', qtyW);
     final total = _fitRight('TT', totalW);
-    return '$name $price $qty $total';
+    return '$name $price $qty  $total';
   }
 
   /// Header phiếu bếp: Tên hàng ........................ SL
@@ -85,16 +106,15 @@ class PosReceiptLayout {
   }) {
     final chunks = wrap(name.trim().isEmpty ? 'Mon' : name.trim(), nameW);
     final rows = <String>[
-      '${_fit(chunks.first, nameW)} ${_fitRight(price, priceW)} ${_fitRight(qty, qtyW)} ${_fitRight(total, totalW)}',
+      '${_fit(chunks.first, nameW)} ${_fitRight(price, priceW)} ${_fitRight(qty, qtyW)}  ${_fitRight(total, totalW)}',
     ];
     for (var i = 1; i < chunks.length; i++) {
       rows.add(_fit(chunks[i], nameW));
     }
     final orig = originalPrice?.trim();
     if (orig != null && orig.isNotEmpty) {
-      // Giá gốc dưới Đ.giá (ESC/POS không gạch ngang — dùng dấu ~).
       rows.add(
-        '${' ' * nameW} ${_fitRight('~$orig', priceW)} ${' ' * qtyW} ${' ' * totalW}',
+        '${' ' * nameW} ${_fitRight('~$orig', priceW)} ${' ' * qtyW}  ${' ' * totalW}',
       );
     }
     return rows;

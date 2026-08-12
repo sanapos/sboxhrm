@@ -394,9 +394,17 @@ public class PosPrintJobsController(
         {
             return BadRequest(AppResponse<object>.Fail(ex.Message));
         }
+        catch (DbUpdateException ex)
+        {
+            var detail = ex.InnerException?.Message ?? ex.Message;
+            return BadRequest(AppResponse<object>.Fail($"Không lưu Print Agent: {detail}"));
+        }
 
         var agent = await db.PosPrintAgents.AsNoTracking()
-            .FirstAsync(a => a.StoreId == RequiredStoreId && a.DeviceId == dto.DeviceId.Trim());
+            .FirstAsync(a =>
+                a.StoreId == RequiredStoreId &&
+                a.DeviceId == dto.DeviceId.Trim() &&
+                a.Deleted == null);
 
         return Ok(AppResponse<object>.Success(new
         {
@@ -506,6 +514,25 @@ public class PosPrintJobsController(
 
         var job = await dispatch.FailJobAsync(id, agentId, dto.ErrorCode, dto.ErrorMessage);
         if (job == null) return NotFound(AppResponse<object>.Fail("Không cập nhật job"));
+        return Ok(AppResponse<object>.Success(new { status = job.Status.ToString() }));
+    }
+
+    /// Agent không in được trên máy này (USB không gắn…) → nhả Queued cho Agent khác.
+    [HttpPost("{id:guid}/release")]
+    [RequireModulePermission("PosSell", ModulePermissionAction.Create)]
+    public async Task<ActionResult<AppResponse<object>>> Release(
+        Guid id,
+        [FromQuery] Guid agentId,
+        [FromBody] FailJobDto? dto)
+    {
+        var denied = await DenyIfCannotUseAgentAsync(agentId);
+        if (denied != null) return denied;
+
+        var job = await dispatch.ReleaseClaimAsync(
+            id,
+            agentId,
+            dto?.ErrorMessage ?? dto?.ErrorCode ?? "NOT_LOCAL");
+        if (job == null) return NotFound(AppResponse<object>.Fail("Không nhả được job"));
         return Ok(AppResponse<object>.Success(new { status = job.Status.ToString() }));
     }
 }
