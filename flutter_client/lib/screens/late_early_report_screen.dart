@@ -1166,17 +1166,17 @@ class _LateEarlyReportScreenState extends State<LateEarlyReportScreen> {
                                           horizontal: 8, vertical: 8),
                                       border: OutlineInputBorder(),
                                     ),
-                                    items: const [
+                                    items: [
                                       DropdownMenuItem(
-                                          value: 1, child: Text('≥ 1 phút')),
+                                          value: 1, child: Text(tr('≥ 1 phút'))),
                                       DropdownMenuItem(
-                                          value: 5, child: Text('≥ 5 phút')),
+                                          value: 5, child: Text(tr('≥ 5 phút'))),
                                       DropdownMenuItem(
-                                          value: 10, child: Text('≥ 10 phút')),
+                                          value: 10, child: Text(tr('≥ 10 phút'))),
                                       DropdownMenuItem(
-                                          value: 15, child: Text('≥ 15 phút')),
+                                          value: 15, child: Text(tr('≥ 15 phút'))),
                                       DropdownMenuItem(
-                                          value: 30, child: Text('≥ 30 phút')),
+                                          value: 30, child: Text(tr('≥ 30 phút'))),
                                     ],
                                     onChanged: (v) => setState(() {
                                       _minMinutes = v ?? 1;
@@ -1423,20 +1423,20 @@ class _LateEarlyReportScreenState extends State<LateEarlyReportScreen> {
     final canFine = perm.canCreate('PenaltyTickets');
     final canCancel = perm.canApprove('PenaltyTickets');
     final cols = <DataColumn>[
-      const DataColumn(label: Text('STT')),
-      const DataColumn(label: Text('Ngày')),
-      if (_teamView) const DataColumn(label: Text('Nhân viên')),
-      if (_teamView) const DataColumn(label: Text('Mã')),
-      const DataColumn(label: Text('Ca')),
-      const DataColumn(label: Text('Vào')),
-      const DataColumn(label: Text('Ra')),
-      const DataColumn(label: Text('Trễ (p)')),
-      const DataColumn(label: Text('Sớm (p)')),
-      if (_teamView) const DataColumn(label: Text('Tái phạm')),
-      const DataColumn(label: Text('Đã phạt')),
-      const DataColumn(label: Text('Giải trình')),
+      DataColumn(label: Text(tr('STT'))),
+      DataColumn(label: Text(tr('Ngày'))),
+      if (_teamView) DataColumn(label: Text(tr('Nhân viên'))),
+      if (_teamView) DataColumn(label: Text(tr('Mã'))),
+      DataColumn(label: Text(tr('Ca'))),
+      DataColumn(label: Text(tr('Vào'))),
+      DataColumn(label: Text(tr('Ra'))),
+      DataColumn(label: Text(tr('Trễ (p)'))),
+      DataColumn(label: Text(tr('Sớm (p)'))),
+      if (_teamView) DataColumn(label: Text(tr('Tái phạm'))),
+      DataColumn(label: Text(tr('Đã phạt'))),
+      DataColumn(label: Text(tr('Giải trình'))),
       if (_teamView && (canFine || canCancel))
-        const DataColumn(label: Text('Thao tác')),
+        DataColumn(label: Text(tr('Thao tác'))),
     ];
     final start = (_page - 1) * _pageSize;
     return Container(

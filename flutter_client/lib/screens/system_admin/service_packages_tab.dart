@@ -66,10 +66,29 @@ class ServicePackagesTabState extends State<ServicePackagesTab> {
     'PosSaleOrders',
     'PosSaleReturns',
     'PosSalesReport',
+    'PosReportRevenue',
+    'PosReportSoldGoods',
+    'PosReportStock',
+    'PosReportPurchases',
+    'PosReportPayment',
+    'PosReportDebt',
+    'PosReportExpiry',
+    'PosReportProfit',
+    'PosReportExpense',
+    'PosReportEndOfDay',
+    'PosReportStaffRevenue',
+    'PosReportCashbook',
+    'PosReportPnl',
+    'PosReportVoucher',
     'PosCustomers',
     'PosBooking',
     'PosWarranty',
     'PosCustomerDisplay',
+    'PosEInvoice',
+    'PosKds',
+    'PosQrOrder',
+    'PosCashierShift',
+    'PosPrinters',
   ];
 
   /// Khớp PosPackageDefaults.SellWarehouseModules / FullModules.
@@ -85,13 +104,97 @@ class ServicePackagesTabState extends State<ServicePackagesTab> {
     'PosDamageIssues',
     'PosInternalUseIssues',
     'PosSalesReport',
+    'PosReportRevenue',
+    'PosReportSoldGoods',
+    'PosReportStock',
+    'PosReportPurchases',
+    'PosReportPayment',
+    'PosReportDebt',
+    'PosReportExpiry',
+    'PosReportProfit',
+    'PosReportExpense',
+    'PosReportEndOfDay',
+    'PosReportStaffRevenue',
+    'PosReportCashbook',
+    'PosReportPnl',
+    'PosReportVoucher',
     'PosCustomers',
     'PosBooking',
     'PosWarranty',
     'PosCustomerDisplay',
+    'PosEInvoice',
+    'PosKds',
+    'PosQrOrder',
+    'PosCashierShift',
+    'PosPrinters',
   ];
 
   static const List<String> _posFullPreset = _posSellWarehousePreset;
+
+  static const List<(String, String)> _fcmCategories = [
+    ('attendance', 'Chấm công'),
+    ('travel_attendance', 'Chấm đi đường'),
+    ('leave', 'Nghỉ phép'),
+    ('overtime', 'Tăng ca'),
+    ('payroll', 'Lương'),
+    ('task', 'Công việc'),
+    ('approval', 'Phê duyệt'),
+    ('device', 'Thiết bị'),
+    ('hr', 'Nhân sự'),
+    ('system', 'Hệ thống'),
+    ('kpi', 'KPI'),
+    ('internal_comm', 'Truyền thông'),
+    ('transaction', 'Thu chi'),
+    ('penalty', 'Phiếu phạt'),
+    ('meal', 'Suất ăn'),
+    ('business_trip', 'Công tác'),
+    ('pos', 'POS'),
+    ('shift', 'Ca làm việc'),
+  ];
+
+  String _limitText(dynamic v) {
+    final n = v is int ? v : int.tryParse(v?.toString() ?? '') ?? 0;
+    return n <= 0 ? '∞' : n.toString();
+  }
+
+  bool _pkgBool(Map<String, dynamic> pkg, String key, {bool fallback = true}) {
+    final v = pkg[key];
+    if (v == null) return fallback;
+    if (v is bool) return v;
+    return v.toString().toLowerCase() != 'false';
+  }
+
+  Map<String, dynamic> _packagePayload({
+    required String name,
+    required String description,
+    required int days,
+    required int maxUsers,
+    required int maxDevices,
+    required int maxAccessDevices,
+    required int maxBranches,
+    required bool allowWeb,
+    required bool allowMobile,
+    required bool allowFcm,
+    required List<String> modules,
+    required List<String> fcmCategories,
+    required bool isActive,
+  }) {
+    return {
+      'name': name,
+      'description': description,
+      'defaultDurationDays': days,
+      'maxUsers': maxUsers,
+      'maxDevices': maxDevices,
+      'maxAccessDevices': maxAccessDevices,
+      'maxBranches': maxBranches,
+      'allowWeb': allowWeb,
+      'allowMobile': allowMobile,
+      'allowFcm': allowFcm,
+      'allowedFcmCategories': fcmCategories,
+      'allowedModules': modules,
+      'isActive': isActive,
+    };
+  }
 
   Widget _posPresetChip(
     void Function(void Function()) setDialogState,
@@ -215,7 +318,10 @@ class ServicePackagesTabState extends State<ServicePackagesTab> {
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(tr(name), style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14), maxLines: 1, overflow: TextOverflow.ellipsis),
               const SizedBox(height: 2),
-              Text(tr('$maxUsers users \u00b7 $maxDevices TB \u00b7 ${days}d'), style: const TextStyle(color: Color(0xFF71717A), fontSize: 12)),
+              Text(
+                tr('${_limitText(maxUsers)} TK · ${_limitText(maxDevices)} MCC · ${_limitText(pkg['maxAccessDevices'])} TB · ${days}d'),
+                style: const TextStyle(color: Color(0xFF71717A), fontSize: 12),
+              ),
             ]),
           ),
           Container(
@@ -258,28 +364,43 @@ class ServicePackagesTabState extends State<ServicePackagesTab> {
               isActive ? 'Hoạt động' : 'Tắt',
               isActive ? AdminHelpers.success : Colors.grey),
         ]),
-        subtitle: Row(children: [
-          Icon(Icons.people, size: 14, color: Colors.grey[500]),
-          const SizedBox(width: 4),
-          Text(tr('${pkg['maxUsers']} users'),
-              style: TextStyle(fontSize: 12, color: Colors.grey[600])),
-          const SizedBox(width: 12),
-          Icon(Icons.router, size: 14, color: Colors.grey[500]),
-          const SizedBox(width: 4),
-          Text(tr('${pkg['maxDevices']} thiết bị'),
-              style: TextStyle(fontSize: 12, color: Colors.grey[600])),
-          const SizedBox(width: 12),
-          Icon(Icons.calendar_today, size: 14, color: Colors.grey[500]),
-          const SizedBox(width: 4),
-          Text(tr('${pkg['defaultDurationDays']} ngày'),
-              style: TextStyle(fontSize: 12, color: Colors.grey[600])),
-          const SizedBox(width: 12),
-          Icon(Icons.store, size: 14, color: Colors.grey[500]),
-          const SizedBox(width: 4),
-          Text(tr('$storeCount CH'),
-              style: TextStyle(fontSize: 12, color: Colors.grey[600])),
-        ]),
+        subtitle: Wrap(
+          spacing: 12,
+          runSpacing: 4,
+          children: [
+            _pkgLimitChip(Icons.people, '${_limitText(pkg['maxUsers'])} tài khoản'),
+            _pkgLimitChip(Icons.fingerprint, '${_limitText(pkg['maxDevices'])} máy CC'),
+            _pkgLimitChip(Icons.devices, '${_limitText(pkg['maxAccessDevices'])} TB truy cập'),
+            _pkgLimitChip(Icons.account_tree, '${_limitText(pkg['maxBranches'])} chi nhánh'),
+            _pkgLimitChip(Icons.calendar_today, '${pkg['defaultDurationDays']} ngày'),
+            _pkgLimitChip(Icons.store, '$storeCount CH'),
+          ],
+        ),
         children: [
+          Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: Wrap(
+              spacing: 6,
+              runSpacing: 4,
+              children: [
+                AdminHelpers.statusChip(
+                    _pkgBool(pkg, 'allowWeb') ? 'Web' : 'Không web',
+                    _pkgBool(pkg, 'allowWeb')
+                        ? AdminHelpers.success
+                        : Colors.grey),
+                AdminHelpers.statusChip(
+                    _pkgBool(pkg, 'allowMobile') ? 'Mobile/POS' : 'Không mobile',
+                    _pkgBool(pkg, 'allowMobile')
+                        ? AdminHelpers.success
+                        : Colors.grey),
+                AdminHelpers.statusChip(
+                    _pkgBool(pkg, 'allowFcm') ? 'FCM' : 'Không FCM',
+                    _pkgBool(pkg, 'allowFcm')
+                        ? AdminHelpers.info
+                        : Colors.grey),
+              ],
+            ),
+          ),
           // Module list
           Container(
             width: double.infinity,
@@ -374,6 +495,17 @@ class ServicePackagesTabState extends State<ServicePackagesTab> {
     );
   }
 
+  Widget _pkgLimitChip(IconData icon, String text) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 14, color: Colors.grey[500]),
+        const SizedBox(width: 4),
+        Text(tr(text), style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+      ],
+    );
+  }
+
   // ═══════════════════════ CREATE / EDIT DIALOG ═══════════════════════
   Future<void> _showCreateEditDialog(Map<String, dynamic>? existing) async {
     final isEdit = existing != null;
@@ -384,14 +516,24 @@ class ServicePackagesTabState extends State<ServicePackagesTab> {
     final daysCtrl = TextEditingController(
         text: tr((existing?['defaultDurationDays'] ?? 30).toString()));
     final usersCtrl = TextEditingController(
-        text: tr((existing?['maxUsers'] ?? 10).toString()));
+        text: (existing?['maxUsers'] ?? 10).toString());
     final devicesCtrl = TextEditingController(
-        text: tr((existing?['maxDevices'] ?? 2).toString()));
+        text: (existing?['maxDevices'] ?? 2).toString());
+    final accessDevicesCtrl = TextEditingController(
+        text: (existing?['maxAccessDevices'] ?? 0).toString());
+    final branchesCtrl = TextEditingController(
+        text: (existing?['maxBranches'] ?? 0).toString());
 
     final selectedModules = <String>{};
+    final selectedFcm = <String>{};
+    var allowWeb = existing == null || _pkgBool(existing, 'allowWeb');
+    var allowMobile = existing == null || _pkgBool(existing, 'allowMobile');
+    var allowFcm = existing == null || _pkgBool(existing, 'allowFcm');
     if (existing != null) {
       selectedModules
           .addAll(List<String>.from(existing['allowedModules'] ?? []));
+      selectedFcm.addAll(
+          List<String>.from(existing['allowedFcmCategories'] ?? []));
     }
 
     final result = await showDialog<bool>(
@@ -409,7 +551,7 @@ class ServicePackagesTabState extends State<ServicePackagesTab> {
             ]),
             content: SizedBox(
               width: MediaQuery.of(context).size.width < 600 ? MediaQuery.of(context).size.width - 32 : 600,
-              height: 500,
+              height: 560,
               child: SingleChildScrollView(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -428,13 +570,87 @@ class ServicePackagesTabState extends State<ServicePackagesTab> {
                       const SizedBox(width: 10),
                       Expanded(
                           child: AdminHelpers.dialogField(
-                              usersCtrl, 'Max Users', Icons.people)),
+                              usersCtrl, 'Tài khoản', Icons.people)),
                       const SizedBox(width: 10),
                       Expanded(
                           child: AdminHelpers.dialogField(
-                              devicesCtrl, 'Max Devices', Icons.router)),
+                              devicesCtrl, 'Máy chấm công', Icons.fingerprint)),
                     ]),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 12),
+                    Row(children: [
+                      Expanded(
+                          child: AdminHelpers.dialogField(
+                              accessDevicesCtrl, 'Thiết bị truy cập', Icons.devices)),
+                      const SizedBox(width: 10),
+                      Expanded(
+                          child: AdminHelpers.dialogField(
+                              branchesCtrl, 'Chi nhánh', Icons.account_tree)),
+                    ]),
+                    Padding(
+                      padding: const EdgeInsets.only(top: 6, bottom: 8),
+                      child: Text(
+                        tr('0 = không giới hạn (tài khoản, máy CC, thiết bị truy cập, chi nhánh)'),
+                        style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                      ),
+                    ),
+                    SwitchListTile(
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                      title: Text(tr('Cho phép trình duyệt web'),
+                          style: const TextStyle(fontSize: 13)),
+                      value: allowWeb,
+                      onChanged: (v) => setDialogState(() => allowWeb = v),
+                    ),
+                    SwitchListTile(
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                      title: Text(tr('Cho phép mobile / POS'),
+                          style: const TextStyle(fontSize: 13)),
+                      value: allowMobile,
+                      onChanged: (v) => setDialogState(() => allowMobile = v),
+                    ),
+                    SwitchListTile(
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                      title: Text(tr('Thông báo đẩy FCM'),
+                          style: const TextStyle(fontSize: 13)),
+                      subtitle: Text(
+                        tr('Tắt = chỉ thông báo trong app (SignalR), không đẩy điện thoại'),
+                        style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                      ),
+                      value: allowFcm,
+                      onChanged: (v) => setDialogState(() => allowFcm = v),
+                    ),
+                    if (allowFcm) ...[
+                      const SizedBox(height: 4),
+                      Text(tr('Nhóm FCM được phép (không chọn = tất cả)'),
+                          style: TextStyle(
+                              fontWeight: FontWeight.w600, fontSize: 13)),
+                      const SizedBox(height: 6),
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 4,
+                        children: [
+                          for (final c in _fcmCategories)
+                            FilterChip(
+                              label: Text(tr(c.$2),
+                                  style: const TextStyle(fontSize: 12)),
+                              selected: selectedFcm.contains(c.$1),
+                              onSelected: (v) {
+                                setDialogState(() {
+                                  if (v) {
+                                    selectedFcm.add(c.$1);
+                                  } else {
+                                    selectedFcm.remove(c.$1);
+                                  }
+                                });
+                              },
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                    ],
+                    const SizedBox(height: 8),
                     // Module selection
                     Row(children: [
                       Text(tr('Chọn chức năng'),
@@ -631,15 +847,22 @@ class ServicePackagesTabState extends State<ServicePackagesTab> {
 
     if (result != true || !mounted) return;
 
-    final data = {
-      'name': nameCtrl.text.trim(),
-      'description': descCtrl.text.trim(),
-      'defaultDurationDays': int.tryParse(daysCtrl.text) ?? 30,
-      'maxUsers': int.tryParse(usersCtrl.text) ?? 10,
-      'maxDevices': int.tryParse(devicesCtrl.text) ?? 2,
-      'allowedModules': selectedModules.toList(),
-      if (isEdit) 'isActive': existing['isActive'] ?? true,
-    };
+    final data = _packagePayload(
+      name: nameCtrl.text.trim(),
+      description: descCtrl.text.trim(),
+      days: int.tryParse(daysCtrl.text) ?? 30,
+      maxUsers: int.tryParse(usersCtrl.text) ?? 10,
+      maxDevices: int.tryParse(devicesCtrl.text) ?? 2,
+      maxAccessDevices: int.tryParse(accessDevicesCtrl.text) ?? 0,
+      maxBranches: int.tryParse(branchesCtrl.text) ?? 0,
+      allowWeb: allowWeb,
+      allowMobile: allowMobile,
+      allowFcm: allowFcm,
+      modules: selectedModules.toList(),
+      fcmCategories: selectedFcm.toList(),
+      isActive: isEdit ? (existing['isActive'] ?? true) == true : true,
+    );
+    if (!isEdit) data.remove('isActive');
 
     final res = isEdit
         ? await _apiService.updateServicePackage(
@@ -659,15 +882,31 @@ class ServicePackagesTabState extends State<ServicePackagesTab> {
   // ═══════════════════════ TOGGLE STATUS ═══════════════════════
   Future<void> _togglePackageStatus(Map<String, dynamic> pkg) async {
     final isActive = pkg['isActive'] == true;
-    final data = {
-      'name': pkg['name'],
-      'description': pkg['description'],
-      'defaultDurationDays': pkg['defaultDurationDays'],
-      'maxUsers': pkg['maxUsers'],
-      'maxDevices': pkg['maxDevices'],
-      'allowedModules': List<String>.from(pkg['allowedModules'] ?? []),
-      'isActive': !isActive,
-    };
+    final data = _packagePayload(
+      name: pkg['name']?.toString() ?? '',
+      description: pkg['description']?.toString() ?? '',
+      days: pkg['defaultDurationDays'] is int
+          ? pkg['defaultDurationDays'] as int
+          : int.tryParse(pkg['defaultDurationDays']?.toString() ?? '') ?? 30,
+      maxUsers: pkg['maxUsers'] is int
+          ? pkg['maxUsers'] as int
+          : int.tryParse(pkg['maxUsers']?.toString() ?? '') ?? 10,
+      maxDevices: pkg['maxDevices'] is int
+          ? pkg['maxDevices'] as int
+          : int.tryParse(pkg['maxDevices']?.toString() ?? '') ?? 2,
+      maxAccessDevices: pkg['maxAccessDevices'] is int
+          ? pkg['maxAccessDevices'] as int
+          : int.tryParse(pkg['maxAccessDevices']?.toString() ?? '') ?? 0,
+      maxBranches: pkg['maxBranches'] is int
+          ? pkg['maxBranches'] as int
+          : int.tryParse(pkg['maxBranches']?.toString() ?? '') ?? 0,
+      allowWeb: _pkgBool(pkg, 'allowWeb'),
+      allowMobile: _pkgBool(pkg, 'allowMobile'),
+      allowFcm: _pkgBool(pkg, 'allowFcm'),
+      modules: List<String>.from(pkg['allowedModules'] ?? []),
+      fcmCategories: List<String>.from(pkg['allowedFcmCategories'] ?? []),
+      isActive: !isActive,
+    );
 
     final res = await _apiService.updateServicePackage(
         pkg['id']?.toString() ?? '', data);

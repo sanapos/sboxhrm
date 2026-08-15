@@ -115,6 +115,7 @@ class PosThermalPrinterSettings {
     this.escPosCodePage = 27,
     this.feedBeforeCut = 5,
     this.partialCut = true,
+    this.cutPerItem = false,
     this.openCashDrawer = false,
     this.openDrawerCashOnly = true,
     this.beepOnPrint = false,
@@ -139,6 +140,7 @@ class PosThermalPrinterSettings {
   /// Số dòng giấy trống trước khi cắt (tránh cắt mất dòng cuối).
   final int feedBeforeCut;
   final bool partialCut;
+  final bool cutPerItem;
 
   /// Gửi lệnh mở két (ESC p / SunmiDrawer) khi in hóa đơn.
   final bool openCashDrawer;
@@ -226,6 +228,7 @@ class PosThermalPrinterSettings {
     int? escPosCodePage,
     int? feedBeforeCut,
     bool? partialCut,
+    bool? cutPerItem,
     bool? openCashDrawer,
     bool? openDrawerCashOnly,
     bool? beepOnPrint,
@@ -249,6 +252,7 @@ class PosThermalPrinterSettings {
         escPosCodePage: escPosCodePage ?? this.escPosCodePage,
         feedBeforeCut: feedBeforeCut ?? this.feedBeforeCut,
         partialCut: partialCut ?? this.partialCut,
+        cutPerItem: cutPerItem ?? this.cutPerItem,
         openCashDrawer: openCashDrawer ?? this.openCashDrawer,
         openDrawerCashOnly: openDrawerCashOnly ?? this.openDrawerCashOnly,
         beepOnPrint: beepOnPrint ?? this.beepOnPrint,

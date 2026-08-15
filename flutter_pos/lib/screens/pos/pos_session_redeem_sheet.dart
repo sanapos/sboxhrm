@@ -152,7 +152,7 @@ class _PosSessionRedeemSheetState extends State<_PosSessionRedeemSheet> {
             else if (_balances.isEmpty)
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 28),
-                child: Text(tr('Khách chưa có gói buổi còn lại.\nBán gói (session pack) rồi thanh toán để cộng buổi.'),
+                child: Text(tr('Khách chưa có gói buổi còn lại.\nBán gói liệu trình / thẻ tập rồi thanh toán để cộng buổi.'),
                   textAlign: TextAlign.center,
                   style: TextStyle(color: Colors.grey.shade700, height: 1.4),
                 ),

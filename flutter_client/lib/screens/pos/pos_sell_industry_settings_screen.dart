@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../models/pos_product.dart';
 import '../../models/pos_sell_industry.dart';
+import '../../models/qr_order_lock_config.dart';
 import '../../services/api_service.dart';
 import '../../utils/pos_sell_settings_helper.dart';
 import '../../widgets/notification_overlay.dart';
@@ -44,11 +45,16 @@ class _PosSellIndustrySettingsScreenState
   bool get _showResources =>
       widget.section == 'all' || widget.section == 'resources';
 
-  String get _title => switch (widget.section) {
-        'profile' => 'Hồ sơ ngành & chế độ bán',
-        'resources' => 'Bàn / tài nguyên / tạm tính',
-        _ => 'Ngành hàng & bán hàng',
-      };
+  String get _title {
+    final noun = _settings?.sellProfile.resourceNoun;
+    return switch (widget.section) {
+      'profile' => 'Ngành hàng & chế độ bán',
+      'resources' => (noun != null && noun.isNotEmpty)
+          ? '${noun[0].toUpperCase()}${noun.substring(1)} / tạm tính'
+          : 'Tạm tính & tồn kho',
+      _ => 'Ngành hàng & bán hàng',
+    };
+  }
 
   @override
   void initState() {
@@ -111,7 +117,7 @@ class _PosSellIndustrySettingsScreenState
       if (!quiet) {
         NotificationOverlayManager().showSuccess(
           title: 'Đã lưu',
-          message: tr('Hồ sơ ngành: ${_settings!.sellProfile.label}'),
+          message: tr('Ngành hàng: ${_settings!.sellProfile.label}'),
         );
       }
     } else {
@@ -140,10 +146,11 @@ class _PosSellIndustrySettingsScreenState
         await showDialog<void>(
           context: context,
           builder: (ctx) => AlertDialog(
-            title: Text(tr('Còn bàn đang mở')),
+            title: Text(tr(
+                'Còn ${_resourceOpenLabel(prev.sellProfile, list.length)} đang mở')),
             content: Text(tr(
-              'Còn ${list.length} bàn/phiên đang mở. '
-              'Thanh toán hoặc đóng bàn trước khi đổi sang «${v.label}».',
+              'Còn ${_resourceOpenLabel(prev.sellProfile, list.length)} đang mở. '
+              'Thanh toán hoặc đóng trước khi đổi sang «${v.label}».',
             )),
             actions: [
               TextButton(
@@ -161,10 +168,10 @@ class _PosSellIndustrySettingsScreenState
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text(tr('Đổi hồ sơ ngành?')),
+        title: Text(tr('Đổi ngành hàng?')),
         content: Text(tr(
-          'Chuyển sang «${v.label}» sẽ áp cấu hình mặc định '
-          '(bàn, sơ đồ, tạm tính, tính giờ, gói buổi).',
+          'Chuyển sang «${v.label}» sẽ áp cấu hình mặc định:\n'
+          '${v.description}',
         )),
         actions: [
           TextButton(
@@ -187,6 +194,12 @@ class _PosSellIndustrySettingsScreenState
     await _save(applyDefaults: true);
   }
 
+  String _resourceOpenLabel(PosSellProfile profile, int count) {
+    final noun = profile.resourceNoun;
+    if (noun.isEmpty) return '$count phiên';
+    return '$count $noun';
+  }
+
   Future<void> _patchAndSave(
     PosStoreSellSettingsDto Function(PosStoreSellSettingsDto) patch,
   ) async {
@@ -199,10 +212,10 @@ class _PosSellIndustrySettingsScreenState
       final list = openRes['data'] is List ? openRes['data'] as List : const [];
       if (list.isNotEmpty) {
         NotificationOverlayManager().showError(
-          title: 'Còn bàn đang mở',
+          title: 'Còn phiên đang mở',
           message: tr(
-            'Còn ${list.length} bàn/phiên đang mở. '
-            'Đóng bàn trước khi tắt tài nguyên phục vụ.',
+            'Còn ${_resourceOpenLabel(s.sellProfile, list.length)} đang mở. '
+            'Đóng trước khi tắt tài nguyên phục vụ.',
           ),
         );
         setState(() {});
@@ -308,28 +321,23 @@ class _PosSellIndustrySettingsScreenState
   Widget _buildForm() {
     final s = _settings!;
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 48),
       children: [
         if (_showProfile) ...[
-          Text(tr('Hồ sơ ngành'),
+          Text(tr('Chọn ngành hàng'),
               style:
                   const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
-          const SizedBox(height: 8),
-          DropdownButtonFormField<PosSellProfile>(
-            value: s.sellProfile,
-            decoration: const InputDecoration(
-              border: OutlineInputBorder(),
-              isDense: true,
-            ),
-            items: PosSellProfile.values
-                .map((p) =>
-                    DropdownMenuItem(value: p, child: Text(tr(p.label))))
-                .toList(),
-            onChanged: _saving ? null : _onProfileChanged,
+          const SizedBox(height: 4),
+          Text(
+            tr('Tên ngành quyết định giao diện bán: hàng hóa hay sơ đồ, '
+                'bàn/ghế/phòng, báo bếp, tính giờ, gói buổi.'),
+            style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
           ),
+          const SizedBox(height: 10),
+          ...PosSellProfile.values.map((p) => _profileCard(p, s.sellProfile)),
           const SizedBox(height: 8),
           Text(
-            tr('Đổi ngành sẽ lưu ngay và bật sẵn bàn/ghế, tính giờ hoặc gói buổi.'),
+            tr('Đổi ngành sẽ lưu ngay và bật sẵn cấu hình mặc định của ngành đó.'),
             style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
           ),
           const Divider(height: 28),
@@ -347,10 +355,18 @@ class _PosSellIndustrySettingsScreenState
               isDense: true,
             ),
             items: [
-              DropdownMenuItem(value: 'quick', child: Text(tr('Bán nhanh'))),
-              DropdownMenuItem(value: 'normal', child: Text(tr('Bán thường'))),
               DropdownMenuItem(
-                  value: 'delivery', child: Text(tr('Giao hàng'))),
+                value: 'quick',
+                child: Text(tr('Bán nhanh — quét mã, thanh toán ngay')),
+              ),
+              DropdownMenuItem(
+                value: 'normal',
+                child: Text(tr('Bán thường — hóa đơn đủ thông tin')),
+              ),
+              DropdownMenuItem(
+                value: 'delivery',
+                child: Text(tr('Giao hàng — địa chỉ, phí ship')),
+              ),
             ],
             onChanged: _saving
                 ? null
@@ -362,39 +378,50 @@ class _PosSellIndustrySettingsScreenState
           if (_showResources) const Divider(height: 28),
         ],
         if (_showResources) ...[
-          Text(tr('Tài nguyên phục vụ'),
-              style:
-                  const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+          Text(
+            tr(s.sellProfile.usesFloorPlan
+                ? 'Sơ đồ & ${s.sellProfile.resourceNoun}'
+                : 'Tạm tính & tồn kho'),
+            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+          ),
           const SizedBox(height: 4),
           Text(
-            tr(s.sellProfile == PosSellProfile.retail
-                ? 'Đổi hồ sơ ngành (F&B / salon / …) để bật bàn và sơ đồ.'
-                : 'Công tắc tự lưu khi đổi.'),
+            tr(s.sellProfile.usesFloorPlan
+                ? 'Công tắc tự lưu khi đổi. Thuật ngữ theo ngành: ${s.sellProfile.resourceNoun}.'
+                : 'Bán lẻ / gym không dùng sơ đồ. Bật tạm tính để in hóa đơn chưa thu tiền.'),
             style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
           ),
           const SizedBox(height: 8),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
-            title: Text(tr('Sơ đồ bàn / ghế / phòng')),
-            subtitle: Text(tr('F&B, salon, karaoke')),
+            title: Text(tr(s.sellProfile.floorTabLabel.isEmpty
+                ? 'Sơ đồ'
+                : s.sellProfile.floorTabLabel)),
+            subtitle: Text(tr(s.sellProfile.usesFloorPlan
+                ? 'Hiện tab sơ đồ trên màn bán'
+                : 'Không dùng với bán lẻ / gym')),
             value: s.showFloorPlan,
-            onChanged: _saving || s.sellProfile == PosSellProfile.retail
+            onChanged: _saving || !s.sellProfile.usesFloorPlan
                 ? null
                 : (v) =>
                     _patchAndSave((cur) => cur.copyWith(showFloorPlan: v)),
           ),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
-            title: Text(tr('Bật tài nguyên phục vụ')),
+            title: Text(tr(s.sellProfile.resourceNoun.isEmpty
+                ? 'Bật tài nguyên phục vụ'
+                : 'Bật ${s.sellProfile.resourceNoun} phục vụ')),
             value: s.enableResources,
-            onChanged: _saving || s.sellProfile == PosSellProfile.retail
+            onChanged: _saving || !s.sellProfile.usesFloorPlan
                 ? null
                 : (v) =>
                     _patchAndSave((cur) => cur.copyWith(enableResources: v)),
           ),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
-            title: Text(tr('Bắt buộc chọn bàn/phòng khi bán')),
+            title: Text(tr(s.sellProfile.resourceNoun.isEmpty
+                ? 'Bắt buộc chọn tài nguyên khi bán'
+                : 'Bắt buộc chọn ${s.sellProfile.resourceNoun} khi bán')),
             value: s.requireResourceOnSale,
             onChanged: _saving || !s.enableResources
                 ? null
@@ -403,7 +430,9 @@ class _PosSellIndustrySettingsScreenState
           ),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
-            title: Text(tr('Dịch vụ tính theo giờ/phút')),
+            title: Text(tr('Dịch vụ tính giờ / block / ngày')),
+            subtitle: Text(tr(
+                'Karaoke, bi-a, khách sạn: phí mở phòng + nhảy tiền theo block phút hoặc theo ngày')),
             value: s.enableHourlyBilling,
             onChanged: _saving || s.sellProfile == PosSellProfile.retail
                 ? null
@@ -420,9 +449,11 @@ class _PosSellIndustrySettingsScreenState
                 return null;
               }(),
               decoration: InputDecoration(
-                labelText: tr('SP tính giờ mặc định khi mở bàn'),
+                labelText: tr(s.sellProfile.resourceNoun.isEmpty
+                    ? 'SP tính giờ mặc định khi mở phiên'
+                    : 'SP tính giờ mặc định khi mở ${s.sellProfile.resourceNoun}'),
                 helperText: tr(
-                    'Tự thêm vào đơn trống. Có thể ghi đè từng bàn/phòng.'),
+                    'Tự thêm vào đơn trống. Có thể ghi đè từng ${s.sellProfile.resourceNoun.isEmpty ? 'tài nguyên' : s.sellProfile.resourceNoun}.'),
                 border: const OutlineInputBorder(),
                 isDense: true,
               ),
@@ -448,11 +479,13 @@ class _PosSellIndustrySettingsScreenState
           ],
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
-            title: Text(tr('Gói buổi (Gym)')),
-            subtitle: Text(tr('Mua gói cộng buổi, check-in trừ buổi')),
+            title: Text(tr('Gói buổi / liệu trình / thẻ tập')),
+            subtitle: Text(tr(
+                'Salon, spa, gym: bán gói cộng buổi, check-in trừ buổi, hạn dùng theo ngày')),
             value: s.enableSessionPacks,
             onChanged: _saving ||
                     (s.sellProfile != PosSellProfile.gym &&
+                        s.sellProfile != PosSellProfile.salon &&
                         !s.enableSessionPacks)
                 ? null
                 : (v) => _patchAndSave(
@@ -461,20 +494,23 @@ class _PosSellIndustrySettingsScreenState
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
             title: Text(tr('Cho phép tạm tính')),
-            subtitle: Text(
-                tr('Hiện nút Tạm tính — đánh dấu bàn và in hóa đơn tạm')),
+            subtitle: Text(tr(s.sellProfile.usesFloorPlan
+                ? 'Hiện nút Tạm tính lúc thanh toán — đánh dấu ${s.sellProfile.resourceNoun} và in hóa đơn tạm'
+                : 'Hiện nút Tạm tính lúc thanh toán — in chưa thu tiền')),
             value: s.allowProvisionalBill,
-            onChanged: _saving || !s.enableResources
+            onChanged: _saving
                 ? null
                 : (v) => _patchAndSave(
                     (cur) => cur.copyWith(allowProvisionalBill: v)),
           ),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
-            title: Text(tr('Hỏi số khách khi mở bàn')),
+            title: Text(tr(s.sellProfile.resourceNoun.isEmpty
+                ? 'Hỏi số khách khi mở phiên'
+                : 'Hỏi số khách khi mở ${s.sellProfile.resourceNoun}')),
             subtitle: Text(tr(
-                'Bật thì hiện hộp nhập số khách khi mở bàn trống. '
-                'Tắt: mở bàn thẳng (mặc định 1 khách — sửa sau trên bàn).')),
+                'Bật thì hiện hộp nhập số khách khi mở trống. '
+                'Tắt: mở thẳng (mặc định 1 khách).')),
             value: s.promptGuestCountOnOpen,
             onChanged: _saving || !s.enableResources
                 ? null
@@ -485,13 +521,87 @@ class _PosSellIndustrySettingsScreenState
             contentPadding: EdgeInsets.zero,
             title: Text(tr('Cho phép bán khi hết hàng / tồn âm')),
             subtitle: Text(tr(
-                'Bật: vẫn thêm món và thanh toán khi tồn khả dụng không đủ '
+                'Bật: vẫn thêm hàng và thanh toán khi tồn khả dụng không đủ '
                 '(kho có thể âm). Tắt: chặn thêm/thanh toán khi hết hàng.')),
             value: s.allowNegativeStock,
             onChanged: _saving
                 ? null
                 : (v) => _patchAndSave(
                     (cur) => cur.copyWith(allowNegativeStock: v)),
+          ),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: Text(tr('Ca thu ngân (mở ca / đóng két)')),
+            subtitle: Text(tr(
+                'Tắt mặc định. Bật khi quán cần mở ca, thanh toán bắt buộc '
+                'có ca mở, và đếm két khi đóng ca.')),
+            value: s.enableCashierShift,
+            onChanged: _saving
+                ? null
+                : (v) => _patchAndSave(
+                    (cur) => cur.copyWith(enableCashierShift: v)),
+          ),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: Text(tr('QR order tại bàn')),
+            subtitle: Text(tr(
+                'Tắt mặc định. Bật thì khách quét QR trên bàn để gọi món; '
+                'phiếu bếp in qua Agent, thanh toán vẫn tại quầy.')),
+            value: s.enableQrTableOrder,
+            onChanged: _saving
+                ? null
+                : (v) => _patchAndSave(
+                    (cur) => cur.copyWith(enableQrTableOrder: v)),
+          ),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: Text(tr('Tự in phiếu bếp khi khách đặt QR')),
+            subtitle: Text(tr(
+                'Bật: khách gửi món là in phiếu qua Agent. '
+                'Tắt: ghi món vào bàn, thu ngân bấm Báo bếp để in.')),
+            value: s.enableQrOrderAutoPrint,
+            onChanged: _saving || !s.enableQrTableOrder
+                ? null
+                : (v) => _patchAndSave(
+                    (cur) => cur.copyWith(enableQrOrderAutoPrint: v)),
+          ),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: Text(tr('QR: chỉ gọi món khi đã mở bàn')),
+            subtitle: Text(tr(
+                'Không cho khách ngoài quán tự mở đơn từ tem QR. '
+                'Thu ngân mở bàn rồi khách mới đặt được.')),
+            value: QrOrderLockConfig.fromExtraJson(s.extraJson)
+                .requireOpenSession,
+            onChanged: _saving || !s.enableQrTableOrder
+                ? null
+                : (v) => _patchAndSave((cur) {
+                      final next =
+                          QrOrderLockConfig.fromExtraJson(cur.extraJson)
+                              .copyWith(requireOpenSession: v);
+                      return cur.copyWith(
+                        extraJson: next.mergeIntoExtraJson(cur.extraJson),
+                      );
+                    }),
+          ),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: Text(tr('QR: chỉ gọi món trong phạm vi quán (GPS)')),
+            subtitle: Text(tr(
+                'Cần vùng chấm công (geofence) quanh quán. '
+                'Khách phải bật vị trí — có thể giả GPS trên máy root.')),
+            value:
+                QrOrderLockConfig.fromExtraJson(s.extraJson).requireGeofence,
+            onChanged: _saving || !s.enableQrTableOrder
+                ? null
+                : (v) => _patchAndSave((cur) {
+                      final next =
+                          QrOrderLockConfig.fromExtraJson(cur.extraJson)
+                              .copyWith(requireGeofence: v);
+                      return cur.copyWith(
+                        extraJson: next.mergeIntoExtraJson(cur.extraJson),
+                      );
+                    }),
           ),
           const Divider(height: 24),
           Text(tr('Báo cáo & cuối ngày'),
@@ -539,6 +649,103 @@ class _PosSellIndustrySettingsScreenState
             ),
         ],
       ],
+    );
+  }
+
+  IconData _profileIcon(PosSellProfile p) => switch (p) {
+        PosSellProfile.retail => Icons.storefront_outlined,
+        PosSellProfile.salon => Icons.content_cut_outlined,
+        PosSellProfile.roomHourly => Icons.meeting_room_outlined,
+        PosSellProfile.restaurant => Icons.restaurant_outlined,
+        PosSellProfile.gym => Icons.fitness_center_outlined,
+        PosSellProfile.hotel => Icons.hotel_outlined,
+      };
+
+  Widget _profileCard(PosSellProfile p, PosSellProfile selected) {
+    final on = p == selected;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Material(
+        color: on ? PosTheme.kiotBlueLight : Colors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+          side: BorderSide(
+            color: on ? PosTheme.kiotBlue : PosTheme.border,
+            width: on ? 2 : 1,
+          ),
+        ),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(10),
+          onTap: _saving ? null : () => unawaited(_onProfileChanged(p)),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(
+                  _profileIcon(p),
+                  color: on ? PosTheme.kiotBlue : Colors.grey.shade600,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        tr(p.label),
+                        style: TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 14,
+                          color: on ? PosTheme.kiotBlue : PosTheme.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        tr(p.description),
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey.shade700,
+                          height: 1.3,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 4,
+                        children: [
+                          for (final h in p.featureHints)
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: on
+                                    ? Colors.white
+                                    : const Color(0xFFF1F5F9),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Text(
+                                tr(h),
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  color: on
+                                      ? PosTheme.kiotBlue
+                                      : Colors.grey.shade700,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                if (on)
+                  const Icon(Icons.check_circle, color: PosTheme.kiotBlue),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

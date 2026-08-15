@@ -122,6 +122,8 @@ class PendingKitchenPrintJob {
                   'unitName': l.unitName,
                   'note': l.note,
                   'productId': l.productId,
+                  'sentBefore': l.sentBefore,
+                  'lineKey': l.lineKey,
                 })
             .toList(),
       };
@@ -141,6 +143,10 @@ class PendingKitchenPrintJob {
           unitName: m['unitName']?.toString(),
           note: m['note']?.toString(),
           productId: m['productId']?.toString(),
+          sentBefore: (m['sentBefore'] is num)
+              ? (m['sentBefore'] as num).toDouble()
+              : double.tryParse('${m['sentBefore']}'),
+          lineKey: m['lineKey']?.toString(),
         ));
       }
     }
@@ -258,27 +264,6 @@ class PosPendingPrintStore {
   static const _kKey = 'pos_pending_print_queue_v1';
   static const maxJobsPerKind = 40;
 
-  /// Job bếp cũ hơn ngưỡng này khi mở app → bỏ (tránh máy cũ auto-in trùng).
-  static const kitchenMaxAge = Duration(minutes: 10);
-
-  /// Hóa đơn treo cũ: Agent thường đã in rồi client ghi fail → auto-retry in chồng.
-  static const saleMaxAge = Duration(minutes: 5);
-
-  static List<PendingKitchenPrintJob> filterFreshKitchenJobs(
-      List<PendingKitchenPrintJob> jobs) {
-    final cutoff = DateTime.now().subtract(kitchenMaxAge);
-    return jobs
-        .where((j) =>
-            j.createdAt.isAfter(cutoff) || j.sentAt.isAfter(cutoff))
-        .toList();
-  }
-
-  static List<PendingSalePrintJob> filterFreshSaleJobs(
-      List<PendingSalePrintJob> jobs) {
-    final cutoff = DateTime.now().subtract(saleMaxAge);
-    return jobs.where((j) => j.createdAt.isAfter(cutoff)).toList();
-  }
-
   static Future<PosPendingPrintSnapshot> load() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -286,16 +271,8 @@ class PosPendingPrintStore {
       if (raw == null || raw.isEmpty) return const PosPendingPrintSnapshot();
       final map = jsonDecode(raw);
       if (map is! Map) return const PosPendingPrintSnapshot();
-      final snap = _fromMap(Map<String, dynamic>.from(map));
-      final kitchen = filterFreshKitchenJobs(snap.kitchen);
-      final sales = filterFreshSaleJobs(snap.sales);
-      if (kitchen.length == snap.kitchen.length &&
-          sales.length == snap.sales.length) {
-        return snap;
-      }
-      final cleaned = snap.copyWith(kitchen: kitchen, sales: sales);
-      await save(cleaned);
-      return cleaned;
+      // Giữ nguyên mọi phiếu treo — chỉ thu ngân Bỏ qua / In lại mới xóa.
+      return _fromMap(Map<String, dynamic>.from(map));
     } catch (e) {
       debugPrint('PosPendingPrintStore.load: $e');
       return const PosPendingPrintSnapshot();

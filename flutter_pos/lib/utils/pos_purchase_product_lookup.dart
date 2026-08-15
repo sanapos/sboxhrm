@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 
 import '../models/pos_product.dart';
 import '../services/api_service.dart';
+import '../widgets/pos/pos_quick_add_barcode_sheet.dart';
 import '../widgets/pos/pos_theme.dart';
 import 'package:sbox_pos/l10n/app_tr.dart';
 
@@ -25,26 +26,48 @@ class PosPurchaseLookupPick {
 }
 
 /// Quét mã / SKU chính xác hoặc tìm theo tên — hiện danh sách chọn nếu nhiều kết quả.
+/// [offerQuickCreate]: mã chưa có thì gợi ý thêm hàng (giá bán / vốn / ĐVT).
 Future<PosPurchaseLookupPick?> lookupOrPickPosProduct(
   BuildContext context,
   ApiService api,
-  String query,
-) async {
+  String query, {
+  bool offerQuickCreate = true,
+}) async {
   final q = query.trim();
   if (q.isEmpty) return null;
 
-  final fromExact = await _tryExactLookup(api, q);
-  if (fromExact != null) return fromExact;
+  final lookup = await api.lookupPosSellItem(q);
+  if (lookup['isSuccess'] == true && lookup['data'] is Map) {
+    final data = Map<String, dynamic>.from(lookup['data'] as Map);
+    final match = data['matchType']?.toString();
+    if (match == 'variant' || match == 'product') {
+      final fromExact = await _pickFromExact(api, data);
+      if (fromExact != null) return fromExact;
+    }
+    if (offerQuickCreate &&
+        (match == 'catalog' || (match == 'none' && _looksLikeBarcode(q))) &&
+        context.mounted) {
+      var hint = PosBarcodeHint.fromLookup(data);
+      if (hint.barcode.isEmpty) hint = PosBarcodeHint(barcode: q);
+      final created = await showPosQuickAddByBarcode(context, api, hint);
+      if (created != null) return PosPurchaseLookupPick(product: created);
+      return null;
+    }
+  }
 
   final searchRes = await api.getPosProducts(search: q, pageSize: 30);
-  if (searchRes['isSuccess'] != true || searchRes['data'] is! Map) return null;
+  if (searchRes['isSuccess'] != true || searchRes['data'] is! Map) {
+    return _maybeQuickAdd(context, api, q, offerQuickCreate);
+  }
 
   final rawItems = (searchRes['data'] as Map)['items'] as List? ?? [];
   final items = rawItems
       .map((e) => PosProduct.fromJson(e as Map<String, dynamic>))
       .toList();
 
-  if (items.isEmpty) return null;
+  if (items.isEmpty) {
+    return _maybeQuickAdd(context, api, q, offerQuickCreate);
+  }
   if (items.length == 1) {
     return _enrichProduct(api, items.first);
   }
@@ -59,11 +82,33 @@ Future<PosPurchaseLookupPick?> lookupOrPickPosProduct(
   return _enrichProduct(api, picked);
 }
 
-Future<PosPurchaseLookupPick?> _tryExactLookup(ApiService api, String q) async {
-  final lookup = await api.lookupPosSellItem(q);
-  if (lookup['isSuccess'] != true || lookup['data'] is! Map) return null;
+bool _looksLikeBarcode(String q) {
+  final t = q.trim();
+  if (t.length < 6) return false;
+  final digits = t.replaceAll(RegExp(r'[\s-]'), '');
+  return RegExp(r'^\d{6,18}$').hasMatch(digits);
+}
 
-  final data = lookup['data'] as Map<String, dynamic>;
+Future<PosPurchaseLookupPick?> _maybeQuickAdd(
+  BuildContext context,
+  ApiService api,
+  String q,
+  bool offerQuickCreate,
+) async {
+  if (!offerQuickCreate || !_looksLikeBarcode(q) || !context.mounted) {
+    return null;
+  }
+  final created = await showPosQuickAddByBarcode(
+    context,
+    api,
+    PosBarcodeHint(barcode: q),
+  );
+  if (created == null) return null;
+  return PosPurchaseLookupPick(product: created);
+}
+
+Future<PosPurchaseLookupPick?> _pickFromExact(
+    ApiService api, Map<String, dynamic> data) async {
   final matchType = data['matchType']?.toString();
 
   if (matchType == 'variant' && data['variant'] is Map) {

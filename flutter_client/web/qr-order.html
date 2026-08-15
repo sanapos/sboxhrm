@@ -1,0 +1,1006 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="robots" content="noindex, nofollow" />
+  <meta name="theme-color" content="#C2410C" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>Gọi món tại bàn</title>
+  <!--SBOX_BOOT-->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --ink: #1C1917;
+      --muted: #78716C;
+      --line: #E7E0D8;
+      --bg: #F6F1EA;
+      --card: #FFFcf8;
+      --terra: #C2410C;
+      --terra-deep: #9A3412;
+      --terra-soft: #FFEDD5;
+      --ok: #3F6F54;
+      --ok-soft: #E8F3EC;
+      --danger: #B91C1C;
+      --shadow: 0 10px 28px rgba(28, 25, 23, .08);
+      --safe-b: env(safe-area-inset-bottom, 0px);
+    }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html, body { margin: 0; min-height: 100%; }
+    body {
+      font-family: "Be Vietnam Pro", system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--ink);
+    }
+    button { font-family: inherit; cursor: pointer; }
+    input { font-family: inherit; }
+    .hero {
+      position: sticky; top: 0; z-index: 8;
+      background: linear-gradient(160deg, #C2410C 0%, #EA580C 58%, #F97316 100%);
+      color: #fff;
+      padding: calc(12px + env(safe-area-inset-top, 0px)) 16px 18px;
+      box-shadow: 0 8px 24px rgba(194, 65, 12, .28);
+    }
+    .hero-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+    .hero h1 { margin: 0; font-size: 20px; font-weight: 800; letter-spacing: -.02em; }
+    .hero .sub { margin: 6px 0 0; font-size: 13px; opacity: .92; font-weight: 500; }
+    .chip {
+      flex: none; background: rgba(255,255,255,.18); border: 1px solid rgba(255,255,255,.28);
+      border-radius: 999px; padding: 6px 10px; font-size: 11px; font-weight: 700;
+    }
+    .search-wrap { margin-top: 14px; position: relative; }
+    .search-wrap input {
+      width: 100%; border: 0; border-radius: 14px; padding: 12px 14px 12px 42px;
+      font-size: 15px; background: #fff; color: var(--ink); outline: none;
+      box-shadow: var(--shadow);
+    }
+    .search-ico { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); opacity: .45; }
+    .cats {
+      display: flex; gap: 8px; overflow-x: auto; padding: 12px 16px 10px;
+      position: sticky; top: 126px; z-index: 6; background: var(--bg);
+      scrollbar-width: none;
+    }
+    .cats::-webkit-scrollbar { display: none; }
+    .cats button {
+      border: 1px solid var(--line); background: #fff; color: var(--ink);
+      border-radius: 999px; padding: 8px 14px; white-space: nowrap;
+      font-weight: 650; font-size: 13px;
+    }
+    .cats button.on { background: var(--terra); color: #fff; border-color: var(--terra); }
+    .grid { padding: 4px 16px 140px; display: grid; gap: 12px; }
+    .item {
+      background: var(--card); border-radius: 18px; padding: 12px;
+      display: flex; gap: 12px; align-items: center;
+      box-shadow: var(--shadow); border: 1px solid rgba(255,255,255,.7);
+    }
+    .item img, .ph {
+      width: 84px; height: 84px; border-radius: 14px; object-fit: cover;
+      background: linear-gradient(135deg, #F5E6D3, #E7D3BE); flex: none;
+    }
+    .item h3 { margin: 0; font-size: 15px; font-weight: 750; line-height: 1.3; }
+    .price { color: var(--terra); font-weight: 800; font-size: 15px; margin-top: 6px; }
+    .sold { color: var(--danger); font-size: 12px; font-weight: 700; margin-top: 4px; }
+    .meta { color: var(--muted); font-size: 12px; margin-top: 4px; font-weight: 500; }
+    .qty { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+    .qty strong { min-width: 18px; text-align: center; font-size: 15px; }
+    .qty button, .icon-btn {
+      width: 36px; height: 36px; border: 0; border-radius: 12px;
+      background: var(--terra-soft); color: var(--terra-deep); font-size: 20px; font-weight: 700;
+    }
+    .pick {
+      margin-left: auto; background: var(--terra); color: #fff; border: 0;
+      border-radius: 12px; padding: 10px 14px; font-weight: 750; white-space: nowrap; font-size: 13px;
+    }
+    .dock {
+      position: fixed; left: 12px; right: 12px; bottom: calc(12px + var(--safe-b));
+      background: var(--ink); color: #fff; border-radius: 20px; padding: 10px 10px 10px 14px;
+      display: flex; gap: 8px; align-items: center; z-index: 12; flex-wrap: wrap;
+      box-shadow: 0 16px 40px rgba(28,25,23,.28);
+    }
+    .dock .count {
+      width: 36px; height: 36px; border-radius: 12px; background: var(--terra);
+      display: grid; place-items: center; font-weight: 800;
+    }
+    .dock .sum { flex: 1; min-width: 0; cursor: pointer; }
+    .dock .count { cursor: pointer; }
+    .dock .sum b { display: block; font-size: 15px; }
+    .dock .sum span { font-size: 12px; opacity: .72; }
+    .dock .go {
+      background: #fff; color: var(--ink); border: 0; border-radius: 14px;
+      padding: 12px 16px; font-weight: 800; font-size: 14px;
+    }
+    .dock .go:disabled { opacity: .45; }
+    .dock .pay {
+      background: transparent; color: #fff; border: 1px solid rgba(255,255,255,.38);
+      border-radius: 14px; padding: 12px 12px; font-weight: 800; font-size: 13px; white-space: nowrap;
+    }
+    .dock .pay:disabled { opacity: .45; }
+    .dock .cart-btn {
+      background: rgba(255,255,255,.12); color: #fff; border: 0; border-radius: 14px;
+      padding: 12px 12px; font-weight: 800; font-size: 13px; white-space: nowrap;
+    }
+    .hero-actions { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+    .lang {
+      display: flex; gap: 2px; background: rgba(255,255,255,.16);
+      border-radius: 999px; padding: 3px;
+    }
+    .lang button {
+      border: 0; background: transparent; color: #fff; border-radius: 999px;
+      padding: 4px 9px; font-weight: 800; font-size: 11px;
+    }
+    .lang button.on { background: #fff; color: var(--terra-deep); }
+    .note-link { margin-top: 6px; border: 0; background: none; color: var(--terra); font-weight: 700; font-size: 12px; padding: 0; }
+    .cart-line { flex-wrap: wrap; }
+    .cart-line .note { margin-top: 8px; }
+    .state { padding: 48px 24px; text-align: center; color: var(--muted); }
+    .state h2 { margin: 0 0 8px; color: var(--ink); font-size: 18px; }
+    .state.err h2 { color: var(--danger); }
+    .retry {
+      margin-top: 14px; border: 0; background: var(--terra); color: #fff;
+      border-radius: 12px; padding: 10px 16px; font-weight: 750;
+    }
+    .bill {
+      margin: 4px 16px 0; background: var(--card); border-radius: 18px; padding: 14px 16px;
+      box-shadow: var(--shadow);
+    }
+    .bill h2 { margin: 0 0 8px; font-size: 15px; }
+    .bill li { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #F3EDE6; font-size: 14px; gap: 8px; }
+    .bill .n { color: var(--muted); font-size: 12px; margin-top: 2px; }
+    .ok-note { color: var(--ok); font-weight: 700; margin-top: 10px; font-size: 13px; }
+    .ov { position: fixed; inset: 0; background: rgba(28,25,23,.46); z-index: 20; display: flex; align-items: flex-end; }
+    .sheet {
+      background: #fff; width: 100%; max-height: 88vh; overflow: auto;
+      border-radius: 22px 22px 0 0; padding: 18px 16px calc(18px + var(--safe-b));
+    }
+    .grab { width: 40px; height: 4px; background: #E7E5E4; border-radius: 99px; margin: 0 auto 12px; }
+    .sheet h2 { margin: 0 0 6px; font-size: 18px; }
+    .sheet .sp { color: var(--terra); font-weight: 800; margin-bottom: 8px; }
+    .chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0 12px; }
+    .chips button {
+      border: 1px solid var(--line); background: #fff; border-radius: 999px;
+      padding: 8px 12px; font-weight: 650; font-size: 13px;
+    }
+    .chips button.on { border-color: var(--terra); background: var(--terra-soft); color: var(--terra-deep); }
+    .top { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #F5F0EA; }
+    .top label { display: flex; gap: 10px; align-items: center; flex: 1; font-weight: 550; }
+    .gname { font-size: 12px; font-weight: 800; margin: 14px 0 4px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+    .note {
+      width: 100%; margin-top: 12px; border: 1px solid var(--line); border-radius: 12px;
+      padding: 10px 12px; font-size: 14px; background: #FBF8F4;
+    }
+    .sheet-bar { display: flex; gap: 10px; align-items: center; margin-top: 16px; }
+    .sheet-bar .go { flex: 1; background: var(--terra); color: #fff; border: 0; border-radius: 14px; padding: 13px; font-weight: 800; }
+    .x { border: 0; background: #F5F5F4; border-radius: 14px; padding: 13px 16px; font-weight: 750; }
+    .toast {
+      position: fixed; left: 16px; right: 16px; bottom: calc(92px + var(--safe-b));
+      background: var(--ink); color: #fff; border-radius: 14px; padding: 12px 14px;
+      font-weight: 650; z-index: 30; text-align: center; box-shadow: var(--shadow);
+    }
+    .toast.bad { background: #7F1D1D; }
+    .success {
+      position: fixed; inset: 0; z-index: 40; background: rgba(28,25,23,.5);
+      display: flex; align-items: center; justify-content: center; padding: 24px;
+    }
+    .success .box {
+      background: #fff; border-radius: 24px; padding: 28px 22px; width: min(360px, 100%);
+      text-align: center; box-shadow: var(--shadow);
+    }
+    .success .mark {
+      width: 64px; height: 64px; margin: 0 auto 12px; border-radius: 50%;
+      background: var(--ok-soft); color: var(--ok); display: grid; place-items: center;
+      font-size: 30px; font-weight: 800;
+    }
+    .success h3 { margin: 0 0 8px; font-size: 20px; }
+    .success p { margin: 0 0 16px; color: var(--muted); line-height: 1.45; }
+    .cart-line { display: flex; justify-content: space-between; gap: 10px; padding: 10px 0; border-bottom: 1px solid #F3EDE6; }
+    .cart-line .nm { font-weight: 700; }
+    .empty-cat { padding: 36px 8px; text-align: center; color: var(--muted); }
+    .skel { height: 108px; border-radius: 18px; background: linear-gradient(90deg,#efe8df,#f7f2eb,#efe8df); background-size: 200% 100%; animation: shine 1.2s infinite; }
+    @keyframes shine { 0%{background-position:100% 0} 100%{background-position:-100% 0} }
+    .fab-wrap {
+      position: fixed; right: 14px; bottom: calc(88px + var(--safe-b));
+      z-index: 18; display: flex; flex-direction: column; align-items: flex-end; gap: 8px;
+    }
+    .fab {
+      width: 56px; height: 56px; border: 0; border-radius: 18px;
+      background: var(--terra); color: #fff; font-size: 22px; font-weight: 800;
+      box-shadow: 0 10px 24px rgba(194,65,12,.35);
+    }
+    .fab-menu {
+      background: #fff; border-radius: 18px; padding: 8px; min-width: 228px;
+      box-shadow: 0 16px 40px rgba(28,25,23,.18);
+    }
+    .fab-menu button {
+      display: flex; width: 100%; align-items: center; gap: 10px;
+      border: 0; background: #fff; padding: 12px; border-radius: 12px;
+      font-weight: 750; font-size: 14px; text-align: left; color: var(--ink);
+    }
+    .fab-menu button:active { background: var(--terra-soft); }
+    .fab-ico {
+      width: 32px; height: 32px; border-radius: 10px; display: grid; place-items: center;
+      background: var(--terra-soft); color: var(--terra-deep); font-size: 15px; flex: none;
+    }
+    .qr-box { text-align: center; }
+    .qr-box img { width: min(280px, 82vw); height: auto; border-radius: 12px; background: #fff; }
+    .qr-meta { color: var(--muted); font-size: 13px; margin-top: 8px; line-height: 1.45; }
+    .confirm-pay {
+      width: 100%; margin-top: 14px; background: var(--ok); color: #fff;
+      border: 0; border-radius: 14px; padding: 14px; font-weight: 800; font-size: 15px;
+    }
+    .confirm-pay:disabled { opacity: .5; }
+    .lock-banner {
+      margin: 0 16px 10px; padding: 12px 14px;
+      background: #FEF3C7; color: #92400E;
+      border-radius: 14px; font-size: 13px; font-weight: 650; line-height: 1.45;
+    }
+    .receipt {
+      background: #FFFDF8; border: 1px solid #E7E0D8; border-radius: 10px;
+      padding: 16px 14px 18px; margin-top: 8px;
+    }
+    .receipt .shop { text-align: center; font-weight: 800; font-size: 16px; }
+    .receipt .addr { text-align: center; color: #57534E; font-size: 12px; margin-top: 4px; line-height: 1.4; }
+    .receipt .btitle { text-align: center; font-weight: 800; letter-spacing: .04em; margin: 12px 0 4px; font-size: 15px; }
+    .receipt .warn { text-align: center; color: var(--danger); font-weight: 800; font-size: 12px; }
+    .receipt .meta-row { display: flex; justify-content: space-between; gap: 10px; font-size: 13px; margin-top: 4px; }
+    .receipt .dash { border: 0; border-top: 1px dashed #D6D3D1; margin: 10px 0; }
+    .receipt .item { box-shadow: none; border: 0; border-radius: 0; padding: 8px 0; display: block; background: transparent; }
+    .receipt .item .nm { font-weight: 750; font-size: 14px; }
+    .receipt .item .n { color: var(--muted); font-size: 12px; margin-top: 2px; }
+    .receipt .item .amt { display: flex; justify-content: space-between; gap: 8px; margin-top: 4px; font-size: 13px; }
+    .receipt .tot { display: flex; justify-content: space-between; gap: 8px; padding: 4px 0; font-size: 13px; }
+    .receipt .tot.grand { font-weight: 800; font-size: 15px; }
+    .receipt .foot { text-align: center; color: var(--muted); font-size: 12px; margin-top: 8px; line-height: 1.4; }
+  </style>
+</head>
+<body>
+  <header class="hero">
+    <div class="hero-top">
+      <div>
+        <h1 id="store">SBOX</h1>
+        <p class="sub" id="table">Đang mở thực đơn…</p>
+      </div>
+      <div class="hero-actions">
+        <div class="lang" id="lang-switch">
+          <button type="button" data-lang="vi" class="on">VI</button>
+          <button type="button" data-lang="en">EN</button>
+        </div>
+        <div class="chip" id="pay-chip">Thanh toán tại quầy</div>
+      </div>
+    </div>
+    <div class="search-wrap">
+      <svg class="search-ico" width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <circle cx="11" cy="11" r="7" stroke="#78716C" stroke-width="2"/>
+        <path d="M20 20l-3.2-3.2" stroke="#78716C" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+      <input id="q" type="search" placeholder="Tìm món, topping…" autocomplete="off" />
+    </div>
+  </header>
+  <div id="app">
+    <div class="grid" style="padding-top:16px">
+      <div class="skel"></div><div class="skel"></div><div class="skel"></div>
+    </div>
+  </div>
+  <div class="fab-wrap" id="fab-wrap">
+    <div class="fab-menu" id="fab-menu" hidden>
+      <button type="button" id="fab-pay"><span class="fab-ico">₫</span><span id="fab-pay-l">Gọi thanh toán</span></button>
+      <button type="button" id="fab-staff"><span class="fab-ico">♪</span><span id="fab-staff-l">Gọi phục vụ</span></button>
+      <button type="button" id="fab-bill"><span class="fab-ico">☰</span><span id="fab-bill-l">Xem đơn đã đặt</span></button>
+      <button type="button" id="fab-qr"><span class="fab-ico">▣</span><span id="fab-qr-l">Mã QR thanh toán</span></button>
+    </div>
+    <button class="fab" type="button" id="fab-toggle" aria-label="Hỗ trợ">+</button>
+  </div>
+  <script>
+    const I18N = {
+      vi: {
+        title: 'Gọi món tại bàn',
+        opening: 'Đang mở thực đơn…',
+        payChip: 'Thanh toán tại quầy',
+        search: 'Tìm món, topping…',
+        all: 'Tất cả',
+        choose: 'Chọn',
+        chosen: 'Đã chọn',
+        options: 'lựa chọn',
+        topping: 'thêm topping',
+        sold: 'Hết món',
+        emptyCat: 'Không thấy món phù hợp',
+        ordered: 'Đã gọi',
+        subtotal: 'Tạm tính',
+        payHint: 'Thanh toán tại quầy khi xong',
+        noItems: 'Chưa chọn món',
+        nItems: (n) => n + ' món',
+        viewCart: 'Xem giỏ hàng',
+        order: 'Đặt hàng',
+        callPay: 'Gọi thanh toán',
+        cartTitle: 'Giỏ hàng',
+        close: 'Đóng',
+        cancel: 'Huỷ',
+        add: 'Thêm',
+        notePh: 'Ghi chú món: ít đá, ít đường…',
+        noteBtn: 'Ghi chú món',
+        variant: 'Chọn size / biến thể',
+        toppingG: 'Topping',
+        pickVariant: 'Chọn biến thể',
+        varSold: 'Biến thể tạm hết',
+        added: 'Đã thêm',
+        sending: 'Đang gửi…',
+        calling: 'Đang gọi…',
+        sentTitle: 'Đã đặt hàng',
+        continue: 'Tiếp tục gọi',
+        missing: 'Thiếu mã bàn',
+        missingHint: 'Quét lại mã QR dán trên bàn.',
+        menuFail: 'Chưa mở được thực đơn',
+        retry: 'Thử lại',
+        offline: 'Mất kết nối',
+        offlineHint: 'Kiểm tra wifi quán rồi thử lại.',
+        sendFail: 'Không gửi được',
+        sendAgain: 'Mất kết nối — gửi lại',
+        payOk: 'Đã gọi thu ngân',
+        payFail: 'Không gọi được thanh toán',
+        defaultOk: 'Đã đặt hàng. Thanh toán tại quầy khi xong.',
+        actions: 'Hỗ trợ',
+        callStaff: 'Gọi phục vụ',
+        viewBill: 'Xem đơn đã đặt',
+        payQr: 'Mã QR thanh toán',
+        confirmPaid: 'Tôi đã thanh toán QR',
+        confirming: 'Đang gửi…',
+        confirmOk: 'Đã báo thu ngân kiểm tra giao dịch',
+        confirmFail: 'Không gửi được xác nhận',
+        noBill: 'Chưa có món đã đặt',
+        noQr: 'Quán chưa cấu hình tài khoản nhận QR',
+        staffOk: 'Đã gọi phục vụ',
+        staffFail: 'Không gọi được phục vụ',
+        qrHint: 'Quét mã để chuyển khoản. Sau khi chuyển, bấm xác nhận để thu ngân kiểm tra.',
+        transfer: 'Nội dung CK',
+        acc: 'STK',
+        emptyBill: 'Chưa đặt món nào',
+        billTitle: 'HÓA ĐƠN TẠM TÍNH',
+        unpaid: '*** CHƯA THANH TOÁN ***',
+        billNo: 'Số',
+        billDate: 'Ngày',
+        billIn: 'Giờ vào',
+        billTable: 'Bàn',
+        billGuest: 'Số khách',
+        billSub: 'Tạm tính',
+        billDisc: 'Giảm giá',
+        billVat: 'VAT',
+        billTotal: 'Tổng cộng',
+        billPayHint: 'Thanh toán tại quầy khi dùng xong',
+        lockClosed: 'Thu ngân chưa mở bàn — chưa gọi món được',
+        geoDenied: 'Cần cho phép vị trí — chỉ gọi món trong quán',
+        geoFail: 'Không lấy được vị trí'
+      },
+      en: {
+        title: 'Order at table',
+        opening: 'Opening the menu…',
+        payChip: 'Pay at the counter',
+        search: 'Search dishes, toppings…',
+        all: 'All',
+        choose: 'Choose',
+        chosen: 'Selected',
+        options: 'options',
+        topping: 'add toppings',
+        sold: 'Sold out',
+        emptyCat: 'No matching dishes',
+        ordered: 'Already ordered',
+        subtotal: 'Subtotal',
+        payHint: 'Pay at the counter when done',
+        noItems: 'Cart is empty',
+        nItems: (n) => n + ' items',
+        viewCart: 'View cart',
+        order: 'Place order',
+        callPay: 'Call to pay',
+        cartTitle: 'Your cart',
+        close: 'Close',
+        cancel: 'Cancel',
+        add: 'Add',
+        notePh: 'Item note: less ice, less sugar…',
+        noteBtn: 'Item note',
+        variant: 'Size / variant',
+        toppingG: 'Toppings',
+        pickVariant: 'Choose a variant',
+        varSold: 'This variant is sold out',
+        added: 'Added',
+        sending: 'Sending…',
+        calling: 'Calling…',
+        sentTitle: 'Order placed',
+        continue: 'Order more',
+        missing: 'Missing table code',
+        missingHint: 'Scan the QR code on the table again.',
+        menuFail: 'Could not open the menu',
+        retry: 'Try again',
+        offline: 'No connection',
+        offlineHint: 'Check the restaurant Wi‑Fi and try again.',
+        sendFail: 'Could not place the order',
+        sendAgain: 'Connection lost — try again',
+        payOk: 'Cashier has been called',
+        payFail: 'Could not call for payment',
+        defaultOk: 'Order placed. Pay at the counter when done.',
+        actions: 'Help',
+        callStaff: 'Call waiter',
+        viewBill: 'View ordered items',
+        payQr: 'Payment QR',
+        confirmPaid: 'I have paid via QR',
+        confirming: 'Sending…',
+        confirmOk: 'Cashier has been asked to check the transfer',
+        confirmFail: 'Could not send confirmation',
+        noBill: 'No items ordered yet',
+        noQr: 'This store has no bank account for QR',
+        staffOk: 'Waiter has been called',
+        staffFail: 'Could not call the waiter',
+        qrHint: 'Scan to transfer. After paying, tap confirm so the cashier can check.',
+        transfer: 'Transfer note',
+        acc: 'Account',
+        emptyBill: 'Nothing ordered yet',
+        billTitle: 'PROVISIONAL BILL',
+        unpaid: '*** UNPAID ***',
+        billNo: 'No.',
+        billDate: 'Date',
+        billIn: 'In',
+        billTable: 'Table',
+        billGuest: 'Guests',
+        billSub: 'Subtotal',
+        billDisc: 'Discount',
+        billVat: 'VAT',
+        billTotal: 'Total',
+        billPayHint: 'Please pay at the counter when done',
+        lockClosed: 'The cashier has not opened this table yet',
+        geoDenied: 'Allow location — order only inside the restaurant',
+        geoFail: 'Could not read your location'
+      }
+    };
+    let lang = 'vi';
+    try {
+      const saved = localStorage.getItem('sbox_qr_lang');
+      lang = saved === 'en' ? 'en' : 'vi';
+    } catch (e) {}
+    const t = (k) => {
+      const pack = I18N[lang] || I18N.vi;
+      return pack[k] != null ? pack[k] : (I18N.vi[k] || k);
+    };
+    function setLang(next) {
+      lang = next === 'en' ? 'en' : 'vi';
+      try { localStorage.setItem('sbox_qr_lang', lang); } catch (e) {}
+      document.documentElement.lang = lang;
+      applyStaticLang();
+      if (menu) render();
+    }
+    function applyStaticLang() {
+      document.getElementById('pay-chip').textContent = t('payChip');
+      document.getElementById('q').placeholder = t('search');
+      document.getElementById('fab-pay-l').textContent = t('callPay');
+      document.getElementById('fab-staff-l').textContent = t('callStaff');
+      document.getElementById('fab-bill-l').textContent = t('viewBill');
+      document.getElementById('fab-qr-l').textContent = t('payQr');
+      document.getElementById('fab-toggle').setAttribute('aria-label', t('actions'));
+      document.querySelectorAll('#lang-switch button').forEach(b => {
+        b.classList.toggle('on', b.getAttribute('data-lang') === lang);
+      });
+      if (!menu) document.getElementById('table').textContent = t('opening');
+    }
+    const money = n => new Intl.NumberFormat(lang === 'en' ? 'en-US' : 'vi-VN').format(Math.round(n || 0)) + '₫';
+    function apiBase() {
+      return String(window.__SBOX_API__ || location.origin || '').replace(/\/$/, '');
+    }
+    function token() {
+      if (window.__SBOX_TOKEN__) return String(window.__SBOX_TOKEN__).trim();
+      const path = location.pathname || '';
+      const m = path.match(/\/o\/([^/]+)\/?$/i)
+        || path.match(/\/api\/pos\/qr-order\/([^/]+)\/(?:page)?\/?$/i)
+        || path.match(/\/qr-order\/([^/]+)\/(?:page)?\/?$/i);
+      if (m) return decodeURIComponent(m[1]);
+      return new URLSearchParams(location.search).get('t') || '';
+    }
+    const T = token();
+    const cart = [];
+    let menu = null;
+    let picker = null;
+    let cartOpen = false;
+    let billOpen = false;
+    let payOpen = false;
+    let fabOpen = false;
+    let activeCat = 'all';
+    let query = '';
+    let toastTimer = 0;
+
+    function hasOpts(p) {
+      return (p.variants && p.variants.length) || (p.toppings && p.toppings.length) ||
+        (p.toppingGroups && p.toppingGroups.length);
+    }
+    function allToppings(p) {
+      const list = [...(p.toppings || [])];
+      (p.toppingGroups || []).forEach(g => (g.items || []).forEach(t => list.push(t)));
+      const seen = {};
+      return list.filter(t => { if (seen[t.id]) return false; seen[t.id] = 1; return true; });
+    }
+    function unitPrice(p, variantId, toppingIds) {
+      const v = (p.variants || []).find(x => x.id === variantId);
+      const base = v ? v.price : p.price;
+      const extra = allToppings(p).filter(t => toppingIds.includes(t.id)).reduce((s, t) => s + (t.price || 0), 0);
+      return base + extra;
+    }
+    function lineKey(productId, variantId, toppingIds, note) {
+      const tops = [...(toppingIds || [])].sort().join(',');
+      return [productId, variantId || '', tops, (note || '').trim()].join('|');
+    }
+    function cartQtyOf(productId) {
+      return cart.filter(x => x.productId === productId).reduce((s, x) => s + x.qty, 0);
+    }
+    function cartCount(){ return cart.reduce((s,x)=>s+x.qty,0); }
+    function cartTotal(){ return cart.reduce((s,x)=>s+x.qty*x.price,0); }
+    function esc(s){ return String(s||'').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+    function abs(u){ if(!u) return ''; if(/^https?:/i.test(u)) return u; return apiBase() + (u.startsWith('/')?u:'/'+u); }
+    function toast(msg, bad) {
+      clearTimeout(toastTimer);
+      const old = document.getElementById('toast');
+      if (old) old.remove();
+      const el = document.createElement('div');
+      el.id = 'toast';
+      el.className = 'toast' + (bad ? ' bad' : '');
+      el.textContent = msg;
+      document.body.appendChild(el);
+      toastTimer = setTimeout(() => el.remove(), 2800);
+    }
+    function showSuccess(msg) {
+      const wrap = document.createElement('div');
+      wrap.className = 'success';
+      wrap.innerHTML = '<div class="box"><div class="mark">✓</div><h3>'+esc(t('sentTitle'))+'</h3><p>'+esc(msg)+'</p><button class="retry" type="button">'+esc(t('continue'))+'</button></div>';
+      wrap.querySelector('button').onclick = () => wrap.remove();
+      wrap.onclick = e => { if (e.target === wrap) wrap.remove(); };
+      document.body.appendChild(wrap);
+    }
+
+    async function load() {
+      if (!T) {
+        document.getElementById('app').innerHTML = '<div class="state err"><h2>'+esc(t('missing'))+'</h2><p>'+esc(t('missingHint'))+'</p></div>';
+        return;
+      }
+      try {
+        const res = await fetch(apiBase() + '/api/pos/qr-order/' + encodeURIComponent(T), { cache: 'no-store' });
+        const json = await res.json();
+        const data = json.data || json.Data;
+        if (!json.isSuccess && !json.IsSuccess) {
+          document.getElementById('app').innerHTML = '<div class="state err"><h2>'+esc(t('menuFail'))+'</h2><p>'+esc(json.message || json.Message || t('retry'))+'</p><button class="retry" type="button" onclick="load()">'+esc(t('retry'))+'</button></div>';
+          return;
+        }
+        menu = data;
+        document.getElementById('store').textContent = data.storeName || 'SBOX';
+        document.getElementById('table').textContent = (data.areaName ? data.areaName + ' · ' : '') + (data.tableName || (lang==='en'?'Table':'Bàn'));
+        document.title = (data.tableName || t('title')) + ' · ' + (data.storeName || 'SBOX');
+        render();
+      } catch (e) {
+        document.getElementById('app').innerHTML = '<div class="state err"><h2>'+esc(t('offline'))+'</h2><p>'+esc(t('offlineHint'))+'</p><button class="retry" type="button" onclick="load()">'+esc(t('retry'))+'</button></div>';
+      }
+    }
+
+    function filteredProducts() {
+      const q = query.trim().toLowerCase();
+      return (menu.products || []).filter(p => {
+        if (activeCat !== 'all' && p.categoryId !== activeCat) return false;
+        if (!q) return true;
+        const blob = [p.name, p.description, ...(p.variants||[]).map(v=>v.name), ...allToppings(p).map(t=>t.name)].join(' ').toLowerCase();
+        return blob.includes(q);
+      });
+    }
+
+    function render() {
+      const noteEl = document.getElementById('pick-note');
+      if (picker && noteEl) picker.note = noteEl.value;
+      const cats = menu.categories || [];
+      const items = filteredProducts();
+      let html = '<div class="cats">';
+      html += '<button type="button" data-cat="all" class="'+(activeCat==='all'?'on':'')+'">'+esc(t('all'))+'</button>';
+      cats.forEach(c => html += '<button type="button" data-cat="'+esc(c.id)+'" class="'+(activeCat===c.id?'on':'')+'">'+esc(c.name)+'</button>');
+      html += '</div>';
+      const lock = lockInfo();
+      if (lock.message) html += '<div class="lock-banner">'+esc(lock.message)+'</div>';
+      html += '<div class="grid">';
+      if (!items.length) html += '<div class="empty-cat">'+esc(t('emptyCat'))+'</div>';
+      items.forEach(p => {
+        const q = cartQtyOf(p.id);
+        const opts = hasOpts(p);
+        html += '<article class="item"><div>';
+        if (p.imageUrl) html += '<img src="'+esc(abs(p.imageUrl))+'" alt="" onerror="this.outerHTML=\'<div class=ph></div>\'" />';
+        else html += '<div class="ph"></div>';
+        html += '</div><div style="flex:1;min-width:0"><h3>'+esc(p.name)+'</h3><div class="price">'+money(p.price)+'</div>';
+        if (opts) html += '<div class="meta">' +
+          ((p.variants||[]).length ? (p.variants.length + ' ' + t('options')) : '') +
+          ((p.variants||[]).length && allToppings(p).length ? ' · ' : '') +
+          (allToppings(p).length ? t('topping') : '') + '</div>';
+        if (p.soldOut) html += '<div class="sold">'+esc(t('sold'))+'</div>';
+        else html += '<button class="note-link" type="button" data-pick="'+esc(p.id)+'">'+esc(t('noteBtn'))+'</button>';
+        html += '</div>';
+        if (!p.soldOut) {
+          if (opts) html += '<button class="pick" type="button" data-pick="'+esc(p.id)+'">'+(q ? (t('chosen')+' '+q) : t('choose'))+'</button>';
+          else html += '<div class="qty"><button type="button" data-simple="'+esc(p.id)+'" data-d="-1">−</button><strong>'+q+'</strong><button type="button" data-simple="'+esc(p.id)+'" data-d="1">+</button></div>';
+        }
+        html += '</article>';
+      });
+      html += '</div>';
+      const n = cartCount();
+      html += '<div class="dock"><div class="count" id="dock-open">'+n+'</div><div class="sum" id="dock-cart"><b>'+money(cartTotal())+'</b><span>'+(n? t('nItems')(n)+' · '+t('viewCart') : t('noItems'))+'</span></div>';
+      html += '<button class="go" type="button" id="send"'+(n && canOrder()?'':' disabled')+'>'+esc(t('order'))+'</button></div>';
+      if (picker) html += renderSheet();
+      if (cartOpen) html += renderCart();
+      if (billOpen) html += renderBill();
+      if (payOpen) html += renderPay();
+      document.getElementById('app').innerHTML = html;
+      bindUi();
+    }
+
+    function bindUi() {
+      document.querySelectorAll('.cats button').forEach(btn => {
+        btn.onclick = () => { activeCat = btn.getAttribute('data-cat') || 'all'; render(); };
+      });
+      document.querySelectorAll('[data-pick]').forEach(btn => {
+        btn.onclick = () => openPick(btn.getAttribute('data-pick'));
+      });
+      document.querySelectorAll('[data-simple]').forEach(btn => {
+        btn.onclick = () => chgSimple(btn.getAttribute('data-simple'), Number(btn.getAttribute('data-d')));
+      });
+      const send = document.getElementById('send');
+      if (send) send.onclick = submit;
+      const openCart = () => { if (cart.length) { cartOpen = true; billOpen = false; payOpen = false; render(); } };
+      ['dock-cart','dock-open'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.onclick = openCart;
+      });
+      const qEl = document.getElementById('q');
+      if (qEl && document.activeElement !== qEl) qEl.value = query;
+    }
+
+    function chgSimple(id, d) {
+      const p = (menu.products||[]).find(x => x.id === id);
+      if (!p) return;
+      const key = lineKey(id, '', [], '');
+      let line = cart.find(x => x.key === key);
+      if (!line && d > 0) {
+        line = { key, productId:id, variantId:null, toppingIds:[], qty:0, name:p.name, price:p.price, note:'' };
+        cart.push(line);
+      }
+      if (!line) return;
+      line.qty = Math.max(0, Math.min(20, line.qty + d));
+      if (line.qty === 0) {
+        const i = cart.indexOf(line);
+        if (i >= 0) cart.splice(i, 1);
+      }
+      render();
+    }
+    function openPick(id) {
+      const p = (menu.products||[]).find(x => x.id === id);
+      if (!p) return;
+      const firstLive = (p.variants || []).find(v => !v.soldOut) || (p.variants || [])[0] || null;
+      picker = { productId:id, variantId: firstLive ? firstLive.id : null, toppingIds:[], qty:1, note:'' };
+      cartOpen = false;
+      render();
+    }
+    function closePick() { picker = null; render(); }
+    function setVar(id) { picker.variantId = id; render(); }
+    function togTop(id) {
+      const i = picker.toppingIds.indexOf(id);
+      if (i >= 0) picker.toppingIds.splice(i, 1); else picker.toppingIds.push(id);
+      render();
+    }
+    function setPickQty(d) { picker.qty = Math.max(1, Math.min(20, picker.qty + d)); render(); }
+    function addPick() {
+      const p = (menu.products||[]).find(x => x.id === picker.productId);
+      if (!p) return;
+      if ((p.variants||[]).length && !picker.variantId) { toast(t('pickVariant'), true); return; }
+      const v = (p.variants||[]).find(x => x.id === picker.variantId);
+      if (v && v.soldOut) { toast(t('varSold'), true); return; }
+      const note = (document.getElementById('pick-note') || {}).value || picker.note || '';
+      picker.note = note;
+      const name = v ? (p.name + ' — ' + v.name) : p.name;
+      const price = unitPrice(p, picker.variantId, picker.toppingIds);
+      const key = lineKey(p.id, picker.variantId || '', picker.toppingIds, note);
+      let line = cart.find(x => x.key === key);
+      if (!line) {
+        line = { key, productId:p.id, variantId: picker.variantId || null, toppingIds:[...picker.toppingIds], qty:0, name, price, note };
+        cart.push(line);
+      }
+      line.qty = Math.min(20, line.qty + picker.qty);
+      picker = null;
+      toast(t('added') + ' ' + name);
+      render();
+    }
+    function renderSheet() {
+      const p = (menu.products||[]).find(x => x.id === picker.productId);
+      if (!p) return '';
+      const price = unitPrice(p, picker.variantId, picker.toppingIds) * picker.qty;
+      let html = '<div class="ov" id="pick-ov"><div class="sheet"><div class="grab"></div>';
+      html += '<h2>'+esc(p.name)+'</h2><div class="sp">'+money(price)+'</div>';
+      if ((p.variants||[]).length) {
+        html += '<div class="gname">'+esc(t('variant'))+'</div><div class="chips">';
+        p.variants.forEach(v => {
+          html += '<button type="button" class="'+(picker.variantId===v.id?'on':'')+'" data-var="'+esc(v.id)+'" '+(v.soldOut?'disabled':'')+'>'+esc(v.name)+' · '+money(v.price)+(v.soldOut?' (hết)':'')+'</button>';
+        });
+        html += '</div>';
+      }
+      (p.toppingGroups || []).forEach(g => {
+        html += '<div class="gname">'+esc(g.name)+'</div>';
+        (g.items||[]).forEach(t => {
+          const on = picker.toppingIds.includes(t.id);
+          html += '<div class="top"><label><input type="checkbox" '+(on?'checked':'')+' data-top="'+esc(t.id)+'" /> '+esc(t.name)+'</label><span>'+money(t.price)+'</span></div>';
+        });
+      });
+      if ((p.toppings||[]).length) {
+        html += '<div class="gname">'+esc(t('toppingG'))+'</div>';
+        p.toppings.forEach(t => {
+          const on = picker.toppingIds.includes(t.id);
+          html += '<div class="top"><label><input type="checkbox" '+(on?'checked':'')+' data-top="'+esc(t.id)+'" /> '+esc(t.name)+'</label><span>'+money(t.price)+'</span></div>';
+        });
+      }
+      html += '<input id="pick-note" class="note" placeholder="'+esc(t('notePh'))+'" value="'+esc(picker.note)+'" />';
+      html += '<div class="sheet-bar"><div class="qty"><button type="button" id="pq-">−</button><strong>'+picker.qty+'</strong><button type="button" id="pq+">+</button></div>';
+      html += '<button class="x" type="button" id="pick-x">'+esc(t('cancel'))+'</button>';
+      html += '<button class="go" type="button" id="pick-add">'+esc(t('add'))+' · '+money(price)+'</button></div></div></div>';
+      setTimeout(() => {
+        const ov = document.getElementById('pick-ov');
+        if (ov) ov.onclick = e => { if (e.target === ov) closePick(); };
+        document.querySelectorAll('[data-var]').forEach(b => b.onclick = () => setVar(b.getAttribute('data-var')));
+        document.querySelectorAll('[data-top]').forEach(b => b.onchange = () => togTop(b.getAttribute('data-top')));
+        const m = document.getElementById('pq-'); if (m) m.onclick = () => setPickQty(-1);
+        const p2 = document.getElementById('pq+'); if (p2) p2.onclick = () => setPickQty(1);
+        const x = document.getElementById('pick-x'); if (x) x.onclick = closePick;
+        const a = document.getElementById('pick-add'); if (a) a.onclick = addPick;
+      }, 0);
+      return html;
+    }
+    function renderCart() {
+      let html = '<div class="ov" id="cart-ov"><div class="sheet"><div class="grab"></div><h2>'+esc(t('cartTitle'))+'</h2>';
+      cart.forEach((l, i) => {
+        html += '<div class="cart-line"><div style="flex:1;min-width:0"><div class="nm">'+esc(l.name)+'</div>';
+        html += '<input class="note" data-cnote="'+i+'" maxlength="200" placeholder="'+esc(t('notePh'))+'" value="'+esc(l.note||'')+'" /></div>';
+        html += '<div class="qty"><button type="button" data-ci="'+i+'" data-d="-1">−</button><strong>'+l.qty+'</strong><button type="button" data-ci="'+i+'" data-d="1">+</button></div></div>';
+      });
+      html += '<div class="sheet-bar"><button class="x" type="button" id="cart-x">'+esc(t('close'))+'</button>';
+      html += '<button class="go" type="button" id="cart-send"'+(canOrder()?'':' disabled')+'>'+esc(t('order'))+' · '+money(cartTotal())+'</button></div></div></div>';
+      setTimeout(() => {
+        const ov = document.getElementById('cart-ov');
+        if (ov) ov.onclick = e => { if (e.target === ov) { cartOpen = false; render(); } };
+        document.querySelectorAll('[data-ci]').forEach(b => {
+          b.onclick = () => {
+            const line = cart[Number(b.getAttribute('data-ci'))];
+            if (!line) return;
+            line.qty = Math.max(0, Math.min(20, line.qty + Number(b.getAttribute('data-d'))));
+            if (line.qty === 0) cart.splice(cart.indexOf(line), 1);
+            if (!cart.length) cartOpen = false;
+            render();
+          };
+        });
+        document.querySelectorAll('[data-cnote]').forEach(inp => {
+          inp.oninput = () => {
+            const line = cart[Number(inp.getAttribute('data-cnote'))];
+            if (!line) return;
+            line.note = String(inp.value || '').slice(0, 200);
+            line.key = lineKey(line.productId, line.variantId || '', line.toppingIds, line.note);
+          };
+        });
+        const x = document.getElementById('cart-x'); if (x) x.onclick = () => { cartOpen = false; render(); };
+        const s = document.getElementById('cart-send'); if (s) s.onclick = submit;
+      }, 0);
+      return html;
+    }
+    function lockInfo() {
+      return (menu && (menu.orderLock || menu.OrderLock || menu.lock || menu.Lock)) || {};
+    }
+    function flag(obj, a, b) {
+      return !!(obj && (obj[a] === true || obj[b] === true));
+    }
+    function canOrder() {
+      const l = lockInfo();
+      if (l.canOrder === false || l.CanOrder === false) return false;
+      return true;
+    }
+    function qtyTxt(n) {
+      const x = Number(n) || 0;
+      return Number.isInteger(x) ? String(x) : String(x);
+    }
+    function renderBill() {
+      const bill = menu && (menu.bill || menu.Bill);
+      const lines = (bill && (bill.lines || bill.Lines)) || [];
+      let html = '<div class="ov" id="bill-ov"><div class="sheet"><div class="grab"></div><h2>'+esc(t('viewBill'))+'</h2>';
+      if (!bill || !lines.length) {
+        html += '<p class="qr-meta">'+esc(t('emptyBill'))+'</p>';
+      } else {
+        const store = bill.storeName || bill.StoreName || (menu && menu.storeName) || '';
+        const addr = bill.storeAddress || bill.StoreAddress || '';
+        const phone = bill.storePhone || bill.StorePhone || '';
+        const area = bill.areaName || bill.AreaName || (menu && menu.areaName) || '';
+        const table = bill.tableName || bill.TableName || (menu && menu.tableName) || '';
+        const tableLabel = (area ? area + ' · ' : '') + table;
+        html += '<div class="receipt"><div class="shop">'+esc(store)+'</div>';
+        if (addr) html += '<div class="addr">DC: '+esc(addr)+'</div>';
+        if (phone) html += '<div class="addr">SDT: '+esc(phone)+'</div>';
+        html += '<div class="btitle">'+esc(bill.title || bill.Title || t('billTitle'))+'</div>';
+        html += '<div class="warn">'+esc(t('unpaid'))+'</div><hr class="dash"/>';
+        if (bill.orderNo || bill.OrderNo) html += '<div class="meta-row"><span>'+esc(t('billNo'))+'</span><b>'+esc(bill.orderNo || bill.OrderNo)+'</b></div>';
+        if (bill.dateText || bill.DateText) html += '<div class="meta-row"><span>'+esc(t('billDate'))+'</span><b>'+esc(bill.dateText || bill.DateText)+'</b></div>';
+        if (bill.timeText || bill.TimeText) html += '<div class="meta-row"><span>'+esc(t('billIn'))+'</span><b>'+esc(bill.timeText || bill.TimeText)+'</b></div>';
+        if (tableLabel) html += '<div class="meta-row"><span>'+esc(t('billTable'))+'</span><b>'+esc(tableLabel)+'</b></div>';
+        const guests = bill.guestCount || bill.GuestCount;
+        if (guests) html += '<div class="meta-row"><span>'+esc(t('billGuest'))+'</span><b>'+esc(guests)+'</b></div>';
+        html += '<hr class="dash"/>';
+        lines.forEach(l => {
+          const qty = l.qty || l.Qty || 0;
+          const unit = l.unitPrice || l.UnitPrice || 0;
+          html += '<div class="item"><div class="nm">'+esc(l.name || l.Name)+'</div>';
+          if (l.note || l.Note) html += '<div class="n">'+esc(l.note || l.Note)+'</div>';
+          html += '<div class="amt"><span>'+qtyTxt(qty)+' × '+money(unit)+'</span><strong>'+money(l.lineTotal || l.LineTotal)+'</strong></div></div>';
+        });
+        html += '<hr class="dash"/>';
+        const lineSum = lines.reduce((s, l) => s + Number(l.lineTotal || l.LineTotal || 0), 0);
+        const disc = Number(bill.discount != null ? bill.discount : (bill.Discount || 0)) || 0;
+        const vat = Number(bill.vatAmount != null ? bill.vatAmount : (bill.VatAmount || 0)) || 0;
+        const vatRate = Number(bill.vatRate != null ? bill.vatRate : (bill.VatRate || 0)) || 0;
+        const taxMode = String(bill.taxMode || bill.TaxMode || '').toLowerCase();
+        const net = Math.max(0, lineSum - disc);
+        const tot = bill.total != null || bill.Total != null
+          ? Number(bill.total != null ? bill.total : bill.Total)
+          : (taxMode === 'included' || taxMode === 'none' ? net : net + vat);
+        if (disc > 0 || vat > 0) html += '<div class="tot"><span>'+esc(t('billSub'))+'</span><span>'+money(lineSum)+'</span></div>';
+        if (disc > 0) html += '<div class="tot"><span>'+esc(t('billDisc'))+'</span><span>-'+money(disc)+'</span></div>';
+        if (vat > 0) {
+          const vatLabel = vatRate > 0 && taxMode !== 'per_item' && taxMode !== 'peritem'
+            ? (t('billVat')+' '+vatRate+'%') : t('billVat');
+          html += '<div class="tot"><span>'+esc(vatLabel)+'</span><span>'+money(vat)+'</span></div>';
+        }
+        html += '<div class="tot grand"><span>'+esc(t('billTotal'))+'</span><span>'+money(tot)+'</span></div>';
+        html += '<div class="warn" style="margin-top:10px">'+esc(t('unpaid'))+'</div>';
+        html += '<div class="foot">'+esc(t('billPayHint'))+'</div></div>';
+      }
+      html += '<div class="sheet-bar"><button class="x" type="button" id="bill-x">'+esc(t('close'))+'</button>';
+      html += '<button class="go" type="button" id="bill-qr">'+esc(t('payQr'))+'</button></div></div></div>';
+      setTimeout(() => {
+        const ov = document.getElementById('bill-ov');
+        if (ov) ov.onclick = e => { if (e.target === ov) { billOpen = false; render(); } };
+        const x = document.getElementById('bill-x'); if (x) x.onclick = () => { billOpen = false; render(); };
+        const q = document.getElementById('bill-qr'); if (q) q.onclick = () => { billOpen = false; payOpen = true; render(); };
+      }, 0);
+      return html;
+    }
+    function renderPay() {
+      const pay = menu && menu.payment;
+      const bill = menu && menu.bill;
+      let html = '<div class="ov" id="pay-ov"><div class="sheet"><div class="grab"></div><h2>'+esc(t('payQr'))+'</h2>';
+      if (!pay || !pay.qrUrl) {
+        html += '<p class="qr-meta">'+esc(t('noQr'))+'</p>';
+      } else {
+        html += '<div class="qr-box"><img src="'+esc(pay.qrUrl)+'" alt="VietQR" />';
+        html += '<div class="sp" style="margin-top:10px">'+money(pay.amount || (bill && bill.total) || 0)+'</div>';
+        html += '<div class="qr-meta">'+esc(pay.bankName || '')+' · '+esc(t('acc'))+' '+esc(pay.accountNumber || '')+'<br/>'+esc(pay.accountName || '');
+        if (pay.addInfo) html += '<br/>'+esc(t('transfer'))+': '+esc(pay.addInfo);
+        html += '</div><p class="qr-meta">'+esc(t('qrHint'))+'</p></div>';
+        html += '<button class="confirm-pay" type="button" id="confirm-paid">'+esc(t('confirmPaid'))+'</button>';
+      }
+      html += '<div class="sheet-bar"><button class="x" type="button" id="pay-x">'+esc(t('close'))+'</button></div></div></div>';
+      setTimeout(() => {
+        const ov = document.getElementById('pay-ov');
+        if (ov) ov.onclick = e => { if (e.target === ov) { payOpen = false; render(); } };
+        const x = document.getElementById('pay-x'); if (x) x.onclick = () => { payOpen = false; render(); };
+        const c = document.getElementById('confirm-paid'); if (c) c.onclick = confirmQrPaid;
+      }, 0);
+      return html;
+    }
+    async function guestBody() {
+      const lock = lockInfo();
+      const need = flag(lock, 'requireGeofence', 'RequireGeofence')
+        && flag(lock, 'geoConfigured', 'GeoConfigured');
+      if (!need) return {};
+      return await new Promise((resolve, reject) => {
+        if (!navigator.geolocation) {
+          reject(new Error(t('geoFail')));
+          return;
+        }
+        navigator.geolocation.getCurrentPosition(
+          p => resolve({ lat: p.coords.latitude, lng: p.coords.longitude }),
+          err => reject(new Error(err && err.code === 1 ? t('geoDenied') : t('geoFail'))),
+          { enableHighAccuracy: true, timeout: 12000, maximumAge: 20000 }
+        );
+      });
+    }
+    async function submit() {
+      if (!canOrder()) { toast(t('lockClosed'), true); return; }
+      const items = cart.filter(x => x.qty>0).map(x => ({
+        productId: x.productId,
+        variantId: x.variantId || null,
+        toppingIds: x.toppingIds || [],
+        qty: x.qty,
+        note: x.note || null
+      }));
+      if (!items.length) return;
+      const btn = document.getElementById('send') || document.getElementById('cart-send');
+      if (btn) { btn.disabled = true; btn.textContent = t('sending'); }
+      let extra = {};
+      try { extra = await guestBody(); }
+      catch (e) { toast((e && e.message) || t('geoFail'), true); render(); return; }
+      try {
+        const res = await fetch(apiBase() + '/api/pos/qr-order/' + encodeURIComponent(T) + '/items', {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ items, clientRequestId: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()), ...extra })
+        });
+        const json = await res.json();
+        if (!json.isSuccess && !json.IsSuccess) {
+          toast(json.message || json.Message || t('sendFail'), true);
+          render();
+          return;
+        }
+        cart.splice(0, cart.length);
+        cartOpen = false;
+        picker = null;
+        await load();
+        const msg = (json.data && (json.data.message || json.data.Message)) || t('defaultOk');
+        showSuccess(msg);
+      } catch (e) {
+        toast(t('sendAgain'), true);
+        render();
+      }
+    }
+    async function ping(path, okKey, failKey) {
+      let extra = {};
+      try { extra = await guestBody(); }
+      catch (e) { toast((e && e.message) || t('geoFail'), true); return false; }
+      try {
+        const res = await fetch(apiBase() + '/api/pos/qr-order/' + encodeURIComponent(T) + path, {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify(extra)
+        });
+        const json = await res.json();
+        if (!json.isSuccess && !json.IsSuccess) {
+          toast(json.message || json.Message || t(failKey), true);
+          return false;
+        }
+        toast((json.data && (json.data.message || json.data.Message)) || t(okKey));
+        return true;
+      } catch (e) {
+        toast(t(failKey), true);
+        return false;
+      }
+    }
+    async function callPayment() { await ping('/call-payment', 'payOk', 'payFail'); }
+    async function callStaff() { await ping('/call-staff', 'staffOk', 'staffFail'); }
+    async function confirmQrPaid() {
+      const btn = document.getElementById('confirm-paid');
+      if (btn) { btn.disabled = true; btn.textContent = t('confirming'); }
+      const ok = await ping('/confirm-qr-paid', 'confirmOk', 'confirmFail');
+      if (btn) { btn.disabled = false; btn.textContent = t('confirmPaid'); }
+      if (ok) { payOpen = false; render(); }
+    }
+    function closeFab() {
+      fabOpen = false;
+      const menuEl = document.getElementById('fab-menu');
+      const tog = document.getElementById('fab-toggle');
+      if (menuEl) menuEl.hidden = true;
+      if (tog) tog.textContent = '+';
+    }
+    function bindFab() {
+      const tog = document.getElementById('fab-toggle');
+      if (tog) tog.onclick = () => {
+        fabOpen = !fabOpen;
+        document.getElementById('fab-menu').hidden = !fabOpen;
+        tog.textContent = fabOpen ? '✕' : '+';
+      };
+      const pay = document.getElementById('fab-pay');
+      if (pay) pay.onclick = () => { closeFab(); callPayment(); };
+      const staff = document.getElementById('fab-staff');
+      if (staff) staff.onclick = () => { closeFab(); callStaff(); };
+      const bill = document.getElementById('fab-bill');
+      if (bill) bill.onclick = () => { closeFab(); billOpen = true; payOpen = false; cartOpen = false; render(); };
+      const qr = document.getElementById('fab-qr');
+      if (qr) qr.onclick = () => { closeFab(); payOpen = true; billOpen = false; cartOpen = false; render(); };
+    }
+    document.getElementById('q').addEventListener('input', e => {
+      query = e.target.value || '';
+      if (menu) render();
+    });
+    document.querySelectorAll('#lang-switch button').forEach(b => {
+      b.onclick = () => setLang(b.getAttribute('data-lang'));
+    });
+    applyStaticLang();
+    bindFab();
+    load();
+  </script>
+</body>
+</html>

@@ -252,37 +252,40 @@ abstract final class PosPrintTemplateCompiler {
             '<div style="border-top:1.5px solid #000;margin:6px 0;width:100%"></div>',
           );
         case PosPrintBlockType.lineItems:
-          if (block.showColumnHeader) {
-            final nameH = resolveFieldLabel(block, 'Ten_Hang_Hoa',
-                fallback: defaultColumnLabels['Ten_Hang_Hoa']);
-            final priceH = resolveFieldLabel(block, 'Don_Gia',
-                fallback: defaultColumnLabels['Don_Gia']);
-            final qtyH = resolveFieldLabel(block, 'So_Luong',
-                fallback: defaultColumnLabels['So_Luong']);
-            final totalH = resolveFieldLabel(block, 'Thanh_Tien',
-                fallback: defaultColumnLabels['Thanh_Tien']);
-            final headerLeft = nameH;
-            final headerRight = '$priceH  $qtyH  $totalH';
-            steps.add(PosPrintCompiledPair(
-              left: headerLeft,
-              right: headerRight,
-              fontSize: block.style.fontSize.clamp(12.0, 48.0),
-              bold: true,
-              sourceBlockIndex: bi,
-            ));
-            htmlBuf.write(
-              '<div style="display:flex;justify-content:space-between;'
-              'font-size:${block.style.fontSize}px;font-weight:bold;'
-              'border-bottom:1px solid #ccc;margin-bottom:4px">'
-              '<span>$headerLeft</span><span>$headerRight</span></div>',
-            );
-          }
+          final k58 = _isNarrowThermal(template.paperSize);
+          final fs = block.style.fontSize.clamp(14.0, 48.0);
+          _appendSaleTableHeader(
+            steps,
+            block,
+            k58: k58,
+            fontSize: fs,
+            sourceBlockIndex: bi,
+          );
+          htmlBuf.write(
+            '<table style="width:100%;border-collapse:collapse;'
+            'font-size:${fs}px;margin:2px 0 6px">',
+          );
+          htmlBuf.write(
+            '<thead><tr style="border-bottom:2px solid #000">'
+            '<th style="text-align:left;padding:3px 2px 4px">Tên hàng</th>'
+            '<th style="text-align:center;width:14%;padding:3px 2px 4px">SL</th>'
+            '<th style="text-align:right;width:24%;padding:3px 2px 4px">Đ.giá</th>'
+            '<th style="text-align:right;width:26%;padding:3px 2px 4px">TT</th>'
+            '</tr></thead><tbody>',
+          );
           htmlBuf.write('<!--BEGIN_ITEMS-->');
           for (final item in lineItems) {
-            _appendSaleLine(steps, item, block.style, sourceBlockIndex: bi);
+            _appendSaleLine(
+              steps,
+              item,
+              block.style,
+              k58: k58,
+              sourceBlockIndex: bi,
+            );
             htmlBuf.write(_htmlLineItem(item, block.style));
           }
           htmlBuf.write('<!--END_ITEMS-->');
+          htmlBuf.write('</tbody></table>');
         case PosPrintBlockType.lineItemsKitchen:
           final kLines = kitchenLines ?? lineItems;
           final kSize = block.style.fontSize.clamp(14.0, 48.0);
@@ -407,6 +410,29 @@ abstract final class PosPrintTemplateCompiler {
     return PosPrintCompiledOutput(steps: steps, html: html);
   }
 
+  static bool _isNarrowThermal(String paperSize) =>
+      paperSize == PosPrintPaperSizes.k58 ||
+      PosPrintPaperSizes.widthMm(paperSize) <= 58;
+
+  static void _appendSaleTableHeader(
+    List<Object> steps,
+    PosPrintBlock block, {
+    required bool k58,
+    required double fontSize,
+    int? sourceBlockIndex,
+  }) {
+    final left = resolveFieldLabel(block, 'Ten_Hang_Hoa',
+        fallback: defaultColumnLabels['Ten_Hang_Hoa']);
+    final right = k58 ? 'SL            TT' : 'SL × Đ.giá              TT';
+    steps.add(PosPrintCompiledPair(
+      left: left,
+      right: right,
+      fontSize: fontSize,
+      bold: true,
+      sourceBlockIndex: sourceBlockIndex,
+    ));
+  }
+
   static PosPrintCompiledLine _lineFromStyle(
     String text,
     PosPrintTextStyle style, {
@@ -425,38 +451,40 @@ abstract final class PosPrintTemplateCompiler {
     List<Object> steps,
     Map<String, String> item,
     PosPrintTextStyle style, {
+    required bool k58,
     int? sourceBlockIndex,
   }) {
     final name = item['Ten_Hang_Hoa'] ?? '';
-    final code = item['Ma_Hang'] ?? '';
     final qty = item['So_Luong'] ?? '';
     final unit = item['Don_Vi_Tinh'] ?? '';
     final price = item['Don_Gia'] ?? '';
     final total = item['Thanh_Tien'] ?? '';
-    // Cỡ chữ theo khối mẫu (editor slider 14–48).
+    final note = (item['Ghi_Chu'] ?? item['note'] ?? '').trim();
     final bodySize = style.fontSize.clamp(14.0, 48.0);
-    final smallSize = (bodySize - 2).clamp(12.0, 48.0);
+    final smallSize = (bodySize - 4).clamp(12.0, 48.0);
 
     if (name.isNotEmpty) {
       steps.add(PosPrintCompiledLine(
         text: tr(name),
         fontSize: bodySize,
-        bold: style.bold,
+        bold: true,
         sourceBlockIndex: sourceBlockIndex,
       ));
     }
-    if (code.isNotEmpty) {
+    if (note.isNotEmpty) {
       steps.add(PosPrintCompiledLine(
-        text: tr('($code)'),
+        text: tr('  $note'),
         fontSize: smallSize,
         sourceBlockIndex: sourceBlockIndex,
       ));
     }
+    final qtyBit = unit.isEmpty ? qty : '$qty $unit';
+    final left = k58 ? qtyBit : '$qtyBit × $price';
     steps.add(PosPrintCompiledPair(
-      left: '$qty $unit x $price',
+      left: left,
       right: total,
       fontSize: bodySize,
-      bold: style.bold,
+      bold: true,
       sourceBlockIndex: sourceBlockIndex,
     ));
   }
@@ -473,14 +501,20 @@ abstract final class PosPrintTemplateCompiler {
 
   static String _htmlLineItem(Map<String, String> item, PosPrintTextStyle style) {
     final size = style.fontSize.clamp(14.0, 48.0);
-    final small = (size - 2).clamp(12.0, 48.0);
-    final bold = style.bold ? 'font-weight:bold;' : '';
-    return '<div style="margin-bottom:6px;font-size:${size}px">'
-        '<div style="$bold"><b>${item['Ten_Hang_Hoa'] ?? ''}</b></div>'
-        '<div style="font-size:${small}px;color:#555">${item['Ma_Hang'] ?? ''}</div>'
-        '<div style="display:flex;justify-content:space-between;$bold">'
-        '<span>${item['So_Luong'] ?? ''} ${item['Don_Vi_Tinh'] ?? ''} x ${item['Don_Gia'] ?? ''}</span>'
-        '<span><b>${item['Thanh_Tien'] ?? ''}</b></span></div></div>';
+    final note = (item['Ghi_Chu'] ?? item['note'] ?? '').trim();
+    final noteHtml = note.isEmpty
+        ? ''
+        : '<div style="font-weight:normal;font-size:${(size - 4).clamp(11, 40)}px;'
+            'font-style:italic;color:#333">$note</div>';
+    return '<tr style="border-bottom:1px dotted #555">'
+        '<td style="padding:5px 2px 3px;font-weight:bold;vertical-align:top">'
+        '${item['Ten_Hang_Hoa'] ?? ''}$noteHtml</td>'
+        '<td style="text-align:center;vertical-align:top;padding:5px 2px">'
+        '${item['So_Luong'] ?? ''}</td>'
+        '<td style="text-align:right;vertical-align:top;padding:5px 2px">'
+        '${item['Don_Gia'] ?? ''}</td>'
+        '<td style="text-align:right;vertical-align:top;padding:5px 2px;font-weight:bold">'
+        '${item['Thanh_Tien'] ?? ''}</td></tr>';
   }
 
   static String renderSamplePreview(PosPrintTemplateV2 template) {

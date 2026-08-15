@@ -518,6 +518,7 @@ class _LocalPrinterEditorSheetState extends State<_LocalPrinterEditorSheet> {
   late bool _openCashDrawer;
   late bool _openDrawerCashOnly;
   late bool _beepOnPrint;
+  late bool _cutPerItem;
   late PosLabelPrinterProtocol _labelProtocol;
   late String _labelTemplateId;
   late double _labelGapMm;
@@ -578,6 +579,7 @@ class _LocalPrinterEditorSheetState extends State<_LocalPrinterEditorSheet> {
     _openCashDrawer = i?.openCashDrawer ?? false;
     _openDrawerCashOnly = i?.openDrawerCashOnly ?? true;
     _beepOnPrint = i?.beepOnPrint ?? false;
+    _cutPerItem = i?.cutPerItem ?? false;
     _labelProtocol = i?.labelProtocol ?? PosLabelPrinterProtocol.tspl;
     _labelTemplateId = i?.labelTemplateId ?? 'roll_1_50x30';
     _labelGapMm = i?.labelGapMm ?? 2.0;
@@ -980,6 +982,8 @@ class _LocalPrinterEditorSheetState extends State<_LocalPrinterEditorSheet> {
               : null)
           : null,
       feedBeforeCut: feed < 0 ? 1 : feed,
+      partialCut: !_isLabel,
+      cutPerItem: !_isLabel && _cutPerItem,
       openCashDrawer: !_isLabel && _openCashDrawer,
       openDrawerCashOnly: _openDrawerCashOnly,
       beepOnPrint: !_isLabel && _beepOnPrint,
@@ -1369,11 +1373,11 @@ class _LocalPrinterEditorSheetState extends State<_LocalPrinterEditorSheet> {
                   border: const OutlineInputBorder(),
                   helperText: tr('50×30 nên ≥ 1.2'),
                 ),
-                items: const [
-                  DropdownMenuItem(value: 0.9, child: Text('Nhỏ (0.9)')),
-                  DropdownMenuItem(value: 1.0, child: Text('Vừa (1.0)')),
-                  DropdownMenuItem(value: 1.2, child: Text('Lớn (1.2)')),
-                  DropdownMenuItem(value: 1.4, child: Text('Rất lớn (1.4)')),
+                items: [
+                  DropdownMenuItem(value: 0.9, child: Text(tr('Nhỏ (0.9)'))),
+                  DropdownMenuItem(value: 1.0, child: Text(tr('Vừa (1.0)'))),
+                  DropdownMenuItem(value: 1.2, child: Text(tr('Lớn (1.2)'))),
+                  DropdownMenuItem(value: 1.4, child: Text(tr('Rất lớn (1.4)'))),
                 ],
                 onChanged: (v) {
                   if (v != null) setState(() => _labelFontScale = v);
@@ -1481,6 +1485,13 @@ class _LocalPrinterEditorSheetState extends State<_LocalPrinterEditorSheet> {
                   helperText: tr('Mặc định 1'),
                   border: const OutlineInputBorder(),
                 ),
+              ),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: Text(tr('In bếp: cắt từng món')),
+                subtitle: Text(tr('Mỗi món một phiếu — bếp treo/giao từng phần')),
+                value: _cutPerItem,
+                onChanged: (v) => setState(() => _cutPerItem = v),
               ),
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,

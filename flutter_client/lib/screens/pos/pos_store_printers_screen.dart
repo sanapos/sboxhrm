@@ -818,6 +818,18 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
         PosThermalConnectionType.sunmi => 'Sunmi',
       };
 
+  /// usbDeviceName = «VID:PID:serial|/dev/bus/usb/001/007». Phần sau dấu «|»
+  /// đổi mỗi lần cắm lại / khởi động lại máy, chỉ VID:PID:serial mới cố định.
+  /// So cả chuỗi khiến cắm lại USB là không nhận ra máy cloud cũ → app tạo
+  /// thêm một máy in trùng tên, chip Agent giữ máy cũ còn món gán máy mới
+  /// (hoặc ngược lại) → job nằm hàng đợi tới khi hết hạn, không ra phiếu.
+  static String _usbIdentity(String? raw) {
+    final t = (raw ?? '').trim();
+    if (t.isEmpty) return '';
+    final pipe = t.indexOf('|');
+    return (pipe > 0 ? t.substring(0, pipe) : t).toLowerCase();
+  }
+
   bool _sameLocalConnection(PosStorePrinter p, PosLocalPrinterProfile local) {
     final conn = _localApiConnection(local.connectionType);
     if (p.connectionType != conn) return false;
@@ -828,8 +840,10 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
         return (p.bluetoothAddress ?? '').toLowerCase() ==
             (local.bluetoothAddress ?? '').toLowerCase();
       case 'Usb':
-        return (p.usbDeviceName ?? '').trim() ==
-            (local.usbDeviceName ?? '').trim();
+        final a = _usbIdentity(p.usbDeviceName);
+        final b = _usbIdentity(local.usbDeviceName);
+        if (a.isNotEmpty && b.isNotEmpty) return a == b;
+        return p.name.trim().toLowerCase() == local.name.trim().toLowerCase();
       case 'Sunmi':
         return true;
       default:
@@ -883,6 +897,7 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
           ? local.labelGapMm.round().clamp(1, 10)
           : local.feedBeforeCut,
       'partialCut': !local.isLabel && local.partialCut,
+      'cutPerItem': !local.isLabel && local.cutPerItem,
       'openCashDrawer': !local.isLabel && local.openCashDrawer,
       'openDrawerCashOnly': local.openDrawerCashOnly,
       'beepOnPrint': !local.isLabel && local.beepOnPrint,
@@ -1746,6 +1761,7 @@ class _PrinterEditorSheetState extends State<_PrinterEditorSheet> {
   bool _openCashDrawer = false;
   bool _openDrawerCashOnly = true;
   bool _beepOnPrint = false;
+  bool _cutPerItem = false;
   bool _saving = false;
   bool _isSunmi = false;
   List<Map<String, String>> _btDevices = [];
@@ -1780,6 +1796,7 @@ class _PrinterEditorSheetState extends State<_PrinterEditorSheet> {
       _openCashDrawer = e.openCashDrawer;
       _openDrawerCashOnly = e.openDrawerCashOnly;
       _beepOnPrint = e.beepOnPrint;
+      _cutPerItem = e.cutPerItem;
     }
     PosThermalPrinterService.isSunmiDevice().then((v) {
       if (mounted) setState(() => _isSunmi = v);
@@ -1887,6 +1904,7 @@ class _PrinterEditorSheetState extends State<_PrinterEditorSheet> {
                 : null,
         'feedBeforeCut': _isLabel ? _gapMm : _feedBeforeCut,
         'partialCut': !_isLabel,
+        'cutPerItem': !_isLabel && _cutPerItem,
         'openCashDrawer': !_isLabel && _openCashDrawer,
         'openDrawerCashOnly': _openDrawerCashOnly,
         'beepOnPrint': !_isLabel && _beepOnPrint,
@@ -2141,6 +2159,13 @@ class _PrinterEditorSheetState extends State<_PrinterEditorSheet> {
               ),
             ],
             if (!_isLabel) ...[
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: Text(tr('In bếp: cắt từng món')),
+                subtitle: Text(tr('Mỗi món một phiếu — bếp treo/giao từng phần')),
+                value: _cutPerItem,
+                onChanged: (v) => setState(() => _cutPerItem = v),
+              ),
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,
                 title: Text(tr('Mở két tiền khi in hóa đơn')),

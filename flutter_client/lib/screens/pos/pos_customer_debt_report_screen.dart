@@ -21,7 +21,12 @@ class _PosCustomerDebtReportScreenState extends State<PosCustomerDebtReportScree
   final _moneyFmt = NumberFormat('#,##0', 'vi_VN');
   bool _loading = true;
   double _sumDebt = 0;
+  double _sum0 = 0;
+  double _sum31 = 0;
+  double _sum61 = 0;
+  double _sum90 = 0;
   int _totalCustomers = 0;
+  bool _includeZero = false;
   List<Map<String, dynamic>> _items = [];
 
   @override
@@ -40,6 +45,7 @@ class _PosCustomerDebtReportScreenState extends State<PosCustomerDebtReportScree
     setState(() => _loading = true);
     final res = await _api.getPosCustomerDebtReport(
       search: _searchCtrl.text.trim().isEmpty ? null : _searchCtrl.text.trim(),
+      includeZeroDebt: _includeZero,
     );
     if (!mounted) return;
     if (res['isSuccess'] == true && res['data'] is Map) {
@@ -48,6 +54,10 @@ class _PosCustomerDebtReportScreenState extends State<PosCustomerDebtReportScree
         _sumDebt = (data['sumDebt'] is num)
             ? (data['sumDebt'] as num).toDouble()
             : double.tryParse('${data['sumDebt']}') ?? 0;
+        _sum0 = _n(data['sumDebt0To30']);
+        _sum31 = _n(data['sumDebt31To60']);
+        _sum61 = _n(data['sumDebt61To90']);
+        _sum90 = _n(data['sumDebtOver90']);
         _totalCustomers = (data['totalCustomers'] is num)
             ? (data['totalCustomers'] as num).toInt()
             : int.tryParse('${data['totalCustomers']}') ?? 0;
@@ -93,30 +103,60 @@ class _PosCustomerDebtReportScreenState extends State<PosCustomerDebtReportScree
             ),
           ),
           Padding(
+            padding: const EdgeInsets.fromLTRB(12, 4, 12, 0),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: FilterChip(
+                label: Text(tr('Gồm khách nợ 0')),
+                selected: _includeZero,
+                onSelected: (v) {
+                  setState(() => _includeZero = v);
+                  _load();
+                },
+              ),
+            ),
+          ),
+          Padding(
             padding: const EdgeInsets.all(12),
             child: Container(
               decoration: PosTheme.mobileCardDecoration(),
               padding: const EdgeInsets.all(16),
-              child: Row(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(tr('$_totalCustomers khách còn nợ'),
-                            style: const TextStyle(color: PosTheme.textSecondary)),
-                        Text(tr('${_moneyFmt.format(_sumDebt)} đ'),
-                          style: const TextStyle(
-                            fontSize: 22,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.red,
-                          ),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(tr('$_totalCustomers khách còn nợ'),
+                                style: const TextStyle(color: PosTheme.textSecondary)),
+                            Text(tr('${_moneyFmt.format(_sumDebt)} đ'),
+                              style: const TextStyle(
+                                fontSize: 22,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.red,
+                              ),
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
+                      ),
+                      const Icon(Icons.account_balance_wallet_outlined,
+                          size: 36, color: PosTheme.kiotBlue),
+                    ],
                   ),
-                  const Icon(Icons.account_balance_wallet_outlined,
-                      size: 36, color: PosTheme.kiotBlue),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      _agingChip('0–30', _sum0, const Color(0xFF166534)),
+                      _agingChip('31–60', _sum31, const Color(0xFFCA8A04)),
+                      _agingChip('61–90', _sum61, Colors.orange.shade800),
+                      _agingChip('>90', _sum90, Colors.red.shade700),
+                    ],
+                  ),
                 ],
               ),
             ),
@@ -134,6 +174,10 @@ class _PosCustomerDebtReportScreenState extends State<PosCustomerDebtReportScree
                         final row = _items[i];
                         final debt = _n(row['currentDebt']);
                         final openDebt = _n(row['openOrderDebt']);
+                        final d0 = _n(row['debt0To30']);
+                        final d31 = _n(row['debt31To60']);
+                        final d61 = _n(row['debt61To90']);
+                        final d90 = _n(row['debtOver90']);
                         return Material(
                           color: Colors.white,
                           borderRadius: BorderRadius.circular(10),
@@ -169,6 +213,19 @@ class _PosCustomerDebtReportScreenState extends State<PosCustomerDebtReportScree
                                       ),
                                   ],
                                 ),
+                                if (d0 + d31 + d61 + d90 > 0) ...[
+                                  const SizedBox(height: 8),
+                                  Wrap(
+                                    spacing: 6,
+                                    runSpacing: 4,
+                                    children: [
+                                      if (d0 > 0) _agingChip('0–30', d0, const Color(0xFF166534)),
+                                      if (d31 > 0) _agingChip('31–60', d31, const Color(0xFFCA8A04)),
+                                      if (d61 > 0) _agingChip('61–90', d61, Colors.orange.shade800),
+                                      if (d90 > 0) _agingChip('>90', d90, Colors.red.shade700),
+                                    ],
+                                  ),
+                                ],
                               ],
                             ),
                           ),
@@ -178,6 +235,20 @@ class _PosCustomerDebtReportScreenState extends State<PosCustomerDebtReportScree
                   ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _agingChip(String label, double amount, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.12),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(
+        tr('$label: ${_moneyFmt.format(amount)}'),
+        style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.w600),
       ),
     );
   }

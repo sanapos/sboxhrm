@@ -366,6 +366,19 @@ class PermissionProvider extends ChangeNotifier {
         return true;
       }
     }
+    if (moduleCode.startsWith('PosReport') &&
+        (action == 'canView' || action == 'canExport')) {
+      if (_flag(moduleCode, action) || _flag('PosSalesReport', action)) {
+        return true;
+      }
+      if ((moduleCode == 'PosReportStock' ||
+              moduleCode == 'PosReportExpiry' ||
+              moduleCode == 'PosReportEndOfDay' ||
+              moduleCode == 'PosReportSoldGoods') &&
+          _flag('PosProducts', action)) {
+        return true;
+      }
+    }
     if (moduleCode == 'MobileAttendance') {
       if ((action == 'canView' || action == 'canCreate') &&
           _flag('MobileDeviceRegistration', 'canView')) {

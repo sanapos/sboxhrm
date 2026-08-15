@@ -172,21 +172,24 @@ class PosLabelRenderer {
   }) async {
     final leftInset = mmToDots(contentInsetLeftMm.clamp(0, 8), dpi).toDouble();
     final pad = small ? 3.0 : (wide ? 6.0 : 4.0);
-    var y = pad;
+    var y = bounds.top + pad;
     final contentLeft = bounds.left + leftInset + pad;
     final innerW = (bounds.width - leftInset - pad * 2).clamp(8.0, bounds.width);
+    canvas.save();
+    canvas.clipRect(bounds);
     // Chừa chỗ mã + giá phía dưới trước khi tính chiều cao barcode.
     final footerBudget = (small ? 14.0 : (wide ? 22.0 : 16.0)) +
         (item.priceText != null ? (small ? 12.0 : (wide ? 18.0 : 14.0)) : 0) +
         pad +
         4;
 
-    final nameSize = small ? 11.0 : (wide ? 18.0 : 13.0);
-    final codeSize = small ? 11.0 : (wide ? 15.0 : 12.0);
-    final priceSize = small ? 11.0 : (wide ? 16.0 : 12.0);
-    final storeSize = small ? 10.0 : (wide ? 13.0 : 11.0);
+    final nameSize = small ? 13.0 : (wide ? 20.0 : 16.0);
+    final codeSize = small ? 10.0 : (wide ? 13.0 : 11.0);
+    final priceSize = small ? 13.0 : (wide ? 18.0 : 15.0);
+    final storeSize = small ? 9.0 : (wide ? 12.0 : 10.0);
+    final maxY = bounds.bottom - pad;
 
-    if (item.storeName != null) {
+    if (item.storeName != null && !small && y < maxY - footerBudget) {
       y += await _drawText(
         canvas,
         item.storeName!,
@@ -196,6 +199,7 @@ class PosLabelRenderer {
         fontSize: storeSize,
         maxLines: 1,
         center: true,
+        maxHeight: 16,
       );
       y += 2;
     }
@@ -208,16 +212,17 @@ class PosLabelRenderer {
       innerW,
       fontSize: nameSize,
       bold: true,
-      maxLines: small ? 1 : 2,
+      maxLines: small ? 2 : 2,
       center: true,
+      maxHeight: small ? 32 : 44,
     );
     y += 3;
 
-    final remaining = bounds.height - y - footerBudget;
+    final remaining = maxY - y - footerBudget;
     final barcodeH = remaining
         .clamp(
           small ? 12.0 : 18.0,
-          bounds.height * (small ? 0.26 : (wide ? 0.36 : 0.30)),
+          bounds.height * (small ? 0.22 : (wide ? 0.32 : 0.28)),
         )
         .toDouble();
     if (barcodeH >= 10 && item.code.isNotEmpty) {
@@ -231,20 +236,23 @@ class PosLabelRenderer {
       y += barcodeH + 3;
     }
 
-    y += await _drawText(
-      canvas,
-      item.code,
-      contentLeft,
-      y,
-      innerW,
-      fontSize: codeSize,
-      bold: true,
-      maxLines: 1,
-      center: true,
-    );
+    if (!small) {
+      y += await _drawText(
+        canvas,
+        item.code,
+        contentLeft,
+        y,
+        innerW,
+        fontSize: codeSize,
+        bold: true,
+        maxLines: 1,
+        center: true,
+        maxHeight: 16,
+      );
+    }
 
-    if (item.priceText != null) {
-      y += 3;
+    if (item.priceText != null && y < maxY - 8) {
+      y += 2;
       await _drawText(
         canvas,
         item.priceText!,
@@ -255,8 +263,10 @@ class PosLabelRenderer {
         bold: true,
         maxLines: 1,
         center: true,
+        maxHeight: maxY - y,
       );
     }
+    canvas.restore();
   }
 
   static void _drawBarcode(ui.Canvas canvas, String data, ui.Rect rect) {
@@ -293,8 +303,14 @@ class PosLabelRenderer {
     bool bold = false,
     int maxLines = 2,
     bool center = false,
+    bool right = false,
+    double? maxHeight,
   }) async {
     if (text.trim().isEmpty || maxW <= 0) return 0;
+    if (maxHeight != null && maxHeight < fontSize * 0.7) return 0;
+    final align = center
+        ? TextAlign.center
+        : (right ? TextAlign.right : TextAlign.left);
     final tp = TextPainter(
       text: TextSpan(
         text: text.trim(),
@@ -303,16 +319,44 @@ class PosLabelRenderer {
             fontSize: fontSize,
             fontWeight: bold ? FontWeight.w700 : FontWeight.w400,
             color: const Color(0xFF000000),
-            height: 1.1,
+            height: 1.08,
           ),
         ),
       ),
-      textAlign: center ? TextAlign.center : TextAlign.left,
+      textAlign: align,
       textDirection: ui.TextDirection.ltr,
       maxLines: maxLines,
       ellipsis: '…',
     )..layout(maxWidth: maxW);
-    final dx = center ? x + ((maxW - tp.width) / 2).clamp(0.0, maxW) : x;
+    if (maxHeight != null && tp.height > maxHeight) {
+      // Cắt dòng cho vừa chiều cao tem — không tràn viền dưới.
+      final fitLines = (maxHeight / (fontSize * 1.08)).floor().clamp(1, maxLines);
+      final tp2 = TextPainter(
+        text: TextSpan(
+          text: text.trim(),
+          style: vietnameseTextStyle(
+            TextStyle(
+              fontSize: fontSize,
+              fontWeight: bold ? FontWeight.w700 : FontWeight.w400,
+              color: const Color(0xFF000000),
+              height: 1.08,
+            ),
+          ),
+        ),
+        textAlign: align,
+        textDirection: ui.TextDirection.ltr,
+        maxLines: fitLines,
+        ellipsis: '…',
+      )..layout(maxWidth: maxW);
+      final dx2 = center
+          ? x + ((maxW - tp2.width) / 2).clamp(0.0, maxW)
+          : (right ? x + (maxW - tp2.width).clamp(0.0, maxW) : x);
+      tp2.paint(canvas, Offset(dx2, y));
+      return tp2.height.clamp(0.0, maxHeight);
+    }
+    final dx = center
+        ? x + ((maxW - tp.width) / 2).clamp(0.0, maxW)
+        : (right ? x + (maxW - tp.width).clamp(0.0, maxW) : x);
     tp.paint(canvas, Offset(dx, y));
     return tp.height;
   }
@@ -394,73 +438,89 @@ class PosLabelRenderer {
     final contentLeft = left;
     final innerW = (w - left - right).clamp(40.0, w.toDouble());
     final wide = wMm >= 48;
+    final maxY = h - bottom;
     double fs(double base) => base * scale;
+    canvas.save();
+    canvas.clipRect(ui.Rect.fromLTWH(
+      contentLeft,
+      top,
+      innerW,
+      (maxY - top).clamp(1, h.toDouble()),
+    ));
 
-    if (showHeader) {
+    if (showHeader && wide) {
       y += await _drawText(
         canvas,
         'TEM LY',
         contentLeft,
         y,
         innerW,
-        fontSize: fs(wide ? 17 : 14),
+        fontSize: fs(17),
         bold: true,
         maxLines: 1,
         center: true,
+        maxHeight: maxY - y,
       );
-      y += 3;
+      y += 2;
     }
 
     final table = (tableLabel ?? '').trim();
-    if (showTable && table.isNotEmpty) {
+    if (showTable && table.isNotEmpty && y < maxY - 8) {
       y += await _drawText(
         canvas,
-        'Ban: $table',
+        table,
         contentLeft,
         y,
         innerW,
-        fontSize: fs(wide ? 15 : 12),
+        fontSize: fs(wide ? 16 : 14),
         bold: true,
         maxLines: 1,
+        maxHeight: maxY - y,
       );
       y += 2;
     }
     final order = (orderNo ?? '').trim();
-    if (showOrderNo && order.isNotEmpty) {
+    if (showOrderNo && order.isNotEmpty && wide && y < maxY - 8) {
       y += await _drawText(
         canvas,
-        'HD: $order',
+        order,
         contentLeft,
         y,
         innerW,
-        fontSize: fs(wide ? 13 : 11),
+        fontSize: fs(13),
         bold: true,
         maxLines: 1,
+        maxHeight: maxY - y,
       );
       y += 2;
     }
 
-    canvas.drawRect(
-      ui.Rect.fromLTWH(contentLeft, y, innerW, 2),
-      ui.Paint()..color = const ui.Color(0xFF000000),
-    );
-    y += 5;
+    if (y < maxY - 6) {
+      canvas.drawRect(
+        ui.Rect.fromLTWH(contentLeft, y, innerW, 2),
+        ui.Paint()..color = const ui.Color(0xFF000000),
+      );
+      y += 5;
+    }
 
-    y += await _drawText(
-      canvas,
-      productName.trim().isEmpty ? 'Mon' : productName.trim(),
-      contentLeft,
-      y,
-      innerW,
-      fontSize: fs(wide ? 20 : 15),
-      bold: true,
-      maxLines: 2,
-      center: true,
-    );
-    y += 3;
+    if (y < maxY - 10) {
+      y += await _drawText(
+        canvas,
+        productName.trim().isEmpty ? 'Mon' : productName.trim(),
+        contentLeft,
+        y,
+        innerW,
+        fontSize: fs(wide ? 22 : 18),
+        bold: true,
+        maxLines: 2,
+        center: true,
+        maxHeight: (maxY - y - 18).clamp(14, 80),
+      );
+      y += 3;
+    }
 
     final tops = (toppings ?? '').trim();
-    if (showToppings && tops.isNotEmpty) {
+    if (showToppings && tops.isNotEmpty && y < maxY - 14) {
       y += await _drawText(
         canvas,
         '+ $tops',
@@ -468,25 +528,27 @@ class PosLabelRenderer {
         y,
         innerW,
         fontSize: fs(wide ? 13 : 11),
-        maxLines: 2,
+        maxLines: 1,
+        maxHeight: maxY - y - 12,
       );
       y += 2;
     }
     final n = (note ?? '').trim();
-    if (showNote && n.isNotEmpty) {
+    if (showNote && n.isNotEmpty && y < maxY - 14) {
       y += await _drawText(
         canvas,
-        'GC: $n',
+        n,
         contentLeft,
         y,
         innerW,
         fontSize: fs(wide ? 13 : 11),
-        maxLines: 2,
+        maxLines: 1,
+        maxHeight: maxY - y - 12,
       );
       y += 2;
     }
 
-    if (showQty) {
+    if (showQty && y < maxY - 8) {
       canvas.drawRect(
         ui.Rect.fromLTWH(contentLeft, y, innerW, 2),
         ui.Paint()..color = const ui.Color(0xFF000000),
@@ -494,21 +556,23 @@ class PosLabelRenderer {
       y += 5;
       final qty =
           (qtyLabel ?? '1').trim().isEmpty ? '1' : (qtyLabel ?? '1').trim();
-      final maxY = h - bottom;
       if (y < maxY) {
         await _drawText(
           canvas,
-          'SL: $qty',
+          qty,
           contentLeft,
           y,
           innerW,
-          fontSize: fs(wide ? 17 : 13),
+          fontSize: fs(wide ? 18 : 15),
           bold: true,
           maxLines: 1,
+          center: true,
+          maxHeight: maxY - y,
         );
       }
     }
 
+    canvas.restore();
     final picture = recorder.endRecording();
     final image = await picture.toImage(w, h);
     return _imageToRaster(image);
@@ -547,9 +611,12 @@ class PosLabelRenderer {
     final contentLeft = left;
     final innerW = (w - left - right).clamp(40.0, w.toDouble());
     final maxY = h - bottom;
+    canvas.save();
+    canvas.clipRect(ui.Rect.fromLTWH(contentLeft, top, innerW, (maxY - top).clamp(1, h.toDouble())));
 
     for (final step in output.steps) {
-      if (y >= maxY) break;
+      if (y >= maxY - 4) break;
+      final remain = maxY - y;
       if (step is PosPrintCompiledLine) {
         if (step.isDivider) {
           canvas.drawRect(
@@ -560,23 +627,25 @@ class PosLabelRenderer {
           continue;
         }
         if (step.text.trim().isEmpty) {
-          y += 4;
+          y += 3;
           continue;
         }
+        final fs = (step.fontSize * 0.72 * scale).clamp(11.0, 32.0);
         y += await _drawText(
           canvas,
           step.text,
           contentLeft,
           y,
           innerW,
-          fontSize: (step.fontSize * 0.55 * scale).clamp(9.0, 28.0),
+          fontSize: fs,
           bold: step.bold,
-          maxLines: 3,
+          maxLines: step.center ? 2 : 2,
           center: step.center,
+          maxHeight: remain,
         );
         y += 2;
       } else if (step is PosPrintCompiledPair) {
-        final fs = (step.fontSize * 0.55 * scale).clamp(9.0, 24.0);
+        final fs = (step.fontSize * 0.72 * scale).clamp(11.0, 26.0);
         final leftH = await _drawText(
           canvas,
           step.left,
@@ -585,24 +654,50 @@ class PosLabelRenderer {
           innerW * 0.62,
           fontSize: fs,
           bold: step.bold,
-          maxLines: 2,
+          maxLines: 1,
+          maxHeight: remain,
         );
         final rightH = await _drawText(
           canvas,
           step.right,
-          contentLeft + innerW * 0.55,
+          contentLeft,
           y,
-          innerW * 0.45,
+          innerW,
           fontSize: fs,
           bold: step.bold,
-          maxLines: 2,
-          center: false,
+          maxLines: 1,
+          right: true,
+          maxHeight: remain,
         );
-        // Align right column to the right edge.
-        // Re-draw right flush-right by measuring — keep simple left+gap for tem.
         y += (leftH > rightH ? leftH : rightH) + 2;
+      } else if (step is PosPrintCompiledBarcode) {
+        final remain = maxY - y - 16;
+        final barH = remain.clamp(18.0, 48.0);
+        if (barH >= 16 && step.data.trim().isNotEmpty) {
+          _drawBarcode(
+            canvas,
+            step.data.trim(),
+            ui.Rect.fromLTWH(contentLeft, y, innerW, barH),
+          );
+          y += barH + 2;
+          if (step.showText && y < maxY - 10) {
+            y += await _drawText(
+              canvas,
+              step.data.trim(),
+              contentLeft,
+              y,
+              innerW,
+              fontSize: 11,
+              bold: true,
+              maxLines: 1,
+              center: true,
+              maxHeight: maxY - y,
+            );
+          }
+        }
       }
     }
+    canvas.restore();
 
     final picture = recorder.endRecording();
     final image = await picture.toImage(w, h);

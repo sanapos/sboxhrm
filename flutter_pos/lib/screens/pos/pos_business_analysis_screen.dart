@@ -55,11 +55,14 @@ class _PosBusinessAnalysisScreenState extends State<PosBusinessAnalysisScreen> {
     required String label,
     required double value,
     required double changePct,
+    double yoyPct = 0,
     bool money = true,
     String? suffix,
   }) {
     final up = changePct >= 0;
     final changeColor = up ? Colors.green.shade700 : Colors.red.shade700;
+    final yoyUp = yoyPct >= 0;
+    final yoyColor = yoyUp ? Colors.green.shade700 : Colors.red.shade700;
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: PosTheme.mobileCardDecoration(),
@@ -81,6 +84,11 @@ class _PosBusinessAnalysisScreenState extends State<PosBusinessAnalysisScreen> {
               ),
             ],
           ),
+          const SizedBox(height: 2),
+          Text(
+            tr('${yoyUp ? '+' : '-'}${_pctFmt.format(yoyPct.abs())}% cùng kỳ năm trước'),
+            style: TextStyle(fontSize: 11, color: yoyColor),
+          ),
         ],
       ),
     );
@@ -93,6 +101,9 @@ class _PosBusinessAnalysisScreenState extends State<PosBusinessAnalysisScreen> {
         : <String, dynamic>{};
     final change = _data?['changePct'] is Map
         ? Map<String, dynamic>.from(_data!['changePct'] as Map)
+        : <String, dynamic>{};
+    final yoy = _data?['changePctYoy'] is Map
+        ? Map<String, dynamic>.from(_data!['changePctYoy'] as Map)
         : <String, dynamic>{};
 
     final byChannel = (_data?['byChannel'] as List?) ?? [];
@@ -136,12 +147,14 @@ class _PosBusinessAnalysisScreenState extends State<PosBusinessAnalysisScreen> {
                   label: 'Doanh thu',
                   value: revenue,
                   changePct: _num(change['revenue']),
+                  yoyPct: _num(yoy['revenue']),
                 ),
                 const SizedBox(height: 8),
                 _kpiTile(
                   label: 'Lợi nhuận',
                   value: profit,
                   changePct: _num(change['profit']),
+                  yoyPct: _num(yoy['profit']),
                 ),
                 const SizedBox(height: 8),
                 Row(
@@ -151,6 +164,7 @@ class _PosBusinessAnalysisScreenState extends State<PosBusinessAnalysisScreen> {
                         label: 'Đơn hàng',
                         value: orders.toDouble(),
                         changePct: _num(change['orders']),
+                        yoyPct: _num(yoy['orders']),
                         money: false,
                       ),
                     ),

@@ -21,9 +21,14 @@ const _kiotBlue = PosTheme.kiotBlue;
 
 /// Báo cáo POS: doanh thu + tồn kho + lô/HSD (API `/api/pos/reports/*`).
 class PosReportsScreen extends StatefulWidget {
-  const PosReportsScreen({super.key, this.initialTab = 0});
+  const PosReportsScreen({
+    super.key,
+    this.initialTab = 0,
+    this.lockTab = false,
+  });
 
   final int initialTab;
+  final bool lockTab;
 
   @override
   State<PosReportsScreen> createState() => _PosReportsScreenState();
@@ -50,6 +55,7 @@ class _PosReportsScreenState extends State<PosReportsScreen>
   int _stockPage = 1;
   int _lotPage = 1;
   String? _lotFilter;
+  String? _stockFilter;
   static const _stockPageSize = 30;
 
   @override
@@ -111,6 +117,7 @@ class _PosReportsScreenState extends State<PosReportsScreen>
     final sumRes = await _api.getPosStockReportSummary();
     final listRes = await _api.getPosStockReportProducts(
       search: _stockSearchCtrl.text.trim().isEmpty ? null : _stockSearchCtrl.text.trim(),
+      filter: _stockFilter,
       page: page,
       pageSize: _stockPageSize,
     );
@@ -222,31 +229,47 @@ class _PosReportsScreenState extends State<PosReportsScreen>
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const PosModuleToolbar(activeModule: 'PosSalesReport'),
-          Material(
-            color: Colors.white,
-            child: TabBar(
-              controller: _tabs,
-              labelColor: _kiotBlue,
-              indicatorColor: _kiotBlue,
-              isScrollable: mobile,
-              tabAlignment: mobile ? TabAlignment.start : TabAlignment.fill,
-              tabs: [
-                Tab(text: tr(mobile ? 'Doanh thu' : 'Doanh thu bán hàng')),
-                Tab(text: tr('Tồn kho')),
-                Tab(text: tr(mobile ? 'Lô/HSD' : 'Lô / HSD')),
-              ],
+          if (widget.lockTab)
+            PosMobileKiotHeader(
+              title: switch (widget.initialTab) {
+                1 => 'Tồn kho',
+                2 => 'Hàng sắp hết hạn',
+                _ => 'Doanh thu',
+              },
+            )
+          else
+            const PosModuleToolbar(activeModule: 'PosSalesReport'),
+          if (!widget.lockTab)
+            Material(
+              color: Colors.white,
+              child: TabBar(
+                controller: _tabs,
+                labelColor: _kiotBlue,
+                indicatorColor: _kiotBlue,
+                isScrollable: mobile,
+                tabAlignment: mobile ? TabAlignment.start : TabAlignment.fill,
+                tabs: [
+                  Tab(text: tr(mobile ? 'Doanh thu' : 'Doanh thu bán hàng')),
+                  Tab(text: tr('Tồn kho')),
+                  Tab(text: tr(mobile ? 'Lô/HSD' : 'Lô / HSD')),
+                ],
+              ),
             ),
-          ),
           Expanded(
-            child: TabBarView(
-              controller: _tabs,
-              children: [
-                _buildSalesTab(canExport),
-                _buildStockTab(canExport),
-                _buildLotsTab(),
-              ],
-            ),
+            child: widget.lockTab
+                ? switch (widget.initialTab) {
+                    1 => _buildStockTab(canExport),
+                    2 => _buildLotsTab(),
+                    _ => _buildSalesTab(canExport),
+                  }
+                : TabBarView(
+                    controller: _tabs,
+                    children: [
+                      _buildSalesTab(canExport),
+                      _buildStockTab(canExport),
+                      _buildLotsTab(),
+                    ],
+                  ),
           ),
         ],
       ),
@@ -327,11 +350,49 @@ class _PosReportsScreenState extends State<PosReportsScreen>
       children: [
         _card('Tổng quan', [
           _row('Số đơn', '${s['orderCount'] ?? 0}'),
-          _row('Doanh thu', _moneyFmt.format(_num(s['totalRevenue']))),
+          _row('Doanh thu (chưa VAT)', _moneyFmt.format(_num(s['totalRevenue']))),
+          _row('VAT', _moneyFmt.format(_num(s['totalVat']))),
+          _row('Doanh thu gồm VAT', _moneyFmt.format(_num(s['totalRevenueInclVat']))),
+          _row('Hoàn trả trong kỳ', _moneyFmt.format(_num(s['totalRefund']))),
           _row('Đã thu', _moneyFmt.format(_num(s['totalPaid']))),
           _row('Giảm giá', _moneyFmt.format(_num(s['totalDiscount']))),
+          _row('Giá vốn', _moneyFmt.format(_num(s['totalCogs']))),
+          _row('Lợi nhuận', _moneyFmt.format(_num(s['totalProfit']))),
+          _row('Biên LN', '${_num(s['profitMarginPct']).toStringAsFixed(1)}%'),
         ]),
         const SizedBox(height: 12),
+        if (((s['byPayment'] as List?) ?? []).isNotEmpty)
+          _card('Theo thanh toán', [
+            for (final p in (s['byPayment'] as List))
+              if (p is Map)
+                _row(
+                  p['paymentMethod']?.toString() ?? 'Khác',
+                  '${_moneyFmt.format(_num(p['total']))} (${p['count'] ?? 0})',
+                ),
+          ]),
+        if (((s['byPayment'] as List?) ?? []).isNotEmpty) const SizedBox(height: 12),
+        if (((s['byDay'] as List?) ?? []).isNotEmpty)
+          _card('Theo ngày', [
+            for (final d in (s['byDay'] as List).take(14))
+              if (d is Map)
+                _row(
+                  _fmtDay(d['date']),
+                  '${_moneyFmt.format(_num(d['total']))} (${d['count'] ?? 0} đơn)',
+                ),
+          ]),
+        if (((s['byDay'] as List?) ?? []).isNotEmpty) const SizedBox(height: 12),
+        if (((s['topEmployees'] as List?) ?? []).isNotEmpty)
+          _card('Top nhân viên', [
+            for (final e in (s['topEmployees'] as List).take(10))
+              if (e is Map)
+                _row(
+                  (e['soldBy']?.toString().trim().isNotEmpty == true)
+                      ? e['soldBy'].toString()
+                      : '—',
+                  '${_moneyFmt.format(_num(e['revenue']))} (${e['orderCount'] ?? 0})',
+                ),
+          ]),
+        if (((s['topEmployees'] as List?) ?? []).isNotEmpty) const SizedBox(height: 12),
         if (topProducts.isNotEmpty)
           _card('Top hàng bán', [
             for (final p in topProducts)
@@ -365,6 +426,44 @@ class _PosReportsScreenState extends State<PosReportsScreen>
                         isDense: true,
                       ),
                       onSubmitted: (_) => _loadStock(),
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      children: [
+                        FilterChip(
+                          label: Text(tr('Tất cả')),
+                          selected: _stockFilter == null,
+                          onSelected: (_) {
+                            setState(() => _stockFilter = null);
+                            _loadStock();
+                          },
+                        ),
+                        FilterChip(
+                          label: Text(tr('Dưới min')),
+                          selected: _stockFilter == 'BelowMin',
+                          onSelected: (_) {
+                            setState(() => _stockFilter = 'BelowMin');
+                            _loadStock();
+                          },
+                        ),
+                        FilterChip(
+                          label: Text(tr('Hết hàng')),
+                          selected: _stockFilter == 'OutOfStock',
+                          onSelected: (_) {
+                            setState(() => _stockFilter = 'OutOfStock');
+                            _loadStock();
+                          },
+                        ),
+                        FilterChip(
+                          label: Text(tr('Trên max')),
+                          selected: _stockFilter == 'AboveMax',
+                          onSelected: (_) {
+                            setState(() => _stockFilter = 'AboveMax');
+                            _loadStock();
+                          },
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 8),
                     Row(
@@ -676,6 +775,12 @@ class _PosReportsScreenState extends State<PosReportsScreen>
                 ),
       ],
     );
+  }
+
+  String _fmtDay(dynamic v) {
+    final d = v is DateTime ? v : DateTime.tryParse('$v');
+    if (d == null) return '$v';
+    return DateFormat('dd/MM').format(d);
   }
 
   Widget _card(String title, List<Widget> children) {

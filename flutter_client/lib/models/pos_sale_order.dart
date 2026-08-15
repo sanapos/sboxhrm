@@ -201,6 +201,7 @@ class PosSaleOrder {
   final String? serviceResourceCode;
   final String? serviceResourceName;
   final String? serviceAreaName;
+  final String? splitFromOrderId;
   final int lockVersion;
   final bool isLocked;
   final bool isLockedByMe;
@@ -208,6 +209,16 @@ class PosSaleOrder {
   final String? lockedByDeviceId;
   final String? lockedByDeviceName;
   final DateTime? lockExpiresAt;
+  final String? eInvoiceStatus;
+  final String? eInvoiceProvider;
+  final String? eInvoiceNo;
+  final String? eInvoiceSeries;
+  final String? eInvoiceReservationCode;
+  final String? eInvoiceCode;
+  final DateTime? eInvoiceIssuedAt;
+  final String? eInvoiceError;
+  final String? eInvoiceBuyerName;
+  final String? eInvoiceBuyerTaxCode;
 
   PosSaleOrder({
     required this.id,
@@ -258,6 +269,7 @@ class PosSaleOrder {
     this.serviceResourceCode,
     this.serviceResourceName,
     this.serviceAreaName,
+    this.splitFromOrderId,
     this.lockVersion = 0,
     this.isLocked = false,
     this.isLockedByMe = false,
@@ -265,6 +277,16 @@ class PosSaleOrder {
     this.lockedByDeviceId,
     this.lockedByDeviceName,
     this.lockExpiresAt,
+    this.eInvoiceStatus,
+    this.eInvoiceProvider,
+    this.eInvoiceNo,
+    this.eInvoiceSeries,
+    this.eInvoiceReservationCode,
+    this.eInvoiceCode,
+    this.eInvoiceIssuedAt,
+    this.eInvoiceError,
+    this.eInvoiceBuyerName,
+    this.eInvoiceBuyerTaxCode,
   });
 
   PosSaleOrder copyWithPrintContext({
@@ -328,6 +350,17 @@ class PosSaleOrder {
         lockedByDeviceId: lockedByDeviceId,
         lockedByDeviceName: lockedByDeviceName,
         lockExpiresAt: lockExpiresAt,
+        eInvoiceStatus: eInvoiceStatus,
+        eInvoiceProvider: eInvoiceProvider,
+        eInvoiceNo: eInvoiceNo,
+        eInvoiceSeries: eInvoiceSeries,
+        eInvoiceReservationCode: eInvoiceReservationCode,
+        eInvoiceCode: eInvoiceCode,
+        eInvoiceIssuedAt: eInvoiceIssuedAt,
+        eInvoiceError: eInvoiceError,
+        eInvoiceBuyerName: eInvoiceBuyerName,
+        eInvoiceBuyerTaxCode: eInvoiceBuyerTaxCode,
+        splitFromOrderId: splitFromOrderId,
       );
 
   String? get lockBadgeLabel {
@@ -439,6 +472,8 @@ class PosSaleOrder {
               ?.toString(),
       serviceAreaName:
           (json['serviceAreaName'] ?? json['ServiceAreaName'])?.toString(),
+      splitFromOrderId:
+          (json['splitFromOrderId'] ?? json['SplitFromOrderId'])?.toString(),
       lockVersion: i(json['lockVersion'] ?? json['LockVersion']),
       isLocked: json['isLocked'] == true || json['IsLocked'] == true,
       isLockedByMe:
@@ -453,6 +488,26 @@ class PosSaleOrder {
               ?.toString(),
       lockExpiresAt:
           parseApiDateTime(json['lockExpiresAt'] ?? json['LockExpiresAt']),
+      eInvoiceStatus:
+          (json['eInvoiceStatus'] ?? json['EInvoiceStatus'])?.toString(),
+      eInvoiceProvider:
+          (json['eInvoiceProvider'] ?? json['EInvoiceProvider'])?.toString(),
+      eInvoiceNo: (json['eInvoiceNo'] ?? json['EInvoiceNo'])?.toString(),
+      eInvoiceSeries:
+          (json['eInvoiceSeries'] ?? json['EInvoiceSeries'])?.toString(),
+      eInvoiceReservationCode: (json['eInvoiceReservationCode'] ??
+              json['EInvoiceReservationCode'])
+          ?.toString(),
+      eInvoiceCode: (json['eInvoiceCode'] ?? json['EInvoiceCode'])?.toString(),
+      eInvoiceIssuedAt:
+          parseApiDateTime(json['eInvoiceIssuedAt'] ?? json['EInvoiceIssuedAt']),
+      eInvoiceError:
+          (json['eInvoiceError'] ?? json['EInvoiceError'])?.toString(),
+      eInvoiceBuyerName:
+          (json['eInvoiceBuyerName'] ?? json['EInvoiceBuyerName'])?.toString(),
+      eInvoiceBuyerTaxCode: (json['eInvoiceBuyerTaxCode'] ??
+              json['EInvoiceBuyerTaxCode'])
+          ?.toString(),
     );
   }
 

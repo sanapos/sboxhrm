@@ -975,13 +975,13 @@ class _TravelHoursReportScreenState extends State<TravelHoursReportScreen> {
             dataRowMinHeight: 40,
             dataRowMaxHeight: 56,
             columns: [
-              const DataColumn(label: Text('STT')),
-              const DataColumn(label: Text('Ngày')),
-              if (_teamView) const DataColumn(label: Text('Nhân viên')),
-              const DataColumn(label: Text('Bắt đầu')),
-              const DataColumn(label: Text('Đến điểm')),
-              const DataColumn(label: Text('Giờ')),
-              const DataColumn(label: Text('TT')),
+              DataColumn(label: Text(tr('STT'))),
+              DataColumn(label: Text(tr('Ngày'))),
+              if (_teamView) DataColumn(label: Text(tr('Nhân viên'))),
+              DataColumn(label: Text(tr('Bắt đầu'))),
+              DataColumn(label: Text(tr('Đến điểm'))),
+              DataColumn(label: Text(tr('Giờ'))),
+              DataColumn(label: Text(tr('TT'))),
             ],
             rows: pageRows.asMap().entries.map((e) {
               final i = start + e.key + 1;
@@ -1102,13 +1102,13 @@ class _TravelHoursReportScreenState extends State<TravelHoursReportScreen> {
           scrollDirection: Axis.horizontal,
           child: DataTable(
             headingRowHeight: 40,
-            columns: const [
-              DataColumn(label: Text('STT')),
-              DataColumn(label: Text('Nhân viên')),
-              DataColumn(label: Text('Mã')),
-              DataColumn(label: Text('Chuyến')),
-              DataColumn(label: Text('Giờ')),
-              DataColumn(label: Text('Thiếu')),
+            columns: [
+              DataColumn(label: Text(tr('STT'))),
+              DataColumn(label: Text(tr('Nhân viên'))),
+              DataColumn(label: Text(tr('Mã'))),
+              DataColumn(label: Text(tr('Chuyến'))),
+              DataColumn(label: Text(tr('Giờ'))),
+              DataColumn(label: Text(tr('Thiếu'))),
             ],
             rows: list.asMap().entries.map((e) {
               final r = e.value;

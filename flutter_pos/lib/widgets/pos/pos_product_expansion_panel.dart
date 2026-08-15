@@ -14,7 +14,7 @@ import 'pos_stock_document_sheet.dart';
 import 'pos_theme.dart';
 import 'package:sbox_pos/l10n/app_tr.dart';
 
-/// Chi ti?t h‡ng hÛa m? r?ng inline ó giao di?n ki?u KiotViet.
+/// Chi ti?t h√†ng h√≥a m? r?ng inline ‚Äî giao di?n ki?u KiotViet.
 class PosProductExpansionPanel extends StatefulWidget {
   const PosProductExpansionPanel({
     super.key,
@@ -121,8 +121,8 @@ class _PosProductExpansionPanelState extends State<PosProductExpansionPanel> {
   }
 
   static const _tabs = [
-    'ThÙng tin',
-    'MÙ t?, ghi ch˙',
+    'Th√¥ng tin',
+    'M√¥ t?, ghi ch√∫',
     'Th? kho',
     'T?n kho',
   ];
@@ -211,7 +211,7 @@ class _PosProductExpansionPanelState extends State<PosProductExpansionPanel> {
     final displayStock = v?.onHandQty ?? _p.onHandQty;
     final weightStr = _p.weight != null && _p.weight! > 0
         ? '${_p.weight!.toStringAsFixed(_p.weight! % 1 == 0 ? 0 : 2)} ${_p.weightUnit}'
-        : 'Chua cÛ';
+        : 'Chua c√≥';
 
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
@@ -242,7 +242,7 @@ class _PosProductExpansionPanelState extends State<PosProductExpansionPanel> {
                 ),
                 if (_p.categoryPath != null && _p.categoryPath!.isNotEmpty) ...[
                   const SizedBox(height: 4),
-                  Text(tr('NhÛm h‡ng: ${_p.categoryPath}'),
+                  Text(tr('Nh√≥m h√†ng: ${_p.categoryPath}'),
                     style: const TextStyle(
                       fontSize: 12,
                       color: PosTheme.textSecondary,
@@ -255,7 +255,7 @@ class _PosProductExpansionPanelState extends State<PosProductExpansionPanel> {
                   runSpacing: 4,
                   children: [
                     _badge(_goodsTypeLabel(_p.productType)),
-                    if (_p.isDirectSale) _badge('B·n tr?c ti?p'),
+                    if (_p.isDirectSale) _badge('B√°n tr?c ti?p'),
                     if (!_p.isActive)
                       _badge('Ng?ng kinh doanh', color: Colors.orange.shade800),
                   ],
@@ -265,31 +265,31 @@ class _PosProductExpansionPanelState extends State<PosProductExpansionPanel> {
                   spacing: 32,
                   runSpacing: 8,
                   children: [
-                    _infoCell('M„ h‡ng', displayCode),
+                    _infoCell('M√£ h√†ng', displayCode),
                     if (_p.productType != PosProductType.service)
-                      _infoCell('M„ v?ch', displayBarcode ?? 'Chua cÛ'),
-                    _infoCell('Gi· v?n', widget.moneyFmt.format(displayCost)),
-                    _infoCell('Gi· b·n', widget.moneyFmt.format(displayPrice)),
+                      _infoCell('M√£ v?ch', displayBarcode ?? 'Chua c√≥'),
+                    _infoCell('Gi√° v?n', widget.moneyFmt.format(displayCost)),
+                    _infoCell('Gi√° b√°n', widget.moneyFmt.format(displayPrice)),
                     if (isGoods)
                       _infoCell('T?n kho', widget.moneyFmt.format(displayStock)),
                     if (isGoods) _infoCell('Tr?ng lu?ng', weightStr),
                     if (isGoods)
                       _infoCell(
-                        '–?nh m?c t?n',
+                        '√ê?nh m?c t?n',
                         '${widget.moneyFmt.format(_p.minStockQty)} - ${widget.moneyFmt.format(_p.maxStockQty)}',
                       ),
-                    _infoCell('Thuong hi?u', _p.brandName ?? 'Chua cÛ'),
+                    _infoCell('Thuong hi?u', _p.brandName ?? 'Chua c√≥'),
                     if (isGoods)
-                      _infoCell('V? trÌ', _p.storageLocationName ?? 'Chua cÛ'),
+                      _infoCell('V? tr√≠', _p.storageLocationName ?? 'Chua c√≥'),
                   ],
                 ),
                 if (isGoods && widget.canEdit) ...[
                   const SizedBox(height: 10),
                   Row(
                     children: [
-                      _linkBtn('ThÍm don v? tÌnh', widget.onEdit),
+                      _linkBtn('Th√™m don v? t√≠nh', widget.onEdit),
                       const SizedBox(width: 16),
-                      _linkBtn('ThÍm thu?c tÌnh', widget.onEdit),
+                      _linkBtn('Th√™m thu?c t√≠nh', widget.onEdit),
                     ],
                   ),
                 ],
@@ -302,9 +302,9 @@ class _PosProductExpansionPanelState extends State<PosProductExpansionPanel> {
   }
 
   String _goodsTypeLabel(PosProductType t) => switch (t) {
-        PosProductType.goods => 'H‡ng hÛa thu?ng',
+        PosProductType.goods => 'H√†ng h√≥a thu?ng',
         PosProductType.service => 'D?ch v?',
-        PosProductType.combo => 'Combo - dÛng gÛi',
+        PosProductType.combo => 'Combo - d√≥ng g√≥i',
       };
 
   Widget _badge(String text, {Color? color}) {
@@ -362,7 +362,7 @@ class _PosProductExpansionPanelState extends State<PosProductExpansionPanel> {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
       child: desc == null || desc.isEmpty
-          ? Text(tr('Chua cÛ mÙ t?'),
+          ? Text(tr('Chua c√≥ m√¥ t?'),
               style: TextStyle(fontSize: 13, color: PosTheme.textSecondary),
             )
           : Text(tr(desc), style: const TextStyle(fontSize: 13)),
@@ -384,7 +384,7 @@ class _PosProductExpansionPanelState extends State<PosProductExpansionPanel> {
           'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         );
         NotificationOverlayManager()
-            .showSuccess(title: 'Xu?t file', message: tr('–„ xu?t th? kho'));
+            .showSuccess(title: 'Xu?t file', message: tr('√ê√£ xu?t th? kho'));
       }
     } finally {
       if (mounted) setState(() => _exportingStock = false);
@@ -411,7 +411,7 @@ class _PosProductExpansionPanelState extends State<PosProductExpansionPanel> {
     final stock = v?.onHandQty ?? _p.onHandQty;
     if (_p.productType == PosProductType.service) {
       return Center(
-        child: Text(tr('D?ch v? khÙng qu?n l˝ t?n kho'),
+        child: Text(tr('D?ch v? kh√¥ng qu?n l√Ω t?n kho'),
           style: TextStyle(fontSize: 13, color: PosTheme.textSecondary),
         ),
       );
@@ -424,20 +424,20 @@ class _PosProductExpansionPanelState extends State<PosProductExpansionPanel> {
         children: [
           _infoCell('T?n kho', PosQtyRules.format(stock, product: _p)),
           _infoCell(
-            'Kh·ch d?t',
+            'Kh√°ch d?t',
             PosQtyRules.format(_p.reservedQty, product: _p),
           ),
           _infoCell(
-            'CÛ th? b·n',
+            'C√≥ th? b√°n',
             PosQtyRules.format(_p.onHandQty - _p.reservedQty, product: _p),
           ),
           _infoCell(
-            '–?nh m?c t?n',
+            '√ê?nh m?c t?n',
             '${widget.moneyFmt.format(_p.minStockQty)} - ${widget.moneyFmt.format(_p.maxStockQty)}',
           ),
           if (_p.estimatedStockoutDate != null)
             _infoCell(
-              'D? ki?n h?t h‡ng',
+              'D? ki?n h?t h√†ng',
               widget.dateFmt.format(_p.estimatedStockoutDate!.toLocal()),
             ),
         ],
@@ -458,13 +458,13 @@ class _PosProductExpansionPanelState extends State<PosProductExpansionPanel> {
             TextButton.icon(
               onPressed: widget.onDelete,
               icon: Icon(Icons.delete_outline, size: 18, color: Colors.red.shade700),
-              label: Text(tr('XÛa'), style: TextStyle(color: Colors.red.shade700)),
+              label: Text(tr('X√≥a'), style: TextStyle(color: Colors.red.shade700)),
             ),
           if (widget.canCreate)
             TextButton.icon(
               onPressed: widget.onCopy,
               icon: const Icon(Icons.copy, size: 18),
-              label: Text(tr('Sao chÈp')),
+              label: Text(tr('Sao ch√©p')),
             ),
           const Spacer(),
           if (widget.canEdit)
@@ -486,7 +486,7 @@ class _PosProductExpansionPanelState extends State<PosProductExpansionPanel> {
               side: const BorderSide(color: PosTheme.border),
             ),
             icon: const Icon(Icons.print_outlined, size: 16),
-            label: Text(tr('In tem m„')),
+            label: Text(tr('In tem m√£')),
           ),
           IconButton(
             onPressed: () {},

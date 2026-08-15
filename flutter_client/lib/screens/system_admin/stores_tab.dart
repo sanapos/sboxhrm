@@ -1169,9 +1169,16 @@ class StoresTabState extends State<StoresTab> {
   // ═══════════════════════ STORE DETAIL ═══════════════════════
   Future<void> _showStoreDetail(Map<String, dynamic> store) async {
     final storeId = store['id']?.toString() ?? '';
-    final res = widget.agentMode
-        ? await _apiService.getAgentStoreFullDetail(storeId)
-        : await _apiService.getStoreFullDetail(storeId);
+    final results = await Future.wait([
+      widget.agentMode
+          ? _apiService.getAgentStoreFullDetail(storeId)
+          : _apiService.getStoreFullDetail(storeId),
+      widget.agentMode
+          ? _apiService.getAgentPosOverview(storeId: storeId)
+          : _apiService.getSystemPosOverview(storeId: storeId),
+    ]);
+    final res = results[0];
+    final posRes = results[1];
 
     if (!mounted) return;
     if (res['isSuccess'] != true) {
@@ -1180,6 +1187,9 @@ class StoresTabState extends State<StoresTab> {
     }
 
     final d = res['data'] as Map<String, dynamic>? ?? {};
+    final pos = posRes['isSuccess'] == true && posRes['data'] is Map
+        ? Map<String, dynamic>.from(posRes['data'] as Map)
+        : null;
     final isMobile = MediaQuery.of(context).size.width < 600;
 
     final titleRow = Row(children: [
@@ -1246,7 +1256,7 @@ class StoresTabState extends State<StoresTab> {
           _detailRow(
               'Max Users', d['maxUsers']?.toString()),
           _detailRow(
-              'Max Devices', d['maxDevices']?.toString()),
+              'Máy chấm công', d['maxDevices']?.toString()),
         ]),
         _detailSection('Thống kê', [
           _detailRow(
@@ -1254,6 +1264,24 @@ class StoresTabState extends State<StoresTab> {
           _detailRow(
               'Tổng Devices', d['totalDevices']?.toString()),
         ]),
+        if (pos != null)
+          _detailSection('POS cửa hàng', [
+            _detailRow('Doanh thu hôm nay', '${pos['todayRevenue'] ?? 0} ₫'),
+            _detailRow('Đơn hôm nay', '${pos['todayOrders'] ?? 0}'),
+            _detailRow('Đơn QR hôm nay', '${pos['todayQrOrders'] ?? 0}'),
+            _detailRow('Doanh thu kỳ (hôm nay)', '${pos['periodRevenue'] ?? 0} ₫'),
+            _detailRow('Print Agent online',
+                '${pos['printAgentsOnline'] ?? 0}/${pos['printAgentsTotal'] ?? 0}'),
+            _detailRow('Máy in lỗi',
+                '${pos['printersUnhealthy'] ?? 0}/${pos['printersTotal'] ?? 0}'),
+            _detailRow('Job in lỗi 24h', '${pos['printJobsFailed24h'] ?? 0}'),
+            _detailRow('Phiếu bếp chờ', '${pos['kitchenJobsQueued'] ?? 0}'),
+            _detailRow('Đơn nháp / bàn mở', '${pos['openDraftOrders'] ?? 0}'),
+            _detailRow('Ca thu ngân mở', '${pos['openCashierShifts'] ?? 0}'),
+            _detailRow('Hết hàng / dưới ĐM',
+                '${pos['outOfStockSkus'] ?? 0} / ${pos['belowMinSkus'] ?? 0}'),
+            _detailRow('HĐĐT lỗi', '${pos['einvoiceFailed'] ?? 0}'),
+          ]),
         _detailSection('Thời gian', [
           _detailRow('Tạo lúc',
               AdminHelpers.formatDateTime(d['createdAt'])),

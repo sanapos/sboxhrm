@@ -14,11 +14,21 @@ class PermissionNavigation {
     'PosBooking': ['PosSell'],
     'PosWarranty': ['PosSell'],
     'PosCustomerDisplay': ['PosSell'],
+    'PosEInvoice': ['PosSell'],
+    'PosKds': ['PosSell'],
+    'PosQrOrder': ['PosSell'],
+    'PosCashierShift': ['PosSell'],
+    'PosPrinters': ['PosSell'],
   };
 
   /// Gói có module A → coi như mở menu B (khớp middleware package).
   static const Map<String, List<String>> _packageAliases = {
     'PosSaleReturns': ['PosSell'],
+    'PosEInvoice': ['PosSell'],
+    'PosKds': ['PosSell'],
+    'PosQrOrder': ['PosSell'],
+    'PosCashierShift': ['PosSell'],
+    'PosPrinters': ['PosSell'],
   };
 
   static bool canNavigate(PermissionProvider perm, String? moduleCode) {
@@ -138,6 +148,34 @@ class PermissionNavigation {
         return 'Xuất dùng nội bộ';
       case 'PosSalesReport':
         return 'Báo cáo POS';
+      case 'PosReportRevenue':
+        return 'Doanh thu';
+      case 'PosReportSoldGoods':
+        return 'Hàng hóa bán ra';
+      case 'PosReportStock':
+        return 'Tồn kho';
+      case 'PosReportPurchases':
+        return 'Báo cáo nhập hàng';
+      case 'PosReportPayment':
+        return 'Phương thức thanh toán';
+      case 'PosReportDebt':
+        return 'Công nợ';
+      case 'PosReportExpiry':
+        return 'Hàng sắp hết hạn';
+      case 'PosReportProfit':
+        return 'Lợi nhuận';
+      case 'PosReportExpense':
+        return 'Chi phí';
+      case 'PosReportEndOfDay':
+        return 'Tổng kết cuối ngày';
+      case 'PosReportStaffRevenue':
+        return 'Doanh thu theo nhân viên';
+      case 'PosReportCashbook':
+        return 'Sổ quỹ';
+      case 'PosReportPnl':
+        return 'Kết quả kinh doanh';
+      case 'PosReportVoucher':
+        return 'Báo cáo voucher';
       case 'PosBooking':
         return 'Đặt bàn / lịch hẹn';
       case 'PosCustomers':
@@ -146,6 +184,16 @@ class PermissionNavigation {
         return 'Bảo hành POS';
       case 'PosCustomerDisplay':
         return 'Màn hình phụ';
+      case 'PosEInvoice':
+        return 'Hóa đơn điện tử';
+      case 'PosKds':
+        return 'Màn hình bếp (KDS)';
+      case 'PosQrOrder':
+        return 'QR order bàn';
+      case 'PosCashierShift':
+        return 'Ca thu ngân';
+      case 'PosPrinters':
+        return 'Máy in POS';
       case 'PenaltyReport':
         return 'Báo cáo phạt';
       case 'CashReport':

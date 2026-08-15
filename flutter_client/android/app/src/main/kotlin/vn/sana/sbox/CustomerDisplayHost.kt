@@ -19,11 +19,22 @@ import io.flutter.embedding.engine.dart.DartExecutor
 import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodChannel
 import io.flutter.plugins.GeneratedPluginRegistrant
+import java.lang.ref.WeakReference
 
 class CustomerDisplayActivity : FlutterActivity() {
     override fun getCachedEngineId(): String = ENGINE_ID
 
     override fun shouldDestroyEngineWithHost(): Boolean = false
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        CustomerDisplayController.registerHost(this)
+    }
+
+    override fun onDestroy() {
+        CustomerDisplayController.unregisterHost(this)
+        super.onDestroy()
+    }
 
     companion object {
         const val ENGINE_ID = "sbox_customer_display_engine"
@@ -124,7 +135,16 @@ object CustomerDisplayController {
     private const val KEY_STATE = "state_json"
 
     private var presentation: CustomerDisplayPresentation? = null
+    private var hostedActivity: WeakReference<CustomerDisplayActivity>? = null
     private val eventSinks = java.util.concurrent.CopyOnWriteArrayList<EventChannel.EventSink>()
+
+    fun registerHost(activity: CustomerDisplayActivity) {
+        hostedActivity = WeakReference(activity)
+    }
+
+    fun unregisterHost(activity: CustomerDisplayActivity) {
+        if (hostedActivity?.get() === activity) hostedActivity = null
+    }
 
     fun prefs(context: Context): SharedPreferences =
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -164,11 +184,21 @@ object CustomerDisplayController {
 
     private fun isSecondaryDisplay(d: Display): Boolean {
         if (d.displayId == Display.DEFAULT_DISPLAY) return false
-        // Bỏ display ảo/tắt nếu API hỗ trợ.
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT_WATCH) {
             if (d.state == Display.STATE_OFF) return false
         }
+        val n = (d.name ?: "").lowercase()
+        if (n.contains("overlay") || n.contains("virtual") ||
+            n.contains("scrcpy") || n.contains("vysor")
+        ) {
+            return false
+        }
         return true
+    }
+
+    private fun pickBestSecondary(list: List<Display>): Display {
+        return list.firstOrNull { (it.flags and Display.FLAG_PRESENTATION) != 0 }
+            ?: list.first()
     }
 
     fun show(activity: FlutterActivity, preferredDisplayId: Int? = null): Boolean {
@@ -176,31 +206,40 @@ object CustomerDisplayController {
         val target = when {
             preferredDisplayId != null ->
                 secondary.firstOrNull { it.displayId == preferredDisplayId }
-            secondary.isNotEmpty() -> secondary.first()
+            secondary.isNotEmpty() -> pickBestSecondary(secondary)
             else -> null
         }
 
         // Không có màn phụ → KHÔNG mở Activity trên màn chính (tránh V2S bị chiếm UI).
         if (target == null) return false
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            try {
-                CustomerDisplayActivity.ensureEngine(activity)
-                val intent = Intent(activity, CustomerDisplayActivity::class.java)
-                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_MULTIPLE_TASK)
-                val opts = ActivityOptions.makeBasic()
-                opts.launchDisplayId = target.displayId
-                activity.startActivity(intent, opts.toBundle())
-                return true
-            } catch (_: Exception) {
-            }
-        }
+        hide()
 
-        return try {
-            presentation?.dismiss()
+        // Presentation: chỉ vẽ trên màn khách — không tạo tab/task trên màn thu ngân (A7).
+        try {
             val p = CustomerDisplayPresentation(activity, target)
             p.show()
             presentation = p
+            return true
+        } catch (_: Exception) {
+        }
+
+        return startActivityOnDisplay(activity, target)
+    }
+
+    private fun startActivityOnDisplay(activity: FlutterActivity, target: Display): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return false
+        return try {
+            CustomerDisplayActivity.ensureEngine(activity)
+            val intent = Intent(activity, CustomerDisplayActivity::class.java)
+                .addFlags(
+                    Intent.FLAG_ACTIVITY_NEW_TASK or
+                        Intent.FLAG_ACTIVITY_MULTIPLE_TASK or
+                        Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS,
+                )
+            val opts = ActivityOptions.makeBasic()
+            opts.launchDisplayId = target.displayId
+            activity.startActivity(intent, opts.toBundle())
             true
         } catch (_: Exception) {
             false
@@ -213,6 +252,13 @@ object CustomerDisplayController {
         } catch (_: Exception) {
         }
         presentation = null
+        hostedActivity?.get()?.let { act ->
+            try {
+                act.finish()
+            } catch (_: Exception) {
+            }
+        }
+        hostedActivity = null
     }
 
     fun attachEventSink(sink: EventChannel.EventSink?) {

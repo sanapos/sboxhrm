@@ -24,6 +24,7 @@ import 'utils/notification_display_utils.dart';
 import 'utils/navigation_notifier.dart';
 import 'utils/pos_print_agent_settings.dart';
 import 'utils/pos_print_orchestrator.dart';
+import 'utils/pos_qr_order_voice.dart';
 import 'utils/ssl_trust.dart';
 import 'widgets/app_boot_screen.dart';
 import 'widgets/notification_overlay.dart';
@@ -269,6 +270,7 @@ class _PosAuthShellState extends State<_PosAuthShell>
           storeId,
           forceReregister: forceAgent,
         );
+        unawaited(PosQrOrderVoiceAlert.instance.start());
       }
       final userId = auth.user?.id;
       if (userId != null && userId.isNotEmpty) {

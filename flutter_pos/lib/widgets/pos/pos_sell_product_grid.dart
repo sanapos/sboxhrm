@@ -395,7 +395,7 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
           _loading = false;
         });
         _prefetchPageUnitViews();
-        if (cached.isFresh) return;
+        // Luôn sync nền — TTL chỉ để hiện cache tức thì, không chặn hàng mới (combo).
         _syncCatalogInBackground(storeId);
         return;
       }
@@ -570,6 +570,7 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
       _products = _filterByCategory(_allProducts);
       _page = 0;
     });
+    if (_gridScroll.hasClients) _gridScroll.jumpTo(0);
     _prefetchPageUnitViews();
   }
 
@@ -641,7 +642,7 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
     if (!widget.allowNegativeStock && isPosSellOutOfStock(p, views)) {
       ScaffoldMessenger.maybeOf(context)?.showSnackBar(
         SnackBar(
-          content: Text('${p.name}: hết hàng'),
+          content: Text('${p.name}: ${tr('hết hàng')}'),
           duration: const Duration(seconds: 2),
         ),
       );
@@ -1155,6 +1156,7 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
               thumbVisibility: true,
               child: GridView.builder(
                 controller: _gridScroll,
+                cacheExtent: 480,
                 padding: const EdgeInsets.fromLTRB(10, 6, 10, 6),
                 gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: cols,
@@ -1181,10 +1183,11 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
                   visualDensity: VisualDensity.compact,
                   icon: const Icon(Icons.chevron_left, size: 22),
                   onPressed: _page > 0
-                      ? () => setState(() {
-                            _page--;
-                            _prefetchPageUnitViews();
-                          })
+                      ? () {
+                          setState(() => _page--);
+                          if (_gridScroll.hasClients) _gridScroll.jumpTo(0);
+                          _prefetchPageUnitViews();
+                        }
                       : null,
                 ),
                 Text(
@@ -1195,10 +1198,11 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
                   visualDensity: VisualDensity.compact,
                   icon: const Icon(Icons.chevron_right, size: 22),
                   onPressed: _page < _pageCount - 1
-                      ? () => setState(() {
-                            _page++;
-                            _prefetchPageUnitViews();
-                          })
+                      ? () {
+                          setState(() => _page++);
+                          if (_gridScroll.hasClients) _gridScroll.jumpTo(0);
+                          _prefetchPageUnitViews();
+                        }
                       : null,
                 ),
               ],

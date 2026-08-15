@@ -13,6 +13,8 @@ import '../../providers/permission_provider.dart';
 import '../../services/api_service.dart';
 import '../../utils/image_source_picker.dart';
 import '../../utils/pos_product_editor_prefs.dart';
+import '../../utils/pos_qty_rules.dart';
+import '../../utils/pos_combo_stock.dart';
 import '../../widgets/notification_overlay.dart';
 import '../main_layout.dart' show ScreenRefreshNotifier;
 import '../../utils/number_formatter.dart';
@@ -42,16 +44,16 @@ class PosProductEditorPage extends StatefulWidget {
 
   final PosProductType productType;
   final PosProduct? product;
-  /// Sao chÈp: m? form thÍm m?i, di?n s?n t? s?n ph?m ngu?n.
+  /// Sao ch√©p: m? form th√™m m?i, di?n s?n t? s?n ph?m ngu?n.
   final PosProduct? templateProduct;
-  /// M? th?ng dialog thi?t l?p don v?/thu?c tÌnh sau khi n?p xong.
+  /// M? th?ng dialog thi?t l?p don v?/thu?c t√≠nh sau khi n?p xong.
   final bool openUnitSetup;
-  /// Chu?n b? nh?p thÍm gi· tr? thu?c tÌnh (h‡ng c˘ng lo?i).
+  /// Chu?n b? nh?p th√™m gi√° tr? thu?c t√≠nh (h√†ng c√πng lo?i).
   final bool unitSetupAddMore;
-  /// M? dialog thi?t l?p v‡ bÙi d?m h‡ng c˘ng lo?i c?n s?a.
+  /// M? dialog thi?t l?p v√† b√¥i d?m h√†ng c√πng lo?i c?n s?a.
   final String? unitSetupFocusVariantId;
 
-  /// M? editor: h‡ng hÛa = dialog KiotViet; d?ch v?/combo = full page.
+  /// M? editor: h√†ng h√≥a = dialog KiotViet; d?ch v?/combo = full page.
   static Future<bool?> open(
     BuildContext context, {
     required PosProductType productType,
@@ -76,7 +78,7 @@ class PosProductEditorPage extends StatefulWidget {
     );
   }
 
-  /// M? th?ng dialog thi?t l?p don v?/thu?c tÌnh d? s?a m?t h‡ng c˘ng lo?i (khÙng m? form cha).
+  /// M? th?ng dialog thi?t l?p don v?/thu?c t√≠nh d? s?a m?t h√†ng c√πng lo?i (kh√¥ng m? form cha).
   static Future<bool?> openVariantUnitSetup(
     BuildContext context, {
     required PosProduct product,
@@ -105,7 +107,7 @@ class PosProductEditorPage extends StatefulWidget {
     final result = await showUnitAttributeSetupDialog(
       context,
       input: UnitAttributeSetupInput(
-        baseUnitName: full.baseUnitName.isEmpty ? 'C·i' : full.baseUnitName,
+        baseUnitName: full.baseUnitName.isEmpty ? 'C√°i' : full.baseUnitName,
         basePrice: full.basePrice,
         costPrice: full.costPrice,
         baseDirectSale: full.isDirectSale,
@@ -260,6 +262,9 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
   late final TextEditingController _roundAfterMinutesCtrl;
   late final TextEditingController _defaultDurationMinutesCtrl;
   late final TextEditingController _sessionPackCountCtrl;
+  late final TextEditingController _openingFeeCtrl;
+  late final TextEditingController _openingMinutesCtrl;
+  late final TextEditingController _sessionPackValidDaysCtrl;
 
   List<PosCatalogItem> _categories = [];
   List<PosCatalogItem> _brands = [];
@@ -280,8 +285,8 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
   bool get _isService => _type == PosProductType.service;
   bool get _isCombo => _type == PosProductType.combo;
   String get _autoCodeHint => _isService
-      ? 'DV00001Ö'
-      : (_isCombo ? 'CB00001Ö' : 'HH00001Ö');
+      ? 'DV00001‚Ä¶'
+      : (_isCombo ? 'CB00001‚Ä¶' : 'HH00001‚Ä¶');
   bool get _isEditing => widget.product != null;
   bool get _hasVariants => _variants.isNotEmpty;
   bool get _usesSharedUnitStock =>
@@ -294,47 +299,47 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
       final unit = _unitCtrl.text.trim();
       return unit.isEmpty ? 'T?n kho (don v? co b?n)' : 'T?n kho ($unit)';
     }
-    return 'T?n kho (t?ng c·c lo?i)';
+    return 'T?n kho (t?ng c√°c lo?i)';
   }
 
   String get _stockFieldHint => _canEditMainStock
-      ? 'Nh?p theo don v? nh? nh?t; –VT kh·c t? quy d?i khi hi?n th?'
-      : 'S?a t?n t?ng bi?n th? ? b?ng bÍn du?i ho?c d˘ng Nh?p kho';
+      ? 'Nh?p theo don v? nh? nh?t; √êVT kh√°c t? quy d?i khi hi?n th?'
+      : 'S?a t?n t?ng bi?n th? ? b?ng b√™n du?i ho?c d√πng Nh?p kho';
   bool get _isCopyFromTemplate =>
       widget.templateProduct != null && widget.product == null;
 
   String get _pageTitle {
     if (_isCopyFromTemplate) {
       return switch (_type) {
-        PosProductType.goods => 'ThÍm h‡ng hÛa (sao chÈp)',
-        PosProductType.service => 'ThÍm d?ch v? (sao chÈp)',
-        PosProductType.combo => 'ThÍm combo (sao chÈp)',
+        PosProductType.goods => 'Th√™m h√†ng h√≥a (sao ch√©p)',
+        PosProductType.service => 'Th√™m d?ch v? (sao ch√©p)',
+        PosProductType.combo => 'Th√™m combo (sao ch√©p)',
       };
     }
     if (!_isEditing) {
       return switch (_type) {
-        PosProductType.goods => 'T?o h‡ng hÛa',
+        PosProductType.goods => 'T?o h√†ng h√≥a',
         PosProductType.service => 'T?o d?ch v?',
-        PosProductType.combo => 'T?o combo - dÛng gÛi',
+        PosProductType.combo => 'T?o combo - d√≥ng g√≥i',
       };
     }
     return switch (_type) {
-      PosProductType.goods => 'S?a h‡ng hÛa',
+      PosProductType.goods => 'S?a h√†ng h√≥a',
       PosProductType.service => 'S?a d?ch v?',
       PosProductType.combo => 'S?a combo',
     };
   }
 
   List<String> get _tabLabels => _showSection(PosProductEditorSection.description)
-      ? const ['ThÙng tin', 'MÙ t?']
-      : const ['ThÙng tin'];
+      ? const ['Th√¥ng tin', 'M√¥ t?']
+      : const ['Th√¥ng tin'];
 
   bool _showSection(PosProductEditorSection section) {
     if (_editorSections.contains(section)) return true;
     return _sectionForcedByProduct(section);
   }
 
-  /// Khi s?a h‡ng d„ cÛ d? li?u n‚ng cao ó v?n hi?n m?c dÛ d˘ prefs t?t.
+  /// Khi s?a h√†ng d√£ c√≥ d? li?u n√¢ng cao ‚Äî v?n hi?n m?c d√≥ d√π prefs t?t.
   bool _sectionForcedByProduct(PosProductEditorSection section) {
     switch (section) {
       case PosProductEditorSection.codes:
@@ -366,7 +371,10 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
       case PosProductEditorSection.serviceBilling:
         return _serviceBillingMode != PosServiceBillingMode.flat ||
             (int.tryParse(_sessionPackCountCtrl.text.trim()) ?? 0) > 0 ||
-            _defaultDurationMinutesCtrl.text.trim().isNotEmpty;
+            _defaultDurationMinutesCtrl.text.trim().isNotEmpty ||
+            _openingFeeCtrl.text.trim().isNotEmpty ||
+            _openingMinutesCtrl.text.trim().isNotEmpty ||
+            _sessionPackValidDaysCtrl.text.trim().isNotEmpty;
       case PosProductEditorSection.description:
         return _descCtrl.text.trim().isNotEmpty || _saleQuickNotes.isNotEmpty;
     }
@@ -450,7 +458,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
             : (_isGoods ? '999999999' : '0')));
     _weightCtrl = TextEditingController(
         text: tr(p?.weight != null ? p!.weight!.toStringAsFixed(0) : ''));
-    _unitCtrl = TextEditingController(text: tr(p?.baseUnitName ?? 'C·i'));
+    _unitCtrl = TextEditingController(text: tr(p?.baseUnitName ?? 'C√°i'));
     _categoryId = p?.categoryId;
     _brandId = p?.brandId;
     _locationId = p?.storageLocationId;
@@ -491,6 +499,17 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
     _sessionPackCountCtrl = TextEditingController(
       text: tr((p?.sessionPackCount ?? 0) > 0 ? '${p!.sessionPackCount}' : ''),
     );
+    _openingFeeCtrl = TextEditingController(
+      text: tr((p?.openingFee ?? 0) > 0 ? _fmtInputMoney(p!.openingFee) : ''),
+    );
+    _openingMinutesCtrl = TextEditingController(
+      text: tr((p?.openingMinutes ?? 0) > 0 ? '${p!.openingMinutes}' : ''),
+    );
+    _sessionPackValidDaysCtrl = TextEditingController(
+      text: tr((p?.sessionPackValidDays ?? 0) > 0
+          ? '${p!.sessionPackValidDays}'
+          : ''),
+    );
     _imagePreviewUrl = p?.imageUrl;
     if (p?.units != null) _units = List.from(p!.units!);
     if (p?.attributes != null) _attributeValues.addAll(p!.attributes!);
@@ -517,7 +536,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
     }
   }
 
-  /// N?p don v?, thu?c tÌnh, th‡nh ph?n combo t? s?n ph?m ngu?n khi sao chÈp.
+  /// N?p don v?, thu?c t√≠nh, th√†nh ph?n combo t? s?n ph?m ngu?n khi sao ch√©p.
   Future<void> _loadTemplateExtras(String sourceId) async {
     final res = await _api.getPosProduct(sourceId);
     if (!mounted || res['isSuccess'] != true) return;
@@ -616,6 +635,13 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
           : '';
       _sessionPackCountCtrl.text =
           data.sessionPackCount > 0 ? '${data.sessionPackCount}' : '';
+      _openingFeeCtrl.text =
+          data.openingFee > 0 ? _fmtInputMoney(data.openingFee) : '';
+      _openingMinutesCtrl.text =
+          (data.openingMinutes ?? 0) > 0 ? '${data.openingMinutes}' : '';
+      _sessionPackValidDaysCtrl.text = data.sessionPackValidDays > 0
+          ? '${data.sessionPackValidDays}'
+          : '';
     });
     if (_isCombo) {
       final comboRes = await _api.getPosComboLines(id);
@@ -649,7 +675,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
     });
   }
 
-  /// N?p dÚng thu?c tÌnh t? schema d„ luu (1 value = "a, b, c" trÍn API).
+  /// N?p d√≤ng thu?c t√≠nh t? schema d√£ luu (1 value = "a, b, c" tr√™n API).
   void _syncVariantAttrsFromProductAttributes() {
     if (_attributeValues.isEmpty) return;
     final grouped = <String, _VariantAttrRow>{};
@@ -687,7 +713,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
         .hasMatch(id);
   }
 
-  /// KhÙi ph?c dÚng thu?c tÌnh t? attributeJson c?a bi?n th? (sau reload/F5).
+  /// Kh√¥i ph?c d√≤ng thu?c t√≠nh t? attributeJson c?a bi?n th? (sau reload/F5).
   void _rebuildVariantAttrsFromVariants() {
     if (_variants.isEmpty) return;
     final grouped = <String, Set<String>>{};
@@ -715,7 +741,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
       }));
   }
 
-  /// Ghi don v? quy d?i + bi?n th? lÍn server (d˘ng cho c? t?o m?i v‡ s?a).
+  /// Ghi don v? quy d?i + bi?n th? l√™n server (d√πng cho c? t?o m?i v√† s?a).
   Future<String?> _syncGoodsUnitsAndVariants(String productId) async {
     final existingRes = await _api.getPosProductUnits(productId);
     final existing = <String, PosProductUnit>{};
@@ -770,9 +796,9 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
     return null;
   }
 
-  InputDecoration _barcodeInputDecoration({String hint = 'Nh?p m„ v?ch'}) {
+  InputDecoration _barcodeInputDecoration({String hint = 'Nh?p m√£ v?ch'}) {
     return posBarcodeScanDecoration(
-      PosTheme.inputDecoration(label: 'M„ v?ch', hint: hint),
+      PosTheme.inputDecoration(label: 'M√£ v?ch', hint: hint),
       controller: _barcodeCtrl,
     );
   }
@@ -799,6 +825,9 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
     _roundAfterMinutesCtrl.dispose();
     _defaultDurationMinutesCtrl.dispose();
     _sessionPackCountCtrl.dispose();
+    _openingFeeCtrl.dispose();
+    _openingMinutesCtrl.dispose();
+    _sessionPackValidDaysCtrl.dispose();
     super.dispose();
   }
 
@@ -813,7 +842,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
     if (picked.bytes.length > 2 * 1024 * 1024) {
       NotificationOverlayManager().showError(
         title: 'L?i',
-        message: tr('?nh khÙng du?c vu?t qu· 2 MB'),
+        message: tr('?nh kh√¥ng du?c vu?t qu√° 2 MB'),
       );
       return;
     }
@@ -849,22 +878,22 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
       NotificationOverlayManager().showError(
         title: 'L?i',
         message: _isService
-            ? 'Vui lÚng nh?p tÍn d?ch v?'
-            : 'Vui lÚng nh?p tÍn h‡ng',
+            ? 'Vui l√≤ng nh?p t√™n d?ch v?'
+            : 'Vui l√≤ng nh?p t√™n h√†ng',
       );
       return;
     }
     if (_categoryId == null || _categoryId!.isEmpty) {
       NotificationOverlayManager().showError(
         title: 'L?i',
-        message: tr('Vui lÚng ch?n nhÛm h‡ng'),
+        message: tr('Vui l√≤ng ch?n nh√≥m h√†ng'),
       );
       return;
     }
     if (_isCombo && _comboLines.isEmpty) {
       NotificationOverlayManager().showError(
         title: 'L?i',
-        message: tr('Combo c?n Ìt nh?t 1 h‡ng th‡nh ph?n'),
+        message: tr('Combo c?n √≠t nh?t 1 h√†ng th√†nh ph?n'),
       );
       return;
     }
@@ -918,7 +947,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
             _weightCtrl.text.trim().isEmpty ? null : _parseNum(_weightCtrl.text),
         'weightUnit': _weightUnit,
         'baseUnitName':
-            _unitCtrl.text.trim().isEmpty ? 'C·i' : _unitCtrl.text.trim(),
+            _unitCtrl.text.trim().isEmpty ? 'C√°i' : _unitCtrl.text.trim(),
       },
       'isDirectSale': _directSale,
       'isFavorite': widget.product?.isFavorite ?? false,
@@ -941,6 +970,10 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
             int.tryParse(_defaultDurationMinutesCtrl.text.trim()),
         'sessionPackCount':
             int.tryParse(_sessionPackCountCtrl.text.trim()) ?? 0,
+        'openingFee': _parseNum(_openingFeeCtrl.text),
+        'openingMinutes': int.tryParse(_openingMinutesCtrl.text.trim()),
+        'sessionPackValidDays':
+            int.tryParse(_sessionPackValidDaysCtrl.text.trim()) ?? 0,
       },
     };
 
@@ -964,7 +997,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
           NotificationOverlayManager().showError(
             title: 'Luu ?nh th?t b?i',
             message: imgRes['message']?.toString() ??
-                'H‡ng hÛa d„ luu nhung ?nh chua du?c g?n. Vui lÚng th? l?i.',
+                'H√†ng h√≥a d√£ luu nhung ?nh chua du?c g?n. Vui l√≤ng th? l?i.',
           );
           return;
         }
@@ -991,7 +1024,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
           if (!mounted) return;
           setState(() => _saving = false);
           NotificationOverlayManager().showError(
-            title: 'Luu chua ho‡n t?t',
+            title: 'Luu chua ho√†n t?t',
             message: syncErr,
           );
           return;
@@ -1016,9 +1049,9 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
           if (!mounted) return;
           setState(() => _saving = false);
           NotificationOverlayManager().showError(
-            title: 'Luu th‡nh ph?n combo th?t b?i',
+            title: 'Luu th√†nh ph?n combo th?t b?i',
             message: comboRes['message']?.toString() ??
-                'H‡ng hÛa d„ luu nhung th‡nh ph?n combo chua du?c g?n. Vui lÚng th? l?i.',
+                'H√†ng h√≥a d√£ luu nhung th√†nh ph?n combo chua du?c g?n. Vui l√≤ng th? l?i.',
           );
           return;
         }
@@ -1031,8 +1064,8 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
       ScreenRefreshNotifier.refreshPosAfterStockChange();
       ScreenRefreshNotifier.refreshPosSellProductGrid();
       NotificationOverlayManager().showSuccess(
-        title: 'Th‡nh cÙng',
-        message: _isEditing ? '–„ luu h‡ng hÛa' : '–„ t?o h‡ng hÛa',
+        title: 'Th√†nh c√¥ng',
+        message: _isEditing ? '√ê√£ luu h√†ng h√≥a' : '√ê√£ t?o h√†ng h√≥a',
       );
       if (createAnother && !_isEditing) {
         _resetForAnother();
@@ -1055,23 +1088,23 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDlg) => AlertDialog(
-          title: Text(tr('T?o m?i nhÛm h‡ng')),
+          title: Text(tr('T?o m?i nh√≥m h√†ng')),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               TextField(
                 controller: nameCtrl,
-                decoration: PosTheme.inputDecoration(label: 'TÍn nhÛm h‡ng'),
+                decoration: PosTheme.inputDecoration(label: 'T√™n nh√≥m h√†ng'),
                 autofocus: true,
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<String?>(
                 value: parentId,
                 decoration: PosTheme.inputDecoration(
-                  label: 'NhÛm cha (tu? ch?n)',
+                  label: 'Nh√≥m cha (tu? ch?n)',
                 ),
                 items: [
-                  DropdownMenuItem(value: null, child: Text(tr('ó KhÙng ó'))),
+                  DropdownMenuItem(value: null, child: Text(tr('‚Äî Kh√¥ng ‚Äî'))),
                   ..._categories.map(
                     (c) => DropdownMenuItem(value: c.id, child: Text(tr(c.name))),
                   ),
@@ -1114,7 +1147,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
     if (!canEdit && !canDelete) {
       NotificationOverlayManager().showError(
         title: 'L?i',
-        message: tr('B?n khÙng cÛ quy?n qu?n l˝ danh m?c'),
+        message: tr('B?n kh√¥ng c√≥ quy?n qu?n l√Ω danh m?c'),
       );
       return;
     }
@@ -1165,7 +1198,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
         title: Text(tr('T?o m?i $title')),
         content: TextField(
           controller: ctrl,
-          decoration: PosTheme.inputDecoration(label: 'TÍn $title'),
+          decoration: PosTheme.inputDecoration(label: 'T√™n $title'),
           autofocus: true,
         ),
         actions: [
@@ -1190,7 +1223,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
     }
   }
 
-  /// T?o NCC form d?y d? (c˘ng API phi?u nh?p) ó khÙng ch? tÍn.
+  /// T?o NCC form d?y d? (c√πng API phi?u nh?p) ‚Äî kh√¥ng ch? t√™n.
   Future<void> _openCreateSupplierFull() async {
     final created = await PosSupplierFormDialog.open(context);
     if (created == null || !mounted) return;
@@ -1219,7 +1252,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
     if (attrs.isEmpty) {
       NotificationOverlayManager().showError(
         title: 'L?i',
-        message: tr('Nh?p Ìt nh?t m?t thu?c tÌnh v‡ gi· tr?'),
+        message: tr('Nh?p √≠t nh?t m?t thu?c t√≠nh v√† gi√° tr?'),
       );
       return;
     }
@@ -1235,8 +1268,8 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
     if (res['isSuccess'] == true) {
       await _loadVariants(widget.product!.id);
       NotificationOverlayManager().showSuccess(
-        title: 'Th‡nh cÙng',
-        message: tr('–„ t?o bi?n th?'),
+        title: 'Th√†nh c√¥ng',
+        message: tr('√ê√£ t?o bi?n th?'),
       );
     } else {
       NotificationOverlayManager().showError(
@@ -1256,7 +1289,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
     if (!mounted) return;
     if (res['isSuccess'] == true) {
       NotificationOverlayManager().showSuccess(
-        title: '–„ luu',
+        title: '√ê√£ luu',
         message: tr('C?p nh?t bi?n th?'),
       );
     } else {
@@ -1284,7 +1317,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
     _autoOpenToppingPopup = true;
     _toppingOptions = [];
     _toppingGroupIds = [];
-    _unitCtrl.text = 'C·i';
+    _unitCtrl.text = 'C√°i';
     _imageBase64 = null;
     _imagePreviewUrl = null;
     _pendingImageBytes = null;
@@ -1383,7 +1416,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                 if (_editorPrefsLoaded && !advancedOn)
                   Padding(
                     padding: const EdgeInsets.only(top: 2),
-                    child: Text(tr('Form g?n ó b?t thÍm m?c trong ? n?u c?n'),
+                    child: Text(tr('Form g?n ‚Äî b?t th√™m m?c trong ? n?u c?n'),
                       style: TextStyle(
                         fontSize: 12,
                         color: Colors.grey.shade600,
@@ -1399,12 +1432,12 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
               advancedOn ? Icons.tune : Icons.tune_outlined,
               color: advancedOn ? PosTheme.kiotBlue : PosTheme.textSecondary,
             ),
-            tooltip: tr('T˘y ch?n hi?n th? form'),
+            tooltip: tr('T√πy ch?n hi?n th? form'),
           ),
           IconButton(
             onPressed: _saving ? null : () => Navigator.pop(context),
             icon: const Icon(Icons.close),
-            tooltip: tr('–Ûng'),
+            tooltip: tr('√ê√≥ng'),
           ),
         ],
       ),
@@ -1427,7 +1460,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
             side: const BorderSide(color: PosTheme.kiotBlue),
             visualDensity: VisualDensity.compact,
           ),
-          child: Text(tr('Luu & t?o thÍm')),
+          child: Text(tr('Luu & t?o th√™m')),
         ),
       ],
       const SizedBox(width: 6),
@@ -1472,7 +1505,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                               setState(() => _directSale = v ?? true),
                         ),
                         Expanded(
-                          child: Text(tr('B·n tr?c ti?p'),
+                          child: Text(tr('B√°n tr?c ti?p'),
                               style: TextStyle(fontSize: 13)),
                         ),
                       ],
@@ -1493,10 +1526,10 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                       onChanged: (v) =>
                           setState(() => _directSale = v ?? true),
                     ),
-                    Text(tr('B·n tr?c ti?p'), style: TextStyle(fontSize: 13)),
+                    Text(tr('B√°n tr?c ti?p'), style: TextStyle(fontSize: 13)),
                     const SizedBox(width: 4),
                     Tooltip(
-                      message: tr('Hi?n th? trÍn m‡n hÏnh b·n h‡ng POS'),
+                      message: tr('Hi?n th? tr√™n m√†n h√¨nh b√°n h√†ng POS'),
                       child: Icon(Icons.info_outline,
                           size: 16, color: Colors.grey.shade500),
                     ),
@@ -1557,7 +1590,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
     return _buildComboInfoTab();
   }
 
-  /// Tab ThÙng tin h‡ng hÛa ó layout gi?ng KiotViet (m?t trang cu?n, nhi?u section).
+  /// Tab Th√¥ng tin h√†ng h√≥a ‚Äî layout gi?ng KiotViet (m?t trang cu?n, nhi?u section).
   Widget _buildGoodsInfoTab() {
     final w = MediaQuery.sizeOf(context).width;
     final wide = w > 640;
@@ -1584,7 +1617,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                   ],
                 ),
           _kvSection(
-            title: 'Gi· v?n, gi· b·n',
+            title: 'Gi√° v?n, gi√° b√°n',
             child: Row(
               children: [
                 Expanded(
@@ -1592,7 +1625,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                     controller: _costCtrl,
                     keyboardType: TextInputType.number,
                     inputFormatters: [ThousandSeparatorFormatter()],
-                    decoration: PosTheme.inputDecoration(label: 'Gi· v?n'),
+                    decoration: PosTheme.inputDecoration(label: 'Gi√° v?n'),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -1601,7 +1634,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                     controller: _priceCtrl,
                     keyboardType: TextInputType.number,
                     inputFormatters: [ThousandSeparatorFormatter()],
-                    decoration: PosTheme.inputDecoration(label: 'Gi· b·n'),
+                    decoration: PosTheme.inputDecoration(label: 'Gi√° b√°n'),
                   ),
                 ),
               ],
@@ -1613,7 +1646,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
           _kvSection(
             title: 'T?n kho',
             subtitle: _showSection(PosProductEditorSection.stockLimits)
-                ? 'Qu?n l˝ s? lu?ng t?n kho v‡ d?nh m?c t?n.'
+                ? 'Qu?n l√Ω s? lu?ng t?n kho v√† d?nh m?c t?n.'
                 : null,
             child: Builder(builder: (context) {
               final narrow = MediaQuery.sizeOf(context).width < 520;
@@ -1633,13 +1666,13 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                 controller: _minStockCtrl,
                 keyboardType: TextInputType.number,
                 decoration: PosTheme.inputDecoration(
-                    label: '–?nh m?c t?n th?p nh?t'),
+                    label: '√ê?nh m?c t?n th?p nh?t'),
               );
               final maxField = TextField(
                 controller: _maxStockCtrl,
                 keyboardType: TextInputType.number,
                 decoration: PosTheme.inputDecoration(
-                    label: '–?nh m?c t?n cao nh?t'),
+                    label: '√ê?nh m?c t?n cao nh?t'),
               );
               if (narrow) {
                 return Column(
@@ -1665,18 +1698,18 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
           ),
           if (_showSection(PosProductEditorSection.locationWeight))
             _kvSection(
-              title: 'V? trÌ, tr?ng lu?ng',
+              title: 'V? tr√≠, tr?ng lu?ng',
               subtitle:
-                  'Qu?n l˝ vi?c s?p x?p kho, v? trÌ b·n h‡ng ho?c tr?ng lu?ng h‡ng hÛa',
+                  'Qu?n l√Ω vi?c s?p x?p kho, v? tr√≠ b√°n h√†ng ho?c tr?ng lu?ng h√†ng h√≥a',
               child: Column(
                 children: [
                   _masterDropdown(
-                    label: 'V? trÌ',
+                    label: 'V? tr√≠',
                     value: _locationId,
                     items: _locations,
                     onChanged: (v) => setState(() => _locationId = v),
                     onCreate: () => _quickCreate(
-                      'v? trÌ',
+                      'v? tr√≠',
                       _api.createPosStorageLocation,
                       (item) {
                         _locations.add(item);
@@ -1700,7 +1733,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                       Expanded(
                         child: DropdownButtonFormField<String>(
                           value: _weightUnit,
-                          decoration: PosTheme.inputDecoration(label: '–VT'),
+                          decoration: PosTheme.inputDecoration(label: '√êVT'),
                           items: [
                             DropdownMenuItem(value: 'g', child: Text(tr('g'))),
                             DropdownMenuItem(value: 'kg', child: Text(tr('kg'))),
@@ -1725,38 +1758,86 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
     if (!_isEditing) return const SizedBox.shrink();
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
-      child: DropdownButtonFormField<PosProductType>(
-        value: _productType,
-        decoration: PosTheme.inputDecoration(label: 'Lo?i h‡ng'),
-        items: [
-          DropdownMenuItem(
-            value: PosProductType.goods,
-            child: Text(tr('H‡ng hÛa')),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          DropdownButtonFormField<PosProductType>(
+            value: _productType,
+            decoration: PosTheme.inputDecoration(label: 'Lo·∫°i h√†ng'),
+            items: [
+              DropdownMenuItem(
+                value: PosProductType.goods,
+                child: Text(tr('H√†ng h√≥a')),
+              ),
+              DropdownMenuItem(
+                value: PosProductType.service,
+                child: Text(tr('D·ªãch v·ª•')),
+              ),
+              DropdownMenuItem(
+                value: PosProductType.combo,
+                child: Text(tr('Combo / ƒê√≥ng g√≥i')),
+              ),
+            ],
+            onChanged: (v) {
+              if (v == null || v == _productType) return;
+              setState(() {
+                final wasCombo = _isCombo;
+                _productType = v;
+                if (v != PosProductType.combo) {
+                  _comboLines.clear();
+                } else if (!wasCombo) {
+                  _comboLines.clear();
+                }
+                if (v == PosProductType.service || v == PosProductType.combo) {
+                  _stockCtrl.text = '0';
+                }
+              });
+            },
           ),
-          DropdownMenuItem(
-            value: PosProductType.service,
-            child: Text(tr('D?ch v?')),
-          ),
-          DropdownMenuItem(
-            value: PosProductType.combo,
-            child: Text(tr('Combo / –Ûng gÛi')),
+          const SizedBox(height: 8),
+          _buildTypeUsageNote(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTypeUsageNote() {
+    final (color, icon, text) = switch (_type) {
+      PosProductType.service => (
+          const Color(0xFF0369A1),
+          Icons.handyman_outlined,
+          'D·ªãch v·ª• kh√¥ng qu·∫£n l√Ω t·ªìn kho ‚Äî b√°n kh√¥ng tr·ª´ kho. D√πng cho c√¥ng, spa, t√≠nh gi·ªù, g√≥i bu·ªïi.',
+        ),
+      PosProductType.combo => (
+          const Color(0xFFB45309),
+          Icons.layers_outlined,
+          'Combo kh√¥ng c√≥ t·ªìn ri√™ng. Khai ƒë·ªãnh l∆∞·ª£ng th√†nh ph·∫ßn (SL / 1 combo, ƒë∆∞·ª£c ph√©p l·∫ª). Khi b√°n, kho tr·ª´ ƒë√∫ng SL t·ª´ng h√†ng th√†nh ph·∫ßn.',
+        ),
+      PosProductType.goods => (
+          PosTheme.kiotBlue,
+          Icons.inventory_2_outlined,
+          'H√†ng h√≥a qu·∫£n l√Ω t·ªìn. Nh·∫≠p kho r·ªìi b√°n s·∫Ω tr·ª´ ƒë√∫ng s·ªë l∆∞·ª£ng.',
+        ),
+    };
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: color.withOpacity(0.25)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 18, color: color),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              tr(text),
+              style: TextStyle(fontSize: 12.5, height: 1.35, color: color),
+            ),
           ),
         ],
-        onChanged: (v) {
-          if (v == null || v == _productType) return;
-          setState(() {
-            final wasCombo = _isCombo;
-            _productType = v;
-            if (v != PosProductType.combo) {
-              _comboLines.clear();
-            } else if (!wasCombo) {
-              _comboLines.clear();
-            }
-            if (v == PosProductType.service || v == PosProductType.combo) {
-              _stockCtrl.text = '0';
-            }
-          });
-        },
       ),
     );
   }
@@ -1773,7 +1854,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                 child: TextField(
                   controller: _codeCtrl,
                   decoration: PosTheme.inputDecoration(
-                    label: 'M„ h‡ng',
+                    label: 'M√£ h√†ng',
                     hint: _autoCodeHint,
                   ),
                 ),
@@ -1791,11 +1872,11 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
         ],
         TextField(
           controller: _nameCtrl,
-          decoration: PosTheme.inputDecoration(label: 'TÍn h‡ng *'),
+          decoration: PosTheme.inputDecoration(label: 'T√™n h√†ng *'),
         ),
         const SizedBox(height: 12),
         _masterDropdown(
-          label: 'NhÛm h‡ng *',
+          label: 'Nh√≥m h√†ng *',
           value: _categoryId,
           items: _categories,
           onChanged: (v) => setState(() => _categoryId = v),
@@ -1820,7 +1901,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
           ),
         if (_isGoods && _showSection(PosProductEditorSection.supplier))
           _masterDropdown(
-            label: 'Nh‡ cung c?p',
+            label: 'Nh√† cung c?p',
             value: _supplierId,
             items: _suppliers,
             onChanged: (v) => setState(() => _supplierId = v),
@@ -1831,7 +1912,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
     );
   }
 
-  /// D?ch v? ó gi?ng KiotViet: thÙng tin co b?n + gi· + don v?/thu?c tÌnh.
+  /// D?ch v? ‚Äî gi?ng KiotViet: th√¥ng tin co b?n + gi√° + don v?/thu?c t√≠nh.
   Widget _buildServiceInfoTab() {
     final wide = MediaQuery.sizeOf(context).width > 640;
     return SingleChildScrollView(
@@ -1856,7 +1937,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                   ],
                 ),
           _kvExpansion(
-            title: 'Gi· v?n, gi· b·n',
+            title: 'Gi√° v?n, gi√° b√°n',
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -1867,7 +1948,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                         controller: _costCtrl,
                         keyboardType: TextInputType.number,
                         inputFormatters: [ThousandSeparatorFormatter()],
-                        decoration: PosTheme.inputDecoration(label: 'Gi· v?n'),
+                        decoration: PosTheme.inputDecoration(label: 'Gi√° v?n'),
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -1876,7 +1957,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                         controller: _priceCtrl,
                         keyboardType: TextInputType.number,
                         inputFormatters: [ThousandSeparatorFormatter()],
-                        decoration: PosTheme.inputDecoration(label: 'Gi· b·n'),
+                        decoration: PosTheme.inputDecoration(label: 'Gi√° b√°n'),
                       ),
                     ),
                   ],
@@ -1887,14 +1968,14 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
           ),
           if (_showSection(PosProductEditorSection.serviceBilling))
             _kvExpansion(
-              title: 'TÌnh gi? / gÛi bu?i',
+              title: 'T√≠nh gi·ªù / g√≥i bu·ªïi',
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   DropdownButtonFormField<PosServiceBillingMode>(
                     value: _serviceBillingMode,
-                    decoration:
-                        PosTheme.inputDecoration(label: 'C·ch tÌnh gi· d?ch v?'),
+                    decoration: PosTheme.inputDecoration(
+                        label: 'C√°ch t√≠nh gi√° d·ªãch v·ª•'),
                     items: PosServiceBillingMode.values
                         .map((m) => DropdownMenuItem(
                               value: m,
@@ -1903,7 +1984,21 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                         .toList(),
                     onChanged: (v) {
                       if (v == null) return;
-                      setState(() => _serviceBillingMode = v);
+                      setState(() {
+                        _serviceBillingMode = v;
+                        if (v == PosServiceBillingMode.perBlock &&
+                            _billRoundMinutesCtrl.text.trim().isEmpty) {
+                          _billRoundMinutesCtrl.text = '5';
+                        }
+                        if (v == PosServiceBillingMode.perDay &&
+                            _billRoundMinutesCtrl.text.trim().isEmpty) {
+                          _billRoundMinutesCtrl.text = '1440';
+                        }
+                        if (v == PosServiceBillingMode.perDay &&
+                            _minBillMinutesCtrl.text.trim().isEmpty) {
+                          _minBillMinutesCtrl.text = '1440';
+                        }
+                      });
                     },
                   ),
                   if (_serviceBillingMode.isTimed) ...[
@@ -1912,10 +2007,39 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                       children: [
                         Expanded(
                           child: TextField(
+                            controller: _openingFeeCtrl,
+                            keyboardType: TextInputType.number,
+                            onChanged: (_) => setState(() {}),
+                            decoration: PosTheme.inputDecoration(
+                              label: 'Ph√≠ m·ªü ph√≤ng / b√†n',
+                              hint: 'VD 50.000',
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: TextField(
+                            controller: _openingMinutesCtrl,
+                            keyboardType: TextInputType.number,
+                            onChanged: (_) => setState(() {}),
+                            decoration: PosTheme.inputDecoration(
+                              label: 'Ph√∫t g·ªìm trong ph√≠ m·ªü',
+                              hint: '0 = t√≠nh ngay',
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
                             controller: _minBillMinutesCtrl,
                             keyboardType: TextInputType.number,
+                            onChanged: (_) => setState(() {}),
                             decoration: PosTheme.inputDecoration(
-                              label: 'Ph˙t t?i thi?u',
+                              label: 'Ph√∫t t·ªëi thi·ªÉu',
                               hint: 'VD 60',
                             ),
                           ),
@@ -1925,9 +2049,22 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                           child: TextField(
                             controller: _billRoundMinutesCtrl,
                             keyboardType: TextInputType.number,
+                            onChanged: (_) => setState(() {}),
                             decoration: PosTheme.inputDecoration(
-                              label: 'L‡m trÚn (ph˙t)',
-                              hint: 'VD 15',
+                              label: _serviceBillingMode ==
+                                      PosServiceBillingMode.perBlock
+                                  ? 'M·ªói block (ph√∫t)'
+                                  : _serviceBillingMode ==
+                                          PosServiceBillingMode.perDay
+                                      ? 'L√†m tr√≤n ng√†y (ph√∫t)'
+                                      : 'L√†m tr√≤n (ph√∫t)',
+                              hint: _serviceBillingMode ==
+                                      PosServiceBillingMode.perBlock
+                                  ? 'VD 5'
+                                  : _serviceBillingMode ==
+                                          PosServiceBillingMode.perDay
+                                      ? '1440 = 1 ng√†y'
+                                      : 'VD 15',
                             ),
                           ),
                         ),
@@ -1940,9 +2077,10 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                           child: TextField(
                             controller: _graceMinutesCtrl,
                             keyboardType: TextInputType.number,
+                            onChanged: (_) => setState(() {}),
                             decoration: PosTheme.inputDecoration(
-                              label: 'Ph˙t mi?n (grace)',
-                              hint: 'VD 5ñ10',
+                              label: 'Ph√∫t mi·ªÖn (grace)',
+                              hint: 'VD 5‚Äì10',
                             ),
                           ),
                         ),
@@ -1951,14 +2089,17 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                           child: TextField(
                             controller: _roundAfterMinutesCtrl,
                             keyboardType: TextInputType.number,
+                            onChanged: (_) => setState(() {}),
                             decoration: PosTheme.inputDecoration(
-                              label: 'L‡m trÚn sau (ph˙t)',
-                              hint: '0 = luÙn l‡m trÚn',
+                              label: 'L√†m tr√≤n sau (ph√∫t)',
+                              hint: '0 = lu√¥n l√†m tr√≤n',
                             ),
                           ),
                         ),
                       ],
                     ),
+                    const SizedBox(height: 12),
+                    _buildTimedBillingPreview(),
                   ],
                   const SizedBox(height: 12),
                   Row(
@@ -1968,7 +2109,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                           controller: _defaultDurationMinutesCtrl,
                           keyboardType: TextInputType.number,
                           decoration: PosTheme.inputDecoration(
-                            label: 'Th?i lu?ng m?c d?nh (ph˙t)',
+                            label: 'Th·ªùi l∆∞·ª£ng m·∫∑c ƒë·ªãnh (ph√∫t)',
                           ),
                         ),
                       ),
@@ -1978,18 +2119,86 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                           controller: _sessionPackCountCtrl,
                           keyboardType: TextInputType.number,
                           decoration: PosTheme.inputDecoration(
-                            label: 'S? bu?i trong gÛi',
-                            hint: '0 = khÙng ph?i gÛi',
+                            label: 'S·ªë bu·ªïi trong g√≥i',
+                            hint: '0 = kh√¥ng ph·∫£i g√≥i',
                           ),
                         ),
                       ),
                     ],
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _sessionPackValidDaysCtrl,
+                    keyboardType: TextInputType.number,
+                    decoration: PosTheme.inputDecoration(
+                      label: 'H·∫°n g√≥i (ng√†y)',
+                      hint: '0 = kh√¥ng h·∫°n ‚Äî li·ªáu tr√¨nh / th·∫ª t·∫≠p',
+                    ),
                   ),
                 ],
               ),
             ),
           if (_showSection(PosProductEditorSection.unitsVariants))
             _buildUnitsAttributesExpansion(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTimedBillingPreview() {
+    final price = _parseNum(_priceCtrl.text);
+    final openingFee = _parseNum(_openingFeeCtrl.text);
+    final openingMinutes = int.tryParse(_openingMinutesCtrl.text.trim());
+    final minBill = int.tryParse(_minBillMinutesCtrl.text.trim());
+    final round = int.tryParse(_billRoundMinutesCtrl.text.trim());
+    final grace = int.tryParse(_graceMinutesCtrl.text.trim());
+    final roundAfter = int.tryParse(_roundAfterMinutesCtrl.text.trim());
+    final rows = PosServiceBillingCalc.preview(
+      mode: _serviceBillingMode,
+      unitPrice: price,
+      minBillMinutes: minBill,
+      billRoundMinutes: round,
+      graceMinutes: grace,
+      roundAfterMinutes: roundAfter,
+      openingFee: openingFee,
+      openingMinutes: openingMinutes,
+    );
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: Colors.black.withOpacity(0.04),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            tr('Xem tr∆∞·ªõc ti·ªÅn gi·ªù (karaoke / bi-a / KS)'),
+            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            tr('C√¥ng th·ª©c: ph√≠ m·ªü + s·ªë block v∆∞·ª£t √ó ƒë∆°n gi√°. VD m·ªü 50k, m·ªói 5 ph√∫t +10k.'),
+            style: TextStyle(fontSize: 11, color: Colors.grey.shade700),
+          ),
+          const SizedBox(height: 8),
+          for (final r in rows)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 1),
+              child: Row(
+                children: [
+                  Expanded(child: Text(tr('${r.elapsed} ph√∫t'))),
+                  Expanded(child: Text(tr('t√≠nh ${r.billable}p'))),
+                  Expanded(child: Text(tr('√ó${r.qty}'))),
+                  Expanded(
+                    child: Text(
+                      tr(_moneyFmt.format(r.total.round())),
+                      textAlign: TextAlign.right,
+                    ),
+                  ),
+                ],
+              ),
+            ),
         ],
       ),
     );
@@ -2007,7 +2216,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                 child: TextField(
                   controller: _codeCtrl,
                   decoration: PosTheme.inputDecoration(
-                    label: 'M„ h‡ng',
+                    label: 'M√£ h√†ng',
                     hint: _autoCodeHint,
                   ),
                 ),
@@ -2025,11 +2234,11 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
         ],
         TextField(
           controller: _nameCtrl,
-          decoration: PosTheme.inputDecoration(label: 'TÍn h‡ng *'),
+          decoration: PosTheme.inputDecoration(label: 'T√™n h√†ng *'),
         ),
         const SizedBox(height: 12),
         _masterDropdown(
-          label: 'NhÛm h‡ng *',
+          label: 'Nh√≥m h√†ng *',
           value: _categoryId,
           items: _categories,
           onChanged: (v) => setState(() => _categoryId = v),
@@ -2056,7 +2265,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
     );
   }
 
-  /// Combo ó gi?ng KiotViet: th‡nh ph?n + gi· + v? trÌ + don v?/thu?c tÌnh.
+  /// Combo ‚Äî gi?ng KiotViet: th√†nh ph?n + gi√° + v? tr√≠ + don v?/thu?c t√≠nh.
   Widget _buildComboInfoTab() {
     final wide = MediaQuery.sizeOf(context).width > 640;
     return SingleChildScrollView(
@@ -2081,12 +2290,14 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                   ],
                 ),
           _kvExpansion(
-            title: 'H‡ng th‡nh ph?n',
+            title: 'H√†ng th√†nh ph·∫ßn ‚Äî ƒë·ªãnh l∆∞·ª£ng tr·ª´ kho',
+            subtitle:
+                'M·ªói d√≤ng = SL tr·ª´ kho khi b√°n 1 combo. B·∫•m c·ªôt SL ƒë·ªÉ s·ª≠a (ƒë∆∞·ª£c ph√©p l·∫ª).',
             initiallyExpanded: true,
             child: _buildComboComponentsSection(),
           ),
           _kvExpansion(
-            title: 'Gi· b·n',
+            title: 'Gi√° b√°n',
             child: Row(
               children: [
                 Expanded(
@@ -2094,7 +2305,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                     controller: _priceCtrl,
                     keyboardType: TextInputType.number,
                     inputFormatters: [ThousandSeparatorFormatter()],
-                    decoration: PosTheme.inputDecoration(label: 'Gi· b·n'),
+                    decoration: PosTheme.inputDecoration(label: 'Gi√° b√°n'),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -2105,7 +2316,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                       color: PosTheme.kiotBlueLight,
                       borderRadius: BorderRadius.circular(4),
                     ),
-                    child: Text(tr('T?ng GT th‡nh ph?n: ${_moneyFmt.format(_comboComponentsSum)}'),
+                    child: Text(tr('T?ng GT th√†nh ph?n: ${_moneyFmt.format(_comboComponentsSum)}'),
                       style: const TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
@@ -2120,18 +2331,18 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
           _buildProductVatSection(),
           if (_showSection(PosProductEditorSection.locationWeight))
             _kvExpansion(
-              title: 'V? trÌ, tr?ng lu?ng',
+              title: 'V? tr√≠, tr?ng lu?ng',
               subtitle:
-                  'Qu?n l˝ vi?c s?p x?p kho, v? trÌ b·n h‡ng ho?c tr?ng lu?ng h‡ng hÛa',
+                  'Qu?n l√Ω vi?c s?p x?p kho, v? tr√≠ b√°n h√†ng ho?c tr?ng lu?ng h√†ng h√≥a',
               child: Column(
                 children: [
                   _masterDropdown(
-                    label: 'V? trÌ',
+                    label: 'V? tr√≠',
                     value: _locationId,
                     items: _locations,
                     onChanged: (v) => setState(() => _locationId = v),
                     onCreate: () => _quickCreate(
-                      'v? trÌ',
+                      'v? tr√≠',
                       _api.createPosStorageLocation,
                       (item) {
                         _locations.add(item);
@@ -2155,7 +2366,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                       Expanded(
                         child: DropdownButtonFormField<String>(
                           value: _weightUnit,
-                          decoration: PosTheme.inputDecoration(label: '–VT'),
+                          decoration: PosTheme.inputDecoration(label: '√êVT'),
                           items: [
                             DropdownMenuItem(value: 'g', child: Text(tr('g'))),
                             DropdownMenuItem(value: 'kg', child: Text(tr('kg'))),
@@ -2188,7 +2399,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                 child: TextField(
                   controller: _codeCtrl,
                   decoration: PosTheme.inputDecoration(
-                    label: 'M„ h‡ng',
+                    label: 'M√£ h√†ng',
                     hint: _autoCodeHint,
                   ),
                 ),
@@ -2206,11 +2417,11 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
         ],
         TextField(
           controller: _nameCtrl,
-          decoration: PosTheme.inputDecoration(label: 'TÍn h‡ng *'),
+          decoration: PosTheme.inputDecoration(label: 'T√™n h√†ng *'),
         ),
         const SizedBox(height: 12),
         _masterDropdown(
-          label: 'NhÛm h‡ng *',
+          label: 'Nh√≥m h√†ng *',
           value: _categoryId,
           items: _categories,
           onChanged: (v) => setState(() => _categoryId = v),
@@ -2222,6 +2433,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
   }
 
   Widget _buildComboComponentsSection() {
+    final sellable = _comboLines.isEmpty ? 0.0 : computeComboSellableQty(_comboLines);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -2229,7 +2441,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
           readOnly: true,
           onTap: _addComboComponent,
           decoration: InputDecoration(
-            hintText: tr('ThÍm h‡ng th‡nh ph?n'),
+            hintText: tr('Th√™m h√†ng th√†nh ph·∫ßn'),
             prefixIcon: const Icon(Icons.search, size: 20),
             filled: true,
             fillColor: Colors.white,
@@ -2243,6 +2455,19 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
             ),
           ),
         ),
+        if (_comboLines.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Text(
+            tr(sellable <= 0
+                ? 'Hi·ªán kh√¥ng ƒë·ªß th√†nh ph·∫ßn ƒë·ªÉ b√°n combo.'
+                : 'C√≥ th·ªÉ b√°n kho·∫£ng ${PosQtyRules.format(sellable, allowDecimal: false)} combo (theo th√†nh ph·∫ßn √≠t nh·∫•t).'),
+            style: TextStyle(
+              fontSize: 12.5,
+              fontWeight: FontWeight.w600,
+              color: sellable <= 0 ? Colors.red.shade700 : const Color(0xFFB45309),
+            ),
+          ),
+        ],
         const SizedBox(height: 12),
         if (_comboLines.isEmpty)
           Container(
@@ -2252,7 +2477,8 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
               border: Border.all(color: PosTheme.border),
               borderRadius: BorderRadius.circular(4),
             ),
-            child: Text(tr('Chua cÛ h‡ng th‡nh ph?n'),
+            child: Text(
+              tr('Ch∆∞a c√≥ h√†ng th√†nh ph·∫ßn ‚Äî th√™m ƒë·ªÉ tr·ª´ kho theo ƒë·ªãnh l∆∞·ª£ng'),
               style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
             ),
           )
@@ -2265,21 +2491,21 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
               columnSpacing: 16,
               columns: [
                 DataColumn(label: Text(tr('STT'), style: TextStyle(fontSize: 12))),
-                DataColumn(label: Text(tr('M„ h‡ng'), style: TextStyle(fontSize: 12))),
+                DataColumn(label: Text(tr('M√£ h√†ng'), style: TextStyle(fontSize: 12))),
                 DataColumn(
-                    label: Text(tr('TÍn h‡ng th‡nh ph?n'),
+                    label: Text(tr('T√™n h√†ng th√†nh ph·∫ßn'),
                         style: TextStyle(fontSize: 12))),
                 DataColumn(
-                    label: Text(tr('SL'), style: TextStyle(fontSize: 12)),
+                    label: Text(tr('ƒê·ªãnh l∆∞·ª£ng / 1 combo'),
+                        style: TextStyle(fontSize: 12)),
                     numeric: true),
                 DataColumn(
-                    label: Text(tr('Gi· v?n'), style: TextStyle(fontSize: 12)),
+                    label: Text(tr('ƒêVT'), style: TextStyle(fontSize: 12))),
+                DataColumn(
+                    label: Text(tr('Gi√° v·ªën'), style: TextStyle(fontSize: 12)),
                     numeric: true),
                 DataColumn(
-                    label: Text(tr('T?ng GV'), style: TextStyle(fontSize: 12)),
-                    numeric: true),
-                DataColumn(
-                    label: Text(tr('Gi· b·n'), style: TextStyle(fontSize: 12)),
+                    label: Text(tr('T·ªïng GV'), style: TextStyle(fontSize: 12)),
                     numeric: true),
                 DataColumn(label: Text('', style: TextStyle(fontSize: 12))),
               ],
@@ -2287,15 +2513,37 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                 final i = e.key;
                 final c = e.value;
                 final lineCost = c.componentBasePrice * c.qty;
+                final qtyText =
+                    '${PosQtyRules.format(c.qty, allowDecimal: true)}${c.componentUnitName.isNotEmpty ? ' ${c.componentUnitName}' : ''}';
                 return DataRow(
                   cells: [
                     DataCell(Text(tr('${i + 1}'))),
                     DataCell(Text(tr(c.componentProductCode))),
                     DataCell(Text(tr(c.componentProductName))),
-                    DataCell(Text(tr(c.qty.toStringAsFixed(0)))),
+                    DataCell(
+                      Text(
+                        qtyText,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w700,
+                          decoration: TextDecoration.underline,
+                          decorationStyle: TextDecorationStyle.dotted,
+                        ),
+                      ),
+                      showEditIcon: true,
+                      onTap: () async {
+                        final q = await showComboComponentQtyDialog(
+                          context,
+                          initialQty: c.qty,
+                        );
+                        if (q == null || !mounted) return;
+                        setState(() => _comboLines[i] = c.copyWith(qty: q));
+                      },
+                    ),
+                    DataCell(Text(tr(c.componentUnitName.isEmpty
+                        ? '‚Äî'
+                        : c.componentUnitName))),
                     DataCell(Text(tr(_moneyFmt.format(c.componentBasePrice)))),
                     DataCell(Text(tr(_moneyFmt.format(lineCost)))),
-                    DataCell(Text(tr(_moneyFmt.format(c.componentBasePrice)))),
                     DataCell(
                       IconButton(
                         icon: const Icon(Icons.close, size: 18),
@@ -2314,8 +2562,8 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
 
   Widget _buildProductWarrantySection() {
     return _kvSection(
-      title: 'B?o h‡nh, seri & lÙ/HSD',
-      subtitle: 'BH tÌnh t? ng‡y b·n. B?t theo dıi HSD d? nh?p lÙ khi nh?p h‡ng.',
+      title: 'B?o h√†nh, seri & l√¥/HSD',
+      subtitle: 'BH t√≠nh t? ng√†y b√°n. B?t theo d√µi HSD d? nh?p l√¥ khi nh?p h√†ng.',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -2324,15 +2572,15 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
             keyboardType: TextInputType.number,
             inputFormatters: [FilteringTextInputFormatter.digitsOnly],
             decoration: PosTheme.inputDecoration(
-              label: 'Th?i h?n b?o h‡nh (th·ng)',
-              hint: 'VD: 12 ó d? tr?ng n?u khÙng BH',
+              label: 'Th?i h?n b?o h√†nh (th√°ng)',
+              hint: 'VD: 12 ‚Äî d? tr?ng n?u kh√¥ng BH',
             ),
           ),
           const SizedBox(height: 8),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
-            title: Text(tr('B?t bu?c nh?p seri m·y khi b·n')),
-            subtitle: Text(tr('M?i don v? b·n ph?i cÛ seri riÍng (m·y di?n t?, thi?t b?...)'),
+            title: Text(tr('B?t bu?c nh?p seri m√°y khi b√°n')),
+            subtitle: Text(tr('M?i don v? b√°n ph?i c√≥ seri ri√™ng (m√°y di?n t?, thi?t b?...)'),
               style: TextStyle(fontSize: 12),
             ),
             value: _requiresSerial,
@@ -2343,9 +2591,9 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
           ),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
-            title: Text(tr('Cho phÈp s? lu?ng th?p ph‚n')),
+            title: Text(tr('Cho ph√©p s? lu?ng th?p ph√¢n')),
             subtitle: Text(
-              tr('B?t d? b·n/nh?p 0.5, 1.25Ö (vd kg, lÌt). T?t = ch? s? nguyÍn.'),
+              tr('B?t d? b√°n/nh?p 0.5, 1.25‚Ä¶ (vd kg, l√≠t). T?t = ch? s? nguy√™n.'),
               style: TextStyle(fontSize: 12),
             ),
             value: _allowDecimalQty,
@@ -2355,8 +2603,8 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
           ),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
-            title: Text(tr('Theo dıi lÙ / HSD')),
-            subtitle: Text(tr('B?t bu?c nh?p HSD trÍn phi?u nh?p h‡ng'),
+            title: Text(tr('Theo d√µi l√¥ / HSD')),
+            subtitle: Text(tr('B?t bu?c nh?p HSD tr√™n phi?u nh?p h√†ng'),
               style: TextStyle(fontSize: 12),
             ),
             value: _trackExpiry,
@@ -2369,7 +2617,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
               keyboardType: TextInputType.number,
               inputFormatters: [FilteringTextInputFormatter.digitsOnly],
               decoration: PosTheme.inputDecoration(
-                label: 'C?nh b·o tru?c HSD (ng‡y)',
+                label: 'C?nh b√°o tru?c HSD (ng√†y)',
                 hint: 'M?c d?nh 30',
               ),
             ),
@@ -2406,7 +2654,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
           if (_vatExempt)
             Padding(
               padding: const EdgeInsets.only(top: 6),
-              child: Text(tr('KhÙng ch?u thu? GTGT ó ·p d?ng khi c?a h‡ng ch?n thu? theo t?ng m?t h‡ng'),
+              child: Text(tr('Kh√¥ng ch?u thu? GTGT ‚Äî √°p d?ng khi c?a h√†ng ch?n thu? theo t?ng m?t h√†ng'),
                 style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
               ),
             ),
@@ -2498,7 +2746,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
           ),
         ),
         const SizedBox(height: 6),
-        Text(tr('M?i ?nh khÙng qu· 2 MB'),
+        Text(tr('M?i ?nh kh√¥ng qu√° 2 MB'),
           style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
           textAlign: TextAlign.center,
         ),
@@ -2624,7 +2872,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
       context,
       input: UnitAttributeSetupInput(
         baseUnitName: _unitCtrl.text.trim().isEmpty
-            ? 'C·i'
+            ? 'C√°i'
             : _unitCtrl.text.trim(),
         basePrice: _parseNum(_priceCtrl.text),
         costPrice: _parseNum(_costCtrl.text),
@@ -2673,7 +2921,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                     ));
           }));
       });
-      // –?ng b? _variants t? server ó ngu?n d˙ng cho s? h‡ng c˘ng lo?i
+      // √ê?ng b? _variants t? server ‚Äî ngu?n d√∫ng cho s? h√†ng c√πng lo?i
       if (_variants.length != result.variants.length) {
         setState(() {});
       }
@@ -2681,18 +2929,18 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
           (result.extraUnits.isNotEmpty || result.variants.isNotEmpty)) {
         NotificationOverlayManager().showError(
           title: 'D? li?u chua du?c luu',
-          message: tr('Thi?t l?p chua ghi lÍn server. Vui lÚng th? Luu l?i ho?c b?m Luu h‡ng hÛa.'),
+          message: tr('Thi?t l?p chua ghi l√™n server. Vui l√≤ng th? Luu l?i ho?c b?m Luu h√†ng h√≥a.'),
         );
       } else if (result.variants.isNotEmpty || result.extraUnits.isNotEmpty) {
         NotificationOverlayManager().showSuccess(
-          title: 'Th‡nh cÙng',
-          message: tr('–„ luu thi?t l?p don v? tÌnh v‡ thu?c tÌnh.'),
+          title: 'Th√†nh c√¥ng',
+          message: tr('√ê√£ luu thi?t l?p don v? t√≠nh v√† thu?c t√≠nh.'),
         );
       }
     } else {
       NotificationOverlayManager().showWarning(
-        title: 'Chua luu lÍn server',
-        message: tr('B?m ´Luuª trÍn form h‡ng hÛa d? ghi don v? tÌnh v‡ bi?n th? v‡o h? th?ng.'),
+        title: 'Chua luu l√™n server',
+        message: tr('B?m ¬´Luu¬ª tr√™n form h√†ng h√≥a d? ghi don v? t√≠nh v√† bi?n th? v√†o h? th?ng.'),
       );
     }
 
@@ -2740,7 +2988,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
     });
   }
 
-  /// Sau khi n?p t? server, uu tiÍn s? lu?ng th?c t? trÍn DB.
+  /// Sau khi n?p t? server, uu ti√™n s? lu?ng th?c t? tr√™n DB.
   int get _displayVariantCount =>
       _variants.isNotEmpty ? _variants.length : _expectedVariantCount();
 
@@ -2762,25 +3010,25 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
 
   Widget _buildUnitsAttributesExpansion() {
     final baseName =
-        _unitCtrl.text.trim().isEmpty ? 'C·i' : _unitCtrl.text.trim();
+        _unitCtrl.text.trim().isEmpty ? 'C√°i' : _unitCtrl.text.trim();
     final extraUnits = _units.where((u) => !u.isBaseUnit).toList();
     final narrow = MediaQuery.sizeOf(context).width < 520;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // óó –on v? co b?n (t·ch riÍng) óó
+        // ‚Äî‚Äî √êon v? co b?n (t√°ch ri√™ng) ‚Äî‚Äî
         _kvSection(
-          title: '–on v? tÌnh co b?n',
-          subtitle: '–on v? nh? nh?t d˘ng d? qu?n l˝ t?n kho (vd: C·i, Kg, Chai).',
+          title: '√êon v? t√≠nh co b?n',
+          subtitle: '√êon v? nh? nh?t d√πng d? qu?n l√Ω t?n kho (vd: C√°i, Kg, Chai).',
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               TextField(
                 controller: _unitCtrl,
                 decoration: PosTheme.inputDecoration(
-                  label: 'TÍn don v? co b?n *',
-                  hint: 'C·i',
+                  label: 'T√™n don v? co b?n *',
+                  hint: 'C√°i',
                 ),
                 onChanged: (_) => setState(() {}),
               ),
@@ -2803,7 +3051,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                         ),
                       ),
                     ),
-                    Text(tr('Gi· b·n: ${_moneyFmt.format(_parseNum(_priceCtrl.text))}'),
+                    Text(tr('Gi√° b√°n: ${_moneyFmt.format(_parseNum(_priceCtrl.text))}'),
                       style: const TextStyle(
                         fontSize: 13,
                         color: PosTheme.kiotBlue,
@@ -2816,18 +3064,18 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
             ],
           ),
         ),
-        // óó –on v? quy d?i (t·ch riÍng) óó
+        // ‚Äî‚Äî √êon v? quy d?i (t√°ch ri√™ng) ‚Äî‚Äî
         _kvSection(
-          title: '–on v? quy d?i',
+          title: '√êon v? quy d?i',
           subtitle:
-              '–on v? b·n l?n hon, cÛ h? s? quy d?i v? don v? co b?n (vd: Th˘ng = 24 C·i).',
+              '√êon v? b√°n l?n hon, c√≥ h? s? quy d?i v? don v? co b?n (vd: Th√πng = 24 C√°i).',
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               if (extraUnits.isEmpty)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 8),
-                  child: Text(tr('Chua cÛ don v? quy d?i. ThÍm n?u b·n theo l?c/th˘ng/h?pÖ'),
+                  child: Text(tr('Chua c√≥ don v? quy d?i. Th√™m n?u b√°n theo l?c/th√πng/h?p‚Ä¶'),
                     style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
                   ),
                 )
@@ -2862,7 +3110,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                                   color: Colors.grey.shade700,
                                 ),
                               ),
-                              Text(tr('Gi·: ${_moneyFmt.format(u.basePrice)}'),
+                              Text(tr('Gi√°: ${_moneyFmt.format(u.basePrice)}'),
                                 style: const TextStyle(
                                   fontSize: 12,
                                   color: PosTheme.kiotBlue,
@@ -2886,23 +3134,23 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                 child: TextButton.icon(
                   onPressed: _openUnitAttributeSetup,
                   icon: const Icon(Icons.add, size: 18),
-                  label: Text(tr('ThÍm don v? quy d?i')),
+                  label: Text(tr('Th√™m don v? quy d?i')),
                   style: TextButton.styleFrom(foregroundColor: PosTheme.kiotBlue),
                 ),
               ),
             ],
           ),
         ),
-        // óó Thu?c tÌnh / h‡ng c˘ng lo?i óó
+        // ‚Äî‚Äî Thu?c t√≠nh / h√†ng c√πng lo?i ‚Äî‚Äî
         if (_showSection(PosProductEditorSection.unitsVariants))
           _kvSection(
-            title: 'H‡ng c˘ng lo?i / thu?c tÌnh',
-            subtitle: 'Sinh m„ riÍng theo m‡u, sizeÖ (tu? ch?n).',
+            title: 'H√†ng c√πng lo?i / thu?c t√≠nh',
+            subtitle: 'Sinh m√£ ri√™ng theo m√†u, size‚Ä¶ (tu? ch?n).',
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 if (_variants.isEmpty && extraUnits.isEmpty)
-                  Text(tr('Chua cÛ thu?c tÌnh. D˘ng ´Thi?t l?pª d? thÍm m‡u, sizeÖ'),
+                  Text(tr('Chua c√≥ thu?c t√≠nh. D√πng ¬´Thi?t l?p¬ª d? th√™m m√†u, size‚Ä¶'),
                     style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
                   )
                 else
@@ -2927,26 +3175,26 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                                 children: [
                                   SizedBox(
                                       width: 120,
-                                      child: Text(tr('–on v?'),
+                                      child: Text(tr('√êon v?'),
                                           style: TextStyle(
                                               fontSize: 11,
                                               fontWeight: FontWeight.w600))),
                                   SizedBox(
                                       width: 100,
-                                      child: Text(tr('M„ h‡ng'),
+                                      child: Text(tr('M√£ h√†ng'),
                                           style: TextStyle(
                                               fontSize: 11,
                                               fontWeight: FontWeight.w600))),
                                   SizedBox(
                                       width: 80,
-                                      child: Text(tr('Gi· v?n'),
+                                      child: Text(tr('Gi√° v?n'),
                                           textAlign: TextAlign.right,
                                           style: TextStyle(
                                               fontSize: 11,
                                               fontWeight: FontWeight.w600))),
                                   SizedBox(
                                       width: 80,
-                                      child: Text(tr('Gi· b·n'),
+                                      child: Text(tr('Gi√° b√°n'),
                                           textAlign: TextAlign.right,
                                           style: TextStyle(
                                               fontSize: 11,
@@ -3022,7 +3270,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                                         width: 100,
                                         child: Text(
                                             tr(_codeCtrl.text.trim().isEmpty
-                                                ? 'ó'
+                                                ? '‚Äî'
                                                 : _codeCtrl.text.trim()),
                                             style: const TextStyle(
                                                 fontSize: 11))),
@@ -3064,7 +3312,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                 OutlinedButton.icon(
                   onPressed: _openUnitAttributeSetup,
                   icon: const Icon(Icons.tune, size: 18),
-                  label: Text(tr('Thi?t l?p don v? & thu?c tÌnh')),
+                  label: Text(tr('Thi?t l?p don v? & thu?c t√≠nh')),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: PosTheme.kiotBlue,
                     side: const BorderSide(color: PosTheme.kiotBlue),
@@ -3141,7 +3389,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
       child: Row(
         children: [
           Expanded(flex: 2, child: Text(tr(unit), style: const TextStyle(fontSize: 12))),
-          Expanded(child: Text(tr(code.isEmpty ? 'ó' : code), style: const TextStyle(fontSize: 11))),
+          Expanded(child: Text(tr(code.isEmpty ? '‚Äî' : code), style: const TextStyle(fontSize: 11))),
           Expanded(child: Text(tr(NumberFormat('#,##0', 'vi_VN').format(cost.round())), textAlign: TextAlign.right, style: const TextStyle(fontSize: 11))),
           Expanded(child: Text(tr(NumberFormat('#,##0', 'vi_VN').format(price.round())), textAlign: TextAlign.right, style: const TextStyle(fontSize: 11))),
           Expanded(child: Text(tr(stock.toStringAsFixed(0)), textAlign: TextAlign.right, style: const TextStyle(fontSize: 11))),
@@ -3165,7 +3413,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                 onChanged: (v) => setState(() => _directSale = v ?? true),
               ),
               Expanded(
-                child: Text(tr('B·n tr?c ti?p (hi?n trÍn POS)'),
+                child: Text(tr('B√°n tr?c ti?p (hi?n tr√™n POS)'),
                     style: TextStyle(fontSize: 13)),
               ),
               TextButton(
@@ -3253,7 +3501,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
 
   Widget _infoFields() {
     final nameLabel =
-        _isService ? 'TÍn d?ch v? *' : 'TÍn h‡ng *';
+        _isService ? 'T√™n d?ch v? *' : 'T√™n h√†ng *';
     return Column(
       children: [
         if (!_isService) ...[
@@ -3263,7 +3511,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                 child: TextField(
                   controller: _codeCtrl,
                   decoration: PosTheme.inputDecoration(
-                    label: 'M„ h‡ng',
+                    label: 'M√£ h√†ng',
                     hint: _autoCodeHint,
                   ),
                 ),
@@ -3287,7 +3535,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
         ),
         const SizedBox(height: 12),
         _masterDropdown(
-          label: 'NhÛm h‡ng',
+          label: 'Nh√≥m h√†ng',
           value: _categoryId,
           items: _categories,
           onChanged: (v) => setState(() => _categoryId = v),
@@ -3312,12 +3560,12 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
           ),
         if (_isGoods)
           _masterDropdown(
-            label: 'V? trÌ',
+            label: 'V? tr√≠',
             value: _locationId,
             items: _locations,
             onChanged: (v) => setState(() => _locationId = v),
             onCreate: () => _quickCreate(
-              'v? trÌ',
+              'v? tr√≠',
               _api.createPosStorageLocation,
               (item) {
                 _locations.add(item);
@@ -3343,7 +3591,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                   controller: _costCtrl,
                   keyboardType: TextInputType.number,
                   inputFormatters: [ThousandSeparatorFormatter()],
-                  decoration: PosTheme.inputDecoration(label: 'Gi· v?n'),
+                  decoration: PosTheme.inputDecoration(label: 'Gi√° v?n'),
                 ),
               ),
               const SizedBox(width: 12),
@@ -3352,14 +3600,14 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                   controller: _priceCtrl,
                   keyboardType: TextInputType.number,
                   inputFormatters: [ThousandSeparatorFormatter()],
-                  decoration: PosTheme.inputDecoration(label: 'Gi· b·n'),
+                  decoration: PosTheme.inputDecoration(label: 'Gi√° b√°n'),
                 ),
               ),
             ],
           ),
           const SizedBox(height: 16),
           _masterDropdown(
-            label: 'Nh‡ cung c?p',
+            label: 'Nh√† cung c?p',
             value: _supplierId,
             items: _suppliers,
             onChanged: (v) => setState(() => _supplierId = v),
@@ -3413,7 +3661,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
               Expanded(
                 child: DropdownButtonFormField<String>(
                   value: _weightUnit,
-                  decoration: PosTheme.inputDecoration(label: '–VT'),
+                  decoration: PosTheme.inputDecoration(label: '√êVT'),
                   items: [
                     DropdownMenuItem(value: 'g', child: Text(tr('g'))),
                     DropdownMenuItem(value: 'kg', child: Text(tr('kg'))),
@@ -3429,7 +3677,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
   }
 
   Widget _buildPriceTab() {
-    final priceLabel = _isService ? 'Gi· d?ch v?' : 'Gi· b·n';
+    final priceLabel = _isService ? 'Gi√° d?ch v?' : 'Gi√° b√°n';
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -3441,7 +3689,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                   controller: _costCtrl,
                   keyboardType: TextInputType.number,
                   inputFormatters: [ThousandSeparatorFormatter()],
-                  decoration: PosTheme.inputDecoration(label: 'Gi· v?n'),
+                  decoration: PosTheme.inputDecoration(label: 'Gi√° v?n'),
                 ),
               ),
               const SizedBox(width: 12),
@@ -3465,7 +3713,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(color: PosTheme.primary.withOpacity(0.3)),
               ),
-              child: Text(tr('T?ng gi· th‡nh ph?n: ${_moneyFmt.format(_comboComponentsSum)}'),
+              child: Text(tr('T?ng gi√° th√†nh ph?n: ${_moneyFmt.format(_comboComponentsSum)}'),
                 style: const TextStyle(
                   fontWeight: FontWeight.w600,
                   color: PosTheme.primaryDark,
@@ -3486,14 +3734,14 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
         children: [
           TextField(
             controller: _unitCtrl,
-            decoration: PosTheme.inputDecoration(label: '–on v? co b?n'),
+            decoration: PosTheme.inputDecoration(label: '√êon v? co b?n'),
           ),
           const SizedBox(height: 16),
-          Text(tr('–on v? quy d?i'),
+          Text(tr('√êon v? quy d?i'),
               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
           const SizedBox(height: 8),
           if (_units.isEmpty)
-            Text(tr('Chua cÛ don v? quy d?i'),
+            Text(tr('Chua c√≥ don v? quy d?i'),
                 style: TextStyle(color: PosTheme.textSecondary))
           else
             ..._units.map((u) => Card(
@@ -3502,7 +3750,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                     dense: true,
                     title: Text(tr(u.unitName +
                         (u.isBaseUnit ? ' (co b?n)' : ' = ${u.conversionRate}'))),
-                    subtitle: Text(tr('Gi·: ${_moneyFmt.format(u.basePrice)}')),
+                    subtitle: Text(tr('Gi√°: ${_moneyFmt.format(u.basePrice)}')),
                     trailing: u.isBaseUnit || !_isEditing
                         ? null
                         : IconButton(
@@ -3523,12 +3771,12 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
               child: TextButton.icon(
                 onPressed: _addExtraUnit,
                 icon: const Icon(Icons.add, color: PosTheme.primary),
-                label: Text(tr('ThÍm don v?'),
+                label: Text(tr('Th√™m don v?'),
                     style: TextStyle(color: PosTheme.primary)),
               ),
             ),
           const Divider(height: 32),
-          Text(tr('Thu?c tÌnh'),
+          Text(tr('Thu?c t√≠nh'),
               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
           const SizedBox(height: 8),
           ..._attributeValues.asMap().entries.map((e) {
@@ -3543,7 +3791,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                     child: TextFormField(
                       initialValue: a.attributeName,
                       decoration:
-                          PosTheme.inputDecoration(label: 'TÍn thu?c tÌnh'),
+                          PosTheme.inputDecoration(label: 'T√™n thu?c t√≠nh'),
                       onChanged: (v) => _attributeValues[i] =
                           PosProductAttribute(
                         attributeId: a.attributeId,
@@ -3557,7 +3805,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                     flex: 3,
                     child: TextFormField(
                       initialValue: a.value,
-                      decoration: PosTheme.inputDecoration(label: 'Gi· tr?'),
+                      decoration: PosTheme.inputDecoration(label: 'Gi√° tr?'),
                       onChanged: (v) => _attributeValues[i] =
                           PosProductAttribute(
                         attributeId: a.attributeId,
@@ -3580,7 +3828,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                 PosProductAttribute(
                     attributeId: '', attributeName: '', value: ''))),
             icon: const Icon(Icons.add, color: PosTheme.primary),
-            label: Text(tr('ThÍm thu?c tÌnh'),
+            label: Text(tr('Th√™m thu?c t√≠nh'),
                 style: TextStyle(color: PosTheme.primary)),
           ),
         ],
@@ -3593,7 +3841,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
       return Center(
         child: Padding(
           padding: EdgeInsets.all(24),
-          child: Text(tr('Luu s?n ph?m tru?c d? qu?n l˝ bi?n th?'),
+          child: Text(tr('Luu s?n ph?m tru?c d? qu?n l√Ω bi?n th?'),
             textAlign: TextAlign.center,
             style: TextStyle(color: PosTheme.textSecondary),
           ),
@@ -3605,10 +3853,10 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(tr('T?o bi?n th? t? thu?c tÌnh'),
+          Text(tr('T?o bi?n th? t? thu?c t√≠nh'),
               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
           const SizedBox(height: 4),
-          Text(tr('Nh?p tÍn thu?c tÌnh v‡ c·c gi· tr? c·ch nhau b?i d?u ph?y'),
+          Text(tr('Nh?p t√™n thu?c t√≠nh v√† c√°c gi√° tr? c√°ch nhau b?i d?u ph?y'),
             style: TextStyle(fontSize: 12, color: PosTheme.textSecondary),
           ),
           const SizedBox(height: 12),
@@ -3624,7 +3872,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                     child: TextFormField(
                       initialValue: a.attributeName,
                       decoration:
-                          PosTheme.inputDecoration(label: 'Thu?c tÌnh'),
+                          PosTheme.inputDecoration(label: 'Thu?c t√≠nh'),
                       onChanged: (v) => a.attributeName = v,
                     ),
                   ),
@@ -3634,8 +3882,8 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                     child: TextFormField(
                       initialValue: a.valuesText,
                       decoration: PosTheme.inputDecoration(
-                        label: 'Gi· tr?',
-                        hint: '–?, Xanh, V‡ng',
+                        label: 'Gi√° tr?',
+                        hint: '√ê?, Xanh, V√†ng',
                       ),
                       onChanged: (v) => a.valuesText = v,
                     ),
@@ -3654,7 +3902,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                 onPressed: () =>
                     setState(() => _variantAttrs.add(_VariantAttrRow())),
                 icon: const Icon(Icons.add, color: PosTheme.primary),
-                label: Text(tr('ThÍm thu?c tÌnh'),
+                label: Text(tr('Th√™m thu?c t√≠nh'),
                     style: TextStyle(color: PosTheme.primary)),
               ),
               const Spacer(),
@@ -3680,7 +3928,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
           const SizedBox(height: 8),
           if (_variants.isEmpty)
-            Text(tr('Chua cÛ bi?n th?'),
+            Text(tr('Chua c√≥ bi?n th?'),
                 style: TextStyle(color: PosTheme.textSecondary))
           else
             ..._variants.map((v) => _variantCard(v)),
@@ -3715,7 +3963,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                   child: TextField(
                     controller: costCtrl,
                     keyboardType: TextInputType.number,
-                    decoration: PosTheme.inputDecoration(label: 'Gi· v?n'),
+                    decoration: PosTheme.inputDecoration(label: 'Gi√° v?n'),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -3723,7 +3971,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                   child: TextField(
                     controller: priceCtrl,
                     keyboardType: TextInputType.number,
-                    decoration: PosTheme.inputDecoration(label: 'Gi· b·n'),
+                    decoration: PosTheme.inputDecoration(label: 'Gi√° b√°n'),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -3734,7 +3982,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                     keyboardType: TextInputType.number,
                     decoration: PosTheme.inputDecoration(
                       label: unitOnly ? 'T?n (quy d?i)' : 'T?n',
-                      hint: unitOnly ? 'S?a Ù T?n kho chÌnh theo don v? co b?n' : null,
+                      hint: unitOnly ? 'S?a √¥ T?n kho ch√≠nh theo don v? co b?n' : null,
                     ),
                   ),
                 ),
@@ -3773,54 +4021,17 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: PosTheme.primaryLight,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Text(tr('T?ng gi· th‡nh ph?n: ${_moneyFmt.format(_comboComponentsSum)}'),
-              style: const TextStyle(
-                fontWeight: FontWeight.w600,
-                color: PosTheme.primaryDark,
-              ),
+          _buildTypeUsageNote(),
+          const SizedBox(height: 12),
+          Text(
+            tr('T·ªïng gi√° th√†nh ph·∫ßn: ${_moneyFmt.format(_comboComponentsSum)}'),
+            style: const TextStyle(
+              fontWeight: FontWeight.w600,
+              color: PosTheme.primaryDark,
             ),
           ),
           const SizedBox(height: 16),
-          Text(tr('Th‡nh ph?n combo'),
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-          const SizedBox(height: 8),
-          if (_comboLines.isEmpty)
-            Text(tr('Chua cÛ th‡nh ph?n'),
-                style: TextStyle(color: PosTheme.textSecondary))
-          else
-            ..._comboLines.asMap().entries.map((e) {
-              final i = e.key;
-              final c = e.value;
-              return Card(
-                margin: const EdgeInsets.only(bottom: 8),
-                child: ListTile(
-                  title: Text(tr(c.componentProductName.isNotEmpty
-                      ? c.componentProductName
-                      : c.componentProductId)),
-                  subtitle: Text(tr('SL: ${c.qty} ∑ Gi·: ${_moneyFmt.format(c.componentBasePrice)}'),
-                  ),
-                  trailing: IconButton(
-                    icon: const Icon(Icons.delete_outline, size: 18),
-                    onPressed: () => setState(() => _comboLines.removeAt(i)),
-                  ),
-                ),
-              );
-            }),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: TextButton.icon(
-              onPressed: _addComboComponent,
-              icon: const Icon(Icons.add, color: PosTheme.primary),
-              label: Text(tr('ThÍm th‡nh ph?n'),
-                  style: TextStyle(color: PosTheme.primary)),
-            ),
-          ),
+          _buildComboComponentsSection(),
         ],
       ),
     );
@@ -3833,7 +4044,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(tr('MÙ t?'),
+          Text(tr('M√¥ t?'),
               style: TextStyle(fontWeight: FontWeight.w500, fontSize: 14)),
           const SizedBox(height: 8),
           _kiotDescToolbar(),
@@ -3843,7 +4054,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
             maxLines: 10,
             minLines: 10,
             decoration: InputDecoration(
-              hintText: tr('MÙ t? chi ti?t s?n ph?mÖ'),
+              hintText: tr('M√¥ t? chi ti?t s?n ph?m‚Ä¶'),
               filled: true,
               fillColor: Colors.white,
               border: OutlineInputBorder(
@@ -3863,7 +4074,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
             ),
           ),
           const SizedBox(height: 20),
-          Text(tr('Ghi ch˙ nhanh khi b·n h‡ng'),
+          Text(tr('Ghi ch√∫ nhanh khi b√°n h√†ng'),
             style: TextStyle(fontWeight: FontWeight.w500, fontSize: 14),
           ),
           const SizedBox(height: 8),
@@ -3872,18 +4083,18 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
             onChanged: (v) => setState(() => _saleQuickNotes = v),
           ),
           const SizedBox(height: 20),
-          Text(tr('T˘y ch?n thÍm'),
+          Text(tr('T√πy ch?n th√™m'),
             style: TextStyle(fontWeight: FontWeight.w500, fontSize: 14),
           ),
           const SizedBox(height: 4),
-          Text(tr('Gi?ng ghi ch˙ nhanh: hi?n d?ng chip khi b·n, nhung cÛ gi· ph? thu / tr? t?n SP.'),
+          Text(tr('Gi?ng ghi ch√∫ nhanh: hi?n d?ng chip khi b√°n, nhung c√≥ gi√° ph? thu / tr? t?n SP.'),
             style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
           ),
           const SizedBox(height: 8),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
-            title: Text(tr('–‚y l‡ h‡ng t˘y ch?n thÍm')),
-            subtitle: Text(tr('D˘ng l‡m t˘y ch?n cho mÛn kh·c (vd: tr‚n ch‚u, th?ch)'),
+            title: Text(tr('√ê√¢y l√† h√†ng t√πy ch?n th√™m')),
+            subtitle: Text(tr('D√πng l√†m t√πy ch?n cho m√≥n kh√°c (vd: tr√¢n ch√¢u, th?ch)'),
               style: TextStyle(fontSize: 12),
             ),
             value: _isTopping,
@@ -3899,8 +4110,8 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
           if (!_isTopping) ...[
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
-              title: Text(tr('Cho phÈp t˘y ch?n thÍm khi b·n')),
-              subtitle: Text(tr('Hi?n chip ch?n trÍn dÚng hÛa don (gi?ng ghi ch˙ nhanh)'),
+              title: Text(tr('Cho ph√©p t√πy ch?n th√™m khi b√°n')),
+              subtitle: Text(tr('Hi?n chip ch?n tr√™n d√≤ng h√≥a don (gi?ng ghi ch√∫ nhanh)'),
                 style: TextStyle(fontSize: 12),
               ),
               value: _allowToppings,
@@ -3930,14 +4141,14 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
               OutlinedButton.icon(
                 onPressed: _pickToppingProduct,
                 icon: const Icon(Icons.add, size: 18),
-                label: Text(tr('ThÍm t˘y ch?n cho mÛn n‡y')),
+                label: Text(tr('Th√™m t√πy ch?n cho m√≥n n√†y')),
               ),
             ],
             const Divider(height: 28),
             Row(
               children: [
                 Expanded(
-                  child: Text(tr('Topping (nhÛm d˘ng chung)'),
+                  child: Text(tr('Topping (nh√≥m d√πng chung)'),
                     style: TextStyle(fontWeight: FontWeight.w500, fontSize: 14),
                   ),
                 ),
@@ -3950,17 +4161,17 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                     );
                     await _loadToppingGroups();
                   },
-                  child: Text(tr('Qu?n l˝ nhÛm')),
+                  child: Text(tr('Qu?n l√Ω nh√≥m')),
                 ),
               ],
             ),
             const SizedBox(height: 4),
-            Text(tr('Ch?n nhÛm topping d„ t?o s?n ó m?i mÛn g?n c˘ng nhÛm d˘ng chung danh s·ch.'),
+            Text(tr('Ch?n nh√≥m topping d√£ t?o s?n ‚Äî m?i m√≥n g?n c√πng nh√≥m d√πng chung danh s√°ch.'),
               style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
             ),
             const SizedBox(height: 8),
             if (_availableToppingGroups.isEmpty)
-              Text(tr('Chua cÛ nhÛm ó nh?n ´Qu?n l˝ nhÛmª d? t?o.'),
+              Text(tr('Chua c√≥ nh√≥m ‚Äî nh?n ¬´Qu?n l√Ω nh√≥m¬ª d? t?o.'),
                 style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
               )
             else
@@ -3988,8 +4199,8 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
               ),
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
-              title: Text(tr('T? m? popup topping khi thÍm mÛn')),
-              subtitle: Text(tr('Khi mÛn cÛ nhÛm topping ó h?i ngay l˙c thÍm v‡o gi?'),
+              title: Text(tr('T? m? popup topping khi th√™m m√≥n')),
+              subtitle: Text(tr('Khi m√≥n c√≥ nh√≥m topping ‚Äî h?i ngay l√∫c th√™m v√†o gi?'),
                 style: TextStyle(fontSize: 12),
               ),
               value: _autoOpenToppingPopup,
@@ -4059,7 +4270,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
               });
             }
             return AlertDialog(
-              title: Text(tr('Ch?n h‡ng topping')),
+              title: Text(tr('Ch?n h√†ng topping')),
               content: SizedBox(
                 width: 420,
                 height: 420,
@@ -4068,7 +4279,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                     TextField(
                       controller: qCtrl,
                       decoration: InputDecoration(
-                        hintText: tr('TÏm theo tÍn / m„Ö'),
+                        hintText: tr('T√¨m theo t√™n / m√£‚Ä¶'),
                         prefixIcon: Icon(Icons.search),
                       ),
                       onSubmitted: (v) => search(setModal, v),
@@ -4086,7 +4297,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                                 return ListTile(
                                   enabled: !already,
                                   title: Text(tr(p.name)),
-                                  subtitle: Text(tr('${p.productCode} ∑ ${_fmtInputMoney(p.basePrice)} d'),
+                                  subtitle: Text(tr('${p.productCode} ¬∑ ${_fmtInputMoney(p.basePrice)} d'),
                                   ),
                                   onTap: already
                                       ? null
@@ -4101,11 +4312,11 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(ctx),
-                  child: Text(tr('–Ûng')),
+                  child: Text(tr('√ê√≥ng')),
                 ),
                 TextButton(
                   onPressed: () => search(setModal, qCtrl.text),
-                  child: Text(tr('TÏm')),
+                  child: Text(tr('T√¨m')),
                 ),
               ],
             );
@@ -4126,7 +4337,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
           sortOrder: _toppingOptions.length,
         ),
       ];
-      // G?i ˝ d·nh d?u h‡ng topping n?u chua.
+      // G?i √Ω d√°nh d?u h√†ng topping n?u chua.
     });
   }
 
@@ -4152,17 +4363,17 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
       child: Row(
         children: [
           btn(Icons.format_bold, 'In d?m'),
-          btn(Icons.format_italic, 'In nghiÍng'),
-          btn(Icons.format_underlined, 'G?ch ch‚n'),
+          btn(Icons.format_italic, 'In nghi√™ng'),
+          btn(Icons.format_underlined, 'G?ch ch√¢n'),
           const VerticalDivider(width: 16),
-          btn(Icons.format_align_left, 'Can tr·i'),
+          btn(Icons.format_align_left, 'Can tr√°i'),
           btn(Icons.format_align_center, 'Can gi?a'),
           btn(Icons.format_align_right, 'Can ph?i'),
           const VerticalDivider(width: 16),
-          btn(Icons.format_list_bulleted, 'Danh s·ch'),
-          btn(Icons.format_list_numbered, 'Danh s·ch s?'),
+          btn(Icons.format_list_bulleted, 'Danh s√°ch'),
+          btn(Icons.format_list_numbered, 'Danh s√°ch s?'),
           const Spacer(),
-          btn(Icons.link, 'LiÍn k?t'),
+          btn(Icons.link, 'Li√™n k?t'),
           btn(Icons.image_outlined, '?nh'),
         ],
       ),
@@ -4196,7 +4407,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
           if (manageKind != null)
             TextButton(
               onPressed: () => _manageCatalog(manageKind),
-              child: Text(tr('Qu?n l˝'),
+              child: Text(tr('Qu?n l√Ω'),
                 style: TextStyle(
                   color: _isGoods
                       ? PosTheme.textSecondary
@@ -4225,24 +4436,24 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text(tr('ThÍm don v? quy d?i')),
+        title: Text(tr('Th√™m don v? quy d?i')),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             TextField(
               controller: nameCtrl,
-              decoration: PosTheme.inputDecoration(label: 'TÍn don v?'),
+              decoration: PosTheme.inputDecoration(label: 'T√™n don v?'),
             ),
             TextField(
               controller: rateCtrl,
               decoration: PosTheme.inputDecoration(
-                label: 'Quy d?i (◊ don v? co b?n)',
+                label: 'Quy d?i (√ó don v? co b?n)',
               ),
               keyboardType: TextInputType.number,
             ),
             TextField(
               controller: priceCtrl,
-              decoration: PosTheme.inputDecoration(label: 'Gi· b·n'),
+              decoration: PosTheme.inputDecoration(label: 'Gi√° b√°n'),
               keyboardType: TextInputType.number,
             ),
           ],
@@ -4255,7 +4466,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
           FilledButton(
             style: PosTheme.filledButtonStyle,
             onPressed: () => Navigator.pop(ctx, true),
-            child: Text(tr('ThÍm')),
+            child: Text(tr('Th√™m')),
           ),
         ],
       ),
@@ -4288,8 +4499,8 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
         _comboLines.indexWhere((c) => c.componentProductId == prod.id);
     if (existingIdx >= 0) {
       NotificationOverlayManager().showError(
-        title: '–„ cÛ th‡nh ph?n',
-        message: tr('´${prod.name}ª d„ n?m trong combo'),
+        title: '√ê√£ c√≥ th√†nh ph?n',
+        message: tr('¬´${prod.name}¬ª d√£ n?m trong combo'),
       );
       return;
     }
@@ -4304,7 +4515,9 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
         componentProductCode: prod.productCode,
         componentProductName: prod.name,
         qty: qty,
+        componentOnHandQty: prod.onHandQty,
         componentBasePrice: prod.basePrice,
+        componentUnitName: prod.baseUnitName,
       ));
     });
   }

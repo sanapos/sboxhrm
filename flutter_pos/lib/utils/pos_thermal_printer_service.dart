@@ -1067,7 +1067,7 @@ class _EscPosBuilder {
       _queueImageLine(
         l,
         rightText: r,
-        fontSize: _settings.paperWidthMm <= 58 ? 19 : 21,
+        fontSize: _settings.paperWidthMm <= 58 ? 22 : 26,
       );
       return;
     }
@@ -1087,7 +1087,7 @@ class _EscPosBuilder {
         left.trim(),
         rightText: right.trim(),
         bold: true,
-        fontSize: _settings.paperWidthMm <= 58 ? 20 : 22,
+        fontSize: _settings.paperWidthMm <= 58 ? 24 : 28,
       );
       return;
     }

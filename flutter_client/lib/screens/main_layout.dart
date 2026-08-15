@@ -17,6 +17,7 @@ import '../services/signalr_service.dart';
 import '../services/pos_print_agent_service.dart';
 import '../utils/pos_print_agent_settings.dart';
 import '../utils/pos_print_orchestrator.dart';
+import '../utils/pos_qr_order_voice.dart';
 import '../services/pos_sell_catalog_cache.dart';
 import '../utils/pos_sell_stock_patch.dart';
 import '../models/mobile_bottom_nav_config.dart';
@@ -94,7 +95,7 @@ import 'pos_sale_order_list_screen.dart';
 import 'pos_sale_return_list_screen.dart';
 import 'pos_supplier_list_screen.dart';
 import 'warehouse/wh_mobile_nav.dart';
-import 'pos_reports_screen.dart';
+import 'pos/pos_split_report_screens.dart';
 import 'hkd_books_screen.dart';
 import 'pos/pos_cancel_return_history_screen.dart';
 import 'pos/pos_customer_debt_report_screen.dart';
@@ -783,6 +784,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
           }
         }
         await PosPrintAgentService.instance.ensureRunning(storeId);
+        unawaited(PosQrOrderVoiceAlert.instance.start());
       }
       // Join user group for user-specific notifications
       final userId = authProvider.user?.id;
@@ -1662,8 +1664,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       icon: Icons.analytics_outlined,
       activeIcon: Icons.analytics,
       label: 'Báo cáo POS',
-      subtitle: 'Doanh thu',
-      screen: const PosReportsScreen(),
+      subtitle: '14 báo cáo',
+      screen: const PosReportsHubScreen(),
       group: 'Báo cáo',
       showInSidebar: true,
       themeColor: HrmPageChrome.primaryNavy,

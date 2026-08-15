@@ -36,6 +36,7 @@ import 'system_admin/marketing_tab.dart';
 import 'system_admin/content_pages_tab.dart';
 import 'system_admin/consultation_requests_tab.dart';
 import 'system_admin/landing_content_tab.dart';
+import 'system_admin/server_ops_tab.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 class SystemAdminScreen extends StatefulWidget {
@@ -70,6 +71,7 @@ class _SystemAdminScreenState extends State<SystemAdminScreen>
   final _contentPagesKey = GlobalKey<ContentPagesTabState>();
   final _consultationRequestsKey = GlobalKey<ConsultationRequestsTabState>();
   final _landingContentKey = GlobalKey<LandingContentTabState>();
+  final _serverOpsKey = GlobalKey<ServerOpsTabState>();
 
   final _apiService = ApiService();
   final _signalRService = SignalRService();
@@ -98,6 +100,7 @@ class _SystemAdminScreenState extends State<SystemAdminScreen>
     'Nội dung & Phản hồi',
     'Lead tư vấn',
     'Landing Page',
+    'Máy chủ',
   ];
 
   static const _agentTabLabels = [
@@ -482,6 +485,11 @@ class _SystemAdminScreenState extends State<SystemAdminScreen>
           icon: Icons.web_rounded,
           label: 'Landing Page',
           group: 'Nội dung'),
+      const AdminNavItem(
+          index: 17,
+          icon: Icons.dns,
+          label: 'Máy chủ',
+          group: 'Hệ thống'),
     ];
   }
 
@@ -573,6 +581,7 @@ class _SystemAdminScreenState extends State<SystemAdminScreen>
         ContentPagesTab(key: _contentPagesKey),
         ConsultationRequestsTab(key: _consultationRequestsKey),
         LandingContentTab(key: _landingContentKey),
+        ServerOpsTab(key: _serverOpsKey),
       ],
     );
   }
@@ -798,6 +807,7 @@ class _SystemAdminScreenState extends State<SystemAdminScreen>
               Tab(
                   icon: Icon(Icons.web_rounded, size: 18),
                   text: tr('Landing Page')),
+              Tab(icon: Icon(Icons.dns, size: 18), text: tr('Máy chủ')),
             ],
           ),
         ],

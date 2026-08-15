@@ -161,8 +161,8 @@ class PosPrintAgentService {
     await settings.copyWith(enabled: false).save();
     await stop(markOffline: false);
     NotificationOverlayManager().showWarning(
-      title: 'Agent d? t?t t? m?y kh?c',
-      message: tr('Ch? gi? Agent tr?n m?y g?n m?y in'),
+      title: 'Agent đã tắt từ máy khác',
+      message: tr('Chỉ giữ Agent trên máy gắn máy in'),
     );
   }
 
@@ -257,14 +257,14 @@ class PosPrintAgentService {
       // Kh?ng t? g?n h?t m?y c?a h?ng ? user d? t?t chip th? gi? tr?ng
       // (tru?c d?y khi?n danh s?ch ?nh?y? l?i 6 m?y sau m?i heartbeat).
       _registeredPrinterIds = const [];
-      _lastRegisterError = 'Chua ch?n chip m?y in cho Agent';
+      _lastRegisterError = 'Chưa chọn chip máy in cho Agent';
       await _markOfflineOnServerIfNeeded();
       _agentId = null;
       if (!_warnedNoPrinters) {
         _warnedNoPrinters = true;
         NotificationOverlayManager().showWarning(
-          title: 'Agent chua g?n m?y in',
-          message: tr('B?t Agent v? ch?n ?t nh?t m?t chip m?y in b?n du?i'),
+          title: 'Agent chưa gắn máy in',
+          message: tr('Bật Agent và chọn ít nhất một chip máy in bên dưới'),
         );
       }
       return;
@@ -283,9 +283,9 @@ class PosPrintAgentService {
       if (!_warnedNoPrinters) {
         _warnedNoPrinters = true;
         NotificationOverlayManager().showWarning(
-          title: 'Agent: chua th?y c?ng in',
+          title: 'Agent: chưa thấy cổng in',
           message: tr(
-            'V?n nh?n l?nh cloud. R?t USB ADB n?u in Tem/Zywell; ki?m tra chip m?y in',
+            'Vẫn nhận lệnh cloud. Rút USB ADB nếu in Tem/Zywell; kiểm tra chip máy in',
           ),
         );
       }
@@ -315,7 +315,7 @@ class PosPrintAgentService {
       } else {
         // Gi? agentId cu n?u heartbeat l?i t?m th?i ? tr?nh Oppo m?t Agent gi?a ch?ng.
         _lastRegisterError =
-            res['message']?.toString() ?? '?ang k? Agent th?t b?i';
+            res['message']?.toString() ?? 'Đăng ký Agent thất bại';
         debugPrint('Print Agent register soft-fail: $_lastRegisterError');
       }
     } catch (e) {
@@ -349,6 +349,10 @@ class PosPrintAgentService {
   Future<void> _tryClaim() async {
     if (!_running || _claimsPaused || _claimInFlight || _agentId == null) return;
     _claimInFlight = true;
+    // Job đã nhận nhưng chưa chốt. Lỗi bất ngờ (mất mạng lúc markPrinting, lỗi
+    // cổng in…) mà bỏ qua thì job nằm Claimed tới khi server hủy STUCK — phiếu
+    // bếp mất mà thu ngân không hề biết.
+    String? claimedJobId;
     try {
       final res = await _api.claimPosPrintJob(_agentId!);
       if (res['isSuccess'] != true) return;
@@ -385,7 +389,7 @@ class PosPrintAgentService {
           jobId,
           _agentId!,
           errorCode: 'NO_PRINTER_ID',
-          errorMessage: 'Job thi?u printerId',
+          errorMessage: 'Job thiếu printerId',
         );
         return;
       }
@@ -397,7 +401,7 @@ class PosPrintAgentService {
           jobId,
           _agentId!,
           errorCode: 'OUTBOUND_SKIP',
-          errorMessage: 'M?y g?i l?nh ? nh? cho Print Agent',
+          errorMessage: 'Máy gửi lệnh — nhả cho Print Agent',
         );
         return;
       }
@@ -413,12 +417,13 @@ class PosPrintAgentService {
           jobId,
           _agentId!,
           errorCode: 'NOT_LOCAL_PORT',
-          errorMessage: 'M?y n?y kh?ng k?t n?i du?c c?ng in ? nh? cho Agent kh?c',
+          errorMessage: 'Máy này không kết nối được cổng in — nhả cho Agent khác',
         );
         return;
       }
 
       _activeJobIds.add(jobId);
+      claimedJobId = jobId;
       if (_activeJobIds.length > 50) {
         _activeJobIds.remove(_activeJobIds.first);
       }
@@ -475,17 +480,42 @@ class PosPrintAgentService {
             _agentId!,
             errorCode: 'PRINT_TIMEOUT',
             errorMessage:
-                'In qu? 75 gi?y ? ki?m tra USB tem (r?t ADB) / gi?y / m?y',
+                'In quá 75 giây — kiểm tra USB tem (rút ADB) / giấy / máy',
           );
           _markJobSettled(jobId);
         } catch (_) {}
       }
     } catch (e) {
       debugPrint('Print Agent claim error: $e');
+      await _failAbandonedJob(claimedJobId, e);
     } finally {
       _claimInFlight = false;
       // X? h?ng d?i ngay ? kh?ng ch? timer 3s.
       if (_running && !_claimsPaused) _scheduleClaim();
+    }
+  }
+
+  /// Báo hỏng job đã nhận nhưng chưa in xong, để máy gửi thấy lỗi ngay thay vì
+  /// chờ server hủy STUCK sau 3 phút (thu ngân tưởng bếp đã nhận món).
+  Future<void> _failAbandonedJob(String? jobId, Object error) async {
+    if (jobId == null || jobId.isEmpty) return;
+    if (_settledJobIds.contains(jobId)) return;
+    final agentId = _agentId;
+    if (agentId == null) {
+      _activeJobIds.remove(jobId);
+      return;
+    }
+    try {
+      await _api.failPosPrintJob(
+        jobId,
+        agentId,
+        errorCode: 'AGENT_ERROR',
+        errorMessage: 'Agent lỗi khi in — thử lại hoặc chọn máy khác ($error)',
+      );
+      _markJobSettled(jobId);
+    } catch (e) {
+      debugPrint('Print Agent: không báo hỏng được job $jobId: $e');
+      _activeJobIds.remove(jobId);
     }
   }
 
@@ -534,8 +564,8 @@ class PosPrintAgentService {
     // M?y Agent: 1 d?ng g?n ? kh?ng ch?ng toast v?i m?y g?i.
     final ref = job['referenceNo']?.toString() ?? '';
     NotificationOverlayManager().show(
-      title: '?? nh?n l?nh in',
-      message: ref.isNotEmpty ? '?on $ref ? dang in?' : '?ang in ch?ng t??',
+      title: 'Đã nhận lệnh in',
+      message: ref.isNotEmpty ? 'Đơn $ref — đang in…' : 'Đang in chứng từ…',
       duration: const Duration(seconds: 2),
       relatedEntityType: kPosPrintNotifyKind,
     );
@@ -578,7 +608,7 @@ class PosPrintAgentService {
         jobId,
         _agentId!,
         errorCode: 'NO_PRINTER',
-        errorMessage: 'Kh?ng t?m th?y c?u h?nh m?y in',
+        errorMessage: 'Không tìm thấy cấu hình máy in',
       );
       _markJobSettled(jobId);
       return;
@@ -598,14 +628,14 @@ class PosPrintAgentService {
       try {
         final map = jsonDecode(payload);
         if (map is! Map) {
-          throw const FormatException('SaleOrderJson kh?ng ph?i object');
+          throw const FormatException('SaleOrderJson không phải object');
         }
         if (!await PosPrinterTransport.isSunmiDevice()) {
           await _api.failPosPrintJob(
             jobId,
             _agentId!,
             errorCode: 'NOT_SUNMI',
-            errorMessage: 'Job SaleOrderJson c?n m?y Sunmi l?m Agent',
+            errorMessage: 'Job SaleOrderJson cần máy Sunmi làm Agent',
           );
           return;
         }
@@ -634,7 +664,7 @@ class PosPrintAgentService {
             jobId,
             _agentId!,
             errorCode: 'NO_ORDER',
-            errorMessage: 'Kh?ng t?i du?c don d? in Sunmi',
+            errorMessage: 'Không tải được đơn để in Sunmi',
           );
           return;
         }
@@ -675,7 +705,7 @@ class PosPrintAgentService {
           jobId,
           _agentId!,
           errorCode: 'BAD_PAYLOAD',
-          errorMessage: 'SaleOrderJson l?i: $e',
+          errorMessage: 'SaleOrderJson lỗi: $e',
         );
         return;
       }
@@ -687,13 +717,22 @@ class PosPrintAgentService {
         }
 
         final slipMap = Map<String, dynamic>.from(map);
+        final kind = slipMap['kind']?.toString() ?? '';
+        if (kind == 'kdsReady') {
+          ok = await _printKdsReadySlip(
+            printer: printer,
+            settings: settings,
+            slipMap: slipMap,
+            copies: copies,
+          );
+        } else {
         final linesRaw = slipMap['lines'];
         if (linesRaw is! List || linesRaw.isEmpty) {
           await _api.failPosPrintJob(
             jobId,
             _agentId!,
             errorCode: 'NO_LINES',
-            errorMessage: 'Phieu bep khong co mon',
+            errorMessage: 'Phiếu bếp không có món',
           );
           return;
         }
@@ -719,7 +758,7 @@ class PosPrintAgentService {
             jobId,
             _agentId!,
             errorCode: 'NO_LINES',
-            errorMessage: 'Phieu bep khong co mon hop le',
+            errorMessage: 'Phiếu bếp không có món hợp lệ',
           );
           return;
         }
@@ -731,57 +770,74 @@ class PosPrintAgentService {
         final tableName = slipMap['tableName']?.toString() ?? 'Ban';
         final senderName = slipMap['senderName']?.toString() ?? 'admin';
         final orderNo = slipMap['orderNo']?.toString() ?? '';
+        final cutPerItem = slipMap['cutPerItem'] == true;
         final onSunmi = await PosPrinterTransport.isSunmiDevice();
         final preferNative = onSunmi &&
             (printer.isSunmi ||
                 settings.connectionType == PosThermalConnectionType.sunmi ||
                 settings.printerBrand == PosThermalPrinterBrand.sunmi);
 
-        ok = false;
-        if (preferNative) {
-          final kitchenSettings = settings.copyWith(
-            connectionType: PosThermalConnectionType.sunmi,
-            printerBrand: PosThermalPrinterBrand.sunmi,
-            feedBeforeCut: 2,
-            openCashDrawer: false,
-          );
-          ok = true;
-          for (var i = 0; i < copies.clamp(1, 10); i++) {
-            final sent = await PosSunmiNativePrint.printKitchenSlip(
-              tableName: tableName,
+        Future<bool> printGroup(
+          List<({String name, String qty, String? unit, String? note})> group,
+        ) async {
+          var groupOk = false;
+          if (preferNative) {
+            final kitchenSettings = settings.copyWith(
+              connectionType: PosThermalConnectionType.sunmi,
+              printerBrand: PosThermalPrinterBrand.sunmi,
+              feedBeforeCut: 2,
+              openCashDrawer: false,
+            );
+            groupOk = true;
+            for (var i = 0; i < copies.clamp(1, 10); i++) {
+              final sent = await PosSunmiNativePrint.printKitchenSlip(
+                tableName: tableName,
+                isCancel: isCancel,
+                lines: group,
+                senderName: senderName,
+                orderNo: orderNo,
+                sentAt: sentAt,
+                settings: kitchenSettings,
+              );
+              if (!sent) {
+                groupOk = false;
+                break;
+              }
+            }
+          }
+          if (!groupOk) {
+            groupOk = await _printKitchenSlipEscPos(
+              settings: settings.copyWith(openCashDrawer: false),
               isCancel: isCancel,
-              lines: nativeLines,
+              tableName: tableName,
+              lines: group,
               senderName: senderName,
               orderNo: orderNo,
               sentAt: sentAt,
-              settings: kitchenSettings,
+              copies: copies,
             );
-            if (!sent) {
+          }
+          return groupOk;
+        }
+
+        if (cutPerItem && nativeLines.length > 1) {
+          ok = true;
+          for (final line in nativeLines) {
+            if (!await printGroup([line])) {
               ok = false;
               break;
             }
           }
+        } else {
+          ok = await printGroup(nativeLines);
         }
-
-        // USB/LAN Zywell ho?c native Sunmi fail ? ESC/POS ��ng c?ng m�y.
-        if (!ok) {
-          ok = await _printKitchenSlipEscPos(
-            settings: settings.copyWith(openCashDrawer: false),
-            isCancel: isCancel,
-            tableName: tableName,
-            lines: nativeLines,
-            senderName: senderName,
-            orderNo: orderNo,
-            sentAt: sentAt,
-            copies: copies,
-          );
         }
       } catch (e) {
         await _api.failPosPrintJob(
           jobId,
           _agentId!,
           errorCode: 'BAD_PAYLOAD',
-          errorMessage: 'KitchenSlipJson loi: $e',
+          errorMessage: 'KitchenSlipJson lỗi: $e',
         );
         return;
       }
@@ -793,7 +849,7 @@ class PosPrintAgentService {
             jobId,
             _agentId!,
             errorCode: 'NOT_SUNMI',
-            errorMessage: 'Job TestPrintJson c?n m?y Sunmi l?m Agent',
+            errorMessage: 'Job TestPrintJson cần máy Sunmi làm Agent',
           );
           return;
         }
@@ -818,7 +874,7 @@ class PosPrintAgentService {
           jobId,
           _agentId!,
           errorCode: 'BAD_PAYLOAD',
-          errorMessage: 'TestPrintJson l?i: $e',
+          errorMessage: 'TestPrintJson lỗi: $e',
         );
         return;
       }
@@ -848,7 +904,7 @@ class PosPrintAgentService {
           _agentId!,
           errorCode: 'UNSUPPORTED_ON_SUNMI',
           errorMessage:
-              'Sunmi kh?ng in EscPosBase64 (l?i font VN). D?ng SaleOrderJson / TestPrintJson.',
+              'Sunmi không in EscPosBase64 (lỗi font VN). Dùng SaleOrderJson / TestPrintJson.',
         );
         _markJobSettled(jobId);
         return;
@@ -861,7 +917,7 @@ class PosPrintAgentService {
             jobId,
             _agentId!,
             errorCode: 'BAD_PAYLOAD',
-            errorMessage: 'Payload kh?ng h?p l?',
+            errorMessage: 'Payload không hợp lệ',
           );
           return;
         }
@@ -874,7 +930,7 @@ class PosPrintAgentService {
               _agentId!,
               errorCode: 'WRONG_LABEL_PROTOCOL',
               errorMessage:
-                  'M?y tem TSPL nh?n l?nh ESC/POS ? c?p nh?t app g?i tem (TSPL)',
+                  'Máy tem TSPL nhận lệnh ESC/POS — cập nhật app gửi tem (TSPL)',
             );
             _markJobSettled(jobId);
             return;
@@ -909,7 +965,7 @@ class PosPrintAgentService {
         jobId,
         _agentId!,
         errorCode: 'UNSUPPORTED_FORMAT',
-        errorMessage: 'Agent kh?ng h? tr? $format',
+        errorMessage: 'Agent không hỗ trợ $format',
       );
       _markJobSettled(jobId);
       return;
@@ -922,7 +978,7 @@ class PosPrintAgentService {
       NotificationOverlayManager().showSuccess(
         title: 'In xong',
         message: referenceNo.isNotEmpty
-            ? '?on $referenceNo ? ${printer.name}'
+            ? 'Đơn $referenceNo — ${printer.name}'
             : printer.name,
         relatedEntityType: kPosPrintNotifyKind,
         duration: const Duration(seconds: 2),
@@ -934,15 +990,79 @@ class PosPrintAgentService {
         _agentId!,
         errorCode: 'PRINT_FAILED',
         errorMessage: printer.isSunmi
-            ? 'Kh?ng in du?c tr?n Sunmi'
-            : 'Kh?ng g?i du?c d? li?u t?i m?y in',
+            ? 'Không in được trên Sunmi'
+            : 'Không gửi được dữ liệu tới máy in',
       );
       await _api.reportPosPrinterHealth(
         printer.id,
         status: 'Offline',
-        errorMessage: 'In th?t b?i tr?n agent',
+        errorMessage: 'In thất bại trên agent',
       );
     }
+  }
+
+  Future<bool> _printKdsReadySlip({
+    required PosStorePrinter printer,
+    required PosThermalPrinterSettings settings,
+    required Map<String, dynamic> slipMap,
+    required int copies,
+  }) async {
+    final product = slipMap['productName']?.toString() ?? '';
+    final qty = slipMap['qty']?.toString() ?? '1';
+    final table = slipMap['tableName']?.toString() ?? '';
+    final area = slipMap['areaName']?.toString() ?? '';
+    final orderNo = slipMap['orderNo']?.toString() ?? '';
+    String fmt(dynamic raw) {
+      final t = DateTime.tryParse(raw?.toString() ?? '');
+      if (t == null) return '';
+      final l = t.toLocal();
+      return '${l.hour.toString().padLeft(2, '0')}:${l.minute.toString().padLeft(2, '0')}';
+    }
+
+    final called = fmt(slipMap['calledAt']);
+    final ready = fmt(slipMap['readyAt']);
+    final textLines = <String>[
+      '$qty × $product',
+      if (area.trim().isNotEmpty) area.trim(),
+      table,
+      if (orderNo.trim().isNotEmpty) 'HĐ: $orderNo',
+      if (called.isNotEmpty) 'Gọi: $called',
+      'Ra món: ${ready.isEmpty ? DateFormat('HH:mm').format(DateTime.now()) : ready}',
+    ];
+    final onSunmi = await PosPrinterTransport.isSunmiDevice();
+    if (onSunmi) {
+      var ok = true;
+      for (var i = 0; i < copies.clamp(1, 10); i++) {
+        final sent = await PosSunmiNativePrint.printTextReport(
+          title: 'RA MÓN',
+          lines: textLines,
+          settings: settings.copyWith(openCashDrawer: false),
+        );
+        if (!sent) {
+          ok = false;
+          break;
+        }
+      }
+      return ok;
+    }
+    return _printKitchenSlipEscPos(
+      settings: settings.copyWith(openCashDrawer: false),
+      isCancel: false,
+      tableName: area.trim().isEmpty ? table : '${area.trim()} · $table',
+      lines: [
+        (
+          name: product,
+          qty: qty,
+          unit: null,
+          note: 'Gọi $called · Ra $ready',
+        ),
+      ],
+      senderName: 'KDS',
+      orderNo: orderNo,
+      sentAt: DateTime.tryParse(slipMap['readyAt']?.toString() ?? '') ??
+          DateTime.now(),
+      copies: copies,
+    );
   }
 
   Future<bool> _printKitchenSlipEscPos({

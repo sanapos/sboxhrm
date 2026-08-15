@@ -172,14 +172,15 @@ class CustomerDisplaySync extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> publish(CustomerDisplayState next) async {
-    if (!_config.enabled) {
-      if (next.mode == CustomerDisplayMode.active) return;
-    }
+  Future<void> publish(
+    CustomerDisplayState next, {
+    bool Function()? stillValid,
+  }) async {
     final stamped = next.copyWith(
       updatedAtMs: DateTime.now().millisecondsSinceEpoch,
       idleSeconds: _config.idleSeconds,
     );
+    if (stillValid != null && !stillValid()) return;
     _state = stamped;
     notifyListeners();
 
@@ -188,7 +189,12 @@ class CustomerDisplaySync extends ChangeNotifier {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(_prefsKey, json);
     } catch (_) {}
+    if (stillValid != null && !stillValid()) return;
     await bridge.CustomerDisplayPlatformBridge.publishNative(json);
+
+    if (!_config.enabled) return;
+    if (stillValid != null && !stillValid()) return;
+
     final code = ensureViewerCode();
     if (code.length >= 4) {
       unawaited(ApiService().putPosCustomerDisplayState(
@@ -208,13 +214,17 @@ class CustomerDisplaySync extends ChangeNotifier {
   Future<void> publishIdle({
     List<CustomerDisplayPromoItem>? promoItems,
     String? storeName,
+    bool Function()? stillValid,
   }) {
-    return publish(CustomerDisplayState(
-      mode: CustomerDisplayMode.idle,
-      promoItems: promoItems ?? _state.promoItems,
-      storeName: storeName ?? _state.storeName,
-      idleSeconds: _config.idleSeconds,
-    ));
+    return publish(
+      CustomerDisplayState(
+        mode: CustomerDisplayMode.idle,
+        promoItems: promoItems ?? _state.promoItems,
+        storeName: storeName ?? _state.storeName,
+        idleSeconds: _config.idleSeconds,
+      ),
+      stillValid: stillValid,
+    );
   }
 
   Future<void> publishActive({
@@ -228,28 +238,37 @@ class CustomerDisplaySync extends ChangeNotifier {
     required double total,
     String? storeName,
     List<CustomerDisplayPromoItem>? promoItems,
+    bool Function()? stillValid,
   }) {
-    return publish(CustomerDisplayState(
-      mode: CustomerDisplayMode.active,
-      tableLabel: tableLabel,
-      areaName: areaName,
-      orderNo: orderNo,
-      guestCount: guestCount,
-      lines: lines,
-      subtotal: subtotal,
-      discount: discount,
-      total: total,
-      storeName: storeName ?? _state.storeName,
-      promoItems: promoItems ?? _state.promoItems,
-      idleSeconds: _config.idleSeconds,
-    ));
+    return publish(
+      CustomerDisplayState(
+        mode: CustomerDisplayMode.active,
+        tableLabel: tableLabel,
+        areaName: areaName,
+        orderNo: orderNo,
+        guestCount: guestCount,
+        lines: lines,
+        subtotal: subtotal,
+        discount: discount,
+        total: total,
+        storeName: storeName ?? _state.storeName,
+        promoItems: promoItems ?? _state.promoItems,
+        idleSeconds: _config.idleSeconds,
+      ),
+      stillValid: stillValid,
+    );
   }
+
+  String get lastOpenReason =>
+      bridge.CustomerDisplayPlatformBridge.lastOpenReason;
 
   Future<bool> hasSecondaryDisplay() =>
       bridge.CustomerDisplayPlatformBridge.hasSecondaryDisplay();
 
   Future<bool> openSecondary() =>
-      bridge.CustomerDisplayPlatformBridge.openSecondary();
+      bridge.CustomerDisplayPlatformBridge.openSecondary(
+        url: kIsWeb ? viewerBrowserLink : null,
+      );
 
   Future<bool> closeSecondary() =>
       bridge.CustomerDisplayPlatformBridge.closeSecondary();

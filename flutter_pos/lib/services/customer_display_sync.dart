@@ -264,16 +264,18 @@ class CustomerDisplaySync extends ChangeNotifier {
     );
   }
 
+  String get lastOpenReason =>
+      bridge.CustomerDisplayPlatformBridge.lastOpenReason;
+
   Future<bool> hasSecondaryDisplay() =>
       bridge.CustomerDisplayPlatformBridge.hasSecondaryDisplay();
 
   Future<bool> openSecondary() {
     final mode = _config.target.wire;
-    if (_config.target == CustomerDisplayTarget.window) {
-      // Window: chỉ cần sync JSON/API — Kotlin no-op / web mở popup.
-      return bridge.CustomerDisplayPlatformBridge.openSecondary(mode: mode);
-    }
-    return bridge.CustomerDisplayPlatformBridge.openSecondary(mode: mode);
+    return bridge.CustomerDisplayPlatformBridge.openSecondary(
+      mode: mode,
+      url: kIsWeb ? viewerBrowserLink : null,
+    );
   }
 
   Future<bool> closeSecondary() =>

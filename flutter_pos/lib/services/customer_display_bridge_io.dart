@@ -18,9 +18,12 @@ class CustomerDisplayPlatformBridge {
     }
   }
 
+  static String lastOpenReason = '';
+
   static Future<bool> openSecondary({
     String route = '/customer-display',
     String mode = 't1Native',
+    String? url,
   }) async {
     try {
       // window: Kotlin trả true mà không mở màn local.

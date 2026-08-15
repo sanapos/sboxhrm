@@ -37,6 +37,14 @@ class _PosGoodsReportScreenState extends State<PosGoodsReportScreen> {
       from: _time.from,
       to: _time.to,
       limit: 30,
+      includeGoods: _filter.includeGoods,
+      includeService: _filter.includeService,
+      includeCombo: _filter.includeCombo,
+      activeOnly: _filter.activeOnly,
+      inactiveOnly: _filter.inactiveOnly,
+      inventoryStatus: _filter.inventoryStatus == PosGoodsInventoryFilter.all
+          ? null
+          : _filter.inventoryStatus.name,
     );
     if (!mounted) return;
     setState(() {
@@ -58,6 +66,7 @@ class _PosGoodsReportScreenState extends State<PosGoodsReportScreen> {
     );
     if (picked == null) return;
     setState(() => _filter = picked);
+    await _load();
   }
 
   double _num(dynamic v) => v is num ? v.toDouble() : double.tryParse('$v') ?? 0;
@@ -67,25 +76,6 @@ class _PosGoodsReportScreenState extends State<PosGoodsReportScreen> {
     final unit = p['baseUnitName']?.toString();
     if (unit != null && unit.isNotEmpty) return '$name ($unit)';
     return name;
-  }
-
-  List<Map<String, dynamic>> _applyStockFilter(List<Map<String, dynamic>> items) {
-    return items.where((p) {
-      final qty = _num(p['onHandQty']);
-      final min = _num(p['minStockQty']);
-      switch (_filter.inventoryStatus) {
-        case PosGoodsInventoryFilter.belowMin:
-          return min > 0 && qty < min && qty > 0;
-        case PosGoodsInventoryFilter.aboveMin:
-          return min > 0 && qty > min;
-        case PosGoodsInventoryFilter.inStock:
-          return qty > 0;
-        case PosGoodsInventoryFilter.outOfStock:
-          return qty <= 0;
-        case PosGoodsInventoryFilter.all:
-          return true;
-      }
-    }).toList();
   }
 
   @override
@@ -99,12 +89,10 @@ class _PosGoodsReportScreenState extends State<PosGoodsReportScreen> {
         .map((e) => Map<String, dynamic>.from(e))
         .toList();
 
-    final topStock = _applyStockFilter(
-      ((_data?['topByStockValue'] as List?) ?? [])
-          .whereType<Map>()
-          .map((e) => Map<String, dynamic>.from(e))
-          .toList(),
-    );
+    final topStock = ((_data?['topByStockValue'] as List?) ?? [])
+        .whereType<Map>()
+        .map((e) => Map<String, dynamic>.from(e))
+        .toList();
 
     return PosReportMobileScaffold(
       title: 'Báo cáo hàng hóa',

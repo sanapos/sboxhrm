@@ -1,4 +1,4 @@
-﻿package vn.sana.sbox
+package vn.sana.sbox
 
 import android.app.PendingIntent
 import android.content.BroadcastReceiver

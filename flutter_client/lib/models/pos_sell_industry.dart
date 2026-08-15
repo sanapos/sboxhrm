@@ -6,7 +6,8 @@ enum PosSellProfile {
   salon,
   roomHourly,
   restaurant,
-  gym;
+  gym,
+  hotel;
 
   static PosSellProfile parse(String? raw) {
     final t = (raw ?? '').trim().toLowerCase();
@@ -23,6 +24,12 @@ enum PosSellProfile {
       case 'gym':
       case '4':
         return PosSellProfile.gym;
+      case 'hotel':
+      case '5':
+      case 'khachsan':
+      case 'homestay':
+      case 'luutru':
+        return PosSellProfile.hotel;
       case 'retail':
       case '0':
       default:
@@ -36,22 +43,209 @@ enum PosSellProfile {
         PosSellProfile.roomHourly => 'RoomHourly',
         PosSellProfile.restaurant => 'Restaurant',
         PosSellProfile.gym => 'Gym',
+        PosSellProfile.hotel => 'Hotel',
       };
 
   String get label => switch (this) {
-        PosSellProfile.retail => 'Bán lẻ',
-        PosSellProfile.salon => 'Salon / Nail',
-        PosSellProfile.roomHourly => 'Bi-a / Karaoke',
-        PosSellProfile.restaurant => 'F&B / Nhà hàng',
-        PosSellProfile.gym => 'Gym / Fitness',
+        PosSellProfile.retail => 'Bán lẻ / Siêu thị',
+        PosSellProfile.salon => 'Salon / Spa / Nail',
+        PosSellProfile.roomHourly => 'Karaoke / Bi-a / Phòng giờ',
+        PosSellProfile.restaurant => 'Nhà hàng / Cafe',
+        PosSellProfile.gym => 'Gym / Yoga',
+        PosSellProfile.hotel => 'Khách sạn / Lưu trú',
+      };
+
+  /// Gợi ý ngắn khi chọn ngành — hệ quả UI (sơ đồ, tính giờ, gói buổi).
+  String get description => switch (this) {
+        PosSellProfile.retail =>
+          'Quầy bán: trái hàng hóa, phải hóa đơn. Quét mã, xuất kho, tạm tính.',
+        PosSellProfile.salon =>
+          'Sơ đồ ghế, dịch vụ. Tính giờ, tạm tính trước khi thanh toán.',
+        PosSellProfile.roomHourly =>
+          'Sơ đồ phòng, tính giờ theo phòng. Bắt buộc chọn phòng khi bán.',
+        PosSellProfile.restaurant =>
+          'Sơ đồ bàn, thực đơn, báo bếp. Tạm tính, hỏi số khách.',
+        PosSellProfile.gym =>
+          'Bán gói buổi, check-in trừ buổi. Không dùng sơ đồ bàn.',
+        PosSellProfile.hotel =>
+          'Sơ đồ phòng, nhận/trả phòng, folio tạm tính, dịch vụ kèm (minibar, giặt ủi).',
+      };
+
+  List<String> get featureHints => switch (this) {
+        PosSellProfile.retail => const [
+            'Hàng hóa + hóa đơn',
+            'Quét mã vạch',
+            'Xuất kho / tạm tính',
+          ],
+        PosSellProfile.salon => const [
+            'Sơ đồ ghế',
+            'Gói liệu trình',
+            'Tạm tính',
+          ],
+        PosSellProfile.roomHourly => const [
+            'Sơ đồ phòng',
+            'Phí mở + block phút',
+            'Tạm tính',
+          ],
+        PosSellProfile.restaurant => const [
+            'Sơ đồ bàn',
+            'Báo bếp',
+            'Tạm tính',
+          ],
+        PosSellProfile.gym => const [
+            'Thẻ tập / gói buổi',
+            'Check-in trừ buổi',
+            'Không sơ đồ',
+          ],
+        PosSellProfile.hotel => const [
+            'Sơ đồ phòng',
+            'Theo giờ / theo ngày',
+            'Folio tạm tính',
+          ],
+      };
+
+  /// Bàn / ghế / phòng — rỗng với bán lẻ và gym.
+  String get resourceNoun => switch (this) {
+        PosSellProfile.salon => 'ghế',
+        PosSellProfile.roomHourly => 'phòng',
+        PosSellProfile.hotel => 'phòng',
+        PosSellProfile.restaurant => 'bàn',
+        _ => '',
+      };
+
+  String get resourceNounPlural => switch (this) {
+        PosSellProfile.salon => 'ghế',
+        PosSellProfile.roomHourly => 'phòng',
+        PosSellProfile.hotel => 'phòng',
+        PosSellProfile.restaurant => 'bàn',
+        _ => '',
+      };
+
+  String get floorTabLabel => switch (this) {
+        PosSellProfile.salon => 'Sơ đồ ghế',
+        PosSellProfile.roomHourly => 'Sơ đồ phòng',
+        PosSellProfile.hotel => 'Sơ đồ phòng',
+        PosSellProfile.restaurant => 'Sơ đồ bàn',
+        _ => 'Sơ đồ',
+      };
+
+  /// Màn lịch đặt / hẹn theo ngành.
+  String get bookingCalendarTitle => switch (this) {
+        PosSellProfile.salon => 'Lịch hẹn',
+        PosSellProfile.restaurant => 'Lịch đặt bàn',
+        PosSellProfile.hotel => 'Lịch đặt phòng',
+        PosSellProfile.roomHourly => 'Lịch phòng',
+        _ => 'Lịch đặt',
+      };
+
+  String get bookActionLabel => switch (this) {
+        PosSellProfile.salon => 'Đặt lịch',
+        PosSellProfile.restaurant => 'Đặt bàn',
+        PosSellProfile.hotel => 'Đặt phòng',
+        PosSellProfile.roomHourly => 'Đặt phòng',
+        _ => 'Đặt chỗ',
+      };
+
+  String get catalogTabLabel => switch (this) {
+        PosSellProfile.salon => 'Dịch vụ',
+        PosSellProfile.roomHourly => 'Dịch vụ',
+        PosSellProfile.hotel => 'Dịch vụ',
+        PosSellProfile.restaurant => 'Thực đơn',
+        PosSellProfile.gym => 'Gói / dịch vụ',
+        _ => 'Hàng hóa',
+      };
+
+  String get searchHint => switch (this) {
+        PosSellProfile.salon => 'Tìm dịch vụ (F3)',
+        PosSellProfile.roomHourly => 'Tìm dịch vụ (F3)',
+        PosSellProfile.hotel => 'Tìm phòng / dịch vụ (F3)',
+        PosSellProfile.gym => 'Tìm gói / dịch vụ (F3)',
+        PosSellProfile.restaurant => 'Tìm món (F3)',
+        _ => 'Tìm hàng (F3)',
+      };
+
+  String get floorSearchHint => switch (this) {
+        PosSellProfile.salon => 'Tìm ghế',
+        PosSellProfile.roomHourly => 'Tìm phòng',
+        PosSellProfile.hotel => 'Tìm phòng',
+        PosSellProfile.restaurant => 'Tìm bàn',
+        _ => 'Tìm',
+      };
+
+  /// Tiêu đề cột phải trên màn bán (không gắn bàn/ghế/phòng).
+  String get invoiceTitle => switch (this) {
+        PosSellProfile.salon => 'Phiếu dịch vụ',
+        PosSellProfile.roomHourly => 'Phiếu phòng',
+        PosSellProfile.hotel => 'Folio phòng',
+        PosSellProfile.restaurant => 'Phiếu bàn',
+        _ => 'Hóa đơn',
+      };
+
+  /// Đơn vị đếm dòng trên giỏ: hàng / món / dịch vụ.
+  String get lineUnit => switch (this) {
+        PosSellProfile.salon => 'dịch vụ',
+        PosSellProfile.roomHourly => 'dịch vụ',
+        PosSellProfile.hotel => 'dịch vụ',
+        PosSellProfile.restaurant => 'món',
+        _ => 'hàng',
+      };
+
+  String get pickCatalogLabel => switch (this) {
+        PosSellProfile.salon => 'Chọn dịch vụ',
+        PosSellProfile.roomHourly => 'Chọn dịch vụ',
+        PosSellProfile.hotel => 'Chọn dịch vụ',
+        PosSellProfile.restaurant => 'Chọn món',
+        PosSellProfile.gym => 'Chọn gói / dịch vụ',
+        _ => 'Chọn hàng',
+      };
+
+  /// Cột trái trên bảng giỏ hàng.
+  String get catalogColumnLabel => switch (this) {
+        PosSellProfile.salon => 'Dịch vụ',
+        PosSellProfile.roomHourly => 'Dịch vụ',
+        PosSellProfile.hotel => 'Dịch vụ',
+        PosSellProfile.restaurant => 'Món',
+        PosSellProfile.gym => 'Gói / dịch vụ',
+        _ => 'Sản phẩm',
+      };
+
+  String get emptyCartHint => switch (this) {
+        PosSellProfile.salon => 'Tìm và thêm dịch vụ vào phiếu',
+        PosSellProfile.roomHourly => 'Tìm và thêm dịch vụ vào phiếu phòng',
+        PosSellProfile.hotel => 'Tìm và thêm dịch vụ vào folio',
+        PosSellProfile.restaurant => 'Tìm và thêm món vào phiếu bàn',
+        PosSellProfile.gym => 'Tìm và thêm gói / dịch vụ vào hóa đơn',
+        _ => 'Tìm và thêm hàng hóa vào hóa đơn',
+      };
+
+  bool get usesFloorPlan =>
+      this == PosSellProfile.restaurant ||
+      this == PosSellProfile.salon ||
+      this == PosSellProfile.roomHourly ||
+      this == PosSellProfile.hotel;
+
+  bool get usesKitchenNotify => this == PosSellProfile.restaurant;
+
+  bool get usesWarehouseSlip =>
+      this == PosSellProfile.retail || this == PosSellProfile.gym;
+
+  PosResourceKind get defaultResourceKind => switch (this) {
+        PosSellProfile.salon => PosResourceKind.chair,
+        PosSellProfile.roomHourly => PosResourceKind.room,
+        PosSellProfile.hotel => PosResourceKind.room,
+        PosSellProfile.restaurant => PosResourceKind.table,
+        _ => PosResourceKind.other,
       };
 }
+
 
 enum PosServiceBillingMode {
   flat,
   perHour,
   perMinute,
-  perSession;
+  perSession,
+  perBlock,
+  perDay;
 
   static PosServiceBillingMode parse(String? raw) {
     switch ((raw ?? '').toLowerCase()) {
@@ -61,6 +255,10 @@ enum PosServiceBillingMode {
         return PosServiceBillingMode.perMinute;
       case 'persession':
         return PosServiceBillingMode.perSession;
+      case 'perblock':
+        return PosServiceBillingMode.perBlock;
+      case 'perday':
+        return PosServiceBillingMode.perDay;
       default:
         return PosServiceBillingMode.flat;
     }
@@ -71,18 +269,24 @@ enum PosServiceBillingMode {
         PosServiceBillingMode.perHour => 'PerHour',
         PosServiceBillingMode.perMinute => 'PerMinute',
         PosServiceBillingMode.perSession => 'PerSession',
+        PosServiceBillingMode.perBlock => 'PerBlock',
+        PosServiceBillingMode.perDay => 'PerDay',
       };
 
   String get label => switch (this) {
         PosServiceBillingMode.flat => 'Giá cố định',
         PosServiceBillingMode.perHour => 'Theo giờ',
         PosServiceBillingMode.perMinute => 'Theo phút',
-        PosServiceBillingMode.perSession => 'Theo buổi',
+        PosServiceBillingMode.perSession => 'Theo buổi / liệu trình',
+        PosServiceBillingMode.perBlock => 'Theo block (karaoke / bi-a)',
+        PosServiceBillingMode.perDay => 'Theo ngày (khách sạn)',
       };
 
   bool get isTimed =>
       this == PosServiceBillingMode.perHour ||
-      this == PosServiceBillingMode.perMinute;
+      this == PosServiceBillingMode.perMinute ||
+      this == PosServiceBillingMode.perBlock ||
+      this == PosServiceBillingMode.perDay;
 }
 
 enum PosResourceKind {
@@ -133,6 +337,9 @@ class PosStoreSellSettingsDto {
     this.enableMultiDeviceDraftLock = false,
     this.promptGuestCountOnOpen = false,
     this.allowNegativeStock = false,
+    this.enableCashierShift = false,
+    this.enableQrTableOrder = false,
+    this.enableQrOrderAutoPrint = true,
     this.reportDayStartHour = 0,
     this.defaultHourlyProductId,
     this.extraJson,
@@ -153,6 +360,12 @@ class PosStoreSellSettingsDto {
   final bool promptGuestCountOnOpen;
   /// Cho phép bán khi tồn khả dụng &lt; số cần (OnHand có thể âm).
   final bool allowNegativeStock;
+  /// Ca thu ngân (mở/đóng két). Tắt mặc định.
+  final bool enableCashierShift;
+  /// QR order tại bàn. Tắt mặc định.
+  final bool enableQrTableOrder;
+  /// QR: tự in phiếu bếp khi khách gửi món. Tắt = thu ngân in thủ công.
+  final bool enableQrOrderAutoPrint;
   /// Giờ bắt đầu ngày KD VN (0=nửa đêm UTC+7; &gt;0=ngày qua đêm).
   final int reportDayStartHour;
   bool get overnightReportEnabled => reportDayStartHour > 0;
@@ -187,6 +400,12 @@ class PosStoreSellSettingsDto {
             json['PromptGuestCountOnOpen'] == true,
         allowNegativeStock: json['allowNegativeStock'] == true ||
             json['AllowNegativeStock'] == true,
+        enableCashierShift: json['enableCashierShift'] == true ||
+            json['EnableCashierShift'] == true,
+        enableQrTableOrder: json['enableQrTableOrder'] == true ||
+            json['EnableQrTableOrder'] == true,
+        enableQrOrderAutoPrint: json['enableQrOrderAutoPrint'] != false &&
+            json['EnableQrOrderAutoPrint'] != false,
         reportDayStartHour: () {
           final v = json['reportDayStartHour'] ?? json['ReportDayStartHour'];
           if (v is int) return v.clamp(0, 23);
@@ -212,6 +431,9 @@ class PosStoreSellSettingsDto {
       'enableMultiDeviceDraftLock': enableMultiDeviceDraftLock,
       'promptGuestCountOnOpen': promptGuestCountOnOpen,
       'allowNegativeStock': allowNegativeStock,
+      'enableCashierShift': enableCashierShift,
+      'enableQrTableOrder': enableQrTableOrder,
+      'enableQrOrderAutoPrint': enableQrOrderAutoPrint,
       'reportDayStartHour': reportDayStartHour.clamp(0, 23),
       'defaultHourlyProductId': defaultHourlyProductId,
       'setDefaultHourlyProductId': true,
@@ -231,7 +453,7 @@ class PosStoreSellSettingsDto {
           enableSessionPacks: false,
           requireResourceOnSale: false,
           showFloorPlan: false,
-          allowProvisionalBill: false,
+          allowProvisionalBill: true,
           enableMultiDeviceDraftLock: false,
           promptGuestCountOnOpen: false,
         );
@@ -240,7 +462,7 @@ class PosStoreSellSettingsDto {
           sellProfile: profile,
           enableResources: true,
           enableHourlyBilling: true,
-          enableSessionPacks: false,
+          enableSessionPacks: true,
           requireResourceOnSale: false,
           showFloorPlan: true,
           allowProvisionalBill: true,
@@ -283,6 +505,19 @@ class PosStoreSellSettingsDto {
           enableMultiDeviceDraftLock: false,
           promptGuestCountOnOpen: false,
         );
+      case PosSellProfile.hotel:
+        return copyWith(
+          sellProfile: profile,
+          enableResources: true,
+          enableHourlyBilling: true,
+          enableSessionPacks: false,
+          requireResourceOnSale: true,
+          showFloorPlan: true,
+          allowProvisionalBill: true,
+          enableMultiDeviceDraftLock: true,
+          promptGuestCountOnOpen: true,
+          reportDayStartHour: 12,
+        );
     }
   }
 
@@ -298,6 +533,9 @@ class PosStoreSellSettingsDto {
     bool? enableMultiDeviceDraftLock,
     bool? promptGuestCountOnOpen,
     bool? allowNegativeStock,
+    bool? enableCashierShift,
+    bool? enableQrTableOrder,
+    bool? enableQrOrderAutoPrint,
     int? reportDayStartHour,
     String? defaultHourlyProductId,
     bool clearDefaultHourlyProductId = false,
@@ -319,6 +557,10 @@ class PosStoreSellSettingsDto {
         promptGuestCountOnOpen:
             promptGuestCountOnOpen ?? this.promptGuestCountOnOpen,
         allowNegativeStock: allowNegativeStock ?? this.allowNegativeStock,
+        enableCashierShift: enableCashierShift ?? this.enableCashierShift,
+        enableQrTableOrder: enableQrTableOrder ?? this.enableQrTableOrder,
+        enableQrOrderAutoPrint:
+            enableQrOrderAutoPrint ?? this.enableQrOrderAutoPrint,
         reportDayStartHour: reportDayStartHour ?? this.reportDayStartHour,
         defaultHourlyProductId: clearDefaultHourlyProductId
             ? null
@@ -713,6 +955,8 @@ class PosResourceReservationDto {
     this.assignedEmployeeId,
     this.assignedEmployeeName,
     this.isTimedSlot = false,
+    this.preOrderValue = 0,
+    this.resourceKind,
   });
 
   final String id;
@@ -739,10 +983,21 @@ class PosResourceReservationDto {
   final String? assignedEmployeeId;
   final String? assignedEmployeeName;
   final bool isTimedSlot;
+  final double preOrderValue;
+  final String? resourceKind;
 
   bool get isBooked => status.toLowerCase() == 'booked';
+  bool get isSeated => status.toLowerCase() == 'seated';
+  bool get isCancelled => status.toLowerCase() == 'cancelled';
+  bool get isNoShow => status.toLowerCase() == 'noshow';
   bool get hasDepositHeld =>
       depositStatus.toLowerCase() == 'held' && depositPaid > 0;
+
+  /// Tạm tính ngày đặt: món đặt trước + cọc đang giữ (chỉ Booked).
+  double get expectedRevenue {
+    if (!isBooked) return 0;
+    return preOrderValue + (hasDepositHeld ? depositPaid : 0);
+  }
 
   factory PosResourceReservationDto.fromJson(Map<String, dynamic> json) {
     DateTime? dt(dynamic v) => parsePosApiUtc(v?.toString());
@@ -773,8 +1028,14 @@ class PosResourceReservationDto {
       phone: (json['phone'] ?? json['Phone'])?.toString(),
       customerId: (json['customerId'] ?? json['CustomerId'])?.toString(),
       guestCount: i(json['guestCount'] ?? json['GuestCount'], 1),
-      reservedAt: dt(json['reservedAt'] ?? json['ReservedAt']),
-      reservedUntil: dt(json['reservedUntil'] ?? json['ReservedUntil']),
+      reservedAt: dt(json['reservedAt'] ??
+          json['ReservedAt'] ??
+          json['slotStart'] ??
+          json['SlotStart']),
+      reservedUntil: dt(json['reservedUntil'] ??
+          json['ReservedUntil'] ??
+          json['slotEnd'] ??
+          json['SlotEnd']),
       status: (json['status'] ?? json['Status'] ?? 'Booked').toString(),
       note: (json['note'] ?? json['Note'])?.toString(),
       preOrderCount: i(json['preOrderCount'] ?? json['PreOrderCount']),
@@ -798,6 +1059,8 @@ class PosResourceReservationDto {
               json['AssignedEmployeeName'])
           ?.toString(),
       isTimedSlot: timed,
+      preOrderValue: d(json['preOrderValue'] ?? json['PreOrderValue']),
+      resourceKind: (json['resourceKind'] ?? json['ResourceKind'])?.toString(),
     );
   }
 }
@@ -925,7 +1188,9 @@ class PosServiceBillingCalc {
     var minutes = (raw - (grace > 0 ? grace : 0)).clamp(0, 999999);
     final min = minBillMinutes ?? 0;
     if (min > 0 && minutes < min) minutes = min;
-    final round = billRoundMinutes ?? 0;
+    var round = billRoundMinutes ?? 0;
+    if (mode == PosServiceBillingMode.perDay && round < 60) round = 1440;
+    if (mode == PosServiceBillingMode.perBlock && round <= 0) round = 5;
     final roundAfter = roundAfterMinutes ?? 0;
     final applyRound =
         round > 0 && minutes > 0 && (roundAfter <= 0 || raw > roundAfter);
@@ -940,14 +1205,98 @@ class PosServiceBillingCalc {
     required PosServiceBillingMode mode,
     required int billableMinutes,
     required double fallbackQty,
+    int? billRoundMinutes,
   }) {
     switch (mode) {
       case PosServiceBillingMode.perHour:
         return double.parse((billableMinutes / 60).toStringAsFixed(4));
       case PosServiceBillingMode.perMinute:
         return billableMinutes.toDouble();
+      case PosServiceBillingMode.perBlock:
+        final block = (billRoundMinutes ?? 0) > 0 ? billRoundMinutes! : 5;
+        if (billableMinutes <= 0) return 0;
+        return double.parse((billableMinutes / block).toStringAsFixed(4));
+      case PosServiceBillingMode.perDay:
+        if (billableMinutes <= 0) return 1;
+        return (billableMinutes / 1440).ceil().toDouble().clamp(1, 999999);
       default:
         return fallbackQty;
     }
+  }
+
+  /// Qty phần vượt OpeningMinutes (phí mở không nằm trong qty).
+  static double extraQty({
+    required PosServiceBillingMode mode,
+    required int billableMinutes,
+    int? openingMinutes,
+    int? billRoundMinutes,
+    double fallbackQty = 0,
+  }) {
+    final included = openingMinutes ?? 0;
+    final extra = billableMinutes - (included > 0 ? included : 0);
+    if (extra <= 0) return 0;
+    return billableQty(
+      mode: mode,
+      billableMinutes: extra,
+      fallbackQty: fallbackQty,
+      billRoundMinutes: billRoundMinutes,
+    );
+  }
+
+  static double timedLineCharge({
+    required PosServiceBillingMode mode,
+    required int billableMinutes,
+    required double unitPrice,
+    double openingFee = 0,
+    int? openingMinutes,
+    int? billRoundMinutes,
+    double toppingExtraPerUnit = 0,
+  }) {
+    final qty = extraQty(
+      mode: mode,
+      billableMinutes: billableMinutes,
+      openingMinutes: openingMinutes,
+      billRoundMinutes: billRoundMinutes,
+    );
+    final fee = openingFee < 0 ? 0.0 : openingFee;
+    return fee + qty * (unitPrice + toppingExtraPerUnit);
+  }
+
+  static List<({int elapsed, int billable, double qty, double total})> preview({
+    required PosServiceBillingMode mode,
+    required double unitPrice,
+    int? minBillMinutes,
+    int? billRoundMinutes,
+    int? graceMinutes,
+    int? roundAfterMinutes,
+    double openingFee = 0,
+    int? openingMinutes,
+    List<int> elapsedSamples = const [1, 5, 6, 10, 12, 15, 30, 60],
+  }) {
+    final fee = openingFee < 0 ? 0.0 : openingFee;
+    final rows = <({int elapsed, int billable, double qty, double total})>[];
+    for (final elapsed in elapsedSamples) {
+      final billable = billableMinutes(
+        elapsed: elapsed,
+        mode: mode,
+        minBillMinutes: minBillMinutes,
+        billRoundMinutes: billRoundMinutes,
+        graceMinutes: graceMinutes,
+        roundAfterMinutes: roundAfterMinutes,
+      );
+      final qty = extraQty(
+        mode: mode,
+        billableMinutes: billable,
+        openingMinutes: openingMinutes,
+        billRoundMinutes: billRoundMinutes,
+      );
+      rows.add((
+        elapsed: elapsed,
+        billable: billable,
+        qty: qty,
+        total: fee + qty * unitPrice,
+      ));
+    }
+    return rows;
   }
 }

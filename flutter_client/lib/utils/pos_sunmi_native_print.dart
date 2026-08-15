@@ -28,28 +28,27 @@ class _SunmiReceiptLayout {
   factory _SunmiReceiptLayout.fromMm(int paperWidthMm) {
     final k58 = paperWidthMm <= 58;
     if (k58) {
-      // K58: chữ to/đậm hơn (ảnh v105 quá nhỏ), cột vẫn dùng printRow.
+      // K57/K58: chữ to, cột đủ 32 để căn hết khổ.
       return const _SunmiReceiptLayout._(
         k58: true,
         chars: 32,
-        titleSize: 34,
-        bodySize: 24,
+        titleSize: 40,
+        bodySize: 26,
         smallSize: 22,
-        totalSize: 28,
-        colLeft: 18,
+        totalSize: 32,
+        colLeft: 20,
         colRight: 12,
         itemLeft: 20,
-        itemRight: 10,
+        itemRight: 12,
       );
     }
     return const _SunmiReceiptLayout._(
       k58: false,
       chars: 48,
-      titleSize: 38,
-      bodySize: 26,
+      titleSize: 44,
+      bodySize: 30,
       smallSize: 24,
-      totalSize: 30,
-      // K80: tổng cột = 48 — trước đây 18+12 / 20+10 (=K58) → chữ lệch trái hẹp.
+      totalSize: 38,
       colLeft: 30,
       colRight: 18,
       itemLeft: 32,

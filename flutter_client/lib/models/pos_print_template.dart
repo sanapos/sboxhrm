@@ -192,7 +192,7 @@ abstract final class PosPrintPaperSizes {
   static const label35x22x3 = 'roll_3_104x22';
 
   static const labels = <String, String>{
-    k58: 'Khổ K58 (58mm) — phiếu nhiệt',
+    k58: 'Khổ K57/K58 (57–58mm) — phiếu nhiệt',
     k80: 'Khổ K80 (80mm) — phiếu nhiệt',
     a5: 'Khổ A5 — phiếu / PDF',
     a4: 'Khổ A4 — phiếu / PDF',

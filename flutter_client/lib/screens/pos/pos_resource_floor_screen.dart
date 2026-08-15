@@ -1,14 +1,18 @@
-﻿import 'dart:async';
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../models/pos_customer.dart';
 import '../../models/pos_product.dart';
+import '../../models/pos_sale_order.dart';
 import '../../models/pos_sell_industry.dart';
+import '../../widgets/pos/pos_split_bill_sheet.dart';
 import '../../services/api_service.dart';
 import '../../utils/pos_device_identity.dart';
 import '../../utils/pos_floor_realtime.dart';
+import '../../utils/pos_kitchen_print.dart';
+import '../../utils/pos_sell_print_settings.dart';
 import '../../utils/pos_table_label.dart';
 import '../../utils/responsive_helper.dart';
 import '../../utils/safe_navigator.dart';
@@ -17,6 +21,7 @@ import '../../widgets/pos/pos_numeric_keypad.dart';
 import '../../widgets/pos/pos_theme.dart';
 import 'pos_appointment_day_screen.dart';
 import 'pos_kitchen_void_list_screen.dart';
+import 'pos_kds_screen.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 import 'package:zkteco_flutter_client/l10n/app_ui_locale.dart';
 import '../../widgets/hrm_page_chrome.dart';
@@ -51,6 +56,7 @@ class PosResourceFloorScreen extends StatefulWidget {
     this.searchQuery = '',
     this.pendingOpenCode,
     this.pendingOpenToken = 0,
+    this.paneActive = true,
   });
 
   /// Nhúng trong màn bán hàng (không push route).
@@ -92,6 +98,9 @@ class PosResourceFloorScreen extends StatefulWidget {
   final String? pendingOpenCode;
   final int pendingOpenToken;
 
+  /// false khi pane Offstage — không poll/rebuild đồng hồ.
+  final bool paneActive;
+
   @override
   State<PosResourceFloorScreen> createState() => PosResourceFloorScreenState();
 }
@@ -116,6 +125,11 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
   bool get _isFnB => widget.sellProfile == PosSellProfile.restaurant;
   bool get _isHourly => widget.sellProfile == PosSellProfile.roomHourly;
   bool get _isSalon => widget.sellProfile == PosSellProfile.salon;
+  String get _bookingChipLabel {
+    final p = widget.sellProfile;
+    if (p == null) return 'Lịch đặt';
+    return p.bookingCalendarTitle;
+  }
   bool get _warnMissingTimed =>
       widget.sellProfile == PosSellProfile.roomHourly ||
       widget.sellProfile == PosSellProfile.salon;
@@ -145,16 +159,18 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
       _poll = Timer.periodic(
         Duration(seconds: pollSec),
         (_) {
-          if (mounted && !_layoutEdit) _reload(silent: true);
+          if (mounted && !_layoutEdit && widget.paneActive) {
+            _reload(silent: true);
+          }
         },
       );
     }
     _floorRealtime.start((_) {
-      if (mounted && !_layoutEdit) _reload(silent: true);
+      if (mounted && !_layoutEdit && widget.paneActive) _reload(silent: true);
     });
     // Đồng hồ bàn: 15s đủ (hiển thị phút), tránh rebuild toàn sơ đồ mỗi giây.
     _clock = Timer.periodic(const Duration(seconds: 15), (_) {
-      if (!mounted || _layoutEdit) return;
+      if (!mounted || _layoutEdit || !widget.paneActive) return;
       if (_resources.any((r) => r.liveElapsedMinutes > 0)) {
         setState(() {});
       }
@@ -302,6 +318,9 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
       });
       _notifyActiveTotals();
     }
+    if (widget.paneActive && !oldWidget.paneActive) {
+      unawaited(_reload(silent: true));
+    }
     if (widget.pendingOpenToken != oldWidget.pendingOpenToken &&
         (widget.pendingOpenCode ?? '').trim().isNotEmpty) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -321,6 +340,7 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
   int _lastEmittedCount = -1;
 
   void _notifyActiveTotals() {
+    if (!widget.paneActive) return;
     final s = _activeTablesSubtotal;
     final n = _activeTableCount;
     if (s == _lastEmittedSubtotal && n == _lastEmittedCount) return;
@@ -343,6 +363,11 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
     super.dispose();
   }
 
+  void refreshQuiet() {
+    if (!mounted) return;
+    unawaited(_reload(silent: true));
+  }
+
   Future<void> _reload({bool silent = false}) async {
     if (!silent) {
       setState(() {
@@ -352,7 +377,6 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
     }
     final areaRes = await _api.getPosServiceAreas();
     final resRes = await _api.getPosServiceResources(
-      areaId: _areaFilter,
       heal: !silent,
     );
     if (!mounted) return;
@@ -873,6 +897,7 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
       MaterialPageRoute(
         builder: (_) => PosAppointmentDayScreen(
           initialResourceId: resourceId,
+          sellProfile: widget.sellProfile,
           onSeated: (payload) {
             final rid = payload['resourceId']?.toString();
             final match = _resources.where((x) => x.id == rid).toList();
@@ -978,17 +1003,8 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                           trailing: const Icon(Icons.chevron_right),
                           onTap: () {
                             Navigator.pop(ctx);
-                            if (_isSalon) {
-                              unawaited(_openAppointmentCalendar(
-                                  resourceId: b.resourceId));
-                              return;
-                            }
-                            final match = _resources
-                                .where((x) => x.id == b.resourceId)
-                                .toList();
-                            if (match.isNotEmpty) {
-                              unawaited(_showReservedActions(match.first));
-                            }
+                            unawaited(_openAppointmentCalendar(
+                                resourceId: b.resourceId));
                           },
                         );
                       },
@@ -1644,14 +1660,17 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
               title: Text(tr('Vào chọn món / dịch vụ')),
               onTap: () => Navigator.pop(ctx, 'open'),
             ),
-            if (_isWaitingTable(r))
-              ListTile(
-                leading: Icon(Icons.event_seat_outlined,
-                    color: Colors.red.shade700),
-                title: Text(tr('Trả về bàn trống')),
-                subtitle: Text(tr('Đóng phiên — bàn chưa gọi món')),
-                onTap: () => Navigator.pop(ctx, 'free'),
-              ),
+            ListTile(
+              leading: Icon(Icons.event_seat_outlined,
+                  color: Colors.red.shade700),
+              title: Text(tr('Trả về bàn trống')),
+              subtitle: Text(tr(_isWaitingTable(r)
+                  ? 'Đóng phiên — bàn chưa gọi món'
+                  : r.lineCount > 0
+                      ? 'Xóa ${r.lineCount} món trên đơn tạm và đóng phiên'
+                      : 'Đóng phiên — trả bàn về trống')),
+              onTap: () => Navigator.pop(ctx, 'free'),
+            ),
             if (_isFnB)
               ListTile(
                 leading: const Icon(Icons.soup_kitchen_outlined),
@@ -1672,6 +1691,12 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
               title: Text(tr('Tách bàn')),
               subtitle: Text(tr('Chọn món chuyển sang bàn trống')),
               onTap: () => Navigator.pop(ctx, 'split'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.receipt_long_outlined),
+              title: Text(tr('Tách bill')),
+              subtitle: Text(tr('Khách trả một phần — bàn giữ món còn lại')),
+              onTap: () => Navigator.pop(ctx, 'splitBill'),
             ),
             ListTile(
               leading: const Icon(Icons.merge_type),
@@ -1728,7 +1753,7 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
       return;
     }
     if (action == 'free') {
-      await _freeHoldingTable(r);
+      await _returnTableToEmpty(r);
       return;
     }
     if (action == 'kitchen') {
@@ -1741,6 +1766,10 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
     }
     if (action == 'split') {
       await _split(r);
+      return;
+    }
+    if (action == 'splitBill') {
+      await _splitBill(r);
       return;
     }
     if (action == 'merge') {
@@ -1836,6 +1865,7 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
       } else {
         // Silent — báo chế biến OK không toast che sơ đồ.
         debugPrint('Floor kitchen send OK: $n · ${r.name}');
+        unawaited(_printFloorKitchenSlip(r, data));
       }
       await _reload(silent: true);
     } else {
@@ -1844,6 +1874,54 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
         message: res['message']?.toString() ?? 'Không gửi được',
       );
       await _reload(silent: true);
+    }
+  }
+
+  /// Báo bếp từ sơ đồ bàn cũng phải ra phiếu. Trước đây màn này chỉ gọi API
+  /// đánh dấu đã gửi: bếp không nhận được gì, mà vì đã đánh dấu nên mở bàn ra
+  /// bấm Báo bếp lại cũng báo «không có món mới» — món chìm luôn.
+  /// Màn sơ đồ không giữ giỏ hàng nên dựng phiếu từ `sentItems` server trả về.
+  Future<void> _printFloorKitchenSlip(
+    PosServiceResourceDto r,
+    Map data,
+  ) async {
+    try {
+      final settings = await PosSellPrintSettings.load();
+      if (!settings.kitchenSlipPrintMode.shouldPrintOnBaoBep) return;
+
+      final raw = data['sentItems'];
+      if (raw is! List || raw.isEmpty) return;
+      final lines = <KitchenTicketLine>[];
+      for (final e in raw) {
+        if (e is! Map) continue;
+        final qty = (e['qty'] as num?)?.toDouble() ?? 0;
+        if (qty <= 0) continue;
+        lines.add(KitchenTicketLine(
+          productName: e['productName']?.toString() ?? '',
+          qty: qty,
+          unitName: e['unitName']?.toString(),
+          note: e['note']?.toString(),
+          productId: e['productId']?.toString(),
+          sentBefore: (e['sentBefore'] as num?)?.toDouble(),
+          lineKey: e['lineId']?.toString(),
+        ));
+      }
+      if (lines.isEmpty) return;
+
+      await printKitchenCompactSlip(
+        tableName: formatPosTableLabel(
+          areaName: r.areaName,
+          tableName: r.name,
+        ),
+        isCancel: false,
+        lines: lines,
+        senderName: (await PosDeviceIdentity.get()).name,
+        orderNo: data['orderNo']?.toString(),
+        waitForCompletion: false,
+        showFeedback: false,
+      );
+    } catch (e) {
+      debugPrint('Floor kitchen print: $e');
     }
   }
 
@@ -2191,6 +2269,68 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
     }
   }
 
+  Future<void> _splitBill(PosServiceResourceDto r) async {
+    final sid = r.openSessionId;
+    final oid = r.openOrderId;
+    if (sid == null || sid.isEmpty || oid == null || oid.isEmpty) {
+      NotificationOverlayManager().showWarning(
+        title: 'Không tách được',
+        message: tr('Bàn chưa có phiên / đơn'),
+      );
+      return;
+    }
+    final orderRes = await _api.getPosSale(oid);
+    if (!mounted) return;
+    if (orderRes['isSuccess'] != true || orderRes['data'] is! Map) {
+      NotificationOverlayManager().showError(
+        title: 'Lỗi',
+        message: tr('Không tải được đơn để tách bill'),
+      );
+      return;
+    }
+    final order = PosSaleOrder.fromJson(
+        Map<String, dynamic>.from(orderRes['data'] as Map));
+    if (order.lines.isEmpty) return;
+    final picks = await showPosSplitBillSheet(
+      context: context,
+      lines: order.lines,
+    );
+    if (!mounted || picks == null || picks.isEmpty) return;
+
+    final res = await _api.splitPosBill(
+      sid,
+      items: [
+        for (final p in picks) {'lineId': p.lineId, 'qty': p.qty},
+      ],
+    );
+    if (!mounted) return;
+    if (res['isSuccess'] != true) {
+      NotificationOverlayManager().showError(
+        title: 'Không tách được',
+        message: res['message']?.toString() ?? 'Tách bill thất bại',
+      );
+      return;
+    }
+    final data2 = res['data'] as Map? ?? {};
+    final newOrderId = data2['newSaleOrderId']?.toString();
+    widget.onResourceFreed?.call(r.id);
+    NotificationOverlayManager().showSuccess(
+      title: 'Đã tách bill',
+      message: tr('Thanh toán phần này — món còn lại giữ ${r.name}'),
+    );
+    await _reload();
+    if (!mounted || newOrderId == null || newOrderId.isEmpty) return;
+    _emitSelect(_tableSelectPayload(
+      r,
+      extra: {
+        'saleOrderId': newOrderId,
+        'sessionId': '',
+        'isSplitBill': true,
+        'splitFromOrderId': data2['splitFromOrderId']?.toString() ?? oid,
+      },
+    ));
+  }
+
   Future<void> _merge(PosServiceResourceDto r) async {
     final sid = r.openSessionId;
     if (sid == null || sid.isEmpty) {
@@ -2440,8 +2580,119 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
     }
   }
 
+  List<PosServiceResourceDto> get _busyTables => _resources
+      .where((r) => r.isOccupied || r.isHolding || r.isParked)
+      .toList();
+
+  /// Trả bàn về trống. Bàn còn món: xóa đơn tạm rồi đóng phiên.
+  Future<bool> _returnTableToEmpty(
+    PosServiceResourceDto r, {
+    bool confirmIfBusy = true,
+  }) async {
+    final busy = r.lineCount > 0 || r.subtotal > 0;
+    if (confirmIfBusy && busy) {
+      final ok = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Text(tr('Trả ${r.name} về trống?')),
+          content: Text(tr(
+            'Bàn còn ${r.lineCount} món'
+            '${r.subtotal > 0 ? ' · ${_moneyFmt.format(r.subtotal)}đ' : ''}.\n'
+            'Xóa đơn tạm, không thu tiền, đóng phiên.',
+          )),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text(tr('Huỷ')),
+            ),
+            FilledButton(
+              style: FilledButton.styleFrom(backgroundColor: Colors.red),
+              onPressed: () => Navigator.pop(ctx, true),
+              child: Text(tr('Trả về trống')),
+            ),
+          ],
+        ),
+      );
+      if (ok != true) return false;
+    }
+
+    final orderId = (r.openOrderId ?? '').trim();
+    if (orderId.isNotEmpty && busy) {
+      final del = await _api.deletePosSale(orderId);
+      if (!mounted) return false;
+      if (del['isSuccess'] != true) {
+        NotificationOverlayManager().showError(
+          title: 'Không xóa được đơn',
+          message: del['message']?.toString() ??
+              'Không trả được bàn còn món. Mở bàn → xóa món hoặc hủy đơn.',
+        );
+        return false;
+      }
+    }
+
+    await _freeHoldingTable(r, quiet: !confirmIfBusy);
+    return true;
+  }
+
+  Future<void> _returnAllTablesToEmpty() async {
+    final busy = _busyTables;
+    if (busy.isEmpty) return;
+    final withItems = busy.where((r) => r.lineCount > 0 || r.subtotal > 0).length;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(tr('Trả hết bàn về trống?')),
+        content: Text(tr(
+          '${busy.length} ${(widget.sellProfile ?? PosSellProfile.restaurant).resourceNoun} đang dùng'
+          '${withItems > 0 ? ' (trong đó $withItems còn món)' : ''}.\n'
+          'Xóa đơn tạm, không thu tiền, đóng mọi phiên.',
+        )),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(tr('Huỷ')),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(tr('Trả hết trống')),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+
+    var done = 0;
+    var fail = 0;
+    for (final r in List<PosServiceResourceDto>.from(busy)) {
+      final okOne = await _returnTableToEmpty(r, confirmIfBusy: false);
+      if (okOne) {
+        done++;
+      } else {
+        fail++;
+      }
+      if (!mounted) return;
+    }
+    if (!mounted) return;
+    if (fail == 0) {
+      NotificationOverlayManager().showSuccess(
+        title: 'Đã trả hết về trống',
+        message: tr('$done ${(widget.sellProfile ?? PosSellProfile.restaurant).resourceNoun}'),
+      );
+    } else {
+      NotificationOverlayManager().showError(
+        title: 'Trả bàn chưa xong',
+        message: tr('Được $done · lỗi $fail. Thử lại bàn còn món.'),
+      );
+    }
+    await _reload();
+  }
+
   /// Bàn Holding (chưa gọi món) → đóng mọi phiên, trả về trống.
-  Future<void> _freeHoldingTable(PosServiceResourceDto r) async {
+  Future<void> _freeHoldingTable(
+    PosServiceResourceDto r, {
+    bool quiet = false,
+  }) async {
     // Hủy autosave / draft local trước — tránh race mở lại phiên trống.
     widget.onResourceFreed?.call(r.id);
 
@@ -2502,10 +2753,12 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
     }
 
     markFreeLocal();
-    NotificationOverlayManager().showSuccess(
-      title: 'Đã trả về trống',
-      message: r.name,
-    );
+    if (!quiet) {
+      NotificationOverlayManager().showSuccess(
+        title: 'Đã trả về trống',
+        message: r.name,
+      );
+    }
 
     await Future<void>.delayed(const Duration(milliseconds: 250));
     await _reload(silent: true);
@@ -2783,6 +3036,7 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
     var kind = switch (widget.sellProfile) {
       PosSellProfile.salon => PosResourceKind.chair,
       PosSellProfile.roomHourly => PosResourceKind.room,
+      PosSellProfile.hotel => PosResourceKind.room,
       _ => PosResourceKind.table,
     };
     final countCtrl = TextEditingController(text: '$count');
@@ -3201,6 +3455,7 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
         switch (widget.sellProfile) {
           PosSellProfile.salon => PosResourceKind.chair,
           PosSellProfile.roomHourly => PosResourceKind.room,
+          PosSellProfile.hotel => PosResourceKind.room,
           _ => PosResourceKind.table,
         };
     var capacity = existing?.capacity ?? 4;
@@ -3793,8 +4048,12 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
         r.areaName.toLowerCase().contains(q);
   }
 
-  List<PosServiceResourceDto> get _searchFilteredResources =>
-      _resources.where(_resourceMatchesSearch).toList();
+  List<PosServiceResourceDto> get _searchFilteredResources {
+    Iterable<PosServiceResourceDto> list = _resources;
+    final area = _areaFilter;
+    if (area != null) list = list.where((r) => r.areaId == area);
+    return list.where(_resourceMatchesSearch).toList();
+  }
 
   /// Quét mã / gõ mã bàn → mở bàn khớp chính xác (code hoặc tên).
   bool tryOpenByCode(String raw) {
@@ -4019,8 +4278,8 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                             label: 'Tất cả',
                             selected: _areaFilter == null,
                             onTap: () {
+                              if (_areaFilter == null) return;
                               setState(() => _areaFilter = null);
-                              _reload();
                             },
                           ),
                           const SizedBox(width: 8),
@@ -4030,8 +4289,8 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                                   label: a.name,
                                   selected: _areaFilter == a.id,
                                   onTap: () {
+                                    if (_areaFilter == a.id) return;
                                     setState(() => _areaFilter = a.id);
-                                    _reload();
                                   },
                                   onLongPress: widget.manageMode
                                       ? () => unawaited(
@@ -4069,23 +4328,40 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                           ] else ...[
                             const SizedBox(width: 8),
                             ActionChip(
-                              avatar: Icon(
-                                  _isSalon
-                                      ? Icons.calendar_month_outlined
-                                      : Icons.event_note_outlined,
+                              avatar: const Icon(
+                                  Icons.calendar_month_outlined,
                                   size: 18),
                               label: Text(
-                                  tr(_isSalon ? 'Lịch hẹn' : 'Đặt hôm nay'),
+                                  tr(_bookingChipLabel),
                                   style: TextStyle(
                                       fontWeight: FontWeight.w600,
                                       fontSize: 14)),
-                              onPressed: () => unawaited(_isSalon
-                                  ? _openAppointmentCalendar()
-                                  : _showTodayReservations()),
+                              onPressed: () =>
+                                  unawaited(_openAppointmentCalendar()),
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 10, vertical: 10),
                               visualDensity: VisualDensity.standard,
                             ),
+                            if (_busyTables.isNotEmpty) ...[
+                              const SizedBox(width: 8),
+                              ActionChip(
+                                avatar: Icon(Icons.event_seat_outlined,
+                                    size: 18, color: Colors.red.shade700),
+                                label: Text(
+                                  tr('Trả hết trống (${_busyTables.length})'),
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 14,
+                                    color: Colors.red.shade700,
+                                  ),
+                                ),
+                                onPressed: () =>
+                                    unawaited(_returnAllTablesToEmpty()),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 10, vertical: 10),
+                                visualDensity: VisualDensity.standard,
+                              ),
+                            ],
                           ],
                         ],
                       ),
@@ -4227,6 +4503,15 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                     )
                   : null,
               actions: [
+                IconButton(
+                  tooltip: tr('Màn hình bếp (KDS)'),
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const PosKdsScreen()),
+                    );
+                  },
+                  icon: const Icon(Icons.kitchen_outlined),
+                ),
                 if (widget.manageMode) ...[
                   IconButton(
                     tooltip: tr('Phiếu hủy bếp'),
@@ -4269,13 +4554,9 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                   ),
                 ],
                 IconButton(
-                  tooltip: tr(_isSalon ? 'Lịch hẹn' : 'Đặt hôm nay'),
-                  onPressed: () => unawaited(_isSalon
-                      ? _openAppointmentCalendar()
-                      : _showTodayReservations()),
-                  icon: Icon(_isSalon
-                      ? Icons.calendar_month_outlined
-                      : Icons.event_note_outlined),
+                  tooltip: tr(_bookingChipLabel),
+                  onPressed: () => unawaited(_openAppointmentCalendar()),
+                  icon: const Icon(Icons.calendar_month_outlined),
                 ),
                 IconButton(
                   tooltip: tr('Tải lại'),
@@ -4594,9 +4875,12 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
     );
 
     // Sắp xếp: không InkWell. Quản lý: sửa/xóa. Bán hàng: mở bàn / menu.
-    if (!allowSellActions && !allowManageActions) return body;
+    if (!allowSellActions && !allowManageActions) {
+      return RepaintBoundary(child: body);
+    }
 
-    return Material(
+    return RepaintBoundary(
+      child: Material(
       color: Colors.transparent,
       borderRadius: BorderRadius.circular(10),
       child: InkWell(
@@ -4609,6 +4893,7 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
             : () => unawaited(_showSellTileActions(r)),
         child: body,
       ),
+    ),
     );
   }
 

@@ -11,6 +11,7 @@ import '../services/api_service.dart';
 import '../widgets/notification_overlay.dart';
 import 'pos_html_print.dart';
 import 'pos_local_printers_store.dart';
+import 'pos_print_role.dart';
 import 'pos_print_template_loader.dart';
 import 'pos_pdf_fonts.dart';
 import 'pos_print_orchestrator.dart';
@@ -410,9 +411,11 @@ Future<bool> printPosSaleOrder({
   final cloudPrinters = PosPrintOrchestrator.instance
       .resolvePrinters(PosCloudDocumentTypes.saleInvoice);
 
-  // App: ưu tiên máy nội bộ SaleInvoice đã cài trên thiết bị (gồm LAN nội bộ).
-  // Chỉ có lanHost từ Agent/cloud → cloud. Web: bỏ qua.
-  if (!kIsWeb) {
+  // App: chỉ in local khi ĐANG là Print Agent (A6). A7/Oppo có profile LAN/USB
+  // «ảo» khớp tên → thử local fail/treo → phiếu chờ, không gửi Agent.
+  final isAgentDevice =
+      !kIsWeb && await PosPrintRole.isPrintAgentDevice();
+  if (!kIsWeb && isAgentDevice) {
     final saleLocals = await PosLocalPrintersStore.instance
         .forRoleOnDevice(PosLocalPrinterRoles.saleInvoice);
     final thermalCandidates = <PosThermalPrinterSettings>[

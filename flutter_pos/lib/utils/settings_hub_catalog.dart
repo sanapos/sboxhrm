@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 
 import '../models/settings_hub_sidebar_config.dart';
 import '../widgets/hrm_page_chrome.dart';
@@ -201,13 +201,22 @@ class SettingsHubCatalog {
       moduleCode: 'PosSell',
     ),
     SettingsHubItemDef(
+      index: 26,
+      icon: Icons.request_quote_outlined,
+      label: 'Hóa đơn điện tử',
+      desc: 'Viettel SInvoice, Easy Invoice, MISA',
+      accent: HrmPageChrome.primaryNavy,
+      groupTitle: 'POS / Bán hàng',
+      moduleCode: 'PosEInvoice',
+    ),
+    SettingsHubItemDef(
       index: 18,
       icon: Icons.print,
       label: 'Máy in (thiết bị)',
       desc: 'In hoá đơn, Bluetooth/LAN/USB, tem ly',
       accent: HrmPageChrome.primaryNavy,
       groupTitle: 'POS / Bán hàng',
-      moduleCode: 'PosSell',
+      moduleCode: 'PosPrinters',
     ),
     SettingsHubItemDef(
       index: 19,

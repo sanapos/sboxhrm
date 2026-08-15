@@ -13,6 +13,8 @@ import '../../providers/permission_provider.dart';
 import '../../services/api_service.dart';
 import '../../utils/image_source_picker.dart';
 import '../../utils/pos_product_editor_prefs.dart';
+import '../../utils/pos_qty_rules.dart';
+import '../../utils/pos_combo_stock.dart';
 import '../../widgets/notification_overlay.dart';
 import '../main_layout.dart' show ScreenRefreshNotifier;
 import '../../utils/number_formatter.dart';
@@ -260,6 +262,9 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
   late final TextEditingController _roundAfterMinutesCtrl;
   late final TextEditingController _defaultDurationMinutesCtrl;
   late final TextEditingController _sessionPackCountCtrl;
+  late final TextEditingController _openingFeeCtrl;
+  late final TextEditingController _openingMinutesCtrl;
+  late final TextEditingController _sessionPackValidDaysCtrl;
 
   List<PosCatalogItem> _categories = [];
   List<PosCatalogItem> _brands = [];
@@ -366,7 +371,10 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
       case PosProductEditorSection.serviceBilling:
         return _serviceBillingMode != PosServiceBillingMode.flat ||
             (int.tryParse(_sessionPackCountCtrl.text.trim()) ?? 0) > 0 ||
-            _defaultDurationMinutesCtrl.text.trim().isNotEmpty;
+            _defaultDurationMinutesCtrl.text.trim().isNotEmpty ||
+            _openingFeeCtrl.text.trim().isNotEmpty ||
+            _openingMinutesCtrl.text.trim().isNotEmpty ||
+            _sessionPackValidDaysCtrl.text.trim().isNotEmpty;
       case PosProductEditorSection.description:
         return _descCtrl.text.trim().isNotEmpty || _saleQuickNotes.isNotEmpty;
     }
@@ -490,6 +498,17 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
     );
     _sessionPackCountCtrl = TextEditingController(
       text: tr((p?.sessionPackCount ?? 0) > 0 ? '${p!.sessionPackCount}' : ''),
+    );
+    _openingFeeCtrl = TextEditingController(
+      text: tr((p?.openingFee ?? 0) > 0 ? _fmtInputMoney(p!.openingFee) : ''),
+    );
+    _openingMinutesCtrl = TextEditingController(
+      text: tr((p?.openingMinutes ?? 0) > 0 ? '${p!.openingMinutes}' : ''),
+    );
+    _sessionPackValidDaysCtrl = TextEditingController(
+      text: tr((p?.sessionPackValidDays ?? 0) > 0
+          ? '${p!.sessionPackValidDays}'
+          : ''),
     );
     _imagePreviewUrl = p?.imageUrl;
     if (p?.units != null) _units = List.from(p!.units!);
@@ -616,6 +635,13 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
           : '';
       _sessionPackCountCtrl.text =
           data.sessionPackCount > 0 ? '${data.sessionPackCount}' : '';
+      _openingFeeCtrl.text =
+          data.openingFee > 0 ? _fmtInputMoney(data.openingFee) : '';
+      _openingMinutesCtrl.text =
+          (data.openingMinutes ?? 0) > 0 ? '${data.openingMinutes}' : '';
+      _sessionPackValidDaysCtrl.text = data.sessionPackValidDays > 0
+          ? '${data.sessionPackValidDays}'
+          : '';
     });
     if (_isCombo) {
       final comboRes = await _api.getPosComboLines(id);
@@ -799,6 +825,9 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
     _roundAfterMinutesCtrl.dispose();
     _defaultDurationMinutesCtrl.dispose();
     _sessionPackCountCtrl.dispose();
+    _openingFeeCtrl.dispose();
+    _openingMinutesCtrl.dispose();
+    _sessionPackValidDaysCtrl.dispose();
     super.dispose();
   }
 
@@ -941,6 +970,10 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
             int.tryParse(_defaultDurationMinutesCtrl.text.trim()),
         'sessionPackCount':
             int.tryParse(_sessionPackCountCtrl.text.trim()) ?? 0,
+        'openingFee': _parseNum(_openingFeeCtrl.text),
+        'openingMinutes': int.tryParse(_openingMinutesCtrl.text.trim()),
+        'sessionPackValidDays':
+            int.tryParse(_sessionPackValidDaysCtrl.text.trim()) ?? 0,
       },
     };
 
@@ -1725,38 +1758,86 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
     if (!_isEditing) return const SizedBox.shrink();
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
-      child: DropdownButtonFormField<PosProductType>(
-        value: _productType,
-        decoration: PosTheme.inputDecoration(label: 'Loại hàng'),
-        items: [
-          DropdownMenuItem(
-            value: PosProductType.goods,
-            child: Text(tr('Hàng hóa')),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          DropdownButtonFormField<PosProductType>(
+            value: _productType,
+            decoration: PosTheme.inputDecoration(label: 'Loại hàng'),
+            items: [
+              DropdownMenuItem(
+                value: PosProductType.goods,
+                child: Text(tr('Hàng hóa')),
+              ),
+              DropdownMenuItem(
+                value: PosProductType.service,
+                child: Text(tr('Dịch vụ')),
+              ),
+              DropdownMenuItem(
+                value: PosProductType.combo,
+                child: Text(tr('Combo / Đóng gói')),
+              ),
+            ],
+            onChanged: (v) {
+              if (v == null || v == _productType) return;
+              setState(() {
+                final wasCombo = _isCombo;
+                _productType = v;
+                if (v != PosProductType.combo) {
+                  _comboLines.clear();
+                } else if (!wasCombo) {
+                  _comboLines.clear();
+                }
+                if (v == PosProductType.service || v == PosProductType.combo) {
+                  _stockCtrl.text = '0';
+                }
+              });
+            },
           ),
-          DropdownMenuItem(
-            value: PosProductType.service,
-            child: Text(tr('Dịch vụ')),
-          ),
-          DropdownMenuItem(
-            value: PosProductType.combo,
-            child: Text(tr('Combo / Đóng gói')),
+          const SizedBox(height: 8),
+          _buildTypeUsageNote(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTypeUsageNote() {
+    final (color, icon, text) = switch (_type) {
+      PosProductType.service => (
+          const Color(0xFF0369A1),
+          Icons.handyman_outlined,
+          'Dịch vụ không quản lý tồn kho — bán không trừ kho. Dùng cho công, spa, tính giờ, gói buổi.',
+        ),
+      PosProductType.combo => (
+          const Color(0xFFB45309),
+          Icons.layers_outlined,
+          'Combo không có tồn riêng. Khai định lượng thành phần (SL / 1 combo, được phép lẻ). Khi bán, kho trừ đúng SL từng hàng thành phần.',
+        ),
+      PosProductType.goods => (
+          PosTheme.kiotBlue,
+          Icons.inventory_2_outlined,
+          'Hàng hóa quản lý tồn. Nhập kho rồi bán sẽ trừ đúng số lượng.',
+        ),
+    };
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: color.withOpacity(0.25)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 18, color: color),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              tr(text),
+              style: TextStyle(fontSize: 12.5, height: 1.35, color: color),
+            ),
           ),
         ],
-        onChanged: (v) {
-          if (v == null || v == _productType) return;
-          setState(() {
-            final wasCombo = _isCombo;
-            _productType = v;
-            if (v != PosProductType.combo) {
-              _comboLines.clear();
-            } else if (!wasCombo) {
-              _comboLines.clear();
-            }
-            if (v == PosProductType.service || v == PosProductType.combo) {
-              _stockCtrl.text = '0';
-            }
-          });
-        },
       ),
     );
   }
@@ -1893,8 +1974,8 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                 children: [
                   DropdownButtonFormField<PosServiceBillingMode>(
                     value: _serviceBillingMode,
-                    decoration:
-                        PosTheme.inputDecoration(label: 'Cách tính giá dịch vụ'),
+                    decoration: PosTheme.inputDecoration(
+                        label: 'Cách tính giá dịch vụ'),
                     items: PosServiceBillingMode.values
                         .map((m) => DropdownMenuItem(
                               value: m,
@@ -1903,7 +1984,21 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                         .toList(),
                     onChanged: (v) {
                       if (v == null) return;
-                      setState(() => _serviceBillingMode = v);
+                      setState(() {
+                        _serviceBillingMode = v;
+                        if (v == PosServiceBillingMode.perBlock &&
+                            _billRoundMinutesCtrl.text.trim().isEmpty) {
+                          _billRoundMinutesCtrl.text = '5';
+                        }
+                        if (v == PosServiceBillingMode.perDay &&
+                            _billRoundMinutesCtrl.text.trim().isEmpty) {
+                          _billRoundMinutesCtrl.text = '1440';
+                        }
+                        if (v == PosServiceBillingMode.perDay &&
+                            _minBillMinutesCtrl.text.trim().isEmpty) {
+                          _minBillMinutesCtrl.text = '1440';
+                        }
+                      });
                     },
                   ),
                   if (_serviceBillingMode.isTimed) ...[
@@ -1912,8 +2007,37 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                       children: [
                         Expanded(
                           child: TextField(
+                            controller: _openingFeeCtrl,
+                            keyboardType: TextInputType.number,
+                            onChanged: (_) => setState(() {}),
+                            decoration: PosTheme.inputDecoration(
+                              label: 'Phí mở phòng / bàn',
+                              hint: 'VD 50.000',
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: TextField(
+                            controller: _openingMinutesCtrl,
+                            keyboardType: TextInputType.number,
+                            onChanged: (_) => setState(() {}),
+                            decoration: PosTheme.inputDecoration(
+                              label: 'Phút gồm trong phí mở',
+                              hint: '0 = tính ngay',
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
                             controller: _minBillMinutesCtrl,
                             keyboardType: TextInputType.number,
+                            onChanged: (_) => setState(() {}),
                             decoration: PosTheme.inputDecoration(
                               label: 'Phút tối thiểu',
                               hint: 'VD 60',
@@ -1925,9 +2049,22 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                           child: TextField(
                             controller: _billRoundMinutesCtrl,
                             keyboardType: TextInputType.number,
+                            onChanged: (_) => setState(() {}),
                             decoration: PosTheme.inputDecoration(
-                              label: 'Làm tròn (phút)',
-                              hint: 'VD 15',
+                              label: _serviceBillingMode ==
+                                      PosServiceBillingMode.perBlock
+                                  ? 'Mỗi block (phút)'
+                                  : _serviceBillingMode ==
+                                          PosServiceBillingMode.perDay
+                                      ? 'Làm tròn ngày (phút)'
+                                      : 'Làm tròn (phút)',
+                              hint: _serviceBillingMode ==
+                                      PosServiceBillingMode.perBlock
+                                  ? 'VD 5'
+                                  : _serviceBillingMode ==
+                                          PosServiceBillingMode.perDay
+                                      ? '1440 = 1 ngày'
+                                      : 'VD 15',
                             ),
                           ),
                         ),
@@ -1940,6 +2077,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                           child: TextField(
                             controller: _graceMinutesCtrl,
                             keyboardType: TextInputType.number,
+                            onChanged: (_) => setState(() {}),
                             decoration: PosTheme.inputDecoration(
                               label: 'Phút miễn (grace)',
                               hint: 'VD 5–10',
@@ -1951,6 +2089,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                           child: TextField(
                             controller: _roundAfterMinutesCtrl,
                             keyboardType: TextInputType.number,
+                            onChanged: (_) => setState(() {}),
                             decoration: PosTheme.inputDecoration(
                               label: 'Làm tròn sau (phút)',
                               hint: '0 = luôn làm tròn',
@@ -1959,6 +2098,8 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                         ),
                       ],
                     ),
+                    const SizedBox(height: 12),
+                    _buildTimedBillingPreview(),
                   ],
                   const SizedBox(height: 12),
                   Row(
@@ -1985,11 +2126,79 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                       ),
                     ],
                   ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _sessionPackValidDaysCtrl,
+                    keyboardType: TextInputType.number,
+                    decoration: PosTheme.inputDecoration(
+                      label: 'Hạn gói (ngày)',
+                      hint: '0 = không hạn — liệu trình / thẻ tập',
+                    ),
+                  ),
                 ],
               ),
             ),
           if (_showSection(PosProductEditorSection.unitsVariants))
             _buildUnitsAttributesExpansion(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTimedBillingPreview() {
+    final price = _parseNum(_priceCtrl.text);
+    final openingFee = _parseNum(_openingFeeCtrl.text);
+    final openingMinutes = int.tryParse(_openingMinutesCtrl.text.trim());
+    final minBill = int.tryParse(_minBillMinutesCtrl.text.trim());
+    final round = int.tryParse(_billRoundMinutesCtrl.text.trim());
+    final grace = int.tryParse(_graceMinutesCtrl.text.trim());
+    final roundAfter = int.tryParse(_roundAfterMinutesCtrl.text.trim());
+    final rows = PosServiceBillingCalc.preview(
+      mode: _serviceBillingMode,
+      unitPrice: price,
+      minBillMinutes: minBill,
+      billRoundMinutes: round,
+      graceMinutes: grace,
+      roundAfterMinutes: roundAfter,
+      openingFee: openingFee,
+      openingMinutes: openingMinutes,
+    );
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.04),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            tr('Xem trước tiền giờ (karaoke / bi-a / KS)'),
+            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            tr('Công thức: phí mở + số block vượt × đơn giá. VD mở 50k, mỗi 5 phút +10k.'),
+            style: TextStyle(fontSize: 11, color: Colors.grey.shade700),
+          ),
+          const SizedBox(height: 8),
+          for (final r in rows)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 1),
+              child: Row(
+                children: [
+                  Expanded(child: Text(tr('${r.elapsed} phút'))),
+                  Expanded(child: Text(tr('tính ${r.billable}p'))),
+                  Expanded(child: Text(tr('×${r.qty}'))),
+                  Expanded(
+                    child: Text(
+                      tr(_moneyFmt.format(r.total.round())),
+                      textAlign: TextAlign.right,
+                    ),
+                  ),
+                ],
+              ),
+            ),
         ],
       ),
     );
@@ -2081,7 +2290,9 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                   ],
                 ),
           _kvExpansion(
-            title: 'Hàng thành phần',
+            title: 'Hàng thành phần — định lượng trừ kho',
+            subtitle:
+                'Mỗi dòng = SL trừ kho khi bán 1 combo. Bấm cột SL để sửa (được phép lẻ).',
             initiallyExpanded: true,
             child: _buildComboComponentsSection(),
           ),
@@ -2222,6 +2433,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
   }
 
   Widget _buildComboComponentsSection() {
+    final sellable = _comboLines.isEmpty ? 0.0 : computeComboSellableQty(_comboLines);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -2243,6 +2455,19 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
             ),
           ),
         ),
+        if (_comboLines.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Text(
+            tr(sellable <= 0
+                ? 'Hiện không đủ thành phần để bán combo.'
+                : 'Có thể bán khoảng ${PosQtyRules.format(sellable, allowDecimal: false)} combo (theo thành phần ít nhất).'),
+            style: TextStyle(
+              fontSize: 12.5,
+              fontWeight: FontWeight.w600,
+              color: sellable <= 0 ? Colors.red.shade700 : const Color(0xFFB45309),
+            ),
+          ),
+        ],
         const SizedBox(height: 12),
         if (_comboLines.isEmpty)
           Container(
@@ -2252,7 +2477,8 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
               border: Border.all(color: PosTheme.border),
               borderRadius: BorderRadius.circular(4),
             ),
-            child: Text(tr('Chưa có hàng thành phần'),
+            child: Text(
+              tr('Chưa có hàng thành phần — thêm để trừ kho theo định lượng'),
               style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
             ),
           )
@@ -2270,16 +2496,16 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                     label: Text(tr('Tên hàng thành phần'),
                         style: TextStyle(fontSize: 12))),
                 DataColumn(
-                    label: Text(tr('SL'), style: TextStyle(fontSize: 12)),
+                    label: Text(tr('Định lượng / 1 combo'),
+                        style: TextStyle(fontSize: 12)),
                     numeric: true),
+                DataColumn(
+                    label: Text(tr('ĐVT'), style: TextStyle(fontSize: 12))),
                 DataColumn(
                     label: Text(tr('Giá vốn'), style: TextStyle(fontSize: 12)),
                     numeric: true),
                 DataColumn(
                     label: Text(tr('Tổng GV'), style: TextStyle(fontSize: 12)),
-                    numeric: true),
-                DataColumn(
-                    label: Text(tr('Giá bán'), style: TextStyle(fontSize: 12)),
                     numeric: true),
                 DataColumn(label: Text('', style: TextStyle(fontSize: 12))),
               ],
@@ -2287,15 +2513,37 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                 final i = e.key;
                 final c = e.value;
                 final lineCost = c.componentBasePrice * c.qty;
+                final qtyText =
+                    '${PosQtyRules.format(c.qty, allowDecimal: true)}${c.componentUnitName.isNotEmpty ? ' ${c.componentUnitName}' : ''}';
                 return DataRow(
                   cells: [
                     DataCell(Text(tr('${i + 1}'))),
                     DataCell(Text(tr(c.componentProductCode))),
                     DataCell(Text(tr(c.componentProductName))),
-                    DataCell(Text(tr(c.qty.toStringAsFixed(0)))),
+                    DataCell(
+                      Text(
+                        qtyText,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w700,
+                          decoration: TextDecoration.underline,
+                          decorationStyle: TextDecorationStyle.dotted,
+                        ),
+                      ),
+                      showEditIcon: true,
+                      onTap: () async {
+                        final q = await showComboComponentQtyDialog(
+                          context,
+                          initialQty: c.qty,
+                        );
+                        if (q == null || !mounted) return;
+                        setState(() => _comboLines[i] = c.copyWith(qty: q));
+                      },
+                    ),
+                    DataCell(Text(tr(c.componentUnitName.isEmpty
+                        ? '—'
+                        : c.componentUnitName))),
                     DataCell(Text(tr(_moneyFmt.format(c.componentBasePrice)))),
                     DataCell(Text(tr(_moneyFmt.format(lineCost)))),
-                    DataCell(Text(tr(_moneyFmt.format(c.componentBasePrice)))),
                     DataCell(
                       IconButton(
                         icon: const Icon(Icons.close, size: 18),
@@ -3773,54 +4021,17 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: PosTheme.primaryLight,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Text(tr('Tổng giá thành phần: ${_moneyFmt.format(_comboComponentsSum)}'),
-              style: const TextStyle(
-                fontWeight: FontWeight.w600,
-                color: PosTheme.primaryDark,
-              ),
+          _buildTypeUsageNote(),
+          const SizedBox(height: 12),
+          Text(
+            tr('Tổng giá thành phần: ${_moneyFmt.format(_comboComponentsSum)}'),
+            style: const TextStyle(
+              fontWeight: FontWeight.w600,
+              color: PosTheme.primaryDark,
             ),
           ),
           const SizedBox(height: 16),
-          Text(tr('Thành phần combo'),
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-          const SizedBox(height: 8),
-          if (_comboLines.isEmpty)
-            Text(tr('Chưa có thành phần'),
-                style: TextStyle(color: PosTheme.textSecondary))
-          else
-            ..._comboLines.asMap().entries.map((e) {
-              final i = e.key;
-              final c = e.value;
-              return Card(
-                margin: const EdgeInsets.only(bottom: 8),
-                child: ListTile(
-                  title: Text(tr(c.componentProductName.isNotEmpty
-                      ? c.componentProductName
-                      : c.componentProductId)),
-                  subtitle: Text(tr('SL: ${c.qty} · Giá: ${_moneyFmt.format(c.componentBasePrice)}'),
-                  ),
-                  trailing: IconButton(
-                    icon: const Icon(Icons.delete_outline, size: 18),
-                    onPressed: () => setState(() => _comboLines.removeAt(i)),
-                  ),
-                ),
-              );
-            }),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: TextButton.icon(
-              onPressed: _addComboComponent,
-              icon: const Icon(Icons.add, color: PosTheme.primary),
-              label: Text(tr('Thêm thành phần'),
-                  style: TextStyle(color: PosTheme.primary)),
-            ),
-          ),
+          _buildComboComponentsSection(),
         ],
       ),
     );
@@ -4304,7 +4515,9 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
         componentProductCode: prod.productCode,
         componentProductName: prod.name,
         qty: qty,
+        componentOnHandQty: prod.onHandQty,
         componentBasePrice: prod.basePrice,
+        componentUnitName: prod.baseUnitName,
       ));
     });
   }

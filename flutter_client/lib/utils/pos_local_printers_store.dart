@@ -8,6 +8,7 @@ import '../models/pos_store_printer.dart';
 import '../services/api_service.dart';
 import 'pos_device_identity.dart';
 import 'pos_label_printer_settings.dart';
+import 'pos_print_role.dart';
 import 'pos_thermal_printer_settings.dart';
 
 /// Loại máy in nội bộ trên thiết bị.
@@ -101,6 +102,7 @@ class PosLocalPrinterProfile {
     this.escPosCodePage = 27,
     this.feedBeforeCut = 5,
     this.partialCut = true,
+    this.cutPerItem = false,
     this.openCashDrawer = false,
     this.openDrawerCashOnly = true,
     this.beepOnPrint = false,
@@ -140,6 +142,7 @@ class PosLocalPrinterProfile {
   final int escPosCodePage;
   final int feedBeforeCut;
   final bool partialCut;
+  final bool cutPerItem;
   final bool openCashDrawer;
   final bool openDrawerCashOnly;
   final bool beepOnPrint;
@@ -180,6 +183,7 @@ class PosLocalPrinterProfile {
         escPosCodePage: escPosCodePage,
         feedBeforeCut: feedBeforeCut,
         partialCut: partialCut,
+        cutPerItem: cutPerItem,
         openCashDrawer: openCashDrawer,
         openDrawerCashOnly: openDrawerCashOnly,
         beepOnPrint: beepOnPrint,
@@ -229,6 +233,7 @@ class PosLocalPrinterProfile {
     int? escPosCodePage,
     int? feedBeforeCut,
     bool? partialCut,
+    bool? cutPerItem,
     bool? openCashDrawer,
     bool? openDrawerCashOnly,
     bool? beepOnPrint,
@@ -269,6 +274,7 @@ class PosLocalPrinterProfile {
         escPosCodePage: escPosCodePage ?? this.escPosCodePage,
         feedBeforeCut: feedBeforeCut ?? this.feedBeforeCut,
         partialCut: partialCut ?? this.partialCut,
+        cutPerItem: cutPerItem ?? this.cutPerItem,
         openCashDrawer: openCashDrawer ?? this.openCashDrawer,
         openDrawerCashOnly: openDrawerCashOnly ?? this.openDrawerCashOnly,
         beepOnPrint: beepOnPrint ?? this.beepOnPrint,
@@ -308,6 +314,7 @@ class PosLocalPrinterProfile {
         'escPosCodePage': escPosCodePage,
         'feedBeforeCut': feedBeforeCut,
         'partialCut': partialCut,
+        'cutPerItem': cutPerItem,
         'openCashDrawer': openCashDrawer,
         'openDrawerCashOnly': openDrawerCashOnly,
         'beepOnPrint': beepOnPrint,
@@ -375,6 +382,7 @@ class PosLocalPrinterProfile {
       escPosCodePage: (json['escPosCodePage'] as num?)?.toInt() ?? 27,
       feedBeforeCut: (json['feedBeforeCut'] as num?)?.toInt() ?? 5,
       partialCut: json['partialCut'] != false,
+      cutPerItem: json['cutPerItem'] == true,
       openCashDrawer: json['openCashDrawer'] == true,
       openDrawerCashOnly: json['openDrawerCashOnly'] != false,
       beepOnPrint: json['beepOnPrint'] == true,
@@ -430,6 +438,7 @@ class PosLocalPrinterProfile {
         escPosCodePage: s.escPosCodePage,
         feedBeforeCut: s.feedBeforeCut <= 0 ? 5 : s.feedBeforeCut,
         partialCut: s.partialCut,
+        cutPerItem: s.cutPerItem,
         openCashDrawer: s.openCashDrawer,
         openDrawerCashOnly: s.openDrawerCashOnly,
         beepOnPrint: s.beepOnPrint,
@@ -610,6 +619,11 @@ class PosLocalPrintersStore {
     PosStorePrinter printer, {
     required String documentRole,
   }) async {
+    // Máy thu ngân: chip Agent luôn cloud — không coi profile LAN/USB local là «có sẵn».
+    if (printer.requiresAgent &&
+        !await PosPrintRole.isAgentForPrinter(printer.id)) {
+      return null;
+    }
     final local = await resolveForStorePrinter(printer);
     if (local == null || !profileAllowsDirectLocal(local)) return null;
     if (!roleMatchesDocument(local.roles, documentRole)) return null;
@@ -754,6 +768,7 @@ class PosLocalPrintersStore {
         'feedBeforeCut':
             p.isLabel ? p.labelGapMm.round().clamp(1, 10) : p.feedBeforeCut,
         'partialCut': !p.isLabel && p.partialCut,
+        'cutPerItem': !p.isLabel && p.cutPerItem,
         'openCashDrawer': !p.isLabel && p.openCashDrawer,
         'openDrawerCashOnly': p.openDrawerCashOnly,
         'beepOnPrint': !p.isLabel && p.beepOnPrint,

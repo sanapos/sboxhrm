@@ -299,9 +299,15 @@ class _PosProductPrinterAssignmentScreenState
                                   tr(
                                     '${purpose.titleVi}\n'
                                     '${p.isDeviceLocal ? 'Máy nội bộ' : 'Agent / cloud'}'
-                                    ' · ${p.productCount} sản phẩm',
+                                    ' · ${p.productCount} sản phẩm'
+                                    '${p.hasOnlineAgent ? '' : '\n⚠ Chưa Agent nào nhận lệnh — phiếu sẽ không ra giấy'}',
                                   ),
-                                  style: const TextStyle(fontSize: 12),
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: p.hasOnlineAgent
+                                        ? null
+                                        : Colors.orange.shade900,
+                                  ),
                                 ),
                                 isThreeLine: true,
                                 trailing: const Icon(Icons.chevron_right),
@@ -366,6 +372,7 @@ class _PosPrinterManageProductsScreenState
         widget.printerId,
         assignedOnly: true,
         search: _searchCtrl.text,
+        forLabel: widget.isLabel,
         page: _page,
         pageSize: _pageSize,
       );
@@ -861,24 +868,32 @@ class _AddProductsSheetState extends State<_AddProductsSheet> {
     return n;
   }
 
-  void _snack(String message, {bool error = false}) {
+  /// [warning] = cần người dùng xác nhận, không phải hỏng — đừng báo «Lỗi gán máy in».
+  void _snack(String message, {bool error = false, bool warning = false}) {
     if (!mounted) return;
     setState(() {
       _actionBanner = message;
-      _actionBannerError = error;
+      _actionBannerError = error || warning;
     });
     final messenger = ScaffoldMessenger.maybeOf(context);
     messenger?.hideCurrentSnackBar();
     messenger?.showSnackBar(
       SnackBar(
         content: Text(tr(message)),
-        backgroundColor: error ? Colors.red.shade700 : Colors.green.shade700,
+        backgroundColor: warning
+            ? Colors.orange.shade800
+            : error
+                ? Colors.red.shade700
+                : Colors.green.shade700,
         behavior: SnackBarBehavior.floating,
-        duration: Duration(seconds: error ? 4 : 3),
+        duration: Duration(seconds: error || warning ? 4 : 3),
       ),
     );
     // Overlay ngoài sheet thường bị modal che — vẫn gọi để hiện sau khi đóng.
-    if (error) {
+    if (warning) {
+      NotificationOverlayManager()
+          .showWarning(title: 'Gán máy in', message: message);
+    } else if (error) {
       NotificationOverlayManager()
           .showError(title: 'Lỗi gán máy in', message: message);
     } else {
@@ -1003,7 +1018,7 @@ class _AddProductsSheetState extends State<_AddProductsSheet> {
         setState(() => _conflictPrompt = _ConflictPrompt.batch(items));
         _snack(
           'Có ${items.where((e) => e.id != '_batch').length} món đang gán máy khác — xác nhận để chuyển',
-          error: true,
+          warning: true,
         );
         return;
       }
@@ -1048,7 +1063,7 @@ class _AddProductsSheetState extends State<_AddProductsSheet> {
 
     if (choice == 'cancel') {
       setState(() => _conflictPrompt = null);
-      _snack('Đã hủy — chưa chuyển máy', error: true);
+      _snack('Đã hủy — chưa chuyển máy', warning: true);
       return;
     }
     if (choice == 'move') {
@@ -1625,21 +1640,32 @@ class _PrinterSummary {
     required this.name,
     this.productCount = 0,
     this.isDeviceLocal = false,
-    this.isLabel = false,
+    bool isLabel = false,
     this.documentTypes = const [],
-  });
+    this.hasOnlineAgent = true,
+  }) : isLabelFlag = isLabel;
 
   final String id;
   final String name;
   final int productCount;
   final bool isDeviceLocal;
-  final bool isLabel;
+
+  /// Máy in trùng tên (cắm lại USB sinh bản ghi mới) khiến món gán vào máy
+  /// không Agent nào nhận lệnh: phiếu nằm hàng đợi rồi hết hạn, không ra giấy.
+  final bool hasOnlineAgent;
+
+  /// Cờ thô từ server (hãng / khổ giấy) — chỉ dùng khi máy chưa cấu hình chứng từ.
+  final bool isLabelFlag;
   final List<String> documentTypes;
 
   PosAssignPrinterPurpose get purpose => purposeFromFlags(
-        isLabel: isLabel,
+        isLabel: isLabelFlag,
         documentTypes: documentTypes,
       );
+
+  /// Nhãn hiển thị và lane gán phải cùng một gốc, nếu không máy hiện «Báo kho»
+  /// lại ghi vào lane tem → gán xong SP biến mất khỏi danh sách.
+  bool get isLabel => purpose == PosAssignPrinterPurpose.kitchenLabel;
 
   factory _PrinterSummary.fromJson(Map<String, dynamic> j) => _PrinterSummary(
         id: (j['printerId'] ?? j['PrinterId'] ?? j['id'] ?? j['Id'])
@@ -1663,6 +1689,10 @@ class _PrinterSummary {
           if (raw is! List) return const <String>[];
           return raw.map((e) => e.toString()).where((e) => e.isNotEmpty).toList();
         }(),
+        // Server cũ không trả cờ này → coi như có Agent, tránh cảnh báo sai.
+        hasOnlineAgent: (j['hasOnlineAgent'] ?? j['HasOnlineAgent']) == null
+            ? true
+            : (j['hasOnlineAgent'] == true || j['HasOnlineAgent'] == true),
       );
 }
 

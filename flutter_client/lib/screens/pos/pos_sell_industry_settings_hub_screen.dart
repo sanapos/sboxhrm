@@ -7,6 +7,8 @@ import '../../widgets/pos/pos_theme.dart';
 import 'pos_cancel_return_history_screen.dart';
 import 'pos_cancel_return_settings_screen.dart';
 import 'pos_customer_display_settings_screen.dart';
+import 'pos_qr_table_order_screen.dart';
+import 'pos_kds_screen.dart';
 import 'pos_resource_floor_screen.dart';
 import 'pos_sell_industry_settings_screen.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
@@ -56,7 +58,7 @@ class _PosSellIndustrySettingsHubScreenState
   @override
   Widget build(BuildContext context) {
     final body = ListView(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 48),
       children: [
         Text(
           tr('Chọn nhóm thiết lập'),
@@ -66,8 +68,10 @@ class _PosSellIndustrySettingsHubScreenState
         _tile(
           context,
           icon: Icons.storefront_outlined,
-          title: 'Hồ sơ ngành & chế độ bán',
-          subtitle: 'F&B / salon / gym · bán nhanh / thường / giao hàng',
+          title: 'Ngành hàng & chế độ bán',
+          subtitle: _settings == null
+              ? 'Bán lẻ, nhà hàng, salon, karaoke, gym, khách sạn'
+              : '${_settings!.sellProfile.label} · ${_settings!.sellProfile.featureHints.join(' · ')}',
           onTap: () => _open(
             context,
             const PosSellIndustrySettingsScreen(section: 'profile'),
@@ -76,8 +80,12 @@ class _PosSellIndustrySettingsHubScreenState
         _tile(
           context,
           icon: Icons.table_restaurant_outlined,
-          title: 'Bàn / tài nguyên / tạm tính',
-          subtitle: 'Sơ đồ bàn, tính giờ, gói buổi, hỏi số khách',
+          title: _settings?.sellProfile.usesFloorPlan == true
+              ? '${_settings!.sellProfile.floorTabLabel} / tạm tính'
+              : 'Tạm tính & tồn kho',
+          subtitle: _settings?.sellProfile.usesFloorPlan == true
+              ? 'Sơ đồ ${_settings!.sellProfile.resourceNoun}, tính giờ, ca thu ngân'
+              : 'Tạm tính, bán khi hết hàng, ca thu ngân, ngày KD',
           onTap: () => _open(
             context,
             const PosSellIndustrySettingsScreen(section: 'resources'),
@@ -87,8 +95,12 @@ class _PosSellIndustrySettingsHubScreenState
           _tile(
             context,
             icon: Icons.map_outlined,
-            title: 'Quản lý bàn / phòng',
-            subtitle: 'Thêm sửa khu vực, bàn ghế trên sơ đồ',
+            title: _settings?.sellProfile.usesFloorPlan == true
+                ? 'Quản lý ${_settings!.sellProfile.resourceNounPlural}'
+                : 'Quản lý bàn / phòng',
+            subtitle: _settings?.sellProfile.usesFloorPlan == true
+                ? 'Thêm sửa khu vực, ${_settings!.sellProfile.resourceNoun} trên sơ đồ'
+                : 'Thêm sửa khu vực, bàn ghế trên sơ đồ',
             onTap: () => _open(
               context,
               PosResourceFloorScreen(
@@ -99,6 +111,26 @@ class _PosSellIndustrySettingsHubScreenState
               ),
             ),
           ),
+        _tile(
+          context,
+          icon: Icons.qr_code_2,
+          title: 'QR order tại bàn',
+          subtitle: 'Tắt mặc định · in QR dán bàn, khách gọi món, phiếu in bếp qua Agent',
+          onTap: () => _open(
+            context,
+            const PosQrTableOrderScreen(),
+          ),
+        ),
+        _tile(
+          context,
+          icon: Icons.kitchen_outlined,
+          title: 'Màn hình bếp (KDS)',
+          subtitle: 'Ticket theo bàn · đang làm / sẵn sàng / XONG · lọc trạm in',
+          onTap: () => _open(
+            context,
+            const PosKdsScreen(),
+          ),
+        ),
         _tile(
           context,
           icon: Icons.rule_folder_outlined,

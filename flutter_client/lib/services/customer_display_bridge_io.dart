@@ -18,7 +18,12 @@ class CustomerDisplayPlatformBridge {
     }
   }
 
-  static Future<bool> openSecondary({String route = '/customer-display'}) async {
+  static String lastOpenReason = '';
+
+  static Future<bool> openSecondary({
+    String route = '/customer-display',
+    String? url,
+  }) async {
     try {
       // Máy 1 màn (V2S…): không mở Activity customer-display trên màn chính.
       final has = await hasSecondaryDisplay();

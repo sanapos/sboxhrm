@@ -13,6 +13,7 @@ class PosStorePrinter {
     this.usbDeviceName,
     this.feedBeforeCut = 8,
     this.partialCut = true,
+    this.cutPerItem = false,
     this.openCashDrawer = false,
     this.openDrawerCashOnly = true,
     this.beepOnPrint = false,
@@ -42,6 +43,7 @@ class PosStorePrinter {
   final String? usbDeviceName;
   final int feedBeforeCut;
   final bool partialCut;
+  final bool cutPerItem;
   final bool openCashDrawer;
   final bool openDrawerCashOnly;
   final bool beepOnPrint;
@@ -99,6 +101,7 @@ class PosStorePrinter {
             (json['FeedBeforeCut'] as num?)?.toInt() ??
             8,
         partialCut: _jsonBool(json['partialCut'] ?? json['PartialCut']),
+        cutPerItem: _jsonBool(json['cutPerItem'] ?? json['CutPerItem']),
         openCashDrawer:
             _jsonBool(json['openCashDrawer'] ?? json['OpenCashDrawer']),
         openDrawerCashOnly: json['openDrawerCashOnly'] != false &&
@@ -147,6 +150,7 @@ class PosStorePrinter {
         'usbDeviceName': usbDeviceName,
         'feedBeforeCut': feedBeforeCut,
         'partialCut': partialCut,
+        'cutPerItem': cutPerItem,
         'openCashDrawer': openCashDrawer,
         'openDrawerCashOnly': openDrawerCashOnly,
         'beepOnPrint': beepOnPrint,

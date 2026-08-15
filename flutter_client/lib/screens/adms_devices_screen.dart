@@ -761,14 +761,14 @@ class _AdmsDevicesScreenState extends State<AdmsDevicesScreen> {
         color: Colors.red,
         borderRadius: BorderRadius.circular(12),
       ),
-      child: const Row(
+      child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.delete_outline, color: Colors.white, size: 22),
-          SizedBox(width: 8),
+          const Icon(Icons.delete_outline, color: Colors.white, size: 22),
+          const SizedBox(width: 8),
           Text(
-            'Xóa',
-            style: TextStyle(
+            tr('Xóa'),
+            style: const TextStyle(
               color: Colors.white,
               fontWeight: FontWeight.w700,
               fontSize: 14,

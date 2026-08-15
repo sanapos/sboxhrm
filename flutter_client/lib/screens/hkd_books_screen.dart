@@ -331,9 +331,9 @@ class _HkdBooksScreenState extends State<HkdBooksScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Hồ sơ hộ kinh doanh',
-              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+            Text(
+              tr('Hồ sơ hộ kinh doanh'),
+              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
             ),
             const SizedBox(height: 12),
             Text(tr('Nhóm thuế'), style: const TextStyle(fontSize: 12)),
@@ -344,10 +344,10 @@ class _HkdBooksScreenState extends State<HkdBooksScreen> {
                 border: OutlineInputBorder(),
                 isDense: true,
               ),
-              items: const [
-                DropdownMenuItem(value: 1, child: Text('Nhóm 1 — miễn GTGT/TNCN (S1a)')),
-                DropdownMenuItem(value: 2, child: Text('Nhóm 2 — % trên doanh thu (S2a)')),
-                DropdownMenuItem(value: 3, child: Text('Nhóm 3 — TNCN theo thu nhập (S2b/S2c/S2d/S2e)')),
+              items: [
+                DropdownMenuItem(value: 1, child: Text(tr('Nhóm 1 — miễn GTGT/TNCN (S1a)'))),
+                DropdownMenuItem(value: 2, child: Text(tr('Nhóm 2 — % trên doanh thu (S2a)'))),
+                DropdownMenuItem(value: 3, child: Text(tr('Nhóm 3 — TNCN theo thu nhập (S2b/S2c/S2d/S2e)'))),
               ],
               onChanged: canEdit
                   ? (v) {
@@ -370,9 +370,9 @@ class _HkdBooksScreenState extends State<HkdBooksScreen> {
             TextField(
               controller: _taxCodeCtrl,
               enabled: canEdit,
-              decoration: const InputDecoration(
-                labelText: 'Mã số thuế (MST)',
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                labelText: tr('Mã số thuế (MST)'),
+                border: const OutlineInputBorder(),
                 isDense: true,
               ),
             ),
@@ -380,9 +380,9 @@ class _HkdBooksScreenState extends State<HkdBooksScreen> {
             TextField(
               controller: _businessNameCtrl,
               enabled: canEdit,
-              decoration: const InputDecoration(
-                labelText: 'Tên hộ kinh doanh',
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                labelText: tr('Tên hộ kinh doanh'),
+                border: const OutlineInputBorder(),
                 isDense: true,
               ),
             ),
@@ -390,9 +390,9 @@ class _HkdBooksScreenState extends State<HkdBooksScreen> {
             TextField(
               controller: _industryCtrl,
               enabled: canEdit,
-              decoration: const InputDecoration(
-                labelText: 'Ngành nghề (ghi trên sổ doanh thu)',
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                labelText: tr('Ngành nghề (ghi trên sổ doanh thu)'),
+                border: const OutlineInputBorder(),
                 isDense: true,
               ),
             ),
@@ -406,9 +406,9 @@ class _HkdBooksScreenState extends State<HkdBooksScreen> {
                       enabled: canEdit,
                       keyboardType: const TextInputType.numberWithOptions(decimal: true),
                       decoration: InputDecoration(
-                        labelText: _taxGroup == 3
+                        labelText: tr(_taxGroup == 3
                             ? 'Tỷ lệ % GTGT (S2b)'
-                            : 'Tỷ lệ % GTGT',
+                            : 'Tỷ lệ % GTGT'),
                         border: const OutlineInputBorder(),
                         isDense: true,
                       ),
@@ -421,9 +421,9 @@ class _HkdBooksScreenState extends State<HkdBooksScreen> {
                       enabled: canEdit,
                       keyboardType: const TextInputType.numberWithOptions(decimal: true),
                       decoration: InputDecoration(
-                        labelText: _taxGroup == 3
+                        labelText: tr(_taxGroup == 3
                             ? 'Tỷ lệ % TNCN (trên thu nhập)'
-                            : 'Tỷ lệ % TNCN',
+                            : 'Tỷ lệ % TNCN'),
                         border: const OutlineInputBorder(),
                         isDense: true,
                       ),
@@ -437,8 +437,8 @@ class _HkdBooksScreenState extends State<HkdBooksScreen> {
               spacing: 6,
               runSpacing: 6,
               children: [
-                const Text('Sổ khuyến nghị:',
-                    style: TextStyle(fontSize: 12, color: Color(0xFF71717A))),
+                Text(tr('Sổ khuyến nghị:'),
+                    style: const TextStyle(fontSize: 12, color: Color(0xFF71717A))),
                 ..._recommendedBooks.map(
                   (b) => Chip(
                     label: Text(b, style: const TextStyle(fontSize: 11)),
@@ -467,9 +467,9 @@ class _HkdBooksScreenState extends State<HkdBooksScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Kỳ dữ liệu xuất sổ',
-              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+            Text(
+              tr('Kỳ dữ liệu xuất sổ'),
+              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
             ),
             const SizedBox(height: 12),
             PosKiotTimeFilter(
@@ -498,9 +498,9 @@ class _HkdBooksScreenState extends State<HkdBooksScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Xuất Excel theo mẫu TT152',
-              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+            Text(
+              tr('Xuất Excel theo mẫu TT152'),
+              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
             ),
             const SizedBox(height: 8),
             Text(

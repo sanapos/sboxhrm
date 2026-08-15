@@ -19,11 +19,21 @@ import 'pos_warranty_lookup_screen.dart';
 import 'pos_appointment_day_screen.dart';
 import 'pos_business_analysis_screen.dart';
 import 'pos_customer_debt_report_screen.dart';
+import 'pos_customer_sales_report_screen.dart';
 import 'pos_customers_screen.dart';
 import 'pos_cancel_return_history_screen.dart';
+import 'pos_cashier_shift_screen.dart';
+import 'pos_qr_table_order_screen.dart';
+import 'pos_kds_screen.dart';
 import 'pos_end_of_day_screen.dart';
 import 'pos_goods_report_screen.dart';
+import 'pos_einvoice_report_screen.dart';
+import 'pos_profit_report_screen.dart';
+import 'pos_reservation_report_screen.dart';
 import 'pos_sales_report_screen.dart';
+import 'pos_split_report_screens.dart';
+import 'pos_stock_health_report_screen.dart';
+import 'pos_supplier_report_screen.dart';
 import 'pos_customer_display_settings_screen.dart';
 import 'pos_sell_industry_settings_hub_screen.dart';
 import 'pos_store_settings_hub_screen.dart';
@@ -87,8 +97,18 @@ class PosMoreScreen extends StatelessWidget {
                         'PosPurchaseReceipts', const WhAdaptivePurchaseReceiptList()),
                     _Item('Trả hàng nhập', Icons.undo_outlined, 'PosPurchaseReturns',
                         const WhAdaptivePurchaseReturnList()),
-                    _Item('Cuối ngày', Icons.nightlight_round, 'PosSalesReport',
-                        const PosEndOfDayScreen()),
+                    _Item('Cuối ngày', Icons.nightlight_round, 'PosReportEndOfDay',
+                        const PosEndOfDayScreen(),
+                        altModules: const ['PosSalesReport']),
+                    _Item('Ca thu ngân', Icons.account_balance_wallet_outlined, 'PosCashierShift',
+                        const PosCashierShiftScreen(),
+                        altModules: const ['PosSell']),
+                    _Item('QR order bàn', Icons.qr_code_2, 'PosQrOrder',
+                        const PosQrTableOrderScreen(),
+                        altModules: const ['PosSell']),
+                    _Item('Màn hình bếp (KDS)', Icons.kitchen_outlined, 'PosKds',
+                        const PosKdsScreen(),
+                        altModules: const ['PosSell']),
                   ],
                 ),
                 const SizedBox(height: 12),
@@ -123,7 +143,8 @@ class PosMoreScreen extends StatelessWidget {
                         const PosCustomersScreen(),
                         altModules: const ['PosSell', 'PosProducts']),
                     _Item('Công nợ KH', Icons.account_balance_wallet_outlined,
-                        'PosSalesReport', const PosCustomerDebtReportScreen()),
+                        'PosReportDebt', const PosCustomerDebtReportScreen(),
+                        altModules: const ['PosSalesReport']),
                     _Item('Voucher', Icons.confirmation_number_outlined, 'PosProducts',
                         const PosVouchersScreen(),
                         altModules: const ['PosSell']),
@@ -143,7 +164,7 @@ class PosMoreScreen extends StatelessWidget {
                       altModules: const ['PosSell', 'PosProducts'],
                     ),
                     _Item(
-                      'Hồ sơ ngành',
+                      'Ngành hàng',
                       Icons.storefront_outlined,
                       'PosSell',
                       const PosSellIndustrySettingsHubScreen(),
@@ -157,7 +178,7 @@ class PosMoreScreen extends StatelessWidget {
                       altModules: const ['PosSell'],
                     ),
                     _Item(
-                      'Đặt bàn / lịch hẹn',
+                      'Đặt bàn / đặt phòng / lịch hẹn',
                       Icons.event_available_outlined,
                       'PosBooking',
                       const PosAppointmentDayScreen(),
@@ -178,12 +199,65 @@ class PosMoreScreen extends StatelessWidget {
                   perm,
                   title: 'Báo cáo',
                   items: [
-                    _Item('Báo cáo bán hàng', Icons.bar_chart_outlined,
+                    _Item('Doanh thu', Icons.trending_up,
+                        'PosReportRevenue', const PosRevenueReportScreen()),
+                    _Item('Hàng hóa bán ra', Icons.shopping_cart_outlined,
+                        'PosReportSoldGoods', const PosSoldGoodsReportScreen()),
+                    _Item('Tồn kho', Icons.warehouse_outlined, 'PosReportStock',
+                        const PosReportsScreen(initialTab: 1, lockTab: true)),
+                    _Item('Báo cáo nhập hàng', Icons.move_to_inbox_outlined,
+                        'PosReportPurchases', const PosPurchaseReportScreen()),
+                    _Item('Phương thức thanh toán', Icons.payments_outlined,
+                        'PosReportPayment', const PosPaymentMethodReportScreen()),
+                    _Item('Công nợ', Icons.account_balance_outlined,
+                        'PosReportDebt', const PosDebtCombinedReportScreen()),
+                    _Item('Hàng sắp hết hạn', Icons.event_busy_outlined,
+                        'PosReportExpiry',
+                        const PosReportsScreen(initialTab: 2, lockTab: true)),
+                    _Item('Lợi nhuận', Icons.stacked_line_chart,
+                        'PosReportProfit', const PosProfitOnlyReportScreen()),
+                    _Item('Chi phí', Icons.money_off_outlined,
+                        'PosReportExpense', const PosExpenseReportScreen()),
+                    _Item('Tổng kết cuối ngày', Icons.nightlight_round,
+                        'PosReportEndOfDay', const PosEndOfDayScreen()),
+                    _Item('Doanh thu theo nhân viên', Icons.badge_outlined,
+                        'PosReportStaffRevenue', const PosStaffRevenueReportScreen()),
+                    _Item('Sổ quỹ', Icons.menu_book_outlined,
+                        'PosReportCashbook', const PosCashbookReportScreen()),
+                    _Item('Kết quả kinh doanh', Icons.account_balance,
+                        'PosReportPnl', const PosPnlReportScreen()),
+                    _Item('Voucher', Icons.confirmation_number_outlined,
+                        'PosReportVoucher', const PosVoucherUsageReportScreen()),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                _section(
+                  context,
+                  perm,
+                  title: 'Báo cáo khác',
+                  items: [
+                    _Item('Báo cáo bán hàng (gộp)', Icons.bar_chart_outlined,
                         'PosSalesReport', const PosSalesReportScreen()),
+                    _Item('Hóa đơn điện tử', Icons.request_quote_outlined,
+                        'PosEInvoice', const PosEInvoiceReportScreen(),
+                        altModules: const ['PosSell', 'PosSaleOrders']),
                     _Item('Báo cáo hàng hóa', Icons.inventory_outlined,
                         'PosSalesReport', const PosGoodsReportScreen()),
                     _Item('Phân tích kinh doanh', Icons.insights_outlined,
                         'PosSalesReport', const PosBusinessAnalysisScreen()),
+                    _Item('Lợi nhuận theo chiều', Icons.stacked_line_chart,
+                        'PosSalesReport', const PosProfitReportScreen()),
+                    _Item('Tồn chậm / cháy hàng', Icons.warning_amber_outlined,
+                        'PosSalesReport', const PosStockHealthReportScreen(),
+                        altModules: const ['PosProducts']),
+                    _Item('Bán theo khách', Icons.people_alt_outlined,
+                        'PosSalesReport', const PosCustomerSalesReportScreen()),
+                    _Item('Nhà cung cấp', Icons.local_shipping_outlined,
+                        'PosSalesReport', const PosSupplierReportScreen(),
+                        altModules: const ['PosPurchaseReceipts']),
+                    _Item('Đặt chỗ / cọc', Icons.event_seat_outlined,
+                        'PosSalesReport', const PosReservationReportScreen(),
+                        altModules: const ['PosSell']),
                     _Item('Báo cáo chi tiết', Icons.table_chart_outlined,
                         'PosSalesReport', const PosReportsScreen()),
                   ],
@@ -202,7 +276,8 @@ class PosMoreScreen extends StatelessWidget {
     required String title,
     required List<_Item> items,
   }) {
-    final visible = items.where((i) => _canSeeItem(perm, i)).toList();
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    final visible = items.where((i) => _canSeeItem(perm, i, auth)).toList();
     if (visible.isEmpty) return const SizedBox.shrink();
 
     return PosMobileHubSectionGrid(
@@ -229,10 +304,16 @@ class PosMoreScreen extends StatelessWidget {
     );
   }
 
-  static bool _canSeeItem(PermissionProvider perm, _Item item) {
-    if (PermissionNavigation.canNavigate(perm, item.moduleCode)) return true;
+  static bool _canSeeItem(PermissionProvider perm, _Item item, AuthProvider auth) {
+    bool ok(String code) => PermissionNavigation.canAccessModule(
+          code,
+          allowedModules: auth.user?.allowedModules,
+          perm: perm,
+          role: auth.user?.role,
+        );
+    if (ok(item.moduleCode)) return true;
     for (final alt in item.altModules) {
-      if (PermissionNavigation.canNavigate(perm, alt)) return true;
+      if (ok(alt)) return true;
     }
     return false;
   }

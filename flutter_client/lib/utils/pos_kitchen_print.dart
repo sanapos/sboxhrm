@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart';
+﻿import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -908,6 +908,8 @@ class KitchenTicketLine {
     this.unitName,
     this.note,
     this.productId,
+    this.sentBefore,
+    this.lineKey,
   });
 
   final String productName;
@@ -916,6 +918,21 @@ class KitchenTicketLine {
   final String? note;
   /// Dùng để tra máy in gán riêng cho SP/nhóm hàng (báo bếp đa máy in).
   final String? productId;
+
+  /// SL của dòng này đã báo bếp TRƯỚC lần gửi này (mốc phần đang báo).
+  ///
+  /// Bán 1 phần → báo bếp → thêm 1 phần → báo bếp: cả hai lần đều là
+  /// «món X, 1 phần» nên mã chống trùng cũ trùng nhau, phần thứ hai bị nuốt
+  /// trong 25s (đã đánh dấu đã gửi nên không báo lại được). Mốc này tách
+  /// hai lần gửi thành hai phiếu khác nhau, vẫn chặn bấm đúp cùng một phần.
+  final double? sentBefore;
+
+  /// Định danh dòng giỏ (rowId máy bán / Id dòng đơn phía server).
+  ///
+  /// Thêm phần mới cho món đã báo bếp sinh **dòng mới** chứ không cộng SL,
+  /// nên hai lần báo đều là «món X, 1 phần, đã gửi 0» — thiếu khóa này thì
+  /// phiếu thứ hai trùng mã và bị nuốt trong 25s.
+  final String? lineKey;
 }
 
 /// Phiếu bếp/hủy theo mẫu: tên bàn giữa, meta, bảng Tên hàng|SL (SL + ĐVT).
@@ -1060,6 +1077,9 @@ Future<bool> _printKitchenCompactSlipLocked({
     }
     // In lại chọn máy: ép in máy này (bỏ gán SP). preferDirectPrint để thử
     // LAN/BT/USB trên thiết bị trước khi cloud — tránh fail vì máy chưa «gán» SP.
+    final overrideRef = skipDedup
+        ? kitchenRefFit('$dedupRef|r|${DateTime.now().millisecondsSinceEpoch}')
+        : dedupRef;
     return PosPrintOrchestrator.instance.dispatchKitchenSlip(
       printer: printer,
       tableName: tableName,
@@ -1076,7 +1096,7 @@ Future<bool> _printKitchenCompactSlipLocked({
       senderName: senderName.trim().isEmpty ? 'admin' : senderName.trim(),
       sentAt: sentAt ?? DateTime.now(),
       orderNo: (orderNo ?? '').trim(),
-      referenceNo: dedupRef,
+      referenceNo: overrideRef,
       showFeedback: showFeedback,
       successTitle: isCancel ? 'Hủy bếp' : 'Báo bếp',
       skipDedup: true,
@@ -1110,7 +1130,13 @@ Future<bool> _printKitchenCompactSlipLocked({
       if (row.printerId == null || row.printerId!.isEmpty) {
         defaultLines.add(row.line);
       } else {
-        assignedGroups.putIfAbsent(row.printerId!, () => []).add(row.line);
+        // Gộp twin local/cloud trước khi fan-out — tránh 2 group cùng máy vật lý
+        // bị server dedup ReferenceNo → mất món nhóm sau.
+        final canonical = PosPrintOrchestrator.instance
+                .printerById(row.printerId)
+                ?.id ??
+            row.printerId!;
+        assignedGroups.putIfAbsent(canonical, () => []).add(row.line);
       }
     }
     debugPrint(
@@ -1165,7 +1191,7 @@ Future<bool> _printKitchenCompactSlipLocked({
         }
         debugPrint(
           'Kitchen DBG: dispatching ONLY to assigned printer ${printer.name} '
-          '(${printer.connectionType})',
+          '(${printer.connectionType}) lines=${groupLines.length}',
         );
         final role = isCancel
             ? PosLocalPrinterRoles.kitchenVoid
@@ -1174,8 +1200,22 @@ Future<bool> _printKitchenCompactSlipLocked({
             ? await PosLocalPrintersStore.instance
                 .resolveOnDeviceForStorePrinter(printer, documentRole: role)
             : null;
-        // Có máy nội bộ (USB/BT/Sunmi/LAN đã cài) trùng chức năng+SP → local;
-        // chỉ có địa chỉ LAN từ Agent/cloud → cloud Agent.
+        // Ref theo máy + món nhóm — fan-out 2 máy không chung 1 ReferenceNo;
+        // retry (skipDedup) thêm suffix để không dính job Queued cũ.
+        final groupRef = _kitchenDedupReference(
+          orderNo: orderNo,
+          isCancel: isCancel,
+          lines: groupLines,
+          printerId: printer.id,
+        );
+        final refNo = skipDedup
+            ? kitchenRefFit(
+                '$groupRef|r|${DateTime.now().millisecondsSinceEpoch}')
+            : groupRef;
+        // Có máy nội bộ USB/BT/Sunmi thật trên thiết bị này → local; còn lại (kể cả
+        // LAN profile «ảo» trên A7) → cloud Agent khi máy requiresAgent.
+        final forceCloud =
+            onDevice == null || printer.requiresAgent;
         final ok = await PosPrintOrchestrator.instance.dispatchKitchenSlip(
           printer: printer,
           tableName: tableName,
@@ -1192,13 +1232,13 @@ Future<bool> _printKitchenCompactSlipLocked({
           senderName: senderName.trim().isEmpty ? 'admin' : senderName.trim(),
           sentAt: sentAt ?? DateTime.now(),
           orderNo: (orderNo ?? '').trim(),
-          referenceNo: dedupRef,
+          referenceNo: refNo,
           showFeedback: showFeedback,
           successTitle: isCancel ? 'Hủy bếp' : 'Báo bếp',
           skipDedup: skipDedup,
           waitForCompletion: waitForCompletion,
-          preferDirectPrint: onDevice != null,
-          forceCloud: onDevice == null,
+          preferDirectPrint: onDevice != null && !printer.requiresAgent,
+          forceCloud: forceCloud,
           onHang: wrapHang(groupLines),
         );
         if (!ok) {
@@ -1247,24 +1287,43 @@ Future<bool> _printKitchenCompactSlipLocked({
   );
 }
 
-/// Khóa chống in trùng: loại phiếu + mã HĐ + danh sách món/SL.
+/// Khóa chống in trùng: loại phiếu + mã HĐ + (máy) + danh sách món/SL.
 String _kitchenDedupReference({
   required String? orderNo,
   required bool isCancel,
   required List<KitchenTicketLine> lines,
+  String? printerId,
 }) {
   final code = (orderNo ?? '').trim();
   final items = lines
       .map((l) =>
-          '${(l.productId ?? '').trim().isNotEmpty ? l.productId : l.productName}:${l.qty}')
+          '${(l.productId ?? '').trim().isNotEmpty ? l.productId : l.productName}:${l.qty}'
+          '${l.sentBefore == null ? '' : '@${l.sentBefore}'}'
+          '${(l.lineKey ?? '').isEmpty ? '' : '#${l.lineKey}'}')
       .join('|');
+  final p = (printerId ?? '').trim();
+  final prefix = isCancel ? 'kvoid' : 'ksend';
   // Không dùng μs — dedupRef dùng chung cho mọi lần bấm Hủy cùng order+món.
-  // Retry từ pending sheet (skipDedup=true) cần cùng key để server nhận diện
-  // idempotency, tránh tạo job trùng khi lần trước đã gửi thành công.
-  if (isCancel) {
-    return 'kvoid|$code|$items';
+  // Retry từ pending sheet (skipDedup=true) thêm |r|ms ở caller.
+  if (p.isNotEmpty) return kitchenRefFit('$prefix|$code|$p|$items');
+  return kitchenRefFit('$prefix|$code|$items');
+}
+
+/// PosPrintJobs.ReferenceNo là varchar(64): ref ghép (order + id máy + id món)
+/// vượt 64 làm API trả 500 → không tạo được job → phiếu rơi vào hàng chờ.
+/// Rút gọn ổn định: giữ đầu ref cho dễ đọc, phần đuôi thay bằng hash.
+String kitchenRefFit(String ref, {int maxLen = 64}) {
+  if (ref.length <= maxLen) return ref;
+  final hash = _kitchenRefHash(ref);
+  return '${ref.substring(0, maxLen - hash.length - 1)}~$hash';
+}
+
+String _kitchenRefHash(String s) {
+  var h = 0x811c9dc5;
+  for (final c in s.codeUnits) {
+    h = ((h ^ c) * 0x01000193) & 0xFFFFFFFF;
   }
-  return 'ksend|$code|$items';
+  return h.toRadixString(16).padLeft(8, '0');
 }
 
 /// In lên máy in bếp theo vai trò (nội bộ KitchenSlip/KitchenVoid hoặc route cloud).
@@ -1310,11 +1369,13 @@ Future<bool> _printKitchenCompactSlipDefault({
         note: l.note,
       ),
   ];
-  final refNo = dedupRef ?? (code == '-' ? null : code);
+  final baseRef = dedupRef ?? (code == '-' ? null : code);
+  final refNo = (skipDedup && baseRef != null && baseRef.isNotEmpty)
+      ? kitchenRefFit('$baseRef|r|${DateTime.now().millisecondsSinceEpoch}')
+      : baseRef;
 
-  // 1) Máy nội bộ đã cài trên thiết bị này (USB/BT/Sunmi/LAN nội bộ).
-  // Địa chỉ LAN chỉ từ Agent/cloud (không có local) → bước 2 cloud.
-  if (!kIsWeb) {
+  // 1) Chỉ Agent (A6) mới in local. A7 có LAN/USB profile «ảo» → bỏ qua, bước 2 cloud.
+  if (!kIsWeb && await PosPrintRole.isPrintAgentDevice()) {
     var kitchenLocals =
         await PosLocalPrintersStore.instance.forRoleOnDevice(localRole);
     if (kitchenLocals.isEmpty && isCancel) {
@@ -1345,6 +1406,34 @@ Future<bool> _printKitchenCompactSlipDefault({
         if (st == PosPrinterLinkStatus.ready) readyLocals.add(local);
       }
       if (readyLocals.isNotEmpty) {
+        if (lines.length > 1 && readyLocals.any((p) => p.cutPerItem)) {
+          var splitOk = false;
+          for (final line in lines) {
+            final ok = await _printKitchenCompactSlipDefault(
+              tableName: tableName,
+              isCancel: isCancel,
+              lines: [line],
+              senderName: senderName,
+              sentAt: sentAt,
+              orderNo: orderNo,
+              skipDedup: true,
+              dedupRef: kitchenRefFit(
+                  '${dedupRef ?? orderNo ?? 'k'}|${line.productName}'),
+              waitForCompletion: waitForCompletion,
+              showFeedback: false,
+              onCloudHang: onCloudHang,
+              onPrinterFailed: onPrinterFailed,
+            );
+            if (ok) splitOk = true;
+          }
+          if (showFeedback && splitOk) {
+            NotificationOverlayManager().showSuccess(
+              title: isCancel ? 'Hủy bếp' : 'Báo bếp',
+              message: '${lines.length} phiếu (cắt từng món)',
+            );
+          }
+          return splitOk;
+        }
         var anyOk = false;
         final tpl = await PosPrintConfigSession.instance
             .kitchenTemplate(isCancel: isCancel);

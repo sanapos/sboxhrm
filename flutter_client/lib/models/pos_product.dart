@@ -395,6 +395,9 @@ class PosProduct {
   final int? roundAfterMinutes;
   final int? defaultDurationMinutes;
   final int sessionPackCount;
+  final double openingFee;
+  final int? openingMinutes;
+  final int sessionPackValidDays;
   final bool isTopping;
   final bool allowToppings;
   /// Tự mở popup topping (nhóm) khi thêm món vào giỏ.
@@ -459,6 +462,9 @@ class PosProduct {
     this.roundAfterMinutes,
     this.defaultDurationMinutes,
     this.sessionPackCount = 0,
+    this.openingFee = 0,
+    this.openingMinutes,
+    this.sessionPackValidDays = 0,
     this.isTopping = false,
     this.allowToppings = false,
     this.autoOpenToppingPopup = true,
@@ -485,10 +491,14 @@ class PosProduct {
     return out;
   }
 
-  bool get isTimedService =>
-      productType == PosProductType.service &&
-      (serviceBillingMode.toLowerCase() == 'perhour' ||
-          serviceBillingMode.toLowerCase() == 'perminute');
+  bool get isTimedService {
+    final m = serviceBillingMode.toLowerCase();
+    return productType == PosProductType.service &&
+        (m == 'perhour' ||
+            m == 'perminute' ||
+            m == 'perblock' ||
+            m == 'perday');
+  }
 
   bool get isSessionPack => sessionPackCount > 0;
 
@@ -601,6 +611,13 @@ class PosProduct {
           (json['sessionPackCount'] ?? json['SessionPackCount'] as num?)
                   ?.toInt() ??
               0,
+      openingFee: numVal(json['openingFee'] ?? json['OpeningFee']),
+      openingMinutes:
+          (json['openingMinutes'] ?? json['OpeningMinutes'] as num?)?.toInt(),
+      sessionPackValidDays:
+          (json['sessionPackValidDays'] ?? json['SessionPackValidDays'] as num?)
+                  ?.toInt() ??
+              0,
       isTopping: json['isTopping'] == true || json['IsTopping'] == true,
       allowToppings:
           json['allowToppings'] == true || json['AllowToppings'] == true,
@@ -685,6 +702,9 @@ class PosProduct {
       if (defaultDurationMinutes != null)
         'defaultDurationMinutes': defaultDurationMinutes,
       'sessionPackCount': sessionPackCount,
+      'openingFee': openingFee,
+      if (openingMinutes != null) 'openingMinutes': openingMinutes,
+      'sessionPackValidDays': sessionPackValidDays,
       'isTopping': isTopping,
       'allowToppings': allowToppings && !isTopping,
       'autoOpenToppingPopup': autoOpenToppingPopup,
@@ -773,6 +793,16 @@ class PosProduct {
       comboLines: comboLines ?? this.comboLines,
       sellableQty: sellableQty ?? this.sellableQty,
       saleQuickNotes: this.saleQuickNotes,
+      serviceBillingMode: this.serviceBillingMode,
+      minBillMinutes: this.minBillMinutes,
+      billRoundMinutes: this.billRoundMinutes,
+      graceMinutes: this.graceMinutes,
+      roundAfterMinutes: this.roundAfterMinutes,
+      defaultDurationMinutes: this.defaultDurationMinutes,
+      sessionPackCount: this.sessionPackCount,
+      openingFee: this.openingFee,
+      openingMinutes: this.openingMinutes,
+      sessionPackValidDays: this.sessionPackValidDays,
       isTopping: this.isTopping,
       allowToppings: this.allowToppings,
       autoOpenToppingPopup: this.autoOpenToppingPopup,
@@ -850,6 +880,7 @@ class PosProduct {
                 'qty': c.qty,
                 'componentOnHandQty': c.componentOnHandQty,
                 'componentBasePrice': c.componentBasePrice,
+                'componentUnitName': c.componentUnitName,
               }).toList(),
         if (units != null)
           'units': units!.map((u) => {
@@ -883,6 +914,7 @@ class PosComboLine {
   final double qty;
   final double componentOnHandQty;
   final double componentBasePrice;
+  final String componentUnitName;
 
   PosComboLine({
     required this.id,
@@ -892,6 +924,7 @@ class PosComboLine {
     this.qty = 1,
     this.componentOnHandQty = 0,
     this.componentBasePrice = 0,
+    this.componentUnitName = '',
   });
 
   factory PosComboLine.fromJson(Map<String, dynamic> json) {
@@ -913,8 +946,22 @@ class PosComboLine {
           n(json['componentOnHandQty'] ?? json['ComponentOnHandQty']),
       componentBasePrice:
           n(json['componentBasePrice'] ?? json['ComponentBasePrice']),
+      componentUnitName:
+          (json['componentUnitName'] ?? json['ComponentUnitName'] ?? '')
+              .toString(),
     );
   }
+
+  PosComboLine copyWith({double? qty}) => PosComboLine(
+        id: id,
+        componentProductId: componentProductId,
+        componentProductCode: componentProductCode,
+        componentProductName: componentProductName,
+        qty: qty ?? this.qty,
+        componentOnHandQty: componentOnHandQty,
+        componentBasePrice: componentBasePrice,
+        componentUnitName: componentUnitName,
+      );
 }
 
 class PosStockReceiptLine {

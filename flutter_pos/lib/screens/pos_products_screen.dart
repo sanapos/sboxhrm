@@ -29,6 +29,7 @@ import '../widgets/pos/pos_product_expansion_panel.dart';
 import '../widgets/pos/pos_product_unit_view.dart';
 import '../widgets/pos/pos_unit_chip_selector.dart';
 import '../utils/pos_product_type_picker.dart';
+import '../utils/pos_purchase_product_lookup.dart';
 import '../widgets/pos/pos_hub_scope.dart';
 import '../widgets/pos/pos_product_image.dart';
 import '../utils/navigation_notifier.dart';
@@ -710,7 +711,54 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
       );
       await _loadAll();
       setState(() {});
+    } else {
+      NotificationOverlayManager().showError(
+        title: 'Import lỗi',
+        message: tr((res['message'] ?? 'Không nhập được file').toString()),
+      );
     }
+  }
+
+  Future<void> _importBarcodeCatalog(PermissionProvider perm) async {
+    if (!perm.canCreate('PosProducts')) return;
+    final fileResult = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['xlsx', 'xls'],
+      withData: true,
+    );
+    if (fileResult == null || fileResult.files.isEmpty) return;
+    final file = fileResult.files.first;
+    if (file.bytes == null) return;
+    final res = await _api.importPosBarcodeCatalogExcel(file.bytes!, file.name);
+    if (!mounted) return;
+    if (res['isSuccess'] == true) {
+      final data = res['data'] as Map<String, dynamic>?;
+      NotificationOverlayManager().showSuccess(
+        title: 'Đã nhập từ điển mã vạch',
+        message: tr(
+            'Thêm ${data?['created'] ?? 0}, cập nhật ${data?['updated'] ?? 0}. Quét mã chưa có hàng → gợi ý tên, chỉ nhập giá.'),
+      );
+    } else {
+      NotificationOverlayManager().showError(
+        title: 'Import từ điển lỗi',
+        message: tr((res['message'] ?? 'Cần cột Mã vạch và Tên hàng').toString()),
+      );
+    }
+  }
+
+  Future<void> _downloadBarcodeCatalogTemplate() async {
+    final res = await _api.exportPosBarcodeCatalogTemplate();
+    if (res['isSuccess'] != true || res['data'] == null) return;
+    final bytes = Uint8List.fromList(List<int>.from(res['data']));
+    await file_saver.saveFileBytes(
+      bytes,
+      'Mau_tu_dien_ma_vach.xlsx',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    );
+    NotificationOverlayManager().showSuccess(
+      title: 'Mẫu Excel',
+      message: tr('Đã tải mẫu: Mã vạch + Tên hàng (+ ĐVT, nhóm, hãng)'),
+    );
   }
 
   Future<void> _batchPrintLabels() async {
@@ -724,7 +772,12 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
     if (code == null || !mounted) return;
     _searchCtrl.text = code;
     await _loadProducts(page: 1);
-    setState(() {});
+    if (!mounted) return;
+    if (_items.isEmpty) {
+      final pick = await lookupOrPickPosProduct(context, _api, code);
+      if (pick != null && mounted) await _loadProducts(page: 1);
+    }
+    if (mounted) setState(() {});
   }
 
   Future<void> _addCategory() async {
@@ -1097,6 +1150,12 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
                             _exportExcel(perm);
                           } else if (v == 'import' && perm.canCreate('PosProducts')) {
                             _importExcel(perm);
+                          } else if (v == 'import_catalog' &&
+                              perm.canCreate('PosProducts')) {
+                            _importBarcodeCatalog(perm);
+                          } else if (v == 'catalog_template' &&
+                              perm.canCreate('PosProducts')) {
+                            _downloadBarcodeCatalogTemplate();
                           } else if (v == 'topping_groups') {
                             Navigator.of(context).push(
                               MaterialPageRoute(
@@ -1127,9 +1186,17 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
                           if (perm.canExport('PosProducts'))
                             PopupMenuItem(
                                 value: 'export', child: Text(tr('Xuất file'))),
-                          if (perm.canCreate('PosProducts'))
+                          if (perm.canCreate('PosProducts')) ...[
                             PopupMenuItem(
-                                value: 'import', child: Text(tr('Import file'))),
+                                value: 'import',
+                                child: Text(tr('Import hàng hóa (có giá)'))),
+                            PopupMenuItem(
+                                value: 'import_catalog',
+                                child: Text(tr('Import từ điển mã vạch'))),
+                            PopupMenuItem(
+                                value: 'catalog_template',
+                                child: Text(tr('Tải mẫu từ điển mã vạch'))),
+                          ],
                           PopupMenuItem(
                               value: 'refresh', child: Text(tr('Làm mới'))),
                         ],
@@ -1252,13 +1319,41 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
                 ),
               ),
             if (perm.canCreate('PosProducts'))
-              OutlinedButton.icon(
-                onPressed: () => _importExcel(perm),
-                icon: const Icon(Icons.upload_file, size: 18),
-                label: Text(tr('Import file')),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: PosTheme.textPrimary,
-                  side: const BorderSide(color: PosTheme.border),
+              PopupMenuButton<String>(
+                onSelected: (v) {
+                  if (v == 'import') _importExcel(perm);
+                  if (v == 'import_catalog') _importBarcodeCatalog(perm);
+                  if (v == 'catalog_template') {
+                    _downloadBarcodeCatalogTemplate();
+                  }
+                },
+                itemBuilder: (_) => [
+                  PopupMenuItem(
+                      value: 'import',
+                      child: Text(tr('Import hàng hóa (có giá)'))),
+                  PopupMenuItem(
+                      value: 'import_catalog',
+                      child: Text(tr('Import từ điển mã vạch'))),
+                  PopupMenuItem(
+                      value: 'catalog_template',
+                      child: Text(tr('Tải mẫu từ điển mã vạch'))),
+                ],
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: PosTheme.border),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.upload_file, size: 18),
+                      const SizedBox(width: 6),
+                      Text(tr('Import Excel')),
+                      const Icon(Icons.arrow_drop_down, size: 18),
+                    ],
+                  ),
                 ),
               ),
             if (perm.canExport('PosProducts')) ...[
@@ -1932,7 +2027,9 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
       priceText: _moneyFmt.format(activeView.basePrice),
       stockText: p.productType == PosProductType.service
           ? 'Dịch vụ'
-          : 'Tồn: ${_moneyFmt.format(activeView.onHandQty)} $stockUnit',
+          : p.productType == PosProductType.combo
+              ? 'Có thể bán: ${_moneyFmt.format(p.sellableQty ?? activeView.onHandQty)}'
+              : 'Tồn: ${_moneyFmt.format(activeView.onHandQty)} $stockUnit',
       image: PosProductImage(
         productId: p.id,
         imageUrl: p.imageUrl,
@@ -2046,7 +2143,21 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
                     style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
                 ),
-                if (p.productType != PosProductType.service)
+                if (p.productType == PosProductType.service)
+                  Text(tr('Không trừ kho'),
+                    style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                  )
+                else if (p.productType == PosProductType.combo)
+                  Text(
+                    tr('Có thể bán: ${_moneyFmt.format(p.sellableQty ?? activeView.onHandQty)}'),
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: (p.sellableQty ?? activeView.onHandQty) <= 0
+                          ? Colors.red
+                          : Colors.grey,
+                    ),
+                  )
+                else
                   InkWell(
                     onTap: perm.canEdit('PosProducts')
                         ? () {

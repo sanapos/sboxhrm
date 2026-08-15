@@ -207,52 +207,73 @@ class _NotificationOverlayState extends State<NotificationOverlay> {
     });
   }
 
+  /// Gỡ + chèn lại entry mỗi lần có thông báo mới làm card chạy lại animation
+  /// và ném «Null check on null» khi Overlay đã đổi (đổi màn hình giữa lúc
+  /// nhiều lệnh in báo lỗi liên tiếp). Giữ một entry, chỉ dựng lại nội dung.
   void _updateOverlay(List<NotificationOverlayItem> items) {
     if (!mounted) return;
-    _overlayEntry?.remove();
-    _overlayEntry = null;
+    if (items.isEmpty) {
+      _removeEntry();
+      return;
+    }
 
-    if (items.isNotEmpty) {
-      _overlayEntry = OverlayEntry(
-        builder: (context) {
-          final screenWidth = MediaQuery.of(context).size.width;
-          final isMobile = screenWidth < 600;
-          return Positioned(
-            top: MediaQuery.of(context).padding.top +
-                widget.extraTopInset +
-                (isMobile ? 8 : 16),
-            left: isMobile ? 8 : null,
-            right: isMobile ? 8 : 16,
-            child: Material(
-              color: Colors.transparent,
-              child: SizedBox(
-                width: isMobile ? null : 380,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  mainAxisSize: MainAxisSize.min,
-                  children: items
-                      .take(1)
-                      .map((item) => _NotificationCard(
-                            key: ValueKey(item.id),
-                            item: item,
-                            onDismiss: () => _manager.remove(item.id),
-                          ))
-                      .toList(),
-                ),
+    final current = _overlayEntry;
+    if (current != null && current.mounted) {
+      current.markNeedsBuild();
+      return;
+    }
+    _removeEntry();
+
+    final overlay = Overlay.maybeOf(context);
+    if (overlay == null) return;
+
+    final entry = OverlayEntry(
+      builder: (context) {
+        final visible = _manager.notifications.take(1).toList();
+        if (visible.isEmpty) return const SizedBox.shrink();
+        final screenWidth = MediaQuery.of(context).size.width;
+        final isMobile = screenWidth < 600;
+        return Positioned(
+          top: MediaQuery.of(context).padding.top +
+              widget.extraTopInset +
+              (isMobile ? 8 : 16),
+          left: isMobile ? 8 : null,
+          right: isMobile ? 8 : 16,
+          child: Material(
+            color: Colors.transparent,
+            child: SizedBox(
+              width: isMobile ? null : 380,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                mainAxisSize: MainAxisSize.min,
+                children: visible
+                    .map((item) => _NotificationCard(
+                          key: ValueKey(item.id),
+                          item: item,
+                          onDismiss: () => _manager.remove(item.id),
+                        ))
+                    .toList(),
               ),
             ),
-          );
-        },
-      );
-      Overlay.of(context).insert(_overlayEntry!);
-    }
+          ),
+        );
+      },
+    );
+    _overlayEntry = entry;
+    overlay.insert(entry);
+  }
+
+  void _removeEntry() {
+    final entry = _overlayEntry;
+    _overlayEntry = null;
+    if (entry == null || !entry.mounted) return;
+    entry.remove();
   }
 
   @override
   void dispose() {
     _subscription?.cancel();
-    _overlayEntry?.remove();
-    _overlayEntry = null;
+    _removeEntry();
     super.dispose();
   }
 

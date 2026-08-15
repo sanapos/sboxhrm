@@ -1,10 +1,11 @@
-﻿import 'dart:typed_data';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
+import '../models/pos_einvoice.dart';
 import '../models/pos_sale_order.dart';
 import '../providers/auth_provider.dart';
 import '../providers/permission_provider.dart';
@@ -45,7 +46,8 @@ enum _ListColumn {
   balance('Còn lại'),
   delivery('Giao hàng'),
   deliveryStatus('TT giao hàng'),
-  status('Trạng thái');
+  status('Trạng thái'),
+  eInvoice('HĐĐT');
 
   const _ListColumn(this.label);
   final String label;
@@ -58,6 +60,7 @@ Set<_ListColumn> _defaultListColumns() => {
       _ListColumn.customer,
       _ListColumn.total,
       _ListColumn.status,
+      _ListColumn.eInvoice,
     };
 
 class PosSaleOrderListScreen extends StatefulWidget {
@@ -424,6 +427,85 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
       ),
     );
     if (mounted) _load(page: _page);
+  }
+
+  Widget _eInvoiceChip(PosSaleOrder o) {
+    final st = (o.eInvoiceStatus ?? 'None').trim();
+    Color bg;
+    Color fg;
+    switch (st) {
+      case 'Issued':
+        bg = const Color(0xFFDCFCE7);
+        fg = const Color(0xFF166534);
+      case 'Failed':
+        bg = const Color(0xFFFEE2E2);
+        fg = const Color(0xFFB91C1C);
+      case 'Pending':
+        bg = const Color(0xFFFEF3C7);
+        fg = const Color(0xFF92400E);
+      case 'Skipped':
+        bg = const Color(0xFFF1F5F9);
+        fg = const Color(0xFF475569);
+      default:
+        bg = const Color(0xFFF8FAFC);
+        fg = const Color(0xFF64748B);
+    }
+    final extra = st == 'Issued' && (o.eInvoiceNo ?? '').isNotEmpty
+        ? ' ${o.eInvoiceNo}'
+        : '';
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Text(
+        tr('${posEInvoiceStatusLabel(st)}$extra'),
+        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: fg),
+        overflow: TextOverflow.ellipsis,
+      ),
+    );
+  }
+
+  Future<void> _issueEInvoice(PosSaleOrder o) async {
+    if (o.status != 'Completed') return;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(tr('Xuất hóa đơn điện tử')),
+        content: Text(tr(
+            'Xuất HĐĐT Viettel cho đơn ${o.orderNo}?\nKhách: ${o.customerName ?? 'Khách lẻ'}')),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text(tr('Không'))),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(backgroundColor: PosTheme.kiotBlue),
+            child: Text(tr('Xuất')),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    final res = await _api.issuePosEInvoice(o.id);
+    if (!mounted) return;
+    if (res['isSuccess'] == true) {
+      NotificationOverlayManager().showSuccess(
+        title: 'Đã xuất HĐĐT',
+        message: tr(res['data'] is Map
+            ? (res['data']['eInvoiceNo'] ?? res['data']['EInvoiceNo'] ?? o.orderNo)
+                .toString()
+            : o.orderNo),
+      );
+      await _load(page: _page);
+    } else {
+      NotificationOverlayManager().showError(
+        title: 'Xuất HĐĐT thất bại',
+        message: res['message']?.toString() ?? 'Viettel từ chối hóa đơn',
+      );
+      await _load(page: _page);
+    }
   }
 
   Future<void> _completeOrder(PosSaleOrder o) async {
@@ -930,6 +1012,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
           col(_ListColumn.delivery, flex: 1),
           col(_ListColumn.deliveryStatus, flex: 2),
           col(_ListColumn.status, flex: 1, align: TextAlign.right),
+          col(_ListColumn.eInvoice, flex: 2),
         ],
       ),
     );
@@ -1355,6 +1438,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
           ),
           PosMobileField('Khách', o.customerName ?? 'Khách lẻ'),
           PosMobileField('Tổng', '${_moneyFmt.format(o.total)} đ'),
+          PosMobileField('HĐĐT', posEInvoiceStatusLabel(o.eInvoiceStatus)),
           if (o.hasReturns)
             PosMobileField('Đã trả', '${_moneyFmt.format(o.returnedAmount)} đ'),
         ],
@@ -1508,6 +1592,14 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
                         child: posSaleOrderStatusChip(o.status, returnStatus: o.returnStatus),
                       ),
                     ),
+                  if (_visibleColumns.contains(_ListColumn.eInvoice))
+                    Expanded(
+                      flex: 2,
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: _eInvoiceChip(o),
+                      ),
+                    ),
                 ],
               ),
             ),
@@ -1599,6 +1691,21 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
                         : 'In'),
                   ),
                 ),
+                if (o.status == 'Completed' &&
+                    (o.eInvoiceStatus ?? 'None') != 'Issued')
+                  OutlinedButton.icon(
+                    onPressed: () => _issueEInvoice(o),
+                    icon: const Icon(Icons.request_quote_outlined, size: 16),
+                    label: Text(tr('Xuất HĐĐT')),
+                  ),
+                if (o.status == 'Completed' && o.eInvoiceStatus == 'Issued')
+                  OutlinedButton.icon(
+                    onPressed: () {},
+                    icon: const Icon(Icons.verified_outlined, size: 16),
+                    label: Text(tr(
+                        'HĐĐT ${o.eInvoiceNo ?? ''} ${o.eInvoiceSeries ?? ''}'
+                            .trim())),
+                  ),
                 OutlinedButton.icon(
                   onPressed: () => _copyOrder(o),
                   icon: const Icon(Icons.copy, size: 16),

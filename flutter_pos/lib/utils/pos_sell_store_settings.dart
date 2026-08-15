@@ -1,7 +1,10 @@
+import 'dart:convert';
+
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../services/api_service.dart';
 import 'excel_report_builder.dart';
+import 'pos_sell_settings_helper.dart';
 
 /// Cách tính thuế VAT trên màn bán hàng.
 enum PosSellTaxMode {
@@ -108,7 +111,7 @@ class PosSellStoreSettings {
     );
   }
 
-  Future<void> save() async {
+  Future<void> save({ApiService? api}) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_kName, storeName.trim());
     await prefs.setString(_kAddress, address.trim());
@@ -121,5 +124,62 @@ class PosSellStoreSettings {
       await prefs.remove(_kVietQrBankId);
     }
     await prefs.setBool(_kShowVietQr, showVietQrAtPayment);
+    await persistSellTax(api ?? ApiService());
+  }
+
+  /// Server thắng prefs — QR bill đọc ExtraJson.sellTax.
+  PosSellStoreSettings withServerTax(String? extraJson) {
+    final parsed = parseSellTax(extraJson);
+    if (parsed == null) return this;
+    return copyWith(taxMode: parsed.$1, defaultVatRate: parsed.$2);
+  }
+
+  static bool hasServerTax(String? extraJson) => parseSellTax(extraJson) != null;
+
+  static (PosSellTaxMode, double)? parseSellTax(String? extraJson) {
+    if (extraJson == null || extraJson.trim().isEmpty) return null;
+    try {
+      final root = jsonDecode(extraJson);
+      if (root is! Map) return null;
+      final tax = root['sellTax'] ?? root['SellTax'];
+      if (tax is! Map) return null;
+      final m = Map<String, dynamic>.from(tax);
+      final mode = PosSellTaxMode.fromKey(
+          (m['mode'] ?? m['Mode'] ?? '').toString());
+      final raw = m['vatRate'] ?? m['VatRate'];
+      final rate = raw is num
+          ? raw.toDouble()
+          : double.tryParse('$raw') ?? 8;
+      return (mode, rate.clamp(0, 100));
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> persistSellTax(ApiService api) async {
+    final helper = PosSellSettingsHelper(api);
+    final loaded = await helper.load();
+    if (loaded.settings == null) return;
+    await helper.save(
+      loaded.settings!.copyWith(
+        extraJson: mergeSellTax(loaded.settings!.extraJson),
+      ),
+      applyDefaults: false,
+    );
+  }
+
+  String mergeSellTax(String? existing) {
+    Map<String, dynamic> root = {};
+    if (existing != null && existing.trim().isNotEmpty) {
+      try {
+        final decoded = jsonDecode(existing);
+        if (decoded is Map) root = Map<String, dynamic>.from(decoded);
+      } catch (_) {}
+    }
+    root['sellTax'] = {
+      'mode': taxMode.key,
+      'vatRate': defaultVatRate,
+    };
+    return jsonEncode(root);
   }
 }

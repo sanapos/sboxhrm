@@ -524,6 +524,29 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
       'canDelete',
     },
     'PosSalesReport': {'canView', 'canExport'},
+    'PosReportRevenue': {'canView', 'canExport'},
+    'PosReportSoldGoods': {'canView', 'canExport'},
+    'PosReportStock': {'canView', 'canExport'},
+    'PosReportPurchases': {'canView', 'canExport'},
+    'PosReportPayment': {'canView', 'canExport'},
+    'PosReportDebt': {'canView', 'canExport'},
+    'PosReportExpiry': {'canView', 'canExport'},
+    'PosReportProfit': {'canView', 'canExport'},
+    'PosReportExpense': {'canView', 'canExport'},
+    'PosReportEndOfDay': {'canView', 'canExport'},
+    'PosReportStaffRevenue': {'canView', 'canExport'},
+    'PosReportCashbook': {'canView', 'canExport'},
+    'PosReportPnl': {'canView', 'canExport'},
+    'PosReportVoucher': {'canView', 'canExport'},
+    'PosEInvoice': {'canView', 'canEdit', 'canApprove'},
+    'PosKds': {'canView', 'canCreate'},
+    'PosQrOrder': {'canView', 'canEdit'},
+    'PosCashierShift': {'canView', 'canCreate'},
+    'PosPrinters': {'canView', 'canEdit'},
+    'PosBooking': {'canView', 'canCreate', 'canEdit'},
+    'PosCustomers': {'canView', 'canCreate', 'canEdit'},
+    'PosWarranty': {'canView'},
+    'PosCustomerDisplay': {'canView', 'canCreate'},
     'Settings': {'canView', 'canEdit'},
   };
 
@@ -2573,6 +2596,48 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
           return 'Xem trả hàng';
         case 'canApprove':
           return 'Trả hàng';
+      }
+    }
+    if (module == 'PosKds') {
+      switch (action) {
+        case 'canView':
+          return 'Vào bếp';
+        case 'canCreate':
+          return 'Bump món';
+      }
+    }
+    if (module == 'PosQrOrder') {
+      switch (action) {
+        case 'canView':
+          return 'Xem QR';
+        case 'canEdit':
+          return 'In / bật QR';
+      }
+    }
+    if (module == 'PosCashierShift') {
+      switch (action) {
+        case 'canView':
+          return 'Xem ca';
+        case 'canCreate':
+          return 'Mở / đóng ca';
+      }
+    }
+    if (module == 'PosPrinters') {
+      switch (action) {
+        case 'canView':
+          return 'Xem máy in';
+        case 'canEdit':
+          return 'Gán máy in';
+      }
+    }
+    if (module == 'PosEInvoice') {
+      switch (action) {
+        case 'canView':
+          return 'Xem HĐĐT';
+        case 'canEdit':
+          return 'Cấu hình';
+        case 'canApprove':
+          return 'Xuất HĐĐT';
       }
     }
     switch (action) {

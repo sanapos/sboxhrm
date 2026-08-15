@@ -436,7 +436,7 @@ class PosProductDataTable extends StatelessWidget {
               : activeView.displayCode,
         ),
       PosProductTableColumn.barcode =>
-        _cellText(p.barcode ?? '—'),
+        _cellText(p.barcode ?? 'â€”'),
       PosProductTableColumn.name => Padding(
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
           child: Column(
@@ -465,7 +465,7 @@ class PosProductDataTable extends StatelessWidget {
           ),
         ),
       PosProductTableColumn.group =>
-        _cellText(p.categoryName ?? '—'),
+        _cellText(p.categoryName ?? 'â€”'),
       PosProductTableColumn.type => Padding(
           padding: const EdgeInsets.symmetric(horizontal: 4),
           child: Align(
@@ -479,22 +479,22 @@ class PosProductDataTable extends StatelessWidget {
           align: TextAlign.right,
         ),
       PosProductTableColumn.brand =>
-        _cellText(p.brandName ?? '—'),
+        _cellText(p.brandName ?? 'â€”'),
       PosProductTableColumn.stock => _stockCell(p, activeView),
       PosProductTableColumn.location =>
-        _cellText(p.storageLocationName ?? '—'),
+        _cellText(p.storageLocationName ?? 'â€”'),
       PosProductTableColumn.reserved => _cellText(
           p.reservedQty > 0 ? moneyFmt.format(p.reservedQty) : '0',
           align: TextAlign.right,
         ),
       PosProductTableColumn.createdAt => _cellText(
-          p.createdAt != null ? dateFmt.format(p.createdAt!) : '—',
+          p.createdAt != null ? dateFmt.format(p.createdAt!) : 'â€”',
           color: PosTheme.textSecondary,
         ),
       PosProductTableColumn.stockout => _cellText(
           p.estimatedStockoutDate != null
               ? dateFmt.format(p.estimatedStockoutDate!)
-              : '—',
+              : 'â€”',
           color: PosTheme.textSecondary,
         ),
       PosProductTableColumn.actions => IconButton(
@@ -537,7 +537,14 @@ class PosProductDataTable extends StatelessWidget {
 
   Widget _stockCell(PosProduct p, PosProductUnitView view) {
     if (p.productType == PosProductType.service) {
-      return _cellText('—', align: TextAlign.right, color: Colors.grey);
+      return _cellText('â€”', align: TextAlign.right, color: Colors.grey);
+    }
+    if (p.productType == PosProductType.combo) {
+      return _cellText(
+        PosQtyRules.format(view.onHandQty, allowDecimal: false),
+        align: TextAlign.right,
+        color: view.onHandQty <= 0 ? const Color(0xFFE53935) : null,
+      );
     }
     final text = _cellText(
       PosQtyRules.format(view.onHandQty, product: p),
@@ -580,7 +587,7 @@ class PosProductDataTable extends StatelessWidget {
     );
   }
 
-  /// Dòng hàng cùng lo?i (bi?n th?) — th?t vào ki?u KiotViet, b?m xem chi ti?t.
+  /// DÃ²ng hÃ ng cÃ¹ng lo?i (bi?n th?) â€” th?t vÃ o ki?u KiotViet, b?m xem chi ti?t.
   Widget _variantDataRow(PosProduct parent, PosProductVariant v) {
     final selected = selectedVariantId == v.id;
     return Material(
@@ -622,7 +629,7 @@ class PosProductDataTable extends StatelessWidget {
           ),
         ),
       PosProductTableColumn.barcode =>
-        _cellText(v.barcode ?? '—', color: PosTheme.textSecondary),
+        _cellText(v.barcode ?? 'â€”', color: PosTheme.textSecondary),
       PosProductTableColumn.name => Padding(
           padding: const EdgeInsets.only(left: 12),
           child: _cellText(
@@ -639,10 +646,10 @@ class PosProductDataTable extends StatelessWidget {
         ),
       PosProductTableColumn.stock => _variantStockCell(parent, v),
       PosProductTableColumn.createdAt => _cellText(
-          parent.createdAt != null ? dateFmt.format(parent.createdAt!) : '—',
+          parent.createdAt != null ? dateFmt.format(parent.createdAt!) : 'â€”',
           color: PosTheme.textSecondary,
         ),
-      _ => _cellText('—', color: PosTheme.textSecondary),
+      _ => _cellText('â€”', color: PosTheme.textSecondary),
     };
     return _colWrap(c, child);
   }
@@ -682,7 +689,7 @@ class PosProductDataTable extends StatelessWidget {
           TextButton.icon(
             onPressed: () => onCopy!(p),
             icon: const Icon(Icons.copy, size: 16),
-            label: Text(tr('Sao chép')),
+            label: Text(tr('Sao chÃ©p')),
           ),
           const Spacer(),
           FilledButton.icon(
@@ -693,7 +700,7 @@ class PosProductDataTable extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
             ),
             icon: const Icon(Icons.add, size: 16),
-            label: Text(tr('Thêm hàng hóa cùng lo?i')),
+            label: Text(tr('ThÃªm hÃ ng hÃ³a cÃ¹ng lo?i')),
           ),
         ],
       ),

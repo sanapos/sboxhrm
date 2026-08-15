@@ -130,6 +130,13 @@ class PosProductFilterSidebar extends StatelessWidget {
           const SizedBox(height: 16),
           _sectionHeader('Loại hàng'),
           _typeDropdown(),
+          Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: Text(
+              tr('Hàng hóa trừ kho · Dịch vụ không tồn · Combo trừ định lượng thành phần'),
+              style: TextStyle(fontSize: 11, height: 1.3, color: Colors.grey.shade600),
+            ),
+          ),
           const SizedBox(height: 16),
           _sectionHeader('Thương hiệu', onManage: onManageBrand),
           _catalogDropdown(

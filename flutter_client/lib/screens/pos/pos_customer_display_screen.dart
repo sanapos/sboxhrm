@@ -62,7 +62,7 @@ class _PosCustomerDisplayScreenState extends State<PosCustomerDisplayScreen> {
     _restartIdleTimer();
     unawaited(_ensurePromoMedia());
     if ((_viewerCode ?? '').length >= 4) {
-      _remotePoll = Timer.periodic(const Duration(milliseconds: 450), (_) {
+      _remotePoll = Timer.periodic(const Duration(milliseconds: 1500), (_) {
         unawaited(_pollRemoteState());
       });
       unawaited(_pollRemoteState());

@@ -9,6 +9,7 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../models/cash_transaction.dart';
+import '../models/pos_einvoice.dart';
 import '../models/pos_customer.dart';
 import '../models/pos_price_list.dart';
 import '../models/pos_product.dart';
@@ -64,12 +65,17 @@ import '../widgets/pos/pos_product_image.dart';
 import '../widgets/pos/pos_product_unit_view.dart';
 import '../widgets/pos/pos_purchase_product_search_bar.dart';
 import '../widgets/pos/pos_pending_warehouse_print_sheet.dart';
+import '../widgets/pos/pos_split_bill_sheet.dart';
 import '../widgets/pos/pos_sell_print_popover.dart';
 import '../widgets/pos/pos_sell_store_settings_dialog.dart';
 import '../widgets/pos/pos_sale_quick_notes_widgets.dart';
 import '../widgets/pos/pos_serial_capture_dialog.dart';
 import '../widgets/pos/pos_theme.dart';
 import '../widgets/pos/pos_hub_scope.dart';
+import 'pos/pos_kds_screen.dart';
+import 'pos/pos_qr_table_order_screen.dart';
+import 'pos/pos_cashier_shift_screen.dart';
+import 'pos/pos_printer_settings_hub_screen.dart';
 import '../widgets/pos/pos_mobile_widgets.dart';
 import '../widgets/pos/pos_numeric_keypad.dart';
 import 'pos/pos_end_of_day_screen.dart';
@@ -265,7 +271,12 @@ class _SellCartLine {
   String get lineKey => '${product.id}|$activeViewKey';
 
   double get maxQty => activeView.onHandQty;
-  double get lineGross => (unitPrice + toppingExtraPerUnit) * qty;
+  double get lineGross {
+    final extra = (unitPrice + toppingExtraPerUnit) * qty;
+    if (!product.isTimedService) return extra;
+    final fee = product.openingFee;
+    return (fee < 0 ? 0.0 : fee) + extra;
+  }
 
   /// Ghi chú phiếu bếp / màn khách: topping + ghi chú dòng.
   String? get noteWithToppings {
@@ -369,6 +380,8 @@ class _SellInvoiceTab {
   bool vatExempt = false;
   String paymentMethod = 'Tiền mặt';
   double paidAmount = 0;
+  /// Cọc đặt chỗ đã thu quỹ — trừ công nợ, không đưa vào dòng TT mới.
+  double reservationDepositApplied = 0;
   bool paidManuallyEdited = false;
   final List<_SellPaymentLine> paymentLines = [];
   bool paymentsManuallyEdited = false;
@@ -404,6 +417,8 @@ class _SellInvoiceTab {
   DateTime? serviceStartedAt;
   String? serviceResourceName;
   String? serviceAreaName;
+  /// Đơn tách bill từ bàn — thanh toán không đóng phiên bàn gốc.
+  String? splitFromOrderId;
   int tableGuestCount = 0;
   /// Pause phiên bàn — đồng bộ billing timed.
   int accumulatedPauseMinutes = 0;
@@ -470,6 +485,7 @@ class _SellInvoiceTab {
     vatExempt = false;
     paymentMethod = 'Tiền mặt';
     paidAmount = 0;
+    reservationDepositApplied = 0;
     paidManuallyEdited = false;
     paymentsManuallyEdited = false;
     note = null;
@@ -498,6 +514,7 @@ class _SellInvoiceTab {
     serviceStartedAt = null;
     serviceResourceName = null;
     serviceAreaName = null;
+    splitFromOrderId = null;
     tableGuestCount = 0;
     accumulatedPauseMinutes = 0;
     sessionPausedAt = null;
@@ -547,6 +564,10 @@ class _PosSellScreenState extends State<PosSellScreen> {
   final _customerSearchFocus = FocusNode();
   Timer? _customerSearchDebounce;
   final _productGridKey = GlobalKey<PosSellProductGridState>();
+  final _floorPaneKey = GlobalKey<PosResourceFloorScreenState>();
+  /// Giữ state sơ đồ / thực đơn khi đổi tab (không dispose → không reload API).
+  bool _floorPaneKept = true;
+  bool _catalogPaneKept = false;
 
   int _nextTabSeq = 2;
   final List<_SellInvoiceTab> _tabs = [_SellInvoiceTab(id: 1)];
@@ -575,9 +596,12 @@ class _PosSellScreenState extends State<PosSellScreen> {
   bool _quickPrintInvoice = false;
   bool _quickPrintCup = false;
   bool _quickPrintKitchen = false;
+  bool _quickIssueEInvoice = false;
+  PosEInvoiceSettings _eInvoiceSettings = const PosEInvoiceSettings();
   PosSellStoreSettings _storeSettings = const PosSellStoreSettings();
   PosStoreSellSettingsDto? _industrySettings;
   bool _checkingOut = false;
+  bool _splitBillBusy = false;
   bool _parking = false;
   bool _provisionalPrinting = false;
   bool _kitchenSending = false;
@@ -588,8 +612,6 @@ class _PosSellScreenState extends State<PosSellScreen> {
   final List<PendingSalePrintJob> _failedSalePrints = [];
   final List<PendingKitchenPrintJob> _failedKitchenPrints = [];
   final List<PendingCupLabelPrintJob> _failedCupPrints = [];
-  Timer? _pendingPrintRetryTimer;
-  bool _pendingPrintRetryBusy = false;
   /// Hủy bếp chờ gộp (món đã xóa khỏi giỏ sau khi báo).
   final List<KitchenTicketLine> _pendingKitchenCancels = [];
   /// Bàn vừa báo bếp — sơ đồ ép ẩn «chờ bếp» đến khi server khớp.
@@ -687,8 +709,31 @@ class _PosSellScreenState extends State<PosSellScreen> {
   /// Xác nhận ghi chú → mới autosave/đồng bộ.
   void _commitLineNote(_SellCartLine line, {bool scheduleSave = true}) {
     if (!_guardReadOnlyEdit()) return;
+    final before = _kitchenLineSignature(line);
     _applyLineNoteFromPicker(line);
+    _renotifyKitchenOnLineChange(line, before);
     if (scheduleSave) _scheduleDraftAutosave();
+  }
+
+  /// Phần nội dung bếp cần biết của 1 dòng: ghi chú + topping.
+  String _kitchenLineSignature(_SellCartLine line) =>
+      '${(line.lineNote ?? '').trim()}|'
+      '${line.toppings.map((t) => t.id).join(',')}';
+
+  /// Số lượng chờ báo bếp chỉ tính theo SL, nên sửa ghi chú / topping của món
+  /// đã báo là bếp không bao giờ biết: bấm Báo bếp chỉ báo «không có thay
+  /// đổi». Đổi thì trả dòng về chưa báo để phiếu mới ra kèm nội dung đúng.
+  void _renotifyKitchenOnLineChange(_SellCartLine line, String signatureBefore) {
+    if (!_isTableOrderMode) return;
+    if (line.kitchenSentQty <= 0) return;
+    if (_kitchenLineSignature(line) == signatureBefore) return;
+    line.kitchenSentQty = 0;
+    NotificationOverlayManager().showWarning(
+      title: 'Món đã đổi',
+      message: tr(
+        '${line.product.name}: bấm Báo bếp để gửi lại ghi chú/topping cho bếp',
+      ),
+    );
   }
 
   /// Xác nhận giá + chiết khấu dòng → mới đồng bộ.
@@ -734,8 +779,9 @@ class _PosSellScreenState extends State<PosSellScreen> {
     final sellersFut = _api.getPosSellSellers();
     final priceListsFut = _api.getPosPriceLists();
     var banksFut = _api.getPosBankAccounts();
+    final eInvFut = _api.getPosEInvoiceSettings();
 
-    final store = await storeFut;
+    var store = await storeFut;
     final printS = await printFut;
     final thermal = await thermalFut;
     final industryRes = await industryFut;
@@ -745,6 +791,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
     if (banksRes['isSuccess'] != true) {
       banksRes = await _api.getBankAccounts();
     }
+    final eInvRes = await eInvFut;
     if (!mounted) return;
 
     // Industry → sell mode
@@ -814,11 +861,21 @@ class _PosSellScreenState extends State<PosSellScreen> {
       defaultPriceList = pickDefaultPosPriceList(priceLists);
     }
 
+    store = store.withServerTax(industry?.extraJson);
+    if (!PosSellStoreSettings.hasServerTax(industry?.extraJson)) {
+      store.persistSellTax(_api);
+    }
+
     setState(() {
       _storeSettings = store;
       _applyPrintSettings(printS);
       _thermalPrintSettings = thermal;
       _industrySettings = industry;
+      if (eInvRes['isSuccess'] == true && eInvRes['data'] is Map) {
+        _eInvoiceSettings = PosEInvoiceSettings.fromJson(
+            Map<String, dynamic>.from(eInvRes['data'] as Map));
+        _quickIssueEInvoice = _eInvoiceSettings.defaultIssueAtCheckout;
+      }
       _sellMode = sellMode;
       _sellSellers = sellers;
       _canPickSeller = canPick;
@@ -860,7 +917,6 @@ class _PosSellScreenState extends State<PosSellScreen> {
     unawaited(() async {
       await _loadPendingPrintQueueFromDisk();
       if (!mounted) return;
-      _startPendingPrintAutoRetry();
       await _bootstrapInvoiceSlots();
     }());
   }
@@ -870,16 +926,15 @@ class _PosSellScreenState extends State<PosSellScreen> {
     final hasSecondary =
         await CustomerDisplaySync.instance.hasSecondaryDisplay();
     if (mounted) {
-      setState(() => _hasSecondaryCustomerDisplay = hasSecondary || kIsWeb);
+      setState(() => _hasSecondaryCustomerDisplay = hasSecondary);
     } else {
-      _hasSecondaryCustomerDisplay = hasSecondary || kIsWeb;
+      _hasSecondaryCustomerDisplay = hasSecondary;
     }
     if (!CustomerDisplaySync.instance.enabled) return;
     // Luôn đẩy state (kể cả máy 1 màn) để khi mở màn phụ / popup nhận được bill.
     await _refreshCustomerDisplayPromos();
     _scheduleCustomerDisplayPublish();
-    if (_hasSecondaryCustomerDisplay &&
-        CustomerDisplaySync.instance.config.autoOpenOnPos) {
+    if (hasSecondary && CustomerDisplaySync.instance.config.autoOpenOnPos) {
       await CustomerDisplaySync.instance.openSecondary();
     }
   }
@@ -1088,7 +1143,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
     if (_isPosFullscreen && !kIsWeb) {
       unawaited(SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge));
     }
-    _pendingPrintRetryTimer?.cancel();
+    unawaited(_persistPendingPrintQueue());
     _timedBillingTimer?.cancel();
     _stopDraftLockHeartbeat();
     _floorRealtime.dispose();
@@ -1224,9 +1279,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
         : dto;
 
     final useFloor = (effective.showFloorPlan || effective.enableResources) &&
-        (effective.sellProfile == PosSellProfile.restaurant ||
-            effective.sellProfile == PosSellProfile.roomHourly ||
-            effective.sellProfile == PosSellProfile.salon);
+        (effective.sellProfile.usesFloorPlan);
     final leavingTables = prev != null &&
         (prev.enableResources || prev.showFloorPlan) &&
         !effective.enableResources &&
@@ -1283,10 +1336,15 @@ class _PosSellScreenState extends State<PosSellScreen> {
   /// F&B / Bi-a / Salon: sơ đồ là màn chính khi bán hàng.
   bool get _useFloorAsPrimary {
     if (!_showFloorPlan) return false;
-    final p = _industrySettings?.sellProfile;
-    return p == PosSellProfile.restaurant ||
-        p == PosSellProfile.roomHourly ||
-        p == PosSellProfile.salon;
+    return _sellProfile.usesFloorPlan;
+  }
+
+  PosSellProfile get _sellProfile =>
+      _industrySettings?.sellProfile ?? PosSellProfile.retail;
+
+  String _lineCountText([int? n]) {
+    final c = n ?? _tab.cart.length;
+    return '$c ${_sellProfile.lineUnit}';
   }
 
   /// true = đang xem sơ đồ (chưa vào bàn).
@@ -1301,17 +1359,19 @@ class _PosSellScreenState extends State<PosSellScreen> {
   /// "Thanh toán"), false = chọn hàng + giỏ.
   bool _tabletPaymentStage = false;
   Timer? _customerDisplayPublishTimer;
+  int _customerDisplayPublishEpoch = 0;
   List<CustomerDisplayPromoItem> _customerDisplayPromos = const [];
-  /// Máy có display phụ thật (Android DisplayManager). Web luôn true (popup).
-  bool _hasSecondaryCustomerDisplay = kIsWeb;
+  /// Máy có display phụ thật (Android DisplayManager / Chrome Multi-Screen).
+  bool _hasSecondaryCustomerDisplay = false;
   /// Đang phóng toàn màn hình (browser fullscreen / immersive).
   bool _isPosFullscreen = false;
   int _systemUnreadNotifications = 0;
 
-  void _scheduleCustomerDisplayPublish() {
+  void _scheduleCustomerDisplayPublish({int delayMs = 180}) {
     _customerDisplayPublishTimer?.cancel();
-    _customerDisplayPublishTimer = Timer(const Duration(milliseconds: 180), () {
-      unawaited(_publishCustomerDisplay());
+    final epoch = ++_customerDisplayPublishEpoch;
+    _customerDisplayPublishTimer = Timer(Duration(milliseconds: delayMs), () {
+      unawaited(_publishCustomerDisplay(epoch));
     });
   }
 
@@ -1339,9 +1399,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
     ];
     if (!cfg.useProductImages) {
       _customerDisplayPromos = [...videos, ...customImages];
-      await CustomerDisplaySync.instance.publishIdle(
-        promoItems: _customerDisplayPromos,
-      );
+      _scheduleCustomerDisplayPublish();
       return;
     }
     try {
@@ -1389,18 +1447,31 @@ class _PosSellScreenState extends State<PosSellScreen> {
     } catch (_) {
       _customerDisplayPromos = [...videos, ...customImages];
     }
-    await CustomerDisplaySync.instance.publishIdle(
-      promoItems: _customerDisplayPromos,
-    );
+    _scheduleCustomerDisplayPublish();
   }
 
-  Future<void> _publishCustomerDisplay() async {
+  Future<void> _publishCustomerDisplay([int? epoch]) async {
+    final my = epoch ?? _customerDisplayPublishEpoch;
+    bool stillValid() => my == _customerDisplayPublishEpoch;
+    if (!stillValid()) return;
+
     final sync = CustomerDisplaySync.instance;
-    if (!sync.enabled) return;
+    if (_showFloorPlan && _floorMapVisible) {
+      await sync.publishIdle(
+        promoItems: _customerDisplayPromos,
+        storeName: _warehouseBranchName,
+        stillValid: stillValid,
+      );
+      return;
+    }
     final bound = _tab.isTableBound || (_tab.serviceResourceId ?? '').isNotEmpty;
     final hasCart = _tab.cart.isNotEmpty;
     if (!bound && !hasCart) {
-      await sync.publishIdle(promoItems: _customerDisplayPromos);
+      await sync.publishIdle(
+        promoItems: _customerDisplayPromos,
+        storeName: _warehouseBranchName,
+        stillValid: stillValid,
+      );
       return;
     }
     final lines = _tab.cart
@@ -1421,6 +1492,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
             tableName: _tab.serviceResourceName,
           )
         : (hasCart ? 'Đơn hiện tại' : null);
+    if (!stillValid()) return;
     await sync.publishActive(
       tableLabel: label,
       areaName: _tab.serviceAreaName,
@@ -1432,6 +1504,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
       total: _grandTotal,
       storeName: _warehouseBranchName,
       promoItems: _customerDisplayPromos,
+      stillValid: stillValid,
     );
   }
 
@@ -1480,23 +1553,64 @@ class _PosSellScreenState extends State<PosSellScreen> {
       return;
     }
     sync.ensureViewerCode();
-    final hasSecondary = await sync.hasSecondaryDisplay();
-    if (mounted) {
-      setState(() => _hasSecondaryCustomerDisplay = hasSecondary || kIsWeb);
-    }
     await _refreshCustomerDisplayPromos();
     _scheduleCustomerDisplayPublish();
-    if (hasSecondary || kIsWeb) {
+
+    if (kIsWeb) {
+      final ok = await sync.openSecondary();
+      final hasSecondary = ok || await sync.hasSecondaryDisplay();
+      if (mounted) {
+        setState(() => _hasSecondaryCustomerDisplay = hasSecondary);
+      }
+      if (!mounted) return;
+      if (ok) {
+        NotificationOverlayManager().showSuccess(
+          title: 'Đã mở màn hình phụ',
+          message: tr('Hóa đơn khách đang hiện trên màn hình thứ 2'),
+        );
+        return;
+      }
+      final reason = sync.lastOpenReason;
+      NotificationOverlayManager().showWarning(
+        title: 'Chưa mở được màn thứ 2',
+        message: tr(_webCustomerDisplayFailMessage(reason)),
+      );
+      if (!mounted) return;
+      await _showCustomerDisplayViewerLinkDialog();
+      return;
+    }
+
+    final hasSecondary = await sync.hasSecondaryDisplay();
+    if (mounted) {
+      setState(() => _hasSecondaryCustomerDisplay = hasSecondary);
+    }
+    if (hasSecondary) {
       final ok = await sync.openSecondary();
       if (mounted && ok) {
         NotificationOverlayManager().showSuccess(
           title: 'Đã mở màn hình phụ',
           message: tr('Ảnh/video | hóa đơn — chỉ trên màn khách'),
         );
+        return;
       }
     }
     if (!mounted) return;
     await _showCustomerDisplayViewerLinkDialog();
+  }
+
+  String _webCustomerDisplayFailMessage(String reason) {
+    switch (reason) {
+      case 'no-second-screen':
+        return 'Không thấy màn hình thứ 2. Cắm thêm màn rồi bấm lại, hoặc copy link sang máy/TV khác.';
+      case 'popup-blocked':
+        return 'Trình duyệt chặn cửa sổ. Cho phép popup cho trang này rồi bấm lại.';
+      case 'permission-denied':
+        return 'Cần cho phép quản lý cửa sổ trên mọi màn hình, rồi bấm lại.';
+      case 'no-api':
+        return 'Trình duyệt này không đặt được cửa sổ sang màn khác. Dùng Chrome, hoặc copy link sang máy/TV.';
+      default:
+        return 'Không mở được màn khách trên màn thứ 2. Có thể copy link sang máy khác.';
+    }
   }
 
   Future<void> _showCustomerDisplayViewerLinkDialog() async {
@@ -1584,6 +1698,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
       tab.sessionIsPaused = isPaused;
       if (defaultRate != null) tab.serviceDefaultHourlyRate = defaultRate;
       if (paidFromDeposit != null && paidFromDeposit > 0) {
+        tab.reservationDepositApplied = paidFromDeposit;
         tab.paidAmount = paidFromDeposit;
       }
     }
@@ -1620,9 +1735,15 @@ class _PosSellScreenState extends State<PosSellScreen> {
         return;
       }
       // Chỉ rời sơ đồ khi đã tải được đơn vào tab.
+      final isSplitBill = result['isSplitBill'] == true;
+      final splitFrom = result['splitFromOrderId']?.toString();
       setState(() {
         _tab.serviceResourceId = resourceId ?? _tab.serviceResourceId;
-        _tab.resourceSessionId = sessionId ?? _tab.resourceSessionId;
+        _tab.resourceSessionId =
+            isSplitBill ? null : (sessionId ?? _tab.resourceSessionId);
+        if (isSplitBill && (splitFrom ?? '').isNotEmpty) {
+          _tab.splitFromOrderId = splitFrom;
+        }
         _tab.serviceResourceName = resourceName ?? _tab.serviceResourceName;
         _tab.serviceAreaName = areaName ?? _tab.serviceAreaName;
         if (startedAt != null) _tab.serviceStartedAt = startedAt;
@@ -1631,7 +1752,8 @@ class _PosSellScreenState extends State<PosSellScreen> {
         applyPauseMeta(_tab);
         _tab.localDirty = false;
         _floorMapVisible = false;
-        _tabletPaymentStage = false;
+        _catalogPaneKept = true;
+        _tabletPaymentStage = isSplitBill;
         _mobileProductPickerOpen = false;
       });
       // Giữ suspend=true cho tới khi verify xong — chặn autosave đè giỏ.
@@ -1639,15 +1761,9 @@ class _PosSellScreenState extends State<PosSellScreen> {
       if (!mounted) return;
       if (paidFromDeposit != null && paidFromDeposit > 0) {
         setState(() {
-          _tab.paymentsManuallyEdited = true;
-          final cash = _SellPaymentLine(sourceKey: _PosPaymentSource.cashKey);
-          cash.amount = paidFromDeposit;
-          cash.amountCtrl.text = _moneyFmt.format(paidFromDeposit);
-          _tab.paymentLines
-            ..clear()
-            ..add(cash);
-          _tab.paidAmount = paidFromDeposit;
-          _tab._paidCtrl.text = _moneyFmt.format(paidFromDeposit);
+          _tab.reservationDepositApplied = paidFromDeposit;
+          _tab.paymentsManuallyEdited = false;
+          _syncPaidAmount();
         });
       }
       setState(() => _suspendDraftAutosave = false);
@@ -1667,6 +1783,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
         if (guestCount > 0) _tab.tableGuestCount = guestCount;
         applyPauseMeta(_tab);
         _floorMapVisible = false;
+        _catalogPaneKept = true;
         _tabletPaymentStage = false;
         _mobileProductPickerOpen = false;
       });
@@ -1801,11 +1918,12 @@ class _PosSellScreenState extends State<PosSellScreen> {
         _tab.lockedByLabel = null;
       }
       _floorMapVisible = true;
+      _floorPaneKept = true;
       _tabletPaymentStage = false;
       _mobileProductPickerOpen = false;
-      _floorMapEpoch++;
       // Giữ suspend đến khi nền xong unlock — tránh autosave gắn lại khóa.
     });
+    _floorPaneKey.currentState?.refreshQuiet();
     _scheduleCustomerDisplayPublish();
 
     unawaited(_finishLeaveTableInBackground(
@@ -1915,18 +2033,14 @@ class _PosSellScreenState extends State<PosSellScreen> {
       _suspendDraftAutosave = false;
       return;
     }
-    final stayOnFloor = _floorMapVisible;
     setState(() {
       _tab.reset(defaultVatRate: _storeSettings.defaultVatRate);
       _tab.sellerEmployeeId = _defaultSellerEmployeeId;
       _syncPaidAmount();
       _pendingKitchenCancels.clear();
       _floorMapVisible = true;
+      _floorPaneKept = true;
       _tabletPaymentStage = false;
-      // Đang ở sơ đồ (chuyển/gộp/tách): không remount — tránh mất optimistic + reload.
-      if (!stayOnFloor) {
-        _floorMapEpoch++;
-      }
     });
     Future<void>.delayed(const Duration(milliseconds: 400), () {
       _suspendDraftAutosave = false;
@@ -2061,6 +2175,8 @@ class _PosSellScreenState extends State<PosSellScreen> {
               unitName: l.unitLabel,
               note: l.noteWithToppings,
               productId: l.product.id,
+              sentBefore: l.kitchenSentQty,
+              lineKey: '${l.rowId}',
             ))
         .where((l) => l.qty > 0)
         .toList();
@@ -2324,13 +2440,18 @@ class _PosSellScreenState extends State<PosSellScreen> {
           unitName: l.unitLabel,
           note: l.noteWithToppings,
           productId: l.product.id,
+          sentBefore: l.kitchenSentQty,
+          lineKey: '${l.rowId}',
         ));
       }
     }
-    // Gộp cùng tên+đơn vị.
+    // Gộp cùng SP + đơn vị + ghi chú. Gộp theo tên làm hai món khác ghi chú
+    // dồn thành một dòng (bếp hủy nhầm phần còn giữ), và hai SP trùng tên bị
+    // gán chung productId nên phiếu hủy chạy sai máy in.
     final merged = <String, KitchenTicketLine>{};
     for (final l in list) {
-      final key = '${l.productName}|${l.unitName ?? ''}';
+      final key = '${l.productId ?? l.productName}'
+          '|${l.unitName ?? ''}|${l.note ?? ''}';
       final prev = merged[key];
       if (prev == null) {
         merged[key] = l;
@@ -2341,6 +2462,8 @@ class _PosSellScreenState extends State<PosSellScreen> {
           unitName: prev.unitName,
           note: prev.note ?? l.note,
           productId: prev.productId ?? l.productId,
+          sentBefore: prev.sentBefore ?? l.sentBefore,
+          lineKey: prev.lineKey ?? l.lineKey,
         );
       }
     }
@@ -2399,10 +2522,11 @@ class _PosSellScreenState extends State<PosSellScreen> {
   /// Đánh dấu tạm tính + in hóa đơn tạm — ở lại màn đơn hàng (không về sơ đồ).
   Future<void> _printProvisionalBill() async {
     if (_provisionalPrinting || _checkingOut || _parking) return;
-    if (!(_industrySettings?.allowProvisionalBill ?? false)) {
+    if (!(_industrySettings?.allowProvisionalBill ?? false) &&
+        _sellProfile != PosSellProfile.retail) {
       NotificationOverlayManager().showWarning(
         title: 'Chưa cấp quyền',
-        message: tr('Bật «Cho phép tạm tính» trong Thiết lập ngành'),
+        message: tr('Bật «Cho phép tạm tính» trong Ngành hàng'),
       );
       return;
     }
@@ -2492,10 +2616,12 @@ class _PosSellScreenState extends State<PosSellScreen> {
           _billRequestedResourceIds = {..._billRequestedResourceIds, key};
         });
       }
-      if (!billMarked) {
+      if (!billMarked && _isTableOrderMode) {
         NotificationOverlayManager().showWarning(
           title: 'Chưa lưu trạng thái tạm tính',
-          message: tr('Đã tô màu bàn tạm — kiểm tra lại nếu reload mất màu'),
+          message: tr(
+            'Đã tô màu ${_sellProfile.resourceNoun} tạm — kiểm tra lại nếu reload mất màu',
+          ),
         );
       }
 
@@ -2866,9 +2992,11 @@ class _PosSellScreenState extends State<PosSellScreen> {
         graceMinutes: line.product.graceMinutes,
         roundAfterMinutes: line.product.roundAfterMinutes,
       );
-      final qty = PosServiceBillingCalc.billableQty(
+      final qty = PosServiceBillingCalc.extraQty(
         mode: mode,
         billableMinutes: billable,
+        openingMinutes: line.product.openingMinutes,
+        billRoundMinutes: line.product.billRoundMinutes,
         fallbackQty: line.qty,
       );
       if ((line.qty - qty).abs() > 0.0001) {
@@ -3324,9 +3452,9 @@ class _PosSellScreenState extends State<PosSellScreen> {
 
   double get _afterLineDiscount => (_subTotal - _lineDiscountTotal).clamp(0, double.infinity);
 
-  void _recalcTotals() {
+  void _recalcTotals({bool publishDisplay = true}) {
     _tab.applyDiscount(_afterLineDiscount);
-    _scheduleCustomerDisplayPublish();
+    if (publishDisplay) _scheduleCustomerDisplayPublish();
   }
 
   double get _total => (_afterLineDiscount - _tab.discount).clamp(0, double.infinity);
@@ -3372,9 +3500,12 @@ class _PosSellScreenState extends State<PosSellScreen> {
   double get _effectivePaidAmount => _effectivePaidAmountFor(_tab);
 
   double _effectivePaidAmountFor(_SellInvoiceTab tab) {
+    final deposit = tab.reservationDepositApplied;
     if (tab.paymentLines.isNotEmpty) {
-      return tab.paymentLines.fold(0.0, (a, p) => a + p.amount);
+      return deposit +
+          tab.paymentLines.fold(0.0, (a, p) => a + p.amount);
     }
+    if (deposit > 0) return deposit;
     final fromCtrl = _parseMoneyInput(tab._paidCtrl.text);
     if (tab._paidCtrl.text.trim().isNotEmpty) return fromCtrl;
     return tab.paidAmount;
@@ -3737,16 +3868,16 @@ class _PosSellScreenState extends State<PosSellScreen> {
           graceMinutes: p.graceMinutes,
           roundAfterMinutes: p.roundAfterMinutes,
         );
-        qty = PosServiceBillingCalc.billableQty(
+        qty = PosServiceBillingCalc.extraQty(
           mode: mode,
           billableMinutes: billable,
+          openingMinutes: p.openingMinutes,
+          billRoundMinutes: p.billRoundMinutes,
           fallbackQty: 1,
         );
       }
       var unitPrice = view.basePrice;
       if (p.isTimedService &&
-          PosServiceBillingMode.parse(p.serviceBillingMode) ==
-              PosServiceBillingMode.perHour &&
           unitPrice <= 0 &&
           (_tab.serviceDefaultHourlyRate ?? 0) > 0) {
         unitPrice = _tab.serviceDefaultHourlyRate!;
@@ -5183,9 +5314,15 @@ class _PosSellScreenState extends State<PosSellScreen> {
       tab._noteCtrl.text = order.note ?? '';
       tab.serviceResourceId =
           order.serviceResourceId ?? tab.serviceResourceId;
-      // Không ghi đè session đang sống bằng null từ đơn (tránh mất tạm tính).
-      if ((order.resourceSessionId ?? '').isNotEmpty) {
-        tab.resourceSessionId = order.resourceSessionId;
+      if ((order.splitFromOrderId ?? '').isNotEmpty) {
+        tab.splitFromOrderId = order.splitFromOrderId;
+        tab.resourceSessionId = null;
+      } else {
+        tab.splitFromOrderId = null;
+        // Không ghi đè session đang sống bằng null từ đơn (tránh mất tạm tính).
+        if ((order.resourceSessionId ?? '').isNotEmpty) {
+          tab.resourceSessionId = order.resourceSessionId;
+        }
       }
       tab.serviceStartedAt = order.serviceStartedAt;
       tab.serviceResourceName =
@@ -6026,13 +6163,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
     if (trimmed.isEmpty) return;
     final pick = await lookupOrPickPosProduct(context, _api, trimmed);
     if (!mounted) return;
-    if (pick == null) {
-      NotificationOverlayManager().showWarning(
-        title: 'Không tìm thấy sản phẩm',
-        message: tr('Mã vạch "$trimmed" không có trong danh mục hàng hóa'),
-      );
-      return;
-    }
+    if (pick == null) return;
     await _addPick(pick, mergeIfSame: mergeIfSame);
   }
 
@@ -6089,7 +6220,8 @@ class _PosSellScreenState extends State<PosSellScreen> {
       _tab.paymentLines
           .add(_SellPaymentLine(sourceKey: _PosPaymentSource.cashKey));
     }
-    final due = _grandTotal;
+    final due = (_grandTotal - _tab.reservationDepositApplied)
+        .clamp(0.0, double.infinity);
     if (_tab.paymentLines.length == 1 || !_tab.paymentsManuallyEdited) {
       // Chưa chỉnh tay: toàn bộ vào dòng đầu, các dòng còn lại = 0.
       for (var i = 0; i < _tab.paymentLines.length; i++) {
@@ -6249,6 +6381,8 @@ class _PosSellScreenState extends State<PosSellScreen> {
             unitName: line.unitLabel,
             note: line.noteWithToppings,
             productId: line.product.id,
+            sentBefore: line.kitchenSentQty,
+            lineKey: '${line.rowId}',
           )
         : null;
 
@@ -6314,6 +6448,8 @@ class _PosSellScreenState extends State<PosSellScreen> {
         unitName: line.unitLabel,
         note: line.noteWithToppings,
         productId: line.product.id,
+        sentBefore: line.kitchenSentQty,
+        lineKey: '${line.rowId}',
       );
       setState(() {
         if (_expandedCartRowId == line.rowId) {
@@ -6369,6 +6505,8 @@ class _PosSellScreenState extends State<PosSellScreen> {
           unitName: line.unitLabel,
           note: line.noteWithToppings,
           productId: line.product.id,
+          sentBefore: line.kitchenSentQty,
+          lineKey: '${line.rowId}',
         );
         setState(() {
           line.dispose();
@@ -6426,6 +6564,8 @@ class _PosSellScreenState extends State<PosSellScreen> {
           unitName: line.unitLabel,
           note: line.noteWithToppings,
           productId: line.product.id,
+          sentBefore: line.kitchenSentQty,
+          lineKey: '${line.rowId}',
         );
         setState(() {
           line.kitchenSentQty = next;
@@ -6936,6 +7076,25 @@ class _PosSellScreenState extends State<PosSellScreen> {
           })
           .toList(),
       'complete': complete,
+      if (complete && _eInvoiceSettings.enabled) ...{
+        'issueEInvoice': _eInvoiceSettings.askAtCheckout
+            ? _quickIssueEInvoice
+            : _eInvoiceSettings.defaultIssueAtCheckout,
+        if (tab.customer != null)
+          'eInvoiceBuyer': {
+            'name': tab.customer!.name,
+            if ((tab.customer!.taxCode ?? '').isNotEmpty)
+              'taxCode': tab.customer!.taxCode,
+            if ((tab.customer!.companyName ?? '').isNotEmpty)
+              'companyName': tab.customer!.companyName,
+            if ((tab.customer!.address ?? '').isNotEmpty)
+              'address': tab.customer!.address,
+            if ((tab.customer!.email ?? '').isNotEmpty)
+              'email': tab.customer!.email,
+            if ((tab.customer!.phone ?? '').isNotEmpty)
+              'phone': tab.customer!.phone,
+          },
+      },
       'customerName': tab.customer?.name ?? 'Bán cho người tiêu dùng',
       if (tab.customer?.id != null) 'customerId': tab.customer!.id,
       'note': tab.note,
@@ -6948,7 +7107,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
       if (tab.sellerEmployeeId != null) 'soldByEmployeeId': tab.sellerEmployeeId,
       if (tab.serviceResourceId != null)
         'serviceResourceId': tab.serviceResourceId,
-      if (tab.resourceSessionId != null)
+      if (tab.splitFromOrderId == null && tab.resourceSessionId != null)
         'resourceSessionId': tab.resourceSessionId,
       if (tab.serviceStartedAt != null)
         'serviceStartedAt': tab.serviceStartedAt!.toUtc().toIso8601String(),
@@ -7044,6 +7203,205 @@ class _PosSellScreenState extends State<PosSellScreen> {
     }
   }
 
+  Future<void> _openSplitBill() async {
+    if (_checkingOut || _parking || _splitBillBusy) return;
+    if (!_isTableOrderMode) return;
+    final sessionId = _tab.resourceSessionId;
+    if (sessionId == null || sessionId.isEmpty) {
+      NotificationOverlayManager().showWarning(
+        title: 'Không tách được',
+        message: tr('Mở bàn rồi mới tách bill'),
+      );
+      return;
+    }
+    if (_tab.cart.isEmpty) return;
+    setState(() => _splitBillBusy = true);
+    try {
+      if (!await _awaitDraftAutosaveIdle(
+          busyMessage: 'Đợi lưu xong rồi tách bill')) {
+        return;
+      }
+      final oid = _tab.draftOrderId;
+      if (oid == null || oid.isEmpty) {
+        NotificationOverlayManager().showWarning(
+          title: 'Không tách được',
+          message: tr('Đơn bàn chưa lưu — thử lại sau 1 giây'),
+        );
+        return;
+      }
+      final orderRes = await _api.getPosSale(oid);
+      if (!mounted) return;
+      if (orderRes['isSuccess'] != true || orderRes['data'] is! Map) {
+        NotificationOverlayManager().showError(
+          title: 'Không tách được',
+          message: orderRes['message']?.toString() ?? 'Không tải được đơn',
+        );
+        return;
+      }
+      final order = PosSaleOrder.fromJson(
+          Map<String, dynamic>.from(orderRes['data'] as Map));
+      if (order.lines.length < 1) return;
+      final picks = await showPosSplitBillSheet(
+        context: context,
+        lines: order.lines,
+      );
+      if (!mounted || picks == null || picks.isEmpty) return;
+
+      final res = await _api.splitPosBill(
+        sessionId,
+        items: [
+          for (final p in picks) {'lineId': p.lineId, 'qty': p.qty},
+        ],
+      );
+      if (!mounted) return;
+      if (res['isSuccess'] != true) {
+        NotificationOverlayManager().showError(
+          title: 'Không tách được',
+          message: res['message']?.toString() ?? 'Tách bill thất bại',
+        );
+        return;
+      }
+      final data = res['data'] as Map? ?? {};
+      final newId = data['newSaleOrderId']?.toString();
+      if (newId == null || newId.isEmpty) return;
+      NotificationOverlayManager().showSuccess(
+        title: 'Đã tách bill',
+        message: tr('Thanh toán phần này — món còn lại giữ bàn'),
+      );
+      await _openDraftOrder(newId, silent: true, forceClaim: true);
+      if (!mounted) return;
+      setState(() {
+        _tab.splitFromOrderId =
+            data['splitFromOrderId']?.toString() ?? oid;
+        _tab.resourceSessionId = null;
+        _tab.serviceResourceName =
+            _tab.serviceResourceName ?? _tab.serviceAreaName;
+        _floorMapVisible = false;
+        _tabletPaymentStage = true;
+      });
+      _scheduleCustomerDisplayPublish(delayMs: 50);
+    } finally {
+      if (mounted) setState(() => _splitBillBusy = false);
+    }
+  }
+
+  Future<void> _returnCurrentTableToEmpty() async {
+    if (_checkingOut || _parking || _splitBillBusy) return;
+    if (!_isTableOrderMode) {
+      NotificationOverlayManager().showWarning(
+        title: 'Chưa gắn bàn',
+        message: tr('Mở bàn rồi mới trả về trống'),
+      );
+      return;
+    }
+    final name = (_tab.serviceResourceName ?? '').trim().isEmpty
+        ? 'bàn'
+        : _tab.serviceResourceName!;
+    final lineCount = _tab.cart.length;
+    final total = _grandTotal;
+    final busyCart = lineCount > 0 || total > 0;
+    if (busyCart) {
+      final ok = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Text(tr('Trả $name về trống?')),
+          content: Text(tr(
+            'Bàn còn $lineCount món'
+            '${total > 0 ? ' · ${_moneyFmt.format(total)}đ' : ''}.\n'
+            'Xóa đơn tạm, không thu tiền, đóng phiên.',
+          )),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text(tr('Huỷ')),
+            ),
+            FilledButton(
+              style: FilledButton.styleFrom(backgroundColor: Colors.red),
+              onPressed: () => Navigator.pop(ctx, true),
+              child: Text(tr('Trả về trống')),
+            ),
+          ],
+        ),
+      );
+      if (ok != true) return;
+    }
+
+    _draftAutosaveTimer?.cancel();
+    _suspendDraftAutosave = true;
+    if (!await _awaitDraftAutosaveIdle(
+        busyMessage: 'Đợi lưu xong rồi trả bàn')) {
+      _suspendDraftAutosave = false;
+      return;
+    }
+
+    final orderId = (_tab.draftOrderId ?? '').trim();
+    if (orderId.isNotEmpty && busyCart) {
+      final del = await _api.deletePosSale(orderId);
+      if (!mounted) return;
+      if (del['isSuccess'] != true) {
+        _suspendDraftAutosave = false;
+        NotificationOverlayManager().showError(
+          title: 'Không xóa được đơn',
+          message: del['message']?.toString() ??
+              'Không trả được bàn còn món.',
+        );
+        return;
+      }
+      _floorReleasedOrderIds.add(orderId);
+    }
+
+    final sid = (_tab.resourceSessionId ?? '').trim();
+    final rid = (_tab.serviceResourceId ?? '').trim();
+    if (sid.isNotEmpty) {
+      await _api.closePosResourceSession(sid);
+    } else if (rid.isNotEmpty) {
+      await _api.freePosServiceResource(rid);
+    }
+    if (!mounted) return;
+    if (rid.isNotEmpty) {
+      _onFloorResourceFreed(rid);
+    } else {
+      setState(() {
+        _tab.reset(defaultVatRate: _storeSettings.defaultVatRate);
+        _tab.sellerEmployeeId = _defaultSellerEmployeeId;
+        _syncPaidAmount();
+        _pendingKitchenCancels.clear();
+        _floorMapVisible = true;
+        _floorPaneKept = true;
+        _tabletPaymentStage = false;
+        _mobileProductPickerOpen = false;
+      });
+    }
+    _floorPaneKey.currentState?.refreshQuiet();
+    _scheduleCustomerDisplayPublish();
+    Future<void>.delayed(const Duration(milliseconds: 400), () {
+      _suspendDraftAutosave = false;
+    });
+    NotificationOverlayManager()
+        .showSuccess(title: 'Đã trả về trống', message: name);
+  }
+
+  Future<bool> _ensureOpenCashierShiftIfRequired() async {
+    if (_industrySettings?.enableCashierShift != true) return true;
+    final res = await _api.getPosCashierShiftCurrent();
+    if (!mounted) return false;
+    if (res['isSuccess'] != true || res['data'] is! Map) {
+      // Server vẫn chặn khi thanh toán nếu ca chưa mở.
+      return true;
+    }
+    final data = Map<String, dynamic>.from(res['data'] as Map);
+    final enabled = data['enabled'] == true || data['Enabled'] == true;
+    if (!enabled) return true;
+    final open = data['open'] == true || data['Open'] == true;
+    if (open) return true;
+    NotificationOverlayManager().showWarning(
+      title: 'Chưa mở ca',
+      message: tr(
+          'Vào Nhiều hơn → Ca thu ngân để mở ca trước khi thanh toán'),
+    );
+    return false;
+  }
+
   Future<void> _checkout() async {
     if (_checkingOut || _parking || _tab.cart.isEmpty) return;
     // Khóa UI ngay — trước mọi await — tránh double-tap tạo 2 request chồng.
@@ -7059,6 +7417,8 @@ class _PosSellScreenState extends State<PosSellScreen> {
         );
         return;
       }
+
+      if (!await _ensureOpenCashierShiftIfRequired()) return;
 
       if (!await _awaitDraftAutosaveIdle(
             busyMessage: 'Đợi lưu xong rồi thanh toán lại')) {
@@ -7156,6 +7516,8 @@ class _PosSellScreenState extends State<PosSellScreen> {
                     unitName: l.unitLabel,
                     note: l.noteWithToppings,
                     productId: l.product.id,
+                    sentBefore: l.kitchenSentQty,
+                    lineKey: '${l.rowId}',
                   ))
               .toList()
           : const <KitchenTicketLine>[];
@@ -7165,7 +7527,9 @@ class _PosSellScreenState extends State<PosSellScreen> {
       );
 
       // Đóng phiên + in nền — không chặn UI sau khi API TT thành công.
-      if (paidSessionId != null && paidSessionId.isNotEmpty) {
+      if ((_tab.splitFromOrderId ?? '').isEmpty &&
+          paidSessionId != null &&
+          paidSessionId.isNotEmpty) {
         unawaited(() async {
           try {
             await _api.closePosResourceSession(paidSessionId);
@@ -7592,29 +7956,20 @@ class _PosSellScreenState extends State<PosSellScreen> {
   Future<void> _loadPendingPrintQueueFromDisk() async {
     final snap = await PosPendingPrintStore.load();
     if (!mounted || snap.isEmpty) return;
-    // Phiếu bếp / HĐ trong hàng chờ thường đã in thật (Agent nhận rồi client
-    // ghi fail) — mở lại app sẽ auto-retry và in trùng. Chỉ giữ job còn mới.
-    final kitchenFresh = PosPendingPrintStore.filterFreshKitchenJobs(snap.kitchen);
-    final salesFresh = PosPendingPrintStore.filterFreshSaleJobs(snap.sales);
     setState(() {
       _failedWarehousePrints
         ..clear()
         ..addAll(snap.warehouse);
       _failedSalePrints
         ..clear()
-        ..addAll(salesFresh);
+        ..addAll(snap.sales);
       _failedKitchenPrints
         ..clear()
-        ..addAll(kitchenFresh);
+        ..addAll(snap.kitchen);
       _failedCupPrints
         ..clear()
         ..addAll(snap.cups);
     });
-    // Ghi lại ngay để máy cũ sau khi cập nhật không còn queue độc.
-    if (kitchenFresh.length != snap.kitchen.length ||
-        salesFresh.length != snap.sales.length) {
-      unawaited(_persistPendingPrintQueue());
-    }
   }
 
   Future<void> _persistPendingPrintQueue() async {
@@ -7626,115 +7981,45 @@ class _PosSellScreenState extends State<PosSellScreen> {
     ));
   }
 
-  void _startPendingPrintAutoRetry() {
-    _pendingPrintRetryTimer?.cancel();
-    _pendingPrintRetryTimer = Timer.periodic(
-      const Duration(seconds: 45),
-      (_) => unawaited(_autoRetryPendingPrints()),
-    );
+  /// Id job in gốc nằm trong id phiếu treo (`kitchen_hang_<jobId>`…).
+  /// Hỏi server khi thu ngân bấm In lại — Agent chậm vẫn có thể đã in xong.
+  String? _pendingKitchenSourceJobId(String id) {
+    const prefixes = [
+      'kitchen_hang_',
+      'kcancel_hang_',
+      'kitchen_pay_hang_',
+    ];
+    for (final p in prefixes) {
+      if (!id.startsWith(p)) continue;
+      final jobId = id.substring(p.length);
+      return jobId.length >= 32 ? jobId : null;
+    }
+    return null;
   }
 
-  Future<void> _autoRetryPendingPrints() async {
-    if (!mounted || _pendingPrintRetryBusy || _pendingPrintCount == 0) return;
-    if (_checkingOut || _warehousePrinting) return;
-    _pendingPrintRetryBusy = true;
+  /// Server đã in xong / đã hủy phiếu này → gỡ khỏi hàng chờ, không in lại.
+  Future<bool> _kitchenPendingSettledOnServer(PendingKitchenPrintJob job) async {
+    final jobId = _pendingKitchenSourceJobId(job.id);
+    if (jobId == null) return false;
     try {
-      // Phiếu bếp / hủy: retry tối đa 3 lần, bỏ nếu server Cancelled.
-      if (_failedKitchenPrints.isNotEmpty) {
-        final job = _failedKitchenPrints.first;
-        if (job.attemptCount >= 3) {
-          _removeFailedKitchenPrint(job);
-        } else {
-          final orch = PosPrintOrchestrator.instance;
-          final serverCancelled = orch.isServerCancelled(job.id);
-          if (serverCancelled) {
-            debugPrint('Kitchen auto-retry: skip ${job.id} — server Cancelled');
-            _removeFailedKitchenPrint(job);
-          } else {
-            final ok = await printKitchenCompactSlip(
-              tableName: job.tableName,
-              isCancel: job.isCancel,
-              lines: job.lines,
-              senderName: job.senderName,
-              orderNo: job.orderNo,
-              sentAt: job.sentAt,
-              skipDedup: true,
-              showFeedback: false,
-              overridePrinterId: job.printerId,
-            );
-            if (!mounted) return;
-            if (ok) {
-              _removeFailedKitchenPrint(job);
-            } else {
-              setState(() {
-                final i = _failedKitchenPrints.indexWhere((j) => j.id == job.id);
-                if (i >= 0) {
-                  _failedKitchenPrints[i] = job.copyWith(
-                    attemptCount: job.attemptCount + 1,
-                    errorMessage: 'Thử lại lần ${job.attemptCount + 1}',
-                  );
-                }
-              });
-              unawaited(_persistPendingPrintQueue());
-            }
-          }
-        }
-        return;
+      final res = await _api.getPosPrintJob(jobId);
+      if (res['isSuccess'] != true || res['data'] is! Map) return false;
+      final data = res['data'] as Map;
+      final status = data['status']?.toString() ?? '';
+      if (status != 'Completed' && status != 'Cancelled') return false;
+      // Hủy vì Agent treo / hết hạn hàng đợi = chưa ra giấy → vẫn phải in lại.
+      final code = (data['errorCode']?.toString() ?? '').toUpperCase();
+      if (status == 'Cancelled' &&
+          (code == 'STUCK_NO_REQUEUE' ||
+              code == 'STALE_QUEUED' ||
+              code == 'MAX_ATTEMPTS')) {
+        return false;
       }
-      // Tem ly: retry tối đa 8 lần.
-      if (_failedCupPrints.isNotEmpty) {
-        final job = _failedCupPrints.first;
-        if (job.attemptCount >= 8) {
-          // Tem lỗi quá nhiều — bỏ khỏi queue để không chặn retry phiếu kho.
-          _removeFailedCupPrint(job);
-        } else {
-          final ok = await printCupLabels(
-            tickets: job.tickets,
-            showFeedback: false,
-          );
-          if (!mounted) return;
-          if (ok) {
-            _removeFailedCupPrint(job);
-          } else {
-            setState(() {
-              final i = _failedCupPrints.indexWhere((j) => j.id == job.id);
-              if (i >= 0) {
-                _failedCupPrints[i] =
-                    job.copyWith(attemptCount: job.attemptCount + 1);
-              }
-            });
-            unawaited(_persistPendingPrintQueue());
-          }
-          return;
-        }
-      }
-      if (_failedWarehousePrints.isNotEmpty) {
-        final job = _failedWarehousePrints.first;
-        final method = (job.printerId != null && job.printerId!.isNotEmpty)
-            ? WarehouseSlipPrintMethod.pickPrinter
-            : WarehouseSlipPrintMethod.localThermal;
-        final result = await printWarehouseSlipWithMethod(
-          context: context,
-          order: job.order,
-          method: method,
-          branchName: _warehouseBranchName,
-          storeAddress: _warehouseStoreAddress,
-          storePhone: _warehouseStorePhone,
-          templateId: _printSettings.warehouseTemplateId,
-          overridePrinterId: job.printerId,
-        );
-        if (!mounted) return;
-        if (result.anySuccess) {
-          _markWarehouseSlipPrintedLines(result.printedLines);
-          // Luôn gỡ job cũ — phần còn lỗi enqueue lại (tránh in chồng dòng đã OK).
-          _removeFailedWarehouseJob(job);
-          if (result.hasFailures) {
-            _enqueueFailedWarehousePrints(result, job.order);
-          }
-        }
-      }
-    } finally {
-      _pendingPrintRetryBusy = false;
+      debugPrint('Kitchen pending: bỏ ${job.id} — server báo $status');
+      return true;
+    } catch (_) {
+      // Mất mạng: giữ phiếu treo, lần sau hỏi lại.
+      return false;
     }
   }
 
@@ -7829,6 +8114,21 @@ class _PosSellScreenState extends State<PosSellScreen> {
       onRetryKitchen: (job, {overridePrinterId, overridePrinter}) async {
         final userPicked = overridePrinter != null ||
             (overridePrinterId ?? '').trim().isNotEmpty;
+        // Phiếu treo dựng sau 60s, Agent chậm vẫn in sau đó. Bấm in lại 4–5
+        // phiếu treo kiểu này là bếp nhận cả chồng phiếu trùng — hỏi server
+        // trước, đã ra giấy thì chỉ gỡ khỏi hàng chờ.
+        if (!userPicked && await _kitchenPendingSettledOnServer(job)) {
+          if (!mounted) return true;
+          _removeFailedKitchenPrint(job);
+          NotificationOverlayManager().showInfo(
+            title: 'Phiếu đã in rồi',
+            message: tr(
+              '${job.tableName}: máy in đã in phiếu này — bỏ khỏi hàng chờ',
+            ),
+            relatedEntityType: kPosPrintNotifyKind,
+          );
+          return true;
+        }
         // In lại cùng máy treo: vẫn ép override để không fan-out lại về máy lỗi
         // rồi dồn default. User chọn máy khác: ép máy đó (không cần gán SP).
         final pickId = userPicked
@@ -8239,10 +8539,16 @@ class _PosSellScreenState extends State<PosSellScreen> {
         : Offset(MediaQuery.sizeOf(context).width - 8, 56);
 
     final isMobile = Responsive.isMobile(context);
+    final menuMaxH = MediaQuery.sizeOf(context).height - topRight.dy - 16;
     final action = await showMenu<String>(
       context: context,
       position: RelativeRect.fromLTRB(
           topRight.dx - 240, topRight.dy, topRight.dx, topRight.dy + 8),
+      constraints: BoxConstraints(
+        minWidth: 240,
+        maxWidth: 300,
+        maxHeight: menuMaxH.clamp(280, 900),
+      ),
       items: [
         PopupMenuItem(
           value: 'add_product',
@@ -8282,6 +8588,39 @@ class _PosSellScreenState extends State<PosSellScreen> {
               contentPadding: EdgeInsets.zero,
             ),
           ),
+        if (_isTableOrderMode &&
+            (_tab.splitFromOrderId ?? '').isEmpty &&
+            _tab.cart.isNotEmpty)
+          PopupMenuItem(
+            value: 'split_bill',
+            enabled: !_splitBillBusy && !_checkingOut && !_parking,
+            child: ListTile(
+              dense: true,
+              leading: const Icon(Icons.receipt_long_outlined, size: 20),
+              title: Text(tr(_splitBillBusy ? 'Đang tách…' : 'Tách bill')),
+              subtitle: Text(tr('Khách trả một phần — bàn giữ món còn lại'),
+                  style: TextStyle(fontSize: 11)),
+              contentPadding: EdgeInsets.zero,
+            ),
+          ),
+        if (_isTableOrderMode && (_tab.splitFromOrderId ?? '').isEmpty)
+          PopupMenuItem(
+            value: 'return_table',
+            enabled: !_checkingOut && !_parking && !_splitBillBusy,
+            child: ListTile(
+              dense: true,
+              leading: Icon(Icons.event_seat_outlined,
+                  size: 20, color: Colors.red.shade700),
+              title: Text(tr('Trả về bàn trống')),
+              subtitle: Text(
+                tr(_tab.cart.isEmpty
+                    ? 'Đóng phiên — trả bàn về trống'
+                    : 'Xóa ${_tab.cart.length} món trên đơn tạm và đóng phiên'),
+                style: const TextStyle(fontSize: 11),
+              ),
+              contentPadding: EdgeInsets.zero,
+            ),
+          ),
         const PopupMenuDivider(),
         if (isMobile)
           PopupMenuItem(
@@ -8310,6 +8649,51 @@ class _PosSellScreenState extends State<PosSellScreen> {
               leading: Icon(Icons.settings_outlined, size: 20),
               title: Text(tr('Thiết lập POS')),
               subtitle: Text(tr('Cửa hàng, ngành hàng…'),
+                  style: TextStyle(fontSize: 11)),
+              contentPadding: EdgeInsets.zero,
+            ),
+          ),
+        if (PermissionNavigation.canNavigate(perm, 'PosKds'))
+          PopupMenuItem(
+            value: 'kds',
+            child: ListTile(
+              dense: true,
+              leading: const Icon(Icons.kitchen_outlined, size: 20),
+              title: Text(tr('Màn hình bếp (KDS)')),
+              contentPadding: EdgeInsets.zero,
+            ),
+          ),
+        if (_industrySettings?.enableQrTableOrder == true &&
+            PermissionNavigation.canNavigate(perm, 'PosQrOrder'))
+          PopupMenuItem(
+            value: 'qr_order',
+            child: ListTile(
+              dense: true,
+              leading: const Icon(Icons.qr_code_2, size: 20),
+              title: Text(tr('QR order bàn')),
+              contentPadding: EdgeInsets.zero,
+            ),
+          ),
+        if (_industrySettings?.enableCashierShift == true &&
+            PermissionNavigation.canNavigate(perm, 'PosCashierShift'))
+          PopupMenuItem(
+            value: 'cashier_shift',
+            child: ListTile(
+              dense: true,
+              leading: const Icon(Icons.account_balance_wallet_outlined, size: 20),
+              title: Text(tr('Ca thu ngân')),
+              contentPadding: EdgeInsets.zero,
+            ),
+          ),
+        if (PermissionNavigation.canNavigate(perm, 'PosPrinters') ||
+            PermissionNavigation.canNavigate(perm, 'PosPrintTemplates'))
+          PopupMenuItem(
+            value: 'printers',
+            child: ListTile(
+              dense: true,
+              leading: const Icon(Icons.print_outlined, size: 20),
+              title: Text(tr('Máy in & mẫu in')),
+              subtitle: Text(tr('Hóa đơn, bếp, tem, Agent'),
                   style: TextStyle(fontSize: 11)),
               contentPadding: EdgeInsets.zero,
             ),
@@ -8450,6 +8834,10 @@ class _PosSellScreenState extends State<PosSellScreen> {
         if (_cupLabelPendingCount > 0) {
           await _printPendingCupLabels();
         }
+      case 'split_bill':
+        await _openSplitBill();
+      case 'return_table':
+        await _returnCurrentTableToEmpty();
       case 'toggle_merge':
         setState(() => _mobileMergeSameOnAdd = !_mobileMergeSameOnAdd);
       case 'pos_settings_hub':
@@ -8461,6 +8849,46 @@ class _PosSellScreenState extends State<PosSellScreen> {
             MaterialPageRoute(builder: (_) => const SettingsHubScreen()),
           );
         }
+      case 'kds':
+        await Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => const PosHubScope(
+              embeddedInHub: false,
+              pushedSubPage: true,
+              child: PosKdsScreen(),
+            ),
+          ),
+        );
+      case 'qr_order':
+        await Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => const PosHubScope(
+              embeddedInHub: false,
+              pushedSubPage: true,
+              child: PosQrTableOrderScreen(),
+            ),
+          ),
+        );
+      case 'cashier_shift':
+        await Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => const PosHubScope(
+              embeddedInHub: false,
+              pushedSubPage: true,
+              child: PosCashierShiftScreen(),
+            ),
+          ),
+        );
+      case 'printers':
+        await Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => const PosHubScope(
+              embeddedInHub: false,
+              pushedSubPage: true,
+              child: PosPrinterSettingsHubScreen(),
+            ),
+          ),
+        );
       case 'customer_display':
         await _openCustomerDisplay();
       case 'sale_orders':
@@ -8578,7 +9006,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
               return _buildMobileShell(perm, isNormal);
             }
 
-            // Mọi ngành / mọi bề ngang không-mobile: shell 2 cột F&B.
+            // Mọi ngành / không-mobile: trái catalog (hoặc sơ đồ), phải hóa đơn.
             return _buildUnifiedSplitFlow(perm);
           },
           );
@@ -8590,10 +9018,20 @@ class _PosSellScreenState extends State<PosSellScreen> {
     );
   }
 
-  /// Tab Phòng bàn | Thực đơn — kiểu KiotViet (F&B).
+  /// Tab sơ đồ | catalog — thuật ngữ theo ngành (bàn / ghế / phòng).
   Widget _buildFloorMenuModeTabs({bool compact = false}) {
     if (!_useFloorAsPrimary) return const SizedBox.shrink();
     final onFloor = _floorMapVisible;
+    final floorIcon = switch (_sellProfile) {
+      PosSellProfile.salon => Icons.event_seat_outlined,
+      PosSellProfile.roomHourly => Icons.meeting_room_outlined,
+      PosSellProfile.hotel => Icons.hotel_outlined,
+      _ => Icons.table_restaurant_outlined,
+    };
+    final catalogIcon = switch (_sellProfile) {
+      PosSellProfile.restaurant => Icons.restaurant_menu_outlined,
+      _ => Icons.inventory_2_outlined,
+    };
     Widget tab({
       required bool selected,
       required IconData icon,
@@ -8646,23 +9084,27 @@ class _PosSellScreenState extends State<PosSellScreen> {
         children: [
           tab(
             selected: onFloor,
-            icon: Icons.table_restaurant_outlined,
-            label: 'Phòng bàn',
+            icon: floorIcon,
+            label: _sellProfile.floorTabLabel,
             onTap: () {
               if (onFloor) return;
-              // Tab Phòng bàn = thoát bàn (nhả khóa + sơ đồ).
-              unawaited(_returnToFloorMap());
+              setState(() {
+                _floorMapVisible = true;
+                _floorPaneKept = true;
+                _tabletPaymentStage = false;
+              });
             },
           ),
           const SizedBox(width: 2),
           tab(
             selected: !onFloor,
-            icon: Icons.restaurant_menu_outlined,
-            label: 'Thực đơn',
+            icon: catalogIcon,
+            label: _sellProfile.catalogTabLabel,
             onTap: () {
               if (!onFloor) return;
               setState(() {
                 _floorMapVisible = false;
+                _catalogPaneKept = true;
                 _tabletPaymentStage = false;
               });
             },
@@ -8691,8 +9133,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
           api: _api,
           sellMode: true,
           focusNode: _productSearchFocus,
-          hintText:
-              tr('Tìm món (F3)'),
+          hintText: tr(_sellProfile.searchHint),
           onPick: (pick) => _addPick(pick),
           onBarcodePick: (pick) => _addPick(pick, mergeIfSame: true),
           onAddProduct: showAddProduct ? _openNewProduct : null,
@@ -8724,7 +9165,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
           focusNode: _floorSearchFocus,
           style: const TextStyle(fontSize: 13, height: 1.2),
           decoration: InputDecoration(
-            hintText: tr('Tìm bàn / phòng'),
+            hintText: tr(_sellProfile.floorSearchHint),
             hintStyle: TextStyle(color: Colors.grey.shade500, fontSize: 13),
             prefixIcon: const Icon(Icons.search, size: 18, color: Colors.grey),
             prefixIconConstraints:
@@ -8807,7 +9248,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
                 ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 140),
                   child: Text(
-                    tr('${_moneyFmt.format(_floorActiveSubtotal)}đ · $_floorActiveOpenCount bàn'),
+                    tr('${_moneyFmt.format(_floorActiveSubtotal)}đ · $_floorActiveOpenCount ${_sellProfile.resourceNounPlural}'),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
@@ -9156,7 +9597,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
   }
 
   Widget _buildCartFooter() {
-    _recalcTotals();
+    _recalcTotals(publishDisplay: false);
     return Container(
       height: 52,
       padding: const EdgeInsets.symmetric(horizontal: _KiotLayout.sidePadding),
@@ -9220,7 +9661,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
       child: Row(
         children: [
           SizedBox(width: _KiotLayout.wDel),
-          Expanded(child: Text(tr('Sản phẩm'), style: hdr)),
+          Expanded(child: Text(tr(_sellProfile.catalogColumnLabel), style: hdr)),
           SizedBox(
             width: _KiotLayout.wQty,
             child: Text(tr('SL'), style: hdr, textAlign: TextAlign.center),
@@ -9245,7 +9686,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
   Widget _buildKiotCartList() {
     if (_tab.cart.isEmpty) {
       return Center(
-        child: Text(tr('Tìm và thêm hàng hóa vào hóa đơn'),
+        child: Text(tr(_sellProfile.emptyCartHint),
           style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
         ),
       );
@@ -9513,24 +9954,28 @@ class _PosSellScreenState extends State<PosSellScreen> {
                     side: BorderSide(
                       color: on ? _kiotBlue : PosTheme.border,
                     ),
-                    onSelected: (v) => setState(() {
-                      if (v) {
-                        if (!line.toppings
-                            .any((t) => t.id == o.toppingProductId)) {
-                          line.toppings.add(_CartTopping(
-                            id: o.toppingProductId,
-                            name: o.toppingProductName,
-                            price: o.extraPrice,
-                          ));
+                    onSelected: (v) {
+                      final sigBefore = _kitchenLineSignature(line);
+                      setState(() {
+                        if (v) {
+                          if (!line.toppings
+                              .any((t) => t.id == o.toppingProductId)) {
+                            line.toppings.add(_CartTopping(
+                              id: o.toppingProductId,
+                              name: o.toppingProductName,
+                              price: o.extraPrice,
+                            ));
+                          }
+                        } else {
+                          line.toppings.removeWhere(
+                              (t) => t.id == o.toppingProductId);
                         }
-                      } else {
-                        line.toppings.removeWhere(
-                            (t) => t.id == o.toppingProductId);
-                      }
-                      _syncPaidAmount();
-                      _scheduleDraftAutosave();
-                      _scheduleCustomerDisplayPublish();
-                    }),
+                        _renotifyKitchenOnLineChange(line, sigBefore);
+                        _syncPaidAmount();
+                        _scheduleDraftAutosave();
+                        _scheduleCustomerDisplayPublish();
+                      });
+                    },
                   );
                 }).toList(),
               ),
@@ -9744,7 +10189,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
   }
 
   Widget _buildNormalOrderPanel(PermissionProvider perm, {bool compact = false}) {
-    _recalcTotals();
+    _recalcTotals(publishDisplay: false);
     final canPay = perm.canPosPay();
 
     return Container(
@@ -10582,9 +11027,11 @@ class _PosSellScreenState extends State<PosSellScreen> {
     bool? canOrder,
   }) {
     final orderOk = canOrder ?? canPay;
-    final showProvisional = (_industrySettings?.allowProvisionalBill ?? false) &&
-        _tab.cart.isNotEmpty &&
-        orderOk;
+    final showProvisional =
+        ((_industrySettings?.allowProvisionalBill ?? false) ||
+                _sellProfile == PosSellProfile.retail) &&
+            _tab.cart.isNotEmpty &&
+            orderOk;
     final canPark = onPark != null && _tab.cart.isNotEmpty && !busy && orderOk;
 
     Widget completeBtn({required bool expanded}) {
@@ -10857,6 +11304,18 @@ class _PosSellScreenState extends State<PosSellScreen> {
                 },
               ),
             ],
+            if (_eInvoiceSettings.showCheckoutChip) ...[
+              const SizedBox(width: 12),
+              chip(
+                label: 'Xuất HĐĐT',
+                icon: Icons.request_quote_outlined,
+                selected: _quickIssueEInvoice,
+                onSelected: (v) {
+                  setState(() => _quickIssueEInvoice = v);
+                  onChanged?.call();
+                },
+              ),
+            ],
           ],
         ),
       ),
@@ -10864,7 +11323,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
   }
 
   Widget _buildPaymentSidebar(PermissionProvider perm, {required double width, bool compact = false}) {
-    _recalcTotals();
+    _recalcTotals(publishDisplay: false);
     final canPay = perm.canPosPay();
 
     final summary = _buildPaymentSummaryContent();
@@ -10986,7 +11445,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
   // ─── Mobile layout (Android / iOS) ───────────────────────────────────────
 
   Widget _buildMobileShell(PermissionProvider perm, bool isNormal) {
-    _recalcTotals();
+    _recalcTotals(publishDisplay: false);
     final inHub = PosHubScope.of(context);
     final canPay = perm.canPosPay();
     return Stack(
@@ -11022,7 +11481,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             AppBar(
-              title: Text(tr(_isTableOrderMode ? 'Chọn món' : 'Chọn hàng hóa')),
+              title: Text(tr(_sellProfile.pickCatalogLabel)),
               backgroundColor: Colors.white,
               foregroundColor: PosTheme.textPrimary,
               elevation: 0,
@@ -11093,7 +11552,9 @@ class _PosSellScreenState extends State<PosSellScreen> {
                           ),
                         ),
                         child: Text(
-                          tr(_isTableOrderMode ? 'Thêm vào bàn' : 'Chọn hàng hóa'),
+                          tr(_isTableOrderMode
+                              ? 'Thêm vào ${_sellProfile.resourceNoun}'
+                              : _sellProfile.pickCatalogLabel),
                           style: const TextStyle(fontWeight: FontWeight.bold),
                         ),
                       ),
@@ -11281,7 +11742,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
 
   Widget _buildDesktopFloorPane() {
     return PosResourceFloorScreen(
-      key: ValueKey('floor-desk-$_floorMapEpoch'),
+      key: _floorPaneKey,
       embedded: true,
       showAppBar: false,
       manageMode: false,
@@ -11293,6 +11754,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
       searchQuery: _floorSearchQuery,
       pendingOpenCode: _floorPendingOpenCode,
       pendingOpenToken: _floorPendingOpenToken,
+      paneActive: _floorMapVisible,
       onSelect: (result) => unawaited(_attachFloorResult(result)),
       onResourceFreed: _onFloorResourceFreed,
       onActiveTotalsChanged: _onFloorActiveTotalsChanged,
@@ -11314,13 +11776,42 @@ class _PosSellScreenState extends State<PosSellScreen> {
       _buildUnifiedSplitFlow(perm);
 
   /// 2 cột 6:4 — trái catalog/sơ đồ; phải giỏ + CTA thanh toán dưới.
+  Widget _buildKeepAliveLeftPane() {
+    if (!_useFloorAsPrimary) return _buildDesktopProductPane();
+    final showFloor = _floorMapVisible;
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        if (_floorPaneKept)
+          TickerMode(
+            enabled: showFloor,
+            child: Offstage(
+              offstage: !showFloor,
+              child: IgnorePointer(
+                ignoring: !showFloor,
+                child: RepaintBoundary(child: _buildDesktopFloorPane()),
+              ),
+            ),
+          ),
+        if (_catalogPaneKept)
+          TickerMode(
+            enabled: !showFloor,
+            child: Offstage(
+              offstage: showFloor,
+              child: IgnorePointer(
+                ignoring: showFloor,
+                child: _buildDesktopProductPane(),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
   Widget _buildTabletSplitStage(PermissionProvider perm) {
-    _recalcTotals();
+    _recalcTotals(publishDisplay: false);
     final canPay = perm.canPosPay();
-    // Bán lẻ / gym: luôn catalog. F&B/salon/room: sơ đồ khi chưa vào bàn.
-    final left = (_useFloorAsPrimary && _floorMapVisible)
-        ? _buildDesktopFloorPane()
-        : _buildDesktopProductPane();
+    final left = _buildKeepAliveLeftPane();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -11379,8 +11870,8 @@ class _PosSellScreenState extends State<PosSellScreen> {
     final totalLabel =
         'Tổng ${_moneyFmt.format(_floorActiveSubtotal)}đ';
     final openLabel = _floorActiveOpenCount > 0
-        ? '${_floorActiveOpenCount} bàn'
-        : '0 bàn';
+        ? '${_floorActiveOpenCount} ${_sellProfile.resourceNounPlural}'
+        : '0 ${_sellProfile.resourceNounPlural}';
 
     return Material(
       color: _kiotBlue,
@@ -11532,8 +12023,8 @@ class _PosSellScreenState extends State<PosSellScreen> {
     final title = tableLabel.isNotEmpty
         ? tableLabel
         : (_floorMapVisible && _useFloorAsPrimary
-            ? 'Chọn bàn để bán'
-            : 'Giỏ hàng');
+            ? 'Chọn ${_sellProfile.resourceNoun} để bán'
+            : _sellProfile.invoiceTitle);
     return Container(
       height: 44,
       padding: const EdgeInsets.symmetric(horizontal: 14),
@@ -11569,7 +12060,12 @@ class _PosSellScreenState extends State<PosSellScreen> {
             TextButton.icon(
               onPressed: () => unawaited(_returnToFloorMap()),
               icon: const Icon(Icons.logout_outlined, size: 16),
-              label: Text(tr('Thoát bàn'), style: const TextStyle(fontSize: 12)),
+              label: Text(
+                tr(_sellProfile.resourceNoun.isEmpty
+                    ? 'Thoát'
+                    : 'Thoát ${_sellProfile.resourceNoun}'),
+                style: const TextStyle(fontSize: 12),
+              ),
               style: TextButton.styleFrom(
                 foregroundColor: PosTheme.kiotBlue,
                 padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -11584,7 +12080,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Text(
-                tr('${_tab.cart.length} món'),
+                tr(_lineCountText()),
                 style: const TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
@@ -11597,13 +12093,8 @@ class _PosSellScreenState extends State<PosSellScreen> {
     );
   }
 
-  /// Chân màn chọn món: tổng tiền + Thanh toán (xanh lá) + Thông báo bếp (xanh dương).
+  /// Chân hóa đơn: Xuất kho / Thông báo bếp + Thanh toán (Tạm tính ở màn thanh toán).
   Widget _buildTabletOrderFooter({required bool canPay, required bool canOrder}) {
-    final notifyBusy = _kitchenSending || _checkingOut || _parking;
-    final canNotify = _isTableOrderMode &&
-        _kitchenActionCount > 0 &&
-        !notifyBusy &&
-        canOrder;
     return Container(
       decoration: const BoxDecoration(
         color: Colors.white,
@@ -11614,77 +12105,146 @@ class _PosSellScreenState extends State<PosSellScreen> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _summaryRow(
-            'Tổng tiền (${_tab.cart.length} món)',
+            'Tổng tiền (${_lineCountText()})',
             _moneyFmt.format(_grandTotal),
             bold: true,
             blue: true,
             labelSize: 15,
           ),
           const SizedBox(height: 10),
-          Row(
-            children: [
-              Expanded(
-                flex: 3,
-                child: FilledButton(
-                  onPressed: _tab.cart.isEmpty || !canPay
-                      ? null
-                      : () => setState(() => _tabletPaymentStage = true),
-                  style: PosTheme.payButtonStyle(height: 56, radius: 10),
-                  child: Text(
-                    tr('Thanh toán (F9)'),
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w800,
-                      fontSize: 16,
-                    ),
-                  ),
-                ),
-              ),
-              if (_isTableOrderMode &&
-                  _industrySettings?.sellProfile ==
-                      PosSellProfile.restaurant) ...[
-                const SizedBox(width: 10),
-                Expanded(
-                  flex: 2,
-                  child: FilledButton(
-                    onPressed: canNotify
-                        ? () => unawaited(_kitchenSendCurrentTable())
-                        : null,
-                    style: FilledButton.styleFrom(
-                      backgroundColor: PosTheme.kiotBlue,
-                      foregroundColor: Colors.white,
-                      disabledBackgroundColor: Colors.grey.shade300,
-                      disabledForegroundColor: Colors.grey.shade600,
-                      minimumSize: const Size(0, 56),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                    ),
-                    child: Text(
-                      tr(_kitchenSending
-                          ? 'Đang gửi…'
-                          : _kitchenActionCount > 0
-                              ? 'Thông báo (F10)'
-                              : 'Thông báo'),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 14,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ],
+          _buildInvoiceActionButtons(
+            canPay: canPay,
+            canOrder: canOrder,
+            payLabel: 'Thanh toán (F9)',
+            height: 52,
+            onPay: () => setState(() => _tabletPaymentStage = true),
           ),
         ],
       ),
     );
   }
 
+  bool get _showWarehouseAction => _sellProfile.usesWarehouseSlip;
+
+  bool get _showKitchenAction =>
+      _isTableOrderMode && _sellProfile.usesKitchenNotify;
+
+  Widget _invoiceSecondaryButton({
+    required String label,
+    required VoidCallback? onPressed,
+    required Color color,
+    bool busy = false,
+    double height = 48,
+  }) {
+    return OutlinedButton(
+      onPressed: onPressed,
+      style: OutlinedButton.styleFrom(
+        foregroundColor: color,
+        side: BorderSide(color: color, width: 1.5),
+        minimumSize: Size(0, height),
+        padding: const EdgeInsets.symmetric(horizontal: 6),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ),
+      child: busy
+          ? SizedBox(
+              height: height * 0.4,
+              width: height * 0.4,
+              child: CircularProgressIndicator(strokeWidth: 2.4, color: color),
+            )
+          : FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                tr(label),
+                maxLines: 1,
+                style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
+              ),
+            ),
+    );
+  }
+
+  /// Hàng nút dưới hóa đơn: Xuất kho · Thông báo · Thanh toán.
+  Widget _buildInvoiceActionButtons({
+    required bool canPay,
+    required bool canOrder,
+    required VoidCallback onPay,
+    String payLabel = 'Thanh toán',
+    double height = 52,
+    bool payIsPrimaryFilled = true,
+  }) {
+    final cartOk = _tab.cart.isNotEmpty;
+    final busy = _checkingOut || _parking;
+    final showWh = _showWarehouseAction;
+    final showKitchen = _showKitchenAction;
+    final notifyBusy = _kitchenSending || busy;
+    final canNotify = showKitchen && _kitchenActionCount > 0 && !notifyBusy && canOrder;
+
+    final secondaries = <Widget>[
+      if (showWh)
+        _invoiceSecondaryButton(
+          label: _warehousePrinting
+              ? 'Đang gửi…'
+              : _hasWarehouseSlipPending()
+                  ? 'Xuất kho'
+                  : 'Đã báo kho',
+          color: const Color(0xFF0F766E),
+          busy: _warehousePrinting,
+          height: height,
+          onPressed: cartOk && !_warehousePrinting && !busy
+              ? _onWarehouseSlipButtonTap
+              : null,
+        ),
+        if (showKitchen)
+        _invoiceSecondaryButton(
+          label: _kitchenSending ? 'Đang gửi…' : 'Thông báo',
+          color: PosTheme.kiotBlue,
+          busy: _kitchenSending,
+          height: height,
+          onPressed: canNotify
+              ? () => unawaited(_kitchenSendCurrentTable())
+              : null,
+        ),
+    ];
+
+    final payBtn = FilledButton(
+      onPressed: !cartOk || !canPay || busy ? null : onPay,
+      style: payIsPrimaryFilled
+          ? PosTheme.payButtonStyle(height: height, radius: 10)
+          : FilledButton.styleFrom(
+              backgroundColor: _kiotBlue,
+              disabledBackgroundColor: Colors.grey.shade300,
+              disabledForegroundColor: Colors.grey.shade600,
+              minimumSize: Size(0, height),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+      child: Text(
+        tr(payLabel),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+      ),
+    );
+
+    if (secondaries.isEmpty) {
+      return SizedBox(height: height, child: payBtn);
+    }
+
+    return Row(
+      children: [
+        for (var i = 0; i < secondaries.length; i++) ...[
+          if (i > 0) const SizedBox(width: 8),
+          Expanded(flex: 2, child: secondaries[i]),
+        ],
+        const SizedBox(width: 8),
+        Expanded(flex: 3, child: payBtn),
+      ],
+    );
+  }
+
   /// Bước 3: thanh toán — giữ giỏ bên trái để đối chiếu món.
   Widget _buildTabletPaymentStage(PermissionProvider perm) {
-    _recalcTotals();
+    _recalcTotals(publishDisplay: false);
     final canPay = perm.canPosPay();
     final widePay = MediaQuery.sizeOf(context).width >= 900;
     return Column(
@@ -11697,7 +12257,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
             child: Row(
               children: [
                 IconButton(
-                  tooltip: tr('Quay lại giỏ hàng'),
+                  tooltip: tr('Quay lại hóa đơn'),
                   icon: const Icon(Icons.arrow_back, color: Colors.white),
                   onPressed: () => setState(() => _tabletPaymentStage = false),
                 ),
@@ -11744,7 +12304,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
                                         BorderSide(color: PosTheme.border)),
                               ),
                               child: Text(
-                                tr('Giỏ · ${_tab.cart.length} món · ${_moneyFmt.format(_grandTotal)}đ'),
+                                tr('${_sellProfile.invoiceTitle} · ${_lineCountText()} · ${_moneyFmt.format(_grandTotal)}đ'),
                                 style: const TextStyle(
                                   fontWeight: FontWeight.w700,
                                   fontSize: 13,
@@ -12046,7 +12606,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
                   size: 18,
                 ),
                 label: Text(
-                  tr(tableMode ? 'Chọn món' : 'Hàng hóa'),
+                  tr(_sellProfile.pickCatalogLabel),
                   style: const TextStyle(fontSize: 14),
                 ),
                 style: FilledButton.styleFrom(
@@ -12164,7 +12724,9 @@ class _PosSellScreenState extends State<PosSellScreen> {
                     size: 56, color: Colors.grey.shade400),
                 const SizedBox(height: 16),
                 Text(
-                  tr(table.isEmpty ? 'Chưa có món' : '$table · chưa có món'),
+                  tr(table.isEmpty
+                      ? 'Chưa có ${_sellProfile.lineUnit}'
+                      : '$table · chưa có ${_sellProfile.lineUnit}'),
                   textAlign: TextAlign.center,
                   style: const TextStyle(
                     fontSize: 17,
@@ -12173,7 +12735,8 @@ class _PosSellScreenState extends State<PosSellScreen> {
                   ),
                 ),
                 const SizedBox(height: 8),
-                Text(tr('Bấm «Chọn món» để thêm từ thực đơn.'),
+                Text(
+                  tr('Bấm «${_sellProfile.pickCatalogLabel}» để thêm.'),
                   textAlign: TextAlign.center,
                   style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
                 ),
@@ -12181,7 +12744,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
                 FilledButton.icon(
                   onPressed: _openMobileProductPicker,
                   icon: const Icon(Icons.restaurant_menu_rounded),
-                  label: Text(tr('Chọn món')),
+                  label: Text(tr(_sellProfile.pickCatalogLabel)),
                   style: FilledButton.styleFrom(
                     backgroundColor: PosTheme.kiotBlue,
                     padding: const EdgeInsets.symmetric(
@@ -12237,91 +12800,65 @@ class _PosSellScreenState extends State<PosSellScreen> {
 
   Widget _buildMobileCheckoutBar(PermissionProvider perm, bool canPay) {
     final inHub = PosHubScope.of(context);
-    const payLabel = 'Thanh toán';
     return Material(
       elevation: 6,
       color: Colors.white,
       child: SafeArea(
         top: false,
         bottom: !inHub,
-          child: Container(
-          padding: EdgeInsets.fromLTRB(12, 6, 12, inHub ? 4 : 8),
+        child: Container(
+          padding: EdgeInsets.fromLTRB(12, 8, 12, inHub ? 4 : 8),
           decoration: const BoxDecoration(
             border: Border(top: BorderSide(color: PosTheme.border)),
           ),
-          child: Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Expanded(
-                flex: 5,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
                       tr(_tab.cart.isEmpty
                           ? 'Chưa có hàng'
-                          : 'Tổng (${_tab.cart.length} món)'),
+                          : 'Tổng (${_lineCountText()})'),
                       style: const TextStyle(
                         fontSize: 13,
                         color: PosTheme.textSecondary,
                       ),
                     ),
-                    Text(tr('${_moneyFmt.format(_grandTotal)} đ'),
-                      style: const TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: _kiotBlue,
+                  ),
+                  if (_bankAccounts.isNotEmpty && _vietQrAmount > 0)
+                    IconButton(
+                      visualDensity: VisualDensity.compact,
+                      tooltip: tr('Mã VietQR'),
+                      onPressed: () => showPosVietQrPaymentDialog(
+                        context,
+                        accounts: _bankAccounts,
+                        amount: _vietQrAmount,
+                        preferredAccountId: _storeSettings.vietQrBankAccountId,
+                        description: _vietQrTransferNote,
                       ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                      icon: const Icon(Icons.qr_code_2, color: _kiotBlue, size: 26),
                     ),
-                  ],
-                ),
+                  Text(
+                    tr('${_moneyFmt.format(_grandTotal)} đ'),
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: _kiotBlue,
+                    ),
+                  ),
+                ],
               ),
-              if (_bankAccounts.isNotEmpty && _vietQrAmount > 0) ...[
-                IconButton(
-                  visualDensity: VisualDensity.compact,
-                  tooltip: tr('Mã VietQR'),
-                  onPressed: () => showPosVietQrPaymentDialog(
-                    context,
-                    accounts: _bankAccounts,
-                    amount: _vietQrAmount,
-                    preferredAccountId: _storeSettings.vietQrBankAccountId,
-                    description: _vietQrTransferNote,
-                  ),
-                  icon: const Icon(Icons.qr_code_2, color: _kiotBlue, size: 26),
-                ),
-              ],
-              Expanded(
-                flex: 4,
-                child: SizedBox(
-                  height: 56,
-                  child: FilledButton(
-                    onPressed: _tab.cart.isEmpty || _checkingOut || _parking || !canPay
-                        ? null
-                        : () => _openMobilePaymentScreen(perm),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: _kiotBlue,
-                      disabledBackgroundColor: Colors.grey.shade300,
-                      disabledForegroundColor: Colors.grey.shade600,
-                      padding: const EdgeInsets.symmetric(horizontal: 10),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                    ),
-                    child: FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: Text(
-                        tr(payLabel),
-                        maxLines: 1,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
+              const SizedBox(height: 8),
+              _buildInvoiceActionButtons(
+                canPay: canPay,
+                canOrder: perm.canPosOrder(),
+                payLabel: 'Thanh toán',
+                height: 48,
+                payIsPrimaryFilled: false,
+                onPay: () => _openMobilePaymentScreen(perm),
               ),
             ],
           ),
@@ -12733,7 +13270,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
           ),
           body: StatefulBuilder(
             builder: (ctx, setPay) {
-              _recalcTotals();
+              _recalcTotals(publishDisplay: false);
               final busy = paying || _checkingOut;
               return Column(
                 children: [
@@ -13244,6 +13781,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
       },
     );
     if (!mounted || confirmed == null) return;
+    final sigBefore = _kitchenLineSignature(line);
     setState(() {
       final extraIds = {
         for (final o in line.product.toppingOptions) o.toppingProductId
@@ -13253,6 +13791,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
           if (extraIds.contains(t.id) && !confirmed.any((c) => c.id == t.id)) t,
       ];
       line.toppings = [...keptExtras, ...confirmed];
+      _renotifyKitchenOnLineChange(line, sigBefore);
       _syncPaidAmount();
     });
     _scheduleDraftAutosave();

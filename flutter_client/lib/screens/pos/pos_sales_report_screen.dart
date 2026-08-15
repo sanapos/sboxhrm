@@ -5,6 +5,7 @@ import '../../services/api_service.dart';
 import '../../utils/pos_kiot_time_range.dart';
 import '../../widgets/pos/pos_theme.dart';
 import '../../widgets/pos/reports/pos_report_widgets.dart';
+import 'pos_profit_report_screen.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// Báo cáo bán hàng kiểu KiotViet — doanh thu, lợi nhuận, top NV.
@@ -23,6 +24,7 @@ class _PosSalesReportScreenState extends State<PosSalesReportScreen> {
       const PosKiotTimeFilterState(preset: PosKiotTimePreset.thisWeek);
   bool _loading = true;
   Map<String, dynamic>? _data;
+  Map<String, dynamic>? _einvoice;
 
   @override
   void initState() {
@@ -36,6 +38,10 @@ class _PosSalesReportScreenState extends State<PosSalesReportScreen> {
       from: _time.from,
       to: _time.to,
     );
+    final ei = await _api.getPosEInvoiceSummary(
+      from: _time.from,
+      to: _time.to,
+    );
     if (!mounted) return;
     setState(() {
       _loading = false;
@@ -43,6 +49,11 @@ class _PosSalesReportScreenState extends State<PosSalesReportScreen> {
         _data = Map<String, dynamic>.from(res['data'] as Map);
       } else {
         _data = null;
+      }
+      if (ei['isSuccess'] == true && ei['data'] is Map) {
+        _einvoice = Map<String, dynamic>.from(ei['data'] as Map);
+      } else {
+        _einvoice = null;
       }
     });
   }
@@ -59,8 +70,12 @@ class _PosSalesReportScreenState extends State<PosSalesReportScreen> {
   Widget build(BuildContext context) {
     final storeName = _data?['storeName']?.toString() ?? '';
     final revenue = _num(_data?['totalRevenue']);
+    final vat = _num(_data?['totalVat']);
+    final revenueInclVat = _num(_data?['totalRevenueInclVat']);
+    final refund = _num(_data?['totalRefund']);
     final cogs = _num(_data?['totalCogs']);
     final profit = _num(_data?['totalProfit']);
+    final margin = _num(_data?['profitMarginPct']);
 
     final byDay = (_data?['byDay'] as List?) ?? [];
     final barPoints = byDay.whereType<Map>().map((d) {
@@ -109,6 +124,48 @@ class _PosSalesReportScreenState extends State<PosSalesReportScreen> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       PosReportBarChart(points: barPoints),
+                      const SizedBox(height: 12),
+                      PosReportMetricTiles(
+                        moneyFmt: _moneyFmt,
+                        tiles: [
+                          (
+                            label: 'DT chưa VAT',
+                            value: revenue,
+                            color: PosTheme.kiotBlue,
+                          ),
+                          (
+                            label: 'VAT',
+                            value: vat,
+                            color: const Color(0xFF7C3AED),
+                          ),
+                          (
+                            label: 'DT gồm VAT',
+                            value: revenueInclVat > 0 ? revenueInclVat : revenue + vat,
+                            color: const Color(0xFF0F766E),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      PosReportMetricTiles(
+                        moneyFmt: _moneyFmt,
+                        tiles: [
+                          (
+                            label: 'Hoàn trả kỳ',
+                            value: refund,
+                            color: Colors.orange.shade800,
+                          ),
+                          (
+                            label: 'Đã thu',
+                            value: _num(_data?['totalPaid']),
+                            color: const Color(0xFF166534),
+                          ),
+                          (
+                            label: 'Giảm giá',
+                            value: _num(_data?['totalDiscount']),
+                            color: Colors.grey.shade700,
+                          ),
+                        ],
+                      ),
                       const SizedBox(height: 10),
                       PosReportBranchFooter(branchName: storeName),
                     ],
@@ -135,6 +192,29 @@ class _PosSalesReportScreenState extends State<PosSalesReportScreen> {
                   ),
                 ),
                 PosReportCard(
+                  title: 'Đặt chỗ / cọc',
+                  child: PosReportMetricTiles(
+                    moneyFmt: _moneyFmt,
+                    tiles: [
+                      (
+                        label: 'Cọc đang giữ',
+                        value: _num(_data?['reservationDepositHeld']),
+                        color: const Color(0xFF0F766E),
+                      ),
+                      (
+                        label: 'Cọc đã trừ HĐ',
+                        value: _num(_data?['reservationDepositApplied']),
+                        color: PosTheme.kiotBlue,
+                      ),
+                      (
+                        label: 'Cọc mất',
+                        value: _num(_data?['reservationDepositForfeited']),
+                        color: Colors.red.shade700,
+                      ),
+                    ],
+                  ),
+                ),
+                PosReportCard(
                   title: 'Lợi nhuận',
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -149,13 +229,52 @@ class _PosSalesReportScreenState extends State<PosSalesReportScreen> {
                           (label: 'Giá vốn', value: cogs, color: Colors.amber.shade700),
                         ],
                       ),
+                      const SizedBox(height: 8),
+                      Text(
+                        tr('Biên LN: ${margin.toStringAsFixed(1)}%'),
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: PosTheme.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                PosReportCard(
+                  title: 'Hóa đơn điện tử',
+                  child: PosReportMetricTiles(
+                    moneyFmt: _moneyFmt,
+                    tiles: [
+                      (
+                        label: 'Đã xuất',
+                        value: _num(_einvoice?['issuedCount']),
+                        color: const Color(0xFF166534),
+                      ),
+                      (
+                        label: 'Không xuất',
+                        value: _num(_einvoice?['skippedCount']),
+                        color: const Color(0xFF475569),
+                      ),
+                      (
+                        label: 'Lỗi',
+                        value: _num(_einvoice?['failedCount']),
+                        color: Colors.red.shade700,
+                      ),
                     ],
                   ),
                 ),
                 PosReportCard(
                   title: 'Top nhân viên bán tốt',
                   trailing: TextButton(
-                    onPressed: () {},
+                    onPressed: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) =>
+                              const PosProfitReportScreen(initialDim: 'staff'),
+                        ),
+                      );
+                    },
                     child: Text(tr('Xem thêm >'), style: TextStyle(fontSize: 12)),
                   ),
                   child: PosReportRankList(

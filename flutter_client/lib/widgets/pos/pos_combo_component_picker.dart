@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../models/pos_product.dart';
 import '../../services/api_service.dart';
 import '../../utils/paged_load_utils.dart';
+import '../../utils/pos_qty_rules.dart';
 import 'pos_theme.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
@@ -164,31 +165,47 @@ class _PosComboComponentPickerState extends State<PosComboComponentPicker> {
   }
 }
 
-/// Dialog nhập số lượng sau khi chọn thành phần.
-Future<double?> showComboComponentQtyDialog(BuildContext context) async {
-  final qtyCtrl = TextEditingController(text: tr('1'));
+/// Dialog nhập định lượng thành phần (SL trừ kho cho 1 combo).
+Future<double?> showComboComponentQtyDialog(
+  BuildContext context, {
+  double initialQty = 1,
+}) async {
+  final qtyCtrl = TextEditingController(
+    text: PosQtyRules.format(initialQty, allowDecimal: true),
+  );
   final ok = await showDialog<bool>(
     context: context,
     builder: (ctx) => AlertDialog(
-      title: Text(tr('Số lượng thành phần')),
-      content: TextField(
-        controller: qtyCtrl,
-        keyboardType: const TextInputType.numberWithOptions(decimal: true),
-        decoration: PosTheme.inputDecoration(label: 'Số lượng / 1 combo'),
-        autofocus: true,
+      title: Text(tr('Định lượng / 1 combo')),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            tr('Số lượng trừ kho khi bán 1 combo. Có thể lẻ (0.5, 0.05 kg…).'),
+            style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: qtyCtrl,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            decoration: PosTheme.inputDecoration(label: 'Số lượng'),
+            autofocus: true,
+          ),
+        ],
       ),
       actions: [
         TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Hủy'))),
         FilledButton(
           style: PosTheme.filledButtonStyle,
           onPressed: () => Navigator.pop(ctx, true),
-          child: Text(tr('Thêm')),
+          child: Text(tr('Lưu')),
         ),
       ],
     ),
   );
   if (ok != true) return null;
-  final qty = double.tryParse(qtyCtrl.text.replaceAll(',', '.')) ?? 0;
+  final qty = double.tryParse(qtyCtrl.text.replaceAll(',', '.').replaceAll(' ', '')) ?? 0;
   if (qty <= 0) return null;
   return qty;
 }

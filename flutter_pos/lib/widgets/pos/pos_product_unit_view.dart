@@ -120,6 +120,19 @@ List<PosProductUnitView> buildPosProductUnitViews(
   List<PosProductVariant> variants, {
   List<PosProductUnit>? extraUnits,
 }) {
+  if (product.productType == PosProductType.combo) {
+    final unit = product.baseUnitName.isEmpty ? 'Combo' : product.baseUnitName;
+    return [
+      PosProductUnitView(
+        viewKey: 'base',
+        label: unit,
+        displayCode: product.productCode,
+        basePrice: product.basePrice,
+        costPrice: product.costPrice,
+        onHandQty: product.sellableQty ?? product.onHandQty,
+      ),
+    ];
+  }
   final views = <PosProductUnitView>[];
   final usedLabels = <String>{};
   final extras = extraUnits ?? const <PosProductUnit>[];

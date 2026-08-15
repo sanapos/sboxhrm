@@ -14,7 +14,9 @@ import '../widgets/store_agent_support_card.dart';
 import 'store_success_screen.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../models/pos_sell_industry.dart';
 import '../widgets/pos/pos_theme.dart';
+
 String _sanitizeStoreLoginNameInput(String input) {
   var code = input.toLowerCase();
   code = _removeVietnameseAccentsForLoginName(code);
@@ -88,6 +90,7 @@ class _RegisterScreenState extends State<RegisterScreen>
   String? _agentZaloUrl;
   List<_PublicServicePackage> _servicePackages = const [];
   String? _selectedServicePackageId;
+  PosSellProfile _selectedSellProfile = PosSellProfile.retail;
   String? _initialPackageName;
   bool _loadedRouteArgs = false;
   bool _isLoading = false;
@@ -327,6 +330,7 @@ class _RegisterScreenState extends State<RegisterScreen>
         storeCode: _loginNameController.text.trim(),
         agentCode: _agentCode,
         servicePackageId: _selectedServicePackageId,
+        sellProfile: _selectedSellProfile.apiValue,
       );
 
       if (result['isSuccess'] == true) {
@@ -668,6 +672,28 @@ class _RegisterScreenState extends State<RegisterScreen>
                             }
                             return null;
                           },
+                        ),
+                        const SizedBox(height: 16),
+
+                        _buildLabel('NGÀNH HÀNG'),
+                        const SizedBox(height: 6),
+                        Text(
+                          tr('Chọn để POS tự bật sơ đồ bàn/ghế/phòng, báo bếp, tính giờ…'),
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey.shade600,
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        _buildIndustryPicker(),
+                        const SizedBox(height: 8),
+                        Text(
+                          tr(_selectedSellProfile.description),
+                          style: TextStyle(
+                            fontSize: 12,
+                            height: 1.35,
+                            color: Colors.grey.shade700,
+                          ),
                         ),
                         const SizedBox(height: 16),
 
@@ -1305,6 +1331,51 @@ class _RegisterScreenState extends State<RegisterScreen>
     launchUrl(uri, mode: LaunchMode.externalApplication);
   }
 
+  Widget _buildIndustryPicker() {
+    IconData icon(PosSellProfile p) => switch (p) {
+          PosSellProfile.retail => Icons.storefront_outlined,
+          PosSellProfile.salon => Icons.content_cut_outlined,
+          PosSellProfile.roomHourly => Icons.mic_external_on_outlined,
+          PosSellProfile.restaurant => Icons.restaurant_outlined,
+          PosSellProfile.gym => Icons.fitness_center_outlined,
+          PosSellProfile.hotel => Icons.hotel_outlined,
+        };
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        for (final p in PosSellProfile.values)
+          ChoiceChip(
+            selected: _selectedSellProfile == p,
+            avatar: Icon(
+              icon(p),
+              size: 16,
+              color: _selectedSellProfile == p
+                  ? const Color(0xFF0C56D0)
+                  : const Color(0xFF586064),
+            ),
+            label: Text(
+              tr(p.label),
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: _selectedSellProfile == p
+                    ? const Color(0xFF0C56D0)
+                    : const Color(0xFF1A1A1A),
+              ),
+            ),
+            selectedColor: const Color(0xFFE8F1FF),
+            side: BorderSide(
+              color: _selectedSellProfile == p
+                  ? const Color(0xFF0C56D0)
+                  : const Color(0xFFD9E0E3),
+            ),
+            onSelected: (_) => setState(() => _selectedSellProfile = p),
+          ),
+      ],
+    );
+  }
+
   static Widget _buildLabel(String text) {
     return Text(
       tr(text),
@@ -1437,6 +1508,10 @@ class _PublicServicePackage {
     required this.defaultDurationDays,
     required this.maxUsers,
     required this.maxDevices,
+    required this.maxAccessDevices,
+    required this.maxBranches,
+    required this.allowWeb,
+    required this.allowMobile,
     required this.allowedModules,
   });
 
@@ -1446,6 +1521,10 @@ class _PublicServicePackage {
   final int defaultDurationDays;
   final int maxUsers;
   final int maxDevices;
+  final int maxAccessDevices;
+  final int maxBranches;
+  final bool allowWeb;
+  final bool allowMobile;
   final List<String> allowedModules;
 
   String get displayLabel => '$name - $defaultDurationDays ngày';
@@ -1462,12 +1541,19 @@ class _PublicServicePackage {
     return '${labels.join(', ')}$extra';
   }
 
+  String _cap(int n, String unit) =>
+      n > 0 ? '$n $unit' : 'không giới hạn $unit';
+
   String get limitsLine {
-    final limitUsers =
-        maxUsers > 0 ? '$maxUsers người dùng' : 'không giới hạn người dùng';
-    final limitDevices =
-        maxDevices > 0 ? '$maxDevices thiết bị' : 'không giới hạn thiết bị';
-    return 'Dùng thử $defaultDurationDays ngày · $limitUsers · $limitDevices';
+    final parts = [
+      _cap(maxUsers, 'tài khoản'),
+      _cap(maxDevices, 'máy chấm công'),
+      _cap(maxAccessDevices, 'thiết bị truy cập'),
+      _cap(maxBranches, 'chi nhánh'),
+    ];
+    if (!allowWeb) parts.add('không dùng web');
+    if (!allowMobile) parts.add('không dùng mobile/POS');
+    return 'Dùng thử $defaultDurationDays ngày · ${parts.join(' · ')}';
   }
 
   String get descriptionText {
@@ -1478,15 +1564,11 @@ class _PublicServicePackage {
 
   String get summary {
     final desc = description.trim();
-    final limitUsers =
-        maxUsers > 0 ? '$maxUsers người dùng' : 'không giới hạn người dùng';
-    final limitDevices =
-        maxDevices > 0 ? '$maxDevices thiết bị' : 'không giới hạn thiết bị';
     final modules = 'Chức năng: $moduleSummary';
     if (desc.isEmpty) {
-      return 'Dùng thử $defaultDurationDays ngày, $limitUsers, $limitDevices. $modules';
+      return '$limitsLine. $modules';
     }
-    return '$desc. Dùng thử $defaultDurationDays ngày, $limitUsers, $limitDevices. $modules';
+    return '$desc. $limitsLine. $modules';
   }
 
   factory _PublicServicePackage.fromMap(Map<String, dynamic> map) {
@@ -1494,6 +1576,12 @@ class _PublicServicePackage {
     final modules = rawModules is List
         ? rawModules.map((e) => e.toString()).toList()
         : <String>[];
+    bool asBool(dynamic v, {bool fallback = true}) {
+      if (v == null) return fallback;
+      if (v is bool) return v;
+      return v.toString().toLowerCase() != 'false';
+    }
+
     return _PublicServicePackage(
       id: map['id']?.toString() ?? '',
       name: map['name']?.toString() ?? '',
@@ -1501,6 +1589,10 @@ class _PublicServicePackage {
       defaultDurationDays: _toInt(map['defaultDurationDays']),
       maxUsers: _toInt(map['maxUsers']),
       maxDevices: _toInt(map['maxDevices']),
+      maxAccessDevices: _toInt(map['maxAccessDevices']),
+      maxBranches: _toInt(map['maxBranches']),
+      allowWeb: asBool(map['allowWeb']),
+      allowMobile: asBool(map['allowMobile']),
       allowedModules: modules,
     );
   }

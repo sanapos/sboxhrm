@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../models/pos_product.dart';
 import '../../providers/permission_provider.dart';
 import '../../services/api_service.dart';
+import '../../utils/pos_qty_rules.dart';
 import '../../widgets/pos/pos_barcode_label_dialog.dart';
 import '../../widgets/notification_overlay.dart';
 import '../../widgets/pos/pos_product_image.dart';
@@ -500,7 +501,7 @@ class _PosProductDetailScreenState extends State<PosProductDetailScreen> {
                 ),
               ),
               Text(
-                tr('× ${c.qty}'),
+                tr('× ${PosQtyRules.format(c.qty, allowDecimal: true)}${c.componentUnitName.isNotEmpty ? ' ${c.componentUnitName}' : ''}'),
                 style: const TextStyle(
                   fontSize: 13,
                   color: PosTheme.textSecondary,

@@ -36,6 +36,9 @@ class PosMobileHubScreen extends StatefulWidget {
 class PosMobileHubScreenState extends State<PosMobileHubScreen> {
   late int _tab = widget.initialTab.clamp(0, 4);
 
+  /// Chỉ dựng tab đã mở — tránh IndexedStack dựng 5 màn cùng lúc (crash → màn xám trên máy yếu).
+  late final Set<int> _activatedTabs = {widget.initialTab.clamp(0, 4)};
+
   @override
   void initState() {
     super.initState();
@@ -54,7 +57,10 @@ class PosMobileHubScreenState extends State<PosMobileHubScreen> {
     if (oldWidget.initialTab != widget.initialTab) {
       final t = widget.initialTab.clamp(0, 4);
       if (_tab != t) {
-        setState(() => _tab = t);
+        setState(() {
+          _activatedTabs.add(t);
+          _tab = t;
+        });
         NavigationNotifier.reportScreen(
           _labelForTab(t),
           moduleCode: _moduleForTab(t),
@@ -78,7 +84,11 @@ class PosMobileHubScreenState extends State<PosMobileHubScreen> {
     final t = NavigationNotifier.posHubTab.value;
     if (t == null || !mounted) return;
     NavigationNotifier.posHubTab.value = null;
-    setState(() => _tab = t.clamp(0, 4));
+    final next = t.clamp(0, 4);
+    setState(() {
+      _activatedTabs.add(next);
+      _tab = next;
+    });
   }
 
   String _moduleForTab(int tab) => switch (tab) {
@@ -155,13 +165,23 @@ class PosMobileHubScreenState extends State<PosMobileHubScreen> {
       if (index == 2) ScreenRefreshNotifier.refreshPosAfterStockChange();
       return;
     }
-    setState(() => _tab = index);
+    setState(() {
+      _activatedTabs.add(index);
+      _tab = index;
+    });
     NavigationNotifier.reportScreen(
       _labelForTab(index),
       moduleCode: _moduleForTab(index),
     );
     if (index == 3) ScreenRefreshNotifier.refreshPosSaleOrders();
     if (index == 2) ScreenRefreshNotifier.refreshPosAfterStockChange();
+  }
+
+  Widget _lazyTab(int index, Widget child) {
+    if (!_activatedTabs.contains(index)) {
+      return const SizedBox.shrink();
+    }
+    return child;
   }
 
   void _onSlotTap(int slotIndex, String slotId, PermissionProvider perm) {
@@ -273,12 +293,13 @@ class PosMobileHubScreenState extends State<PosMobileHubScreen> {
       embeddedInHub: true,
       child: IndexedStack(
         index: _tab,
-        children: const [
-          PosOverviewScreen(key: ValueKey('pos_overview')),
-          PosProductsScreen(key: ValueKey('pos_products')),
-          PosSellScreen(key: ValueKey('pos_sell')),
-          PosSaleOrderListScreen(key: ValueKey('pos_orders')),
-          PosMoreScreen(key: ValueKey('pos_more')),
+        children: [
+          _lazyTab(0, const PosOverviewScreen(key: ValueKey('pos_overview'))),
+          _lazyTab(1, const PosProductsScreen(key: ValueKey('pos_products'))),
+          _lazyTab(2, const PosSellScreen(key: ValueKey('pos_sell'))),
+          _lazyTab(
+              3, const PosSaleOrderListScreen(key: ValueKey('pos_orders'))),
+          _lazyTab(4, const PosMoreScreen(key: ValueKey('pos_more'))),
         ],
       ),
     );

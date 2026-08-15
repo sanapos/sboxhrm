@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 import 'package:open_filex/open_filex.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 import 'api_config.dart';
 
@@ -59,6 +60,7 @@ class PosAppUpdateService {
       headers: const {
         'Accept': '*/*',
         'Accept-Encoding': 'identity',
+        'Connection': 'close',
       },
     ),
   );
@@ -115,20 +117,21 @@ class PosAppUpdateService {
     return null;
   }
 
-  /// Thư mục installer Android 6+ đọc được (tránh cache riêng → lỗi phân tích gói).
+  /// Ưu tiên thư mục app (luôn ghi được); public Download chỉ khi có quyền.
   static Future<Directory> _apkSaveDir() async {
-    try {
-      final publicDl = Directory('/storage/emulated/0/Download');
-      if (await publicDl.exists()) {
-        return publicDl;
-      }
-    } catch (_) {}
     try {
       final ext = await getExternalStorageDirectory();
       if (ext != null) {
         final dir = Directory('${ext.path}/Download');
         await dir.create(recursive: true);
         return dir;
+      }
+    } catch (_) {}
+    try {
+      final status = await Permission.storage.request();
+      if (status.isGranted) {
+        final publicDl = Directory('/storage/emulated/0/Download');
+        if (await publicDl.exists()) return publicDl;
       }
     } catch (_) {}
     return getTemporaryDirectory();
@@ -149,7 +152,89 @@ class PosAppUpdateService {
     }
   }
 
-  /// Tải APK về Download rồi mở trình cài đặt hệ thống.
+  static List<String> _candidateUrls(PosAndroidRelease release) {
+    final seen = <String>{};
+    final out = <String>[];
+    void add(String? u) {
+      final s = (u ?? '').trim();
+      if (s.isEmpty || !seen.add(s)) return;
+      out.add(s);
+    }
+
+    add(release.apkUrl);
+    add(webDownloadUrl);
+    // Cùng file qua domain còn lại nếu host khác.
+    final base = getApiBaseUrl();
+    if (base.contains('sboxhrm.com')) {
+      add('https://sbox.sana.vn/api/app/pos-android-apk');
+    } else {
+      add('https://sboxhrm.com/api/app/pos-android-apk');
+    }
+    add('https://sbox.sana.vn/downloads/sbox-pos.apk');
+    add('https://sboxhrm.com/downloads/sbox-pos.apk');
+    return out;
+  }
+
+  static Future<void> _downloadWithDio(
+    String url,
+    String path, {
+    void Function(double progress)? onProgress,
+    int? apkBytes,
+  }) async {
+    await _dio.download(
+      url,
+      path,
+      deleteOnError: true,
+      onReceiveProgress: (received, total) {
+        if (onProgress == null) return;
+        if (total > 0) {
+          onProgress(received / total);
+        } else if (apkBytes != null && apkBytes > 0) {
+          onProgress((received / apkBytes).clamp(0.0, 1.0));
+        }
+      },
+    );
+  }
+
+  /// Fallback HttpClient (nhận SSL trust ISRG đã cài trong main).
+  static Future<void> _downloadWithHttpClient(
+    String url,
+    String path, {
+    void Function(double progress)? onProgress,
+    int? apkBytes,
+  }) async {
+    final client = HttpClient();
+    client.connectionTimeout = const Duration(seconds: 30);
+    client.idleTimeout = const Duration(minutes: 10);
+    try {
+      final req = await client.getUrl(Uri.parse(url));
+      req.headers.set(HttpHeaders.acceptHeader, '*/*');
+      req.headers.set(HttpHeaders.acceptEncodingHeader, 'identity');
+      final res = await req.close().timeout(const Duration(minutes: 10));
+      if (res.statusCode < 200 || res.statusCode >= 400) {
+        throw HttpException('HTTP ${res.statusCode}', uri: Uri.parse(url));
+      }
+      final sink = File(path).openWrite();
+      var received = 0;
+      final total = res.contentLength;
+      await for (final chunk in res) {
+        sink.add(chunk);
+        received += chunk.length;
+        if (onProgress == null) continue;
+        if (total > 0) {
+          onProgress(received / total);
+        } else if (apkBytes != null && apkBytes > 0) {
+          onProgress((received / apkBytes).clamp(0.0, 1.0));
+        }
+      }
+      await sink.flush();
+      await sink.close();
+    } finally {
+      client.close(force: true);
+    }
+  }
+
+  /// Tải APK về thư mục app rồi mở trình cài đặt hệ thống.
   static Future<String?> downloadAndInstall(
     PosAndroidRelease release, {
     void Function(double progress)? onProgress,
@@ -166,35 +251,75 @@ class PosAppUpdateService {
         } catch (_) {}
       }
 
-      await _dio.download(
-        release.apkUrl,
-        file.path,
-        deleteOnError: true,
-        onReceiveProgress: (received, total) {
-          if (onProgress == null) return;
-          if (total > 0) {
-            onProgress(received / total);
-          } else if (release.apkBytes != null && release.apkBytes! > 0) {
-            onProgress((received / release.apkBytes!).clamp(0.0, 1.0));
+      Object? lastError;
+      var ok = false;
+      for (final url in _candidateUrls(release)) {
+        try {
+          debugPrint('POS OTA download try: $url');
+          try {
+            await _downloadWithDio(
+              url,
+              file.path,
+              onProgress: onProgress,
+              apkBytes: release.apkBytes,
+            );
+          } catch (dioErr) {
+            debugPrint('POS OTA dio fail: $dioErr — fallback HttpClient');
+            if (await file.exists()) {
+              try {
+                await file.delete();
+              } catch (_) {}
+            }
+            await _downloadWithHttpClient(
+              url,
+              file.path,
+              onProgress: onProgress,
+              apkBytes: release.apkBytes,
+            );
           }
-        },
-      );
+          if (!await file.exists()) {
+            lastError = 'Không có file sau tải';
+            continue;
+          }
+          final len = await file.length();
+          if (len < 1024 * 100) {
+            lastError = 'File quá nhỏ: $len byte';
+            try {
+              await file.delete();
+            } catch (_) {}
+            continue;
+          }
+          if (release.apkBytes != null &&
+              release.apkBytes! > 1024 &&
+              (len - release.apkBytes!).abs() > 64 * 1024) {
+            lastError = 'Tải không đủ ($len / ${release.apkBytes} byte)';
+            try {
+              await file.delete();
+            } catch (_) {}
+            continue;
+          }
+          if (!await _looksLikeApk(file)) {
+            lastError = 'File không phải APK (proxy/HTML)';
+            try {
+              await file.delete();
+            } catch (_) {}
+            continue;
+          }
+          ok = true;
+          break;
+        } catch (e) {
+          lastError = e;
+          debugPrint('POS OTA candidate fail $url: $e');
+          if (await file.exists()) {
+            try {
+              await file.delete();
+            } catch (_) {}
+          }
+        }
+      }
 
-      if (!await file.exists()) {
-        return 'Tải APK thất bại (không có file).';
-      }
-      final len = await file.length();
-      if (len < 1024 * 100) {
-        return 'Tải APK thất bại (file quá nhỏ: $len byte).';
-      }
-      if (release.apkBytes != null &&
-          release.apkBytes! > 1024 &&
-          (len - release.apkBytes!).abs() > 64 * 1024) {
-        return 'Tải APK không đủ ($len / ${release.apkBytes} byte). Thử lại.';
-      }
-      if (!await _looksLikeApk(file)) {
-        return 'File tải về không phải APK (có thể mạng/proxy chặn). '
-            'Thử tải bằng trình duyệt: $webDownloadUrl';
+      if (!ok) {
+        return 'Lỗi tải APK: $lastError\nThử mở trình duyệt: $webDownloadUrl';
       }
 
       // Android 6: đảm bảo file đọc được bởi PackageInstaller.

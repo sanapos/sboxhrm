@@ -539,6 +539,13 @@ class PosProductDataTable extends StatelessWidget {
     if (p.productType == PosProductType.service) {
       return _cellText('—', align: TextAlign.right, color: Colors.grey);
     }
+    if (p.productType == PosProductType.combo) {
+      return _cellText(
+        PosQtyRules.format(view.onHandQty, allowDecimal: false),
+        align: TextAlign.right,
+        color: view.onHandQty <= 0 ? const Color(0xFFE53935) : null,
+      );
+    }
     final text = _cellText(
       PosQtyRules.format(view.onHandQty, product: p),
       align: TextAlign.right,
