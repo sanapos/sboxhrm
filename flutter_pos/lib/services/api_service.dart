@@ -7149,6 +7149,16 @@ class ApiService {
     }
   }
 
+  Future<Map<String, dynamic>> getCashTransaction(String id) async {
+    try {
+      final response =
+          await _get(Uri.parse('$baseUrl/api/CashTransactions/$id'));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
   Future<Map<String, dynamic>> updateCashTransaction(
       String id, Map<String, dynamic> data) async {
     try {
@@ -15479,6 +15489,95 @@ class ApiService {
     }
   }
 
+  Future<Map<String, dynamic>> getHkdSettings() async {
+    try {
+      final response = await http
+          .get(Uri.parse('$baseUrl/api/hkd/settings'), headers: _headers)
+          .timeout(const Duration(seconds: 15));
+      final result = _handleResponse(response);
+      if (result['isSuccess'] == true && result['data'] is Map) {
+        return Map<String, dynamic>.from(result['data'] as Map);
+      }
+      return {};
+    } catch (e) {
+      debugPrint('Error getHkdSettings: $e');
+      return {};
+    }
+  }
+
+  Future<Map<String, dynamic>> saveHkdSettings(Map<String, dynamic> body) async {
+    try {
+      final response = await http
+          .put(
+            Uri.parse('$baseUrl/api/hkd/settings'),
+            headers: _headers,
+            body: json.encode(body),
+          )
+          .timeout(const Duration(seconds: 20));
+      final result = _handleResponse(response);
+      if (result['isSuccess'] == true && result['data'] is Map) {
+        return Map<String, dynamic>.from(result['data'] as Map);
+      }
+      throw Exception(result['message'] ?? 'Không lưu được hồ sơ HKD');
+    } catch (e) {
+      debugPrint('Error saveHkdSettings: $e');
+      rethrow;
+    }
+  }
+
+  Future<Map<String, dynamic>> exportHkdRevenueBookExcel({
+    required String book,
+    DateTime? from,
+    DateTime? to,
+  }) async {
+    final q = <String, String>{'book': book};
+    if (from != null) q['from'] = from.toIso8601String();
+    if (to != null) q['to'] = to.toIso8601String();
+    return _getExcelExport(
+      Uri.parse('$baseUrl/api/hkd/books/revenue/export/excel')
+          .replace(queryParameters: q),
+    );
+  }
+
+  Future<Map<String, dynamic>> exportHkdCashBookExcel({
+    DateTime? from,
+    DateTime? to,
+  }) async {
+    final q = <String, String>{};
+    if (from != null) q['from'] = from.toIso8601String();
+    if (to != null) q['to'] = to.toIso8601String();
+    return _getExcelExport(
+      Uri.parse('$baseUrl/api/hkd/books/cash/export/excel')
+          .replace(queryParameters: q.isEmpty ? null : q),
+    );
+  }
+
+  Future<Map<String, dynamic>> exportHkdIncomeExpenseBookExcel({
+    DateTime? from,
+    DateTime? to,
+  }) async {
+    final q = <String, String>{};
+    if (from != null) q['from'] = from.toIso8601String();
+    if (to != null) q['to'] = to.toIso8601String();
+    return _getExcelExport(
+      Uri.parse('$baseUrl/api/hkd/books/income-expense/export/excel')
+          .replace(queryParameters: q.isEmpty ? null : q),
+    );
+  }
+
+  Future<Map<String, dynamic>> exportHkdInventoryBookExcel({
+    DateTime? from,
+    DateTime? to,
+  }) async {
+    final q = <String, String>{};
+    if (from != null) q['from'] = from.toIso8601String();
+    if (to != null) q['to'] = to.toIso8601String();
+    return _getExcelExport(
+      Uri.parse('$baseUrl/api/hkd/books/inventory/export/excel')
+          .replace(queryParameters: q.isEmpty ? null : q),
+    );
+  }
+
   Future<Map<String, dynamic>> exportPosSalesReportExcel({
     DateTime? from,
     DateTime? to,
@@ -18386,15 +18485,37 @@ class ApiService {
   Future<Map<String, dynamic>> splitPosBill(
     String sessionId, {
     required List<Map<String, dynamic>> items,
+    String? deviceId,
+    String? deviceName,
   }) async {
     try {
       final response = await http
           .post(
             Uri.parse('$baseUrl/api/pos/resource-sessions/$sessionId/split-bill'),
             headers: _headers,
-            body: jsonEncode({'items': items}),
+            body: jsonEncode({
+              'items': items,
+              if (deviceId != null && deviceId.isNotEmpty) 'deviceId': deviceId,
+              if (deviceName != null && deviceName.isNotEmpty)
+                'deviceName': deviceName,
+            }),
           )
           .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> cancelPosSaleDraft(String id) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/api/pos/sales/$id/cancel-draft'),
+            headers: _headers,
+            body: jsonEncode({}),
+          )
+          .timeout(const Duration(seconds: 20));
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);

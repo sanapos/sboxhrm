@@ -433,6 +433,8 @@ const Map<String, String> kEnUiMap = <String, String>{
   'Báo cáo & phân tích dữ liệu': 'Reporting & data analysis',
   'Báo cáo (cũ)': 'Reports (legacy)',
   'Báo cáo POS': 'POS report',
+  '14 báo cáo': '14 reports',
+  'Phân tích số liệu': 'Data analysis',
   'Báo cáo POS: doanh thu theo ngày, thu ngân, mặt hàng': 'POS report: revenue by day, cashier, item',
   'Báo cáo bán hàng': 'Sales report',
   'Báo cáo chi tiết': 'Detailed report',

@@ -8,11 +8,13 @@ class PosSaleLineTopping {
   final String id;
   final String name;
   final double price;
+  final int qty;
 
   const PosSaleLineTopping({
     required this.id,
     required this.name,
     required this.price,
+    this.qty = 1,
   });
 
   factory PosSaleLineTopping.fromJson(Map<String, dynamic> json) {
@@ -22,10 +24,15 @@ class PosSaleLineTopping {
     final price = priceRaw is num
         ? priceRaw.toDouble()
         : double.tryParse('$priceRaw') ?? 0;
+    final qtyRaw = json['qty'] ?? json['Qty'] ?? json['quantity'];
+    final qty = qtyRaw is num
+        ? qtyRaw.toInt()
+        : int.tryParse('$qtyRaw') ?? 1;
     return PosSaleLineTopping(
       id: id.isEmpty ? name : id,
       name: name.isEmpty ? id : name,
       price: price,
+      qty: qty < 1 ? 1 : qty,
     );
   }
 
@@ -33,6 +40,7 @@ class PosSaleLineTopping {
         'id': id,
         'name': name,
         'price': price,
+        'qty': qty < 1 ? 1 : qty,
       };
 }
 
@@ -105,7 +113,8 @@ class PosSaleOrderLine {
     double n(dynamic v) => v is num ? v.toDouble() : double.tryParse('$v') ?? 0;
     int? i(dynamic v) => v == null ? null : (v is num ? v.toInt() : int.tryParse('$v'));
     return PosSaleOrderLine(
-      id: (json['id'] ?? json['Id'])?.toString(),
+      id: (json['id'] ?? json['Id'] ?? json['lineId'] ?? json['LineId'])
+          ?.toString(),
       productId: (json['productId'] ?? json['ProductId']).toString(),
       variantId: (json['variantId'] ?? json['VariantId'])?.toString(),
       productName: (json['productName'] ?? json['ProductName'] ?? '').toString(),

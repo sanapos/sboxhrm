@@ -1,15 +1,11 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
-/// Font chính (pubspec assets) + fallback. google_fonts chỉ cần cho web CanvasKit.
-/// Mobile: fonts đã load sẵn từ pubspec — file này chỉ cung cấp interface.
+/// Font chính (pubspec assets). Không fallback Arial/sans — Android 6 (T1)
+/// hay nhảy sang font CJK hệ thống, dấu tiếng Việt bị lỗi cả app.
 const String kVietnameseFontFamily = 'BeVietnamPro';
 const List<String> kVietnameseFontFallback = [
   'Be Vietnam Pro',
-  'Noto Sans',
-  'Arial',
-  'Segoe UI',
-  'sans-serif',
 ];
 
 bool _mobileFontsLoaded = false;
@@ -22,7 +18,10 @@ Future<void> preloadVietnameseFonts() async {
   }
 }
 
-TextTheme vietnameseTextTheme(TextTheme base) => base;
+TextTheme vietnameseTextTheme(TextTheme base) => base.apply(
+      fontFamily: kVietnameseFontFamily,
+      fontFamilyFallback: kVietnameseFontFallback,
+    );
 
 TextStyle vietnameseTextStyle([TextStyle? base]) {
   final b = base ?? const TextStyle();
@@ -39,8 +38,7 @@ TextStyle get kDefaultVietnameseTextStyle => vietnameseTextStyle(
       ),
     );
 
-ThemeData vietnameseThemeOverlay(BuildContext context) {
-  final base = Theme.of(context);
+ThemeData applyVietnameseFonts(ThemeData base) {
   return base.copyWith(
     textTheme: vietnameseTextTheme(base.textTheme),
     primaryTextTheme: vietnameseTextTheme(base.primaryTextTheme),
@@ -52,6 +50,12 @@ ThemeData vietnameseThemeOverlay(BuildContext context) {
         base.tabBarTheme.unselectedLabelStyle,
       ),
     ),
+  );
+}
+
+ThemeData vietnameseThemeOverlay(BuildContext context) {
+  final base = Theme.of(context);
+  return applyVietnameseFonts(base).copyWith(
     dataTableTheme: DataTableThemeData(
       headingTextStyle: vietnameseTextStyle(const TextStyle(
         fontWeight: FontWeight.bold,

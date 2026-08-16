@@ -66,7 +66,7 @@ class _PosSupplierReportScreenState extends State<PosSupplierReportScreen> {
         color: color.withOpacity(0.12),
         borderRadius: BorderRadius.circular(6),
       ),
-      child: Text(tr('$label: ${_moneyFmt.format(amount)}'),
+      child: Text('$label: ${posReportMoney(amount)}',
           style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.w600)),
     );
   }
@@ -127,8 +127,13 @@ class _PosSupplierReportScreenState extends State<PosSupplierReportScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(tr('${_moneyFmt.format(_n(_debt?['sumDebt']))} đ'),
-                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.red)),
+            PosReportMoneyLabel(
+              _n(_debt?['sumDebt']),
+              fontSize: 18,
+              maxWidth: 280,
+              align: Alignment.centerLeft,
+              color: const Color(0xFF2B3437),
+            ),
             const SizedBox(height: 8),
             Wrap(
               spacing: 8,
@@ -166,7 +171,7 @@ class _PosSupplierReportScreenState extends State<PosSupplierReportScreen> {
         Text(tr(r['name']?.toString() ?? '—'),
             style: const TextStyle(fontWeight: FontWeight.w600)),
         Text(
-          tr('${r['phone'] ?? r['supplierCode'] ?? ''} · Nợ ${_moneyFmt.format(_n(r['currentDebt']))} · phiếu mở ${_moneyFmt.format(_n(r['openReceiptDebt']))}'),
+          '${r['phone'] ?? r['supplierCode'] ?? ''} · Nợ ${posReportMoney(_n(r['currentDebt']))} · phiếu mở ${posReportMoney(_n(r['openReceiptDebt']))}',
           style: const TextStyle(fontSize: 12, color: PosTheme.textSecondary),
         ),
         const SizedBox(height: 4),
@@ -205,9 +210,9 @@ class _PosSupplierReportScreenState extends State<PosSupplierReportScreen> {
         ),
       ),
       PosReportCard(
-        title: 'Trả NCC ${_purchases?['returnCount'] ?? 0} phiếu · ${_moneyFmt.format(_n(_purchases?['returnAmount']))}',
+        title: 'Trả NCC ${_purchases?['returnCount'] ?? 0} phiếu · ${posReportMoney(_n(_purchases?['returnAmount']))}',
         child: returns.isEmpty
-            ? Text(tr('Không có phiếu trả'), style: const TextStyle(color: PosTheme.textSecondary))
+            ? const PosReportEmpty(message: 'Không có phiếu trả')
             : Column(
                 children: [
                   for (final r in returns)
@@ -216,7 +221,7 @@ class _PosSupplierReportScreenState extends State<PosSupplierReportScreen> {
                       contentPadding: EdgeInsets.zero,
                       title: Text(tr('${r['returnNo']} · ${r['supplierName'] ?? ''}')),
                       subtitle: Text(tr(_fmtDate(r['date']))),
-                      trailing: Text(_moneyFmt.format(_n(r['totalAmount']))),
+                      trailing: PosReportMoneyLabel(_n(r['totalAmount'])),
                     ),
                 ],
               ),
@@ -224,7 +229,7 @@ class _PosSupplierReportScreenState extends State<PosSupplierReportScreen> {
       PosReportCard(
         title: 'Phiếu nhập (${_purchases?['receiptCount'] ?? receipts.length})',
         child: receipts.isEmpty
-            ? Text(tr('Không có phiếu nhập'), style: const TextStyle(color: PosTheme.textSecondary))
+            ? const PosReportEmpty(message: 'Không có phiếu nhập')
             : Column(
                 children: [
                   for (final r in receipts)
@@ -234,7 +239,7 @@ class _PosSupplierReportScreenState extends State<PosSupplierReportScreen> {
                       title: Text(tr('${r['receiptNo']} · ${r['supplierName'] ?? ''}')),
                       subtitle: Text(tr(
                           '${_fmtDate(r['date'])}${r['purchaseOrderNo'] != null ? ' · PO ${r['purchaseOrderNo']}' : ''}')),
-                      trailing: Text(_moneyFmt.format(_n(r['grandTotal']))),
+                      trailing: PosReportMoneyLabel(_n(r['grandTotal'])),
                     ),
                 ],
               ),

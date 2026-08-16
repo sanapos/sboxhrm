@@ -5,6 +5,7 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 
 import '../models/pos_print_template.dart';
+import '../models/pos_print_template_v2.dart';
 import '../models/pos_sale_order.dart';
 import '../models/pos_store_printer.dart';
 import '../services/api_service.dart';
@@ -16,6 +17,7 @@ import 'pos_print_template_loader.dart';
 import 'pos_pdf_fonts.dart';
 import 'pos_print_orchestrator.dart';
 import 'pos_print_template_renderer.dart';
+import 'pos_topping_format.dart';
 import 'pos_printer_transport.dart';
 import 'pos_print_store_info.dart';
 import 'pos_purchase_receipt_print.dart';
@@ -154,8 +156,13 @@ Future<Uint8List> buildPosSaleOrderPdfBytes({
               final unitSuffix =
                   l.unitName != null && l.unitName!.isNotEmpty ? ' (${l.unitName})' : '';
               var name = '${l.productName}$unitSuffix';
-              if (l.lineNote != null && l.lineNote!.isNotEmpty) {
-                name = '$name\n↳ ${l.lineNote}';
+              final toppingNote = posToppingNoteFromSaleLine(
+                l,
+                withPrice: true,
+                money: money,
+              );
+              if (toppingNote.isNotEmpty) {
+                name = '$name\n$toppingNote';
               }
               return [
                 '${i + 1}',
@@ -224,7 +231,9 @@ Future<Uint8List> buildPosSaleOrderPdfBytes({
 List<PosSaleOrderLine> _mergeSaleLines(List<PosSaleOrderLine> lines) {
   final map = <String, PosSaleOrderLine>{};
   for (final l in lines) {
-    final key = '${l.productId}|${l.variantId ?? ''}|${l.unitPrice}|${l.unitName ?? ''}';
+    final topKey = l.toppings.map((t) => '${t.id}x${t.qty}').join(',');
+    final key =
+        '${l.productId}|${l.variantId ?? ''}|${l.unitPrice}|${l.unitName ?? ''}|${l.lineNote ?? ''}|$topKey';
     final existing = map[key];
     if (existing == null) {
       map[key] = l;
@@ -239,9 +248,8 @@ List<PosSaleOrderLine> _mergeSaleLines(List<PosSaleOrderLine> lines) {
         unitPrice: existing.unitPrice,
         discountAmount: existing.discountAmount + l.discountAmount,
         lineTotal: existing.lineTotal + l.lineTotal,
-        lineNote: [existing.lineNote, l.lineNote]
-            .where((n) => n != null && n.isNotEmpty)
-            .join('; '),
+        lineNote: existing.lineNote,
+        toppings: existing.toppings,
       );
     }
   }
@@ -658,8 +666,21 @@ Future<bool> _tryLocalSalePrint({
   // Chỉ native khi connectionType = sunmi — không ép máy USB/BT/LAN trên thiết bị Sunmi.
   if (settings.connectionType == PosThermalConnectionType.sunmi) {
     try {
-      final v2 = PosPrintTemplateRuntime.parseTemplate(template);
-      if (v2 != null && vatAmount <= 0) {
+      // HTML legacy không parse được — dùng preset V2 (4 cột), không in HTML 1 x giá.
+      final v2 = PosPrintTemplateRuntime.resolveOrPreset(
+        template: template,
+        documentType: PosPrintDocumentTypes.saleInvoice,
+        paperSize: template?.paperSize ?? PosPrintPaperSizes.k80,
+        printerProfile: settings.paperWidthMm <= 58
+            ? PosPrintPrinterProfiles.sunmiK58
+            : PosPrintPrinterProfiles.sunmiK80,
+      );
+      debugPrint(
+        'SALE PRINT local sunmi parsed=${PosPrintTemplateRuntime.parseTemplate(template) != null} '
+        'preset=${v2.blocks.length}blks vat=$vatAmount '
+        'tpl=${template?.id ?? "-"} paper=${template?.paperSize ?? "-"}',
+      );
+      if (vatAmount <= 0) {
         final output = PosPrintTemplateRuntime.compileSaleOrder(
           template: v2,
           order: printOrder,
@@ -724,8 +745,15 @@ Future<bool> _tryLocalSalePrint({
   }
 
   Future<bool> attempt(PosThermalPrinterSettings s, {String? qr}) async {
-    final v2 = PosPrintTemplateRuntime.parseTemplate(template);
-    if (v2 != null) {
+    final v2 = PosPrintTemplateRuntime.resolveOrPreset(
+      template: template,
+      documentType: PosPrintDocumentTypes.saleInvoice,
+      paperSize: template?.paperSize ?? PosPrintPaperSizes.k80,
+      printerProfile: s.paperWidthMm <= 58
+          ? PosPrintPrinterProfiles.sunmiK58
+          : PosPrintPrinterProfiles.sunmiK80,
+    );
+    if (v2.blocks.isNotEmpty) {
       final output = PosPrintTemplateRuntime.compileSaleOrder(
         template: v2,
         order: printOrder,

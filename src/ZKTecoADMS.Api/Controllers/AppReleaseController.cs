@@ -72,17 +72,30 @@ public class AppReleaseController : ControllerBase
 
         try
         {
-            using var doc = JsonDocument.Parse(System.IO.File.ReadAllText(jsonPath));
+            var jsonText = System.IO.File.ReadAllText(jsonPath);
+            // PowerShell/Windows đôi khi ghi UTF-8 BOM → JsonDocument.Parse fail trên vài runtime.
+            if (jsonText.Length > 0 && jsonText[0] == '\uFEFF')
+                jsonText = jsonText.TrimStart('\uFEFF');
+            using var doc = JsonDocument.Parse(jsonText);
             var root = doc.RootElement;
             var versionName = root.TryGetProperty("versionName", out var vn) ? vn.GetString() ?? "0" : "0";
             var versionCode = root.TryGetProperty("versionCode", out var vc) ? vc.GetInt32() : 0;
             var notes = root.TryGetProperty("releaseNotes", out var rn) ? rn.GetString() : null;
             var force = root.TryGetProperty("forceUpdate", out var fu) && fu.GetBoolean();
-            var relativeApk = root.TryGetProperty("apkPath", out var ap)
-                ? ap.GetString() ?? "/api/app/pos-android-apk"
-                : "/api/app/pos-android-apk";
+            // Ưu tiên API stream (ổn định hơn static /downloads qua nginx cache).
+            var relativeApk = "/api/app/pos-android-apk";
+            if (root.TryGetProperty("apkPath", out var ap))
+            {
+                var p = ap.GetString();
+                if (!string.IsNullOrWhiteSpace(p))
+                    relativeApk = p!;
+            }
+            // Bỏ absolute apkUrl trong JSON nếu lệch domain — luôn BuildPublicUrl theo request host.
 
             if (!relativeApk.StartsWith('/')) relativeApk = "/" + relativeApk;
+            // Ép về endpoint API nếu JSON vẫn trỏ static cũ.
+            if (relativeApk.Equals("/downloads/sbox-pos.apk", StringComparison.OrdinalIgnoreCase))
+                relativeApk = "/api/app/pos-android-apk";
 
             long? bytes = null;
             DateTime? published = null;

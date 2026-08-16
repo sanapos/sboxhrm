@@ -73,13 +73,17 @@ public partial class PosProductsController(
         int? RoundAfterMinutes = null,
         int? DefaultDurationMinutes = null,
         int SessionPackCount = 0,
+        decimal OpeningFee = 0,
+        int? OpeningMinutes = null,
+        int SessionPackValidDays = 0,
         bool IsTopping = false,
         bool AllowToppings = false,
         bool AutoOpenToppingPopup = true,
         bool AllowDecimalQty = false,
         List<PosProductToppingOptionDto>? ToppingOptions = null,
         List<Guid>? ToppingGroupIds = null,
-        List<PosProductToppingGroupDto>? ToppingGroups = null);
+        List<PosProductToppingGroupDto>? ToppingGroups = null,
+        decimal? SellableQty = null);
 
     public record PosProductToppingGroupDto(
         Guid Id,
@@ -144,6 +148,9 @@ public partial class PosProductsController(
         int? RoundAfterMinutes = null,
         int? DefaultDurationMinutes = null,
         int SessionPackCount = 0,
+        decimal OpeningFee = 0,
+        int? OpeningMinutes = null,
+        int SessionPackValidDays = 0,
         bool IsTopping = false,
         bool AllowToppings = false,
         bool AutoOpenToppingPopup = true,
@@ -230,9 +237,12 @@ public partial class PosProductsController(
         query = stockFilter switch
         {
             PosStockFilter.BelowMin => query.Where(p =>
+                p.ProductType == PosProductType.Goods &&
                 p.MinStockQty > 0 && p.OnHandQty > 0 && p.OnHandQty <= p.MinStockQty),
-            PosStockFilter.OutOfStock => query.Where(p => p.OnHandQty <= 0),
+            PosStockFilter.OutOfStock => query.Where(p =>
+                p.ProductType == PosProductType.Goods && p.OnHandQty <= 0),
             PosStockFilter.AboveMax => query.Where(p =>
+                p.ProductType == PosProductType.Goods &&
                 p.MaxStockQty > 0 && p.OnHandQty > p.MaxStockQty),
             _ => query,
         };
@@ -299,6 +309,16 @@ public partial class PosProductsController(
                 p.AllowToppings,
                 p.AutoOpenToppingPopup,
                 p.AllowDecimalQty,
+                p.ServiceBillingMode,
+                p.MinBillMinutes,
+                p.BillRoundMinutes,
+                p.GraceMinutes,
+                p.RoundAfterMinutes,
+                p.DefaultDurationMinutes,
+                p.SessionPackCount,
+                p.OpeningFee,
+                p.OpeningMinutes,
+                p.SessionPackValidDays,
                 p.CreatedAt,
                 p.UpdatedAt,
             })
@@ -333,6 +353,12 @@ public partial class PosProductsController(
         var (groupIdsMap, groupsMap) = await LoadToppingGroupsForProductsAsync(
             storeId, rows.Select(r => r.Id));
 
+        var comboIds = rows
+            .Where(r => r.ProductType == nameof(PosProductType.Combo))
+            .Select(r => r.Id)
+            .ToList();
+        var comboSellable = await ComputeComboSellableAsync(storeId, comboIds);
+
         var items = rows.Select(r =>
         {
             metrics.TryGetValue(r.Id, out var m);
@@ -356,13 +382,26 @@ public partial class PosProductsController(
                 null, null,
                 PosSaleQuickNotesHelper.Parse(r.SaleQuickNotesJson),
                 r.CreatedAt, r.UpdatedAt,
+                ServiceBillingMode: r.ServiceBillingMode.ToString(),
+                MinBillMinutes: r.MinBillMinutes,
+                BillRoundMinutes: r.BillRoundMinutes,
+                GraceMinutes: r.GraceMinutes,
+                RoundAfterMinutes: r.RoundAfterMinutes,
+                DefaultDurationMinutes: r.DefaultDurationMinutes,
+                SessionPackCount: r.SessionPackCount,
+                OpeningFee: r.OpeningFee,
+                OpeningMinutes: r.OpeningMinutes,
+                SessionPackValidDays: r.SessionPackValidDays,
                 IsTopping: r.IsTopping,
                 AllowToppings: r.AllowToppings,
                 AutoOpenToppingPopup: r.AutoOpenToppingPopup,
                 AllowDecimalQty: r.AllowDecimalQty,
                 ToppingOptions: toppingOpts,
                 ToppingGroupIds: groupIds,
-                ToppingGroups: toppingGroups);
+                ToppingGroups: toppingGroups,
+                SellableQty: r.ProductType == nameof(PosProductType.Combo)
+                    ? comboSellable.GetValueOrDefault(r.Id)
+                    : null);
         }).ToList();
 
         if (stockoutFilter != PosStockoutFilter.All)
@@ -591,6 +630,9 @@ public partial class PosProductsController(
             RoundAfterMinutes = dto.RoundAfterMinutes,
             DefaultDurationMinutes = dto.DefaultDurationMinutes,
             SessionPackCount = Math.Max(0, dto.SessionPackCount),
+            OpeningFee = Math.Max(0, dto.OpeningFee),
+            OpeningMinutes = dto.OpeningMinutes,
+            SessionPackValidDays = Math.Max(0, dto.SessionPackValidDays),
             IsTopping = dto.IsTopping,
             AllowToppings = dto.AllowToppings && !dto.IsTopping,
             AutoOpenToppingPopup = dto.AutoOpenToppingPopup,
@@ -704,6 +746,9 @@ public partial class PosProductsController(
         entity.RoundAfterMinutes = dto.RoundAfterMinutes;
         entity.DefaultDurationMinutes = dto.DefaultDurationMinutes;
         entity.SessionPackCount = Math.Max(0, dto.SessionPackCount);
+        entity.OpeningFee = Math.Max(0, dto.OpeningFee);
+        entity.OpeningMinutes = dto.OpeningMinutes;
+        entity.SessionPackValidDays = Math.Max(0, dto.SessionPackValidDays);
         entity.IsTopping = dto.IsTopping;
         entity.AllowToppings = dto.AllowToppings && !dto.IsTopping;
         entity.AutoOpenToppingPopup = dto.AutoOpenToppingPopup;
@@ -974,9 +1019,13 @@ public partial class PosProductsController(
             p.ServiceBillingMode.ToString(), p.MinBillMinutes, p.BillRoundMinutes,
             p.GraceMinutes, p.RoundAfterMinutes,
             p.DefaultDurationMinutes, p.SessionPackCount,
+            p.OpeningFee, p.OpeningMinutes, p.SessionPackValidDays,
             p.IsTopping, p.AllowToppings, p.AutoOpenToppingPopup,
             p.AllowDecimalQty, toppingOpts,
-            groupIds, toppingGroups);
+            groupIds, toppingGroups,
+            SellableQty: p.ProductType == PosProductType.Combo
+                ? (await ComputeComboSellableAsync(storeId, [p.Id])).GetValueOrDefault(p.Id)
+                : null);
     }
 
     private async Task<(
@@ -1179,6 +1228,39 @@ public partial class PosProductsController(
         return ok ? printerId : null;
     }
 
+    private async Task<Dictionary<Guid, decimal>> ComputeComboSellableAsync(
+        Guid storeId, IReadOnlyList<Guid> comboIds)
+    {
+        var map = comboIds.Distinct().ToDictionary(id => id, _ => 0m);
+        if (map.Count == 0) return map;
+        var lines = await dbContext.PosProductComboLines.AsNoTracking()
+            .Where(x => comboIds.Contains(x.ComboProductId) &&
+                        x.StoreId == storeId && x.Deleted == null)
+            .Select(x => new
+            {
+                x.ComboProductId,
+                x.Qty,
+                OnHand = x.ComponentProduct != null ? x.ComponentProduct.OnHandQty : 0m,
+            })
+            .ToListAsync();
+        foreach (var g in lines.GroupBy(x => x.ComboProductId))
+        {
+            decimal? min = null;
+            foreach (var cl in g)
+            {
+                if (cl.Qty <= 0)
+                {
+                    min = 0;
+                    break;
+                }
+                var can = Math.Floor(cl.OnHand / cl.Qty);
+                if (min == null || can < min) min = can;
+            }
+            map[g.Key] = min ?? 0;
+        }
+        return map;
+    }
+
     private static void NormalizeByProductType(PosProduct entity)
     {
         if (entity.ProductType == PosProductType.Service)
@@ -1210,6 +1292,9 @@ public partial class PosProductsController(
             entity.RoundAfterMinutes = null;
             entity.DefaultDurationMinutes = null;
             entity.SessionPackCount = Math.Max(0, entity.SessionPackCount);
+            entity.OpeningFee = 0;
+            entity.OpeningMinutes = null;
+            entity.SessionPackValidDays = 0;
         }
         else
         {
@@ -1219,6 +1304,9 @@ public partial class PosProductsController(
             entity.BillRoundMinutes = null;
             entity.GraceMinutes = null;
             entity.RoundAfterMinutes = null;
+            entity.OpeningFee = 0;
+            entity.OpeningMinutes = null;
+            entity.SessionPackValidDays = 0;
             entity.DefaultDurationMinutes = null;
             entity.SessionPackCount = Math.Max(0, entity.SessionPackCount);
         }
@@ -1282,8 +1370,9 @@ public partial class PosProductsController(
             _ => "HH",
         };
 
+        // Unique index StoreId+ProductCode includes soft-deleted rows — skip those codes too.
         var existing = await dbContext.PosProducts.AsNoTracking()
-            .Where(p => p.StoreId == storeId && p.Deleted == null && p.ProductCode.StartsWith(prefix))
+            .Where(p => p.StoreId == storeId && p.ProductCode.StartsWith(prefix))
             .Select(p => p.ProductCode)
             .ToListAsync();
 
@@ -1300,8 +1389,9 @@ public partial class PosProductsController(
         for (var attempt = 0; attempt < 20; attempt++)
         {
             var candidate = $"{prefix}{next + attempt:D5}";
-            if (!await dbContext.PosProducts.AnyAsync(p =>
-                    p.StoreId == storeId && p.ProductCode == candidate && p.Deleted == null))
+            if (!existing.Contains(candidate, StringComparer.OrdinalIgnoreCase) &&
+                !await dbContext.PosProducts.AnyAsync(p =>
+                    p.StoreId == storeId && p.ProductCode == candidate))
                 return candidate;
         }
 

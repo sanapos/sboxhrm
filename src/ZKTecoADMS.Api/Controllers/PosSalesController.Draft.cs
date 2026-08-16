@@ -17,7 +17,7 @@ namespace ZKTecoADMS.Api.Controllers;
 public partial class PosSalesController
 {
     [HttpPut("{id:guid}")]
-    [RequireModulePermission("PosSell", ModulePermissionAction.Create)]
+    [RequireAnyActionOnModule("PosSell", ModulePermissionAction.Create, ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<SaleOrderDto>>> UpdateSale(Guid id, [FromBody] UpdateSaleDto dto)
     {
         if (dto.Complete)
@@ -100,7 +100,21 @@ public partial class PosSalesController
                 catch { conflictMapped = MapOrder(fresh, fresh.Lines?.Where(l => l.Deleted == null).ToList() ?? [], viewerUserId: CurrentUserId, viewerDeviceId: dto.DeviceId, viewerDeviceName: dto.DeviceName); }
                 return Conflict(AppResponse<SaleOrderDto>.Create(false, conflictMapped, [reconcileClearErr]));
             }
-            await dbContext.SaveChangesAsync();
+            await using (var txClear = await dbContext.Database.BeginTransactionAsync(IsolationLevel.RepeatableRead))
+            {
+                try
+                {
+                    await dbContext.SaveChangesAsync();
+                    await txClear.CommitAsync();
+                }
+                catch (Exception ex) when (IsSerializationFailure(ex))
+                {
+                    await txClear.RollbackAsync();
+                    dbContext.ChangeTracker.Clear();
+                    return Conflict(AppResponse<SaleOrderDto>.Fail(
+                        "Đơn đang được máy khác lưu — thử lại"));
+                }
+            }
             order.Lines = [];
             SaleOrderDto cleared;
             try { cleared = await MapOrderAsync(storeId, order, [], dto.DeviceId, dto.DeviceName); }
@@ -118,7 +132,7 @@ public partial class PosSalesController
             dto.PriceListId, dto.Payments, dto.VoucherCode, dto.PointsToRedeem,
             dto.ServiceResourceId, dto.ResourceSessionId, dto.ServiceStartedAt, dto.ServiceEndedAt,
             dto.ExpectedLockVersion, dto.DeviceId, dto.DeviceName, dto.InvoiceSlot,
-            dto.VatAmount);
+            dto.VatAmount, dto.IssueEInvoice, dto.EInvoiceBuyer);
 
         // Thanh toán: RepeatableRead + retry serialization/unique (giống CreateSale) —
         // tránh 500 «lỗi hệ thống» khi autosave/máy khác tranh chấp tồn hoặc mã HD/phiếu thu.
@@ -232,6 +246,18 @@ public partial class PosSalesController
 
             if (order.Status == PosSaleOrderStatus.Completed)
             {
+                await TryApplyEInvoiceAfterCompleteAsync(order, dto.IssueEInvoice, dto.EInvoiceBuyer);
+                try
+                {
+                    mappedComplete = await MapOrderAsync(
+                        storeId, order, linesComplete, dto.DeviceId, dto.DeviceName);
+                }
+                catch
+                {
+                    order.Lines = linesComplete;
+                    mappedComplete = MapOrder(order, linesComplete, viewerUserId: CurrentUserId,
+                        viewerDeviceId: dto.DeviceId, viewerDeviceName: dto.DeviceName);
+                }
                 await CloseResourceSessionForCompletedOrderAsync(storeId, order);
                 try
                 {
@@ -259,6 +285,8 @@ public partial class PosSalesController
                 l.VariantId,
                 l.KitchenSentQty,
                 l.KitchenSentAt,
+                l.KitchenDoneQty,
+                l.KitchenPrepStatus,
                 l.ToppingsJson,
                 l.LineNote,
             })
@@ -304,6 +332,8 @@ public partial class PosSalesController
                 l.VariantId,
                 l.KitchenSentQty,
                 l.KitchenSentAt,
+                l.KitchenDoneQty,
+                l.KitchenPrepStatus,
                 l.ToppingsJson,
                 l.LineNote,
             })
@@ -351,6 +381,8 @@ public partial class PosSalesController
                 l.VariantId,
                 l.KitchenSentQty,
                 l.KitchenSentAt,
+                l.KitchenDoneQty,
+                l.KitchenPrepStatus,
                 l.ToppingsJson,
                 l.LineNote,
             })
@@ -362,15 +394,72 @@ public partial class PosSalesController
                 g => (
                     Sent: g.Sum(x => x.KitchenSentQty),
                     At: g.Max(x => x.KitchenSentAt)));
+        // live.Sent là TỔNG của cả nhóm (cùng SP + topping + ghi chú). Phải chia
+        // phần còn thiếu cho từng dòng, không gán tổng cho mọi dòng: 1 SP tách 2
+        // dòng (1 đã báo, 1 mới) sẽ bị đánh dấu cả hai đã báo → báo bếp trả
+        // alreadyAllSent, món mới không ra phiếu.
+        var finalShortfall = new Dictionary<string, decimal>();
+        foreach (var kv in finalLive)
+        {
+            finalShortfall[kv.Key] = kv.Value.Sent;
+        }
         foreach (var line in lines)
         {
             var key = KitchenMergeKey(line.ProductId, line.VariantId, line.ToppingsJson, line.LineNote);
-            if (!finalLive.TryGetValue(key, out var live)) continue;
-            if (live.Sent > line.KitchenSentQty)
+            if (finalShortfall.TryGetValue(key, out var rest))
+                finalShortfall[key] = rest - line.KitchenSentQty;
+        }
+        foreach (var line in lines)
+        {
+            var key = KitchenMergeKey(line.ProductId, line.VariantId, line.ToppingsJson, line.LineNote);
+            if (!finalShortfall.TryGetValue(key, out var rest) || rest <= 0) continue;
+            var room = line.Qty - line.KitchenSentQty;
+            if (room <= 0) continue;
+            var add = Math.Min(rest, room);
+            line.KitchenSentQty += add;
+            if (finalLive.TryGetValue(key, out var live) && live.At.HasValue)
+                line.KitchenSentAt = live.At;
+            finalShortfall[key] = rest - add;
+        }
+
+        // Giữ trạng thái KDS khi autosave rebuild dòng — POS giỏ không gửi done/prep.
+        var kdsDone = new Dictionary<string, decimal>();
+        var kdsStatus = new Dictionary<string, List<string>>();
+        void AccKds(string key, decimal done, IEnumerable<string?> statuses)
+        {
+            if (!kdsDone.TryGetValue(key, out var cur) || done > cur)
+                kdsDone[key] = done;
+            if (!kdsStatus.TryGetValue(key, out var list))
             {
-                line.KitchenSentQty = Math.Min(live.Sent, line.Qty);
-                if (live.At.HasValue) line.KitchenSentAt = live.At;
+                list = [];
+                kdsStatus[key] = list;
             }
+            foreach (var status in statuses)
+                if (!string.IsNullOrWhiteSpace(status)) list.Add(status!);
+        }
+        foreach (var g in priorRows.GroupBy(r =>
+            KitchenMergeKey(r.ProductId, r.VariantId, r.ToppingsJson, r.LineNote)))
+            AccKds(g.Key, g.Sum(x => x.KitchenDoneQty), g.Select(x => x.KitchenPrepStatus));
+        foreach (var g in liveRows.GroupBy(r =>
+            KitchenMergeKey(r.ProductId, r.VariantId, r.ToppingsJson, r.LineNote)))
+            AccKds(g.Key, g.Sum(x => x.KitchenDoneQty), g.Select(x => x.KitchenPrepStatus));
+        foreach (var g in finalLiveRows.GroupBy(r =>
+            KitchenMergeKey(r.ProductId, r.VariantId, r.ToppingsJson, r.LineNote)))
+            AccKds(g.Key, g.Sum(x => x.KitchenDoneQty), g.Select(x => x.KitchenPrepStatus));
+        var remainingDone = kdsDone.ToDictionary(kv => kv.Key, kv => kv.Value);
+        foreach (var line in lines)
+        {
+            var key = KitchenMergeKey(line.ProductId, line.VariantId, line.ToppingsJson, line.LineNote);
+            remainingDone.TryGetValue(key, out var doneLeft);
+            var takeDone = Math.Min(Math.Max(0, doneLeft), line.KitchenSentQty);
+            line.KitchenDoneQty = takeDone;
+            remainingDone[key] = Math.Max(0, doneLeft - takeDone);
+            var hasOpen = line.KitchenSentQty - line.KitchenDoneQty > 0.0001m;
+            kdsStatus.TryGetValue(key, out var st);
+            line.KitchenPrepStatus = line.KitchenSentQty <= 0
+                ? PosKitchenKdsHelper.None
+                : PosKitchenKdsHelper.MergeStatus(st ?? [], hasOpen);
+            PosKitchenKdsHelper.Clamp(line);
         }
 
         if (order.Status == PosSaleOrderStatus.Draft)
@@ -424,17 +513,30 @@ public partial class PosSalesController
                 return Conflict(AppResponse<SaleOrderDto>.Create(false, conflictMapped, [reconcileErr]));
             }
         }
-        for (var attempt = 0; ; attempt++)
+        await using (var txDraft = await dbContext.Database.BeginTransactionAsync(IsolationLevel.RepeatableRead))
         {
             try
             {
-                await dbContext.SaveChangesAsync();
-                break;
+                for (var attempt = 0; ; attempt++)
+                {
+                    try
+                    {
+                        await dbContext.SaveChangesAsync();
+                        break;
+                    }
+                    catch (DbUpdateException ex) when (attempt < 5 &&
+                        ex.InnerException?.Message.Contains("IX_CashTransactions_StoreId_TransactionCode") == true)
+                    {
+                        await PosFinanceSyncHelper.RegenerateDuplicateCodesAsync(dbContext, storeId);
+                    }
+                }
+                await txDraft.CommitAsync();
             }
-            catch (DbUpdateException ex) when (attempt < 5 &&
-                ex.InnerException?.Message.Contains("IX_CashTransactions_StoreId_TransactionCode") == true)
+            catch (Exception ex) when (IsSerializationFailure(ex))
             {
-                await PosFinanceSyncHelper.RegenerateDuplicateCodesAsync(dbContext, storeId);
+                await txDraft.RollbackAsync();
+                return Conflict(AppResponse<SaleOrderDto>.Fail(
+                    "Đơn đang được máy khác lưu — thử lại"));
             }
         }
 
@@ -583,6 +685,9 @@ public partial class PosSalesController
     public async Task<ActionResult<AppResponse<SaleOrderDto>>> CompleteSale(
         Guid id, [FromBody] CompleteSaleDto? dto = null)
     {
+        var denied = await DenyIfCannotCompleteSaleAsync();
+        if (denied != null) return denied;
+
         var storeId = RequiredStoreId;
         // DbContext mặc định NoTracking — bắt buộc AsTracking để SaveChangesAsync thực sự ghi đơn.
         var order = await dbContext.PosSaleOrders.AsTracking()
@@ -679,8 +784,7 @@ public partial class PosSalesController
             order.SaleDate = DateTime.UtcNow;
             order.SoldBy ??= CurrentUserEmail;
             order.PaidAmount = order.PaidAmount > 0 ? order.PaidAmount : 0;
-            if (PosDraftInvoiceSlots.IsTempOrderNo(order.OrderNo) || order.InvoiceSlot.HasValue
-                || order.OrderNo.StartsWith("BAN", StringComparison.OrdinalIgnoreCase))
+            if (PosSaleStockHelper.NeedsOfficialOrderNo(order.OrderNo))
                 order.OrderNo = await PosSaleStockHelper.NextOrderNoAsync(dbContext, storeId, order.SaleDate);
             order.InvoiceSlot = null;
             PosDraftLockHelper.Release(order);
@@ -770,6 +874,8 @@ public partial class PosSalesController
             .Select(p => (p.Id, p.Name, p.OnHandQty, p.MinStockQty));
         await PosNotificationHelper.NotifyLowStockAsync(
             notificationService, dbContext, storeId, lowStockItems, CurrentUserId);
+
+        await TryApplyEInvoiceAfterCompleteAsync(order, dto?.IssueEInvoice, dto?.EInvoiceBuyer);
 
         try
         {
@@ -1028,8 +1134,7 @@ public partial class PosSalesController
         if (complete)
         {
             // Mã HDxxxx chỉ gán lúc thanh toán (Draft dùng TMP{slot}).
-            if (PosDraftInvoiceSlots.IsTempOrderNo(order.OrderNo) || order.InvoiceSlot.HasValue
-                || order.OrderNo.StartsWith("BAN", StringComparison.OrdinalIgnoreCase))
+            if (PosSaleStockHelper.NeedsOfficialOrderNo(order.OrderNo))
                 order.OrderNo = await PosSaleStockHelper.NextOrderNoAsync(dbContext, storeId, now);
             order.InvoiceSlot = null;
             PosDraftLockHelper.Release(order);
@@ -1128,7 +1233,7 @@ public partial class PosSalesController
                 .FirstOrDefaultAsync(s => s.Id == order.ResourceSessionId
                     && s.StoreId == storeId && s.Deleted == null);
         }
-        else if (order.ServiceResourceId.HasValue)
+        else if (order.SplitFromOrderId == null && order.ServiceResourceId.HasValue)
         {
             billingSession = await dbContext.PosResourceSessions.AsTracking()
                 .Where(s => s.ResourceId == order.ServiceResourceId
@@ -1221,9 +1326,16 @@ public partial class PosSalesController
                     {
                         foreach (var el in doc.RootElement.EnumerateArray())
                         {
-                            if (el.TryGetProperty("price", out var pEl) ||
-                                el.TryGetProperty("Price", out pEl))
-                                toppingExtra += pEl.GetDecimal();
+                            if (!(el.TryGetProperty("price", out var pEl) ||
+                                  el.TryGetProperty("Price", out pEl)))
+                                continue;
+                            var unit = pEl.GetDecimal();
+                            var qty = 1m;
+                            if ((el.TryGetProperty("qty", out var qEl) ||
+                                 el.TryGetProperty("Qty", out qEl)) &&
+                                qEl.TryGetDecimal(out var q) && q > 0)
+                                qty = q;
+                            toppingExtra += unit * qty;
                         }
                     }
                 }
@@ -1233,7 +1345,7 @@ public partial class PosSalesController
             discAmt = Math.Max(0, Math.Min(line.DiscountAmount, grossLine));
 
             if (p.ProductType == PosProductType.Service
-                && p.ServiceBillingMode is PosServiceBillingMode.PerHour or PosServiceBillingMode.PerMinute)
+                && PosServiceBillingHelper.IsTimed(p.ServiceBillingMode))
             {
                 var started = lineStarted ?? order.ServiceStartedAt ?? DateTime.UtcNow;
                 var ended = lineEnded ?? (complete ? DateTime.UtcNow : (DateTime?)null);
@@ -1247,11 +1359,15 @@ public partial class PosSalesController
                     p.BillRoundMinutes,
                     p.GraceMinutes,
                     p.RoundAfterMinutes);
-                lineQty = PosServiceBillingHelper.CalcBillableQty(
-                    p.ServiceBillingMode, billableMinutes.Value, line.Qty);
+                var included = p.OpeningMinutes is > 0 ? p.OpeningMinutes.Value : 0;
+                var extra = Math.Max(0, billableMinutes.Value - included);
+                lineQty = extra <= 0
+                    ? 0
+                    : PosServiceBillingHelper.CalcBillableQty(
+                        p.ServiceBillingMode, extra, extra, p.BillRoundMinutes);
                 lineStarted ??= started;
                 if (complete) lineEnded ??= ended ?? DateTime.UtcNow;
-                grossLine = (unitPrice + toppingExtra) * lineQty;
+                grossLine = p.OpeningFee + (unitPrice + toppingExtra) * lineQty;
                 discAmt = Math.Max(0, Math.Min(line.DiscountAmount, grossLine));
                 lineTotal = grossLine - discAmt;
             }
@@ -1345,29 +1461,49 @@ public partial class PosSalesController
             ? PosCustomerFinanceHelper.CalcPointsEarn(order.Total)
             : 0;
 
+        var seatedDeposit = 0m;
+        if (complete)
+        {
+            seatedDeposit = await dbContext.PosResourceReservations.AsNoTracking()
+                .Where(x => x.DepositAppliedOrderId == order.Id
+                    && x.DepositStatus == PosReservationDepositStatus.Applied)
+                .SumAsync(x => (decimal?)x.DepositPaid) ?? 0;
+        }
+
         var paymentInputs = dto.Payments?
             .Where(p => p.Amount > 0)
             .ToList() ?? [];
-        if (paymentInputs.Count == 0 && dto.PaidAmount > 0)
+        if (paymentInputs.Count == 0 && dto.PaidAmount > seatedDeposit)
+        {
+            paymentInputs.Add(new SalePaymentInputDto(
+                dto.PaidAmount - seatedDeposit,
+                string.IsNullOrWhiteSpace(dto.PaymentMethod) ? "Tiền mặt" : dto.PaymentMethod.Trim()));
+        }
+        else if (paymentInputs.Count == 0 && dto.PaidAmount > 0 && seatedDeposit <= 0)
         {
             paymentInputs.Add(new SalePaymentInputDto(
                 dto.PaidAmount,
                 string.IsNullOrWhiteSpace(dto.PaymentMethod) ? "Tiền mặt" : dto.PaymentMethod.Trim()));
         }
 
+        var paySum = paymentInputs.Sum(p => p.Amount);
         if (paymentInputs.Count > 0)
         {
-            order.PaidAmount = paymentInputs.Sum(p => p.Amount);
+            // App mới: payments = phần còn lại; app cũ: payments = cả hóa đơn (gồm cọc).
+            var paymentsIncludeDeposit = seatedDeposit > 0 && paySum >= order.Total - 0.05m;
+            order.PaidAmount = paymentsIncludeDeposit ? paySum : paySum + seatedDeposit;
             order.PaymentMethod = string.Join(" + ", paymentInputs.Select(p => p.PaymentMethod));
         }
         else
         {
-            order.PaidAmount = dto.PaidAmount;
+            order.PaidAmount = Math.Max(dto.PaidAmount, seatedDeposit);
         }
 
         var paymentSync = paymentInputs
             .Select(p => new PosFinanceSyncHelper.SalePaymentSync(p.Amount, p.PaymentMethod, p.BankAccountId))
             .ToList();
+        if (seatedDeposit > 0 && paySum >= order.Total - 0.05m)
+            paymentSync = PosFinanceSyncHelper.SubtractAlreadyCashed(paymentSync, seatedDeposit);
 
         if (complete && plan != null)
         {
@@ -1429,7 +1565,7 @@ public partial class PosSalesController
                 }
             }
             // Phòng trường hợp ResourceSessionId null nhưng vẫn còn phiên mở trên bàn.
-            else if (order.ServiceResourceId.HasValue)
+            else if (order.SplitFromOrderId == null && order.ServiceResourceId.HasValue)
             {
                 var live = await dbContext.PosResourceSessions.AsTracking()
                     .Where(s => s.ResourceId == order.ServiceResourceId
@@ -1480,6 +1616,22 @@ public partial class PosSalesController
     {
         var now = DateTime.UtcNow;
         var by = CurrentUserEmail;
+
+        // Tách bill: chỉ đóng phiên gắn đúng đơn này (không có) — bàn gốc vẫn mở.
+        if (order.SplitFromOrderId.HasValue)
+        {
+            await dbContext.PosResourceSessions
+                .Where(s => s.SaleOrderId == order.Id && s.Deleted == null
+                    && (s.Status == PosResourceSessionStatus.Open
+                        || s.Status == PosResourceSessionStatus.Paused))
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(x => x.Status, PosResourceSessionStatus.Closed)
+                    .SetProperty(x => x.EndedAt, now)
+                    .SetProperty(x => x.UpdatedAt, now)
+                    .SetProperty(x => x.UpdatedBy, by));
+            return;
+        }
+
         Guid? tableId = order.ServiceResourceId;
 
         if (order.ResourceSessionId.HasValue)

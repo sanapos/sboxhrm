@@ -90,14 +90,41 @@ class PosAppUpdateService {
     }
   }
 
-  /// Flutter `--split-per-abi` gán Android versionCode = pubspecBuild + abi*1000
-  /// (armeabi-v7a=1, arm64-v8a=2, x86_64=3). Server có thể ghi 1049 hoặc 3049.
+  /// Flutter `--split-per-abi`: Android versionCode = pubspecBuild + abi*1000
+  /// (v7a=1, arm64=2, x86_64=3). Pubspec 15xxx → máy arm64 = 17xxx.
+  /// Server có thể ghi 15197 hoặc 17197 — không trừ 2000 khỏi 15197 (thành 13197).
   static int toPubspecBuildNumber(int androidOrPubspecCode) {
-    for (final abi in const [2, 1, 3]) {
-      final n = androidOrPubspecCode - abi * 1000;
-      if (n >= 100) return n;
+    final code = androidOrPubspecCode;
+    if (code >= 16000) {
+      for (final abi in const [3, 2, 1]) {
+        final n = code - abi * 1000;
+        if (n >= 10000 && n < 16000) return n;
+      }
     }
-    return androidOrPubspecCode;
+    if (code < 10000) {
+      for (final abi in const [3, 2, 1]) {
+        final n = code - abi * 1000;
+        if (n >= 100) return n;
+      }
+    }
+    return code;
+  }
+
+  static bool _isNewerVersionName(String latest, String current) {
+    List<int> parts(String v) => v
+        .split(RegExp(r'[^0-9]+'))
+        .where((s) => s.isNotEmpty)
+        .map((s) => int.tryParse(s) ?? 0)
+        .toList();
+    final a = parts(latest);
+    final b = parts(current);
+    final n = a.length > b.length ? a.length : b.length;
+    for (var i = 0; i < n; i++) {
+      final av = i < a.length ? a[i] : 0;
+      final bv = i < b.length ? b[i] : 0;
+      if (av != bv) return av > bv;
+    }
+    return false;
   }
 
   /// null = đã mới nhất / không kiểm tra được; ngược lại = có bản mới.
@@ -112,6 +139,9 @@ class PosAppUpdateService {
     final latestPub = toPubspecBuildNumber(latest.versionCode);
     final currentPub = toPubspecBuildNumber(currentCode);
     if (latest.versionCode > currentCode || latestPub > currentPub) {
+      return latest;
+    }
+    if (_isNewerVersionName(latest.versionName, info.version)) {
       return latest;
     }
     return null;

@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using ZKTecoADMS.Api.Authorization;
+using ZKTecoADMS.Api.Services;
 using ZKTecoADMS.Application.Constants;
 using ZKTecoADMS.Application.Models;
 using ZKTecoADMS.Domain.Entities;
@@ -13,6 +14,17 @@ public partial class PosSellIndustryController
 {
     public record TransferSessionDto(Guid TargetResourceId);
     public record SplitSessionDto(Guid TargetResourceId, List<Guid> LineIds);
+    public class SplitBillItemDto
+    {
+        public Guid LineId { get; set; }
+        public decimal Qty { get; set; }
+    }
+    public class SplitBillDto
+    {
+        public List<SplitBillItemDto> Items { get; set; } = [];
+        public string? DeviceId { get; set; }
+        public string? DeviceName { get; set; }
+    }
     public record MergeSessionDto(Guid SourceSessionId);
     public record GuestCountDto(int GuestCount);
     public record KitchenSendDto(
@@ -444,6 +456,219 @@ public partial class PosSellIndustryController
         }));
     }
 
+    /// <summary>
+    /// Tách bill trên cùng bàn: món chọn thành đơn tạm mới để thanh toán,
+    /// phần còn lại giữ phiên bàn. Không cần bàn trống.
+    /// </summary>
+    [HttpPost("resource-sessions/{id:guid}/split-bill")]
+    [RequireAnyActionOnModule("PosSell", ModulePermissionAction.Create, ModulePermissionAction.Edit)]
+    public async Task<ActionResult<AppResponse<object>>> SplitBill(Guid id, [FromBody] SplitBillDto? dto)
+    {
+        if (!TryGetStoreId(out var storeId))
+            return BadRequest(AppResponse<object>.Fail("Thiếu cửa hàng"));
+        var items = dto?.Items?
+            .Where(x => x.LineId != Guid.Empty && x.Qty > 0)
+            .GroupBy(x => x.LineId)
+            .Select(g => new SplitBillItemDto { LineId = g.Key, Qty = g.Sum(x => x.Qty) })
+            .ToList() ?? [];
+        if (items.Count == 0)
+            return BadRequest(AppResponse<object>.Fail("Chọn ít nhất một món để tách bill"));
+
+        var session = await db.PosResourceSessions
+            .AsTracking().FirstOrDefaultAsync(s => s.Id == id && s.Deleted == null
+                && (s.StoreId == storeId || s.StoreId == Guid.Empty));
+        if (session == null || !session.SaleOrderId.HasValue)
+            return NotFound(AppResponse<object>.Fail("Không tìm thấy phiên/đơn"));
+        if (!IsSessionLive(session.Status))
+            return BadRequest(AppResponse<object>.Fail("Phiên đã đóng"));
+        if (session.StoreId == Guid.Empty)
+            session.StoreId = storeId;
+        if (!await CanOperateResourceAsync(storeId, session.ResourceId))
+            return BadRequest(AppResponse<object>.Fail("Bạn không được phép tách bill bàn này"));
+
+        var sourceOrder = await db.PosSaleOrders
+            .AsTracking().Include(o => o.Lines)
+            .FirstOrDefaultAsync(o => o.Id == session.SaleOrderId
+                && (o.StoreId == storeId || o.StoreId == Guid.Empty));
+        if (sourceOrder == null)
+            return NotFound(AppResponse<object>.Fail("Không tìm thấy đơn"));
+        if (sourceOrder.Status != PosSaleOrderStatus.Draft)
+            return BadRequest(AppResponse<object>.Fail("Chỉ tách bill đơn tạm"));
+        if (sourceOrder.StoreId == Guid.Empty)
+            sourceOrder.StoreId = storeId;
+
+        var liveLines = sourceOrder.Lines.Where(l => l.Deleted == null).ToList();
+        var byId = liveLines.ToDictionary(l => l.Id);
+        decimal sourceQty = liveLines.Sum(l => l.Qty);
+        decimal takeQtyTotal = 0;
+        foreach (var item in items)
+        {
+            if (!byId.TryGetValue(item.LineId, out var line))
+                return BadRequest(AppResponse<object>.Fail("Có dòng không thuộc đơn này"));
+            if (item.Qty > line.Qty)
+                return BadRequest(AppResponse<object>.Fail(
+                    $"SL tách vượt quá {line.ProductName} (còn {line.Qty:0.###})"));
+            takeQtyTotal += item.Qty;
+        }
+        if (takeQtyTotal <= 0)
+            return BadRequest(AppResponse<object>.Fail("Chọn số lượng để tách bill"));
+        if (takeQtyTotal >= sourceQty)
+            return BadRequest(AppResponse<object>.Fail(
+                "Không tách hết món — dùng Thanh toán cho cả bàn"));
+
+        var now = DateTime.UtcNow;
+        var (orderNo, invoiceSlot) = await AllocateTableDraftNoAsync(storeId);
+        var newOrder = new PosSaleOrder
+        {
+            Id = Guid.NewGuid(),
+            StoreId = storeId,
+            OrderNo = orderNo,
+            InvoiceSlot = invoiceSlot,
+            Status = PosSaleOrderStatus.Draft,
+            PaymentMethod = sourceOrder.PaymentMethod,
+            CustomerId = sourceOrder.CustomerId,
+            CustomerName = sourceOrder.CustomerName,
+            ServiceResourceId = sourceOrder.ServiceResourceId,
+            ResourceSessionId = null,
+            SplitFromOrderId = sourceOrder.Id,
+            ServiceStartedAt = sourceOrder.ServiceStartedAt ?? session.StartedAt,
+            SaleDate = now,
+            SalesChannel = "Tách bill",
+            PriceListId = sourceOrder.PriceListId,
+            PriceListName = sourceOrder.PriceListName,
+            Note = string.IsNullOrWhiteSpace(sourceOrder.Note)
+                ? $"Tách từ {sourceOrder.OrderNo}"
+                : sourceOrder.Note,
+            IsActive = true,
+            CreatedBy = CurrentUserEmail,
+            CreatedAt = now,
+        };
+        var lockDisplay = CurrentUserEmail;
+        if (string.IsNullOrWhiteSpace(lockDisplay))
+            lockDisplay = CurrentUserId.ToString("N")[..8];
+        PosDraftLockHelper.AssignOnCreate(
+            newOrder,
+            new PosDraftLockHelper.LockActor(
+                CurrentUserId, EmployeeId, lockDisplay!, dto?.DeviceId, dto?.DeviceName));
+        db.PosSaleOrders.Add(newOrder);
+        await db.SaveChangesAsync();
+
+        foreach (var item in items)
+        {
+            var line = byId[item.LineId];
+            var take = item.Qty;
+            if (take >= line.Qty)
+            {
+                sourceOrder.Lines.Remove(line);
+                line.SaleOrderId = newOrder.Id;
+                line.UpdatedAt = now;
+                line.UpdatedBy = CurrentUserEmail;
+                newOrder.Lines.Add(line);
+                continue;
+            }
+
+            var oldQty = line.Qty;
+            var (takeDisc, takeTotal) = ScaleLineMoney(line.DiscountAmount, line.LineTotal, take, oldQty);
+            var remainDisc = line.DiscountAmount - takeDisc;
+            var remainTotal = line.LineTotal - takeTotal;
+            var takeKitchen = Math.Min(take, line.KitchenSentQty);
+
+            var moved = CloneSplitLine(
+                line, newOrder.Id, storeId, take, takeKitchen, takeDisc, takeTotal,
+                CurrentUserEmail, now);
+            newOrder.Lines.Add(moved);
+            db.PosSaleOrderLines.Add(moved);
+
+            line.Qty = oldQty - take;
+            line.DiscountAmount = remainDisc;
+            line.LineTotal = remainTotal;
+            line.KitchenSentQty = Math.Max(0, line.KitchenSentQty - takeKitchen);
+            if (line.KitchenDoneQty > line.KitchenSentQty)
+                line.KitchenDoneQty = line.KitchenSentQty;
+            PosKitchenKdsHelper.Clamp(line);
+            if (line.KitchenSentQty <= 0)
+                line.KitchenSentAt = null;
+            line.UpdatedAt = now;
+            line.UpdatedBy = CurrentUserEmail;
+        }
+
+        RecalcOrderTotals(sourceOrder);
+        RecalcOrderTotals(newOrder);
+        sourceOrder.LockVersion = Math.Max(1, sourceOrder.LockVersion) + 1;
+        sourceOrder.UpdatedAt = now;
+        sourceOrder.UpdatedBy = CurrentUserEmail;
+        await db.SaveChangesAsync();
+
+        NotifyFloorChanged(storeId, "splitBill",
+            orderId: sourceOrder.Id, resourceId: session.ResourceId, sessionId: session.Id);
+        return Ok(AppResponse<object>.Success(new
+        {
+            sourceSessionId = session.Id,
+            sourceOrderId = sourceOrder.Id,
+            sourceLockVersion = sourceOrder.LockVersion,
+            newSaleOrderId = newOrder.Id,
+            newOrderNo = newOrder.OrderNo,
+            splitFromOrderId = sourceOrder.Id,
+            tableResourceId = session.ResourceId,
+        }));
+    }
+
+    static (decimal Discount, decimal LineTotal) ScaleLineMoney(
+        decimal discount, decimal lineTotal, decimal newQty, decimal oldQty)
+    {
+        if (oldQty <= 0) return (0, 0);
+        var r = newQty / oldQty;
+        return (
+            Math.Round(discount * r, 0, MidpointRounding.AwayFromZero),
+            Math.Round(lineTotal * r, 0, MidpointRounding.AwayFromZero));
+    }
+
+    static PosSaleOrderLine CloneSplitLine(
+        PosSaleOrderLine src,
+        Guid newOrderId,
+        Guid storeId,
+        decimal qty,
+        decimal kitchenSent,
+        decimal discount,
+        decimal lineTotal,
+        string? by,
+        DateTime now) =>
+        new()
+        {
+            Id = Guid.NewGuid(),
+            StoreId = storeId,
+            SaleOrderId = newOrderId,
+            ProductId = src.ProductId,
+            VariantId = src.VariantId,
+            ProductName = src.ProductName,
+            UnitName = src.UnitName,
+            UnitId = src.UnitId,
+            Qty = qty,
+            UnitPrice = src.UnitPrice,
+            DiscountAmount = discount,
+            LineTotal = lineTotal,
+            LineNote = src.LineNote,
+            DurationMinutes = src.DurationMinutes,
+            BillableMinutes = src.BillableMinutes,
+            ServiceStartedAt = src.ServiceStartedAt,
+            ServiceEndedAt = src.ServiceEndedAt,
+            AssignedEmployeeId = src.AssignedEmployeeId,
+            KitchenSentQty = kitchenSent,
+            KitchenSentAt = kitchenSent > 0 ? src.KitchenSentAt ?? now : null,
+            KitchenDoneQty = kitchenSent > 0
+                ? Math.Min(kitchenSent, src.KitchenDoneQty)
+                : 0,
+            KitchenPrepStatus = kitchenSent > 0
+                ? (string.IsNullOrWhiteSpace(src.KitchenPrepStatus) || src.KitchenPrepStatus == "none"
+                    ? "queued"
+                    : src.KitchenPrepStatus)
+                : "none",
+            ToppingsJson = src.ToppingsJson,
+            IsActive = true,
+            CreatedAt = now,
+            CreatedBy = by,
+        };
+
     [HttpPost("resource-sessions/{id:guid}/merge")]
     [RequireModulePermission("PosSell", ModulePermissionAction.Create)]
     public async Task<ActionResult<AppResponse<object>>> MergeSession(Guid id, [FromBody] MergeSessionDto? dto)
@@ -698,6 +923,14 @@ public partial class PosSellIndustryController
         }));
     }
 
+    /// <summary>
+    /// Ghi chú in bếp = tên topping nối bằng dấu phẩy, rồi tới ghi chú dòng —
+    /// giữ đúng định dạng «noteWithToppings» của app để phiếu in từ sơ đồ bàn
+    /// và phiếu in từ màn bán hàng nhìn giống nhau.
+    /// </summary>
+    static string? KitchenNoteText(string? toppingsJson, string? lineNote) =>
+        PosSaleStockHelper.FormatToppingKitchenNote(toppingsJson, lineNote);
+
     /// <summary>��nh d?u m�n d� b�o ch? bi?n / g?i b?p (theo d�ng ho?c t?t c? chua g?i).</summary>
     [HttpPost("resource-sessions/{id:guid}/kitchen-send")]
     [RequireModulePermission("PosSell", ModulePermissionAction.Create)]
@@ -746,6 +979,10 @@ public partial class PosSellIndustryController
         var now = DateTime.UtcNow;
         var sent = 0;
         decimal sentQty = 0;
+        // Màn sơ đồ bàn không giữ giỏ hàng nên không tự dựng được phiếu bếp.
+        // Trả đúng phần vừa báo để client in — trước đây server đánh dấu đã gửi
+        // mà không phiếu nào ra giấy, và vì đã gửi nên mở bàn ra cũng không in lại.
+        var sentItems = new List<object>();
         foreach (var line in lines)
         {
             if (dto?.LineIds is { Count: > 0 } && !dto.LineIds.Contains(line.Id))
@@ -753,12 +990,27 @@ public partial class PosSellIndustryController
             // Ch? b�o ph?n chua g?i � tr�nh in tr�ng bill c�ng m�n/qty.
             var pending = line.Qty - line.KitchenSentQty;
             if (pending <= 0) continue;
+            var sentBefore = line.KitchenSentQty;
             line.KitchenSentQty = line.Qty;
             line.KitchenSentAt = now;
+            PosKitchenKdsHelper.OnSent(line);
             line.UpdatedAt = now;
             line.UpdatedBy = CurrentUserEmail;
             sent++;
             sentQty += pending;
+            sentItems.Add(new
+            {
+                productId = line.ProductId,
+                productName = line.ProductName,
+                qty = pending,
+                unitName = line.UnitName,
+                note = KitchenNoteText(line.ToppingsJson, line.LineNote),
+                // Mốc phần đã báo trước đó + id dòng — client ghép vào mã chống
+                // trùng. Thêm phần mới sinh dòng mới nên hai lần báo cùng «1
+                // phần»; thiếu hai khóa này thì phiếu sau bị nuốt.
+                sentBefore,
+                lineId = line.Id,
+            });
         }
 
         if (sent > 0)
@@ -771,6 +1023,8 @@ public partial class PosSellIndustryController
         {
             sentLines = sent,
             sentQty,
+            sentItems,
+            orderNo = order.OrderNo,
             alreadyAllSent = sent == 0,
             saleOrderId = session.SaleOrderId,
             kitchenSentAt = now,

@@ -180,6 +180,47 @@ public partial class PosProductsController
         var updated = 0;
         var errors = new List<string>();
 
+        var existingProducts = await dbContext.PosProducts
+            .AsTracking()
+            .Where(p => p.StoreId == storeId && p.Deleted == null)
+            .ToListAsync();
+        var byCode = new Dictionary<string, PosProduct>(StringComparer.OrdinalIgnoreCase);
+        var byBarcode = new Dictionary<string, PosProduct>(StringComparer.OrdinalIgnoreCase);
+        foreach (var p in existingProducts)
+        {
+            if (!string.IsNullOrWhiteSpace(p.ProductCode))
+                byCode[p.ProductCode] = p;
+            if (!string.IsNullOrWhiteSpace(p.Barcode) && !byBarcode.ContainsKey(p.Barcode))
+                byBarcode[p.Barcode] = p;
+        }
+
+        var nextHh = NextCodeNumber(existingProducts, "HH");
+        var nextDv = NextCodeNumber(existingProducts, "DV");
+        var nextCb = NextCodeNumber(existingProducts, "CB");
+        var usedCodes = new HashSet<string>(existingProducts.Select(p => p.ProductCode), StringComparer.OrdinalIgnoreCase);
+
+        string NextTypedCode(PosProductType type)
+        {
+            var prefix = type == PosProductType.Service ? "DV" : type == PosProductType.Combo ? "CB" : "HH";
+            var n = type == PosProductType.Service ? nextDv : type == PosProductType.Combo ? nextCb : nextHh;
+            string candidate;
+            do
+            {
+                candidate = $"{prefix}{n:D5}";
+                n++;
+            } while (usedCodes.Contains(candidate));
+            usedCodes.Add(candidate);
+            if (type == PosProductType.Service) nextDv = n;
+            else if (type == PosProductType.Combo) nextCb = n;
+            else nextHh = n;
+            return candidate;
+        }
+
+        var catalogCache = await dbContext.PosBarcodeCatalog
+            .AsTracking()
+            .Where(x => x.StoreId == storeId && x.Deleted == null)
+            .ToDictionaryAsync(x => x.Barcode.ToLower(), x => x, StringComparer.OrdinalIgnoreCase);
+
         foreach (var (row, i) in rows.Select((r, idx) => (r, idx + 1)))
         {
             try
@@ -224,17 +265,20 @@ public partial class PosProductsController
                 });
 
                 PosProduct? entity = null;
-                if (!string.IsNullOrWhiteSpace(row.ProductCode))
-                {
-                    entity = await dbContext.PosProducts.FirstOrDefaultAsync(p =>
-                        p.StoreId == storeId && p.ProductCode == row.ProductCode && p.Deleted == null);
-                }
+                if (!string.IsNullOrWhiteSpace(row.ProductCode) &&
+                    byCode.TryGetValue(row.ProductCode.Trim(), out var byCodeHit))
+                    entity = byCodeHit;
+                else if (!string.IsNullOrWhiteSpace(row.Barcode) &&
+                         byBarcode.TryGetValue(row.Barcode.Trim(), out var byBcHit))
+                    entity = byBcHit;
 
                 if (entity == null)
                 {
                     var code = row.ProductCode?.Trim();
-                    if (string.IsNullOrEmpty(code))
-                        code = await GenerateProductCodeAsync(storeId, row.ProductType);
+                    if (string.IsNullOrEmpty(code) || usedCodes.Contains(code))
+                        code = NextTypedCode(row.ProductType);
+                    else
+                        usedCodes.Add(code);
 
                     entity = new PosProduct
                     {
@@ -245,6 +289,20 @@ public partial class PosProductsController
                         CreatedBy = CurrentUserEmail,
                     };
                     dbContext.PosProducts.Add(entity);
+                    dbContext.PosProductUnits.Add(new PosProductUnit
+                    {
+                        Id = Guid.NewGuid(),
+                        StoreId = storeId,
+                        ProductId = entity.Id,
+                        UnitName = string.IsNullOrWhiteSpace(row.BaseUnitName) ? "Cái" : row.BaseUnitName,
+                        ConversionRate = 1,
+                        BasePrice = row.BasePrice,
+                        IsDirectSale = row.IsDirectSale,
+                        IsBaseUnit = true,
+                        IsActive = true,
+                        CreatedBy = CurrentUserEmail,
+                    });
+                    byCode[code] = entity;
                     created++;
                 }
                 else updated++;
@@ -274,6 +332,37 @@ public partial class PosProductsController
                 }
                 entity.UpdatedAt = DateTime.UtcNow;
                 entity.UpdatedBy = CurrentUserEmail;
+
+                if (!string.IsNullOrWhiteSpace(row.Barcode))
+                {
+                    byBarcode[row.Barcode.Trim()] = entity;
+                    var ck = row.Barcode.Trim().ToLower();
+                    if (catalogCache.TryGetValue(ck, out var catRow))
+                    {
+                        catRow.Name = row.Name;
+                        if (!string.IsNullOrWhiteSpace(row.BaseUnitName)) catRow.UnitName = row.BaseUnitName;
+                        if (!string.IsNullOrWhiteSpace(row.BrandName)) catRow.BrandName = row.BrandName;
+                        if (!string.IsNullOrWhiteSpace(row.CategoryName)) catRow.CategoryName = row.CategoryName;
+                        catRow.UpdatedAt = DateTime.UtcNow;
+                    }
+                    else
+                    {
+                        var catRowNew = new PosBarcodeCatalog
+                        {
+                            Id = Guid.NewGuid(),
+                            StoreId = storeId,
+                            Barcode = row.Barcode.Trim(),
+                            Name = row.Name,
+                            UnitName = string.IsNullOrWhiteSpace(row.BaseUnitName) ? null : row.BaseUnitName,
+                            BrandName = row.BrandName,
+                            CategoryName = row.CategoryName,
+                            IsActive = true,
+                            CreatedBy = CurrentUserEmail,
+                        };
+                        dbContext.PosBarcodeCatalog.Add(catRowNew);
+                        catalogCache[ck] = catRowNew;
+                    }
+                }
             }
             catch (Exception ex)
             {
@@ -310,6 +399,7 @@ public partial class PosProductsController
         var applied = 0;
 
         var productsByCode = await dbContext.PosProducts
+            .AsTracking()
             .Where(p => p.StoreId == storeId && p.Deleted == null)
             .ToDictionaryAsync(p => p.ProductCode.ToLower(), p => p);
 
@@ -401,6 +491,22 @@ public partial class PosProductsController
             await dbContext.SaveChangesAsync();
 
         return (applied, errors);
+    }
+
+    static int NextCodeNumber(List<PosProduct> products, string prefix)
+    {
+        var next = 1;
+        foreach (var code in products.Select(p => p.ProductCode))
+        {
+            if (code.Length <= prefix.Length ||
+                !code.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                continue;
+            var tail = code[prefix.Length..];
+            if (tail.Length == 0 || !tail.All(char.IsDigit)) continue;
+            if (int.TryParse(tail, out var n) && n >= next)
+                next = n + 1;
+        }
+        return next;
     }
 
     private static async Task<Guid?> EnsureMasterAsync(

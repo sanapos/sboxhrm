@@ -96,6 +96,11 @@ public class PosSaleOrder : AuditableEntity<Guid>
     public Guid? ResourceSessionId { get; set; }
     public virtual PosResourceSession? ResourceSession { get; set; }
 
+    /// <summary>
+    /// Đơn tách bill từ đơn bàn này. Thanh toán không đóng phiên / không xóa draft còn lại trên bàn.
+    /// </summary>
+    public Guid? SplitFromOrderId { get; set; }
+
     public DateTime? ServiceStartedAt { get; set; }
     public DateTime? ServiceEndedAt { get; set; }
 
@@ -122,6 +127,48 @@ public class PosSaleOrder : AuditableEntity<Guid>
     /// Null khi đã thanh toán — mã OrderNo thật (HDxxxx) gán lúc Complete.
     /// </summary>
     public int? InvoiceSlot { get; set; }
+
+    /// <summary>None | Skipped | Pending | Issued | Failed</summary>
+    [MaxLength(20)]
+    public string EInvoiceStatus { get; set; } = "None";
+
+    [MaxLength(20)]
+    public string? EInvoiceProvider { get; set; }
+
+    [MaxLength(36)]
+    public string? EInvoiceTransactionUuid { get; set; }
+
+    [MaxLength(30)]
+    public string? EInvoiceNo { get; set; }
+
+    [MaxLength(25)]
+    public string? EInvoiceSeries { get; set; }
+
+    [MaxLength(50)]
+    public string? EInvoiceReservationCode { get; set; }
+
+    [MaxLength(50)]
+    public string? EInvoiceCode { get; set; }
+
+    public DateTime? EInvoiceIssuedAt { get; set; }
+
+    [MaxLength(1000)]
+    public string? EInvoiceError { get; set; }
+
+    [MaxLength(200)]
+    public string? EInvoiceBuyerName { get; set; }
+
+    [MaxLength(50)]
+    public string? EInvoiceBuyerTaxCode { get; set; }
+
+    [MaxLength(500)]
+    public string? EInvoiceBuyerAddress { get; set; }
+
+    [MaxLength(200)]
+    public string? EInvoiceBuyerEmail { get; set; }
+
+    [MaxLength(50)]
+    public string? EInvoiceBuyerPhone { get; set; }
 
     public virtual ICollection<PosSaleOrderLine> Lines { get; set; } = [];
 }

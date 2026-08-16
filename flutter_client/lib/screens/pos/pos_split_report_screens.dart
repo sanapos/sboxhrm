@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -10,74 +12,332 @@ import '../../utils/pos_kiot_time_range.dart';
 import '../../widgets/pos/pos_hub_scope.dart';
 import '../../widgets/pos/pos_mobile_widgets.dart';
 import '../../widgets/pos/pos_theme.dart';
+import '../../utils/pos_report_export.dart';
+import '../../utils/pos_report_open.dart';
+import '../../widgets/pos/reports/pos_goods_filter_sheet.dart';
 import '../../widgets/pos/reports/pos_report_widgets.dart';
 import '../pos_reports_screen.dart';
 import 'pos_end_of_day_screen.dart';
+import '../hkd_books_screen.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
-/// Hub 14 báo cáo tách riêng — dùng trên sidebar desktop / web.
+/// Hub 14 báo cáo — cùng token trang chủ A7 (nền xám, thẻ nổi, chữ #2B3437).
 class PosReportsHubScreen extends StatelessWidget {
   const PosReportsHubScreen({super.key});
+
+  static const _pageBg = Color(0xFFF1F4F6);
+  static const _ink = Color(0xFF2B3437);
+  static const _muted = Color(0xFF586064);
+  static const _hint = Color(0xFF8A9199);
 
   @override
   Widget build(BuildContext context) {
     final auth = Provider.of<AuthProvider>(context);
     final perm = Provider.of<PermissionProvider>(context);
-    final items = <({String label, IconData icon, String module, Widget screen})>[
-      (label: 'Doanh thu', icon: Icons.trending_up, module: 'PosReportRevenue', screen: const PosRevenueReportScreen()),
-      (label: 'Hàng hóa bán ra', icon: Icons.shopping_cart_outlined, module: 'PosReportSoldGoods', screen: const PosSoldGoodsReportScreen()),
-      (label: 'Tồn kho', icon: Icons.warehouse_outlined, module: 'PosReportStock', screen: const PosReportsScreen(initialTab: 1, lockTab: true)),
-      (label: 'Báo cáo nhập hàng', icon: Icons.move_to_inbox_outlined, module: 'PosReportPurchases', screen: const PosPurchaseReportScreen()),
-      (label: 'Phương thức thanh toán', icon: Icons.payments_outlined, module: 'PosReportPayment', screen: const PosPaymentMethodReportScreen()),
-      (label: 'Công nợ', icon: Icons.account_balance_outlined, module: 'PosReportDebt', screen: const PosDebtCombinedReportScreen()),
-      (label: 'Hàng sắp hết hạn', icon: Icons.event_busy_outlined, module: 'PosReportExpiry', screen: const PosReportsScreen(initialTab: 2, lockTab: true)),
-      (label: 'Lợi nhuận', icon: Icons.stacked_line_chart, module: 'PosReportProfit', screen: const PosProfitOnlyReportScreen()),
-      (label: 'Chi phí', icon: Icons.money_off_outlined, module: 'PosReportExpense', screen: const PosExpenseReportScreen()),
-      (label: 'Tổng kết cuối ngày', icon: Icons.nightlight_round, module: 'PosReportEndOfDay', screen: const PosEndOfDayScreen()),
-      (label: 'Doanh thu theo nhân viên', icon: Icons.badge_outlined, module: 'PosReportStaffRevenue', screen: const PosStaffRevenueReportScreen()),
-      (label: 'Sổ quỹ', icon: Icons.menu_book_outlined, module: 'PosReportCashbook', screen: const PosCashbookReportScreen()),
-      (label: 'Kết quả kinh doanh', icon: Icons.account_balance, module: 'PosReportPnl', screen: const PosPnlReportScreen()),
-      (label: 'Voucher', icon: Icons.confirmation_number_outlined, module: 'PosReportVoucher', screen: const PosVoucherUsageReportScreen()),
+    final items = <({
+      String label,
+      String subtitle,
+      IconData icon,
+      String module,
+      Widget screen
+    })>[
+      (label: 'Doanh thu', subtitle: 'Theo ngày', icon: Icons.trending_up, module: 'PosReportRevenue', screen: const PosRevenueReportScreen()),
+      (label: 'Hàng hóa bán ra', subtitle: 'Mặt hàng', icon: Icons.shopping_cart_outlined, module: 'PosReportSoldGoods', screen: const PosSoldGoodsReportScreen()),
+      (label: 'Tồn kho', subtitle: 'Kho hàng', icon: Icons.warehouse_outlined, module: 'PosReportStock', screen: const PosReportsScreen(initialTab: 1, lockTab: true)),
+      (label: 'Báo cáo nhập hàng', subtitle: 'Phiếu nhập', icon: Icons.move_to_inbox_outlined, module: 'PosReportPurchases', screen: const PosPurchaseReportScreen()),
+      (label: 'Phương thức thanh toán', subtitle: 'PTTT', icon: Icons.payments_outlined, module: 'PosReportPayment', screen: const PosPaymentMethodReportScreen()),
+      (label: 'Công nợ', subtitle: 'Phải thu / trả', icon: Icons.account_balance_outlined, module: 'PosReportDebt', screen: const PosDebtCombinedReportScreen()),
+      (label: 'Hàng sắp hết hạn', subtitle: 'Lô / HSD', icon: Icons.event_busy_outlined, module: 'PosReportExpiry', screen: const PosReportsScreen(initialTab: 2, lockTab: true)),
+      (label: 'Lợi nhuận', subtitle: 'Lãi gộp', icon: Icons.stacked_line_chart, module: 'PosReportProfit', screen: const PosProfitOnlyReportScreen()),
+      (label: 'Chi phí', subtitle: 'Thu / chi', icon: Icons.money_off_outlined, module: 'PosReportExpense', screen: const PosExpenseReportScreen()),
+      (label: 'Tổng kết cuối ngày', subtitle: 'Cuối ngày', icon: Icons.nightlight_round, module: 'PosReportEndOfDay', screen: const PosEndOfDayScreen()),
+      (label: 'Doanh thu theo nhân viên', subtitle: 'Thu ngân', icon: Icons.badge_outlined, module: 'PosReportStaffRevenue', screen: const PosStaffRevenueReportScreen()),
+      (label: 'Sổ quỹ', subtitle: 'Tiền mặt', icon: Icons.menu_book_outlined, module: 'PosReportCashbook', screen: const PosCashbookReportScreen()),
+      (label: 'Kết quả kinh doanh', subtitle: 'P&L', icon: Icons.account_balance, module: 'PosReportPnl', screen: const PosPnlReportScreen()),
+      (label: 'Voucher', subtitle: 'Sử dụng', icon: Icons.confirmation_number_outlined, module: 'PosReportVoucher', screen: const PosVoucherUsageReportScreen()),
+      (label: 'Thuế hộ kinh doanh', subtitle: 'Dưới 1 tỷ / 1–3 tỷ / trên 3 tỷ', icon: Icons.request_quote_outlined, module: 'HkdBooks', screen: const HkdBooksScreen()),
     ].where((item) => PermissionNavigation.canAccessModule(
           item.module,
           allowedModules: auth.user?.allowedModules,
           perm: perm,
           role: auth.user?.role,
         )).toList();
+    final header = Material(
+      color: Colors.white,
+      elevation: 0,
+      child: Container(
+        height: 56,
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          border: Border(bottom: BorderSide(color: Color(0xFFE8ECF0))),
+        ),
+        child: Row(
+          children: [
+            if (Navigator.of(context).canPop())
+              IconButton(
+                icon: const Icon(Icons.arrow_back, color: _ink, size: 22),
+                onPressed: () => Navigator.maybePop(context),
+              ),
+            Expanded(
+              child: Text(
+                tr('Báo cáo POS'),
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: _ink,
+                  letterSpacing: -0.3,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
     return ColoredBox(
-      color: const Color(0xFFF3F4F6),
+      color: _pageBg,
       child: Column(
         children: [
-          const PosMobileKiotHeader(title: 'Báo cáo POS'),
+          posNeedsTopSafeArea(context)
+              ? SafeArea(bottom: false, child: header)
+              : header,
           Expanded(
             child: ListView(
-              padding: const EdgeInsets.fromLTRB(12, 8, 12, 24),
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 28),
               children: [
-                PosMobileHubSectionGrid(
-                  title: 'Báo cáo',
-                  items: [
-                    for (final item in items)
-                      PosMobileHubGridItem(
-                        label: item.label,
-                        icon: item.icon,
-                        onTap: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute<void>(
-                              builder: (_) => PosHubScope(
-                                embeddedInHub: false,
-                                pushedSubPage: true,
-                                child: item.screen,
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                  ],
-                ),
+                _PosReportsHubSection(items: items),
               ],
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _PosReportsHubSection extends StatelessWidget {
+  const _PosReportsHubSection({required this.items});
+
+  final List<
+      ({
+        String label,
+        String subtitle,
+        IconData icon,
+        String module,
+        Widget screen
+      })> items;
+
+  @override
+  Widget build(BuildContext context) {
+    const color = PosTheme.kiotBlue;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [color, color.withOpacity(0.72)],
+                ),
+                borderRadius: BorderRadius.circular(10),
+                boxShadow: [
+                  BoxShadow(
+                    color: color.withOpacity(0.22),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: const Icon(Icons.assessment, size: 18, color: Colors.white),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    tr('Báo cáo'),
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      color: PosReportsHubScreen._ink,
+                      letterSpacing: -0.3,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    tr('Phân tích số liệu'),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: PosReportsHubScreen._muted,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.08),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                '${items.length}',
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: color,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final w = constraints.maxWidth;
+            final cols = w >= 1100 ? 3 : (w >= 640 ? 2 : 1);
+            final gap = 12.0;
+            if (cols == 1) {
+              return Column(
+                children: [
+                  for (final item in items)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: _PosReportHubCard(item: item),
+                    ),
+                ],
+              );
+            }
+            return Wrap(
+              spacing: gap,
+              runSpacing: gap,
+              children: [
+                for (final item in items)
+                  SizedBox(
+                    width: (w - (cols - 1) * gap) / cols,
+                    child: _PosReportHubCard(item: item),
+                  ),
+              ],
+            );
+          },
+        ),
+      ],
+    );
+  }
+}
+
+class _PosReportHubCard extends StatelessWidget {
+  const _PosReportHubCard({required this.item});
+
+  final ({
+    String label,
+    String subtitle,
+    IconData icon,
+    String module,
+    Widget screen
+  }) item;
+
+  @override
+  Widget build(BuildContext context) {
+    const color = PosTheme.kiotBlue;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: () {
+          Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => PosHubScope(
+                embeddedInHub: false,
+                pushedSubPage: true,
+                child: item.screen,
+              ),
+            ),
+          );
+        },
+        child: Ink(
+          padding: const EdgeInsets.fromLTRB(16, 16, 14, 16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: const Color(0xFFE8ECF0)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.045),
+                blurRadius: 14,
+                offset: const Offset(0, 4),
+              ),
+              BoxShadow(
+                color: color.withOpacity(0.04),
+                blurRadius: 20,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      color.withOpacity(0.16),
+                      color.withOpacity(0.05),
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(item.icon, color: color, size: 22),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      tr(item.label),
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: PosReportsHubScreen._ink,
+                        letterSpacing: -0.15,
+                        height: 1.25,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      tr(item.subtitle),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: PosReportsHubScreen._hint,
+                        height: 1.3,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 6),
+              const Icon(
+                Icons.arrow_forward_ios_rounded,
+                size: 13,
+                color: Color(0xFFB0B7BD),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -133,6 +393,7 @@ class PosRevenueReportScreen extends StatefulWidget {
 class _PosRevenueReportScreenState extends State<PosRevenueReportScreen> {
   final _api = ApiService();
   final _moneyFmt = NumberFormat('#,##0', 'vi_VN');
+  final _pngKey = GlobalKey();
   PosKiotTimeFilterState _time =
       const PosKiotTimeFilterState(preset: PosKiotTimePreset.thisWeek);
   bool _loading = true;
@@ -156,6 +417,32 @@ class _PosRevenueReportScreenState extends State<PosRevenueReportScreen> {
     });
   }
 
+  Future<void> _exportExcel() async {
+    final d = _data;
+    if (d == null) return;
+    final byDay = _maps(d['byDay']);
+    await PosReportExport.excel(
+      context: context,
+      title: 'Báo cáo doanh thu',
+      sheetName: 'Doanh thu',
+      filePrefix: 'POS_DoanhThu',
+      periodLabel: _time.displayLabel,
+      headers: const ['Hạng mục', 'Giá trị'],
+      rows: [
+        ['DT chưa VAT', _n(d['totalRevenue'])],
+        ['VAT', _n(d['totalVat'])],
+        ['DT gồm VAT', _n(d['totalRevenueInclVat'])],
+        ['Hoàn trả', _n(d['totalRefund'])],
+        ['Đã thu', _n(d['totalPaid'])],
+        ['Giảm giá', _n(d['totalDiscount'])],
+        ['Số hóa đơn', _n(d['orderCount']).toInt()],
+        for (final e in byDay)
+          [_fmtDt(e['date']), _n(e['total'])],
+      ],
+      summaryLines: ['Cửa hàng: ${d['storeName'] ?? ''}'],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final storeName = _data?['storeName']?.toString() ?? '';
@@ -171,6 +458,13 @@ class _PosRevenueReportScreenState extends State<PosRevenueReportScreen> {
     return PosReportMobileScaffold(
       title: 'Doanh thu',
       time: _time,
+      pngKey: _pngKey,
+      onExportExcel: () => unawaited(_exportExcel()),
+      onExportPng: () => unawaited(PosReportExport.png(
+        context: context,
+        key: _pngKey,
+        filePrefix: 'POS_DoanhThu',
+      )),
       onTimeChanged: (s) async {
         setState(() => _time = s);
         await _load();
@@ -190,6 +484,11 @@ class _PosRevenueReportScreenState extends State<PosRevenueReportScreen> {
                       const SizedBox(height: 12),
                       PosReportMetricTiles(
                         moneyFmt: _moneyFmt,
+                        onTileTap: (_) => PosReportOpen.sales(
+                          context,
+                          from: _time.from,
+                          to: _time.to,
+                        ),
                         tiles: [
                           (label: 'DT chưa VAT', value: revenue, color: PosTheme.kiotBlue),
                           (label: 'VAT', value: vat, color: const Color(0xFF7C3AED)),
@@ -203,6 +502,11 @@ class _PosRevenueReportScreenState extends State<PosRevenueReportScreen> {
                       const SizedBox(height: 8),
                       PosReportMetricTiles(
                         moneyFmt: _moneyFmt,
+                        onTileTap: (_) => PosReportOpen.sales(
+                          context,
+                          from: _time.from,
+                          to: _time.to,
+                        ),
                         tiles: [
                           (
                             label: 'Hoàn trả',
@@ -222,12 +526,19 @@ class _PosRevenueReportScreenState extends State<PosRevenueReportScreen> {
                         ],
                       ),
                       const SizedBox(height: 8),
-                      Text(
-                        tr('${_n(_data?['orderCount']).toInt()} hóa đơn'),
-                        style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: PosTheme.textSecondary,
+                      InkWell(
+                        onTap: () => PosReportOpen.sales(
+                          context,
+                          from: _time.from,
+                          to: _time.to,
+                        ),
+                        child: Text(
+                          tr('${_n(_data?['orderCount']).toInt()} hóa đơn · xem chi tiết'),
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: PosTheme.kiotBlue,
+                          ),
                         ),
                       ),
                       const SizedBox(height: 10),
@@ -253,8 +564,10 @@ class PosSoldGoodsReportScreen extends StatefulWidget {
 class _PosSoldGoodsReportScreenState extends State<PosSoldGoodsReportScreen> {
   final _api = ApiService();
   final _moneyFmt = NumberFormat('#,##0', 'vi_VN');
+  final _pngKey = GlobalKey();
   PosKiotTimeFilterState _time =
       const PosKiotTimeFilterState(preset: PosKiotTimePreset.thisWeek);
+  PosGoodsReportFilter _filter = const PosGoodsReportFilter();
   bool _loading = true;
   Map<String, dynamic>? _data;
 
@@ -270,6 +583,14 @@ class _PosSoldGoodsReportScreenState extends State<PosSoldGoodsReportScreen> {
       from: _time.from,
       to: _time.to,
       limit: 50,
+      includeGoods: _filter.includeGoods,
+      includeService: _filter.includeService,
+      includeCombo: _filter.includeCombo,
+      activeOnly: _filter.activeOnly,
+      inactiveOnly: _filter.inactiveOnly,
+      inventoryStatus: _filter.inventoryStatus == PosGoodsInventoryFilter.all
+          ? null
+          : _filter.inventoryStatus.name,
     );
     if (!mounted) return;
     setState(() {
@@ -280,12 +601,52 @@ class _PosSoldGoodsReportScreenState extends State<PosSoldGoodsReportScreen> {
     });
   }
 
+  Future<void> _openFilter() async {
+    final picked = await showModalBottomSheet<PosGoodsReportFilter>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => PosGoodsFilterSheet(initial: _filter),
+    );
+    if (picked == null) return;
+    setState(() => _filter = picked);
+    await _load();
+  }
+
+  Future<void> _exportExcel() async {
+    final items = _maps(_data?['topByRevenue']);
+    await PosReportExport.excel(
+      context: context,
+      title: 'Hàng hóa bán ra',
+      sheetName: 'Hang hoa',
+      filePrefix: 'POS_HangHoaBanRa',
+      periodLabel: _time.displayLabel,
+      headers: const ['Hàng hóa', 'SL', 'Doanh thu'],
+      rows: [
+        for (final p in items)
+          [
+            p['productName'] ?? p['name'] ?? '',
+            _n(p['qty']),
+            _n(p['revenue']),
+          ],
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final items = _maps(_data?['topByRevenue']);
     return PosReportMobileScaffold(
       title: 'Hàng hóa bán ra',
       time: _time,
+      pngKey: _pngKey,
+      onFilterTap: () => unawaited(_openFilter()),
+      onExportExcel: () => unawaited(_exportExcel()),
+      onExportPng: () => unawaited(PosReportExport.png(
+        context: context,
+        key: _pngKey,
+        filePrefix: 'POS_HangHoaBanRa',
+      )),
       onTimeChanged: (s) async {
         setState(() => _time = s);
         await _load();
@@ -312,6 +673,13 @@ class _PosSoldGoodsReportScreenState extends State<PosSoldGoodsReportScreen> {
                     valueOf: (p) => _n(p['revenue']),
                     moneyFmt: _moneyFmt,
                     allowNegative: true,
+                    onItemTap: (p) => PosReportOpen.product(
+                      context,
+                      id: '${p['productId'] ?? p['id'] ?? ''}',
+                      name: p['productName']?.toString() ?? p['name']?.toString(),
+                      from: _time.from,
+                      to: _time.to,
+                    ),
                   ),
                 ),
               ],
@@ -331,8 +699,10 @@ class PosPurchaseReportScreen extends StatefulWidget {
 class _PosPurchaseReportScreenState extends State<PosPurchaseReportScreen> {
   final _api = ApiService();
   final _moneyFmt = NumberFormat('#,##0', 'vi_VN');
+  final _pngKey = GlobalKey();
   PosKiotTimeFilterState _time =
       const PosKiotTimeFilterState(preset: PosKiotTimePreset.thisMonth);
+  int _docKind = 0;
   bool _loading = true;
   Map<String, dynamic>? _data;
 
@@ -354,6 +724,42 @@ class _PosPurchaseReportScreenState extends State<PosPurchaseReportScreen> {
     });
   }
 
+  Future<void> _exportExcel(
+    List<Map<String, dynamic>> receipts,
+    List<Map<String, dynamic>> returns,
+  ) async {
+    final rows = <List<dynamic>>[
+      if (_docKind != 2)
+        for (final e in receipts)
+          [
+            'Nhập',
+            e['receiptNo'] ?? '',
+            e['supplierName'] ?? '',
+            _fmtDt(e['date']),
+            _n(e['grandTotal']),
+          ],
+      if (_docKind != 1)
+        for (final e in returns)
+          [
+            'Trả NCC',
+            e['returnNo'] ?? '',
+            e['supplierName'] ?? '',
+            _fmtDt(e['date']),
+            _n(e['totalAmount']),
+          ],
+    ];
+    await PosReportExport.excel(
+      context: context,
+      title: 'Báo cáo nhập hàng',
+      sheetName: 'Nhap hang',
+      filePrefix: 'POS_NhapHang',
+      periodLabel: _time.displayLabel,
+      filterLabel: const ['Tất cả', 'Phiếu nhập', 'Trả NCC'][_docKind],
+      headers: const ['Loại', 'Số phiếu', 'NCC', 'Ngày', 'Số tiền'],
+      rows: rows,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final receipts = _maps(_data?['receipts']);
@@ -361,6 +767,18 @@ class _PosPurchaseReportScreenState extends State<PosPurchaseReportScreen> {
     return PosReportMobileScaffold(
       title: 'Báo cáo nhập hàng',
       time: _time,
+      pngKey: _pngKey,
+      filterBar: PosReportChipBar(
+        labels: const ['Tất cả', 'Phiếu nhập', 'Trả NCC'],
+        selected: _docKind,
+        onSelected: (i) => setState(() => _docKind = i),
+      ),
+      onExportExcel: () => unawaited(_exportExcel(receipts, returns)),
+      onExportPng: () => unawaited(PosReportExport.png(
+        context: context,
+        key: _pngKey,
+        filePrefix: 'POS_NhapHang',
+      )),
       onTimeChanged: (s) async {
         setState(() => _time = s);
         await _load();
@@ -406,11 +824,11 @@ class _PosPurchaseReportScreenState extends State<PosPurchaseReportScreen> {
                     ],
                   ),
                 ),
+                if (_docKind != 2)
                 PosReportCard(
                   title: 'Phiếu nhập',
                   child: receipts.isEmpty
-                      ? Text(tr('Chưa có dữ liệu'),
-                          style: const TextStyle(color: PosTheme.textSecondary))
+                      ? const PosReportEmpty()
                       : Column(
                           children: [
                             for (var i = 0; i < receipts.length && i < 40; i++) ...[
@@ -420,16 +838,20 @@ class _PosPurchaseReportScreenState extends State<PosPurchaseReportScreen> {
                                 receipts[i]['supplierName']?.toString() ?? '',
                                 receipts[i]['date'],
                                 _n(receipts[i]['grandTotal']),
+                                onTap: () => PosReportOpen.purchaseReceipt(
+                                  context,
+                                  '${receipts[i]['id'] ?? ''}',
+                                ),
                               ),
                             ],
                           ],
                         ),
                 ),
+                if (_docKind != 1)
                 PosReportCard(
                   title: 'Phiếu trả NCC',
                   child: returns.isEmpty
-                      ? Text(tr('Chưa có dữ liệu'),
-                          style: const TextStyle(color: PosTheme.textSecondary))
+                      ? const PosReportEmpty()
                       : Column(
                           children: [
                             for (var i = 0; i < returns.length && i < 40; i++) ...[
@@ -439,6 +861,10 @@ class _PosPurchaseReportScreenState extends State<PosPurchaseReportScreen> {
                                 returns[i]['supplierName']?.toString() ?? '',
                                 returns[i]['date'],
                                 _n(returns[i]['totalAmount']),
+                                onTap: () => PosReportOpen.purchaseReturn(
+                                  context,
+                                  '${returns[i]['id'] ?? ''}',
+                                ),
                               ),
                             ],
                           ],
@@ -449,24 +875,41 @@ class _PosPurchaseReportScreenState extends State<PosPurchaseReportScreen> {
     );
   }
 
-  Widget _docRow(String code, String name, dynamic date, double amount) {
-    return Row(
-      children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(tr(code), style: const TextStyle(fontWeight: FontWeight.w600)),
-              Text(
-                tr([name, _fmtDt(date)].where((s) => s.isNotEmpty).join(' · ')),
-                style: const TextStyle(fontSize: 12, color: PosTheme.textSecondary),
-              ),
-            ],
+  Widget _docRow(
+    String code,
+    String name,
+    dynamic date,
+    double amount, {
+    VoidCallback? onTap,
+  }) {
+    return PosReportNavRow(
+      onTap: onTap,
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  code,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF2B3437),
+                  ),
+                ),
+                Text(
+                  tr([name, _fmtDt(date)].where((s) => s.isNotEmpty).join(' · ')),
+                  style: const TextStyle(fontSize: 12, color: PosTheme.textSecondary),
+                ),
+              ],
+            ),
           ),
-        ),
-        Text(_moneyFmt.format(amount),
-            style: const TextStyle(fontWeight: FontWeight.w700)),
-      ],
+          PosReportMoneyLabel(amount, color: const Color(0xFF2B3437)),
+        ],
+      ),
     );
   }
 }
@@ -484,6 +927,7 @@ class _PosPaymentMethodReportScreenState
     extends State<PosPaymentMethodReportScreen> {
   final _api = ApiService();
   final _moneyFmt = NumberFormat('#,##0', 'vi_VN');
+  final _pngKey = GlobalKey();
   PosKiotTimeFilterState _time =
       const PosKiotTimeFilterState(preset: PosKiotTimePreset.thisWeek);
   bool _loading = true;
@@ -522,6 +966,28 @@ class _PosPaymentMethodReportScreenState
     return PosReportMobileScaffold(
       title: 'Phương thức thanh toán',
       time: _time,
+      pngKey: _pngKey,
+      onExportExcel: () => unawaited(PosReportExport.excel(
+        context: context,
+        title: 'Phương thức thanh toán',
+        sheetName: 'PTTT',
+        filePrefix: 'POS_PTTT',
+        periodLabel: _time.displayLabel,
+        headers: const ['Phương thức', 'Số GD', 'Tổng'],
+        rows: [
+          for (final e in rows)
+            [
+              e['paymentMethod'] ?? 'Khác',
+              _n(e['count']).toInt(),
+              _n(e['total']),
+            ],
+        ],
+      )),
+      onExportPng: () => unawaited(PosReportExport.png(
+        context: context,
+        key: _pngKey,
+        filePrefix: 'POS_PTTT',
+      )),
       onTimeChanged: (s) async {
         setState(() => _time = s);
         await _load();
@@ -551,6 +1017,12 @@ class _PosPaymentMethodReportScreenState
                         },
                         valueOf: (e) => _n(e['total']),
                         moneyFmt: _moneyFmt,
+                        onItemTap: (e) => PosReportOpen.sales(
+                          context,
+                          from: _time.from,
+                          to: _time.to,
+                          paymentMethod: e['paymentMethod']?.toString(),
+                        ),
                       ),
                     ],
                   ),
@@ -574,6 +1046,12 @@ class _PosDebtCombinedReportScreenState
     extends State<PosDebtCombinedReportScreen> {
   final _api = ApiService();
   final _moneyFmt = NumberFormat('#,##0', 'vi_VN');
+  final _pngKey = GlobalKey();
+  final _searchCtrl = TextEditingController();
+  PosKiotTimeFilterState _time =
+      const PosKiotTimeFilterState(preset: PosKiotTimePreset.thisMonth);
+  int _party = 0;
+  bool _includeZero = false;
   bool _loading = true;
   Map<String, dynamic>? _customers;
   Map<String, dynamic>? _suppliers;
@@ -584,11 +1062,24 @@ class _PosDebtCombinedReportScreenState
     _load();
   }
 
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
   Future<void> _load() async {
     setState(() => _loading = true);
+    final q = _searchCtrl.text.trim();
     final results = await Future.wait([
-      _api.getPosCustomerDebtReport(),
-      _api.getPosSupplierDebtReport(),
+      _api.getPosCustomerDebtReport(
+        search: q.isEmpty ? null : q,
+        includeZeroDebt: _includeZero,
+      ),
+      _api.getPosSupplierDebtReport(
+        search: q.isEmpty ? null : q,
+        includeZeroDebt: _includeZero,
+      ),
     ]);
     if (!mounted) return;
     setState(() {
@@ -606,97 +1097,169 @@ class _PosDebtCombinedReportScreenState
   Widget build(BuildContext context) {
     final kh = _maps(_customers?['items']);
     final ncc = _maps(_suppliers?['items']);
-    return ColoredBox(
-      color: const Color(0xFFF3F4F6),
-      child: Column(
+    return PosReportMobileScaffold(
+      title: 'Báo cáo công nợ',
+      time: _time,
+      showTimeFilter: false,
+      pngKey: _pngKey,
+      onTimeChanged: (_) {},
+      onRefresh: _load,
+      onExportExcel: () => unawaited(PosReportExport.excel(
+        context: context,
+        title: 'Báo cáo công nợ',
+        sheetName: 'Cong no',
+        filePrefix: 'POS_CongNo',
+        filterLabel: [
+          'Tất cả',
+          'Khách hàng',
+          'NCC',
+        ][_party] +
+            (_includeZero ? ' · gồm dư 0' : ''),
+        headers: const ['Loại', 'Tên', 'Công nợ'],
+        rows: [
+          if (_party != 2)
+            for (final e in kh)
+              [
+                'KH',
+                e['name'] ?? e['customerName'] ?? '',
+                _n(e['currentDebt'] ?? e['debt']),
+              ],
+          if (_party != 1)
+            for (final e in ncc)
+              [
+                'NCC',
+                e['name'] ?? '',
+                _n(e['currentDebt']),
+              ],
+        ],
+      )),
+      onExportPng: () => unawaited(PosReportExport.png(
+        context: context,
+        key: _pngKey,
+        filePrefix: 'POS_CongNo',
+      )),
+      filterBar: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const PosMobileKiotHeader(title: 'Báo cáo công nợ'),
-          Expanded(
-            child: RefreshIndicator(
-              color: PosTheme.kiotBlue,
-              onRefresh: _load,
-              child: _loading
-                  ? _loadingBody()
-                  : ListView(
-                      padding: const EdgeInsets.fromLTRB(12, 8, 12, 24),
-                      children: [
-                        PosReportCard(
-                          title: 'Công nợ khách hàng',
-                          child: Column(
-                            children: [
-                              PosReportMetricTiles(
-                                moneyFmt: _moneyFmt,
-                                tiles: [
-                                  (
-                                    label: 'Tổng nợ',
-                                    value: _n(_customers?['sumDebt']),
-                                    color: Colors.red.shade700,
-                                  ),
-                                  (
-                                    label: '0–30 ngày',
-                                    value: _n(_customers?['sumDebt0To30']),
-                                    color: PosTheme.kiotBlue,
-                                  ),
-                                  (
-                                    label: '>90 ngày',
-                                    value: _n(_customers?['sumDebtOver90']),
-                                    color: Colors.orange.shade800,
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 12),
-                              PosReportRankList(
-                                items: kh.take(30).toList(),
-                                labelOf: (e) =>
-                                    e['name']?.toString() ??
-                                    e['customerName']?.toString() ??
-                                    '—',
-                                valueOf: (e) => _n(e['currentDebt'] ?? e['debt']),
-                                moneyFmt: _moneyFmt,
-                              ),
-                            ],
-                          ),
-                        ),
-                        PosReportCard(
-                          title: 'Công nợ nhà cung cấp',
-                          child: Column(
-                            children: [
-                              PosReportMetricTiles(
-                                moneyFmt: _moneyFmt,
-                                tiles: [
-                                  (
-                                    label: 'Tổng nợ',
-                                    value: _n(_suppliers?['sumDebt']),
-                                    color: Colors.red.shade700,
-                                  ),
-                                  (
-                                    label: 'NCC',
-                                    value: _n(_suppliers?['totalSuppliers']),
-                                    color: PosTheme.kiotBlue,
-                                  ),
-                                  (
-                                    label: '>90 ngày',
-                                    value: _n(_suppliers?['sumDebtOver90']),
-                                    color: Colors.orange.shade800,
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 12),
-                              PosReportRankList(
-                                items: ncc.take(30).toList(),
-                                labelOf: (e) => e['name']?.toString() ?? '—',
-                                valueOf: (e) => _n(e['currentDebt']),
-                                moneyFmt: _moneyFmt,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
+          TextField(
+            controller: _searchCtrl,
+            decoration: InputDecoration(
+              hintText: tr('Tìm khách / NCC'),
+              prefixIcon: const Icon(Icons.search, size: 20),
+              isDense: true,
+              border: const OutlineInputBorder(),
+            ),
+            onSubmitted: (_) => _load(),
+          ),
+          const SizedBox(height: 8),
+          PosReportChipBar(
+            labels: const ['Tất cả', 'Khách hàng', 'NCC'],
+            selected: _party,
+            onSelected: (i) => setState(() => _party = i),
+          ),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: FilterChip(
+              label: Text(tr('Gồm dư 0')),
+              selected: _includeZero,
+              onSelected: (v) {
+                setState(() => _includeZero = v);
+                _load();
+              },
             ),
           ),
         ],
       ),
+      body: _loading
+          ? _loadingBody()
+          : ListView(
+              padding: const EdgeInsets.fromLTRB(12, 8, 12, 24),
+              children: [
+                if (_party != 2)
+                  PosReportCard(
+                    title: 'Công nợ khách hàng',
+                    child: Column(
+                      children: [
+                        PosReportMetricTiles(
+                          moneyFmt: _moneyFmt,
+                          tiles: [
+                            (
+                              label: 'Tổng nợ',
+                              value: _n(_customers?['sumDebt']),
+                              color: Colors.red.shade700,
+                            ),
+                            (
+                              label: '0–30 ngày',
+                              value: _n(_customers?['sumDebt0To30']),
+                              color: PosTheme.kiotBlue,
+                            ),
+                            (
+                              label: '>90 ngày',
+                              value: _n(_customers?['sumDebtOver90']),
+                              color: Colors.orange.shade800,
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        PosReportRankList(
+                          items: kh.take(30).toList(),
+                          labelOf: (e) =>
+                              e['name']?.toString() ??
+                              e['customerName']?.toString() ??
+                              '—',
+                          valueOf: (e) => _n(e['currentDebt'] ?? e['debt']),
+                          moneyFmt: _moneyFmt,
+                          onItemTap: (e) => PosReportOpen.sales(
+                            context,
+                            customerId: '${e['id'] ?? ''}',
+                            customerName: e['name']?.toString(),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                if (_party != 1)
+                  PosReportCard(
+                    title: 'Công nợ nhà cung cấp',
+                    child: Column(
+                      children: [
+                        PosReportMetricTiles(
+                          moneyFmt: _moneyFmt,
+                          tiles: [
+                            (
+                              label: 'Tổng nợ',
+                              value: _n(_suppliers?['sumDebt']),
+                              color: Colors.red.shade700,
+                            ),
+                            (
+                              label: 'NCC',
+                              value: _n(_suppliers?['totalSuppliers']),
+                              color: PosTheme.kiotBlue,
+                            ),
+                            (
+                              label: '>90 ngày',
+                              value: _n(_suppliers?['sumDebtOver90']),
+                              color: Colors.orange.shade800,
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        PosReportRankList(
+                          items: ncc.take(30).toList(),
+                          labelOf: (e) => e['name']?.toString() ?? '—',
+                          valueOf: (e) => _n(e['currentDebt']),
+                          moneyFmt: _moneyFmt,
+                          onItemTap: (e) => PosReportOpen.purchases(
+                            context,
+                            search: e['name']?.toString() ??
+                                e['supplierCode']?.toString(),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
     );
   }
 }
@@ -713,6 +1276,7 @@ class PosProfitOnlyReportScreen extends StatefulWidget {
 class _PosProfitOnlyReportScreenState extends State<PosProfitOnlyReportScreen> {
   final _api = ApiService();
   final _moneyFmt = NumberFormat('#,##0', 'vi_VN');
+  final _pngKey = GlobalKey();
   PosKiotTimeFilterState _time =
       const PosKiotTimeFilterState(preset: PosKiotTimePreset.thisWeek);
   bool _loading = true;
@@ -756,6 +1320,26 @@ class _PosProfitOnlyReportScreenState extends State<PosProfitOnlyReportScreen> {
     return PosReportMobileScaffold(
       title: 'Báo cáo lợi nhuận',
       time: _time,
+      pngKey: _pngKey,
+      onExportExcel: () => unawaited(PosReportExport.excel(
+        context: context,
+        title: 'Báo cáo lợi nhuận',
+        sheetName: 'Loi nhuan',
+        filePrefix: 'POS_LoiNhuan',
+        periodLabel: _time.displayLabel,
+        headers: const ['Chỉ tiêu', 'Giá trị'],
+        rows: [
+          ['Doanh thu', revenue],
+          ['Giá vốn', cogs],
+          ['Lợi nhuận', profit],
+          ['Biên LN %', margin],
+        ],
+      )),
+      onExportPng: () => unawaited(PosReportExport.png(
+        context: context,
+        key: _pngKey,
+        filePrefix: 'POS_LoiNhuan',
+      )),
       onTimeChanged: (s) async {
         setState(() => _time = s);
         await _load();
@@ -775,6 +1359,11 @@ class _PosProfitOnlyReportScreenState extends State<PosProfitOnlyReportScreen> {
                       const SizedBox(height: 12),
                       PosReportMetricTiles(
                         moneyFmt: _moneyFmt,
+                        onTileTap: (_) => PosReportOpen.sales(
+                          context,
+                          from: _time.from,
+                          to: _time.to,
+                        ),
                         tiles: [
                           (label: 'Lợi nhuận', value: profit, color: const Color(0xFF166534)),
                           (label: 'Doanh thu', value: revenue, color: PosTheme.kiotBlue),
@@ -810,8 +1399,10 @@ class PosExpenseReportScreen extends StatefulWidget {
 class _PosExpenseReportScreenState extends State<PosExpenseReportScreen> {
   final _api = ApiService();
   final _moneyFmt = NumberFormat('#,##0', 'vi_VN');
+  final _pngKey = GlobalKey();
   PosKiotTimeFilterState _time =
       const PosKiotTimeFilterState(preset: PosKiotTimePreset.thisMonth);
+  String? _category;
   bool _loading = true;
   Map<String, dynamic>? _data;
 
@@ -836,10 +1427,53 @@ class _PosExpenseReportScreenState extends State<PosExpenseReportScreen> {
   @override
   Widget build(BuildContext context) {
     final cats = _maps(_data?['byCategory']);
-    final items = _maps(_data?['items']);
+    final items = _maps(_data?['items'])
+        .where((e) =>
+            _category == null || e['category']?.toString() == _category)
+        .toList();
+    final catLabels = [
+      'Tất cả',
+      ...cats.map((e) => e['category']?.toString() ?? 'Khác'),
+    ];
+    final catSelected = _category == null
+        ? 0
+        : catLabels.indexWhere((l) => l == _category).clamp(0, catLabels.length - 1);
     return PosReportMobileScaffold(
       title: 'Báo cáo chi phí',
       time: _time,
+      pngKey: _pngKey,
+      filterBar: catLabels.length > 1
+          ? PosReportChipBar(
+              labels: catLabels.take(8).toList(),
+              selected: catSelected,
+              onSelected: (i) => setState(() {
+                _category = i == 0 ? null : catLabels[i];
+              }),
+            )
+          : null,
+      onExportExcel: () => unawaited(PosReportExport.excel(
+        context: context,
+        title: 'Báo cáo chi phí',
+        sheetName: 'Chi phi',
+        filePrefix: 'POS_ChiPhi',
+        periodLabel: _time.displayLabel,
+        filterLabel: _category,
+        headers: const ['Mã', 'Danh mục', 'Ngày', 'Số tiền'],
+        rows: [
+          for (final e in items)
+            [
+              e['transactionCode'] ?? '',
+              e['category'] ?? '',
+              _fmtDt(e['transactionDate']),
+              _n(e['amount']),
+            ],
+        ],
+      )),
+      onExportPng: () => unawaited(PosReportExport.png(
+        context: context,
+        key: _pngKey,
+        filePrefix: 'POS_ChiPhi',
+      )),
       onTimeChanged: (s) async {
         setState(() => _time = s);
         await _load();
@@ -883,22 +1517,12 @@ class _PosExpenseReportScreenState extends State<PosExpenseReportScreen> {
                 PosReportCard(
                   title: 'Phiếu chi gần đây',
                   child: items.isEmpty
-                      ? Text(tr('Chưa có dữ liệu'),
-                          style: const TextStyle(color: PosTheme.textSecondary))
+                      ? const PosReportEmpty()
                       : Column(
                           children: [
                             for (var i = 0; i < items.length; i++) ...[
                               if (i > 0) const Divider(height: 14),
-                              _txRow(
-                                items[i]['transactionCode']?.toString() ??
-                                    items[i]['category']?.toString() ??
-                                    'Chi',
-                                items[i]['description']?.toString() ??
-                                    items[i]['category']?.toString() ??
-                                    '',
-                                items[i]['transactionDate'],
-                                _n(items[i]['amount']),
-                              ),
+                              _txRow(items[i]),
                             ],
                           ],
                         ),
@@ -908,27 +1532,42 @@ class _PosExpenseReportScreenState extends State<PosExpenseReportScreen> {
     );
   }
 
-  Widget _txRow(String code, String note, dynamic date, double amount) {
-    return Row(
-      children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(tr(code), style: const TextStyle(fontWeight: FontWeight.w600)),
-              Text(
-                tr([note, _fmtDt(date)].where((s) => s.isNotEmpty).join(' · ')),
-                style: const TextStyle(fontSize: 12, color: PosTheme.textSecondary),
-              ),
-            ],
+  Widget _txRow(Map<String, dynamic> e) {
+    final code = e['transactionCode']?.toString() ??
+        e['category']?.toString() ??
+        'Chi';
+    final note = e['description']?.toString() ?? e['category']?.toString() ?? '';
+    final amount = _n(e['amount']);
+    return PosReportNavRow(
+      onTap: () => PosReportOpen.cashTx(context, e),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  code,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF2B3437),
+                  ),
+                ),
+                Text(
+                  tr([note, _fmtDt(e['transactionDate'])]
+                      .where((s) => s.isNotEmpty)
+                      .join(' · ')),
+                  style: const TextStyle(fontSize: 12, color: PosTheme.textSecondary),
+                ),
+              ],
+            ),
           ),
-        ),
-        Text(_moneyFmt.format(amount),
-            style: TextStyle(
-              fontWeight: FontWeight.w700,
-              color: Colors.red.shade700,
-            )),
-      ],
+          PosReportMoneyLabel(amount, color: const Color(0xFFB42318)),
+        ],
+      ),
     );
   }
 }
@@ -946,6 +1585,7 @@ class _PosStaffRevenueReportScreenState
     extends State<PosStaffRevenueReportScreen> {
   final _api = ApiService();
   final _moneyFmt = NumberFormat('#,##0', 'vi_VN');
+  final _pngKey = GlobalKey();
   PosKiotTimeFilterState _time =
       const PosKiotTimeFilterState(preset: PosKiotTimePreset.thisWeek);
   bool _loading = true;
@@ -975,6 +1615,28 @@ class _PosStaffRevenueReportScreenState
     return PosReportMobileScaffold(
       title: 'Doanh thu theo nhân viên',
       time: _time,
+      pngKey: _pngKey,
+      onExportExcel: () => unawaited(PosReportExport.excel(
+        context: context,
+        title: 'Doanh thu theo nhân viên',
+        sheetName: 'Nhan vien',
+        filePrefix: 'POS_DTNhanVien',
+        periodLabel: _time.displayLabel,
+        headers: const ['Nhân viên', 'Số HĐ', 'Doanh thu'],
+        rows: [
+          for (final e in staff)
+            [
+              e['soldBy'] ?? '',
+              _n(e['orderCount']).toInt(),
+              _n(e['revenue']),
+            ],
+        ],
+      )),
+      onExportPng: () => unawaited(PosReportExport.png(
+        context: context,
+        key: _pngKey,
+        filePrefix: 'POS_DTNhanVien',
+      )),
       onTimeChanged: (s) async {
         setState(() => _time = s);
         await _load();
@@ -998,6 +1660,12 @@ class _PosStaffRevenueReportScreenState
                     },
                     valueOf: (e) => _n(e['revenue']),
                     moneyFmt: _moneyFmt,
+                    onItemTap: (e) => PosReportOpen.sales(
+                      context,
+                      from: _time.from,
+                      to: _time.to,
+                      soldBy: e['soldBy']?.toString(),
+                    ),
                   ),
                 ),
               ],
@@ -1017,8 +1685,10 @@ class PosCashbookReportScreen extends StatefulWidget {
 class _PosCashbookReportScreenState extends State<PosCashbookReportScreen> {
   final _api = ApiService();
   final _moneyFmt = NumberFormat('#,##0', 'vi_VN');
+  final _pngKey = GlobalKey();
   PosKiotTimeFilterState _time =
       const PosKiotTimeFilterState(preset: PosKiotTimePreset.thisMonth);
+  int _cashKind = 0;
   bool _loading = true;
   Map<String, dynamic>? _data;
 
@@ -1042,10 +1712,49 @@ class _PosCashbookReportScreenState extends State<PosCashbookReportScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final items = _maps(_data?['items']);
+    final items = _maps(_data?['items']).where((e) {
+      if (_cashKind == 0) return true;
+      final income = e['type']?.toString().toLowerCase() == 'income';
+      return _cashKind == 1 ? income : !income;
+    }).toList();
     return PosReportMobileScaffold(
       title: 'Sổ quỹ',
       time: _time,
+      pngKey: _pngKey,
+      filterBar: PosReportChipBar(
+        labels: const ['Tất cả', 'Thu', 'Chi'],
+        selected: _cashKind,
+        onSelected: (i) => setState(() => _cashKind = i),
+      ),
+      onExportExcel: () => unawaited(PosReportExport.excel(
+        context: context,
+        title: 'Sổ quỹ',
+        sheetName: 'So quy',
+        filePrefix: 'POS_SoQuy',
+        periodLabel: _time.displayLabel,
+        filterLabel: const ['Tất cả', 'Thu', 'Chi'][_cashKind],
+        headers: const ['Mã', 'Loại', 'Danh mục', 'Ngày', 'Số tiền'],
+        rows: [
+          for (final e in items)
+            [
+              e['transactionCode'] ?? '',
+              e['type'] ?? '',
+              e['category'] ?? '',
+              _fmtDt(e['transactionDate']),
+              _n(e['amount']),
+            ],
+        ],
+        summaryLines: [
+          'Thu: ${_moneyFmt.format(_n(_data?['income']))}',
+          'Chi: ${_moneyFmt.format(_n(_data?['expense']))}',
+          'Chênh lệch: ${_moneyFmt.format(_n(_data?['net']))}',
+        ],
+      )),
+      onExportPng: () => unawaited(PosReportExport.png(
+        context: context,
+        key: _pngKey,
+        filePrefix: 'POS_SoQuy',
+      )),
       onTimeChanged: (s) async {
         setState(() => _time = s);
         await _load();
@@ -1082,8 +1791,7 @@ class _PosCashbookReportScreenState extends State<PosCashbookReportScreen> {
                 PosReportCard(
                   title: 'Giao dịch gần đây',
                   child: items.isEmpty
-                      ? Text(tr('Chưa có dữ liệu'),
-                          style: const TextStyle(color: PosTheme.textSecondary))
+                      ? const PosReportEmpty()
                       : Column(
                           children: [
                             for (var i = 0; i < items.length; i++) ...[
@@ -1101,37 +1809,44 @@ class _PosCashbookReportScreenState extends State<PosCashbookReportScreen> {
   Widget _cashRow(Map<String, dynamic> e) {
     final income = e['type']?.toString().toLowerCase() == 'income';
     final amount = _n(e['amount']);
-    return Row(
-      children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                tr(e['transactionCode']?.toString() ??
-                    e['category']?.toString() ??
-                    (income ? 'Thu' : 'Chi')),
-                style: const TextStyle(fontWeight: FontWeight.w600),
-              ),
-              Text(
-                tr([
-                  e['description']?.toString() ?? '',
-                  e['paymentMethod']?.toString() ?? '',
-                  _fmtDt(e['transactionDate']),
-                ].where((s) => s.isNotEmpty).join(' · ')),
-                style: const TextStyle(fontSize: 12, color: PosTheme.textSecondary),
-              ),
-            ],
+    return PosReportNavRow(
+      onTap: () => PosReportOpen.cashTx(context, e),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  e['transactionCode']?.toString() ??
+                      e['category']?.toString() ??
+                      (income ? 'Thu' : 'Chi'),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF2B3437),
+                  ),
+                ),
+                Text(
+                  tr([
+                    e['description']?.toString() ?? '',
+                    e['paymentMethod']?.toString() ?? '',
+                    _fmtDt(e['transactionDate']),
+                  ].where((s) => s.isNotEmpty).join(' · ')),
+                  style: const TextStyle(fontSize: 12, color: PosTheme.textSecondary),
+                ),
+              ],
+            ),
           ),
-        ),
-        Text(
-          '${income ? '+' : '-'}${_moneyFmt.format(amount)}',
-          style: TextStyle(
-            fontWeight: FontWeight.w700,
-            color: income ? const Color(0xFF166534) : Colors.red.shade700,
+          PosReportMoneyLabel(
+            amount,
+            prefix: income ? '+' : '-',
+            color: income ? const Color(0xFF166534) : const Color(0xFFB42318),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -1147,6 +1862,7 @@ class PosPnlReportScreen extends StatefulWidget {
 class _PosPnlReportScreenState extends State<PosPnlReportScreen> {
   final _api = ApiService();
   final _moneyFmt = NumberFormat('#,##0', 'vi_VN');
+  final _pngKey = GlobalKey();
   PosKiotTimeFilterState _time =
       const PosKiotTimeFilterState(preset: PosKiotTimePreset.thisMonth);
   bool _loading = true;
@@ -1176,6 +1892,30 @@ class _PosPnlReportScreenState extends State<PosPnlReportScreen> {
     return PosReportMobileScaffold(
       title: 'Kết quả kinh doanh',
       time: _time,
+      pngKey: _pngKey,
+      onExportExcel: () => unawaited(PosReportExport.excel(
+        context: context,
+        title: 'Kết quả kinh doanh',
+        sheetName: 'P&L',
+        filePrefix: 'POS_KQKD',
+        periodLabel: _time.displayLabel,
+        headers: const ['Chỉ tiêu', 'Giá trị'],
+        rows: [
+          ['Doanh thu', _n(_data?['revenue'])],
+          ['VAT', _n(_data?['vat'])],
+          ['Giảm giá', _n(_data?['discount'])],
+          ['Giá vốn', _n(_data?['cogs'])],
+          ['LN gộp', _n(_data?['grossProfit'])],
+          ['Chi phí', _n(_data?['expenses'])],
+          ['LN ròng', net],
+          ['Biên %', _n(_data?['marginPct'])],
+        ],
+      )),
+      onExportPng: () => unawaited(PosReportExport.png(
+        context: context,
+        key: _pngKey,
+        filePrefix: 'POS_KQKD',
+      )),
       onTimeChanged: (s) async {
         setState(() => _time = s);
         await _load();
@@ -1193,6 +1933,11 @@ class _PosPnlReportScreenState extends State<PosPnlReportScreen> {
                     children: [
                       PosReportMetricTiles(
                         moneyFmt: _moneyFmt,
+                        onTileTap: (_) => PosReportOpen.sales(
+                          context,
+                          from: _time.from,
+                          to: _time.to,
+                        ),
                         tiles: [
                           (
                             label: 'Doanh thu',
@@ -1234,11 +1979,15 @@ class _PosPnlReportScreenState extends State<PosPnlReportScreen> {
                       ),
                       const SizedBox(height: 12),
                       Text(
-                        tr('LN ròng: ${_moneyFmt.format(net)}  ·  biên ${_n(_data?['marginPct']).toStringAsFixed(1)}%  ·  ${_n(_data?['orderCount']).toInt()} HĐ'),
+                        tr('LN ròng: ${posReportMoney(net)}  ·  biên ${_n(_data?['marginPct']).toStringAsFixed(1)}%  ·  ${_n(_data?['orderCount']).toInt()} HĐ'),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                         style: TextStyle(
-                          fontSize: 14,
+                          fontSize: 13,
                           fontWeight: FontWeight.w700,
-                          color: net < 0 ? Colors.red.shade700 : const Color(0xFF166534),
+                          color: net < 0
+                              ? const Color(0xFFB42318)
+                              : const Color(0xFF166534),
                         ),
                       ),
                     ],
@@ -1263,6 +2012,7 @@ class _PosVoucherUsageReportScreenState
     extends State<PosVoucherUsageReportScreen> {
   final _api = ApiService();
   final _moneyFmt = NumberFormat('#,##0', 'vi_VN');
+  final _pngKey = GlobalKey();
   PosKiotTimeFilterState _time =
       const PosKiotTimeFilterState(preset: PosKiotTimePreset.thisMonth);
   bool _loading = true;
@@ -1292,6 +2042,32 @@ class _PosVoucherUsageReportScreenState
     return PosReportMobileScaffold(
       title: 'Báo cáo voucher',
       time: _time,
+      pngKey: _pngKey,
+      onExportExcel: () => unawaited(PosReportExport.excel(
+        context: context,
+        title: 'Báo cáo voucher',
+        sheetName: 'Voucher',
+        filePrefix: 'POS_Voucher',
+        periodLabel: _time.displayLabel,
+        headers: const ['Mã', 'Lượt dùng', 'Giảm giá'],
+        rows: [
+          for (final e in items)
+            [
+              e['voucherCode'] ?? '',
+              _n(e['uses']).toInt(),
+              _n(e['discount']),
+            ],
+        ],
+        summaryLines: [
+          'Tổng giảm: ${_moneyFmt.format(_n(_data?['totalDiscount']))}',
+          'DT kèm VC: ${_moneyFmt.format(_n(_data?['revenueWithVoucher']))}',
+        ],
+      )),
+      onExportPng: () => unawaited(PosReportExport.png(
+        context: context,
+        key: _pngKey,
+        filePrefix: 'POS_Voucher',
+      )),
       onTimeChanged: (s) async {
         setState(() => _time = s);
         await _load();
@@ -1336,6 +2112,12 @@ class _PosVoucherUsageReportScreenState
                         },
                         valueOf: (e) => _n(e['discount']),
                         moneyFmt: _moneyFmt,
+                        onItemTap: (e) => PosReportOpen.sales(
+                          context,
+                          from: _time.from,
+                          to: _time.to,
+                          search: e['voucherCode']?.toString(),
+                        ),
                       ),
                     ],
                   ),

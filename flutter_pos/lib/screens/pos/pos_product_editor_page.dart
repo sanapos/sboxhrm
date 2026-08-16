@@ -26,6 +26,7 @@ import '../../widgets/pos/pos_product_unit_view.dart';
 import '../../widgets/pos/pos_combo_component_picker.dart';
 import '../../widgets/pos/pos_sale_quick_notes_widgets.dart';
 import '../../widgets/pos/pos_product_editor_sections_dialog.dart';
+import '../../widgets/pos/pos_form_keyboard.dart';
 import '../../widgets/pos/pos_theme.dart';
 import '../../widgets/pos_barcode_scanner.dart';
 import 'pos_topping_groups_screen.dart';
@@ -44,16 +45,16 @@ class PosProductEditorPage extends StatefulWidget {
 
   final PosProductType productType;
   final PosProduct? product;
-  /// Sao chép: m? form thêm m?i, di?n s?n t? s?n ph?m ngu?n.
+  /// Sao chép: mở form thêm mới, điền sẵn từ sản phẩm nguồn.
   final PosProduct? templateProduct;
-  /// M? th?ng dialog thi?t l?p don v?/thu?c tính sau khi n?p xong.
+  /// Mở thẳng dialog thiết lập đơn vị/thuộc tính sau khi nạp xong.
   final bool openUnitSetup;
-  /// Chu?n b? nh?p thêm giá tr? thu?c tính (hàng cùng lo?i).
+  /// Chuẩn bị nhập thêm giá trị thuộc tính (hàng cùng loại).
   final bool unitSetupAddMore;
-  /// M? dialog thi?t l?p và bôi d?m hàng cùng lo?i c?n s?a.
+  /// Mở dialog thiết lập và bôi đậm hàng cùng loại cần sửa.
   final String? unitSetupFocusVariantId;
 
-  /// M? editor: hàng hóa = dialog KiotViet; d?ch v?/combo = full page.
+  /// Mở editor: hàng hóa = dialog KiotViet; dịch vụ/combo = full page.
   static Future<bool?> open(
     BuildContext context, {
     required PosProductType productType,
@@ -78,7 +79,7 @@ class PosProductEditorPage extends StatefulWidget {
     );
   }
 
-  /// M? th?ng dialog thi?t l?p don v?/thu?c tính d? s?a m?t hàng cùng lo?i (không m? form cha).
+  /// Mở thẳng dialog thiết lập đơn vị/thuộc tính để sửa một hàng cùng loại (không mở form cha).
   static Future<bool?> openVariantUnitSetup(
     BuildContext context, {
     required PosProduct product,
@@ -294,17 +295,17 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
   bool get _canEditMainStock => !_hasVariants || _usesSharedUnitStock;
 
   String get _stockFieldLabel {
-    if (!_hasVariants) return 'T?n kho';
+    if (!_hasVariants) return 'Tồn kho';
     if (_usesSharedUnitStock) {
       final unit = _unitCtrl.text.trim();
-      return unit.isEmpty ? 'T?n kho (don v? co b?n)' : 'T?n kho ($unit)';
+      return unit.isEmpty ? 'Tồn kho (đơn vị cơ bản)' : 'Tồn kho ($unit)';
     }
-    return 'T?n kho (t?ng các lo?i)';
+    return 'Tồn kho (tổng các loại)';
   }
 
   String get _stockFieldHint => _canEditMainStock
-      ? 'Nh?p theo don v? nh? nh?t; ÐVT khác t? quy d?i khi hi?n th?'
-      : 'S?a t?n t?ng bi?n th? ? b?ng bên du?i ho?c dùng Nh?p kho';
+      ? 'Nhập theo đơn vị nhỏ nhất; ĐVT khác tự quy đổi khi hiển thị'
+      : 'Sửa tồn từng biến thể ở bảng bên dưới hoặc dùng Nhập kho';
   bool get _isCopyFromTemplate =>
       widget.templateProduct != null && widget.product == null;
 
@@ -312,26 +313,26 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
     if (_isCopyFromTemplate) {
       return switch (_type) {
         PosProductType.goods => 'Thêm hàng hóa (sao chép)',
-        PosProductType.service => 'Thêm d?ch v? (sao chép)',
+        PosProductType.service => 'Thêm dịch vụ (sao chép)',
         PosProductType.combo => 'Thêm combo (sao chép)',
       };
     }
     if (!_isEditing) {
       return switch (_type) {
-        PosProductType.goods => 'T?o hàng hóa',
-        PosProductType.service => 'T?o d?ch v?',
-        PosProductType.combo => 'T?o combo - dóng gói',
+        PosProductType.goods => 'Tạo hàng hóa',
+        PosProductType.service => 'Tạo dịch vụ',
+        PosProductType.combo => 'Tạo combo - đóng gói',
       };
     }
     return switch (_type) {
-      PosProductType.goods => 'S?a hàng hóa',
-      PosProductType.service => 'S?a d?ch v?',
-      PosProductType.combo => 'S?a combo',
+      PosProductType.goods => 'Sửa hàng hóa',
+      PosProductType.service => 'Sửa dịch vụ',
+      PosProductType.combo => 'Sửa combo',
     };
   }
 
   List<String> get _tabLabels => _showSection(PosProductEditorSection.description)
-      ? const ['Thông tin', 'Mô t?']
+      ? const ['Thông tin', 'Mô tả']
       : const ['Thông tin'];
 
   bool _showSection(PosProductEditorSection section) {
@@ -339,7 +340,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
     return _sectionForcedByProduct(section);
   }
 
-  /// Khi s?a hàng dã có d? li?u nâng cao — v?n hi?n m?c dó dù prefs t?t.
+  /// Khi sửa hàng đã có dữ liệu nâng cao — vẫn hiện mục đó dù prefs tắt.
   bool _sectionForcedByProduct(PosProductEditorSection section) {
     switch (section) {
       case PosProductEditorSection.codes:
@@ -423,8 +424,8 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
         widget.templateProduct?.productType ??
         widget.productType;
     final p = widget.product ?? widget.templateProduct;
-    // Ph?i t?o tru?c TabController: _tabLabels ? _showSection(description)
-    // d?c _descCtrl / _saleQuickNotes.
+    // Phải tạo trước TabController: _tabLabels → _showSection(description)
+    // đọc _descCtrl / _saleQuickNotes.
     _descCtrl = TextEditingController(text: tr(p?.description ?? ''));
     _saleQuickNotes = List<String>.from(p?.saleQuickNotes ?? const []);
     _isTopping = p?.isTopping ?? false;
@@ -435,9 +436,9 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
     unawaited(_loadToppingGroups());
     _tabs = TabController(length: _tabLabels.length, vsync: this);
     final copyName = p != null && _isCopyFromTemplate
-        ? (p.name.trim().endsWith('(b?n sao)')
+        ? (p.name.trim().endsWith('(bản sao)')
             ? p.name.trim()
-            : '${p.name.trim()} (b?n sao)')
+            : '${p.name.trim()} (bản sao)')
         : (p?.name ?? '');
     _codeCtrl = TextEditingController(
         text: tr(_isCopyFromTemplate ? '' : (p?.productCode ?? '')));
@@ -514,6 +515,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
     if (p?.units != null) _units = List.from(p!.units!);
     if (p?.attributes != null) _attributeValues.addAll(p!.attributes!);
     unawaited(_loadEditorSectionPrefs());
+    hidePosSoftKeyboard();
     _initData();
   }
 
@@ -530,13 +532,14 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
         _loading = false;
         _syncTabController();
       });
+      hidePosSoftKeyboard();
     }
     if (mounted && widget.openUnitSetup && _isGoods) {
       await _openUnitAttributeSetup(addMore: widget.unitSetupAddMore);
     }
   }
 
-  /// N?p don v?, thu?c tính, thành ph?n combo t? s?n ph?m ngu?n khi sao chép.
+  /// Nạp đơn vị, thuộc tính, thành phần combo từ sản phẩm nguồn khi sao chép.
   Future<void> _loadTemplateExtras(String sourceId) async {
     final res = await _api.getPosProduct(sourceId);
     if (!mounted || res['isSuccess'] != true) return;
@@ -597,6 +600,14 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
     final data = PosProduct.fromJson(res['data'] as Map<String, dynamic>);
     setState(() {
       _productType = data.productType;
+      if (_loading) {
+        _nameCtrl.text = data.name;
+        _codeCtrl.text = data.productCode;
+        _barcodeCtrl.text = data.barcode ?? '';
+      }
+      _categoryId = data.categoryId;
+      _brandId = data.brandId;
+      _locationId = data.storageLocationId;
       if (data.units != null) _units = List.from(data.units!);
       _attributeValues
         ..clear()
@@ -675,7 +686,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
     });
   }
 
-  /// N?p dòng thu?c tính t? schema dã luu (1 value = "a, b, c" trên API).
+  /// Nạp dòng thuộc tính từ schema đã lưu (1 value = "a, b, c" trên API).
   void _syncVariantAttrsFromProductAttributes() {
     if (_attributeValues.isEmpty) return;
     final grouped = <String, _VariantAttrRow>{};
@@ -713,7 +724,9 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
         .hasMatch(id);
   }
 
-  /// Khôi ph?c dòng thu?c tính t? attributeJson c?a bi?n th? (sau reload/F5).
+  String? _guidOrNull(String? id) => _isValidGuid(id) ? id : null;
+
+  /// Khôi phục dòng thuộc tính từ attributeJson của biến thể (sau reload/F5).
   void _rebuildVariantAttrsFromVariants() {
     if (_variants.isEmpty) return;
     final grouped = <String, Set<String>>{};
@@ -741,7 +754,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
       }));
   }
 
-  /// Ghi don v? quy d?i + bi?n th? lên server (dùng cho c? t?o m?i và s?a).
+  /// Ghi đơn vị quy đổi + biến thể lên server (dùng cho cả tạo mới và sửa).
   Future<String?> _syncGoodsUnitsAndVariants(String productId) async {
     final existingRes = await _api.getPosProductUnits(productId);
     final existing = <String, PosProductUnit>{};
@@ -759,12 +772,12 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
         keepIds.add(u.id);
         final res = await _api.updatePosProductUnit(productId, u.id, body);
         if (res['isSuccess'] != true) {
-          return res['message']?.toString() ?? 'Luu don v? quy d?i th?t b?i';
+          return res['message']?.toString() ?? 'Lưu đơn vị quy đổi thất bại';
         }
       } else {
         final res = await _api.createPosProductUnit(productId, body);
         if (res['isSuccess'] != true) {
-          return res['message']?.toString() ?? 'T?o don v? quy d?i th?t b?i';
+          return res['message']?.toString() ?? 'Tạo đơn vị quy đổi thất bại';
         }
         final newId = (res['data'] as Map?)?['id']?.toString();
         if (newId != null && newId.isNotEmpty) keepIds.add(newId);
@@ -786,7 +799,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
     final syncRes =
         await _api.syncPosProductVariants(productId, syncVariants);
     if (syncRes['isSuccess'] != true) {
-      return syncRes['message']?.toString() ?? 'Luu bi?n th? th?t b?i';
+      return syncRes['message']?.toString() ?? 'Lưu biến thể thất bại';
     }
     if (syncRes['data'] is List) {
       _variants = (syncRes['data'] as List)
@@ -796,9 +809,9 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
     return null;
   }
 
-  InputDecoration _barcodeInputDecoration({String hint = 'Nh?p mã v?ch'}) {
+  InputDecoration _barcodeInputDecoration({String hint = 'Nhập mã vạch'}) {
     return posBarcodeScanDecoration(
-      PosTheme.inputDecoration(label: 'Mã v?ch', hint: hint),
+      PosTheme.inputDecoration(label: 'Mã vạch', hint: hint),
       controller: _barcodeCtrl,
     );
   }
@@ -841,8 +854,8 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
     if (picked == null) return;
     if (picked.bytes.length > 2 * 1024 * 1024) {
       NotificationOverlayManager().showError(
-        title: 'L?i',
-        message: tr('?nh không du?c vu?t quá 2 MB'),
+        title: 'Lỗi',
+        message: tr('Ảnh không được vượt quá 2 MB'),
       );
       return;
     }
@@ -876,24 +889,17 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
   Future<void> _save({bool createAnother = false}) async {
     if (_nameCtrl.text.trim().isEmpty) {
       NotificationOverlayManager().showError(
-        title: 'L?i',
+        title: 'Lỗi',
         message: _isService
-            ? 'Vui lòng nh?p tên d?ch v?'
-            : 'Vui lòng nh?p tên hàng',
-      );
-      return;
-    }
-    if (_categoryId == null || _categoryId!.isEmpty) {
-      NotificationOverlayManager().showError(
-        title: 'L?i',
-        message: tr('Vui lòng ch?n nhóm hàng'),
+            ? 'Vui lòng nhập tên dịch vụ'
+            : 'Vui lòng nhập tên hàng',
       );
       return;
     }
     if (_isCombo && _comboLines.isEmpty) {
       NotificationOverlayManager().showError(
-        title: 'L?i',
-        message: tr('Combo c?n ít nh?t 1 hàng thành ph?n'),
+        title: 'Lỗi',
+        message: tr('Combo cần ít nhất 1 hàng thành phần'),
       );
       return;
     }
@@ -906,10 +912,10 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
         'barcode':
             _barcodeCtrl.text.trim().isEmpty ? null : _barcodeCtrl.text.trim(),
       'name': _nameCtrl.text.trim(),
-      'categoryId': _categoryId,
-      'brandId': _brandId,
-      if (_isGoods) 'storageLocationId': _locationId,
-      if (_isGoods || _isCombo) 'supplierId': _supplierId,
+      'categoryId': _guidOrNull(_categoryId),
+      'brandId': _guidOrNull(_brandId),
+      if (_isGoods) 'storageLocationId': _guidOrNull(_locationId),
+      if (_isGoods || _isCombo) 'supplierId': _guidOrNull(_supplierId),
       'productType': _isService ? 1 : (_isCombo ? 2 : 0),
       'description': _descCtrl.text.trim(),
       'saleQuickNotes': _saleQuickNotes
@@ -928,7 +934,9 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                   })
               .toList()
           : <Map<String, dynamic>>[],
-      'toppingGroupIds': _isTopping ? <String>[] : _toppingGroupIds,
+      'toppingGroupIds': _isTopping
+          ? <String>[]
+          : _toppingGroupIds.where(_isValidGuid).toList(),
       if (!_isEditing &&
           widget.templateProduct?.imageUrl != null &&
           _pendingImageBytes == null)
@@ -995,9 +1003,9 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
           if (!mounted) return;
           setState(() => _saving = false);
           NotificationOverlayManager().showError(
-            title: 'Luu ?nh th?t b?i',
+            title: 'Lưu ảnh thất bại',
             message: imgRes['message']?.toString() ??
-                'Hàng hóa dã luu nhung ?nh chua du?c g?n. Vui lòng th? l?i.',
+                'Hàng hóa đã lưu nhưng ảnh chưa được gắn. Vui lòng thử lại.',
           );
           return;
         }
@@ -1024,7 +1032,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
           if (!mounted) return;
           setState(() => _saving = false);
           NotificationOverlayManager().showError(
-            title: 'Luu chua hoàn t?t',
+            title: 'Lưu chưa hoàn tất',
             message: syncErr,
           );
           return;
@@ -1049,9 +1057,9 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
           if (!mounted) return;
           setState(() => _saving = false);
           NotificationOverlayManager().showError(
-            title: 'Luu thành ph?n combo th?t b?i',
+            title: 'Lưu thành phần combo thất bại',
             message: comboRes['message']?.toString() ??
-                'Hàng hóa dã luu nhung thành ph?n combo chua du?c g?n. Vui lòng th? l?i.',
+                'Hàng hóa đã lưu nhưng thành phần combo chưa được gắn. Vui lòng thử lại.',
           );
           return;
         }
@@ -1065,7 +1073,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
       ScreenRefreshNotifier.refreshPosSellProductGrid();
       NotificationOverlayManager().showSuccess(
         title: 'Thành công',
-        message: _isEditing ? 'Ðã luu hàng hóa' : 'Ðã t?o hàng hóa',
+        message: _isEditing ? 'Đã lưu hàng hóa' : 'Đã tạo hàng hóa',
       );
       if (createAnother && !_isEditing) {
         _resetForAnother();
@@ -1075,8 +1083,8 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
       }
     } else {
       NotificationOverlayManager().showError(
-        title: 'L?i',
-        message: res['message']?.toString() ?? 'Luu th?t b?i',
+        title: 'Lỗi',
+        message: res['message']?.toString() ?? 'Lưu thất bại',
       );
     }
   }
@@ -1088,7 +1096,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDlg) => AlertDialog(
-          title: Text(tr('T?o m?i nhóm hàng')),
+          title: Text(tr('Tạo mới nhóm hàng')),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -1101,7 +1109,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
               DropdownButtonFormField<String?>(
                 value: parentId,
                 decoration: PosTheme.inputDecoration(
-                  label: 'Nhóm cha (tu? ch?n)',
+                  label: 'Nhóm cha (tuỳ chọn)',
                 ),
                 items: [
                   DropdownMenuItem(value: null, child: Text(tr('— Không —'))),
@@ -1116,12 +1124,12 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: Text(tr('H?y')),
+              child: Text(tr('Hủy')),
             ),
             FilledButton(
               style: PosTheme.filledButtonStyle,
               onPressed: () => Navigator.pop(ctx, nameCtrl.text.trim()),
-              child: Text(tr('Luu')),
+              child: Text(tr('Lưu')),
             ),
           ],
         ),
@@ -1146,8 +1154,8 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
     final canDelete = perm.canDelete('PosProducts');
     if (!canEdit && !canDelete) {
       NotificationOverlayManager().showError(
-        title: 'L?i',
-        message: tr('B?n không có quy?n qu?n lý danh m?c'),
+        title: 'Lỗi',
+        message: tr('Bạn không có quyền quản lý danh mục'),
       );
       return;
     }
@@ -1195,7 +1203,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
     final name = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text(tr('T?o m?i $title')),
+        title: Text(tr('Tạo mới $title')),
         content: TextField(
           controller: ctrl,
           decoration: PosTheme.inputDecoration(label: 'Tên $title'),
@@ -1204,12 +1212,12 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: Text(tr('H?y')),
+            child: Text(tr('Hủy')),
           ),
           FilledButton(
             style: PosTheme.filledButtonStyle,
             onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
-            child: Text(tr('Luu')),
+            child: Text(tr('Lưu')),
           ),
         ],
       ),
@@ -1223,7 +1231,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
     }
   }
 
-  /// T?o NCC form d?y d? (cùng API phi?u nh?p) — không ch? tên.
+  /// Tạo NCC form đầy đủ (cùng API phiếu nhập) — không chỉ tên.
   Future<void> _openCreateSupplierFull() async {
     final created = await PosSupplierFormDialog.open(context);
     if (created == null || !mounted) return;
@@ -1238,8 +1246,8 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
   Future<void> _generateVariants() async {
     if (!_isEditing) {
       NotificationOverlayManager().showError(
-        title: 'L?i',
-        message: tr('Luu s?n ph?m tru?c khi t?o bi?n th?'),
+        title: 'Lỗi',
+        message: tr('Lưu sản phẩm trước khi tạo biến thể'),
       );
       return;
     }
@@ -1251,8 +1259,8 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
         .toList();
     if (attrs.isEmpty) {
       NotificationOverlayManager().showError(
-        title: 'L?i',
-        message: tr('Nh?p ít nh?t m?t thu?c tính và giá tr?'),
+        title: 'Lỗi',
+        message: tr('Nhập ít nhất một thuộc tính và giá trị'),
       );
       return;
     }
@@ -1269,12 +1277,12 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
       await _loadVariants(widget.product!.id);
       NotificationOverlayManager().showSuccess(
         title: 'Thành công',
-        message: tr('Ðã t?o bi?n th?'),
+        message: tr('Đã tạo biến thể'),
       );
     } else {
       NotificationOverlayManager().showError(
-        title: 'L?i',
-        message: res['message']?.toString() ?? 'T?o bi?n th? th?t b?i',
+        title: 'Lỗi',
+        message: res['message']?.toString() ?? 'Tạo biến thể thất bại',
       );
     }
   }
@@ -1289,13 +1297,13 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
     if (!mounted) return;
     if (res['isSuccess'] == true) {
       NotificationOverlayManager().showSuccess(
-        title: 'Ðã luu',
-        message: tr('C?p nh?t bi?n th?'),
+        title: 'Đã lưu',
+        message: tr('Cập nhật biến thể'),
       );
     } else {
       NotificationOverlayManager().showError(
-        title: 'L?i',
-        message: res['message']?.toString() ?? 'C?p nh?t th?t b?i',
+        title: 'Lỗi',
+        message: res['message']?.toString() ?? 'Cập nhật thất bại',
       );
     }
   }
@@ -1341,7 +1349,9 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
     final size = MediaQuery.sizeOf(context);
     final pad = MediaQuery.paddingOf(context);
     final narrow = size.width < 600;
-    return Dialog(
+    return wrapPosFormDialog(
+      context,
+      Dialog(
       backgroundColor: Colors.white,
       insetPadding: EdgeInsets.fromLTRB(
         narrow ? 8 : (size.width > 960 ? (size.width - 920) / 2 : 16),
@@ -1392,6 +1402,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
           ],
         ),
       ),
+    ),
     );
   }
 
@@ -1416,7 +1427,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                 if (_editorPrefsLoaded && !advancedOn)
                   Padding(
                     padding: const EdgeInsets.only(top: 2),
-                    child: Text(tr('Form g?n — b?t thêm m?c trong ? n?u c?n'),
+                    child: Text(tr('Form gọn — bật thêm mục trong ⚙ nếu cần'),
                       style: TextStyle(
                         fontSize: 12,
                         color: Colors.grey.shade600,
@@ -1432,12 +1443,12 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
               advancedOn ? Icons.tune : Icons.tune_outlined,
               color: advancedOn ? PosTheme.kiotBlue : PosTheme.textSecondary,
             ),
-            tooltip: tr('Tùy ch?n hi?n th? form'),
+            tooltip: tr('Tùy chọn hiển thị form'),
           ),
           IconButton(
             onPressed: _saving ? null : () => Navigator.pop(context),
             icon: const Icon(Icons.close),
-            tooltip: tr('Ðóng'),
+            tooltip: tr('Đóng'),
           ),
         ],
       ),
@@ -1449,7 +1460,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
     final actions = <Widget>[
       TextButton(
         onPressed: _saving ? null : () => Navigator.pop(context),
-        child: Text(tr('B? qua')),
+        child: Text(tr('Bỏ qua')),
       ),
       if (!_isEditing) ...[
         const SizedBox(width: 6),
@@ -1460,7 +1471,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
             side: const BorderSide(color: PosTheme.kiotBlue),
             visualDensity: VisualDensity.compact,
           ),
-          child: Text(tr('Luu & t?o thêm')),
+          child: Text(tr('Lưu & tạo thêm')),
         ),
       ],
       const SizedBox(width: 6),
@@ -1481,7 +1492,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                   color: Colors.white,
                 ),
               )
-            : Text(tr('Luu')),
+            : Text(tr('Lưu')),
       ),
     ];
 
@@ -1505,7 +1516,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                               setState(() => _directSale = v ?? true),
                         ),
                         Expanded(
-                          child: Text(tr('Bán tr?c ti?p'),
+                          child: Text(tr('Bán trực tiếp'),
                               style: TextStyle(fontSize: 13)),
                         ),
                       ],
@@ -1526,10 +1537,10 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                       onChanged: (v) =>
                           setState(() => _directSale = v ?? true),
                     ),
-                    Text(tr('Bán tr?c ti?p'), style: TextStyle(fontSize: 13)),
+                    Text(tr('Bán trực tiếp'), style: TextStyle(fontSize: 13)),
                     const SizedBox(width: 4),
                     Tooltip(
-                      message: tr('Hi?n th? trên màn hình bán hàng POS'),
+                      message: tr('Hiển thị trên màn hình bán hàng POS'),
                       child: Icon(Icons.info_outline,
                           size: 16, color: Colors.grey.shade500),
                     ),
@@ -1590,7 +1601,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
     return _buildComboInfoTab();
   }
 
-  /// Tab Thông tin hàng hóa — layout gi?ng KiotViet (m?t trang cu?n, nhi?u section).
+  /// Tab Thông tin hàng hóa — layout giống KiotViet (một trang cuộn, nhiều section).
   Widget _buildGoodsInfoTab() {
     final w = MediaQuery.sizeOf(context).width;
     final wide = w > 640;
@@ -1617,7 +1628,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                   ],
                 ),
           _kvSection(
-            title: 'Giá v?n, giá bán',
+            title: 'Giá vốn, giá bán',
             child: Row(
               children: [
                 Expanded(
@@ -1625,7 +1636,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                     controller: _costCtrl,
                     keyboardType: TextInputType.number,
                     inputFormatters: [ThousandSeparatorFormatter()],
-                    decoration: PosTheme.inputDecoration(label: 'Giá v?n'),
+                    decoration: PosTheme.inputDecoration(label: 'Giá vốn'),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -1644,9 +1655,9 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
           if (_isGoods && _showSection(PosProductEditorSection.warranty))
             _buildProductWarrantySection(),
           _kvSection(
-            title: 'T?n kho',
+            title: 'Tồn kho',
             subtitle: _showSection(PosProductEditorSection.stockLimits)
-                ? 'Qu?n lý s? lu?ng t?n kho và d?nh m?c t?n.'
+                ? 'Quản lý số lượng tồn kho và định mức tồn.'
                 : null,
             child: Builder(builder: (context) {
               final narrow = MediaQuery.sizeOf(context).width < 520;
@@ -1666,13 +1677,13 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                 controller: _minStockCtrl,
                 keyboardType: TextInputType.number,
                 decoration: PosTheme.inputDecoration(
-                    label: 'Ð?nh m?c t?n th?p nh?t'),
+                    label: 'Định mức tồn thấp nhất'),
               );
               final maxField = TextField(
                 controller: _maxStockCtrl,
                 keyboardType: TextInputType.number,
                 decoration: PosTheme.inputDecoration(
-                    label: 'Ð?nh m?c t?n cao nh?t'),
+                    label: 'Định mức tồn cao nhất'),
               );
               if (narrow) {
                 return Column(
@@ -1698,18 +1709,18 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
           ),
           if (_showSection(PosProductEditorSection.locationWeight))
             _kvSection(
-              title: 'V? trí, tr?ng lu?ng',
+              title: 'Vị trí, trọng lượng',
               subtitle:
-                  'Qu?n lý vi?c s?p x?p kho, v? trí bán hàng ho?c tr?ng lu?ng hàng hóa',
+                  'Quản lý việc sắp xếp kho, vị trí bán hàng hoặc trọng lượng hàng hóa',
               child: Column(
                 children: [
                   _masterDropdown(
-                    label: 'V? trí',
+                    label: 'Vị trí',
                     value: _locationId,
                     items: _locations,
                     onChanged: (v) => setState(() => _locationId = v),
                     onCreate: () => _quickCreate(
-                      'v? trí',
+                      'vị trí',
                       _api.createPosStorageLocation,
                       (item) {
                         _locations.add(item);
@@ -1726,14 +1737,14 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                           controller: _weightCtrl,
                           keyboardType: TextInputType.number,
                           decoration:
-                              PosTheme.inputDecoration(label: 'Tr?ng lu?ng'),
+                              PosTheme.inputDecoration(label: 'Trọng lượng'),
                         ),
                       ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: DropdownButtonFormField<String>(
                           value: _weightUnit,
-                          decoration: PosTheme.inputDecoration(label: 'ÐVT'),
+                          decoration: PosTheme.inputDecoration(label: 'ĐVT'),
                           items: [
                             DropdownMenuItem(value: 'g', child: Text(tr('g'))),
                             DropdownMenuItem(value: 'kg', child: Text(tr('kg'))),
@@ -1872,11 +1883,12 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
         ],
         TextField(
           controller: _nameCtrl,
+          textInputAction: TextInputAction.done,
           decoration: PosTheme.inputDecoration(label: 'Tên hàng *'),
         ),
         const SizedBox(height: 12),
         _masterDropdown(
-          label: 'Nhóm hàng *',
+          label: 'Nhóm hàng',
           value: _categoryId,
           items: _categories,
           onChanged: (v) => setState(() => _categoryId = v),
@@ -1885,12 +1897,12 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
         ),
         if (!_isCombo && _showSection(PosProductEditorSection.brand))
           _masterDropdown(
-            label: 'Thuong hi?u',
+            label: 'Thương hiệu',
             value: _brandId,
             items: _brands,
             onChanged: (v) => setState(() => _brandId = v),
             onCreate: () => _quickCreate(
-              'thuong hi?u',
+              'thương hiệu',
               _api.createPosProductBrand,
               (item) {
                 _brands.add(item);
@@ -1901,7 +1913,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
           ),
         if (_isGoods && _showSection(PosProductEditorSection.supplier))
           _masterDropdown(
-            label: 'Nhà cung c?p',
+            label: 'Nhà cung cấp',
             value: _supplierId,
             items: _suppliers,
             onChanged: (v) => setState(() => _supplierId = v),
@@ -1912,7 +1924,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
     );
   }
 
-  /// D?ch v? — gi?ng KiotViet: thông tin co b?n + giá + don v?/thu?c tính.
+  /// Dịch vụ — giống KiotViet: thông tin cơ bản + giá + đơn vị/thuộc tính.
   Widget _buildServiceInfoTab() {
     final wide = MediaQuery.sizeOf(context).width > 640;
     return SingleChildScrollView(
@@ -1937,7 +1949,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                   ],
                 ),
           _kvExpansion(
-            title: 'Giá v?n, giá bán',
+            title: 'Giá vốn, giá bán',
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -1948,7 +1960,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                         controller: _costCtrl,
                         keyboardType: TextInputType.number,
                         inputFormatters: [ThousandSeparatorFormatter()],
-                        decoration: PosTheme.inputDecoration(label: 'Giá v?n'),
+                        decoration: PosTheme.inputDecoration(label: 'Giá vốn'),
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -2234,11 +2246,12 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
         ],
         TextField(
           controller: _nameCtrl,
+          textInputAction: TextInputAction.done,
           decoration: PosTheme.inputDecoration(label: 'Tên hàng *'),
         ),
         const SizedBox(height: 12),
         _masterDropdown(
-          label: 'Nhóm hàng *',
+          label: 'Nhóm hàng',
           value: _categoryId,
           items: _categories,
           onChanged: (v) => setState(() => _categoryId = v),
@@ -2247,12 +2260,12 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
         ),
         if (_showSection(PosProductEditorSection.brand))
           _masterDropdown(
-            label: 'Thuong hi?u',
+            label: 'Thương hiệu',
             value: _brandId,
             items: _brands,
             onChanged: (v) => setState(() => _brandId = v),
             onCreate: () => _quickCreate(
-              'thuong hi?u',
+              'thương hiệu',
               _api.createPosProductBrand,
               (item) {
                 _brands.add(item);
@@ -2265,7 +2278,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
     );
   }
 
-  /// Combo — gi?ng KiotViet: thành ph?n + giá + v? trí + don v?/thu?c tính.
+  /// Combo — giống KiotViet: thành phần + giá + vị trí + đơn vị/thuộc tính.
   Widget _buildComboInfoTab() {
     final wide = MediaQuery.sizeOf(context).width > 640;
     return SingleChildScrollView(
@@ -2316,7 +2329,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                       color: PosTheme.kiotBlueLight,
                       borderRadius: BorderRadius.circular(4),
                     ),
-                    child: Text(tr('T?ng GT thành ph?n: ${_moneyFmt.format(_comboComponentsSum)}'),
+                    child: Text(tr('Tổng GT thành phần: ${_moneyFmt.format(_comboComponentsSum)}'),
                       style: const TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
@@ -2331,18 +2344,18 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
           _buildProductVatSection(),
           if (_showSection(PosProductEditorSection.locationWeight))
             _kvExpansion(
-              title: 'V? trí, tr?ng lu?ng',
+              title: 'Vị trí, trọng lượng',
               subtitle:
-                  'Qu?n lý vi?c s?p x?p kho, v? trí bán hàng ho?c tr?ng lu?ng hàng hóa',
+                  'Quản lý việc sắp xếp kho, vị trí bán hàng hoặc trọng lượng hàng hóa',
               child: Column(
                 children: [
                   _masterDropdown(
-                    label: 'V? trí',
+                    label: 'Vị trí',
                     value: _locationId,
                     items: _locations,
                     onChanged: (v) => setState(() => _locationId = v),
                     onCreate: () => _quickCreate(
-                      'v? trí',
+                      'vị trí',
                       _api.createPosStorageLocation,
                       (item) {
                         _locations.add(item);
@@ -2359,14 +2372,14 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                           controller: _weightCtrl,
                           keyboardType: TextInputType.number,
                           decoration:
-                              PosTheme.inputDecoration(label: 'Tr?ng lu?ng'),
+                              PosTheme.inputDecoration(label: 'Trọng lượng'),
                         ),
                       ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: DropdownButtonFormField<String>(
                           value: _weightUnit,
-                          decoration: PosTheme.inputDecoration(label: 'ÐVT'),
+                          decoration: PosTheme.inputDecoration(label: 'ĐVT'),
                           items: [
                             DropdownMenuItem(value: 'g', child: Text(tr('g'))),
                             DropdownMenuItem(value: 'kg', child: Text(tr('kg'))),
@@ -2417,11 +2430,12 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
         ],
         TextField(
           controller: _nameCtrl,
+          textInputAction: TextInputAction.done,
           decoration: PosTheme.inputDecoration(label: 'Tên hàng *'),
         ),
         const SizedBox(height: 12),
         _masterDropdown(
-          label: 'Nhóm hàng *',
+          label: 'Nhóm hàng',
           value: _categoryId,
           items: _categories,
           onChanged: (v) => setState(() => _categoryId = v),
@@ -2562,8 +2576,8 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
 
   Widget _buildProductWarrantySection() {
     return _kvSection(
-      title: 'B?o hành, seri & lô/HSD',
-      subtitle: 'BH tính t? ngày bán. B?t theo dõi HSD d? nh?p lô khi nh?p hàng.',
+      title: 'Bảo hành, seri & lô/HSD',
+      subtitle: 'BH tính từ ngày bán. Bật theo dõi HSD để nhập lô khi nhập hàng.',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -2572,15 +2586,15 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
             keyboardType: TextInputType.number,
             inputFormatters: [FilteringTextInputFormatter.digitsOnly],
             decoration: PosTheme.inputDecoration(
-              label: 'Th?i h?n b?o hành (tháng)',
-              hint: 'VD: 12 — d? tr?ng n?u không BH',
+              label: 'Thời hạn bảo hành (tháng)',
+              hint: 'VD: 12 — để trống nếu không BH',
             ),
           ),
           const SizedBox(height: 8),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
-            title: Text(tr('B?t bu?c nh?p seri máy khi bán')),
-            subtitle: Text(tr('M?i don v? bán ph?i có seri riêng (máy di?n t?, thi?t b?...)'),
+            title: Text(tr('Bắt buộc nhập seri máy khi bán')),
+            subtitle: Text(tr('Mỗi đơn vị bán phải có seri riêng (máy điện tử, thiết bị...)'),
               style: TextStyle(fontSize: 12),
             ),
             value: _requiresSerial,
@@ -2591,9 +2605,9 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
           ),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
-            title: Text(tr('Cho phép s? lu?ng th?p phân')),
+            title: Text(tr('Cho phép số lượng thập phân')),
             subtitle: Text(
-              tr('B?t d? bán/nh?p 0.5, 1.25… (vd kg, lít). T?t = ch? s? nguyên.'),
+              tr('Bật để bán/nhập 0.5, 1.25… (vd kg, lít). Tắt = chỉ số nguyên.'),
               style: TextStyle(fontSize: 12),
             ),
             value: _allowDecimalQty,
@@ -2604,7 +2618,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
             title: Text(tr('Theo dõi lô / HSD')),
-            subtitle: Text(tr('B?t bu?c nh?p HSD trên phi?u nh?p hàng'),
+            subtitle: Text(tr('Bắt buộc nhập HSD trên phiếu nhập hàng'),
               style: TextStyle(fontSize: 12),
             ),
             value: _trackExpiry,
@@ -2617,8 +2631,8 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
               keyboardType: TextInputType.number,
               inputFormatters: [FilteringTextInputFormatter.digitsOnly],
               decoration: PosTheme.inputDecoration(
-                label: 'C?nh báo tru?c HSD (ngày)',
-                hint: 'M?c d?nh 30',
+                label: 'Cảnh báo trước HSD (ngày)',
+                hint: 'Mặc định 30',
               ),
             ),
           ],
@@ -2636,7 +2650,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(tr('Thu? VAT (%)'),
+          Text(tr('Thuế VAT (%)'),
             style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 6),
@@ -2654,7 +2668,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
           if (_vatExempt)
             Padding(
               padding: const EdgeInsets.only(top: 6),
-              child: Text(tr('Không ch?u thu? GTGT — áp d?ng khi c?a hàng ch?n thu? theo t?ng m?t hàng'),
+              child: Text(tr('Không chịu thuế GTGT — áp dụng khi cửa hàng chọn thuế theo từng mặt hàng'),
                 style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
               ),
             ),
@@ -2746,7 +2760,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
           ),
         ),
         const SizedBox(height: 6),
-        Text(tr('M?i ?nh không quá 2 MB'),
+        Text(tr('Mỗi ảnh không quá 2 MB'),
           style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
           textAlign: TextAlign.center,
         ),
@@ -2761,7 +2775,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
         Icon(Icons.add_photo_alternate_outlined,
             size: 36, color: Colors.grey.shade500),
         const SizedBox(height: 8),
-        Text(tr('Ch?p ho?c ch?n ?nh'),
+        Text(tr('Chụp hoặc chọn ảnh'),
             style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
       ],
     );
@@ -2794,10 +2808,10 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
 
   Map<String, dynamic> _productPatchForSetup() => {
         'name': _nameCtrl.text.trim(),
-        'categoryId': _categoryId,
-        'brandId': _brandId,
-        'storageLocationId': _locationId,
-        'supplierId': _supplierId,
+        'categoryId': _guidOrNull(_categoryId),
+        'brandId': _guidOrNull(_brandId),
+        'storageLocationId': _guidOrNull(_locationId),
+        'supplierId': _guidOrNull(_supplierId),
         'productType': _isService ? 1 : (_isCombo ? 2 : 0),
         'description': _descCtrl.text.trim(),
         'saleQuickNotes': _saleQuickNotes
@@ -2816,7 +2830,9 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                     })
                 .toList()
             : <Map<String, dynamic>>[],
-        'toppingGroupIds': _isTopping ? <String>[] : _toppingGroupIds,
+        'toppingGroupIds': _isTopping
+          ? <String>[]
+          : _toppingGroupIds.where(_isValidGuid).toList(),
       'costPrice': _parseNum(_costCtrl.text),
       'basePrice': _parseNum(_priceCtrl.text),
       'vatRate': _vatExempt ? 0 : _vatRate,
@@ -2921,26 +2937,26 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                     ));
           }));
       });
-      // Ð?ng b? _variants t? server — ngu?n dúng cho s? hàng cùng lo?i
+      // Đồng bộ _variants từ server — nguồn đúng cho số hàng cùng loại
       if (_variants.length != result.variants.length) {
         setState(() {});
       }
       if (_variants.isEmpty &&
           (result.extraUnits.isNotEmpty || result.variants.isNotEmpty)) {
         NotificationOverlayManager().showError(
-          title: 'D? li?u chua du?c luu',
-          message: tr('Thi?t l?p chua ghi lên server. Vui lòng th? Luu l?i ho?c b?m Luu hàng hóa.'),
+          title: 'Dữ liệu chưa được lưu',
+          message: tr('Thiết lập chưa ghi lên server. Vui lòng thử Lưu lại hoặc bấm Lưu hàng hóa.'),
         );
       } else if (result.variants.isNotEmpty || result.extraUnits.isNotEmpty) {
         NotificationOverlayManager().showSuccess(
           title: 'Thành công',
-          message: tr('Ðã luu thi?t l?p don v? tính và thu?c tính.'),
+          message: tr('Đã lưu thiết lập đơn vị tính và thuộc tính.'),
         );
       }
     } else {
       NotificationOverlayManager().showWarning(
-        title: 'Chua luu lên server',
-        message: tr('B?m «Luu» trên form hàng hóa d? ghi don v? tính và bi?n th? vào h? th?ng.'),
+        title: 'Chưa lưu lên server',
+        message: tr('Bấm «Lưu» trên form hàng hóa để ghi đơn vị tính và biến thể vào hệ thống.'),
       );
     }
 
@@ -2988,7 +3004,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
     });
   }
 
-  /// Sau khi n?p t? server, uu tiên s? lu?ng th?c t? trên DB.
+  /// Sau khi nạp từ server, ưu tiên số lượng thực tế trên DB.
   int get _displayVariantCount =>
       _variants.isNotEmpty ? _variants.length : _expectedVariantCount();
 
@@ -3017,17 +3033,17 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // —— Ðon v? co b?n (tách riêng) ——
+        // —— Đơn vị cơ bản (tách riêng) ——
         _kvSection(
-          title: 'Ðon v? tính co b?n',
-          subtitle: 'Ðon v? nh? nh?t dùng d? qu?n lý t?n kho (vd: Cái, Kg, Chai).',
+          title: 'Đơn vị tính cơ bản',
+          subtitle: 'Đơn vị nhỏ nhất dùng để quản lý tồn kho (vd: Cái, Kg, Chai).',
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               TextField(
                 controller: _unitCtrl,
                 decoration: PosTheme.inputDecoration(
-                  label: 'Tên don v? co b?n *',
+                  label: 'Tên đơn vị cơ bản *',
                   hint: 'Cái',
                 ),
                 onChanged: (_) => setState(() {}),
@@ -3064,18 +3080,18 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
             ],
           ),
         ),
-        // —— Ðon v? quy d?i (tách riêng) ——
+        // —— Đơn vị quy đổi (tách riêng) ——
         _kvSection(
-          title: 'Ðon v? quy d?i',
+          title: 'Đơn vị quy đổi',
           subtitle:
-              'Ðon v? bán l?n hon, có h? s? quy d?i v? don v? co b?n (vd: Thùng = 24 Cái).',
+              'Đơn vị bán lớn hơn, có hệ số quy đổi về đơn vị cơ bản (vd: Thùng = 24 Cái).',
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               if (extraUnits.isEmpty)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 8),
-                  child: Text(tr('Chua có don v? quy d?i. Thêm n?u bán theo l?c/thùng/h?p…'),
+                  child: Text(tr('Chưa có đơn vị quy đổi. Thêm nếu bán theo lốc/thùng/hộp…'),
                     style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
                   ),
                 )
@@ -3123,7 +3139,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                           icon: const Icon(Icons.edit_outlined, size: 18),
                           color: PosTheme.kiotBlue,
                           onPressed: _openUnitAttributeSetup,
-                          tooltip: tr('S?a'),
+                          tooltip: tr('Sửa'),
                         ),
                       ],
                     ),
@@ -3134,23 +3150,23 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                 child: TextButton.icon(
                   onPressed: _openUnitAttributeSetup,
                   icon: const Icon(Icons.add, size: 18),
-                  label: Text(tr('Thêm don v? quy d?i')),
+                  label: Text(tr('Thêm đơn vị quy đổi')),
                   style: TextButton.styleFrom(foregroundColor: PosTheme.kiotBlue),
                 ),
               ),
             ],
           ),
         ),
-        // —— Thu?c tính / hàng cùng lo?i ——
+        // —— Thuộc tính / hàng cùng loại ——
         if (_showSection(PosProductEditorSection.unitsVariants))
           _kvSection(
-            title: 'Hàng cùng lo?i / thu?c tính',
-            subtitle: 'Sinh mã riêng theo màu, size… (tu? ch?n).',
+            title: 'Hàng cùng loại / thuộc tính',
+            subtitle: 'Sinh mã riêng theo màu, size… (tuỳ chọn).',
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 if (_variants.isEmpty && extraUnits.isEmpty)
-                  Text(tr('Chua có thu?c tính. Dùng «Thi?t l?p» d? thêm màu, size…'),
+                  Text(tr('Chưa có thuộc tính. Dùng «Thiết lập» để thêm màu, size…'),
                     style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
                   )
                 else
@@ -3175,7 +3191,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                                 children: [
                                   SizedBox(
                                       width: 120,
-                                      child: Text(tr('Ðon v?'),
+                                      child: Text(tr('Đơn vị'),
                                           style: TextStyle(
                                               fontSize: 11,
                                               fontWeight: FontWeight.w600))),
@@ -3187,7 +3203,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                                               fontWeight: FontWeight.w600))),
                                   SizedBox(
                                       width: 80,
-                                      child: Text(tr('Giá v?n'),
+                                      child: Text(tr('Giá vốn'),
                                           textAlign: TextAlign.right,
                                           style: TextStyle(
                                               fontSize: 11,
@@ -3201,7 +3217,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                                               fontWeight: FontWeight.w600))),
                                   SizedBox(
                                       width: 60,
-                                      child: Text(tr('T?n'),
+                                      child: Text(tr('Tồn'),
                                           textAlign: TextAlign.right,
                                           style: TextStyle(
                                               fontSize: 11,
@@ -3312,7 +3328,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                 OutlinedButton.icon(
                   onPressed: _openUnitAttributeSetup,
                   icon: const Icon(Icons.tune, size: 18),
-                  label: Text(tr('Thi?t l?p don v? & thu?c tính')),
+                  label: Text(tr('Thiết lập đơn vị & thuộc tính')),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: PosTheme.kiotBlue,
                     side: const BorderSide(color: PosTheme.kiotBlue),
@@ -3355,7 +3371,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
             IconButton(
               icon: const Icon(Icons.delete_outline, size: 18, color: Colors.red),
               onPressed: _openUnitAttributeSetup,
-              tooltip: tr('S?a trong thi?t l?p'),
+              tooltip: tr('Sửa trong thiết lập'),
             ),
         ],
       ),
@@ -3413,12 +3429,12 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                 onChanged: (v) => setState(() => _directSale = v ?? true),
               ),
               Expanded(
-                child: Text(tr('Bán tr?c ti?p (hi?n trên POS)'),
+                child: Text(tr('Bán trực tiếp (hiện trên POS)'),
                     style: TextStyle(fontSize: 13)),
               ),
               TextButton(
                 onPressed: _saving ? null : () => Navigator.pop(context),
-                child: Text(tr('B? qua')),
+                child: Text(tr('Bỏ qua')),
               ),
               const SizedBox(width: 8),
               FilledButton(
@@ -3433,7 +3449,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                           color: Colors.white,
                         ),
                       )
-                    : Text(tr('Luu')),
+                    : Text(tr('Lưu')),
               ),
             ],
           ),
@@ -3493,7 +3509,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
         TextButton.icon(
           onPressed: _pickImage,
           icon: const Icon(Icons.photo_camera_outlined, color: PosTheme.primary),
-          label: Text(tr('Ch?p / ch?n ?nh'), style: TextStyle(color: PosTheme.primary)),
+          label: Text(tr('Chụp / chọn ảnh'), style: TextStyle(color: PosTheme.primary)),
         ),
       ],
     );
@@ -3501,7 +3517,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
 
   Widget _infoFields() {
     final nameLabel =
-        _isService ? 'Tên d?ch v? *' : 'Tên hàng *';
+        _isService ? 'Tên dịch vụ *' : 'Tên hàng *';
     return Column(
       children: [
         if (!_isService) ...[
@@ -3544,12 +3560,12 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
         ),
         if (!_isCombo)
           _masterDropdown(
-            label: 'Thuong hi?u',
+            label: 'Thương hiệu',
             value: _brandId,
             items: _brands,
             onChanged: (v) => setState(() => _brandId = v),
             onCreate: () => _quickCreate(
-              'thuong hi?u',
+              'thương hiệu',
               _api.createPosProductBrand,
               (item) {
                 _brands.add(item);
@@ -3560,12 +3576,12 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
           ),
         if (_isGoods)
           _masterDropdown(
-            label: 'V? trí',
+            label: 'Vị trí',
             value: _locationId,
             items: _locations,
             onChanged: (v) => setState(() => _locationId = v),
             onCreate: () => _quickCreate(
-              'v? trí',
+              'vị trí',
               _api.createPosStorageLocation,
               (item) {
                 _locations.add(item);
@@ -3591,7 +3607,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                   controller: _costCtrl,
                   keyboardType: TextInputType.number,
                   inputFormatters: [ThousandSeparatorFormatter()],
-                  decoration: PosTheme.inputDecoration(label: 'Giá v?n'),
+                  decoration: PosTheme.inputDecoration(label: 'Giá vốn'),
                 ),
               ),
               const SizedBox(width: 12),
@@ -3607,7 +3623,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
           ),
           const SizedBox(height: 16),
           _masterDropdown(
-            label: 'Nhà cung c?p',
+            label: 'Nhà cung cấp',
             value: _supplierId,
             items: _suppliers,
             onChanged: (v) => setState(() => _supplierId = v),
@@ -3633,7 +3649,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                 child: TextField(
                   controller: _minStockCtrl,
                   keyboardType: TextInputType.number,
-                  decoration: PosTheme.inputDecoration(label: 'T?n th?p nh?t'),
+                  decoration: PosTheme.inputDecoration(label: 'Tồn thấp nhất'),
                 ),
               ),
               const SizedBox(width: 12),
@@ -3641,7 +3657,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                 child: TextField(
                   controller: _maxStockCtrl,
                   keyboardType: TextInputType.number,
-                  decoration: PosTheme.inputDecoration(label: 'T?n cao nh?t'),
+                  decoration: PosTheme.inputDecoration(label: 'Tồn cao nhất'),
                 ),
               ),
             ],
@@ -3654,14 +3670,14 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                 child: TextField(
                   controller: _weightCtrl,
                   keyboardType: TextInputType.number,
-                  decoration: PosTheme.inputDecoration(label: 'Tr?ng lu?ng'),
+                  decoration: PosTheme.inputDecoration(label: 'Trọng lượng'),
                 ),
               ),
               const SizedBox(width: 8),
               Expanded(
                 child: DropdownButtonFormField<String>(
                   value: _weightUnit,
-                  decoration: PosTheme.inputDecoration(label: 'ÐVT'),
+                  decoration: PosTheme.inputDecoration(label: 'ĐVT'),
                   items: [
                     DropdownMenuItem(value: 'g', child: Text(tr('g'))),
                     DropdownMenuItem(value: 'kg', child: Text(tr('kg'))),
@@ -3677,7 +3693,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
   }
 
   Widget _buildPriceTab() {
-    final priceLabel = _isService ? 'Giá d?ch v?' : 'Giá bán';
+    final priceLabel = _isService ? 'Giá dịch vụ' : 'Giá bán';
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -3689,7 +3705,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                   controller: _costCtrl,
                   keyboardType: TextInputType.number,
                   inputFormatters: [ThousandSeparatorFormatter()],
-                  decoration: PosTheme.inputDecoration(label: 'Giá v?n'),
+                  decoration: PosTheme.inputDecoration(label: 'Giá vốn'),
                 ),
               ),
               const SizedBox(width: 12),
@@ -3713,7 +3729,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(color: PosTheme.primary.withOpacity(0.3)),
               ),
-              child: Text(tr('T?ng giá thành ph?n: ${_moneyFmt.format(_comboComponentsSum)}'),
+              child: Text(tr('Tổng giá thành phần: ${_moneyFmt.format(_comboComponentsSum)}'),
                 style: const TextStyle(
                   fontWeight: FontWeight.w600,
                   color: PosTheme.primaryDark,
@@ -3734,14 +3750,14 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
         children: [
           TextField(
             controller: _unitCtrl,
-            decoration: PosTheme.inputDecoration(label: 'Ðon v? co b?n'),
+            decoration: PosTheme.inputDecoration(label: 'Đơn vị cơ bản'),
           ),
           const SizedBox(height: 16),
-          Text(tr('Ðon v? quy d?i'),
+          Text(tr('Đơn vị quy đổi'),
               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
           const SizedBox(height: 8),
           if (_units.isEmpty)
-            Text(tr('Chua có don v? quy d?i'),
+            Text(tr('Chưa có đơn vị quy đổi'),
                 style: TextStyle(color: PosTheme.textSecondary))
           else
             ..._units.map((u) => Card(
@@ -3749,7 +3765,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                   child: ListTile(
                     dense: true,
                     title: Text(tr(u.unitName +
-                        (u.isBaseUnit ? ' (co b?n)' : ' = ${u.conversionRate}'))),
+                        (u.isBaseUnit ? ' (cơ bản)' : ' = ${u.conversionRate}'))),
                     subtitle: Text(tr('Giá: ${_moneyFmt.format(u.basePrice)}')),
                     trailing: u.isBaseUnit || !_isEditing
                         ? null
@@ -3771,12 +3787,12 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
               child: TextButton.icon(
                 onPressed: _addExtraUnit,
                 icon: const Icon(Icons.add, color: PosTheme.primary),
-                label: Text(tr('Thêm don v?'),
+                label: Text(tr('Thêm đơn vị'),
                     style: TextStyle(color: PosTheme.primary)),
               ),
             ),
           const Divider(height: 32),
-          Text(tr('Thu?c tính'),
+          Text(tr('Thuộc tính'),
               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
           const SizedBox(height: 8),
           ..._attributeValues.asMap().entries.map((e) {
@@ -3791,7 +3807,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                     child: TextFormField(
                       initialValue: a.attributeName,
                       decoration:
-                          PosTheme.inputDecoration(label: 'Tên thu?c tính'),
+                          PosTheme.inputDecoration(label: 'Tên thuộc tính'),
                       onChanged: (v) => _attributeValues[i] =
                           PosProductAttribute(
                         attributeId: a.attributeId,
@@ -3805,7 +3821,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                     flex: 3,
                     child: TextFormField(
                       initialValue: a.value,
-                      decoration: PosTheme.inputDecoration(label: 'Giá tr?'),
+                      decoration: PosTheme.inputDecoration(label: 'Giá trị'),
                       onChanged: (v) => _attributeValues[i] =
                           PosProductAttribute(
                         attributeId: a.attributeId,
@@ -3828,7 +3844,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                 PosProductAttribute(
                     attributeId: '', attributeName: '', value: ''))),
             icon: const Icon(Icons.add, color: PosTheme.primary),
-            label: Text(tr('Thêm thu?c tính'),
+            label: Text(tr('Thêm thuộc tính'),
                 style: TextStyle(color: PosTheme.primary)),
           ),
         ],
@@ -3841,7 +3857,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
       return Center(
         child: Padding(
           padding: EdgeInsets.all(24),
-          child: Text(tr('Luu s?n ph?m tru?c d? qu?n lý bi?n th?'),
+          child: Text(tr('Lưu sản phẩm trước để quản lý biến thể'),
             textAlign: TextAlign.center,
             style: TextStyle(color: PosTheme.textSecondary),
           ),
@@ -3853,10 +3869,10 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(tr('T?o bi?n th? t? thu?c tính'),
+          Text(tr('Tạo biến thể từ thuộc tính'),
               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
           const SizedBox(height: 4),
-          Text(tr('Nh?p tên thu?c tính và các giá tr? cách nhau b?i d?u ph?y'),
+          Text(tr('Nhập tên thuộc tính và các giá trị cách nhau bởi dấu phẩy'),
             style: TextStyle(fontSize: 12, color: PosTheme.textSecondary),
           ),
           const SizedBox(height: 12),
@@ -3872,7 +3888,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                     child: TextFormField(
                       initialValue: a.attributeName,
                       decoration:
-                          PosTheme.inputDecoration(label: 'Thu?c tính'),
+                          PosTheme.inputDecoration(label: 'Thuộc tính'),
                       onChanged: (v) => a.attributeName = v,
                     ),
                   ),
@@ -3882,8 +3898,8 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                     child: TextFormField(
                       initialValue: a.valuesText,
                       decoration: PosTheme.inputDecoration(
-                        label: 'Giá tr?',
-                        hint: 'Ð?, Xanh, Vàng',
+                        label: 'Giá trị',
+                        hint: 'Đỏ, Xanh, Vàng',
                       ),
                       onChanged: (v) => a.valuesText = v,
                     ),
@@ -3902,7 +3918,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                 onPressed: () =>
                     setState(() => _variantAttrs.add(_VariantAttrRow())),
                 icon: const Icon(Icons.add, color: PosTheme.primary),
-                label: Text(tr('Thêm thu?c tính'),
+                label: Text(tr('Thêm thuộc tính'),
                     style: TextStyle(color: PosTheme.primary)),
               ),
               const Spacer(),
@@ -3919,16 +3935,16 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                         ),
                       )
                     : const Icon(Icons.auto_fix_high, size: 18),
-                label: Text(tr('T?o bi?n th?')),
+                label: Text(tr('Tạo biến thể')),
               ),
             ],
           ),
           const Divider(height: 32),
-          Text(tr('Bi?n th? (${_variants.length})'),
+          Text(tr('Biến thể (${_variants.length})'),
               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
           const SizedBox(height: 8),
           if (_variants.isEmpty)
-            Text(tr('Chua có bi?n th?'),
+            Text(tr('Chưa có biến thể'),
                 style: TextStyle(color: PosTheme.textSecondary))
           else
             ..._variants.map((v) => _variantCard(v)),
@@ -3963,7 +3979,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                   child: TextField(
                     controller: costCtrl,
                     keyboardType: TextInputType.number,
-                    decoration: PosTheme.inputDecoration(label: 'Giá v?n'),
+                    decoration: PosTheme.inputDecoration(label: 'Giá vốn'),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -3981,8 +3997,8 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                     enabled: !unitOnly,
                     keyboardType: TextInputType.number,
                     decoration: PosTheme.inputDecoration(
-                      label: unitOnly ? 'T?n (quy d?i)' : 'T?n',
-                      hint: unitOnly ? 'S?a ô T?n kho chính theo don v? co b?n' : null,
+                      label: unitOnly ? 'Tồn (quy đổi)' : 'Tồn',
+                      hint: unitOnly ? 'Sửa ô Tồn kho chính theo đơn vị cơ bản' : null,
                     ),
                   ),
                 ),
@@ -4005,7 +4021,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                   );
                   _updateVariant(updated);
                 },
-                child: Text(tr('Luu bi?n th?'),
+                child: Text(tr('Lưu biến thể'),
                     style: TextStyle(color: PosTheme.primary)),
               ),
             ),
@@ -4044,7 +4060,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(tr('Mô t?'),
+          Text(tr('Mô tả'),
               style: TextStyle(fontWeight: FontWeight.w500, fontSize: 14)),
           const SizedBox(height: 8),
           _kiotDescToolbar(),
@@ -4054,7 +4070,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
             maxLines: 10,
             minLines: 10,
             decoration: InputDecoration(
-              hintText: tr('Mô t? chi ti?t s?n ph?m…'),
+              hintText: tr('Mô tả chi tiết sản phẩm…'),
               filled: true,
               fillColor: Colors.white,
               border: OutlineInputBorder(
@@ -4083,18 +4099,18 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
             onChanged: (v) => setState(() => _saleQuickNotes = v),
           ),
           const SizedBox(height: 20),
-          Text(tr('Tùy ch?n thêm'),
+          Text(tr('Tùy chọn thêm'),
             style: TextStyle(fontWeight: FontWeight.w500, fontSize: 14),
           ),
           const SizedBox(height: 4),
-          Text(tr('Gi?ng ghi chú nhanh: hi?n d?ng chip khi bán, nhung có giá ph? thu / tr? t?n SP.'),
+          Text(tr('Giống ghi chú nhanh: hiện dạng chip khi bán, nhưng có giá phụ thu / trừ tồn SP.'),
             style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
           ),
           const SizedBox(height: 8),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
-            title: Text(tr('Ðây là hàng tùy ch?n thêm')),
-            subtitle: Text(tr('Dùng làm tùy ch?n cho món khác (vd: trân châu, th?ch)'),
+            title: Text(tr('Đây là hàng tùy chọn thêm')),
+            subtitle: Text(tr('Dùng làm tùy chọn cho món khác (vd: trân châu, thạch)'),
               style: TextStyle(fontSize: 12),
             ),
             value: _isTopping,
@@ -4110,8 +4126,8 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
           if (!_isTopping) ...[
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
-              title: Text(tr('Cho phép tùy ch?n thêm khi bán')),
-              subtitle: Text(tr('Hi?n chip ch?n trên dòng hóa don (gi?ng ghi chú nhanh)'),
+              title: Text(tr('Cho phép tùy chọn thêm khi bán')),
+              subtitle: Text(tr('Hiện chip chọn trên dòng hóa đơn (giống ghi chú nhanh)'),
                 style: TextStyle(fontSize: 12),
               ),
               value: _allowToppings,
@@ -4129,7 +4145,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                   contentPadding: EdgeInsets.zero,
                   dense: true,
                   title: Text(tr(t.toppingProductName)),
-                  subtitle: Text(tr('+${_fmtInputMoney(t.extraPrice)} d'),
+                  subtitle: Text(tr('+${_fmtInputMoney(t.extraPrice)} đ'),
                     style: const TextStyle(color: PosTheme.kiotBlue),
                   ),
                   trailing: IconButton(
@@ -4141,7 +4157,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
               OutlinedButton.icon(
                 onPressed: _pickToppingProduct,
                 icon: const Icon(Icons.add, size: 18),
-                label: Text(tr('Thêm tùy ch?n cho món này')),
+                label: Text(tr('Thêm tùy chọn cho món này')),
               ),
             ],
             const Divider(height: 28),
@@ -4161,17 +4177,17 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                     );
                     await _loadToppingGroups();
                   },
-                  child: Text(tr('Qu?n lý nhóm')),
+                  child: Text(tr('Quản lý nhóm')),
                 ),
               ],
             ),
             const SizedBox(height: 4),
-            Text(tr('Ch?n nhóm topping dã t?o s?n — m?i món g?n cùng nhóm dùng chung danh sách.'),
+            Text(tr('Chọn nhóm topping đã tạo sẵn — mọi món gắn cùng nhóm dùng chung danh sách.'),
               style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
             ),
             const SizedBox(height: 8),
             if (_availableToppingGroups.isEmpty)
-              Text(tr('Chua có nhóm — nh?n «Qu?n lý nhóm» d? t?o.'),
+              Text(tr('Chưa có nhóm — nhấn «Quản lý nhóm» để tạo.'),
                 style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
               )
             else
@@ -4199,8 +4215,8 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
               ),
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
-              title: Text(tr('T? m? popup topping khi thêm món')),
-              subtitle: Text(tr('Khi món có nhóm topping — h?i ngay lúc thêm vào gi?'),
+              title: Text(tr('Tự mở popup topping khi thêm món')),
+              subtitle: Text(tr('Khi món có nhóm topping — hỏi ngay lúc thêm vào giỏ'),
                 style: TextStyle(fontSize: 12),
               ),
               value: _autoOpenToppingPopup,
@@ -4270,7 +4286,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
               });
             }
             return AlertDialog(
-              title: Text(tr('Ch?n hàng topping')),
+              title: Text(tr('Chọn hàng topping')),
               content: SizedBox(
                 width: 420,
                 height: 420,
@@ -4297,7 +4313,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                                 return ListTile(
                                   enabled: !already,
                                   title: Text(tr(p.name)),
-                                  subtitle: Text(tr('${p.productCode} · ${_fmtInputMoney(p.basePrice)} d'),
+                                  subtitle: Text(tr('${p.productCode} · ${_fmtInputMoney(p.basePrice)} đ'),
                                   ),
                                   onTap: already
                                       ? null
@@ -4312,7 +4328,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(ctx),
-                  child: Text(tr('Ðóng')),
+                  child: Text(tr('Đóng')),
                 ),
                 TextButton(
                   onPressed: () => search(setModal, qCtrl.text),
@@ -4337,7 +4353,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
           sortOrder: _toppingOptions.length,
         ),
       ];
-      // G?i ý dánh d?u hàng topping n?u chua.
+      // Gợi ý đánh dấu hàng topping nếu chưa.
     });
   }
 
@@ -4362,19 +4378,19 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
       ),
       child: Row(
         children: [
-          btn(Icons.format_bold, 'In d?m'),
+          btn(Icons.format_bold, 'In đậm'),
           btn(Icons.format_italic, 'In nghiêng'),
-          btn(Icons.format_underlined, 'G?ch chân'),
+          btn(Icons.format_underlined, 'Gạch chân'),
           const VerticalDivider(width: 16),
-          btn(Icons.format_align_left, 'Can trái'),
-          btn(Icons.format_align_center, 'Can gi?a'),
-          btn(Icons.format_align_right, 'Can ph?i'),
+          btn(Icons.format_align_left, 'Căn trái'),
+          btn(Icons.format_align_center, 'Căn giữa'),
+          btn(Icons.format_align_right, 'Căn phải'),
           const VerticalDivider(width: 16),
           btn(Icons.format_list_bulleted, 'Danh sách'),
-          btn(Icons.format_list_numbered, 'Danh sách s?'),
+          btn(Icons.format_list_numbered, 'Danh sách số'),
           const Spacer(),
-          btn(Icons.link, 'Liên k?t'),
-          btn(Icons.image_outlined, '?nh'),
+          btn(Icons.link, 'Liên kết'),
+          btn(Icons.image_outlined, 'Ảnh'),
         ],
       ),
     );
@@ -4407,7 +4423,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
           if (manageKind != null)
             TextButton(
               onPressed: () => _manageCatalog(manageKind),
-              child: Text(tr('Qu?n lý'),
+              child: Text(tr('Quản lý'),
                 style: TextStyle(
                   color: _isGoods
                       ? PosTheme.textSecondary
@@ -4417,7 +4433,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
             ),
           TextButton(
             onPressed: onCreate,
-            child: Text(tr('T?o m?i'),
+            child: Text(tr('Tạo mới'),
               style: TextStyle(
                 color: _isGoods ? PosTheme.kiotBlue : PosTheme.primary,
               ),
@@ -4436,18 +4452,18 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text(tr('Thêm don v? quy d?i')),
+        title: Text(tr('Thêm đơn vị quy đổi')),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             TextField(
               controller: nameCtrl,
-              decoration: PosTheme.inputDecoration(label: 'Tên don v?'),
+              decoration: PosTheme.inputDecoration(label: 'Tên đơn vị'),
             ),
             TextField(
               controller: rateCtrl,
               decoration: PosTheme.inputDecoration(
-                label: 'Quy d?i (× don v? co b?n)',
+                label: 'Quy đổi (× đơn vị cơ bản)',
               ),
               keyboardType: TextInputType.number,
             ),
@@ -4461,7 +4477,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: Text(tr('H?y')),
+            child: Text(tr('Hủy')),
           ),
           FilledButton(
             style: PosTheme.filledButtonStyle,
@@ -4499,8 +4515,8 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
         _comboLines.indexWhere((c) => c.componentProductId == prod.id);
     if (existingIdx >= 0) {
       NotificationOverlayManager().showError(
-        title: 'Ðã có thành ph?n',
-        message: tr('«${prod.name}» dã n?m trong combo'),
+        title: 'Đã có thành phần',
+        message: tr('«${prod.name}» đã nằm trong combo'),
       );
       return;
     }

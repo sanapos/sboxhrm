@@ -64,7 +64,22 @@ Set<_ListColumn> _defaultListColumns() => {
     };
 
 class PosSaleOrderListScreen extends StatefulWidget {
-  const PosSaleOrderListScreen({super.key});
+  const PosSaleOrderListScreen({
+    super.key,
+    this.initialFrom,
+    this.initialTo,
+    this.initialSearch,
+    this.initialSoldBy,
+    this.initialPaymentMethod,
+    this.initialCustomerId,
+  });
+
+  final DateTime? initialFrom;
+  final DateTime? initialTo;
+  final String? initialSearch;
+  final String? initialSoldBy;
+  final String? initialPaymentMethod;
+  final String? initialCustomerId;
 
   @override
   State<PosSaleOrderListScreen> createState() => _PosSaleOrderListScreenState();
@@ -85,6 +100,8 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
 
   final Set<String> _statusFilter = {'Completed', 'Cancelled'};
   String? _paymentMethod;
+  String? _soldBy;
+  String? _customerId;
   bool? _isDeliveryFilter;
   PosKiotTimeFilterState _timeFilter = PosKiotTimeFilterState.thisMonth();
   Set<_ListColumn> _visibleColumns = _defaultListColumns();
@@ -107,6 +124,27 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
   @override
   void initState() {
     super.initState();
+    final w = widget;
+    if (w.initialSearch != null && w.initialSearch!.trim().isNotEmpty) {
+      _searchCtrl.text = w.initialSearch!.trim();
+    }
+    if (w.initialPaymentMethod != null &&
+        w.initialPaymentMethod!.trim().isNotEmpty) {
+      _paymentMethod = w.initialPaymentMethod!.trim();
+    }
+    if (w.initialSoldBy != null && w.initialSoldBy!.trim().isNotEmpty) {
+      _soldBy = w.initialSoldBy!.trim();
+    }
+    if (w.initialCustomerId != null && w.initialCustomerId!.trim().isNotEmpty) {
+      _customerId = w.initialCustomerId!.trim();
+    }
+    if (w.initialFrom != null || w.initialTo != null) {
+      _timeFilter = PosKiotTimeFilterState(
+        isCustom: true,
+        customFrom: w.initialFrom,
+        customTo: w.initialTo,
+      );
+    }
     ScreenRefreshNotifier.posSaleOrders.addListener(_onExternalRefresh);
     _load();
   }
@@ -139,6 +177,8 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
       search: _searchCtrl.text.trim().isEmpty ? null : _searchCtrl.text.trim(),
       statuses: _statusFilter.toList(),
       paymentMethod: _paymentMethod,
+      soldBy: _soldBy,
+      customerId: _customerId,
       isDelivery: _isDeliveryFilter,
       from: _timeFilter.from,
       to: _timeFilter.to,

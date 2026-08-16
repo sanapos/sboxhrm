@@ -59,6 +59,13 @@ public class PosSaleOrderLine : AuditableEntity<Guid>
     /// <summary>Lần gửi bếp gần nhất.</summary>
     public DateTime? KitchenSentAt { get; set; }
 
+    /// <summary>Số lượng bếp đã bump / xong trên KDS.</summary>
+    public decimal KitchenDoneQty { get; set; }
+
+    /// <summary>none | queued | cooking | ready | done — trạng thái KDS.</summary>
+    [MaxLength(20)]
+    public string KitchenPrepStatus { get; set; } = "none";
+
     /// <summary>JSON topping: [{id,name,price}].</summary>
     public string? ToppingsJson { get; set; }
 }

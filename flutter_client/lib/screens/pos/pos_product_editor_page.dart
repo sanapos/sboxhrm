@@ -26,6 +26,7 @@ import '../../widgets/pos/pos_product_unit_view.dart';
 import '../../widgets/pos/pos_combo_component_picker.dart';
 import '../../widgets/pos/pos_sale_quick_notes_widgets.dart';
 import '../../widgets/pos/pos_product_editor_sections_dialog.dart';
+import '../../widgets/pos/pos_form_keyboard.dart';
 import '../../widgets/pos/pos_theme.dart';
 import '../../widgets/pos_barcode_scanner.dart';
 import 'pos_topping_groups_screen.dart';
@@ -514,6 +515,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
     if (p?.units != null) _units = List.from(p!.units!);
     if (p?.attributes != null) _attributeValues.addAll(p!.attributes!);
     unawaited(_loadEditorSectionPrefs());
+    hidePosSoftKeyboard();
     _initData();
   }
 
@@ -530,6 +532,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
         _loading = false;
         _syncTabController();
       });
+      hidePosSoftKeyboard();
     }
     if (mounted && widget.openUnitSetup && _isGoods) {
       await _openUnitAttributeSetup(addMore: widget.unitSetupAddMore);
@@ -597,6 +600,14 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
     final data = PosProduct.fromJson(res['data'] as Map<String, dynamic>);
     setState(() {
       _productType = data.productType;
+      if (_loading) {
+        _nameCtrl.text = data.name;
+        _codeCtrl.text = data.productCode;
+        _barcodeCtrl.text = data.barcode ?? '';
+      }
+      _categoryId = data.categoryId;
+      _brandId = data.brandId;
+      _locationId = data.storageLocationId;
       if (data.units != null) _units = List.from(data.units!);
       _attributeValues
         ..clear()
@@ -712,6 +723,8 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
             r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$')
         .hasMatch(id);
   }
+
+  String? _guidOrNull(String? id) => _isValidGuid(id) ? id : null;
 
   /// Khôi phục dòng thuộc tính từ attributeJson của biến thể (sau reload/F5).
   void _rebuildVariantAttrsFromVariants() {
@@ -883,13 +896,6 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
       );
       return;
     }
-    if (_categoryId == null || _categoryId!.isEmpty) {
-      NotificationOverlayManager().showError(
-        title: 'Lỗi',
-        message: tr('Vui lòng chọn nhóm hàng'),
-      );
-      return;
-    }
     if (_isCombo && _comboLines.isEmpty) {
       NotificationOverlayManager().showError(
         title: 'Lỗi',
@@ -906,10 +912,10 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
         'barcode':
             _barcodeCtrl.text.trim().isEmpty ? null : _barcodeCtrl.text.trim(),
       'name': _nameCtrl.text.trim(),
-      'categoryId': _categoryId,
-      'brandId': _brandId,
-      if (_isGoods) 'storageLocationId': _locationId,
-      if (_isGoods || _isCombo) 'supplierId': _supplierId,
+      'categoryId': _guidOrNull(_categoryId),
+      'brandId': _guidOrNull(_brandId),
+      if (_isGoods) 'storageLocationId': _guidOrNull(_locationId),
+      if (_isGoods || _isCombo) 'supplierId': _guidOrNull(_supplierId),
       'productType': _isService ? 1 : (_isCombo ? 2 : 0),
       'description': _descCtrl.text.trim(),
       'saleQuickNotes': _saleQuickNotes
@@ -928,7 +934,9 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                   })
               .toList()
           : <Map<String, dynamic>>[],
-      'toppingGroupIds': _isTopping ? <String>[] : _toppingGroupIds,
+      'toppingGroupIds': _isTopping
+          ? <String>[]
+          : _toppingGroupIds.where(_isValidGuid).toList(),
       if (!_isEditing &&
           widget.templateProduct?.imageUrl != null &&
           _pendingImageBytes == null)
@@ -1341,7 +1349,9 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
     final size = MediaQuery.sizeOf(context);
     final pad = MediaQuery.paddingOf(context);
     final narrow = size.width < 600;
-    return Dialog(
+    return wrapPosFormDialog(
+      context,
+      Dialog(
       backgroundColor: Colors.white,
       insetPadding: EdgeInsets.fromLTRB(
         narrow ? 8 : (size.width > 960 ? (size.width - 920) / 2 : 16),
@@ -1392,6 +1402,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
           ],
         ),
       ),
+    ),
     );
   }
 
@@ -1872,11 +1883,12 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
         ],
         TextField(
           controller: _nameCtrl,
+          textInputAction: TextInputAction.done,
           decoration: PosTheme.inputDecoration(label: 'Tên hàng *'),
         ),
         const SizedBox(height: 12),
         _masterDropdown(
-          label: 'Nhóm hàng *',
+          label: 'Nhóm hàng',
           value: _categoryId,
           items: _categories,
           onChanged: (v) => setState(() => _categoryId = v),
@@ -2234,11 +2246,12 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
         ],
         TextField(
           controller: _nameCtrl,
+          textInputAction: TextInputAction.done,
           decoration: PosTheme.inputDecoration(label: 'Tên hàng *'),
         ),
         const SizedBox(height: 12),
         _masterDropdown(
-          label: 'Nhóm hàng *',
+          label: 'Nhóm hàng',
           value: _categoryId,
           items: _categories,
           onChanged: (v) => setState(() => _categoryId = v),
@@ -2417,11 +2430,12 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
         ],
         TextField(
           controller: _nameCtrl,
+          textInputAction: TextInputAction.done,
           decoration: PosTheme.inputDecoration(label: 'Tên hàng *'),
         ),
         const SizedBox(height: 12),
         _masterDropdown(
-          label: 'Nhóm hàng *',
+          label: 'Nhóm hàng',
           value: _categoryId,
           items: _categories,
           onChanged: (v) => setState(() => _categoryId = v),
@@ -2794,10 +2808,10 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
 
   Map<String, dynamic> _productPatchForSetup() => {
         'name': _nameCtrl.text.trim(),
-        'categoryId': _categoryId,
-        'brandId': _brandId,
-        'storageLocationId': _locationId,
-        'supplierId': _supplierId,
+        'categoryId': _guidOrNull(_categoryId),
+        'brandId': _guidOrNull(_brandId),
+        'storageLocationId': _guidOrNull(_locationId),
+        'supplierId': _guidOrNull(_supplierId),
         'productType': _isService ? 1 : (_isCombo ? 2 : 0),
         'description': _descCtrl.text.trim(),
         'saleQuickNotes': _saleQuickNotes
@@ -2816,7 +2830,9 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                     })
                 .toList()
             : <Map<String, dynamic>>[],
-        'toppingGroupIds': _isTopping ? <String>[] : _toppingGroupIds,
+        'toppingGroupIds': _isTopping
+          ? <String>[]
+          : _toppingGroupIds.where(_isValidGuid).toList(),
       'costPrice': _parseNum(_costCtrl.text),
       'basePrice': _parseNum(_priceCtrl.text),
       'vatRate': _vatExempt ? 0 : _vatRate,

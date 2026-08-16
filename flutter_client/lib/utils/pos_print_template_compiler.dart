@@ -1,6 +1,8 @@
 import '../models/pos_print_template.dart';
 import '../models/pos_print_template_v2.dart';
 import 'pos_print_template_renderer.dart';
+import 'pos_receipt_layout.dart';
+import 'pos_table_label.dart';
 import 'pos_thermal_bitmap.dart';
 import '../l10n/app_tr.dart';
 
@@ -47,6 +49,27 @@ class PosPrintCompiledPair {
 
   final String left;
   final String right;
+  final double fontSize;
+  final bool bold;
+  final int? sourceBlockIndex;
+}
+
+/// Một hàng hóa đơn: Tên | SL | Đ.giá | T.tiền.
+class PosPrintCompiledSaleRow {
+  const PosPrintCompiledSaleRow({
+    required this.name,
+    required this.qty,
+    required this.price,
+    required this.total,
+    this.fontSize = 24,
+    this.bold = true,
+    this.sourceBlockIndex,
+  });
+
+  final String name;
+  final String qty;
+  final String price;
+  final String total;
   final double fontSize;
   final bool bold;
   final int? sourceBlockIndex;
@@ -101,6 +124,56 @@ class PosPrintCompiledOutput {
       .whereType<PosPrintCompiledLine>()
       .map((l) => l.toImageLine())
       .toList();
+
+  /// Đủ loại bước (kể cả hàng hóa / cặp tiền) — in ảnh Sunmi đúng khổ giấy.
+  List<PosReceiptImageLine> get printImageLines {
+    final out = <PosReceiptImageLine>[];
+    for (final step in steps) {
+      final line = compiledStepToImageLine(step);
+      if (line != null) out.add(line);
+    }
+    return out;
+  }
+}
+
+PosReceiptImageLine? compiledStepToImageLine(Object step) {
+  if (step is PosPrintCompiledLine) {
+    if (step.isDivider) {
+      return const PosReceiptImageLine(text: '', isDivider: true);
+    }
+    if (step.text.trim().isEmpty) {
+      return const PosReceiptImageLine(text: '', fontSize: 10);
+    }
+    return PosReceiptImageLine(
+      text: step.text,
+      fontSize: step.center
+          ? step.fontSize.clamp(20, 30)
+          : step.fontSize.clamp(16, 24),
+      bold: step.bold || step.center,
+      center: step.center,
+    );
+  }
+  if (step is PosPrintCompiledPair) {
+    final right = step.right.trim();
+    return PosReceiptImageLine(
+      text: step.left,
+      rightText: right,
+      rightSlotFrac: right.length <= 8 ? 0.20 : 0.38,
+      fontSize: step.fontSize.clamp(16, 24),
+      bold: true,
+    );
+  }
+  if (step is PosPrintCompiledSaleRow) {
+    return PosReceiptImageLine(
+      text: step.name,
+      colQty: step.qty,
+      colPrice: step.price,
+      colTotal: step.total,
+      fontSize: 22,
+      bold: true,
+    );
+  }
+  return null;
 }
 
 /// Biên dịch mẫu V2 → HTML preview + dòng in nhiệt/Sunmi.
@@ -147,6 +220,46 @@ abstract final class PosPrintTemplateCompiler {
     return '$l: $value';
   }
 
+  static List<PosPrintBlock> _ensureKitchenLabelInvoiceNo(
+    List<PosPrintBlock> blocks,
+  ) {
+    final hasHd = blocks.any((b) =>
+        b.field == 'Ma_Don_Hang' ||
+        b.leftField == 'Ma_Don_Hang' ||
+        (b.text ?? '').contains('{Ma_Don_Hang}'));
+    if (hasHd) return blocks;
+    final out = <PosPrintBlock>[];
+    var inserted = false;
+    for (final b in blocks) {
+      out.add(b);
+      final isTable = b.field == 'Ten_Ban' || b.leftField == 'Ten_Ban';
+      if (!inserted && isTable) {
+        out.add(PosPrintBlock(
+          type: PosPrintBlockType.field,
+          field: 'Ma_Don_Hang',
+          style: const PosPrintTextStyle(fontSize: 16, bold: true),
+        ));
+        inserted = true;
+      }
+    }
+    return out;
+  }
+
+  static bool _isQtyOnlyToken(String raw) {
+    final s = raw.trim();
+    return s == '{So_Luong}' ||
+        s == '{So_Luong} {Don_Vi_Tinh}' ||
+        s == 'SL: {So_Luong}' ||
+        s == 'SL:{So_Luong}';
+  }
+
+  static PosPrintTextStyle _toppingNoteStyle(PosPrintTextStyle base) =>
+      PosPrintTextStyle(
+        fontSize: (base.fontSize - 6).clamp(11.0, 36.0),
+        bold: false,
+        align: PosPrintTextAlign.left,
+      );
+
   static String _resolveToken(String raw, Map<String, String> data) {
     var s = raw;
     for (final e in data.entries) {
@@ -166,6 +279,67 @@ abstract final class PosPrintTemplateCompiler {
   static int defaultDividerChars(String paperSize) =>
       paperSize == PosPrintPaperSizes.k58 ? 52 : 68;
 
+  /// Sau tiêu đề: Số HĐ → bàn+khu một hàng → ngày giờ một hàng.
+  static List<PosPrintBlock> _normalizeSaleInvoiceHeader(
+    List<PosPrintBlock> blocks,
+  ) {
+    final out = <PosPrintBlock>[];
+    var inserted = false;
+    for (var i = 0; i < blocks.length; i++) {
+      final b = blocks[i];
+      final isTitle = b.type == PosPrintBlockType.field &&
+          b.field == 'Tieu_De_In';
+      out.add(b);
+      if (!isTitle || inserted) continue;
+      inserted = true;
+      while (i + 1 < blocks.length) {
+        final n = blocks[i + 1];
+        if (n.type == PosPrintBlockType.divider ||
+            n.type == PosPrintBlockType.lineItems) {
+          break;
+        }
+        final f = n.field ?? n.leftField ?? '';
+        final isGio = n.type == PosPrintBlockType.text &&
+            (n.text ?? '').contains('{Gio}');
+        final isMeta = f == 'Ten_Ban' ||
+            f == 'Khu_Vuc' ||
+            f == 'Ma_Don_Hang' ||
+            f == 'Ngay' ||
+            isGio;
+        if (!isMeta) break;
+        i++;
+      }
+      final style = b.style;
+      out.add(PosPrintBlock(
+        type: PosPrintBlockType.field,
+        field: 'Ma_Don_Hang',
+        label: 'Số HĐ:',
+        style: PosPrintTextStyle(
+          fontSize: style.fontSize,
+          bold: true,
+        ),
+      ));
+      out.add(PosPrintBlock(
+        type: PosPrintBlockType.field,
+        field: 'Ten_Ban',
+        style: PosPrintTextStyle(
+          fontSize: style.fontSize,
+          bold: true,
+        ),
+      ));
+      out.add(PosPrintBlock(
+        type: PosPrintBlockType.field,
+        field: 'Ngay',
+        label: 'Ngày:',
+        style: PosPrintTextStyle(
+          fontSize: style.fontSize,
+          bold: true,
+        ),
+      ));
+    }
+    return out;
+  }
+
   static PosPrintCompiledOutput compile({
     required PosPrintTemplateV2 template,
     required Map<String, String> data,
@@ -180,17 +354,72 @@ abstract final class PosPrintTemplateCompiler {
       '<div style="width:${width}mm;font-family:Arial,sans-serif;color:#000">',
     );
 
-    for (var bi = 0; bi < template.blocks.length; bi++) {
-      final block = template.blocks[bi];
+    data = Map<String, String>.from(data);
+    final rawHd = data['Ma_Don_Hang'];
+    if (rawHd != null && rawHd.trim().isNotEmpty) {
+      data['Ma_Don_Hang'] = PosReceiptLayout.formatSaleInvoiceNo(rawHd);
+    }
+
+    final isKitchenLabel =
+        template.documentType == PosPrintDocumentTypes.kitchenLabel;
+    final blocks = template.documentType == PosPrintDocumentTypes.saleInvoice
+        ? _normalizeSaleInvoiceHeader(template.blocks)
+        : (isKitchenLabel
+            ? _ensureKitchenLabelInvoiceNo(template.blocks)
+            : template.blocks);
+    var skipNextKhu = false;
+    for (var bi = 0; bi < blocks.length; bi++) {
+      final block = blocks[bi];
       switch (block.type) {
         case PosPrintBlockType.text:
+          if (isKitchenLabel && _isQtyOnlyToken(block.text ?? '')) {
+            continue;
+          }
           final t = _resolveToken(block.text ?? '', data);
           if (t.trim().isNotEmpty) {
             steps.add(_lineFromStyle(t, block.style, sourceBlockIndex: bi));
             htmlBuf.write(_htmlText(t, block.style));
           }
         case PosPrintBlockType.field:
+          if (block.field == 'Khu_Vuc' && skipNextKhu) {
+            skipNextKhu = false;
+            continue;
+          }
+          if (isKitchenLabel && block.field == 'Ten_Hang_Hoa') {
+            final name = (data['Ten_Hang_Hoa'] ?? '').trim();
+            final qty = (data['So_Luong'] ?? '').trim();
+            final unit = (data['Don_Vi_Tinh'] ?? '').trim();
+            final right = unit.isEmpty ? qty : '$qty $unit';
+            if (name.isNotEmpty || right.isNotEmpty) {
+              steps.add(PosPrintCompiledPair(
+                left: name.isEmpty ? 'Món' : name,
+                right: right,
+                fontSize: block.style.fontSize,
+                bold: true,
+                sourceBlockIndex: bi,
+              ));
+              htmlBuf.write(
+                '<div style="display:flex;justify-content:space-between;'
+                'font-size:${block.style.fontSize}px;font-weight:bold">'
+                '<span>${name.isEmpty ? 'Món' : name}</span>'
+                '<span>$right</span></div>',
+              );
+            }
+            continue;
+          }
           var raw = data[block.field ?? ''] ?? '';
+          if (block.field == 'Ten_Ban') {
+            raw = formatPosTableOneLine(
+              areaName: data['Khu_Vuc'],
+              tableName: data['Ten_Ban'],
+            );
+            skipNextKhu = true;
+            if (raw.trim().isNotEmpty) {
+              steps.add(_lineFromStyle(raw, block.style, sourceBlockIndex: bi));
+              htmlBuf.write(_htmlText(raw, block.style));
+            }
+            continue;
+          }
           // Luôn tính lại bằng chữ từ Tong_Cong (tránh mẫu hard-code cũ).
           if (block.field == 'Tong_Cong_Bang_Chu') {
             final fromData = data['Tong_Cong_Bang_Chu'];
@@ -206,15 +435,50 @@ abstract final class PosPrintTemplateCompiler {
                 prefix = block.fieldLabels?[fieldKey];
               }
             }
-            final t = _withPrefix(prefix, raw);
-            steps.add(_lineFromStyle(t, block.style, sourceBlockIndex: bi));
-            htmlBuf.write(_htmlText(t, block.style));
+            final parts = raw.split(RegExp(r'[\r\n]+'));
+            for (var pi = 0; pi < parts.length; pi++) {
+              final chunk = parts[pi].trim();
+              if (chunk.isEmpty) continue;
+              final t = pi == 0 ? _withPrefix(prefix, chunk) : chunk;
+              final topping = chunk.startsWith('+');
+              final style = topping
+                  ? _toppingNoteStyle(block.style)
+                  : block.style;
+              steps.add(_lineFromStyle(t, style, sourceBlockIndex: bi));
+              htmlBuf.write(_htmlText(t, style));
+            }
           }
         case PosPrintBlockType.pair:
           final leftKey = block.leftField ?? '';
           final rightKey = block.rightField ?? '';
-          final leftVal = data[leftKey] ?? leftKey;
+          var leftVal = data[leftKey] ?? leftKey;
           final rightVal = data[rightKey] ?? rightKey;
+          if (isKitchenLabel && leftKey == 'Ten_Ban') {
+            leftVal = formatPosTableOneLine(
+              areaName: data['Khu_Vuc'],
+              tableName: data['Ten_Ban'],
+            );
+            if (leftVal.trim().isEmpty) leftVal = data['Ten_Ban'] ?? '';
+          }
+          if (leftKey == 'Ma_Don_Hang') {
+            final hd = _withPrefix(
+              block.fieldLabels?['Ma_Don_Hang'] ?? block.label ?? 'Số HĐ:',
+              leftVal,
+            );
+            if (hd.trim().isNotEmpty) {
+              steps.add(_lineFromStyle(hd, block.style, sourceBlockIndex: bi));
+              htmlBuf.write(_htmlText(hd, block.style));
+            }
+            if (rightKey == 'Ngay' && rightVal.trim().isNotEmpty) {
+              final ngay = _withPrefix(
+                block.fieldLabels?['Ngay'] ?? 'Ngày:',
+                rightVal,
+              );
+              steps.add(_lineFromStyle(ngay, block.style, sourceBlockIndex: bi));
+              htmlBuf.write(_htmlText(ngay, block.style));
+            }
+            continue;
+          }
           String? leftPrefix = block.label?.trim();
           if (leftPrefix == null || leftPrefix.isEmpty) {
             leftPrefix = block.fieldLabels?[leftKey];
@@ -225,17 +489,22 @@ abstract final class PosPrintTemplateCompiler {
               ? _withPrefix(rightPrefix, rightVal)
               : rightVal;
           if (left.isNotEmpty || right.isNotEmpty) {
+            final tablePair = isKitchenLabel && leftKey == 'Ten_Ban';
+            final pairSize = tablePair
+                ? (block.style.fontSize + 6).clamp(16.0, 40.0)
+                : block.style.fontSize;
+            final pairBold = tablePair || block.style.bold;
             steps.add(PosPrintCompiledPair(
               left: left,
               right: right,
-              fontSize: block.style.fontSize,
-              bold: block.style.bold,
+              fontSize: pairSize,
+              bold: pairBold,
               sourceBlockIndex: bi,
             ));
             htmlBuf.write(
               '<div style="display:flex;justify-content:space-between;'
-              'font-size:${block.style.fontSize}px;'
-              '${block.style.bold ? 'font-weight:bold;' : ''}">'
+              'font-size:${pairSize}px;'
+              '${pairBold ? 'font-weight:bold;' : ''}">'
               '<span>$left</span><span>$right</span></div>',
             );
           }
@@ -252,12 +521,10 @@ abstract final class PosPrintTemplateCompiler {
             '<div style="border-top:1.5px solid #000;margin:6px 0;width:100%"></div>',
           );
         case PosPrintBlockType.lineItems:
-          final k58 = _isNarrowThermal(template.paperSize);
           final fs = block.style.fontSize.clamp(14.0, 48.0);
           _appendSaleTableHeader(
             steps,
             block,
-            k58: k58,
             fontSize: fs,
             sourceBlockIndex: bi,
           );
@@ -279,7 +546,6 @@ abstract final class PosPrintTemplateCompiler {
               steps,
               item,
               block.style,
-              k58: k58,
               sourceBlockIndex: bi,
             );
             htmlBuf.write(_htmlLineItem(item, block.style));
@@ -303,10 +569,16 @@ abstract final class PosPrintTemplateCompiler {
               bold: block.style.bold,
               sourceBlockIndex: bi,
             ));
-            if (note.trim().isNotEmpty) {
+            for (final raw in note.split(RegExp(r'[\r\n]+'))) {
+              final part = raw.trim();
+              if (part.isEmpty) continue;
+              final topping = part.startsWith('+');
               steps.add(PosPrintCompiledLine(
-                text: tr(' * $note'),
-                fontSize: (kSize - 2).clamp(12.0, 48.0),
+                text: tr(topping ? '  $part' : '  * $part'),
+                fontSize: topping
+                    ? (kSize - 8).clamp(12.0, 36.0)
+                    : (kSize - 6).clamp(12.0, 36.0),
+                bold: false,
                 sourceBlockIndex: bi,
               ));
             }
@@ -346,7 +618,7 @@ abstract final class PosPrintTemplateCompiler {
             final amount = block.qrShowAmount ? (data['Tong_Cong'] ?? '') : '';
             steps.add(PosPrintCompiledQr(
               imageUrl: vietQrImageUrl,
-              size: block.qrSize.clamp(100, 220),
+              size: block.qrSize.clamp(240, 400),
               title: title.isEmpty ? null : title,
               caption: caption.isEmpty ? 'Quét VietQR thanh toán' : caption,
               amountText: amount.trim().isEmpty ? null : amount.trim(),
@@ -391,7 +663,7 @@ abstract final class PosPrintTemplateCompiler {
         !steps.any((s) => s is PosPrintCompiledQr)) {
       steps.add(PosPrintCompiledQr(
         imageUrl: vietQrImageUrl,
-        size: 160,
+        size: 360,
         caption: 'Quét VietQR thanh toán',
         amountText: (data['Tong_Cong'] ?? '').trim().isEmpty
             ? null
@@ -410,23 +682,21 @@ abstract final class PosPrintTemplateCompiler {
     return PosPrintCompiledOutput(steps: steps, html: html);
   }
 
-  static bool _isNarrowThermal(String paperSize) =>
-      paperSize == PosPrintPaperSizes.k58 ||
-      PosPrintPaperSizes.widthMm(paperSize) <= 58;
-
   static void _appendSaleTableHeader(
     List<Object> steps,
     PosPrintBlock block, {
-    required bool k58,
     required double fontSize,
     int? sourceBlockIndex,
   }) {
-    final left = resolveFieldLabel(block, 'Ten_Hang_Hoa',
-        fallback: defaultColumnLabels['Ten_Hang_Hoa']);
-    final right = k58 ? 'SL            TT' : 'SL × Đ.giá              TT';
-    steps.add(PosPrintCompiledPair(
-      left: left,
-      right: right,
+    steps.add(PosPrintCompiledSaleRow(
+      name: resolveFieldLabel(block, 'Ten_Hang_Hoa',
+          fallback: defaultColumnLabels['Ten_Hang_Hoa']),
+      qty: resolveFieldLabel(block, 'So_Luong',
+          fallback: defaultColumnLabels['So_Luong']),
+      price: resolveFieldLabel(block, 'Don_Gia',
+          fallback: defaultColumnLabels['Don_Gia']),
+      total: resolveFieldLabel(block, 'Thanh_Tien',
+          fallback: defaultColumnLabels['Thanh_Tien']),
       fontSize: fontSize,
       bold: true,
       sourceBlockIndex: sourceBlockIndex,
@@ -451,42 +721,35 @@ abstract final class PosPrintTemplateCompiler {
     List<Object> steps,
     Map<String, String> item,
     PosPrintTextStyle style, {
-    required bool k58,
     int? sourceBlockIndex,
   }) {
     final name = item['Ten_Hang_Hoa'] ?? '';
     final qty = item['So_Luong'] ?? '';
-    final unit = item['Don_Vi_Tinh'] ?? '';
     final price = item['Don_Gia'] ?? '';
     final total = item['Thanh_Tien'] ?? '';
     final note = (item['Ghi_Chu'] ?? item['note'] ?? '').trim();
     final bodySize = style.fontSize.clamp(14.0, 48.0);
-    final smallSize = (bodySize - 4).clamp(12.0, 48.0);
+    final smallSize = (bodySize - 6).clamp(11.0, 48.0);
 
-    if (name.isNotEmpty) {
-      steps.add(PosPrintCompiledLine(
-        text: tr(name),
-        fontSize: bodySize,
-        bold: true,
-        sourceBlockIndex: sourceBlockIndex,
-      ));
-    }
-    if (note.isNotEmpty) {
-      steps.add(PosPrintCompiledLine(
-        text: tr('  $note'),
-        fontSize: smallSize,
-        sourceBlockIndex: sourceBlockIndex,
-      ));
-    }
-    final qtyBit = unit.isEmpty ? qty : '$qty $unit';
-    final left = k58 ? qtyBit : '$qtyBit × $price';
-    steps.add(PosPrintCompiledPair(
-      left: left,
-      right: total,
+    steps.add(PosPrintCompiledSaleRow(
+      name: name.isEmpty ? 'Món' : name,
+      qty: qty,
+      price: price,
+      total: total,
       fontSize: bodySize,
       bold: true,
       sourceBlockIndex: sourceBlockIndex,
     ));
+    for (final raw in note.split(RegExp(r'[\r\n]+'))) {
+      final part = raw.trim();
+      if (part.isEmpty) continue;
+      steps.add(PosPrintCompiledLine(
+        text: tr('  $part'),
+        fontSize: smallSize,
+        bold: false,
+        sourceBlockIndex: sourceBlockIndex,
+      ));
+    }
   }
 
   static String _htmlText(String t, PosPrintTextStyle style) {
@@ -504,8 +767,12 @@ abstract final class PosPrintTemplateCompiler {
     final note = (item['Ghi_Chu'] ?? item['note'] ?? '').trim();
     final noteHtml = note.isEmpty
         ? ''
-        : '<div style="font-weight:normal;font-size:${(size - 4).clamp(11, 40)}px;'
-            'font-style:italic;color:#333">$note</div>';
+        : note.split(RegExp(r'[\r\n]+')).where((e) => e.trim().isNotEmpty).map((part) {
+            final topping = part.trim().startsWith('+');
+            return '<div style="font-weight:500;'
+                'font-size:${(size - (topping ? 6 : 4)).clamp(11, 36)}px;'
+                'color:#444">${part.trim()}</div>';
+          }).join();
     return '<tr style="border-bottom:1px dotted #555">'
         '<td style="padding:5px 2px 3px;font-weight:bold;vertical-align:top">'
         '${item['Ten_Hang_Hoa'] ?? ''}$noteHtml</td>'

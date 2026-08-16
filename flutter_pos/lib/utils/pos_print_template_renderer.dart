@@ -5,6 +5,8 @@ import '../models/pos_print_template.dart';
 import '../models/pos_sale_order.dart';
 import '../services/api_service.dart';
 import 'pos_print_template_loader.dart';
+import 'pos_receipt_layout.dart';
+import 'pos_topping_format.dart';
 import 'pos_vietnamese_money_words.dart';
 
 const _itemBegin = '<!--BEGIN_ITEMS-->';
@@ -58,7 +60,7 @@ Map<String, String> posPrintSampleData({String documentType = PosPrintDocumentTy
     return {
       ...base,
       'Tieu_De_In': 'TEM BÁO BẾP',
-      'Ghi_Chu': '+ Ít đá, + 50% đường',
+      'Ghi_Chu': '+ TranChau x2\n+ Thach',
       'So_Luong': '1',
     };
   }
@@ -70,13 +72,14 @@ List<Map<String, String>> posPrintSampleLines() {
   return [
     {
       'STT': '1',
-      'Ma_Hang': 'GNA10001',
-      'Ten_Hang_Hoa': 'Giày thể thao Nam Adidas Blue',
-      'Don_Gia': money.format(350000),
-      'So_Luong': '2',
-      'Don_Vi_Tinh': 'Đôi',
+      'Ma_Hang': 'MONTRASUA01',
+      'Ten_Hang_Hoa': 'TraSua',
+      'Don_Gia': money.format(25000),
+      'So_Luong': '1',
+      'Don_Vi_Tinh': 'Ly',
       'Chiet_Khau': '0',
-      'Thanh_Tien': money.format(700000),
+      'Thanh_Tien': money.format(38000),
+      'Ghi_Chu': '+ TranChau x2 (+16.000)\n+ Thach (+5.000)',
     },
     {
       'STT': '2',
@@ -171,9 +174,11 @@ Map<String, String> buildSaleOrderPrintData(
         (order.printCount > 1
             ? 'HÓA ĐƠN BÁN HÀNG — IN LẠI'
             : 'HÓA ĐƠN BÁN HÀNG'),
-    'Ma_Don_Hang': order.orderNo.isEmpty ? '—' : order.orderNo,
-    'Ngay': DateFormat('dd/MM/yyyy').format(saleDate),
-    'Gio': DateFormat('HH:mm').format(saleDate),
+    'Ma_Don_Hang': order.orderNo.isEmpty
+        ? '—'
+        : PosReceiptLayout.formatSaleInvoiceNo(order.orderNo),
+    'Ngay': DateFormat('dd/MM/yyyy HH:mm').format(saleDate),
+    'Gio': '',
     'Khach_Hang': order.customerName ?? 'Bán cho người tiêu dùng',
     'SDT': order.deliveryPhone ?? '',
     'Dia_Chi_Khach_Hang': order.deliveryAddress ?? '',
@@ -202,28 +207,35 @@ Map<String, String> buildSaleOrderPrintData(
 List<Map<String, String>> buildSaleOrderPrintLines(
   List<PosSaleOrderLine> lines, {
   bool mergeSameItems = false,
+  bool compactLineMoney = false,
 }) {
   final money = NumberFormat('#,##0', 'vi_VN');
   final qtyFmt = NumberFormat('#,##0.##', 'vi_VN');
   final src = mergeSameItems ? _mergeLines(lines) : lines;
+  String lineMoney(double v) => compactLineMoney
+      ? PosReceiptLayout.moneyItemCompact(v)
+      : money.format(v);
   return List.generate(src.length, (i) {
     final l = src[i];
     var name = l.productName;
     if (l.unitName != null && l.unitName!.isNotEmpty) {
       name = '$name (${l.unitName})';
     }
-    if (l.lineNote != null && l.lineNote!.isNotEmpty) {
-      name = '$name — ${l.lineNote}';
-    }
+    final note = posToppingNoteFromSaleLine(
+      l,
+      withPrice: true,
+      money: money,
+    );
     return {
       'STT': '${i + 1}',
       'Ma_Hang': l.productId.length > 8 ? l.productId.substring(0, 8) : l.productId,
       'Ten_Hang_Hoa': name,
-      'Don_Gia': money.format(l.unitPrice),
+      'Don_Gia': lineMoney(l.unitPrice),
       'So_Luong': qtyFmt.format(l.qty),
       'Don_Vi_Tinh': l.unitName ?? '',
       'Chiet_Khau': l.discountAmount > 0 ? money.format(l.discountAmount) : '0',
-      'Thanh_Tien': money.format(l.lineTotal),
+      'Thanh_Tien': lineMoney(l.lineTotal),
+      'Ghi_Chu': note,
     };
   });
 }
@@ -231,7 +243,9 @@ List<Map<String, String>> buildSaleOrderPrintLines(
 List<PosSaleOrderLine> _mergeLines(List<PosSaleOrderLine> lines) {
   final map = <String, PosSaleOrderLine>{};
   for (final l in lines) {
-    final key = '${l.productId}|${l.variantId ?? ''}|${l.unitPrice}|${l.unitName ?? ''}';
+    final topKey = l.toppings.map((t) => '${t.id}x${t.qty}').join(',');
+    final key =
+        '${l.productId}|${l.variantId ?? ''}|${l.unitPrice}|${l.unitName ?? ''}|${l.lineNote ?? ''}|$topKey';
     final existing = map[key];
     if (existing == null) {
       map[key] = l;
@@ -246,9 +260,8 @@ List<PosSaleOrderLine> _mergeLines(List<PosSaleOrderLine> lines) {
         unitPrice: existing.unitPrice,
         discountAmount: existing.discountAmount + l.discountAmount,
         lineTotal: existing.lineTotal + l.lineTotal,
-        lineNote: [existing.lineNote, l.lineNote]
-            .where((n) => n != null && n.isNotEmpty)
-            .join('; '),
+        lineNote: existing.lineNote,
+        toppings: existing.toppings,
       );
     }
   }

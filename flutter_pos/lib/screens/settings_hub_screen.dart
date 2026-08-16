@@ -25,6 +25,8 @@ import 'pos/pos_resource_floor_screen.dart';
 import 'pos/pos_appointment_day_screen.dart';
 import 'pos/pos_customer_display_settings_screen.dart';
 import 'pos/pos_customers_screen.dart';
+import 'pos/pos_accounts_screen.dart';
+import 'pos/pos_role_permissions_screen.dart';
 import 'package:sbox_pos/l10n/app_tr.dart';
 
 class SettingsHubScreen extends StatefulWidget {
@@ -240,6 +242,10 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
 
   Widget _getScreen(int index) {
     switch (index) {
+      case 7:
+        return const PosAccountsScreen();
+      case 8:
+        return const PosRolePermissionsScreen();
       case 15:
         return const PosPrintTemplatesScreen(embeddedInSettings: true);
       case 16:

@@ -28,6 +28,8 @@ public class MaintenanceModeMiddleware
         "/api/maintenance/active",
         "/api/system-admin/maintenance",
         "/api/communications/public/",
+        "/api/pos/qr-order",
+        "/o/",
         "/hubs/",
     };
 

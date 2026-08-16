@@ -7150,6 +7150,16 @@ class ApiService {
     }
   }
 
+  Future<Map<String, dynamic>> getCashTransaction(String id) async {
+    try {
+      final response =
+          await _get(Uri.parse('$baseUrl/api/CashTransactions/$id'));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
   Future<Map<String, dynamic>> updateCashTransaction(
       String id, Map<String, dynamic> data) async {
     try {
@@ -18605,15 +18615,37 @@ class ApiService {
   Future<Map<String, dynamic>> splitPosBill(
     String sessionId, {
     required List<Map<String, dynamic>> items,
+    String? deviceId,
+    String? deviceName,
   }) async {
     try {
       final response = await http
           .post(
             Uri.parse('$baseUrl/api/pos/resource-sessions/$sessionId/split-bill'),
             headers: _headers,
-            body: jsonEncode({'items': items}),
+            body: jsonEncode({
+              'items': items,
+              if (deviceId != null && deviceId.isNotEmpty) 'deviceId': deviceId,
+              if (deviceName != null && deviceName.isNotEmpty)
+                'deviceName': deviceName,
+            }),
           )
           .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> cancelPosSaleDraft(String id) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/api/pos/sales/$id/cancel-draft'),
+            headers: _headers,
+            body: jsonEncode({}),
+          )
+          .timeout(const Duration(seconds: 20));
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);

@@ -35,9 +35,13 @@ FROM base AS final
 WORKDIR /app
 COPY --from=publish /app/publish .
 
-# Create wwwroot directories with proper permissions for file uploads
+# Create wwwroot directories with proper permissions for file uploads.
+# Production compose mounts a volume over /app/wwwroot — keep a copy of the
+# guest menu outside that mount so /o/{token} still works.
 USER root
-RUN mkdir -p /app/wwwroot/uploads /app/wwwroot/stores && chown -R $APP_UID:$APP_UID /app/wwwroot
+RUN mkdir -p /app/wwwroot/uploads /app/wwwroot/stores /app/guest \
+    && if [ -f /app/wwwroot/qr-order.html ]; then cp /app/wwwroot/qr-order.html /app/guest/qr-order.html; fi \
+    && chown -R $APP_UID:$APP_UID /app/wwwroot /app/guest
 USER $APP_UID
 
 ENTRYPOINT ["dotnet", "ZKTecoADMS.Api.dll"]

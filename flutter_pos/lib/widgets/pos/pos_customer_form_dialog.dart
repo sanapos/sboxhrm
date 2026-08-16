@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 
 import '../../models/pos_customer.dart';import '../../services/api_service.dart';
 import '../notification_overlay.dart';
+import 'pos_form_keyboard.dart';
 import 'pos_theme.dart';
 import 'package:sbox_pos/l10n/app_tr.dart';
 
@@ -46,6 +47,7 @@ class _PosCustomerFormDialogState extends State<PosCustomerFormDialog> {
     _companyCtrl = TextEditingController(text: tr(c?.companyName ?? ''));
     _taxCtrl = TextEditingController(text: tr(c?.taxCode ?? ''));
     _noteCtrl = TextEditingController(text: tr(c?.note ?? ''));
+    hidePosSoftKeyboard();
   }
 
   @override
@@ -96,7 +98,9 @@ class _PosCustomerFormDialogState extends State<PosCustomerFormDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return Dialog(
+    return wrapPosFormDialog(
+      context,
+      Dialog(
       insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 520, maxHeight: 680),
@@ -259,6 +263,7 @@ class _PosCustomerFormDialogState extends State<PosCustomerFormDialog> {
           ],
         ),
       ),
+    ),
     );
   }
 }

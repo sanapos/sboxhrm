@@ -108,7 +108,7 @@ public class PosProduct : AuditableEntity<Guid>
     /// <summary>Phút tối thiểu khi tính giờ (vd 60).</summary>
     public int? MinBillMinutes { get; set; }
 
-    /// <summary>Làm tròn phút (vd 15 → mỗi 15 phút).</summary>
+    /// <summary>Làm tròn phút (vd 15 → mỗi 15 phút). PerBlock = độ dài 1 block.</summary>
     public int? BillRoundMinutes { get; set; }
 
     /// <summary>Phút đầu miễn / không tính (vd 5–10 bi-a).</summary>
@@ -120,11 +120,20 @@ public class PosProduct : AuditableEntity<Guid>
     /// </summary>
     public int? RoundAfterMinutes { get; set; }
 
+    /// <summary>Phí mở phòng/bàn — cộng ngay khi bắt đầu (karaoke, bi-a).</summary>
+    public decimal OpeningFee { get; set; }
+
+    /// <summary>Phút đã gồm trong phí mở. Phần vượt tính theo block/giờ.</summary>
+    public int? OpeningMinutes { get; set; }
+
     /// <summary>Thời lượng mặc định khi thêm vào giỏ (phút).</summary>
     public int? DefaultDurationMinutes { get; set; }
 
-    /// <summary>Số buổi trong gói khi bán (gym). 0 = không phải gói buổi.</summary>
+    /// <summary>Số buổi trong gói khi bán (gym / liệu trình). 0 = không phải gói buổi.</summary>
     public int SessionPackCount { get; set; }
+
+    /// <summary>Hạn sử dụng gói buổi (ngày) kể từ ngày bán. 0 = không hạn.</summary>
+    public int SessionPackValidDays { get; set; }
 
     /// <summary>SP này là topping (trân châu, thạch…).</summary>
     public bool IsTopping { get; set; }

@@ -122,6 +122,14 @@ public static class ModulePermissionDefaults
         "posbooking" => (true, true, false, false, false, false),
         "poswarranty" => (true, false, false, false, false, false),
         "poscustomerdisplay" => (true, true, false, false, false, false),
+        "poseinvoice" => (true, false, false, false, false, true),
+        "poskds" => (true, true, false, false, false, false),
+        "posqrorder" => (true, false, true, false, false, false),
+        "poscashiershift" => (true, true, false, false, false, false),
+        "posprinters" => (true, false, false, false, false, false),
+        "possalesreport" => (true, false, false, false, true, false),
+        _ when m.StartsWith("posreport", StringComparison.Ordinal) =>
+            (true, false, false, false, true, false),
         _ => (false, false, false, false, false, false)
     };
 
@@ -139,6 +147,11 @@ public static class ModulePermissionDefaults
         "posbooking" => (true, true, false, false, false, false),
         "poswarranty" => (true, false, false, false, false, false),
         "poscustomerdisplay" => (true, false, false, false, false, false),
+        "poseinvoice" => (false, false, false, false, false, false),
+        "poskds" => (true, true, false, false, false, false),
+        "posqrorder" => (true, false, false, false, false, false),
+        "poscashiershift" => (false, false, false, false, false, false),
+        "posprinters" => (true, false, false, false, false, false),
         _ => (false, false, false, false, false, false)
     };
 

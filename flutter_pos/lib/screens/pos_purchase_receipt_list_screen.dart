@@ -29,7 +29,9 @@ import 'package:sbox_pos/l10n/app_tr.dart';
 const _blue = Color(0xFF2563EB);
 
 class PosPurchaseReceiptListScreen extends StatefulWidget {
-  const PosPurchaseReceiptListScreen({super.key});
+  const PosPurchaseReceiptListScreen({super.key, this.initialSearch});
+
+  final String? initialSearch;
 
   @override
   State<PosPurchaseReceiptListScreen> createState() =>
@@ -66,6 +68,10 @@ class _PosPurchaseReceiptListScreenState
   @override
   void initState() {
     super.initState();
+    if (widget.initialSearch != null &&
+        widget.initialSearch!.trim().isNotEmpty) {
+      _searchCtrl.text = widget.initialSearch!.trim();
+    }
     ScreenRefreshNotifier.posPurchaseReceipts.addListener(_onExternalRefresh);
     _loadSuppliers();
     _load();

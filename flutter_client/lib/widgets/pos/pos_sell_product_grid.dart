@@ -79,8 +79,30 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
   final Map<String, Future<List<PosProductUnitView>>> _unitViewsLoading = {};
   Map<String, double> _lastPriceOverrides = const {};
   Timer? _searchDebounce;
+  Timer? _imagePrefetchDebounce;
+
+  /// Chỉ dữ liệu nhúng — không gọi API khi vẽ lưới (A7/V2s).
+  List<PosProductUnitView> _viewsForDisplay(PosProduct p) {
+    if (!identical(_lastPriceOverrides, widget.priceOverrides)) {
+      _unitViewsCache.clear();
+      _lastPriceOverrides = widget.priceOverrides;
+    }
+
+    final cached = _unitViewsCache[p.id];
+    if (cached != null) return cached;
+
+    var views = posProductHasEmbeddedSellViews(p)
+        ? buildPosSellUnitViewsFromProduct(p)
+        : buildPosProductUnitViews(p, const [], extraUnits: const []);
+    views = applyPosPriceListToViews(views, p, widget.priceOverrides);
+    _unitViewsCache[p.id] = views;
+    return views;
+  }
 
   Future<List<PosProductUnitView>> _viewsFor(PosProduct p) {
+    if (posProductHasEmbeddedSellViews(p)) {
+      return Future.value(_viewsForDisplay(p));
+    }
     if (!identical(_lastPriceOverrides, widget.priceOverrides)) {
       _unitViewsCache.clear();
       _lastPriceOverrides = widget.priceOverrides;
@@ -98,28 +120,23 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
     });
   }
 
-  List<PosProductUnitView>? _viewsCachedSync(PosProduct p) {
-    if (!identical(_lastPriceOverrides, widget.priceOverrides)) {
-      _unitViewsCache.clear();
-      _lastPriceOverrides = widget.priceOverrides;
-    }
-    return _unitViewsCache[p.id];
-  }
-
   void _prefetchPageUnitViews() {
     for (final p in _pageItems) {
-      _viewsFor(p);
+      _viewsForDisplay(p);
     }
-    _prefetchPageImages();
+    _imagePrefetchDebounce?.cancel();
+    _imagePrefetchDebounce = Timer(const Duration(milliseconds: 350), () {
+      if (mounted) _prefetchPageImages();
+    });
   }
 
   void _prefetchPageImages() {
-    final items = _pageItems.take(24).toList();
+    final items = _pageItems.take(12).toList();
     var i = 0;
     Future<void> pump() async {
       while (i < items.length) {
         final batch = <Future<void>>[];
-        for (var n = 0; n < 4 && i < items.length; n++, i++) {
+        for (var n = 0; n < 2 && i < items.length; n++, i++) {
           final p = items[i];
           batch.add(PosProductImageCacheManager.instance.prefetchProduct(
             api: widget.api,
@@ -157,6 +174,7 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
     ScreenRefreshNotifier.posSellProductGrid.removeListener(_onExternalRefresh);
     ScreenRefreshNotifier.posSellStockPatch.removeListener(_onStockPatch);
     _searchDebounce?.cancel();
+    _imagePrefetchDebounce?.cancel();
     _categoryScroll.dispose();
     _gridScroll.dispose();
     _searchCtrl.dispose();
@@ -711,24 +729,21 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
     required bool isDefault,
     required VoidCallback onTap,
   }) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(4),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 7, horizontal: 2),
-          child: Text(
-            tr(label),
-            textAlign: TextAlign.center,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight: isDefault ? FontWeight.w700 : FontWeight.w600,
-              color: isDefault ? _blue : const Color(0xFF475569),
-              height: 1.1,
-            ),
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 7, horizontal: 2),
+        child: Text(
+          tr(label),
+          textAlign: TextAlign.center,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            fontSize: 10,
+            fontWeight: isDefault ? FontWeight.w700 : FontWeight.w600,
+            color: isDefault ? _blue : const Color(0xFF475569),
+            height: 1.1,
           ),
         ),
       ),
@@ -736,29 +751,7 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
   }
 
   Widget _buildUnitBar(PosProduct p) {
-    final cached = _viewsCachedSync(p);
-    if (cached != null) {
-      return _unitBar(p, cached);
-    }
-    return FutureBuilder<List<PosProductUnitView>>(
-      future: _viewsFor(p),
-      builder: (context, snap) {
-        if (snap.connectionState == ConnectionState.waiting) {
-          return _unitBarShell(
-            children: [
-              Expanded(
-                child: _unitButton(
-                  label: p.baseUnitName.isNotEmpty ? p.baseUnitName : 'Cái',
-                  isDefault: true,
-                  onTap: () => _pickProduct(p),
-                ),
-              ),
-            ],
-          );
-        }
-        return _unitBar(p, snap.data ?? const []);
-      },
-    );
+    return _unitBar(p, _viewsForDisplay(p));
   }
 
   Widget _productCardContent(PosProduct p, List<PosProductUnitView>? views) {
@@ -768,9 +761,7 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
         final qty = view != null
             ? resolvePosSellListStockQty(p, views!)
             : p.onHandQty;
-        final unit = view?.label ?? p.baseUnitName;
         final trackStock = p.productType != PosProductType.service;
-        final reserved = p.reservedQty;
         final outOfStock = trackStock &&
             isPosSellOutOfStock(p, views ?? const []);
         final price =
@@ -784,103 +775,82 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
                   ? const Color(0xFFFECACA)
                   : const Color(0xFFE8E8E8),
             ),
-            boxShadow: const [
-              BoxShadow(
-                color: Color(0x0A000000),
-                blurRadius: 6,
-                offset: Offset(0, 2),
-              ),
-            ],
           ),
-          clipBehavior: Clip.antiAlias,
+          clipBehavior: Clip.hardEdge,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Expanded(
-                child: Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    onTap: () => _pickProduct(p),
-                    hoverColor: _blue.withValues(alpha: 0.04),
-                    splashColor: _blue.withValues(alpha: 0.08),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        // Ảnh + badge giá góc dưới trái (kiểu KiotViet).
-                        Expanded(
-                          flex: 5,
-                          child: LayoutBuilder(
-                            builder: (context, c) {
-                              final side = (c.maxWidth < c.maxHeight
-                                      ? c.maxWidth
-                                      : c.maxHeight)
-                                  .clamp(36.0, 160.0);
-                              return Stack(
-                                fit: StackFit.expand,
-                                children: [
-                                  ColoredBox(
-                                    color: const Color(0xFFF7F7F7),
-                                    child: Center(
-                                      child: PosProductImage(
-                                        productId: p.id,
-                                        imageUrl: p.imageUrl,
-                                        updatedAt: p.updatedAt,
-                                        size: side,
-                                        borderRadius: 0,
-                                      ),
-                                    ),
-                                  ),
-                                  if (trackStock)
-                                    Positioned(
-                                      top: 4,
-                                      right: 4,
-                                      child: _stockBadge(qty: qty),
-                                    ),
-                                  Positioned(
-                                    left: 0,
-                                    bottom: 0,
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(
-                                          horizontal: 6, vertical: 3),
-                                      decoration: const BoxDecoration(
-                                        color: PosTheme.kiotBlue,
-                                        borderRadius: BorderRadius.only(
-                                          topRight: Radius.circular(6),
-                                        ),
-                                      ),
-                                      child: Text(
-                                        tr(_moneyFmt.format(price)),
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w700,
-                                          height: 1.1,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              );
-                            },
-                          ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(6, 6, 6, 4),
-                          child: Text(
-                            tr(p.name),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              height: 1.25,
-                              color: PosTheme.textPrimary,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => _pickProduct(p),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Expanded(
+                        flex: 5,
+                        child: Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            ColoredBox(
+                              color: const Color(0xFFF7F7F7),
+                              child: PosProductImage(
+                                productId: p.id,
+                                imageUrl: p.imageUrl,
+                                updatedAt: p.updatedAt,
+                                size: 96,
+                                fill: true,
+                                borderRadius: 0,
+                              ),
                             ),
+                            if (trackStock)
+                              Positioned(
+                                top: 4,
+                                right: 4,
+                                child: _stockBadge(qty: qty),
+                              ),
+                            Positioned(
+                              left: 0,
+                              bottom: 0,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 6, vertical: 3),
+                                decoration: const BoxDecoration(
+                                  color: PosTheme.kiotBlue,
+                                  borderRadius: BorderRadius.only(
+                                    topRight: Radius.circular(6),
+                                  ),
+                                ),
+                                child: Text(
+                                  tr(_moneyFmt.format(price)),
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                    height: 1.1,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(6, 6, 6, 4),
+                        child: Text(
+                          tr(p.name),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            height: 1.25,
+                            color: PosTheme.textPrimary,
                           ),
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -891,14 +861,7 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
   }
 
   Widget _productCard(PosProduct p) {
-    final cached = _viewsCachedSync(p);
-    if (cached != null) {
-      return _productCardContent(p, cached);
-    }
-    return FutureBuilder<List<PosProductUnitView>>(
-      future: _viewsFor(p),
-      builder: (context, snap) => _productCardContent(p, snap.data),
-    );
+    return _productCardContent(p, _viewsForDisplay(p));
   }
 
   Widget _stockBadge({required double qty}) {
@@ -1000,7 +963,7 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
 
   void _prefetchSellListPageUnitViews() {
     for (final p in _sortedSellListPageItems) {
-      _viewsFor(p);
+      _viewsForDisplay(p);
     }
   }
 
@@ -1075,14 +1038,7 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
   }
 
   Widget _sellListRow(PosProduct p) {
-    final cached = _viewsCachedSync(p);
-    if (cached != null) {
-      return _sellListRowContent(p, cached);
-    }
-    return FutureBuilder<List<PosProductUnitView>>(
-      future: _viewsFor(p),
-      builder: (context, snap) => _sellListRowContent(p, snap.data),
-    );
+    return _sellListRowContent(p, _viewsForDisplay(p));
   }
 
   Widget _buildGrid(double gridWidth) {
@@ -1136,7 +1092,8 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
               thumbVisibility: true,
               child: GridView.builder(
                 controller: _gridScroll,
-                cacheExtent: 480,
+                cacheExtent: 160,
+                addAutomaticKeepAlives: false,
                 padding: const EdgeInsets.fromLTRB(10, 6, 10, 6),
                 gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: cols,

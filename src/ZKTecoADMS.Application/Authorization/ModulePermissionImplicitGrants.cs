@@ -66,7 +66,8 @@ public static class ModulePermissionImplicitGrants
     [
         "PosSell", "PosSaleOrders", "PosSaleReturns", "PosPurchaseReceipts", "PosPurchaseReturns",
         "PosStockCounts", "PosDamageIssues", "PosInternalUseIssues", "PosPrintTemplates",
-        "PosBooking", "PosCustomers", "PosWarranty", "PosCustomerDisplay",
+        "PosBooking", "PosCustomers", "PosWarranty", "PosCustomerDisplay", "PosEInvoice",
+        "PosKds", "PosQrOrder", "PosCashierShift", "PosPrinters",
     ];
 
     public static bool TryGrant(
@@ -242,8 +243,9 @@ public static class ModulePermissionImplicitGrants
             HasAction(map, "PosSell", action))
             return true;
 
-        // Addon tách từ PosSell: thu ngân vẫn dùng CRM / booking / BH / màn phụ khi có PosSell.
-        if ((module is "PosCustomers" or "PosBooking" or "PosWarranty" or "PosCustomerDisplay") &&
+        // Addon tách từ PosSell: thu ngân vẫn dùng CRM / booking / BH / màn phụ / KDS / QR / ca / máy in.
+        if ((module is "PosCustomers" or "PosBooking" or "PosWarranty" or "PosCustomerDisplay"
+                or "PosEInvoice" or "PosKds" or "PosQrOrder" or "PosCashierShift" or "PosPrinters") &&
             HasAction(map, "PosSell", action))
             return true;
 
@@ -252,11 +254,26 @@ public static class ModulePermissionImplicitGrants
         if (PosSubmoduleCodes.Contains(module) && HasAction(map, "PosProducts", action))
             return true;
 
-        // Báo cáo POS: PosSalesReport hoặc PosProducts (xem/xuất).
+        // Báo cáo POS: hub cũ, hoặc từng báo cáo tách, hoặc PosProducts (kho).
         if (module.Equals("PosSalesReport", StringComparison.Ordinal) &&
             action is ModulePermissionAction.View or ModulePermissionAction.Export)
         {
             if (HasAction(map, "PosSalesReport", action) || HasAction(map, "PosProducts", action))
+                return true;
+            if (HasAction(map, "PosReportRevenue", action)
+                || HasAction(map, "PosReportPayment", action)
+                || HasAction(map, "PosReportStaffRevenue", action)
+                || HasAction(map, "PosReportProfit", action))
+                return true;
+        }
+
+        if (PosPackageDefaults.IsReportModule(module) &&
+            action is ModulePermissionAction.View or ModulePermissionAction.Export)
+        {
+            if (HasAction(map, module, action) || HasAction(map, "PosSalesReport", action))
+                return true;
+            if (module is "PosReportStock" or "PosReportExpiry" or "PosReportEndOfDay" or "PosReportSoldGoods"
+                && HasAction(map, "PosProducts", action))
                 return true;
         }
 

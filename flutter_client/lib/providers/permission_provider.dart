@@ -329,6 +329,12 @@ class PermissionProvider extends ChangeNotifier {
         return true;
       }
     }
+    if (moduleCode == 'HkdBooks' &&
+        (action == 'canView' || action == 'canExport')) {
+      if (_flag('HkdBooks', action) || _flag('PosSalesReport', action)) {
+        return true;
+      }
+    }
     if (moduleCode.startsWith('PosReport') &&
         (action == 'canView' || action == 'canExport')) {
       if (_flag(moduleCode, action) || _flag('PosSalesReport', action)) {
@@ -376,7 +382,9 @@ class PermissionProvider extends ChangeNotifier {
 
   /// Order / gọi món / tạm tính (không gồm thanh toán).
   bool canPosOrder() =>
-      canCreate('PosSell') || canCreate('PosProducts');
+      canCreate('PosSell') ||
+      canEdit('PosSell') ||
+      canCreate('PosProducts');
 
   /// Thu ngân — thanh toán / hoàn tất hóa đơn.
   bool canPosPay() => canApprove('PosSell');

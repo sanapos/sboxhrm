@@ -27,7 +27,8 @@ public partial class PosPrintersController(
         bool BeepOnPrint, bool IsDefault, bool RequiresAgent,
         bool IsDeviceLocal, string? OwnerDeviceId,
         string HealthStatus, DateTime? LastSeenAt, string? LastErrorMessage,
-        int SortOrder, bool IsActive, List<string> DocumentTypes, int DefaultCopies);
+        int SortOrder, bool IsActive, List<string> DocumentTypes, int DefaultCopies,
+        bool CutPerItem);
 
     public record PrinterSaveDto(
         string Name,
@@ -47,7 +48,8 @@ public partial class PosPrintersController(
         bool? BeepOnPrint,
         bool IsDefault,
         int SortOrder,
-        bool IsActive);
+        bool IsActive,
+        bool? CutPerItem);
 
     /// <summary>Đồng bộ máy in nội bộ từ thiết bị POS → danh sách cửa hàng (để gán món).</summary>
     public record DeviceLocalPrinterUpsertDto(
@@ -69,14 +71,15 @@ public partial class PosPrintersController(
         bool? OpenDrawerCashOnly,
         bool? BeepOnPrint,
         bool IsActive,
-        List<string>? DocumentTypes);
+        List<string>? DocumentTypes,
+        bool? CutPerItem);
 
     public record RouteDto(string DocumentType, Guid PrinterId, int DefaultCopies);
 
     public record RoutesBulkDto(List<RouteDto> Routes);
 
     [HttpGet]
-    [RequireModulePermission("PosSell", ModulePermissionAction.View)]
+    [RequireModulePermission("PosPrinters", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<object>>> List()
     {
         var storeId = RequiredStoreId;
@@ -102,7 +105,7 @@ public partial class PosPrintersController(
     }
 
     [HttpGet("{id:guid}")]
-    [RequireModulePermission("PosSell", ModulePermissionAction.View)]
+    [RequireModulePermission("PosPrinters", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<object>>> Get(Guid id)
     {
         var storeId = RequiredStoreId;
@@ -118,15 +121,79 @@ public partial class PosPrintersController(
             routes.FirstOrDefault()?.DefaultCopies ?? 1)));
     }
 
+    /// <summary>
+    /// «VID:PID:serial» của USB — bỏ /dev/bus/usb/… vì đổi mỗi lần cắm lại.
+    /// </summary>
+    static string UsbIdentity(string? raw)
+    {
+        var t = (raw ?? "").Trim();
+        if (t.Length == 0) return "";
+        var pipe = t.IndexOf('|');
+        return (pipe > 0 ? t[..pipe] : t).ToLowerInvariant();
+    }
+
+    /// <summary>
+    /// Máy in cloud đã có cùng cổng vật lý. Cắm lại USB làm đổi đường dẫn bus
+    /// nên app từng tạo thêm bản ghi trùng tên: chip Agent trỏ bản cũ, món gán
+    /// bản mới → job Queued tới hết hạn, không ra phiếu. Tái dùng bản ghi cũ.
+    /// </summary>
+    async Task<PosStorePrinter?> FindSamePhysicalPrinterAsync(
+        Guid storeId, PrinterSaveDto dto)
+    {
+        // AsTracking: caller ghi đè bản ghi tìm được rồi SaveChanges.
+        var candidates = await db.PosStorePrinters.AsTracking()
+            .Where(p => p.StoreId == storeId && p.Deleted == null
+                && !p.IsDeviceLocal && p.ConnectionType == dto.ConnectionType)
+            .ToListAsync();
+        if (candidates.Count == 0) return null;
+
+        switch (dto.ConnectionType)
+        {
+            case PosPrinterConnectionType.Usb:
+                var usb = UsbIdentity(dto.UsbDeviceName);
+                if (usb.Length == 0) return null;
+                return candidates.FirstOrDefault(p => UsbIdentity(p.UsbDeviceName) == usb);
+            case PosPrinterConnectionType.Lan:
+                var host = (dto.LanHost ?? "").Trim();
+                if (host.Length == 0) return null;
+                return candidates.FirstOrDefault(p =>
+                    string.Equals((p.LanHost ?? "").Trim(), host, StringComparison.OrdinalIgnoreCase)
+                    && p.LanPort == dto.LanPort);
+            case PosPrinterConnectionType.Bluetooth:
+                var bt = (dto.BluetoothAddress ?? "").Trim();
+                if (bt.Length == 0) return null;
+                return candidates.FirstOrDefault(p =>
+                    string.Equals((p.BluetoothAddress ?? "").Trim(), bt, StringComparison.OrdinalIgnoreCase));
+            case PosPrinterConnectionType.Sunmi:
+                return candidates.FirstOrDefault();
+            default:
+                return null;
+        }
+    }
+
     [HttpPost]
-    [RequireModulePermission("PosSell", ModulePermissionAction.Edit)]
+    [RequireModulePermission("PosPrinters", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<object>>> Create([FromBody] PrinterSaveDto dto)
     {
         var storeId = RequiredStoreId;
-        var entity = MapNew(dto, storeId, CurrentUserId.ToString());
         if (dto.IsDefault)
             await ClearDefaultAsync(storeId);
 
+        var existing = await FindSamePhysicalPrinterAsync(storeId, dto);
+        if (existing != null)
+        {
+            ApplySave(existing, dto, CurrentUserId.ToString());
+            await db.SaveChangesAsync();
+            await dispatch.EnsureDefaultRoutesAsync(storeId);
+
+            var types = await db.PosPrinterDocumentRoutes.AsNoTracking()
+                .Where(r => r.PrinterId == existing.Id && r.Deleted == null && r.IsActive)
+                .Select(r => r.DocumentType.ToString())
+                .ToListAsync();
+            return Ok(AppResponse<object>.Success(ToDto(existing, types, 1)));
+        }
+
+        var entity = MapNew(dto, storeId, CurrentUserId.ToString());
         db.PosStorePrinters.Add(entity);
         await db.SaveChangesAsync();
         await dispatch.EnsureDefaultRoutesAsync(storeId);
@@ -135,20 +202,29 @@ public partial class PosPrintersController(
     }
 
     [HttpPut("{id:guid}")]
-    [RequireModulePermission("PosSell", ModulePermissionAction.Edit)]
+    [RequireModulePermission("PosPrinters", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<object>>> Update(Guid id, [FromBody] PrinterSaveDto dto)
     {
         var storeId = RequiredStoreId;
-        var entity = await db.PosStorePrinters
+        // AsTracking bắt buộc: DbContext chạy NoTracking toàn cục nên thiếu nó là
+        // SaveChanges không ghi gì — sửa tên/IP/khổ giấy báo OK mà không lưu.
+        var entity = await db.PosStorePrinters.AsTracking()
             .FirstOrDefaultAsync(p => p.Id == id && p.StoreId == storeId && p.Deleted == null);
         if (entity == null) return NotFound(AppResponse<object>.Fail("Không tìm thấy máy in"));
 
         if (dto.IsDefault && !entity.IsDefault)
             await ClearDefaultAsync(storeId);
 
+        var wasActive = entity.IsActive;
         ApplySave(entity, dto, CurrentUserId.ToString());
         await db.SaveChangesAsync();
         await dispatch.EnsureDefaultRoutesAsync(storeId);
+
+        // Tắt «Hoạt động» làm máy in biến mất khỏi cấu hình app, nhưng gán SP
+        // vẫn trỏ vào đó: món ra lệnh in cho một máy không tồn tại, chỉ rơi vào
+        // hàng chờ chứ không ai in. Gỡ gán như khi xóa máy để món về máy mặc định.
+        if (wasActive && !entity.IsActive)
+            await ClearProductAssignmentsAsync(storeId, id);
 
         var routes = await db.PosPrinterDocumentRoutes.AsNoTracking()
             .Where(r => r.PrinterId == id && r.Deleted == null).ToListAsync();
@@ -159,7 +235,7 @@ public partial class PosPrintersController(
     }
 
     [HttpDelete("{id:guid}")]
-    [RequireModulePermission("PosSell", ModulePermissionAction.Edit)]
+    [RequireModulePermission("PosPrinters", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<object>>> Delete(Guid id)
     {
         var storeId = RequiredStoreId;
@@ -193,34 +269,7 @@ public partial class PosPrintersController(
                 .SetProperty(x => x.UpdatedAt, now)
                 .SetProperty(x => x.UpdatedBy, by));
 
-        // Bỏ gán DefaultPrinter / DefaultLabelPrinter trên SP/nhóm nếu còn trỏ máy đã xóa.
-        await db.PosProducts
-            .IgnoreQueryFilters()
-            .Where(p => p.StoreId == storeId && p.Deleted == null && p.DefaultPrinterId == id)
-            .ExecuteUpdateAsync(s => s
-                .SetProperty(p => p.DefaultPrinterId, (Guid?)null)
-                .SetProperty(p => p.UpdatedAt, now));
-
-        await db.PosProducts
-            .IgnoreQueryFilters()
-            .Where(p => p.StoreId == storeId && p.Deleted == null && p.DefaultLabelPrinterId == id)
-            .ExecuteUpdateAsync(s => s
-                .SetProperty(p => p.DefaultLabelPrinterId, (Guid?)null)
-                .SetProperty(p => p.UpdatedAt, now));
-
-        await db.PosProductCategories
-            .IgnoreQueryFilters()
-            .Where(c => c.StoreId == storeId && c.Deleted == null && c.DefaultPrinterId == id)
-            .ExecuteUpdateAsync(s => s
-                .SetProperty(c => c.DefaultPrinterId, (Guid?)null)
-                .SetProperty(c => c.UpdatedAt, now));
-
-        await db.PosProductCategories
-            .IgnoreQueryFilters()
-            .Where(c => c.StoreId == storeId && c.Deleted == null && c.DefaultLabelPrinterId == id)
-            .ExecuteUpdateAsync(s => s
-                .SetProperty(c => c.DefaultLabelPrinterId, (Guid?)null)
-                .SetProperty(c => c.UpdatedAt, now));
+        await ClearProductAssignmentsAsync(storeId, id);
 
         // Detach tracker — tránh query sau vẫn «nhìn» entity cũ.
         foreach (var entry in db.ChangeTracker.Entries<PosStorePrinter>()
@@ -231,8 +280,46 @@ public partial class PosPrintersController(
         return Ok(AppResponse<object>.Success(true));
     }
 
+    /// <summary>
+    /// Bỏ gán DefaultPrinter / DefaultLabelPrinter trên SP + nhóm hàng khi máy in
+    /// không còn phục vụ được (xóa hoặc tắt hoạt động). Còn gán thì phiếu bếp/tem
+    /// của các món đó chạy vào một máy app không thấy — chỉ nằm hàng chờ.
+    /// </summary>
+    async Task ClearProductAssignmentsAsync(Guid storeId, Guid printerId)
+    {
+        var now = DateTime.UtcNow;
+
+        await db.PosProducts
+            .IgnoreQueryFilters()
+            .Where(p => p.StoreId == storeId && p.Deleted == null && p.DefaultPrinterId == printerId)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(p => p.DefaultPrinterId, (Guid?)null)
+                .SetProperty(p => p.UpdatedAt, now));
+
+        await db.PosProducts
+            .IgnoreQueryFilters()
+            .Where(p => p.StoreId == storeId && p.Deleted == null && p.DefaultLabelPrinterId == printerId)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(p => p.DefaultLabelPrinterId, (Guid?)null)
+                .SetProperty(p => p.UpdatedAt, now));
+
+        await db.PosProductCategories
+            .IgnoreQueryFilters()
+            .Where(c => c.StoreId == storeId && c.Deleted == null && c.DefaultPrinterId == printerId)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(c => c.DefaultPrinterId, (Guid?)null)
+                .SetProperty(c => c.UpdatedAt, now));
+
+        await db.PosProductCategories
+            .IgnoreQueryFilters()
+            .Where(c => c.StoreId == storeId && c.Deleted == null && c.DefaultLabelPrinterId == printerId)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(c => c.DefaultLabelPrinterId, (Guid?)null)
+                .SetProperty(c => c.UpdatedAt, now));
+    }
+
     [HttpGet("routes")]
-    [RequireModulePermission("PosSell", ModulePermissionAction.View)]
+    [RequireModulePermission("PosPrinters", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<object>>> GetRoutes()
     {
         var storeId = RequiredStoreId;
@@ -247,7 +334,7 @@ public partial class PosPrintersController(
     }
 
     [HttpPut("routes")]
-    [RequireModulePermission("PosSell", ModulePermissionAction.Edit)]
+    [RequireModulePermission("PosPrinters", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<object>>> SaveRoutes([FromBody] RoutesBulkDto dto)
     {
         var storeId = RequiredStoreId;
@@ -256,7 +343,8 @@ public partial class PosPrintersController(
             .Where(p => printerIds.Contains(p.Id) && p.StoreId == storeId && p.Deleted == null)
             .Select(p => p.Id).ToListAsync();
 
-        var existing = await db.PosPrinterDocumentRoutes
+        // AsTracking: bên dưới sửa/soft-delete các route cũ rồi SaveChanges.
+        var existing = await db.PosPrinterDocumentRoutes.AsTracking()
             .Where(r => r.StoreId == storeId && r.Deleted == null).ToListAsync();
 
         var incoming = new HashSet<(PosPrintDocumentType DocumentType, Guid PrinterId)>();
@@ -305,7 +393,7 @@ public partial class PosPrintersController(
     }
 
     [HttpPost("{id:guid}/health")]
-    [RequireModulePermission("PosSell", ModulePermissionAction.View)]
+    [RequireModulePermission("PosPrinters", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<object>>> ReportHealth(
         Guid id, [FromBody] HealthReportDto dto)
     {
@@ -329,10 +417,10 @@ public partial class PosPrintersController(
         p.IsDefault, p.RequiresAgent,
         p.IsDeviceLocal, p.OwnerDeviceId,
         p.HealthStatus.ToString(), p.LastSeenAt, p.LastErrorMessage,
-        p.SortOrder, p.IsActive, docTypes, copies);
+        p.SortOrder, p.IsActive, docTypes, copies, p.CutPerItem);
 
     [HttpPost("device-local")]
-    [RequireModulePermission("PosSell", ModulePermissionAction.Edit)]
+    [RequireModulePermission("PosPrinters", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<object>>> UpsertDeviceLocal(
         [FromBody] DeviceLocalPrinterUpsertDto dto)
     {
@@ -346,7 +434,7 @@ public partial class PosPrintersController(
         PosStorePrinter? entity = null;
         if (dto.Id is Guid id)
         {
-            entity = await db.PosStorePrinters
+            entity = await db.PosStorePrinters.AsTracking()
                 .FirstOrDefaultAsync(p => p.Id == id && p.StoreId == storeId && p.Deleted == null);
             // Không biến máy cloud/Agent thành device-local (chip Agent từng ghi đè storePrinterId).
             // Mọi máy không phải device-local → tạo bản ghi mới thay vì hijack.
@@ -378,6 +466,7 @@ public partial class PosPrintersController(
         entity.UsbDeviceName = dto.UsbDeviceName;
         entity.FeedBeforeCut = dto.FeedBeforeCut <= 0 ? 1 : dto.FeedBeforeCut;
         entity.PartialCut = dto.PartialCut;
+        entity.CutPerItem = dto.CutPerItem ?? entity.CutPerItem;
         entity.OpenCashDrawer = dto.OpenCashDrawer ?? false;
         entity.OpenDrawerCashOnly = dto.OpenDrawerCashOnly ?? true;
         entity.BeepOnPrint = dto.BeepOnPrint ?? false;
@@ -399,6 +488,7 @@ public partial class PosPrintersController(
         }
 
         var existingRoutes = await db.PosPrinterDocumentRoutes
+            .AsTracking()
             .IgnoreQueryFilters()
             .Where(r => r.PrinterId == entity.Id && r.StoreId == storeId)
             .ToListAsync();
@@ -467,6 +557,7 @@ public partial class PosPrintersController(
             UsbDeviceName = dto.UsbDeviceName,
             FeedBeforeCut = dto.FeedBeforeCut,
             PartialCut = dto.PartialCut,
+            CutPerItem = dto.CutPerItem ?? false,
             OpenCashDrawer = dto.OpenCashDrawer ?? false,
             OpenDrawerCashOnly = dto.OpenDrawerCashOnly ?? true,
             BeepOnPrint = dto.BeepOnPrint ?? false,
@@ -494,6 +585,7 @@ public partial class PosPrintersController(
         entity.UsbDeviceName = dto.UsbDeviceName;
         entity.FeedBeforeCut = dto.FeedBeforeCut;
         entity.PartialCut = dto.PartialCut;
+        entity.CutPerItem = dto.CutPerItem ?? false;
         entity.OpenCashDrawer = dto.OpenCashDrawer ?? false;
         entity.OpenDrawerCashOnly = dto.OpenDrawerCashOnly ?? true;
         entity.BeepOnPrint = dto.BeepOnPrint ?? false;
@@ -507,8 +599,8 @@ public partial class PosPrintersController(
 
     async Task ClearDefaultAsync(Guid storeId)
     {
-        var defaults = await db.PosStorePrinters
-            .Where(p => p.StoreId == storeId && p.IsDefault && p.Deleted == null).ToListAsync();
-        foreach (var p in defaults) p.IsDefault = false;
+        await db.PosStorePrinters
+            .Where(p => p.StoreId == storeId && p.IsDefault && p.Deleted == null)
+            .ExecuteUpdateAsync(s => s.SetProperty(p => p.IsDefault, false));
     }
 }

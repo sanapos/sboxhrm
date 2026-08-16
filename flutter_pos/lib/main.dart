@@ -8,7 +8,9 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:provider/provider.dart';
 
+import 'l10n/app_locale.dart';
 import 'l10n/app_localizations.dart';
+import 'l10n/app_tr.dart';
 import 'providers/auth_provider.dart';
 import 'providers/permission_provider.dart';
 import 'screens/login_screen.dart';
@@ -26,6 +28,7 @@ import 'utils/pos_print_agent_settings.dart';
 import 'utils/pos_print_orchestrator.dart';
 import 'utils/pos_qr_order_voice.dart';
 import 'utils/ssl_trust.dart';
+import 'utils/vietnamese_font.dart';
 import 'widgets/app_boot_screen.dart';
 import 'widgets/notification_overlay.dart';
 import 'widgets/pos_app_update_dialog.dart';
@@ -62,6 +65,9 @@ Future<void> main() async {
 
   // HTTPS trên Android cũ (Sunmi T1…): bổ sung ISRG Root trước mọi gọi API.
   await installPosSslTrust();
+  await preloadVietnameseFonts();
+  await AppLocale.loadSaved();
+  trResetCache();
 
   // Engine màn phụ: giữ orientation theo display khách, không ép POS.
   if (!_isCustomerDisplayRoute) {
@@ -90,7 +96,12 @@ class SboxPosApp extends StatelessWidget {
       return MaterialApp(
         title: 'SBOX Display',
         debugShowCheckedModeBanner: false,
-        theme: ThemeData.dark(useMaterial3: true),
+        theme: applyVietnameseFonts(ThemeData(
+          brightness: Brightness.dark,
+          useMaterial3: true,
+          fontFamily: kVietnameseFontFamily,
+          fontFamilyFallback: kVietnameseFontFallback,
+        )),
         home: const PosCustomerDisplayScreen(),
         routes: {
           '/customer-display': (_) => const PosCustomerDisplayScreen(),
@@ -104,10 +115,12 @@ class SboxPosApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => PermissionProvider()),
         Provider(create: (_) => ApiService()),
       ],
-      child: MaterialApp(
+      child: ListenableBuilder(
+        listenable: AppLocale.listenable,
+        builder: (context, _) => MaterialApp(
         title: 'SBOX POS',
         debugShowCheckedModeBanner: false,
-        locale: const Locale('vi'),
+        locale: AppLocale.locale,
         supportedLocales: const [
           Locale('vi'),
           Locale('en'),
@@ -118,8 +131,10 @@ class SboxPosApp extends StatelessWidget {
           GlobalWidgetsLocalizations.delegate,
           GlobalCupertinoLocalizations.delegate,
         ],
-        theme: ThemeData(
+        theme: applyVietnameseFonts(ThemeData(
           useMaterial3: true,
+          fontFamily: kVietnameseFontFamily,
+          fontFamilyFallback: kVietnameseFontFallback,
           colorScheme: ColorScheme.fromSeed(
             seedColor: PosTheme.kiotBlue,
             primary: PosTheme.kiotBlue,
@@ -129,7 +144,7 @@ class SboxPosApp extends StatelessWidget {
             backgroundColor: PosTheme.kiotBlue,
             foregroundColor: Colors.white,
           ),
-        ),
+        )),
         routes: {
           '/customer-display': (_) => const PosCustomerDisplayScreen(),
         },
@@ -147,6 +162,7 @@ class SboxPosApp extends StatelessWidget {
             return const _PosAuthShell();
           },
         ),
+      ),
       ),
     );
   }

@@ -43,7 +43,6 @@ class PermissionModules {
     'PosReportCashbook',
     'PosReportPnl',
     'PosReportVoucher',
-    'HkdBooks',
     'ProductSalary',
     'KPI',
     'LeaveReport',

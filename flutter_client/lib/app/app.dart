@@ -49,7 +49,12 @@ class ZKTecoApp extends StatelessWidget {
       return MaterialApp(
         title: 'SBOX Display',
         debugShowCheckedModeBanner: false,
-        theme: ThemeData.dark(useMaterial3: true),
+        theme: applyVietnameseFonts(ThemeData(
+          brightness: Brightness.dark,
+          useMaterial3: true,
+          fontFamily: kVietnameseFontFamily,
+          fontFamilyFallback: kVietnameseFontFallback,
+        )),
         home: const PosCustomerDisplayScreen(),
         routes: {
           '/customer-display': (_) => const PosCustomerDisplayScreen(),

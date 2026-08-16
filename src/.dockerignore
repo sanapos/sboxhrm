@@ -8,3 +8,9 @@
 **/docker-compose*.yml
 **/*.md
 **/zkteco-client/
+# APK POS lớn — upload riêng sau deploy (scripts/deploy-pos-apk.ps1)
+**/wwwroot/downloads/*.apk
+**/wwwroot/downloads/sbox-pos-*.apk
+**/wwwroot/downloads/*.exe
+**/wwwroot/downloads/sbox-print-agent*.exe
+**/wwwroot/downloads/SboxPrintAgent*.exe

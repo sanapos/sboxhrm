@@ -212,6 +212,7 @@ public class AttendanceOperationService(
             AttendanceState = attendanceData.AttendanceState,
             VerifyMode = attendanceData.VerifyMode,
             WorkCode = attendanceData.WorkCode,
+            // Navigation Employee → DeviceUser (FK AttendanceLogs.EmployeeId → DeviceUsers.Id).
             EmployeeId = employee?.Id
         };
     }
@@ -315,20 +316,17 @@ public class AttendanceOperationService(
 
     /// <summary>
     /// Maps device attendance state values to our enum.
-    /// Based on ZKTeco device protocol:
-    /// 0=Check In, 1=Check Out, 2=Break Out, 3=Break In, 4=Meal Out, 5=Meal In
+    /// ZKTeco: 0=Check In, 1=Check Out, 2=Break Out, 3=Break In, 4=Meal Out, 5=Meal In.
+    /// Break/Meal không dùng trong nghiệp vụ ca (dễ làm trống tổng hợp theo ca) —
+    /// ghi như CheckIn. Chỉ giữ CheckIn / CheckOut từ máy.
     /// </summary>
     private static AttendanceStates MapAttendanceState(int stateValue)
     {
         return stateValue switch
         {
-            0 => AttendanceStates.CheckIn,
             1 => AttendanceStates.CheckOut,
-            2 => AttendanceStates.BreakOut,
-            3 => AttendanceStates.BreakIn,
-            4 => AttendanceStates.MealOut,
-            5 => AttendanceStates.MealIn,
-            _ => AttendanceStates.CheckIn // Default to CheckIn for unknown states
+            // 0 CheckIn; 2–5 Break/Meal → CheckIn
+            _ => AttendanceStates.CheckIn,
         };
     }
 

@@ -19,6 +19,7 @@ class PermissionNavigation {
     'PosQrOrder': ['PosSell'],
     'PosCashierShift': ['PosSell'],
     'PosPrinters': ['PosSell'],
+    'HkdBooks': ['PosSalesReport'],
   };
 
   /// Gói có module A → coi như mở menu B (khớp middleware package).
@@ -29,6 +30,7 @@ class PermissionNavigation {
     'PosQrOrder': ['PosSell'],
     'PosCashierShift': ['PosSell'],
     'PosPrinters': ['PosSell'],
+    'HkdBooks': ['PosSalesReport', 'PosSell'],
   };
 
   static bool canNavigate(PermissionProvider perm, String? moduleCode) {
@@ -199,7 +201,7 @@ class PermissionNavigation {
       case 'CashReport':
         return 'Báo cáo thu chi';
       case 'HkdBooks':
-        return 'Sổ sách HKD';
+        return 'Thuế hộ kinh doanh';
       case 'AdvanceReport':
         return 'Báo cáo ứng lương';
       case 'BusinessTripReport':

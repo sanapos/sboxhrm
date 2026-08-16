@@ -322,7 +322,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
   int _selectedIndex = 0;
   bool _isExpanded = false;
   static const _kSidebarExpanded = 'main_sidebar_expanded';
-  int _unreadNotificationsCount = 0;
+  final ValueNotifier<int> _unreadNotificationsCount = ValueNotifier<int>(0);
+  Timer? _notifCountDebounce;
   final Set<String> _collapsedGroups = {};
   final List<int> _navigationHistory = [];
   final ApiService _apiService = ApiService();
@@ -717,6 +718,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     NavigationNotifier.navigateToModule.removeListener(_onModuleNavigationRequested);
     NavigationNotifier.goBackNotifier.removeListener(_onGoBackRequested);
     ScreenRefreshNotifier.notifications.removeListener(_loadNotificationCount);
+    _notifCountDebounce?.cancel();
+    _unreadNotificationsCount.dispose();
     super.dispose();
   }
 
@@ -1154,13 +1157,19 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
   }
 
   Future<void> _loadNotificationCount() async {
+    _notifCountDebounce?.cancel();
+    _notifCountDebounce = Timer(const Duration(milliseconds: 400), () {
+      unawaited(_fetchNotificationCount());
+    });
+  }
+
+  Future<void> _fetchNotificationCount() async {
     try {
       final summary = await _apiService.getNotificationSummary();
-      if (mounted) {
-        setState(() {
-          _unreadNotificationsCount = summary['unreadCount'] ?? 0;
-        });
-      }
+      if (!mounted) return;
+      final n = summary['unreadCount'];
+      _unreadNotificationsCount.value =
+          n is int ? n : int.tryParse('$n') ?? 0;
     } catch (e) {
       debugPrint('Error loading notification count: $e');
     }
@@ -1674,8 +1683,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     NavItem(
       icon: Icons.menu_book_outlined,
       activeIcon: Icons.menu_book,
-      label: 'Sổ sách HKD',
-      subtitle: 'Sổ HKD',
+      label: 'Thuế hộ kinh doanh',
+      subtitle: 'Dưới 1 tỷ / 1–3 tỷ / trên 3 tỷ',
       screen: const HkdBooksScreen(),
       group: 'Báo cáo',
       showInSidebar: true,
@@ -2147,7 +2156,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       case 'PosSalesReport':
         return l.posSalesReport;
       case 'HkdBooks':
-        return 'Sổ sách HKD';
+        return 'Thuế hộ kinh doanh';
       case 'SettingsHub':
         return l.settings;
       case 'Notification':
@@ -2220,20 +2229,23 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
             onPressed: () => showAiAssistant(context),
             tooltip: tr('Trợ lý ảo AI'),
           ),
-          IconButton(
-            visualDensity: VisualDensity.compact,
-            icon: Badge(
-              isLabelVisible: _unreadNotificationsCount > 0,
-              label: Text(tr(_unreadNotificationsCount > 99
-                  ? '99+'
-                  : '$_unreadNotificationsCount')),
-              child: const Icon(Icons.notifications_outlined),
-            ),
-            onPressed: () {
-              _tryNavigateToIndex(_notificationsIndex);
-              _loadNotificationCount();
+          ValueListenableBuilder<int>(
+            valueListenable: _unreadNotificationsCount,
+            builder: (context, count, _) {
+              return IconButton(
+                visualDensity: VisualDensity.compact,
+                icon: Badge(
+                  isLabelVisible: count > 0,
+                  label: Text(tr(count > 99 ? '99+' : '$count')),
+                  child: const Icon(Icons.notifications_outlined),
+                ),
+                onPressed: () {
+                  _tryNavigateToIndex(_notificationsIndex);
+                  _loadNotificationCount();
+                },
+                tooltip: tr(AppLocalizations.of(context).notifications),
+              );
             },
-            tooltip: tr(AppLocalizations.of(context).notifications),
           ),
           const SizedBox(width: 2),
           _buildUserMenu(),
@@ -3205,19 +3217,22 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
             onPressed: () => showAiAssistant(context),
             tooltip: tr('Trợ lý ảo AI'),
           ),
-          IconButton(
-            icon: Badge(
-              isLabelVisible: _unreadNotificationsCount > 0,
-              label: Text(tr(_unreadNotificationsCount > 99
-                  ? '99+'
-                  : '$_unreadNotificationsCount')),
-              child: const Icon(Icons.notifications_outlined),
-            ),
-            onPressed: () {
-              _tryNavigateToIndex(_notificationsIndex);
-              _loadNotificationCount();
+          ValueListenableBuilder<int>(
+            valueListenable: _unreadNotificationsCount,
+            builder: (context, count, _) {
+              return IconButton(
+                icon: Badge(
+                  isLabelVisible: count > 0,
+                  label: Text(tr(count > 99 ? '99+' : '$count')),
+                  child: const Icon(Icons.notifications_outlined),
+                ),
+                onPressed: () {
+                  _tryNavigateToIndex(_notificationsIndex);
+                  _loadNotificationCount();
+                },
+                tooltip: tr(AppLocalizations.of(context).notifications),
+              );
             },
-            tooltip: tr(AppLocalizations.of(context).notifications),
           ),
           const SizedBox(width: 4),
           _buildUserMenu(),
@@ -3621,7 +3636,7 @@ class NavItem {
     'PosDamageIssues': (l) => l.posDamageIssues,
     'PosInternalUseIssues': (l) => l.posInternalUseIssues,
     'PosSalesReport': (l) => l.posSalesReport,
-    'HkdBooks': (_) => 'Sổ sách HKD',
+    'HkdBooks': (_) => 'Thuế hộ kinh doanh',
     'PenaltyReport': (l) => l.penaltyReport,
     'AttendanceReport': (l) => l.attendanceReport,
     'CashReport': (l) => l.cashReport,

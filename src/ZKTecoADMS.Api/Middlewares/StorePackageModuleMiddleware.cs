@@ -86,20 +86,32 @@ public class StorePackageModuleMiddleware
         // Ledger / phiếu nhập nhanh / điều chỉnh tồn — thuộc kho hàng (PosProducts).
         ("/api/pos/stock", "PosProducts"),
         ("/api/pos/print-templates", "PosPrintTemplates"),
-        ("/api/pos/printers", "PosSell"),
+        ("/api/pos/printers", "PosPrinters"),
         ("/api/pos/print-jobs", "PosSell"),
-        ("/api/pos/product-printers", "PosSell"),
+        ("/api/pos/product-printers", "PosPrinters"),
+        ("/api/pos/kds", "PosKds"),
+        ("/api/pos/qr-order", "PosQrOrder"),
+        ("/api/pos/cashier-shifts", "PosCashierShift"),
+        ("/api/pos/einvoice", "PosEInvoice"),
         ("/api/pos/vouchers", "PosProducts"),
         ("/api/pos/warranty", "PosSell"),
         ("/api/pos/topping-groups", "PosProducts"),
-        // Báo cáo: tách path — stock/EOD = PosProducts; doanh thu = PosSalesReport.
-        // (Trước map cả /api/pos/reports → PosSalesReport khiến báo cáo tồn/EOD 403 sai.)
-        ("/api/pos/reports/sales", "PosSalesReport"),
+        // Báo cáo POS — path → module tách; sibling được phép qua IsImplicitlyAllowed.
+        ("/api/pos/reports/sales", "PosReportRevenue"),
+        ("/api/pos/reports/goods", "PosReportSoldGoods"),
+        ("/api/pos/reports/stock/health", "PosProducts"),
+        ("/api/pos/reports/stock/lots", "PosReportExpiry"),
+        ("/api/pos/reports/stock", "PosReportStock"),
+        ("/api/pos/reports/purchases", "PosReportPurchases"),
+        ("/api/pos/reports/customer-debt", "PosReportDebt"),
+        ("/api/pos/reports/supplier-debt", "PosReportDebt"),
+        ("/api/pos/reports/expenses", "PosReportExpense"),
+        ("/api/pos/reports/cashbook", "PosReportCashbook"),
+        ("/api/pos/reports/pnl", "PosReportPnl"),
+        ("/api/pos/reports/vouchers", "PosReportVoucher"),
+        ("/api/pos/reports/end-of-day", "PosReportEndOfDay"),
+        ("/api/pos/reports/profit", "PosReportProfit"),
         ("/api/pos/reports/analysis", "PosSalesReport"),
-        ("/api/pos/reports/customer-debt", "PosSalesReport"),
-        ("/api/pos/reports/goods", "PosProducts"),
-        ("/api/pos/reports/stock", "PosProducts"),
-        ("/api/pos/reports/end-of-day", "PosProducts"),
         ("/api/pos/reports", "PosSalesReport"),
         ("/api/hkd", "HkdBooks"),
         ("/api/pos/customers", "PosCustomers"),
@@ -214,6 +226,24 @@ public class StorePackageModuleMiddleware
             path.StartsWith("/api/pos/customer-display", StringComparison.OrdinalIgnoreCase))
             return true;
 
+        // Gói có PosSell → KDS / QR / ca / máy in / HĐĐT (gói cũ chưa tick addon).
+        if (allowed.Contains("PosSell", StringComparer.OrdinalIgnoreCase) &&
+            module is "PosKds" or "PosQrOrder" or "PosCashierShift" or "PosPrinters" or "PosEInvoice")
+            return true;
+
+        // POS A6: tạo thu ngân + phân quyền báo cáo (API /permission-management).
+        if (allowed.Contains("PosSell", StringComparer.OrdinalIgnoreCase) &&
+            module.Equals("Role", StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        // Sổ thuế HKD: gói có báo cáo POS (gói cũ chưa tick HkdBooks).
+        if (module.Equals("HkdBooks", StringComparison.OrdinalIgnoreCase) &&
+            (allowed.Contains("HkdBooks", StringComparer.OrdinalIgnoreCase) ||
+             allowed.Contains("PosSalesReport", StringComparer.OrdinalIgnoreCase) ||
+             PosPackageDefaults.ReportModules.Any(m =>
+                 allowed.Contains(m, StringComparer.OrdinalIgnoreCase))))
+            return true;
+
         if (!HttpMethods.IsGet(method) && !HttpMethods.IsHead(method))
             return false;
 
@@ -239,6 +269,10 @@ public class StorePackageModuleMiddleware
             return true;
         if (module.Equals("PosWarranty", StringComparison.OrdinalIgnoreCase) &&
             path.StartsWith("/api/pos/warranty", StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        if (path.StartsWith("/api/pos/reports", StringComparison.OrdinalIgnoreCase) &&
+            PosPackageDefaults.PackageAllowsReportApi(path, allowed))
             return true;
 
         return false;

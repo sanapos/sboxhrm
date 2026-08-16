@@ -11,6 +11,15 @@ class PosSplitBillPick {
   final double qty;
 }
 
+String posSplitBillErrorMessage(String? raw) {
+  final msg = (raw ?? '').trim();
+  final lower = msg.toLowerCase();
+  if (lower.contains('không có quyền') || lower.contains('quyen')) {
+    return 'Tài khoản không được tách bill. Cần quyền bán hàng (tạo hoặc sửa đơn).';
+  }
+  return msg.isEmpty ? 'Tách bill thất bại' : msg;
+}
+
 /// Chọn món + SL để tách bill (phần còn lại giữ bàn).
 Future<List<PosSplitBillPick>?> showPosSplitBillSheet({
   required BuildContext context,
@@ -44,9 +53,16 @@ class _SplitBillSheetState extends State<_SplitBillSheet> {
   void initState() {
     super.initState();
     _qty = {
-      for (final l in widget.lines)
-        if ((l.id ?? '').isNotEmpty) l.id!: 0,
+      for (var i = 0; i < widget.lines.length; i++)
+        if (_lineKey(widget.lines[i], i).isNotEmpty)
+          _lineKey(widget.lines[i], i): 0,
     };
+  }
+
+  String _lineKey(PosSaleOrderLine l, int index) {
+    final id = (l.id ?? '').trim();
+    if (id.isNotEmpty && id != 'null') return id;
+    return '';
   }
 
   double get _sourceQty =>
@@ -88,9 +104,9 @@ class _SplitBillSheetState extends State<_SplitBillSheet> {
                 separatorBuilder: (_, __) => const Divider(height: 1),
                 itemBuilder: (ctx, i) {
                   final l = widget.lines[i];
-                  final id = l.id ?? '';
-                  if (id.isEmpty) return const SizedBox.shrink();
-                  final take = _qty[id] ?? 0;
+                  final id = _lineKey(l, i);
+                  final unsaved = id.isEmpty;
+                  final take = unsaved ? 0.0 : (_qty[id] ?? 0);
                   final on = take > 0;
                   return Padding(
                     padding: const EdgeInsets.symmetric(vertical: 8),
@@ -99,22 +115,25 @@ class _SplitBillSheetState extends State<_SplitBillSheet> {
                         Checkbox(
                           value: on,
                           activeColor: PosTheme.kiotBlue,
-                          onChanged: (v) => setState(() {
-                            _qty[id] = v == true ? l.qty : 0;
-                          }),
+                          onChanged: unsaved
+                              ? null
+                              : (v) => setState(() {
+                                    _qty[id] = v == true ? l.qty : 0;
+                                  }),
                         ),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                tr(l.productName),
+                                tr(l.productName.isEmpty ? 'Món' : l.productName),
                                 style: const TextStyle(
                                     fontWeight: FontWeight.w700, fontSize: 14),
                               ),
                               Text(
-                                tr(
-                                    'SL ${_qtyFmt.format(l.qty)} · ${_money.format(l.lineTotal)}'),
+                                tr(unsaved
+                                    ? 'Chưa lưu dòng — đóng sheet, đợi 1 giây rồi tách lại'
+                                    : 'SL ${_qtyFmt.format(l.qty)} · ${_money.format(l.lineTotal)}'),
                                 style: TextStyle(
                                     fontSize: 12, color: Colors.grey.shade600),
                               ),

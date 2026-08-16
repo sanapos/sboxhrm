@@ -14,4 +14,25 @@ public class StoreLicenseLimitService(ZKTecoDbContext db) : IStoreLicenseLimitSe
         Guid storeId,
         CancellationToken cancellationToken = default) =>
         StorePackageHelper.CanAddDeviceAsync(db, storeId, cancellationToken);
+
+    public Task<(bool Ok, string? Error)> CanAddBranchAsync(
+        Guid storeId,
+        CancellationToken cancellationToken = default) =>
+        StorePackageHelper.CanAddBranchAsync(db, storeId, cancellationToken);
+
+    public Task<(bool Ok, string? Error)> EnsureAccessAllowedAsync(
+        Guid storeId,
+        Guid userId,
+        string? platform,
+        string? deviceKey,
+        string? deviceName,
+        CancellationToken cancellationToken = default) =>
+        StorePackageHelper.EnsureAccessAllowedAsync(
+            db, storeId, userId, platform, deviceKey, deviceName, cancellationToken);
+
+    public Task<bool> CanSendFcmAsync(
+        Guid storeId,
+        string? categoryCode,
+        CancellationToken cancellationToken = default) =>
+        StorePackageHelper.CanSendFcmAsync(db, storeId, categoryCode, cancellationToken);
 }

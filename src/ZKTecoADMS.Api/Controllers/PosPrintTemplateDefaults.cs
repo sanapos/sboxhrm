@@ -50,7 +50,7 @@ public static class PosPrintTemplateDefaults
         };
         var paper = size switch
         {
-            PosPrintPaperSize.K58 => "K58",
+            PosPrintPaperSize.K58 => "K57/K58",
             PosPrintPaperSize.K80 => "K80",
             PosPrintPaperSize.A5 => "A5",
             PosPrintPaperSize.A4 => "A4",
@@ -65,7 +65,7 @@ public static class PosPrintTemplateDefaults
     public static string TemplateName(PosPrintPaperSize size, int variant = 1) =>
         size switch
         {
-            PosPrintPaperSize.K58 => $"Khổ K58 - Mẫu {variant}",
+            PosPrintPaperSize.K58 => $"Khổ K57/K58 - Mẫu {variant}",
             PosPrintPaperSize.K80 => $"Khổ K80 - Mẫu {variant}",
             PosPrintPaperSize.A5 => $"Khổ A5 - Mẫu {variant}",
             PosPrintPaperSize.A4 => $"Khổ A4 - Mẫu {variant}",
@@ -100,7 +100,7 @@ public static class PosPrintTemplateDefaults
         if (docType is PosPrintDocumentType.KitchenSlip or PosPrintDocumentType.KitchenVoid)
             return BuildKitchenSlipHtml(title, paperSize, isCancel: docType == PosPrintDocumentType.KitchenVoid);
         return paperSize is PosPrintPaperSize.K58 or PosPrintPaperSize.K80
-            ? BuildThermalHtml(title, paperSize)
+            ? BuildThermalV2(docType, paperSize)
             : BuildSheetHtml(title, paperSize);
     }
 
@@ -115,32 +115,37 @@ public static class PosPrintTemplateDefaults
     static string BuildProductLabelHtml(PosPrintPaperSize size)
     {
         var width = LabelWidthCss(size);
+        var compact = size == PosPrintPaperSize.Label40x30;
+        var nameFs = compact ? "13px" : "14px";
+        var priceFs = compact ? "13px" : "14px";
         return
             "<div style=\"width:" + width +
-            ";max-width:100%;margin:0 auto;font-family:Arial,sans-serif;font-size:10px;color:#000;text-align:center\">" +
-            "<div style=\"font-weight:bold\">{Ten_Cua_Hang}</div>" +
-            "<div style=\"font-weight:bold;font-size:12px;margin:3px 0\">{Ten_Hang_Hoa}</div>" +
-            "<div style=\"letter-spacing:1px;font-family:monospace;border:1px solid #999;padding:6px;margin:4px 0\">|||| {Ma_Vach} ||||</div>" +
-            "<div>{Ma_Hang}</div>" +
-            "<div style=\"font-weight:bold;margin-top:3px\">{Don_Gia} đ / {Don_Vi_Tinh}</div>" +
+            ";max-width:100%;box-sizing:border-box;margin:0 auto;padding:1mm;" +
+            "overflow:hidden;font-family:Arial,sans-serif;color:#000;text-align:center\">" +
+            (compact ? "" : "<div style=\"font-weight:bold;font-size:10px\">{Ten_Cua_Hang}</div>") +
+            "<div style=\"font-weight:bold;font-size:" + nameFs +
+            ";margin:2px 0;line-height:1.15\">{Ten_Hang_Hoa}</div>" +
+            "<div style=\"letter-spacing:1px;font-family:monospace;border:1px solid #000;" +
+            "padding:3px 2px;margin:3px 0;font-size:11px\">|||| {Ma_Vach} ||||</div>" +
+            "<div style=\"font-weight:bold;font-size:" + priceFs + "\">{Don_Gia} đ</div>" +
             "</div>";
     }
 
     static string BuildKitchenLabelHtml(PosPrintPaperSize size)
     {
         var width = LabelWidthCss(size);
+        var compact = size == PosPrintPaperSize.Label40x30;
+        var nameFs = compact ? "14px" : "15px";
         return
             "<div style=\"width:" + width +
-            ";max-width:100%;margin:0 auto;font-family:Arial,sans-serif;font-size:10px;color:#000\">" +
-            "<div style=\"text-align:center;font-weight:bold\">*** TEM LY ***</div>" +
-            "<div>Bàn: <b>{Ten_Ban}</b></div>" +
-            "<div>HĐ: {Ma_Don_Hang}</div>" +
-            "<div>{Ngay} {Gio}</div>" +
-            "<div style=\"margin:4px 0;border-top:1px dashed #999\"></div>" +
-            "<div style=\"font-weight:bold;font-size:13px\">{Ten_Hang_Hoa}</div>" +
-            "<div>{Ghi_Chu}</div>" +
-            "<div>SL: <b>{So_Luong}</b> {Don_Vi_Tinh}</div>" +
-            "<div style=\"margin-top:4px;border-top:1px dashed #999\"></div>" +
+            ";max-width:100%;box-sizing:border-box;margin:0 auto;padding:1mm;" +
+            "overflow:hidden;font-family:Arial,sans-serif;font-size:11px;color:#000\">" +
+            "<div style=\"display:flex;justify-content:space-between;font-weight:bold\">" +
+            "<span>{Ten_Ban}</span><span>{Gio}</span></div>" +
+            "<div style=\"text-align:center;font-weight:bold;font-size:" + nameFs +
+            ";margin:3px 0;line-height:1.15\">{Ten_Hang_Hoa}</div>" +
+            "<div style=\"text-align:center;font-size:10px\">{Ghi_Chu}</div>" +
+            "<div style=\"text-align:center;font-weight:bold;margin-top:2px\">{So_Luong} {Don_Vi_Tinh}</div>" +
             "</div>";
     }
 
@@ -171,42 +176,84 @@ public static class PosPrintTemplateDefaults
             "</div>";
     }
 
+    /// <summary>Mẫu nhiệt V2 — 1 hàng Tên | SL | Đ.giá | TT. Không dùng HTML «SL x Đ.giá».</summary>
+    static string BuildThermalV2(PosPrintDocumentType docType, PosPrintPaperSize size)
+    {
+        var k58 = size == PosPrintPaperSize.K58;
+        var paper = k58 ? "K58" : "K80";
+        var profile = k58 ? "sunmi_k58" : "sunmi_k80";
+        var title = k58 ? 40 : 44;
+        var body = k58 ? 26 : 30;
+        var small = k58 ? 22 : 24;
+        var total = k58 ? 32 : 38;
+        var name = TemplateName(docType, size);
+        return
+            "<!--POS_TEMPLATE_V2-->\n" +
+            "{\"version\":1,\"paperSize\":\"" + paper + "\",\"printerProfile\":\"" + profile +
+            "\",\"documentType\":\"" + docType + "\",\"name\":\"" + name +
+            "\",\"blocks\":[" +
+            "{\"type\":\"field\",\"field\":\"Ten_Cua_Hang\",\"style\":{\"fontSize\":" + title + ",\"bold\":true,\"align\":\"center\"}}," +
+            "{\"type\":\"field\",\"field\":\"Dia_Chi_Chi_Nhanh\",\"style\":{\"fontSize\":" + small + ",\"bold\":false,\"align\":\"center\"}}," +
+            "{\"type\":\"field\",\"field\":\"Dien_Thoai_Chi_Nhanh\",\"style\":{\"fontSize\":" + small + ",\"bold\":false,\"align\":\"center\"}}," +
+            "{\"type\":\"divider\",\"style\":{\"fontSize\":24,\"bold\":false,\"align\":\"left\"},\"divider\":\"dash\"}," +
+            "{\"type\":\"field\",\"field\":\"Tieu_De_In\",\"style\":{\"fontSize\":" + (body + 2) + ",\"bold\":true,\"align\":\"center\"}}," +
+            "{\"type\":\"field\",\"field\":\"Ten_Ban\",\"label\":\"Ban:\",\"style\":{\"fontSize\":" + body + ",\"bold\":true,\"align\":\"left\"}}," +
+            "{\"type\":\"pair\",\"leftField\":\"Ma_Don_Hang\",\"rightField\":\"Ngay\",\"fieldLabels\":{\"Ma_Don_Hang\":\"So HD:\",\"Ngay\":\"Ngay:\"},\"style\":{\"fontSize\":" + body + ",\"bold\":true,\"align\":\"left\"}}," +
+            "{\"type\":\"field\",\"field\":\"Khach_Hang\",\"label\":\"KH:\",\"style\":{\"fontSize\":" + body + ",\"bold\":false,\"align\":\"left\"}}," +
+            "{\"type\":\"divider\",\"style\":{\"fontSize\":24,\"bold\":false,\"align\":\"left\"},\"divider\":\"dash\"}," +
+            "{\"type\":\"lineItems\",\"showColumnHeader\":true,\"style\":{\"fontSize\":" + body + ",\"bold\":true,\"align\":\"left\"}}," +
+            "{\"type\":\"divider\",\"style\":{\"fontSize\":24,\"bold\":false,\"align\":\"left\"},\"divider\":\"dash\"}," +
+            "{\"type\":\"totals\",\"fields\":[\"Tong_Tien_Hang\",\"Chiet_Khau_Hoa_Don\",\"Tong_Cong\",\"Khach_Thanh_Toan\",\"Tien_Thua\"],\"fieldLabels\":{\"Tong_Tien_Hang\":\"Tong tien hang\",\"Chiet_Khau_Hoa_Don\":\"Chiet khau\",\"Tong_Cong\":\"TONG CONG\",\"Khach_Thanh_Toan\":\"Da thanh toan\",\"Tien_Thua\":\"Tien thua\"},\"style\":{\"fontSize\":" + body + ",\"bold\":true,\"align\":\"left\"},\"rightStyle\":{\"fontSize\":" + total + ",\"bold\":true,\"align\":\"right\"}}," +
+            "{\"type\":\"field\",\"field\":\"Tong_Cong_Bang_Chu\",\"style\":{\"fontSize\":" + small + ",\"bold\":false,\"align\":\"center\"}}," +
+            "{\"type\":\"text\",\"text\":\"Cam on quy khach!\",\"style\":{\"fontSize\":" + small + ",\"bold\":true,\"align\":\"center\"}}" +
+            "]}";
+    }
+
     static string BuildThermalHtml(string title, PosPrintPaperSize size)
     {
         var width = size == PosPrintPaperSize.K58 ? "58mm" : "80mm";
-        var fs = size == PosPrintPaperSize.K58 ? "10px" : "11px";
+        var fs = size == PosPrintPaperSize.K58 ? "13px" : "14px";
+        var titleFs = size == PosPrintPaperSize.K58 ? "18px" : "20px";
+        var storeFs = size == PosPrintPaperSize.K58 ? "16px" : "18px";
+        var totalFs = size == PosPrintPaperSize.K58 ? "16px" : "18px";
         return
             "<div style=\"width:" + width +
-            ";max-width:100%;margin:0 auto;font-family:Arial,sans-serif;font-size:" + fs + ";color:#000\">" +
+            ";max-width:100%;box-sizing:border-box;margin:0 auto;padding:0 1mm;" +
+            "font-family:Arial,sans-serif;font-size:" + fs + ";color:#000\">" +
             "<div style=\"text-align:center\">" +
-            "<div style=\"font-weight:bold;font-size:13px\">" + title + "</div>" +
-            "<div style=\"font-weight:bold;margin-top:4px\">{Ten_Cua_Hang}</div>" +
-            "<div>{Dia_Chi_Chi_Nhanh}</div>" +
+            "<div style=\"font-weight:bold;font-size:" + storeFs + "\">{Ten_Cua_Hang}</div>" +
+            "<div style=\"margin-top:2px\">{Dia_Chi_Chi_Nhanh}</div>" +
             "<div>ĐT: {Dien_Thoai_Chi_Nhanh}</div>" +
+            "<div style=\"font-weight:bold;font-size:" + titleFs + ";margin-top:6px\">" + title + "</div>" +
             "</div>" +
-            "<div style=\"margin:8px 0;border-top:1px dashed #999\"></div>" +
-            "<div>Số HĐ: <b>{Ma_Don_Hang}</b></div>" +
-            "<div>Ngày: {Ngay} {Gio}</div>" +
+            "<div style=\"margin:6px 0;border-top:2px solid #000\"></div>" +
+            "<div><b>Bàn:</b> {Ten_Ban}</div>" +
+            "<div style=\"display:flex;justify-content:space-between\"><span><b>Số HĐ:</b> {Ma_Don_Hang}</span><span><b>{Ngay}</b></span></div>" +
             "<div>KH: {Khach_Hang}</div>" +
-            "<div>SDT: {SDT}</div>" +
-            "<div style=\"margin:8px 0;border-top:1px dashed #999\"></div>" +
-            "<!--BEGIN_ITEMS-->" +
-            "<div style=\"margin-bottom:6px\">" +
-            "<div><b>{Ten_Hang_Hoa}</b> <span style=\"color:#666\">({Ma_Hang})</span></div>" +
-            "<div style=\"display:flex;justify-content:space-between\">" +
-            "<span>{So_Luong} {Don_Vi_Tinh} x {Don_Gia}</span>" +
-            "<span><b>{Thanh_Tien}</b></span>" +
-            "</div></div><!--END_ITEMS-->" +
-            "<div style=\"margin:8px 0;border-top:1px dashed #999\"></div>" +
-            "<div style=\"text-align:right\">" +
-            "<div>Tổng tiền hàng: <b>{Tong_Tien_Hang}</b></div>" +
-            "<div>Chiết khấu: {Chiet_Khau_Hoa_Don}</div>" +
-            "<div style=\"font-size:12px;font-weight:bold;margin-top:4px\">Tổng cộng: {Tong_Cong}</div>" +
-            "<div>Đã thanh toán: {Khach_Thanh_Toan} ({Hinh_Thuc_Thanh_Toan})</div>" +
-            "<div>Tiền thừa: {Tien_Thua}</div></div>" +
-            "<div style=\"margin-top:6px;font-style:italic\">{Tong_Cong_Bang_Chu}</div>" +
-            "<div style=\"margin-top:8px;text-align:center\">Cảm ơn quý khách!</div>" +
-            "<div style=\"margin-top:4px;font-size:9px;color:#666\">{Ghi_Chu}</div></div>";
+            "<div style=\"margin:6px 0;border-top:2px solid #000\"></div>" +
+            "<table style=\"width:100%;border-collapse:collapse;font-size:" + fs + "\">" +
+            "<thead><tr style=\"border-bottom:2px solid #000\">" +
+            "<th style=\"text-align:left;padding:3px 2px\">Tên hàng</th>" +
+            "<th style=\"text-align:center;width:12%;padding:3px 2px\">SL</th>" +
+            "<th style=\"text-align:right;width:24%;padding:3px 2px\">Đ.giá</th>" +
+            "<th style=\"text-align:right;width:26%;padding:3px 2px\">TT</th>" +
+            "</tr></thead><tbody><!--BEGIN_ITEMS-->" +
+            "<tr style=\"border-bottom:1px dotted #555\">" +
+            "<td style=\"padding:5px 2px 3px;font-weight:bold;vertical-align:top\">{Ten_Hang_Hoa}</td>" +
+            "<td style=\"text-align:center;vertical-align:top;padding:5px 2px\">{So_Luong}</td>" +
+            "<td style=\"text-align:right;vertical-align:top;padding:5px 2px\">{Don_Gia}</td>" +
+            "<td style=\"text-align:right;vertical-align:top;padding:5px 2px;font-weight:bold\">{Thanh_Tien}</td>" +
+            "</tr><!--END_ITEMS--></tbody></table>" +
+            "<div style=\"margin:6px 0;border-top:2px solid #000\"></div>" +
+            "<div style=\"display:flex;justify-content:space-between\"><span>Tổng tiền hàng</span><b>{Tong_Tien_Hang}</b></div>" +
+            "<div style=\"display:flex;justify-content:space-between\"><span>Chiết khấu</span><span>{Chiet_Khau_Hoa_Don}</span></div>" +
+            "<div style=\"display:flex;justify-content:space-between;font-size:" + totalFs +
+            ";font-weight:bold;margin-top:4px\"><span>TỔNG CỘNG</span><span>{Tong_Cong}</span></div>" +
+            "<div style=\"display:flex;justify-content:space-between\"><span>Đã thanh toán</span><span>{Khach_Thanh_Toan}</span></div>" +
+            "<div style=\"display:flex;justify-content:space-between\"><span>Tiền thừa</span><span>{Tien_Thua}</span></div>" +
+            "<div style=\"margin-top:6px;font-style:italic;text-align:center\">{Tong_Cong_Bang_Chu}</div>" +
+            "<div style=\"margin-top:8px;text-align:center;font-weight:bold\">Cảm ơn quý khách!</div>" +
+            "<div style=\"margin-top:4px;font-size:11px;text-align:center\">{Ghi_Chu}</div></div>";
     }
 
     static string BuildSheetHtml(string title, PosPrintPaperSize size)

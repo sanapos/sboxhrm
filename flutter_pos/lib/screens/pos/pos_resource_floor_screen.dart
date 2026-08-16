@@ -510,6 +510,64 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
     _emitSelect(_tableSelectPayload(r));
   }
 
+  Future<String?> _chooseDraftBillId(PosServiceResourceDto r) async {
+    final bills = r.draftBills
+        .where((b) => b.id.isNotEmpty && !(b.isSplit && b.lineCount <= 0))
+        .toList();
+    if (bills.length <= 1) return r.openOrderId;
+    return showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              title: Text(
+                tr('Hóa đơn trên ${r.name}'),
+                style: const TextStyle(fontWeight: FontWeight.w800),
+              ),
+              subtitle: Text(tr('${bills.length} hóa đơn — chọn để mở')),
+            ),
+            const Divider(height: 1),
+            for (final b in bills)
+              ListTile(
+                leading: Icon(
+                  b.isSplit ? Icons.call_split : Icons.receipt_long,
+                  color: PosTheme.kiotBlue,
+                ),
+                title: Text(tr(b.orderNo.isEmpty ? 'Hóa đơn' : b.orderNo)),
+                subtitle: Text(tr(
+                    '${b.lineCount} món · ${_moneyFmt.format(b.subtotal)}đ'
+                    '${b.isSplit ? ' · Tách bill' : ''}')),
+                onTap: () => Navigator.pop(ctx, b.id),
+              ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Map<String, dynamic> _payloadForBill(
+    PosServiceResourceDto r,
+    String billId, {
+    Map<String, dynamic>? extra,
+  }) {
+    final split = r.draftBills.any((b) => b.id == billId && b.isSplit);
+    return _tableSelectPayload(r, extra: {
+      'saleOrderId': billId,
+      if (split) 'sessionId': '',
+      if (split) 'isSplitBill': true,
+      if (split && (r.openOrderId ?? '').isNotEmpty)
+        'splitFromOrderId': r.openOrderId,
+      if (extra != null) ...extra,
+    });
+  }
+
   Map<String, dynamic> _tableSelectPayload(
     PosServiceResourceDto r, {
     Map<String, dynamic>? extra,
@@ -526,6 +584,11 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
         'pausedAt': r.pausedAt?.toUtc().toIso8601String(),
         'isPaused': r.isPaused,
         'defaultHourlyRate': r.defaultHourlyRate,
+        if ((r.reservationDepositStatus ?? '').toLowerCase() == 'applied' &&
+            r.reservationDepositPaid > 0) ...{
+          'paidAmount': r.reservationDepositPaid,
+          'depositApplied': r.reservationDepositPaid,
+        },
         if (extra != null) ...extra,
       };
 
@@ -555,7 +618,9 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
       // Bàn chờ / tạm rời (không ai đang sửa): vào thẳng + lấy quyền — không dialog.
       if (r.hasParkedBill && !r.isActivelyOpen) {
         if (r.openOrderId != null && r.openOrderId!.isNotEmpty) {
-          _emitSelect(_tableSelectPayload(r, extra: {'forceClaim': true}));
+          final billId = await _chooseDraftBillId(r);
+          if (!mounted || billId == null || billId.isEmpty) return;
+          _emitSelect(_payloadForBill(r, billId, extra: {'forceClaim': true}));
           return;
         }
       }
@@ -592,7 +657,9 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
           await _startResourceSession(freed);
           return;
         }
-        _emitSelect(_tableSelectPayload(r));
+        final billId = await _chooseDraftBillId(r);
+        if (!mounted || billId == null || billId.isEmpty) return;
+        _emitSelect(_payloadForBill(r, billId));
       } else {
         // Occupied/Holding không có openOrderId (draft mồ côi) → OpenSession gắn lại.
         await _startResourceSession(r);
@@ -1652,6 +1719,7 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                 if (r.elapsedLabel.isNotEmpty) r.elapsedLabel,
                 if (r.subtotal > 0) '${_moneyFmt.format(r.subtotal)}đ',
                 if (r.lineCount > 0) '${r.lineCount} món',
+                if (r.draftBillCount > 1) '${r.draftBillCount} hóa đơn',
               ].join(' · '))),
             ),
             const Divider(height: 1),
@@ -2302,12 +2370,13 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
       items: [
         for (final p in picks) {'lineId': p.lineId, 'qty': p.qty},
       ],
+      deviceId: _deviceId,
     );
     if (!mounted) return;
     if (res['isSuccess'] != true) {
       NotificationOverlayManager().showError(
         title: 'Không tách được',
-        message: res['message']?.toString() ?? 'Tách bill thất bại',
+        message: posSplitBillErrorMessage(res['message']?.toString()),
       );
       return;
     }
@@ -2583,6 +2652,10 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
   List<PosServiceResourceDto> get _busyTables => _resources
       .where((r) => r.isOccupied || r.isHolding || r.isParked)
       .toList();
+
+  int get busyTableCount => _busyTables.length;
+
+  Future<void> returnAllTablesToEmpty() => _returnAllTablesToEmpty();
 
   /// Trả bàn về trống. Bàn còn món: xóa đơn tạm rồi đóng phiên.
   Future<bool> _returnTableToEmpty(
@@ -4342,26 +4415,6 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                                   horizontal: 10, vertical: 10),
                               visualDensity: VisualDensity.standard,
                             ),
-                            if (_busyTables.isNotEmpty) ...[
-                              const SizedBox(width: 8),
-                              ActionChip(
-                                avatar: Icon(Icons.event_seat_outlined,
-                                    size: 18, color: Colors.red.shade700),
-                                label: Text(
-                                  tr('Trả hết trống (${_busyTables.length})'),
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.w700,
-                                    fontSize: 14,
-                                    color: Colors.red.shade700,
-                                  ),
-                                ),
-                                onPressed: () =>
-                                    unawaited(_returnAllTablesToEmpty()),
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 10, vertical: 10),
-                                visualDensity: VisualDensity.standard,
-                              ),
-                            ],
                           ],
                         ],
                       ),
@@ -4828,7 +4881,9 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
             const SizedBox(height: 2),
             _tileMiniRow(
               icon: Icons.payments_outlined,
-              text: tr('${_moneyFmt.format(r.subtotal)}đ'),
+              text: tr(r.draftBillCount > 1
+                  ? '${_moneyFmt.format(r.subtotal)}đ · ${r.draftBillCount} HĐ'
+                  : '${_moneyFmt.format(r.subtotal)}đ'),
               color: accent,
               iconSize: 13,
               fontSize: 11,

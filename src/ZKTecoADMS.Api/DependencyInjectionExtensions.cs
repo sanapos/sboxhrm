@@ -13,6 +13,7 @@ using Microsoft.AspNetCore.ResponseCompression;
 using System.IO.Compression;
 using System.Threading.RateLimiting;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Microsoft.AspNetCore.Http.Features;
 
 namespace ZKTecoADMS.Api;
 
@@ -22,6 +23,11 @@ public static class DependencyInjectionExtensions
     {
         services.AddSettings(configuration);
         services.AddScoped<SystemAdminAgentScopeFilter>();
+        services.Configure<FormOptions>(o =>
+        {
+            o.MultipartBodyLengthLimit = ServerOpsService.MaxUploadBytes;
+            o.ValueLengthLimit = int.MaxValue;
+        });
         services.AddControllers()
             .AddJsonOptions(options =>
             {
@@ -118,6 +124,17 @@ public static class DependencyInjectionExtensions
         // is loaded once and reused across requests (heavy init).
         services.AddSingleton<FaceDetectorService>();
         services.AddSingleton<FaceAntiSpoofService>();
+        services.AddHttpClient("viettel-sinvoice", client =>
+        {
+            client.Timeout = TimeSpan.FromSeconds(90);
+        });
+        services.AddHttpClient("easy-invoice", client =>
+        {
+            client.Timeout = TimeSpan.FromSeconds(90);
+        });
+        services.AddScoped<ZKTecoADMS.Api.Services.EInvoice.ViettelSInvoiceClient>();
+        services.AddScoped<ZKTecoADMS.Api.Services.EInvoice.EasyInvoiceClient>();
+        services.AddScoped<ZKTecoADMS.Api.Services.EInvoice.PosEInvoiceService>();
         services.AddHttpClient("face-sidecar");
         services.AddSingleton<OnnxFaceEmbeddingService>();
         
@@ -171,6 +188,9 @@ public static class DependencyInjectionExtensions
         services.AddHostedService<RenewalStaleCleanupBackgroundService>();
         services.AddHostedService<MaintenanceNotifierBackgroundService>();
         services.AddHostedService<BirthdayNotifierBackgroundService>();
+        services.AddSingleton<ServerMetricsState>();
+        services.AddSingleton<ServerOpsService>();
+        services.AddHostedService<ServerMetricsBackgroundService>();
         
         services.AddSwaggerGen(config =>
         {

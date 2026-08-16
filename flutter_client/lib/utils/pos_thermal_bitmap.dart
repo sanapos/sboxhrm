@@ -12,6 +12,10 @@ class PosReceiptImageLine {
   const PosReceiptImageLine({
     required this.text,
     this.rightText,
+    this.colQty,
+    this.colPrice,
+    this.colTotal,
+    this.rightSlotFrac,
     this.bold = false,
     this.center = false,
     this.fontSize = 22,
@@ -19,13 +23,22 @@ class PosReceiptImageLine {
   });
 
   final String text;
-  /// Nếu có: vẽ trái–phải full khổ (bảng hàng / tổng tiền).
+  /// Nếu có: vẽ trái–phải full khổ (dòng tổng).
   final String? rightText;
+  /// Cột hàng hóa — căn pixel cố định, không ghép một chuỗi.
+  final String? colQty;
+  final String? colPrice;
+  final String? colTotal;
+  /// Tỉ lệ cột phải (cặp nhãn/tiền hoặc tên/SL bếp). Mặc định 0.38.
+  final double? rightSlotFrac;
   final bool bold;
   final bool center;
   final double fontSize;
   /// Vẽ đường kẻ ngang đặc bằng chiều rộng giấy (không dùng ===== / -----).
   final bool isDivider;
+
+  bool get hasSaleColumns =>
+      colQty != null || colPrice != null || colTotal != null;
 }
 
 /// Chuyển chữ tiếng Việt thành lệnh ESC/POS raster (GS v 0).
@@ -62,8 +75,98 @@ class PosThermalBitmapEncoder {
     );
   }
 
+  /// PNG đúng khổ giấy — Sunmi T1 printImage (không dùng printRow).
+  static Future<Uint8List?> receiptToPng(
+    List<PosReceiptImageLine> lines, {
+    required int paperDots,
+    double lineGap = 3,
+  }) async {
+    final image = await _renderReceiptImage(
+      lines,
+      paperDots: paperDots,
+      lineGap: lineGap,
+    );
+    if (image == null) return null;
+    final bd = await image.toByteData(format: ui.ImageByteFormat.png);
+    image.dispose();
+    return bd?.buffer.asUint8List();
+  }
+
   /// Render toàn bộ hóa đơn thành một ảnh bitmap (ổn định nhất cho Zywell/LAN/BT).
   static Future<List<int>?> receiptToRaster(
+    List<PosReceiptImageLine> lines, {
+    required int paperDots,
+    double lineGap = 3,
+  }) async {
+    final image = await _renderReceiptImage(
+      lines,
+      paperDots: paperDots,
+      lineGap: lineGap,
+    );
+    if (image == null) return null;
+    return _imageToEscPos(image, initPrinter: true);
+  }
+
+  static ({
+    double nameW,
+    double qtyW,
+    double priceW,
+    double totalW,
+    double gap,
+  }) _saleColWidths(double contentW) {
+    final k58 = contentW < 900;
+    final gap = k58 ? 20.0 : 28.0;
+    final qtyW = k58 ? 70.0 : 96.0;
+    final moneyW = k58 ? 160.0 : 200.0;
+    final nameW =
+        (contentW - qtyW - moneyW * 2 - gap * 3).clamp(140.0, contentW);
+    return (
+      nameW: nameW,
+      qtyW: qtyW,
+      priceW: moneyW,
+      totalW: moneyW,
+      gap: gap,
+    );
+  }
+
+  static TextPainter _tp(
+    String text, {
+    required TextStyle style,
+    required double maxWidth,
+    TextAlign align = TextAlign.left,
+    int maxLines = 3,
+  }) {
+    return TextPainter(
+      text: TextSpan(text: tr(text), style: style),
+      textAlign: align,
+      textDirection: TextDirection.ltr,
+      maxLines: maxLines,
+      ellipsis: maxLines == 1 ? '…' : null,
+    )..layout(maxWidth: maxWidth);
+  }
+
+  static void _paintInSlot(
+    Canvas canvas,
+    TextPainter tp, {
+    required double slotLeft,
+    required double slotW,
+    required double y,
+    required TextAlign align,
+  }) {
+    final x = switch (align) {
+      TextAlign.center =>
+        slotLeft + ((slotW - tp.width) / 2).clamp(0.0, slotW),
+      TextAlign.right =>
+        (slotLeft + slotW - tp.width).clamp(slotLeft, slotLeft + slotW),
+      _ => slotLeft,
+    };
+    canvas.save();
+    canvas.clipRect(Rect.fromLTWH(slotLeft, y, slotW, tp.height + 8));
+    tp.paint(canvas, Offset(x, y));
+    canvas.restore();
+  }
+
+  static Future<ui.Image?> _renderReceiptImage(
     List<PosReceiptImageLine> lines, {
     required int paperDots,
     double lineGap = 3,
@@ -71,33 +174,36 @@ class PosThermalBitmapEncoder {
     if (lines.isEmpty) return null;
     await ensureFont();
 
-    // Render 2× rồi thu nhỏ — nét chữ đậm, ít răng cưa khi chuyển 1-bit.
     final scale = 2;
     final renderW = paperDots * scale;
+    final pad = 8.0 * scale;
+    final contentW = renderW - pad * 2;
     final painters = <TextPainter?>[];
     var totalH = 0.0;
 
     for (final line in lines) {
       if (line.isDivider) {
         painters.add(null);
-        // Chiều cao đường kẻ (ở scale 2×) — sau thu nhỏ ~2–3px.
         totalH += 6.0 * scale;
         continue;
       }
+      final style = _thermalStyle(
+        fontSize: line.fontSize * scale,
+        bold: line.bold,
+      );
+      if (line.hasSaleColumns) {
+        final cols = _saleColWidths(contentW);
+        final nameTp = _tp(line.text, style: style, maxWidth: cols.nameW);
+        painters.add(nameTp);
+        totalH += nameTp.height + lineGap * scale;
+        continue;
+      }
       if ((line.rightText ?? '').trim().isNotEmpty) {
-        // Pair: đo chiều cao theo dòng trái (right cùng font).
-        final leftTp = TextPainter(
-          text: TextSpan(
-            text: tr(line.text),
-            style: _thermalStyle(
-              fontSize: line.fontSize * scale,
-              bold: line.bold,
-            ),
-          ),
-          textAlign: TextAlign.left,
-          textDirection: TextDirection.ltr,
-          maxLines: 3,
-        )..layout(maxWidth: renderW * 0.62);
+        final leftTp = _tp(
+          line.text,
+          style: style,
+          maxWidth: contentW * 0.58,
+        );
         painters.add(leftTp);
         totalH += leftTp.height + lineGap * scale;
         continue;
@@ -108,18 +214,13 @@ class PosThermalBitmapEncoder {
         continue;
       }
 
-      final tp = TextPainter(
-        text: TextSpan(
-          text: tr(line.text),
-          style: _thermalStyle(
-            fontSize: line.fontSize * scale,
-            bold: line.bold,
-          ),
-        ),
-        textAlign: line.center ? TextAlign.center : TextAlign.left,
-        textDirection: TextDirection.ltr,
+      final tp = _tp(
+        line.text,
+        style: style,
+        maxWidth: contentW,
+        align: line.center ? TextAlign.center : TextAlign.left,
         maxLines: 4,
-      )..layout(maxWidth: renderW.toDouble());
+      );
 
       if (tp.height <= 0) {
         painters.add(null);
@@ -144,34 +245,93 @@ class PosThermalBitmapEncoder {
         final ruleH = 3.0 * scale;
         final top = y + (6.0 * scale - ruleH) / 2;
         canvas.drawRect(
-          Rect.fromLTWH(0, top, renderW.toDouble(), ruleH),
+          Rect.fromLTWH(pad, top, contentW, ruleH),
           Paint()..color = const Color(0xFF000000),
         );
         y += 6.0 * scale;
         continue;
       }
+      final style = _thermalStyle(
+        fontSize: line.fontSize * scale,
+        bold: line.bold,
+      );
+      if (line.hasSaleColumns) {
+        final cols = _saleColWidths(contentW);
+        final nameTp = _tp(line.text, style: style, maxWidth: cols.nameW);
+        final qtyTp = _tp(
+          line.colQty ?? '',
+          style: style,
+          maxWidth: cols.qtyW,
+          align: TextAlign.right,
+          maxLines: 1,
+        );
+        final priceTp = _tp(
+          line.colPrice ?? '',
+          style: style,
+          maxWidth: cols.priceW,
+          align: TextAlign.right,
+          maxLines: 1,
+        );
+        final totalTp = _tp(
+          line.colTotal ?? '',
+          style: style,
+          maxWidth: cols.totalW,
+          align: TextAlign.right,
+          maxLines: 1,
+        );
+        nameTp.paint(canvas, Offset(pad, y));
+        var x = pad + cols.nameW + cols.gap;
+        _paintInSlot(
+          canvas,
+          qtyTp,
+          slotLeft: x,
+          slotW: cols.qtyW,
+          y: y,
+          align: TextAlign.center,
+        );
+        x += cols.qtyW + cols.gap;
+        _paintInSlot(
+          canvas,
+          priceTp,
+          slotLeft: x,
+          slotW: cols.priceW,
+          y: y,
+          align: TextAlign.right,
+        );
+        x += cols.priceW + cols.gap;
+        _paintInSlot(
+          canvas,
+          totalTp,
+          slotLeft: x,
+          slotW: cols.totalW,
+          y: y,
+          align: TextAlign.right,
+        );
+        y += nameTp.height + lineGap * scale;
+        continue;
+      }
       final right = (line.rightText ?? '').trim();
       if (right.isNotEmpty) {
-        final style = _thermalStyle(
-          fontSize: line.fontSize * scale,
-          bold: line.bold,
-        );
-        final leftTp = TextPainter(
-          text: TextSpan(text: tr(line.text), style: style),
-          textAlign: TextAlign.left,
-          textDirection: TextDirection.ltr,
-          maxLines: 3,
-        )..layout(maxWidth: renderW * 0.62);
-        final rightTp = TextPainter(
-          text: TextSpan(text: tr(right), style: style),
-          textAlign: TextAlign.right,
-          textDirection: TextDirection.ltr,
+        final pairGap = contentW < 900 ? 20.0 : 32.0;
+        final rightFrac = (line.rightSlotFrac ?? 0.38).clamp(0.16, 0.48);
+        final rightW = contentW * rightFrac;
+        final leftW = contentW - rightW - pairGap;
+        final leftTp = _tp(line.text, style: style, maxWidth: leftW);
+        final rightTp = _tp(
+          right,
+          style: style,
+          maxWidth: rightW,
+          align: TextAlign.right,
           maxLines: 2,
-        )..layout(maxWidth: renderW * 0.45);
-        leftTp.paint(canvas, Offset(0, y));
-        rightTp.paint(
+        );
+        leftTp.paint(canvas, Offset(pad, y));
+        _paintInSlot(
           canvas,
-          Offset((renderW - rightTp.width).clamp(0.0, renderW.toDouble()), y),
+          rightTp,
+          slotLeft: pad + leftW + pairGap,
+          slotW: rightW,
+          y: y,
+          align: TextAlign.right,
         );
         y += (leftTp.height > rightTp.height ? leftTp.height : rightTp.height) +
             lineGap * scale;
@@ -183,15 +343,14 @@ class PosThermalBitmapEncoder {
         continue;
       }
       final x = tp.textAlign == TextAlign.center
-          ? ((renderW - tp.width) / 2).clamp(0.0, renderW.toDouble())
-          : 0.0;
+          ? pad + ((contentW - tp.width) / 2).clamp(0.0, contentW)
+          : pad;
       tp.paint(canvas, Offset(x, y));
       y += tp.height + lineGap * scale;
     }
 
     final picture = recorder.endRecording();
     final hiRes = await picture.toImage(renderW, hHi);
-    // Thu về đúng độ rộng giấy.
     final recorder2 = ui.PictureRecorder();
     final canvas2 = Canvas(recorder2);
     final outH = (hHi / scale).ceil().clamp(1, 8000);
@@ -204,7 +363,7 @@ class PosThermalBitmapEncoder {
     final picture2 = recorder2.endRecording();
     final image = await picture2.toImage(paperDots, outH);
     hiRes.dispose();
-    return _imageToEscPos(image, initPrinter: true);
+    return image;
   }
 
   static Future<List<int>?> textLineToRaster(
@@ -252,6 +411,42 @@ class PosThermalBitmapEncoder {
       if (raster[i] != 0) return true;
     }
     return false;
+  }
+
+  /// Tải VietQR rồi đặt giữa khổ giấy — T1 printImage ảnh nhỏ sẽ lệch trái.
+  static Future<Uint8List?> qrCenteredOnPaper(
+    String url, {
+    required int paperDots,
+  }) async {
+    final qrDots = paperDots <= 384 ? 260 : 360;
+    try {
+      final res =
+          await http.get(Uri.parse(url)).timeout(const Duration(seconds: 12));
+      if (res.statusCode != 200 || res.bodyBytes.isEmpty) return null;
+      final codec = await ui.instantiateImageCodec(
+        res.bodyBytes,
+        targetWidth: qrDots,
+      );
+      final frame = await codec.getNextFrame();
+      final qr = frame.image;
+      final padY = 10;
+      final outH = qr.height + padY * 2;
+      final recorder = ui.PictureRecorder();
+      final canvas = Canvas(recorder);
+      canvas.drawRect(
+        Rect.fromLTWH(0, 0, paperDots.toDouble(), outH.toDouble()),
+        Paint()..color = const Color(0xFFFFFFFF),
+      );
+      final x = ((paperDots - qr.width) / 2).clamp(0.0, paperDots.toDouble());
+      canvas.drawImage(qr, Offset(x, padY.toDouble()), Paint());
+      final image = await recorder.endRecording().toImage(paperDots, outH);
+      qr.dispose();
+      final bd = await image.toByteData(format: ui.ImageByteFormat.png);
+      image.dispose();
+      return bd?.buffer.asUint8List();
+    } catch (_) {
+      return null;
+    }
   }
 
   static Future<Uint8List?> networkPngBytes(

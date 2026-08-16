@@ -22,7 +22,8 @@ public class PosProductCombosController(ZKTecoDbContext dbContext) : Authenticat
         string ComponentProductName,
         decimal Qty,
         decimal ComponentOnHandQty,
-        decimal ComponentBasePrice);
+        decimal ComponentBasePrice,
+        string ComponentUnitName);
 
     public record ComboLineInput(Guid ComponentProductId, decimal Qty);
 
@@ -48,7 +49,8 @@ public class PosProductCombosController(ZKTecoDbContext dbContext) : Authenticat
                 x.ComponentProduct != null ? x.ComponentProduct.Name : "",
                 x.Qty,
                 x.ComponentProduct != null ? x.ComponentProduct.OnHandQty : 0,
-                x.ComponentProduct != null ? x.ComponentProduct.BasePrice : 0))
+                x.ComponentProduct != null ? x.ComponentProduct.BasePrice : 0,
+                x.ComponentProduct != null ? x.ComponentProduct.BaseUnitName : ""))
             .ToListAsync();
 
         return Ok(AppResponse<List<ComboLineDto>>.Success(items));

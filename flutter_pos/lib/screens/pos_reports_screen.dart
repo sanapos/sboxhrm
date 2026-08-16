@@ -9,6 +9,7 @@ import '../providers/permission_provider.dart';
 import '../services/api_service.dart';
 import '../utils/file_saver.dart' as file_saver;
 import '../utils/pos_kiot_time_range.dart';
+import '../utils/pos_report_export.dart';
 import '../widgets/notification_overlay.dart';
 import '../widgets/pos/pos_kiot_time_filter.dart';
 import '../utils/responsive_helper.dart';
@@ -39,6 +40,9 @@ class _PosReportsScreenState extends State<PosReportsScreen>
   final _api = ApiService();
   final _moneyFmt = NumberFormat('#,##0', 'vi_VN');
   final _stockSearchCtrl = TextEditingController();
+  final _salesPngKey = GlobalKey();
+  final _stockPngKey = GlobalKey();
+  final _lotPngKey = GlobalKey();
 
   late final TabController _tabs;
   PosKiotTimeFilterState _salesTime = PosKiotTimeFilterState.thisMonth();
@@ -209,6 +213,28 @@ class _PosReportsScreenState extends State<PosReportsScreen>
     }
   }
 
+  Future<void> _exportLots() async {
+    await PosReportExport.excel(
+      context: context,
+      title: 'Báo cáo lô / HSD',
+      sheetName: 'Lo HSD',
+      filePrefix: 'POS_LoHSD',
+      filterLabel: _lotFilter,
+      headers: const ['Hàng hóa', 'Lô', 'HSD', 'SL', 'Giá trị', 'Trạng thái'],
+      rows: [
+        for (final l in _lotItems)
+          [
+            l['productName'] ?? '',
+            l['lotNo'] ?? '',
+            l['expiryDate'] ?? l['ExpiryDate'] ?? '',
+            l['qtyOnHand'] ?? l['QtyOnHand'] ?? '',
+            _num(l['stockValue'] ?? l['StockValue']),
+            l['status'] ?? '',
+          ],
+      ],
+    );
+  }
+
   double _num(dynamic v) {
     if (v is num) return v.toDouble();
     return double.tryParse(v?.toString() ?? '') ?? 0;
@@ -295,11 +321,28 @@ class _PosReportsScreenState extends State<PosReportsScreen>
                     ),
                     if (canExport) ...[
                       const SizedBox(height: 8),
-                      FilledButton.icon(
-                        style: FilledButton.styleFrom(backgroundColor: _kiotBlue),
-                        onPressed: _exporting ? null : _exportSales,
-                        icon: const Icon(Icons.download, size: 18),
-                        label: Text(tr('Xuất Excel')),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: FilledButton.icon(
+                              style: FilledButton.styleFrom(
+                                  backgroundColor: _kiotBlue),
+                              onPressed: _exporting ? null : _exportSales,
+                              icon: const Icon(Icons.download, size: 18),
+                              label: Text(tr('Xuất Excel')),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          OutlinedButton.icon(
+                            onPressed: () => PosReportExport.png(
+                              context: context,
+                              key: _salesPngKey,
+                              filePrefix: 'POS_DoanhThu',
+                            ),
+                            icon: const Icon(Icons.image_outlined, size: 18),
+                            label: Text(tr('PNG')),
+                          ),
+                        ],
                       ),
                     ],
                   ],
@@ -327,6 +370,16 @@ class _PosReportsScreenState extends State<PosReportsScreen>
                           icon: const Icon(Icons.download, size: 18),
                           label: Text(tr('Excel')),
                         ),
+                        const SizedBox(width: 8),
+                        OutlinedButton.icon(
+                          onPressed: () => PosReportExport.png(
+                            context: context,
+                            key: _salesPngKey,
+                            filePrefix: 'POS_DoanhThu',
+                          ),
+                          icon: const Icon(Icons.image_outlined, size: 18),
+                          label: Text(tr('PNG')),
+                        ),
                       ],
                     ],
                   ),
@@ -337,7 +390,10 @@ class _PosReportsScreenState extends State<PosReportsScreen>
               ? const Center(child: CircularProgressIndicator(color: _kiotBlue))
               : _salesSummary == null
                   ? Center(child: Text(tr('Không có dữ liệu')))
-                  : _buildSalesBody(_salesSummary!),
+                  : RepaintBoundary(
+                      key: _salesPngKey,
+                      child: _buildSalesBody(_salesSummary!),
+                    ),
         ),
       ],
     );
@@ -482,6 +538,15 @@ class _PosReportsScreenState extends State<PosReportsScreen>
                             onPressed: _exporting ? null : _exportStock,
                             child: const Icon(Icons.download),
                           ),
+                          const SizedBox(width: 8),
+                          OutlinedButton(
+                            onPressed: () => PosReportExport.png(
+                              context: context,
+                              key: _stockPngKey,
+                              filePrefix: 'POS_TonKho',
+                            ),
+                            child: const Icon(Icons.image_outlined),
+                          ),
                         ],
                       ],
                     ),
@@ -519,6 +584,16 @@ class _PosReportsScreenState extends State<PosReportsScreen>
                           icon: const Icon(Icons.download, size: 18),
                           label: Text(tr('Excel')),
                         ),
+                        const SizedBox(width: 8),
+                        OutlinedButton.icon(
+                          onPressed: () => PosReportExport.png(
+                            context: context,
+                            key: _stockPngKey,
+                            filePrefix: 'POS_TonKho',
+                          ),
+                          icon: const Icon(Icons.image_outlined, size: 18),
+                          label: Text(tr('PNG')),
+                        ),
                       ],
                     ],
                   ),
@@ -541,7 +616,9 @@ class _PosReportsScreenState extends State<PosReportsScreen>
         Expanded(
           child: _loadingStock
               ? const Center(child: CircularProgressIndicator(color: _kiotBlue))
-              : ListView.builder(
+              : RepaintBoundary(
+                  key: _stockPngKey,
+                  child: ListView.builder(
                   padding: const EdgeInsets.symmetric(horizontal: 8),
                   itemCount: _stockProducts.length,
                   itemBuilder: (_, i) {
@@ -569,6 +646,7 @@ class _PosReportsScreenState extends State<PosReportsScreen>
                     );
                   },
                 ),
+                  ),
         ),
         if (totalPages > 1)
           mobile
@@ -669,6 +747,20 @@ class _PosReportsScreenState extends State<PosReportsScreen>
                     onPressed: _loadingStock ? null : () => _loadLots(),
                     child: Text(tr('Lọc')),
                   ),
+                  OutlinedButton.icon(
+                    onPressed: _exportLots,
+                    icon: const Icon(Icons.download, size: 18),
+                    label: Text(tr('Excel')),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: () => PosReportExport.png(
+                      context: context,
+                      key: _lotPngKey,
+                      filePrefix: 'POS_LoHSD',
+                    ),
+                    icon: const Icon(Icons.image_outlined, size: 18),
+                    label: Text(tr('PNG')),
+                  ),
                 ],
               ),
             ],
@@ -692,7 +784,9 @@ class _PosReportsScreenState extends State<PosReportsScreen>
         Expanded(
           child: _loadingStock
               ? const Center(child: CircularProgressIndicator(color: _kiotBlue))
-              : ListView.builder(
+              : RepaintBoundary(
+                  key: _lotPngKey,
+                  child: ListView.builder(
                   padding: const EdgeInsets.symmetric(horizontal: 8),
                   itemCount: _lotItems.length,
                   itemBuilder: (_, i) {
@@ -744,6 +838,7 @@ class _PosReportsScreenState extends State<PosReportsScreen>
                     return tile;
                   },
                 ),
+                  ),
         ),
         if (totalPages > 1)
           mobile

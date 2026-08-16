@@ -14,7 +14,7 @@ import 'pos_stock_document_sheet.dart';
 import 'pos_theme.dart';
 import 'package:sbox_pos/l10n/app_tr.dart';
 
-/// Chi ti?t hàng hóa m? r?ng inline — giao di?n ki?u KiotViet.
+/// Chi tiết hàng hóa mở rộng inline — giao diện kiểu KiotViet.
 class PosProductExpansionPanel extends StatefulWidget {
   const PosProductExpansionPanel({
     super.key,
@@ -122,9 +122,9 @@ class _PosProductExpansionPanelState extends State<PosProductExpansionPanel> {
 
   static const _tabs = [
     'Thông tin',
-    'Mô t?, ghi chú',
-    'Th? kho',
-    'T?n kho',
+    'Mô tả, ghi chú',
+    'Thẻ kho',
+    'Tồn kho',
   ];
 
   @override
@@ -211,7 +211,7 @@ class _PosProductExpansionPanelState extends State<PosProductExpansionPanel> {
     final displayStock = v?.onHandQty ?? _p.onHandQty;
     final weightStr = _p.weight != null && _p.weight! > 0
         ? '${_p.weight!.toStringAsFixed(_p.weight! % 1 == 0 ? 0 : 2)} ${_p.weightUnit}'
-        : 'Chua có';
+        : 'Chưa có';
 
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
@@ -255,9 +255,9 @@ class _PosProductExpansionPanelState extends State<PosProductExpansionPanel> {
                   runSpacing: 4,
                   children: [
                     _badge(_goodsTypeLabel(_p.productType)),
-                    if (_p.isDirectSale) _badge('Bán tr?c ti?p'),
+                    if (_p.isDirectSale) _badge('Bán trực tiếp'),
                     if (!_p.isActive)
-                      _badge('Ng?ng kinh doanh', color: Colors.orange.shade800),
+                      _badge('Ngừng kinh doanh', color: Colors.orange.shade800),
                   ],
                 ),
                 const SizedBox(height: 12),
@@ -267,29 +267,29 @@ class _PosProductExpansionPanelState extends State<PosProductExpansionPanel> {
                   children: [
                     _infoCell('Mã hàng', displayCode),
                     if (_p.productType != PosProductType.service)
-                      _infoCell('Mã v?ch', displayBarcode ?? 'Chua có'),
-                    _infoCell('Giá v?n', widget.moneyFmt.format(displayCost)),
+                      _infoCell('Mã vạch', displayBarcode ?? 'Chưa có'),
+                    _infoCell('Giá vốn', widget.moneyFmt.format(displayCost)),
                     _infoCell('Giá bán', widget.moneyFmt.format(displayPrice)),
                     if (isGoods)
-                      _infoCell('T?n kho', widget.moneyFmt.format(displayStock)),
-                    if (isGoods) _infoCell('Tr?ng lu?ng', weightStr),
+                      _infoCell('Tồn kho', widget.moneyFmt.format(displayStock)),
+                    if (isGoods) _infoCell('Trọng lượng', weightStr),
                     if (isGoods)
                       _infoCell(
-                        'Ð?nh m?c t?n',
+                        'Định mức tồn',
                         '${widget.moneyFmt.format(_p.minStockQty)} - ${widget.moneyFmt.format(_p.maxStockQty)}',
                       ),
-                    _infoCell('Thuong hi?u', _p.brandName ?? 'Chua có'),
+                    _infoCell('Thương hiệu', _p.brandName ?? 'Chưa có'),
                     if (isGoods)
-                      _infoCell('V? trí', _p.storageLocationName ?? 'Chua có'),
+                      _infoCell('Vị trí', _p.storageLocationName ?? 'Chưa có'),
                   ],
                 ),
                 if (isGoods && widget.canEdit) ...[
                   const SizedBox(height: 10),
                   Row(
                     children: [
-                      _linkBtn('Thêm don v? tính', widget.onEdit),
+                      _linkBtn('Thêm đơn vị tính', widget.onEdit),
                       const SizedBox(width: 16),
-                      _linkBtn('Thêm thu?c tính', widget.onEdit),
+                      _linkBtn('Thêm thuộc tính', widget.onEdit),
                     ],
                   ),
                 ],
@@ -302,9 +302,9 @@ class _PosProductExpansionPanelState extends State<PosProductExpansionPanel> {
   }
 
   String _goodsTypeLabel(PosProductType t) => switch (t) {
-        PosProductType.goods => 'Hàng hóa thu?ng',
-        PosProductType.service => 'D?ch v?',
-        PosProductType.combo => 'Combo - dóng gói',
+        PosProductType.goods => 'Hàng hóa thường',
+        PosProductType.service => 'Dịch vụ',
+        PosProductType.combo => 'Combo - đóng gói',
       };
 
   Widget _badge(String text, {Color? color}) {
@@ -362,7 +362,7 @@ class _PosProductExpansionPanelState extends State<PosProductExpansionPanel> {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
       child: desc == null || desc.isEmpty
-          ? Text(tr('Chua có mô t?'),
+          ? Text(tr('Chưa có mô tả'),
               style: TextStyle(fontSize: 13, color: PosTheme.textSecondary),
             )
           : Text(tr(desc), style: const TextStyle(fontSize: 13)),
@@ -384,7 +384,7 @@ class _PosProductExpansionPanelState extends State<PosProductExpansionPanel> {
           'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         );
         NotificationOverlayManager()
-            .showSuccess(title: 'Xu?t file', message: tr('Ðã xu?t th? kho'));
+            .showSuccess(title: 'Xuất file', message: tr('Đã xuất thẻ kho'));
       }
     } finally {
       if (mounted) setState(() => _exportingStock = false);
@@ -411,7 +411,7 @@ class _PosProductExpansionPanelState extends State<PosProductExpansionPanel> {
     final stock = v?.onHandQty ?? _p.onHandQty;
     if (_p.productType == PosProductType.service) {
       return Center(
-        child: Text(tr('D?ch v? không qu?n lý t?n kho'),
+        child: Text(tr('Dịch vụ không quản lý tồn kho'),
           style: TextStyle(fontSize: 13, color: PosTheme.textSecondary),
         ),
       );
@@ -422,22 +422,22 @@ class _PosProductExpansionPanelState extends State<PosProductExpansionPanel> {
         spacing: 40,
         runSpacing: 12,
         children: [
-          _infoCell('T?n kho', PosQtyRules.format(stock, product: _p)),
+          _infoCell('Tồn kho', PosQtyRules.format(stock, product: _p)),
           _infoCell(
-            'Khách d?t',
+            'Khách đặt',
             PosQtyRules.format(_p.reservedQty, product: _p),
           ),
           _infoCell(
-            'Có th? bán',
+            'Có thể bán',
             PosQtyRules.format(_p.onHandQty - _p.reservedQty, product: _p),
           ),
           _infoCell(
-            'Ð?nh m?c t?n',
+            'Định mức tồn',
             '${widget.moneyFmt.format(_p.minStockQty)} - ${widget.moneyFmt.format(_p.maxStockQty)}',
           ),
           if (_p.estimatedStockoutDate != null)
             _infoCell(
-              'D? ki?n h?t hàng',
+              'Dự kiến hết hàng',
               widget.dateFmt.format(_p.estimatedStockoutDate!.toLocal()),
             ),
         ],
@@ -476,7 +476,7 @@ class _PosProductExpansionPanelState extends State<PosProductExpansionPanel> {
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               ),
               icon: const Icon(Icons.edit, size: 16),
-              label: Text(tr('Ch?nh s?a')),
+              label: Text(tr('Chỉnh sửa')),
             ),
           const SizedBox(width: 8),
           OutlinedButton.icon(

@@ -22,6 +22,8 @@ import 'pos_printer_transport.dart';
 import 'pos_store_printer_mapper.dart';
 import 'pos_thermal_printer_service.dart';
 import 'pos_thermal_printer_settings.dart';
+import 'pos_receipt_layout.dart';
+import 'pos_topping_format.dart';
 import '../l10n/app_tr.dart';
 
 /// Một tem dán ly (1 phần = 1 tem).
@@ -376,20 +378,22 @@ Future<bool> printCupLabels({
     final table = (t.tableLabel ?? '').trim();
     if (table.isNotEmpty) body.add('Ban: $table');
     final order = (t.orderNo ?? '').trim();
-    if (order.isNotEmpty) body.add('HD: $order');
+    if (order.isNotEmpty) {
+      body.add(PosReceiptLayout.formatSaleInvoiceNo(order));
+    }
     body.add(DateFormat('dd/MM HH:mm').format(when));
-    body.add(t.productName.trim().isEmpty ? 'Mon' : t.productName.trim());
+    final name = t.productName.trim().isEmpty ? 'Mon' : t.productName.trim();
+    final qty = (t.qtyLabel ?? '').trim();
+    body.add(qty.isEmpty ? name : '$name    $qty');
     final tops = (t.toppings ?? '').trim();
     if (tops.isNotEmpty) {
-      for (final part in tops.split(RegExp(r'[,;]'))) {
+      for (final part in posToppingLabelText(tops).split('\n')) {
         final p = part.trim();
-        if (p.isNotEmpty) body.add('+ $p');
+        if (p.isNotEmpty) body.add(p);
       }
     }
     final note = (t.note ?? '').trim();
-    if (note.isNotEmpty) body.add('GC: $note');
-    final qty = (t.qtyLabel ?? '').trim();
-    if (qty.isNotEmpty) body.add('SL: $qty');
+    if (note.isNotEmpty) body.add(note);
   }
 
   if (cloudPrinter == null &&
@@ -439,7 +443,7 @@ List<PosPrintCompiledOutput> _compileCupOutputs({
   for (final t in tickets) {
     final noteParts = <String>[];
     final tops = (t.toppings ?? '').trim();
-    if (tops.isNotEmpty) noteParts.add(tops);
+    if (tops.isNotEmpty) noteParts.add(posToppingLabelText(tops));
     final note = (t.note ?? '').trim();
     if (note.isNotEmpty) noteParts.add(note);
     final data = <String, String>{

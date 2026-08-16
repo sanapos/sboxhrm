@@ -8,6 +8,7 @@ using ZKTecoADMS.Domain.Entities;
 using ZKTecoADMS.Domain.Enums;
 using ZKTecoADMS.Domain.Repositories;
 using ZKTecoADMS.Infrastructure;
+using ZKTecoADMS.Infrastructure.Helpers;
 using ZKTecoADMS.Infrastructure.Services.Push;
 
 namespace ZKTecoADMS.Api.Services;
@@ -61,6 +62,11 @@ public class SystemNotificationService : ISystemNotificationService
         // Best-effort FCM fan-out (silent no-op when Firebase isn't configured).
         try
         {
+            if (notification.StoreId is Guid sid &&
+                !await StorePackageHelper.CanSendFcmAsync(_dbContext, sid, notification.CategoryCode))
+            {
+                return;
+            }
             await _push.PushToUserAsync(userId, display.Title, display.Body,
                 notification.RelatedUrl,
                 NotificationDtoMapper.ToFcmData(notification, display: display));
@@ -89,6 +95,11 @@ public class SystemNotificationService : ISystemNotificationService
 
         try
         {
+            if (notification.StoreId is Guid sid &&
+                !await StorePackageHelper.CanSendFcmAsync(_dbContext, sid, notification.CategoryCode))
+            {
+                return;
+            }
             await _push.PushToUsersAsync(idList, display.Title, display.Body,
                 notification.RelatedUrl,
                 NotificationDtoMapper.ToFcmData(notification, display: display));
@@ -153,6 +164,10 @@ public class SystemNotificationService : ISystemNotificationService
 
         try
         {
+            if (!await StorePackageHelper.CanSendFcmAsync(
+                    _dbContext, notification.StoreId.Value, notification.CategoryCode))
+                return;
+
             var userIds = await GetStoreOversightUserIdsAsync(notification.StoreId.Value);
             if (userIds.Count == 0) return;
 

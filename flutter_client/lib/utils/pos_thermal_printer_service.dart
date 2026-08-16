@@ -10,6 +10,8 @@ import 'package:print_bluetooth_thermal/print_bluetooth_thermal.dart';
 
 import '../models/pos_sale_order.dart';
 
+import 'pos_topping_format.dart';
+
 import 'pos_esc_pos_text_codec.dart';
 
 import 'pos_print_template_compiler.dart';
@@ -322,6 +324,22 @@ class PosThermalPrinterService {
           continue;
         }
         await b.boldLine(line.text, size: line.fontSize);
+      } else if (step is PosPrintCompiledSaleRow) {
+        b.left();
+        final layout = PosReceiptLayout.fromSettingsChars(b.maxChars);
+        final rows = layout.saleItemRows(
+          name: step.name,
+          qty: step.qty,
+          price: step.price,
+          total: step.total,
+        );
+        for (final row in rows) {
+          if (step.bold) {
+            await b.boldLine(row, size: step.fontSize);
+          } else {
+            await b.line(row);
+          }
+        }
       } else if (step is PosPrintCompiledPair) {
         b.left();
         if (step.bold) {
@@ -621,8 +639,17 @@ class PosThermalPrinterService {
       await b.line('*** BẢN IN LẠI — Lần in thứ ${order.printCount} ***');
     }
 
-    await b.line('Số: ${order.orderNo.isEmpty ? '-' : order.orderNo}');
-    await b.line('Ngày: ${_dateOnly.format(saleDate)}');
+    await b.line(
+      'Số HĐ: ${order.orderNo.isEmpty ? '-' : PosReceiptLayout.formatSaleInvoiceNo(order.orderNo)}',
+    );
+    final tableLine = formatPosTableOneLine(
+      areaName: order.serviceAreaName,
+      tableName: order.serviceResourceName ?? order.serviceResourceCode,
+    );
+    if (tableLine.isNotEmpty) {
+      await b.line(tableLine);
+    }
+    await b.line('Ngày: ${DateFormat('dd/MM/yyyy HH:mm').format(saleDate)}');
 
     final inAt = order.serviceStartedAt?.toLocal();
     final outAt = order.serviceEndedAt?.toLocal();
@@ -661,14 +688,6 @@ class PosThermalPrinterService {
       } else if (bill != null && bill > 0) {
         await b.line('Thời lượng tính: ${_fmtTimedMinutes(bill)}');
       }
-    }
-
-    final tableLines = formatPosTablePrintLines(
-      areaName: order.serviceAreaName,
-      tableName: order.serviceResourceName ?? order.serviceResourceCode,
-    );
-    for (final line in tableLines) {
-      await b.line(line);
     }
 
     await b.line(
@@ -762,8 +781,10 @@ class PosThermalPrinterService {
   ) async {
     b.left();
     final layout = PosReceiptLayout.fromSettingsChars(b.maxChars);
-    String money(double v) => _money.format(v);
-    await b.boldLine(layout.saleHeader, size: layout.k58 ? 19 : 21);
+    String money(double v) => PosReceiptLayout.moneyItemCompact(v);
+    for (final h in layout.saleHeaders) {
+      await b.boldLine(h, size: layout.k58 ? 19 : 21);
+    }
     await b.separator();
 
     for (final line in lines) {
@@ -787,9 +808,13 @@ class PosThermalPrinterService {
       for (final row in rows) {
         await b.line(row);
       }
-      final note = line.lineNote?.trim();
-      if (note != null && note.isNotEmpty) {
-        await b.line(' * $note');
+      final note = posToppingNoteFromSaleLine(line, withPrice: true);
+      if (note.isNotEmpty) {
+        for (final part in note.split('\n')) {
+          final t = part.trim();
+          if (t.isEmpty) continue;
+          await b.line(t.startsWith('+') ? '  $t' : ' * $t');
+        }
       }
     }
   }

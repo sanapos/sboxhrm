@@ -11,6 +11,7 @@ using ZKTecoADMS.Application.Models;
 using ZKTecoADMS.Domain.Entities;
 using ZKTecoADMS.Domain.Enums;
 using ZKTecoADMS.Infrastructure;
+using ZKTecoADMS.Api.Services;
 
 namespace ZKTecoADMS.Api.Controllers;
 
@@ -383,6 +384,37 @@ public partial class AgentController : AuthenticatedControllerBase
         {
             _logger.LogError(ex, "Error getting agent dashboard");
             return StatusCode(500, AppResponse<AgentDashboardDto>.Fail("Lỗi khi lấy tổng quan đại lý"));
+        }
+    }
+
+    [HttpGet("pos-overview")]
+    public async Task<ActionResult<AppResponse<PosOverviewDto>>> GetPosOverview(
+        [FromQuery] DateTime? fromDate = null,
+        [FromQuery] DateTime? toDate = null,
+        [FromQuery] Guid? storeId = null)
+    {
+        try
+        {
+            var (agent, err) = await RequireCurrentAgentAsync();
+            if (err != null) return err;
+
+            var utcNow = DateTime.UtcNow;
+            var vnNow = PosOverviewQuery.VietnamNow(utcNow);
+            var today = vnNow.Date;
+            var periodFrom = fromDate?.Date ?? today;
+            var periodTo = (toDate?.Date ?? today).AddDays(1);
+            var storeIds = await _dbContext.Stores.AsNoTracking()
+                .Where(s => s.AgentId == agent.Id)
+                .Select(s => s.Id)
+                .ToListAsync();
+            var data = await PosOverviewQuery.BuildAsync(
+                _dbContext, utcNow, periodFrom, periodTo, storeIds, storeId);
+            return Ok(AppResponse<PosOverviewDto>.Success(data));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting agent POS overview");
+            return StatusCode(500, AppResponse<PosOverviewDto>.Fail("Không lấy được tổng quan POS"));
         }
     }
 

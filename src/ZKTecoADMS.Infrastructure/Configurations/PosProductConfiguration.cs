@@ -59,6 +59,7 @@ public class PosProductConfiguration : IEntityTypeConfiguration<PosProduct>
         builder.Property(x => x.SaleQuickNotesJson).HasMaxLength(4000);
         builder.Property(x => x.CostPrice).HasPrecision(18, 2);
         builder.Property(x => x.BasePrice).HasPrecision(18, 2);
+        builder.Property(x => x.OpeningFee).HasPrecision(18, 2);
         builder.Property(x => x.VatRate).HasPrecision(5, 2);
         builder.Property(x => x.OnHandQty).HasPrecision(18, 4);
         builder.Property(x => x.ReservedQty).HasPrecision(18, 4);
@@ -317,6 +318,20 @@ public class PosSaleOrderConfiguration : IEntityTypeConfiguration<PosSaleOrder>
             .HasFilter("\"Deleted\" IS NULL");
         builder.HasIndex(x => new { x.StoreId, x.Status, x.CreatedAt });
         builder.HasIndex(x => new { x.StoreId, x.InvoiceSlot });
+        builder.Property(x => x.EInvoiceStatus).HasMaxLength(20).HasDefaultValue("None");
+        builder.Property(x => x.EInvoiceProvider).HasMaxLength(20);
+        builder.Property(x => x.EInvoiceTransactionUuid).HasMaxLength(36);
+        builder.Property(x => x.EInvoiceNo).HasMaxLength(30);
+        builder.Property(x => x.EInvoiceSeries).HasMaxLength(25);
+        builder.Property(x => x.EInvoiceReservationCode).HasMaxLength(50);
+        builder.Property(x => x.EInvoiceCode).HasMaxLength(50);
+        builder.Property(x => x.EInvoiceError).HasMaxLength(1000);
+        builder.Property(x => x.EInvoiceBuyerName).HasMaxLength(200);
+        builder.Property(x => x.EInvoiceBuyerTaxCode).HasMaxLength(50);
+        builder.Property(x => x.EInvoiceBuyerAddress).HasMaxLength(500);
+        builder.Property(x => x.EInvoiceBuyerEmail).HasMaxLength(200);
+        builder.Property(x => x.EInvoiceBuyerPhone).HasMaxLength(50);
+        builder.HasIndex(x => new { x.StoreId, x.EInvoiceStatus });
         builder.HasOne(x => x.Store).WithMany().HasForeignKey(x => x.StoreId).OnDelete(DeleteBehavior.Cascade);
         builder.HasOne(x => x.Customer).WithMany(x => x.SaleOrders).HasForeignKey(x => x.CustomerId).OnDelete(DeleteBehavior.SetNull);
     }
@@ -333,6 +348,8 @@ public class PosSaleOrderLineConfiguration : IEntityTypeConfiguration<PosSaleOrd
         builder.Property(x => x.Qty).HasPrecision(18, 4);
         builder.Property(x => x.UnitPrice).HasPrecision(18, 2);
         builder.Property(x => x.LineTotal).HasPrecision(18, 2);
+        builder.Property(x => x.KitchenDoneQty).HasPrecision(18, 3);
+        builder.Property(x => x.KitchenPrepStatus).HasMaxLength(20);
         builder.HasIndex(x => x.SaleOrderId);
         builder.HasOne(x => x.Store).WithMany().HasForeignKey(x => x.StoreId).OnDelete(DeleteBehavior.Cascade);
         builder.HasOne(x => x.SaleOrder).WithMany(x => x.Lines).HasForeignKey(x => x.SaleOrderId).OnDelete(DeleteBehavior.Cascade);

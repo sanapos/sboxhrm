@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 
 import '../../services/api_service.dart';
 import '../../utils/pos_kiot_time_range.dart';
+import '../../utils/pos_report_open.dart';
 import '../../widgets/pos/pos_theme.dart';
 import '../../widgets/pos/reports/pos_goods_filter_sheet.dart';
 import '../../widgets/pos/reports/pos_report_widgets.dart';
@@ -126,6 +127,13 @@ class _PosGoodsReportScreenState extends State<PosGoodsReportScreen> {
                     valueOf: (p) => _num(p['revenue']),
                     moneyFmt: _moneyFmt,
                     allowNegative: true,
+                    onItemTap: (p) => PosReportOpen.product(
+                      context,
+                      id: '${p['productId'] ?? p['id'] ?? p['Id'] ?? ''}',
+                      name: p['productName']?.toString() ?? p['name']?.toString(),
+                      from: _time.from,
+                      to: _time.to,
+                    ),
                   ),
                 ),
                 PosReportInventoryBanner(
@@ -141,6 +149,11 @@ class _PosGoodsReportScreenState extends State<PosGoodsReportScreen> {
                     labelOf: _productLabel,
                     valueOf: (p) => _num(p['stockValue']),
                     moneyFmt: _moneyFmt,
+                    onItemTap: (p) => PosReportOpen.product(
+                      context,
+                      id: '${p['productId'] ?? p['id'] ?? p['Id'] ?? ''}',
+                      name: p['name']?.toString() ?? p['productName']?.toString(),
+                    ),
                   ),
                 ),
               ],

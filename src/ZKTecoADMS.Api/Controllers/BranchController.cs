@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using ZKTecoADMS.Api.Authorization;
@@ -21,6 +21,7 @@ namespace ZKTecoADMS.Api.Controllers;
 public class BranchController(
     ZKTecoDbContext dbContext,
     IDataScopeService dataScopeService,
+    IStoreLicenseLimitService storeLicenseLimitService,
     ILogger<BranchController> logger)
     : AuthenticatedControllerBase
 {
@@ -239,6 +240,13 @@ public class BranchController(
     public async Task<ActionResult<AppResponse<BranchDto>>> CreateBranch([FromBody] CreateBranchRequest request)
     {
         var storeId = CurrentStoreId;
+        if (storeId.HasValue)
+        {
+            var limitCheck = await storeLicenseLimitService.CanAddBranchAsync(storeId.Value);
+            if (!limitCheck.Ok)
+                return BadRequest(AppResponse<BranchDto>.Fail(
+                    limitCheck.Error ?? "Đã đạt giới hạn chi nhánh theo gói dịch vụ."));
+        }
 
         // Check duplicate code
         var existingCode = await dbContext.Branches

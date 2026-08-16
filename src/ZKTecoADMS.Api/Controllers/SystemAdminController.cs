@@ -14,6 +14,7 @@ using ZKTecoADMS.Application.Models;
 using ZKTecoADMS.Domain.Entities;
 using ZKTecoADMS.Domain.Enums;
 using ZKTecoADMS.Infrastructure;
+using ZKTecoADMS.Infrastructure.Helpers;
 
 namespace ZKTecoADMS.Api.Controllers;
 
@@ -33,6 +34,7 @@ public class SystemAdminController : AuthenticatedControllerBase
     private readonly ICacheService _cache;
     private readonly ISystemNotificationService _notificationService;
     private readonly IRenewalNotificationService _renewalNotificationService;
+    private readonly ServerMetricsState _serverMetrics;
 
     public SystemAdminController(
         ZKTecoDbContext dbContext, 
@@ -42,7 +44,8 @@ public class SystemAdminController : AuthenticatedControllerBase
         IConfiguration configuration,
         ICacheService cache,
         ISystemNotificationService notificationService,
-        IRenewalNotificationService renewalNotificationService)
+        IRenewalNotificationService renewalNotificationService,
+        ServerMetricsState serverMetrics)
     {
         _dbContext = dbContext;
         _userManager = userManager;
@@ -52,6 +55,7 @@ public class SystemAdminController : AuthenticatedControllerBase
         _cache = cache;
         _notificationService = notificationService;
         _renewalNotificationService = renewalNotificationService;
+        _serverMetrics = serverMetrics;
     }
     
     private string GetRegistrationLink(string token) 
@@ -235,6 +239,31 @@ public class SystemAdminController : AuthenticatedControllerBase
         {
             _logger.LogError(ex, "Error getting system dashboard");
             return StatusCode(500, AppResponse<SystemDashboardDto>.Fail("Error getting dashboard"));
+        }
+    }
+
+    /// <summary>Tổng quan POS xuyên cửa hàng (doanh thu, in, bếp, tồn, QR).</summary>
+    [HttpGet("pos-overview")]
+    public async Task<ActionResult<AppResponse<PosOverviewDto>>> GetPosOverview(
+        [FromQuery] DateTime? fromDate = null,
+        [FromQuery] DateTime? toDate = null,
+        [FromQuery] Guid? storeId = null)
+    {
+        try
+        {
+            var utcNow = DateTime.UtcNow;
+            var vnNow = PosOverviewQuery.VietnamNow(utcNow);
+            var today = vnNow.Date;
+            var periodFrom = fromDate?.Date ?? today;
+            var periodTo = (toDate?.Date ?? today).AddDays(1);
+            var data = await PosOverviewQuery.BuildAsync(
+                _dbContext, utcNow, periodFrom, periodTo, storeIds: null, focusStoreId: storeId);
+            return Ok(AppResponse<PosOverviewDto>.Success(data));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting POS overview");
+            return StatusCode(500, AppResponse<PosOverviewDto>.Fail("Không lấy được tổng quan POS"));
         }
     }
 
@@ -1896,6 +1925,12 @@ public class SystemAdminController : AuthenticatedControllerBase
             store.IsActive = true;
             store.IsLocked = false;
             store.UpdatedAt = DateTime.UtcNow;
+            if (license.ServicePackageId != null)
+            {
+                store.ServicePackageId = license.ServicePackageId;
+                var pkg = await _dbContext.ServicePackages.FindAsync(license.ServicePackageId);
+                if (pkg != null) StorePackageHelper.ApplyToStore(store, pkg);
+            }
             
             await _dbContext.SaveChangesAsync();
             _logger.LogInformation("SuperAdmin {UserId} activated License {Key} for Store {StoreId}", CurrentUserId, license.Key, request.StoreId);
@@ -2142,10 +2177,11 @@ public class SystemAdminController : AuthenticatedControllerBase
             store.MaxUsers = license.MaxUsers;
             store.MaxDevices = license.MaxDevices;
 
-            // Gán gói dịch vụ từ key (nếu key có gói)
             if (license.ServicePackageId != null)
             {
                 store.ServicePackageId = license.ServicePackageId;
+                var pkg = await _dbContext.ServicePackages.FindAsync(license.ServicePackageId);
+                if (pkg != null) StorePackageHelper.ApplyToStore(store, pkg);
             }
 
             // Tăng số lần gia hạn (lần đầu không tính)
@@ -4229,16 +4265,21 @@ public class SystemAdminController : AuthenticatedControllerBase
             var expiringStores = await _dbContext.Stores.CountAsync(s => s.ExpiryDate != null && s.ExpiryDate <= expiringDate && s.ExpiryDate > today);
             var expiredStores = await _dbContext.Stores.CountAsync(s => s.ExpiryDate != null && s.ExpiryDate < today);
             
-            // Memory info (process level)
-            var process = System.Diagnostics.Process.GetCurrentProcess();
-            var memoryUsedMB = process.WorkingSet64 / 1024 / 1024;
+            var metrics = _serverMetrics.Latest
+                          ?? await ServerResourceReader.CaptureAsync(default);
+            var cpuAlert = metrics.CpuAlert;
+            var ramAlert = metrics.RamAlert;
+            var diskAlert = metrics.DiskAlert;
+            var healthStatus = !databaseHealthy
+                ? "Unhealthy"
+                : (cpuAlert || ramAlert || diskAlert ? "Warning" : "Healthy");
             
             var endTime = DateTime.UtcNow;
             var responseTimeMs = (endTime - startTime).TotalMilliseconds;
             
             return Ok(AppResponse<object>.Success(new
             {
-                status = databaseHealthy ? "Healthy" : "Unhealthy",
+                status = healthStatus,
                 timestamp = DateTime.UtcNow,
                 responseTimeMs,
                 
@@ -4297,12 +4338,41 @@ public class SystemAdminController : AuthenticatedControllerBase
                 {
                     failedAuditLogs7Days = failedAuditLogs,
                     expiringStores30Days = expiringStores,
-                    expiredStores
+                    expiredStores,
+                    cpuOver70 = cpuAlert,
+                    ramOver70 = ramAlert,
+                    diskOver90 = diskAlert,
+                    performanceThreshold = ServerMetricsSnapshot.AlertThresholdPercent
+                },
+
+                checks = new object[]
+                {
+                    new { name = "Database", status = databaseHealthy ? "Healthy" : "Unhealthy" },
+                    new { name = "CPU", status = metrics.CpuPercent < 0 ? "N/A" : (cpuAlert ? "Warning" : "Healthy"), value = metrics.CpuPercent },
+                    new { name = "RAM", status = metrics.RamPercent < 0 ? "N/A" : (ramAlert ? "Warning" : "Healthy"), value = metrics.RamPercent },
+                    new { name = "Disk", status = metrics.DiskPercent < 0 ? "N/A" : (diskAlert ? "Warning" : "Healthy"), value = metrics.DiskPercent },
                 },
                 
                 system = new
                 {
-                    memoryUsedMB,
+                    cpuPercent = metrics.CpuPercent,
+                    cpuCores = metrics.CpuCores,
+                    cpuQuotaCores = metrics.CpuQuotaCores,
+                    ramPercent = metrics.RamPercent,
+                    ramUsedMb = metrics.RamUsedMb,
+                    ramTotalMb = metrics.RamTotalMb,
+                    ramCgroupLimitMb = metrics.RamCgroupLimitMb,
+                    ramCgroupUsedMb = metrics.RamCgroupUsedMb,
+                    diskPercent = metrics.DiskPercent,
+                    diskUsedMb = metrics.DiskUsedMb,
+                    diskTotalMb = metrics.DiskTotalMb,
+                    diskFreeMb = metrics.DiskFreeMb,
+                    diskMount = metrics.DiskMount,
+                    memoryUsedMB = metrics.ProcessWorkingSetMb,
+                    processWorkingSetMb = metrics.ProcessWorkingSetMb,
+                    metricsSource = metrics.Source,
+                    sampledAt = DateTime.SpecifyKind(metrics.SampledAt, DateTimeKind.Utc),
+                    alertThresholdPercent = ServerMetricsSnapshot.AlertThresholdPercent,
                     serverTime = DateTime.UtcNow,
                     environment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "Production"
                 }
@@ -4314,10 +4384,94 @@ public class SystemAdminController : AuthenticatedControllerBase
             return StatusCode(500, AppResponse<object>.Fail("Error getting system health: " + ex.Message));
         }
     }
+
+    /// <summary>
+    /// Lịch sử CPU/RAM theo thời gian (mặc định 24 giờ, tối đa 7 ngày).
+    /// </summary>
+    [HttpGet("system-health/metrics")]
+    public async Task<ActionResult<AppResponse<object>>> GetSystemHealthMetrics([FromQuery] int hours = 24)
+    {
+        try
+        {
+            hours = Math.Clamp(hours, 1, 168);
+            var from = DateTime.UtcNow.AddHours(-hours);
+            var rows = await _dbContext.ServerMetricSamples
+                .AsNoTracking()
+                .Where(x => x.SampledAt >= from)
+                .OrderBy(x => x.SampledAt)
+                .Select(x => new { x.SampledAt, x.CpuPercent, x.RamPercent, x.RamUsedMb, x.RamTotalMb })
+                .ToListAsync();
+
+            const int maxPoints = 360;
+            if (rows.Count > maxPoints)
+            {
+                var step = (int)Math.Ceiling(rows.Count / (double)maxPoints);
+                rows = rows.Where((_, i) => i % step == 0).ToList();
+            }
+
+            // Npgsql trả Unspecified — ép UTC để JSON có Z, biểu đồ ra giờ VN.
+            var points = rows.Select(x => new
+            {
+                sampledAt = DateTime.SpecifyKind(x.SampledAt, DateTimeKind.Utc),
+                x.CpuPercent,
+                x.RamPercent,
+                x.RamUsedMb,
+                x.RamTotalMb,
+            }).ToList();
+
+            return Ok(AppResponse<object>.Success(new
+            {
+                hours,
+                thresholdPercent = ServerMetricsSnapshot.AlertThresholdPercent,
+                latest = _serverMetrics.Latest,
+                points
+            }));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting system health metrics");
+            return StatusCode(500, AppResponse<object>.Fail("Error getting system health metrics"));
+        }
+    }
     
     #endregion
 
     #region Service Packages (Gói dịch vụ)
+
+    private static ServicePackageDto MapPackage(ServicePackage p) => new(
+        p.Id,
+        p.Name,
+        p.Description,
+        p.IsActive,
+        p.DefaultDurationDays,
+        p.MaxUsers,
+        p.MaxDevices,
+        p.MaxAccessDevices,
+        p.AllowWeb,
+        p.AllowMobile,
+        p.MaxBranches,
+        p.AllowFcm,
+        StorePackageHelper.DeserializeModules(p.AllowedFcmCategories),
+        StorePackageHelper.DeserializeModules(p.AllowedModules),
+        p.Stores?.Count ?? 0,
+        p.CreatedAt,
+        p.UpdatedAt);
+
+    private static void ApplyPackageFields(ServicePackage package, int maxUsers, int maxDevices,
+        int maxAccessDevices, bool allowWeb, bool allowMobile, int maxBranches, bool allowFcm,
+        List<string>? fcmCategories, List<string> modules)
+    {
+        package.MaxUsers = maxUsers;
+        package.MaxDevices = maxDevices;
+        package.MaxAccessDevices = maxAccessDevices;
+        package.AllowWeb = allowWeb;
+        package.AllowMobile = allowMobile;
+        package.MaxBranches = maxBranches;
+        package.AllowFcm = allowFcm;
+        package.AllowedFcmCategories = System.Text.Json.JsonSerializer.Serialize(
+            StorePackageHelper.NormalizeFcmCategories(fcmCategories));
+        package.AllowedModules = System.Text.Json.JsonSerializer.Serialize(modules);
+    }
 
     /// <summary>
     /// Lấy danh sách tất cả module/chức năng có thể chọn cho gói dịch vụ
@@ -4336,23 +4490,11 @@ public class SystemAdminController : AuthenticatedControllerBase
     {
         try
         {
-            var packages = await _dbContext.ServicePackages
+            var rows = await _dbContext.ServicePackages
                 .Include(p => p.Stores)
                 .OrderByDescending(p => p.CreatedAt)
-                .Select(p => new ServicePackageDto(
-                    p.Id,
-                    p.Name,
-                    p.Description,
-                    p.IsActive,
-                    p.DefaultDurationDays,
-                    p.MaxUsers,
-                    p.MaxDevices,
-                    System.Text.Json.JsonSerializer.Deserialize<List<string>>(p.AllowedModules, (System.Text.Json.JsonSerializerOptions?)null) ?? new List<string>(),
-                    p.Stores.Count,
-                    p.CreatedAt,
-                    p.UpdatedAt
-                ))
                 .ToListAsync();
+            var packages = rows.Select(MapPackage).ToList();
 
             return Ok(AppResponse<List<ServicePackageDto>>.Success(packages));
         }
@@ -4377,23 +4519,21 @@ public class SystemAdminController : AuthenticatedControllerBase
                 Name = request.Name,
                 Description = request.Description,
                 DefaultDurationDays = request.DefaultDurationDays,
-                MaxUsers = request.MaxUsers,
-                MaxDevices = request.MaxDevices,
-                AllowedModules = System.Text.Json.JsonSerializer.Serialize(request.AllowedModules),
                 IsActive = true,
                 CreatedAt = DateTime.UtcNow,
                 CreatedBy = CurrentUserId.ToString(),
             };
+            ApplyPackageFields(package, request.MaxUsers, request.MaxDevices,
+                request.MaxAccessDevices, request.AllowWeb, request.AllowMobile,
+                request.MaxBranches, request.AllowFcm, request.AllowedFcmCategories,
+                request.AllowedModules);
 
             _dbContext.ServicePackages.Add(package);
             await _dbContext.SaveChangesAsync();
 
             _logger.LogInformation("SuperAdmin {UserId} created service package {PackageName}", CurrentUserId, request.Name);
 
-            var dto = new ServicePackageDto(
-                package.Id, package.Name, package.Description, package.IsActive,
-                package.DefaultDurationDays, package.MaxUsers, package.MaxDevices,
-                request.AllowedModules, 0, package.CreatedAt, package.UpdatedAt);
+            var dto = MapPackage(package);
 
             return Ok(AppResponse<ServicePackageDto>.Success(dto));
         }
@@ -4423,18 +4563,17 @@ public class SystemAdminController : AuthenticatedControllerBase
             package.Name = request.Name;
             package.Description = request.Description;
             package.DefaultDurationDays = request.DefaultDurationDays;
-            package.MaxUsers = request.MaxUsers;
-            package.MaxDevices = request.MaxDevices;
-            package.AllowedModules = System.Text.Json.JsonSerializer.Serialize(request.AllowedModules);
             package.IsActive = request.IsActive;
             package.UpdatedAt = DateTime.UtcNow;
             package.UpdatedBy = CurrentUserId.ToString();
+            ApplyPackageFields(package, request.MaxUsers, request.MaxDevices,
+                request.MaxAccessDevices, request.AllowWeb, request.AllowMobile,
+                request.MaxBranches, request.AllowFcm, request.AllowedFcmCategories,
+                request.AllowedModules);
 
-            // Seat / device limits are enforced on Store.MaxUsers / MaxDevices — keep assigned stores in sync.
             foreach (var store in package.Stores)
             {
-                store.MaxUsers = request.MaxUsers;
-                store.MaxDevices = request.MaxDevices;
+                StorePackageHelper.ApplyToStore(store, package);
                 store.UpdatedAt = DateTime.UtcNow;
                 store.UpdatedBy = CurrentUserId.ToString();
             }
@@ -4445,10 +4584,7 @@ public class SystemAdminController : AuthenticatedControllerBase
                 "SuperAdmin {UserId} updated service package {PackageId} and synced limits to {StoreCount} stores",
                 CurrentUserId, id, package.Stores.Count);
 
-            var dto = new ServicePackageDto(
-                package.Id, package.Name, package.Description, package.IsActive,
-                package.DefaultDurationDays, package.MaxUsers, package.MaxDevices,
-                request.AllowedModules, package.Stores.Count, package.CreatedAt, package.UpdatedAt);
+            var dto = MapPackage(package);
 
             return Ok(AppResponse<ServicePackageDto>.Success(dto));
         }
@@ -4517,8 +4653,7 @@ public class SystemAdminController : AuthenticatedControllerBase
                 return NotFound(AppResponse<StoreDetailDto>.Fail("Service package not found"));
 
             store.ServicePackageId = packageId;
-            store.MaxUsers = package.MaxUsers;
-            store.MaxDevices = package.MaxDevices;
+            StorePackageHelper.ApplyToStore(store, package);
             store.UpdatedAt = DateTime.UtcNow;
             store.UpdatedBy = CurrentUserId.ToString();
 

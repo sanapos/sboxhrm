@@ -2,7 +2,7 @@ namespace ZKTecoADMS.Application.DTOs.Accounts;
 
 public class CreateEmployeeAccountRequest
 {
-    public Guid EmployeeId { get; set; }
+    public Guid? EmployeeId { get; set; }
 
     public string Password { get; set; } = string.Empty;
     public string UserName { get; set; } = string.Empty;

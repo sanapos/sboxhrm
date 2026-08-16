@@ -204,6 +204,12 @@ public record ServicePackageDto(
     int DefaultDurationDays,
     int MaxUsers,
     int MaxDevices,
+    int MaxAccessDevices,
+    bool AllowWeb,
+    bool AllowMobile,
+    int MaxBranches,
+    bool AllowFcm,
+    List<string> AllowedFcmCategories,
     List<string> AllowedModules,
     int StoreCount,
     DateTime CreatedAt,
@@ -216,7 +222,13 @@ public record CreateServicePackageRequest(
     int DefaultDurationDays,
     int MaxUsers,
     int MaxDevices,
-    List<string> AllowedModules
+    List<string> AllowedModules,
+    int MaxAccessDevices = 0,
+    bool AllowWeb = true,
+    bool AllowMobile = true,
+    int MaxBranches = 0,
+    bool AllowFcm = true,
+    List<string>? AllowedFcmCategories = null
 );
 
 public record UpdateServicePackageRequest(
@@ -226,7 +238,13 @@ public record UpdateServicePackageRequest(
     int MaxUsers,
     int MaxDevices,
     List<string> AllowedModules,
-    bool IsActive
+    bool IsActive,
+    int MaxAccessDevices = 0,
+    bool AllowWeb = true,
+    bool AllowMobile = true,
+    int MaxBranches = 0,
+    bool AllowFcm = true,
+    List<string>? AllowedFcmCategories = null
 );
 
 /// <summary>
@@ -237,4 +255,60 @@ public record FeatureModuleDto(
     string DisplayName,
     string? Description,
     string Category
+);
+
+/// <summary>Tổng quan POS đa cửa hàng cho Super Admin / đại lý.</summary>
+public record PosOverviewDto(
+    int StoresWithPosModule,
+    int StoresWithSalesInPeriod,
+    decimal TodayRevenue,
+    int TodayOrders,
+    int TodayCancelled,
+    int TodayQrOrders,
+    decimal PeriodRevenue,
+    int PeriodOrders,
+    decimal PeriodAvgTicket,
+    int PeriodQrOrders,
+    int OpenDraftOrders,
+    int OpenCashierShifts,
+    int PrintAgentsTotal,
+    int PrintAgentsOnline,
+    int PrintersTotal,
+    int PrintersUnhealthy,
+    int PrintJobsFailed24h,
+    int PrintJobsQueued,
+    int KitchenJobsFailed24h,
+    int KitchenJobsQueued,
+    int OutOfStockSkus,
+    int BelowMinSkus,
+    int EinvoiceFailed,
+    List<PosStoreRevenueDto> TopStoresByRevenue,
+    List<PosStoreSnapshotDto> Stores
+);
+
+public record PosStoreRevenueDto(
+    Guid StoreId,
+    string StoreName,
+    string StoreCode,
+    decimal Revenue,
+    int Orders
+);
+
+public record PosStoreSnapshotDto(
+    Guid StoreId,
+    string StoreName,
+    string StoreCode,
+    bool HasPosModule,
+    bool IsActive,
+    decimal TodayRevenue,
+    int TodayOrders,
+    decimal PeriodRevenue,
+    int PeriodOrders,
+    int PrintAgentsOnline,
+    int PrintAgentsTotal,
+    int PrintersUnhealthy,
+    int PrintersTotal,
+    int PrintJobsFailed24h,
+    int OpenDraftOrders,
+    int OutOfStockSkus
 );

@@ -643,6 +643,8 @@ class PosServiceResourceDto {
     this.reservationDepositPaid = 0,
     this.reservationDepositAmount = 0,
     this.reservationDepositStatus,
+    this.draftBillCount = 1,
+    this.draftBills = const [],
   });
 
   final String id;
@@ -693,6 +695,8 @@ class PosServiceResourceDto {
   final double reservationDepositPaid;
   final double reservationDepositAmount;
   final String? reservationDepositStatus;
+  final int draftBillCount;
+  final List<PosResourceDraftBillDto> draftBills;
 
   bool get hasActiveLock => tableSessionOpen;
 
@@ -924,8 +928,48 @@ class PosServiceResourceDto {
       reservationDepositStatus: (json['reservationDepositStatus'] ??
               json['ReservationDepositStatus'])
           ?.toString(),
+      draftBillCount: i(json['draftBillCount'] ?? json['DraftBillCount'], 1),
+      draftBills: _parseDraftBills(json['draftBills'] ?? json['DraftBills']),
     );
   }
+}
+
+class PosResourceDraftBillDto {
+  const PosResourceDraftBillDto({
+    required this.id,
+    required this.orderNo,
+    this.subtotal = 0,
+    this.lineCount = 0,
+    this.isSplit = false,
+  });
+
+  final String id;
+  final String orderNo;
+  final double subtotal;
+  final int lineCount;
+  final bool isSplit;
+
+  factory PosResourceDraftBillDto.fromJson(Map<String, dynamic> json) {
+    double n(dynamic v) =>
+        v is num ? v.toDouble() : double.tryParse('$v') ?? 0;
+    int i(dynamic v) => v is num ? v.toInt() : int.tryParse('$v') ?? 0;
+    return PosResourceDraftBillDto(
+      id: (json['id'] ?? json['Id'] ?? '').toString(),
+      orderNo: (json['orderNo'] ?? json['OrderNo'] ?? '').toString(),
+      subtotal: n(json['subtotal'] ?? json['Subtotal']),
+      lineCount: i(json['lineCount'] ?? json['LineCount']),
+      isSplit: json['isSplit'] == true || json['IsSplit'] == true,
+    );
+  }
+}
+
+List<PosResourceDraftBillDto> _parseDraftBills(dynamic raw) {
+  if (raw is! List) return const [];
+  return [
+    for (final e in raw)
+      if (e is Map)
+        PosResourceDraftBillDto.fromJson(Map<String, dynamic>.from(e)),
+  ];
 }
 
 /// Đặt trước bàn/phòng (list API).

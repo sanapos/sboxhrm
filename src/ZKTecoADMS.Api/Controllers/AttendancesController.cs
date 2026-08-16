@@ -748,6 +748,208 @@ public class AttendancesController(
     }
 
     /// <summary>
+    /// Import hàng loạt chấm công từ Excel (mỗi bản ghi = 1 lần chấm).
+    /// Client gửi employeeCode + punchTime; backend tự gắn máy / DeviceUser / CheckIn-Out.
+    /// </summary>
+    [HttpPost("import")]
+    [RequireModulePermission("Attendance", ModulePermissionAction.Create)]
+    public async Task<ActionResult<AppResponse<object>>> ImportAttendances(
+        [FromBody] ImportAttendancesRequest request)
+    {
+        if (request.Records == null || request.Records.Count == 0)
+            return Ok(AppResponse<object>.Fail("Không có dữ liệu import"));
+
+        var storeId = GetCurrentStoreId();
+        if (!IsAdmin && !storeId.HasValue)
+            return Ok(AppResponse<object>.Fail("Không xác định được cửa hàng"));
+
+        var imported = 0;
+        var failed = 0;
+        var skipped = 0;
+        var errors = new List<string>();
+
+        // Cache employees by code trong store
+        var employees = storeId.HasValue
+            ? await employeeRepository.GetAllAsync(e => e.StoreId == storeId.Value)
+            : await employeeRepository.GetAllAsync(_ => true);
+        var byCode = employees
+            .Where(e => !string.IsNullOrWhiteSpace(e.EmployeeCode))
+            .GroupBy(e => e.EmployeeCode!.Trim(), StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+
+        Device? fallbackDevice = null;
+        if (storeId.HasValue)
+            fallbackDevice = await deviceRepository.GetSingleAsync(d => d.StoreId == storeId.Value);
+        fallbackDevice ??= await deviceRepository.GetSingleAsync(d => true);
+        if (fallbackDevice == null)
+            return Ok(AppResponse<object>.Fail("Không tìm thấy thiết bị chấm công. Vui lòng cấu hình máy trước."));
+
+        var deviceId = fallbackDevice.Id;
+
+        // Giới hạn kích thước để tránh timeout
+        var records = request.Records.Take(5000).ToList();
+        var idx = 0;
+        foreach (var rec in records)
+        {
+            idx++;
+            try
+            {
+                var code = (rec.EmployeeCode ?? string.Empty).Trim();
+                if (string.IsNullOrWhiteSpace(code))
+                {
+                    failed++;
+                    errors.Add($"Hàng {idx}: thiếu Mã NV");
+                    continue;
+                }
+
+                if (!byCode.TryGetValue(code, out var employee))
+                {
+                    failed++;
+                    errors.Add($"Hàng {idx} ({code}): không tìm thấy nhân viên");
+                    continue;
+                }
+
+                if (!IsAdmin && IsManager && storeId.HasValue)
+                {
+                    var subordinateIds = await dataScopeService
+                        .GetSubordinateEmployeeIdsAsync(CurrentUserId, storeId.Value);
+                    if (!subordinateIds.Contains(employee.Id))
+                    {
+                        failed++;
+                        errors.Add($"Hàng {idx} ({code}): không có quyền");
+                        continue;
+                    }
+                }
+
+                var punchTime = rec.PunchTime;
+                // Chuẩn hoá: bỏ Kind UTC nếu client gửi Z — lưu wall-clock VN như manual
+                if (punchTime.Kind == DateTimeKind.Utc)
+                    punchTime = DateTime.SpecifyKind(punchTime.ToLocalTime(), DateTimeKind.Unspecified);
+                else
+                    punchTime = DateTime.SpecifyKind(punchTime, DateTimeKind.Unspecified);
+
+                var employeeName = $"{employee.LastName} {employee.FirstName}".Trim();
+                if (string.IsNullOrWhiteSpace(employeeName))
+                    employeeName = employee.EmployeeCode ?? "NV";
+
+                var deviceUser = await deviceUserRepository.GetSingleAsync(
+                    du => du.EmployeeId == employee.Id && du.DeviceId == deviceId);
+
+                if (deviceUser == null)
+                {
+                    var preferredPin = (employee.EmployeeCode ?? string.Empty).Trim();
+                    if (preferredPin.Length > 20) preferredPin = preferredPin[..20];
+                    if (string.IsNullOrWhiteSpace(preferredPin))
+                        preferredPin = employee.Id.ToString("N")[..8];
+
+                    var pinOwner = await deviceUserRepository.GetSingleAsync(
+                        du => du.DeviceId == deviceId && du.Pin == preferredPin);
+                    if (pinOwner != null && pinOwner.EmployeeId == null)
+                    {
+                        pinOwner.EmployeeId = employee.Id;
+                        if (string.IsNullOrWhiteSpace(pinOwner.Name))
+                            pinOwner.Name = employeeName;
+                        await deviceUserRepository.UpdateAsync(pinOwner);
+                        deviceUser = pinOwner;
+                    }
+                    else if (pinOwner == null)
+                    {
+                        deviceUser = new DeviceUser
+                        {
+                            Id = Guid.NewGuid(),
+                            Pin = preferredPin,
+                            Name = employeeName.Length > 200 ? employeeName[..200] : employeeName,
+                            DeviceId = deviceId,
+                            EmployeeId = employee.Id,
+                            IsActive = true,
+                            GroupId = 1,
+                            Privilege = 0,
+                            VerifyMode = 0,
+                            CreatedAt = DateTime.UtcNow
+                        };
+                        await deviceUserRepository.AddAsync(deviceUser);
+                    }
+                    else
+                    {
+                        var onDevice = await deviceUserRepository.GetAllAsync(du => du.DeviceId == deviceId);
+                        var used = onDevice.Select(u => u.Pin).ToHashSet(StringComparer.Ordinal);
+                        var allocated = DeviceUserPinAllocator.AllocateSequential(used);
+                        deviceUser = new DeviceUser
+                        {
+                            Id = Guid.NewGuid(),
+                            Pin = allocated,
+                            Name = employeeName.Length > 200 ? employeeName[..200] : employeeName,
+                            DeviceId = deviceId,
+                            EmployeeId = employee.Id,
+                            IsActive = true,
+                            GroupId = 1,
+                            Privilege = 0,
+                            VerifyMode = 0,
+                            CreatedAt = DateTime.UtcNow
+                        };
+                        await deviceUserRepository.AddAsync(deviceUser);
+                    }
+                }
+
+                var pin = deviceUser.Pin;
+                if (await attendanceRepository.ExistsAsync(a =>
+                        a.DeviceId == deviceId
+                        && a.PIN == pin
+                        && a.AttendanceTime == punchTime))
+                {
+                    skipped++;
+                    continue;
+                }
+
+                var dateOnly = punchTime.Date;
+                var dailyAttendances = await attendanceRepository
+                    .GetAllAsync(a => a.DeviceId == deviceId
+                                   && a.PIN == pin
+                                   && a.AttendanceTime.Date == dateOnly);
+                var position = dailyAttendances.Count(a => a.AttendanceTime < punchTime) + 1;
+                var attendanceState = (position % 2 == 1)
+                    ? AttendanceStates.CheckIn
+                    : AttendanceStates.CheckOut;
+
+                var workCode = employeeName.Length > 10
+                    ? employeeName[..10]
+                    : employeeName;
+
+                var attendance = new Attendance
+                {
+                    Id = Guid.NewGuid(),
+                    EmployeeId = deviceUser.Id,
+                    DeviceId = deviceId,
+                    PIN = pin,
+                    AttendanceTime = punchTime,
+                    VerifyMode = VerifyModes.Manual,
+                    AttendanceState = attendanceState,
+                    WorkCode = workCode,
+                    Note = string.IsNullOrWhiteSpace(rec.Note)
+                        ? "Import từ Excel"
+                        : rec.Note!.Trim(),
+                    CreatedAt = DateTime.UtcNow
+                };
+                await attendanceRepository.AddAsync(attendance);
+                imported++;
+            }
+            catch (Exception ex)
+            {
+                failed++;
+                errors.Add($"Hàng {idx}: {ex.Message}");
+            }
+        }
+
+        return Ok(AppResponse<object>.Success(new
+        {
+            imported,
+            failed,
+            skipped,
+            errors = errors.Take(50).ToList()
+        }));
+    }
+
+    /// <summary>
     /// Update an attendance record
     /// </summary>
     [HttpPut("{id}")]
@@ -920,6 +1122,20 @@ public class CreateManualAttendanceRequest
     public DateTime PunchTime { get; set; }
     public int VerifyType { get; set; } = 100;
     public string? Note { get; set; }
+    public bool IsManual { get; set; } = true;
+}
+
+public class ImportAttendancesRequest
+{
+    public List<ImportAttendanceRecord> Records { get; set; } = [];
+}
+
+public class ImportAttendanceRecord
+{
+    public string? EmployeeCode { get; set; }
+    public DateTime PunchTime { get; set; }
+    public string? Note { get; set; }
+    public int VerifyType { get; set; } = 100;
     public bool IsManual { get; set; } = true;
 }
 

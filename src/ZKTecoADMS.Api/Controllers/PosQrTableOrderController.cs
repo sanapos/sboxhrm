@@ -1110,34 +1110,8 @@ public class PosQrTableOrderController(
         }
     }
 
-    static string? KitchenNoteText(string? toppingsJson, string? lineNote)
-    {
-        var parts = new List<string>();
-        if (!string.IsNullOrWhiteSpace(toppingsJson))
-        {
-            try
-            {
-                using var doc = JsonDocument.Parse(toppingsJson);
-                if (doc.RootElement.ValueKind == JsonValueKind.Array)
-                {
-                    var names = new List<string>();
-                    foreach (var el in doc.RootElement.EnumerateArray())
-                    {
-                        if (el.ValueKind != JsonValueKind.Object) continue;
-                        if (!el.TryGetProperty("name", out var nameEl) &&
-                            !el.TryGetProperty("Name", out nameEl))
-                            continue;
-                        var n = nameEl.GetString();
-                        if (!string.IsNullOrWhiteSpace(n)) names.Add(n.Trim());
-                    }
-                    if (names.Count > 0) parts.Add(string.Join(", ", names));
-                }
-            }
-            catch { /* ignore */ }
-        }
-        if (!string.IsNullOrWhiteSpace(lineNote)) parts.Add(lineNote.Trim());
-        return parts.Count == 0 ? null : string.Join(" · ", parts);
-    }
+    static string? KitchenNoteText(string? toppingsJson, string? lineNote) =>
+        PosSaleStockHelper.FormatToppingKitchenNote(toppingsJson, lineNote);
 
     static bool IsQrConcurrencyFailure(Exception ex)
     {

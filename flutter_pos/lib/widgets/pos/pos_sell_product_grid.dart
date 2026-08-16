@@ -767,13 +767,11 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
     required bool isDefault,
     required VoidCallback onTap,
   }) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(4),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 7, horizontal: 2),
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 7, horizontal: 2),
           child: Text(
             tr(label),
             textAlign: TextAlign.center,
@@ -787,7 +785,6 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
             ),
           ),
         ),
-      ),
     );
   }
 
@@ -802,9 +799,7 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
         final qty = view != null
             ? resolvePosSellListStockQty(p, views!)
             : p.onHandQty;
-        final unit = view?.label ?? p.baseUnitName;
         final trackStock = p.productType != PosProductType.service;
-        final reserved = p.reservedQty;
         final outOfStock = trackStock &&
             isPosSellOutOfStock(p, views ?? const []);
         final price =
@@ -818,103 +813,82 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
                   ? const Color(0xFFFECACA)
                   : const Color(0xFFE8E8E8),
             ),
-            boxShadow: const [
-              BoxShadow(
-                color: Color(0x0A000000),
-                blurRadius: 6,
-                offset: Offset(0, 2),
-              ),
-            ],
           ),
-          clipBehavior: Clip.antiAlias,
+          clipBehavior: Clip.hardEdge,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Expanded(
-                child: Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    onTap: () => _pickProduct(p),
-                    hoverColor: _blue.withOpacity(0.04),
-                    splashColor: _blue.withOpacity(0.08),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        // Ảnh + badge giá góc dưới trái (kiểu KiotViet).
-                        Expanded(
-                          flex: 5,
-                          child: LayoutBuilder(
-                            builder: (context, c) {
-                              final side = (c.maxWidth < c.maxHeight
-                                      ? c.maxWidth
-                                      : c.maxHeight)
-                                  .clamp(36.0, 160.0);
-                              return Stack(
-                                fit: StackFit.expand,
-                                children: [
-                                  ColoredBox(
-                                    color: const Color(0xFFF7F7F7),
-                                    child: Center(
-                                      child: PosProductImage(
-                                        productId: p.id,
-                                        imageUrl: p.imageUrl,
-                                        updatedAt: p.updatedAt,
-                                        size: side,
-                                        borderRadius: 0,
-                                      ),
-                                    ),
-                                  ),
-                                  if (trackStock)
-                                    Positioned(
-                                      top: 4,
-                                      right: 4,
-                                      child: _stockBadge(qty: qty),
-                                    ),
-                                  Positioned(
-                                    left: 0,
-                                    bottom: 0,
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(
-                                          horizontal: 6, vertical: 3),
-                                      decoration: const BoxDecoration(
-                                        color: PosTheme.kiotBlue,
-                                        borderRadius: BorderRadius.only(
-                                          topRight: Radius.circular(6),
-                                        ),
-                                      ),
-                                      child: Text(
-                                        tr(_moneyFmt.format(price)),
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w700,
-                                          height: 1.1,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              );
-                            },
-                          ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(6, 6, 6, 4),
-                          child: Text(
-                            tr(p.name),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              height: 1.25,
-                              color: PosTheme.textPrimary,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => _pickProduct(p),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Expanded(
+                        flex: 5,
+                        child: Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            ColoredBox(
+                              color: const Color(0xFFF7F7F7),
+                              child: PosProductImage(
+                                productId: p.id,
+                                imageUrl: p.imageUrl,
+                                updatedAt: p.updatedAt,
+                                size: 96,
+                                fill: true,
+                                borderRadius: 0,
+                              ),
                             ),
+                            if (trackStock)
+                              Positioned(
+                                top: 4,
+                                right: 4,
+                                child: _stockBadge(qty: qty),
+                              ),
+                            Positioned(
+                              left: 0,
+                              bottom: 0,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 6, vertical: 3),
+                                decoration: const BoxDecoration(
+                                  color: PosTheme.kiotBlue,
+                                  borderRadius: BorderRadius.only(
+                                    topRight: Radius.circular(6),
+                                  ),
+                                ),
+                                child: Text(
+                                  tr(_moneyFmt.format(price)),
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                    height: 1.1,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(6, 6, 6, 4),
+                        child: Text(
+                          tr(p.name),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            height: 1.25,
+                            color: PosTheme.textPrimary,
                           ),
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -1156,7 +1130,8 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
               thumbVisibility: true,
               child: GridView.builder(
                 controller: _gridScroll,
-                cacheExtent: 480,
+                cacheExtent: 160,
+                addAutomaticKeepAlives: false,
                 padding: const EdgeInsets.fromLTRB(10, 6, 10, 6),
                 gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: cols,

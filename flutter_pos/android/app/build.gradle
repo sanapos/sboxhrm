@@ -39,7 +39,9 @@ android {
 
     defaultConfig {
         applicationId = "sbox.sana.vn.pos.flutter"
-        minSdkVersion 21
+        // Sunmi T1 (A6) = API 23. Lay tu gradle.properties: so hardcode o day bi
+        // `flutter build` tu dong viet de thanh flutter.minSdkVersion (>=24).
+        minSdk = (project.findProperty('sboxMinSdk') ?: 23) as Integer
         targetSdk = 23
         versionCode = flutterVersionCode.toInteger()
         versionName = flutterVersionName
@@ -49,9 +51,9 @@ android {
     buildTypes {
         release {
             signingConfig = signingConfigs.debug
-            minifyEnabled true
-            shrinkResources true
-            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            // Keep assets intact on T1 (broken minify/shrink previously dropped fonts/certs).
+            minifyEnabled false
+            shrinkResources false
         }
         debug {
             applicationIdSuffix ".debug"

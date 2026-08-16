@@ -30,7 +30,13 @@ public class AuthController(IMediator _bus, UserManager<ApplicationUser> _userMa
     [EnableRateLimiting("login")]
     public async Task<ActionResult<AppResponse<AuthenticateResponse>>> Login(LoginRequest loginRequest, CancellationToken cancellationToken = new())
     {
-        var command = new LoginCommand(loginRequest.StoreCode, loginRequest.UserName, loginRequest.Password);
+        var command = new LoginCommand(
+            loginRequest.StoreCode,
+            loginRequest.UserName,
+            loginRequest.Password,
+            loginRequest.ClientPlatform,
+            loginRequest.DeviceKey,
+            loginRequest.DeviceName);
         return await _bus.Send(command, cancellationToken);
     }
 
@@ -73,6 +79,12 @@ public class AuthController(IMediator _bus, UserManager<ApplicationUser> _userMa
             p.DefaultDurationDays,
             p.MaxUsers,
             p.MaxDevices,
+            p.MaxAccessDevices,
+            p.AllowWeb,
+            p.AllowMobile,
+            p.MaxBranches,
+            p.AllowFcm,
+            AllowedFcmCategories = Infrastructure.Helpers.StorePackageHelper.DeserializeModules(p.AllowedFcmCategories),
             AllowedModules = Infrastructure.Helpers.StorePackageHelper.DeserializeModules(p.AllowedModules)
         }).ToList();
 

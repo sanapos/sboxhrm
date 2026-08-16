@@ -104,6 +104,13 @@ class _EodThermalLayout {
       _lr('Chiết khấu', _money(r.orderDiscount), chars),
       _lr('VAT', _money(r.vat), chars),
       _lr('DT ròng', _money(r.netSales), chars),
+      if (r.closedOffDayOrders.isNotEmpty) ...[
+        _rule(chars),
+        '>> CHỐT NGÀY KHÁC',
+        _lr('Số HĐ', '${r.closedOffDayCount}', chars),
+        for (final o in r.closedOffDayOrders.take(chars <= 32 ? 8 : 15))
+          _lr(o.orderNo, o.draftDayLabel, chars),
+      ],
       _rule(chars),
       '>> TRẢ / HỦY',
       _lr('Trả hàng', _money(r.refundTotal), chars),
@@ -158,7 +165,15 @@ class _EodThermalLayout {
         (left: 'Chiết khấu', right: _money(report.orderDiscount), bold: false),
         (left: 'VAT', right: _money(report.vat), bold: false),
         (left: 'DT ròng', right: _money(report.netSales), bold: true),
+        if (report.closedOffDayOrders.isNotEmpty)
+          (left: 'Chốt ngày khác', right: '${report.closedOffDayCount}', bold: false),
       ];
+
+  List<({String left, String right, bool bold})> offDayRows() =>
+      report.closedOffDayOrders
+          .take(15)
+          .map((o) => (left: o.orderNo, right: o.draftDayLabel, bold: false))
+          .toList();
 
   List<({String left, String right, bool bold})> refundRows() => [
         (left: 'Trả hàng', right: _money(report.refundTotal), bold: false),
@@ -225,7 +240,15 @@ String _buildBillHtml(
     ..write(row('Tổng doanh thu', _money(r.totalSales)))
     ..write(row('Chiết khấu', _money(r.orderDiscount)))
     ..write(row('VAT', _money(r.vat)))
-    ..write(row('Doanh thu ròng', _money(r.netSales), bold: true))
+    ..write(row('Doanh thu ròng', _money(r.netSales), bold: true));
+  if (r.closedOffDayOrders.isNotEmpty) {
+    rows.write(section('CHỐT NGÀY KHÁC'));
+    rows.write(row('Số HĐ', '${r.closedOffDayCount}'));
+    for (final o in r.closedOffDayOrders.take(k58 ? 8 : 15)) {
+      rows.write(row(o.orderNo, o.draftDayLabel, sub: true));
+    }
+  }
+  rows
     ..write(section('TRẢ / HỦY'))
     ..write(row('Trả hàng', _money(r.refundTotal)))
     ..write(row('Sau trả hàng', _money(r.totalAfterRefund)))
@@ -287,6 +310,7 @@ String _buildA4(PosEndOfDayReport r, {required bool showProductDetail}) {
     <tr><td>Tổng doanh thu</td><td class="r">${_money(r.totalSales)}</td></tr>
     <tr><td>VAT</td><td class="r">${_money(r.vat)}</td></tr>
     <tr><td>Doanh thu ròng</td><td class="r">${_money(r.netSales)}</td></tr>
+    ${r.closedOffDayOrders.isNotEmpty ? '<tr><td>Chốt ngày khác</td><td class="r">${r.closedOffDayCount}</td></tr>' : ''}
     <tr><td>Trả hàng</td><td class="r">${_money(r.refundTotal)}</td></tr>
     <tr><td>Sau trả hàng</td><td class="r">${_money(r.totalAfterRefund)}</td></tr>
     <tr><td>Hóa đơn hủy</td><td class="r">${r.canceledCount} (${_money(r.canceledTotal)})</td></tr>
@@ -325,7 +349,7 @@ String _buildA4(PosEndOfDayReport r, {required bool showProductDetail}) {
   <tbody>
     ${r.transactions.map((t) => '''
       <tr>
-        <td>${_esc(t.orderNo)}</td>
+        <td>${_esc(t.closedOffDay ? '${t.orderNo} · ${t.note ?? 'Chốt ngày khác'}' : t.orderNo)}</td>
         <td>${_dt(t.createdAt)}</td>
         <td class="r">${_qty(t.qty)}</td>
         <td class="r">${_money(t.revenue)}</td>
@@ -365,6 +389,14 @@ String _buildA4(PosEndOfDayReport r, {required bool showProductDetail}) {
   </div>
   <h2>Tổng kết</h2>
   <table class="sum">$summaryRows</table>
+  ${r.closedOffDayOrders.isNotEmpty ? '''
+<h3>Hóa đơn chốt ngày khác</h3>
+<table class="grid">
+  <thead><tr><th>Mã HĐ</th><th>Nháp</th><th class="r">Thành tiền</th></tr></thead>
+  <tbody>
+    ${r.closedOffDayOrders.map((o) => '<tr><td>${_esc(o.orderNo)}</td><td>${_esc(o.draftDayLabel)}</td><td class="r">${_money(o.total)}</td></tr>').join()}
+  </tbody>
+</table>''' : ''}
   $productTable
   $txTable
   <div class="footer">In lúc ${_dt(r.generatedAt)} · SBOX POS</div>
@@ -500,6 +532,11 @@ Future<Uint8List> buildPosEndOfDayPdfBytes(
             pw.Divider(thickness: 0.6),
             section('BÁN HÀNG'),
             ...layout.salesRows().map((e) => pair(e.left, e.right, bold: e.bold)),
+            if (layout.offDayRows().isNotEmpty) ...[
+              pw.Divider(thickness: 0.4),
+              section('CHỐT NGÀY KHÁC'),
+              ...layout.offDayRows().map((e) => pair(e.left, e.right)),
+            ],
             pw.Divider(thickness: 0.4),
             section('TRẢ / HỦY'),
             ...layout.refundRows().map((e) => pair(e.left, e.right, bold: e.bold)),
@@ -570,7 +607,7 @@ Future<void> printPosEndOfDayReport(
             staffLabel: layout.staff,
             periodFrom: _dtShort(report.from),
             periodTo: _dtShort(report.to),
-            salesRows: layout.salesRows(),
+            salesRows: [...layout.salesRows(), ...layout.offDayRows()],
             refundRows: layout.refundRows(),
             paymentRows: layout.paymentRows(),
             actualReceived: '${_money(report.actualReceived)} đ',

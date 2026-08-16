@@ -14,10 +14,10 @@ public class CreateEmployeeAccountHandler(
 {
     public async Task<AppResponse<AccountDto>> Handle(CreateEmployeeAccountCommand request, CancellationToken cancellationToken)
     {
-        if (!request.EmployeeId.HasValue)
-        {
-            return AppResponse<AccountDto>.Error("EmployeeId is required to create an employee account.");
-        }
+        var employeeId = request.EmployeeId.HasValue && request.EmployeeId != Guid.Empty
+            ? request.EmployeeId
+            : null;
+
         // Validate manager exists if ManagerId is provided
         var manager = await userManager.FindByIdAsync(request.ManagerId.ToString());
         if (manager == null)
@@ -33,11 +33,14 @@ public class CreateEmployeeAccountHandler(
             return AppResponse<AccountDto>.Error("The specified user is not a manager or admin.");
         }
 
-        var employee = await employeeRepository.GetByIdAsync(request.EmployeeId.Value);
-        
-        if(employee == null)
+        Employee? employee = null;
+        if (employeeId.HasValue)
         {
-            return AppResponse<AccountDto>.Error("Employee not found.");
+            employee = await employeeRepository.GetByIdAsync(employeeId.Value);
+            if (employee == null)
+            {
+                return AppResponse<AccountDto>.Error("Employee not found.");
+            }
         }
 
         if (manager.StoreId.HasValue)
@@ -62,7 +65,8 @@ public class CreateEmployeeAccountHandler(
             PhoneNumberConfirmed = true,
             ManagerId  = request.ManagerId,
             StoreId = manager.StoreId,
-            Role = request.Role ?? nameof(Roles.Employee)
+            Role = request.Role ?? nameof(Roles.Employee),
+            IsActive = true
         };
         UserPasswordVisibility.RememberPassword(newUser, request.Password);
 
@@ -84,8 +88,11 @@ public class CreateEmployeeAccountHandler(
             return AppResponse<AccountDto>.Error(roleResult.Errors.Select(e => e.Description).ToList());
         }
 
-        employee.ApplicationUserId = newUser.Id;
-        await employeeRepository.UpdateAsync(employee);
+        if (employee != null)
+        {
+            employee.ApplicationUserId = newUser.Id;
+            await employeeRepository.UpdateAsync(employee);
+        }
 
         try
         {
@@ -110,7 +117,7 @@ public class CreateEmployeeAccountHandler(
             LastName = request.LastName,
             PhoneNumber = request.PhoneNumber,
             ManagerId = request.ManagerId,
-            EmployeeId = request.EmployeeId,
+            EmployeeId = employeeId,
             ManagerName = manager.GetFullName(),
             Roles = [request.Role ?? nameof(Roles.Employee)],
             CreatedAt = newUser.CreatedAt

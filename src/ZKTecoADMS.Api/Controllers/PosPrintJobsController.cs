@@ -531,7 +531,8 @@ public class PosPrintJobsController(
         var job = await dispatch.ReleaseClaimAsync(
             id,
             agentId,
-            dto?.ErrorMessage ?? dto?.ErrorCode ?? "NOT_LOCAL");
+            dto?.ErrorMessage ?? dto?.ErrorCode ?? "NOT_LOCAL",
+            dto?.ErrorCode);
         if (job == null) return NotFound(AppResponse<object>.Fail("Không nhả được job"));
         return Ok(AppResponse<object>.Success(new { status = job.Status.ToString() }));
     }

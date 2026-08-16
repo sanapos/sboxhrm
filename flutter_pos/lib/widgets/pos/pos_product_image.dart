@@ -14,6 +14,7 @@ class PosProductImage extends StatelessWidget {
     required this.imageUrl,
     this.updatedAt,
     this.size = 36,
+    this.fill = false,
     this.borderRadius = 4,
     this.fit = BoxFit.cover,
   });
@@ -22,6 +23,8 @@ class PosProductImage extends StatelessWidget {
   final String? imageUrl;
   final DateTime? updatedAt;
   final double size;
+  /// Ô lưới: chiếm hết chỗ, decode theo [size] (A6 không LayoutBuilder).
+  final bool fill;
   final double borderRadius;
   final BoxFit fit;
 
@@ -34,7 +37,7 @@ class PosProductImage extends StatelessWidget {
     final hasUrl = url != null && url.isNotEmpty;
 
     if (!hasId && !hasUrl) {
-      return _placeholder(size, borderRadius);
+      return _placeholder(size, borderRadius, fill: fill);
     }
 
     return ClipRRect(
@@ -49,16 +52,17 @@ class PosProductImage extends StatelessWidget {
         updatedAt: updatedAt,
         apiService: _api,
         size: size,
+        fill: fill,
         fit: fit,
-        placeholder: _placeholder(size, borderRadius),
+        placeholder: _placeholder(size, borderRadius, fill: fill),
       ),
     );
   }
 
-  static Widget _placeholder(double size, double borderRadius) {
+  static Widget _placeholder(double size, double borderRadius, {bool fill = false}) {
     return Container(
-      width: size,
-      height: size,
+      width: fill ? double.infinity : size,
+      height: fill ? double.infinity : size,
       decoration: BoxDecoration(
         color: const Color(0xFFF0F2F5),
         borderRadius: BorderRadius.circular(borderRadius),
@@ -78,6 +82,7 @@ class _PosProductImageLoader extends StatefulWidget {
     required this.updatedAt,
     required this.apiService,
     required this.size,
+    this.fill = false,
     required this.fit,
     required this.placeholder,
   });
@@ -88,6 +93,7 @@ class _PosProductImageLoader extends StatefulWidget {
   final DateTime? updatedAt;
   final ApiService apiService;
   final double size;
+  final bool fill;
   final BoxFit fit;
   final Widget placeholder;
 
@@ -167,25 +173,13 @@ class _PosProductImageLoaderState extends State<_PosProductImageLoader> {
   @override
   Widget build(BuildContext context) {
     if (_failed) return widget.placeholder;
-    if (_bytes == null) {
-      return SizedBox(
-        width: widget.size,
-        height: widget.size,
-        child: const Center(
-          child: SizedBox(
-            width: 16,
-            height: 16,
-            child: CircularProgressIndicator(strokeWidth: 2),
-          ),
-        ),
-      );
-    }
+    if (_bytes == null) return widget.placeholder;
     final dpr = MediaQuery.devicePixelRatioOf(context);
-    final cachePx = (widget.size * dpr).round().clamp(1, 512);
+    final cachePx = (widget.size * dpr).round().clamp(1, 256);
     return Image.memory(
       _bytes!,
-      width: widget.size,
-      height: widget.size,
+      width: widget.fill ? double.infinity : widget.size,
+      height: widget.fill ? double.infinity : widget.size,
       fit: widget.fit,
       gaplessPlayback: true,
       cacheWidth: cachePx,

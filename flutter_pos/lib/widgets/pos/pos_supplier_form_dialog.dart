@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../models/pos_purchase.dart';
 import '../../services/api_service.dart';
 import '../notification_overlay.dart';
+import 'pos_form_keyboard.dart';
 import 'pos_theme.dart';
 import 'package:sbox_pos/l10n/app_tr.dart';
 
@@ -96,6 +97,7 @@ class _PosSupplierFormDialogState extends State<PosSupplierFormDialog> {
     _identityCtrl = TextEditingController(text: tr(s?.identityNo ?? ''));
     _noteCtrl = TextEditingController(text: tr(s?.note ?? ''));
     _groupId = s?.groupId;
+    hidePosSoftKeyboard();
   }
 
   @override
@@ -150,7 +152,9 @@ class _PosSupplierFormDialogState extends State<PosSupplierFormDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return Dialog(
+    return wrapPosFormDialog(
+      context,
+      Dialog(
       insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 560, maxHeight: 720),
@@ -309,6 +313,7 @@ class _PosSupplierFormDialogState extends State<PosSupplierFormDialog> {
           ],
         ),
       ),
+    ),
     );
   }
 }

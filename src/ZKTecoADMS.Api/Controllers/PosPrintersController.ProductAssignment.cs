@@ -59,7 +59,10 @@ public partial class PosPrintersController
         bool IsDeviceLocal = false,
         string? OwnerDeviceId = null,
         bool IsLabel = false,
-        List<string>? DocumentTypes = null);
+        List<string>? DocumentTypes = null,
+        /// <summary>Có Agent online nhận lệnh cho máy này — gán món vào máy
+        /// không ai phục vụ thì phiếu chỉ nằm hàng đợi rồi hết hạn.</summary>
+        bool HasOnlineAgent = false);
 
     public record PrinterAssignedProductDto(
         Guid Id,
@@ -101,15 +104,18 @@ public partial class PosPrintersController
          paperSize.Contains("40x30", StringComparison.OrdinalIgnoreCase) ||
          paperSize.Contains("x30", StringComparison.OrdinalIgnoreCase));
 
+    /// <summary>
+    /// Loại chứng từ đã cấu hình là nguồn tin cậy nhất — hãng/khổ giấy chỉ là suy đoán.
+    /// Trước đây brand="label" thắng trước, nên máy khổ tem cấu hình in Báo kho vẫn bị
+    /// xếp lane tem: màn gán hiện "Báo kho / xuất kho" nhưng server đọc/ghi lane tem →
+    /// gán xong không thấy SP trong danh sách, gán lại thì báo trùng máy khác.
+    /// </summary>
     bool IsLabelPrinterEntity(PosStorePrinter p)
     {
-        if (IsLabelBrand(p.PrinterBrand)) return true;
-        if (LooksLikeLabelPaper(p.PaperSize)) return true;
         var routes = p.DocumentRoutes?
             .Where(r => r.Deleted == null)
             .Select(r => r.DocumentType.ToString())
             .ToHashSet(StringComparer.OrdinalIgnoreCase) ?? [];
-        if (routes.Count == 0) return false;
         var labelish = routes.Any(t =>
             t.Equals("KitchenLabel", StringComparison.OrdinalIgnoreCase) ||
             t.Equals("BarcodeLabel", StringComparison.OrdinalIgnoreCase));
@@ -118,7 +124,11 @@ public partial class PosPrintersController
             t.Equals("KitchenVoid", StringComparison.OrdinalIgnoreCase) ||
             t.Equals("SaleInvoice", StringComparison.OrdinalIgnoreCase) ||
             t.Equals("StockIssue", StringComparison.OrdinalIgnoreCase));
-        return labelish && !kitchenish;
+        if (labelish || kitchenish) return labelish && !kitchenish;
+
+        if (IsLabelBrand(p.PrinterBrand)) return true;
+        if (LooksLikeLabelPaper(p.PaperSize)) return true;
+        return false;
     }
 
     async Task<bool> ResolveAssignForLabelAsync(
@@ -136,7 +146,7 @@ public partial class PosPrintersController
         await ResolveAssignForLabelAsync(printerId, storeId, null);
 
     [HttpGet("product-assignment/printers/summary")]
-    [RequireModulePermission("PosSell", ModulePermissionAction.View)]
+    [RequireModulePermission("PosPrinters", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<List<PrinterProductSummaryDto>>>> GetPrinterProductSummary()
     {
         var storeId = RequiredStoreId;
@@ -158,6 +168,7 @@ public partial class PosPrintersController
             .ToListAsync();
         var kitchenMap = kitchenCounts.ToDictionary(x => x.PrinterId, x => x.Count);
         var labelMap = labelCounts.ToDictionary(x => x.PrinterId, x => x.Count);
+        var servedByAgent = await OnlineAgentPrinterIdsAsync(storeId);
 
         var items = printers.Select(p =>
         {
@@ -178,18 +189,46 @@ public partial class PosPrintersController
                 p.IsDeviceLocal,
                 p.OwnerDeviceId,
                 isLabel,
-                docTypes);
+                docTypes,
+                servedByAgent.Contains(p.Id));
         }).ToList();
         return Ok(AppResponse<List<PrinterProductSummaryDto>>.Success(items));
     }
 
+    /// <summary>PrinterId đang được ít nhất một Agent online nhận lệnh.</summary>
+    async Task<HashSet<Guid>> OnlineAgentPrinterIdsAsync(Guid storeId)
+    {
+        var staleBefore = DateTime.UtcNow.AddSeconds(-90);
+        var jsons = await db.PosPrintAgents.AsNoTracking()
+            .Where(a => a.StoreId == storeId && a.Deleted == null && a.IsOnline
+                && a.LastHeartbeatAt != null && a.LastHeartbeatAt >= staleBefore)
+            .Select(a => a.AssignedPrinterIdsJson)
+            .ToListAsync();
+
+        var ids = new HashSet<Guid>();
+        foreach (var json in jsons)
+        {
+            try
+            {
+                foreach (var id in System.Text.Json.JsonSerializer
+                             .Deserialize<List<Guid>>(json) ?? [])
+                {
+                    ids.Add(id);
+                }
+            }
+            catch { /* JSON hỏng → coi như agent không phục vụ máy nào */ }
+        }
+        return ids;
+    }
+
     [HttpGet("product-assignment/printers/{printerId:guid}/products")]
-    [RequireModulePermission("PosSell", ModulePermissionAction.View)]
+    [RequireModulePermission("PosPrinters", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<object>>> GetPrinterProducts(
         Guid printerId,
         [FromQuery] string? search = null,
         [FromQuery] Guid? categoryId = null,
         [FromQuery] bool assignedOnly = true,
+        [FromQuery] bool? forLabel = null,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 50)
     {
@@ -198,7 +237,9 @@ public partial class PosPrintersController
             .Include(p => p.DocumentRoutes)
             .FirstOrDefaultAsync(p => p.Id == printerId && p.StoreId == storeId && p.Deleted == null);
         if (printer == null) return NotFound(AppResponse<object>.Fail("Không tìm thấy máy in"));
-        var forLabel = IsLabelPrinterEntity(printer);
+        // Client gửi lane nó đang mở — phải đọc đúng lane đã ghi lúc gán,
+        // không thì SP vừa gán biến mất khỏi danh sách.
+        var lane = forLabel ?? IsLabelPrinterEntity(printer);
 
         page = Math.Max(1, page);
         pageSize = Math.Clamp(pageSize, 10, 200);
@@ -211,7 +252,7 @@ public partial class PosPrintersController
 
         if (assignedOnly)
         {
-            query = forLabel
+            query = lane
                 ? query.Where(p => p.DefaultLabelPrinterId == printerId)
                 : query.Where(p => p.DefaultPrinterId == printerId);
         }
@@ -237,17 +278,17 @@ public partial class PosPrintersController
                 p.Name,
                 p.CategoryId,
                 p.Category != null ? p.Category.Name : null,
-                forLabel ? p.DefaultLabelPrinterId : p.DefaultPrinterId,
-                forLabel
+                lane ? p.DefaultLabelPrinterId : p.DefaultPrinterId,
+                lane
                     ? (p.DefaultLabelPrinter != null ? p.DefaultLabelPrinter.Name : null)
                     : (p.DefaultPrinter != null ? p.DefaultPrinter.Name : null)))
             .ToListAsync();
 
-        return Ok(AppResponse<object>.Success(new { total, page, pageSize, items, forLabel }));
+        return Ok(AppResponse<object>.Success(new { total, page, pageSize, items, forLabel = lane }));
     }
 
     [HttpPost("product-assignment/printers/{printerId:guid}/assign")]
-    [RequireModulePermission("PosSell", ModulePermissionAction.Edit)]
+    [RequireModulePermission("PosPrinters", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<object>>> AssignProductsToPrinter(
         Guid printerId, [FromBody] PrinterAssignProductsDto dto)
     {
@@ -368,7 +409,7 @@ public partial class PosPrintersController
     }
 
     [HttpPost("product-assignment/printers/{printerId:guid}/unassign")]
-    [RequireModulePermission("PosSell", ModulePermissionAction.Edit)]
+    [RequireModulePermission("PosPrinters", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<object>>> UnassignProductsFromPrinter(
         Guid printerId, [FromBody] PrinterAssignProductsDto dto)
     {
@@ -453,7 +494,7 @@ public partial class PosPrintersController
     }
 
     [HttpGet("product-assignment/map")]
-    [RequireModulePermission("PosSell", ModulePermissionAction.View)]
+    [RequireModulePermission("PosPrinters", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<List<ProductPrinterMapItem>>>> GetProductAssignmentMap()
     {
         var storeId = RequiredStoreId;
@@ -471,7 +512,7 @@ public partial class PosPrintersController
     }
 
     [HttpGet("product-assignment/categories")]
-    [RequireModulePermission("PosSell", ModulePermissionAction.View)]
+    [RequireModulePermission("PosPrinters", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<List<ProductPrinterCategoryDto>>>> GetProductAssignmentCategories()
     {
         var storeId = RequiredStoreId;
@@ -492,7 +533,7 @@ public partial class PosPrintersController
     }
 
     [HttpGet("product-assignment/products")]
-    [RequireModulePermission("PosSell", ModulePermissionAction.View)]
+    [RequireModulePermission("PosPrinters", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<object>>> GetProductAssignmentProducts(
         [FromQuery] string? search,
         [FromQuery] Guid? categoryId,
@@ -560,7 +601,7 @@ public partial class PosPrintersController
     }
 
     [HttpPut("product-assignment/categories/{id:guid}")]
-    [RequireModulePermission("PosSell", ModulePermissionAction.Edit)]
+    [RequireModulePermission("PosPrinters", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<object>>> SetProductAssignmentCategoryPrinter(
         Guid id, [FromBody] ProductPrinterSetDto dto)
     {
@@ -619,7 +660,7 @@ public partial class PosPrintersController
     }
 
     [HttpPost("product-assignment/categories/{id:guid}/apply")]
-    [RequireModulePermission("PosSell", ModulePermissionAction.Edit)]
+    [RequireModulePermission("PosPrinters", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<object>>> ApplyProductAssignmentCategoryPrinter(
         Guid id, [FromBody] ProductPrinterApplyDto dto)
     {
@@ -659,7 +700,7 @@ public partial class PosPrintersController
     }
 
     [HttpPut("product-assignment/products/{id:guid}")]
-    [RequireModulePermission("PosSell", ModulePermissionAction.Edit)]
+    [RequireModulePermission("PosPrinters", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<object>>> SetProductAssignmentProductPrinter(
         Guid id, [FromBody] ProductPrinterSetDto dto)
     {

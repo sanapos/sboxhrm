@@ -66,6 +66,10 @@ public class PosPrintJobConfiguration : IEntityTypeConfiguration<PosPrintJob>
         builder.Property(x => x.ErrorMessage).HasMaxLength(500);
         builder.HasIndex(x => new { x.StoreId, x.Status, x.CreatedAt });
         builder.HasIndex(x => new { x.PrinterId, x.Status });
+        // Vòng claim của Agent lọc StoreId + Status + PrinterId + ExpiresAt và
+        // chạy 3s/lần trên mọi thiết bị. Thiếu PrinterId trong index thì mỗi lượt
+        // phải quét toàn bộ job Queued của cửa hàng.
+        builder.HasIndex(x => new { x.StoreId, x.Status, x.PrinterId, x.ExpiresAt });
         builder.HasOne(x => x.Store).WithMany().HasForeignKey(x => x.StoreId).OnDelete(DeleteBehavior.Cascade);
         builder.HasOne(x => x.Printer).WithMany().HasForeignKey(x => x.PrinterId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne(x => x.Agent).WithMany().HasForeignKey(x => x.AgentId).OnDelete(DeleteBehavior.SetNull);

@@ -73,6 +73,7 @@ double _previewFontSize(double printerFontSize, double paperPx) =>
 int? _stepSourceIndex(Object step) {
   if (step is PosPrintCompiledLine) return step.sourceBlockIndex;
   if (step is PosPrintCompiledPair) return step.sourceBlockIndex;
+  if (step is PosPrintCompiledSaleRow) return step.sourceBlockIndex;
   if (step is PosPrintCompiledQr) return step.sourceBlockIndex;
   if (step is PosPrintCompiledBarcode) return step.sourceBlockIndex;
   return null;
@@ -94,6 +95,11 @@ class _PreviewStep extends StatelessWidget {
     Widget child;
     if (step is PosPrintCompiledLine) {
       child = _PreviewLine(line: step as PosPrintCompiledLine, paperPx: paperPx);
+    } else if (step is PosPrintCompiledSaleRow) {
+      child = _PreviewSaleRow(
+        row: step as PosPrintCompiledSaleRow,
+        paperPx: paperPx,
+      );
     } else if (step is PosPrintCompiledPair) {
       child = _PreviewPair(pair: step as PosPrintCompiledPair, paperPx: paperPx);
     } else if (step is PosPrintCompiledQr) {
@@ -163,6 +169,44 @@ class _PreviewLine extends StatelessWidget {
           height: 1.15,
           color: Colors.black,
         ),
+      ),
+    );
+  }
+}
+
+class _PreviewSaleRow extends StatelessWidget {
+  const _PreviewSaleRow({required this.row, required this.paperPx});
+
+  final PosPrintCompiledSaleRow row;
+  final double paperPx;
+
+  @override
+  Widget build(BuildContext context) {
+    final style = TextStyle(
+      fontSize: _previewFontSize(row.fontSize, paperPx),
+      fontWeight: row.bold ? FontWeight.w700 : FontWeight.w400,
+      height: 1.15,
+      color: Colors.black,
+    );
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 1),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(flex: 5, child: Text(tr(row.name), style: style)),
+          SizedBox(
+            width: 28,
+            child: Text(tr(row.qty), style: style, textAlign: TextAlign.right),
+          ),
+          SizedBox(
+            width: 64,
+            child: Text(tr(row.price), style: style, textAlign: TextAlign.right),
+          ),
+          SizedBox(
+            width: 72,
+            child: Text(tr(row.total), style: style, textAlign: TextAlign.right),
+          ),
+        ],
       ),
     );
   }

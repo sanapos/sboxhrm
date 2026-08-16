@@ -11,6 +11,8 @@ namespace ZKTecoADMS.Infrastructure.Services;
 public static class PosFinanceSyncHelper
 {
     public const string SaleMarker = "pos bán hàng #";
+    public const string ReservationDepositMarker = "pos cọc đặt chỗ #";
+    public const string ReservationDepositRefundMarker = "pos hoàn cọc đặt chỗ #";
     public const string PurchaseReceiptMarker = "pos nhập hàng #";
     public const string SupplierPaymentMarker = "pos thanh toán ncc #";
     public const string CustomerReturnMarker = "pos trả khách #";
@@ -30,10 +32,16 @@ public static class PosFinanceSyncHelper
         var payList = payments?
             .Where(p => p.Amount > 0)
             .ToList();
-        if (payList == null || payList.Count == 0)
+        if (payList == null)
         {
+            // Không truyền danh sách TT → dùng PaidAmount (luồng cũ).
             if (order.PaidAmount <= 0) return;
             payList = [new SalePaymentSync(order.PaidAmount, order.PaymentMethod, null)];
+        }
+        else if (payList.Count == 0)
+        {
+            // Danh sách rỗng chủ đích: cọc đã thu quỹ, không phiếu bán hàng thêm.
+            return;
         }
 
         var category = await EnsureCategoryAsync(
@@ -76,6 +84,109 @@ public static class PosFinanceSyncHelper
     }
 
     public record SalePaymentSync(decimal Amount, string PaymentMethod, Guid? BankAccountId);
+
+    /// <summary>Trừ cọc đã thu quỹ khỏi danh sách TT (tránh phiếu thu bán hàng cộng trùng cọc).</summary>
+    public static List<SalePaymentSync> SubtractAlreadyCashed(
+        IReadOnlyList<SalePaymentSync> payments, decimal alreadyCashed)
+    {
+        if (alreadyCashed <= 0 || payments.Count == 0)
+            return payments.ToList();
+        var left = alreadyCashed;
+        var result = new List<SalePaymentSync>(payments.Count);
+        foreach (var p in payments)
+        {
+            if (left <= 0)
+            {
+                result.Add(p);
+                continue;
+            }
+            if (p.Amount <= left)
+            {
+                left -= p.Amount;
+                continue;
+            }
+            result.Add(p with { Amount = p.Amount - left });
+            left = 0;
+        }
+        return result;
+    }
+
+    public static async Task SyncReservationDepositCollectedAsync(
+        ZKTecoDbContext db,
+        PosResourceReservation booking,
+        decimal amount,
+        Guid createdByUserId,
+        CancellationToken cancellationToken = default)
+    {
+        if (amount <= 0) return;
+        var marker = $"{ReservationDepositMarker}{booking.Id}|{amount:0.##}|{DateTime.UtcNow.Ticks}";
+        var category = await EnsureCategoryAsync(
+            db, booking.StoreId, CashTransactionType.Income, "Cọc đặt chỗ",
+            "payments", "#0F766E", cancellationToken);
+        if (category == null) return;
+
+        db.CashTransactions.Add(new CashTransaction
+        {
+            Id = Guid.NewGuid(),
+            TransactionCode = await GenerateCodeAsync(db, booking.StoreId, CashTransactionType.Income, cancellationToken),
+            Type = CashTransactionType.Income,
+            CategoryId = category.Id,
+            Amount = amount,
+            TransactionDate = DateTime.UtcNow,
+            Description = $"Thu cọc đặt chỗ — {booking.CustomerName}" +
+                          (string.IsNullOrWhiteSpace(booking.Phone) ? "" : $" — {booking.Phone}"),
+            PaymentMethod = ParsePaymentMethod(booking.DepositPaymentMethod),
+            Status = CashTransactionStatus.Completed,
+            IsPaid = true,
+            PaidDate = DateTime.UtcNow,
+            ContactName = booking.CustomerName,
+            ContactPhone = booking.Phone,
+            CreatedByUserId = createdByUserId,
+            StoreId = booking.StoreId,
+            InternalNote = marker,
+            IsActive = true,
+            CreatedAt = DateTime.UtcNow,
+        });
+    }
+
+    public static async Task SyncReservationDepositRefundAsync(
+        ZKTecoDbContext db,
+        PosResourceReservation booking,
+        Guid createdByUserId,
+        CancellationToken cancellationToken = default)
+    {
+        if (booking.DepositPaid <= 0) return;
+        var marker = $"{ReservationDepositRefundMarker}{booking.Id}";
+        if (await HasActiveCashAsync(db, booking.StoreId, marker, cancellationToken))
+            return;
+
+        var category = await EnsureCategoryAsync(
+            db, booking.StoreId, CashTransactionType.Expense, "Hoàn cọc đặt chỗ",
+            "undo", "#DC2626", cancellationToken);
+        if (category == null) return;
+
+        db.CashTransactions.Add(new CashTransaction
+        {
+            Id = Guid.NewGuid(),
+            TransactionCode = await GenerateCodeAsync(db, booking.StoreId, CashTransactionType.Expense, cancellationToken),
+            Type = CashTransactionType.Expense,
+            CategoryId = category.Id,
+            Amount = booking.DepositPaid,
+            TransactionDate = DateTime.UtcNow,
+            Description = $"Hoàn cọc đặt chỗ — {booking.CustomerName}",
+            PaymentMethod = ParsePaymentMethod(booking.DepositPaymentMethod),
+            Status = CashTransactionStatus.Completed,
+            IsPaid = true,
+            PaidDate = DateTime.UtcNow,
+            ContactName = booking.CustomerName,
+            ContactPhone = booking.Phone,
+            CreatedByUserId = createdByUserId,
+            StoreId = booking.StoreId,
+            InternalNote = marker,
+            IsActive = true,
+            CreatedAt = DateTime.UtcNow,
+        });
+    }
 
     public static async Task ReverseSaleOnCancelAsync(
         ZKTecoDbContext db,

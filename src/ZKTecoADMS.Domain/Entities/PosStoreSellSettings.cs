@@ -47,6 +47,22 @@ public class PosStoreSellSettings : AuditableEntity<Guid>
     /// </summary>
     public int ReportDayStartHour { get; set; }
 
+    /// <summary>
+    /// Ca thu ngân (mở ca / đóng ca / đếm két). Tắt mặc định — bật trong thiết lập khi cửa hàng cần.
+    /// </summary>
+    public bool EnableCashierShift { get; set; }
+
+    /// <summary>
+    /// QR order tại bàn — khách quét QR gọi món. Tắt mặc định.
+    /// </summary>
+    public bool EnableQrTableOrder { get; set; }
+
+    /// <summary>
+    /// QR order: tự enqueue phiếu bếp khi khách gửi món. Tắt = thu ngân in thủ công (Báo bếp).
+    /// Mặc định bật (giữ hành vi v1).
+    /// </summary>
+    public bool EnableQrOrderAutoPrint { get; set; } = true;
+
     /// <summary>SP dịch vụ tính giờ mặc định khi mở bàn (RoomHourly / salon).</summary>
     public Guid? DefaultHourlyProductId { get; set; }
     public virtual PosProduct? DefaultHourlyProduct { get; set; }

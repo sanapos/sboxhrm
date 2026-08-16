@@ -83,6 +83,7 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
     setState(() => _loading = true);
 
     _templates = await loadPosPrintTemplates(_api, _docType);
+    await _upgradeLegacyHtmlTemplates();
 
     _selected = _templates.where((t) => t.isDefault).firstOrNull ??
         _templates.firstOrNull;
@@ -157,6 +158,40 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
     );
   }
 
+  /// HTML seed cũ (`1 x {Don_Gia}`) không điều khiển máy nhiệt — đổi sang V2 4 cột.
+  Future<void> _upgradeLegacyHtmlTemplates() async {
+    var changed = false;
+    final next = <PosPrintTemplate>[];
+    for (final t in _templates) {
+      if (PosPrintTemplateV2Codec.tryParse(t.htmlContent) != null ||
+          !PosPrintPaperSizes.isThermal(t.paperSize)) {
+        next.add(t);
+        continue;
+      }
+      final v2 = PosPrintTemplateV2Presets.build(
+        documentType: t.documentType,
+        paperSize: t.paperSize,
+        printerProfile: t.paperSize == PosPrintPaperSizes.k58
+            ? PosPrintPrinterProfiles.sunmiK58
+            : PosPrintPrinterProfiles.sunmiK80,
+        name: t.name,
+      );
+      final res = await _api.updatePosPrintTemplate(
+        t.id,
+        t.copyWith(htmlContent: PosPrintTemplateV2Codec.encode(v2)).toSaveJson(),
+      );
+      if (res['isSuccess'] == true && res['data'] is Map) {
+        next.add(PosPrintTemplate.fromJson(
+          Map<String, dynamic>.from(res['data'] as Map),
+        ));
+        changed = true;
+      } else {
+        next.add(t);
+      }
+    }
+    if (changed) _templates = next;
+  }
+
   void _selectTemplate(PosPrintTemplate? t) {
     if (_dirty) {
       _confirmDiscard(() => _applyTemplate(t));
@@ -223,9 +258,9 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
       documentType: _docType,
       paperSize: _v2Template!.paperSize,
     );
-    final htmlContent = _legacyHtml?.trim().isNotEmpty == true
-        ? _legacyHtml!
-        : PosPrintTemplateV2Codec.encode(v2);
+    // Luôn lưu V2 — HTML legacy cũ ({So_Luong} x {Don_Gia}) không điều khiển máy nhiệt.
+    final htmlContent = PosPrintTemplateV2Codec.encode(v2);
+    _legacyHtml = null;
     final apiPaper = PosPrintPaperSizes.toApiPaperSize(_docType, v2.paperSize);
     final body = _selected!.copyWith(
       name: name,
@@ -860,7 +895,7 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
           .map((t) => DropdownMenuItem(
                 value: t.id,
                 child: Text(
-                  tr('${t.displayTitle}${t.isDefault ? ' · Hệ thống/mặc định' : ''}'),
+                  tr('${t.displayTitle} · ${PosPrintPaperSizes.displayLabel(t.paperSize)}${t.isDefault ? ' · mặc định' : ''}'),
                   overflow: TextOverflow.ellipsis,
                 ),
               ))
@@ -883,6 +918,24 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
             if (!embeddedKit)
               Text(tr('Mẫu in'), style: TextStyle(fontWeight: FontWeight.w600)),
             if (!embeddedKit) const SizedBox(height: 8),
+            if (_templates.length > 1) ...[
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: _templates.map((t) {
+                  final on = _selected?.id == t.id;
+                  return ChoiceChip(
+                    label: Text(
+                      '${PosPrintPaperSizes.displayLabel(t.paperSize)}${t.isDefault ? ' ★' : ''}',
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                    selected: on,
+                    onSelected: (_) => _selectTemplate(t),
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 8),
+            ],
             selector,
             const SizedBox(height: 8),
             if (embeddedKit)

@@ -5,6 +5,7 @@ import '../../services/api_service.dart';
 import '../../widgets/notification_overlay.dart';
 import '../../widgets/pos/pos_mobile_widgets.dart';
 import '../../widgets/pos/pos_theme.dart';
+import '../../widgets/pos/reports/pos_report_widgets.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 class PosCustomerDebtReportScreen extends StatefulWidget {
@@ -132,12 +133,12 @@ class _PosCustomerDebtReportScreenState extends State<PosCustomerDebtReportScree
                           children: [
                             Text(tr('$_totalCustomers khách còn nợ'),
                                 style: const TextStyle(color: PosTheme.textSecondary)),
-                            Text(tr('${_moneyFmt.format(_sumDebt)} đ'),
-                              style: const TextStyle(
-                                fontSize: 22,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.red,
-                              ),
+                            PosReportMoneyLabel(
+                              _sumDebt,
+                              fontSize: 20,
+                              maxWidth: 280,
+                              align: Alignment.centerLeft,
+                              color: const Color(0xFF2B3437),
                             ),
                           ],
                         ),
@@ -200,10 +201,14 @@ class _PosCustomerDebtReportScreenState extends State<PosCustomerDebtReportScree
                                 Row(
                                   children: [
                                     Expanded(
-                                      child: Text(tr('Tổng nợ: ${_moneyFmt.format(debt)} đ'),
+                                      child: Text(
+                                        tr('Tổng nợ: ${posReportMoney(debt)}'),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
                                         style: const TextStyle(
-                                          color: Colors.red,
-                                          fontWeight: FontWeight.bold,
+                                          color: Color(0xFF2B3437),
+                                          fontWeight: FontWeight.w700,
+                                          fontSize: 13,
                                         ),
                                       ),
                                     ),
@@ -247,7 +252,7 @@ class _PosCustomerDebtReportScreenState extends State<PosCustomerDebtReportScree
         borderRadius: BorderRadius.circular(6),
       ),
       child: Text(
-        tr('$label: ${_moneyFmt.format(amount)}'),
+        '$label: ${posReportMoney(amount)}',
         style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.w600),
       ),
     );

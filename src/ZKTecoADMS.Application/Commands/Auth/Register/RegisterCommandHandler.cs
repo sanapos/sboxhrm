@@ -28,6 +28,7 @@ public class RegisterCommandHandler(
     IRepository<RolePermission> rolePermissionRepository,
     IRepository<Agent> agentRepository,
     IRepository<ServicePackage> servicePackageRepository,
+    IRepository<PosStoreSellSettings> sellSettingsRepository,
     IEmailService emailService,
     IOptions<EmailSettings> emailSettings,
     ISystemNotificationService notificationService,
@@ -135,6 +136,12 @@ public class RegisterCommandHandler(
                 TrialDays = selectedPackage?.DefaultDurationDays ?? 14,
                 MaxUsers = selectedPackage?.MaxUsers ?? 10,
                 MaxDevices = selectedPackage?.MaxDevices ?? 2,
+                MaxAccessDevices = selectedPackage?.MaxAccessDevices ?? 0,
+                AllowWeb = selectedPackage?.AllowWeb ?? true,
+                AllowMobile = selectedPackage?.AllowMobile ?? true,
+                MaxBranches = selectedPackage?.MaxBranches ?? 0,
+                AllowFcm = selectedPackage?.AllowFcm ?? true,
+                AllowedFcmCategories = selectedPackage?.AllowedFcmCategories ?? "[]",
                 TrialStartDate = DateTime.UtcNow
             };
             await storeRepository.AddAsync(store, cancellationToken);
@@ -179,6 +186,30 @@ public class RegisterCommandHandler(
             catch (Exception ex)
             {
                 logger.LogWarning(ex, "Could not seed default branch for store {StoreId}", storeId);
+            }
+
+            try
+            {
+                var profile = PosSellProfile.Retail;
+                if (!string.IsNullOrWhiteSpace(request.SellProfile) &&
+                    !PosSellProfileDefaults.TryParse(request.SellProfile, out profile))
+                {
+                    profile = PosSellProfile.Retail;
+                }
+
+                var existingSell = await sellSettingsRepository.GetSingleAsync(
+                    s => s.StoreId == storeId,
+                    cancellationToken: cancellationToken);
+                if (existingSell == null)
+                {
+                    await sellSettingsRepository.AddAsync(
+                        PosSellProfileDefaults.Create(storeId, "Register", profile),
+                        cancellationToken);
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Could not seed POS sell profile for store {StoreId}", storeId);
             }
 
             var user = new ApplicationUser
@@ -338,6 +369,9 @@ public class RegisterCommandHandler(
     {
         try
         {
+            await sellSettingsRepository.DeleteAsync(
+                s => s.StoreId == storeId,
+                cancellationToken);
             await branchRepository.DeleteAsync(
                 b => b.StoreId == storeId,
                 cancellationToken);

@@ -40,9 +40,45 @@ class PosEndOfDayPayment {
       );
 }
 
+class PosEndOfDayOffDayOrder {
+  final String orderNo;
+  final DateTime? draftedOn;
+  final DateTime? orderNoDate;
+  final DateTime? saleDate;
+  final double total;
+
+  const PosEndOfDayOffDayOrder({
+    required this.orderNo,
+    this.draftedOn,
+    this.orderNoDate,
+    this.saleDate,
+    this.total = 0,
+  });
+
+  factory PosEndOfDayOffDayOrder.fromJson(Map<String, dynamic> json) =>
+      PosEndOfDayOffDayOrder(
+        orderNo: json['orderNo']?.toString() ?? '',
+        draftedOn: DateTime.tryParse(json['draftedOn']?.toString() ?? ''),
+        orderNoDate: DateTime.tryParse(json['orderNoDate']?.toString() ?? ''),
+        saleDate: DateTime.tryParse(json['saleDate']?.toString() ?? ''),
+        total: _num(json['total']),
+      );
+
+  String get draftDayLabel {
+    final d = orderNoDate ?? draftedOn;
+    if (d == null) return '';
+    final dd = d.day.toString().padLeft(2, '0');
+    final mm = d.month.toString().padLeft(2, '0');
+    return 'nháp $dd/$mm';
+  }
+}
+
 class PosEndOfDayTransaction {
   final String orderNo;
   final DateTime createdAt;
+  final DateTime? draftedAt;
+  final bool closedOffDay;
+  final String? note;
   final double qty;
   final double revenue;
   final double otherIncome;
@@ -55,6 +91,9 @@ class PosEndOfDayTransaction {
   const PosEndOfDayTransaction({
     required this.orderNo,
     required this.createdAt,
+    this.draftedAt,
+    this.closedOffDay = false,
+    this.note,
     required this.qty,
     required this.revenue,
     this.otherIncome = 0,
@@ -68,6 +107,9 @@ class PosEndOfDayTransaction {
   factory PosEndOfDayTransaction.fromJson(Map<String, dynamic> json) => PosEndOfDayTransaction(
         orderNo: json['orderNo']?.toString() ?? '',
         createdAt: DateTime.tryParse(json['createdAt']?.toString() ?? '') ?? DateTime.now(),
+        draftedAt: DateTime.tryParse(json['draftedAt']?.toString() ?? ''),
+        closedOffDay: json['closedOffDay'] == true,
+        note: json['note']?.toString(),
         qty: _num(json['qty']),
         revenue: _num(json['revenue']),
         otherIncome: _num(json['otherIncome']),
@@ -100,6 +142,8 @@ class PosEndOfDayReport {
   final double debtTotal;
   final double actualReceived;
   final double lineDiscountTotal;
+  final int closedOffDayCount;
+  final List<PosEndOfDayOffDayOrder> closedOffDayOrders;
   final List<PosEndOfDayPayment> payments;
   final List<PosEndOfDayProduct> products;
   final List<PosEndOfDayTransaction> transactions;
@@ -125,6 +169,8 @@ class PosEndOfDayReport {
     required this.debtTotal,
     required this.actualReceived,
     required this.lineDiscountTotal,
+    this.closedOffDayCount = 0,
+    this.closedOffDayOrders = const [],
     this.payments = const [],
     this.products = const [],
     this.transactions = const [],
@@ -157,6 +203,9 @@ class PosEndOfDayReport {
       debtTotal: _num(json['debtTotal']),
       actualReceived: _num(json['actualReceived']),
       lineDiscountTotal: _num(json['lineDiscountTotal']),
+      closedOffDayCount: (json['closedOffDayCount'] as num?)?.toInt() ?? 0,
+      closedOffDayOrders:
+          list(json['closedOffDayOrders'], PosEndOfDayOffDayOrder.fromJson),
       payments: list(json['payments'], PosEndOfDayPayment.fromJson),
       products: list(json['products'], PosEndOfDayProduct.fromJson),
       transactions: list(json['transactions'], PosEndOfDayTransaction.fromJson),

@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -14,6 +14,7 @@ using ZKTecoADMS.Application.Models;
 using ZKTecoADMS.Domain.Entities;
 using ZKTecoADMS.Domain.Enums;
 using ZKTecoADMS.Infrastructure;
+using ZKTecoADMS.Infrastructure.Helpers;
 
 namespace ZKTecoADMS.Api.Controllers;
 
@@ -207,6 +208,16 @@ public class NotificationsController(
         }
 
         var userId = CurrentUserId;
+        if (CurrentStoreId is Guid sid)
+        {
+            var store = await db.Stores.AsNoTracking()
+                .Include(s => s.ServicePackage)
+                .FirstOrDefaultAsync(s => s.Id == sid);
+            var allowFcm = store?.ServicePackage?.AllowFcm ?? store?.AllowFcm ?? true;
+            if (!allowFcm)
+                return Ok(AppResponse<bool>.Success(true));
+        }
+
         var existing = await db.UserDeviceTokens
             .FirstOrDefaultAsync(t => t.Token == request.Token);
 

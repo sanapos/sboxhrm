@@ -1,5 +1,6 @@
 using ZKTecoADMS.Application.DTOs.Auth;
 using ZKTecoADMS.Application.Helpers;
+using ZKTecoADMS.Application.Interfaces;
 using ZKTecoADMS.Application.Interfaces.Auth;
 using ZKTecoADMS.Domain.Entities;
 using ZKTecoADMS.Domain.Repositories;
@@ -16,7 +17,8 @@ namespace ZKTecoADMS.Application.Commands.Auth.Login;
 public class LoginCommandHandler(
     UserManager<ApplicationUser> userManager,
     IAuthenticateService authenticateService,
-    IRepository<Store> storeRepository
+    IRepository<Store> storeRepository,
+    IStoreLicenseLimitService storeLicenseLimitService
     ) : ICommandHandler<LoginCommand, AppResponse<AuthenticateResponse>>
 {
     public async Task<AppResponse<AuthenticateResponse>> Handle(LoginCommand request, CancellationToken cancellationToken)
@@ -85,6 +87,16 @@ public class LoginCommandHandler(
 
         // Reset failed login attempts on successful login
         await userManager.ResetAccessFailedCountAsync(user);
+
+        var access = await storeLicenseLimitService.EnsureAccessAllowedAsync(
+            store.Id,
+            user.Id,
+            request.ClientPlatform,
+            request.DeviceKey,
+            request.DeviceName,
+            cancellationToken);
+        if (!access.Ok)
+            return AppResponse<AuthenticateResponse>.Error(access.Error ?? "Không được phép đăng nhập từ thiết bị này.");
 
         // Generate tokens with fully loaded user entity (already loaded with includes above)
         return await authenticateService.Authenticate(user, cancellationToken);

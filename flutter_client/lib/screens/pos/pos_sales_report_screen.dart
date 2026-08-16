@@ -225,7 +225,7 @@ class _PosSalesReportScreenState extends State<PosSalesReportScreen> {
                         moneyFmt: _moneyFmt,
                         tiles: [
                           (label: 'Lợi nhuận', value: profit, color: PosTheme.kiotBlue),
-                          (label: 'Doanh thu', value: revenue, color: Colors.red),
+                          (label: 'Doanh thu', value: revenue, color: const Color(0xFF0F766E)),
                           (label: 'Giá vốn', value: cogs, color: Colors.amber.shade700),
                         ],
                       ),

@@ -108,7 +108,7 @@ class _PosProfitReportScreenState extends State<PosProfitReportScreen> {
                 PosReportCard(
                   title: _dim == 'product' ? 'Theo hàng' : 'Chi tiết',
                   child: items.isEmpty
-                      ? Text(tr('Chưa có dữ liệu'), style: const TextStyle(color: PosTheme.textSecondary))
+                      ? const PosReportEmpty()
                       : Column(
                           children: [
                             for (var i = 0; i < items.length; i++) ...[
@@ -136,12 +136,11 @@ class _PosProfitReportScreenState extends State<PosProfitReportScreen> {
             Expanded(
               child: Text(tr(name), style: const TextStyle(fontWeight: FontWeight.w600)),
             ),
-            Text(
-              _moneyFmt.format(profit),
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                color: profit < 0 ? Colors.red : const Color(0xFF166534),
-              ),
+            PosReportMoneyLabel(
+              profit,
+              color: profit < 0
+                  ? const Color(0xFFB42318)
+                  : const Color(0xFF166534),
             ),
           ],
         ),

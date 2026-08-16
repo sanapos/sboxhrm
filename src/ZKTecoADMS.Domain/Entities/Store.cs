@@ -25,6 +25,12 @@ public class Store : Entity<Guid>
     public DateTime? ExpiryDate { get; set; }
     public int MaxUsers { get; set; } = 10;
     public int MaxDevices { get; set; } = 2;
+    public int MaxAccessDevices { get; set; } = 0;
+    public bool AllowWeb { get; set; } = true;
+    public bool AllowMobile { get; set; } = true;
+    public int MaxBranches { get; set; } = 0;
+    public bool AllowFcm { get; set; } = true;
+    public string AllowedFcmCategories { get; set; } = "[]";
 
     /// <summary>
     /// Số lần gia hạn (tối đa 3)

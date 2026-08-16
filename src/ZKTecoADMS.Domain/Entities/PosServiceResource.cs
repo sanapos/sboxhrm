@@ -66,6 +66,10 @@ public class PosServiceResource : AuditableEntity<Guid>
     /// <summary>Cần dọn sau khi khách ra (F&B).</summary>
     public bool NeedsCleaning { get; set; }
 
+    /// <summary>Token công khai cho QR order tại bàn (URL /o/{token}).</summary>
+    [MaxLength(32)]
+    public string? QrOrderToken { get; set; }
+
     public virtual ICollection<PosResourceSession> Sessions { get; set; } = [];
 }
 

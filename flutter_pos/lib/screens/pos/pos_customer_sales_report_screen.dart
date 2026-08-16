@@ -109,8 +109,7 @@ class _PosCustomerSalesReportScreenState extends State<PosCustomerSalesReportScr
                 PosReportCard(
                   title: '${_data?['customerCount'] ?? items.length} khách',
                   child: items.isEmpty
-                      ? Text(tr('Chưa có dữ liệu'),
-                          style: const TextStyle(color: PosTheme.textSecondary))
+                      ? const PosReportEmpty()
                       : Column(
                           children: [
                             for (var i = 0; i < items.length; i++) ...[

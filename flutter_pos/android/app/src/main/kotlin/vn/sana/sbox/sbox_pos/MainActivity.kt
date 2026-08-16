@@ -1,5 +1,10 @@
 package vn.sana.sbox.sbox_pos
 
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import android.os.Build
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.EventChannel
@@ -8,12 +13,31 @@ import io.flutter.plugin.common.MethodChannel
 class MainActivity : FlutterActivity() {
     private val CUSTOMER_DISPLAY_CHANNEL = "com.sboxhrm/customer_display"
     private val CUSTOMER_DISPLAY_EVENTS = "com.sboxhrm/customer_display_events"
+    private val SCANNER_CHANNEL = "com.sboxhrm/sunmi_scanner"
+    private val ACTION_DATA_CODE_RECEIVED = "com.sunmi.scanner.ACTION_DATA_CODE_RECEIVED"
+    private val DATA = "data"
+
+    private var scannerEvents: EventChannel.EventSink? = null
+    private var scannerReceiver: BroadcastReceiver? = null
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
 
-        // T1 7″ dùng DSKernel (không phải Presentation) — init sớm để HCService sẵn sàng.
+        // T1 7" uses DSKernel (not Presentation) — init early for HCService.
         SunmiDsCustomerDisplay.ensureInit(this)
+
+        EventChannel(flutterEngine.dartExecutor.binaryMessenger, SCANNER_CHANNEL)
+            .setStreamHandler(object : EventChannel.StreamHandler {
+                override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
+                    scannerEvents = events
+                    registerScannerReceiver()
+                }
+
+                override fun onCancel(arguments: Any?) {
+                    unregisterScannerReceiver()
+                    scannerEvents = null
+                }
+            })
 
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CUSTOMER_DISPLAY_CHANNEL)
             .setMethodCallHandler { call, result ->
@@ -78,5 +102,54 @@ class MainActivity : FlutterActivity() {
             .setMethodCallHandler { call, result ->
                 PosPrinterHardware.handle(this, call, result)
             }
+
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, PosTts.CHANNEL)
+            .setMethodCallHandler { call, result ->
+                PosTts.handle(this, call, result)
+            }
+    }
+
+    private fun registerScannerReceiver() {
+        if (scannerReceiver != null) return
+        scannerReceiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context?, intent: Intent?) {
+                if (intent == null) return
+                val action = intent.action ?: return
+                if (action != ACTION_DATA_CODE_RECEIVED) return
+                var code = intent.getStringExtra(DATA)
+                if (code.isNullOrBlank()) {
+                    code = intent.getStringExtra("barcode_string")
+                        ?: intent.getStringExtra("barcode")
+                }
+                if (!code.isNullOrBlank()) {
+                    runOnUiThread {
+                        scannerEvents?.success(code!!.trim())
+                    }
+                }
+            }
+        }
+        val filter = IntentFilter(ACTION_DATA_CODE_RECEIVED)
+        if (Build.VERSION.SDK_INT >= 33) {
+            registerReceiver(scannerReceiver, filter, Context.RECEIVER_EXPORTED)
+        } else {
+            @Suppress("UnspecifiedRegisterReceiverFlag")
+            registerReceiver(scannerReceiver, filter)
+        }
+    }
+
+    private fun unregisterScannerReceiver() {
+        val receiver = scannerReceiver ?: return
+        try {
+            unregisterReceiver(receiver)
+        } catch (_: Exception) {
+        }
+        scannerReceiver = null
+    }
+
+    override fun onDestroy() {
+        unregisterScannerReceiver()
+        scannerEvents = null
+        PosTts.shutdown()
+        super.onDestroy()
     }
 }

@@ -18,7 +18,7 @@ if (-not $Password) {
 
 Write-Host "==> Packing API source..."
 Push-Location "$RepoRoot\src"
-tar -czf "$RepoRoot\api_src.tar.gz" --exclude="**/bin" --exclude="**/obj" --exclude="**/.vs" .
+tar -czf "$RepoRoot\api_src.tar.gz" --exclude="**/bin" --exclude="**/obj" --exclude="**/.vs" --exclude="ZKTecoADMS.Api/wwwroot/downloads" .
 Pop-Location
 
 Write-Host "==> Upload..."

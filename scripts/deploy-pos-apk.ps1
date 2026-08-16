@@ -60,5 +60,6 @@ echo "POS APK DEPLOY DONE"
 '@
 
 Write-Host "==> Copy into API container..."
-Invoke-PuttySsh -Plink $plink -Password $Password -User $User -Server $Server -Command $remoteCmd
+Invoke-PuttySshScript -Plink $plink -Pscp $pscp -Password $Password -User $User -Server $Server `
+    -Script $remoteCmd -RemoteName "deploy-pos-apk.sh"
 Write-Host "==> Done"

@@ -5,7 +5,9 @@ import 'package:sunmi_printer_plus/sunmi_printer_plus.dart';
 import '../models/pos_sale_order.dart';
 import 'pos_print_template_compiler.dart';
 import 'pos_printer_transport.dart';
+import 'pos_receipt_layout.dart';
 import 'pos_table_label.dart';
+import 'pos_topping_format.dart';
 import 'pos_thermal_bitmap.dart';
 import 'pos_thermal_printer_settings.dart';
 import '../l10n/app_tr.dart';
@@ -160,7 +162,7 @@ class PosSunmiNativePrint {
 
   /// Báo cáo dạng dòng chữ (tổng kết cuối ngày, v.v.) — UTF-8 native.
 
-  /// Phiếu bếp/hủy — dùng printRow (không pad khoảng trắng) để khỏi xuống hàng trên Sunmi.
+  /// Phiếu bếp/hủy — ảnh 576 điểm (T1 cắt printRow 22+8).
   static Future<bool> printKitchenSlip({
     required String tableName,
     required bool isCancel,
@@ -181,68 +183,71 @@ class PosSunmiNativePrint {
       final layout = _SunmiReceiptLayout.fromMm(settings.paperWidthMm);
       final feed = _resolveFeed(settings.resolvedFeedBeforeCut, min: _minFeedKitchen);
       final date = DateFormat('dd/MM/yyyy HH:mm').format(sentAt);
-
-      await _center(tableName.trim().isEmpty ? 'Bàn' : tableName.trim(),
-          size: layout.titleSize, bold: true);
-      await _center(
-        isCancel ? '*** PHIẾU HỦY ***' : '*** BÁO CHẾ BIẾN ***',
-        size: layout.titleSize - 2,
-        bold: true,
-      );
-      await _left('Mã HĐ: ${orderNo.isEmpty ? '-' : orderNo}',
-          size: layout.bodySize, bold: true);
-      await _left('NV: $senderName', size: layout.bodySize, bold: true);
-      await _left('Ngày: $date', size: layout.bodySize, bold: true);
-      await _rule(layout.equals);
-
-      await SunmiPrinter.printRow(
-        cols: [
-          SunmiColumn(
-            text: tr('Tên hàng'),
-            width: 22,
-            style: SunmiTextStyle(fontSize: layout.bodySize, bold: true),
-          ),
-          SunmiColumn(
-            text: tr('SL'),
-            width: 8,
-            style: SunmiTextStyle(
-              fontSize: layout.bodySize,
-              bold: true,
-              align: SunmiPrintAlign.RIGHT,
-            ),
-          ),
-        ],
-      );
-      await _rule(layout.equals);
-
+      final img = <PosReceiptImageLine>[
+        PosReceiptImageLine(
+          text: tableName.trim().isEmpty ? 'Bàn' : tableName.trim(),
+          fontSize: 26,
+          bold: true,
+          center: true,
+        ),
+        PosReceiptImageLine(
+          text: isCancel ? '*** PHIẾU HỦY ***' : '*** BÁO CHẾ BIẾN ***',
+          fontSize: 24,
+          bold: true,
+          center: true,
+        ),
+        PosReceiptImageLine(
+          text: 'Mã HĐ: ${orderNo.isEmpty ? '-' : PosReceiptLayout.formatSaleInvoiceNo(orderNo)}',
+          fontSize: 20,
+          bold: true,
+        ),
+        PosReceiptImageLine(
+          text: 'NV: $senderName',
+          fontSize: 20,
+          bold: true,
+        ),
+        PosReceiptImageLine(
+          text: 'Ngày: $date',
+          fontSize: 20,
+          bold: true,
+        ),
+        const PosReceiptImageLine(text: '', isDivider: true),
+        const PosReceiptImageLine(
+          text: 'Tên hàng',
+          rightText: '',
+          rightSlotFrac: 0.20,
+          fontSize: 20,
+          bold: true,
+        ),
+        const PosReceiptImageLine(text: '', isDivider: true),
+      ];
       for (var i = 0; i < lines.length; i++) {
         final l = lines[i];
         final u = (l.unit ?? '').trim();
         final right = u.isEmpty ? l.qty : '${l.qty} $u';
-        await SunmiPrinter.printRow(
-          cols: [
-            SunmiColumn(
-              text: tr('${i + 1}. ${l.name}'),
-              width: 22,
-              style: SunmiTextStyle(fontSize: layout.bodySize, bold: true),
-            ),
-            SunmiColumn(
-              text: tr(right),
-              width: 8,
-              style: SunmiTextStyle(
-                fontSize: layout.bodySize,
-                bold: true,
-                align: SunmiPrintAlign.RIGHT,
-              ),
-            ),
-          ],
-        );
+        img.add(PosReceiptImageLine(
+          text: '${i + 1}. ${l.name}',
+          rightText: right,
+          rightSlotFrac: 0.20,
+          fontSize: 22,
+          bold: true,
+        ));
         final note = (l.note ?? '').trim();
         if (note.isNotEmpty) {
-          await _left(' * $note', size: layout.smallSize);
+          for (final raw in note.split(RegExp(r'[\r\n]+'))) {
+            final part = raw.trim();
+            if (part.isEmpty) continue;
+            final topping = part.startsWith('+');
+            img.add(PosReceiptImageLine(
+              text: topping ? '  $part' : '  * $part',
+              fontSize: 14,
+              bold: false,
+            ));
+          }
         }
       }
-      await _rule(layout.equals);
+      img.add(const PosReceiptImageLine(text: '', isDivider: true));
+      await _printImageLines(layout, img);
       await _feedPaper(feed);
       try {
         await SunmiPrinter.cutPaper();
@@ -385,24 +390,7 @@ class PosSunmiNativePrint {
           for (var i = 1; i < chunks.length; i++) {
             await _left(chunks[i], size: layout.smallSize);
           }
-          await SunmiPrinter.printRow(
-            cols: [
-              SunmiColumn(
-                text: tr('  SL ${p.qty}'),
-                width: layout.itemLeft,
-                style: SunmiTextStyle(fontSize: layout.smallSize, bold: true),
-              ),
-              SunmiColumn(
-                text: tr(p.amount),
-                width: layout.itemRight,
-                style: SunmiTextStyle(
-                  fontSize: layout.smallSize,
-                  bold: true,
-                  align: SunmiPrintAlign.RIGHT,
-                ),
-              ),
-            ],
-          );
+          await _pair(layout, '  SL ${p.qty}', p.amount);
         }
         await _rule(layout.dash);
       }
@@ -437,70 +425,39 @@ class PosSunmiNativePrint {
         settings.resolvedFeedBeforeCut,
         min: kitchenFeed ? _minFeedKitchen : _minFeedSunmi,
       );
+      final dots = PosThermalBitmapEncoder.paperDots(settings.paperWidthMm);
       for (var c = 0; c < copies.clamp(1, 10); c++) {
-        for (final step in output.steps) {
-          if (step is PosPrintCompiledLine) {
-            final line = step;
-            if (line.isDivider) {
-              await SunmiPrinter.printText(
-                line.text,
-                style: SunmiTextStyle(
-                  fontSize: 14,
-                  align: SunmiPrintAlign.LEFT,
-                  bold: true,
-                ),
-              );
-              continue;
-            }
-            final size = layout.k58
-                ? line.fontSize.round()
-                : line.fontSize.round().clamp(layout.bodySize, 48);
-            if (line.center) {
-              await _center(line.text, size: size, bold: line.bold);
-            } else if (line.right) {
-              await SunmiPrinter.printText(
-                line.text,
-                style: SunmiTextStyle(
-                  align: SunmiPrintAlign.RIGHT,
-                  fontSize: size,
-                  bold: true,
-                ),
-              );
-            } else {
-              await _left(line.text, size: size, bold: line.bold);
-            }
-          } else if (step is PosPrintCompiledPair) {
-            final pair = step;
-            final pairSize = layout.k58
-                ? pair.fontSize.round()
-                : pair.fontSize.round().clamp(layout.bodySize, 48);
-            await SunmiPrinter.printRow(
-              cols: [
-                SunmiColumn(
-                  text: tr(pair.left),
-                  width: layout.itemLeft,
-                  style: SunmiTextStyle(
-                    fontSize: pairSize,
-                    bold: true,
-                  ),
-                ),
-                SunmiColumn(
-                  text: tr(pair.right),
-                  width: layout.itemRight,
-                  style: SunmiTextStyle(
-                    fontSize: pairSize,
-                    bold: true,
-                    align: SunmiPrintAlign.RIGHT,
-                  ),
-                ),
-              ],
+        final batch = <PosReceiptImageLine>[];
+        Future<void> flushBatch() async {
+          if (batch.isEmpty) return;
+          final png = await PosThermalBitmapEncoder.receiptToPng(
+            List<PosReceiptImageLine>.from(batch),
+            paperDots: dots,
+          );
+          batch.clear();
+          if (png != null) {
+            await SunmiPrinter.printImage(
+              png,
+              align: SunmiPrintAlign.CENTER,
             );
-          } else if (step is PosPrintCompiledQr) {
-            await _printCompiledQr(step, layout);
-          } else if (step is PosPrintCompiledBarcode) {
-            await _printCompiledBarcode(step);
           }
         }
+
+        for (final step in output.steps) {
+          if (step is PosPrintCompiledQr) {
+            await flushBatch();
+            await _printCompiledQr(step, layout);
+            continue;
+          }
+          if (step is PosPrintCompiledBarcode) {
+            await flushBatch();
+            await _printCompiledBarcode(step);
+            continue;
+          }
+          final img = compiledStepToImageLine(step);
+          if (img != null) batch.add(img);
+        }
+        await flushBatch();
         await _feedPaper(feed);
         try {
           await SunmiPrinter.cutPaper();
@@ -534,23 +491,19 @@ class PosSunmiNativePrint {
       );
       await _rule(layout.dash);
       await _center('Tiếng Việt: ĂÂÊÔƠƯ Đ', size: layout.bodySize);
-      await SunmiPrinter.printRow(
-        cols: [
-          SunmiColumn(
-            text: tr('SL x Giá'),
-            width: layout.itemLeft,
-            style: SunmiTextStyle(fontSize: layout.smallSize, bold: true),
-          ),
-          SunmiColumn(
-            text: tr('Thành tiền'),
-            width: layout.itemRight,
-            style: SunmiTextStyle(
-              fontSize: layout.smallSize,
-              bold: true,
-              align: SunmiPrintAlign.RIGHT,
-            ),
-          ),
-        ],
+      await _saleItemRow(
+        layout,
+        name: 'Tên hàng',
+        qty: 'SL',
+        price: 'Đ.giá',
+        total: 'T.tiền',
+      );
+      await _saleItemRow(
+        layout,
+        name: 'Món thử',
+        qty: '1',
+        price: '2.850.000',
+        total: '2.850.000',
       );
       await _rule(layout.dash);
       await _pair(layout, 'TỔNG CỘNG', '125.000 đ', bold: true);
@@ -582,7 +535,6 @@ class PosSunmiNativePrint {
   }) async {
     final saleDate =
         order.saleDate?.toLocal() ?? order.createdAt?.toLocal() ?? DateTime.now();
-    final dateOnly = DateFormat('dd/MM/yyyy');
 
     final shop = storeName?.trim().isNotEmpty == true
         ? storeName!.trim()
@@ -628,10 +580,23 @@ class PosSunmiNativePrint {
       }
     }
 
-    await _left('Số: ${order.orderNo.isEmpty ? '-' : order.orderNo}',
-        size: layout.bodySize, bold: true);
-    await _left('Ngày: ${dateOnly.format(saleDate)}',
-        size: layout.bodySize, bold: true);
+    await _left(
+      'Số HĐ: ${order.orderNo.isEmpty ? '-' : PosReceiptLayout.formatSaleInvoiceNo(order.orderNo)}',
+      size: layout.bodySize,
+      bold: true,
+    );
+    final tableLine = formatPosTableOneLine(
+      areaName: order.serviceAreaName,
+      tableName: order.serviceResourceName ?? order.serviceResourceCode,
+    );
+    if (tableLine.isNotEmpty) {
+      await _left(tableLine, size: layout.bodySize, bold: true);
+    }
+    await _left(
+      'Ngày: ${DateFormat('dd/MM/yyyy HH:mm').format(saleDate)}',
+      size: layout.bodySize,
+      bold: true,
+    );
     final inAt = order.serviceStartedAt?.toLocal();
     if (inAt != null) {
       await _left('Giờ vào: ${_date.format(inAt)}',
@@ -677,13 +642,6 @@ class PosSunmiNativePrint {
             size: layout.bodySize, bold: true);
       }
     }
-    final tableLines = formatPosTablePrintLines(
-      areaName: order.serviceAreaName,
-      tableName: order.serviceResourceName ?? order.serviceResourceCode,
-    );
-    for (final line in tableLines) {
-      await _left(line, size: layout.bodySize, bold: true);
-    }
     await _left(
       'KH: ${order.customerName ?? 'Khách lẻ'}',
       size: layout.bodySize,
@@ -701,92 +659,57 @@ class PosSunmiNativePrint {
     }
     await _rule(layout.equals);
 
-    // Cột ~30; tiền có dấu chấm nghìn (800.000).
-    final nameW = layout.k58 ? 10 : 12;
-    final priceW = 8;
-    final qtyW = 3;
-    final totalW = layout.k58 ? 9 : 7;
-    Future<void> printCols({
-      required String name,
-      required String price,
-      required String qty,
-      required String total,
-      required int size,
-      bool bold = false,
-    }) =>
-        SunmiPrinter.printRow(
-          cols: [
-            SunmiColumn(
-              text: tr(name),
-              width: nameW,
-              style: SunmiTextStyle(fontSize: size, bold: bold),
-            ),
-            SunmiColumn(
-              text: tr(price),
-              width: priceW,
-              style: SunmiTextStyle(
-                fontSize: size,
-                bold: bold,
-                align: SunmiPrintAlign.RIGHT,
-              ),
-            ),
-            SunmiColumn(
-              text: tr(qty),
-              width: qtyW,
-              style: SunmiTextStyle(
-                fontSize: size,
-                bold: bold,
-                align: SunmiPrintAlign.RIGHT,
-              ),
-            ),
-            SunmiColumn(
-              text: tr(total),
-              width: totalW,
-              style: SunmiTextStyle(
-                fontSize: size,
-                bold: bold,
-                align: SunmiPrintAlign.RIGHT,
-              ),
-            ),
-          ],
-        );
-
-    await printCols(
+    // printRow width phải = 12. Cột 5+1+3+3: tên trái, SL/Đ.giá/T.tiền phải.
+    final cols = PosReceiptLayout.fromMm(layout.k58 ? 58 : 80);
+    await _saleItemRow(
+      layout,
       name: 'Tên hàng',
-      price: 'Đ.giá',
       qty: 'SL',
-      total: 'TT',
-      size: layout.bodySize,
-      bold: true,
+      price: 'Đ.giá',
+      total: 'T.tiền',
     );
     await _rule(layout.equals);
 
-    String moneyCell(double v) => _money.format(v);
+    String moneyCell(double v) => PosReceiptLayout.moneyItemCompact(v);
 
     for (final line in lines) {
       final saleUnit = line.qty > 0 ? line.lineTotal / line.qty : line.unitPrice;
       final unitPrice =
           line.discountAmount > 0 ? saleUnit : line.unitPrice;
-      await printCols(
-        name: line.productName,
-        price: moneyCell(unitPrice),
+      final name = line.productName.trim().isEmpty ? 'Món' : line.productName.trim();
+      final chunks = PosReceiptLayout.wrap(name, cols.nameW);
+      await _saleItemRow(
+        layout,
+        name: chunks.first,
         qty: _qty.format(line.qty),
+        price: moneyCell(unitPrice),
         total: moneyCell(line.lineTotal),
-        size: layout.bodySize,
-        bold: true,
       );
-      if (line.discountAmount > 0) {
-        await printCols(
-          name: '',
-          price: '~${moneyCell(line.unitPrice)}',
+      for (var i = 1; i < chunks.length; i++) {
+        await _saleItemRow(
+          layout,
+          name: chunks[i],
           qty: '',
+          price: '',
           total: '',
-          size: layout.smallSize,
         );
       }
-      final note = line.lineNote?.trim();
-      if (note != null && note.isNotEmpty) {
-        await _left(' * $note', size: layout.smallSize);
+      if (line.discountAmount > 0) {
+        await _saleItemRow(
+          layout,
+          name: '  ~${moneyCell(line.unitPrice)}',
+          qty: '',
+          price: '',
+          total: '',
+        );
+      }
+      final note = posToppingNoteFromSaleLine(line, withPrice: true);
+      if (note.isNotEmpty) {
+        for (final part in note.split('\n')) {
+          final t = part.trim();
+          if (t.isEmpty) continue;
+          await _left(t.startsWith('+') ? '  $t' : ' * $t', size: layout.smallSize);
+        }
       }
     }
 
@@ -855,9 +778,10 @@ class PosSunmiNativePrint {
     if (qr.title != null && qr.title!.trim().isNotEmpty) {
       await _center(qr.title!.trim(), size: layout.smallSize, bold: true);
     }
-    final png = await PosThermalBitmapEncoder.networkPngBytes(
+    final dots = layout.k58 ? 384 : 576;
+    final png = await PosThermalBitmapEncoder.qrCenteredOnPaper(
       qr.imageUrl,
-      maxWidth: qr.size,
+      paperDots: dots,
     );
     if (png != null) {
       await SunmiPrinter.printImage(png, align: SunmiPrintAlign.CENTER);
@@ -892,20 +816,31 @@ class PosSunmiNativePrint {
     }
   }
 
-  /// Đường kẻ full khổ: font tỉ lệ nên 32 ký tự '=' ở size 18 chỉ ~3/4 giấy K58.
-  static Future<void> _rule(String sample) {
-    final thick = sample.isNotEmpty && sample.codeUnitAt(0) == 0x3D; // '='
-    final ch = thick ? '=' : '-';
-    // K58 ~384 dot: size 14 cần ~52 ký tự (+4 so với 48); K80 → 68.
-    final n = sample.length > 40 ? 68 : 52;
-    return SunmiPrinter.printText(
-      List.filled(n, ch).join(),
-      style: SunmiTextStyle(
-        fontSize: 14,
-        align: SunmiPrintAlign.LEFT,
-        bold: true,
-      ),
+  static Future<void> _printImageLines(
+    _SunmiReceiptLayout layout,
+    List<PosReceiptImageLine> lines,
+  ) async {
+    final png = await PosThermalBitmapEncoder.receiptToPng(
+      lines,
+      paperDots: layout.k58 ? 384 : 576,
     );
+    if (png != null) {
+      await SunmiPrinter.printImage(png, align: SunmiPrintAlign.CENTER);
+    }
+  }
+
+  /// Đường kẻ full khổ — ảnh, không dùng chuỗi '=' (T1 cắt/thiếu khổ).
+  static Future<void> _rule(Object layoutOrSample) async {
+    final k58 = layoutOrSample is _SunmiReceiptLayout
+        ? layoutOrSample.k58
+        : layoutOrSample.toString().length <= 40;
+    final png = await PosThermalBitmapEncoder.horizontalRulePng(
+      paperDots: k58 ? 384 : 576,
+      thickness: 2,
+    );
+    if (png != null) {
+      await SunmiPrinter.printImage(png, align: SunmiPrintAlign.CENTER);
+    }
   }
 
   static Future<void> _center(String text, {int size = 24, bool bold = false}) =>
@@ -928,33 +863,59 @@ class PosSunmiNativePrint {
         ),
       );
 
+  /// Hàng hóa / tổng: vẽ ảnh đúng 576 điểm — T1 cắt printRow ở mép phải.
+  static Future<void> _saleItemRow(
+    _SunmiReceiptLayout layout, {
+    required String name,
+    required String qty,
+    required String price,
+    required String total,
+  }) async {
+    debugPrint('SALE PRINT row name="$name" qty="$qty" price="$price" total="$total"');
+    final hasCols = qty.trim().isNotEmpty ||
+        price.trim().isNotEmpty ||
+        total.trim().isNotEmpty;
+    final png = await PosThermalBitmapEncoder.receiptToPng(
+      [
+        PosReceiptImageLine(
+          text: name,
+          colQty: hasCols ? qty : null,
+          colPrice: hasCols ? price : null,
+          colTotal: hasCols ? total : null,
+          fontSize: layout.k58 ? 20 : 22,
+          bold: true,
+        ),
+      ],
+      paperDots: layout.k58 ? 384 : 576,
+    );
+    if (png != null) {
+      await SunmiPrinter.printImage(png, align: SunmiPrintAlign.CENTER);
+    }
+  }
+
   static Future<void> _pair(
     _SunmiReceiptLayout layout,
     String left,
     String right, {
     bool bold = false,
-  }) =>
-      SunmiPrinter.printRow(
-        cols: [
-          SunmiColumn(
-            text: tr(left),
-            width: layout.colLeft,
-            style: SunmiTextStyle(
-              fontSize: bold ? layout.totalSize : layout.bodySize,
-              bold: true,
-            ),
-          ),
-          SunmiColumn(
-            text: tr(right),
-            width: layout.colRight,
-            style: SunmiTextStyle(
-              fontSize: bold ? layout.totalSize : layout.bodySize,
-              bold: true,
-              align: SunmiPrintAlign.RIGHT,
-            ),
-          ),
-        ],
-      );
+  }) async {
+    final png = await PosThermalBitmapEncoder.receiptToPng(
+      [
+        PosReceiptImageLine(
+          text: left,
+          rightText: right,
+          fontSize: bold
+              ? (layout.k58 ? 22 : 24)
+              : (layout.k58 ? 20 : 22),
+          bold: true,
+        ),
+      ],
+      paperDots: layout.k58 ? 384 : 576,
+    );
+    if (png != null) {
+      await SunmiPrinter.printImage(png, align: SunmiPrintAlign.CENTER);
+    }
+  }
 
   static List<String> _wrap(String text, int maxChars) {
     if (text.length <= maxChars) return [text];

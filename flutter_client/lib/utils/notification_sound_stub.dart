@@ -5,9 +5,16 @@ class NotificationSound {
   factory NotificationSound() => _instance;
   NotificationSound._internal();
 
+  DateTime? _lastPlay;
+
   void play() {
-    // Phát âm thanh hệ thống + rung nhẹ trên Android/iOS
-    SystemSound.play(SystemSoundType.alert);
-    HapticFeedback.mediumImpact();
+    final now = DateTime.now();
+    if (_lastPlay != null &&
+        now.difference(_lastPlay!) < const Duration(milliseconds: 800)) {
+      return;
+    }
+    _lastPlay = now;
+    // click nhẹ — SystemSound.alert + haptic làm đơ A7/V2s mỗi toast.
+    SystemSound.play(SystemSoundType.click);
   }
 }

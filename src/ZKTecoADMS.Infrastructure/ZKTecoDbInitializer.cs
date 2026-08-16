@@ -62,6 +62,7 @@ public class ZKTecoDbInitializer(
                     ALTER TABLE ""PosStorePrinters"" ADD COLUMN IF NOT EXISTS ""BeepOnPrint"" boolean NOT NULL DEFAULT false;
                     ALTER TABLE ""PosStorePrinters"" ADD COLUMN IF NOT EXISTS ""IsDeviceLocal"" boolean NOT NULL DEFAULT false;
                     ALTER TABLE ""PosStorePrinters"" ADD COLUMN IF NOT EXISTS ""OwnerDeviceId"" character varying(64) NULL;
+                    ALTER TABLE ""PosStorePrinters"" ADD COLUMN IF NOT EXISTS ""CutPerItem"" boolean NOT NULL DEFAULT false;
                 ");
 
                 // =============== Mobile Attendance Tables ===============
@@ -1122,6 +1123,8 @@ public class ZKTecoDbInitializer(
                     ALTER TABLE ""PosSaleOrderLines"" ADD COLUMN IF NOT EXISTS ""UnitId"" uuid NULL;
                     ALTER TABLE ""PosSaleOrderLines"" ADD COLUMN IF NOT EXISTS ""KitchenSentQty"" numeric(18,3) NOT NULL DEFAULT 0;
                     ALTER TABLE ""PosSaleOrderLines"" ADD COLUMN IF NOT EXISTS ""KitchenSentAt"" timestamp without time zone NULL;
+                    ALTER TABLE ""PosSaleOrderLines"" ADD COLUMN IF NOT EXISTS ""KitchenDoneQty"" numeric(18,3) NOT NULL DEFAULT 0;
+                    ALTER TABLE ""PosSaleOrderLines"" ADD COLUMN IF NOT EXISTS ""KitchenPrepStatus"" character varying(20) NOT NULL DEFAULT 'none';
                     ALTER TABLE ""PosSaleOrderLines"" ADD COLUMN IF NOT EXISTS ""ToppingsJson"" text NULL;
                     ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""IsTopping"" boolean NOT NULL DEFAULT false;
                     ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""AllowToppings"" boolean NOT NULL DEFAULT false;
@@ -1146,11 +1149,188 @@ public class ZKTecoDbInitializer(
                     END $$;
                     ALTER TABLE ""PosStoreSellSettings"" ADD COLUMN IF NOT EXISTS ""PromptGuestCountOnOpen"" boolean NOT NULL DEFAULT false;
                     ALTER TABLE ""PosStoreSellSettings"" ADD COLUMN IF NOT EXISTS ""AllowNegativeStock"" boolean NOT NULL DEFAULT false;
+                    ALTER TABLE ""PosStoreSellSettings"" ADD COLUMN IF NOT EXISTS ""EnableCashierShift"" boolean NOT NULL DEFAULT false;
+                    ALTER TABLE ""PosStoreSellSettings"" ADD COLUMN IF NOT EXISTS ""EnableQrTableOrder"" boolean NOT NULL DEFAULT false;
+                    ALTER TABLE ""PosStoreSellSettings"" ADD COLUMN IF NOT EXISTS ""EnableQrOrderAutoPrint"" boolean NOT NULL DEFAULT true;
+                    ALTER TABLE ""PosServiceResources"" ADD COLUMN IF NOT EXISTS ""QrOrderToken"" character varying(32) NULL;
+                    CREATE UNIQUE INDEX IF NOT EXISTS ""IX_PosServiceResources_QrOrderToken""
+                        ON ""PosServiceResources"" (""QrOrderToken"")
+                        WHERE ""QrOrderToken"" IS NOT NULL AND ""Deleted"" IS NULL;
+                    CREATE TABLE IF NOT EXISTS ""PosCashierShifts"" (
+                        ""Id"" uuid NOT NULL,
+                        ""StoreId"" uuid NOT NULL,
+                        ""OpenedAt"" timestamp without time zone NOT NULL,
+                        ""OpenedByUserId"" uuid NULL,
+                        ""OpenedByName"" character varying(200) NULL,
+                        ""OpeningCash"" numeric(18,2) NOT NULL DEFAULT 0,
+                        ""ClosedAt"" timestamp without time zone NULL,
+                        ""ClosedByUserId"" uuid NULL,
+                        ""ClosedByName"" character varying(200) NULL,
+                        ""CountedCash"" numeric(18,2) NULL,
+                        ""ExpectedCash"" numeric(18,2) NULL,
+                        ""Difference"" numeric(18,2) NULL,
+                        ""Note"" character varying(500) NULL,
+                        ""Status"" character varying(20) NOT NULL DEFAULT 'Open',
+                        ""IsActive"" boolean NOT NULL DEFAULT true,
+                        ""CreatedAt"" timestamp without time zone NOT NULL,
+                        ""CreatedBy"" character varying(200) NULL,
+                        ""UpdatedAt"" timestamp without time zone NULL,
+                        ""UpdatedBy"" character varying(200) NULL,
+                        ""Deleted"" timestamp without time zone NULL,
+                        ""DeletedBy"" character varying(200) NULL,
+                        CONSTRAINT ""PK_PosCashierShifts"" PRIMARY KEY (""Id"")
+                    );
+                    CREATE INDEX IF NOT EXISTS ""IX_PosCashierShifts_Store_Status""
+                        ON ""PosCashierShifts"" (""StoreId"", ""Status"");
+                    UPDATE ""PosCashierShifts"" AS s
+                    SET ""Status"" = 'Closed',
+                        ""ClosedAt"" = COALESCE(s.""ClosedAt"", NOW()),
+                        ""UpdatedAt"" = NOW()
+                    FROM (
+                        SELECT ""Id"" FROM (
+                            SELECT ""Id"",
+                                   ROW_NUMBER() OVER (
+                                       PARTITION BY ""StoreId""
+                                       ORDER BY ""OpenedAt"" DESC NULLS LAST, ""Id"" DESC) AS rn
+                            FROM ""PosCashierShifts""
+                            WHERE ""Status"" = 'Open' AND ""Deleted"" IS NULL
+                        ) ranked WHERE rn > 1
+                    ) extra
+                    WHERE s.""Id"" = extra.""Id"";
+                    CREATE UNIQUE INDEX IF NOT EXISTS ""IX_PosCashierShifts_Store_OneOpen""
+                        ON ""PosCashierShifts"" (""StoreId"")
+                        WHERE ""Status"" = 'Open' AND ""Deleted"" IS NULL;
                     ALTER TABLE ""PosStoreSellSettings"" ADD COLUMN IF NOT EXISTS ""DefaultHourlyProductId"" uuid NULL;
                     ALTER TABLE ""PosServiceResources"" ADD COLUMN IF NOT EXISTS ""DefaultServiceProductId"" uuid NULL;
                     ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""GraceMinutes"" integer NULL;
                     ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""RoundAfterMinutes"" integer NULL;
+                    ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""OpeningFee"" numeric(18,2) NOT NULL DEFAULT 0;
+                    ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""OpeningMinutes"" integer NULL;
+                    ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""SessionPackValidDays"" integer NOT NULL DEFAULT 0;
                     ALTER TABLE ""PosSaleOrders"" ADD COLUMN IF NOT EXISTS ""VatAmount"" numeric(18,2) NOT NULL DEFAULT 0;
+                    ALTER TABLE ""PosSaleOrders"" ADD COLUMN IF NOT EXISTS ""SplitFromOrderId"" uuid NULL;
+                    ALTER TABLE ""PosSaleOrders"" ADD COLUMN IF NOT EXISTS ""EInvoiceStatus"" character varying(20) NOT NULL DEFAULT 'None';
+                    ALTER TABLE ""PosSaleOrders"" ADD COLUMN IF NOT EXISTS ""EInvoiceProvider"" character varying(20) NULL;
+                    ALTER TABLE ""PosSaleOrders"" ADD COLUMN IF NOT EXISTS ""EInvoiceTransactionUuid"" character varying(36) NULL;
+                    ALTER TABLE ""PosSaleOrders"" ADD COLUMN IF NOT EXISTS ""EInvoiceNo"" character varying(30) NULL;
+                    ALTER TABLE ""PosSaleOrders"" ADD COLUMN IF NOT EXISTS ""EInvoiceSeries"" character varying(25) NULL;
+                    ALTER TABLE ""PosSaleOrders"" ADD COLUMN IF NOT EXISTS ""EInvoiceReservationCode"" character varying(50) NULL;
+                    ALTER TABLE ""PosSaleOrders"" ADD COLUMN IF NOT EXISTS ""EInvoiceCode"" character varying(50) NULL;
+                    ALTER TABLE ""PosSaleOrders"" ADD COLUMN IF NOT EXISTS ""EInvoiceIssuedAt"" timestamp without time zone NULL;
+                    ALTER TABLE ""PosSaleOrders"" ADD COLUMN IF NOT EXISTS ""EInvoiceError"" character varying(1000) NULL;
+                    ALTER TABLE ""PosSaleOrders"" ADD COLUMN IF NOT EXISTS ""EInvoiceBuyerName"" character varying(200) NULL;
+                    ALTER TABLE ""PosSaleOrders"" ADD COLUMN IF NOT EXISTS ""EInvoiceBuyerTaxCode"" character varying(50) NULL;
+                    ALTER TABLE ""PosSaleOrders"" ADD COLUMN IF NOT EXISTS ""EInvoiceBuyerAddress"" character varying(500) NULL;
+                    ALTER TABLE ""PosSaleOrders"" ADD COLUMN IF NOT EXISTS ""EInvoiceBuyerEmail"" character varying(200) NULL;
+                    ALTER TABLE ""PosSaleOrders"" ADD COLUMN IF NOT EXISTS ""EInvoiceBuyerPhone"" character varying(50) NULL;
+                    CREATE INDEX IF NOT EXISTS ""IX_PosSaleOrders_Store_EInvoiceStatus""
+                        ON ""PosSaleOrders"" (""StoreId"", ""EInvoiceStatus"");
+
+                    CREATE TABLE IF NOT EXISTS ""PosEInvoiceSettings"" (
+                        ""Id"" uuid NOT NULL,
+                        ""StoreId"" uuid NOT NULL,
+                        ""Enabled"" boolean NOT NULL DEFAULT false,
+                        ""Provider"" character varying(20) NOT NULL DEFAULT 'Viettel',
+                        ""ApiBaseUrl"" character varying(300) NOT NULL DEFAULT 'https://api-vinvoice.viettel.vn',
+                        ""Username"" character varying(100) NOT NULL DEFAULT '',
+                        ""Password"" character varying(200) NOT NULL DEFAULT '',
+                        ""SupplierTaxCode"" character varying(20) NOT NULL DEFAULT '',
+                        ""TemplateCode"" character varying(20) NOT NULL DEFAULT '1/001',
+                        ""InvoiceSeries"" character varying(25) NOT NULL DEFAULT '',
+                        ""InvoiceType"" character varying(10) NOT NULL DEFAULT '1',
+                        ""AskAtCheckout"" boolean NOT NULL DEFAULT true,
+                        ""DefaultIssueAtCheckout"" boolean NOT NULL DEFAULT false,
+                        ""TaxMode"" character varying(20) NOT NULL DEFAULT 'included',
+                        ""DefaultTaxPercent"" numeric(18,2) NOT NULL DEFAULT 10,
+                        ""IsActive"" boolean NOT NULL DEFAULT true,
+                        ""CreatedAt"" timestamp without time zone NOT NULL DEFAULT NOW(),
+                        ""UpdatedAt"" timestamp without time zone NULL,
+                        ""UpdatedBy"" text NULL,
+                        ""CreatedBy"" text NULL,
+                        ""LastModified"" timestamp without time zone NULL,
+                        ""LastModifiedBy"" text NULL,
+                        ""Deleted"" timestamp without time zone NULL,
+                        ""DeletedBy"" text NULL,
+                        CONSTRAINT ""PK_PosEInvoiceSettings"" PRIMARY KEY (""Id"")
+                    );
+                    CREATE UNIQUE INDEX IF NOT EXISTS ""IX_PosEInvoiceSettings_StoreId""
+                        ON ""PosEInvoiceSettings"" (""StoreId"");
+
+                    CREATE TABLE IF NOT EXISTS ""PosBarcodeCatalog"" (
+                        ""Id"" uuid NOT NULL,
+                        ""StoreId"" uuid NOT NULL,
+                        ""Barcode"" character varying(50) NOT NULL,
+                        ""Name"" character varying(500) NOT NULL,
+                        ""UnitName"" character varying(100) NULL,
+                        ""BrandName"" character varying(200) NULL,
+                        ""CategoryName"" character varying(200) NULL,
+                        ""IsActive"" boolean NOT NULL DEFAULT true,
+                        ""CreatedAt"" timestamp without time zone NOT NULL DEFAULT NOW(),
+                        ""UpdatedAt"" timestamp without time zone NULL,
+                        ""UpdatedBy"" text NULL,
+                        ""CreatedBy"" text NULL,
+                        ""LastModified"" timestamp without time zone NULL,
+                        ""LastModifiedBy"" text NULL,
+                        ""Deleted"" timestamp without time zone NULL,
+                        ""DeletedBy"" text NULL,
+                        CONSTRAINT ""PK_PosBarcodeCatalog"" PRIMARY KEY (""Id"")
+                    );
+                    CREATE INDEX IF NOT EXISTS ""IX_PosBarcodeCatalog_Store_Barcode""
+                        ON ""PosBarcodeCatalog"" (""StoreId"", ""Barcode"");
+                    ALTER TABLE ""PosBarcodeCatalog"" ADD COLUMN IF NOT EXISTS ""ImageUrl"" character varying(1000) NULL;
+
+                    ALTER TABLE ""ServicePackages"" ADD COLUMN IF NOT EXISTS ""MaxAccessDevices"" integer NOT NULL DEFAULT 0;
+                    ALTER TABLE ""ServicePackages"" ADD COLUMN IF NOT EXISTS ""AllowWeb"" boolean NOT NULL DEFAULT true;
+                    ALTER TABLE ""ServicePackages"" ADD COLUMN IF NOT EXISTS ""AllowMobile"" boolean NOT NULL DEFAULT true;
+                    ALTER TABLE ""ServicePackages"" ADD COLUMN IF NOT EXISTS ""MaxBranches"" integer NOT NULL DEFAULT 0;
+                    ALTER TABLE ""ServicePackages"" ADD COLUMN IF NOT EXISTS ""AllowFcm"" boolean NOT NULL DEFAULT true;
+                    ALTER TABLE ""ServicePackages"" ADD COLUMN IF NOT EXISTS ""AllowedFcmCategories"" text NOT NULL DEFAULT '[]';
+                    ALTER TABLE ""Stores"" ADD COLUMN IF NOT EXISTS ""MaxAccessDevices"" integer NOT NULL DEFAULT 0;
+                    ALTER TABLE ""Stores"" ADD COLUMN IF NOT EXISTS ""AllowWeb"" boolean NOT NULL DEFAULT true;
+                    ALTER TABLE ""Stores"" ADD COLUMN IF NOT EXISTS ""AllowMobile"" boolean NOT NULL DEFAULT true;
+                    ALTER TABLE ""Stores"" ADD COLUMN IF NOT EXISTS ""MaxBranches"" integer NOT NULL DEFAULT 0;
+                    ALTER TABLE ""Stores"" ADD COLUMN IF NOT EXISTS ""AllowFcm"" boolean NOT NULL DEFAULT true;
+                    ALTER TABLE ""Stores"" ADD COLUMN IF NOT EXISTS ""AllowedFcmCategories"" text NOT NULL DEFAULT '[]';
+
+                    CREATE TABLE IF NOT EXISTS ""StoreAccessDevices"" (
+                        ""Id"" uuid NOT NULL,
+                        ""StoreId"" uuid NOT NULL,
+                        ""UserId"" uuid NULL,
+                        ""DeviceKey"" character varying(80) NOT NULL,
+                        ""Platform"" character varying(20) NOT NULL DEFAULT 'web',
+                        ""DeviceName"" character varying(200) NULL,
+                        ""LastSeenAt"" timestamp without time zone NOT NULL DEFAULT NOW(),
+                        ""IsActive"" boolean NOT NULL DEFAULT true,
+                        ""CreatedAt"" timestamp without time zone NOT NULL DEFAULT NOW(),
+                        ""UpdatedAt"" timestamp without time zone NULL,
+                        ""UpdatedBy"" text NULL,
+                        ""CreatedBy"" text NULL,
+                        ""LastModified"" timestamp without time zone NULL,
+                        ""LastModifiedBy"" text NULL,
+                        ""Deleted"" timestamp without time zone NULL,
+                        ""DeletedBy"" text NULL,
+                        CONSTRAINT ""PK_StoreAccessDevices"" PRIMARY KEY (""Id"")
+                    );
+                    CREATE UNIQUE INDEX IF NOT EXISTS ""IX_StoreAccessDevices_Store_DeviceKey""
+                        ON ""StoreAccessDevices"" (""StoreId"", ""DeviceKey"");
+
+                    CREATE TABLE IF NOT EXISTS ""ServerMetricSamples"" (
+                        ""Id"" uuid NOT NULL,
+                        ""SampledAt"" timestamp without time zone NOT NULL,
+                        ""CpuPercent"" double precision NOT NULL,
+                        ""RamPercent"" double precision NOT NULL,
+                        ""RamUsedMb"" bigint NOT NULL DEFAULT 0,
+                        ""RamTotalMb"" bigint NOT NULL DEFAULT 0,
+                        ""ProcessWorkingSetMb"" bigint NOT NULL DEFAULT 0,
+                        ""Source"" character varying(20) NOT NULL DEFAULT 'unknown',
+                        ""CreatedAt"" timestamp without time zone NOT NULL DEFAULT NOW(),
+                        ""UpdatedAt"" timestamp without time zone NULL,
+                        ""UpdatedBy"" text NULL,
+                        ""CreatedBy"" text NULL,
+                        CONSTRAINT ""PK_ServerMetricSamples"" PRIMARY KEY (""Id"")
+                    );
+                    CREATE INDEX IF NOT EXISTS ""IX_ServerMetricSamples_SampledAt""
+                        ON ""ServerMetricSamples"" (""SampledAt"");
 
                     CREATE TABLE IF NOT EXISTS ""PosKitchenVoidSlips"" (
                         ""Id"" uuid NOT NULL,
@@ -1758,7 +1938,10 @@ public class ZKTecoDbInitializer(
             await SeedHolidaysAsync();
             await SeedPermissionModulesAsync();
             await SyncEmployeeRolePermissionsAsync();
+            await PatchPosSellOpsRolePermissionsAsync();
+            await PatchPosReportRolePermissionsAsync();
             await SeedServicePackagesAsync();
+            await PatchPosReportPackageModulesAsync();
 
             await context.SaveChangesAsync();
             logger.LogInformation("Database seeding completed successfully.");
@@ -2240,6 +2423,20 @@ public class ZKTecoDbInitializer(
         ["PosProducts"] = Guid.Parse("11111111-1111-1111-1111-111111111083"),
         ["PosSell"] = Guid.Parse("11111111-1111-1111-1111-111111111087"),
         ["PosSalesReport"] = Guid.Parse("11111111-1111-1111-1111-111111111084"),
+        ["PosReportRevenue"] = Guid.Parse("11111111-1111-1111-1111-111111111108"),
+        ["PosReportSoldGoods"] = Guid.Parse("11111111-1111-1111-1111-111111111109"),
+        ["PosReportStock"] = Guid.Parse("11111111-1111-1111-1111-111111111110"),
+        ["PosReportPurchases"] = Guid.Parse("11111111-1111-1111-1111-111111111111"),
+        ["PosReportPayment"] = Guid.Parse("11111111-1111-1111-1111-111111111112"),
+        ["PosReportDebt"] = Guid.Parse("11111111-1111-1111-1111-111111111113"),
+        ["PosReportExpiry"] = Guid.Parse("11111111-1111-1111-1111-111111111114"),
+        ["PosReportProfit"] = Guid.Parse("11111111-1111-1111-1111-111111111115"),
+        ["PosReportExpense"] = Guid.Parse("11111111-1111-1111-1111-111111111116"),
+        ["PosReportEndOfDay"] = Guid.Parse("11111111-1111-1111-1111-111111111117"),
+        ["PosReportStaffRevenue"] = Guid.Parse("11111111-1111-1111-1111-111111111118"),
+        ["PosReportCashbook"] = Guid.Parse("11111111-1111-1111-1111-111111111119"),
+        ["PosReportPnl"] = Guid.Parse("11111111-1111-1111-1111-111111111120"),
+        ["PosReportVoucher"] = Guid.Parse("11111111-1111-1111-1111-111111111121"),
         ["HkdBooks"] = Guid.Parse("11111111-1111-1111-1111-111111111102"),
         ["PosPrintTemplates"] = Guid.Parse("11111111-1111-1111-1111-111111111088"),
         ["PosSaleOrders"] = Guid.Parse("11111111-1111-1111-1111-111111111089"),
@@ -2253,6 +2450,11 @@ public class ZKTecoDbInitializer(
         ["PosCustomers"] = Guid.Parse("11111111-1111-1111-1111-111111111098"),
         ["PosWarranty"] = Guid.Parse("11111111-1111-1111-1111-111111111099"),
         ["PosCustomerDisplay"] = Guid.Parse("11111111-1111-1111-1111-111111111100"),
+        ["PosEInvoice"] = Guid.Parse("11111111-1111-1111-1111-111111111107"),
+        ["PosKds"] = Guid.Parse("11111111-1111-1111-1111-111111111103"),
+        ["PosQrOrder"] = Guid.Parse("11111111-1111-1111-1111-111111111104"),
+        ["PosCashierShift"] = Guid.Parse("11111111-1111-1111-1111-111111111105"),
+        ["PosPrinters"] = Guid.Parse("11111111-1111-1111-1111-111111111106"),
     };
 
     private async Task SeedPermissionModulesAsync()
@@ -2327,6 +2529,177 @@ public class ZKTecoDbInitializer(
         else
         {
             logger.LogInformation("Permission modules already up to date ({Count} modules)", requiredModules.Length);
+        }
+    }
+
+    /// <summary>
+    /// Role đã có PosSell nhưng chưa có dòng KDS/QR/ca/máy in/HĐĐT → chèn (không ghi đè chỉnh tay).
+    /// </summary>
+    private async Task PatchPosSellOpsRolePermissionsAsync()
+    {
+        var opsCodes = PosPackageDefaults.SellAddonModules
+            .Concat(["PosKds", "PosQrOrder", "PosCashierShift", "PosPrinters", "PosEInvoice"])
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        var perms = await context.Permissions
+            .Where(p => p.Module == "PosSell" || opsCodes.Contains(p.Module))
+            .ToListAsync();
+        var sell = perms.FirstOrDefault(p => p.Module == "PosSell");
+        if (sell == null) return;
+        var ops = perms.Where(p => p.Module != "PosSell").ToList();
+        if (ops.Count == 0) return;
+
+        var sellRows = await context.RolePermissions
+            .Where(rp => rp.PermissionId == sell.Id && rp.IsActive)
+            .ToListAsync();
+        if (sellRows.Count == 0) return;
+
+        var opIds = ops.Select(o => o.Id).ToList();
+        var existing = await context.RolePermissions
+            .Where(rp => opIds.Contains(rp.PermissionId))
+            .Select(rp => new { rp.RoleName, rp.StoreId, rp.PermissionId })
+            .ToListAsync();
+        var have = existing
+            .Select(x => (x.RoleName, Store: x.StoreId, x.PermissionId))
+            .ToHashSet();
+
+        var inserted = 0;
+        foreach (var src in sellRows)
+        {
+            foreach (var op in ops)
+            {
+                if (have.Contains((src.RoleName, src.StoreId, op.Id))) continue;
+                var (v, c, e, d, x, a) = ModulePermissionDefaults.Get(src.RoleName, op.Module);
+                if (!v && !c && !e && !d && !x && !a)
+                {
+                    v = src.CanView;
+                    c = src.CanCreate && op.Module is "PosKds" or "PosCashierShift";
+                    e = (src.CanEdit || src.CanCreate) && op.Module is "PosQrOrder" or "PosPrinters";
+                    a = src.CanApprove && op.Module == "PosEInvoice";
+                    if (op.Module == "PosEInvoice") v = src.CanView;
+                    if (op.Module is "PosPrinters" or "PosQrOrder" or "PosKds") v = src.CanView;
+                }
+                if (!v && !c && !e && !d && !x && !a) continue;
+                context.RolePermissions.Add(new RolePermission
+                {
+                    Id = Guid.NewGuid(),
+                    RoleName = src.RoleName,
+                    RoleDisplayName = src.RoleDisplayName,
+                    PermissionId = op.Id,
+                    StoreId = src.StoreId,
+                    CanView = v,
+                    CanCreate = c,
+                    CanEdit = e,
+                    CanDelete = d,
+                    CanExport = x,
+                    CanApprove = a,
+                    IsActive = true,
+                    CreatedAt = DateTime.UtcNow,
+                    CreatedBy = "System",
+                });
+                inserted++;
+            }
+        }
+        if (inserted > 0)
+            logger.LogInformation("Patched {Count} POS ops RolePermissions from PosSell", inserted);
+    }
+
+    /// <summary>
+    /// Role đã có PosSalesReport hoặc PosProducts (xem/xuất) → chèn 14 báo cáo tách (không ghi đè).
+    /// </summary>
+    private async Task PatchPosReportRolePermissionsAsync()
+    {
+        var reportCodes = PosPackageDefaults.ReportModules;
+        var perms = await context.Permissions
+            .Where(p => p.Module == "PosSalesReport" || p.Module == "PosProducts" || reportCodes.Contains(p.Module))
+            .ToListAsync();
+        var srcPerms = perms.Where(p => p.Module is "PosSalesReport" or "PosProducts").ToList();
+        var reports = perms.Where(p => reportCodes.Contains(p.Module, StringComparer.OrdinalIgnoreCase)).ToList();
+        if (srcPerms.Count == 0 || reports.Count == 0) return;
+
+        var srcIds = srcPerms.Select(p => p.Id).ToList();
+        var srcRows = await context.RolePermissions
+            .Where(rp => srcIds.Contains(rp.PermissionId) && rp.IsActive && (rp.CanView || rp.CanExport))
+            .ToListAsync();
+        if (srcRows.Count == 0) return;
+
+        var reportIds = reports.Select(r => r.Id).ToList();
+        var existing = await context.RolePermissions
+            .Where(rp => reportIds.Contains(rp.PermissionId))
+            .Select(rp => new { rp.RoleName, rp.StoreId, rp.PermissionId })
+            .ToListAsync();
+        var have = existing
+            .Select(x => (x.RoleName, Store: x.StoreId, x.PermissionId))
+            .ToHashSet();
+
+        var inserted = 0;
+        foreach (var grp in srcRows.GroupBy(r => (r.RoleName, r.StoreId)))
+        {
+            var view = grp.Any(r => r.CanView);
+            var export = grp.Any(r => r.CanExport);
+            if (!view && !export) continue;
+            var sample = grp.First();
+            foreach (var report in reports)
+            {
+                if (have.Contains((sample.RoleName, sample.StoreId, report.Id))) continue;
+                var (v, c, e, d, x, a) = ModulePermissionDefaults.Get(sample.RoleName, report.Module);
+                if (!v && !x)
+                {
+                    v = view;
+                    x = export;
+                }
+                if (!v && !x) continue;
+                context.RolePermissions.Add(new RolePermission
+                {
+                    Id = Guid.NewGuid(),
+                    RoleName = sample.RoleName,
+                    RoleDisplayName = sample.RoleDisplayName,
+                    PermissionId = report.Id,
+                    StoreId = sample.StoreId,
+                    CanView = v,
+                    CanCreate = c,
+                    CanEdit = e,
+                    CanDelete = d,
+                    CanExport = x,
+                    CanApprove = a,
+                    IsActive = true,
+                    CreatedAt = DateTime.UtcNow,
+                    CreatedBy = "System",
+                });
+                inserted++;
+            }
+        }
+        if (inserted > 0)
+            logger.LogInformation("Patched {Count} POS report RolePermissions from PosSalesReport/PosProducts", inserted);
+    }
+
+    /// <summary>Gói đang có PosSalesReport (hoặc kho PosProducts) → bổ sung 14 báo cáo tách.</summary>
+    private async Task PatchPosReportPackageModulesAsync()
+    {
+        var packages = await context.ServicePackages
+            .Where(p => p.IsActive)
+            .ToListAsync();
+        foreach (var pkg in packages)
+        {
+            var mods = StorePackageHelper.DeserializeModules(pkg.AllowedModules);
+            var hasHub = mods.Contains("PosSalesReport", StringComparer.OrdinalIgnoreCase);
+            var hasWh = mods.Contains("PosProducts", StringComparer.OrdinalIgnoreCase);
+            if (!hasHub && !hasWh) continue;
+            var add = hasHub
+                ? PosPackageDefaults.ReportModules
+                : new[] { "PosReportSoldGoods", "PosReportStock", "PosReportExpiry", "PosReportEndOfDay" };
+            var changed = false;
+            foreach (var code in add)
+            {
+                if (mods.Contains(code, StringComparer.OrdinalIgnoreCase)) continue;
+                mods.Add(code);
+                changed = true;
+            }
+            if (!changed) continue;
+            pkg.AllowedModules = System.Text.Json.JsonSerializer.Serialize(mods);
+            pkg.UpdatedAt = DateTime.UtcNow;
+            pkg.UpdatedBy = "System";
+            logger.LogInformation("Added POS report modules to package: {Name}", pkg.Name);
         }
     }
 

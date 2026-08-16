@@ -19,6 +19,7 @@ import '../utils/pos_print_role.dart';
 import '../utils/pos_printer_readiness.dart';
 import '../utils/pos_print_orchestrator.dart';
 import '../utils/pos_print_template_runtime.dart';
+import '../utils/pos_receipt_layout.dart';
 import '../utils/pos_printer_transport.dart';
 import '../utils/pos_store_printer_mapper.dart';
 import '../utils/pos_sunmi_native_print.dart';
@@ -1025,7 +1026,8 @@ class PosPrintAgentService {
       '$qty × $product',
       if (area.trim().isNotEmpty) area.trim(),
       table,
-      if (orderNo.trim().isNotEmpty) 'HĐ: $orderNo',
+      if (orderNo.trim().isNotEmpty)
+        'HĐ: ${PosReceiptLayout.formatSaleInvoiceNo(orderNo)}',
       if (called.isNotEmpty) 'Gọi: $called',
       'Ra món: ${ready.isEmpty ? DateFormat('HH:mm').format(DateTime.now()) : ready}',
     ];

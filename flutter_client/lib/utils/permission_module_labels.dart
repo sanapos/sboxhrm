@@ -67,7 +67,7 @@ class PermissionModuleLabels {
     'PosReportCashbook': 'Sổ quỹ',
     'PosReportPnl': 'Kết quả kinh doanh',
     'PosReportVoucher': 'Báo cáo voucher',
-    'HkdBooks': 'Sổ sách HKD',
+    'HkdBooks': 'Thuế hộ kinh doanh',
     'PosBooking': 'Đặt bàn / lịch hẹn',
     'PosCustomers': 'Khách hàng POS',
     'PosWarranty': 'Bảo hành POS',

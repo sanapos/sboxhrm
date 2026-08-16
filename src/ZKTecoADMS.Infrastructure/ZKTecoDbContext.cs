@@ -214,6 +214,9 @@ public class ZKTecoDbContext : IdentityDbContext<ApplicationUser, IdentityRole<G
     public DbSet<PosProductBrand> PosProductBrands => Set<PosProductBrand>();
     public DbSet<PosStorageLocation> PosStorageLocations => Set<PosStorageLocation>();
     public DbSet<PosProduct> PosProducts => Set<PosProduct>();
+    public DbSet<PosBarcodeCatalog> PosBarcodeCatalog => Set<PosBarcodeCatalog>();
+    public DbSet<StoreAccessDevice> StoreAccessDevices => Set<StoreAccessDevice>();
+    public DbSet<ServerMetricSample> ServerMetricSamples => Set<ServerMetricSample>();
     public DbSet<PosProductToppingOption> PosProductToppingOptions => Set<PosProductToppingOption>();
     public DbSet<PosToppingGroup> PosToppingGroups => Set<PosToppingGroup>();
     public DbSet<PosToppingGroupItem> PosToppingGroupItems => Set<PosToppingGroupItem>();
@@ -226,6 +229,7 @@ public class ZKTecoDbContext : IdentityDbContext<ApplicationUser, IdentityRole<G
     public DbSet<PosStockTransaction> PosStockTransactions => Set<PosStockTransaction>();
     public DbSet<PosSaleOrder> PosSaleOrders => Set<PosSaleOrder>();
     public DbSet<PosSaleOrderLine> PosSaleOrderLines => Set<PosSaleOrderLine>();
+    public DbSet<PosEInvoiceSetting> PosEInvoiceSettings => Set<PosEInvoiceSetting>();
     public DbSet<PosProductComboLine> PosProductComboLines => Set<PosProductComboLine>();
     public DbSet<PosProductVariant> PosProductVariants => Set<PosProductVariant>();
     public DbSet<PosStockReceipt> PosStockReceipts => Set<PosStockReceipt>();
@@ -251,6 +255,7 @@ public class ZKTecoDbContext : IdentityDbContext<ApplicationUser, IdentityRole<G
     public DbSet<PosCustomerPointTransaction> PosCustomerPointTransactions => Set<PosCustomerPointTransaction>();
     public DbSet<PosVoucher> PosVouchers => Set<PosVoucher>();
     public DbSet<PosStoreSellSettings> PosStoreSellSettings => Set<PosStoreSellSettings>();
+    public DbSet<PosCashierShift> PosCashierShifts => Set<PosCashierShift>();
     public DbSet<PosServiceArea> PosServiceAreas => Set<PosServiceArea>();
     public DbSet<PosServiceResource> PosServiceResources => Set<PosServiceResource>();
     public DbSet<PosServiceAreaAssignment> PosServiceAreaAssignments => Set<PosServiceAreaAssignment>();

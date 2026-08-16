@@ -6,6 +6,7 @@ import '../../models/cash_transaction.dart';
 import '../../services/api_service.dart';
 import '../../widgets/cash_party_picker.dart';
 import '../../widgets/notification_overlay.dart';
+import 'pos_form_keyboard.dart';
 import 'pos_theme.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 import 'package:zkteco_flutter_client/l10n/app_ui_locale.dart';
@@ -71,6 +72,7 @@ class _PosCashVoucherDialogState extends State<_PosCashVoucherDialog> {
     _phoneCtrl.text = widget.initialContactPhone ?? '';
     _descCtrl.text = _isIncome ? 'Thu từ khách' : 'Chi cho NCC / chi phí';
     _loadCategories();
+    hidePosSoftKeyboard();
   }
 
   @override
@@ -161,7 +163,9 @@ class _PosCashVoucherDialogState extends State<_PosCashVoucherDialog> {
   @override
   Widget build(BuildContext context) {
     final dtFmt = DateFormat('dd/MM/yyyy HH:mm', 'vi_VN');
-    return Dialog(
+    return wrapPosFormDialog(
+      context,
+      Dialog(
       insetPadding: const EdgeInsets.all(24),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 560),
@@ -288,6 +292,7 @@ class _PosCashVoucherDialogState extends State<_PosCashVoucherDialog> {
               ),
         ),
       ),
+    ),
     );
   }
 }

@@ -13,6 +13,8 @@ public enum PosSellProfile
     Restaurant = 3,
     /// <summary>Gym — gói buổi / membership.</summary>
     Gym = 4,
+    /// <summary>Khách sạn / homestay / lưu trú — sơ đồ phòng, nhận/trả phòng, folio.</summary>
+    Hotel = 5,
 }
 
 /// <summary>Cách tính tiền dịch vụ.</summary>
@@ -24,8 +26,12 @@ public enum PosServiceBillingMode
     PerHour = 1,
     /// <summary>Theo phút.</summary>
     PerMinute = 2,
-    /// <summary>Theo buổi / session (gym, lớp).</summary>
+    /// <summary>Theo buổi / session (gym, liệu trình spa).</summary>
     PerSession = 3,
+    /// <summary>Theo block phút (karaoke / bi-a: mỗi 5 phút nhảy 1 lần).</summary>
+    PerBlock = 4,
+    /// <summary>Theo ngày / đêm (khách sạn).</summary>
+    PerDay = 5,
 }
 
 /// <summary>Loại tài nguyên phục vụ (ghế / bàn / phòng).</summary>

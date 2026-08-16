@@ -7,6 +7,7 @@ using ZKTecoADMS.Api.Authorization;
 using ZKTecoADMS.Api.Controllers.Base;
 using ZKTecoADMS.Api.Hubs;
 using ZKTecoADMS.Api.Services;
+using ZKTecoADMS.Api.Services.EInvoice;
 using ZKTecoADMS.Application.Constants;
 using ZKTecoADMS.Application.DTOs.Transactions;
 using ZKTecoADMS.Application.Helpers;
@@ -26,7 +27,8 @@ public partial class PosSalesController(
     ZKTecoDbContext dbContext,
     ISystemNotificationService notificationService,
     IModulePermissionService modulePermissionService,
-    IHubContext<AttendanceHub> hubContext) : AuthenticatedControllerBase
+    IHubContext<AttendanceHub> hubContext,
+    PosEInvoiceService eInvoiceService) : AuthenticatedControllerBase
 {
     void NotifyFloorChanged(
         Guid storeId,
@@ -41,10 +43,30 @@ public partial class PosSalesController(
     /// </summary>
     async Task<ActionResult?> DenyIfCannotCompleteSaleAsync(CancellationToken ct = default)
     {
-        if (await HasPosSellApproveAsync(ct)) return null;
-        return StatusCode(StatusCodes.Status403Forbidden,
-            AppResponse<SaleOrderDto>.Fail(
-                "Tài khoản không có quyền duyệt module PosSell (thanh toán)."));
+        if (!await HasPosSellApproveAsync(ct))
+            return StatusCode(StatusCodes.Status403Forbidden,
+                AppResponse<SaleOrderDto>.Fail(
+                    "Tài khoản không có quyền duyệt module PosSell (thanh toán)."));
+        return await DenyIfCashierShiftClosedAsync(ct);
+    }
+
+    /// <summary>
+    /// Khi bật ca thu ngân: chặn thanh toán nếu chưa mở ca.
+    /// </summary>
+    async Task<ActionResult?> DenyIfCashierShiftClosedAsync(CancellationToken ct = default)
+    {
+        var storeId = CurrentStoreId;
+        if (storeId is not Guid sid || sid == Guid.Empty) return null;
+        var enabled = await dbContext.PosStoreSellSettings.AsNoTracking()
+            .Where(s => s.StoreId == sid && s.Deleted == null)
+            .Select(s => s.EnableCashierShift)
+            .FirstOrDefaultAsync(ct);
+        if (!enabled) return null;
+        var open = await dbContext.PosCashierShifts.AsNoTracking()
+            .AnyAsync(s => s.StoreId == sid && s.Deleted == null && s.Status == "Open", ct);
+        if (open) return null;
+        return BadRequest(AppResponse<SaleOrderDto>.Fail(
+            "Chưa mở ca thu ngân — vào Nhiều hơn → Ca thu ngân để mở ca trước khi thanh toán"));
     }
 
     async Task<bool> HasPosSellApproveAsync(CancellationToken ct = default)
@@ -114,7 +136,17 @@ public partial class PosSalesController(
         string? DeviceId = null,
         string? DeviceName = null,
         int? InvoiceSlot = null,
-        decimal VatAmount = 0);
+        decimal VatAmount = 0,
+        bool? IssueEInvoice = null,
+        EInvoiceBuyerDto? EInvoiceBuyer = null);
+
+    public record EInvoiceBuyerDto(
+        string? Name = null,
+        string? TaxCode = null,
+        string? CompanyName = null,
+        string? Address = null,
+        string? Email = null,
+        string? Phone = null);
 
     public record UpdateSaleDto(
         List<SaleLineDto> Lines,
@@ -147,7 +179,9 @@ public partial class PosSalesController(
         string? DeviceId = null,
         string? DeviceName = null,
         int? InvoiceSlot = null,
-        decimal VatAmount = 0);
+        decimal VatAmount = 0,
+        bool? IssueEInvoice = null,
+        EInvoiceBuyerDto? EInvoiceBuyer = null);
 
     public record SaleOrderDto(
         Guid Id,
@@ -207,7 +241,18 @@ public partial class PosSalesController(
         DateTime? LockedAt = null,
         DateTime? LockExpiresAt = null,
         int? InvoiceSlot = null,
-        decimal VatAmount = 0);
+        decimal VatAmount = 0,
+        string? EInvoiceStatus = null,
+        string? EInvoiceProvider = null,
+        string? EInvoiceNo = null,
+        string? EInvoiceSeries = null,
+        string? EInvoiceReservationCode = null,
+        string? EInvoiceCode = null,
+        DateTime? EInvoiceIssuedAt = null,
+        string? EInvoiceError = null,
+        string? EInvoiceBuyerName = null,
+        string? EInvoiceBuyerTaxCode = null,
+        Guid? SplitFromOrderId = null);
 
     public record SaleOrderSummaryDto(
         Guid Id,
@@ -240,7 +285,11 @@ public partial class PosSalesController(
         DateTime? LockExpiresAt = null,
         int? InvoiceSlot = null,
         string? LockedByDeviceId = null,
-        decimal VatAmount = 0);
+        decimal VatAmount = 0,
+        string? EInvoiceStatus = null,
+        string? EInvoiceProvider = null,
+        string? EInvoiceNo = null,
+        string? EInvoiceError = null);
 
     public record SalePaymentDto(
         string PaymentNo, decimal Amount, string PaymentMethod,
@@ -398,7 +447,8 @@ public partial class PosSalesController(
 
         var query = dbContext.PosProducts
             .AsNoTracking()
-            .Where(p => p.StoreId == storeId && p.Deleted == null && p.IsActive && p.IsDirectSale);
+            .Where(p => p.StoreId == storeId && p.Deleted == null && p.IsActive
+                        && p.IsDirectSale && !p.IsTopping);
 
         if (!string.IsNullOrWhiteSpace(search))
         {
@@ -428,7 +478,7 @@ public partial class PosSalesController(
             .Select(g => new
             {
                 Total = g.Count(),
-                CatalogVersion = g.Max(p => (DateTime?)p.UpdatedAt),
+                CatalogVersion = g.Max(p => p.UpdatedAt ?? p.CreatedAt),
             })
             .FirstOrDefaultAsync();
         var total = stats?.Total ?? 0;
@@ -465,6 +515,9 @@ public partial class PosSalesController(
                 p.WarrantyMonths,
                 p.RequiresSerial,
                 p.AllowDecimalQty,
+                p.IsTopping,
+                p.AllowToppings,
+                p.AutoOpenToppingPopup,
                 VariantCount = p.Variants.Count(v => v.Deleted == null && v.IsActive),
             })
             .ToListAsync();
@@ -536,6 +589,80 @@ public partial class PosSalesController(
             .GroupBy(x => x.ComboProductId)
             .ToDictionary(g => g.Key, g => g.ToList());
 
+        var toppingRows = productIds.Count == 0
+            ? []
+            : await dbContext.PosProductToppingOptions.AsNoTracking()
+                .Include(t => t.ToppingProduct)
+                .Where(t => productIds.Contains(t.ProductId) && t.StoreId == storeId
+                            && t.Deleted == null && t.IsActive)
+                .OrderBy(t => t.SortOrder)
+                .ToListAsync();
+        var toppingMap = toppingRows
+            .GroupBy(t => t.ProductId)
+            .ToDictionary(
+                g => g.Key,
+                g => g.Select(t => new
+                {
+                    t.Id,
+                    t.ToppingProductId,
+                    ToppingName = t.ToppingProduct != null ? t.ToppingProduct.Name : "",
+                    ExtraPrice = t.ExtraPrice ?? (t.ToppingProduct != null ? t.ToppingProduct.BasePrice : 0),
+                    t.SortOrder,
+                }).ToList());
+
+        var toppingLinks = productIds.Count == 0
+            ? []
+            : await dbContext.PosProductToppingGroupLinks.AsNoTracking()
+                .Where(l => productIds.Contains(l.ProductId) && l.StoreId == storeId
+                            && l.Deleted == null && l.IsActive)
+                .OrderBy(l => l.SortOrder)
+                .ToListAsync();
+        var toppingGroupIds = toppingLinks.Select(l => l.GroupId).Distinct().ToList();
+        var toppingGroups = toppingGroupIds.Count == 0
+            ? new Dictionary<Guid, PosToppingGroup>()
+            : await dbContext.PosToppingGroups.AsNoTracking()
+                .Where(g => toppingGroupIds.Contains(g.Id) && g.StoreId == storeId
+                            && g.Deleted == null && g.IsActive)
+                .ToDictionaryAsync(g => g.Id);
+        var toppingGroupItems = toppingGroupIds.Count == 0
+            ? []
+            : await dbContext.PosToppingGroupItems.AsNoTracking()
+                .Include(i => i.ToppingProduct)
+                .Where(i => toppingGroupIds.Contains(i.GroupId) && i.StoreId == storeId
+                            && i.Deleted == null && i.IsActive)
+                .OrderBy(i => i.SortOrder)
+                .ToListAsync();
+        var toppingItemsByGroup = toppingGroupItems
+            .GroupBy(i => i.GroupId)
+            .ToDictionary(g => g.Key, g => g.ToList());
+        var toppingGroupIdsByProduct = toppingLinks
+            .GroupBy(l => l.ProductId)
+            .ToDictionary(g => g.Key, g => g.Select(x => x.GroupId).Distinct().ToList());
+        var toppingGroupsByProduct = toppingLinks
+            .GroupBy(l => l.ProductId)
+            .ToDictionary(
+                g => g.Key,
+                g => g.Select(link =>
+                {
+                    toppingGroups.TryGetValue(link.GroupId, out var grp);
+                    toppingItemsByGroup.TryGetValue(link.GroupId, out var gItems);
+                    gItems ??= [];
+                    return new
+                    {
+                        Id = grp?.Id ?? link.GroupId,
+                        Name = grp?.Name ?? "",
+                        SortOrder = grp?.SortOrder ?? link.SortOrder,
+                        Items = gItems.Select(i => new
+                        {
+                            i.Id,
+                            i.ToppingProductId,
+                            ToppingName = i.ToppingProduct != null ? i.ToppingProduct.Name : "",
+                            ExtraPrice = i.ExtraPrice ?? i.ToppingProduct?.BasePrice ?? 0,
+                            i.SortOrder,
+                        }).ToList(),
+                    };
+                }).ToList());
+
         var items = products.Select(p =>
         {
             var comboLines = comboLinesByProduct.GetValueOrDefault(p.Id, []);
@@ -574,7 +701,13 @@ public partial class PosSalesController(
                 p.WarrantyMonths,
                 p.RequiresSerial,
                 p.AllowDecimalQty,
+                p.IsTopping,
+                p.AllowToppings,
+                p.AutoOpenToppingPopup,
                 p.VariantCount,
+                ToppingOptions = toppingMap.GetValueOrDefault(p.Id),
+                ToppingGroupIds = toppingGroupIdsByProduct.GetValueOrDefault(p.Id),
+                ToppingGroups = toppingGroupsByProduct.GetValueOrDefault(p.Id),
                 SellableQty = sellableQty,
                 ComboLines = comboLines.Select(cl => new
                 {
@@ -685,7 +818,26 @@ public partial class PosSalesController(
             .FirstOrDefaultAsync();
 
         if (product == null)
-            return NotFound(AppResponse<object>.Fail("Không tìm thấy hàng hóa"));
+        {
+            var catalog = await dbContext.PosBarcodeCatalog.AsNoTracking()
+                .Where(x => x.StoreId == storeId && x.Deleted == null && x.Barcode.ToLower() == cLower)
+                .Select(x => new
+                {
+                    x.Barcode,
+                    x.Name,
+                    x.UnitName,
+                    x.BrandName,
+                    x.CategoryName,
+                    x.ImageUrl,
+                })
+                .FirstOrDefaultAsync();
+            return Ok(AppResponse<object>.Success(new
+            {
+                matchType = catalog != null ? "catalog" : "none",
+                barcode = c,
+                catalog,
+            }));
+        }
 
         return Ok(AppResponse<object>.Success(new { matchType = "product", product }));
     }
@@ -841,6 +993,15 @@ public partial class PosSalesController(
 
         if (dto.Complete && order.Status == PosSaleOrderStatus.Completed)
         {
+            await TryApplyEInvoiceAfterCompleteAsync(order, dto.IssueEInvoice, dto.EInvoiceBuyer);
+            try
+            {
+                mapped = await MapOrderAsync(storeId, order, lines);
+            }
+            catch
+            {
+                mapped = MapOrder(order, lines);
+            }
             try
             {
                 await PosNotificationHelper.NotifySaleCompletedAsync(
@@ -868,7 +1029,9 @@ public partial class PosSalesController(
         List<SaleLineDto>? Lines = null,
         int? ExpectedLockVersion = null,
         string? DeviceId = null,
-        string? DeviceName = null);
+        string? DeviceName = null,
+        bool? IssueEInvoice = null,
+        EInvoiceBuyerDto? EInvoiceBuyer = null);
 
     /// <summary>Danh sách nhân viên có thể chọn làm người bán trên màn hình thu ngân.</summary>
     [HttpGet("sellers")]
@@ -1259,6 +1422,44 @@ public partial class PosSalesController(
             return NotFound(AppResponse<object>.Fail("Không tìm thấy đơn hàng hoặc đã xóa"));
 
         return Ok(AppResponse<object>.Success(new { deleted = true }));
+    }
+
+    /// <summary>
+    /// Thu ngân hủy đơn tạm (HĐ tách trống / trả bàn) — PosSell Create|Edit, không cần PosSaleOrders.
+    /// </summary>
+    [HttpPost("{id:guid}/cancel-draft")]
+    [RequireAnyActionOnModule("PosSell", ModulePermissionAction.Create, ModulePermissionAction.Edit)]
+    public async Task<ActionResult<AppResponse<object>>> CancelDraftSale(Guid id)
+    {
+        var storeId = RequiredStoreId;
+        var order = await dbContext.PosSaleOrders
+            .AsNoTracking()
+            .FirstOrDefaultAsync(o => o.Id == id && o.StoreId == storeId && o.Deleted == null);
+        if (order == null)
+            return NotFound(AppResponse<object>.Fail("Không tìm thấy đơn hàng"));
+        if (order.Status != PosSaleOrderStatus.Draft)
+            return BadRequest(AppResponse<object>.Fail("Chỉ hủy được đơn tạm"));
+
+        var now = DateTime.UtcNow;
+        var deleted = await dbContext.PosSaleOrders
+            .Where(o => o.Id == id && o.StoreId == storeId && o.Deleted == null
+                && o.Status == PosSaleOrderStatus.Draft)
+            .ExecuteUpdateAsync(setters => setters
+                .SetProperty(o => o.Deleted, now)
+                .SetProperty(o => o.UpdatedAt, now)
+                .SetProperty(o => o.UpdatedBy, CurrentUserEmail)
+                .SetProperty(o => o.LockedByUserId, (Guid?)null)
+                .SetProperty(o => o.LockedByEmployeeId, (Guid?)null)
+                .SetProperty(o => o.LockedByDisplayName, (string?)null)
+                .SetProperty(o => o.LockedByDeviceId, (string?)null)
+                .SetProperty(o => o.LockedByDeviceName, (string?)null)
+                .SetProperty(o => o.LockedAt, (DateTime?)null)
+                .SetProperty(o => o.LockExpiresAt, (DateTime?)null));
+
+        if (deleted == 0)
+            return NotFound(AppResponse<object>.Fail("Không tìm thấy đơn tạm hoặc đã xóa"));
+
+        return Ok(AppResponse<object>.Success(new { deleted = true, split = order.SplitFromOrderId.HasValue }));
     }
 
     [HttpPost("{id:guid}/copy")]
@@ -1968,7 +2169,18 @@ public partial class PosSalesController(
             lockSnap.LockedByDeviceId, lockSnap.LockedByDeviceName,
             lockSnap.LockedAt, lockSnap.LockExpiresAt,
             order.InvoiceSlot,
-            order.VatAmount);
+            order.VatAmount,
+            order.EInvoiceStatus,
+            order.EInvoiceProvider,
+            order.EInvoiceNo,
+            order.EInvoiceSeries,
+            order.EInvoiceReservationCode,
+            order.EInvoiceCode,
+            order.EInvoiceIssuedAt,
+            order.EInvoiceError,
+            order.EInvoiceBuyerName,
+            order.EInvoiceBuyerTaxCode,
+            order.SplitFromOrderId);
     }
 
     private static SaleOrderSummaryDto MapSummary(
@@ -1994,6 +2206,37 @@ public partial class PosSalesController(
             lockSnap.LockVersion, lockSnap.IsLocked, lockSnap.IsLockedByMe,
             lockSnap.LockedByDisplayName, lockSnap.LockedByDeviceName, lockSnap.LockExpiresAt,
             o.InvoiceSlot, lockSnap.LockedByDeviceId,
-            o.VatAmount);
+            o.VatAmount,
+            o.EInvoiceStatus,
+            o.EInvoiceProvider,
+            o.EInvoiceNo,
+            o.EInvoiceError);
+    }
+
+    static EInvoiceBuyerInput? ToEInvoiceBuyer(EInvoiceBuyerDto? dto)
+    {
+        if (dto == null) return null;
+        if (string.IsNullOrWhiteSpace(dto.Name) &&
+            string.IsNullOrWhiteSpace(dto.TaxCode) &&
+            string.IsNullOrWhiteSpace(dto.CompanyName) &&
+            string.IsNullOrWhiteSpace(dto.Address) &&
+            string.IsNullOrWhiteSpace(dto.Email) &&
+            string.IsNullOrWhiteSpace(dto.Phone))
+            return null;
+        return new EInvoiceBuyerInput(
+            dto.Name, dto.TaxCode, dto.CompanyName, dto.Address, dto.Email, dto.Phone);
+    }
+
+    async Task TryApplyEInvoiceAfterCompleteAsync(
+        PosSaleOrder order, bool? issueFlag, EInvoiceBuyerDto? buyer)
+    {
+        try
+        {
+            await eInvoiceService.HandleAfterCompleteAsync(order, issueFlag, ToEInvoiceBuyer(buyer));
+        }
+        catch
+        {
+            // Không fail HTTP sau khi đơn đã lưu.
+        }
     }
 }

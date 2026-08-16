@@ -8,6 +8,7 @@ import 'package:intl/intl.dart';
 import '../models/pos_product.dart';
 import 'pos_barcode_print.dart';
 import 'pos_print_template_compiler.dart';
+import 'pos_receipt_layout.dart';
 import 'pos_thermal_bitmap.dart';
 import 'vietnamese_font.dart';
 
@@ -472,7 +473,7 @@ class PosLabelRenderer {
         contentLeft,
         y,
         innerW,
-        fontSize: fs(wide ? 16 : 14),
+        fontSize: fs(wide ? 20 : 17),
         bold: true,
         maxLines: 1,
         maxHeight: maxY - y,
@@ -483,7 +484,7 @@ class PosLabelRenderer {
     if (showOrderNo && order.isNotEmpty && wide && y < maxY - 8) {
       y += await _drawText(
         canvas,
-        order,
+        PosReceiptLayout.formatSaleInvoiceNo(order),
         contentLeft,
         y,
         innerW,
@@ -504,34 +505,62 @@ class PosLabelRenderer {
     }
 
     if (y < maxY - 10) {
-      y += await _drawText(
+      final name = productName.trim().isEmpty ? 'Mon' : productName.trim();
+      final qty =
+          (qtyLabel ?? '1').trim().isEmpty ? '1' : (qtyLabel ?? '1').trim();
+      final nameW = showQty ? (innerW * 0.72).clamp(40.0, innerW) : innerW;
+      final nameH = await _drawText(
         canvas,
-        productName.trim().isEmpty ? 'Mon' : productName.trim(),
+        name,
         contentLeft,
         y,
-        innerW,
-        fontSize: fs(wide ? 22 : 18),
+        nameW,
+        fontSize: fs(wide ? 20 : 17),
         bold: true,
         maxLines: 2,
-        center: true,
-        maxHeight: (maxY - y - 18).clamp(14, 80),
+        maxHeight: (maxY - y - 16).clamp(14, 80),
       );
-      y += 3;
+      var rowH = nameH;
+      if (showQty) {
+        final qtyH = await _drawText(
+          canvas,
+          qty,
+          contentLeft,
+          y,
+          innerW,
+          fontSize: fs(wide ? 20 : 17),
+          bold: true,
+          maxLines: 1,
+          right: true,
+          maxHeight: (maxY - y - 16).clamp(14, 40),
+        );
+        if (qtyH > rowH) rowH = qtyH;
+      }
+      y += rowH + 3;
     }
 
     final tops = (toppings ?? '').trim();
     if (showToppings && tops.isNotEmpty && y < maxY - 14) {
-      y += await _drawText(
-        canvas,
-        '+ $tops',
-        contentLeft,
-        y,
-        innerW,
-        fontSize: fs(wide ? 13 : 11),
-        maxLines: 1,
-        maxHeight: maxY - y - 12,
-      );
-      y += 2;
+      final parts = tops
+          .split(RegExp(r'[\n,;]+'))
+          .map((e) => e.trim())
+          .where((e) => e.isNotEmpty)
+          .map((e) => e.startsWith('+') ? e : '+ $e')
+          .toList();
+      for (final part in parts) {
+        if (y >= maxY - 12) break;
+        y += await _drawText(
+          canvas,
+          part,
+          contentLeft,
+          y,
+          innerW,
+          fontSize: fs(wide ? 13 : 11),
+          maxLines: 2,
+          maxHeight: (maxY - y - 10).clamp(12, 36),
+        );
+        y += 1;
+      }
     }
     final n = (note ?? '').trim();
     if (showNote && n.isNotEmpty && y < maxY - 14) {
@@ -548,29 +577,6 @@ class PosLabelRenderer {
       y += 2;
     }
 
-    if (showQty && y < maxY - 8) {
-      canvas.drawRect(
-        ui.Rect.fromLTWH(contentLeft, y, innerW, 2),
-        ui.Paint()..color = const ui.Color(0xFF000000),
-      );
-      y += 5;
-      final qty =
-          (qtyLabel ?? '1').trim().isEmpty ? '1' : (qtyLabel ?? '1').trim();
-      if (y < maxY) {
-        await _drawText(
-          canvas,
-          qty,
-          contentLeft,
-          y,
-          innerW,
-          fontSize: fs(wide ? 18 : 15),
-          bold: true,
-          maxLines: 1,
-          center: true,
-          maxHeight: maxY - y,
-        );
-      }
-    }
 
     canvas.restore();
     final picture = recorder.endRecording();
@@ -644,6 +650,64 @@ class PosLabelRenderer {
           maxHeight: remain,
         );
         y += 2;
+      } else if (step is PosPrintCompiledSaleRow) {
+        final fs = (step.fontSize * 0.72 * scale).clamp(11.0, 26.0);
+        final qtyW = innerW * 0.10;
+        final priceW = innerW * 0.22;
+        final totalW = innerW * 0.24;
+        final nameW = (innerW - qtyW - priceW - totalW).clamp(20.0, innerW);
+        final nameH = await _drawText(
+          canvas,
+          step.name,
+          contentLeft,
+          y,
+          nameW,
+          fontSize: fs,
+          bold: step.bold,
+          maxLines: 2,
+          maxHeight: remain,
+        );
+        final qtyH = await _drawText(
+          canvas,
+          step.qty,
+          contentLeft + nameW,
+          y,
+          qtyW,
+          fontSize: fs,
+          bold: step.bold,
+          maxLines: 1,
+          right: true,
+          maxHeight: remain,
+        );
+        final priceH = await _drawText(
+          canvas,
+          step.price,
+          contentLeft + nameW + qtyW,
+          y,
+          priceW,
+          fontSize: fs,
+          bold: step.bold,
+          maxLines: 1,
+          right: true,
+          maxHeight: remain,
+        );
+        final totalH = await _drawText(
+          canvas,
+          step.total,
+          contentLeft + nameW + qtyW + priceW,
+          y,
+          totalW,
+          fontSize: fs,
+          bold: step.bold,
+          maxLines: 1,
+          right: true,
+          maxHeight: remain,
+        );
+        var rowH = nameH;
+        if (qtyH > rowH) rowH = qtyH;
+        if (priceH > rowH) rowH = priceH;
+        if (totalH > rowH) rowH = totalH;
+        y += rowH + 2;
       } else if (step is PosPrintCompiledPair) {
         final fs = (step.fontSize * 0.72 * scale).clamp(11.0, 26.0);
         final leftH = await _drawText(

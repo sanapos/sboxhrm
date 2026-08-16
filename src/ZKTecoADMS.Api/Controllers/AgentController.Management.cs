@@ -406,7 +406,11 @@ public partial class AgentController
         store.MaxDevices = license.MaxDevices;
 
         if (license.ServicePackageId != null)
+        {
             store.ServicePackageId = license.ServicePackageId;
+            var pkg = await _dbContext.ServicePackages.FindAsync(license.ServicePackageId);
+            if (pkg != null) ZKTecoADMS.Infrastructure.Helpers.StorePackageHelper.ApplyToStore(store, pkg);
+        }
 
         if (!isFirstActivation)
             store.RenewalCount++;

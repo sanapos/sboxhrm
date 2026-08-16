@@ -9,6 +9,7 @@ import '../../models/pos_sell_industry.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/api_service.dart';
 import '../../utils/pos_end_of_day_print.dart';
+import '../../utils/pos_report_export.dart';
 import '../../utils/pos_kiot_time_range.dart';
 import '../../utils/pos_sell_settings_helper.dart';
 import '../../utils/store_role_helper.dart';
@@ -50,6 +51,7 @@ class _PosEndOfDayScreenState extends State<PosEndOfDayScreen> {
   bool _canPickStaff = false;
   PosStoreSellSettingsDto? _sellSettings;
   bool _savingOvernight = false;
+  final _pngKey = GlobalKey();
 
   @override
   void initState() {
@@ -219,6 +221,32 @@ class _PosEndOfDayScreenState extends State<PosEndOfDayScreen> {
     await _loadReport();
   }
 
+  Future<void> _exportExcel() async {
+    final r = _report;
+    if (r == null) return;
+    await PosReportExport.excel(
+      context: context,
+      title: 'Tổng kết cuối ngày',
+      sheetName: 'Cuoi ngay',
+      filePrefix: 'POS_CuoiNgay',
+      periodLabel: _time.displayLabel,
+      filterLabel: r.staffName,
+      headers: const ['Hạng mục', 'Giá trị'],
+      rows: [
+        ['Số HĐ', r.orderCount],
+        ['Doanh thu', r.totalSales],
+        ['VAT', r.vat],
+        ['DT thuần', r.netSales],
+        ['Hoàn trả', r.refundTotal],
+        ['Tiền mặt', r.cashTotal],
+        ['Công nợ', r.debtTotal],
+        ['Thực thu', r.actualReceived],
+        for (final p in r.payments) [p.paymentMethod, p.total],
+        for (final p in r.products) [p.productName, p.qty],
+      ],
+    );
+  }
+
   Future<void> _print() async {
     final r = _report;
     if (r == null) return;
@@ -245,6 +273,20 @@ class _PosEndOfDayScreenState extends State<PosEndOfDayScreen> {
               title: Text(tr('Tổng kết cuối ngày')),
               actions: [
                 IconButton(
+                  tooltip: tr('Xuất PNG'),
+                  onPressed: _report == null ? null : () => PosReportExport.png(
+                    context: context,
+                    key: _pngKey,
+                    filePrefix: 'POS_CuoiNgay',
+                  ),
+                  icon: const Icon(Icons.image_outlined),
+                ),
+                IconButton(
+                  tooltip: tr('Xuất Excel'),
+                  onPressed: _report == null ? null : _exportExcel,
+                  icon: const Icon(Icons.file_download_outlined),
+                ),
+                IconButton(
                   tooltip: tr('Tải lại'),
                   onPressed: _loading ? null : _loadReport,
                   icon: const Icon(Icons.refresh),
@@ -254,7 +296,9 @@ class _PosEndOfDayScreenState extends State<PosEndOfDayScreen> {
       body: Column(
         children: [
           _buildToolbar(),
-          Expanded(child: _buildBody()),
+          Expanded(
+            child: RepaintBoundary(key: _pngKey, child: _buildBody()),
+          ),
           _buildBottomBar(),
         ],
       ),
@@ -274,6 +318,22 @@ class _PosEndOfDayScreenState extends State<PosEndOfDayScreen> {
           runSpacing: 8,
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
+            IconButton(
+              tooltip: tr('Xuất PNG'),
+              onPressed: _report == null
+                  ? null
+                  : () => PosReportExport.png(
+                        context: context,
+                        key: _pngKey,
+                        filePrefix: 'POS_CuoiNgay',
+                      ),
+              icon: const Icon(Icons.image_outlined),
+            ),
+            IconButton(
+              tooltip: tr('Xuất Excel'),
+              onPressed: _report == null ? null : _exportExcel,
+              icon: const Icon(Icons.file_download_outlined),
+            ),
             if (_canPickStaff) ...[
               SizedBox(
                 width: 220,
@@ -520,6 +580,18 @@ class _PosEndOfDayScreenState extends State<PosEndOfDayScreen> {
                 _summaryLine('', 'Chiết khấu', _fmt(r.orderDiscount)),
                 _summaryLine('', 'VAT', _fmt(r.vat)),
                 _summaryLine('', 'DT ròng', _fmt(r.netSales), bold: true),
+                if (r.closedOffDayOrders.isNotEmpty) ...[
+                  const Divider(height: 16),
+                  section('CHỐT NGÀY KHÁC'),
+                  _summaryLine('', 'Số HĐ', '${r.closedOffDayCount}'),
+                  for (final o in r.closedOffDayOrders.take(k58 ? 8 : 15))
+                    _summaryLine(
+                      '',
+                      o.orderNo,
+                      o.draftDayLabel,
+                      indent: true,
+                    ),
+                ],
                 const Divider(height: 16),
                 section('TRẢ / HỦY'),
                 _summaryLine('', 'Trả hàng', _fmt(r.refundTotal)),
@@ -568,6 +640,14 @@ class _PosEndOfDayScreenState extends State<PosEndOfDayScreen> {
         _summaryLine('', 'Số đơn', '${r.orderCount}'),
         _summaryLine('', 'Doanh thu ròng', _fmt(r.netSales)),
         _summaryLine('', 'Thực thu', _fmt(r.actualReceived), bold: true),
+        if (r.closedOffDayOrders.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          Text(tr('Hóa đơn chốt ngày khác'),
+              style: const TextStyle(fontWeight: FontWeight.w600)),
+          const SizedBox(height: 6),
+          for (final o in r.closedOffDayOrders)
+            _summaryLine('', o.orderNo, o.draftDayLabel, indent: true),
+        ],
         if (r.transactions.isNotEmpty) ...[
           const SizedBox(height: 16),
           Text(tr('Chi tiết giao dịch'), style: TextStyle(fontWeight: FontWeight.w600)),
@@ -586,7 +666,9 @@ class _PosEndOfDayScreenState extends State<PosEndOfDayScreen> {
               ],
               rows: r.transactions
                   .map((t) => DataRow(cells: [
-                        DataCell(Text(tr(t.orderNo))),
+                        DataCell(Text(tr(t.closedOffDay
+                            ? '${t.orderNo} · ${t.note ?? 'Chốt ngày khác'}'
+                            : t.orderNo))),
                         DataCell(Text(tr(_dt(t.createdAt)))),
                         DataCell(Text(tr(_qty(t.qty)))),
                         DataCell(Text(tr(_fmt(t.revenue)))),

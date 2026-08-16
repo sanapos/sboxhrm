@@ -19,7 +19,7 @@ namespace ZKTecoADMS.Api.Controllers;
 public class PosProductPrinterController(ZKTecoDbContext db) : AuthenticatedControllerBase
 {
     [HttpGet("export/excel")]
-    [RequireModulePermission("PosSell", ModulePermissionAction.View)]
+    [RequireModulePermission("PosPrinters", ModulePermissionAction.View)]
     public async Task<IActionResult> ExportExcel()
     {
         var storeId = RequiredStoreId;
@@ -81,7 +81,7 @@ public class PosProductPrinterController(ZKTecoDbContext db) : AuthenticatedCont
     }
 
     [HttpPost("import/excel/file")]
-    [RequireModulePermission("PosSell", ModulePermissionAction.Edit)]
+    [RequireModulePermission("PosPrinters", ModulePermissionAction.Edit)]
     [RequestSizeLimit(10_000_000)]
     public async Task<ActionResult<AppResponse<object>>> ImportExcel(IFormFile file)
     {
@@ -163,12 +163,14 @@ public class PosProductPrinterController(ZKTecoDbContext db) : AuthenticatedCont
                 printerId = pid;
             }
 
+            // AsTracking: DbContext NoTracking toàn cục — thiếu nó là import báo
+            // «đã cập nhật N dòng» nhưng gán máy in không vào DB.
             PosProduct? product = null;
             if (!string.IsNullOrEmpty(code))
-                product = await db.PosProducts.FirstOrDefaultAsync(p =>
+                product = await db.PosProducts.AsTracking().FirstOrDefaultAsync(p =>
                     p.StoreId == storeId && p.ProductCode == code && p.Deleted == null);
             if (product == null && !string.IsNullOrEmpty(name))
-                product = await db.PosProducts.FirstOrDefaultAsync(p =>
+                product = await db.PosProducts.AsTracking().FirstOrDefaultAsync(p =>
                     p.StoreId == storeId && p.Name == name && p.Deleted == null);
 
             if (product == null)
@@ -216,7 +218,7 @@ public class PosProductPrinterController(ZKTecoDbContext db) : AuthenticatedCont
                 printerId = pid;
             }
 
-            var cat = await db.PosProductCategories.FirstOrDefaultAsync(c =>
+            var cat = await db.PosProductCategories.AsTracking().FirstOrDefaultAsync(c =>
                 c.StoreId == storeId && c.Name == catName && c.Deleted == null);
             if (cat == null)
             {

@@ -8,6 +8,7 @@ using ZKTecoADMS.Api.Hubs;
 using ZKTecoADMS.Api.Services;
 using ZKTecoADMS.Application.Constants;
 using ZKTecoADMS.Application.Models;
+using ZKTecoADMS.Application.Services;
 using ZKTecoADMS.Domain.Entities;
 using ZKTecoADMS.Domain.Enums;
 using ZKTecoADMS.Infrastructure;
@@ -54,6 +55,9 @@ public partial class PosSellIndustryController(
         bool EnableMultiDeviceDraftLock,
         bool PromptGuestCountOnOpen,
         bool AllowNegativeStock,
+        bool EnableCashierShift,
+        bool EnableQrTableOrder,
+        bool EnableQrOrderAutoPrint,
         int ReportDayStartHour,
         Guid? DefaultHourlyProductId,
         string? ExtraJson);
@@ -70,6 +74,9 @@ public partial class PosSellIndustryController(
         bool? EnableMultiDeviceDraftLock = null,
         bool? PromptGuestCountOnOpen = null,
         bool? AllowNegativeStock = null,
+        bool? EnableCashierShift = null,
+        bool? EnableQrTableOrder = null,
+        bool? EnableQrOrderAutoPrint = null,
         int? ReportDayStartHour = null,
         Guid? DefaultHourlyProductId = null,
         bool SetDefaultHourlyProductId = false,
@@ -165,11 +172,10 @@ public partial class PosSellIndustryController(
                 var ok = await db.PosProducts.AnyAsync(p =>
                     p.Id == pid && p.StoreId == storeId && p.Deleted == null
                     && p.ProductType == PosProductType.Service
-                    && (p.ServiceBillingMode == PosServiceBillingMode.PerHour
-                        || p.ServiceBillingMode == PosServiceBillingMode.PerMinute));
+                    && PosServiceBillingHelper.IsTimed(p.ServiceBillingMode));
                 if (!ok)
                     return BadRequest(AppResponse<SellSettingsDto>.Fail(
-                        "SP tính giờ mặc định không hợp lệ (cần dịch vụ PerHour/PerMinute)"));
+                        "SP tính giờ mặc định không hợp lệ (cần dịch vụ theo giờ/phút/block/ngày)"));
                 s.DefaultHourlyProductId = pid;
             }
         }
@@ -225,6 +231,13 @@ public partial class PosSellIndustryController(
             if (dto.AllowNegativeStock.HasValue)
                 s.AllowNegativeStock = dto.AllowNegativeStock.Value;
         }
+        // Không theo ngành — chỉ bật khi cửa hàng chọn trong thiết lập.
+        if (dto.EnableCashierShift.HasValue)
+            s.EnableCashierShift = dto.EnableCashierShift.Value;
+        if (dto.EnableQrTableOrder.HasValue)
+            s.EnableQrTableOrder = dto.EnableQrTableOrder.Value;
+        if (dto.EnableQrOrderAutoPrint.HasValue)
+            s.EnableQrOrderAutoPrint = dto.EnableQrOrderAutoPrint.Value;
     }
 
     async Task<int> CountLiveResourceSessionsAsync(Guid storeId) =>
@@ -281,59 +294,17 @@ public partial class PosSellIndustryController(
         return null;
     }
 
-    static bool TryParseSellProfile(string? raw, out PosSellProfile profile)
-    {
-        profile = PosSellProfile.Retail;
-        if (string.IsNullOrWhiteSpace(raw)) return false;
-        var t = raw.Trim();
-        if (Enum.TryParse<PosSellProfile>(t, ignoreCase: true, out profile))
-            return true;
-        if (int.TryParse(t, out var n) && Enum.IsDefined(typeof(PosSellProfile), n))
-        {
-            profile = (PosSellProfile)n;
-            return true;
-        }
-        // Alias tiếng Việt / viết tắt
-        switch (t.ToLowerInvariant())
-        {
-            case "banle":
-            case "bán lẻ":
-            case "retail":
-                profile = PosSellProfile.Retail;
-                return true;
-            case "salon":
-            case "nail":
-                profile = PosSellProfile.Salon;
-                return true;
-            case "bia":
-            case "bi-a":
-            case "karaoke":
-            case "room":
-            case "roomhourly":
-                profile = PosSellProfile.RoomHourly;
-                return true;
-            case "fnb":
-            case "f&b":
-            case "nhahang":
-            case "nhà hàng":
-            case "restaurant":
-                profile = PosSellProfile.Restaurant;
-                return true;
-            case "gym":
-            case "fitness":
-                profile = PosSellProfile.Gym;
-                return true;
-            default:
-                return false;
-        }
-    }
+    static bool TryParseSellProfile(string? raw, out PosSellProfile profile) =>
+        PosSellProfileDefaults.TryParse(raw, out profile);
 
     static SellSettingsDto MapSettings(PosStoreSellSettings s) => new(
         s.Id, s.SellProfile.ToString(), s.DefaultSellMode,
         s.EnableResources, s.EnableHourlyBilling, s.EnableSessionPacks,
         s.RequireResourceOnSale, s.ShowFloorPlan, s.AllowProvisionalBill,
         s.EnableMultiDeviceDraftLock, s.PromptGuestCountOnOpen,
-        s.AllowNegativeStock, Math.Clamp(s.ReportDayStartHour, 0, 23),
+        s.AllowNegativeStock, s.EnableCashierShift, s.EnableQrTableOrder,
+        s.EnableQrOrderAutoPrint,
+        Math.Clamp(s.ReportDayStartHour, 0, 23),
         s.DefaultHourlyProductId, s.ExtraJson);
 
     // ── Areas / resources ─────────────────────────────────────────────────────
@@ -397,7 +368,12 @@ public partial class PosSellIndustryController(
         Guid? DefaultServiceProductId = null,
         decimal ReservationDepositPaid = 0,
         decimal ReservationDepositAmount = 0,
-        string? ReservationDepositStatus = null);
+        string? ReservationDepositStatus = null,
+        int DraftBillCount = 1,
+        List<ResourceDraftBillDto>? DraftBills = null);
+
+    public record ResourceDraftBillDto(
+        Guid Id, string OrderNo, decimal Subtotal, int LineCount, bool IsSplit);
 
     /// <summary>Khóa còn TTL nhưng heartbeat (LockedAt) quá cũ → coi là tạm rời.</summary>
     const int ActiveTableEditSeconds = 45;
@@ -739,7 +715,8 @@ public partial class PosSellIndustryController(
                 && o.Status == PosSaleOrderStatus.Draft
                 && o.ServiceResourceId != null
                 && resourceIds.Contains(o.ServiceResourceId.Value)
-                && (o.Lines.Any(l => l.Deleted == null) || o.LockExpiresAt != null))
+                && (o.Lines.Any(l => l.Deleted == null)
+                    || (o.LockExpiresAt != null && o.SplitFromOrderId == null)))
             .Select(o => new
             {
                 ResourceId = o.ServiceResourceId!.Value,
@@ -754,6 +731,7 @@ public partial class PosSellIndustryController(
                 o.LockedByDisplayName,
                 o.LockExpiresAt,
                 o.LockedAt,
+                IsSplit = o.SplitFromOrderId != null,
             })
             .ToListAsync();
         var orphanByResource = orphanDraftMeta
@@ -761,6 +739,9 @@ public partial class PosSellIndustryController(
             .ToDictionary(
                 g => g.Key,
                 g => g.OrderByDescending(x => x.LineCount).First());
+        var draftsByResource = orphanDraftMeta
+            .GroupBy(x => x.ResourceId)
+            .ToDictionary(g => g.Key, g => g.ToList());
 
         // Phiên còn Open nhưng đơn không còn Draft → bỏ khỏi map (không hiện đang dùng).
         foreach (var kv in openByResource.ToList())
@@ -913,6 +894,25 @@ public partial class PosSellIndustryController(
             var hasParkedBill = sess != null && !tableSessionOpen
                 && status is "Parked" or "Occupied";
 
+            draftsByResource.TryGetValue(r.Id, out var tableDrafts);
+            var bills = (tableDrafts ?? [])
+                .Where(x => x.LineCount > 0 || !x.IsSplit)
+                .Select(x => new ResourceDraftBillDto(
+                    x.Id, x.OrderNo, x.Subtotal, x.LineCount, x.IsSplit))
+                .ToList();
+            if (sess?.SaleOrderId is Guid soid
+                && orderMeta.TryGetValue(soid, out var sm)
+                && bills.All(b => b.Id != soid))
+            {
+                bills.Insert(0, new ResourceDraftBillDto(
+                    soid, sm.OrderNo, sm.Subtotal, sm.LineCount, false));
+            }
+            if (bills.Count > 1)
+            {
+                lineCount = bills.Sum(b => b.LineCount);
+                subtotal = bills.Sum(b => b.Subtotal);
+            }
+
             return new ResourceDto(
                 r.Id, r.AreaId, r.Area?.Name ?? "", r.Code, r.Name,
                 r.ResourceKind.ToString(), r.Capacity, r.SortOrder, r.DefaultHourlyRate,
@@ -935,7 +935,9 @@ public partial class PosSellIndustryController(
                 r.DefaultServiceProductId,
                 booking?.DepositPaid ?? 0,
                 booking?.DepositAmount ?? 0,
-                booking?.DepositStatus.ToString());
+                booking?.DepositStatus.ToString(),
+                bills.Count == 0 ? 1 : bills.Count,
+                bills);
         }).ToList();
 
         return Ok(AppResponse<List<ResourceDto>>.Success(list));
@@ -972,11 +974,10 @@ public partial class PosSellIndustryController(
             var productOk = await db.PosProducts.AnyAsync(p =>
                 p.Id == defaultServiceProductId && p.StoreId == storeId && p.Deleted == null
                 && p.ProductType == PosProductType.Service
-                && (p.ServiceBillingMode == PosServiceBillingMode.PerHour
-                    || p.ServiceBillingMode == PosServiceBillingMode.PerMinute));
+                && PosServiceBillingHelper.IsTimed(p.ServiceBillingMode));
             if (!productOk)
                 return BadRequest(AppResponse<object>.Fail(
-                    "SP tính giờ của bàn không hợp lệ (cần dịch vụ PerHour/PerMinute)"));
+                    "SP tính giờ của bàn không hợp lệ (cần dịch vụ theo giờ/phút/block/ngày)"));
         }
 
         var entity = new PosServiceResource
@@ -996,6 +997,7 @@ public partial class PosSellIndustryController(
             LayoutY = dto.LayoutY,
             LayoutW = dto.LayoutW ?? 120,
             LayoutH = dto.LayoutH ?? 100,
+            QrOrderToken = Guid.NewGuid().ToString("N")[..12],
             CreatedBy = CurrentUserEmail,
         };
         db.PosServiceResources.Add(entity);
@@ -1044,11 +1046,10 @@ public partial class PosSellIndustryController(
             var productOk = await db.PosProducts.AnyAsync(p =>
                 p.Id == defaultServiceProductId && p.StoreId == storeId && p.Deleted == null
                 && p.ProductType == PosProductType.Service
-                && (p.ServiceBillingMode == PosServiceBillingMode.PerHour
-                    || p.ServiceBillingMode == PosServiceBillingMode.PerMinute));
+                && PosServiceBillingHelper.IsTimed(p.ServiceBillingMode));
             if (!productOk)
                 return BadRequest(AppResponse<object>.Fail(
-                    "SP tính giờ của bàn không hợp lệ (cần dịch vụ PerHour/PerMinute)"));
+                    "SP tính giờ của bàn không hợp lệ (cần dịch vụ theo giờ/phút/block/ngày)"));
         }
 
         // ExecuteUpdate — ghi thẳng DB (cùng cách đã sửa layoutX/Y).
@@ -1492,16 +1493,14 @@ public partial class PosSellIndustryController(
             var hasTimed = await db.PosProducts.AsNoTracking().AnyAsync(p =>
                 lineProductIds.Contains(p.Id)
                 && p.ProductType == PosProductType.Service
-                && (p.ServiceBillingMode == PosServiceBillingMode.PerHour
-                    || p.ServiceBillingMode == PosServiceBillingMode.PerMinute));
+                && PosServiceBillingHelper.IsTimed(p.ServiceBillingMode));
             if (hasTimed) return;
         }
 
         var product = await db.PosProducts.AsNoTracking().FirstOrDefaultAsync(p =>
             p.Id == productId && p.StoreId == storeId && p.Deleted == null && p.IsActive
             && p.ProductType == PosProductType.Service
-            && (p.ServiceBillingMode == PosServiceBillingMode.PerHour
-                || p.ServiceBillingMode == PosServiceBillingMode.PerMinute));
+            && PosServiceBillingHelper.IsTimed(p.ServiceBillingMode));
         if (product == null) return;
 
         var unitPrice = product.BasePrice;
@@ -1515,9 +1514,13 @@ public partial class PosSellIndustryController(
             product.BillRoundMinutes,
             product.GraceMinutes,
             product.RoundAfterMinutes);
-        var qty = PosServiceBillingHelper.CalcBillableQty(
-            product.ServiceBillingMode, billable, 1m);
-        var lineTotal = PosServiceBillingHelper.CalcLineTotal(qty, unitPrice, 0);
+        var included = product.OpeningMinutes is > 0 ? product.OpeningMinutes.Value : 0;
+        var extra = Math.Max(0, billable - included);
+        var qty = extra <= 0
+            ? 0m
+            : PosServiceBillingHelper.CalcBillableQty(
+                product.ServiceBillingMode, extra, extra, product.BillRoundMinutes);
+        var lineTotal = product.OpeningFee + qty * unitPrice;
 
         db.PosSaleOrderLines.Add(new PosSaleOrderLine
         {
@@ -1800,6 +1803,41 @@ public partial class PosSellIndustryController(
         return Ok(AppResponse<List<SessionBalanceDto>>.Success(list));
     }
 
+    public record BillingPreviewDto(
+        string Mode = "PerBlock",
+        decimal UnitPrice = 0,
+        int? MinBillMinutes = null,
+        int? BillRoundMinutes = null,
+        int? GraceMinutes = null,
+        int? RoundAfterMinutes = null,
+        decimal OpeningFee = 0,
+        int? OpeningMinutes = null,
+        int[]? ElapsedMinutes = null);
+
+    /// <summary>Xem trước tiền giờ (karaoke/bi-a/KS) theo phút sử dụng.</summary>
+    [HttpPost("service-billing/preview")]
+    [RequireModulePermission("PosSell", ModulePermissionAction.View)]
+    public ActionResult<AppResponse<object>> PreviewServiceBilling([FromBody] BillingPreviewDto dto)
+    {
+        if (!Enum.TryParse<PosServiceBillingMode>(dto.Mode, true, out var mode))
+            mode = PosServiceBillingMode.PerBlock;
+        var samples = dto.ElapsedMinutes is { Length: > 0 }
+            ? dto.ElapsedMinutes
+            : [0, 1, 5, 6, 10, 12, 15, 30, 60, 90, 120, 1440];
+        var rows = PosServiceBillingHelper.Preview(
+            mode, dto.UnitPrice, dto.MinBillMinutes, dto.BillRoundMinutes,
+            dto.GraceMinutes, dto.RoundAfterMinutes, dto.OpeningFee, dto.OpeningMinutes, samples);
+        return Ok(AppResponse<object>.Success(new
+        {
+            mode = mode.ToString(),
+            unitPrice = dto.UnitPrice,
+            openingFee = dto.OpeningFee,
+            openingMinutes = dto.OpeningMinutes,
+            billRoundMinutes = dto.BillRoundMinutes,
+            rows,
+        }));
+    }
+
     [HttpPost("session-balances/redeem")]
     [RequireModulePermission("PosSell", ModulePermissionAction.Create)]
     public async Task<ActionResult<AppResponse<object>>> RedeemSession([FromBody] RedeemSessionDto dto)
@@ -1880,6 +1918,9 @@ public partial class PosSellIndustryController(
                 PackageName = product.Name,
                 TotalSessions = grant,
                 RemainingSessions = grant,
+                ExpiresAt = product.SessionPackValidDays > 0
+                    ? DateTime.UtcNow.AddDays(product.SessionPackValidDays)
+                    : null,
                 IsActive = true,
                 CreatedBy = actorEmail,
             };

@@ -1,3 +1,4 @@
+using ZKTecoADMS.Application.Services;
 using ZKTecoADMS.Domain.Entities;
 using ZKTecoADMS.Domain.Enums;
 
@@ -55,6 +56,12 @@ public static class PosServiceBillingHelper
         session.PausedAt = null;
     }
 
+    public static bool IsTimed(PosServiceBillingMode mode) =>
+        mode is PosServiceBillingMode.PerHour
+            or PosServiceBillingMode.PerMinute
+            or PosServiceBillingMode.PerBlock
+            or PosServiceBillingMode.PerDay;
+
     public static int CalcBillableMinutes(
         int elapsedMinutes,
         PosServiceBillingMode mode,
@@ -74,8 +81,12 @@ public static class PosServiceBillingHelper
         if (minutes < min) minutes = min;
 
         var round = billRoundMinutes is > 0 ? billRoundMinutes.Value : 0;
+        if (mode == PosServiceBillingMode.PerDay)
+            round = round >= 60 ? round : 1440;
+        if (mode == PosServiceBillingMode.PerBlock && round <= 0)
+            round = 5;
+
         var roundAfter = roundAfterMinutes is > 0 ? roundAfterMinutes.Value : 0;
-        // Làm tròn block chỉ khi thời lượng thực vượt ngưỡng (hoặc không cấu hình ngưỡng).
         var applyRound = round > 0 && minutes > 0
             && (roundAfter <= 0 || raw > roundAfter);
         if (applyRound)
@@ -88,20 +99,51 @@ public static class PosServiceBillingHelper
     }
 
     /// <summary>
-    /// Qty hiển thị trên dòng: PerHour = giờ (phút/60), PerMinute = phút, Flat/Session = giữ nguyên.
+    /// Qty hiển thị trên dòng: PerHour = giờ, PerMinute = phút, PerBlock = số block,
+    /// PerDay = số ngày, Flat/Session = giữ nguyên.
     /// </summary>
     public static decimal CalcBillableQty(
         PosServiceBillingMode mode,
         int billableMinutes,
-        decimal fallbackQty)
+        decimal fallbackQty,
+        int? billRoundMinutes = null)
     {
         return mode switch
         {
             PosServiceBillingMode.PerHour =>
                 Math.Round(billableMinutes / 60m, 4, MidpointRounding.AwayFromZero),
             PosServiceBillingMode.PerMinute => billableMinutes,
+            PosServiceBillingMode.PerBlock => CalcBlockQty(billableMinutes, billRoundMinutes),
+            PosServiceBillingMode.PerDay => Math.Max(1,
+                (int)Math.Ceiling(Math.Max(0, billableMinutes) / 1440m)),
             _ => fallbackQty,
         };
+    }
+
+    static decimal CalcBlockQty(int billableMinutes, int? billRoundMinutes)
+    {
+        var block = billRoundMinutes is > 0 ? billRoundMinutes.Value : 5;
+        if (billableMinutes <= 0) return 0;
+        return Math.Round(billableMinutes / (decimal)block, 4, MidpointRounding.AwayFromZero);
+    }
+
+    /// <summary>
+    /// Thành tiền giờ: phí mở + qty phần vượt OpeningMinutes × đơn giá.
+    /// </summary>
+    public static decimal CalcTimedLineCharge(
+        PosServiceBillingMode mode,
+        int billableMinutes,
+        decimal unitPrice,
+        decimal openingFee = 0,
+        int? openingMinutes = null,
+        int? billRoundMinutes = null)
+    {
+        var included = openingMinutes is > 0 ? openingMinutes.Value : 0;
+        var extra = Math.Max(0, billableMinutes - included);
+        var qty = extra <= 0
+            ? 0m
+            : CalcBillableQty(mode, extra, extra, billRoundMinutes);
+        return Math.Max(0, openingFee) + qty * unitPrice;
     }
 
     public static decimal CalcLineTotal(decimal qty, decimal unitPrice, decimal discountAmount)
@@ -111,76 +153,39 @@ public static class PosServiceBillingHelper
         return gross - disc;
     }
 
-    public static void ApplyProfileDefaults(PosStoreSellSettings s)
+    public record BillingPreviewRow(int ElapsedMinutes, int BillableMinutes, decimal Qty, decimal Total);
+
+    public static List<BillingPreviewRow> Preview(
+        PosServiceBillingMode mode,
+        decimal unitPrice,
+        int? minBillMinutes,
+        int? billRoundMinutes,
+        int? graceMinutes,
+        int? roundAfterMinutes,
+        decimal openingFee,
+        int? openingMinutes,
+        IReadOnlyList<int> elapsedSamples)
     {
-        switch (s.SellProfile)
+        var rows = new List<BillingPreviewRow>();
+        foreach (var elapsed in elapsedSamples)
         {
-            case PosSellProfile.Retail:
-                s.EnableResources = false;
-                s.EnableHourlyBilling = false;
-                s.EnableSessionPacks = false;
-                s.RequireResourceOnSale = false;
-                s.ShowFloorPlan = false;
-                s.AllowProvisionalBill = false;
-                s.EnableMultiDeviceDraftLock = false;
-                s.PromptGuestCountOnOpen = false;
-                break;
-            case PosSellProfile.Salon:
-                s.EnableResources = true;
-                s.EnableHourlyBilling = true;
-                s.EnableSessionPacks = false;
-                s.RequireResourceOnSale = false;
-                s.ShowFloorPlan = true;
-                s.AllowProvisionalBill = true;
-                // F&B/salon thường nhiều máy — bật khóa đồng bộ; 1 máy tắt trong Thiết lập.
-                s.EnableMultiDeviceDraftLock = true;
-                s.PromptGuestCountOnOpen = false;
-                break;
-            case PosSellProfile.RoomHourly:
-                s.EnableResources = true;
-                s.EnableHourlyBilling = true;
-                s.EnableSessionPacks = false;
-                s.RequireResourceOnSale = true;
-                s.ShowFloorPlan = true;
-                s.AllowProvisionalBill = true;
-                s.EnableMultiDeviceDraftLock = true;
-                s.PromptGuestCountOnOpen = false;
-                break;
-            case PosSellProfile.Restaurant:
-                s.EnableResources = true;
-                s.EnableHourlyBilling = false;
-                s.EnableSessionPacks = false;
-                s.RequireResourceOnSale = false;
-                s.ShowFloorPlan = true;
-                s.AllowProvisionalBill = true;
-                s.EnableMultiDeviceDraftLock = true;
-                s.PromptGuestCountOnOpen = false;
-                break;
-            case PosSellProfile.Gym:
-                s.EnableResources = false;
-                s.EnableHourlyBilling = false;
-                s.EnableSessionPacks = true;
-                s.RequireResourceOnSale = false;
-                s.ShowFloorPlan = false;
-                s.AllowProvisionalBill = false;
-                s.EnableMultiDeviceDraftLock = false;
-                s.PromptGuestCountOnOpen = false;
-                break;
+            var billable = CalcBillableMinutes(
+                elapsed, mode, minBillMinutes, billRoundMinutes, graceMinutes, roundAfterMinutes);
+            var included = openingMinutes is > 0 ? openingMinutes.Value : 0;
+            var extra = Math.Max(0, billable - included);
+            var qty = extra <= 0 ? 0m : CalcBillableQty(mode, extra, extra, billRoundMinutes);
+            var total = Math.Max(0, openingFee) + qty * unitPrice;
+            rows.Add(new BillingPreviewRow(elapsed, billable, qty, total));
         }
+        return rows;
     }
 
-    public static PosStoreSellSettings CreateDefault(Guid storeId, string? createdBy)
-    {
-        var s = new PosStoreSellSettings
-        {
-            Id = Guid.NewGuid(),
-            StoreId = storeId,
-            SellProfile = PosSellProfile.Retail,
-            DefaultSellMode = "quick",
-            IsActive = true,
-            CreatedBy = createdBy,
-        };
-        ApplyProfileDefaults(s);
-        return s;
-    }
+    public static void ApplyProfileDefaults(PosStoreSellSettings s) =>
+        PosSellProfileDefaults.Apply(s);
+
+    public static PosStoreSellSettings CreateDefault(
+        Guid storeId,
+        string? createdBy,
+        PosSellProfile profile = PosSellProfile.Retail) =>
+        PosSellProfileDefaults.Create(storeId, createdBy, profile);
 }

@@ -38,11 +38,22 @@ import java.net.URL
 import java.text.NumberFormat
 import java.util.Locale
 import java.util.concurrent.Executors
+import java.lang.ref.WeakReference
 
 class CustomerDisplayActivity : FlutterActivity() {
     override fun getCachedEngineId(): String = ENGINE_ID
 
     override fun shouldDestroyEngineWithHost(): Boolean = false
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        CustomerDisplayController.registerHost(this)
+    }
+
+    override fun onDestroy() {
+        CustomerDisplayController.unregisterHost(this)
+        super.onDestroy()
+    }
 
     companion object {
         const val ENGINE_ID = "sbox_customer_display_engine"
@@ -406,10 +417,19 @@ object CustomerDisplayController {
 
     private var flutterPresentation: CustomerDisplayFlutterPresentation? = null
     private var nativePresentation: CustomerDisplayNativePresentation? = null
+    private var hostedActivity: WeakReference<CustomerDisplayActivity>? = null
     /** true khi đang đẩy bill qua Sunmi DSKernel (T1 7″), không phải Presentation. */
     private var usingDsKernel: Boolean = false
     private var activeMode: String = "t1Native"
     private val eventSinks = java.util.concurrent.CopyOnWriteArrayList<EventChannel.EventSink>()
+
+    fun registerHost(activity: CustomerDisplayActivity) {
+        hostedActivity = WeakReference(activity)
+    }
+
+    fun unregisterHost(activity: CustomerDisplayActivity) {
+        if (hostedActivity?.get() === activity) hostedActivity = null
+    }
 
     fun prefs(context: Context): SharedPreferences =
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -465,7 +485,18 @@ object CustomerDisplayController {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT_WATCH) {
             if (d.state == Display.STATE_OFF) return false
         }
+        val n = (d.name ?: "").lowercase()
+        if (n.contains("overlay") || n.contains("virtual") ||
+            n.contains("scrcpy") || n.contains("vysor")
+        ) {
+            return false
+        }
         return true
+    }
+
+    private fun pickBestSecondary(list: List<Display>): Display {
+        return list.firstOrNull { (it.flags and Display.FLAG_PRESENTATION) != 0 }
+            ?: list.first()
     }
 
     fun show(
@@ -491,7 +522,7 @@ object CustomerDisplayController {
         val target = when {
             preferredDisplayId != null ->
                 secondary.firstOrNull { it.displayId == preferredDisplayId }
-            secondary.isNotEmpty() -> secondary.first()
+            secondary.isNotEmpty() -> pickBestSecondary(secondary)
             else -> null
         }
 
@@ -512,11 +543,23 @@ object CustomerDisplayController {
         usingDsKernel = false
 
         if (activeMode == "androidFlutter") {
+            // Presentation trước: không tạo tab/task trên màn thu ngân (A7 C20Lite).
+            try {
+                val p = CustomerDisplayFlutterPresentation(activity, target)
+                p.show()
+                flutterPresentation = p
+                return true
+            } catch (_: Exception) {
+            }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 try {
                     CustomerDisplayActivity.ensureEngine(activity)
                     val intent = Intent(activity, CustomerDisplayActivity::class.java)
-                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_MULTIPLE_TASK)
+                        .addFlags(
+                            Intent.FLAG_ACTIVITY_NEW_TASK or
+                                Intent.FLAG_ACTIVITY_MULTIPLE_TASK or
+                                Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS,
+                        )
                     val opts = ActivityOptions.makeBasic()
                     opts.launchDisplayId = target.displayId
                     activity.startActivity(intent, opts.toBundle())
@@ -524,14 +567,7 @@ object CustomerDisplayController {
                 } catch (_: Exception) {
                 }
             }
-            return try {
-                val p = CustomerDisplayFlutterPresentation(activity, target)
-                p.show()
-                flutterPresentation = p
-                true
-            } catch (_: Exception) {
-                false
-            }
+            return false
         }
 
         // t1Native trên máy có DisplayManager secondary (hiếm trên T1).
@@ -565,6 +601,13 @@ object CustomerDisplayController {
         } catch (_: Exception) {
         }
         nativePresentation = null
+        hostedActivity?.get()?.let { act ->
+            try {
+                act.finish()
+            } catch (_: Exception) {
+            }
+        }
+        hostedActivity = null
     }
 
     fun hide() {

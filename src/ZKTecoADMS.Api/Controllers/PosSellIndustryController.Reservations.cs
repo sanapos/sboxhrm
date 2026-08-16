@@ -6,6 +6,7 @@ using ZKTecoADMS.Application.Constants;
 using ZKTecoADMS.Application.Models;
 using ZKTecoADMS.Domain.Entities;
 using ZKTecoADMS.Domain.Enums;
+using ZKTecoADMS.Infrastructure.Services;
 
 namespace ZKTecoADMS.Api.Controllers;
 
@@ -35,6 +36,8 @@ public partial class PosSellIndustryController
         /// <summary>Bắt đầu khung giờ hẹn (salon). Null = dùng ReservedUntil hoặc now.</summary>
         DateTime? SlotStart = null,
         int? DurationMinutes = null,
+        /// <summary>Khách sạn: số đêm. Ghi đè DurationMinutes = StayNights × 24h.</summary>
+        int? StayNights = null,
         Guid? ServiceProductId = null,
         Guid? AssignedEmployeeId = null,
         string? Note = null,
@@ -77,7 +80,9 @@ public partial class PosSellIndustryController
         string? ServiceProductName = null,
         Guid? AssignedEmployeeId = null,
         string? AssignedEmployeeName = null,
-        bool IsTimedSlot = false);
+        bool IsTimedSlot = false,
+        decimal PreOrderValue = 0,
+        string? ResourceKind = null);
 
     [HttpGet("resource-reservations")]
     [RequireModulePermission("PosBooking", ModulePermissionAction.View)]
@@ -95,9 +100,11 @@ public partial class PosSellIndustryController
             .Include(x => x.Resource)!.ThenInclude(r => r!.Area)
             .Include(x => x.ServiceProduct)
             .Include(x => x.AssignedEmployee)
-            .Where(x => x.StoreId == storeId && x.Deleted == null);
+            .Where(x => x.StoreId == storeId);
         if (!includeClosed)
-            q = q.Where(x => x.Status == PosResourceReservationStatus.Booked);
+            q = q.Where(x => x.Deleted == null && x.Status == PosResourceReservationStatus.Booked);
+        else
+            q = q.Where(x => x.Deleted == null || x.Status != PosResourceReservationStatus.Booked);
         if (resourceId.HasValue)
             q = q.Where(x => x.ResourceId == resourceId.Value);
         if (day.HasValue)
@@ -113,6 +120,197 @@ public partial class PosSellIndustryController
 
         var list = await q.OrderBy(x => x.ReservedAt).ToListAsync();
         return Ok(AppResponse<List<ReservationDto>>.Success(list.Select(ToReservationDto).ToList()));
+    }
+
+    public record ReservationDayPipelineDto(
+        string Date,
+        int Booked,
+        int Seated,
+        int Cancelled,
+        int NoShow,
+        decimal DepositHeld,
+        decimal DepositApplied,
+        decimal DepositForfeited,
+        decimal PreOrderValue,
+        decimal ExpectedRevenue);
+
+    /// <summary>
+    /// Doanh thu tạm tính theo ngày đặt (VN). ExpectedRevenue = cọc held + giá món đặt trước (booked).
+    /// </summary>
+    [HttpGet("resource-reservations/pipeline")]
+    [RequireModulePermission("PosBooking", ModulePermissionAction.View)]
+    public async Task<ActionResult<AppResponse<object>>> ReservationPipeline(
+        [FromQuery] DateTime? from = null,
+        [FromQuery] DateTime? to = null)
+    {
+        if (!TryGetStoreId(out var storeId))
+            return BadRequest(AppResponse<object>.Fail("Thiếu cửa hàng"));
+
+        await ExpireOverdueReservationsAsync(storeId);
+
+        var fromD = VnCalendarDate((from ?? DateTime.UtcNow).ToUniversalTime());
+        var toD = VnCalendarDate((to ?? fromD).ToUniversalTime());
+        if (toD < fromD) (fromD, toD) = (toD, fromD);
+        if ((toD - fromD).TotalDays > 62) toD = fromD.AddDays(62);
+
+        var fromUtc = DateTime.SpecifyKind(fromD.AddHours(-7), DateTimeKind.Utc);
+        var toUtc = DateTime.SpecifyKind(toD.AddDays(1).AddHours(-7), DateTimeKind.Utc);
+
+        var rows = await db.PosResourceReservations.AsNoTracking()
+            .Where(x => x.StoreId == storeId
+                && x.ReservedAt < toUtc
+                && (x.ReservedUntil ?? x.ReservedAt) >= fromUtc
+                && (x.Deleted == null || x.Status != PosResourceReservationStatus.Booked))
+            .Select(x => new
+            {
+                x.ReservedAt,
+                x.Status,
+                x.DepositPaid,
+                x.DepositStatus,
+                x.PreOrderJson,
+            })
+            .ToListAsync();
+
+        var byDate = new Dictionary<string, ReservationDayPipelineDto>();
+        for (var d = fromD; d <= toD; d = d.AddDays(1))
+        {
+            var key = d.ToString("yyyy-MM-dd");
+            byDate[key] = new ReservationDayPipelineDto(key, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+        }
+
+        foreach (var x in rows)
+        {
+            var key = VnCalendarDate(x.ReservedAt).ToString("yyyy-MM-dd");
+            if (!byDate.TryGetValue(key, out var cur)) continue;
+            var (_, preVal) = ParsePreOrder(x.PreOrderJson);
+            var booked = x.Status == PosResourceReservationStatus.Booked;
+            byDate[key] = cur with
+            {
+                Booked = cur.Booked + (booked ? 1 : 0),
+                Seated = cur.Seated + (x.Status == PosResourceReservationStatus.Seated ? 1 : 0),
+                Cancelled = cur.Cancelled + (x.Status == PosResourceReservationStatus.Cancelled ? 1 : 0),
+                NoShow = cur.NoShow + (x.Status == PosResourceReservationStatus.NoShow ? 1 : 0),
+                DepositHeld = cur.DepositHeld
+                    + (x.DepositStatus == PosReservationDepositStatus.Held ? x.DepositPaid : 0),
+                DepositApplied = cur.DepositApplied
+                    + (x.DepositStatus == PosReservationDepositStatus.Applied ? x.DepositPaid : 0),
+                DepositForfeited = cur.DepositForfeited
+                    + (x.DepositStatus == PosReservationDepositStatus.Forfeited ? x.DepositPaid : 0),
+                PreOrderValue = cur.PreOrderValue + (booked ? preVal : 0),
+                ExpectedRevenue = cur.ExpectedRevenue
+                    + (booked ? preVal + (x.DepositStatus == PosReservationDepositStatus.Held ? x.DepositPaid : 0) : 0),
+            };
+        }
+
+        var days = byDate.Values.OrderBy(x => x.Date).ToList();
+        return Ok(AppResponse<object>.Success(new
+        {
+            from = fromD.ToString("yyyy-MM-dd"),
+            to = toD.ToString("yyyy-MM-dd"),
+            days,
+            totals = new ReservationDayPipelineDto(
+                "total",
+                days.Sum(x => x.Booked),
+                days.Sum(x => x.Seated),
+                days.Sum(x => x.Cancelled),
+                days.Sum(x => x.NoShow),
+                days.Sum(x => x.DepositHeld),
+                days.Sum(x => x.DepositApplied),
+                days.Sum(x => x.DepositForfeited),
+                days.Sum(x => x.PreOrderValue),
+                days.Sum(x => x.ExpectedRevenue)),
+        }));
+    }
+
+    /// <summary>Lịch trống bàn/phòng theo ngày (đặt trước + phiên đang mở).</summary>
+    [HttpGet("resource-reservations/availability")]
+    [RequireModulePermission("PosBooking", ModulePermissionAction.View)]
+    public async Task<ActionResult<AppResponse<object>>> ReservationAvailability(
+        [FromQuery] DateTime? from = null,
+        [FromQuery] DateTime? to = null,
+        [FromQuery] string? kind = null)
+    {
+        if (!TryGetStoreId(out var storeId))
+            return BadRequest(AppResponse<object>.Fail("Thiếu cửa hàng"));
+
+        var fromD = VnCalendarDate((from ?? DateTime.UtcNow).ToUniversalTime());
+        var toD = VnCalendarDate((to ?? fromD.AddDays(6)).ToUniversalTime());
+        if (toD < fromD) (fromD, toD) = (toD, fromD);
+        if ((toD - fromD).TotalDays > 31) toD = fromD.AddDays(31);
+
+        PosResourceKind? kindFilter = null;
+        if (!string.IsNullOrWhiteSpace(kind))
+        {
+            kindFilter = kind.Trim().ToLowerInvariant() switch
+            {
+                "chair" or "ghe" => PosResourceKind.Chair,
+                "room" or "phong" => PosResourceKind.Room,
+                "table" or "ban" => PosResourceKind.Table,
+                _ => null,
+            };
+        }
+
+        var resources = await db.PosServiceResources.AsNoTracking()
+            .Include(r => r.Area)
+            .Where(r => r.StoreId == storeId && r.Deleted == null && r.IsActive
+                && (kindFilter == null || r.ResourceKind == kindFilter.Value))
+            .OrderBy(r => r.SortOrder).ThenBy(r => r.Name)
+            .ToListAsync();
+
+        var fromUtc = DateTime.SpecifyKind(fromD.AddHours(-7), DateTimeKind.Utc);
+        var toUtc = DateTime.SpecifyKind(toD.AddDays(1).AddHours(-7), DateTimeKind.Utc);
+        var bookings = await db.PosResourceReservations.AsNoTracking()
+            .Where(x => x.StoreId == storeId && x.Deleted == null
+                && x.Status == PosResourceReservationStatus.Booked
+                && x.ReservedAt < toUtc
+                && (x.ReservedUntil ?? x.ReservedAt) >= fromUtc)
+            .Select(x => new { x.ResourceId, x.ReservedAt, x.ReservedUntil, x.DurationMinutes })
+            .ToListAsync();
+
+        var live = await db.PosResourceSessions.AsNoTracking()
+            .Where(s => s.StoreId == storeId && s.Deleted == null
+                && (s.Status == PosResourceSessionStatus.Open
+                    || s.Status == PosResourceSessionStatus.Paused))
+            .Select(s => s.ResourceId)
+            .ToListAsync();
+        var liveSet = live.ToHashSet();
+        var todayVn = VnCalendarDate(DateTime.UtcNow);
+
+        var days = new List<string>();
+        for (var d = fromD; d <= toD; d = d.AddDays(1))
+            days.Add(d.ToString("yyyy-MM-dd"));
+
+        var items = resources.Select(r =>
+        {
+            var dayMap = days.Select(ds =>
+            {
+                var day = DateTime.Parse(ds);
+                var dayStartUtc = DateTime.SpecifyKind(day.AddHours(-7), DateTimeKind.Utc);
+                var dayEndUtc = dayStartUtc.AddDays(1);
+                var booked = bookings.Any(b =>
+                {
+                    if (b.ResourceId != r.Id) return false;
+                    var end = b.ReservedUntil ?? (b.DurationMinutes is > 0
+                        ? b.ReservedAt.AddMinutes(b.DurationMinutes.Value)
+                        : b.ReservedAt.AddHours(4));
+                    return b.ReservedAt < dayEndUtc && end >= dayStartUtc;
+                });
+                var occupiedToday = liveSet.Contains(r.Id) && day == todayVn;
+                var status = occupiedToday ? "Occupied" : booked ? "Booked" : "Free";
+                return new { date = ds, status };
+            }).ToList();
+            return new
+            {
+                id = r.Id,
+                name = r.Name,
+                code = r.Code,
+                areaName = r.Area?.Name,
+                kind = r.ResourceKind.ToString(),
+                days = dayMap,
+            };
+        }).ToList();
+
+        return Ok(AppResponse<object>.Success(new { from = days.FirstOrDefault(), to = days.LastOrDefault(), days, items }));
     }
 
     [HttpPost("resource-reservations")]
@@ -135,6 +333,8 @@ public partial class PosSellIndustryController
 
         var now = DateTime.UtcNow;
         int? duration = dto.DurationMinutes is > 0 ? dto.DurationMinutes : null;
+        if (dto.StayNights is > 0)
+            duration = dto.StayNights.Value * 24 * 60;
         PosProduct? serviceProduct = null;
         if (dto.ServiceProductId.HasValue)
         {
@@ -308,6 +508,11 @@ public partial class PosSellIndustryController
             CreatedAt = now,
         };
         db.PosResourceReservations.Add(entity);
+        if (depositPaid > 0)
+        {
+            await PosFinanceSyncHelper.SyncReservationDepositCollectedAsync(
+                db, entity, depositPaid, CurrentUserId);
+        }
         await db.SaveChangesAsync();
 
         NotifyFloorChanged(storeId, "reservationCreate", resourceId: resource.Id);
@@ -379,6 +584,8 @@ public partial class PosSellIndustryController
         entity.DepositPaidAt = now;
         entity.UpdatedAt = now;
         entity.UpdatedBy = CurrentUserEmail;
+        await PosFinanceSyncHelper.SyncReservationDepositCollectedAsync(
+            db, entity, dto.Amount, CurrentUserId);
         await db.SaveChangesAsync();
 
         NotifyFloorChanged(storeId, "reservationDeposit", resourceId: entity.ResourceId);
@@ -415,7 +622,11 @@ public partial class PosSellIndustryController
         if (entity.DepositStatus == PosReservationDepositStatus.Held && entity.DepositPaid > 0)
         {
             if (dto?.RefundDeposit == true)
+            {
                 entity.DepositStatus = PosReservationDepositStatus.Refunded;
+                await PosFinanceSyncHelper.SyncReservationDepositRefundAsync(
+                    db, entity, CurrentUserId);
+            }
             else if (dto?.ForfeitDeposit == true || dto == null)
                 entity.DepositStatus = PosReservationDepositStatus.Forfeited;
             else
@@ -486,7 +697,7 @@ public partial class PosSellIndustryController
 
             var depositNote = booking.DepositStatus == PosReservationDepositStatus.Held
                 && booking.DepositPaid > 0
-                ? $"Cọc đã thu: {booking.DepositPaid:0.##}"
+                ? $"Cọc đã thu: {booking.DepositPaid.ToString("#,0", System.Globalization.CultureInfo.GetCultureInfo("vi-VN"))}đ"
                 : null;
             var noteParts = new[] { booking.Note, depositNote }
                 .Where(s => !string.IsNullOrWhiteSpace(s));
@@ -700,17 +911,7 @@ public partial class PosSellIndustryController
 
     static ReservationDto ToReservationDto(PosResourceReservation x)
     {
-        var preCount = 0;
-        if (!string.IsNullOrWhiteSpace(x.PreOrderJson))
-        {
-            try
-            {
-                using var doc = JsonDocument.Parse(x.PreOrderJson);
-                if (doc.RootElement.ValueKind == JsonValueKind.Array)
-                    preCount = doc.RootElement.GetArrayLength();
-            }
-            catch { /* ignore */ }
-        }
+        var (preCount, preValue) = ParsePreOrder(x.PreOrderJson);
 
         string? empName = null;
         if (x.AssignedEmployee != null)
@@ -746,7 +947,42 @@ public partial class PosSellIndustryController
             x.ServiceProduct?.Name,
             x.AssignedEmployeeId,
             empName,
-            x.IsTimedSlot);
+            x.IsTimedSlot,
+            preValue,
+            x.Resource?.ResourceKind.ToString());
+    }
+
+    static (int Count, decimal Value) ParsePreOrder(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return (0, 0);
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            if (doc.RootElement.ValueKind != JsonValueKind.Array)
+                return (0, 0);
+            decimal value = 0;
+            var n = 0;
+            foreach (var el in doc.RootElement.EnumerateArray())
+            {
+                n++;
+                var qty = el.TryGetProperty("qty", out var q) ? q.GetDecimal()
+                    : el.TryGetProperty("Qty", out var q2) ? q2.GetDecimal() : 1m;
+                var price = el.TryGetProperty("unitPrice", out var p) ? p.GetDecimal()
+                    : el.TryGetProperty("UnitPrice", out var p2) ? p2.GetDecimal() : 0m;
+                value += qty * price;
+            }
+            return (n, value);
+        }
+        catch
+        {
+            return (0, 0);
+        }
+    }
+
+    static DateTime VnCalendarDate(DateTime utc)
+    {
+        var u = utc.Kind == DateTimeKind.Utc ? utc : DateTime.SpecifyKind(utc, DateTimeKind.Utc);
+        return u.AddHours(7).Date;
     }
 
     /// <summary>

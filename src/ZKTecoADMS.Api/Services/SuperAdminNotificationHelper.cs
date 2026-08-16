@@ -14,6 +14,7 @@ public static class SuperAdminNotificationHelper
     public const string AdminDevicesUrl = "/admin/devices";
     public const string AdminLicensesUrl = "/admin/licenses";
     public const string AdminAgentsUrl = "/admin/agents";
+    public const string AdminDashboardUrl = "/admin";
 
     public static async Task<IReadOnlyList<Guid>> GetSuperAdminUserIdsAsync(
         UserManager<ApplicationUser> userManager)

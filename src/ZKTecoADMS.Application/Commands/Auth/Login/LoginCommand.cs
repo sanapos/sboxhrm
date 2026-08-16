@@ -5,7 +5,13 @@ using FluentValidation;
 
 namespace ZKTecoADMS.Application.Commands.Auth.Login;
 
-public record LoginCommand(string StoreCode, string UserName, string Password) : ICommand<AppResponse<AuthenticateResponse>>;
+public record LoginCommand(
+    string StoreCode,
+    string UserName,
+    string Password,
+    string? ClientPlatform = null,
+    string? DeviceKey = null,
+    string? DeviceName = null) : ICommand<AppResponse<AuthenticateResponse>>;
 
 public class LoginCommandValidator : AbstractValidator<LoginCommand>
 {

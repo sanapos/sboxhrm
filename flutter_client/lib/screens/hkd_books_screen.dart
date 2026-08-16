@@ -254,11 +254,11 @@ class _HkdBooksScreenState extends State<HkdBooksScreen> {
   String get _groupHint {
     switch (_taxGroup) {
       case 1:
-        return 'Nhóm 1: không chịu GTGT/TNCN → xuất S1a-HKD';
+        return 'Dưới 1 tỷ/năm: miễn GTGT/TNCN theo tỷ lệ → xuất S1a-HKD';
       case 3:
-        return 'Nhóm 3: GTGT % doanh thu + TNCN theo thu nhập → xuất S2b, S2c, S2d, S2e';
+        return 'Trên 3 tỷ/năm: GTGT % doanh thu + TNCN theo thu nhập → S2b, S2c, S2d, S2e';
       default:
-        return 'Nhóm 2: GTGT + TNCN theo % doanh thu → xuất S2a + S2e';
+        return 'Từ 1–3 tỷ/năm: GTGT + TNCN theo % doanh thu → xuất S2a + S2e';
     }
   }
 
@@ -336,7 +336,7 @@ class _HkdBooksScreenState extends State<HkdBooksScreen> {
               style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
             ),
             const SizedBox(height: 12),
-            Text(tr('Nhóm thuế'), style: const TextStyle(fontSize: 12)),
+            Text(tr('Nhóm theo doanh thu năm'), style: const TextStyle(fontSize: 12)),
             const SizedBox(height: 6),
             DropdownButtonFormField<int>(
               value: _taxGroup,
@@ -345,9 +345,9 @@ class _HkdBooksScreenState extends State<HkdBooksScreen> {
                 isDense: true,
               ),
               items: [
-                DropdownMenuItem(value: 1, child: Text(tr('Nhóm 1 — miễn GTGT/TNCN (S1a)'))),
-                DropdownMenuItem(value: 2, child: Text(tr('Nhóm 2 — % trên doanh thu (S2a)'))),
-                DropdownMenuItem(value: 3, child: Text(tr('Nhóm 3 — TNCN theo thu nhập (S2b/S2c/S2d/S2e)'))),
+                DropdownMenuItem(value: 1, child: Text(tr('Dưới 1 tỷ — S1a (miễn GTGT/TNCN)'))),
+                DropdownMenuItem(value: 2, child: Text(tr('Từ 1–3 tỷ — S2a (thuế % doanh thu)'))),
+                DropdownMenuItem(value: 3, child: Text(tr('Trên 3 tỷ — S2b/S2c/S2d/S2e'))),
               ],
               onChanged: canEdit
                   ? (v) {

@@ -8,4 +8,10 @@ Future<String?> saveFileBytes(
   return null;
 }
 
+Future<void> saveAndOpenFileBytes(
+  List<int> bytes,
+  String filename,
+  String mimeType,
+) async {}
+
 Future<void> openPdfInNewTab(List<int> bytes, [String? filename]) async {}

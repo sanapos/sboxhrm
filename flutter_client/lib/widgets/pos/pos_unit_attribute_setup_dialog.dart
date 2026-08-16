@@ -10,6 +10,7 @@ import '../../services/api_service.dart';
 import '../../utils/number_formatter.dart';
 import '../notification_overlay.dart';
 import '../pos_barcode_scanner.dart';
+import 'pos_form_keyboard.dart';
 import 'pos_theme.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
@@ -460,6 +461,9 @@ class _UnitAttributeSetupDialogState extends State<_UnitAttributeSetupDialog> {
       ));
     }
     _loadCatalog();
+    if (!widget.input.startInAddMoreMode) {
+      hidePosSoftKeyboard();
+    }
   }
 
   Future<void> _loadCatalog() async {
@@ -476,6 +480,9 @@ class _UnitAttributeSetupDialogState extends State<_UnitAttributeSetupDialog> {
       _prepareAddMoreSameType();
     }
     setState(() => _loading = false);
+    if (!widget.input.startInAddMoreMode) {
+      hidePosSoftKeyboard();
+    }
   }
 
   @override
@@ -1421,7 +1428,9 @@ class _UnitAttributeSetupDialogState extends State<_UnitAttributeSetupDialog> {
         ? size.width
         : (size.width * 0.98).clamp(720.0, 1400.0);
 
-    return Dialog(
+    return wrapPosFormDialog(
+      context,
+      Dialog(
       insetPadding: EdgeInsets.fromLTRB(
         narrow ? 6 : 16,
         pad.top + (narrow ? 4 : 16),
@@ -1457,6 +1466,7 @@ class _UnitAttributeSetupDialogState extends State<_UnitAttributeSetupDialog> {
           ],
         ),
       ),
+    ),
     );
   }
 

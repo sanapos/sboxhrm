@@ -44,6 +44,9 @@ public class PosStorePrinter : AuditableEntity<Guid>
 
     public bool PartialCut { get; set; } = true;
 
+    /// <summary>Phiếu bếp: cắt giấy sau từng món (treo/giao từng phần).</summary>
+    public bool CutPerItem { get; set; }
+
     /// <summary>Gửi lệnh mở két khi in hóa đơn (ESC p / SunmiDrawer).</summary>
     public bool OpenCashDrawer { get; set; }
 

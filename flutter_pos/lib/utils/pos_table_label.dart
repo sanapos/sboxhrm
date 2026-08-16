@@ -12,16 +12,30 @@ String formatPosTableLabel({
   return '$a · $t';
 }
 
-/// Dòng in nhiệt K58 hẹp — tách khu / bàn để không xuống hàng giữa tên.
-List<String> formatPosTablePrintLines({
+/// Một hàng: «Bàn: Bàn 01    Khu: Ngoài Sân» — cách nhẹ giữa bàn và khu.
+String formatPosTableOneLine({
   String? areaName,
   String? tableName,
   String fallback = 'Bàn',
 }) {
   final t = (tableName ?? '').trim();
   final a = (areaName ?? '').trim();
-  if (t.isEmpty && a.isEmpty) return const [];
-  if (a.isEmpty) return ['Bàn: ${t.isEmpty ? fallback : t}'];
-  if (t.isEmpty) return ['Khu: $a'];
-  return ['Bàn: $t', 'Khu: $a'];
+  if (t.isEmpty && a.isEmpty) return '';
+  if (a.isEmpty) return 'Bàn: ${t.isEmpty ? fallback : t}';
+  if (t.isEmpty) return 'Khu: $a';
+  return 'Bàn: $t    Khu: $a';
+}
+
+/// Dòng in nhiệt — bàn và khu cùng một hàng.
+List<String> formatPosTablePrintLines({
+  String? areaName,
+  String? tableName,
+  String fallback = 'Bàn',
+}) {
+  final line = formatPosTableOneLine(
+    areaName: areaName,
+    tableName: tableName,
+    fallback: fallback,
+  );
+  return line.isEmpty ? const [] : [line];
 }

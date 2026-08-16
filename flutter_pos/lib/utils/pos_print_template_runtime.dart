@@ -7,6 +7,7 @@ import '../services/api_service.dart';
 import 'pos_print_template_compiler.dart';
 import 'pos_print_template_loader.dart';
 import 'pos_print_template_renderer.dart';
+import 'pos_receipt_layout.dart';
 import 'pos_print_template_v2_codec.dart';
 import 'pos_print_template_v2_presets.dart';
 import 'pos_sunmi_native_print.dart';
@@ -65,7 +66,12 @@ abstract final class PosPrintTemplateRuntime {
       paperSize: template.paperSize,
       titleOverride: titleOverride,
     );
-    final items = buildSaleOrderPrintLines(lines);
+    final thermal = template.paperSize == PosPrintPaperSizes.k58 ||
+        template.paperSize == PosPrintPaperSizes.k80;
+    final items = buildSaleOrderPrintLines(
+      lines,
+      compactLineMoney: thermal,
+    );
     return PosPrintTemplateCompiler.compile(
       template: template,
       data: data,
@@ -127,7 +133,9 @@ abstract final class PosPrintTemplateRuntime {
       'Tieu_De_In': (titleOverride ?? '').trim().isNotEmpty
           ? titleOverride!.trim()
           : 'PHIẾU XUẤT KHO',
-      'Ma_Don_Hang': order.orderNo.isEmpty ? '—' : order.orderNo,
+      'Ma_Don_Hang': order.orderNo.isEmpty
+          ? '—'
+          : PosReceiptLayout.formatSaleInvoiceNo(order.orderNo),
       'Ngay': DateFormat('dd/MM/yyyy').format(saleDate),
       'Gio': DateFormat('HH:mm').format(saleDate),
       'Nguoi_Ban': order.soldBy ?? order.createdBy ?? '',
@@ -179,8 +187,9 @@ abstract final class PosPrintTemplateRuntime {
   static List<PosSaleOrderLine> _mergeLines(List<PosSaleOrderLine> lines) {
     final map = <String, PosSaleOrderLine>{};
     for (final l in lines) {
+      final topKey = l.toppings.map((t) => '${t.id}x${t.qty}').join(',');
       final key =
-          '${l.productId}|${l.variantId}|${l.unitName}|${l.unitPrice}|${l.lineNote}';
+          '${l.productId}|${l.variantId}|${l.unitName}|${l.unitPrice}|${l.lineNote}|$topKey';
       final hit = map[key];
       if (hit == null) {
         map[key] = l;
@@ -196,6 +205,7 @@ abstract final class PosPrintTemplateRuntime {
           discountAmount: hit.discountAmount + l.discountAmount,
           lineTotal: hit.lineTotal + l.lineTotal,
           lineNote: hit.lineNote,
+          toppings: hit.toppings,
         );
       }
     }

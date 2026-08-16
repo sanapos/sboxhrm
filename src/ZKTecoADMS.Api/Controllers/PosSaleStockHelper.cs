@@ -18,7 +18,7 @@ internal static class PosSaleStockHelper
 {
     public static string CancelReturnNotePrefix(string orderNo) => $"Hủy đơn: {orderNo}";
 
-    /// <summary>Mở rộng dòng bán + topping (mỗi topping trừ = qty dòng cha).</summary>
+    /// <summary>Mở rộng dòng bán + topping (trừ = qty dòng × qty topping).</summary>
     public static List<(Guid ProductId, decimal Qty, Guid? VariantId, Guid? UnitId)> ExpandStockInputsWithToppings(
         IEnumerable<(Guid ProductId, decimal Qty, Guid? VariantId, Guid? UnitId, string? ToppingsJson)> lines)
     {
@@ -26,8 +26,8 @@ internal static class PosSaleStockHelper
         foreach (var l in lines)
         {
             result.Add((l.ProductId, l.Qty, l.VariantId, l.UnitId));
-            foreach (var tid in ParseToppingProductIds(l.ToppingsJson))
-                result.Add((tid, l.Qty, null, null));
+            foreach (var pick in ParseToppingPicks(l.ToppingsJson))
+                result.Add((pick.ProductId, l.Qty * pick.Qty, null, null));
         }
         return result;
     }
@@ -82,15 +82,17 @@ internal static class PosSaleStockHelper
         }
     }
 
-    public static IReadOnlyList<Guid> ParseToppingProductIds(string? toppingsJson)
+    public readonly record struct PosToppingPick(Guid ProductId, decimal Qty, string Name, decimal UnitPrice);
+
+    public static IReadOnlyList<PosToppingPick> ParseToppingPicks(string? toppingsJson)
     {
-        if (string.IsNullOrWhiteSpace(toppingsJson)) return Array.Empty<Guid>();
+        if (string.IsNullOrWhiteSpace(toppingsJson)) return Array.Empty<PosToppingPick>();
         try
         {
             using var doc = System.Text.Json.JsonDocument.Parse(toppingsJson);
             if (doc.RootElement.ValueKind != System.Text.Json.JsonValueKind.Array)
-                return Array.Empty<Guid>();
-            var ids = new List<Guid>();
+                return Array.Empty<PosToppingPick>();
+            var picks = new List<PosToppingPick>();
             foreach (var el in doc.RootElement.EnumerateArray())
             {
                 if (el.ValueKind != System.Text.Json.JsonValueKind.Object) continue;
@@ -99,18 +101,73 @@ internal static class PosSaleStockHelper
                     !el.TryGetProperty("toppingProductId", out idEl) &&
                     !el.TryGetProperty("ToppingProductId", out idEl))
                     continue;
-                if (idEl.ValueKind == System.Text.Json.JsonValueKind.String &&
-                    Guid.TryParse(idEl.GetString(), out var g))
-                    ids.Add(g);
-                else if (idEl.TryGetGuid(out g))
-                    ids.Add(g);
+                Guid g;
+                if (idEl.ValueKind == System.Text.Json.JsonValueKind.String)
+                {
+                    if (!Guid.TryParse(idEl.GetString(), out g)) continue;
+                }
+                else if (!idEl.TryGetGuid(out g))
+                {
+                    continue;
+                }
+
+                var qty = 1m;
+                if ((el.TryGetProperty("qty", out var qtyEl) || el.TryGetProperty("Qty", out qtyEl))
+                    && qtyEl.TryGetDecimal(out var q) && q > 0)
+                    qty = q;
+
+                var name = "";
+                if (el.TryGetProperty("name", out var nameEl) || el.TryGetProperty("Name", out nameEl))
+                    name = nameEl.GetString()?.Trim() ?? "";
+
+                var price = 0m;
+                if ((el.TryGetProperty("price", out var priceEl) || el.TryGetProperty("Price", out priceEl))
+                    && priceEl.TryGetDecimal(out var p))
+                    price = p;
+
+                picks.Add(new PosToppingPick(g, qty, name, price));
             }
-            return ids;
+            return picks;
         }
         catch
         {
-            return Array.Empty<Guid>();
+            return Array.Empty<PosToppingPick>();
         }
+    }
+
+    public static IReadOnlyList<Guid> ParseToppingProductIds(string? toppingsJson) =>
+        ParseToppingPicks(toppingsJson).Select(p => p.ProductId).Distinct().ToList();
+
+    public static string? FormatToppingKitchenNote(string? toppingsJson, string? lineNote)
+    {
+        var parts = new List<string>();
+        if (!string.IsNullOrWhiteSpace(toppingsJson))
+        {
+            try
+            {
+                using var doc = System.Text.Json.JsonDocument.Parse(toppingsJson);
+                if (doc.RootElement.ValueKind == System.Text.Json.JsonValueKind.Array)
+                {
+                    foreach (var el in doc.RootElement.EnumerateArray())
+                    {
+                        if (el.ValueKind != System.Text.Json.JsonValueKind.Object) continue;
+                        if (!el.TryGetProperty("name", out var nameEl) &&
+                            !el.TryGetProperty("Name", out nameEl))
+                            continue;
+                        var n = nameEl.GetString()?.Trim();
+                        if (string.IsNullOrWhiteSpace(n)) continue;
+                        var qty = 1m;
+                        if ((el.TryGetProperty("qty", out var qtyEl) || el.TryGetProperty("Qty", out qtyEl))
+                            && qtyEl.TryGetDecimal(out var q) && q > 0)
+                            qty = q;
+                        parts.Add(qty > 1 ? $"+ {n} x{qty:0.##}" : $"+ {n}");
+                    }
+                }
+            }
+            catch { /* topping hỏng JSON → chỉ in ghi chú dòng */ }
+        }
+        if (!string.IsNullOrWhiteSpace(lineNote)) parts.Add(lineNote.Trim());
+        return parts.Count == 0 ? null : string.Join("\n", parts);
     }
 
     public static string VoidReturnNotePrefix(string returnNo) => $"Hủy trả hàng: {returnNo}";
@@ -625,13 +682,13 @@ internal static class PosSaleStockHelper
                     db, storeId, order, p, null, deductQty, "Bán hàng POS", createdBy, plan);
             }
 
-            // Topping gắn dòng: trừ tồn SP topping (1 phần / 1 ĐVT bán của món).
-            foreach (var toppingId in ParseToppingProductIds(line.ToppingsJson))
+            // Topping gắn dòng: trừ tồn = SL món × SL topping.
+            foreach (var pick in ParseToppingPicks(line.ToppingsJson))
             {
-                if (!plan.Products.TryGetValue(toppingId, out var toppingProduct)) continue;
+                if (!plan.Products.TryGetValue(pick.ProductId, out var toppingProduct)) continue;
                 if (toppingProduct.ProductType == PosProductType.Service) continue;
                 await ApplyFefoSaleDeductionAsync(
-                    db, storeId, order, toppingProduct, null, line.Qty,
+                    db, storeId, order, toppingProduct, null, line.Qty * pick.Qty,
                     $"Topping — {p.Name}", createdBy, plan);
             }
         }
@@ -906,6 +963,43 @@ internal static class PosSaleStockHelper
     }
 
     /// <summary>Mã HĐ: HD + dd + MM + yyyy + STT (giờ VN). 0001…9999 rồi 10000…; qua ngày reset 0001.</summary>
+    public static bool TryParseHdOrderNoDate(string? orderNo, out DateTime dateVn)
+    {
+        dateVn = default;
+        if (string.IsNullOrWhiteSpace(orderNo) || orderNo.Length < 10) return false;
+        if (!orderNo.StartsWith("HD", StringComparison.OrdinalIgnoreCase)) return false;
+        var body = orderNo[2..];
+        if (body.Length < 8) return false;
+        if (!int.TryParse(body.AsSpan(0, 2), out var d) ||
+            !int.TryParse(body.AsSpan(2, 2), out var m) ||
+            !int.TryParse(body.AsSpan(4, 4), out var y))
+            return false;
+        try
+        {
+            dateVn = new DateTime(y, m, d);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    public static bool IsOfficialHdOrderNo(string? orderNo) =>
+        TryParseHdOrderNoDate(orderNo, out _);
+
+    /// <summary>Chỉ cấp số HĐ mới cho TMP / BAN / mã trống — giữ HDddMMyyyy đã gán (nháp bàn ngày cũ).</summary>
+    public static bool NeedsOfficialOrderNo(string? orderNo) =>
+        !IsOfficialHdOrderNo(orderNo);
+
+    public static bool IsClosedOffDay(string? orderNo, DateTime createdAtUtc, DateTime saleAtUtc)
+    {
+        var saleVn = VnTimeHelper.UtcToVn(saleAtUtc).Date;
+        if (TryParseHdOrderNoDate(orderNo, out var noDate))
+            return noDate.Date != saleVn;
+        return VnTimeHelper.UtcToVn(createdAtUtc).Date != saleVn;
+    }
+
     public static async Task<string> NextOrderNoAsync(
         ZKTecoDbContext db, Guid storeId, DateTime? saleDate = null)
     {
