@@ -1,11 +1,74 @@
 namespace ZKTecoADMS.Domain.Enums;
 
-/// <summary>Loại hàng: hàng hóa thường hoặc dịch vụ.</summary>
+/// <summary>Loại hàng POS — 5 loại độc lập.</summary>
 public enum PosProductType
 {
     Goods = 0,
     Service = 1,
     Combo = 2,
+    Material = 3,
+    Topping = 4,
+}
+
+/// <summary>Nhóm mẫu Super Admin: hàng đóng gói (có mã vạch) / món ăn / đồ uống.</summary>
+public enum PosProductSampleKind
+{
+    Packaged = 0,
+    Food = 1,
+    Drink = 2,
+}
+
+public static class PosProductTypeRules
+{
+    public static bool TracksInventory(PosProductType t) =>
+        t is PosProductType.Goods or PosProductType.Material or PosProductType.Topping;
+
+    public static bool AllowsRecipe(PosProductType t) =>
+        t is PosProductType.Goods or PosProductType.Service or PosProductType.Topping;
+
+    public static bool IsRecipeComponent(PosProductType t) =>
+        t is PosProductType.Material or PosProductType.Goods;
+
+    public static bool IsComboComponent(PosProductType t) =>
+        t is not PosProductType.Combo and not PosProductType.Service;
+
+    public static string CodePrefix(PosProductType t) => t switch
+    {
+        PosProductType.Service => "DV",
+        PosProductType.Combo => "CB",
+        PosProductType.Material => "NVL",
+        PosProductType.Topping => "TP",
+        _ => "HH",
+    };
+
+    public static string DisplayName(PosProductType t) => t switch
+    {
+        PosProductType.Service => "Dịch vụ",
+        PosProductType.Combo => "Combo",
+        PosProductType.Material => "Nguyên vật liệu",
+        PosProductType.Topping => "Topping",
+        _ => "Hàng hóa",
+    };
+
+    public static PosProductType Parse(string? raw, PosProductType fallback = PosProductType.Goods)
+    {
+        if (string.IsNullOrWhiteSpace(raw)) return fallback;
+        var s = raw.Trim().ToLowerInvariant();
+        if (s is "1" or "service" or "dịch vụ" or "dich vu") return PosProductType.Service;
+        if (s is "2" or "combo") return PosProductType.Combo;
+        if (s is "3" or "material" or "nvl" or "nguyên vật liệu" or "nguyen vat lieu")
+            return PosProductType.Material;
+        if (s is "4" or "topping" or "tp") return PosProductType.Topping;
+        if (s is "0" or "goods" or "hàng hóa" or "hang hoa") return PosProductType.Goods;
+        if (s.Contains("topping")) return PosProductType.Topping;
+        if (s.Contains("nvl") || s.Contains("nguyên vật") || s.Contains("nguyen vat") ||
+            s.Contains("material"))
+            return PosProductType.Material;
+        if (s.Contains("combo")) return PosProductType.Combo;
+        if (s.Contains("dịch vụ") || s.Contains("dich vu") || s.Contains("service"))
+            return PosProductType.Service;
+        return fallback;
+    }
 }
 
 /// <summary>Lọc tồn kho trên danh sách hàng hóa.</summary>
